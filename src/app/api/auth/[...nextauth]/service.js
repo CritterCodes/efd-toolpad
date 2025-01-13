@@ -2,7 +2,8 @@
 
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
+import crypto, { hash } from 'crypto';
+import User from '../../users/class';
 import UserModel from './model';
 import { sendVerificationEmail, sendInviteEmail } from '@/app/utils/email.util.js';
 
@@ -15,30 +16,36 @@ export default class AuthService {
      * ✅ Register a new user with email and password
      * - Called during manual sign-up
      */
-    static async register({ firstName, lastName, email, password, phoneNumber, image }) {
+    static async register(userData) {
+        const { firstName, lastName, email, password, phoneNumber, status } = userData;
+        console.log(userData);
+        console.log('looking for user');
         const existingUser = await UserModel.findByEmail(email);
+        console.log(existingUser);
         if (existingUser) {
             throw new Error("User already exists with this email.");
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const verificationToken = crypto.randomBytes(32).toString('hex');
-
-        const newUser = await UserModel.create({
+        };
+        console.log('hashing password');
+        const hashedPassword = password ? await bcrypt.hash(password, 10) : 'no password';
+        console.log('creating new user with:', firstName, lastName, email, hashedPassword, phoneNumber, status);
+        
+        const newUser = new User(
             firstName,
             lastName,
             email,
-            password: hashedPassword,
-            phoneNumber,
-            image,
-            role: 'client',
-            status: 'unverified',
-            verificationToken
-        });
+            hashedPassword,
+            phoneNumber ? phoneNumber : '',
+            status
+        );
+        console.log("newUser", newUser);
+        console.log('creating user');
+        const results = await UserModel.create(newUser);
 
         // ✅ Send the verification email using the email utility
-        await sendVerificationEmail(email, verificationToken);
-        return newUser;
+        if (userData.status === 'unverified') {
+            await sendVerificationEmail(email, newUser.verificationToken);
+        };
+        return results;
     }
 
     /**
@@ -50,13 +57,14 @@ export default class AuthService {
         if (!user) {
             throw new Error("User not found.");
         }
-
         if (user.status !== 'verified') {
             throw new Error("Please verify your email before logging in.");
         }
 
+        // Check if the password is valid
         const isValidPassword = await bcrypt.compare(password, user.password);
         if (!isValidPassword) {
+            console.error("Password comparison failed!");
             throw new Error("Invalid password.");
         }
 
@@ -65,8 +73,20 @@ export default class AuthService {
             expiresIn: JWT_EXPIRATION
         });
 
-        return token;
+        console.log("Password matched. Token generated.");
+
+        // ✅ Return the full user data along with the token
+        return {
+            token,
+            userID: user.userID,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            role: user.role,
+            image: user.image
+        };
     }
+
 
     /**
      * ✅ Google Authentication Logic
@@ -74,7 +94,7 @@ export default class AuthService {
      */
     static async googleAuth({ email, name, image }) {
         let user = await UserModel.findByEmail(email);
-        
+
         if (!user) {
             const [firstName, lastName] = name.split(' ');
 

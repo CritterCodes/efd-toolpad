@@ -38,27 +38,12 @@ export default class UserModel {
      * @param {Object} userData - User object data
      * @returns {Object} - The created user object
      */
-    static async create({ firstName, lastName, email, password, phoneNumber, image, role = "client", status = "unverified", verificationToken = null }) {
+    static async create(userData) {
         const dbInstance = await db.connect();
-        const userID = `user-${crypto.randomBytes(6).toString('hex')}`; // Custom userID for better control
 
-        const newUser = {
-            userID,
-            firstName,
-            lastName,
-            email,
-            password,
-            phoneNumber,
-            image,
-            role,
-            status,
-            verificationToken,
-            createdAt: new Date(),
-            updatedAt: new Date()
-        };
 
-        await dbInstance.collection("users").insertOne(newUser);
-        return newUser;
+        await dbInstance.collection("users").insertOne(userData);
+        return userData;
     }
 
     /**

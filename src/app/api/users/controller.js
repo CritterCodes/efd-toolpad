@@ -1,75 +1,147 @@
-import { db } from "../../../../lib/database";
-import { v4 as uuidv4 } from "uuid";
+// src/app/api/users/user.controller.js
 
-/**
- * UserController Class with Static Arrow Functions
- */
+import UserService from "./service";
+
 export default class UserController {
     /**
-     * ✅ Create User
+     * ✅ Create a new user through the service layer
+     * @param {Request} req - The incoming request object containing user data
+     * @returns {Response} - JSON response with success or error message
      */
-    static createUser = async (req) => {
+    static async createUser(req) {
         try {
-            // Parse the request body
-            const body = await req.json();
-            const { firstName, lastName, email, phone, address, picture } = body;
-
-            console.log("Request Body:", body);
-
-            // Validate required fields
-            if (!firstName || !lastName || !email) {
+            const userData = await req.json();
+            const createdUser = await UserService.createUser(userData);
+            if (!createdUser) {
                 return new Response(
-                    JSON.stringify({ error: "First name, last name, and email are required." }),
+                    JSON.stringify({ error: "Failed to create user." }),
                     { status: 400 }
                 );
             }
-
-            const dbInstance = await db.connect();
-            const usersCollection = dbInstance.collection("users");
-
-            // Check if the user already exists
-            const userExists = await usersCollection.findOne({ email });
-            if (userExists) {
-                return new Response(
-                    JSON.stringify({ error: "User already exists." }),
-                    { status: 400 }
-                );
-            }
-
-            const newUser = {
-                userID: `user-${uuidv4().slice(-8)}`,
-                firstName,
-                lastName,
-                email,
-                phone,
-                address,
-                picture: picture || null,
-                createdAt: new Date(),
-                verified: false, // Unverified by default
-            };
-
-            // Insert the new user into the database
-            await usersCollection.insertOne(newUser);
-
             return new Response(
-                JSON.stringify({ message: "User created successfully", user: newUser }),
+                JSON.stringify({ message: "User created successfully", user: createdUser }),
                 { status: 201 }
             );
         } catch (error) {
-            console.error("Error creating user:", error);
+            console.error("Error in UserController.createUser:", error);
             return new Response(
-                JSON.stringify({ error: "Error creating user", details: error.message }),
+                JSON.stringify({ error: "An error occurred while creating the user." }),
                 { status: 500 }
             );
         }
-    };
+    }
 
     /**
-     * ✅ Get Users
+     * ✅ Get a user by query parameter
+     * @param {Request} req - The request object containing the query parameter
+     * @returns {Response} - JSON response with user data or error message
      */
-    static getUsers = async (req) => {
+    static async getUserByQuery(req) {
         try {
-            // Extract query parameters from the request URL
+            console.log("🔍 Received request for getUserByQuery:", req.url);
+            const { searchParams } = new URL(req.url);
+            const query = searchParams.get("query");
+    
+            if (!query) {
+                console.warn("⚠️ Query parameter missing in request.");
+                return new Response(
+                    JSON.stringify({ error: "Query parameter is required." }),
+                    { status: 400 }
+                );
+            }
+    
+            console.log("✅ Query parameter received:", query);
+            const user = await UserService.getUserByQuery(query);
+            
+            if (!user) {
+                console.warn("⚠️ No user found for query:", query);
+                return new Response(
+                    JSON.stringify({ error: "User not found." }),
+                    { status: 404 }
+                );
+            }
+    
+            console.log("✅ User found:", user);
+            return new Response(
+                JSON.stringify({ user }),
+                { status: 200 }
+            );
+        } catch (error) {
+            console.error("❌ Error in UserController.getUserByQuery:", error);
+            return new Response(
+                JSON.stringify({ error: "Failed to fetch user." }),
+                { status: 500 }
+            );
+        }
+    }
+    
+
+    /**
+     * ✅ Get all users from the database
+     * @returns {Response} - JSON response with all users or error message
+     */
+    static async getAllUsers() {
+        try {
+            const users = await UserService.getAllUsers();
+            return new Response(
+                JSON.stringify({ users }),
+                { status: 200 }
+            );
+        } catch (error) {
+            console.error("Error in UserController.getAllUsers:", error);
+            return new Response(
+                JSON.stringify({ error: "Failed to fetch users." }),
+                { status: 500 }
+            );
+        }
+    }
+
+    /**
+     * ✅ Update a user by query
+     * @param {Request} req - Request containing the query and update data
+     * @returns {Response} - JSON response with success or error message
+     */
+    static async updateUser(req) {
+        try {
+            const { searchParams } = new URL(req.url);
+            const query = searchParams.get("query");
+            const updateData = await req.json();
+
+            if (!query) {
+                return new Response(
+                    JSON.stringify({ error: "Query parameter is required." }),
+                    { status: 400 }
+                );
+            }
+
+            const updatedUser = await UserService.updateUser(query, updateData);
+            if (!updatedUser) {
+                return new Response(
+                    JSON.stringify({ error: "Failed to update user." }),
+                    { status: 400 }
+                );
+            }
+
+            return new Response(
+                JSON.stringify({ message: "User updated successfully", user: updatedUser }),
+                { status: 200 }
+            );
+        } catch (error) {
+            console.error("Error in UserController.updateUser:", error);
+            return new Response(
+                JSON.stringify({ error: "An error occurred while updating the user." }),
+                { status: 500 }
+            );
+        }
+    }
+
+    /**
+     * ✅ Delete a user by query parameter
+     * @param {Request} req - Request containing the query parameter
+     * @returns {Response} - JSON response with success or error message
+     */
+    static async deleteUser(req) {
+        try {
             const { searchParams } = new URL(req.url);
             const query = searchParams.get("query");
 
@@ -80,22 +152,24 @@ export default class UserController {
                 );
             }
 
-            const dbInstance = await db.connect();
-            const users = await dbInstance.collection("users").find({
-                $or: [
-                    { firstName: { $regex: query, $options: "i" } },
-                    { lastName: { $regex: query, $options: "i" } },
-                    { userID: { $regex: query, $options: "i" } },
-                ],
-            }).toArray();
+            const deletionResult = await UserService.deleteUser(query);
+            if (!deletionResult) {
+                return new Response(
+                    JSON.stringify({ error: "Failed to delete user." }),
+                    { status: 400 }
+                );
+            }
 
-            return new Response(JSON.stringify(users), { status: 200 });
-        } catch (error) {
-            console.error("Error fetching users:", error);
             return new Response(
-                JSON.stringify({ error: "Failed to fetch users." }),
+                JSON.stringify({ message: "User deleted successfully." }),
+                { status: 200 }
+            );
+        } catch (error) {
+            console.error("Error in UserController.deleteUser:", error);
+            return new Response(
+                JSON.stringify({ error: "An error occurred while deleting the user." }),
                 { status: 500 }
             );
         }
-    };
+    }
 }

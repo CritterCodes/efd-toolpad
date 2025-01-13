@@ -12,6 +12,7 @@ import RepairDetailsStep from './newRepairSteps/repairDetailsStep.component';
 import CaptureImageStep from './newRepairSteps/captureImageStep.component';
 import ReviewSubmitStep from './newRepairSteps/reviewSubmitStep.component';
 import { useTheme } from '@mui/material/styles';
+import RepairsService from '@/services/repairs';
 
 const steps = ['Select Client', 'Repair Details', 'Capture Image', 'Review & Submit'];
 
@@ -44,66 +45,64 @@ export default function NewRepairStepper({ open, onClose, onSubmit }) {
         setActiveStep(0);
         onClose();
     };
-
-    // ✅ Submit Repair to API
-// ✅ Submit Repair to API with FormData support
-// ✅ Submit Repair to API using FormData
-const handleSubmit = async () => {
-    setLoading(true);
-
-    if (!formData.userID || !formData.firstName || !formData.lastName) {
-        alert("Please complete all required fields.");
-        setLoading(false);
-        return;
-    }
-
-    try {
-        const formDataToSend = new FormData();
-        formDataToSend.append('userID', formData.userID);
-        formDataToSend.append('clientName', `${formData.firstName} ${formData.lastName}`.trim());
-        formDataToSend.append('description', formData.description);
-        formDataToSend.append('promiseDate', formData.promiseDate);
-        formDataToSend.append('metalType', formData.metalType);
-        formDataToSend.append('repairTasks', JSON.stringify(formData.repairTasks));
-
-        const totalCost = formData.repairTasks.reduce((acc, task) => acc + parseFloat(task.price || 0), 0);
-        formDataToSend.append('cost', totalCost.toString());
-        formDataToSend.append('completed', "false");
-
-        // ✅ Only append if picture is a File object
-        if (formData.picture && formData.picture instanceof File) {
-            formDataToSend.append('picture', formData.picture);
+    const handleSubmit = async () => {
+        setLoading(true);
+    
+        if (!formData.userID || !formData.firstName || !formData.lastName) {
+            alert("Please complete all required fields.");
+            setLoading(false);
+            return;
         }
-
-        console.log("📤 Submitting FormData:", [...formDataToSend.entries()]);
-
-        const response = await fetch('/api/repairs', {
-            method: 'POST',
-            body: formDataToSend, 
-        });
-
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || "Failed to create repair");
-
-        onSubmit(result);
-        handleClose();
-    } catch (error) {
-        console.error("Error submitting repair:", error.message);
-        alert("Error submitting repair: " + error.message);
-    } finally {
-        setLoading(false);
-    }
-};
-
+    
+        try {
+            const formDataToSend = new FormData();
+            formDataToSend.append('userID', formData.userID);
+            formDataToSend.append('clientName', `${formData.firstName} ${formData.lastName}`.trim());
+            formDataToSend.append('description', formData.description);
+            formDataToSend.append('promiseDate', formData.promiseDate);
+    
+            // ✅ Flatten the metalType correctly before sending
+            const metalTypeString = formData.metalType.karat
+                ? `${formData.metalType.type} - ${formData.metalType.karat}`
+                : formData.metalType.type;
+            formDataToSend.append('metalType', metalTypeString);
+    
+            formDataToSend.append('repairTasks', JSON.stringify(formData.repairTasks));
+    
+            const totalCost = formData.repairTasks.reduce((acc, task) => acc + parseFloat(task.price || 0), 0);
+            formDataToSend.append('cost', totalCost.toString());
+            formDataToSend.append('completed', "false");
+    
+            if (formData.picture && formData.picture instanceof File) {
+                formDataToSend.append('picture', formData.picture);
+            }
+    
+            console.log("📤 Submitting FormData:", [...formDataToSend.entries()]);
+    
+            const response = await RepairsService.addRepair(formDataToSend);
+    
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "Failed to create repair");
+            console.log("📥 Submitted Repair:", result);
+            onSubmit(result);
+            handleClose();
+        } catch (error) {
+            console.error("Error submitting repair:", error.message);
+            alert("Error submitting repair: " + error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
     
     
+    
 
-    // ✅ Step Components
+    // ✅ Step Components with `handleNext` properly passed
     const stepComponents = [
-        <ClientStep key="clientStep" formData={formData} setFormData={setFormData} />,
-        <RepairDetailsStep key="repairDetailsStep" formData={formData} setFormData={setFormData} />,
-        <CaptureImageStep key="captureImageStep" formData={formData} setFormData={setFormData} />,
-        <ReviewSubmitStep key="reviewSubmitStep" formData={formData} />,
+        <ClientStep key="clientStep" formData={formData} setFormData={setFormData} handleNext={handleNext} />,
+        <RepairDetailsStep key="repairDetailsStep" formData={formData} setFormData={setFormData} handleNext={handleNext} />,
+        <CaptureImageStep key="captureImageStep" formData={formData} setFormData={setFormData} handleNext={handleNext} />,
+        <ReviewSubmitStep key="reviewSubmitStep" formData={formData} handleNext={handleNext} />,
     ];
 
     return (

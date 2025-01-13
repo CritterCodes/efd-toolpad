@@ -9,8 +9,8 @@ export default class AuthController {
      * Used in a custom endpoint for manual signup flow, not NextAuth directly
      */
     static async register(data) {
-        const { firstName, lastName, email, password, phoneNumber, image } = data;
-        return await AuthService.register({ firstName, lastName, email, password, phoneNumber, image });
+        console.log('sending to auth service');
+        return await AuthService.register(data);
     }
 
     /**

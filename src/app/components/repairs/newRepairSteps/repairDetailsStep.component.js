@@ -12,6 +12,7 @@ import {
     Autocomplete,
     Chip
 } from '@mui/material';
+import RepairTaskService from '@/services/repairTasks';
 
 const metalOptions = ["Silver", "White Gold", "Yellow Gold", "Platinum"];
 const goldKarats = ["10k", "14k", "18k"];
@@ -29,7 +30,7 @@ export default function RepairDetailsStep({ formData, setFormData }) {
     React.useEffect(() => {
         const fetchRepairTasks = async () => {
             try {
-                const response = await fetch('/api/repairTasks');
+                const response = await RepairTaskService.fetchRepairTasks();
                 const data = await response.json();
 
                 console.log("Raw Repair Tasks Data:", data); // Log raw response for inspection
@@ -56,47 +57,53 @@ export default function RepairDetailsStep({ formData, setFormData }) {
         fetchRepairTasks();
     }, []);
 
-    // ✅ Handle single metal selection (radio button behavior)
     const handleMetalChange = (metal) => {
         setSelectedMetal(metal);
-
-        // Include karat in metalType if applicable
+    
+        // Set the formData metalType as a properly formatted object
         if (metal === "Yellow Gold" || metal === "White Gold") {
-            const selectedKarats = Object.entries(karatOptions)
-                .filter(([_, checked]) => checked)
-                .map(([karat]) => karat)
-                .join(", ");
-            setFormData({ ...formData, metalType: `${metal} ${selectedKarats}` });
+            setFormData(prev => ({
+                ...prev,
+                metalType: {
+                    type: metal,
+                    karat: goldKarats[0]  // Defaulting to the first karat option
+                }
+            }));
         } else {
-            setFormData({ ...formData, metalType: metal });
+            setFormData(prev => ({
+                ...prev,
+                metalType: {
+                    type: metal,
+                    karat: null  // Resetting karat for non-gold metals
+                }
+            }));
         }
-
-        // Reset karat if non-gold metal is selected
-        if (metal !== "Yellow Gold" && metal !== "White Gold") {
-            setKaratOptions(goldKarats.reduce((acc, karat) => ({ ...acc, [karat]: false }), {}));
-            setFormData({ ...formData, karat: [] });
-        }
-
-        console.log("Selected Metal:", metal);
+    
+        // Reset the internal karat selection state as well
+        setKaratOptions(goldKarats.reduce((acc, karat) => ({ ...acc, [karat]: false }), {}));
     };
-
-
+    
+    
     const handleKaratChange = (karat) => {
-        const updatedKaratOptions = { ...karatOptions, [karat]: !karatOptions[karat] };
+        const updatedKaratOptions = Object.fromEntries(
+            Object.entries(karatOptions).map(([key]) => [key, key === karat])
+        );
         setKaratOptions(updatedKaratOptions);
-
-        const selectedKarats = Object.entries(updatedKaratOptions)
-            .filter(([_, checked]) => checked)
-            .map(([karat]) => karat)
-            .join(", ");
-
-        setFormData({
-            ...formData,
-            karat: selectedKarats ? selectedKarats.split(", ") : [],
-            metalType: `${selectedMetal} ${selectedKarats}`
-        });
-        console.log("Updated Karat Options:", updatedKaratOptions);
+    
+        // Ensure metalType stays an object with both properties
+        setFormData(prev => ({
+            ...prev,
+            metalType: {
+                type: selectedMetal, // Keeping type intact
+                karat: karat // Updating only the karat
+            }
+        }));
     };
+    
+    
+    
+    
+    
 
 
     // ✅ Generate SKU logic based on selection

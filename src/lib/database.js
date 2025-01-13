@@ -9,7 +9,9 @@ class Database {
                 maxPoolSize: 10,
             });
             this._instance = null;
+            Database.instance = this;
         }
+        return Database.instance;
     }
 
     async connect() {
@@ -31,9 +33,20 @@ class Database {
         return this._instance;
     }
 
-    dbUsers = () => this.getDb().collection("users");
-    dbRepairs = () => this.getDb().collection("repairs");
-    dbCollectors = () => this.getDb().collection("collectors");
+    async dbUsers() {
+        await this.connect(); // ✅ Ensure the database connection is established before returning the collection
+        return this._instance.collection("users");
+    }
+
+    async dbRepairs() {
+        await this.connect(); // ✅ Ensure the database connection is established before returning the collection
+        return this._instance.collection("repairs");
+    }
+
+    async dbCollectors() {
+        await this.connect(); // ✅ Ensure the database connection is established before returning the collection
+        return this._instance.collection("collectors");
+    }
 }
 
 export const db = new Database();

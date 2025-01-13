@@ -3,15 +3,13 @@
 import * as React from 'react';
 import PropTypes from 'prop-types';
 import { Box, TextField, Button, Typography, Modal, Avatar } from '@mui/material';
+import UsersService from '@/services/users';
+import User from '@/app/api/users/class';
 
 // ✅ API call to create a new client
 async function createNewClient(data) {
     try {
-        const response = await fetch('/api/users', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-        });
+        const response = await UsersService.createClient(data);
 
         // Log full response details for debugging
         console.log('Response:', response);
@@ -35,12 +33,7 @@ export default function NewClientForm({ open, onClose, onClientCreated }) {
         firstName: '',
         lastName: '',
         email: '',
-        phone: '',
-        address: '',
-        city: '',
-        state: '',
-        postalCode: '',
-        image: '',
+        phone: ''
     });
     const [imagePreview, setImagePreview] = React.useState(null);
 
@@ -86,21 +79,6 @@ export default function NewClientForm({ open, onClose, onClientCreated }) {
                     alignItems: 'center',
                 }}
             >
-                {/* ✅ Profile Picture Section */}
-                <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    style={{ display: 'none' }}
-                    id="imageUploadInput"
-                />
-                <label htmlFor="imageUploadInput">
-                    <Avatar
-                        src={imagePreview || '/default-avatar.png'}
-                        sx={{ width: 100, height: 100, mb: 2, cursor: 'pointer' }}
-                    />
-                </label>
-                <Typography variant="caption">Tap the avatar to upload a photo</Typography>
 
                 {/* ✅ Form Section */}
                 <form onSubmit={handleSubmit} style={{ width: '100%' }}>
@@ -142,43 +120,6 @@ export default function NewClientForm({ open, onClose, onClientCreated }) {
                         required
                         margin="dense"
                     />
-                    <TextField
-                        label="Address"
-                        name="address"
-                        value={formData.address}
-                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                        fullWidth
-                        required
-                        margin="dense"
-                    />
-                    <TextField
-                        label="City"
-                        name="city"
-                        value={formData.city}
-                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                        fullWidth
-                        required
-                        margin="dense"
-                    />
-                    <TextField
-                        label="State"
-                        name="state"
-                        value={formData.state}
-                        onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                        fullWidth
-                        required
-                        margin="dense"
-                    />
-                    <TextField
-                        label="Postal Code"
-                        name="postalCode"
-                        value={formData.postalCode}
-                        onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
-                        fullWidth
-                        required
-                        margin="dense"
-                    />
-
                     {/* ✅ Submit Button */}
                     <Button
                         type="submit"

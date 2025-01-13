@@ -1,29 +1,28 @@
-// src/middleware.js
-import { withAuth } from "next-auth/middleware";
+import { auth } from "../auth";
+import { NextResponse } from "next/server";
 
-export default withAuth(
-    async function middleware(req) {
-        const { nextUrl, auth } = req;
-        
-        const role = auth?.user?.role || "client"; 
+// List of public routes that can be accessed without authentication
+const publicRoutes = ["/", "/auth/signin", "/auth/register"];
 
-        // Prevent clients from accessing admin pages
-        if (nextUrl.pathname.startsWith("/dashboard/admin") && role !== "admin") {
-            return Response.redirect(new URL("/", nextUrl)); // Redirect non-admins to home
-        }
+export default async function middleware(req) {
+    const session = await auth();
+    const { pathname } = req.nextUrl;
 
-        // Prevent admins from accessing client pages if necessary
-        if (nextUrl.pathname.startsWith("/dashboard/client") && role !== "client") {
-            return Response.redirect(new URL("/", nextUrl));
-        }
-    },
-    {
-        pages: {
-            signIn: "/login",
-        },
+    // ✅ Allow public routes to be accessed without authentication
+    if (publicRoutes.includes(pathname)) {
+        return NextResponse.next();
     }
-);
 
+    // ✅ Block protected routes if not authenticated
+    if (!session) {
+        return NextResponse.redirect(new URL("/auth/signin", req.url));
+    }
+
+    // ✅ If authenticated, allow access to dashboard routes
+    return NextResponse.next();
+}
+
+// ✅ Apply middleware only to protected routes
 export const config = {
-    matcher: ["/dashboard/:path*"], // Protect all dashboard routes
+    matcher: ["/dashboard/:path*"],
 };

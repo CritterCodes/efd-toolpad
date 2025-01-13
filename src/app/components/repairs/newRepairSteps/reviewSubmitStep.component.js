@@ -6,10 +6,16 @@ import { Typography, Box, Divider, Container } from '@mui/material';
 import Image from 'next/image';
 
 /**
- * ReviewSubmitStep Component (Fixed for Next.js Image Handling)
+ * ReviewSubmitStep Component (Fixed for Next.js Image Handling & Metal Type as Object)
  * - Prevents empty `src` error by conditionally rendering the image
+ * - Correctly handles metal type stored as an object
  */
 export default function ReviewSubmitStep({ formData }) {
+    // ✅ Correctly display metal type considering the object structure
+    const metalTypeDisplay = formData.metalType
+        ? `${formData.metalType.type}${formData.metalType.karat ? ` - ${formData.metalType.karat}` : ''}`
+        : 'Not specified';
+
     return (
         <Container 
             elevation={3} 
@@ -68,9 +74,9 @@ export default function ReviewSubmitStep({ formData }) {
                 <strong>Promise Date:</strong> {formData.promiseDate}
             </Typography>
 
-            {/* Metal Type */}
+            {/* Metal Type (Updated to handle object structure) */}
             <Typography variant="body1" gutterBottom>
-                <strong>Metal Type:</strong> {formData.metalType}
+                <strong>Metal Type:</strong> {metalTypeDisplay}
             </Typography>
 
             {/* Selected Repair Tasks with SKUs */}

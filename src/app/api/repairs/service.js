@@ -1,4 +1,5 @@
 import RepairsModel from "./model";
+import Repair from "./class";
 
 export default class RepairsService {
     /**
@@ -29,65 +30,44 @@ export default class RepairsService {
     };
 
     /**
-     * ✅ Create a new repair record with repairID
+     * ✅ Create a new repair record with repairID and return the created repair
      * ✅ Added support for images
      */
     static createRepair = async (data) => {
-        const { userID, clientName, description, metalType, repairTasks, cost, completed, picture } = data;
-    
-        // ✅ Improved validation
-        if (!userID || !clientName || !description || !Array.isArray(repairTasks) || repairTasks.length === 0 || typeof cost !== 'number') {
-            throw new Error("Invalid repair data provided.");
-        }
-    
         try {
-            const newRepair = {
-                userID,
-                clientName,
-                description,
-                metalType,
-                repairTasks,
-                cost,
-                completed: completed || false,
-                picture: picture || "",
-                status: "RECEIVED",
-                createdAt: new Date()
-            };
-    
-            const result = await RepairsModel.create(newRepair);
-            return result;
+            const newRepair = new Repair(data);
+            const createdRepair = await RepairsModel.create(newRepair);
+            // ✅ Return the full created repair object to the controller
+            return createdRepair;
         } catch (error) {
             console.error("❌ Service Error:", error.message);
             throw new Error("Failed to create repair.");
         }
     };
-    
 
     /**
-     * ✅ Update an existing repair by repairID
+     * ✅ Update an existing repair by repairID and return the updated repair object
      */
-    static updateRepairById = async (repairID, updateData) => {
-        if (!repairID) {
-            throw new Error("Repair ID is required.");
-        }
-        if (Object.keys(updateData).length === 0) {
-            throw new Error("Update data cannot be empty.");
-        }
-
+    static async updateRepairById(repairID, updateData) {
         try {
-            const updatedCount = await RepairsModel.updateById(repairID, updateData);
-            if (updatedCount === 0) {
-                throw new Error("No repair updated. Check if the repair ID exists.");
+            if (!repairID) throw new Error("Repair ID is required.");
+            if (!updateData || Object.keys(updateData).length === 0) {
+                throw new Error("Update data cannot be empty.");
             }
-            return { message: "Repair updated successfully." };
+
+            // ✅ Ensure the update is properly passed to the model
+            const updatedRepair = await RepairsModel.updateById(repairID, updateData);
+            if (!updatedRepair) throw new Error("Failed to retrieve updated repair.");
+
+            return updatedRepair;
         } catch (error) {
-            console.error("Error in updateRepairById:", error);
-            throw new Error("Failed to update repair.");
+            console.error("❌ Error in RepairsService:", error.message);
+            throw new Error(`Failed to update repair: ${error.message}`);
         }
-    };
+    }
 
     /**
-     * ✅ Delete a repair by repairID
+     * ✅ Delete a repair by repairID and confirm deletion
      */
     static deleteRepairById = async (repairID) => {
         if (!repairID) {
@@ -99,7 +79,7 @@ export default class RepairsService {
             if (deletedCount === 0) {
                 throw new Error("No repair deleted. Check if the repair ID exists.");
             }
-            return { message: "Repair deleted successfully." };
+            return { message: `Repair with ID ${repairID} deleted successfully.` };
         } catch (error) {
             console.error("Error in deleteRepairById:", error);
             throw new Error("Failed to delete repair.");

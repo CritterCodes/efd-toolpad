@@ -16,14 +16,7 @@ export const POST = async (req) => {
         const formData = await req.formData();
         console.log("📤 Parsed Form Data:", [...formData.entries()]);
 
-        // ✅ Extract fields from FormData
-        const userID = formData.get("userID");
-        const clientName = formData.get("clientName");
-        const description = formData.get("description");
-        const promiseDate = formData.get("promiseDate");
-        const metalType = formData.get("metalType");
-        const cost = parseFloat(formData.get("cost")) || 0;
-        const completed = formData.get("completed") === "true";
+
 
         // ✅ Parse repairTasks
         let repairTasks = [];
@@ -46,16 +39,16 @@ export const POST = async (req) => {
             console.log("📸 Image saved successfully:", imagePath);
         }
 
+        
         // ✅ Construct repair object
         const repairData = {
-            userID,
-            clientName,
-            description,
-            promiseDate,
-            metalType,
+            userID: formData.get("userID"),
+            clientName: formData.get("clientName"),
+            description: formData.get("description"),
+            promiseDate: formData.get("promiseDate"),
+            metalType: formData.get("metalType"),
             repairTasks,
-            cost,
-            completed,
+            cost: parseFloat(formData.get("cost")) || 0,
             picture: imagePath
         };
 
@@ -63,13 +56,15 @@ export const POST = async (req) => {
 
         // ✅ Send to controller for saving
         const newRepair = await RepairsController.createRepair(repairData);
-        return NextResponse.json({ message: "Repair created successfully", repair: newRepair }, { status: 201 });
+        console.log("✅ New Repair Created:", newRepair);
+
+        // ✅ Return the full repair object, including generated fields
+        return NextResponse.json(newRepair, { status: 201 });
     } catch (error) {
         console.error("❌ Error in POST Route:", error.message);
         return NextResponse.json({ error: "Failed to create repair", details: error.message }, { status: 500 });
     }
 };
-
 
 /**
  * ✅ Handle GET Requests
@@ -88,10 +83,9 @@ export const GET = async (req) => {
         }
     } catch (error) {
         console.error("❌ Error in GET Route:", error.message);
-        return new Response(JSON.stringify({ error: "Failed to fetch repairs" }), { status: 500 });
+        return NextResponse.json({ error: "Failed to fetch repairs", details: error.message }, { status: 500 });
     }
 };
-
 
 /**
  * ✅ Handle PUT Requests (Image uploads not included here)
@@ -103,20 +97,22 @@ export const PUT = async (req) => {
         const repairID = searchParams.get("repairID");
 
         if (!repairID) {
-            return new Response(
-                JSON.stringify({ error: "repairID is required for updating a repair" }),
-                { status: 400 }
-            );
+            return NextResponse.json({ error: "repairID is required for updating a repair" }, { status: 400 });
         }
 
-        const updatedRepair = await RepairsController.updateRepairById(req);
-        return new Response(JSON.stringify(updatedRepair), { status: 200 });
+        // ✅ Proper JSON Parsing and Error Handling
+        const body = await req.json();
+
+        if (!body || Object.keys(body).length === 0) {
+            return NextResponse.json({ error: "Request body cannot be empty." }, { status: 400 });
+        }
+
+        const updatedRepair = await RepairsController.updateRepairById(repairID, body);
+        
+        return NextResponse.json(updatedRepair, { status: 200 });
     } catch (error) {
         console.error("❌ Error in PUT Route:", error.message);
-        return new Response(
-            JSON.stringify({ error: "Failed to update repair", details: error.message }),
-            { status: 500 }
-        );
+        return NextResponse.json({ error: "Failed to update repair", details: error.message }, { status: 500 });
     }
 };
 
@@ -130,19 +126,13 @@ export const DELETE = async (req) => {
         const repairID = searchParams.get("repairID");
 
         if (!repairID) {
-            return new Response(
-                JSON.stringify({ error: "repairID is required for deleting a repair" }),
-                { status: 400 }
-            );
+            return NextResponse.json({ error: "repairID is required for deleting a repair" }, { status: 400 });
         }
 
         await RepairsController.deleteRepairById(req);
-        return new Response(JSON.stringify({ message: "Repair deleted successfully" }), { status: 200 });
+        return NextResponse.json({ message: "Repair deleted successfully" }, { status: 200 });
     } catch (error) {
         console.error("❌ Error in DELETE Route:", error.message);
-        return new Response(
-            JSON.stringify({ error: "Failed to delete repair", details: error.message }),
-            { status: 500 }
-        );
+        return NextResponse.json({ error: "Failed to delete repair", details: error.message }, { status: 500 });
     }
 };

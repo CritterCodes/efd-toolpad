@@ -25,56 +25,57 @@ export default class RepairsModel {
     };
 
     /**
-     * ✅ Insert a new repair record with custom repairID
+     * ✅ Insert a new repair record and return the complete object
      */
-// model.js
-static create = async (repairData) => {
-    try {
-        console.log("📦 Attempting to Insert Repair in the Database...");
-        const dbInstance = await db.connect();
+    static create = async (repair) => {
+        try {
+            console.log("📦 Attempting to Insert Repair in the Database...");
+            const dbInstance = await db.connect();
 
-        // ✅ Generate a unique repair ID if not provided
-        const repair = {
-            ...repairData,
-            repairID: `repair-${uuidv4().slice(-8)}`,
-            createdAt: new Date()
-        };
+            const result = await dbInstance.collection("repairs").insertOne(repair);
 
-        const result = await dbInstance.collection("repairs").insertOne(repair);
-
-        if (result.acknowledged) {
-            console.log("✅ Repair successfully saved to the database:", repair.repairID);
-            return repair.repairID;
-        } else {
-            console.error("❌ Database Insert Failed");
-            throw new Error("Failed to insert repair into the database.");
+            if (result.acknowledged) {
+                // ✅ Return the full inserted repair object
+                console.log("✅ Repair successfully saved to the database:", repair.repairID);
+                return repair;
+            } else {
+                console.error("❌ Database Insert Failed");
+                throw new Error("Failed to insert repair into the database.");
+            }
+        } catch (error) {
+            console.error("❌ Database Error:", error.message);
+            throw new Error("Database operation failed.");
         }
-    } catch (error) {
-        console.error("❌ Database Error:", error.message);
-        throw new Error("Database operation failed.");
-    }
-};
-
-
-    /**
-     * ✅ Update a repair by repairID
-     */
-    static updateById = async (repairID, updateData) => {
-        const dbInstance = await db.connect();
-        const result = await dbInstance.collection("repairs").updateOne(
-            { repairID },
-            { $set: updateData }
-        );
-
-        if (result.matchedCount === 0) {
-            throw new Error("Repair not found.");
-        }
-
-        return result.modifiedCount;
     };
 
     /**
-     * ✅ Delete a repair by repairID
+     * ✅ Update a repair by repairID and return the updated object
+     */
+    static async updateById(repairID, updateData) {
+        const dbInstance = await db.connect();
+        
+        try {
+            // ✅ Ensure the repairID and data are correctly handled
+            const result = await dbInstance.collection("repairs").updateOne(
+                { repairID },
+                { $set: updateData }
+            );
+
+            if (result.matchedCount === 0) {
+                throw new Error("Repair not found.");
+            }
+
+            // ✅ Return the updated repair object after updating
+            return await this.findById(repairID);
+        } catch (error) {
+            console.error("❌ Error in RepairsModel:", error);
+            throw new Error("Failed to update repair in the database.");
+        }
+    }
+
+
+    /**
+     * ✅ Delete a repair by repairID and confirm deletion
      */
     static deleteById = async (repairID) => {
         const dbInstance = await db.connect();
@@ -84,6 +85,6 @@ static create = async (repairData) => {
             throw new Error("Repair not found.");
         }
 
-        return result.deletedCount;
+        return { message: `Successfully deleted repair with ID: ${repairID}` };
     };
 }

@@ -4,72 +4,95 @@ import * as React from 'react';
 import PropTypes from 'prop-types';
 import { TextField, Autocomplete, CircularProgress, Button, Box, Typography, Avatar } from '@mui/material';
 import NewClientForm from '../../clients/newClientForm.component';
+import UsersService from '@/services/users';
 
-// ✅ Fetch clients API call
-async function fetchClients(query) {
+// ✅ Fetch all clients once on component load
+async function fetchAllClients() {
     try {
-        const response = await fetch(`/api/users?query=${query}`);
+        const response = await UsersService.getAllClients();
         if (!response.ok) throw new Error('Failed to fetch clients');
-        return await response.json();
+        const data = await response.json();
+        console.log("✅ All clients loaded:", data);
+        return Array.isArray(data.users) ? data.users : [];
     } catch (error) {
-        console.error('Error fetching clients:', error);
+        console.error('Error fetching all clients:', error);
         return [];
     }
 }
 
-export default function ClientStep({ formData, setFormData }) {
+export default function ClientStep({ formData, setFormData, handleNext }) {
     const [clientOptions, setClientOptions] = React.useState([]);
     const [loading, setLoading] = React.useState(false);
-    const [inputValue, setInputValue] = React.useState("");
+    const [inputValue, setInputValue] = React.useState('');
     const [showAddClient, setShowAddClient] = React.useState(false);
     const [openModal, setOpenModal] = React.useState(false);
 
-    // ✅ Fetch clients based on search
+    // ✅ Load all clients on component mount
+    React.useEffect(() => {
+        async function loadClients() {
+            setLoading(true);
+            const clients = await fetchAllClients();
+            setClientOptions(clients);
+            setLoading(false);
+        }
+        loadClients();
+    }, []);
+
+    // ✅ Filter clients from already loaded list and auto-select if `userID` matches
     const handleClientSearch = async (event, value) => {
         setInputValue(value);
-        if (value.length > 2) {
-            setLoading(true);
-            try {
-                const results = await fetchClients(value);
-                setClientOptions(results);
-                setShowAddClient(results.length === 0);
-            } catch (error) {
-                setClientOptions([]);
-                setShowAddClient(true);
-            } finally {
-                setLoading(false);
-            }
-        } else {
-            setClientOptions([]);
+
+        if (value.length < 3) {
             setShowAddClient(false);
+            return;
+        }
+
+        const filteredClients = clientOptions.filter(client =>
+            client.firstName.toLowerCase().includes(value.toLowerCase()) ||
+            client.lastName.toLowerCase().includes(value.toLowerCase()) ||
+            client.userID.includes(value)
+        );
+
+        setShowAddClient(filteredClients.length === 0);
+        setClientOptions(filteredClients);
+
+        // ✅ Auto-select if `userID` matches exactly
+        const exactMatch = clientOptions.find(client => client.userID === value);
+        if (exactMatch) {
+            console.log("✅ Auto-selecting exact match:", exactMatch);
+            setFormData(prev => ({
+                ...prev,
+                selectedClient: exactMatch,
+                userID: exactMatch.userID,
+                firstName: exactMatch.firstName,
+                lastName: exactMatch.lastName
+            }));
+            handleNext(); // ✅ Move to next step automatically
         }
     };
 
-    // ✅ Handle Client Selection and Ensure Proper Data Storage
+    // ✅ Handle Client Selection and Logging
     const handleClientSelect = (event, newValue) => {
-        if (newValue && newValue.value) {
-            const selectedClient = clientOptions.find(client => client.userID === newValue.value);
-            if (selectedClient) {
-                setFormData((prev) => ({
-                    ...prev,
-                    selectedClient,
-                    userID: selectedClient.userID,
-                    firstName: selectedClient.firstName,
-                    lastName: selectedClient.lastName
-                }));
-            }
+        const selectedClient = clientOptions.find(client => client.userID === newValue?.value);
+        if (selectedClient) {
+            setFormData(prev => ({
+                ...prev,
+                selectedClient,
+                userID: selectedClient.userID,
+                firstName: selectedClient.firstName,
+                lastName: selectedClient.lastName
+            }));
+            handleNext();  // ✅ Automatically proceed to next step
         }
     };
 
-    // ✅ Handle Adding a New Client
-    const handleAddNewClient = () => {
-        setOpenModal(true);
-    };
+    // ✅ Add New Client Handler
+    const handleAddNewClient = () => setOpenModal(true);
 
-    // ✅ Handle New Client Created and Select
+    // ✅ Handle New Client Creation
     const handleClientCreated = (newClient) => {
-        setClientOptions((prev) => [...prev, newClient]);
-        setFormData((prev) => ({
+        setClientOptions(prev => [...prev, newClient]);
+        setFormData(prev => ({
             ...prev,
             selectedClient: newClient,
             userID: newClient.userID,
@@ -77,18 +100,18 @@ export default function ClientStep({ formData, setFormData }) {
             lastName: newClient.lastName
         }));
         setOpenModal(false);
+        handleNext();  // ✅ Automatically proceed after adding a new client
     };
 
-    // ✅ Clear Selected Client and Reset Form
+    // ✅ Clear Selected Client
     const clearSelectedClient = () => {
-        setFormData((prev) => ({
-            ...prev,
-            selectedClient: null,
-            userID: "",
-            firstName: "",
-            lastName: ""
-        }));
-        setInputValue("");
+        setFormData({
+            userID: '',
+            firstName: '',
+            lastName: '',
+            selectedClient: null
+        });
+        setInputValue('');
     };
 
     return (
@@ -97,7 +120,7 @@ export default function ClientStep({ formData, setFormData }) {
             <Autocomplete
                 freeSolo
                 options={clientOptions.map(client => ({
-                    label: `${client.firstName} ${client.lastName}`,
+                    label: `${client.firstName} ${client.lastName} (${client.userID})`,
                     value: client.userID
                 }))}
                 inputValue={inputValue}
@@ -108,7 +131,7 @@ export default function ClientStep({ formData, setFormData }) {
                 renderInput={(params) => (
                     <TextField
                         {...params}
-                        label="Search for a Client"
+                        label="Search for a Client (Name or UserID)"
                         fullWidth
                         InputProps={{
                             ...params.InputProps,
@@ -123,7 +146,7 @@ export default function ClientStep({ formData, setFormData }) {
                 )}
             />
 
-            {/* ✅ Display Selected Client Information */}
+            {/* ✅ Selected Client Information Display */}
             {formData.selectedClient && (
                 <Box
                     sx={{
@@ -138,11 +161,15 @@ export default function ClientStep({ formData, setFormData }) {
                 >
                     <Avatar
                         alt={`${formData.selectedClient.firstName}`}
-                        src={formData.selectedClient.profilePicture || '/default-avatar.png'}
+                        src={formData.selectedClient.image || '/default-avatar.png'}
                     />
                     <Box>
-                        <Typography variant="h6">{formData.selectedClient.firstName} {formData.selectedClient.lastName}</Typography>
-                        <Typography variant="body2">Phone: {formData.selectedClient.phoneNumber || 'N/A'}</Typography>
+                        <Typography variant="h6">
+                            {formData.selectedClient.firstName} {formData.selectedClient.lastName}
+                        </Typography>
+                        <Typography variant="body2">
+                            Phone: {formData.selectedClient.phoneNumber || 'N/A'}
+                        </Typography>
                     </Box>
                     <Button variant="outlined" color="secondary" onClick={clearSelectedClient}>
                         Change Client
@@ -150,7 +177,7 @@ export default function ClientStep({ formData, setFormData }) {
                 </Box>
             )}
 
-            {/* ✅ Show 'Add New Client' Button if No Results and No Client Selected */}
+            {/* ✅ Add New Client Button */}
             {!formData.selectedClient && showAddClient && (
                 <Button variant="contained" onClick={handleAddNewClient} fullWidth>
                     Add New Client
@@ -170,4 +197,5 @@ export default function ClientStep({ formData, setFormData }) {
 ClientStep.propTypes = {
     formData: PropTypes.object.isRequired,
     setFormData: PropTypes.func.isRequired,
+    handleNext: PropTypes.func.isRequired, 
 };

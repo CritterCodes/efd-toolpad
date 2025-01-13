@@ -119,7 +119,7 @@ export default function HomePage() {
                 </List>
                 <Divider />
                 <List>
-                    <ListItemButton href="/login">
+                    <ListItemButton href="/auth/signin">
                         <ListItemText primary="Login" />
                     </ListItemButton>
                     <ListItemButton href="/register">
@@ -154,7 +154,7 @@ export default function HomePage() {
                             <Button variant="contained" color="primary" size="large" sx={{ backgroundColor: "#333" }}>
                                 Schedule a Consultation
                             </Button>
-                            <Button variant="outlined" size="large" href="/login">
+                            <Button variant="outlined" size="large" href="/auth/signin">
                                 Browse Services
                             </Button>
                         </Box>

@@ -43,22 +43,18 @@ export default class RepairsController {
     };
 
     /**
-     * ✅ Create a new repair (Now supports image uploads)
+     * ✅ Create a new repair and return the created repair object
      */
     static createRepair = async (repairData) => {
         try {
-            console.log("🛠️ Processing Repair in Controller...");
-
+            console.log("🔧 Creating new repair:", repairData);
             // ✅ Validate data before sending to the service
             if (!repairData.userID) throw new Error("Client ID is missing.");
-
+            console.log("sending to service");
             const newRepair = await RepairsService.createRepair(repairData);
-            console.log("✅ Repair created successfully:", newRepair);
 
-            return new Response(
-                JSON.stringify({ message: "Repair created successfully", repairID: newRepair }),
-                { status: 201 }
-            );
+            // ✅ Return the full repair object instead of a message
+            return newRepair;
         } catch (error) {
             console.error("❌ Controller Error:", error.message);
             return new Response(
@@ -69,40 +65,29 @@ export default class RepairsController {
     };
 
     /**
-     * ✅ Update an existing repair by repairID
+     * ✅ Update an existing repair and return the updated object
      */
-    static updateRepairById = async (req) => {
+    static async updateRepairById(repairID, body) {
         try {
-            const { searchParams } = new URL(req.url);
-            const repairID = searchParams.get('repairID');
-
             if (!repairID) {
-                return new Response(JSON.stringify({ error: "repairID is required" }), { status: 400 });
+                throw new Error("repairID is required.");
             }
 
-            let body;
-            if (req.body) {
-                body = JSON.parse(req.body);
-            } else {
-                body = await req.json();
+            if (!body || Object.keys(body).length === 0) {
+                throw new Error("Update data cannot be empty.");
             }
 
+            // ✅ Pass both repairID and body correctly to the service
             const updatedRepair = await RepairsService.updateRepairById(repairID, body);
-
-            return new Response(
-                JSON.stringify({ message: "Repair updated successfully", repair: updatedRepair }),
-                { status: 200 }
-            );
+            return updatedRepair;
         } catch (error) {
-            return new Response(
-                JSON.stringify({ error: "Failed to update repair", details: error.message }),
-                { status: 500 }
-            );
+            console.error("❌ Error in RepairsController:", error.message);
+            throw new Error(`Failed to update repair: ${error.message}`);
         }
-    };
+    }
 
     /**
-     * ✅ Delete a repair by repairID
+     * ✅ Delete a repair by repairID and return confirmation
      */
     static deleteRepairById = async (req) => {
         try {
@@ -115,8 +100,9 @@ export default class RepairsController {
 
             await RepairsService.deleteRepairById(repairID);
 
+            // ✅ Return a confirmation message after deletion
             return new Response(
-                JSON.stringify({ message: "Repair deleted successfully" }),
+                JSON.stringify({ message: `Repair with ID ${repairID} deleted successfully.` }),
                 { status: 200 }
             );
         } catch (error) {

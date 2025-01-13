@@ -10,6 +10,7 @@ import { PageContainer } from '@toolpad/core/PageContainer';
 import NewRepairStepper from './newRepairStepper.component';
 import Image from 'next/image';
 import RepairFilters from './filters.component';
+import RepairsService from '@/services/repairs';
 
 export default function RepairsPage() {
     const [repairs, setRepairs] = React.useState([]);
@@ -24,7 +25,7 @@ export default function RepairsPage() {
     // ✅ Fetch repairs from the database
     const fetchRepairs = async () => {
         try {
-            const response = await fetch(`/api/repairs`);
+            const response = await RepairsService.getRepairs();
             const data = await response.json();
             setRepairs(data);
             setFilteredRepairs(data);
@@ -63,10 +64,7 @@ export default function RepairsPage() {
 
     const handleAddRepair = async (newRepair) => {
         try {
-            const response = await fetch('/api/repairs', {
-                method: 'POST',
-                body: newRepair,
-            });
+            const response = await RepairsService.addRepair(newRepair);
             if (response.ok) {
                 fetchRepairs();
             }
