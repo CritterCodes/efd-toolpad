@@ -101,21 +101,21 @@ class RepairsService {
                 }
                 return acc;
             }, []);
-    
+
             console.log("📦 Sending combined parts:", combinedParts);
-    
+
             for (const part of combinedParts) {
                 const response = await axiosInstance.post(`/repairs/parts`, { repairID, part });
                 console.log(`✅ Part added successfully:`, part);
             }
-    
+
             return { message: "All parts added successfully" };
         } catch (error) {
             console.error("❌ Error adding part to repair:", error);
             throw error;
         }
     };
-    
+
 
     /**
      * Move a repair's status
@@ -129,6 +129,24 @@ class RepairsService {
             return response.data;
         } catch (error) {
             console.error("❌ Error moving repair status:", error);
+            throw error;
+        }
+    }
+
+    /**
+ * Update repair via Quality Control route (Notes, Status, Completion Photo)
+ * @param {FormData} qcData - The quality control data including image
+ * @returns {Promise<Object>} - Updated repair object
+ */
+    static updateQualityControl = async (qcData) => {
+        try {
+            const response = await axiosInstance.post('/repairs/quality-control', qcData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            console.log("✅ QC Update Successful:", response.data);
+            return response.data;
+        } catch (error) {
+            console.error("❌ Error during Quality Control update:", error);
             throw error;
         }
     }

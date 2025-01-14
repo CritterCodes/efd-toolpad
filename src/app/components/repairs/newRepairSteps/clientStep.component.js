@@ -9,16 +9,23 @@ import UsersService from '@/services/users';
 // ✅ Fetch all clients once on component load
 async function fetchAllClients() {
     try {
-        const response = await UsersService.getAllClients();
-        if (!response.ok) throw new Error('Failed to fetch clients');
-        const data = await response.json();
-        console.log("✅ All clients loaded:", data);
-        return Array.isArray(data.users) ? data.users : [];
+        // Assuming UsersService uses axios
+        const response = await UsersService.getAllUsers();
+        
+        console.log("✅ All clients loaded:", response);
+        // Check if the response structure contains the `users` array
+        if (!Array.isArray(response.users)) {
+            throw new Error('Invalid data format received');
+        }
+
+        return response.users;
     } catch (error) {
-        console.error('Error fetching all clients:', error);
+        // More detailed error logging
+        console.error('❌ Error fetching all clients:', error.response?.data || error.message);
         return [];
     }
 }
+
 
 export default function ClientStep({ formData, setFormData, handleNext }) {
     const [clientOptions, setClientOptions] = React.useState([]);

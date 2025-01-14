@@ -8,8 +8,11 @@ const QualityControlDetailPage = () => {
     const { repairID } = useParams();
     const { repairs } = useRepairs();
 
-    // ✅ Find the specific repair
+    // ✅ Find the current repair
     const repair = repairs.find(r => r.repairID === repairID);
+
+    // ✅ Get all repairs currently in QC
+    const qcRepairs = repairs.filter(r => r.status === "QUALITY CONTROL");
 
     if (!repair) {
         return <p>Repair not found.</p>;
@@ -17,7 +20,8 @@ const QualityControlDetailPage = () => {
 
     return (
         <div>
-            <QCStepper repair={repair} />
+            {/* ✅ Pass all repairs in QC to the stepper */}
+            <QCStepper repair={repair} qcRepairs={qcRepairs} />
         </div>
     );
 };

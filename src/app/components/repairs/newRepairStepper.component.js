@@ -79,12 +79,10 @@ export default function NewRepairStepper({ open, onClose, onSubmit }) {
     
             console.log("📤 Submitting FormData:", [...formDataToSend.entries()]);
     
-            const response = await RepairsService.addRepair(formDataToSend);
+            const response = await RepairsService.createRepair(formDataToSend);
     
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.error || "Failed to create repair");
-            console.log("📥 Submitted Repair:", result);
-            onSubmit(result);
+            console.log("📥 Submitted Repair:", response)
+            onSubmit(response);
             handleClose();
         } catch (error) {
             console.error("Error submitting repair:", error.message);

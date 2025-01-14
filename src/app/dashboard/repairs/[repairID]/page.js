@@ -102,7 +102,7 @@ const ViewRepairPage = ({ params }) => {
                 <Link underline="hover" color="inherit" onClick={() => router.push('/dashboard')} sx={{ cursor: 'pointer' }}>
                     Dashboard
                 </Link>
-                <Link underline="hover" color="inherit" onClick={() => router.push('/dashboard/repairs')} sx={{ cursor: 'pointer' }}>
+                <Link underline="hover" color="inherit" onClick={() => router.push('/dashboard/repairs/all')} sx={{ cursor: 'pointer' }}>
                     Repairs
                 </Link>
                 <Typography color="text.primary">Repair Details</Typography>

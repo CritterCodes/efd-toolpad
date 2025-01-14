@@ -31,12 +31,10 @@ export default function RepairDetailsStep({ formData, setFormData }) {
         const fetchRepairTasks = async () => {
             try {
                 const response = await RepairTaskService.fetchRepairTasks();
-                const data = await response.json();
+                console.log("Fetched Repair Tasks:", response); // Log the response
 
-                console.log("Raw Repair Tasks Data:", data); // Log raw response for inspection
-
-                if (Array.isArray(data)) {
-                    const uniqueTasks = data.reduce((acc, task) => {
+                if (Array.isArray(response)) {
+                    const uniqueTasks = response.reduce((acc, task) => {
                         if (!acc.some(t => t.title === task.title)) {
                             acc.push(task);
                         }
