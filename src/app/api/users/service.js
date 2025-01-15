@@ -19,6 +19,9 @@ export default class UserService {
                 userData.email,
                 userData.password,
                 userData.phoneNumber,
+                userData?.role,
+                userData?.business,
+                userData?.status
             );
             const createdUser = await UserModel.createUser(newUser);
             return createdUser;

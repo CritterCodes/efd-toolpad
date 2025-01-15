@@ -1,19 +1,45 @@
 import React from 'react';
-import { Typography, TextField } from "@mui/material";
+import { Typography, Button, Box } from "@mui/material";
 
 const QCPhotoStep = ({ handleImageUpload }) => {
     return (
-        <>
-            <Typography sx={{ mt: 2 }}>
-                Upload a picture for liability and documentation.
+        <Box
+            sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+                mt: 2,
+                gap: 2
+            }}
+        >
+            <Typography fontWeight="bold">
+                Document the completed repair.
             </Typography>
-            <TextField
-                type="file"
-                onChange={handleImageUpload}
-                fullWidth
-                sx={{ mt: 2 }}
-            />
-        </>
+
+            {/* ✅ Modern file upload button styled with Material UI */}
+            <Button
+                component="label"
+                variant="contained"
+                sx={{
+                    backgroundColor: "#3f51b5",
+                    color: "white",
+                    borderRadius: "8px",
+                    padding: "12px 20px",
+                    '&:hover': {
+                        backgroundColor: "#303f9f",
+                    }
+                }}
+            >
+                📸 Choose Image
+                <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    style={{ display: 'none' }} // ✅ Hides the default file input
+                />
+            </Button>
+        </Box>
     );
 };
 

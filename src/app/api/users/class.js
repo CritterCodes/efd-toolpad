@@ -12,6 +12,8 @@ export default class User {
         email, 
         password, 
         phoneNumber,
+        role,
+        business,
         status
     ) {
         this.userID = `user-${uuidv4().slice(0, 8)}`;
@@ -21,7 +23,8 @@ export default class User {
         this.phoneNumber = phoneNumber;
         this.address = {};
         this.image = '';
-        this.role = 'client';
+        this.role = role;
+        this.business = business;
         this.status = status ? status : 'unverified';
         this.password = password;
         this.createdAt = new Date();

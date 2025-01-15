@@ -28,7 +28,7 @@ const defaultFormData = {
     picture: '',
 };
 
-export default function NewRepairStepper({ open, onClose, onSubmit }) {
+export default function NewRepairStepper({ open, onClose, onSubmit, userID = null }) {
     const [activeStep, setActiveStep] = React.useState(0);
     const [formData, setFormData] = React.useState({ ...defaultFormData });
     const [loading, setLoading] = React.useState(false);
@@ -97,7 +97,7 @@ export default function NewRepairStepper({ open, onClose, onSubmit }) {
 
     // ✅ Step Components with `handleNext` properly passed
     const stepComponents = [
-        <ClientStep key="clientStep" formData={formData} setFormData={setFormData} handleNext={handleNext} />,
+        <ClientStep key="clientStep" formData={formData} setFormData={setFormData} handleNext={handleNext} userID={userID} />,
         <RepairDetailsStep key="repairDetailsStep" formData={formData} setFormData={setFormData} handleNext={handleNext} />,
         <CaptureImageStep key="captureImageStep" formData={formData} setFormData={setFormData} handleNext={handleNext} />,
         <ReviewSubmitStep key="reviewSubmitStep" formData={formData} handleNext={handleNext} />,

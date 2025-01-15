@@ -1,10 +1,10 @@
 "use client";
 import React, { useState, useRef } from 'react';
-import { Box, Typography, TextField, Button, List, ListItem, ListItemText, IconButton, Snackbar, Autocomplete } from '@mui/material';
+import { Box, Typography, TextField, Button, List, ListItem, ListItemText, IconButton, Snackbar, Autocomplete, Breadcrumbs, Link } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useRepairs } from '@/app/context/repairs.context';
-import RepairService from '@/services/repairs';
 import RepairsService from '@/services/repairs';
+import { useRouter } from 'next/navigation';
 
 const statuses = [
     "RECEIVING",
@@ -25,6 +25,7 @@ const MoveRepairsPage = () => {
     const [snackbarOpen, setSnackbarOpen] = useState(false);
     const [snackbarMessage, setSnackbarMessage] = useState('');
     const [snackbarSeverity, setSnackbarSeverity] = useState('info');
+    const router = useRouter();
 
     // ✅ Refs for Barcode Scanner Handling
     const locationInputRef = useRef(null);
@@ -77,10 +78,7 @@ const MoveRepairsPage = () => {
         }
     
         try {
-            // ✅ Proper axios call handling
             const response = await RepairsService.moveRepairStatus(repairIDs, location);
-    
-            // ✅ Assuming the request was successful if no error is thrown
             setRepairs((prevRepairs) =>
                 prevRepairs.map(repair =>
                     repairIDs.includes(repair.repairID)
@@ -88,7 +86,6 @@ const MoveRepairsPage = () => {
                         : repair
                 )
             );
-    
             setSnackbarMessage(`✅ Moved ${repairIDs.length} repairs to ${location}.`);
             setSnackbarSeverity('success');
             setRepairIDs([]);
@@ -99,10 +96,20 @@ const MoveRepairsPage = () => {
             setSnackbarOpen(true);
         }
     };
-    
 
     return (
         <Box sx={{ padding: '20px' }}>
+            {/* ✅ Breadcrumbs for Navigation */}
+            <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
+                <Link underline="hover" color="inherit" onClick={() => router.push('/dashboard')} sx={{ cursor: 'pointer' }}>
+                    Dashboard
+                </Link>
+                <Link underline="hover" color="inherit" onClick={() => router.push('/dashboard/repairs')} sx={{ cursor: 'pointer' }}>
+                    Repairs
+                </Link>
+                <Typography color="text.primary">Move Repairs</Typography>
+            </Breadcrumbs>
+
             <Typography variant="h4" sx={{ mb: 2 }}>Move Repairs</Typography>
 
             {/* ✅ Auto-suggest for Location with AutoComplete */}

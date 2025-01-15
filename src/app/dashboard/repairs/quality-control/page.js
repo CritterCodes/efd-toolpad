@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from 'react';
-import { Box, Typography, Button, List, ListItem, ListItemText, Snackbar, Divider } from '@mui/material';
+import { Box, Typography, Button, List, ListItem, ListItemText, Snackbar, Divider, Breadcrumbs, Link } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { useRepairs } from '@/app/context/repairs.context';
 
@@ -28,6 +28,16 @@ const QualityControlPage = () => {
 
     return (
         <Box sx={{ padding: '20px' }}>
+        {/* ✅ Breadcrumbs for Navigation */}
+        <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
+            <Link underline="hover" color="inherit" onClick={() => router.push('/dashboard')} sx={{ cursor: 'pointer' }}>
+                Dashboard
+            </Link>
+            <Link underline="hover" color="inherit" onClick={() => router.push('/dashboard/repairs')} sx={{ cursor: 'pointer' }}>
+                Repairs
+            </Link>
+            <Typography color="text.primary">Quality Control</Typography>
+        </Breadcrumbs>
             <Typography variant="h4" sx={{ mb: 2 }}>
                 Quality Control Queue
             </Typography>

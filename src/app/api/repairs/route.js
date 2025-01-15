@@ -1,70 +1,49 @@
+// app/api/repairs/route.js
 import { NextResponse } from "next/server";
-import path from "path";
-import { writeFile } from "fs/promises";
+import { uploadFileToS3 } from "@/utils/s3.util"; 
 import RepairsController from "./controller";
 
-export const POST = async (req) => {
+export const POST = async (request) => {
     try {
         console.log("📩 Incoming POST request received.");
-
-        // ✅ Check if the request is FormData
-        const contentType = req.headers.get("content-type") || "";
-        if (!contentType.includes("multipart/form-data")) {
-            return NextResponse.json({ error: "Invalid content type. Use multipart/form-data." }, { status: 400 });
-        }
-
-        const formData = await req.formData();
-        console.log("📤 Parsed Form Data:", [...formData.entries()]);
-
-
-
-        // ✅ Parse repairTasks
-        let repairTasks = [];
-        try {
-            repairTasks = JSON.parse(formData.get("repairTasks"));
-        } catch (parseError) {
-            console.error("❌ Error parsing repairTasks:", parseError);
-            return NextResponse.json({ error: "Invalid repairTasks JSON" }, { status: 400 });
-        }
-
-        // ✅ Handle image upload if provided
-        let imagePath = "";
+        const formData = await request.formData();
         const picture = formData.get("picture");
-        if (picture && picture.name) {
-            const buffer = Buffer.from(await picture.arrayBuffer());
-            const fileName = `${Date.now()}-${picture.name.replace(/\s/g, "_")}`;
-            const uploadPath = path.join(process.cwd(), "public/uploads", fileName);
-            await writeFile(uploadPath, buffer);
-            imagePath = `/uploads/${fileName}`;
-            console.log("📸 Image saved successfully:", imagePath);
+
+        // Ensure a picture is provided
+        if (!picture || !(picture instanceof File)) {
+            return NextResponse.json({ error: "No valid image provided." }, { status: 400 });
         }
 
-        
-        // ✅ Construct repair object
+        // Upload image to S3 and get the URL
+        const imageUrl = await uploadFileToS3(picture);
+
+        // Prepare the repair data
         const repairData = {
             userID: formData.get("userID"),
             clientName: formData.get("clientName"),
             description: formData.get("description"),
             promiseDate: formData.get("promiseDate"),
             metalType: formData.get("metalType"),
-            repairTasks,
+            repairTasks: JSON.parse(formData.get("repairTasks")),
             cost: parseFloat(formData.get("cost")) || 0,
-            picture: imagePath
+            picture: imageUrl  // Save the S3 URL directly
         };
 
-        console.log("✅ Final Repair Data Sent to Controller:", repairData);
+        console.log("✅ Final Repair Data:", repairData);
 
-        // ✅ Send to controller for saving
         const newRepair = await RepairsController.createRepair(repairData);
-        console.log("✅ New Repair Created:", newRepair);
 
-        // ✅ Return the full repair object, including generated fields
-        return NextResponse.json(newRepair, { status: 201 });
+
+        // Mock database saving here (replace with your actual database logic)
+        return NextResponse.json({ message: "Repair created successfully!", newRepair }, { status: 201 });
     } catch (error) {
         console.error("❌ Error in POST Route:", error.message);
-        return NextResponse.json({ error: "Failed to create repair", details: error.message }, { status: 500 });
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 };
+
+
+
 
 /**
  * ✅ Handle GET Requests
@@ -77,7 +56,7 @@ export const GET = async (req) => {
         const repairID = searchParams.get("repairID");
 
         if (repairID) {
-            return RepairsController.getRepairById(req);
+            return RepairsController.getRepairById(req, repairID);
         } else {
             return RepairsController.getRepairs(req);
         }

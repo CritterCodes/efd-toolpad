@@ -2,7 +2,9 @@
 import React, { useState } from 'react';
 import {
     Box, Typography, Button, List, ListItem, ListItemText, IconButton, Snackbar, TextField,
-    Divider, Grid, Paper, Menu, MenuItem as DropdownItem
+    Divider, Grid, Paper, Menu, MenuItem as DropdownItem,
+    Breadcrumbs,
+    Link
 } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import EditIcon from '@mui/icons-material/Edit';
@@ -152,6 +154,16 @@ const PartsPage = () => {
 
     return (
         <Box sx={{ padding: '20px' }}>
+        {/* ✅ Breadcrumbs for Navigation */}
+        <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
+            <Link underline="hover" color="inherit" onClick={() => router.push('/dashboard')} sx={{ cursor: 'pointer' }}>
+                Dashboard
+            </Link>
+            <Link underline="hover" color="inherit" onClick={() => router.push('/dashboard/repairs')} sx={{ cursor: 'pointer' }}>
+                Repairs
+            </Link>
+            <Typography color="text.primary">Parts</Typography>
+        </Breadcrumbs>
             <Typography variant="h4" sx={{ mb: 2, fontWeight: 'bold' }}>Parts Management</Typography>
 
             <TextField

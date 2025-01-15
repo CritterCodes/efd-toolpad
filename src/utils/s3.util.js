@@ -1,33 +1,41 @@
-import AWS from 'aws-sdk';
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
-// Initialize the S3 client with credentials from environment variables
-const s3 = new AWS.S3({
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    region: process.env.AWS_REGION
+// Initialize the S3 Client globally for reuse
+const s3Client = new S3Client({
+    region: process.env.AWS_REGION,
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    }
 });
 
 /**
- * Upload an image to S3
- * @param {File} file - The file to upload
- * @returns {Promise<string>} - URL of the uploaded image
+ * Upload a file directly to S3 without ACLs (Bucket must have proper policy)
+ * @param {File} file - The file to upload.
+ * @returns {Promise<string>} - The public URL of the uploaded file.
  */
-export const uploadImageToS3 = async (file) => {
+export const uploadFileToS3 = async (file) => {
     try {
-        const fileName = `${Date.now()}-${file.name.replace(/\s/g, "_")}`;
-        const params = {
-            Bucket: process.env.S3_BUCKET_NAME,
-            Key: fileName,
-            Body: file,
-            ACL: "public-read", // Adjust ACL if public access is not needed
-            ContentType: file.type
+        const fileBuffer = await file.arrayBuffer();  // Convert file to buffer
+        const fileKey = `${Date.now()}-${file.name.replace(/\s/g, '_')}`;
+
+        const uploadParams = {
+            Bucket: process.env.AWS_BUCKET_NAME,
+            Key: fileKey,
+            Body: fileBuffer,
+            ContentType: file.type,  // No ACL here since bucket owner enforced
         };
 
-        // Upload the file to S3
-        const data = await s3.upload(params).promise();
-        return data.Location; // The public URL of the uploaded image
+        // Upload file to S3 without ACL
+        await s3Client.send(new PutObjectCommand(uploadParams));
+
+        // Construct the public URL assuming bucket policy allows public reads
+        const fileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileKey}`;
+        
+        console.log('✅ File uploaded successfully:', fileUrl);
+        return fileUrl;
     } catch (error) {
         console.error("❌ Error uploading to S3:", error);
-        throw error;
+        throw new Error("Failed to upload file to S3");
     }
 };

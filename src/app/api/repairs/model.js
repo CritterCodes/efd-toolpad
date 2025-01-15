@@ -24,6 +24,7 @@ export default class RepairsModel {
         return repair;
     };
 
+
     /**
      * ✅ Insert a new repair record and return the complete object
      */

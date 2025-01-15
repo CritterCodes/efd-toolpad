@@ -2,38 +2,30 @@
 
 import * as React from 'react';
 import PropTypes from 'prop-types';
-import { Box, TextField, Button, Typography, Modal, Avatar } from '@mui/material';
+import { Box, TextField, Button, Typography, Modal, Avatar, MenuItem } from '@mui/material';
 import UsersService from '@/services/users';
-import User from '@/app/api/users/class';
 
 // ✅ API call to create a new client
 async function createNewClient(data) {
     try {
-        const response = await UsersService.createClient(data);
-
-        // Log full response details for debugging
-        console.log('Response:', response);
-
-        if (!response.ok) {
-            const errorDetails = await response.text();
-            console.error('Server Error:', errorDetails);
-            throw new Error('Failed to create client');
-        }
-
-        return await response.json();
+        const response = await UsersService.createUser(data);
+        console.log('New client created:', response);
+        return await response;
     } catch (error) {
         console.error('Error creating client:', error);
         return null;
     }
 }
 
-
 export default function NewClientForm({ open, onClose, onClientCreated }) {
     const [formData, setFormData] = React.useState({
         firstName: '',
         lastName: '',
         email: '',
-        phone: ''
+        phone: '',
+        role: 'client', // ✅ Default role set to 'client'
+        business: '',
+        image: ''
     });
     const [imagePreview, setImagePreview] = React.useState(null);
 
@@ -53,7 +45,14 @@ export default function NewClientForm({ open, onClose, onClientCreated }) {
     // ✅ Handle Form Submission
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const newClient = await createNewClient(formData);
+        
+        // ✅ Prevent sending business if not a wholesaler
+        const submissionData = { ...formData };
+        if (formData.role !== "wholesaler") {
+            delete submissionData.business;
+        }
+
+        const newClient = await createNewClient(submissionData);
         if (newClient) {
             onClientCreated(newClient);
             onClose();
@@ -79,6 +78,22 @@ export default function NewClientForm({ open, onClose, onClientCreated }) {
                     alignItems: 'center',
                 }}
             >
+                {/* ✅ Centered Image Upload */}
+                <label htmlFor="upload-button">
+                    <input
+                        type="file"
+                        id="upload-button"
+                        hidden
+                        onChange={handleImageUpload}
+                    />
+                    <Avatar
+                        src={imagePreview || '/default-avatar.png'}
+                        sx={{ width: 100, height: 100, cursor: 'pointer' }}
+                    />
+                    <Typography variant="body2" sx={{ mt: 1 }}>
+                        {imagePreview ? "Change Photo" : "Upload Photo (Optional)"}
+                    </Typography>
+                </label>
 
                 {/* ✅ Form Section */}
                 <form onSubmit={handleSubmit} style={{ width: '100%' }}>
@@ -120,6 +135,35 @@ export default function NewClientForm({ open, onClose, onClientCreated }) {
                         required
                         margin="dense"
                     />
+
+                    {/* ✅ Role Dropdown */}
+                    <TextField
+                        select
+                        label="Role"
+                        value={formData.role}
+                        onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                        fullWidth
+                        required
+                        margin="dense"
+                    >
+                        <MenuItem value="client">Client</MenuItem>
+                        <MenuItem value="wholesaler">Wholesaler</MenuItem>
+                        <MenuItem value="admin">Admin</MenuItem>
+                    </TextField>
+
+                    {/* ✅ Business Field - Only visible for wholesalers */}
+                    {formData.role === "wholesaler" && (
+                        <TextField
+                            label="Business Name"
+                            name="business"
+                            value={formData.business}
+                            onChange={(e) => setFormData({ ...formData, business: e.target.value })}
+                            fullWidth
+                            required
+                            margin="dense"
+                        />
+                    )}
+
                     {/* ✅ Submit Button */}
                     <Button
                         type="submit"

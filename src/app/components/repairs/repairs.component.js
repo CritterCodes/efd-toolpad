@@ -116,7 +116,7 @@ export default function RepairsPage() {
                     >
                         {repair.picture && (
                             <Image
-                                src={repair.picture.startsWith('/') ? repair.picture : `/uploads/${repair.picture}`}
+                                src={repair.picture.startsWith('/') ? repair.picture : `${repair.picture}`}
                                 alt="Repair Image"
                                 width={300}
                                 height={200}

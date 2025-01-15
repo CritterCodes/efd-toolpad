@@ -9,46 +9,55 @@ import UsersService from '@/services/users';
 // ✅ Fetch all clients once on component load
 async function fetchAllClients() {
     try {
-        // Assuming UsersService uses axios
         const response = await UsersService.getAllUsers();
-        
         console.log("✅ All clients loaded:", response);
-        // Check if the response structure contains the `users` array
         if (!Array.isArray(response.users)) {
             throw new Error('Invalid data format received');
         }
-
         return response.users;
     } catch (error) {
-        // More detailed error logging
         console.error('❌ Error fetching all clients:', error.response?.data || error.message);
         return [];
     }
 }
 
-
-export default function ClientStep({ formData, setFormData, handleNext }) {
+export default function ClientStep({ formData, setFormData, handleNext, userID = null }) {
     const [clientOptions, setClientOptions] = React.useState([]);
     const [loading, setLoading] = React.useState(false);
     const [inputValue, setInputValue] = React.useState('');
     const [showAddClient, setShowAddClient] = React.useState(false);
     const [openModal, setOpenModal] = React.useState(false);
 
-    // ✅ Load all clients on component mount
+    // ✅ Load all clients and auto-select the provided user
     React.useEffect(() => {
         async function loadClients() {
             setLoading(true);
             const clients = await fetchAllClients();
             setClientOptions(clients);
+
+            if (userID) {
+                const selectedUser = clients.find(client => client.userID === userID);
+                if (selectedUser) {
+                    console.log("✅ Auto-selected User:", selectedUser);
+                    setFormData(prev => ({
+                        ...prev,
+                        selectedClient: selectedUser,
+                        userID: selectedUser.userID,
+                        firstName: selectedUser.firstName,
+                        lastName: selectedUser.lastName
+                    }));
+                    handleNext();
+                } else {
+                    console.warn(`⚠️ No user found for userID: ${userID}`);
+                }
+            }
             setLoading(false);
         }
         loadClients();
-    }, []);
+    }, [userID, setFormData, handleNext]);
 
-    // ✅ Filter clients from already loaded list and auto-select if `userID` matches
     const handleClientSearch = async (event, value) => {
         setInputValue(value);
-
         if (value.length < 3) {
             setShowAddClient(false);
             return;
@@ -62,23 +71,8 @@ export default function ClientStep({ formData, setFormData, handleNext }) {
 
         setShowAddClient(filteredClients.length === 0);
         setClientOptions(filteredClients);
-
-        // ✅ Auto-select if `userID` matches exactly
-        const exactMatch = clientOptions.find(client => client.userID === value);
-        if (exactMatch) {
-            console.log("✅ Auto-selecting exact match:", exactMatch);
-            setFormData(prev => ({
-                ...prev,
-                selectedClient: exactMatch,
-                userID: exactMatch.userID,
-                firstName: exactMatch.firstName,
-                lastName: exactMatch.lastName
-            }));
-            handleNext(); // ✅ Move to next step automatically
-        }
     };
 
-    // ✅ Handle Client Selection and Logging
     const handleClientSelect = (event, newValue) => {
         const selectedClient = clientOptions.find(client => client.userID === newValue?.value);
         if (selectedClient) {
@@ -89,14 +83,12 @@ export default function ClientStep({ formData, setFormData, handleNext }) {
                 firstName: selectedClient.firstName,
                 lastName: selectedClient.lastName
             }));
-            handleNext();  // ✅ Automatically proceed to next step
+            handleNext(); 
         }
     };
 
-    // ✅ Add New Client Handler
     const handleAddNewClient = () => setOpenModal(true);
 
-    // ✅ Handle New Client Creation
     const handleClientCreated = (newClient) => {
         setClientOptions(prev => [...prev, newClient]);
         setFormData(prev => ({
@@ -107,10 +99,9 @@ export default function ClientStep({ formData, setFormData, handleNext }) {
             lastName: newClient.lastName
         }));
         setOpenModal(false);
-        handleNext();  // ✅ Automatically proceed after adding a new client
+        handleNext();
     };
 
-    // ✅ Clear Selected Client
     const clearSelectedClient = () => {
         setFormData({
             userID: '',
@@ -205,4 +196,5 @@ ClientStep.propTypes = {
     formData: PropTypes.object.isRequired,
     setFormData: PropTypes.func.isRequired,
     handleNext: PropTypes.func.isRequired, 
+    userID: PropTypes.string 
 };

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
+import { uploadFileToS3 } from "@/utils/s3.util"; 
 import RepairsController from "../controller";
-import { writeFile } from "fs/promises";
-import path from "path";
 
 /**
  * POST Route for Quality Control updates including status, notes, checklist, and image uploads
@@ -24,25 +23,14 @@ export const POST = async (req) => {
         const status = formData.get("status");
         const notes = formData.get("notes");
         const checklist = JSON.parse(formData.get("checklist"));
-        let imagePath = "";
-
-        // ✅ Handle image upload if provided
-        const picture = formData.get("picture");
-        if (picture && picture.name) {
-            const buffer = Buffer.from(await picture.arrayBuffer());
-            const fileName = `${Date.now()}-${picture.name.replace(/\s/g, "_")}`;
-            const uploadPath = path.join(process.cwd(), "public/uploads", fileName);
-            await writeFile(uploadPath, buffer);
-            imagePath = `/uploads/${fileName}`;
-            console.log("📸 Image saved successfully:", imagePath);
-        }
-
+        const imagePath = await uploadFileToS3(formData.get("qcPicture")); // ✅ Upload image to S3
         // ✅ Prepare the repair data for updating
         const updateData = {
+            qcData: {
             status,
             notes,
             checklist,
-            ...(imagePath && { picture: imagePath }) // Only add picture if uploaded
+            ...(imagePath && { qcPicture: imagePath })}
         };
 
         // ✅ Update repair in the database using the controller
