@@ -113,7 +113,7 @@ const PrintRepairTicket = () => {
                     width={1} height={50} 
                     displayValue={true}
                     font={'monospace'}
-                    format={'CODE128'}
+                    format={'CODE39'}
 
                     />
                 </Box>

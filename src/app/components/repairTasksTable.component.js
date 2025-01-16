@@ -68,7 +68,7 @@ const RepairTasksTable = ({ repairTasks, onEdit }) => {
                     key={index}
                     sx={{
                         display: 'flex',
-                        flexDirection: { xs: 'column', md: 'row' }, 
+                        flexDirection: { xs: 'column', md: 'row' },
                         gap: 2,
                         mb: 2,
                         p: 2,
@@ -80,7 +80,7 @@ const RepairTasksTable = ({ repairTasks, onEdit }) => {
                 >
                     <Grid container spacing={2} alignItems="center">
                         {/* Task Title Field */}
-                        <Grid item xs={12} md={7}>
+                        <Grid item xs={12} md={8}>
                             <Autocomplete
                                 freeSolo
                                 options={shopifyTasks.map((t) => t.title)}
@@ -94,7 +94,7 @@ const RepairTasksTable = ({ repairTasks, onEdit }) => {
                         </Grid>
 
                         {/* Price Field */}
-                        <Grid item xs={12} md={4}>
+                        <Grid item xs={12} md={2}>
                             <TextField
                                 type="number"
                                 label="Price"
@@ -104,22 +104,34 @@ const RepairTasksTable = ({ repairTasks, onEdit }) => {
                             />
                         </Grid>
 
+                        {/* Price Field */}
+                        <Grid item xs={12} md={1}>
+                            <TextField
+                                type="number"
+                                label="Quantity"
+                                value={task.quantity}
+                                onChange={(e) => handleTaskChange(index, 'price', e.target.value)}
+                                fullWidth
+                            />
+                        </Grid>
+
+
                         {/* Trash Icon Adjusted */}
                         <Grid item xs={12} md="auto">
-    <IconButton
-        onClick={() => handleDeleteTask(index)}
-        color="error"
-        sx={{
-            fontSize: { xs: '2rem', md: '1.5rem' },
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: '8px'
-        }}
-    >
-        <DeleteIcon fontSize="inherit" />
-    </IconButton>
-</Grid>
+                            <IconButton
+                                onClick={() => handleDeleteTask(index)}
+                                color="error"
+                                sx={{
+                                    fontSize: { xs: '2rem', md: '1.5rem' },
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    padding: '8px'
+                                }}
+                            >
+                                <DeleteIcon fontSize="inherit" />
+                            </IconButton>
+                        </Grid>
 
                     </Grid>
                 </Box>

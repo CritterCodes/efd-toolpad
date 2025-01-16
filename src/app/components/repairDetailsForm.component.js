@@ -14,7 +14,7 @@ const goldKarats = ["10k", "14k", "18k"]; // ✅ Karat options for gold
 
 const RepairDetailsForm = ({ repair, onEdit }) => {
     // ✅ Calculate dynamic cost based on repair tasks
-    const totalCost = repair.repairTasks?.reduce((acc, task) => acc + parseFloat(task.price || 0), 0).toFixed(2);
+    const totalCost = repair.repairTasks?.reduce((acc, task) => acc + parseFloat(task.price || 0) * (task.quantity || 1), 0).toFixed(2);
 
     // ✅ Helper function to parse the metalType string
     const parseMetalType = (metalType) => {

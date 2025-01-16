@@ -10,9 +10,9 @@ import CloseIcon from '@mui/icons-material/Close';
 import ClientStep from './newRepairSteps/clientStep.component';
 import RepairDetailsStep from './newRepairSteps/repairDetailsStep.component';
 import CaptureImageStep from './newRepairSteps/captureImageStep.component';
-import ReviewSubmitStep from './newRepairSteps/reviewSubmitStep.component';
 import { useTheme } from '@mui/material/styles';
 import RepairsService from '@/services/repairs';
+import TasksStep from './newRepairSteps/tasks';
 
 const steps = ['Select Client', 'Repair Details', 'Capture Image', 'Review & Submit'];
 
@@ -68,8 +68,11 @@ export default function NewRepairStepper({ open, onClose, onSubmit, userID = nul
             formDataToSend.append('metalType', metalTypeString);
     
             formDataToSend.append('repairTasks', JSON.stringify(formData.repairTasks));
-    
-            const totalCost = formData.repairTasks.reduce((acc, task) => acc + parseFloat(task.price || 0), 0);
+            const totalCost = formData.repairTasks.reduce(
+                (acc, task) => acc + (parseFloat(task.price || 0) * (task.quantity || 1)),
+                0
+            );
+            
             formDataToSend.append('cost', totalCost.toString());
             formDataToSend.append('completed', "false");
     
@@ -100,7 +103,7 @@ export default function NewRepairStepper({ open, onClose, onSubmit, userID = nul
         <ClientStep key="clientStep" formData={formData} setFormData={setFormData} handleNext={handleNext} userID={userID} />,
         <RepairDetailsStep key="repairDetailsStep" formData={formData} setFormData={setFormData} handleNext={handleNext} />,
         <CaptureImageStep key="captureImageStep" formData={formData} setFormData={setFormData} handleNext={handleNext} />,
-        <ReviewSubmitStep key="reviewSubmitStep" formData={formData} handleNext={handleNext} />,
+        <TasksStep key="tasksStep" formData={formData} setFormData={setFormData} handleNext={handleNext} />,
     ];
 
     return (
