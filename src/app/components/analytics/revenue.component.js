@@ -15,17 +15,19 @@ export default function RevenueAnalytics({ repairs = [] }) {
     const validRepairs = Array.isArray(repairs) ? repairs : [];
 
     // ✅ Calculate revenue-related metrics
-    const totalRevenue = validRepairs.reduce((sum, repair) => sum + (repair.cost || 0), 0).toFixed(2);
+    console.log(validRepairs);
+    
+    const totalRevenue = validRepairs.reduce((sum, repair) => sum + (parseInt(repair.totalCost) || 0), 0);
     const averageRepairCost = validRepairs.length 
         ? (totalRevenue / validRepairs.length).toFixed(2)
         : "N/A";
     
     const highestRevenueRepair = validRepairs.length 
-        ? Math.max(...validRepairs.map(repair => repair.cost || 0)).toFixed(2) 
+        ? Math.max(...validRepairs.map(repair => repair.totalCost || 0)) 
         : "N/A";
 
     const lowestRevenueRepair = validRepairs.length 
-        ? Math.min(...validRepairs.map(repair => repair.cost || 0)).toFixed(2) 
+        ? Math.min(...validRepairs.map(repair => repair.totalCost || 0)) 
         : "N/A";
 
     const data = [

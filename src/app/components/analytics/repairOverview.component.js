@@ -13,11 +13,11 @@ export default function RepairOverviewAnalytics({ repairs = [] }) {
     const validRepairs = Array.isArray(repairs) ? repairs : [];
 
     const totalRepairs = validRepairs.length;
-    const completedRepairs = validRepairs.filter(repair => repair.completed).length;
-    const pendingRepairs = validRepairs.filter(repair => !repair.completed).length;
+    const completedRepairs = validRepairs.filter(repair => repair.status === 'COMPLETED').length;
+    const pendingRepairs = validRepairs.filter(repair => !repair.status === 'COMPLETED').length;
 
     const completedWithDates = validRepairs.filter(
-        (repair) => repair.completed && repair.completedAt && repair.createdAt
+        (repair) => repair.status === 'COMPLETED' && repair.completedAt && repair.createdAt
     );
     const averageCompletionTime = completedWithDates.length
         ? (

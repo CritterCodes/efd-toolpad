@@ -78,14 +78,29 @@ const MoveRepairsPage = () => {
         }
     
         try {
-            const response = await RepairsService.moveRepairStatus(repairIDs, location);
+            // Create payload to include completedAt timestamp for "COMPLETED" status
+            const payload = repairIDs.map((repairID) => ({
+                repairID,
+                status: location,
+                ...(location === "COMPLETED" && { completedAt: new Date().toISOString() }),
+            }));
+    
+            // Send API request
+            const response = await RepairsService.moveRepairStatus(payload);
+    
+            // Update local state
             setRepairs((prevRepairs) =>
-                prevRepairs.map(repair =>
+                prevRepairs.map((repair) =>
                     repairIDs.includes(repair.repairID)
-                        ? { ...repair, status: location }
+                        ? {
+                            ...repair,
+                            status: location,
+                            ...(location === "COMPLETED" && { completedAt: new Date().toISOString() }),
+                        }
                         : repair
                 )
             );
+    
             setSnackbarMessage(`✅ Moved ${repairIDs.length} repairs to ${location}.`);
             setSnackbarSeverity('success');
             setRepairIDs([]);
@@ -96,6 +111,7 @@ const MoveRepairsPage = () => {
             setSnackbarOpen(true);
         }
     };
+    
 
     return (
         <Box sx={{ padding: '20px' }}>
