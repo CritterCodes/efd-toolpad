@@ -19,6 +19,7 @@ const PrintRepairTicket = () => {
     useEffect(() => {
         if (repair) {
             console.log("Repair Found:", repair);
+
             window.print();
         } else {
             console.warn("Repair Not Found! Check the repairID and context data.");
@@ -49,31 +50,8 @@ const PrintRepairTicket = () => {
             }}
         >
             <Divider textAlign="left">
-            <img src="/logos/[efd]500x250.png" alt="Logo" style={{ width: '100px', height: '50px' }} /></Divider>
+                <img src="/logos/[efd]LogoBlack.png" alt="Logo" style={{ width: '50px', height: '25px' }} /></Divider>
             {/* ✅ Section 1: Header (2 Columns) */}
-            <Box sx={{ display: 'flex'}}>
-                
-                <Box>
-                    <Typography variant="h6"><strong>{repair.clientName}</strong></Typography>
-                    <Typography variant="body1"><strong>Due:</strong> {repair.promiseDate || 'N/A'}</Typography>
-                    <Typography variant="body1"><strong>Metal Type:</strong> {repair.metalType || 'N/A'}</Typography>
-                    <Typography variant="body1"><strong>Description:</strong> {repair.description}</Typography>
-                </Box>
-                
-                <Box sx={{ paddingLeft: '20px' }}>
-                    <Typography variant="body2"><strong>Tasks:</strong></Typography>
-                    <List dense disablePadding sx={{ paddingTop: '4px' }}>
-                        {repair.repairTasks.map((task, index) => (
-                            <ListItem key={index} sx={{ padding: '2px 0' }}>
-                                <ListItemText primary={`${task.qty}x ${task.title}`} />
-                            </ListItem>
-                        ))}
-                    </List>
-                </Box>
-            </Box>
-            <Divider />
-
-            {/* ✅ Section 2: Picture & Status Checkboxes */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                 {/* Picture Column */}
                 <Box sx={{ textAlign: 'center', flex: '1' }}>
@@ -91,32 +69,97 @@ const PrintRepairTicket = () => {
                     )}
                 </Box>
 
-                {/* Status Column */}
-                <Box sx={{ flex: '1' }}>
-                    {["Needs Parts", "Parts Ordered", "Ready for Work", "QC"].map((status, index) => (
-                        <Box key={index} sx={{ display: 'flex', alignItems: 'center' }}>
-                            <Checkbox />
-                            <Typography variant="body2">{status}</Typography>
-                        </Box>
-                    ))}
+                <Box sx={{ flex: '2', paddingLeft: '20px' }}>
+                    <Typography variant="h6"><strong>{repair.clientName}</strong></Typography>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.7rem' }}><strong>Due:</strong> {repair.promiseDate || 'N/A'}</Typography>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.7rem' }}><strong>Metal Type:</strong> {repair.metalType || 'N/A'}</Typography>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.7rem' }}><strong>Description:</strong> {repair.description}</Typography>
                 </Box>
             </Box>
 
 
-            <Divider />
+            <Divider textAlign="left">
+                <Typography sx={{ fontSize: '0.75rem' }}><strong>Tasks:</strong></Typography>
+            </Divider>
+
+            {/* ✅ Section 2: Picture & Status Checkboxes */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+
+                <Box sx={{ paddingLeft: '16px' }}>
+                    <List
+                        dense
+                        disablePadding
+                        sx={{
+                            paddingTop: '8px',
+                        }}
+                    >
+                        {repair.repairTasks.map((task, index) => (
+                            <ListItem
+                                key={index}
+                                sx={{
+                                    padding: '6px 8px',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    borderBottom: index !== repair.repairTasks.length - 1 ? '1px solid #e0e0e0' : 'none', // Divider between tasks
+                                }}
+                            >
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Typography
+                                        variant="body2"
+                                        sx={{
+                                            fontWeight: 500,
+                                            fontSize: '0.9rem',
+                                            color: '#333',
+                                        }}
+                                    >
+                                        {task.quantity}x
+                                    </Typography>
+                                    <Typography
+                                        variant="body2"
+                                        whiteSpace={'normal'}
+                                        sx={{
+                                            fontSize: '0.85rem',
+                                            color: '#555',
+                                        }}
+                                    >
+                                        {task.title}
+                                    </Typography>
+                                </Box>
+                                <Typography
+                                    variant="body2"
+                                    sx={{
+                                        fontWeight: 500,
+                                        fontSize: '0.85rem',
+                                        paddingLeft: '25px',
+                                    }}
+                                >
+                                    ${task.price}
+                                </Typography>
+                            </ListItem>
+                        ))}
+                    </List>
+                </Box>
+
+
+
+            </Box>
+
+
+            <Divider textAlign='right'><Typography sx={{ fontSize: '.75rem' }} ><strong>Total: ${repair.totalCost}</strong></Typography></Divider>
 
             {/* ✅ Section 3: Repair Tasks */}
-            
+
             <Box sx={{ textAlign: 'center' }}>
-                    <Barcode 
-                    value={repair.repairID} 
-                    width={1} height={50} 
+                <Barcode
+                    value={repair.repairID}
+                    width={.75} height={37.5}
                     displayValue={true}
                     font={'monospace'}
                     format={'CODE39'}
-
-                    />
-                </Box>
+                    fontSize={12}
+                />
+            </Box>
         </Box>
     );
 };

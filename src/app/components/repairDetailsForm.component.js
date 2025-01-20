@@ -7,7 +7,7 @@ const statuses = [
 ];
 
 const metalTypes = [
-    "Silver", "White Gold", "Yellow Gold", "Platinum"
+    "SS", "WG", "YG"
 ];
 
 const goldKarats = ["10k", "14k", "18k"]; // ✅ Karat options for gold
@@ -30,7 +30,7 @@ const RepairDetailsForm = ({ repair, onEdit }) => {
     // ✅ Flattening metalType into a string when saving and reset karat properly
     const handleMetalTypeChange = (field, value) => {
         if (field === 'type') {
-            const isGoldType = value === "White Gold" || value === "Yellow Gold";
+            const isGoldType = value === "WG" || value === "YG";
             const updatedMetalType = isGoldType
                 ? `${value} - ${parsedMetalType.karat || goldKarats[0]}`
                 : value;
@@ -73,7 +73,7 @@ const RepairDetailsForm = ({ repair, onEdit }) => {
                 </Grid>
 
                 {/* Karat (Only if Gold) */}
-                {(parsedMetalType.type === "White Gold" || parsedMetalType.type === "Yellow Gold") && (
+                {(parsedMetalType.type === "WG" || parsedMetalType.type === "YG") && (
                     <Grid item xs={6}>
                         <TextField
                             select

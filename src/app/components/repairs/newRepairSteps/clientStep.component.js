@@ -21,7 +21,7 @@ async function fetchAllClients() {
     }
 }
 
-export default function ClientStep({ formData, setFormData, handleNext, userID = null }) {
+export default function ClientStep({ formData, setFormData, handleNext, userID = null, setIsWholesale }) {
     const [clientOptions, setClientOptions] = React.useState([]);
     const [loading, setLoading] = React.useState(false);
     const [inputValue, setInputValue] = React.useState('');
@@ -83,6 +83,7 @@ export default function ClientStep({ formData, setFormData, handleNext, userID =
                 firstName: selectedClient.firstName,
                 lastName: selectedClient.lastName
             }));
+            selectedClient.role === 'wholesaler' ? setIsWholesale(true) : setIsWholesale(false);
             handleNext(); 
         }
     };

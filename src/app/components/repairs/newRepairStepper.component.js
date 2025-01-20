@@ -32,6 +32,7 @@ export default function NewRepairStepper({ open, onClose, onSubmit, userID = nul
     const [activeStep, setActiveStep] = React.useState(0);
     const [formData, setFormData] = React.useState({ ...defaultFormData });
     const [loading, setLoading] = React.useState(false);
+    const [isWholesale, setIsWholesale] = React.useState(false);
 
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -67,13 +68,21 @@ export default function NewRepairStepper({ open, onClose, onSubmit, userID = nul
                 : formData.metalType.type;
             formDataToSend.append('metalType', metalTypeString);
     
-            formDataToSend.append('repairTasks', JSON.stringify(formData.repairTasks));
-            const totalCost = formData.repairTasks.reduce(
+            // ✅ Apply 50% discount for wholesalers
+            const isWholesale = formData.isWholesale; // Assume `isWholesale` is part of `formData`
+            const discountedRepairTasks = formData.repairTasks.map((task) => ({
+                ...task,
+                price: isWholesale ? (parseFloat(task.price || 0) / 2).toFixed(2) : task.price,
+            }));
+    
+            formDataToSend.append('repairTasks', JSON.stringify(discountedRepairTasks));
+    
+            const totalCost = discountedRepairTasks.reduce(
                 (acc, task) => acc + (parseFloat(task.price || 0) * (task.quantity || 1)),
                 0
             );
-            
-            formDataToSend.append('cost', totalCost.toString());
+    
+            formDataToSend.append('totalCost', totalCost.toString());
             formDataToSend.append('completed', "false");
     
             if (formData.picture && formData.picture instanceof File) {
@@ -84,7 +93,7 @@ export default function NewRepairStepper({ open, onClose, onSubmit, userID = nul
     
             const response = await RepairsService.createRepair(formDataToSend);
     
-            console.log("📥 Submitted Repair:", response)
+            console.log("📥 Submitted Repair:", response);
             onSubmit(response);
             handleClose();
         } catch (error) {
@@ -94,16 +103,13 @@ export default function NewRepairStepper({ open, onClose, onSubmit, userID = nul
             setLoading(false);
         }
     };
-    
-    
-    
 
     // ✅ Step Components with `handleNext` properly passed
     const stepComponents = [
-        <ClientStep key="clientStep" formData={formData} setFormData={setFormData} handleNext={handleNext} userID={userID} />,
+        <ClientStep key="clientStep" formData={formData} setFormData={setFormData} handleNext={handleNext} userID={userID} setIsWholesale={setIsWholesale} />,
         <RepairDetailsStep key="repairDetailsStep" formData={formData} setFormData={setFormData} handleNext={handleNext} />,
         <CaptureImageStep key="captureImageStep" formData={formData} setFormData={setFormData} handleNext={handleNext} />,
-        <TasksStep key="tasksStep" formData={formData} setFormData={setFormData} handleNext={handleNext} />,
+        <TasksStep key="tasksStep" formData={formData} setFormData={setFormData} handleNext={handleNext} isWholesale={isWholesale} />,
     ];
 
     return (

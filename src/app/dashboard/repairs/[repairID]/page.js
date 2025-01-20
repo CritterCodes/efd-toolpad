@@ -8,6 +8,7 @@ import RepairDetailsForm from '@/app/components/repairDetailsForm.component';
 import RepairImage from '@/app/components/repairImage.component';
 import RepairTasksTable from '@/app/components/repairTasksTable.component';
 import RepairsService from '@/services/repairs';
+import UsersService from '@/services/users';
 
 const ViewRepairPage = ({ params }) => {
     const { repairs, setRepairs } = useRepairs();
@@ -21,6 +22,7 @@ const ViewRepairPage = ({ params }) => {
     const [snackbarSeverity, setSnackbarSeverity] = React.useState('info');
     const [hasChanges, setHasChanges] = React.useState(false);
     const [loading, setLoading] = React.useState(true);
+    const [isWholesale, setIsWholesale] = React.useState(false);
 
     // ✅ Unwrapping the params with useEffect
     React.useEffect(() => {
@@ -34,11 +36,25 @@ const ViewRepairPage = ({ params }) => {
     React.useEffect(() => {
         if (repairID) {
             const foundRepair = repairs.find(r => r.repairID === repairID);
+            console.log('foundRepair', foundRepair);
             if (foundRepair) {
                 setRepair(foundRepair);
                 setUpdatedRepair(foundRepair);
+
+
+                const getUser = async () => {
+                    console.log('foundRepair.userID', foundRepair.userID);
+                    const user = await UsersService.getUserByQuery(foundRepair.userID);
+                    console.log('user', user);
+                    if (user.role === 'wholesaler') {
+                        console.log('isWholesale', true);
+                        setIsWholesale(true);
+                    }
+                };
+                getUser();
                 setLoading(false);
             }
+
         }
     }, [repairID, repairs]);
 
@@ -47,12 +63,33 @@ const ViewRepairPage = ({ params }) => {
     }
 
     const handleEditChange = (field, value) => {
-        setUpdatedRepair(prev => ({ ...prev, [field]: value }));
+        if (field === 'repairTasks') {
+            // Update repairTasks and recalculate cost
+            const updatedRepairTasks = value.map(task => ({
+                ...task,
+                quantity: task.quantity || 1, // Default quantity to 1 if not present
+            }));
+
+            const updatedCost = updatedRepairTasks.reduce(
+                (acc, task) => acc + (parseFloat(task.price || 0) * (task.quantity || 1)),
+                0
+            );
+
+            setUpdatedRepair(prev => ({
+                ...prev,
+                [field]: updatedRepairTasks,
+                totalCost: updatedCost.toFixed(2), // Save the total cost in updatedRepair
+            }));
+        } else {
+            setUpdatedRepair(prev => ({ ...prev, [field]: value }));
+        }
+
         setHasChanges(true);
         setSnackbarMessage("⚠️ Unsaved changes detected! Please save.");
         setSnackbarSeverity('warning');
         setSnackbarOpen(true);
     };
+
 
     const handleSaveChanges = async () => {
         try {
@@ -71,15 +108,20 @@ const ViewRepairPage = ({ params }) => {
             }
 
             setLoading(true);
-
+            
             const formattedRepair = {
                 ...updatedRepair,
+                repairTasks: updatedRepair.repairTasks.map(task => ({
+                    ...task,
+                    quantity: task.quantity || 1, // Ensure quantity is set
+                    sku: task.sku || "", // Ensure SKU is set
+                    title: task.title || "Custom Task", // Ensure title is set
+                })),
                 metalType: typeof updatedRepair.metalType === 'object'
                     ? `${updatedRepair.metalType.type}${updatedRepair.metalType.karat ? ` - ${updatedRepair.metalType.karat}` : ''}`
-                    : updatedRepair.metalType
+                    : updatedRepair.metalType,
             };
 
-            // ✅ No need for response.json() since axios auto-parses
             await RepairsService.updateRepair(repairID, formattedRepair);
 
             setRepairs(prev => prev.map(r => (r.repairID === repairID ? formattedRepair : r)));
@@ -95,6 +137,7 @@ const ViewRepairPage = ({ params }) => {
             setLoading(false);
         }
     };
+
 
     return (
         <Box sx={{ padding: { xs: '10px', sm: '20px' } }}>
@@ -119,9 +162,9 @@ const ViewRepairPage = ({ params }) => {
                 <RepairImage picture={updatedRepair.picture} />
                 <RepairDetailsForm repair={updatedRepair} onEdit={handleEditChange} />
             </Box>
-
+            
             <Box sx={{ mt: 3, width: '100%' }}>
-                <RepairTasksTable repairTasks={updatedRepair.repairTasks} onEdit={handleEditChange} />
+                <RepairTasksTable repairTasks={updatedRepair.repairTasks} onEdit={handleEditChange} isWholesale={isWholesale} selectedMetal={updatedRepair.metalType} />
             </Box>
 
             <Snackbar
@@ -136,8 +179,8 @@ const ViewRepairPage = ({ params }) => {
                             snackbarSeverity === 'success'
                                 ? 'green'
                                 : snackbarSeverity === 'error'
-                                ? 'red'
-                                : 'orange',
+                                    ? 'red'
+                                    : 'orange',
                         color: 'white',
                         fontWeight: 'bold'
                     }

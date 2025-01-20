@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import RepairTaskService from '@/services/repairTasks';
 
-const metalOptions = ["Silver", "White Gold", "Yellow Gold", "Platinum"];
+const metalOptions = ["SS", "WG", "YG"];
 const goldKarats = ["10k", "14k", "18k"];
 
 export default function RepairDetailsStep({ formData, setFormData }) {
@@ -27,7 +27,7 @@ export default function RepairDetailsStep({ formData, setFormData }) {
         setSelectedMetal(metal);
     
         // Set the formData metalType as a properly formatted object
-        if (metal === "Yellow Gold" || metal === "White Gold") {
+        if (metal === "YG" || metal === "WG") {
             setFormData(prev => ({
                 ...prev,
                 metalType: {
@@ -112,7 +112,7 @@ export default function RepairDetailsStep({ formData, setFormData }) {
             </FormControl>
 
             {/* ✅ Karat Selection */}
-            {(selectedMetal === "White Gold" || selectedMetal === "Yellow Gold") && (
+            {(selectedMetal === "WG" || selectedMetal === "YG") && (
                 <FormControl component="fieldset" margin="normal">
                     <FormLabel component="legend">Karat</FormLabel>
                     <FormGroup>

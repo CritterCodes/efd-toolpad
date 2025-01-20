@@ -5,7 +5,6 @@ import PropTypes from "prop-types";
 import {
     TextField,
     Autocomplete,
-    Chip,
     Box,
     Typography,
     List,
@@ -16,12 +15,14 @@ import {
 import DeleteIcon from "@mui/icons-material/Delete";
 import RepairTaskService from "@/services/repairTasks";
 
-export default function TasksStep({ formData, setFormData }) {
+export default function TasksStep({ formData, setFormData, isWholesale }) {
     const [repairTasks, setRepairTasks] = React.useState([]);
+    const [uniqueTasks, setUniqueTasks] = React.useState([]);
     const [selectedRepairTasks, setSelectedRepairTasks] = React.useState(
         formData.repairTasks || []
     );
     const [taskSearch, setTaskSearch] = React.useState("");
+    const [client, setClient] = React.useState({});
 
     React.useEffect(() => {
         const fetchRepairTasks = async () => {
@@ -34,7 +35,8 @@ export default function TasksStep({ formData, setFormData }) {
                         }
                         return acc;
                     }, []);
-                    setRepairTasks(uniqueTasks);
+                    setUniqueTasks(uniqueTasks);
+                    setRepairTasks(response);
                 } else {
                     console.error("API response is not an array:", response);
                 }
@@ -45,46 +47,119 @@ export default function TasksStep({ formData, setFormData }) {
         fetchRepairTasks();
     }, []);
 
-    const getSKUForRepairTask = (task) => {
-        if (!task.sku) {
-            return `undefined-sku-${crypto.randomUUID()}`;
-        }
-        const { selectedMetal, karatOptions } = formData;
-        if (selectedMetal === "Yellow Gold") {
-            if (karatOptions?.["14k"]) return `${task.sku}-14yg`;
-            if (karatOptions?.["18k"]) return `${task.sku}-18yg`;
-        }
-        if (selectedMetal === "White Gold" && karatOptions?.["14k"]) {
-            return `${task.sku}-14wg`;
-        }
-        if (selectedMetal === "Silver") {
-            return `${task.sku}-ss`;
-        }
 
-        return task.sku;
+
+    const parseMetalType = (metalType) => {
+        console.log('parsing metalType', metalType);
+        if (typeof metalType === 'string') {
+            const [type, karat] = metalType.split(' - ');
+            console.log('type', type, 'karat', karat);
+            if (!karat) {
+                return { type, karat: '' };
+            }
+            console.log('trimming karat');
+            const trimmedKarat = karat.slice(0, -1); // Remove the last character ('k')
+            console.log('karat', trimmedKarat);
+            const formattedMT = `${trimmedKarat}${type.toLowerCase()}`;
+            console.log('formattedMT', formattedMT);
+            return formattedMT;
+        }
+        return { type: '', karat: '' };
+    };
+
+
+
+    const buildSku = (sku) => {
+        const { type, karat } = formData.metalType;
+        const selectedMetal = `${type} - ${karat}`;
+        const formattedMT = parseMetalType(selectedMetal);
+        const [tag, num, title, mType] = sku.split('-');
+        console.log('tag', tag, 'num', typeof num, 'title', title, 'mType', mType);
+        if (!mType) {
+            return sku
+        };
+        console.log('formattedMT', formattedMT);
+        let metalIdentity;
+        switch (formattedMT) {
+            case 'ss':
+                metalIdentity = 1;
+                break;
+            case '14yg':
+                metalIdentity = 2;
+                break;
+            case '14wg':
+                metalIdentity = 3;
+                break;
+            case '18yg':
+                metalIdentity = 4;
+                break;
+            case '18wg':
+                metalIdentity = 5;
+                break;
+        }
+        const taskNum =
+            num.length === 4
+                ? num
+                    .split('') // Convert string to array
+                    .map((char, index) =>
+                        index === 1 ? metalIdentity : char // Replace the second character with `metalIdentity`
+                    )
+                    .join('') // Convert back to string
+                : `${metalIdentity}${num.slice(1)}`; // Add `metalIdentity` and skip the first character
+
+        console.log('taskNum', taskNum);
+        return `${tag}-${taskNum}-${title}-${formattedMT}`;
     };
 
     const handleRepairTaskChange = (event, value) => {
-        const tasksWithSKU = value
-            .map((taskTitle) => {
-                const task = repairTasks.find((t) => t.title === taskTitle);
-                return task
-                    ? {
-                          ...task,
-                          sku: getSKUForRepairTask(task),
-                          quantity: task.quantity || 1, // Default quantity to 1 if not set
-                      }
-                    : null;
-            })
-            .filter(Boolean);
-
-        setSelectedRepairTasks(tasksWithSKU);
-        setFormData({ ...formData, repairTasks: tasksWithSKU });
+        const updatedTasks = value.map((taskTitle) => {
+            const existingTask = uniqueTasks.find((t) => t.title === taskTitle);
+    
+            if (existingTask) {
+                // If task is from predefined list, use its details
+                const actualSku = buildSku(existingTask.sku);
+                const correctTask = repairTasks.find((t) => t.sku === actualSku);
+    
+                return {
+                    title: existingTask.title,
+                    sku: actualSku,
+                    price: isWholesale
+                        ? (parseFloat(correctTask.price || 0) / 2).toFixed(2)
+                        : correctTask.price,
+                    quantity: 1, // Default quantity
+                };
+            } else {
+                // Handle custom tasks
+                const existingCustomTask = selectedRepairTasks.find(
+                    (task) => task.title === taskTitle
+                );
+    
+                return (
+                    existingCustomTask || {
+                        title: taskTitle, // Use the custom title
+                        sku: "", // No SKU for custom tasks
+                        price: "", // Leave price editable
+                        quantity: 1, // Default quantity
+                    }
+                );
+            }
+        });
+    
+        setSelectedRepairTasks(updatedTasks);
+        setFormData({ ...formData, repairTasks: updatedTasks });
     };
+    
 
     const handleQuantityChange = (index, quantity) => {
         const updatedTasks = [...selectedRepairTasks];
         updatedTasks[index].quantity = quantity;
+        setSelectedRepairTasks(updatedTasks);
+        setFormData({ ...formData, repairTasks: updatedTasks });
+    };
+
+    const handlePriceChange = (index, price) => {
+        const updatedTasks = [...selectedRepairTasks];
+        updatedTasks[index].price = price;
         setSelectedRepairTasks(updatedTasks);
         setFormData({ ...formData, repairTasks: updatedTasks });
     };
@@ -95,7 +170,7 @@ export default function TasksStep({ formData, setFormData }) {
         setFormData({ ...formData, repairTasks: updatedTasks });
     };
 
-    const filteredTasks = repairTasks.filter((task) =>
+    const filteredTasks = uniqueTasks.filter((task) =>
         task.title.toLowerCase().includes(taskSearch.toLowerCase())
     );
 
@@ -123,25 +198,36 @@ export default function TasksStep({ formData, setFormData }) {
                 <Box>
                     <List>
                         {selectedRepairTasks.map((task, index) => (
-                            <ListItem key={task.sku} disableGutters>
+                            <ListItem key={index} disableGutters>
                                 <Box
                                     sx={{
                                         display: "flex",
                                         alignItems: "center",
                                         justifyContent: "space-between",
-                                        width: "96%",
+                                        width: "100%",
+                                        gap: 2,
                                     }}
                                 >
-                                    <Typography sx={{ flex: 1 }}>{task.title}</Typography>
+                                    <Typography sx={{ flex: 2 }}>{task.title}</Typography>
+                                    <TextField
+                                        label="Price"
+                                        type="number"
+                                        value={task.price || ""}
+                                        onChange={(e) =>
+                                            handlePriceChange(index, e.target.value)
+                                        }
+                                        size="small"
+                                        sx={{ width: "80px" }}
+                                    />
                                     <TextField
                                         label="Qty"
                                         type="number"
-                                        value={task.quantity || 1} // Default quantity to 1
+                                        value={task.quantity || 1}
                                         onChange={(e) =>
                                             handleQuantityChange(index, Number(e.target.value))
                                         }
                                         size="small"
-                                        sx={{ width: "80px", mx: 2 }}
+                                        sx={{ width: "80px" }}
                                     />
                                     <IconButton
                                         edge="end"
