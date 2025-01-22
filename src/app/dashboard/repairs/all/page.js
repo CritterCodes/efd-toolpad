@@ -14,7 +14,7 @@ const RepairsPage = () => {
     const [statusFilter, setStatusFilter] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [sortOrder, setSortOrder] = useState('newest');
-    const [page, setPage] = useState(1);
+    const [page, setPage] = useState(1); // Keep page state here
     const rowsPerPage = 6;
     const searchParams = useSearchParams(); // ✅ Using searchParams to access the query
 
@@ -50,6 +50,7 @@ const RepairsPage = () => {
             });
 
             setFilteredRepairs(updatedRepairs);
+            setPage(1); // Reset to first page on filter change
         }
     }, [statusFilter, searchQuery, repairs, sortOrder, loading]);
 
@@ -77,9 +78,12 @@ const RepairsPage = () => {
                 onOpenNewRepair={() => setOpen(true)}
             />
 
-            {/* ✅ Repairs Grid with Pagination and Filtering Applied */}
+            {/* ✅ Repairs Grid with Pagination Handled Internally */}
             <RepairsGrid
-                repairs={filteredRepairs.slice((page - 1) * rowsPerPage, page * rowsPerPage)}
+                repairs={filteredRepairs}
+                rowsPerPage={rowsPerPage}
+                page={page}
+                setPage={setPage}
             />
 
             {/* ✅ New Repair Stepper Modal */}
