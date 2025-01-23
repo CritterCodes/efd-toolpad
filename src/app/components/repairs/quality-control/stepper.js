@@ -151,6 +151,7 @@ const QCStepper = ({ repair, qcRepairs }) => {
                     }}
                     notes={notes}
                     setNotes={setNotes}
+                    repair={repair}
                 />
             )}
             {activeStep === 1 && <QCPhotoStep handleImageUpload={handleImageUpload} />}

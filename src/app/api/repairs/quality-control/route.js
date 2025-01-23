@@ -24,13 +24,15 @@ export const POST = async (req) => {
         const notes = formData.get("notes");
         const checklist = JSON.parse(formData.get("checklist"));
         const imagePath = await uploadFileToS3(formData.get("qcPicture")); // ✅ Upload image to S3
+
         // ✅ Prepare the repair data for updating
         const updateData = {
+            status, // Update status directly on the repair
             qcData: {
-            status,
-            notes,
-            checklist,
-            ...(imagePath && { qcPicture: imagePath })}
+                notes,
+                checklist,
+                ...(imagePath && { qcPicture: imagePath }), // Add qcPicture if it exists
+            },
         };
 
         // ✅ Update repair in the database using the controller
