@@ -153,7 +153,7 @@ const PrintRepairTicket = () => {
             <Box sx={{ textAlign: 'center' }}>
                 <Barcode
                     value={repair.repairID}
-                    width={.75} height={37.5}
+                    width={1} height={30}
                     displayValue={true}
                     font={'monospace'}
                     format={'CODE39'}
