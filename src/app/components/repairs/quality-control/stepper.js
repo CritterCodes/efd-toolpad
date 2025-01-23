@@ -9,7 +9,7 @@ import {
     Button,
     Snackbar,
     Divider,
-    Modal
+    Modal,
 } from "@mui/material";
 import { useRouter } from "next/navigation";
 import RepairsService from "@/services/repairs";
@@ -24,7 +24,8 @@ const QCStepper = ({ repair, qcRepairs }) => {
     const [snackbarOpen, setSnackbarOpen] = useState(false);
     const [snackbarMessage, setSnackbarMessage] = useState("");
     const [snackbarSeverity, setSnackbarSeverity] = useState("info");
-    const [qcPicture, setQcPicture] = useState(null);
+    const [qcPicture, setQcPicture] = useState(null); // Stores File object
+    const [qcPicturePreview, setQcPicturePreview] = useState(null); // Stores preview URL
     const [notes, setNotes] = useState("");
     const [checklist, setChecklist] = useState({
         cleanAndPolish: false,
@@ -71,7 +72,9 @@ const QCStepper = ({ repair, qcRepairs }) => {
                 setSnackbarSeverity("success");
                 setSnackbarOpen(true);
 
-                const currentIndex = qcRepairs.findIndex((r) => r.repairID === repair.repairID);
+                const currentIndex = qcRepairs.findIndex(
+                    (r) => r.repairID === repair.repairID
+                );
                 const nextRepair = qcRepairs[currentIndex + 1];
 
                 router.push(
@@ -91,11 +94,15 @@ const QCStepper = ({ repair, qcRepairs }) => {
     };
 
     /**
-     * ✅ Handle Image Upload for QC
+     * ✅ Handle Image Upload for QC with Preview
      */
     const handleImageUpload = (e) => {
         const file = e.target.files[0];
-        setQcPicture(file);
+        if (file) {
+            const previewURL = URL.createObjectURL(file);
+            setQcPicture(file); // Save the file
+            setQcPicturePreview(previewURL); // Save the preview URL
+        }
     };
 
     /**
@@ -105,96 +112,107 @@ const QCStepper = ({ repair, qcRepairs }) => {
 
     return (
         <Modal
-    open={modalOpen}
-    onClose={() => router.push("/dashboard/repairs/quality-control")}
-    sx={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-    }}
->
-    <Box
-        sx={{
-            padding: "20px",
-            backgroundColor: "#f9f9f9",
-            borderRadius: "16px",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-            width: "90%",
-            maxWidth: "500px",
-            textAlign: "center",
-            overflowY: "auto", 
-            maxHeight: "90vh"  // Prevents the modal from overflowing on smaller screens
-        }}
-    >
-        <Typography variant="h5" fontWeight="bold" gutterBottom>
-            Quality Control for {repair.clientName}
-        </Typography>
-        <Divider sx={{ mb: 3 }} />
+            open={modalOpen}
+            onClose={() => router.push("/dashboard/repairs/quality-control")}
+            sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+            }}
+        >
+            <Box
+                sx={{
+                    padding: "20px",
+                    backgroundColor: "#f9f9f9",
+                    borderRadius: "16px",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                    width: "90%",
+                    maxWidth: "500px",
+                    textAlign: "center",
+                    overflowY: "auto",
+                    maxHeight: "90vh", // Prevents the modal from overflowing on smaller screens
+                }}
+            >
+                <Typography variant="h5" fontWeight="bold" gutterBottom>
+                    Quality Control for {repair.clientName}
+                </Typography>
+                <Divider sx={{ mb: 3 }} />
 
-        {/* ✅ Stepper Logic */}
-        <Stepper activeStep={activeStep} alternativeLabel>
-            {steps.map((label, index) => (
-                <Step key={index}>
-                    <StepLabel>{label}</StepLabel>
-                </Step>
-            ))}
-        </Stepper>
+                {/* ✅ Stepper Logic */}
+                <Stepper activeStep={activeStep} alternativeLabel>
+                    {steps.map((label, index) => (
+                        <Step key={index}>
+                            <StepLabel>{label}</StepLabel>
+                        </Step>
+                    ))}
+                </Stepper>
 
-        {/* ✅ Step Content */}
-        <Box sx={{ mt: 4 }}>
-            {activeStep === 0 && (
-                <QCChecklistStep
-                    checklist={checklist}
-                    handleChecklistChange={(e) => {
-                        const { name, checked } = e.target;
-                        setChecklist((prev) => ({ ...prev, [name]: checked }));
-                    }}
-                    notes={notes}
-                    setNotes={setNotes}
-                    repair={repair}
+                {/* ✅ Step Content */}
+                <Box sx={{ mt: 4 }}>
+                    {activeStep === 0 && (
+                        <QCChecklistStep
+                            checklist={checklist}
+                            handleChecklistChange={(e) => {
+                                const { name, checked } = e.target;
+                                setChecklist((prev) => ({ ...prev, [name]: checked }));
+                            }}
+                            notes={notes}
+                            setNotes={setNotes}
+                            repair={repair}
+                        />
+                    )}
+                    {activeStep === 1 && (
+                        <QCPhotoStep
+                            handleImageUpload={handleImageUpload}
+                            qcPicturePreview={qcPicturePreview} // Pass the preview
+                        />
+                    )}
+                    {activeStep === 2 && (
+                        <QCFinalStep
+                            repair={repair}
+                            checklist={checklist}
+                            notes={notes}
+                            qcPicturePreview={qcPicturePreview}
+                        />
+                    )}
+                </Box>
+
+                {/* ✅ Navigation Controls */}
+                <Box sx={{ display: "flex", justifyContent: "space-between", mt: 4 }}>
+                    <Button
+                        disabled={activeStep === 0}
+                        onClick={handleBack}
+                        variant="outlined"
+                        sx={{
+                            borderRadius: "8px",
+                            padding: "10px 20px",
+                        }}
+                    >
+                        Back
+                    </Button>
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={handleNext}
+                        sx={{
+                            borderRadius: "8px",
+                            padding: "10px 20px",
+                        }}
+                    >
+                        {activeStep === steps.length - 1 ? "Complete QC" : "Next Step"}
+                    </Button>
+                </Box>
+
+                {/* ✅ Snackbar for Notifications */}
+                <Snackbar
+                    open={snackbarOpen}
+                    autoHideDuration={5000}
+                    onClose={() => setSnackbarOpen(false)}
+                    message={snackbarMessage}
+                    anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
                 />
-            )}
-            {activeStep === 1 && <QCPhotoStep handleImageUpload={handleImageUpload} />}
-            {activeStep === 2 && <QCFinalStep repair={repair} checklist={checklist} notes={notes} qcPicture={qcPicture} />}
-        </Box>
-
-        {/* ✅ Navigation Controls */}
-        <Box sx={{ display: "flex", justifyContent: "space-between", mt: 4 }}>
-            <Button
-                disabled={activeStep === 0}
-                onClick={handleBack}
-                variant="outlined"
-                sx={{
-                    borderRadius: "8px",
-                    padding: "10px 20px"
-                }}
-            >
-                Back
-            </Button>
-            <Button
-                variant="contained"
-                color="primary"
-                onClick={handleNext}
-                sx={{
-                    borderRadius: "8px",
-                    padding: "10px 20px"
-                }}
-            >
-                {activeStep === steps.length - 1 ? "Complete QC" : "Next Step"}
-            </Button>
-        </Box>
-
-        {/* ✅ Snackbar for Notifications */}
-        <Snackbar
-            open={snackbarOpen}
-            autoHideDuration={5000}
-            onClose={() => setSnackbarOpen(false)}
-            message={snackbarMessage}
-            anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-        />
-    </Box>
-</Modal>
-
+            </Box>
+        </Modal>
     );
 };
 
