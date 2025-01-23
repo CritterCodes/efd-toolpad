@@ -29,10 +29,10 @@ export const POST = async (req) => {
         const updateData = {
             status, // Update status directly on the repair
             qcData: {
-                notes,
                 checklist,
                 ...(imagePath && { qcPicture: imagePath }), // Add qcPicture if it exists
             },
+            notes,
         };
 
         // ✅ Update repair in the database using the controller
