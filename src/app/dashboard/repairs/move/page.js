@@ -1,11 +1,10 @@
 "use client";
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Box, Typography, TextField, Button, List, ListItem, ListItemText, IconButton, Snackbar, Autocomplete, Breadcrumbs, Link } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { useRepairs } from "@/app/context/repairs.context";
 import RepairsService from "@/services/repairs";
 import { useRouter } from "next/navigation";
-import debounce from "lodash.debounce";
 
 const statuses = [
     "RECEIVING",
@@ -34,45 +33,33 @@ const MoveRepairsPage = () => {
         console.log("Initial Repairs Context:", repairs);
     }, [repairs]);
 
-    // Handle location selection
     const handleLocationSelect = (event, value) => {
         console.log("Selected Location:", value);
         setLocation(value);
         setTimeout(() => repairInputRef.current.focus(), 100); // Move focus to repair input
     };
 
-    // Debounced handler for processing the scanned repair ID
-    const debouncedProcessRepairID = useCallback(
-        debounce((scannedRepairID) => {
-            const matchingRepair = repairs.find((r) => r.repairID === scannedRepairID.trim());
-            console.log("Processing Repair ID:", scannedRepairID, "Matching Repair:", matchingRepair);
+    // Automatically add repair if there's a complete match
+    const handleRepairInput = (event) => {
+        const input = event.target.value.trim();
+        setCurrentRepairID(input);
 
-            if (matchingRepair) {
-                if (!repairIDs.includes(matchingRepair.repairID)) {
-                    setRepairIDs((prev) => [...prev, matchingRepair.repairID]);
-                    console.log("Updated Repair IDs List:", [...repairIDs, matchingRepair.repairID]);
-                    setSnackbarMessage(`✅ Repair ${scannedRepairID} added.`);
-                    setSnackbarSeverity("success");
-                } else {
-                    setSnackbarMessage(`⚠️ Repair ${scannedRepairID} is already added.`);
-                    setSnackbarSeverity("warning");
-                }
+        // Check for a complete match
+        const matchingRepair = repairs.find((repair) => repair.repairID === input);
+
+        if (matchingRepair) {
+            if (!repairIDs.includes(matchingRepair.repairID)) {
+                setRepairIDs((prev) => [...prev, matchingRepair.repairID]);
+                setSnackbarMessage(`✅ Repair ${input} added.`);
+                setSnackbarSeverity("success");
             } else {
-                setSnackbarMessage(`❌ Repair ${scannedRepairID} not found.`);
-                setSnackbarSeverity("error");
+                setSnackbarMessage(`⚠️ Repair ${input} is already added.`);
+                setSnackbarSeverity("warning");
             }
 
             setSnackbarOpen(true);
-            setCurrentRepairID(""); // Clear input field
-        }, 300), // Adjust debounce delay as necessary
-        [repairs, repairIDs]
-    );
-
-    // Handle repair scanning
-    const handleRepairScan = (event) => {
-        const scannedValue = event.target.value;
-        setCurrentRepairID(scannedValue); // Show the scanned value in the input field
-        debouncedProcessRepairID(scannedValue); // Process with debounce
+            setCurrentRepairID(""); // Clear input for the next repair
+        }
     };
 
     const handleRemoveRepair = (repairID) => {
@@ -137,7 +124,6 @@ const MoveRepairsPage = () => {
 
     return (
         <Box sx={{ padding: "20px" }}>
-            {/* Breadcrumbs */}
             <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
                 <Link
                     underline="hover"
@@ -162,7 +148,6 @@ const MoveRepairsPage = () => {
                 Move Repairs
             </Typography>
 
-            {/* Auto-suggest for Location */}
             <Autocomplete
                 options={statuses}
                 value={location}
@@ -178,17 +163,15 @@ const MoveRepairsPage = () => {
                 )}
             />
 
-            {/* Repair Input */}
             <TextField
                 inputRef={repairInputRef}
                 fullWidth
-                label="Scan Repair ID"
+                label="Scan or Type Repair ID"
                 value={currentRepairID}
-                onChange={handleRepairScan}
+                onChange={handleRepairInput}
                 sx={{ mb: 3 }}
             />
 
-            {/* List of Scanned Repairs */}
             <List>
                 {repairIDs.map((repairID, index) => (
                     <ListItem
@@ -204,7 +187,6 @@ const MoveRepairsPage = () => {
                 ))}
             </List>
 
-            {/* Move Button */}
             <Button
                 variant="contained"
                 color="success"
@@ -215,7 +197,6 @@ const MoveRepairsPage = () => {
                 Move Repairs to {location || "Selected Location"}
             </Button>
 
-            {/* Snackbar Notifications */}
             <Snackbar
                 open={snackbarOpen}
                 autoHideDuration={5000}
