@@ -106,22 +106,22 @@ export default class UserController {
             const { searchParams } = new URL(req.url);
             const query = searchParams.get("query");
             const updateData = await req.json();
-
+    
             if (!query) {
                 return new Response(
                     JSON.stringify({ error: "Query parameter is required." }),
                     { status: 400 }
                 );
             }
-
+    
             const updatedUser = await UserService.updateUser(query, updateData);
             if (!updatedUser) {
                 return new Response(
-                    JSON.stringify({ error: "Failed to update user." }),
+                    JSON.stringify({ error: "No user found to update." }),
                     { status: 400 }
                 );
             }
-
+    
             return new Response(
                 JSON.stringify({ message: "User updated successfully", user: updatedUser }),
                 { status: 200 }
@@ -134,6 +134,7 @@ export default class UserController {
             );
         }
     }
+    
 
     /**
      * ✅ Delete a user by query parameter

@@ -57,13 +57,21 @@ const providers = [
 
                 // ✅ Return existing user data
                 const user = existingUser.user;
-                return {
-                    userID: user.userID,
-                    name: `${user.firstName} ${user.lastName}`,
-                    email: user.email,
-                    role: user.role,
-                    image: profile.picture
-                };
+                return role === "client" ? {
+                        userID: user.user.userID,
+                        name: `${user.user.firstName} ${user.user.lastName}`,
+                        email: user.user.email,
+                        role: user.user.role,
+                        image: profile.picture
+                    } : 
+                    {
+                        userID: user.user.userID,
+                        storeID: user.user.storeID,
+                        name: `${user.user.firstName} ${user.user.lastName}`,
+                        email: user.user.email,
+                        role: user.user.role,
+                        image: profile.picture
+                    };
 
             } catch (error) {
                 console.error("Google Auth Error:", error);
@@ -91,8 +99,17 @@ const providers = [
 
                 const user = await response.json();
                 if (user) {
-                    return {
+                    return user.role === "client" ? {
                         userID: user.userID,
+                        name: `${user.firstName} ${user.lastName}`,
+                        email: user.email,
+                        role: user.role,
+                        token: user.token,
+                        image: user.image
+                    } : 
+                    {
+                        userID: user.userID,
+                        storeID: user.storeID,
                         name: `${user.firstName} ${user.lastName}`,
                         email: user.email,
                         role: user.role,
@@ -130,6 +147,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 token.refreshToken = account.refresh_token; // Store refresh token for later use
                 token.accessTokenExpires = Date.now() + account.expires_in * 1000; // Calculate expiry time
                 token.userID = user.userID;
+                user.role === 'store' ? token.storeID = user.storeID : token.storeID = '';
                 token.name = user.name;
                 token.role = user.role;
                 token.image = user.image;
@@ -150,6 +168,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             session.refreshToken = token.refreshToken;
             session.accessTokenExpires = token.accessTokenExpires;
             session.user.userID = token.userID;
+            session.user.storeID = token.storeID;
             session.user.role = token.role;
             session.user.image = token.image;
             return session;

@@ -8,7 +8,7 @@ export default class UserModel {
      * @param {Object} user - The user object to create
      * @returns {Object|null} - The created user or null if failed
      */
-    static  createUser = async (user) => {
+    static createUser = async (user) => {
         try {
             const dbUsers = await db.dbUsers();
             const results = await dbUsers.insertOne(user);
@@ -35,7 +35,7 @@ export default class UserModel {
             db.connect();
             console.log("🔍 Searching user in the database with query:", query);
             const dbInstance = await db.connect();
-    
+
             // Modified to search by multiple fields using a case-insensitive regex search
             const user = await dbInstance.collection("users").findOne({
                 $or: [
@@ -46,22 +46,22 @@ export default class UserModel {
                     { userID: { $regex: query, $options: "i" } }
                 ]
             });
-    
+
             if (!user) {
                 console.warn("⚠️ No user found in database for query:", query);
             } else {
                 console.log("✅ User found in database:", user);
             }
-            
+
             return user;
         } catch (error) {
             console.error("❌ Error retrieving user from database:", error);
             return null;
         }
     }
-    
-    
-    
+
+
+
 
     /**
      * ✅ Get all users
@@ -88,15 +88,34 @@ export default class UserModel {
         try {
             const dbUsers = await db.dbUsers();
             const result = await dbUsers.updateOne(
-                query,
+                {
+                    $or: [
+                        { firstName: query },
+                        { lastName: query },
+                        { email: query },
+                        { phoneNumber: query },
+                        { userID: query }
+                    ]
+                },
                 { $set: updateData }
             );
+            
 
             if (result.matchedCount === 0) {
                 throw new Error("No user found to update.");
             }
 
-            const updatedUser = await db.dbUsers.findOne(query);
+            const updatedUser = await dbUsers.findOne({
+                $or: [
+                    { firstName: query },
+                    { lastName: query },
+                    { email: query },
+                    { phoneNumber: query },
+                    { userID: query }
+                ]
+            });
+            return updatedUser;
+            
             return updatedUser;
         } catch (error) {
             console.error("Error updating user:", error);

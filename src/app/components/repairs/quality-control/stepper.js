@@ -47,36 +47,37 @@ const QCStepper = ({ repair, qcRepairs }) => {
                     return;
                 }
             }
-
+    
             if (activeStep === 1 && !qcPicture) {
                 setSnackbarMessage("Please upload a QC image before proceeding.");
                 setSnackbarSeverity("error");
                 setSnackbarOpen(true);
                 return;
             }
-
+            
+    
             if (activeStep === 2) {
                 const formData = new FormData();
                 formData.append("repairID", repair.repairID);
                 formData.append("status", "READY FOR PICK-UP");
                 formData.append("notes", notes);
                 formData.append("checklist", JSON.stringify(checklist));
-
+    
                 if (qcPicture) {
                     formData.append("qcPicture", qcPicture);
                 }
-
+    
                 await RepairsService.updateQualityControl(formData);
-
+    
                 setSnackbarMessage(`✅ Repair ${repair.repairID} successfully passed QC!`);
                 setSnackbarSeverity("success");
                 setSnackbarOpen(true);
-
+    
                 const currentIndex = qcRepairs.findIndex(
                     (r) => r.repairID === repair.repairID
                 );
                 const nextRepair = qcRepairs[currentIndex + 1];
-
+    
                 router.push(
                     nextRepair
                         ? `/dashboard/repairs/quality-control/${nextRepair.repairID}`
@@ -92,18 +93,18 @@ const QCStepper = ({ repair, qcRepairs }) => {
             setSnackbarOpen(true);
         }
     };
+    
 
     /**
      * ✅ Handle Image Upload for QC with Preview
      */
-    const handleImageUpload = (e) => {
-        const file = e.target.files[0];
+    const handleImageUpload = (file) => {
         if (file) {
-            const previewURL = URL.createObjectURL(file);
             setQcPicture(file); // Save the file
-            setQcPicturePreview(previewURL); // Save the preview URL
+            setQcPicturePreview(URL.createObjectURL(file)); // Save the preview URL
         }
     };
+    
 
     /**
      * ✅ Step Back

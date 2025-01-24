@@ -4,16 +4,21 @@ import Image from 'next/image';
 
 const QCPhotoStep = ({ handleImageUpload }) => {
     const [preview, setPreview] = useState(null);
+    const [errorMessage, setErrorMessage] = useState("");
 
     /**
      * Handle image capture/upload and provide a preview
      */
     const handleCaptureImage = (event) => {
         const file = event.target.files[0];
-        if (file) {
+
+        if (file && file.type.startsWith("image/")) {
             const imageURL = URL.createObjectURL(file);
             setPreview(imageURL); // Set the preview for the image
             handleImageUpload(file); // Pass the file to the parent component
+            setErrorMessage(""); // Clear any previous error
+        } else {
+            setErrorMessage("Please upload a valid image file.");
         }
     };
 
@@ -54,6 +59,13 @@ const QCPhotoStep = ({ handleImageUpload }) => {
                     style={{ display: 'none' }}
                 />
             </Button>
+
+            {/* Error Message */}
+            {errorMessage && (
+                <Typography variant="body2" color="error">
+                    {errorMessage}
+                </Typography>
+            )}
 
             {/* Image Preview Section */}
             {preview ? (

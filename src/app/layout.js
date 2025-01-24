@@ -10,13 +10,14 @@ import AssignmentIcon from "@mui/icons-material/Assignment";
 import MoveIcon from "@mui/icons-material/CompareArrows";
 import WarningIcon from "@mui/icons-material/ReportProblem";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import SettingsIcon from "@mui/icons-material/Settings";
 import { SessionProvider } from "next-auth/react";
 import theme from "../../theme";
 import { RepairsProvider } from "./context/repairs.context";
 import { auth } from "../../auth";
 import { signIn, signOut } from "next-auth/react";
 
-// ✅ Updated icons for better visual clarity
+// ✅ Client-specific navigation
 const getClientNavigation = (userID) => [
     {
         segment: `dashboard/${userID}`,
@@ -38,6 +39,30 @@ const getClientNavigation = (userID) => [
         title: 'Jewelry',
         icon: <InventoryIcon />
     }
+];
+
+// ✅ Store-specific navigation
+const getStoreNavigation = (storeID) => [
+    {
+        segment: `dashboard/stores/${storeID}`,
+        title: 'Dashboard',
+        icon: <DashboardIcon />
+    },
+    {
+        segment: `dashboard/stores/${storeID}/clients`,
+        title: 'Clients',
+        icon: <PeopleIcon />
+    },
+    {
+        segment: `dashboard/stores/${storeID}/repairs`,
+        title: 'Repairs',
+        icon: <BuildIcon />,
+    },
+    {
+        segment: `dashboard/stores/${storeID}/settings`,
+        title: 'Settings',
+        icon: <SettingsIcon />
+    },
 ];
 
 const NAVIGATION = {
@@ -107,18 +132,21 @@ const AUTHENTICATION = { signIn, signOut };
 export default async function RootLayout({ children }) {
     const session = await auth();
 
-    // ✅ Logging session and user details for debugging
     console.log("Session Data:", session);
-    if (session?.user) {
-        console.log("User Role:", session.user.role);
-        console.log("User ID:", session.user.userID);
-    } else {
-        console.log("No session data or user found");
-    }
 
     const userRole = session?.user?.role || "client";
     const userID = session?.user?.userID;
-    const userNavigation = userRole === "client" ? getClientNavigation(userID) : NAVIGATION.admin;
+
+    // Select navigation based on role
+    let userNavigation;
+    if (userRole === "client") {
+        userNavigation = getClientNavigation(userID);
+    } else if (userRole === "store") {
+        userNavigation = getStoreNavigation(userID);
+    } else {
+        userNavigation = NAVIGATION.admin;
+    }
+
     return (
         <html lang="en">
             <body>
