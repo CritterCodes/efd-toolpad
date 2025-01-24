@@ -41,7 +41,7 @@ export default function NewRepairStepper({ open, onClose, onSubmit, userID = nul
     const handleBack = () => setActiveStep((prevStep) => prevStep - 1);
 
     // ✅ Close and Reset
-    const handleClose = () => {
+    const handleClose = (repairID) => {
         setFormData({ ...defaultFormData });
         setActiveStep(0);
         onClose();

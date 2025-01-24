@@ -108,6 +108,11 @@ const NAVIGATION = {
                     icon: <MoveIcon />
                 },
                 {
+                    segment: '/pick-up',
+                    title: 'Pick Up',
+                    icon: <MoveIcon />
+                },
+                {
                     segment: '/parts',
                     title: 'Parts',
                     icon: <WarningIcon />
