@@ -21,7 +21,7 @@ const RepairsPage = () => {
     useEffect(() => {
         // ✅ Open the New Repair Stepper if 'newRepair=true' is present in the URL
         if (searchParams.get('newRepair') === 'true') {
-            setOpen(true);
+            setOpen(true); 
         }
     }, [searchParams]);
 
@@ -57,6 +57,7 @@ const RepairsPage = () => {
     const handleNewRepair = (newRepair) => {
         setRepairs((prev) => [...prev, newRepair]);
         setFilteredRepairs((prevFiltered) => [...prevFiltered, newRepair]);
+        Router.push(`/dashboard/repairs/${newRepair.repairID}/print`);
     };
 
     return (

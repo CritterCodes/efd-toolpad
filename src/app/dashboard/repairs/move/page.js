@@ -1,10 +1,11 @@
 "use client";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Box, Typography, TextField, Button, List, ListItem, ListItemText, IconButton, Snackbar, Autocomplete, Breadcrumbs, Link } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { useRepairs } from "@/app/context/repairs.context";
 import RepairsService from "@/services/repairs";
 import { useRouter } from "next/navigation";
+import debounce from "lodash.debounce";
 
 const statuses = [
     "RECEIVING",
@@ -27,61 +28,58 @@ const MoveRepairsPage = () => {
     const [snackbarSeverity, setSnackbarSeverity] = useState("info");
     const router = useRouter();
 
-    // ✅ Refs for Barcode Scanner Handling
-    const locationInputRef = useRef(null);
     const repairInputRef = useRef(null);
 
-    // ✅ Log initial `repairs` data
     useEffect(() => {
         console.log("Initial Repairs Context:", repairs);
     }, [repairs]);
 
-    // ✅ Handle Location Selection (Auto-suggest)
+    // Handle location selection
     const handleLocationSelect = (event, value) => {
         console.log("Selected Location:", value);
         setLocation(value);
         setTimeout(() => repairInputRef.current.focus(), 100); // Move focus to repair input
     };
 
-    // ✅ Handle Repair Scanning
-    const handleRepairScan = (event) => {
-        const scannedRepairID = event.target.value.trim();
-        console.log("Scanned Repair ID:", scannedRepairID);
+    // Debounced handler for processing the scanned repair ID
+    const debouncedProcessRepairID = useCallback(
+        debounce((scannedRepairID) => {
+            const matchingRepair = repairs.find((r) => r.repairID === scannedRepairID.trim());
+            console.log("Processing Repair ID:", scannedRepairID, "Matching Repair:", matchingRepair);
 
-        setCurrentRepairID(scannedRepairID);
-
-        const matchingRepair = repairs.find((r) => r.repairID === scannedRepairID);
-        console.log("Matching Repair:", matchingRepair);
-
-        if (matchingRepair) {
-            if (!repairIDs.includes(matchingRepair.repairID)) {
-                setRepairIDs((prev) => [...prev, matchingRepair.repairID]);
-                console.log("Updated Repair IDs List:", [...repairIDs, matchingRepair.repairID]);
-                setSnackbarMessage(`✅ Repair ${scannedRepairID} added.`);
-                setSnackbarSeverity("success");
+            if (matchingRepair) {
+                if (!repairIDs.includes(matchingRepair.repairID)) {
+                    setRepairIDs((prev) => [...prev, matchingRepair.repairID]);
+                    console.log("Updated Repair IDs List:", [...repairIDs, matchingRepair.repairID]);
+                    setSnackbarMessage(`✅ Repair ${scannedRepairID} added.`);
+                    setSnackbarSeverity("success");
+                } else {
+                    setSnackbarMessage(`⚠️ Repair ${scannedRepairID} is already added.`);
+                    setSnackbarSeverity("warning");
+                }
             } else {
-                console.log(`Repair ID ${scannedRepairID} is already in the list.`);
-                setSnackbarMessage(`⚠️ Repair ${scannedRepairID} is already added.`);
-                setSnackbarSeverity("warning");
+                setSnackbarMessage(`❌ Repair ${scannedRepairID} not found.`);
+                setSnackbarSeverity("error");
             }
-        } else {
-            console.log(`Repair ID ${scannedRepairID} not found in repairs.`);
-            setSnackbarMessage(`❌ Repair ID ${scannedRepairID} not found.`);
-            setSnackbarSeverity("error");
-        }
 
-        setSnackbarOpen(true);
-        setCurrentRepairID("");
-        setTimeout(() => repairInputRef.current.focus(), 100); // Keep cursor in the repair input
+            setSnackbarOpen(true);
+            setCurrentRepairID(""); // Clear input field
+        }, 300), // Adjust debounce delay as necessary
+        [repairs, repairIDs]
+    );
+
+    // Handle repair scanning
+    const handleRepairScan = (event) => {
+        const scannedValue = event.target.value;
+        setCurrentRepairID(scannedValue); // Show the scanned value in the input field
+        debouncedProcessRepairID(scannedValue); // Process with debounce
     };
 
-    // ✅ Remove Repair from the List
     const handleRemoveRepair = (repairID) => {
         console.log("Removing Repair ID:", repairID);
         setRepairIDs(repairIDs.filter((id) => id !== repairID));
     };
 
-    // ✅ Move Repairs to New Location and Update Database
     const handleMoveRepairs = async () => {
         console.log("Initiating Move Repairs Process...");
         console.log("Location:", location);
@@ -102,7 +100,6 @@ const MoveRepairsPage = () => {
         }
 
         try {
-            // Create payload
             const payload = repairIDs.map((repairID) => ({
                 repairID,
                 status: location,
@@ -111,11 +108,9 @@ const MoveRepairsPage = () => {
 
             console.log("Payload for Move Repairs:", payload);
 
-            // Send API request
             const response = await RepairsService.moveRepairStatus(payload);
             console.log("API Response:", response);
 
-            // Update local state
             setRepairs((prevRepairs) =>
                 prevRepairs.map((repair) =>
                     repairIDs.includes(repair.repairID)
@@ -142,7 +137,7 @@ const MoveRepairsPage = () => {
 
     return (
         <Box sx={{ padding: "20px" }}>
-            {/* ✅ Breadcrumbs for Navigation */}
+            {/* Breadcrumbs */}
             <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
                 <Link
                     underline="hover"
@@ -167,7 +162,7 @@ const MoveRepairsPage = () => {
                 Move Repairs
             </Typography>
 
-            {/* ✅ Auto-suggest for Location with AutoComplete */}
+            {/* Auto-suggest for Location */}
             <Autocomplete
                 options={statuses}
                 value={location}
@@ -175,7 +170,7 @@ const MoveRepairsPage = () => {
                 renderInput={(params) => (
                     <TextField
                         {...params}
-                        inputRef={locationInputRef}
+                        inputRef={repairInputRef}
                         label="Scan or Select Location"
                         fullWidth
                         sx={{ mb: 3 }}
@@ -183,7 +178,7 @@ const MoveRepairsPage = () => {
                 )}
             />
 
-            {/* ✅ Repair Input with Barcode Scanner */}
+            {/* Repair Input */}
             <TextField
                 inputRef={repairInputRef}
                 fullWidth
@@ -193,7 +188,7 @@ const MoveRepairsPage = () => {
                 sx={{ mb: 3 }}
             />
 
-            {/* ✅ List of Scanned Repairs */}
+            {/* List of Scanned Repairs */}
             <List>
                 {repairIDs.map((repairID, index) => (
                     <ListItem
@@ -209,7 +204,7 @@ const MoveRepairsPage = () => {
                 ))}
             </List>
 
-            {/* ✅ Move Button */}
+            {/* Move Button */}
             <Button
                 variant="contained"
                 color="success"
@@ -220,7 +215,7 @@ const MoveRepairsPage = () => {
                 Move Repairs to {location || "Selected Location"}
             </Button>
 
-            {/* ✅ Snackbar Notifications */}
+            {/* Snackbar Notifications */}
             <Snackbar
                 open={snackbarOpen}
                 autoHideDuration={5000}
