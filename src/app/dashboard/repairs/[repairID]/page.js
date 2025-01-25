@@ -90,6 +90,31 @@ const ViewRepairPage = ({ params }) => {
         setSnackbarOpen(true);
     };
 
+    const handleDeleteRepair = async () => {
+        try {
+            if (!repairID) {
+                setSnackbarMessage("❌ Repair ID is missing.");
+                setSnackbarSeverity('error');
+                setSnackbarOpen(true);
+                return;
+            }
+
+            setLoading(true);
+            await RepairsService.deleteRepair(repairID);
+            setRepairs(prev => prev.filter(r => r.repairID !== repairID));
+            setSnackbarMessage("✅ Repair deleted successfully!");
+            setSnackbarSeverity('success');
+            setSnackbarOpen(true);
+            router.push('/dashboard/repairs');
+        } catch (error) {
+            setSnackbarMessage(`❌ Error deleting repair: ${error.message}`);
+            setSnackbarSeverity('error');
+            setSnackbarOpen(true);
+        } finally {
+            setLoading(false);
+        }
+    };
+
 
     const handleSaveChanges = async () => {
         try {

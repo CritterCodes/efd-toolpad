@@ -33,6 +33,7 @@ export default function NewRepairStepper({ open, onClose, onSubmit, userID = nul
     const [formData, setFormData] = React.useState({ ...defaultFormData });
     const [loading, setLoading] = React.useState(false);
     const [isWholesale, setIsWholesale] = React.useState(false);
+    const router = useRouter();
 
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
