@@ -13,7 +13,6 @@ import CaptureImageStep from './newRepairSteps/captureImageStep.component';
 import { useTheme } from '@mui/material/styles';
 import RepairsService from '@/services/repairs';
 import TasksStep from './newRepairSteps/tasks';
-import { useRouter } from 'next/router';
 
 const steps = ['Select Client', 'Repair Details', 'Capture Image', 'Review & Submit'];
 
@@ -34,7 +33,6 @@ export default function NewRepairStepper({ open, onClose, onSubmit, userID = nul
     const [formData, setFormData] = React.useState({ ...defaultFormData });
     const [loading, setLoading] = React.useState(false);
     const [isWholesale, setIsWholesale] = React.useState(false);
-    const router = useRouter();
 
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));

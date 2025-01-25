@@ -6,6 +6,7 @@ import NewRepairStepper from '@/app/components/repairs/newRepairStepper.componen
 import { useRepairs } from '@/app/context/repairs.context';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/router';
 
 const RepairsPage = () => {
     const { repairs, setRepairs, loading } = useRepairs();
@@ -17,6 +18,7 @@ const RepairsPage = () => {
     const [page, setPage] = useState(1); // Keep page state here
     const rowsPerPage = 6;
     const searchParams = useSearchParams(); // ✅ Using searchParams to access the query
+    const Router = useRouter();
 
     useEffect(() => {
         // ✅ Open the New Repair Stepper if 'newRepair=true' is present in the URL
