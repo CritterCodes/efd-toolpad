@@ -57,19 +57,19 @@ const providers = [
 
                 // ✅ Return existing user data
                 const user = existingUser.user;
-                return role === "client" ? {
-                        userID: user.user.userID,
-                        name: `${user.user.firstName} ${user.user.lastName}`,
-                        email: user.user.email,
-                        role: user.user.role,
+                return user.role === "client" ? {
+                        userID: user.userID,
+                        name: `${user.firstName} ${user.user.lastName}`,
+                        email: user.email,
+                        role: user.role,
                         image: profile.picture
                     } : 
                     {
-                        userID: user.user.userID,
-                        storeID: user.user.storeID,
-                        name: `${user.user.firstName} ${user.user.lastName}`,
-                        email: user.user.email,
-                        role: user.user.role,
+                        userID: user.userID,
+                        storeID: user.storeID,
+                        name: `${user.firstName} ${user.lastName}`,
+                        email: user.email,
+                        role: user.role,
                         image: profile.picture
                     };
 

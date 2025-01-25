@@ -27,38 +27,45 @@ const MoveRepairsPage = () => {
     const [snackbarSeverity, setSnackbarSeverity] = useState("info");
     const router = useRouter();
 
-    const repairInputRef = useRef(null);
-
     useEffect(() => {
-        console.log("Initial Repairs Context:", repairs);
+        console.log("Repairs in context:", repairs);
     }, [repairs]);
 
     const handleLocationSelect = (event, value) => {
         console.log("Selected Location:", value);
         setLocation(value);
-        setTimeout(() => repairInputRef.current.focus(), 100); // Move focus to repair input
     };
 
-    // Automatically add repair if there's a complete match
-    const handleRepairInput = (event) => {
-        const input = event.target.value.trim();
-        setCurrentRepairID(input);
+    const handleRepairInputChange = (event) => {
+        setCurrentRepairID(event.target.value.trim());
+    };
 
-        // Check for a complete match
-        const matchingRepair = repairs.find((repair) => repair.repairID === input);
+    const handleRepairSubmit = () => {
+        const matchingRepair = repairs.find((r) => r.repairID === currentRepairID.toLowerCase());
+        console.log("Scanned Repair ID:", currentRepairID);
+        console.log("Matching Repair:", matchingRepair);
 
         if (matchingRepair) {
             if (!repairIDs.includes(matchingRepair.repairID)) {
                 setRepairIDs((prev) => [...prev, matchingRepair.repairID]);
-                setSnackbarMessage(`✅ Repair ${input} added.`);
+                setSnackbarMessage(`✅ Repair ${currentRepairID} added.`);
                 setSnackbarSeverity("success");
             } else {
-                setSnackbarMessage(`⚠️ Repair ${input} is already added.`);
+                setSnackbarMessage(`⚠️ Repair ${currentRepairID} is already added.`);
                 setSnackbarSeverity("warning");
             }
+        } else {
+            setSnackbarMessage(`❌ Repair ${currentRepairID} not found.`);
+            setSnackbarSeverity("error");
+        }
 
-            setSnackbarOpen(true);
-            setCurrentRepairID(""); // Clear input for the next repair
+        setSnackbarOpen(true);
+        setCurrentRepairID("");
+    };
+
+    const handleKeyPress = (event) => {
+        if (event.key === "Enter") {
+            handleRepairSubmit();
         }
     };
 
@@ -73,7 +80,7 @@ const MoveRepairsPage = () => {
         console.log("Repair IDs to Move:", repairIDs);
 
         if (!location) {
-            setSnackbarMessage("❌ Please scan a location.");
+            setSnackbarMessage("❌ Please select a location.");
             setSnackbarSeverity("error");
             setSnackbarOpen(true);
             return;
@@ -124,6 +131,7 @@ const MoveRepairsPage = () => {
 
     return (
         <Box sx={{ padding: "20px" }}>
+            {/* Breadcrumbs */}
             <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
                 <Link
                     underline="hover"
@@ -148,30 +156,27 @@ const MoveRepairsPage = () => {
                 Move Repairs
             </Typography>
 
+            {/* Auto-suggest for Location */}
             <Autocomplete
                 options={statuses}
                 value={location}
                 onChange={handleLocationSelect}
                 renderInput={(params) => (
-                    <TextField
-                        {...params}
-                        inputRef={repairInputRef}
-                        label="Scan or Select Location"
-                        fullWidth
-                        sx={{ mb: 3 }}
-                    />
+                    <TextField {...params} label="Scan or Select Location" fullWidth sx={{ mb: 3 }} />
                 )}
             />
 
+            {/* Repair Input */}
             <TextField
-                inputRef={repairInputRef}
                 fullWidth
-                label="Scan or Type Repair ID"
+                label="Scan or Enter Repair ID"
                 value={currentRepairID}
-                onChange={handleRepairInput}
+                onChange={handleRepairInputChange}
+                onKeyPress={handleKeyPress}
                 sx={{ mb: 3 }}
             />
 
+            {/* List of Scanned Repairs */}
             <List>
                 {repairIDs.map((repairID, index) => (
                     <ListItem
@@ -187,6 +192,7 @@ const MoveRepairsPage = () => {
                 ))}
             </List>
 
+            {/* Move Button */}
             <Button
                 variant="contained"
                 color="success"
@@ -197,6 +203,7 @@ const MoveRepairsPage = () => {
                 Move Repairs to {location || "Selected Location"}
             </Button>
 
+            {/* Snackbar Notifications */}
             <Snackbar
                 open={snackbarOpen}
                 autoHideDuration={5000}
