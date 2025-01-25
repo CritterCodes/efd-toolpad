@@ -13,6 +13,7 @@ import CaptureImageStep from './newRepairSteps/captureImageStep.component';
 import { useTheme } from '@mui/material/styles';
 import RepairsService from '@/services/repairs';
 import TasksStep from './newRepairSteps/tasks';
+import { useRouter } from 'next/router';
 
 const steps = ['Select Client', 'Repair Details', 'Capture Image', 'Review & Submit'];
 
