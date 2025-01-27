@@ -6,7 +6,7 @@ import NewRepairStepper from '@/app/components/repairs/newRepairStepper.componen
 import { useRepairs } from '@/app/context/repairs.context';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useSearchParams } from 'next/navigation';
-import { useRouter } from 'next/router';
+import { useRouter } from 'next/navigation'; 
 
 const RepairsPage = () => {
     const { repairs, setRepairs, loading } = useRepairs();
