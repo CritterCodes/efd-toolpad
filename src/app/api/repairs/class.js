@@ -11,7 +11,7 @@ export default class Repair {
         this.promiseDate = repairData.promiseDate;
         this.metalType = repairData.metalType;
         this.repairTasks = repairData.repairTasks;
-        this.cost = repairData.cost;
+        this.totalCost = repairData.totalCost;
         this.picture = repairData.picture;
         this.notes = "";
         this.parts = [];

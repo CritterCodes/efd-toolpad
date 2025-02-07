@@ -76,7 +76,7 @@ export default function NewRepairStepper({ open, onClose, onSubmit, userID = nul
             }));
     
             formDataToSend.append('repairTasks', JSON.stringify(discountedRepairTasks));
-    
+            
             const totalCost = discountedRepairTasks.reduce(
                 (acc, task) => acc + (parseFloat(task.price || 0) * (task.quantity || 1)),
                 0
