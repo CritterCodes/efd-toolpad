@@ -9,7 +9,7 @@ const dotenv = require('dotenv');
 const { MongoClient } = require('mongodb');
 
 // Load environment variables
-dotenv.config({ path: '.env.local' });
+dotenv.config({ path: '../.env.local' });
 
 const SHOPIFY_STORE_URL = process.env.SHOPIFY_STORE_URL;
 const SHOPIFY_ACCESS_TOKEN = process.env.SHOPIFY_ACCESS_TOKEN;

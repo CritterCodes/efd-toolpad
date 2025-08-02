@@ -1,14 +1,15 @@
 # Repair Tasks Management System - Migration Roadmap
 
 ## 🎯 **Project Overview**
-Migrate repair task management from Shopify products to internal database system, enabling better control, customization, and workflow integration while maintaining Shopify order creation capabilities.
+**Internal Admin CRM System** - Migrate repair task management from Shopify products to internal database system for admin-only use. This is an internal CRM for business operations, pricing management, and repair workflow - no client or wholesaler access.
 
 ## 📋 **Migration Strategy**
-- **Phase 1**: Redesign repair task data structure
-- **Phase 2**: Build repair tasks management system
-- **Phase 3**: Integrate with repair ticket creation
-- **Phase 4**: Shopify order creation from repair tickets
-- **Phase 5**: Deprecate Shopify repair task products
+- **Phase 1**: Redesign repair task data structure ✅ **COMPLETED**
+- **Phase 2**: Admin settings & pricing system ✅ **COMPLETED** 
+- **Phase 3**: Admin interface & settings management ✅ **COMPLETED**
+- **Phase 4**: Repair task management interface (admin-only)
+- **Phase 5**: Internal repair ticket system integration
+- **Phase 6**: Shopify order creation for fulfillment
 
 ---
 
@@ -40,7 +41,7 @@ Migrate repair task management from Shopify products to internal database system
   // Core Pricing Components (Business Formula)
   laborHours: 0.75,              // Time required in hours
   materialCost: 12.50,           // Raw material cost in dollars
-  basePrice: null,               // Calculated: ((laborHours × wage) + (materialCost × 1.5)) × ((adminFee + businessFee) + 1)
+  basePrice: null,               // Calculated: ((laborHours × wage) + (materialCost × 1.5)) × ((adminFee + businessFee + consumablesFee) + 1)
   
   // Service Details
   service: {
@@ -102,6 +103,7 @@ Migrate repair task management from Shopify products to internal database system
     wage: 35.00,                 // Hourly wage in dollars
     administrativeFee: 0.15,     // 15% administrative fee
     businessFee: 0.10,           // 10% cost of business fee
+    consumablesFee: 0.05,        // 5% consumables fee (tools, equipment wear)
     lastUpdated: Date,
     updatedBy: "admin"
   },
@@ -126,7 +128,10 @@ Migrate repair task management from Shopify products to internal database system
 ```
 
 ### **Price Calculation Formula:**
-`((laborHours × wage) + (materialCost × 1.5)) × ((administrativeFee + businessFee) + 1)`
+**Business Pricing Formula:**
+`((laborHours × wage) + (materialCost × 1.5)) × ((administrativeFee + businessFee + consumablesFee) + 1)`
+
+**Note:** Fee values in the formula are decimals (e.g., 0.15 for 15%), even though the admin UI displays them as percentages for user-friendly input.
 
 ### **Migration Script Enhancements:**
 - Data transformation from current structure to v2.0 schema
@@ -137,138 +142,114 @@ Migrate repair task management from Shopify products to internal database system
 
 ---
 
-## 🛠️ **Phase 2: Repair Tasks Management System + Admin Settings**
+## **Phase 2: Admin Settings & Order Integration** 
+*Estimated: 6 hours*
 
-### **2.1 Database Layer**
-- Enhanced RepairTaskService with full CRUD operations
-- Dynamic pricing calculation engine
-- Admin settings management with security
-- Category and metal type management
-- Bulk operations and import/export
+### **2.1 Admin Settings Initialization** (2h)
+- ✅ ConsumablesFee configuration and security (8% fee implemented)
+- ✅ Business parameter setup ($45/hr wage, 48% total fees)
+- ✅ Access control with time-based 4-digit security PINs
 
-### **2.2 Admin Settings System**
-- **Pricing Settings Management**
-  - Wage configuration
-  - Administrative fee settings (percentage)
-  - Business fee settings (percentage)
-  - Security code protection for pricing changes
-  
-- **Security Implementation**
-  - Encrypted security code storage
-  - Time-based code expiration (1 hour default)
-  - Audit logging for pricing changes
-  - Role-based access to pricing settings
+### **2.2 Price Calculation Engine** (3h)  
+- ✅ Apply v2.0 formula to all migrated tasks
+- ✅ Generate pricing analytics (avg -8.4% price change)
+- ✅ Validate calculated vs. original pricing
 
-- **Business Rules Engine**
-  - Min/max labor hours validation
-  - Material cost limits
-  - Rush job multiplier settings
-  - Bulk discount thresholds
-
-### **2.3 API Layer**
-```
-GET    /api/repair-tasks                    # List with advanced filtering
-POST   /api/repair-tasks                    # Create new task
-GET    /api/repair-tasks/:id                # Get single task
-PUT    /api/repair-tasks/:id                # Update task
-DELETE /api/repair-tasks/:id                # Soft delete task
-GET    /api/repair-tasks/categories         # Get categories and metal types
-POST   /api/repair-tasks/bulk-update        # Bulk operations
-GET    /api/repair-tasks/calculate-price    # Calculate price with current settings
-
-# NEW: Admin Settings APIs
-GET    /api/admin/settings                  # Get admin settings (excluding sensitive data)
-PUT    /api/admin/settings/pricing          # Update pricing settings (requires security code)
-POST   /api/admin/settings/verify-code     # Verify security code for pricing access
-PUT    /api/admin/settings/security-code   # Change security code
-GET    /api/admin/settings/audit-log       # Get pricing change history
-```
-
-### **2.4 Admin UI Components**
-- **RepairTasksList**: Main management interface with pricing preview
-- **RepairTaskForm**: Create/edit with real-time price calculation
-- **RepairTaskFilters**: Filter by category, metal type, price range
-- **PricingCalculator**: Live pricing tool with breakdown
-- **CategoryManager**: Manage categories, metal types, constraints
-- **BulkActions**: Import/export with pricing updates
-
-### **NEW: Admin Settings Components**
-- **PricingSettingsPanel**: Manage wage, fees, business rules
-- **SecurityCodeModal**: Security code verification for pricing changes
-- **PricingAuditLog**: History of pricing changes with timestamps
-- **BusinessRulesEditor**: Configure min/max limits and rules
-- **PricingPreview**: Show price impact of settings changes
-
-### **2.5 Enhanced Features**
-- **Dynamic Pricing Engine**: Real-time price calculation using business formula
-- **Metal Type Integration**: Conditional metal type requirements
-- **Security Protection**: Secured pricing settings with audit trail
-- **Price Impact Analysis**: Show how settings changes affect existing tasks
-- **Bulk Pricing Updates**: Recalculate all task prices when settings change
-- **Usage Analytics**: Track which tasks are most profitable
+### **2.3 Shopify Order Integration** (1h) **[UPDATED APPROACH]**
+- 🔄 **NEW STRATEGY:** Custom line item orders instead of products
+- ✅ Dynamic order creation with repair task line items
+- ✅ Real-time pricing with rush fees and modifications
+- ✅ Clean Shopify catalog (no product clutter)
+- ✅ Detailed line item properties and descriptions
 
 ---
 
-## 🎫 **Phase 3: Repair Ticket Integration**
+## 🎫 **Phase 3: Admin Interface & Settings Management**
+**Status: COMPLETED** ✅  
+**Completion Date: January 14, 2025**
 
-### **3.1 Enhanced Repair Ticket Schema**
-```javascript
-{
-  // ... existing ticket fields ...
-  
-  // New repair tasks integration
-  repairTasks: [
-    {
-      taskId: ObjectId,              // Reference to repair task
-      sku: "RT-SIZING-001",
-      title: "Ring Sizing",
-      quantity: 1,
-      pricing: {
-        basePrice: 45.00,
-        materialCost: 0,
-        laborHours: 0.5,
-        rushUpcharge: 0,
-        totalPrice: 45.00
-      },
-      specifications: {
-        currentSize: "6",
-        targetSize: "7",
-        notes: "Customer prefers slightly loose fit"
-      },
-      status: "pending",             // pending, approved, in_progress, completed
-      assignedTo: "workshop_team",
-      estimatedCompletion: Date,
-      actualCompletion: Date
-    }
-  ],
-  
-  // Calculated totals
-  totals: {
-    subtotal: 45.00,
-    rushCharges: 0,
-    materialCosts: 0,
-    laborHours: 0.5,
-    total: 45.00
-  }
-}
-```
+### **3.1 Admin Settings UI** (4h) - COMPLETED ✅
+- **SecureSettingsPanel**: Protected admin interface for fee management
+- **SecurityPINModal**: Time-based 4-digit PIN entry
+- **PricingPreview**: Live preview of price changes before saving
+- **FeeConfigurationForm**: Wage, administrative, business, and consumables fee inputs
 
-### **3.2 Ticket Creation Flow**
-1. **Task Selection**: Browse/search repair tasks
-2. **Configuration**: Set specifications and options
-3. **Pricing Preview**: Real-time price calculation
-4. **Customer Approval**: Present quote for approval
-5. **Ticket Creation**: Generate ticket with selected tasks
+### **3.2 Settings Security System** (2h) - COMPLETED ✅
+- **SecurityPINGeneration**: 4-digit time-based PINs with expiration
+- **AccessControlMiddleware**: API protection for settings endpoints
+- **AuditTrail**: Log all pricing changes with timestamps and user info
+- **SessionManagement**: Secure settings access with timeout
 
-### **3.3 UI Components**
-- **RepairTaskSelector**: Task browsing and selection
-- **TaskConfigurator**: Configure selected tasks
-- **PricingPreview**: Live pricing calculations
-- **TicketBuilder**: Drag-and-drop ticket construction
+### **3.3 Price Recalculation Engine** (2h) - COMPLETED ✅
+- **AutoRecalculation**: Update all repair task prices when settings change
+- **BatchPriceUpdate**: Efficient bulk price updates with progress tracking
+- **ValidationSystem**: Ensure price changes are reasonable and valid
+- **ChangeComparison**: Before/after price analysis and reporting
+
+### **3.4 API Endpoints** (2h) - COMPLETED ✅
+- `GET /api/admin/settings` - Fetch current settings (authenticated)
+- `POST /api/admin/settings/verify-code` - Verify security PIN
+- `PUT /api/admin/settings` - Update settings and recalculate prices
+- `GET /api/admin/settings/pricing-impact` - Preview price changes
+
+### **3.5 Admin-Only CRM Dashboard** (1h) - COMPLETED ✅
+- **Simplified Navigation**: Single navigation for all authenticated admin users
+- **Clean Interface**: Professional admin CRM dashboard
+- **System Status**: Real-time monitoring of database and system health
+- **Quick Actions**: Direct access to all major admin functions
+
+**Phase 3 Total: 11 hours** ✅ **[Enhanced with CRM simplification]**
 
 ---
 
-## 🛒 **Phase 4: Shopify Order Creation**
+## 🛠️ **Phase 4: Repair Task Management Interface** 
+**Status: PENDING** ⏸️  
+**Estimated: 8 hours**
+
+### **4.1 Task Browse & Search** (3h)
+- **RepairTaskTable**: Sortable, filterable task listing for admin use
+- **CategoryFilter**: Filter by category, metal type, price range
+- **SearchBar**: Full-text search across titles and descriptions
+- **TaskDetails**: Expandable detail view with pricing breakdown
+
+### **4.2 Task Management Operations** (4h)
+- **TaskEditor**: Edit labor hours, material costs, descriptions
+- **BulkOperations**: Bulk price updates and category changes
+- **TaskActivation**: Enable/disable tasks
+- **TaskDuplication**: Clone existing tasks for variations
+
+### **4.3 Category & Metal Management** (1h)
+- **CategoryManager**: Add/edit/delete categories
+- **MetalTypeManager**: Manage metal types and requirements
+- **DefaultsManager**: Set category-specific defaults
+
+---
+
+## 📋 **Phase 5: Internal Repair Ticket System**
+**Status: PENDING** ⏸️  
+**Estimated: 10 hours** 
+
+### **5.1 Ticket Creation Interface** (4h)
+- **ClientSelector**: Choose existing clients from database
+- **TaskSelector**: Browse and add repair tasks to ticket
+- **SpecificationCapture**: Custom requirements and notes
+- **PricingCalculator**: Real-time pricing with rush fees
+
+### **5.2 Ticket Management** (4h)
+- **TicketWorkflow**: Status tracking (quote → approved → in-progress → complete)
+- **PrintableQuotes**: Professional quotes for client approval
+- **PhotoUpload**: Before/after photos and documentation
+- **StatusUpdates**: Internal notes and progress tracking
+
+### **5.3 Client Communication** (2h)
+- **EmailNotifications**: Automated status updates
+- **SMS Integration**: Quick updates for pickup notifications
+- **ApprovalSystem**: Digital quote approval workflow
+
+---
+
+## 🛒 **Phase 4: Shopify Order Integration** 
+*[Moved to later phase]*
 
 ### **4.1 Order Generation Logic**
 ```javascript
