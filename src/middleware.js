@@ -1,12 +1,26 @@
 import { auth } from "../auth";
 import { NextResponse } from "next/server";
 
-// List of public routes that can be accessed without authentication
-const publicRoutes = ["/", "/auth/signin", "/auth/register"];
+// List of public routes that can be accessed without authentication  
+const publicRoutes = ["/auth/signin"];
 
 export default async function middleware(req) {
     const session = await auth();
     const { pathname } = req.nextUrl;
+
+    // ✅ Redirect root path to sign-in for internal app
+    if (pathname === "/") {
+        if (session) {
+            return NextResponse.redirect(new URL("/dashboard", req.url));
+        } else {
+            return NextResponse.redirect(new URL("/auth/signin", req.url));
+        }
+    }
+
+    // ✅ Redirect register page to sign-in (internal app only)
+    if (pathname === "/auth/register") {
+        return NextResponse.redirect(new URL("/auth/signin", req.url));
+    }
 
     // ✅ Allow public routes to be accessed without authentication
     if (publicRoutes.includes(pathname)) {
@@ -22,7 +36,7 @@ export default async function middleware(req) {
     return NextResponse.next();
 }
 
-// ✅ Apply middleware only to protected routes
+// ✅ Apply middleware to all routes except public ones
 export const config = {
-    matcher: ["/dashboard/:path*"],
+    matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };

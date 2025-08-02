@@ -11,11 +11,13 @@ import MoveIcon from "@mui/icons-material/CompareArrows";
 import WarningIcon from "@mui/icons-material/ReportProblem";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import SettingsIcon from "@mui/icons-material/Settings";
+import ReceiptIcon from "@mui/icons-material/Receipt";
 import { SessionProvider } from "next-auth/react";
 import theme from "../../theme";
 import { RepairsProvider } from "./context/repairs.context";
 import { auth } from "../../auth";
 import { signIn, signOut } from "next-auth/react";
+import Image from 'next/image';
 
 // ✅ Client-specific navigation
 const getClientNavigation = (userID) => [
@@ -88,6 +90,11 @@ const NAVIGATION = {
             icon: <PeopleIcon />
         },
         {
+            segment: 'dashboard/custom-tickets',
+            title: 'Custom Tickets',
+            icon: <ReceiptIcon />
+        },
+        {
             segment: 'dashboard/inventory',
             title: 'Inventory',
             icon: <InventoryIcon />
@@ -128,7 +135,7 @@ const NAVIGATION = {
 };
 
 const BRANDING = {
-    logo: <img src='/logos/[efd]LogoBlack.png' alt="[efd] Logo" style={{ maxWidth: '150px', height: 'auto' }} />,
+    logo: <Image src='/logos/[efd]LogoBlack.png' alt="[efd] Logo" width={150} height={75} />,
     title: '',
 };
 

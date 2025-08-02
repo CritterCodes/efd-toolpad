@@ -21,7 +21,7 @@ const PartsPage = () => {
     const [snackbarSeverity, setSnackbarSeverity] = useState('info');
     const [saveSnackbarOpen, setSaveSnackbarOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [menuAnchor, setMenuAnchor] = useState(null);
+    const [menuAnchor, uisetMenuAnchor] = useState(null);
     const [selectedRepairID, setSelectedRepairID] = useState('');
     const [selectedPart, setSelectedPart] = useState(null);
     const [addPartModalOpen, setAddPartModalOpen] = useState(false);

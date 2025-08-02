@@ -11,6 +11,8 @@ const providers = [
         authorization: {
             params: {
                 scope: "https://www.googleapis.com/auth/calendar.readonly email profile",
+                access_type: "offline",
+                prompt: "consent",
             },
         },
         async profile(profile) {
@@ -135,7 +137,7 @@ export const providerMap = providers.map((provider) => {
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
     providers,
-    secret: process.env.AUTH_SECRET,
+    secret: process.env.NEXTAUTH_SECRET,
     pages: {
         signIn: '/auth/signin',
     },
@@ -145,20 +147,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             if (account) {
                 token.accessToken = account.access_token;
                 token.refreshToken = account.refresh_token; // Store refresh token for later use
-                token.accessTokenExpires = Date.now() + account.expires_in * 1000; // Calculate expiry time
+                token.accessTokenExpires = Date.now() + (account.expires_in || 3600) * 1000; // Calculate expiry time
                 token.userID = user.userID;
                 user.role === 'store' ? token.storeID = user.storeID : token.storeID = '';
                 token.name = user.name;
                 token.role = user.role;
                 token.image = user.image;
+                console.log("JWT callback - New token created");
+                return token;
             }
     
-            // Return the token if the access token is still valid
-            if (Date.now() < token.accessTokenExpires) {
+            // If there's an error from a previous refresh attempt, just return the token
+            if (token.error === "RefreshAccessTokenError") {
+                console.log("JWT callback - Previous refresh error, returning token as-is");
+                return token;
+            }
+
+            // Return the token if the access token is still valid (with buffer)
+            if (token.accessTokenExpires && Date.now() < token.accessTokenExpires - 60000) { // 1 minute buffer
                 return token;
             }
     
             // Refresh the token if it has expired
+            console.log("JWT callback - Token expired, attempting refresh");
             return await refreshAccessToken(token);
         },
     
@@ -180,6 +191,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
 async function refreshAccessToken(token) {
     try {
+        console.log("Attempting to refresh access token...");
+        
+        if (!token.refreshToken) {
+            console.error("No refresh token available");
+            return {
+                ...token,
+                error: "RefreshAccessTokenError",
+            };
+        }
+
         const url = "https://oauth2.googleapis.com/token";
         const response = await fetch(url, {
             method: "POST",
@@ -195,9 +216,11 @@ async function refreshAccessToken(token) {
         const refreshedTokens = await response.json();
 
         if (!response.ok) {
+            console.error("Error refreshing access token - Response not ok:", refreshedTokens);
             throw refreshedTokens;
         }
 
+        console.log("Access token refreshed successfully");
         return {
             ...token,
             accessToken: refreshedTokens.access_token,
