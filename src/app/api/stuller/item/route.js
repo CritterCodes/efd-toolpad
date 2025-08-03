@@ -35,14 +35,16 @@ export async function POST(request) {
     }
 
     const { username, password, apiUrl } = adminSettings.stuller;
-    
+
     if (!username || !password) {
+      console.log('Missing Stuller credentials:', { 
+        hasUsername: !!username, 
+        hasPassword: !!password 
+      });
       return NextResponse.json({ 
         error: 'Stuller credentials not configured' 
       }, { status: 500 });
-    }
-
-    // Decrypt password if encrypted
+    }    // Decrypt password if encrypted
     let decryptedPassword = password;
     if (isDataEncrypted(password)) {
       try {
@@ -57,7 +59,15 @@ export async function POST(request) {
 
     // Fetch from Stuller API using Basic Auth
     const stullerApiUrl = apiUrl || 'https://api.stuller.com';
-    const response = await fetch(`${stullerApiUrl}/api/products/${itemNumber}`, {
+    const requestUrl = `${stullerApiUrl}/api/products/${itemNumber}`;
+    
+    console.log('Making Stuller API request:', {
+      url: requestUrl,
+      method: 'GET',
+      hasCredentials: !!username && !!decryptedPassword
+    });
+
+    const response = await fetch(requestUrl, {
       method: 'GET',
       headers: {
         'Authorization': `Basic ${Buffer.from(`${username}:${decryptedPassword}`).toString('base64')}`,
@@ -67,13 +77,23 @@ export async function POST(request) {
       }
     });
 
+    console.log('Stuller API response status:', response.status);
+
     if (!response.ok) {
+      const errorText = await response.text();
+      console.log('Stuller API error response:', errorText);
+      
       if (response.status === 404) {
         return NextResponse.json({ 
           error: 'Item not found in Stuller catalog' 
         }, { status: 404 });
       }
-      throw new Error(`Stuller API error: ${response.status}`);
+      if (response.status === 401) {
+        return NextResponse.json({ 
+          error: 'Invalid Stuller credentials' 
+        }, { status: 401 });
+      }
+      throw new Error(`Stuller API error: ${response.status} - ${errorText}`);
     }
 
     const stullerData = await response.json();

@@ -34,7 +34,7 @@ export function encryptSensitiveData(plaintext) {
     try {
         const key = getEncryptionKey();
         const iv = crypto.randomBytes(IV_LENGTH);
-        const cipher = crypto.createCipher(ALGORITHM, key);
+        const cipher = crypto.createCipherGCM(ALGORITHM, key, iv);
         cipher.setAAD(Buffer.from('admin-sensitive-data', 'utf8'));
         
         let encrypted = cipher.update(plaintext, 'utf8');
@@ -69,7 +69,7 @@ export function decryptSensitiveData(encryptedData) {
         const tag = combined.subarray(IV_LENGTH, IV_LENGTH + TAG_LENGTH);
         const encrypted = combined.subarray(IV_LENGTH + TAG_LENGTH);
         
-        const decipher = crypto.createDecipher(ALGORITHM, key);
+        const decipher = crypto.createDecipherGCM(ALGORITHM, key, iv);
         decipher.setAAD(Buffer.from('admin-sensitive-data', 'utf8'));
         decipher.setAuthTag(tag);
         
