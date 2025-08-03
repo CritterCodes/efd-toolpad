@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { auth } from '../../../../../auth';
 import { db } from '@/lib/database';
+import { 
+  hashSecurityCode, 
+  verifySecurityCode, 
+  createAuditLogEntry,
+  maskSensitiveData 
+} from '@/utils/encryption';
 
 /**
  * GET /api/admin/settings
@@ -32,6 +38,13 @@ export async function GET(request) {
       security: {
         requiresCode: settings.security?.requiresCodeForPricing || true,
         codeExpired: settings.security?.expiresAt ? new Date() > new Date(settings.security.expiresAt) : true
+      },
+      stuller: {
+        enabled: settings.stuller?.enabled || false,
+        username: settings.stuller?.username ? '***' : '',
+        hasPassword: !!settings.stuller?.password,
+        apiUrl: settings.stuller?.apiUrl || 'https://api.stuller.com',
+        updateFrequency: settings.stuller?.updateFrequency || 'daily'
       }
     };
 
@@ -74,20 +87,36 @@ export async function PUT(request) {
     }
 
     // Check if code matches and hasn't expired
-    const isCodeValid = adminSettings.security?.securityCode === securityCode;
+    const storedCodeHash = adminSettings.security?.securityCode;
+    const isCodeValid = storedCodeHash ? verifySecurityCode(securityCode, storedCodeHash) : false;
     const isCodeExpired = adminSettings.security?.expiresAt ? 
       new Date() > new Date(adminSettings.security.expiresAt) : true;
 
     if (!isCodeValid || isCodeExpired) {
+      // Log failed attempt
+      const auditEntry = createAuditLogEntry(
+        'security_code_verification_failed',
+        'admin_settings_access',
+        session.user.email
+      );
+      auditEntry.ip = request.headers.get('x-forwarded-for') || 'unknown';
+      auditEntry.success = false;
+      
+      await db._instance.collection('adminSettingsAudit').insertOne(auditEntry);
+      
       return NextResponse.json({ error: 'Invalid or expired security code' }, { status: 403 });
     }
 
     // Validate pricing inputs
     if (pricing) {
-      const { wage, administrativeFee, businessFee, consumablesFee } = pricing;
+      const { wage, materialMarkup, administrativeFee, businessFee, consumablesFee } = pricing;
       
       if (wage < 0 || wage > 200) {
         return NextResponse.json({ error: 'Invalid wage amount' }, { status: 400 });
+      }
+      
+      if (materialMarkup && (materialMarkup < 1 || materialMarkup > 5)) {
+        return NextResponse.json({ error: 'Material markup must be between 1.0 and 5.0' }, { status: 400 });
       }
       
       if (administrativeFee < 0 || administrativeFee > 1) {
@@ -166,7 +195,7 @@ async function recalculateAllPrices(dbInstance, pricingSettings) {
       try {
         // Calculate new price using the business formula
         const laborCost = task.laborHours * pricingSettings.wage;
-        const materialMarkup = task.materialCost * 1.5;
+        const materialMarkup = task.materialCost * (pricingSettings.materialMarkup || 1.5);
         const subtotal = laborCost + materialMarkup;
         
         const businessMultiplier = pricingSettings.administrativeFee + 
@@ -188,6 +217,7 @@ async function recalculateAllPrices(dbInstance, pricingSettings) {
                   laborCost: laborCost,
                   materialCost: task.materialCost,
                   materialMarkup: materialMarkup,
+                  materialMarkupMultiplier: pricingSettings.materialMarkup || 1.5,
                   businessMultiplier: businessMultiplier,
                   wage: pricingSettings.wage,
                   fees: {

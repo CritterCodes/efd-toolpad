@@ -6,15 +6,27 @@
  */
 
 const { MongoClient } = require('mongodb');
+const { 
+  getShopifyConfig, 
+  isShopifyEnabled, 
+  getShopifyApiUrl, 
+  getShopifyHeaders 
+} = require('./shopifyConfig');
 require('dotenv').config({ path: '../.env.local' });
 
 class ShopifyOrderCreator {
   constructor() {
     this.mongoClient = null;
     this.db = null;
-    this.shopifyStore = process.env.SHOPIFY_STORE_URL;
-    this.shopifyToken = process.env.SHOPIFY_ACCESS_TOKEN;
+    this.shopifyConfig = null;
     this.adminSettings = null;
+  }
+
+  async initialize() {
+    if (!(await isShopifyEnabled())) {
+      throw new Error('Shopify integration is not enabled or not properly configured');
+    }
+    this.shopifyConfig = await getShopifyConfig();
   }
 
   async connect() {

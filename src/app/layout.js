@@ -1,5 +1,5 @@
 import { AppProvider } from "@toolpad/core/AppProvider";
-import { Experimental_CssVarsProvider as AppRouterCacheProvider } from '@mui/material/styles';
+import { ThemeProvider } from '@mui/material/styles';
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import BuildIcon from "@mui/icons-material/Handyman";
 import BarChartIcon from "@mui/icons-material/Insights";
@@ -9,6 +9,12 @@ import AssignmentIcon from "@mui/icons-material/Assignment";
 import SettingsIcon from "@mui/icons-material/Settings";
 import ReceiptIcon from "@mui/icons-material/Receipt";
 import HandymanIcon from "@mui/icons-material/Handyman";
+import ListIcon from "@mui/icons-material/List";
+import MoveUpIcon from "@mui/icons-material/DriveFileMove";
+import PickupIcon from "@mui/icons-material/LocalShipping";
+import QualityIcon from "@mui/icons-material/VerifiedUser";
+import PartsIcon from "@mui/icons-material/Category";
+import PrintIcon from "@mui/icons-material/Print";
 import { SessionProvider } from "next-auth/react";
 import theme from "../../theme";
 import { RepairsProvider } from "./context/repairs.context";
@@ -32,12 +38,56 @@ const NAVIGATION = [
     {
         segment: 'dashboard/repairs',
         title: 'Repairs',
-        icon: <BuildIcon />
+        icon: <BuildIcon />,
+        children: [
+            {
+                segment: 'all',
+                title: 'All Repairs',
+                icon: <ListIcon />
+            },
+            {
+                segment: 'move',
+                title: 'Move',
+                icon: <MoveUpIcon />
+            },
+            {
+                segment: 'pick-up',
+                title: 'Pick-up',
+                icon: <PickupIcon />
+            },
+            {
+                segment: 'quality-control',
+                title: 'Quality Control',
+                icon: <QualityIcon />
+            },
+            {
+                segment: 'parts',
+                title: 'Parts',
+                icon: <PartsIcon />
+            },
+            {
+                segment: 'bulk-print',
+                title: 'Bulk Print',
+                icon: <PrintIcon />
+            }
+        ]
     },
     {
-        segment: 'dashboard/repair-tasks',
-        title: 'Repair Tasks',
-        icon: <HandymanIcon />
+        segment: 'dashboard/admin/tasks',
+        title: 'Tasks',
+        icon: <HandymanIcon />,
+        children: [
+            {
+                segment: 'materials',
+                title: 'Materials',
+                icon: <InventoryIcon />
+            },
+            {
+                segment: 'processes',
+                title: 'Processes',
+                icon: <SettingsIcon />
+            }
+        ]
     },
     {
         segment: 'dashboard/custom-tickets',
@@ -57,7 +107,13 @@ const NAVIGATION = [
 ];
 
 const BRANDING = {
-    logo: <Image src='/logos/[efd]LogoBlack.png' alt="[efd] Logo" width={150} height={75} />,
+    logo: <Image 
+        src='/logos/[efd]LogoBlack.png' 
+        alt="[efd] Logo" 
+        width={150} 
+        height={75} 
+        style={{ width: 'auto', height: 'auto' }}
+    />,
     title: 'Admin CRM',
 };
 
@@ -72,7 +128,7 @@ export default async function RootLayout({ children }) {
             <html lang="en">
                 <body>
                     <SessionProvider session={session}>
-                        <AppRouterCacheProvider options={{ enableCssLayer: true }}>
+                        <ThemeProvider theme={theme}>
                             <AppProvider
                                 session={session}
                                 navigation={[]}
@@ -82,7 +138,7 @@ export default async function RootLayout({ children }) {
                             >
                                 {children}
                             </AppProvider>
-                        </AppRouterCacheProvider>
+                        </ThemeProvider>
                     </SessionProvider>
                 </body>
             </html>
@@ -95,7 +151,7 @@ export default async function RootLayout({ children }) {
             <body>
                 <SessionProvider session={session}>
                     <RepairsProvider>
-                        <AppRouterCacheProvider options={{ enableCssLayer: true }}>
+                        <ThemeProvider theme={theme}>
                             <AppProvider
                                 session={session}
                                 navigation={NAVIGATION}
@@ -105,7 +161,7 @@ export default async function RootLayout({ children }) {
                             >
                                 {children}
                             </AppProvider>
-                        </AppRouterCacheProvider>
+                        </ThemeProvider>
                     </RepairsProvider>
                 </SessionProvider>
             </body>

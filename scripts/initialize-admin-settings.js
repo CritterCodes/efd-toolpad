@@ -69,6 +69,25 @@ class AdminSettingsInitializer {
         maxRushJobs: 5
       },
       
+      // Integration Settings
+      stuller: {
+        enabled: false,
+        username: '',
+        password: '',
+        apiUrl: 'https://api.stuller.com',
+        updateFrequency: 'daily',
+        lastUpdate: null
+      },
+      
+      shopify: {
+        enabled: false,
+        shopUrl: '',
+        accessToken: '',
+        apiVersion: '2025-07',
+        webhooksEnabled: false,
+        lastUpdate: null
+      },
+      
       // System Metadata
       version: '2.0.0',
       createdAt: currentTime,

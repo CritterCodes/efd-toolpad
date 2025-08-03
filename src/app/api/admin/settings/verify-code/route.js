@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { auth } from '../../../../../../auth';
 import { db } from '@/lib/database';
+import { 
+  hashSecurityCode, 
+  verifySecurityCode, 
+  createAuditLogEntry 
+} from '@/utils/encryption';
 
 /**
  * POST /api/admin/settings/verify-code
@@ -70,11 +75,25 @@ export async function POST(request) {
     }
 
     // Check if code matches and hasn't expired
-    const isCodeValid = settings.security?.securityCode === securityCode;
+    const storedCodeHash = settings.security?.securityCode;
+    const isCodeValid = storedCodeHash ? verifySecurityCode(securityCode, storedCodeHash) : false;
     const isCodeExpired = settings.security?.expiresAt ? 
       new Date() > new Date(settings.security.expiresAt) : true;
 
+    // Create audit log entry
+    const auditEntry = createAuditLogEntry(
+      'security_code_verification',
+      'admin_settings_access',
+      session.user.email
+    );
+    auditEntry.ip = request.headers.get('x-forwarded-for') || 'unknown';
+    auditEntry.userAgent = request.headers.get('user-agent') || 'unknown';
+
     if (!isCodeValid) {
+      auditEntry.success = false;
+      auditEntry.reason = 'invalid_code';
+      await db._instance.collection('adminSettingsAudit').insertOne(auditEntry);
+      
       return NextResponse.json({ 
         valid: false, 
         error: 'Invalid security code' 
@@ -82,6 +101,10 @@ export async function POST(request) {
     }
 
     if (isCodeExpired) {
+      auditEntry.success = false;
+      auditEntry.reason = 'expired_code';
+      await db._instance.collection('adminSettingsAudit').insertOne(auditEntry);
+      
       return NextResponse.json({ 
         valid: false, 
         error: 'Security code has expired' 
@@ -89,13 +112,8 @@ export async function POST(request) {
     }
 
     // Log successful verification
-    await db._instance.collection('adminSettingsAudit').insertOne({
-      timestamp: new Date(),
-      userId: session.user.email,
-      action: 'code_verification',
-      success: true,
-      ipAddress: request.headers.get('x-forwarded-for') || 'unknown'
-    });
+    auditEntry.success = true;
+    await db._instance.collection('adminSettingsAudit').insertOne(auditEntry);
 
     return NextResponse.json({
       valid: true,
@@ -125,18 +143,28 @@ export async function PUT(request) {
     
     // Generate new 4-digit security PIN
     const newSecurityCode = Math.floor(Math.random() * 9000 + 1000).toString(); // Generates 1000-9999
+    const hashedCode = hashSecurityCode(newSecurityCode);
     
     // Set expiration to 1 hour from now
     const expiresAt = new Date(Date.now() + (60 * 60 * 1000));
 
     console.log('Generating new PIN:', { code: newSecurityCode, expiresAt });
 
-    // Update settings with new code (or create if doesn't exist)
+    // Create audit log entry
+    const auditEntry = createAuditLogEntry(
+      'security_code_generation',
+      'admin_settings_security',
+      session.user.email
+    );
+    auditEntry.ip = request.headers.get('x-forwarded-for') || 'unknown';
+    auditEntry.userAgent = request.headers.get('user-agent') || 'unknown';
+
+    // Update settings with new hashed code (or create if doesn't exist)
     await db._instance.collection('adminSettings').updateOne(
       { _id: 'repair_task_admin_settings' },
       {
         $set: {
-          'security.securityCode': newSecurityCode,
+          'security.securityCode': hashedCode,
           'security.expiresAt': expiresAt,
           'security.lastCodeChange': new Date(),
           'security.generatedBy': session.user.email,
@@ -159,13 +187,7 @@ export async function PUT(request) {
     );
 
     // Log code generation
-    await db._instance.collection('adminSettingsAudit').insertOne({
-      timestamp: new Date(),
-      userId: session.user.email,
-      action: 'code_generation',
-      expiresAt: expiresAt,
-      ipAddress: request.headers.get('x-forwarded-for') || 'unknown'
-    });
+    await db._instance.collection('adminSettingsAudit').insertOne(auditEntry);
 
     return NextResponse.json({
       success: true,

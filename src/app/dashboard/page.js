@@ -145,10 +145,10 @@ export default function AdminCRMDashboard() {
                                 <Button
                                     variant="outlined"
                                     startIcon={<HandymanIcon />}
-                                    onClick={() => router.push('/dashboard/repair-tasks')}
+                                    onClick={() => router.push('/dashboard/admin/tasks')}
                                     fullWidth
                                 >
-                                    Manage Repair Tasks
+                                    Manage Tasks
                                 </Button>
                                 <Button
                                     variant="outlined"

@@ -7,12 +7,16 @@
 
 const dotenv = require('dotenv');
 const { MongoClient } = require('mongodb');
+const { 
+    getShopifyConfig, 
+    isShopifyEnabled, 
+    getShopifyGraphQLUrl, 
+    getShopifyHeaders 
+} = require('./shopifyConfig');
 
 // Load environment variables
 dotenv.config({ path: '../.env.local' });
 
-const SHOPIFY_STORE_URL = process.env.SHOPIFY_STORE_URL;
-const SHOPIFY_ACCESS_TOKEN = process.env.SHOPIFY_ACCESS_TOKEN;
 const MONGODB_URI = process.env.MONGODB_URI;
 const MONGO_DB_NAME = process.env.MONGO_DB_NAME || 'efd-database';
 
@@ -36,10 +40,12 @@ class RepairTaskSyncService {
     }
 
     async fetchRepairTasksFromShopify() {
-        if (!SHOPIFY_STORE_URL || !SHOPIFY_ACCESS_TOKEN) {
-            throw new Error("❌ Shopify credentials are missing from environment variables.");
+        // Check if Shopify is enabled and get configuration
+        if (!(await isShopifyEnabled())) {
+            throw new Error("❌ Shopify integration is not enabled or not properly configured.");
         }
 
+        const shopifyConfig = await getShopifyConfig();
         console.log('🛍️ Fetching repair tasks from Shopify...');
 
         // Enhanced query to get more product data and handle pagination
@@ -91,12 +97,12 @@ class RepairTaskSyncService {
         }`;
 
         try {
-            const response = await fetch(`https://${SHOPIFY_STORE_URL}/admin/api/2024-01/graphql.json`, {
+            const url = getShopifyGraphQLUrl(shopifyConfig.storeUrl, shopifyConfig.apiVersion);
+            const headers = getShopifyHeaders(shopifyConfig.accessToken);
+
+            const response = await fetch(url, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,
-                },
+                headers: headers,
                 body: JSON.stringify({ query }),
             });
 
@@ -276,8 +282,13 @@ class RepairTaskSyncService {
             console.log('=' .repeat(50));
 
             // Validate environment variables
-            if (!SHOPIFY_STORE_URL || !SHOPIFY_ACCESS_TOKEN || !MONGODB_URI) {
-                throw new Error('❌ Missing required environment variables. Check SHOPIFY_STORE_URL, SHOPIFY_ACCESS_TOKEN, and MONGODB_URI');
+            if (!MONGODB_URI) {
+                throw new Error('❌ Missing required environment variable: MONGODB_URI');
+            }
+
+            // Check if Shopify integration is enabled
+            if (!(await isShopifyEnabled())) {
+                throw new Error('❌ Shopify integration is not enabled or not properly configured in admin settings');
             }
 
             // Connect to MongoDB

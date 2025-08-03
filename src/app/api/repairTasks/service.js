@@ -1,14 +1,16 @@
-const SHOPIFY_STORE_URL = process.env.SHOPIFY_STORE_URL;
-const SHOPIFY_ACCESS_TOKEN = process.env.SHOPIFY_ACCESS_TOKEN;
+import { getShopifyConfig, getShopifyGraphQLUrl, getShopifyHeaders, isShopifyEnabled } from '@/utils/shopifyConfig';
 
 export default class RepairTasksService {
     /**
      * ✅ Fetch all active repair tasks from Shopify products with SKUs
      */
     static fetchRepairTasks = async () => {
-        if (!SHOPIFY_STORE_URL || !SHOPIFY_ACCESS_TOKEN) {
-            throw new Error("Shopify credentials are missing from environment variables.");
+        // Check if Shopify is enabled and configured
+        if (!(await isShopifyEnabled())) {
+            throw new Error("Shopify integration is not enabled or not properly configured.");
         }
+
+        const config = await getShopifyConfig();
 
         const query = `
         {
@@ -33,12 +35,12 @@ export default class RepairTasksService {
         }`;
 
         try {
-            const response = await fetch(`https://${SHOPIFY_STORE_URL}/admin/api/2023-04/graphql.json`, {
+            const url = getShopifyGraphQLUrl(config.storeUrl, config.apiVersion);
+            const headers = getShopifyHeaders(config.accessToken);
+
+            const response = await fetch(url, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,
-                },
+                headers: headers,
                 body: JSON.stringify({ query }),
             });
 
