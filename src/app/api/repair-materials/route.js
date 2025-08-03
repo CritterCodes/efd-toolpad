@@ -107,9 +107,9 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    if (unitCost < 0 || unitCost > 100) {
+    if (unitCost < 0 || unitCost > 10000) {
       return NextResponse.json({ 
-        error: 'Unit cost must be between 0 and $100' 
+        error: 'Unit cost must be between 0 and $10,000' 
       }, { status: 400 });
     }
 
@@ -172,6 +172,144 @@ export async function POST(request) {
 
   } catch (error) {
     console.error('Create repair material error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+/**
+ * PUT /api/repair-materials?id=<materialId>
+ * Update an existing repair material
+ */
+export async function PUT(request) {
+  try {
+    const session = await auth();
+    if (!session || !session.user?.email?.includes('@')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const materialId = searchParams.get('id');
+
+    if (!materialId) {
+      return NextResponse.json({ error: 'Material ID is required' }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const {
+      displayName,
+      name,
+      category,
+      unitCost,
+      unitType,
+      karat,
+      compatibleMetals,
+      supplier,
+      description,
+      isActive,
+      stuller_item_number,
+      auto_update_pricing,
+      last_price_update,
+      portionsPerUnit,
+      portionType,
+      costPerPortion
+    } = body;
+
+    // Validation
+    if (!displayName || !category) {
+      return NextResponse.json({ 
+        error: 'Display name and category are required' 
+      }, { status: 400 });
+    }
+
+    if (unitCost < 0 || unitCost > 10000) {
+      return NextResponse.json({ 
+        error: 'Unit cost must be between 0 and $10,000' 
+      }, { status: 400 });
+    }
+
+    // Compatible metals is only required for non-Stuller materials
+    if (!stuller_item_number && (!compatibleMetals || compatibleMetals.length === 0)) {
+      return NextResponse.json({ 
+        error: 'At least one compatible metal must be specified for manual materials' 
+      }, { status: 400 });
+    }
+
+    const updatedMaterial = {
+      displayName,
+      name: name || displayName.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+      category,
+      unitCost: parseFloat(unitCost),
+      unitType: unitType || 'application',
+      karat: karat || '',
+      compatibleMetals: compatibleMetals || [],
+      supplier: supplier || '',
+      description: description || '',
+      isActive: isActive !== false,
+      stuller_item_number: stuller_item_number || '',
+      auto_update_pricing: auto_update_pricing || false,
+      last_price_update: last_price_update || null,
+      portionsPerUnit: parseInt(portionsPerUnit) || 1,
+      portionType: portionType || '',
+      costPerPortion: parseFloat(costPerPortion) || 0,
+      updatedAt: new Date()
+    };
+
+    const result = await db._instance
+      .collection('repairMaterials')
+      .updateOne(
+        { _id: new ObjectId(materialId) },
+        { $set: updatedMaterial }
+      );
+
+    if (result.matchedCount === 0) {
+      return NextResponse.json({ error: 'Material not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Repair material updated successfully',
+      material: { ...updatedMaterial, _id: materialId }
+    });
+
+  } catch (error) {
+    console.error('Update repair material error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE /api/repair-materials?id=<materialId>
+ * Delete a repair material
+ */
+export async function DELETE(request) {
+  try {
+    const session = await auth();
+    if (!session || !session.user?.email?.includes('@')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const materialId = searchParams.get('id');
+
+    if (!materialId) {
+      return NextResponse.json({ error: 'Material ID is required' }, { status: 400 });
+    }
+
+    const result = await db._instance
+      .collection('repairMaterials')
+      .deleteOne({ _id: new ObjectId(materialId) });
+
+    if (result.deletedCount === 0) {
+      return NextResponse.json({ error: 'Material not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Repair material deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Delete repair material error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

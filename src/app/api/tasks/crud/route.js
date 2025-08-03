@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '../../../../../auth';
 import { db } from '@/lib/database';
 import { ObjectId } from 'mongodb';
-import { generateTaskSku, generateTaskCode } from '@/utils/skuGenerator';
+import { generateTaskSku, generateShortCode } from '@/utils/skuGenerator';
 
 /**
  * GET /api/tasks/crud
@@ -187,14 +187,14 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    // Generate SKU and task code if not provided
-    const sku = taskData.sku || generateTaskSku(taskData.category, taskData.metalType);
-    const taskCode = taskData.taskCode || generateTaskCode(taskData.category);
+    // Generate SKU and shortCode if not provided
+    const shortCode = taskData.shortCode || generateShortCode(taskData.category, taskData.metalType, taskData.karat);
+    const sku = taskData.sku || generateTaskSku(taskData.category, shortCode);
 
     const newTask = {
       ...taskData,
       sku: sku,
-      taskCode: taskCode,
+      shortCode: shortCode,
       createdAt: new Date(),
       updatedAt: new Date(),
       createdBy: session.user.email,

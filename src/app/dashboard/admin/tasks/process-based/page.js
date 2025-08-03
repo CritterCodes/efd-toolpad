@@ -46,9 +46,10 @@ export default function ProcessBasedTaskBuilder() {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    category: 'sizing',
+    category: 'shanks',
     subcategory: '',
-    metalType: 'silver',
+    metalType: 'yellow_gold',
+    karat: '14k',
     requiresMetalType: true,
     processes: [],
     materials: [],
@@ -84,71 +85,218 @@ export default function ProcessBasedTaskBuilder() {
   }, []);
 
   const calculatePricePreview = useCallback(async () => {
-    if (!adminSettings || formData.processes.length === 0 || formData.materials.length === 0) {
+    console.log('🔥 calculatePricePreview called', { 
+      adminSettings: !!adminSettings, 
+      processesLength: formData.processes.length,
+      processes: formData.processes,
+      materials: formData.materials
+    });
+
+    console.log('🔥 FULL adminSettings object:', JSON.stringify(adminSettings, null, 2));
+
+    if (!adminSettings || formData.processes.length === 0) {
+      console.log('🔥 Clearing price preview - no admin settings or processes');
       setPricePreview(null);
       return;
     }
 
     try {
-      let totalLaborMinutes = 0;
-      let totalEquipmentCost = 0;
-      let totalMaterialCost = 0;
+      let totalLaborHours = 0;
+      let totalProcessCost = 0; // Process costs already include their materials
+      let processMaterialCost = 0; // For display only - RAW materials within processes
+      let processMarkedUpMaterialCost = 0; // For display only - MARKED UP materials within processes
+      let taskMaterialCost = 0; // Only additional task materials (not in processes)
 
-      // Calculate process costs
+      console.log('🔥 Calculating costs with separation: processes vs task materials');
+
+      // Calculate process costs and extract process materials for display
       for (const processSelection of formData.processes) {
         const process = availableProcesses.find(p => p._id === processSelection.processId);
+        console.log('🔥 Processing selected process:', {
+          processSelection,
+          foundProcess: !!process,
+          processName: process?.displayName,
+          processLaborHours: process?.laborHours,
+          processStoredPricing: process?.pricing?.totalCost,
+          processMaterials: process?.materials
+        });
+        
         if (process) {
-          const metalComplexity = process.metalComplexity?.[formData.metalType] || 1.0;
           const quantity = processSelection.quantity || 1;
-          totalLaborMinutes += process.laborMinutes * metalComplexity * quantity;
-          totalEquipmentCost += process.equipmentCost * quantity;
+          
+          // Always add labor hours regardless of pricing method
+          const laborHours = (process.laborHours || 0) * quantity;
+          totalLaborHours += laborHours;
+          
+          console.log('🔥 Added labor hours:', {
+            processName: process.displayName,
+            baseLaborHours: process.laborHours,
+            quantity,
+            addedLaborHours: laborHours,
+            totalLaborHoursNow: totalLaborHours
+          });
+          
+          // Use stored pricing if available, otherwise calculate
+          if (process.pricing?.totalCost) {
+            const addedProcessCost = process.pricing.totalCost * quantity;
+            totalProcessCost += addedProcessCost;
+            
+            // Extract material costs from stored pricing for DISPLAY ONLY
+            // (These are already included in the totalProcessCost above)
+            if (process.pricing.baseMaterialsCost) {
+              const rawMaterialCost = process.pricing.baseMaterialsCost * quantity;
+              processMaterialCost += rawMaterialCost; // Raw materials for display
+            }
+            
+            if (process.pricing.materialsCost) {
+              const markedUpMaterialCost = process.pricing.materialsCost * quantity;
+              processMarkedUpMaterialCost += markedUpMaterialCost; // Marked-up materials for display
+            }
+            
+            console.log('🔥 Added material costs for display:', {
+              processName: process.displayName,
+              baseMaterialsCost: process.pricing.baseMaterialsCost,
+              materialsCost: process.pricing.materialsCost,
+              quantity,
+              processMaterialCostNow: processMaterialCost,
+              processMarkedUpMaterialCostNow: processMarkedUpMaterialCost
+            });
+            
+            console.log('🔥 Added stored process cost (includes materials):', {
+              processName: process.displayName,
+              storedCost: process.pricing.totalCost,
+              quantity,
+              addedCost: addedProcessCost,
+              totalProcessCostNow: totalProcessCost
+            });
+          } else {
+            console.log('🔥 No stored pricing for process:', process.displayName);
+            
+            // If no stored pricing, add the process's material costs for display
+            if (process.materials && process.materials.length > 0) {
+              for (const processMaterial of process.materials) {
+                const materialCost = (processMaterial.estimatedCost || 0) * quantity;
+                processMaterialCost += materialCost;
+                console.log('🔥 Added process material cost for display:', {
+                  processName: process.displayName,
+                  materialName: processMaterial.materialName,
+                  estimatedCost: processMaterial.estimatedCost,
+                  quantity,
+                  addedMaterialCost: materialCost,
+                  processMaterialCostNow: processMaterialCost
+                });
+              }
+            }
+          }
         }
       }
 
-      // Calculate material costs
+      // Calculate additional task materials (separate from processes)
+      console.log('🔥 Calculating additional task materials:', formData.materials);
       for (const materialSelection of formData.materials) {
         const material = availableMaterials.find(m => m._id === materialSelection.materialId);
         if (material) {
           const quantity = materialSelection.quantity || 1;
-          totalMaterialCost += material.unitCost * quantity;
+          const materialCost = (material.unitCost || material.costPerPortion || 0) * quantity;
+          taskMaterialCost += materialCost;
+          console.log('🔥 Added task material cost:', {
+            materialName: material.name,
+            unitCost: material.unitCost,
+            costPerPortion: material.costPerPortion,
+            quantity,
+            addedMaterialCost: materialCost,
+            taskMaterialCostNow: taskMaterialCost
+          });
         }
       }
 
-      // Apply business formula
-      const markedUpMaterialCost = totalMaterialCost * (adminSettings.pricing.materialMarkup || 1.5);
-      const laborRate = adminSettings.pricing.wage / 60;
-      const processLaborCost = totalLaborMinutes * laborRate;
-      const baseCost = processLaborCost + totalEquipmentCost + markedUpMaterialCost;
+      // Apply business formula - only markup the TASK materials (not process materials)
+      const markedUpTaskMaterials = taskMaterialCost * (adminSettings.pricing.materialMarkup || 1.5);
       
-      const businessMultiplier = (adminSettings.pricing.administrativeFee + 
-                                 adminSettings.pricing.businessFee + 
-                                 adminSettings.pricing.consumablesFee + 1);
+      // Base cost = process costs (which already include labor AND process materials) + marked up task materials
+      // NOTE: We do NOT add labor separately because totalProcessCost already includes labor!
+      const baseCost = totalProcessCost + markedUpTaskMaterials;
+      
+      // Calculate display totals (for UI display only)
+      const totalDisplayMaterialCost = processMaterialCost + taskMaterialCost;
+      // For display: combine process marked-up materials + task marked-up materials
+      const totalDisplayMarkedUpMaterials = processMarkedUpMaterialCost + markedUpTaskMaterials;
+      
+      const businessMultiplier = (
+        (adminSettings.pricing?.administrativeFee || 0) + 
+        (adminSettings.pricing?.businessFee || 0) + 
+        (adminSettings.pricing?.consumablesFee || 0) + 1
+      );
+      
+      console.log('🔥 Fixed calculation - no double counting of labor or materials:', {
+        totalLaborHours,
+        totalProcessCost: `$${totalProcessCost.toFixed(2)} (includes labor AND process materials already)`,
+        processMaterialCost: `$${processMaterialCost.toFixed(2)} (raw process materials for display)`,
+        processMarkedUpMaterialCost: `$${processMarkedUpMaterialCost.toFixed(2)} (marked-up process materials for display)`,
+        taskMaterialCost: `$${taskMaterialCost.toFixed(2)} (raw task materials)`,
+        markedUpTaskMaterials: `$${markedUpTaskMaterials.toFixed(2)} (task materials × ${adminSettings.pricing.materialMarkup || 1.5})`,
+        totalDisplayMaterialCost: `$${totalDisplayMaterialCost.toFixed(2)} (all raw materials for display)`,
+        totalDisplayMarkedUpMaterials: `$${totalDisplayMarkedUpMaterials.toFixed(2)} (all marked-up materials for display)`,
+        baseCost: `$${baseCost.toFixed(2)} (process costs + marked up task materials only - NO DOUBLE LABOR)`,
+        businessMultiplier,
+        retailPriceCalculation: `${baseCost} × ${businessMultiplier} = ${baseCost * businessMultiplier}`
+      });
       
       const retailPrice = Math.round(baseCost * businessMultiplier * 100) / 100;
       const wholesalePrice = Math.round(retailPrice * 0.5 * 100) / 100;
 
-      setPricePreview({
-        totalLaborMinutes: Math.round(totalLaborMinutes * 100) / 100,
-        totalEquipmentCost: Math.round(totalEquipmentCost * 100) / 100,
-        totalMaterialCost: Math.round(totalMaterialCost * 100) / 100,
-        markedUpMaterialCost: Math.round(markedUpMaterialCost * 100) / 100,
-        baseCost: Math.round(baseCost * 100) / 100,
-        retailPrice,
-        wholesalePrice,
-        businessMultiplier: Math.round(businessMultiplier * 100) / 100
+      console.log('🔥 Final price preview calculation (fixed double counting of labor):', {
+        totalLaborHours,
+        totalProcessCost: `$${totalProcessCost.toFixed(2)} (from processes - includes labor AND process materials)`,
+        processMaterialCost: `$${processMaterialCost.toFixed(2)} (raw process materials for display)`,
+        processMarkedUpMaterialCost: `$${processMarkedUpMaterialCost.toFixed(2)} (marked-up process materials)`,
+        taskMaterialCost: `$${taskMaterialCost.toFixed(2)} (raw task materials)`,
+        totalDisplayMaterialCost: `$${totalDisplayMaterialCost.toFixed(2)} (all raw materials for display)`,
+        totalDisplayMarkedUpMaterials: `$${totalDisplayMarkedUpMaterials.toFixed(2)} (all marked-up materials for display)`,
+        markedUpTaskMaterials: `$${markedUpTaskMaterials.toFixed(2)} (task materials × ${adminSettings.pricing.materialMarkup || 1.5})`,
+        baseCost: `$${baseCost.toFixed(2)} (process costs + marked up task materials - NO DOUBLE LABOR)`,
+        businessMultiplier: `${businessMultiplier}x`,
+        retailPrice: `$${retailPrice.toFixed(2)}`,
+        wholesalePrice: `$${wholesalePrice.toFixed(2)}`
       });
+
+      const pricePreviewData = {
+        totalLaborHours: Math.round(totalLaborHours * 100) / 100,
+        totalProcessCost: Math.round(totalProcessCost * 100) / 100,
+        totalMaterialCost: Math.round(totalDisplayMaterialCost * 100) / 100, // For display
+        markedUpMaterialCost: Math.round(totalDisplayMarkedUpMaterials * 100) / 100, // For display
+        baseCost: Math.round(baseCost * 100) / 100,
+        retailPrice: retailPrice || 0,
+        wholesalePrice: wholesalePrice || 0,
+        businessMultiplier: Math.round(businessMultiplier * 100) / 100
+      };
+
+      console.log('🔥 Setting price preview data (fixed):', pricePreviewData);
+      setPricePreview(pricePreviewData);
 
     } catch (error) {
       console.error('Price calculation error:', error);
     }
-  }, [formData.processes, formData.materials, formData.metalType, adminSettings, availableProcesses, availableMaterials]);
+  }, [formData.processes, formData.materials, adminSettings, availableProcesses, availableMaterials]);
 
   // Recalculate price when form changes
   useEffect(() => {
-    if (formData.processes.length > 0 && formData.materials.length > 0 && adminSettings) {
+    console.log('🔥 useEffect triggered for price calculation:', {
+      processesLength: formData.processes.length,
+      hasAdminSettings: !!adminSettings,
+      adminSettingsValue: adminSettings,
+      materialsLength: formData.materials.length
+    });
+    if (formData.processes.length > 0 && adminSettings) {
+      console.log('🔥 Calling calculatePricePreview...');
       calculatePricePreview();
+    } else {
+      console.log('🔥 Not calling calculatePricePreview - missing requirements:', {
+        hasProcesses: formData.processes.length > 0,
+        hasAdminSettings: !!adminSettings
+      });
     }
-  }, [formData.processes, formData.materials, formData.metalType, adminSettings, calculatePricePreview]);
+  }, [formData.processes, formData.materials, adminSettings, calculatePricePreview]);
 
   const loadInitialData = async () => {
     try {
@@ -160,6 +308,7 @@ export default function ProcessBasedTaskBuilder() {
 
       if (processesRes.ok) {
         const processesData = await processesRes.json();
+        console.log('Loaded processes:', processesData.processes);
         setAvailableProcesses(processesData.processes || []);
       }
 
@@ -170,11 +319,52 @@ export default function ProcessBasedTaskBuilder() {
 
       if (settingsRes.ok) {
         const settingsData = await settingsRes.json();
-        setAdminSettings(settingsData.settings);
+        console.log('🔥 TASK BUILDER - Raw settings response:', settingsData);
+        // Handle both possible response structures
+        const settings = settingsData.settings || settingsData;
+        console.log('🔥 TASK BUILDER - Loaded admin settings:', settings);
+        console.log('🔥 TASK BUILDER - Admin settings pricing:', settings.pricing);
+        console.log('🔥 TASK BUILDER - Admin settings type:', typeof settings);
+        console.log('🔥 TASK BUILDER - Admin settings keys:', Object.keys(settings));
+        if (settings.pricing) {
+          console.log('🔥 TASK BUILDER - Pricing keys:', Object.keys(settings.pricing));
+          console.log('🔥 TASK BUILDER - Administrative fee:', settings.pricing.administrativeFee);
+          console.log('🔥 TASK BUILDER - Business fee:', settings.pricing.businessFee);
+          console.log('🔥 TASK BUILDER - Consumables fee:', settings.pricing.consumablesFee);
+          console.log('🔥 TASK BUILDER - Material markup:', settings.pricing.materialMarkup);
+          console.log('🔥 TASK BUILDER - Wage:', settings.pricing.wage);
+        }
+        setAdminSettings(settings);
+      } else {
+        console.error('🔥 TASK BUILDER - Failed to load admin settings:', settingsRes.status, settingsRes.statusText);
+        // Set fallback settings so the price preview still works
+        const fallbackSettings = {
+          pricing: {
+            wage: 30,
+            materialMarkup: 1.5,
+            administrativeFee: 0.1,
+            businessFee: 0.15,
+            consumablesFee: 0.05
+          }
+        };
+        console.log('🔥 TASK BUILDER - Using fallback settings:', fallbackSettings);
+        setAdminSettings(fallbackSettings);
       }
 
     } catch (error) {
-      console.error('Error loading initial data:', error);
+      console.error('🔥 TASK BUILDER - Error loading initial data:', error);
+      // Set fallback settings on error
+      const fallbackSettings = {
+        pricing: {
+          wage: 30,
+          materialMarkup: 1.5,
+          administrativeFee: 0.1,
+          businessFee: 0.15,
+          consumablesFee: 0.05
+        }
+      };
+      console.log('🔥 TASK BUILDER - Using fallback settings due to error:', fallbackSettings);
+      setAdminSettings(fallbackSettings);
       setError('Failed to load initial data');
     }
   };
@@ -232,18 +422,58 @@ export default function ProcessBasedTaskBuilder() {
     setSuccess('');
 
     try {
+      // Calculate final pricing information to store with the task
+      let calculatedPricing = null;
+      
+      if (formData.processes.length > 0 && adminSettings && pricePreview) {
+        calculatedPricing = {
+          totalLaborHours: pricePreview.totalLaborHours,
+          totalProcessCost: pricePreview.totalProcessCost,
+          totalMaterialCost: pricePreview.totalMaterialCost,
+          markedUpMaterialCost: pricePreview.markedUpMaterialCost,
+          baseCost: pricePreview.baseCost,
+          retailPrice: pricePreview.retailPrice,
+          wholesalePrice: pricePreview.wholesalePrice,
+          businessMultiplier: pricePreview.businessMultiplier,
+          adminSettings: {
+            materialMarkup: adminSettings.pricing?.materialMarkup || adminSettings.materialMarkup,
+            laborRates: adminSettings.laborRates,
+            businessFees: {
+              administrativeFee: adminSettings.pricing?.administrativeFee || 0,
+              businessFee: adminSettings.pricing?.businessFee || 0,
+              consumablesFee: adminSettings.pricing?.consumablesFee || 0
+            }
+          },
+          calculatedAt: new Date().toISOString()
+        };
+        
+        console.log('🔥 Calculated pricing for task submission:', calculatedPricing);
+      }
+
+      // Enhanced form data with pricing information
+      const taskData = {
+        ...formData,
+        pricing: calculatedPricing,
+        // Include additional metadata
+        createdAt: new Date().toISOString(),
+        hasStoredPricing: !!calculatedPricing
+      };
+      
+      console.log('🔥 Submitting task data:', taskData);
+
       const response = await fetch('/api/tasks/process-based', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(taskData),
       });
 
       const data = await response.json();
 
       if (response.ok) {
         setSuccess('Process-based task created successfully!');
+        console.log('🔥 Task created with pricing data:', data);
         setTimeout(() => {
           router.push('/dashboard/admin/tasks');
         }, 2000);
@@ -265,21 +495,32 @@ export default function ProcessBasedTaskBuilder() {
   };
 
   const categories = [
-    { value: 'sizing', label: '📏 Sizing', emoji: '📏' },
+    { value: 'shanks', label: '� Shanks', emoji: '�' },
     { value: 'prongs', label: '🔧 Prongs', emoji: '🔧' },
-    { value: 'stone_setting', label: '💎 Stone Setting', emoji: '💎' },
-    { value: 'engraving', label: '✍️ Engraving', emoji: '✍️' },
     { value: 'chains', label: '🔗 Chains', emoji: '🔗' },
-    { value: 'bracelet', label: '📿 Bracelet', emoji: '📿' },
-    { value: 'watch', label: '⌚ Watch', emoji: '⌚' },
-    { value: 'misc', label: '🛠️ Miscellaneous', emoji: '🛠️' }
+    { value: 'stone_setting', label: '💎 Stone Setting', emoji: '💎' },
+    { value: 'misc', label: '🛠️ Misc', emoji: '🛠️' },
+    { value: 'watches', label: '⌚ Watches', emoji: '⌚' },
+    { value: 'engraving', label: '✍️ Engraving', emoji: '✍️' },
+    { value: 'bracelets', label: '📿 Bracelets', emoji: '📿' }
   ];
 
   const metalTypes = [
-    { value: 'silver', label: 'Silver', color: '#C0C0C0' },
-    { value: 'gold', label: 'Gold', color: '#FFD700' },
+    { value: 'yellow_gold', label: 'Yellow Gold', color: '#FFD700' },
+    { value: 'white_gold', label: 'White Gold', color: '#E8E8E8' },
+    { value: 'rose_gold', label: 'Rose Gold', color: '#E8B4A0' },
+    { value: 'sterling_silver', label: 'Sterling Silver', color: '#C0C0C0' },
+    { value: 'fine_silver', label: 'Fine Silver', color: '#E5E5E5' },
     { value: 'platinum', label: 'Platinum', color: '#E5E4E2' },
-    { value: 'mixed', label: 'Mixed Metals', color: '#A0A0A0' }
+    { value: 'mixed', label: 'Mixed Metals', color: '#A0A0A0' },
+    { value: 'n_a', label: 'N/A', color: '#808080' }
+  ];
+
+  const karatOptions = [
+    '10k', '14k', '18k', '22k', '24k', // Gold
+    '925', '999', // Silver
+    '950', '900', // Platinum
+    'N/A' // For mixed or non-precious metals
   ];
 
   return (
@@ -377,6 +618,23 @@ export default function ProcessBasedTaskBuilder() {
                     </Grid>
 
                     <Grid item xs={12} md={6}>
+                      <FormControl fullWidth required>
+                        <InputLabel>Karat/Purity</InputLabel>
+                        <Select
+                          value={formData.karat}
+                          onChange={(e) => setFormData(prev => ({ ...prev, karat: e.target.value }))}
+                          label="Karat/Purity"
+                        >
+                          {karatOptions.map((karat) => (
+                            <MenuItem key={karat} value={karat}>
+                              {karat}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+
+                    <Grid item xs={12} md={6}>
                       <TextField
                         fullWidth
                         label="Subcategory (Optional)"
@@ -439,7 +697,7 @@ export default function ProcessBasedTaskBuilder() {
                                         {proc.displayName}
                                       </Typography>
                                       <Typography variant="caption" color="text.secondary">
-                                        {proc.laborMinutes}min • ${proc.equipmentCost} equipment • {proc.skillLevel}
+                                        {proc.laborHours}hrs • ${proc.pricing?.totalCost || 0} total • {proc.skillLevel}
                                       </Typography>
                                     </Box>
                                   </MenuItem>
@@ -465,10 +723,10 @@ export default function ProcessBasedTaskBuilder() {
                                 {(() => {
                                   const proc = availableProcesses.find(p => p._id === process.processId);
                                   const complexity = proc?.metalComplexity?.[formData.metalType] || 1.0;
-                                  const adjustedTime = proc ? proc.laborMinutes * complexity * process.quantity : 0;
+                                  const adjustedTime = proc ? proc.laborHours * complexity * process.quantity : 0;
                                   return (
                                     <Typography variant="caption" color="primary">
-                                      {Math.round(adjustedTime * 100) / 100} min
+                                      {Math.round(adjustedTime * 100) / 100} hrs
                                     </Typography>
                                   );
                                 })()}
@@ -506,6 +764,9 @@ export default function ProcessBasedTaskBuilder() {
                   <Typography variant="h6">🧪 Material Selection</Typography>
                 </AccordionSummary>
                 <AccordionDetails>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Add materials that will be consumed during this task. Materials are optional - you can create process-only tasks.
+                  </Typography>
                   <Box sx={{ mb: 2 }}>
                     <Button
                       startIcon={<AddIcon />}
@@ -588,7 +849,7 @@ export default function ProcessBasedTaskBuilder() {
 
                   {formData.materials.length === 0 && (
                     <Alert severity="info">
-                      Add at least one material to calculate pricing.
+                      No materials selected - this will be a process-only task.
                     </Alert>
                   )}
                 </AccordionDetails>
@@ -596,7 +857,17 @@ export default function ProcessBasedTaskBuilder() {
             </Grid>
 
             {/* Price Preview */}
-            {pricePreview && (
+            {console.log('Rendering price preview section, pricePreview:', pricePreview)}
+            {console.log('🔥 Price preview condition check:', {
+              hasPricePreview: !!pricePreview,
+              hasRetailPrice: pricePreview?.retailPrice,
+              retailPriceValue: pricePreview?.retailPrice,
+              formDataProcesses: formData.processes.length,
+              adminSettingsAvailable: !!adminSettings,
+              adminSettingsValue: adminSettings,
+              processesArray: formData.processes
+            })}
+            {pricePreview && Object.keys(pricePreview).length > 0 && (
               <Grid item xs={12}>
                 <Card sx={{ bgcolor: 'primary.50', borderLeft: 4, borderColor: 'primary.main' }}>
                   <CardContent>
@@ -609,16 +880,16 @@ export default function ProcessBasedTaskBuilder() {
 
                     <Grid container spacing={2}>
                       <Grid item xs={12} md={6}>
-                        <Typography variant="body2" color="text.secondary">Process Labor: <strong>{pricePreview.totalLaborMinutes} minutes</strong></Typography>
-                        <Typography variant="body2" color="text.secondary">Equipment Cost: <strong>${pricePreview.totalEquipmentCost}</strong></Typography>
-                        <Typography variant="body2" color="text.secondary">Material Cost: <strong>${pricePreview.totalMaterialCost}</strong></Typography>
-                        <Typography variant="body2" color="text.secondary">Marked-up Materials: <strong>${pricePreview.markedUpMaterialCost}</strong></Typography>
+                        <Typography variant="body2" color="text.secondary">Process Labor: <strong>{pricePreview?.totalLaborHours || 0} hours</strong></Typography>
+                        <Typography variant="body2" color="text.secondary">Process Cost: <strong>${pricePreview?.totalProcessCost || 0}</strong></Typography>
+                        <Typography variant="body2" color="text.secondary">Material Cost: <strong>${pricePreview?.totalMaterialCost || 0}</strong></Typography>
+                        <Typography variant="body2" color="text.secondary">Marked-up Materials: <strong>${pricePreview?.markedUpMaterialCost || 0}</strong></Typography>
                       </Grid>
                       <Grid item xs={12} md={6}>
-                        <Typography variant="body2" color="text.secondary">Base Cost: <strong>${pricePreview.baseCost}</strong></Typography>
-                        <Typography variant="h6" color="success.main">Retail Price: <strong>${pricePreview.retailPrice}</strong></Typography>
-                        <Typography variant="body1" color="info.main">Wholesale Price: <strong>${pricePreview.wholesalePrice}</strong></Typography>
-                        <Typography variant="caption" color="text.secondary">Business Multiplier: {pricePreview.businessMultiplier}x</Typography>
+                        <Typography variant="body2" color="text.secondary">Base Cost: <strong>${pricePreview?.baseCost || 0}</strong></Typography>
+                        <Typography variant="h6" color="success.main">Retail Price: <strong>${pricePreview?.retailPrice || 0}</strong></Typography>
+                        <Typography variant="body1" color="info.main">Wholesale Price: <strong>${pricePreview?.wholesalePrice || 0}</strong></Typography>
+                        <Typography variant="caption" color="text.secondary">Business Multiplier: {pricePreview?.businessMultiplier || 1}x</Typography>
                       </Grid>
                     </Grid>
                   </CardContent>
@@ -633,7 +904,7 @@ export default function ProcessBasedTaskBuilder() {
                   type="submit"
                   variant="contained"
                   size="large"
-                  disabled={loading || formData.processes.length === 0 || formData.materials.length === 0}
+                  disabled={loading || formData.processes.length === 0}
                   startIcon={loading ? null : <AddIcon />}
                 >
                   {loading ? 'Creating...' : 'Create Process-Based Task'}

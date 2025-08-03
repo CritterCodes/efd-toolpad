@@ -376,8 +376,8 @@ export default function TasksPage() {
                         {task.title}
                       </Typography>
                       <Chip 
-                        label={task.isActive ? 'Active' : 'Inactive'}
-                        color={task.isActive ? 'success' : 'default'}
+                        label={(task.display?.isActive ?? task.isActive) ? 'Active' : 'Inactive'}
+                        color={(task.display?.isActive ?? task.isActive) ? 'success' : 'default'}
                         size="small"
                       />
                     </Box>
@@ -407,15 +407,15 @@ export default function TasksPage() {
                       <Box display="flex" align="center" gap={0.5}>
                         <MoneyIcon fontSize="small" color="success" />
                         <Typography variant="h6" color="success.main">
-                          ${task.basePrice?.toFixed(2) || '0.00'}
+                          ${(task.pricing?.retailPrice || task.basePrice)?.toFixed(2) || '0.00'}
                         </Typography>
                       </Box>
                       
-                      {task.laborHours && (
+                      {(task.pricing?.totalLaborHours || task.laborHours) && (
                         <Box display="flex" alignItems="center" gap={0.5}>
                           <TimeIcon fontSize="small" color="action" />
                           <Typography variant="body2" color="text.secondary">
-                            {task.laborHours}h
+                            {task.pricing?.totalLaborHours || task.laborHours}h
                           </Typography>
                         </Box>
                       )}
@@ -444,17 +444,17 @@ export default function TasksPage() {
                       </IconButton>
                     </Tooltip>
                     
-                    <Tooltip title={task.isActive ? "Archive Task" : "Delete Task"}>
+                    <Tooltip title={(task.display?.isActive ?? task.isActive) ? "Archive Task" : "Delete Task"}>
                       <IconButton
                         size="small"
-                        color={task.isActive ? "warning" : "error"}
+                        color={(task.display?.isActive ?? task.isActive) ? "warning" : "error"}
                         onClick={() => setDeleteDialog({ 
                           open: true, 
                           task, 
-                          hardDelete: !task.isActive 
+                          hardDelete: !(task.display?.isActive ?? task.isActive)
                         })}
                       >
-                        {task.isActive ? <ArchiveIcon /> : <DeleteForeverIcon />}
+                        {(task.display?.isActive ?? task.isActive) ? <ArchiveIcon /> : <DeleteForeverIcon />}
                       </IconButton>
                     </Tooltip>
                   </CardActions>
@@ -530,53 +530,306 @@ export default function TasksPage() {
         <Dialog
           open={viewDialog}
           onClose={() => setViewDialog(false)}
-          maxWidth="md"
+          maxWidth="lg"
           fullWidth
         >
           {selectedTask && (
             <>
               <DialogTitle>
                 <Box display="flex" justifyContent="space-between" alignItems="center">
-                  {selectedTask.title}
-                  <Chip 
-                    label={selectedTask.isActive ? 'Active' : 'Inactive'}
-                    color={selectedTask.isActive ? 'success' : 'default'}
-                  />
+                  <Box>
+                    <Typography variant="h5" component="div">
+                      {selectedTask.title}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {selectedTask.sku || 'No SKU'} • Short Code: {selectedTask.shortCode || 'N/A'}
+                    </Typography>
+                  </Box>
+                  <Stack direction="row" spacing={1}>
+                    <Chip 
+                      label={selectedTask.display?.isActive ? 'Active' : 'Inactive'}
+                      color={selectedTask.display?.isActive ? 'success' : 'default'}
+                      size="small"
+                    />
+                    {selectedTask.display?.isFeatured && (
+                      <Chip label="Featured" color="primary" size="small" />
+                    )}
+                  </Stack>
                 </Box>
               </DialogTitle>
               <DialogContent>
-                <Grid container spacing={2}>
+                <Grid container spacing={3}>
+                  {/* Basic Information */}
                   <Grid item xs={12} md={6}>
-                    <Typography variant="subtitle2" gutterBottom>Description</Typography>
-                    <Typography paragraph>{selectedTask.description}</Typography>
-                    
-                    <Typography variant="subtitle2" gutterBottom>Category</Typography>
-                    <Typography paragraph>{selectedTask.category}</Typography>
-                    
-                    {selectedTask.metalType && (
-                      <>
-                        <Typography variant="subtitle2" gutterBottom>Metal Type</Typography>
-                        <Typography paragraph>{selectedTask.metalType}</Typography>
-                      </>
-                    )}
+                    <Card sx={{ height: '100%' }}>
+                      <CardContent>
+                        <Typography variant="h6" gutterBottom color="primary">
+                          Basic Information
+                        </Typography>
+                        
+                        {selectedTask.description && (
+                          <>
+                            <Typography variant="subtitle2" gutterBottom>Description</Typography>
+                            <Typography paragraph>{selectedTask.description}</Typography>
+                          </>
+                        )}
+                        
+                        <Typography variant="subtitle2" gutterBottom>Category</Typography>
+                        <Typography paragraph sx={{ textTransform: 'capitalize' }}>
+                          {selectedTask.category}
+                          {selectedTask.subcategory && ` • ${selectedTask.subcategory}`}
+                        </Typography>
+                        
+                        {selectedTask.metalType && (
+                          <>
+                            <Typography variant="subtitle2" gutterBottom>Metal Type</Typography>
+                            <Typography paragraph sx={{ textTransform: 'capitalize' }}>
+                              {selectedTask.metalType.replace('_', ' ')}
+                              {selectedTask.karat && ` (${selectedTask.karat})`}
+                            </Typography>
+                          </>
+                        )}
+                        
+                        <Typography variant="subtitle2" gutterBottom>Created</Typography>
+                        <Typography>
+                          {new Date(selectedTask.createdAt).toLocaleDateString()} by {selectedTask.createdBy || 'Unknown'}
+                        </Typography>
+                      </CardContent>
+                    </Card>
                   </Grid>
+
+                  {/* Pricing Information */}
                   <Grid item xs={12} md={6}>
-                    <Typography variant="subtitle2" gutterBottom>Base Price</Typography>
-                    <Typography variant="h4" color="success.main" gutterBottom>
-                      ${selectedTask.basePrice?.toFixed(2) || '0.00'}
-                    </Typography>
-                    
-                    {selectedTask.laborHours && (
-                      <>
-                        <Typography variant="subtitle2" gutterBottom>Labor Hours</Typography>
-                        <Typography paragraph>{selectedTask.laborHours} hours</Typography>
-                      </>
-                    )}
-                    
-                    <Typography variant="subtitle2" gutterBottom>Created</Typography>
-                    <Typography paragraph>
-                      {new Date(selectedTask.createdAt).toLocaleDateString()}
-                    </Typography>
+                    <Card sx={{ height: '100%' }}>
+                      <CardContent>
+                        <Typography variant="h6" gutterBottom color="success.main">
+                          Pricing Information
+                        </Typography>
+                        
+                        {selectedTask.pricing ? (
+                          <>
+                            <Typography variant="subtitle2" gutterBottom>Retail Price</Typography>
+                            <Typography variant="h4" color="success.main" gutterBottom>
+                              ${selectedTask.pricing.retailPrice?.toFixed(2) || selectedTask.basePrice?.toFixed(2) || '0.00'}
+                            </Typography>
+                            
+                            <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary">Wholesale</Typography>
+                                <Typography variant="h6">
+                                  ${selectedTask.pricing.wholesalePrice?.toFixed(2) || '0.00'}
+                                </Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary">Base Cost</Typography>
+                                <Typography variant="h6">
+                                  ${selectedTask.pricing.baseCost?.toFixed(2) || '0.00'}
+                                </Typography>
+                              </Box>
+                            </Stack>
+                            
+                            <Typography variant="subtitle2" gutterBottom>Cost Breakdown</Typography>
+                            <Box sx={{ pl: 1 }}>
+                              <Typography variant="body2">
+                                Labor: {selectedTask.pricing.totalLaborHours || selectedTask.laborHours || 0} hours
+                              </Typography>
+                              <Typography variant="body2">
+                                Process Cost: ${selectedTask.pricing.totalProcessCost?.toFixed(2) || '0.00'}
+                              </Typography>
+                              <Typography variant="body2">
+                                Material Cost: ${selectedTask.pricing.totalMaterialCost?.toFixed(2) || selectedTask.materialCost?.toFixed(2) || '0.00'}
+                              </Typography>
+                              <Typography variant="body2">
+                                Business Multiplier: {selectedTask.pricing.businessMultiplier?.toFixed(2) || 'N/A'}x
+                              </Typography>
+                            </Box>
+                          </>
+                        ) : (
+                          <>
+                            <Typography variant="subtitle2" gutterBottom>Base Price</Typography>
+                            <Typography variant="h4" color="success.main" gutterBottom>
+                              ${selectedTask.basePrice?.toFixed(2) || '0.00'}
+                            </Typography>
+                            
+                            {selectedTask.laborHours && (
+                              <>
+                                <Typography variant="subtitle2" gutterBottom>Labor Hours</Typography>
+                                <Typography paragraph>{selectedTask.laborHours} hours</Typography>
+                              </>
+                            )}
+                          </>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </Grid>
+
+                  {/* Processes */}
+                  {selectedTask.processes && selectedTask.processes.length > 0 && (
+                    <Grid item xs={12} md={6}>
+                      <Card>
+                        <CardContent>
+                          <Typography variant="h6" gutterBottom color="info.main">
+                            Processes ({selectedTask.processes.length})
+                          </Typography>
+                          <Stack spacing={1}>
+                            {selectedTask.processes.map((process, index) => (
+                              <Box key={index} sx={{ p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+                                <Typography variant="subtitle2">
+                                  {process.displayName || process.processName}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {process.quantity || 1}x • {process.calculatedLaborHours || process.baseLaborHours || 0}hrs • 
+                                  ${process.calculatedProcessCost || process.baseProcessCost || 0}
+                                  {process.skillLevel && ` • ${process.skillLevel}`}
+                                </Typography>
+                              </Box>
+                            ))}
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  )}
+
+                  {/* Materials */}
+                  {selectedTask.materials && selectedTask.materials.length > 0 && (
+                    <Grid item xs={12} md={6}>
+                      <Card>
+                        <CardContent>
+                          <Typography variant="h6" gutterBottom color="warning.main">
+                            Materials ({selectedTask.materials.length})
+                          </Typography>
+                          <Stack spacing={1}>
+                            {selectedTask.materials.map((material, index) => (
+                              <Box key={index} sx={{ p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+                                <Typography variant="subtitle2">
+                                  {material.displayName || material.materialName}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {material.quantity || 1}x • ${material.unitCost || material.costPerPortion || 0} each
+                                </Typography>
+                              </Box>
+                            ))}
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  )}
+
+                  {/* Service & Workflow */}
+                  <Grid item xs={12} md={6}>
+                    <Card>
+                      <CardContent>
+                        <Typography variant="h6" gutterBottom color="secondary.main">
+                          Service Details
+                        </Typography>
+                        
+                        {selectedTask.service && (
+                          <Box sx={{ mb: 2 }}>
+                            <Stack direction="row" spacing={2} sx={{ mb: 1 }}>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary">Est. Days</Typography>
+                                <Typography variant="body2">{selectedTask.service.estimatedDays || 'N/A'}</Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary">Rush Days</Typography>
+                                <Typography variant="body2">{selectedTask.service.rushDays || 'N/A'}</Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary">Skill Level</Typography>
+                                <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>
+                                  {selectedTask.service.skillLevel || 'N/A'}
+                                </Typography>
+                              </Box>
+                            </Stack>
+                            
+                            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
+                              {selectedTask.service.requiresApproval && (
+                                <Chip label="Requires Approval" size="small" color="warning" />
+                              )}
+                              {selectedTask.service.requiresInspection && (
+                                <Chip label="Requires Inspection" size="small" color="info" />
+                              )}
+                              {selectedTask.service.canBeBundled && (
+                                <Chip label="Can Bundle" size="small" color="success" />
+                              )}
+                            </Stack>
+                          </Box>
+                        )}
+
+                        {selectedTask.workflow && (
+                          <>
+                            <Typography variant="subtitle2" gutterBottom>Workflow</Typography>
+                            <Box sx={{ pl: 1 }}>
+                              {selectedTask.workflow.departments && (
+                                <Typography variant="body2">
+                                  Departments: {selectedTask.workflow.departments.join(', ')}
+                                </Typography>
+                              )}
+                              {selectedTask.workflow.equipmentNeeded && selectedTask.workflow.equipmentNeeded.length > 0 && (
+                                <Typography variant="body2">
+                                  Equipment: {selectedTask.workflow.equipmentNeeded.join(', ')}
+                                </Typography>
+                              )}
+                              {selectedTask.workflow.qualityChecks && selectedTask.workflow.qualityChecks.length > 0 && (
+                                <Typography variant="body2">
+                                  QC: {selectedTask.workflow.qualityChecks.join(', ')}
+                                </Typography>
+                              )}
+                            </Box>
+                          </>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </Grid>
+
+                  {/* Analytics & Status */}
+                  <Grid item xs={12} md={6}>
+                    <Card>
+                      <CardContent>
+                        <Typography variant="h6" gutterBottom>
+                          Analytics & Status
+                        </Typography>
+                        
+                        {selectedTask.analytics && (
+                          <Box sx={{ mb: 2 }}>
+                            <Typography variant="subtitle2" gutterBottom>Usage Stats</Typography>
+                            <Box sx={{ pl: 1 }}>
+                              <Typography variant="body2">
+                                Times Used: {selectedTask.analytics.timesUsed || 0}
+                              </Typography>
+                              {selectedTask.analytics.averageCompletionTime && (
+                                <Typography variant="body2">
+                                  Avg. Completion: {selectedTask.analytics.averageCompletionTime}
+                                </Typography>
+                              )}
+                              {selectedTask.analytics.profitMargin && (
+                                <Typography variant="body2">
+                                  Profit Margin: {selectedTask.analytics.profitMargin}%
+                                </Typography>
+                              )}
+                            </Box>
+                          </Box>
+                        )}
+
+                        <Typography variant="subtitle2" gutterBottom>System Info</Typography>
+                        <Box sx={{ pl: 1 }}>
+                          <Typography variant="body2">
+                            Version: {selectedTask.version || 1}
+                          </Typography>
+                          <Typography variant="body2">
+                            Pricing Version: {selectedTask.pricingVersion || 'N/A'}
+                          </Typography>
+                          <Typography variant="body2">
+                            Updated: {new Date(selectedTask.updatedAt).toLocaleDateString()}
+                          </Typography>
+                          {selectedTask.isArchived && (
+                            <Typography variant="body2" color="warning.main">
+                              Status: Archived
+                            </Typography>
+                          )}
+                        </Box>
+                      </CardContent>
+                    </Card>
                   </Grid>
                 </Grid>
               </DialogContent>

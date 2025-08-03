@@ -33,8 +33,7 @@ function decryptSensitiveData(encryptedData) {
         const encrypted = Buffer.from(encryptedHex, 'hex');
         const tag = Buffer.from(tagHex, 'hex');
         
-        const decipher = crypto.createDecipherGCM('aes-256-gcm', key);
-        decipher.setIV(iv);
+        const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
         decipher.setAuthTag(tag);
         
         let decrypted = decipher.update(encrypted, null, 'utf8');

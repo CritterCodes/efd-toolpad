@@ -78,6 +78,11 @@ const NAVIGATION = [
         icon: <HandymanIcon />,
         children: [
             {
+                segment: '',
+                title: 'Tasks',
+                icon: <BuildIcon />
+            },
+            {
                 segment: 'materials',
                 title: 'Materials',
                 icon: <InventoryIcon />

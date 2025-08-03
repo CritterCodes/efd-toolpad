@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import cascadingUpdatesService from '@/services/cascadingUpdates.service';
 import { 
     Card, 
     CardContent, 
@@ -45,7 +46,7 @@ export default function StoreSettingsTab() {
     
     // State management - using correct database format
     const [settings, setSettings] = useState({
-        wage: 45.00,
+        wage: 30.00, // Base wage for standard skill level
         materialMarkup: 1.5,
         administrativeFee: 0.15,  // 15% as decimal
         businessFee: 0.25,       // 25% as decimal
@@ -61,6 +62,9 @@ export default function StoreSettingsTab() {
     const [showSecurityDialog, setShowSecurityDialog] = useState(false);
     const [securityCodeInput, setSecurityCodeInput] = useState('');
     const [showSnackbar, setShowSnackbar] = useState(false);
+    const [generatingPin, setGeneratingPin] = useState(false);
+    const [generatedPin, setGeneratedPin] = useState(null);
+    const [showPinDialog, setShowPinDialog] = useState(false);
 
     // Load settings on mount
     useEffect(() => {
@@ -91,7 +95,7 @@ export default function StoreSettingsTab() {
             if (data.pricing) {
                 const pricingSettings = data.pricing;
                 const settingsData = {
-                    wage: pricingSettings.wage || 45.00,
+                    wage: pricingSettings.wage || 30.00,
                     materialMarkup: pricingSettings.materialMarkup || 1.5,
                     administrativeFee: pricingSettings.administrativeFee || 0.15,
                     businessFee: pricingSettings.businessFee || 0.25,
@@ -143,6 +147,7 @@ export default function StoreSettingsTab() {
             setSaving(true);
             setError(null);
 
+            // Save the settings first
             const response = await fetch('/api/admin/settings', {
                 method: 'PUT',
                 headers: {
@@ -161,8 +166,43 @@ export default function StoreSettingsTab() {
             }
 
             if (data.success) {
+                // Settings saved successfully, now trigger cascading updates
+                console.log('🔄 Admin settings saved, triggering cascading updates...');
+                
+                try {
+                    // Create admin settings object in the expected format for cascading updates
+                    const adminSettingsForUpdate = {
+                        laborRates: {
+                            basic: settings.wage * 0.75,      // 75% of base wage
+                            standard: settings.wage,          // 100% of base wage
+                            advanced: settings.wage * 1.25,   // 125% of base wage
+                            expert: settings.wage * 1.5       // 150% of base wage
+                        },
+                        materialMarkup: settings.materialMarkup,
+                        pricing: {
+                            wage: settings.wage,
+                            materialMarkup: settings.materialMarkup,
+                            administrativeFee: settings.administrativeFee,
+                            businessFee: settings.businessFee,
+                            consumablesFee: settings.consumablesFee
+                        }
+                    };
+                    
+                    // Trigger cascading updates
+                    const cascadingResult = await cascadingUpdatesService.updateFromAdminSettings(adminSettingsForUpdate);
+                    
+                    console.log('✅ Cascading updates completed:', cascadingResult);
+                    
+                    // Update success message to include cascading update info
+                    const updateMessage = `Settings saved successfully! Updated ${cascadingResult.materialsUpdated || 0} materials, ${cascadingResult.processesUpdated || 0} processes, and ${cascadingResult.tasksUpdated || 0} tasks.`;
+                    setSuccess(updateMessage);
+                    
+                } catch (cascadingError) {
+                    console.error('⚠️ Cascading updates failed:', cascadingError);
+                    setSuccess('Settings saved successfully, but some dependent objects may need manual updates.');
+                }
+                
                 setOriginalSettings({ ...settings });
-                setSuccess('Settings saved successfully');
                 setShowSecurityDialog(false);
                 setSecurityCodeInput('');
                 setShowSnackbar(true);
@@ -173,6 +213,38 @@ export default function StoreSettingsTab() {
             setError(error.message);
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleGeneratePin = async () => {
+        try {
+            setGeneratingPin(true);
+            setError(null);
+
+            const response = await fetch('/api/admin/settings/verify-code', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to generate PIN');
+            }
+
+            if (data.success) {
+                setGeneratedPin(data.securityCode);
+                setShowPinDialog(true);
+                setSuccess('New security PIN generated successfully');
+            }
+
+        } catch (error) {
+            console.error('PIN generation error:', error);
+            setError(error.message);
+        } finally {
+            setGeneratingPin(false);
         }
     };
 
@@ -231,9 +303,17 @@ export default function StoreSettingsTab() {
                         <CardContent>
                             <Grid container spacing={2}>
                                 <Grid item xs={12}>
+                                    <Typography variant="subtitle2" gutterBottom>
+                                        Skill-Based Hourly Wages
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                                        Set the base wage for standard skill level. Other levels are calculated automatically:
+                                    </Typography>
+                                </Grid>
+                                <Grid item xs={12}>
                                     <TextField
                                         fullWidth
-                                        label="Base Hourly Wage"
+                                        label="Base Hourly Wage (Standard Skill)"
                                         type="number"
                                         value={settings.wage}
                                         onChange={(e) => handleSettingChange('wage', e.target.value)}
@@ -241,9 +321,53 @@ export default function StoreSettingsTab() {
                                             startAdornment: <InputAdornment position="start">$</InputAdornment>,
                                             inputProps: { min: 0, step: 0.01 }
                                         }}
-                                        helperText="Base hourly wage before fees"
+                                        helperText="Base hourly wage before fees (used for Standard skill level)"
                                     />
                                 </Grid>
+                                
+                                {/* Skill Level Preview */}
+                                <Grid item xs={12}>
+                                    <Paper sx={{ p: 2, bgcolor: 'grey.50' }}>
+                                        <Typography variant="subtitle2" gutterBottom>
+                                            Skill Level Wages (Before Fees):
+                                        </Typography>
+                                        <Grid container spacing={1}>
+                                            <Grid item xs={6} sm={3}>
+                                                <Typography variant="body2" color="text.secondary">
+                                                    Basic (75%):
+                                                </Typography>
+                                                <Typography variant="body2" fontWeight="bold">
+                                                    ${(settings.wage * 0.75).toFixed(2)}/hr
+                                                </Typography>
+                                            </Grid>
+                                            <Grid item xs={6} sm={3}>
+                                                <Typography variant="body2" color="text.secondary">
+                                                    Standard (100%):
+                                                </Typography>
+                                                <Typography variant="body2" fontWeight="bold">
+                                                    ${settings.wage.toFixed(2)}/hr
+                                                </Typography>
+                                            </Grid>
+                                            <Grid item xs={6} sm={3}>
+                                                <Typography variant="body2" color="text.secondary">
+                                                    Advanced (125%):
+                                                </Typography>
+                                                <Typography variant="body2" fontWeight="bold">
+                                                    ${(settings.wage * 1.25).toFixed(2)}/hr
+                                                </Typography>
+                                            </Grid>
+                                            <Grid item xs={6} sm={3}>
+                                                <Typography variant="body2" color="text.secondary">
+                                                    Expert (150%):
+                                                </Typography>
+                                                <Typography variant="body2" fontWeight="bold">
+                                                    ${(settings.wage * 1.5).toFixed(2)}/hr
+                                                </Typography>
+                                            </Grid>
+                                        </Grid>
+                                    </Paper>
+                                </Grid>
+                                
                                 <Grid item xs={12}>
                                     <TextField
                                         fullWidth
@@ -322,11 +446,14 @@ export default function StoreSettingsTab() {
                 <Grid item xs={12} md={6}>
                     <Card>
                         <CardHeader 
-                            title="Labor Rate Summary"
+                            title="Final Labor Rates (After Fees)"
                             avatar={<CalculateIcon color="success" />}
                         />
                         <CardContent>
-                            <Grid container spacing={1}>
+                            <Typography variant="subtitle2" gutterBottom>
+                                Standard Skill Level Breakdown:
+                            </Typography>
+                            <Grid container spacing={1} sx={{ mb: 2 }}>
                                 <Grid item xs={8}>
                                     <Typography variant="body2">Base Wage:</Typography>
                                 </Grid>
@@ -355,7 +482,7 @@ export default function StoreSettingsTab() {
                                     <Divider sx={{ my: 1 }} />
                                 </Grid>
                                 <Grid item xs={8}>
-                                    <Typography variant="h6" color="success.main">Total Labor Rate:</Typography>
+                                    <Typography variant="h6" color="success.main">Standard Total:</Typography>
                                 </Grid>
                                 <Grid item xs={4}>
                                     <Typography variant="h6" color="success.main" align="right">
@@ -363,6 +490,46 @@ export default function StoreSettingsTab() {
                                     </Typography>
                                 </Grid>
                             </Grid>
+                            
+                            <Typography variant="subtitle2" gutterBottom>
+                                All Skill Level Final Rates:
+                            </Typography>
+                            <Paper sx={{ p: 2, bgcolor: 'success.50' }}>
+                                <Grid container spacing={1}>
+                                    <Grid item xs={6} sm={3}>
+                                        <Typography variant="body2" color="text.secondary">
+                                            Basic:
+                                        </Typography>
+                                        <Typography variant="body2" fontWeight="bold" color="success.main">
+                                            ${(calculateLaborRate() * 0.75).toFixed(2)}/hr
+                                        </Typography>
+                                    </Grid>
+                                    <Grid item xs={6} sm={3}>
+                                        <Typography variant="body2" color="text.secondary">
+                                            Standard:
+                                        </Typography>
+                                        <Typography variant="body2" fontWeight="bold" color="success.main">
+                                            ${calculateLaborRate().toFixed(2)}/hr
+                                        </Typography>
+                                    </Grid>
+                                    <Grid item xs={6} sm={3}>
+                                        <Typography variant="body2" color="text.secondary">
+                                            Advanced:
+                                        </Typography>
+                                        <Typography variant="body2" fontWeight="bold" color="success.main">
+                                            ${(calculateLaborRate() * 1.25).toFixed(2)}/hr
+                                        </Typography>
+                                    </Grid>
+                                    <Grid item xs={6} sm={3}>
+                                        <Typography variant="body2" color="text.secondary">
+                                            Expert:
+                                        </Typography>
+                                        <Typography variant="body2" fontWeight="bold" color="success.main">
+                                            ${(calculateLaborRate() * 1.5).toFixed(2)}/hr
+                                        </Typography>
+                                    </Grid>
+                                </Grid>
+                            </Paper>
                         </CardContent>
                     </Card>
                 </Grid>
@@ -371,11 +538,14 @@ export default function StoreSettingsTab() {
                 <Grid item xs={12} md={6}>
                     <Card>
                         <CardHeader 
-                            title="Sample Project (2hr, $25 materials)"
+                            title="Sample Project Examples (2hr, $25 materials)"
                             avatar={<CheckCircleIcon color="info" />}
                         />
                         <CardContent>
-                            <Grid container spacing={1}>
+                            <Typography variant="subtitle2" gutterBottom>
+                                Standard Skill Level (2 hours):
+                            </Typography>
+                            <Grid container spacing={1} sx={{ mb: 2 }}>
                                 <Grid item xs={8}>
                                     <Typography variant="body2">Labor (2 hours):</Typography>
                                 </Grid>
@@ -392,7 +562,7 @@ export default function StoreSettingsTab() {
                                     <Divider sx={{ my: 1 }} />
                                 </Grid>
                                 <Grid item xs={8}>
-                                    <Typography variant="h6" color="info.main">Project Total:</Typography>
+                                    <Typography variant="h6" color="info.main">Standard Total:</Typography>
                                 </Grid>
                                 <Grid item xs={4}>
                                     <Typography variant="h6" color="info.main" align="right">
@@ -400,6 +570,46 @@ export default function StoreSettingsTab() {
                                     </Typography>
                                 </Grid>
                             </Grid>
+                            
+                            <Typography variant="subtitle2" gutterBottom>
+                                All Skill Levels (2 hours + materials):
+                            </Typography>
+                            <Paper sx={{ p: 2, bgcolor: 'info.50' }}>
+                                <Grid container spacing={1}>
+                                    <Grid item xs={6} sm={3}>
+                                        <Typography variant="body2" color="text.secondary">
+                                            Basic:
+                                        </Typography>
+                                        <Typography variant="body2" fontWeight="bold" color="info.main">
+                                            ${((calculateLaborRate() * 0.75) * 2 + sampleProject.materialTotal).toFixed(2)}
+                                        </Typography>
+                                    </Grid>
+                                    <Grid item xs={6} sm={3}>
+                                        <Typography variant="body2" color="text.secondary">
+                                            Standard:
+                                        </Typography>
+                                        <Typography variant="body2" fontWeight="bold" color="info.main">
+                                            ${sampleProject.total.toFixed(2)}
+                                        </Typography>
+                                    </Grid>
+                                    <Grid item xs={6} sm={3}>
+                                        <Typography variant="body2" color="text.secondary">
+                                            Advanced:
+                                        </Typography>
+                                        <Typography variant="body2" fontWeight="bold" color="info.main">
+                                            ${((calculateLaborRate() * 1.25) * 2 + sampleProject.materialTotal).toFixed(2)}
+                                        </Typography>
+                                    </Grid>
+                                    <Grid item xs={6} sm={3}>
+                                        <Typography variant="body2" color="text.secondary">
+                                            Expert:
+                                        </Typography>
+                                        <Typography variant="body2" fontWeight="bold" color="info.main">
+                                            ${((calculateLaborRate() * 1.5) * 2 + sampleProject.materialTotal).toFixed(2)}
+                                        </Typography>
+                                    </Grid>
+                                </Grid>
+                            </Paper>
                         </CardContent>
                     </Card>
                 </Grid>
@@ -423,6 +633,15 @@ export default function StoreSettingsTab() {
                             disabled={loading}
                         >
                             Reset
+                        </Button>
+                        <Button
+                            variant="outlined"
+                            startIcon={<LockIcon />}
+                            onClick={handleGeneratePin}
+                            disabled={generatingPin}
+                            color="warning"
+                        >
+                            {generatingPin ? 'Generating...' : 'Generate New PIN'}
                         </Button>
                     </Box>
                     {hasChanges && (
@@ -488,6 +707,52 @@ export default function StoreSettingsTab() {
                         startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
                     >
                         {saving ? 'Saving...' : 'Save Settings'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+            
+            {/* PIN Display Dialog */}
+            <Dialog 
+                open={showPinDialog} 
+                onClose={() => {
+                    setShowPinDialog(false);
+                    setGeneratedPin(null);
+                }}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle>
+                    <Box display="flex" alignItems="center" gap={1}>
+                        <CheckCircleIcon color="success" />
+                        New Security PIN Generated
+                    </Box>
+                </DialogTitle>
+                <DialogContent>
+                    <Alert severity="info" sx={{ mb: 2 }}>
+                        <Typography variant="h4" align="center" sx={{ mb: 1, fontFamily: 'monospace', letterSpacing: 3 }}>
+                            {generatedPin}
+                        </Typography>
+                        <Typography variant="body2" align="center">
+                            Please write down this PIN. You&apos;ll need it to save admin settings.
+                            This PIN will expire in 1 hour.
+                        </Typography>
+                    </Alert>
+                    <Alert severity="warning">
+                        <Typography variant="body2">
+                            <strong>Security Notice:</strong> This PIN will only be displayed once. 
+                            Keep it secure and don&apos;t share it with others.
+                        </Typography>
+                    </Alert>
+                </DialogContent>
+                <DialogActions>
+                    <Button 
+                        onClick={() => {
+                            setShowPinDialog(false);
+                            setGeneratedPin(null);
+                        }} 
+                        variant="contained"
+                    >
+                        I&apos;ve Saved the PIN
                     </Button>
                 </DialogActions>
             </Dialog>

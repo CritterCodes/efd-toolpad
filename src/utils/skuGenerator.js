@@ -4,15 +4,24 @@
  */
 
 /**
- * Generate SKU for tasks
- * Format: RT-{CategoryPrefix}-{MetalPrefix}{RandomNumber}
- * Example: RT-RE-G123
+ * Generate SKU for tasks using shortCode system
+ * Format: RT-{CategoryName}-{shortCode}
+ * Example: RT-SHANK-02201
  */
-export function generateTaskSku(category, metalType = 'general') {
-  const categoryPrefix = category.substring(0, 2).toUpperCase();
-  const metalPrefix = metalType ? metalType.substring(0, 1).toUpperCase() : 'G';
-  const randomSuffix = Math.floor(Math.random() * 900) + 100;
-  return `RT-${categoryPrefix}-${metalPrefix}${randomSuffix}`;
+export function generateTaskSku(category, shortCode) {
+  const categoryNameMap = {
+    'shank': 'SHANK',
+    'prongs': 'PRONG', 
+    'stone_setting': 'STONE',
+    'engraving': 'ENGRAVE',
+    'chains': 'CHAIN',
+    'bracelet': 'BRACELET',
+    'watch': 'WATCH',
+    'misc': 'MISC'
+  };
+
+  const categoryName = categoryNameMap[category.toLowerCase()] || 'MISC';
+  return `RT-${categoryName}-${shortCode}`;
 }
 
 /**
@@ -87,12 +96,103 @@ function getMaterialTypePrefix(materialType, category) {
 }
 
 /**
- * Generate a simple code without prefixes (for task codes)
+ * Generate a 5-digit shortCode following the specification: [Category][Karat][Metal][Task]
+ * @param {string} category - The task category (shank, prongs, stone_setting, etc.)
+ * @param {string} metalType - The metal type (silver, yellow_gold, white_gold, etc.)
+ * @param {string} karat - The karat/purity (925_silver, 14k, 18k, etc.)
+ * @param {number} taskNumber - Optional specific task number (01-99)
  */
-export function generateTaskCode(category) {
-  const categoryPrefix = category.substring(0, 2).toUpperCase();
-  const randomSuffix = Math.floor(Math.random() * 900) + 100;
-  return `${categoryPrefix}${randomSuffix}`;
+export function generateShortCode(category, metalType = 'not_applicable', karat = 'not_applicable', taskNumber = null) {
+  // Category mapping (Position 1: 0-7)
+  const categoryMap = {
+    'shank': '0',
+    'prongs': '1', 
+    'stone_setting': '2',
+    'engraving': '3',
+    'chains': '4',
+    'bracelet': '5',
+    'watch': '6',
+    'misc': '7'
+  };
+
+  // Karat mapping (Position 2: 0-9)
+  const karatMap = {
+    'not_applicable': '0',
+    'mixed': '0',
+    '925_silver': '1',
+    '14k': '2',
+    '18k': '3', 
+    '22k': '4',
+    '24k': '5',
+    '10k': '6',
+    'platinum_950': '7',
+    'platinum_900': '8',
+    'other': '9'
+  };
+
+  // Metal Type mapping (Position 3: 0-9)
+  const metalTypeMap = {
+    'not_applicable': '0',
+    'mixed': '0',
+    'silver': '1',
+    'yellow_gold': '2',
+    'white_gold': '3',
+    'rose_gold': '4',
+    'platinum': '5',
+    'palladium': '6',
+    'stainless_steel': '7',
+    'titanium': '8',
+    'other': '9'
+  };
+
+  const categoryCode = categoryMap[category.toLowerCase()] || '7';
+  const karatCode = karatMap[karat.toLowerCase()] || '0';
+  const metalCode = metalTypeMap[metalType.toLowerCase()] || '0';
+  
+  // Task code (Positions 4-5: 01-99)
+  let taskCode = '01'; // Default
+  
+  if (taskNumber) {
+    taskCode = taskNumber.toString().padStart(2, '0');
+  } else {
+    // Generate default task codes based on category
+    const defaultTaskCodes = {
+      'shank': '01', // Size Down (1 size)
+      'prongs': '10', // Basic Prong Repair
+      'stone_setting': '20', // Basic Stone Setting
+      'engraving': '30', // Hand Engraving
+      'chains': '40', // Chain Link Repair
+      'bracelet': '50', // Bracelet Sizing
+      'watch': '60', // Battery Replacement
+      'misc': '70' // General Cleaning
+    };
+    taskCode = defaultTaskCodes[category.toLowerCase()] || '01';
+  }
+
+  return `${categoryCode}${karatCode}${metalCode}${taskCode}`;
+}
+
+/**
+ * Parse a shortCode into its components
+ * @param {string} shortCode - 5-digit shortCode
+ */
+export function parseShortCode(shortCode) {
+  if (!shortCode || shortCode.length !== 5) {
+    return null;
+  }
+
+  const categoryCode = shortCode.charAt(0);
+  const karatCode = shortCode.charAt(1);
+  const metalCode = shortCode.charAt(2);
+  const taskCode = shortCode.substring(3);
+
+  return {
+    categoryCode,
+    karatCode,
+    metalCode,
+    taskCode: parseInt(taskCode),
+    rawTaskCode: taskCode
+  };
 }
 
 /**

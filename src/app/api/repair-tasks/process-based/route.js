@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { auth } from '../../../../../auth';
+import { auth } from '../../../../auth';
 import { ObjectId } from 'mongodb';
 import { db } from '@/lib/database';
 import { generateTaskSku, generateShortCode } from '@/utils/skuGenerator';
@@ -21,7 +21,6 @@ export async function POST(request) {
       category,
       subcategory,
       metalType,
-      karat,
       requiresMetalType,
       processes,        // Array of process selections
       materials,        // Array of material selections
@@ -35,6 +34,12 @@ export async function POST(request) {
     if (!title || !category || !processes || processes.length === 0) {
       return NextResponse.json({ 
         error: 'Missing required fields: title, category, processes' 
+      }, { status: 400 });
+    }
+
+    if (!materials || materials.length === 0) {
+      return NextResponse.json({ 
+        error: 'At least one material must be specified' 
       }, { status: 400 });
     }
 
@@ -52,8 +57,8 @@ export async function POST(request) {
     }
 
     // Calculate process-based pricing
-    let totalLaborHours = 0;
-    let totalProcessCost = 0;
+    let totalLaborMinutes = 0;
+    let totalEquipmentCost = 0;
     const enhancedProcesses = [];
 
     // Process each selected process
@@ -68,26 +73,29 @@ export async function POST(request) {
         }, { status: 400 });
       }
 
-      // Apply quantity multiplier
+      // Calculate metal complexity multiplier
+      const metalComplexity = process.metalComplexity?.[metalType] || 1.0;
       const quantity = processSelection.quantity || 1;
-      const laborHours = (process.laborHours || 0) * quantity;
-      const processCost = (process.pricing?.totalCost || 0) * quantity;
+      
+      const calculatedLaborMinutes = process.laborMinutes * metalComplexity * quantity;
+      const calculatedEquipmentCost = process.equipmentCost * quantity;
 
-      totalLaborHours += laborHours;
-      totalProcessCost += processCost;
+      totalLaborMinutes += calculatedLaborMinutes;
+      totalEquipmentCost += calculatedEquipmentCost;
 
       enhancedProcesses.push({
         processId: new ObjectId(processSelection.processId),
-        processName: process.sku || process.displayName,
+        processName: process.name,
         displayName: process.displayName,
         metalType: metalType,
         quantity: quantity,
-        baseLaborHours: process.laborHours,
-        calculatedLaborHours: laborHours,
-        baseProcessCost: process.pricing?.totalCost || 0,
-        calculatedProcessCost: processCost,
+        baseLaborMinutes: process.laborMinutes,
+        metalComplexity: metalComplexity,
+        calculatedLaborMinutes: calculatedLaborMinutes,
+        baseEquipmentCost: process.equipmentCost,
+        calculatedEquipmentCost: calculatedEquipmentCost,
         skillLevel: process.skillLevel,
-        riskLevel: process.riskLevel || 'low'
+        riskLevel: process.riskLevel
       });
     }
 
@@ -95,18 +103,16 @@ export async function POST(request) {
     let totalMaterialCost = 0;
     const enhancedMaterials = [];
 
-    // Only process materials if they exist
-    if (materials && materials.length > 0) {
-      for (const materialSelection of materials) {
-        const material = await db._instance
-          .collection('repairMaterials')
-          .findOne({ _id: new ObjectId(materialSelection.materialId) });
+    for (const materialSelection of materials) {
+      const material = await db._instance
+        .collection('repairMaterials')
+        .findOne({ _id: new ObjectId(materialSelection.materialId) });
 
-        if (!material) {
-          return NextResponse.json({ 
-            error: `Material not found: ${materialSelection.materialId}` 
-          }, { status: 400 });
-        }
+      if (!material) {
+        return NextResponse.json({ 
+          error: `Material not found: ${materialSelection.materialId}` 
+        }, { status: 400 });
+      }
 
       // Check metal compatibility
       if (!material.compatibleMetals.includes(metalType)) {
@@ -129,15 +135,15 @@ export async function POST(request) {
         unitType: material.unitType,
         category: material.category
       });
-      }
     }
 
     // Apply material markup from admin settings
     const markedUpMaterialCost = totalMaterialCost * (adminSettings.pricing.materialMarkup || 1.5);
 
-    // Calculate final pricing using process-based formula
-    // Total cost = process costs + material costs
-    const baseCost = totalProcessCost + markedUpMaterialCost;
+    // Calculate final pricing using new process-based formula
+    const laborRate = adminSettings.pricing.wage / 60; // Convert hourly wage to per-minute
+    const processLaborCost = totalLaborMinutes * laborRate;
+    const baseCost = processLaborCost + totalEquipmentCost + markedUpMaterialCost;
     
     const businessMultiplier = (adminSettings.pricing.administrativeFee + 
                                adminSettings.pricing.businessFee + 
@@ -162,7 +168,6 @@ export async function POST(request) {
 
       // Metal Type Integration
       metalType: metalType,
-      karat: karat || '',
       requiresMetalType: requiresMetalType !== false,
 
       // Process-Based Pricing (NEW)
@@ -172,8 +177,8 @@ export async function POST(request) {
       // Calculated Pricing
       pricing: {
         // Process breakdown
-        totalLaborHours: Math.round(totalLaborHours * 100) / 100,
-        totalProcessCost: Math.round(totalProcessCost * 100) / 100,
+        totalLaborMinutes: Math.round(totalLaborMinutes * 100) / 100,
+        totalEquipmentCost: Math.round(totalEquipmentCost * 100) / 100,
         totalMaterialCost: Math.round(totalMaterialCost * 100) / 100,
         markedUpMaterialCost: Math.round(markedUpMaterialCost * 100) / 100,
         
@@ -185,11 +190,12 @@ export async function POST(request) {
         // Settings used
         materialMarkup: adminSettings.pricing.materialMarkup || 1.5,
         businessMultiplier: Math.round(businessMultiplier * 100) / 100,
+        laborRatePerMinute: Math.round(laborRate * 100) / 100,
         calculatedAt: new Date()
       },
 
       // Legacy compatibility (for existing systems)
-      laborHours: Math.round(totalLaborHours * 100) / 100,
+      laborHours: Math.round((totalLaborMinutes / 60) * 100) / 100,
       materialCost: totalMaterialCost,
       basePrice: retailPrice, // Backwards compatibility
 
@@ -257,7 +263,7 @@ export async function POST(request) {
 
     // Insert the repair task
     const result = await db._instance
-      .collection('tasks')
+      .collection('repairTasks')
       .insertOne(newTask);
 
     return NextResponse.json({
