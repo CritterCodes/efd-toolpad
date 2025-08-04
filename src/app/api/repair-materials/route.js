@@ -58,8 +58,7 @@ export async function GET(request) {
     if (compatibleMetal) query.compatibleMetals = { $in: [compatibleMetal] };
     if (isActive !== null) query.isActive = isActive === 'true';
 
-    const materials = await db._instance
-      .collection('repairMaterials')
+    const materials = await (await db.dbMaterials())
       .find(query)
       .sort({ category: 1, displayName: 1 })
       .toArray();
@@ -124,8 +123,7 @@ export async function POST(request) {
     await db.connect();
 
     // Check for duplicate names
-    const existingMaterial = await db._instance
-      .collection('repairMaterials')
+    const existingMaterial = await (await db.dbMaterials())
       .findOne({ name: name.toLowerCase() });
 
     if (existingMaterial) {
@@ -159,8 +157,7 @@ export async function POST(request) {
       createdBy: session.user.email
     };
 
-    const result = await db._instance
-      .collection('repairMaterials')
+    const result = await (await db.dbMaterials())
       .insertOne(newMaterial);
 
     return NextResponse.json({
@@ -254,8 +251,7 @@ export async function PUT(request) {
       updatedAt: new Date()
     };
 
-    const result = await db._instance
-      .collection('repairMaterials')
+    const result = await (await db.dbMaterials())
       .updateOne(
         { _id: new ObjectId(materialId) },
         { $set: updatedMaterial }
@@ -295,8 +291,7 @@ export async function DELETE(request) {
       return NextResponse.json({ error: 'Material ID is required' }, { status: 400 });
     }
 
-    const result = await db._instance
-      .collection('repairMaterials')
+    const result = await (await db.dbMaterials())
       .deleteOne({ _id: new ObjectId(materialId) });
 
     if (result.deletedCount === 0) {

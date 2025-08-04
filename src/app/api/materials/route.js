@@ -1,38 +1,38 @@
-import Controller from "./controller.js";
+// src/app/api/materials/route.js
+import MaterialController from "./controller";
 
 /**
- * Materials API Routes
- * Following the new MVC architecture pattern
+ * ✅ Route for getting materials
+ * Supports filtering by category, metal, active status, supplier, and Stuller items
  */
-
-/**
- * GET /api/materials
- * Fetch all materials with optional filtering
- */
-export async function GET(request) {
-    return await Controller.getMaterials(request);
+export async function GET(req) {
+    const { searchParams } = new URL(req.url);
+    if (searchParams.get("id")) {
+        return await MaterialController.getMaterialById(req);
+    } else {
+        return await MaterialController.getMaterials(req);
+    }
 }
 
 /**
- * POST /api/materials
- * Create a new material
+ * ✅ Route for creating a new material
  */
-export async function POST(request) {
-    return await Controller.createMaterial(request);
+export async function POST(req) {
+    return await MaterialController.createMaterial(req);
 }
 
 /**
- * PUT /api/materials
- * Update an existing material
+ * ✅ Route for updating an existing material
+ * Requires 'id' query parameter
  */
-export async function PUT(request) {
-    return await Controller.updateMaterial(request);
+export async function PUT(req) {
+    return await MaterialController.updateMaterial(req);
 }
 
 /**
- * DELETE /api/materials
- * Delete a material
+ * ✅ Route for deleting a material
+ * Requires 'id' query parameter
  */
-export async function DELETE(request) {
-    return await Controller.deleteMaterial(request);
+export async function DELETE(req) {
+    return await MaterialController.deleteMaterial(req);
 }

@@ -1,13 +1,28 @@
 // lib/database.js
 import { MongoClient } from "mongodb";
+import Constants from "./constants.js";
 
 class Database {
     constructor() {
         if (!Database.instance) {
-            this.client = new MongoClient(process.env.MONGODB_URI, {
-                minPoolSize: 5,
-                maxPoolSize: 10,
-            });
+            // Use HMR-friendly approach from Vercel example
+            if (process.env.NODE_ENV === "development") {
+                // In development mode, use a global variable for HMR compatibility
+                let globalWithMongo = global;
+                if (!globalWithMongo._mongoClient) {
+                    globalWithMongo._mongoClient = new MongoClient(process.env.MONGODB_URI, {
+                        minPoolSize: 5,
+                        maxPoolSize: 10,
+                    });
+                }
+                this.client = globalWithMongo._mongoClient;
+            } else {
+                // In production mode, create a new client
+                this.client = new MongoClient(process.env.MONGODB_URI, {
+                    minPoolSize: 5,
+                    maxPoolSize: 10,
+                });
+            }
             this._instance = null;
             Database.instance = this;
         }
@@ -33,19 +48,68 @@ class Database {
         return this._instance;
     }
 
+    // Core Collections
     async dbUsers() {
-        await this.connect(); // ✅ Ensure the database connection is established before returning the collection
-        return this._instance.collection("users");
+        await this.connect();
+        return this._instance.collection(Constants.USERS_COLLECTION);
     }
 
     async dbRepairs() {
-        await this.connect(); // ✅ Ensure the database connection is established before returning the collection
-        return this._instance.collection("repairs");
+        await this.connect();
+        return this._instance.collection(Constants.REPAIRS_COLLECTION);
     }
 
+    async dbTasks() {
+        await this.connect();
+        return this._instance.collection(Constants.TASKS_COLLECTION);
+    }
+
+    async dbMaterials() {
+        await this.connect();
+        return this._instance.collection(Constants.MATERIALS_COLLECTION);
+    }
+
+    async dbProcesses() {
+        await this.connect();
+        return this._instance.collection(Constants.PROCESSES_COLLECTION);
+    }
+
+    // Admin Collections
+    async dbAdminSettings() {
+        await this.connect();
+        return this._instance.collection(Constants.ADMIN_SETTINGS_COLLECTION);
+    }
+
+    async dbAdminSettingsAudit() {
+        await this.connect();
+        return this._instance.collection(Constants.ADMIN_SETTINGS_AUDIT_COLLECTION);
+    }
+
+    // Additional Collections
     async dbCollectors() {
-        await this.connect(); // ✅ Ensure the database connection is established before returning the collection
-        return this._instance.collection("collectors");
+        await this.connect();
+        return this._instance.collection(Constants.COLLECTORS_COLLECTION);
+    }
+
+    async dbContactRequests() {
+        await this.connect();
+        return this._instance.collection(Constants.CONTACT_REQUESTS_COLLECTION);
+    }
+
+    async dbCustomTickets() {
+        await this.connect();
+        return this._instance.collection(Constants.CUSTOM_TICKETS_COLLECTION);
+    }
+
+    async dbInventory() {
+        await this.connect();
+        return this._instance.collection(Constants.INVENTORY_COLLECTION);
+    }
+
+    // Legacy alias for backward compatibility
+    async dbRepairTasks() {
+        await this.connect();
+        return this._instance.collection(Constants.REPAIRTASKS_COLLECTION);
     }
 }
 
