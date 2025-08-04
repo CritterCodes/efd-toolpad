@@ -1,22 +1,35 @@
-# Repair Tasks Sync Script
+# Scripts Directory
 
-This script pulls all repair tasks from Shopify and stores them in MongoDB for faster local access.
+This directory contains utility scripts for system administration and data migration.
+
+## Available Scripts
+
+### `initialize-admin-settings.js`
+Initializes or updates admin settings with business pricing parameters, security codes, and integration configurations.
+
+**Usage:**
+```bash
+node scripts/initialize-admin-settings.js
+```
+
+### `migrate-encrypt-sensitive-data.js`
+One-time migration script to encrypt sensitive data in the database (Stuller passwords, etc.).
+
+**Usage:**
+```bash
+node scripts/migrate-encrypt-sensitive-data.js
+```
+
+**Note:** This script should only be run once after implementing encryption features.
 
 ## Prerequisites
 
-1. **Environment Variables**: Ensure your `.env.local` file contains:
-   ```
-   SHOPIFY_STORE_URL=your-store-name.myshopify.com
-   SHOPIFY_ACCESS_TOKEN=your-shopify-access-token
-   MONGODB_URI=your-mongodb-connection-string
-   MONGO_DB_NAME=efd-database
-   ```
-
-2. **Shopify Access**: The access token needs permissions for:
-   - `read_products`
-   - `read_product_listings`
-
-## Usage
+Ensure your `.env.local` file contains:
+```
+MONGODB_URI=your-mongodb-connection-string
+MONGO_DB_NAME=efd-database
+ENCRYPTION_KEY=your-32-character-encryption-key
+```
 
 ### Run the sync script:
 ```bash
