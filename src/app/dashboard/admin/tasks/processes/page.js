@@ -2,49 +2,26 @@
 
 import * as React from 'react';
 import cascadingUpdatesService from '@/services/cascadingUpdates.service';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import CardActions from '@mui/material/CardActions';
-import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
-import CircularProgress from '@mui/material/CircularProgress';
-import Alert from '@mui/material/Alert';
-import TextField from '@mui/material/TextField';
-import Select from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import Grid from '@mui/material/Grid';
-import Stack from '@mui/material/Stack';
-import Chip from '@mui/material/Chip';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
-import Fab from '@mui/material/Fab';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Checkbox from '@mui/material/Checkbox';
-import Autocomplete from '@mui/material/Autocomplete';
-import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
-import ListItemText from '@mui/material/ListItemText';
-import ListItemSecondaryAction from '@mui/material/ListItemSecondaryAction';
-import Divider from '@mui/material/Divider';
+import processesService from '@/services/processes.service';
+import materialsService from '@/services/materials.service';
 import {
-  Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Settings as SettingsIcon,
-  Schedule as TimeIcon,
-  AttachMoney as MoneyIcon,
-  Category as CategoryIcon,
-  Security as SecurityIcon,
-  Engineering as EngineeringIcon
-} from '@mui/icons-material';
+  DEFAULT_PROCESS_FORM,
+  transformProcessForForm
+} from '@/utils/processes.util';
+import {
+  ProcessesHeader,
+  ProcessesGrid,
+  ProcessDialog,
+  DeleteConfirmDialog
+} from '@/app/components/processes';
+import {
+  Box,
+  Fab,
+  CircularProgress,
+  Alert
+} from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
 import { PageContainer } from '@toolpad/core/PageContainer';
-import { generateProcessSku } from '../../../../../utils/skuGenerator';
 
 export default function ProcessesPage() {
   const [processes, setProcesses] = React.useState([]);
@@ -55,21 +32,13 @@ export default function ProcessesPage() {
   const [openDialog, setOpenDialog] = React.useState(false);
   const [editingProcess, setEditingProcess] = React.useState(null);
   const [deleteDialog, setDeleteDialog] = React.useState({ open: false, process: null });
-  const [selectedMaterial, setSelectedMaterial] = React.useState(null);
-  const [materialQuantity, setMaterialQuantity] = React.useState('');
 
   // Form state
-  const [formData, setFormData] = React.useState({
-    displayName: '',
-    description: '',
-    category: '',
-    skillLevel: '',
-    laborHours: '',
-    metalType: '', // Single metal type like materials
-    karat: '', // Karat for metals
-    metalComplexityMultiplier: '1.0', // Single multiplier
-    materials: [], // Array of { materialId, materialName, quantity, unit }
-  });
+  const [formData, setFormData] = React.useState(DEFAULT_PROCESS_FORM);
+  
+  // Material selection state
+  const [selectedMaterial, setSelectedMaterial] = React.useState(null);
+  const [materialQuantity, setMaterialQuantity] = React.useState('');
 
   const categories = [
     'metalwork',
@@ -97,27 +66,33 @@ export default function ProcessesPage() {
     'sterling_silver',
     'fine_silver',
     'platinum',
+    'palladium',
+    'titanium',
+    'stainless_steel',
+    'alternative',
     'mixed',
     'n_a'
   ];
 
-  const karatOptions = [
-    '10k', '14k', '18k', '22k', '24k', // Gold
-    '925', '999', // Silver
-    '950', '900', // Platinum
-    'N/A' // For mixed or non-precious metals
-  ];
+  const karatOptions = {
+    yellow_gold: ['10k', '14k', '18k', '22k', '24k'],
+    white_gold: ['10k', '14k', '18k'],
+    rose_gold: ['10k', '14k', '18k'],
+    sterling_silver: ['925', '900'],
+    fine_silver: ['999'],
+    platinum: ['950', '900'],
+    palladium: ['950', '900'],
+    titanium: ['Grade 1', 'Grade 2', 'Grade 4'],
+    stainless_steel: ['316L', '304'],
+    alternative: ['N/A'],
+    mixed: ['N/A'],
+    n_a: ['N/A']
+  };
 
   const loadProcesses = React.useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/repair-processes');
-      
-      if (!response.ok) {
-        throw new Error('Failed to load processes');
-      }
-      
-      const { processes } = await response.json();
+      const processes = await processesService.getProcesses();
       setProcesses(processes);
       setError(null);
     } catch (error) {
@@ -130,11 +105,44 @@ export default function ProcessesPage() {
 
   const loadMaterials = React.useCallback(async () => {
     try {
-      const response = await fetch('/api/repair-materials');
-      if (!response.ok) throw new Error('Failed to load materials');
-      const data = await response.json();
-      // API returns { success: true, materials: [...] }
-      setAvailableMaterials(data.materials || []);
+      console.log('🟡 Loading materials...');
+      const materials = await materialsService.getMaterials();
+      console.log('🟡 Materials loaded:', materials?.length || 0, 'materials');
+      
+      // Log sample of materials to check costPerPortion values
+      if (materials && materials.length > 0) {
+        console.log('🟡 Sample materials data:');
+        materials.slice(0, 3).forEach((material, index) => {
+          console.log(`🟡 Material ${index + 1}:`, {
+            name: material.name,
+            sku: material.sku,
+            costPerPortion: material.costPerPortion,
+            costPerPortionType: typeof material.costPerPortion,
+            portionType: material.portionType
+          });
+        });
+        
+        // Look specifically for solder materials
+        const solderMaterials = materials.filter(m => 
+          m.name?.toLowerCase().includes('solder') || 
+          m.sku?.toLowerCase().includes('solder')
+        );
+        
+        if (solderMaterials.length > 0) {
+          console.log('🟡 Found solder materials:');
+          solderMaterials.forEach(material => {
+            console.log('🟡 Solder material:', {
+              name: material.name,
+              sku: material.sku,
+              costPerPortion: material.costPerPortion,
+              costPerPortionType: typeof material.costPerPortion,
+              portionType: material.portionType
+            });
+          });
+        }
+      }
+      
+      setAvailableMaterials(materials || []);
     } catch (error) {
       console.error('Error loading materials:', error);
       setAvailableMaterials([]); // Ensure it's always an array on error
@@ -208,33 +216,24 @@ export default function ProcessesPage() {
     e.preventDefault();
     
     try {
-      const url = editingProcess 
-        ? `/api/repair-processes?id=${editingProcess._id}` 
-        : '/api/repair-processes';
-      
-      const method = editingProcess ? 'PUT' : 'POST';
       const isUpdate = !!editingProcess;
       
-      const processData = {
-        ...formData,
-        sku: editingProcess?.sku || generateProcessSku(formData.category, formData.skillLevel),
-        laborHours: parseFloat(formData.laborHours),
-        metalComplexityMultiplier: parseFloat(formData.metalComplexityMultiplier),
-        materials: formData.materials, // Include materials list
-      };
+      console.log('🟢 Submitting process form:');
+      console.log('🟢 Form data:', JSON.stringify(formData, null, 2));
+      console.log('🟢 Materials in form:', formData.materials);
+      console.log('🟢 Total materials cost:', formData.materials.reduce((total, material) => total + (material.estimatedCost || 0), 0));
       
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(processData)
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to save process');
+      let savedProcess;
+      
+      if (isUpdate) {
+        console.log('🟢 Updating existing process:', editingProcess._id);
+        savedProcess = await processesService.updateProcess(editingProcess._id, formData);
+      } else {
+        console.log('🟢 Creating new process');
+        savedProcess = await processesService.createProcess(formData);
       }
-
-      const savedProcess = await response.json();
+      
+      console.log('🟢 Saved process response:', JSON.stringify(savedProcess, null, 2));
       
       // If this was an update, trigger cascading updates
       if (isUpdate && savedProcess.process) {
@@ -260,31 +259,17 @@ export default function ProcessesPage() {
 
   const handleEdit = (process) => {
     setEditingProcess(process);
-    setFormData({
-      displayName: process.displayName || '',
-      description: process.description || '',
-      category: process.category || '',
-      skillLevel: process.skillLevel || '',
-      laborHours: process.laborHours?.toString() || '',
-      metalType: process.metalType || '',
-      karat: process.karat || '',
-      metalComplexityMultiplier: process.metalComplexityMultiplier?.toString() || '1.0',
-      materials: process.materials || [], // Load existing materials
-    });
+    setFormData(transformProcessForForm(process));
     setOpenDialog(true);
+  };
+
+  const handleDeleteClick = (process) => {
+    setDeleteDialog({ open: true, process });
   };
 
   const handleDelete = async (processId) => {
     try {
-      const response = await fetch(`/api/repair-processes?id=${processId}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to delete process');
-      }
-
+      await processesService.deleteProcess(processId);
       setDeleteDialog({ open: false, process: null });
       loadProcesses();
     } catch (error) {
@@ -294,19 +279,7 @@ export default function ProcessesPage() {
   };
 
   const resetForm = () => {
-    setFormData({
-      displayName: '',
-      description: '',
-      category: '',
-      skillLevel: '',
-      laborHours: '',
-      metalType: '',
-      karat: '',
-      metalComplexityMultiplier: '1.0',
-      materials: [], // Reset materials list
-    });
-    setSelectedMaterial(null);
-    setMaterialQuantity('');
+    setFormData({ ...DEFAULT_PROCESS_FORM });
   };
 
   // Add material to process
@@ -314,14 +287,33 @@ export default function ProcessesPage() {
     if (!selectedMaterial || !materialQuantity) return;
     
     const quantityMultiplier = parseFloat(materialQuantity);
+    
+    console.log('🔵 Adding material to process:');
+    console.log('🔵 Selected material object:', JSON.stringify(selectedMaterial, null, 2));
+    console.log('🔵 Material quantity requested:', materialQuantity);
+    console.log('🔵 Quantity multiplier parsed:', quantityMultiplier);
+    
+    // Use BASE PRICE, not the marked-up costPerPortion
+    // The markup will be applied later in the process cost calculation
+    const basePrice = selectedMaterial.pricing?.basePrice || selectedMaterial.costPerPortion || 0;
+    const estimatedCost = basePrice * quantityMultiplier;
+    
+    console.log('🔵 Material costPerPortion (marked up):', selectedMaterial.costPerPortion);
+    console.log('🔵 Material basePrice (no markup):', basePrice);
+    console.log('🔵 Using basePrice for calculation to avoid double markup');
+    console.log('🔵 Calculation: basePrice × quantity =', basePrice, '×', quantityMultiplier, '=', estimatedCost);
+    
     const newMaterial = {
       materialId: selectedMaterial._id,
       materialName: selectedMaterial.name,
       materialSku: selectedMaterial.sku,
       quantity: quantityMultiplier,
       unit: selectedMaterial.portionType || 'portion',
-      estimatedCost: selectedMaterial.costPerPortion * quantityMultiplier
+      estimatedCost: estimatedCost
     };
+    
+    console.log('🔵 New material object being added:', JSON.stringify(newMaterial, null, 2));
+    console.log('🔵 Base cost for this material (before process markup):', estimatedCost);
     
     setFormData(prev => ({
       ...prev,
@@ -386,9 +378,14 @@ export default function ProcessesPage() {
     
     // Materials cost calculation with markup - prioritize pricing.materialMarkup
     const materialMarkup = adminSettings.pricing?.materialMarkup || adminSettings.materialMarkup || 1.3;
+    
+    // baseMaterialsCost should already be the base cost (no markup applied yet)
     const baseMaterialsCost = (process.materials || []).reduce((total, material) => {
+      console.log('🟡 Material in process:', material.materialName, 'base cost:', material.estimatedCost);
       return total + (material.estimatedCost || 0);
     }, 0);
+    
+    // Apply markup to get final materials cost
     const materialsCost = baseMaterialsCost * materialMarkup;
 
     // Debug logging
@@ -403,7 +400,12 @@ export default function ProcessesPage() {
       finalMaterialMarkup: materialMarkup,
       baseMaterialsCost: baseMaterialsCost,
       materialsCost: materialsCost,
-      calculation: `${baseMaterialsCost} × ${materialMarkup} = ${materialsCost}`
+      calculation: `${baseMaterialsCost} × ${materialMarkup} = ${materialsCost}`,
+      materialsDetail: process.materials?.map(m => ({
+        name: m.materialName,
+        quantity: m.quantity,
+        baseCost: m.estimatedCost
+      }))
     });
 
     // Apply metal complexity multiplier to total cost
@@ -439,181 +441,15 @@ export default function ProcessesPage() {
           </Alert>
         )}
 
-        {/* Header */}
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <Typography variant="h5" component="h1">
-            Repair Processes
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleOpenDialog}
-          >
-            Add Process
-          </Button>
-        </Box>
-
-        {/* Processes Grid */}
-        {processes.length === 0 ? (
-          <Card>
-            <CardContent>
-              <Box textAlign="center" py={4}>
-                <SettingsIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-                <Typography variant="h6" color="text.secondary" gutterBottom>
-                  No processes found
-                </Typography>
-                <Typography color="text.secondary" sx={{ mb: 2 }}>
-                  Get started by adding your first process
-                </Typography>
-                <Button
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={handleOpenDialog}
-                >
-                  Add Process
-                </Button>
-              </Box>
-            </CardContent>
-          </Card>
-        ) : (
-          <Grid container spacing={3}>
-            {processes.map((process) => (
-              <Grid item xs={12} sm={6} md={4} key={process._id}>
-                <Card
-                  sx={{
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    opacity: process.isActive === false ? 0.7 : 1,
-                    borderLeft: process.isActive === false ? 1 : 3,
-                    borderLeftColor: process.isActive === false ? 'grey.300' : 'primary.main'
-                  }}
-                >
-                  <CardContent sx={{ flexGrow: 1 }}>
-                    <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
-                      <Typography variant="h6" component="h2" noWrap sx={{ flexGrow: 1, mr: 1 }}>
-                        {process.displayName}
-                      </Typography>
-                      <Chip
-                        label={process.isActive === false ? 'Inactive' : 'Active'}
-                        color={process.isActive === false ? 'default' : 'success'}
-                        size="small"
-                      />
-                    </Box>
-
-                    <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>
-                      {process.description || 'No description'}
-                    </Typography>
-
-                    <Box display="flex" gap={1} flexWrap="wrap" mb={2}>
-                      <Chip
-                        label={process.category}
-                        variant="outlined"
-                        size="small"
-                        icon={<CategoryIcon />}
-                      />
-                      <Chip
-                        label={process.skillLevel}
-                        variant="outlined"
-                        size="small"
-                        color={getSkillColor(process.skillLevel)}
-                        icon={<EngineeringIcon />}
-                      />
-                    </Box>
-
-                    {/* Time and Cost */}
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                      <Box display="flex" alignItems="center" gap={0.5}>
-                        <TimeIcon fontSize="small" color="action" />
-                        <Typography variant="body2" color="text.secondary">
-                          {process.laborHours} hrs
-                        </Typography>
-                      </Box>
-                      <Box display="flex" alignItems="center" gap={0.5}>
-                        <MoneyIcon fontSize="small" color="success" />
-                        <Typography variant="body2" color="success.main" fontWeight="bold">
-                          ${calculateProcessCost(process).totalCost.toFixed(2)}
-                        </Typography>
-                      </Box>
-                    </Box>
-
-                    {/* Metal Information and Cost Breakdown */}
-                    {process.metalType && (
-                      <Box mb={2}>
-                        <Typography variant="caption" color="text.secondary" display="block">
-                          Metal: {process.metalType.replace('_', ' ').toUpperCase()} 
-                          {process.karat && ` (${process.karat})`} 
-                          - Complexity: {process.metalComplexityMultiplier || 1.0}x
-                        </Typography>
-                        {(() => {
-                          const costBreakdown = calculateProcessCost(process);
-                          return (
-                            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-                              Labor: ${costBreakdown.laborCost.toFixed(2)} + Materials: ${costBreakdown.materialsCost.toFixed(2)}
-                              {costBreakdown.materialMarkup !== 1.0 && ` (${((costBreakdown.materialMarkup - 1) * 100).toFixed(0)}% markup)`}
-                              {costBreakdown.multiplier !== 1.0 && ` × ${costBreakdown.multiplier}`}
-                            </Typography>
-                          );
-                        })()}
-                      </Box>
-                    )}
-
-                    {/* Materials Required */}
-                    <Box>
-                      <Typography variant="caption" color="text.secondary" display="block">
-                        Materials Required:
-                      </Typography>
-                      {process.materials && process.materials.length > 0 ? (
-                        <Box display="flex" gap={0.5} flexWrap="wrap">
-                          {process.materials.slice(0, 3).map((material, index) => (
-                            <Chip
-                              key={index}
-                              label={`${material.materialName}: ${material.quantity} ${material.unit}${material.quantity !== 1 ? 's' : ''}`}
-                              size="small"
-                              variant="outlined"
-                              color="primary"
-                            />
-                          ))}
-                          {process.materials.length > 3 && (
-                            <Chip
-                              label={`+${process.materials.length - 3} more`}
-                              size="small"
-                              variant="outlined"
-                              color="primary"
-                            />
-                          )}
-                        </Box>
-                      ) : (
-                        <Chip
-                          label="No materials (Labor-only)"
-                          size="small"
-                          variant="outlined"
-                          color="default"
-                        />
-                      )}
-                    </Box>
-                  </CardContent>
-
-                  <CardActions>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleEdit(process)}
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => setDeleteDialog({ open: true, process })}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </CardActions>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        )}
+        <ProcessesHeader onAddNew={handleOpenDialog} />
+        
+        <ProcessesGrid
+          processes={processes}
+          onEdit={handleEdit}
+          onDelete={handleDeleteClick}
+          onAddNew={handleOpenDialog}
+          adminSettings={adminSettings}
+        />
 
         {/* Floating Action Button */}
         <Fab
@@ -625,326 +461,25 @@ export default function ProcessesPage() {
           <AddIcon />
         </Fab>
 
-        {/* Create/Edit Dialog */}
-        <Dialog
+        {/* Process Create/Edit Dialog */}
+        <ProcessDialog
           open={openDialog}
           onClose={() => setOpenDialog(false)}
-          maxWidth="lg"
-          fullWidth
-        >
-          <form onSubmit={handleSubmit}>
-            <DialogTitle>
-              {editingProcess ? 'Edit Process' : 'Add New Process'}
-            </DialogTitle>
-            <DialogContent>
-              <Grid container spacing={2} sx={{ mt: 1 }}>
-                <Grid item xs={12}>
-                  <TextField
-                    required
-                    fullWidth
-                    label="Display Name"
-                    value={formData.displayName}
-                    onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
-                    helperText="User-friendly name for this process"
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth required>
-                    <InputLabel>Category</InputLabel>
-                    <Select
-                      value={formData.category}
-                      label="Category"
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    >
-                      {categories.map((category) => (
-                        <MenuItem key={category} value={category}>
-                          {category.replace('_', ' ').toUpperCase()}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth required>
-                    <InputLabel>Skill Level</InputLabel>
-                    <Select
-                      value={formData.skillLevel}
-                      label="Skill Level"
-                      onChange={(e) => setFormData({ ...formData, skillLevel: e.target.value })}
-                    >
-                      {skillLevels.map((level) => (
-                        <MenuItem key={level} value={level}>
-                          {level.toUpperCase()}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    required
-                    fullWidth
-                    type="number"
-                    label="Labor Hours"
-                    value={formData.laborHours}
-                    onChange={(e) => setFormData({ ...formData, laborHours: e.target.value })}
-                    inputProps={{ min: 0.01, step: 0.01 }}
-                    helperText="Time required in hours (e.g., 1.5 for 1 hour 30 minutes)"
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth required>
-                    <InputLabel>Metal Type</InputLabel>
-                    <Select
-                      value={formData.metalType}
-                      label="Metal Type"
-                      onChange={(e) => setFormData({ ...formData, metalType: e.target.value })}
-                    >
-                      {metalTypes.map((type) => (
-                        <MenuItem key={type} value={type}>
-                          {type.replace('_', ' ').toUpperCase()}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth required>
-                    <InputLabel>Karat/Purity</InputLabel>
-                    <Select
-                      value={formData.karat}
-                      label="Karat/Purity"
-                      onChange={(e) => setFormData({ ...formData, karat: e.target.value })}
-                    >
-                      {karatOptions.map((karat) => (
-                        <MenuItem key={karat} value={karat}>
-                          {karat}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-
-                {/* Metal Complexity Multiplier */}
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    type="number"
-                    label="Metal Complexity Multiplier"
-                    value={formData.metalComplexityMultiplier}
-                    onChange={(e) => setFormData({ ...formData, metalComplexityMultiplier: e.target.value })}
-                    helperText="Pricing multiplier for this metal type"
-                    inputProps={{
-                      min: 0.1,
-                      max: 5.0,
-                      step: 0.1
-                    }}
-                  />
-                </Grid>
-
-                {/* Cost Preview */}
-                <Grid item xs={12} sm={6}>
-                  {formData.laborHours && formData.skillLevel && adminSettings && (
-                    <Box sx={{ p: 2, bgcolor: 'success.light', borderRadius: 1, color: 'success.contrastText' }}>
-                      <Typography variant="subtitle2" gutterBottom>
-                        Real-Time Cost Preview
-                      </Typography>
-                      {(() => {
-                        // Use skill-level based wages from admin settings
-                        const laborRates = adminSettings.laborRates || { basic: 22.5, standard: 30, advanced: 37.5, expert: 45 };
-                        const hourlyRate = laborRates[formData.skillLevel] || laborRates.standard;
-                        
-                        // Prioritize pricing.materialMarkup from database
-                        const materialMarkup = adminSettings.pricing?.materialMarkup || adminSettings.materialMarkup || 1.3;
-                        
-                        const laborCost = parseFloat(formData.laborHours || 0) * hourlyRate;
-                        const baseMaterialsCost = formData.materials.reduce((total, material) => total + (material.estimatedCost || 0), 0);
-                        const materialsCost = baseMaterialsCost * materialMarkup;
-                        const multiplier = parseFloat(formData.metalComplexityMultiplier || 1.0);
-                        const totalCost = (laborCost + materialsCost) * multiplier;
-                        
-                        console.log('🟢 Cost Preview Debug:', {
-                          formData: formData,
-                          adminSettings: adminSettings,
-                          pricing: adminSettings.pricing,
-                          skillLevel: formData.skillLevel,
-                          laborRates: laborRates,
-                          hourlyRate: hourlyRate,
-                          pricingMaterialMarkup: adminSettings.pricing?.materialMarkup,
-                          fallbackMaterialMarkup: adminSettings.materialMarkup,
-                          finalMaterialMarkup: materialMarkup,
-                          laborCost: laborCost,
-                          baseMaterialsCost: baseMaterialsCost,
-                          materialsCost: materialsCost,
-                          calculation: `${baseMaterialsCost} × ${materialMarkup} = ${materialsCost}`,
-                          markupPercentage: ((materialMarkup - 1) * 100).toFixed(0)
-                        });
-                        
-                        return (
-                          <>
-                            <Typography variant="body2">
-                              <strong>Labor:</strong> ${laborCost.toFixed(2)} 
-                              <br />
-                              <Typography component="span" variant="caption" color="success.contrastText" sx={{ opacity: 0.8 }}>
-                                {formData.laborHours}hrs × ${hourlyRate}/hr ({formData.skillLevel} rate)
-                              </Typography>
-                            </Typography>
-                            <Typography variant="body2" sx={{ mt: 1 }}>
-                              <strong>Materials:</strong> ${materialsCost.toFixed(2)}
-                              <br />
-                              <Typography component="span" variant="caption" color="success.contrastText" sx={{ opacity: 0.8 }}>
-                                {formData.materials.length} material(s), base cost: ${baseMaterialsCost.toFixed(2)}
-                                {materialMarkup !== 1.0 && ` with ${((materialMarkup - 1) * 100).toFixed(0)}% markup`}
-                              </Typography>
-                            </Typography>
-                            {multiplier !== 1.0 && (
-                              <Typography variant="body2" sx={{ mt: 1 }}>
-                                <strong>Metal Complexity:</strong> ×{multiplier}
-                              </Typography>
-                            )}
-                            <Divider sx={{ my: 1, bgcolor: 'success.contrastText', opacity: 0.3 }} />
-                            <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'success.contrastText' }}>
-                              Total: ${totalCost.toFixed(2)}
-                            </Typography>
-                          </>
-                        );
-                      })()}
-                    </Box>
-                  )}
-                </Grid>
-
-                {/* Materials Required */}
-                <Grid item xs={12}>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Materials Required for Process
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    Add materials that are consumed during this process. Leave empty if no materials are required (labor-only process).
-                  </Typography>
-                  
-                  {/* Add Material Form */}
-                  <Box sx={{ mb: 2, p: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                    <Grid container spacing={2} alignItems="end">
-                      <Grid item xs={12} sm={6}>
-                        <Autocomplete
-                          options={Array.isArray(availableMaterials) ? availableMaterials : []}
-                          getOptionLabel={(option) => `${option.name} (${option.sku})`}
-                          value={selectedMaterial}
-                          onChange={(event, newValue) => setSelectedMaterial(newValue)}
-                          renderInput={(params) => (
-                            <TextField
-                              {...params}
-                              label="Select Material"
-                              variant="outlined"
-                              size="small"
-                            />
-                          )}
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={3}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          type="number"
-                          label="Portions Needed"
-                          value={materialQuantity}
-                          onChange={(e) => setMaterialQuantity(e.target.value)}
-                          inputProps={{ min: 0, step: 0.1 }}
-                          helperText="Number of portions"
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={3}>
-                        <Button
-                          fullWidth
-                          variant="outlined"
-                          startIcon={<AddIcon />}
-                          onClick={handleAddMaterial}
-                          disabled={!selectedMaterial || !materialQuantity}
-                        >
-                          Add
-                        </Button>
-                      </Grid>
-                    </Grid>
-                  </Box>
-
-                  {/* Materials List */}
-                  {formData.materials.length > 0 ? (
-                    <List dense>
-                      {formData.materials.map((material, index) => (
-                        <ListItem key={index} divider>
-                          <ListItemText
-                            primary={`${material.materialName} (${material.materialSku})`}
-                            secondary={`${material.quantity} ${material.unit}${material.quantity !== 1 ? 's' : ''} - Est. Cost: $${material.estimatedCost?.toFixed(2) || '0.00'}`}
-                          />
-                          <ListItemSecondaryAction>
-                            <IconButton 
-                              edge="end" 
-                              size="small" 
-                              onClick={() => handleRemoveMaterial(index)}
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </ListItemSecondaryAction>
-                        </ListItem>
-                      ))}
-                    </List>
-                  ) : (
-                    <Box sx={{ p: 2, textAlign: 'center', bgcolor: 'grey.50', borderRadius: 1 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        No materials added - this will be a labor-only process
-                      </Typography>
-                    </Box>
-                  )}
-                </Grid>
-
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={3}
-                    label="Description"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  />
-                </Grid>
-              </Grid>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
-              <Button type="submit" variant="contained">
-                {editingProcess ? 'Update' : 'Create'}
-              </Button>
-            </DialogActions>
-          </form>
-        </Dialog>
+          onSubmit={handleSubmit}
+          formData={formData}
+          setFormData={setFormData}
+          availableMaterials={availableMaterials}
+          adminSettings={adminSettings}
+          editingProcess={editingProcess}
+        />
 
         {/* Delete Confirmation Dialog */}
-        <Dialog
+        <DeleteConfirmDialog
           open={deleteDialog.open}
           onClose={() => setDeleteDialog({ open: false, process: null })}
-        >
-          <DialogTitle>Delete Process</DialogTitle>
-          <DialogContent>
-            <Typography>
-              Are you sure you want to delete &quot;{deleteDialog.process?.displayName}&quot;?
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              This action cannot be undone.
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setDeleteDialog({ open: false, process: null })}>
-              Cancel
-            </Button>
-            <Button
-              color="error"
-              variant="contained"
-              onClick={() => handleDelete(deleteDialog.process._id)}
-            >
-              Delete
-            </Button>
-          </DialogActions>
-        </Dialog>
+          onConfirm={handleDelete}
+          process={deleteDialog.process}
+        />
       </Box>
     </PageContainer>
   );

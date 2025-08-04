@@ -2,8 +2,25 @@
 
 import Material from "./class";
 import MaterialModel from "./model";
+import { db } from '@/lib/database';
 
 export default class MaterialService {
+    
+    /**
+     * Get admin settings for pricing calculations
+     */
+    static async getAdminSettings() {
+        try {
+            await db.connect();
+            const adminCollection = db._instance.collection('adminSettings');
+            const settings = await adminCollection.findOne({});
+            return settings || {};
+        } catch (error) {
+            console.error('Error fetching admin settings:', error);
+            return {};
+        }
+    }
+
     /**
      * ✅ Create a new material
      * @param {Object} materialData - The data required to create a material
@@ -25,6 +42,15 @@ export default class MaterialService {
                 materialData.auto_update_pricing,
                 createdBy
             );
+            
+            // Set additional material properties if provided
+            if (materialData.karat) newMaterial.karat = materialData.karat;
+            if (materialData.portionsPerUnit) newMaterial.portionsPerUnit = materialData.portionsPerUnit;
+            if (materialData.portionType) newMaterial.portionType = materialData.portionType;
+
+            // Calculate pricing with admin settings
+            const adminSettings = await this.getAdminSettings();
+            newMaterial.calculatePricing(adminSettings);
 
             // Validate the material
             const validationErrors = newMaterial.validate();
@@ -108,9 +134,21 @@ export default class MaterialService {
                 existingMaterial.auto_update_pricing,
                 existingMaterial.createdBy
             );
+            
+            // Set existing additional properties
+            materialInstance.karat = existingMaterial.karat || '';
+            materialInstance.portionsPerUnit = existingMaterial.portionsPerUnit || 1;
+            materialInstance.portionType = existingMaterial.portionType || '';
+            materialInstance.pricing = existingMaterial.pricing || null;
 
             // Update with new data
             materialInstance.update(updateData);
+            
+            // Recalculate pricing if cost-related fields changed
+            if (updateData.unitCost || updateData.portionsPerUnit) {
+                const adminSettings = await this.getAdminSettings();
+                materialInstance.calculatePricing(adminSettings);
+            }
 
             // Validate updated material
             const validationErrors = materialInstance.validate();
