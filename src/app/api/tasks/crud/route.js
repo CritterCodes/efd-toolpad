@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { auth } from '../../../../../auth';
+import { auth } from '../../../../auth';
 import { db } from '@/lib/database';
 import { ObjectId } from 'mongodb';
 import { generateTaskSku, generateShortCode } from '@/utils/skuGenerator';
