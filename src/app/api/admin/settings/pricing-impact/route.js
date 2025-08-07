@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../../../../../auth';
+import { authOptions } from '../../../../../../auth';
 import { connectToDatabase } from '@/lib/database';
 
 /**
