@@ -1,5 +1,25 @@
 /**
- * SKU Generation Utilities
+ * SKexport function generateTaskSku(category, shortCode) {
+  const categoryNameMap = {
+    'shanks': 'SHANK',
+    'prongs': 'PRONG', 
+    'stone_setting': 'STONE',
+    'engraving': 'ENGRAVE',
+    'chains': 'CHAIN',
+    'bracelets': 'BRACELET',
+    'watches': 'WATCH',
+    'misc': 'MISC'
+  };
+
+  // Add null safety for category
+  const safeCategory = category || 'misc';
+  const categoryName = categoryNameMap[safeCategory.toLowerCase()] || 'MISC';
+  
+  // Generate shortCode if not provided
+  const safeShortCode = shortCode || Math.floor(Math.random() * 90000) + 10000;
+  
+  return `RT-${categoryName}-${safeShortCode}`;
+}ilities
  * Generates unique identifiers for tasks, processes, and materials
  */
 

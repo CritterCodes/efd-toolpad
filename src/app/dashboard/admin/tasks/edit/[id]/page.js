@@ -105,7 +105,7 @@ export default function EditTaskPage() {
   const loadTask = React.useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/tasks/crud?taskId=${taskId}`);
+      const response = await fetch(`/api/tasks?taskId=${taskId}`);
       
       if (!response.ok) {
         throw new Error('Failed to load task');
@@ -188,7 +188,7 @@ export default function EditTaskPage() {
         display: formData.display
       };
       
-      const response = await fetch('/api/tasks/crud', {
+      const response = await fetch('/api/tasks', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData)

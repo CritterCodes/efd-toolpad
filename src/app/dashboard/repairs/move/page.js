@@ -9,13 +9,25 @@ import { useRouter } from "next/navigation";
 const statuses = [
     "RECEIVING",
     "NEEDS PARTS",
-    "PARTS ORDERED",
+    "PARTS ORDERED", 
     "READY FOR WORK",
     "IN PROGRESS",
     "QUALITY CONTROL",
     "READY FOR PICK-UP",
     "COMPLETED"
 ];
+
+// Status descriptions for better UX
+const statusDescriptions = {
+    "RECEIVING": "Initial intake - item just received",
+    "NEEDS PARTS": "Waiting for parts to be ordered",
+    "PARTS ORDERED": "Parts have been ordered, waiting for arrival",
+    "READY FOR WORK": "All parts available, ready to start work",
+    "IN PROGRESS": "Work is actively being performed",
+    "QUALITY CONTROL": "Work completed, undergoing quality inspection",
+    "READY FOR PICK-UP": "QC passed, ready for customer pickup",
+    "COMPLETED": "Customer has picked up the item"
+};
 
 const MoveRepairsPage = () => {
     const { repairs, setRepairs } = useRepairs();
@@ -41,21 +53,24 @@ const MoveRepairsPage = () => {
     };
 
     const handleRepairSubmit = () => {
-        const matchingRepair = repairs.find((r) => r.repairID === currentRepairID.toLowerCase());
-        console.log("Scanned Repair ID:", currentRepairID);
+        const inputRepairID = currentRepairID.trim();
+        const matchingRepair = repairs.find((r) => 
+            r.repairID?.toLowerCase() === inputRepairID.toLowerCase()
+        );
+        console.log("Scanned Repair ID:", inputRepairID);
         console.log("Matching Repair:", matchingRepair);
 
         if (matchingRepair) {
             if (!repairIDs.includes(matchingRepair.repairID)) {
                 setRepairIDs((prev) => [...prev, matchingRepair.repairID]);
-                setSnackbarMessage(`✅ Repair ${currentRepairID} added.`);
+                setSnackbarMessage(`✅ Repair ${inputRepairID} added.`);
                 setSnackbarSeverity("success");
             } else {
-                setSnackbarMessage(`⚠️ Repair ${currentRepairID} is already added.`);
+                setSnackbarMessage(`⚠️ Repair ${inputRepairID} is already added.`);
                 setSnackbarSeverity("warning");
             }
         } else {
-            setSnackbarMessage(`❌ Repair ${currentRepairID} not found.`);
+            setSnackbarMessage(`❌ Repair ${inputRepairID} not found.`);
             setSnackbarSeverity("error");
         }
 
@@ -94,15 +109,9 @@ const MoveRepairsPage = () => {
         }
 
         try {
-            const payload = repairIDs.map((repairID) => ({
-                repairID,
-                status: location,
-                ...(location === "COMPLETED" && { completedAt: new Date().toISOString() }),
-            }));
+            console.log("Payload for Move Repairs - Repair IDs:", repairIDs, "Status:", location);
 
-            console.log("Payload for Move Repairs:", payload);
-
-            const response = await RepairsService.moveRepairStatus(payload);
+            const response = await RepairsService.moveRepairStatus(repairIDs, location);
             console.log("API Response:", response);
 
             setRepairs((prevRepairs) =>
@@ -161,8 +170,27 @@ const MoveRepairsPage = () => {
                 options={statuses}
                 value={location}
                 onChange={handleLocationSelect}
+                getOptionLabel={(option) => option}
+                renderOption={(props, option) => (
+                    <Box component="li" {...props}>
+                        <Box>
+                            <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                                {option}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                                {statusDescriptions[option]}
+                            </Typography>
+                        </Box>
+                    </Box>
+                )}
                 renderInput={(params) => (
-                    <TextField {...params} label="Scan or Select Location" fullWidth sx={{ mb: 3 }} />
+                    <TextField 
+                        {...params} 
+                        label="Select Destination Status" 
+                        fullWidth 
+                        sx={{ mb: 3 }}
+                        helperText={location ? statusDescriptions[location] : "Choose where to move the repairs"}
+                    />
                 )}
             />
 
@@ -177,30 +205,91 @@ const MoveRepairsPage = () => {
             />
 
             {/* List of Scanned Repairs */}
-            <List>
-                {repairIDs.map((repairID, index) => (
-                    <ListItem
-                        key={index}
-                        secondaryAction={
-                            <IconButton edge="end" onClick={() => handleRemoveRepair(repairID)} color="error">
-                                <DeleteIcon />
-                            </IconButton>
-                        }
-                    >
-                        <ListItemText primary={`Repair ID: ${repairID}`} />
-                    </ListItem>
-                ))}
-            </List>
+            <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                    Repairs to Move ({repairIDs.length})
+                </Typography>
+                <List>
+                    {repairIDs.map((repairID, index) => {
+                        const repair = repairs.find(r => r.repairID === repairID);
+                        return (
+                            <ListItem
+                                key={index}
+                                sx={{
+                                    border: '1px solid #e0e0e0',
+                                    borderRadius: '8px',
+                                    mb: 1,
+                                    backgroundColor: '#fafafa'
+                                }}
+                                secondaryAction={
+                                    <IconButton edge="end" onClick={() => handleRemoveRepair(repairID)} color="error">
+                                        <DeleteIcon />
+                                    </IconButton>
+                                }
+                            >
+                                <ListItemText 
+                                    primary={`Repair ID: ${repairID}`}
+                                    secondary={repair ? (
+                                        <Box>
+                                            <Typography variant="body2" color="text.secondary">
+                                                Client: {repair.clientName} | Current Status: {repair.status}
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary">
+                                                {repair.description}
+                                            </Typography>
+                                        </Box>
+                                    ) : 'Repair details not found'}
+                                />
+                            </ListItem>
+                        );
+                    })}
+                    {repairIDs.length === 0 && (
+                        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                            No repairs added yet. Scan or type repair IDs above.
+                        </Typography>
+                    )}
+                </List>
+            </Box>
+
+            {/* Move Confirmation & Button */}
+            {repairIDs.length > 0 && location && (
+                <Box sx={{ 
+                    p: 2, 
+                    mb: 3, 
+                    backgroundColor: '#e3f2fd', 
+                    borderRadius: '8px', 
+                    border: '1px solid #2196f3' 
+                }}>
+                    <Typography variant="h6" color="primary" sx={{ mb: 1 }}>
+                        Move Summary
+                    </Typography>
+                    <Typography variant="body1">
+                        Moving <strong>{repairIDs.length} repair{repairIDs.length !== 1 ? 's' : ''}</strong> to <strong>{location}</strong>
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                        {statusDescriptions[location]}
+                    </Typography>
+                </Box>
+            )}
 
             {/* Move Button */}
             <Button
                 variant="contained"
                 color="success"
                 fullWidth
+                size="large"
                 onClick={handleMoveRepairs}
-                sx={{ mt: 3 }}
+                disabled={!location || repairIDs.length === 0}
+                sx={{ mt: 2, py: 1.5 }}
             >
-                Move Repairs to {location || "Selected Location"}
+                {!location && repairIDs.length === 0 
+                    ? "Select Status & Add Repairs"
+                    : !location 
+                    ? "Select Destination Status"
+                    : repairIDs.length === 0
+                    ? "Add Repairs to Move"
+                    : `Move ${repairIDs.length} Repair${repairIDs.length !== 1 ? 's' : ''} to ${location}`
+                }
             </Button>
 
             {/* Snackbar Notifications */}

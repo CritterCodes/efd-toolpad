@@ -93,17 +93,18 @@ export default function TasksPage() {
       if (sortBy) params.append('sortBy', sortBy);
       if (sortOrder) params.append('sortOrder', sortOrder);
 
-      const response = await fetch(`/api/tasks/crud?${params}`);
+      const response = await fetch(`/api/tasks?${params}`);
       const data = await response.json();
       
       if (!response.ok) {
         throw new Error(data.error || 'Failed to load tasks');
       }
       
-      setTasks(data.tasks);
-      setTotalPages(data.pagination.totalPages);
-      setStatistics(data.statistics);
-      setFilters(data.filters);
+      // Safely handle the response data structure
+      setTasks(data.data || []);
+      setTotalPages(data.pagination?.totalPages || 1);
+      setStatistics(data.statistics || null);
+      setFilters(data.filters || null);
       setError(null);
       
     } catch (error) {
@@ -120,7 +121,7 @@ export default function TasksPage() {
 
   const handleDelete = async (taskId, hardDelete = false) => {
     try {
-      const response = await fetch(`/api/tasks/crud`, {
+      const response = await fetch(`/api/tasks`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ taskId, hardDelete })
@@ -147,7 +148,44 @@ export default function TasksPage() {
     setTaskMenuAnchor(null);
   };
 
-  if (loading && tasks.length === 0) {
+  const handleUpdateAllPrices = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch('/api/tasks/update-prices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to update prices');
+      }
+
+      // Show success message
+      const { updated, skipped, errors } = data.data;
+      const message = `Price update completed: ${updated} updated, ${skipped} skipped`;
+      if (errors.length > 0) {
+        console.warn('Some tasks had errors:', errors);
+      }
+
+      // Reload tasks to show updated prices
+      await loadTasks();
+      
+      // You could add a success snackbar here if you have one
+      console.log(message, data.data);
+      
+    } catch (error) {
+      console.error('Error updating all prices:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading && (!tasks || tasks.length === 0)) {
     return (
       <PageContainer title="Task Management">
         <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -165,6 +203,40 @@ export default function TasksPage() {
             {error}
           </Alert>
         )}
+
+        {/* Header with Create Task Button */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Typography variant="h4" component="h1">
+            Tasks Management
+          </Typography>
+          <Stack direction="row" spacing={2}>
+            <Button
+              variant="outlined"
+              startIcon={<MoneyIcon />}
+              onClick={handleUpdateAllPrices}
+              disabled={loading}
+              size="large"
+              color="secondary"
+            >
+              {loading ? 'Updating...' : 'Update Prices'}
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => router.push('/dashboard/admin/tasks/create')}
+              size="large"
+            >
+              Create Task
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={handleCreateTask}
+              size="large"
+            >
+              Create Menu
+            </Button>
+          </Stack>
+        </Box>
 
         {/* Statistics */}
         {statistics && (
@@ -332,7 +404,7 @@ export default function TasksPage() {
         </Card>
 
         {/* Tasks Grid */}
-        {tasks.length === 0 && !loading ? (
+        {tasks && tasks.length === 0 && !loading ? (
           <Card>
             <CardContent>
               <Box textAlign="center" py={4}>
@@ -358,7 +430,7 @@ export default function TasksPage() {
           </Card>
         ) : (
           <Grid container spacing={3}>
-            {tasks.map((task) => (
+            {tasks && tasks.map((task) => (
               <Grid item xs={12} sm={6} md={4} key={task._id}>
                 <Card 
                   sx={{ 

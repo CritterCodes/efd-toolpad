@@ -25,6 +25,7 @@ export default function MaterialsPage() {
   const [editingMaterial, setEditingMaterial] = React.useState(null);
   const [deleteDialog, setDeleteDialog] = React.useState({ open: false, material: null });
   const [loadingStuller, setLoadingStuller] = React.useState(false);
+  const [updatingPrices, setUpdatingPrices] = React.useState(false);
 
   // Form state
   const [formData, setFormData] = React.useState(DEFAULT_MATERIAL_FORM);
@@ -147,6 +148,38 @@ export default function MaterialsPage() {
     setOpenDialog(true);
   };
 
+  const handleUpdatePrices = async () => {
+    if (updatingPrices) return;
+    
+    setUpdatingPrices(true);
+    try {
+      const response = await fetch('/api/materials/bulk-update-pricing', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+      }
+
+      console.log('Materials price update completed:', data);
+      
+      // Refresh the materials list to show updated prices
+      await fetchMaterials();
+      
+      // Show success message (assuming there's a snackbar or similar)
+      console.log(`Successfully updated prices for ${data.updated || 0} materials`);
+    } catch (error) {
+      console.error('Error updating materials prices:', error);
+    } finally {
+      setUpdatingPrices(false);
+    }
+  };
+
   // Auto-calculate cost per portion when form data changes
   React.useEffect(() => {
     const costPerPortion = materialsService.calculateCostPerPortion(formData.unitCost, formData.portionsPerUnit);
@@ -174,7 +207,11 @@ export default function MaterialsPage() {
           </Alert>
         )}
 
-        <MaterialsHeader onAddNew={handleOpenDialog} />
+        <MaterialsHeader 
+          onAddNew={handleOpenDialog} 
+          onUpdatePrices={handleUpdatePrices}
+          updatingPrices={updatingPrices}
+        />
         
         <MaterialsGrid
           materials={materials}

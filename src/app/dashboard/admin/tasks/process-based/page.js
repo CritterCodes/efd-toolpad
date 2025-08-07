@@ -28,7 +28,8 @@ import {
   TableRow,
   Accordion,
   AccordionSummary,
-  AccordionDetails
+  AccordionDetails,
+  Autocomplete
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -683,27 +684,53 @@ export default function ProcessBasedTaskBuilder() {
                       <CardContent>
                         <Grid container spacing={2} alignItems="center">
                           <Grid item xs={12} md={6}>
-                            <FormControl fullWidth required>
-                              <InputLabel>Process</InputLabel>
-                              <Select
-                                value={process.processId}
-                                onChange={(e) => updateProcess(index, 'processId', e.target.value)}
-                                label="Process"
-                              >
-                                {availableProcesses.map((proc) => (
-                                  <MenuItem key={proc._id} value={proc._id}>
-                                    <Box>
-                                      <Typography variant="body2" fontWeight="bold">
-                                        {proc.displayName}
+                            <Autocomplete
+                              options={availableProcesses}
+                              getOptionLabel={(option) => option.displayName || ''}
+                              value={availableProcesses.find(p => p._id === process.processId) || null}
+                              onChange={(event, newValue) => {
+                                updateProcess(index, 'processId', newValue?._id || '');
+                              }}
+                              filterOptions={(options, { inputValue }) => {
+                                const filtered = options.filter(option => {
+                                  const searchText = inputValue.toLowerCase();
+                                  return (
+                                    option.displayName?.toLowerCase().includes(searchText) ||
+                                    option.processType?.toLowerCase().includes(searchText) ||
+                                    option.skillLevel?.toLowerCase().includes(searchText) ||
+                                    option.description?.toLowerCase().includes(searchText)
+                                  );
+                                });
+                                return filtered;
+                              }}
+                              renderInput={(params) => (
+                                <TextField
+                                  {...params}
+                                  label="Process"
+                                  placeholder="Search processes..."
+                                  required
+                                />
+                              )}
+                              renderOption={(props, option) => (
+                                <Box component="li" {...props}>
+                                  <Box>
+                                    <Typography variant="body2" fontWeight="bold">
+                                      {option.displayName}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {option.laborHours}hrs • ${option.pricing?.totalCost || 0} total • {option.skillLevel}
+                                    </Typography>
+                                    {option.processType && (
+                                      <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                                        • {option.processType}
                                       </Typography>
-                                      <Typography variant="caption" color="text.secondary">
-                                        {proc.laborHours}hrs • ${proc.pricing?.totalCost || 0} total • {proc.skillLevel}
-                                      </Typography>
-                                    </Box>
-                                  </MenuItem>
-                                ))}
-                              </Select>
-                            </FormControl>
+                                    )}
+                                  </Box>
+                                </Box>
+                              )}
+                              isOptionEqualToValue={(option, value) => option._id === value._id}
+                              noOptionsText="No processes found"
+                            />
                           </Grid>
 
                           <Grid item xs={12} md={3}>

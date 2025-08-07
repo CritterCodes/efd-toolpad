@@ -12,7 +12,7 @@ import {
     Autocomplete,
     Chip
 } from '@mui/material';
-import RepairTaskService from '@/services/repairTasks';
+import tasksService from '@/services/tasks.service';
 
 const metalOptions = ["SS", "WG", "YG"];
 const goldKarats = ["10k", "14k", "18k"];

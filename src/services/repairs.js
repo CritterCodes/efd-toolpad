@@ -37,14 +37,47 @@ class RepairsService {
 
     /**
      * Create a new repair
-     * @param {FormData} repairData - The repair data in FormData format
+     * @param {Object|FormData} repairData - The repair data as JSON object or FormData
      * @returns {Promise<Object>} - The newly created repair object
      */
     static createRepair = async (repairData) => {
         try {
-            const response = await axiosInstance.post('/repairs', repairData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            let requestConfig = {
+                headers: { 'Content-Type': 'application/json' }
+            };
+            
+            let dataToSend = repairData;
+            
+            // Check if it's FormData (legacy support)
+            if (repairData instanceof FormData) {
+                requestConfig.headers = { 'Content-Type': 'multipart/form-data' };
+                dataToSend = repairData;
+            } else {
+                // Handle JSON data with potential image file
+                if (repairData.picture && repairData.picture instanceof File) {
+                    // If there's a file, we need to use FormData
+                    const formData = new FormData();
+                    
+                    // Convert JSON data to FormData
+                    Object.keys(repairData).forEach(key => {
+                        if (key === 'picture') {
+                            formData.append(key, repairData[key]);
+                        } else if (typeof repairData[key] === 'object' && repairData[key] !== null) {
+                            formData.append(key, JSON.stringify(repairData[key]));
+                        } else {
+                            formData.append(key, repairData[key] || '');
+                        }
+                    });
+                    
+                    dataToSend = formData;
+                    requestConfig.headers = { 'Content-Type': 'multipart/form-data' };
+                } else {
+                    // Pure JSON data
+                    dataToSend = JSON.stringify(repairData);
+                }
+            }
+
+            const response = await axiosInstance.post('/repairs', dataToSend, requestConfig);
             return response.data;
         } catch (error) {
             console.error("❌ Error creating repair:", error);

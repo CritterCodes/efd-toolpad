@@ -1,12 +1,33 @@
 "use client";
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useRepairs } from '@/app/context/repairs.context';
-import { Box, Snackbar, Typography, Button, Breadcrumbs, Link } from '@mui/material';
-import RepairHeader from '@/app/components/repairHeader.component';
-import RepairDetailsForm from '@/app/components/repairDetailsForm.component';
-import RepairImage from '@/app/components/repairImage.component';
-import RepairTasksTable from '@/app/components/repairTasksTable.component';
+import { 
+    Box, 
+    Snackbar, 
+    Typography, 
+    Button, 
+    Breadcrumbs, 
+    Link,
+    Card,
+    CardContent,
+    Grid,
+    Chip,
+    Divider,
+    List,
+    ListItem,
+    ListItemText,
+    ListItemSecondaryAction
+} from '@mui/material';
+import { 
+    Print as PrintIcon,
+    Edit as EditIcon,
+    Delete as DeleteIcon,
+    Schedule as ScheduleIcon,
+    Person as PersonIcon,
+    Category as CategoryIcon
+} from '@mui/icons-material';
 import RepairsService from '@/services/repairs';
 import UsersService from '@/services/users';
 
@@ -16,13 +37,12 @@ const ViewRepairPage = ({ params }) => {
 
     const [repairID, setRepairID] = React.useState(null);
     const [repair, setRepair] = React.useState(null);
-    const [updatedRepair, setUpdatedRepair] = React.useState({});
     const [snackbarOpen, setSnackbarOpen] = React.useState(false);
     const [snackbarMessage, setSnackbarMessage] = React.useState('');
     const [snackbarSeverity, setSnackbarSeverity] = React.useState('info');
-    const [hasChanges, setHasChanges] = React.useState(false);
     const [loading, setLoading] = React.useState(true);
     const [isWholesale, setIsWholesale] = React.useState(false);
+    const [clientInfo, setClientInfo] = React.useState(null);
 
     // ✅ Unwrapping the params with useEffect
     React.useEffect(() => {
@@ -39,22 +59,24 @@ const ViewRepairPage = ({ params }) => {
             console.log('foundRepair', foundRepair);
             if (foundRepair) {
                 setRepair(foundRepair);
-                setUpdatedRepair(foundRepair);
-
 
                 const getUser = async () => {
                     console.log('foundRepair.userID', foundRepair.userID);
-                    const user = await UsersService.getUserByQuery(foundRepair.userID);
-                    console.log('user', user);
-                    if (user.role === 'wholesaler') {
-                        console.log('isWholesale', true);
-                        setIsWholesale(true);
+                    try {
+                        const user = await UsersService.getUserByQuery(foundRepair.userID);
+                        console.log('user', user);
+                        setClientInfo(user);
+                        if (user.role === 'wholesaler') {
+                            console.log('isWholesale', true);
+                            setIsWholesale(true);
+                        }
+                    } catch (error) {
+                        console.error('Error fetching user:', error);
                     }
                 };
                 getUser();
                 setLoading(false);
             }
-
         }
     }, [repairID, repairs]);
 
@@ -62,107 +84,60 @@ const ViewRepairPage = ({ params }) => {
         return <Typography>Loading repair data...</Typography>;
     }
 
-    const handleEditChange = (field, value) => {
-        if (field === 'repairTasks') {
-            // Update repairTasks and recalculate cost
-            const updatedRepairTasks = value.map(task => ({
-                ...task,
-                quantity: task.quantity || 1, // Default quantity to 1 if not present
-            }));
-
-            const updatedCost = updatedRepairTasks.reduce(
-                (acc, task) => acc + (parseFloat(task.price || 0) * (task.quantity || 1)),
-                0
-            );
-
-            setUpdatedRepair(prev => ({
-                ...prev,
-                [field]: updatedRepairTasks,
-                totalCost: updatedCost.toFixed(2), // Save the total cost in updatedRepair
-            }));
-        } else {
-            setUpdatedRepair(prev => ({ ...prev, [field]: value }));
-        }
-
-        setHasChanges(true);
-        setSnackbarMessage("⚠️ Unsaved changes detected! Please save.");
-        setSnackbarSeverity('warning');
-        setSnackbarOpen(true);
-    };
+    if (!repair) {
+        return <Typography>Repair not found.</Typography>;
+    }
 
     const handleDeleteRepair = async () => {
-        try {
-            if (!repairID) {
-                setSnackbarMessage("❌ Repair ID is missing.");
+        if (window.confirm('Are you sure you want to delete this repair? This action cannot be undone.')) {
+            try {
+                setLoading(true);
+                await RepairsService.deleteRepair(repairID);
+                setRepairs(prev => prev.filter(r => r.repairID !== repairID));
+                setSnackbarMessage("✅ Repair deleted successfully!");
+                setSnackbarSeverity('success');
+                setSnackbarOpen(true);
+                setTimeout(() => router.push('/dashboard/repairs/all'), 1500);
+            } catch (error) {
+                setSnackbarMessage(`❌ Error deleting repair: ${error.message}`);
                 setSnackbarSeverity('error');
                 setSnackbarOpen(true);
-                return;
+            } finally {
+                setLoading(false);
             }
-
-            setLoading(true);
-            await RepairsService.deleteRepair(repairID);
-            setRepairs(prev => prev.filter(r => r.repairID !== repairID));
-            setSnackbarMessage("✅ Repair deleted successfully!");
-            setSnackbarSeverity('success');
-            setSnackbarOpen(true);
-            router.push('/dashboard/repairs');
-        } catch (error) {
-            setSnackbarMessage(`❌ Error deleting repair: ${error.message}`);
-            setSnackbarSeverity('error');
-            setSnackbarOpen(true);
-        } finally {
-            setLoading(false);
         }
     };
 
-
-    const handleSaveChanges = async () => {
-        try {
-            if (!repairID) {
-                setSnackbarMessage("❌ Repair ID is missing.");
-                setSnackbarSeverity('error');
-                setSnackbarOpen(true);
-                return;
-            }
-
-            if (!updatedRepair.clientName || !updatedRepair.status) {
-                setSnackbarMessage("❌ Please fill in all required fields.");
-                setSnackbarSeverity('error');
-                setSnackbarOpen(true);
-                return;
-            }
-
-            setLoading(true);
-            
-            const formattedRepair = {
-                ...updatedRepair,
-                repairTasks: updatedRepair.repairTasks.map(task => ({
-                    ...task,
-                    quantity: task.quantity || 1, // Ensure quantity is set
-                    sku: task.sku || "", // Ensure SKU is set
-                    title: task.title || "Custom Task", // Ensure title is set
-                })),
-                metalType: typeof updatedRepair.metalType === 'object'
-                    ? `${updatedRepair.metalType.type}${updatedRepair.metalType.karat ? ` - ${updatedRepair.metalType.karat}` : ''}`
-                    : updatedRepair.metalType,
-            };
-
-            await RepairsService.updateRepair(repairID, formattedRepair);
-
-            setRepairs(prev => prev.map(r => (r.repairID === repairID ? formattedRepair : r)));
-            setSnackbarMessage("✅ Repair saved successfully!");
-            setSnackbarSeverity('success');
-            setSnackbarOpen(true);
-            setHasChanges(false);
-        } catch (error) {
-            setSnackbarMessage(`❌ Error saving repair: ${error.message}`);
-            setSnackbarSeverity('error');
-            setSnackbarOpen(true);
-        } finally {
-            setLoading(false);
-        }
+    const handlePrint = () => {
+        router.push(`/dashboard/repairs/${repairID}/print`);
     };
 
+    const handleEdit = () => {
+        // Navigate to edit page (we'll create this later)
+        router.push(`/dashboard/repairs/${repairID}/edit`);
+    };
+
+    // Calculate all work items for display
+    const allWorkItems = [
+        ...(repair.tasks || []).map(item => ({ ...item, type: 'Task', category: 'Service' })),
+        ...(repair.processes || []).map(item => ({ ...item, type: 'Process', category: 'Service' })),
+        ...(repair.materials || []).map(item => ({ ...item, type: 'Material', category: 'Material' })),
+        ...(repair.customLineItems || []).map(item => ({ ...item, type: 'Custom', category: 'Custom' })),
+        ...(repair.repairTasks || []).map(item => ({ ...item, type: 'Legacy Task', category: 'Legacy' }))
+    ];
+
+    const totalCost = allWorkItems.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0) + 
+                     (repair.rushJobFee ? parseFloat(repair.rushJobFee) : 0);
+
+    const getStatusColor = (status) => {
+        switch (status?.toLowerCase()) {
+            case 'completed': return 'success';
+            case 'in progress': return 'info';
+            case 'pending': return 'warning';
+            case 'cancelled': return 'error';
+            default: return 'default';
+        }
+    };
 
     return (
         <Box sx={{ padding: { xs: '10px', sm: '20px' } }}>
@@ -173,24 +148,209 @@ const ViewRepairPage = ({ params }) => {
                 <Link underline="hover" color="inherit" onClick={() => router.push('/dashboard/repairs/all')} sx={{ cursor: 'pointer' }}>
                     Repairs
                 </Link>
-                <Typography color="text.primary">Repair Details</Typography>
+                <Typography color="text.primary">View Repair</Typography>
             </Breadcrumbs>
 
-            <RepairHeader
-                onSave={handleSaveChanges}
-                onDelete={() => router.push('/dashboard/repairs')}
-                hasChanges={hasChanges}
-                repair={updatedRepair}
-            />
+            {/* Header Section */}
+            <Card sx={{ mb: 3 }}>
+                <CardContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                            Repair {repair.repairID}
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Button
+                                variant="contained"
+                                startIcon={<PrintIcon />}
+                                onClick={handlePrint}
+                                color="primary"
+                            >
+                                Print
+                            </Button>
+                            <Button
+                                variant="outlined"
+                                startIcon={<EditIcon />}
+                                onClick={handleEdit}
+                                color="info"
+                            >
+                                Edit
+                            </Button>
+                            <Button
+                                variant="outlined"
+                                startIcon={<DeleteIcon />}
+                                onClick={handleDeleteRepair}
+                                color="error"
+                            >
+                                Delete
+                            </Button>
+                        </Box>
+                    </Box>
 
-            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 4 }}>
-                <RepairImage picture={updatedRepair.picture} />
-                <RepairDetailsForm repair={updatedRepair} onEdit={handleEditChange} />
-            </Box>
-            
-            <Box sx={{ mt: 3, width: '100%' }}>
-                <RepairTasksTable repairTasks={updatedRepair.repairTasks} onEdit={handleEditChange} isWholesale={isWholesale} selectedMetal={updatedRepair.metalType} />
-            </Box>
+                    <Grid container spacing={3}>
+                        {/* Client Information */}
+                        <Grid item xs={12} md={6}>
+                            <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <PersonIcon /> Client Information
+                            </Typography>
+                            <Typography><strong>Name:</strong> {repair.clientName}</Typography>
+                            {clientInfo && (
+                                <>
+                                    <Typography><strong>Email:</strong> {clientInfo.email}</Typography>
+                                    <Typography><strong>Phone:</strong> {clientInfo.phone || 'N/A'}</Typography>
+                                    <Typography><strong>Role:</strong> {clientInfo.role}</Typography>
+                                </>
+                            )}
+                        </Grid>
+
+                        {/* Repair Status & Dates */}
+                        <Grid item xs={12} md={6}>
+                            <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <ScheduleIcon /> Status & Timeline
+                            </Typography>
+                            <Box sx={{ mb: 1 }}>
+                                <Chip 
+                                    label={repair.status || 'Pending'} 
+                                    color={getStatusColor(repair.status)}
+                                    variant="filled"
+                                />
+                                {repair.isRush && (
+                                    <Chip 
+                                        label="🚨 RUSH JOB" 
+                                        color="error"
+                                        variant="filled"
+                                        sx={{ ml: 1 }}
+                                    />
+                                )}
+                            </Box>
+                            <Typography><strong>Created:</strong> {new Date(repair.createdAt || Date.now()).toLocaleDateString()}</Typography>
+                            <Typography><strong>Promise Date:</strong> {repair.promiseDate || 'N/A'}</Typography>
+                            <Typography><strong>Due Date:</strong> {repair.dueDate || 'N/A'}</Typography>
+                        </Grid>
+                    </Grid>
+                </CardContent>
+            </Card>
+
+            <Grid container spacing={3}>
+                {/* Item Details */}
+                <Grid item xs={12} md={6}>
+                    <Card>
+                        <CardContent>
+                            <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <CategoryIcon /> Item Details
+                            </Typography>
+                            
+                            {repair.picture && (
+                                <Box sx={{ mb: 2, textAlign: 'center', position: 'relative', width: '100%', height: '300px' }}>
+                                    <Image
+                                        src={repair.picture}
+                                        alt="Repair Item"
+                                        fill
+                                        style={{
+                                            objectFit: 'contain',
+                                            border: '1px solid #ddd',
+                                            borderRadius: '8px'
+                                        }}
+                                    />
+                                </Box>
+                            )}
+
+                            <Typography sx={{ mb: 1 }}><strong>Description:</strong> {repair.description}</Typography>
+                            <Typography sx={{ mb: 1 }}><strong>Metal Type:</strong> {repair.metalType || 'N/A'}</Typography>
+                            {repair.karat && (
+                                <Typography sx={{ mb: 1 }}><strong>Karat:</strong> {repair.karat}</Typography>
+                            )}
+                            
+                            {repair.isRing && (
+                                <>
+                                    <Typography sx={{ mb: 1 }}><strong>Current Ring Size:</strong> {repair.currentRingSize}</Typography>
+                                    <Typography sx={{ mb: 1 }}><strong>Desired Ring Size:</strong> {repair.desiredRingSize}</Typography>
+                                </>
+                            )}
+                            
+                            {repair.notes && (
+                                <Typography sx={{ mb: 1 }}><strong>Notes:</strong> {repair.notes}</Typography>
+                            )}
+                        </CardContent>
+                    </Card>
+                </Grid>
+
+                {/* Work Items & Pricing */}
+                <Grid item xs={12} md={6}>
+                    <Card>
+                        <CardContent>
+                            <Typography variant="h6" sx={{ mb: 2 }}>Work Items & Pricing</Typography>
+                            
+                            <List dense>
+                                {allWorkItems.map((item, index) => (
+                                    <ListItem 
+                                        key={`${item.type}-${index}`}
+                                        sx={{ 
+                                            bgcolor: item.isStullerItem ? '#e3f2fd' : 'transparent',
+                                            mb: 1,
+                                            borderRadius: 1
+                                        }}
+                                    >
+                                        <ListItemText
+                                            primary={
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                        {item.quantity}x {item.title || item.displayName || item.name || item.description}
+                                                    </Typography>
+                                                    <Chip 
+                                                        label={item.type} 
+                                                        size="small" 
+                                                        variant="outlined"
+                                                        color={item.category === 'Material' ? 'info' : 'default'}
+                                                    />
+                                                    {item.isStullerItem && (
+                                                        <Chip 
+                                                            label="Stuller" 
+                                                            size="small" 
+                                                            color="primary"
+                                                            variant="filled"
+                                                        />
+                                                    )}
+                                                </Box>
+                                            }
+                                            secondary={item.skillLevel && `Skill Level: ${item.skillLevel}`}
+                                        />
+                                        <ListItemSecondaryAction>
+                                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                                                ${item.price}
+                                            </Typography>
+                                        </ListItemSecondaryAction>
+                                    </ListItem>
+                                ))}
+
+                                {repair.rushJobFee && parseFloat(repair.rushJobFee) > 0 && (
+                                    <ListItem sx={{ bgcolor: '#ffebee', mb: 1, borderRadius: 1 }}>
+                                        <ListItemText
+                                            primary={
+                                                <Typography variant="body2" sx={{ fontWeight: 500, color: 'error.main' }}>
+                                                    Rush Job Fee
+                                                </Typography>
+                                            }
+                                        />
+                                        <ListItemSecondaryAction>
+                                            <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'error.main' }}>
+                                                ${parseFloat(repair.rushJobFee).toFixed(2)}
+                                            </Typography>
+                                        </ListItemSecondaryAction>
+                                    </ListItem>
+                                )}
+                            </List>
+
+                            <Divider sx={{ my: 2 }} />
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Typography variant="h6">Total:</Typography>
+                                <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                                    ${repair.totalPrice || repair.totalCost || totalCost.toFixed(2)}
+                                </Typography>
+                            </Box>
+                        </CardContent>
+                    </Card>
+                </Grid>
+            </Grid>
 
             <Snackbar
                 open={snackbarOpen}
@@ -211,15 +371,9 @@ const ViewRepairPage = ({ params }) => {
                     }
                 }}
                 action={
-                    hasChanges && snackbarSeverity === 'warning' ? (
-                        <Button color="inherit" size="small" onClick={handleSaveChanges}>
-                            Save Now
-                        </Button>
-                    ) : (
-                        <Button color="inherit" size="small" onClick={() => setSnackbarOpen(false)}>
-                            Close
-                        </Button>
-                    )
+                    <Button color="inherit" size="small" onClick={() => setSnackbarOpen(false)}>
+                        Close
+                    </Button>
                 }
             />
         </Box>

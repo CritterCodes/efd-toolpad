@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import { Autocomplete, TextField, Chip } from "@mui/material";
-import RepairTaskService from "@/services/repairTasks";
+import tasksService from "@/services/tasks.service";
 
 const TaskAutocomplete = ({ selectedTasks, setSelectedTasks, label = "Repair Tasks" }) => {
     const [repairTasks, setRepairTasks] = useState([]);
@@ -13,7 +13,7 @@ const TaskAutocomplete = ({ selectedTasks, setSelectedTasks, label = "Repair Tas
     useEffect(() => {
         const fetchRepairTasks = async () => {
             try {
-                const tasks = await RepairTaskService.fetchRepairTasks();
+                const tasks = await tasksService.getTasks({ isActive: 'true' });
                 setRepairTasks(tasks);
             } catch (error) {
                 console.error("Error fetching repair tasks:", error);

@@ -50,7 +50,10 @@ export default function StoreSettingsTab() {
         materialMarkup: 1.5,
         administrativeFee: 0.15,  // 15% as decimal
         businessFee: 0.25,       // 25% as decimal
-        consumablesFee: 0.08     // 8% as decimal
+        consumablesFee: 0.08,    // 8% as decimal
+        rushMultiplier: 1.5,     // 50% rush markup
+        deliveryFee: 25.00,      // Fixed delivery fee
+        taxRate: 0.0875          // 8.75% tax rate
     });
     
     const [originalSettings, setOriginalSettings] = useState({});
@@ -99,7 +102,10 @@ export default function StoreSettingsTab() {
                     materialMarkup: pricingSettings.materialMarkup || 1.5,
                     administrativeFee: pricingSettings.administrativeFee || 0.15,
                     businessFee: pricingSettings.businessFee || 0.25,
-                    consumablesFee: pricingSettings.consumablesFee || 0.08
+                    consumablesFee: pricingSettings.consumablesFee || 0.08,
+                    rushMultiplier: pricingSettings.rushMultiplier || 1.5,
+                    deliveryFee: pricingSettings.deliveryFee || 25.00,
+                    taxRate: pricingSettings.taxRate || 0.0875
                 };
                 
                 setSettings(settingsData);
@@ -117,7 +123,7 @@ export default function StoreSettingsTab() {
         const numericValue = parseFloat(value);
         if (!isNaN(numericValue) && numericValue >= 0) {
             // For percentage fields, convert from percentage to decimal
-            if (field === 'administrativeFee' || field === 'businessFee' || field === 'consumablesFee') {
+            if (field === 'administrativeFee' || field === 'businessFee' || field === 'consumablesFee' || field === 'taxRate') {
                 setSettings(prev => ({
                     ...prev,
                     [field]: numericValue / 100  // Convert percentage to decimal
@@ -184,7 +190,10 @@ export default function StoreSettingsTab() {
                             materialMarkup: settings.materialMarkup,
                             administrativeFee: settings.administrativeFee,
                             businessFee: settings.businessFee,
-                            consumablesFee: settings.consumablesFee
+                            consumablesFee: settings.consumablesFee,
+                            rushMultiplier: settings.rushMultiplier,
+                            deliveryFee: settings.deliveryFee,
+                            taxRate: settings.taxRate
                         }
                     };
                     
@@ -438,6 +447,62 @@ export default function StoreSettingsTab() {
                             <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
                                 Current markup: {((settings.materialMarkup - 1) * 100).toFixed(1)}% above cost
                             </Typography>
+                        </CardContent>
+                    </Card>
+                </Grid>
+
+                {/* Additional Pricing Settings */}
+                <Grid item xs={12} md={6}>
+                    <Card>
+                        <CardHeader 
+                            title="Additional Pricing"
+                            avatar={<CalculateIcon color="primary" />}
+                        />
+                        <CardContent>
+                            <Grid container spacing={2}>
+                                <Grid item xs={12}>
+                                    <TextField
+                                        fullWidth
+                                        label="Rush Job Multiplier"
+                                        type="number"
+                                        value={settings.rushMultiplier}
+                                        onChange={(e) => handleSettingChange('rushMultiplier', e.target.value)}
+                                        InputProps={{
+                                            startAdornment: <InputAdornment position="start">×</InputAdornment>,
+                                            inputProps: { min: 1, step: 0.1 }
+                                        }}
+                                        helperText="Multiplier for rush jobs (e.g., 1.5 = 50% markup)"
+                                    />
+                                </Grid>
+                                <Grid item xs={12}>
+                                    <TextField
+                                        fullWidth
+                                        label="Delivery Fee"
+                                        type="number"
+                                        value={settings.deliveryFee}
+                                        onChange={(e) => handleSettingChange('deliveryFee', e.target.value)}
+                                        InputProps={{
+                                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                                            inputProps: { min: 0, step: 0.01 }
+                                        }}
+                                        helperText="Fixed fee for delivery services"
+                                    />
+                                </Grid>
+                                <Grid item xs={12}>
+                                    <TextField
+                                        fullWidth
+                                        label="Tax Rate"
+                                        type="number"
+                                        value={(settings.taxRate * 100).toFixed(3)}
+                                        onChange={(e) => handleSettingChange('taxRate', e.target.value)}
+                                        InputProps={{
+                                            endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                                            inputProps: { min: 0, max: 100, step: 0.001 }
+                                        }}
+                                        helperText="Tax rate applied to taxable items"
+                                    />
+                                </Grid>
+                            </Grid>
                         </CardContent>
                     </Card>
                 </Grid>

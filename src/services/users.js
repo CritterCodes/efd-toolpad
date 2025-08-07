@@ -11,10 +11,23 @@ class UsersService {
      */
     static getAllUsers = async () => {
         try {
+            console.log('🔄 UsersService.getAllUsers - Starting API call...');
             const response = await axiosInstance.get('/users');
+            console.log('📡 UsersService.getAllUsers - Raw response:', response);
+            console.log('📊 UsersService.getAllUsers - Response data:', response.data);
+            console.log('📊 UsersService.getAllUsers - Data type:', typeof response.data);
+            console.log('📊 UsersService.getAllUsers - Is array?', Array.isArray(response.data));
+            
+            if (response.data && response.data.users) {
+                console.log('👥 UsersService.getAllUsers - Users array:', response.data.users);
+                console.log('👥 UsersService.getAllUsers - Users count:', response.data.users.length);
+            }
+            
             return response.data;
         } catch (error) {
-            console.error("❌ Error fetching users:", error);
+            console.error("❌ UsersService.getAllUsers - Error fetching users:", error);
+            console.error("❌ Error response:", error.response?.data);
+            console.error("❌ Error status:", error.response?.status);
             throw error;
         }
     };

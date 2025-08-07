@@ -67,6 +67,11 @@ const PrintRepairTicketsBulk = () => {
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                         <Box>
                             <Typography variant="h6"><strong>{repair.clientName}</strong></Typography>
+                            {repair.isWholesale && repair.businessName && (
+                                <Typography variant="body2" sx={{ color: 'green', fontWeight: 'bold' }}>
+                                    {repair.businessName}
+                                </Typography>
+                            )}
                             <Typography variant="body1"><strong>Due:</strong> {repair.promiseDate || 'N/A'}</Typography>
                             <Typography variant="body1"><strong>Metal Type:</strong> {repair.metalType || 'N/A'}</Typography>
                             <Typography variant="body1"><strong>Description:</strong> {repair.description}</Typography>

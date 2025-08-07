@@ -32,6 +32,7 @@ export default function ProcessesPage() {
   const [openDialog, setOpenDialog] = React.useState(false);
   const [editingProcess, setEditingProcess] = React.useState(null);
   const [deleteDialog, setDeleteDialog] = React.useState({ open: false, process: null });
+  const [updatingPrices, setUpdatingPrices] = React.useState(false);
 
   // Form state
   const [formData, setFormData] = React.useState(DEFAULT_PROCESS_FORM);
@@ -338,6 +339,46 @@ export default function ProcessesPage() {
     setOpenDialog(true);
   };
 
+  const handleUpdatePrices = async () => {
+    if (updatingPrices) return;
+    
+    setUpdatingPrices(true);
+    try {
+      const response = await fetch('/api/processes/bulk-update-pricing', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+      }
+
+      console.log('Processes price update completed:', data);
+      
+      // Refresh the processes list to show updated prices
+      await fetchProcesses();
+      
+      setSnackbar({
+        open: true,
+        message: `Successfully updated prices for ${data.updated || 0} processes`,
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Error updating processes prices:', error);
+      setSnackbar({
+        open: true,
+        message: error.message || 'Failed to update processes prices',
+        severity: 'error'
+      });
+    } finally {
+      setUpdatingPrices(false);
+    }
+  };
+
   const getSkillColor = (skill) => {
     switch (skill) {
       case 'basic': return 'success';
@@ -441,7 +482,11 @@ export default function ProcessesPage() {
           </Alert>
         )}
 
-        <ProcessesHeader onAddNew={handleOpenDialog} />
+        <ProcessesHeader 
+          onAddNew={handleOpenDialog} 
+          onUpdatePrices={handleUpdatePrices}
+          updatingPrices={updatingPrices}
+        />
         
         <ProcessesGrid
           processes={processes}

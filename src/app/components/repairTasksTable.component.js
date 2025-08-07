@@ -11,7 +11,7 @@ import {
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
-import RepairTaskService from '@/services/repairTasks';
+import tasksService from '@/services/tasks.service';
 
 const RepairTasksTable = ({ repairTasks, onEdit, isWholesale, selectedMetal }) => {
     const [shopifyTasks, setShopifyTasks] = useState([]);
@@ -22,7 +22,7 @@ const RepairTasksTable = ({ repairTasks, onEdit, isWholesale, selectedMetal }) =
     useEffect(() => {
         const fetchRepairTasks = async () => {
             try {
-                const response = await RepairTaskService.fetchRepairTasks();
+                const response = await tasksService.getTasks({ isActive: 'true' });
                 if (Array.isArray(response)) {
                     const uniqueTasks = response.reduce((acc, task) => {
                         if (!acc.some((t) => t.title === task.title)) {

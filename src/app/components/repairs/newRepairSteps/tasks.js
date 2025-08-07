@@ -11,9 +11,16 @@ import {
     ListItem,
     Button,
     IconButton,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    Grid,
+    Chip,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
-import RepairTaskService from "@/services/repairTasks";
+import FilterListIcon from "@mui/icons-material/FilterList";
+import tasksService from "@/services/tasks.service";
 
 export default function TasksStep({ formData, setFormData, isWholesale }) {
     const [repairTasks, setRepairTasks] = React.useState([]);
@@ -23,20 +30,38 @@ export default function TasksStep({ formData, setFormData, isWholesale }) {
     );
     const [taskSearch, setTaskSearch] = React.useState("");
     const [client, setClient] = React.useState({});
+    
+    // New filtering state
+    const [categoryFilter, setCategoryFilter] = React.useState("");
+    const [metalTypeFilter, setMetalTypeFilter] = React.useState("");
+    const [showFilters, setShowFilters] = React.useState(false);
 
     React.useEffect(() => {
         const fetchRepairTasks = async () => {
             try {
-                const response = await RepairTaskService.fetchRepairTasks();
+                const response = await tasksService.getTasks({ isActive: 'true' });
                 if (Array.isArray(response)) {
-                    const uniqueTasks = response.reduce((acc, task) => {
+                    // Normalize task data to handle both old and new structures
+                    const normalizedTasks = response.map(task => ({
+                        ...task,
+                        // Ensure price field exists (map from basePrice if needed)
+                        price: task.price || task.basePrice || 0,
+                        // Ensure sku field exists (use generated SKU from new system)
+                        sku: task.sku || `TASK-${task._id?.slice(-6) || Math.random().toString(36).slice(2, 8)}`,
+                        // Map category for filtering if needed
+                        category: task.category || 'repair',
+                        // Map metalType for filtering
+                        metalType: task.metalType || '',
+                    }));
+                    
+                    const uniqueTasks = normalizedTasks.reduce((acc, task) => {
                         if (!acc.some((t) => t.title === task.title)) {
                             acc.push(task);
                         }
                         return acc;
                     }, []);
                     setUniqueTasks(uniqueTasks);
-                    setRepairTasks(response);
+                    setRepairTasks(normalizedTasks);
                 } else {
                     console.error("API response is not an array:", response);
                 }
@@ -119,14 +144,23 @@ export default function TasksStep({ formData, setFormData, isWholesale }) {
                 // If task is from predefined list, use its details
                 const actualSku = buildSku(existingTask.sku);
                 const correctTask = repairTasks.find((t) => t.sku === actualSku);
-    
+                
+                // Get price from either the correct task or existing task
+                const taskPrice = correctTask?.price || correctTask?.basePrice || existingTask.price || existingTask.basePrice || 0;
+                
                 return {
                     title: existingTask.title,
                     sku: actualSku,
                     price: isWholesale
-                        ? (parseFloat(correctTask.price || 0) / 2).toFixed(2)
-                        : correctTask.price,
+                        ? (parseFloat(taskPrice) / 2).toFixed(2)
+                        : taskPrice,
                     quantity: 1, // Default quantity
+                    // Include additional fields from new tasks system
+                    category: existingTask.category,
+                    metalType: existingTask.metalType,
+                    laborHours: existingTask.laborHours,
+                    skillLevel: existingTask.skillLevel,
+                    riskLevel: existingTask.riskLevel,
                 };
             } else {
                 // Handle custom tasks
@@ -140,6 +174,11 @@ export default function TasksStep({ formData, setFormData, isWholesale }) {
                         sku: "", // No SKU for custom tasks
                         price: "", // Leave price editable
                         quantity: 1, // Default quantity
+                        category: "custom", // Mark as custom
+                        metalType: "",
+                        laborHours: 0,
+                        skillLevel: "standard",
+                        riskLevel: "low",
                     }
                 );
             }
@@ -170,76 +209,253 @@ export default function TasksStep({ formData, setFormData, isWholesale }) {
         setFormData({ ...formData, repairTasks: updatedTasks });
     };
 
-    const filteredTasks = uniqueTasks.filter((task) =>
-        task.title.toLowerCase().includes(taskSearch.toLowerCase())
-    );
+    const filteredTasks = uniqueTasks.filter((task) => {
+        const matchesSearch = task.title.toLowerCase().includes(taskSearch.toLowerCase());
+        const matchesCategory = !categoryFilter || task.category === categoryFilter;
+        const matchesMetal = !metalTypeFilter || task.metalType === metalTypeFilter;
+        
+        return matchesSearch && matchesCategory && matchesMetal;
+    });
+
+    // Get unique categories and metal types for filter dropdowns
+    const availableCategories = [...new Set(uniqueTasks.map(task => task.category).filter(Boolean))];
+    const availableMetalTypes = [...new Set(uniqueTasks.map(task => task.metalType).filter(Boolean))];
 
     return (
         <div>
-            <Autocomplete
-                freeSolo
-                multiple
-                filterSelectedOptions
-                options={filteredTasks.map((task) => task.title)}
-                value={selectedRepairTasks.map((task) => task.title)}
-                onInputChange={(event, newValue) => setTaskSearch(newValue)}
-                onChange={handleRepairTaskChange}
-                renderInput={(params) => (
-                    <TextField
-                        {...params}
-                        label="Repair Tasks (Searchable)"
-                        margin="normal"
-                        fullWidth
+            {/* Search and Filter Section */}
+            <Box sx={{ mb: 2 }}>
+                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2 }}>
+                    <Autocomplete
+                        freeSolo
+                        multiple
+                        filterSelectedOptions
+                        options={filteredTasks.map((task) => task.title)}
+                        value={selectedRepairTasks.map((task) => task.title)}
+                        onInputChange={(event, newValue) => setTaskSearch(newValue)}
+                        onChange={handleRepairTaskChange}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                label="Search & Select Repair Tasks"
+                                margin="normal"
+                                fullWidth
+                                helperText={`${filteredTasks.length} tasks available`}
+                            />
+                        )}
+                        sx={{ flex: 1 }}
                     />
+                    <Button
+                        variant="outlined"
+                        startIcon={<FilterListIcon />}
+                        onClick={() => setShowFilters(!showFilters)}
+                        sx={{ mt: 1 }}
+                    >
+                        Filters
+                    </Button>
+                </Box>
+
+                {/* Filter Controls */}
+                {showFilters && (
+                    <Grid container spacing={2} sx={{ mb: 2 }}>
+                        <Grid item xs={12} sm={4}>
+                            <FormControl fullWidth size="small">
+                                <InputLabel>Category</InputLabel>
+                                <Select
+                                    value={categoryFilter}
+                                    label="Category"
+                                    onChange={(e) => setCategoryFilter(e.target.value)}
+                                >
+                                    <MenuItem value="">All Categories</MenuItem>
+                                    {availableCategories.map((category) => (
+                                        <MenuItem key={category} value={category}>
+                                            {category.replace('_', ' ').toUpperCase()}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                            <FormControl fullWidth size="small">
+                                <InputLabel>Metal Type</InputLabel>
+                                <Select
+                                    value={metalTypeFilter}
+                                    label="Metal Type"
+                                    onChange={(e) => setMetalTypeFilter(e.target.value)}
+                                >
+                                    <MenuItem value="">All Metals</MenuItem>
+                                    {availableMetalTypes.map((metal) => (
+                                        <MenuItem key={metal} value={metal}>
+                                            {metal.toUpperCase()}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                            <Button
+                                variant="outlined"
+                                fullWidth
+                                onClick={() => {
+                                    setCategoryFilter("");
+                                    setMetalTypeFilter("");
+                                    setTaskSearch("");
+                                }}
+                            >
+                                Clear Filters
+                            </Button>
+                        </Grid>
+                    </Grid>
                 )}
-            />
+
+                {/* Active Filters Display */}
+                {(categoryFilter || metalTypeFilter) && (
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+                        {categoryFilter && (
+                            <Chip
+                                label={`Category: ${categoryFilter.replace('_', ' ')}`}
+                                onDelete={() => setCategoryFilter("")}
+                                size="small"
+                                color="primary"
+                            />
+                        )}
+                        {metalTypeFilter && (
+                            <Chip
+                                label={`Metal: ${metalTypeFilter}`}
+                                onDelete={() => setMetalTypeFilter("")}
+                                size="small"
+                                color="primary"
+                            />
+                        )}
+                    </Box>
+                )}
+            </Box>
 
             {selectedRepairTasks.length > 0 && (
                 <Box>
+                    <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+                        Selected Tasks
+                    </Typography>
                     <List>
                         {selectedRepairTasks.map((task, index) => (
                             <ListItem key={index} disableGutters>
                                 <Box
                                     sx={{
                                         display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "space-between",
+                                        flexDirection: "column",
                                         width: "100%",
-                                        gap: 2,
+                                        gap: 1,
+                                        p: 2,
+                                        border: "1px solid #e0e0e0",
+                                        borderRadius: 1,
                                     }}
                                 >
-                                    <Typography sx={{ flex: 2 }}>{task.title}</Typography>
-                                    <TextField
-                                        label="Price"
-                                        type="number"
-                                        value={task.price || ""}
-                                        onChange={(e) =>
-                                            handlePriceChange(index, e.target.value)
-                                        }
-                                        size="small"
-                                        sx={{ width: "80px" }}
-                                    />
-                                    <TextField
-                                        label="Qty"
-                                        type="number"
-                                        value={task.quantity || 1}
-                                        onChange={(e) =>
-                                            handleQuantityChange(index, Number(e.target.value))
-                                        }
-                                        size="small"
-                                        sx={{ width: "80px" }}
-                                    />
-                                    <IconButton
-                                        edge="end"
-                                        color="error"
-                                        onClick={() => handleRemoveTask(index)}
+                                    {/* Task Title and Category */}
+                                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                        <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                                            {task.title}
+                                        </Typography>
+                                        {task.category && task.category !== 'custom' && (
+                                            <Typography variant="caption" 
+                                                sx={{ 
+                                                    bgcolor: 'primary.light', 
+                                                    color: 'primary.contrastText',
+                                                    px: 1, 
+                                                    py: 0.5, 
+                                                    borderRadius: 1 
+                                                }}
+                                            >
+                                                {task.category.replace('_', ' ').toUpperCase()}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                    
+                                    {/* Task Details */}
+                                    <Box sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
+                                        {task.sku && (
+                                            <Typography variant="caption" color="text.secondary">
+                                                SKU: {task.sku}
+                                            </Typography>
+                                        )}
+                                        {task.metalType && (
+                                            <Typography variant="caption" color="text.secondary">
+                                                Metal: {task.metalType.toUpperCase()}
+                                            </Typography>
+                                        )}
+                                        {task.laborHours > 0 && (
+                                            <Typography variant="caption" color="text.secondary">
+                                                Labor: {task.laborHours}h
+                                            </Typography>
+                                        )}
+                                        {task.skillLevel && task.skillLevel !== 'standard' && (
+                                            <Typography variant="caption" color="text.secondary">
+                                                Skill: {task.skillLevel.toUpperCase()}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                    
+                                    {/* Price and Quantity Controls */}
+                                    <Box
+                                        sx={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "space-between",
+                                            gap: 2,
+                                        }}
                                     >
-                                        <DeleteIcon />
-                                    </IconButton>
+                                        <TextField
+                                            label="Price"
+                                            type="number"
+                                            value={task.price || ""}
+                                            onChange={(e) =>
+                                                handlePriceChange(index, e.target.value)
+                                            }
+                                            size="small"
+                                            sx={{ width: "120px" }}
+                                            InputProps={{
+                                                startAdornment: '$'
+                                            }}
+                                        />
+                                        <TextField
+                                            label="Quantity"
+                                            type="number"
+                                            value={task.quantity || 1}
+                                            onChange={(e) =>
+                                                handleQuantityChange(index, Number(e.target.value))
+                                            }
+                                            size="small"
+                                            sx={{ width: "80px" }}
+                                            inputProps={{ min: 1 }}
+                                        />
+                                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                            <Typography variant="body2" color="primary" sx={{ fontWeight: 'bold' }}>
+                                                Total: ${((task.price || 0) * (task.quantity || 1)).toFixed(2)}
+                                            </Typography>
+                                            <IconButton
+                                                edge="end"
+                                                color="error"
+                                                onClick={() => handleRemoveTask(index)}
+                                            >
+                                                <DeleteIcon />
+                                            </IconButton>
+                                        </Box>
+                                    </Box>
                                 </Box>
                             </ListItem>
                         ))}
                     </List>
+                    
+                    {/* Total Summary */}
+                    <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+                        <Typography variant="h6" color="primary">
+                            Total Cost: ${selectedRepairTasks.reduce((total, task) => 
+                                total + ((task.price || 0) * (task.quantity || 1)), 0
+                            ).toFixed(2)}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            {selectedRepairTasks.length} task{selectedRepairTasks.length !== 1 ? 's' : ''} selected
+                        </Typography>
+                    </Box>
                 </Box>
             )}
 

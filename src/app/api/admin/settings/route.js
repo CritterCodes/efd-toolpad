@@ -109,7 +109,16 @@ export async function PUT(request) {
 
     // Validate pricing inputs
     if (pricing) {
-      const { wage, materialMarkup, administrativeFee, businessFee, consumablesFee } = pricing;
+      const { 
+        wage, 
+        materialMarkup, 
+        administrativeFee, 
+        businessFee, 
+        consumablesFee,
+        rushMultiplier,
+        deliveryFee,
+        taxRate
+      } = pricing;
       
       if (wage < 0 || wage > 200) {
         return NextResponse.json({ error: 'Invalid wage amount' }, { status: 400 });
@@ -129,6 +138,18 @@ export async function PUT(request) {
       
       if (consumablesFee < 0 || consumablesFee > 1) {
         return NextResponse.json({ error: 'Consumables fee must be between 0 and 100%' }, { status: 400 });
+      }
+
+      if (rushMultiplier && (rushMultiplier < 1 || rushMultiplier > 5)) {
+        return NextResponse.json({ error: 'Rush multiplier must be between 1.0 and 5.0' }, { status: 400 });
+      }
+
+      if (deliveryFee && (deliveryFee < 0 || deliveryFee > 500)) {
+        return NextResponse.json({ error: 'Delivery fee must be between $0 and $500' }, { status: 400 });
+      }
+
+      if (taxRate && (taxRate < 0 || taxRate > 0.5)) {
+        return NextResponse.json({ error: 'Tax rate must be between 0 and 50%' }, { status: 400 });
       }
     }
 
@@ -224,7 +245,11 @@ async function recalculateAllPrices(dbInstance, pricingSettings) {
                     administrative: pricingSettings.administrativeFee,
                     business: pricingSettings.businessFee,
                     consumables: pricingSettings.consumablesFee
-                  }
+                  },
+                  // New pricing components
+                  rushMultiplier: pricingSettings.rushMultiplier || 1.5,
+                  deliveryFee: pricingSettings.deliveryFee || 0,
+                  taxRate: pricingSettings.taxRate || 0
                 }
               }
             }
