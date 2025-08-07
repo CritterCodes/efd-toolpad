@@ -32,7 +32,7 @@ import RepairsService from '@/services/repairs';
 import UsersService from '@/services/users';
 
 const ViewRepairPage = ({ params }) => {
-    const { repairs, setRepairs } = useRepairs();
+    const { repairs, setRepairs, removeRepair } = useRepairs();
     const router = useRouter();
 
     const [repairID, setRepairID] = React.useState(null);
@@ -93,7 +93,8 @@ const ViewRepairPage = ({ params }) => {
             try {
                 setLoading(true);
                 await RepairsService.deleteRepair(repairID);
-                setRepairs(prev => prev.filter(r => r.repairID !== repairID));
+                // ✅ Use the proper context method to remove the repair
+                removeRepair(repairID);
                 setSnackbarMessage("✅ Repair deleted successfully!");
                 setSnackbarSeverity('success');
                 setSnackbarOpen(true);

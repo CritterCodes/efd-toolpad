@@ -14,45 +14,33 @@ const NewRepairPage = () => {
     setNotification({ open: true, message, severity });
   };
 
-  const handleSubmit = async (repairData) => {
+  const handleSubmit = async (result) => {
     try {
-      // Handle the repair submission
-      const response = await fetch('/api/repairs', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(repairData),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log('✅ Repair created successfully:', result);
-        showToast?.('Repair created successfully!', 'success');
-        
-        // Get the repair ID from the response - check multiple possible response formats
-        const repairId = result.newRepair?.repairID || 
-                        result.repair?.repairID || 
-                        result.repairID || 
-                        result.newRepair?._id ||
-                        result._id;
-        console.log('📋 Redirecting to print page for repair ID:', repairId);
-        
-        // Navigate to print ticket page
-        if (repairId) {
-          router.push(`/dashboard/repairs/${repairId}/print`);
-        } else {
-          console.error('❌ No repair ID found in response:', result);
-          showToast?.('Repair created but redirect failed - check console', 'warning');
-          router.push('/dashboard/repairs/all');
-        }
+      // ✅ Repair is already created by RepairsService.createRepair()
+      // Just handle the successful result - no need for another API call
+      console.log('✅ Final Repair Data:', result);
+      console.log('✅ Repair created successfully:', result);
+      showToast?.('Repair created successfully!', 'success');
+      
+      // Get the repair ID from the response - check multiple possible response formats
+      const repairId = result.newRepair?.repairID || 
+                      result.repair?.repairID || 
+                      result.repairID || 
+                      result.newRepair?._id ||
+                      result._id;
+      console.log('📋 Redirecting to print page for repair ID:', repairId);
+      
+      // Navigate to print ticket page
+      if (repairId) {
+        router.push(`/dashboard/repairs/${repairId}/print`);
       } else {
-        const error = await response.json();
-        showToast?.(error.message || 'Failed to create repair', 'error');
+        console.error('❌ No repair ID found in response:', result);
+        showToast?.('Repair created but redirect failed - check console', 'warning');
+        router.push('/dashboard/repairs/all');
       }
     } catch (error) {
-      console.error('Error creating repair:', error);
-      showToast?.('Failed to create repair. Please try again.', 'error');
+      console.error('Error handling repair creation result:', error);
+      showToast?.('Failed to process repair creation. Please try again.', 'error');
     }
   };
 

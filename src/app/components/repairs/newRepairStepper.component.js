@@ -13,6 +13,7 @@ import CaptureImageStep from './newRepairSteps/captureImageStep.component';
 import { useTheme } from '@mui/material/styles';
 import RepairsService from '@/services/repairs';
 import TasksStep from './newRepairSteps/tasks';
+import { useRepairs } from '@/app/context/repairs.context';
 
 const steps = ['Select Client', 'Repair Details', 'Capture Image', 'Review & Submit'];
 
@@ -36,6 +37,9 @@ export default function NewRepairStepper({ open, onClose, onSubmit, userID = nul
 
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+    
+    // Repairs context for updating the repairs list
+    const { addRepair } = useRepairs();
 
     const handleNext = () => setActiveStep((prevStep) => prevStep + 1);
     const handleBack = () => setActiveStep((prevStep) => prevStep - 1);
@@ -92,8 +96,18 @@ export default function NewRepairStepper({ open, onClose, onSubmit, userID = nul
             console.log("📤 Submitting FormData:", [...formDataToSend.entries()]);
     
             const response = await RepairsService.createRepair(formDataToSend);
-    
+
             console.log("📥 Submitted Repair:", response);
+            
+            // ✅ Add the new repair to the repairs context immediately
+            if (response && (response.repairID || response.newRepair?.repairID)) {
+                const repairToAdd = response.newRepair || response;
+                console.log('📝 Adding new repair to context from stepper:', repairToAdd.repairID);
+                addRepair(repairToAdd);
+            } else {
+                console.warn('⚠️  Could not add repair to context from stepper - no repairID found in response:', response);
+            }
+            
             onSubmit(response.newRepair);
             handleClose();
         } catch (error) {

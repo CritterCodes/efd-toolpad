@@ -39,9 +39,21 @@ export default class Repair {
         this.materials = data.materials || [];
         this.customLineItems = data.customLineItems || [];
         
-        // Pricing
-        this.isWholesale = data.isWholesale;
+        // Pricing - detailed breakdown
+        this.isWholesale = data.isWholesale || false;
         this.totalCost = data.totalCost || calculateTotalCost(data, data.isWholesale);
+        this.subtotal = data.subtotal || 0;
+        this.rushFee = data.rushFee || 0;
+        this.deliveryFee = data.deliveryFee || 0;
+        this.taxAmount = data.taxAmount || 0;
+        this.taxRate = data.taxRate || 0;
+        
+        // Pricing flags
+        this.includeDelivery = data.includeDelivery || false;
+        this.includeTax = data.includeTax || false;
+        
+        // Business information
+        this.businessName = data.businessName || '';
         
         // Status and workflow
         this.status = data.status || 'pending';
@@ -58,14 +70,15 @@ export default class Repair {
         this.pickedUpAt = data.pickedUpAt;
         
         // Team assignments
-        this.assignedTo = data.assignedTo;
-        this.completedBy = data.completedBy;
+        this.assignedTo = data.assignedTo || '';
+        this.completedBy = data.completedBy || '';
         
-        // Legacy support
-        this.repairTasks = data.repairTasks || [];
-        
-        // Legacy fields for backward compatibility
-        this.parts = data.parts || [];
+        // Workflow tracking fields
+        this.assignedJeweler = data.assignedJeweler || '';
+        this.partsOrderedBy = data.partsOrderedBy || '';
+        this.partsOrderedDate = data.partsOrderedDate || null;
+        this.qcBy = data.qcBy || '';
+        this.qcDate = data.qcDate || null;
     }
     
     /**
@@ -82,6 +95,11 @@ export default class Repair {
         
         // Recalculate total cost if work items were updated
         if (updateData.tasks || updateData.processes || updateData.materials || updateData.customLineItems) {
+            this.totalCost = calculateTotalCost(this, this.isWholesale);
+        }
+        
+        // Update pricing breakdown if wholesale status changes
+        if (updateData.hasOwnProperty('isWholesale')) {
             this.totalCost = calculateTotalCost(this, this.isWholesale);
         }
     }
@@ -132,20 +150,40 @@ export default class Repair {
             processes: this.processes,
             materials: this.materials,
             customLineItems: this.customLineItems,
+            // Detailed pricing
             isWholesale: this.isWholesale,
             totalCost: this.totalCost,
+            subtotal: this.subtotal,
+            rushFee: this.rushFee,
+            deliveryFee: this.deliveryFee,
+            taxAmount: this.taxAmount,
+            taxRate: this.taxRate,
+            includeDelivery: this.includeDelivery,
+            includeTax: this.includeTax,
+            businessName: this.businessName,
+            // Status and workflow
             status: this.status,
+            // Media
             picture: this.picture,
             beforePhotos: this.beforePhotos,
             afterPhotos: this.afterPhotos,
+            // Audit fields
             createdAt: this.createdAt,
             updatedAt: this.updatedAt,
             completedAt: this.completedAt,
             pickedUpAt: this.pickedUpAt,
+            // Team assignments
             assignedTo: this.assignedTo,
             completedBy: this.completedBy,
-            repairTasks: this.repairTasks, // Legacy support
-            parts: this.parts // Legacy support
+            // Workflow tracking
+            assignedJeweler: this.assignedJeweler,
+            partsOrderedBy: this.partsOrderedBy,
+            partsOrderedDate: this.partsOrderedDate,
+            qcBy: this.qcBy,
+            qcDate: this.qcDate,
+            // Legacy support
+            repairTasks: this.repairTasks,
+            parts: this.parts
         };
     }
 }

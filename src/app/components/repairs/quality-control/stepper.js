@@ -13,6 +13,7 @@ import {
 } from "@mui/material";
 import { useRouter } from "next/navigation";
 import RepairsService from "@/services/repairs";
+import { useRepairs } from "@/app/context/repairs.context";
 import QCChecklistStep from "./steps/qc";
 import QCPhotoStep from "./steps/picture";
 import QCFinalStep from "./steps/review";
@@ -34,6 +35,9 @@ const QCStepper = ({ repair, qcRepairs }) => {
     });
     const [modalOpen, setModalOpen] = useState(true);
     const router = useRouter();
+    
+    // Repairs context for updating the repairs list
+    const { updateRepair } = useRepairs();
 
     /**
      * ✅ Handle moving to the next step
@@ -62,22 +66,30 @@ const QCStepper = ({ repair, qcRepairs }) => {
                 formData.append("status", "READY FOR PICK-UP");
                 formData.append("notes", notes);
                 formData.append("checklist", JSON.stringify(checklist));
-    
+
                 if (qcPicture) {
                     formData.append("qcPicture", qcPicture);
                 }
-    
+
                 await RepairsService.updateQualityControl(formData);
-    
+                
+                // ✅ Update the repair status in context
+                updateRepair(repair.repairID, { 
+                    status: "READY FOR PICK-UP",
+                    notes: notes,
+                    qcDate: new Date(),
+                    completedAt: new Date()
+                });
+
                 setSnackbarMessage(`✅ Repair ${repair.repairID} successfully passed QC!`);
                 setSnackbarSeverity("success");
                 setSnackbarOpen(true);
-    
+
                 const currentIndex = qcRepairs.findIndex(
                     (r) => r.repairID === repair.repairID
                 );
                 const nextRepair = qcRepairs[currentIndex + 1];
-    
+
                 router.push(
                     nextRepair
                         ? `/dashboard/repairs/quality-control/${nextRepair.repairID}`

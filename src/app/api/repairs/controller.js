@@ -55,14 +55,12 @@ export default class RepairsController {
             console.log("sending to service");
             const newRepair = await RepairsService.createRepair(repairData);
 
-            // ✅ Return the full repair object instead of a message
+            // ✅ Return the full repair object instead of a Response
             return newRepair;
         } catch (error) {
             console.error("❌ Controller Error:", error.message);
-            return new Response(
-                JSON.stringify({ error: "Failed to create repair", details: error.message }),
-                { status: 500 }
-            );
+            // ✅ Throw the error instead of returning a Response - let the route handle it
+            throw new Error(`Failed to create repair: ${error.message}`);
         }
     };
 

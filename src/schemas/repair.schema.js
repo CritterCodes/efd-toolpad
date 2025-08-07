@@ -382,6 +382,7 @@ export const calculateTotalCost = (repair, isWholesale = false) => {
 export const defaultRepairData = {
   userID: '',
   clientName: '',
+  businessName: '',
   description: '',
   isRush: false,
   promiseDate: '',
@@ -396,12 +397,31 @@ export const defaultRepairData = {
   processes: [],
   materials: [],
   customLineItems: [],
+  // Detailed pricing
   isWholesale: false,
   totalCost: 0,
+  subtotal: 0,
+  rushFee: 0,
+  deliveryFee: 0,
+  taxAmount: 0,
+  taxRate: 0,
+  includeDelivery: false,
+  includeTax: false,
+  // Status and workflow
   status: 'pending',
+  // Media
   picture: null,
   beforePhotos: [],
   afterPhotos: [],
+  // Team assignments
   assignedTo: '',
-  repairTasks: [] // Legacy support
+  completedBy: '',
+  // Workflow tracking
+  assignedJeweler: '',
+  partsOrderedBy: '',
+  partsOrderedDate: null,
+  qcBy: '',
+  qcDate: null,
+  // Legacy support
+  repairTasks: []
 };

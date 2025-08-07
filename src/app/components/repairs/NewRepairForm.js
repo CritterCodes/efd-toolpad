@@ -54,6 +54,9 @@ import materialsService from '@/services/materials.service';
 import RepairsService from '@/services/repairs';
 import UsersService from '@/services/users';
 
+// Context
+import { useRepairs } from '@/app/context/repairs.context';
+
 // Metal configuration
 const METAL_TYPES = [
   { value: 'gold', label: 'Gold', karatOptions: ['10k', '14k', '18k', '22k'] },
@@ -88,6 +91,9 @@ export default function NewRepairForm({
 }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  
+  // Repairs context for updating the repairs list
+  const { addRepair } = useRepairs();
   
   // Form state
   const [formData, setFormData] = useState({
@@ -694,6 +700,15 @@ export default function NewRepairForm({
 
       // Submit the repair
       const result = await RepairsService.createRepair(submissionData);
+      
+      // ✅ Add the new repair to the repairs context immediately
+      if (result && (result.repairID || result.newRepair?.repairID)) {
+        const repairToAdd = result.newRepair || result;
+        console.log('📝 Adding new repair to context:', repairToAdd.repairID);
+        addRepair(repairToAdd);
+      } else {
+        console.warn('⚠️  Could not add repair to context - no repairID found in result:', result);
+      }
       
       onSubmit(result);
       

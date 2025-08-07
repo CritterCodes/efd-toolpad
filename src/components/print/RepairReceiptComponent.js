@@ -28,26 +28,23 @@ const RepairReceiptComponent = ({ repair }) => {
             }}
         >
             {/* Header */}
-            <Box sx={{ textAlign: 'center', marginBottom: '12px' }}>
-                <img src="/logos/[efd]LogoBlack.png" alt="Logo" style={{ width: '50px', height: '25px' }} />
-                <Typography variant="h6" sx={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#333', marginTop: '4px' }}>
-                    ITEM RECEIPT
-                </Typography>
-                <Typography variant="body2" sx={{ fontSize: '0.65rem', color: '#666' }}>
-                    Thank you for trusting us with your jewelry
+            <Box sx={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
+                <img src="/logos/[efd]LogoBlack.png" alt="Logo" style={{ width: '50px', height: '25px', marginRight: '8px' }} />
+                <Typography variant="h6" sx={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#d32f2f' }}>
+                    REPAIR RECIEPT
                 </Typography>
             </Box>
 
             {/* Customer Info */}
-            <Box sx={{ display: 'flex', marginBottom: '12px' }}>
+            <Box sx={{ display: 'flex'}}>
                 <Box sx={{ flex: 1, textAlign: 'center' }}>
                     {repair.picture && (
                         <img
                             src={repair.picture}
                             alt="Repair"
                             style={{
-                                width: '80px',
-                                height: '80px',
+                                width: '120px',
+                                height: '120px',
                                 objectFit: 'cover',
                                 borderRadius: '4px'
                             }}
@@ -59,33 +56,33 @@ const RepairReceiptComponent = ({ repair }) => {
                         {repair.clientName}
                     </Typography>
                     <Typography variant="body2" sx={{ fontSize: '0.65rem', marginBottom: '1px' }}>
-                        ID: {repair.repairID}
+                        Received: {repair.createdAt ? new Date(repair.createdAt).toLocaleDateString() : 'N/A'} | Due: {repair.promiseDate || 'N/A'}
                     </Typography>
                     <Typography variant="body2" sx={{ fontSize: '0.65rem', marginBottom: '1px' }}>
-                        Date: {new Date().toLocaleDateString()}
+                        Metal: {repair.metalType || 'N/A'} {repair.karat}
                     </Typography>
-                    <Typography variant="body2" sx={{ fontSize: '0.65rem', marginBottom: '1px' }}>
-                        Due: {repair.promiseDate || 'N/A'}
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontSize: '0.65rem', marginBottom: '1px' }}>
-                        Metal: {repair.metalType || 'N/A'} {repair.karat && `(${repair.karat})`}
-                    </Typography>
+                    {repair.isRing && (repair.currentRingSize || repair.desiredRingSize) && (
+                        <Typography variant="body2" sx={{ fontSize: '0.65rem', marginBottom: '1px' }}>
+                            Ring Size: {repair.currentRingSize || 'N/A'} → {repair.desiredRingSize || 'N/A'}
+                        </Typography>
+                    )}
                     <Typography variant="body2" sx={{ fontSize: '0.65rem', marginBottom: '1px' }}>
                         Desc: {repair.description}
                     </Typography>
-                    {repair.isRush && (
-                        <Typography variant="body2" sx={{ fontSize: '0.65rem', color: 'red', fontWeight: 'bold' }}>
-                            🚨 DELIVERY REQUIRED
+                    {(repair.isRush || repair.includeDelivery) && (
+                        <Typography variant="body2" sx={{ fontSize: '0.65rem', fontWeight: 'bold' }}>
+                            {repair.isRush && <span style={{ color: 'red' }}>🚨 RUSH ORDER</span>}
+                            {repair.isRush && repair.includeDelivery && <span> | </span>}
+                            {repair.includeDelivery && <span style={{ color: 'blue' }}>🔷 DELIVERY INCLUDED</span>}
                         </Typography>
                     )}
                 </Box>
             </Box>
-
             {/* Work Items */}
             <Typography variant="subtitle2" sx={{ fontSize: '0.7rem', fontWeight: 'bold', marginBottom: '6px' }}>
                 Work Items:
             </Typography>
-            
+
             <List dense disablePadding sx={{ flex: 1 }}>
                 {allItems.map((item, index) => (
                     <ListItem
@@ -98,7 +95,7 @@ const RepairReceiptComponent = ({ repair }) => {
                         }}
                     >
                         <Typography variant="body2" sx={{ fontSize: '0.65rem', flex: 1 }}>
-                            {item.quantity}x {item.title || item.name || item.description}
+                            {item.quantity}x {item.title || item.displayName || item.name || item.description}
                         </Typography>
                         <Typography variant="body2" sx={{ fontSize: '0.65rem', fontWeight: 500 }}>
                             ${parseFloat(item.price || 0).toFixed(2)}
@@ -107,23 +104,34 @@ const RepairReceiptComponent = ({ repair }) => {
                 ))}
             </List>
 
+            {/* Important notice instead of workflow */}
+            <Box sx={{ textAlign: 'center', marginTop: '8px', padding: '6px', backgroundColor: '#f9f9f9', borderRadius: '4px' }}>
+                <Typography variant="body2" sx={{ fontSize: '0.55rem', lineHeight: 1.4 }}>
+                    <strong>Important:</strong> This is an item receipt, not a payment receipt.
+                    Payment is due at pickup. Items not claimed within 90 days may be subject to storage fees.
+                </Typography>
+
+                <Typography variant="body2" sx={{ fontSize: '0.65rem', color: '#666' }}>
+                    Thank you for trusting us with your jewelry
+                </Typography>
+            </Box>
             {/* Pricing */}
             <Box sx={{ marginTop: 'auto' }}>
                 <Typography sx={{ fontSize: '0.7rem', display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
                     <span>Subtotal:</span>
-                    <span>$10.27</span>
+                    <span>${(repair.subtotal || 0).toFixed(2)}</span>
                 </Typography>
                 <Typography sx={{ fontSize: '0.7rem', display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
                     <span>Rush Fee:</span>
-                    <span>$0.00</span>
+                    <span>${(repair.rushFee || 0).toFixed(2)}</span>
                 </Typography>
                 <Typography sx={{ fontSize: '0.7rem', display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
                     <span>Delivery Fee:</span>
-                    <span>$5.00</span>
+                    <span>${(repair.deliveryFee || 0).toFixed(2)}</span>
                 </Typography>
                 <Typography sx={{ fontSize: '0.7rem', display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-                    <span>Tax (Wholesale Exempt):</span>
-                    <span>$0.00</span>
+                    <span>Tax {repair.isWholesale ? '(Wholesale Exempt)' : ''}:</span>
+                    <span>${(repair.taxAmount || 0).toFixed(2)}</span>
                 </Typography>
                 {repair.isWholesale && (
                     <Typography sx={{ fontSize: '0.65rem', color: 'green', fontWeight: 'bold', marginBottom: '4px' }}>
@@ -132,17 +140,10 @@ const RepairReceiptComponent = ({ repair }) => {
                 )}
                 <Typography sx={{ fontSize: '0.8rem', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
                     <span>Total:</span>
-                    <span>$25.53</span>
+                    <span>${(repair.totalCost || 0).toFixed(2)}</span>
                 </Typography>
             </Box>
 
-            {/* Important notice instead of workflow */}
-            <Box sx={{ marginTop: '8px', padding: '6px', backgroundColor: '#f9f9f9', borderRadius: '4px' }}>
-                <Typography variant="body2" sx={{ fontSize: '0.55rem', lineHeight: 1.4 }}>
-                    <strong>Important:</strong> This is an item receipt, not a payment receipt. 
-                    Payment is due at pickup. Items not claimed within 90 days may be subject to storage fees.
-                </Typography>
-            </Box>
 
             {/* Barcode */}
             <Box sx={{ textAlign: 'center', marginTop: '8px' }}>
