@@ -1,7 +1,7 @@
 // src/app/api/materials/material.controller.js
 
 import MaterialService from "./service";
-import { auth } from '../../../../auth';
+import { auth } from '../../../../../auth';
 
 export default class MaterialController {
     /**

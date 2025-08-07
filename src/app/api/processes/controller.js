@@ -1,5 +1,5 @@
 import { ProcessService } from './service.js';
-import { auth } from '../../../../auth';
+import { auth } from '../../../../../auth';
 
 /**
  * Process Controller
