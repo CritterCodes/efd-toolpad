@@ -14,6 +14,13 @@ This roadmap outlines the development phases for the Engel Fine Design CRM syste
   - Pricing calculations (wholesale/retail)
   - Real-time context state management
 
+- ✅ **Recent Workflow Improvements (January 2025)**
+  - **Ready for Work System**: Comprehensive jeweler assignment and work prioritization
+  - **Receiving Page**: Intake management with search and status tracking
+  - **Navigation Reordering**: Workflow-based organization (Receiving → Parts → Ready for Work → Quality Control → Payment & Pickup)
+  - **Payment & Pickup Planning**: System architecture defined for Phase 1 development
+  - **Modular Architecture**: All new features follow strict MVC(C) compliance
+
 ---
 
 ## 🏗️ MANDATORY DEVELOPMENT STANDARDS
@@ -47,29 +54,59 @@ See [`DEVELOPMENT_STANDARDS.md`](./DEVELOPMENT_STANDARDS.md) for complete requir
 ### 🚀 Phase 1: Payment Processing & Order Fulfillment System
 **Target: Q1 2025 | Priority: HIGH | Duration: 3-4 weeks**
 
-**Goal:** Automate the transition from completed repairs to payment collection via Shopify integration.
+**Goal:** Automate the transition from completed repairs to payment collection via Shopify integration through a comprehensive Payment & Pickup system.
 
-#### Core Components:
-- **Payment Orders System** (internal terminology to avoid confusion with Shopify orders/invoices)
-- **Client Fulfillment Dashboard**
-- **Shopify Order Creation Pipeline**
-- **Automated Invoice Generation**
+#### Payment & Pickup System Overview:
+The **Payment & Pickup** page will serve as the central hub for order processing and customer fulfillment, replacing the basic pickup functionality with a comprehensive order management system.
+
+#### Core Features:
+
+**1. Customer Order Bundling**
+- Automatically group completed repairs by customer
+- Display bundled repairs as "Orders" ready for payment processing
+- Show order totals including taxes and service fees
+- Visual organization by customer with repair counts and values
+
+**2. Shopify Order Creation**
+- One-click Shopify order creation for bundled repairs
+- Automatic line item generation with repair details
+- Integration with existing Shopify product catalog
+- Order tracking and status synchronization
+
+**3. Bulk Pickup Processing**
+- Mark multiple repairs as picked up simultaneously
+- Update all repairs in an order to "COMPLETED" status
+- Generate pickup receipts and confirmations
+- Track pickup dates and customer signatures
+
+**4. Order Splitting Capabilities**
+- Split large orders into multiple pickups
+- Handle partial payment scenarios
+- Manage deposits and remaining balances
+- Customer communication for split orders
+
+**5. Payment Workflow Integration**
+- Payment status tracking (Pending, Paid, Partial, etc.)
+- Automated customer notifications via Shopify
+- Payment confirmation handling
+- Integration with existing repair status workflow
 
 #### User Stories:
 1. **As a shop manager**, I want repairs marked "ready for pickup" to automatically create a Payment Order for that client
-2. **As a shop manager**, I want to group multiple ready repairs for the same client into one Payment Order
+2. **As a shop manager**, I want to group multiple ready repairs for the same client into one Payment Order with order splitting options
 3. **As a shop manager**, I want to review Payment Orders before sending them to Shopify
 4. **As a shop manager**, I want to create Shopify orders with one click for payment collection
-5. **As a client**, I want to receive a Shopify invoice to complete payment online
+5. **As a shop manager**, I want to mark entire orders as picked up in bulk operations
+6. **As a client**, I want to receive a Shopify invoice to complete payment online
 
 #### Technical Requirements:
 - **MANDATORY**: Full MVC(C) modular architecture compliance
-- Payment Order model with client grouping (Model Layer)
-- PaymentOrderService for business logic (Service Layer)  
+- Payment Order model with client grouping and order splitting (Model Layer)
+- PaymentOrderService for business logic and Shopify integration (Service Layer)  
 - PaymentOrderController for API handling (Controller Layer)
-- Shopify integration service (API Service Layer)
-- Payment order utilities (Utility Layer)
-- Modular components: PaymentOrderGrid, PaymentOrderCard, PaymentOrderForm
+- Shopify integration service for order creation and status sync (API Service Layer)
+- Payment order utilities for calculations and validations (Utility Layer)
+- Modular components: PaymentOrderGrid, PaymentOrderCard, PaymentOrderForm, OrderSplitModal
 - Email notification system via Shopify
 - Payment tracking and status updates
 - Integration with existing repair workflow
