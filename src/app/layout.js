@@ -10,6 +10,7 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import ReceiptIcon from "@mui/icons-material/Receipt";
 import HandymanIcon from "@mui/icons-material/Handyman";
 import ListIcon from "@mui/icons-material/List";
+import ReceivingIcon from "@mui/icons-material/Inbox";
 import MoveUpIcon from "@mui/icons-material/DriveFileMove";
 import PickupIcon from "@mui/icons-material/LocalShipping";
 import QualityIcon from "@mui/icons-material/VerifiedUser";
@@ -41,19 +42,19 @@ const NAVIGATION = [
         icon: <BuildIcon />,
         children: [
             {
-                segment: 'all',
-                title: 'All Repairs',
+                segment: 'receiving',
+                title: 'Receiving',
+                icon: <ReceivingIcon />
+            },
+            {
+                segment: 'parts',
+                title: 'Parts',
+                icon: <PartsIcon />
+            },
+            {
+                segment: 'ready-for-work',
+                title: 'Ready for Work',
                 icon: <ListIcon />
-            },
-            {
-                segment: 'move',
-                title: 'Move',
-                icon: <MoveUpIcon />
-            },
-            {
-                segment: 'pick-up',
-                title: 'Pick-up',
-                icon: <PickupIcon />
             },
             {
                 segment: 'quality-control',
@@ -61,9 +62,14 @@ const NAVIGATION = [
                 icon: <QualityIcon />
             },
             {
-                segment: 'parts',
-                title: 'Parts',
-                icon: <PartsIcon />
+                segment: 'pick-up',
+                title: 'Payment & Pickup',
+                icon: <PickupIcon />
+            },
+            {
+                segment: 'move',
+                title: 'Move',
+                icon: <MoveUpIcon />
             },
             {
                 segment: 'bulk-print',

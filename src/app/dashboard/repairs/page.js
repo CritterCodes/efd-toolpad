@@ -7,8 +7,8 @@ export default function RepairsRedirect() {
   const router = useRouter();
   
   useEffect(() => {
-    // Redirect to the all repairs page
-    router.replace('/dashboard/repairs/all');
+    // Redirect to the Ready for Work page (most useful for daily operations)
+    router.replace('/dashboard/repairs/ready-for-work');
   }, [router]);
   
   return null; // This component just redirects
