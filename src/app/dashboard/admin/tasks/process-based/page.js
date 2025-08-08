@@ -73,6 +73,11 @@ export default function ProcessBasedTaskBuilder() {
   const [availableProcesses, setAvailableProcesses] = useState([]);
   const [availableMaterials, setAvailableMaterials] = useState([]);
   const [adminSettings, setAdminSettings] = useState(null);
+  const [dataLoadErrors, setDataLoadErrors] = useState({
+    processes: false,
+    materials: false,
+    settings: false
+  });
   
   // UI state
   const [loading, setLoading] = useState(false);
@@ -301,21 +306,64 @@ export default function ProcessBasedTaskBuilder() {
 
   const loadInitialData = async () => {
     try {
+      console.log('🔥 Starting initial data load...');
+      
+      // Add credentials to ensure authentication is passed
+      const fetchOptions = {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      };
+
       const [processesRes, materialsRes, settingsRes] = await Promise.all([
-        fetch('/api/repair-processes'),
-        fetch('/api/repair-materials'),
-        fetch('/api/admin/settings')
+        fetch('/api/processes', fetchOptions),
+        fetch('/api/materials', fetchOptions),
+        fetch('/api/admin/settings', fetchOptions)
       ]);
 
       if (processesRes.ok) {
         const processesData = await processesRes.json();
-        console.log('Loaded processes:', processesData.processes);
+        console.log('🔥 Loaded processes successfully:', processesData);
         setAvailableProcesses(processesData.processes || []);
+        setDataLoadErrors(prev => ({ ...prev, processes: false }));
+      } else {
+        console.error('🔥 Failed to load processes:', {
+          status: processesRes.status,
+          statusText: processesRes.statusText,
+          url: processesRes.url
+        });
+        setDataLoadErrors(prev => ({ ...prev, processes: true }));
+        // Try to get error details
+        try {
+          const errorData = await processesRes.json();
+          console.error('🔥 Processes API error details:', errorData);
+        } catch (e) {
+          console.error('🔥 Could not parse processes error response');
+        }
       }
 
       if (materialsRes.ok) {
         const materialsData = await materialsRes.json();
+        console.log('🔥 Loaded materials successfully:', materialsData);
         setAvailableMaterials(materialsData.materials || []);
+        setDataLoadErrors(prev => ({ ...prev, materials: false }));
+      } else {
+        console.error('🔥 Failed to load materials:', {
+          status: materialsRes.status,
+          statusText: materialsRes.statusText,
+          url: materialsRes.url
+        });
+        setDataLoadErrors(prev => ({ ...prev, materials: true }));
+        // Try to get error details
+        try {
+          const errorData = await materialsRes.json();
+          console.error('🔥 Materials API error details:', errorData);
+        } catch (e) {
+          console.error('🔥 Could not parse materials error response');
+        }
       }
 
       if (settingsRes.ok) {
@@ -366,7 +414,7 @@ export default function ProcessBasedTaskBuilder() {
       };
       console.log('🔥 TASK BUILDER - Using fallback settings due to error:', fallbackSettings);
       setAdminSettings(fallbackSettings);
-      setError('Failed to load initial data');
+      setError('Some data failed to load. Processes and materials may not be available. Please check your connection and try refreshing the page.');
     }
   };
 
@@ -550,6 +598,26 @@ export default function ProcessBasedTaskBuilder() {
           </Alert>
         )}
 
+        {(dataLoadErrors.processes || dataLoadErrors.materials) && (
+          <Alert 
+            severity="warning" 
+            sx={{ mb: 3 }}
+            action={
+              <Button color="inherit" size="small" onClick={loadInitialData}>
+                Retry
+              </Button>
+            }
+          >
+            <strong>Data Loading Issues:</strong>
+            {dataLoadErrors.processes && <div>• Processes could not be loaded (you won&apos;t be able to select processes)</div>}
+            {dataLoadErrors.materials && <div>• Materials could not be loaded (material selection will be limited)</div>}
+            <div style={{ marginTop: '8px' }}>
+              <strong>Possible causes:</strong> Authentication timeout, network issues, or API problems. 
+              Try refreshing the page or logging out and back in.
+            </div>
+          </Alert>
+        )}
+
         <form onSubmit={handleSubmit}>
           <Grid container spacing={3}>
             
@@ -711,23 +779,26 @@ export default function ProcessBasedTaskBuilder() {
                                   required
                                 />
                               )}
-                              renderOption={(props, option) => (
-                                <Box component="li" {...props}>
-                                  <Box>
-                                    <Typography variant="body2" fontWeight="bold">
-                                      {option.displayName}
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary">
-                                      {option.laborHours}hrs • ${option.pricing?.totalCost || 0} total • {option.skillLevel}
-                                    </Typography>
-                                    {option.processType && (
-                                      <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                                        • {option.processType}
+                              renderOption={(props, option) => {
+                                const { key, ...otherProps } = props;
+                                return (
+                                  <Box component="li" key={key} {...otherProps}>
+                                    <Box>
+                                      <Typography variant="body2" fontWeight="bold">
+                                        {option.displayName}
                                       </Typography>
-                                    )}
+                                      <Typography variant="caption" color="text.secondary">
+                                        {option.laborHours}hrs • ${option.pricing?.totalCost || 0} total • {option.skillLevel}
+                                      </Typography>
+                                      {option.processType && (
+                                        <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                                          • {option.processType}
+                                        </Typography>
+                                      )}
+                                    </Box>
                                   </Box>
-                                </Box>
-                              )}
+                                );
+                              }}
                               isOptionEqualToValue={(option, value) => option._id === value._id}
                               noOptionsText="No processes found"
                             />
