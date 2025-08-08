@@ -156,20 +156,21 @@ const ReceivingPage = () => {
                         <CardContent sx={{ textAlign: 'center' }}>
                             <Stack direction="row" spacing={1} justifyContent="center">
                                 <Button
+                                    variant="contained"
+                                    size="small"
+                                    startIcon={<AddIcon />}
+                                    onClick={() => router.push('/dashboard/repairs/new')}
+                                    color="primary"
+                                >
+                                    New Repair
+                                </Button>
+                                <Button
                                     variant="outlined"
                                     size="small"
                                     startIcon={<MoveIcon />}
                                     onClick={() => router.push('/dashboard/repairs/move')}
                                 >
                                     Move
-                                </Button>
-                                <Button
-                                    variant="outlined"
-                                    size="small"
-                                    startIcon={<PrintIcon />}
-                                    onClick={() => router.push('/dashboard/repairs/bulk-print')}
-                                >
-                                    Print
                                 </Button>
                             </Stack>
                             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>

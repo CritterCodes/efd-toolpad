@@ -17,7 +17,7 @@ const FloatingActionButton = () => {
         {
             icon: <NoteAddIcon />,
             name: 'New Repair',
-            onClick: () => router.push('/dashboard/repairs/all?newRepair=true')  // ✅ Open stepper automatically
+            onClick: () => router.push('/dashboard/repairs/new')  // ✅ Correct route for new repairs
         },
         {
             icon: <MoveUpIcon />,
