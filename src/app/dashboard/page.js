@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 import { 
@@ -10,36 +11,140 @@ import {
     Grid, 
     Button,
     Chip,
-    Alert
+    Alert,
+    Badge,
+    LinearProgress,
+    Divider,
+    List,
+    ListItem,
+    ListItemText,
+    ListItemIcon,
+    Paper
 } from '@mui/material';
 import { 
     Settings as SettingsIcon,
     People as PeopleIcon,
     Build as BuildIcon,
-    Handyman as HandymanIcon,
+    HandymanIcon,
     Analytics as AnalyticsIcon,
     CheckCircle as CheckCircleIcon,
     Schedule as ScheduleIcon,
-    AttachMoney as AttachMoneyIcon
+    AttachMoney as AttachMoneyIcon,
+    Warning as WarningIcon,
+    ShoppingCart as ShoppingCartIcon,
+    Assignment as AssignmentIcon,
+    Inventory as InventoryIcon,
+    AccessTime as AccessTimeIcon,
+    TrendingUp as TrendingUpIcon,
+    Speed as SpeedIcon
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
+import { useRepairs } from '@/app/context/repairs.context';
 
-export default function AdminCRMDashboard() {
+export default function RepairManagementDashboard() {
     const { data: session, status } = useSession();
     const router = useRouter();
-    const [systemStats, setSystemStats] = useState({
-        totalRepairs: 0,
-        activeRepairs: 0,
-        totalClients: 0,
-        totalRevenue: 0,
-        repairTasks: 92 // From our migration
-    });
+    const { repairs, loading } = useRepairs();
+    
+    // Calculate dashboard metrics
+    const dashboardMetrics = React.useMemo(() => {
+        if (!repairs || repairs.length === 0) {
+            return {
+                totalRepairs: 0,
+                todaysDue: [],
+                overdue: [],
+                needsParts: [],
+                partsOrdered: [],
+                readyForWork: [],
+                inProgress: [],
+                qualityControl: [],
+                readyForPickup: [],
+                completed: [],
+                rushJobs: [],
+                totalValue: 0,
+                avgCompletionTime: 0,
+                statusDistribution: {}
+            };
+        }
+
+        const today = new Date();
+        const todayStr = today.toDateString();
+        
+        // Get today's due repairs
+        const todaysDue = repairs.filter(repair => {
+            if (!repair.promiseDate) return false;
+            const promiseDate = new Date(repair.promiseDate);
+            return promiseDate.toDateString() === todayStr && repair.status !== 'COMPLETED' && repair.status !== 'PICKED-UP';
+        });
+
+        // Get overdue repairs
+        const overdue = repairs.filter(repair => {
+            if (!repair.promiseDate) return false;
+            const promiseDate = new Date(repair.promiseDate);
+            return promiseDate < today && repair.status !== 'COMPLETED' && repair.status !== 'PICKED-UP';
+        });
+
+        // Status-based filtering
+        const needsParts = repairs.filter(r => r.status === 'NEEDS PARTS');
+        const partsOrdered = repairs.filter(r => r.status === 'PARTS ORDERED');
+        const readyForWork = repairs.filter(r => r.status === 'READY FOR WORK');
+        const inProgress = repairs.filter(r => r.status === 'IN PROGRESS');
+        const qualityControl = repairs.filter(r => r.status === 'QUALITY CONTROL');
+        const readyForPickup = repairs.filter(r => r.status === 'READY FOR PICK-UP');
+        const completed = repairs.filter(r => r.status === 'COMPLETED');
+        
+        // Rush jobs
+        const rushJobs = repairs.filter(r => r.isRush === true || r.priority === 'rush');
+
+        // Calculate total value
+        const totalValue = repairs.reduce((sum, repair) => {
+            return sum + (parseFloat(repair.totalCost) || 0);
+        }, 0);
+
+        // Status distribution for progress tracking
+        const statusDistribution = {};
+        repairs.forEach(repair => {
+            const status = repair.status || 'UNKNOWN';
+            statusDistribution[status] = (statusDistribution[status] || 0) + 1;
+        });
+
+        // Calculate average completion time
+        const completedWithDates = repairs.filter(r => 
+            r.status === 'COMPLETED' && r.completedAt && r.createdAt
+        );
+        
+        const avgCompletionTime = completedWithDates.length > 0 
+            ? completedWithDates.reduce((sum, repair) => {
+                const created = new Date(repair.createdAt);
+                const completed = new Date(repair.completedAt);
+                return sum + (completed - created) / (1000 * 60 * 60 * 24);
+              }, 0) / completedWithDates.length
+            : 0;
+
+        return {
+            totalRepairs: repairs.length,
+            todaysDue,
+            overdue,
+            needsParts,
+            partsOrdered,
+            readyForWork,
+            inProgress,
+            qualityControl,
+            readyForPickup,
+            completed,
+            rushJobs,
+            totalValue,
+            avgCompletionTime,
+            statusDistribution
+        };
+    }, [repairs]);
 
     // 🔒 ADMIN-ONLY ACCESS
-    if (status === 'loading') {
+    if (status === 'loading' || loading) {
         return (
             <Box sx={{ p: 3 }}>
-                <Typography>Loading admin CRM...</Typography>
+                <Typography>Loading repair management dashboard...</Typography>
+                <LinearProgress sx={{ mt: 2 }} />
             </Box>
         );
     }
@@ -56,107 +161,315 @@ export default function AdminCRMDashboard() {
 
     return (
         <Box sx={{ p: 3 }}>
-            {/* 🎯 ADMIN CRM HEADER */}
+            {/* 🎯 DASHBOARD HEADER */}
             <Box sx={{ mb: 4 }}>
                 <Typography variant="h4" gutterBottom>
-                    Engel Fine Design - Admin CRM
+                    Repair Management Dashboard
                 </Typography>
                 <Typography variant="body1" color="text.secondary">
-                    Internal business management system for repair tasks, client management, and business operations
+                    Real-time insights for daily repair operations and workflow management
                 </Typography>
             </Box>
 
-            {/* 📊 SYSTEM STATISTICS */}
+            {/* 🚨 CRITICAL ALERTS */}
             <Grid container spacing={3} sx={{ mb: 4 }}>
-                <Grid item xs={12} sm={6} md={3}>
-                    <Card>
-                        <CardContent>
-                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                                <BuildIcon color="primary" sx={{ mr: 1 }} />
-                                <Typography variant="h6">{systemStats.activeRepairs}</Typography>
-                            </Box>
-                            <Typography variant="body2" color="text.secondary">
-                                Active Repairs
-                            </Typography>
-                        </CardContent>
-                    </Card>
-                </Grid>
+                {dashboardMetrics.overdue.length > 0 && (
+                    <Grid item xs={12}>
+                        <Alert 
+                            severity="error" 
+                            sx={{ mb: 2 }}
+                            action={
+                                <Button 
+                                    color="inherit" 
+                                    size="small" 
+                                    onClick={() => router.push('/dashboard/repairs/all?status=overdue')}
+                                >
+                                    VIEW ALL
+                                </Button>
+                            }
+                        >
+                            <strong>{dashboardMetrics.overdue.length} Overdue Repairs</strong> - Immediate attention required
+                        </Alert>
+                    </Grid>
+                )}
                 
+                {dashboardMetrics.todaysDue.length > 0 && (
+                    <Grid item xs={12}>
+                        <Alert 
+                            severity="warning"
+                            action={
+                                <Button 
+                                    color="inherit" 
+                                    size="small" 
+                                    onClick={() => router.push('/dashboard/repairs/all')}
+                                >
+                                    VIEW ALL
+                                </Button>
+                            }
+                        >
+                            <strong>{dashboardMetrics.todaysDue.length} Repairs Due Today</strong> - Priority workflow items
+                        </Alert>
+                    </Grid>
+                )}
+            </Grid>
+
+            {/* 📊 KEY METRICS */}
+            <Grid container spacing={3} sx={{ mb: 4 }}>
+                {/* Due Today */}
                 <Grid item xs={12} sm={6} md={3}>
-                    <Card>
+                    <Card sx={{ bgcolor: dashboardMetrics.todaysDue.length > 0 ? 'warning.light' : 'grey.100' }}>
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                                <PeopleIcon color="primary" sx={{ mr: 1 }} />
-                                <Typography variant="h6">{systemStats.totalClients}</Typography>
+                                <AccessTimeIcon color={dashboardMetrics.todaysDue.length > 0 ? 'warning' : 'disabled'} sx={{ mr: 1 }} />
+                                <Typography variant="h4" color={dashboardMetrics.todaysDue.length > 0 ? 'warning.dark' : 'text.secondary'}>
+                                    {dashboardMetrics.todaysDue.length}
+                                </Typography>
                             </Box>
                             <Typography variant="body2" color="text.secondary">
-                                Total Clients
+                                Due Today
                             </Typography>
                         </CardContent>
                     </Card>
                 </Grid>
 
+                {/* Needs Parts */}
                 <Grid item xs={12} sm={6} md={3}>
-                    <Card>
+                    <Card sx={{ bgcolor: dashboardMetrics.needsParts.length > 0 ? 'info.light' : 'grey.100' }}>
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                                <HandymanIcon color="primary" sx={{ mr: 1 }} />
-                                <Typography variant="h6">{systemStats.repairTasks}</Typography>
+                                <ShoppingCartIcon color={dashboardMetrics.needsParts.length > 0 ? 'info' : 'disabled'} sx={{ mr: 1 }} />
+                                <Typography variant="h4" color={dashboardMetrics.needsParts.length > 0 ? 'info.dark' : 'text.secondary'}>
+                                    {dashboardMetrics.needsParts.length}
+                                </Typography>
                             </Box>
                             <Typography variant="body2" color="text.secondary">
-                                Repair Tasks Available
+                                Need Parts
                             </Typography>
                         </CardContent>
                     </Card>
                 </Grid>
 
+                {/* Ready for Work */}
                 <Grid item xs={12} sm={6} md={3}>
-                    <Card>
+                    <Card sx={{ bgcolor: dashboardMetrics.readyForWork.length > 0 ? 'success.light' : 'grey.100' }}>
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                                <AttachMoneyIcon color="primary" sx={{ mr: 1 }} />
-                                <Typography variant="h6">${systemStats.totalRevenue.toLocaleString()}</Typography>
+                                <BuildIcon color={dashboardMetrics.readyForWork.length > 0 ? 'success' : 'disabled'} sx={{ mr: 1 }} />
+                                <Typography variant="h4" color={dashboardMetrics.readyForWork.length > 0 ? 'success.dark' : 'text.secondary'}>
+                                    {dashboardMetrics.readyForWork.length}
+                                </Typography>
                             </Box>
                             <Typography variant="body2" color="text.secondary">
-                                Total Revenue
+                                Ready for Work
+                            </Typography>
+                        </CardContent>
+                    </Card>
+                </Grid>
+
+                {/* Rush Jobs */}
+                <Grid item xs={12} sm={6} md={3}>
+                    <Card sx={{ bgcolor: dashboardMetrics.rushJobs.length > 0 ? 'error.light' : 'grey.100' }}>
+                        <CardContent>
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                                <SpeedIcon color={dashboardMetrics.rushJobs.length > 0 ? 'error' : 'disabled'} sx={{ mr: 1 }} />
+                                <Typography variant="h4" color={dashboardMetrics.rushJobs.length > 0 ? 'error.dark' : 'text.secondary'}>
+                                    {dashboardMetrics.rushJobs.length}
+                                </Typography>
+                            </Box>
+                            <Typography variant="body2" color="text.secondary">
+                                Rush Jobs
                             </Typography>
                         </CardContent>
                     </Card>
                 </Grid>
             </Grid>
 
-            {/* 🚀 ADMIN QUICK ACTIONS */}
+            {/* 🔄 WORKFLOW STATUS */}
+            <Grid container spacing={3} sx={{ mb: 4 }}>
+                <Grid item xs={12} md={8}>
+                    <Card>
+                        <CardContent>
+                            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <TrendingUpIcon /> Workflow Pipeline
+                            </Typography>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                {[
+                                    { label: 'Parts Ordered', count: dashboardMetrics.partsOrdered.length, color: 'info', path: '/dashboard/repairs/parts' },
+                                    { label: 'Ready for Work', count: dashboardMetrics.readyForWork.length, color: 'success', path: '/dashboard/repairs/all?status=READY FOR WORK' },
+                                    { label: 'In Progress', count: dashboardMetrics.inProgress.length, color: 'warning', path: '/dashboard/repairs/all?status=IN PROGRESS' },
+                                    { label: 'Quality Control', count: dashboardMetrics.qualityControl.length, color: 'primary', path: '/dashboard/repairs/quality-control' },
+                                    { label: 'Ready for Pickup', count: dashboardMetrics.readyForPickup.length, color: 'secondary', path: '/dashboard/repairs/pick-up' }
+                                ].map((item) => (
+                                    <Box 
+                                        key={item.label} 
+                                        sx={{ 
+                                            display: 'flex', 
+                                            justifyContent: 'space-between', 
+                                            alignItems: 'center',
+                                            cursor: 'pointer',
+                                            p: 1,
+                                            borderRadius: 1,
+                                            '&:hover': { bgcolor: 'grey.100' }
+                                        }}
+                                        onClick={() => router.push(item.path)}
+                                    >
+                                        <Typography variant="body1">{item.label}</Typography>
+                                        <Chip 
+                                            label={item.count} 
+                                            color={item.count > 0 ? item.color : 'default'}
+                                            size="small"
+                                        />
+                                    </Box>
+                                ))}
+                            </Box>
+                        </CardContent>
+                    </Card>
+                </Grid>
+
+                <Grid item xs={12} md={4}>
+                    <Card>
+                        <CardContent>
+                            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <AttachMoneyIcon /> Business Metrics
+                            </Typography>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                <Box>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Total Active Value
+                                    </Typography>
+                                    <Typography variant="h5" color="success.main">
+                                        ${dashboardMetrics.totalValue.toLocaleString()}
+                                    </Typography>
+                                </Box>
+                                <Divider />
+                                <Box>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Average Completion
+                                    </Typography>
+                                    <Typography variant="h6">
+                                        {dashboardMetrics.avgCompletionTime.toFixed(1)} days
+                                    </Typography>
+                                </Box>
+                                <Divider />
+                                <Box>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Total Active Repairs
+                                    </Typography>
+                                    <Typography variant="h6">
+                                        {dashboardMetrics.totalRepairs - dashboardMetrics.completed.length}
+                                    </Typography>
+                                </Box>
+                            </Box>
+                        </CardContent>
+                    </Card>
+                </Grid>
+            </Grid>
+
+            {/* 📋 TODAY'S PRIORITY LIST */}
+            {(dashboardMetrics.todaysDue.length > 0 || dashboardMetrics.overdue.length > 0) && (
+                <Grid container spacing={3} sx={{ mb: 4 }}>
+                    <Grid item xs={12}>
+                        <Card>
+                            <CardContent>
+                                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <WarningIcon color="warning" /> Priority Repairs - Immediate Attention
+                                </Typography>
+                                <List dense>
+                                    {/* Overdue items first */}
+                                    {dashboardMetrics.overdue.slice(0, 5).map((repair) => (
+                                        <ListItem 
+                                            key={repair.repairID}
+                                            button
+                                            onClick={() => router.push(`/dashboard/repairs/${repair.repairID}`)}
+                                            sx={{ bgcolor: 'error.light', mb: 1, borderRadius: 1 }}
+                                        >
+                                            <ListItemIcon>
+                                                <WarningIcon color="error" />
+                                            </ListItemIcon>
+                                            <ListItemText 
+                                                primary={`${repair.clientName} - ${repair.description}`}
+                                                secondary={`OVERDUE: Due ${new Date(repair.promiseDate).toLocaleDateString()} • ${repair.status}`}
+                                            />
+                                            <Chip label="OVERDUE" color="error" size="small" />
+                                        </ListItem>
+                                    ))}
+                                    
+                                    {/* Today's due items */}
+                                    {dashboardMetrics.todaysDue.slice(0, 5).map((repair) => (
+                                        <ListItem 
+                                            key={repair.repairID}
+                                            button
+                                            onClick={() => router.push(`/dashboard/repairs/${repair.repairID}`)}
+                                            sx={{ bgcolor: 'warning.light', mb: 1, borderRadius: 1 }}
+                                        >
+                                            <ListItemIcon>
+                                                <AccessTimeIcon color="warning" />
+                                            </ListItemIcon>
+                                            <ListItemText 
+                                                primary={`${repair.clientName} - ${repair.description}`}
+                                                secondary={`DUE TODAY • ${repair.status}`}
+                                            />
+                                            <Chip label="TODAY" color="warning" size="small" />
+                                        </ListItem>
+                                    ))}
+                                </List>
+                                
+                                {(dashboardMetrics.overdue.length + dashboardMetrics.todaysDue.length) > 5 && (
+                                    <Button
+                                        variant="outlined"
+                                        fullWidth
+                                        sx={{ mt: 2 }}
+                                        onClick={() => router.push('/dashboard/repairs/all')}
+                                    >
+                                        View All Priority Repairs ({dashboardMetrics.overdue.length + dashboardMetrics.todaysDue.length})
+                                    </Button>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                </Grid>
+            )}
+
+            {/* 🚀 QUICK ACTIONS */}
             <Grid container spacing={3}>
                 <Grid item xs={12} md={6}>
                     <Card>
                         <CardContent>
                             <Typography variant="h6" gutterBottom>
-                                🛠️ System Management
+                                🛠️ Workflow Management
                             </Typography>
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                 <Button
                                     variant="outlined"
-                                    startIcon={<SettingsIcon />}
-                                    onClick={() => router.push('/dashboard/admin/settings')}
+                                    startIcon={<ShoppingCartIcon />}
+                                    onClick={() => router.push('/dashboard/repairs/parts')}
                                     fullWidth
                                 >
-                                    Admin Settings & Pricing
+                                    Parts Management ({dashboardMetrics.needsParts.length + dashboardMetrics.partsOrdered.length})
                                 </Button>
                                 <Button
                                     variant="outlined"
-                                    startIcon={<HandymanIcon />}
-                                    onClick={() => router.push('/dashboard/admin/tasks')}
+                                    startIcon={<AssignmentIcon />}
+                                    onClick={() => router.push('/dashboard/repairs/quality-control')}
                                     fullWidth
                                 >
-                                    Manage Tasks
+                                    Quality Control Queue ({dashboardMetrics.qualityControl.length})
                                 </Button>
                                 <Button
                                     variant="outlined"
-                                    startIcon={<AnalyticsIcon />}
-                                    onClick={() => router.push('/dashboard/analytics')}
+                                    startIcon={<InventoryIcon />}
+                                    onClick={() => router.push('/dashboard/repairs/pick-up')}
                                     fullWidth
                                 >
-                                    Business Analytics
+                                    Ready for Pickup ({dashboardMetrics.readyForPickup.length})
+                                </Button>
+                                <Button
+                                    variant="outlined"
+                                    startIcon={<SpeedIcon />}
+                                    onClick={() => router.push('/dashboard/repairs/move')}
+                                    fullWidth
+                                >
+                                    Move Repairs Status
                                 </Button>
                             </Box>
                         </CardContent>
@@ -172,6 +485,14 @@ export default function AdminCRMDashboard() {
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                 <Button
                                     variant="outlined"
+                                    startIcon={<BuildIcon />}
+                                    onClick={() => router.push('/dashboard/repairs/new')}
+                                    fullWidth
+                                >
+                                    Create New Repair
+                                </Button>
+                                <Button
+                                    variant="outlined"
                                     startIcon={<PeopleIcon />}
                                     onClick={() => router.push('/dashboard/clients')}
                                     fullWidth
@@ -180,19 +501,19 @@ export default function AdminCRMDashboard() {
                                 </Button>
                                 <Button
                                     variant="outlined"
-                                    startIcon={<BuildIcon />}
-                                    onClick={() => router.push('/dashboard/repairs')}
+                                    startIcon={<AnalyticsIcon />}
+                                    onClick={() => router.push('/dashboard/analytics')}
                                     fullWidth
                                 >
-                                    Repair Workflow
+                                    Business Analytics
                                 </Button>
                                 <Button
                                     variant="outlined"
-                                    startIcon={<CheckCircleIcon />}
-                                    onClick={() => router.push('/dashboard/custom-tickets')}
+                                    startIcon={<SettingsIcon />}
+                                    onClick={() => router.push('/dashboard/admin/settings')}
                                     fullWidth
                                 >
-                                    Custom Tickets
+                                    Admin Settings
                                 </Button>
                             </Box>
                         </CardContent>
@@ -209,43 +530,27 @@ export default function AdminCRMDashboard() {
                     <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                         <Chip 
                             icon={<CheckCircleIcon />} 
-                            label="Database: Connected" 
+                            label={`Total Repairs: ${dashboardMetrics.totalRepairs}`}
                             color="success" 
                         />
                         <Chip 
                             icon={<CheckCircleIcon />} 
-                            label="Repair Tasks: 92 Migrated" 
+                            label={`Completed: ${dashboardMetrics.completed.length}`}
                             color="success" 
                         />
                         <Chip 
-                            icon={<CheckCircleIcon />} 
-                            label="Admin Settings: Configured" 
-                            color="success" 
-                        />
-                        <Chip 
-                            icon={<ScheduleIcon />} 
-                            label="Shopify Integration: Ready" 
+                            icon={<TrendingUpIcon />} 
+                            label={`Active: ${dashboardMetrics.totalRepairs - dashboardMetrics.completed.length}`}
                             color="info" 
                         />
+                        {dashboardMetrics.rushJobs.length > 0 && (
+                            <Chip 
+                                icon={<SpeedIcon />} 
+                                label={`Rush Jobs: ${dashboardMetrics.rushJobs.length}`}
+                                color="error" 
+                            />
+                        )}
                     </Box>
-                </CardContent>
-            </Card>
-
-            {/* 📄 ADMIN NOTES */}
-            <Card sx={{ mt: 3 }}>
-                <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                        System Information
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" paragraph>
-                        <strong>CRM Type:</strong> Internal admin-only system for business operations
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" paragraph>
-                        <strong>Account Creation:</strong> Manual approval required - admin accounts only
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" paragraph>
-                        <strong>Phase Status:</strong> Phase 3 completed - Admin interface with security and pricing system fully functional
-                    </Typography>
                 </CardContent>
             </Card>
         </Box>

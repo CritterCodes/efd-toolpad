@@ -1,43 +1,50 @@
 "use client";
-import React, { useState, useRef, useEffect } from "react";
-import { Box, Typography, TextField, Button, List, ListItem, ListItemText, IconButton, Snackbar, Autocomplete, Breadcrumbs, Link } from "@mui/material";
-import DeleteIcon from "@mui/icons-material/Delete";
+import React, { useEffect } from "react";
+import { 
+    Box, 
+    Typography, 
+    Button, 
+    Snackbar, 
+    Breadcrumbs, 
+    Link 
+} from "@mui/material";
 import { useRepairs } from "@/app/context/repairs.context";
-import RepairsService from "@/services/repairs";
 import { useRouter } from "next/navigation";
 
-const statuses = [
-    "RECEIVING",
-    "NEEDS PARTS",
-    "PARTS ORDERED", 
-    "READY FOR WORK",
-    "IN PROGRESS",
-    "QUALITY CONTROL",
-    "READY FOR PICK-UP",
-    "COMPLETED"
-];
+// Custom hook
+import { useMoveRepairs } from "./hooks/useMoveRepairs";
 
-// Status descriptions for better UX
-const statusDescriptions = {
-    "RECEIVING": "Initial intake - item just received",
-    "NEEDS PARTS": "Waiting for parts to be ordered",
-    "PARTS ORDERED": "Parts have been ordered, waiting for arrival",
-    "READY FOR WORK": "All parts available, ready to start work",
-    "IN PROGRESS": "Work is actively being performed",
-    "QUALITY CONTROL": "Work completed, undergoing quality inspection",
-    "READY FOR PICK-UP": "QC passed, ready for customer pickup",
-    "COMPLETED": "Customer has picked up the item"
-};
+// Components
+import StatusSelector from "./components/StatusSelector";
+import AssignedPersonField from "./components/AssignedPersonField";
+import RepairInput from "./components/RepairInput";
+import RepairList from "./components/RepairList";
+import MoveSummary from "./components/MoveSummary";
+
+// Utils
+import { moveRepairsToStatus, updateRepairWithMetadata } from "./utils/repairUtils";
 
 const MoveRepairsPage = () => {
     const { repairs, setRepairs } = useRepairs();
-    const [location, setLocation] = useState("");
-    const [repairIDs, setRepairIDs] = useState([]);
-    const [currentRepairID, setCurrentRepairID] = useState("");
-    const [snackbarOpen, setSnackbarOpen] = useState(false);
-    const [snackbarMessage, setSnackbarMessage] = useState("");
-    const [snackbarSeverity, setSnackbarSeverity] = useState("info");
     const router = useRouter();
+    
+    const {
+        location,
+        repairIDs,
+        currentRepairID,
+        assignedPerson,
+        snackbarOpen,
+        snackbarMessage,
+        snackbarSeverity,
+        setLocation,
+        setCurrentRepairID,
+        setAssignedPerson,
+        showSnackbar,
+        closeSnackbar,
+        addRepairID,
+        removeRepairID,
+        clearForm
+    } = useMoveRepairs();
 
     useEffect(() => {
         console.log("Repairs in context:", repairs);
@@ -46,10 +53,6 @@ const MoveRepairsPage = () => {
     const handleLocationSelect = (event, value) => {
         console.log("Selected Location:", value);
         setLocation(value);
-    };
-
-    const handleRepairInputChange = (event) => {
-        setCurrentRepairID(event.target.value.trim());
     };
 
     const handleRepairSubmit = () => {
@@ -61,32 +64,16 @@ const MoveRepairsPage = () => {
         console.log("Matching Repair:", matchingRepair);
 
         if (matchingRepair) {
-            if (!repairIDs.includes(matchingRepair.repairID)) {
-                setRepairIDs((prev) => [...prev, matchingRepair.repairID]);
-                setSnackbarMessage(`✅ Repair ${inputRepairID} added.`);
-                setSnackbarSeverity("success");
+            if (addRepairID(matchingRepair.repairID)) {
+                showSnackbar(`✅ Repair ${inputRepairID} added.`, "success");
             } else {
-                setSnackbarMessage(`⚠️ Repair ${inputRepairID} is already added.`);
-                setSnackbarSeverity("warning");
+                showSnackbar(`⚠️ Repair ${inputRepairID} is already added.`, "warning");
             }
         } else {
-            setSnackbarMessage(`❌ Repair ${inputRepairID} not found.`);
-            setSnackbarSeverity("error");
+            showSnackbar(`❌ Repair ${inputRepairID} not found.`, "error");
         }
 
-        setSnackbarOpen(true);
         setCurrentRepairID("");
-    };
-
-    const handleKeyPress = (event) => {
-        if (event.key === "Enter") {
-            handleRepairSubmit();
-        }
-    };
-
-    const handleRemoveRepair = (repairID) => {
-        console.log("Removing Repair ID:", repairID);
-        setRepairIDs(repairIDs.filter((id) => id !== repairID));
     };
 
     const handleMoveRepairs = async () => {
@@ -95,46 +82,37 @@ const MoveRepairsPage = () => {
         console.log("Repair IDs to Move:", repairIDs);
 
         if (!location) {
-            setSnackbarMessage("❌ Please select a location.");
-            setSnackbarSeverity("error");
-            setSnackbarOpen(true);
+            showSnackbar("❌ Please select a location.", "error");
             return;
         }
 
         if (repairIDs.length === 0) {
-            setSnackbarMessage("❌ No repairs selected.");
-            setSnackbarSeverity("error");
-            setSnackbarOpen(true);
+            showSnackbar("❌ No repairs selected.", "error");
             return;
         }
 
         try {
             console.log("Payload for Move Repairs - Repair IDs:", repairIDs, "Status:", location);
 
-            const response = await RepairsService.moveRepairStatus(repairIDs, location);
+            const response = await moveRepairsToStatus(repairIDs, location, assignedPerson);
             console.log("API Response:", response);
 
+            const currentDateTime = new Date().toISOString();
+
+            // Update local state with enhanced tracking
             setRepairs((prevRepairs) =>
                 prevRepairs.map((repair) =>
                     repairIDs.includes(repair.repairID)
-                        ? {
-                              ...repair,
-                              status: location,
-                              ...(location === "COMPLETED" && { completedAt: new Date().toISOString() }),
-                          }
+                        ? updateRepairWithMetadata(repair, location, assignedPerson, currentDateTime)
                         : repair
                 )
             );
 
-            setSnackbarMessage(`✅ Moved ${repairIDs.length} repairs to ${location}.`);
-            setSnackbarSeverity("success");
-            setRepairIDs([]);
+            showSnackbar(`✅ Moved ${repairIDs.length} repairs to ${location}.`, "success");
+            clearForm();
         } catch (error) {
             console.error("Error Moving Repairs:", error);
-            setSnackbarMessage(`❌ Error updating repairs: ${error.message}`);
-            setSnackbarSeverity("error");
-        } finally {
-            setSnackbarOpen(true);
+            showSnackbar(`❌ Error updating repairs: ${error.message}`, "error");
         }
     };
 
@@ -165,42 +143,26 @@ const MoveRepairsPage = () => {
                 Move Repairs
             </Typography>
 
-            {/* Auto-suggest for Location */}
-            <Autocomplete
-                options={statuses}
+            {/* Status Selector */}
+            <StatusSelector
                 value={location}
                 onChange={handleLocationSelect}
-                getOptionLabel={(option) => option}
-                renderOption={(props, option) => (
-                    <Box component="li" {...props}>
-                        <Box>
-                            <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                {option}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                                {statusDescriptions[option]}
-                            </Typography>
-                        </Box>
-                    </Box>
-                )}
-                renderInput={(params) => (
-                    <TextField 
-                        {...params} 
-                        label="Select Destination Status" 
-                        fullWidth 
-                        sx={{ mb: 3 }}
-                        helperText={location ? statusDescriptions[location] : "Choose where to move the repairs"}
-                    />
-                )}
+                sx={{ mb: 3 }}
+            />
+
+            {/* Assigned Person Field */}
+            <AssignedPersonField
+                status={location}
+                value={assignedPerson}
+                onChange={setAssignedPerson}
+                sx={{ mb: 3 }}
             />
 
             {/* Repair Input */}
-            <TextField
-                fullWidth
-                label="Scan or Enter Repair ID"
+            <RepairInput
                 value={currentRepairID}
-                onChange={handleRepairInputChange}
-                onKeyPress={handleKeyPress}
+                onChange={setCurrentRepairID}
+                onSubmit={handleRepairSubmit}
                 sx={{ mb: 3 }}
             />
 
@@ -209,68 +171,15 @@ const MoveRepairsPage = () => {
                 <Typography variant="h6" sx={{ mb: 2 }}>
                     Repairs to Move ({repairIDs.length})
                 </Typography>
-                <List>
-                    {repairIDs.map((repairID, index) => {
-                        const repair = repairs.find(r => r.repairID === repairID);
-                        return (
-                            <ListItem
-                                key={index}
-                                sx={{
-                                    border: '1px solid #e0e0e0',
-                                    borderRadius: '8px',
-                                    mb: 1,
-                                    backgroundColor: '#fafafa'
-                                }}
-                                secondaryAction={
-                                    <IconButton edge="end" onClick={() => handleRemoveRepair(repairID)} color="error">
-                                        <DeleteIcon />
-                                    </IconButton>
-                                }
-                            >
-                                <ListItemText 
-                                    primary={`Repair ID: ${repairID}`}
-                                    secondary={repair ? (
-                                        <Box>
-                                            <Typography variant="body2" color="text.secondary">
-                                                Client: {repair.clientName} | Current Status: {repair.status}
-                                            </Typography>
-                                            <Typography variant="caption" color="text.secondary">
-                                                {repair.description}
-                                            </Typography>
-                                        </Box>
-                                    ) : 'Repair details not found'}
-                                />
-                            </ListItem>
-                        );
-                    })}
-                    {repairIDs.length === 0 && (
-                        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-                            No repairs added yet. Scan or type repair IDs above.
-                        </Typography>
-                    )}
-                </List>
+                <RepairList
+                    repairIDs={repairIDs}
+                    repairs={repairs}
+                    onRemoveRepair={removeRepairID}
+                />
             </Box>
 
-            {/* Move Confirmation & Button */}
-            {repairIDs.length > 0 && location && (
-                <Box sx={{ 
-                    p: 2, 
-                    mb: 3, 
-                    backgroundColor: '#e3f2fd', 
-                    borderRadius: '8px', 
-                    border: '1px solid #2196f3' 
-                }}>
-                    <Typography variant="h6" color="primary" sx={{ mb: 1 }}>
-                        Move Summary
-                    </Typography>
-                    <Typography variant="body1">
-                        Moving <strong>{repairIDs.length} repair{repairIDs.length !== 1 ? 's' : ''}</strong> to <strong>{location}</strong>
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                        {statusDescriptions[location]}
-                    </Typography>
-                </Box>
-            )}
+            {/* Move Summary */}
+            <MoveSummary repairCount={repairIDs.length} status={location} />
 
             {/* Move Button */}
             <Button
@@ -296,7 +205,7 @@ const MoveRepairsPage = () => {
             <Snackbar
                 open={snackbarOpen}
                 autoHideDuration={5000}
-                onClose={() => setSnackbarOpen(false)}
+                onClose={closeSnackbar}
                 message={snackbarMessage}
                 anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
                 ContentProps={{

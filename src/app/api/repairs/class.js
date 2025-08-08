@@ -56,7 +56,7 @@ export default class Repair {
         this.businessName = data.businessName || '';
         
         // Status and workflow
-        this.status = data.status || 'pending';
+        this.status = data.status || 'RECIEVING';
         
         // Media
         this.picture = data.picture;
