@@ -1,193 +1,83 @@
 'use client';
 
 import * as React from 'react';
-import cascadingUpdatesService from '@/services/cascadingUpdates.service';
-import materialsService from '@/services/materials.service';
+import { useMaterialsManager } from '@/hooks/useMaterialsManager';
+import { formatCategoryDisplay } from '@/utils/materials.util';
 import {
-  DEFAULT_MATERIAL_FORM,
-  transformMaterialForForm
-} from '@/utils/materials.util';
-import {
-  MaterialsHeader,
   MaterialsGrid,
   MaterialDialog,
-  DeleteConfirmDialog
+  DeleteConfirmDialog,
+  EnhancedMaterialsHeader,
+  MaterialsCategoryTabs
 } from '@/app/components/materials';
-import { Box, CircularProgress, Alert, Fab } from '@mui/material';
-import { Add as AddIcon } from '@mui/icons-material';
+import { 
+  Box, 
+  CircularProgress, 
+  Alert, 
+  Fab, 
+  Tooltip
+} from '@mui/material';
+import { 
+  Add as AddIcon
+} from '@mui/icons-material';
 import { PageContainer } from '@toolpad/core/PageContainer';
 
 export default function MaterialsPage() {
-  const [materials, setMaterials] = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState(null);
-  const [openDialog, setOpenDialog] = React.useState(false);
-  const [editingMaterial, setEditingMaterial] = React.useState(null);
-  const [deleteDialog, setDeleteDialog] = React.useState({ open: false, material: null });
-  const [loadingStuller, setLoadingStuller] = React.useState(false);
-  const [updatingPrices, setUpdatingPrices] = React.useState(false);
-
-  // Form state
-  const [formData, setFormData] = React.useState(DEFAULT_MATERIAL_FORM);
-
-  // Fetch material data from Stuller
-  const fetchStullerData = async (itemNumber) => {
-    if (!itemNumber.trim()) return;
+  // Use the custom hook for all state management
+  const {
+    // Data
+    materials,
+    loading,
+    error,
+    stats,
+    materialTabs,
+    uniqueSuppliers,
     
-    setLoadingStuller(true);
-    try {
-      const data = await materialsService.fetchStullerData(itemNumber);
-      
-      // Log the enhanced Stuller data for debugging
-      console.log('📦 Enhanced Stuller Data Received:', {
-        itemNumber: data.itemNumber,
-        description: data.description,
-        category: data.category,
-        metal: data.metal,
-        price: data.price,
-        dimensions: data.dimensions,
-        stock: data.stock,
-        merchandising: data.merchandising
-      });
-      
-      // Transform and populate form with Stuller data
-      const updatedFormData = materialsService.transformStullerToFormData(data, formData);
-      setFormData(updatedFormData);
-
-    } catch (error) {
-      console.error('Error fetching Stuller data:', error);
-      setError('Failed to fetch Stuller data: ' + error.message);
-    } finally {
-      setLoadingStuller(false);
-    }
-  };
-
-  const loadMaterials = React.useCallback(async () => {
-    try {
-      setLoading(true);
-      const materials = await materialsService.getMaterials();
-      setMaterials(materials);
-      setError(null);
-    } catch (error) {
-      console.error('Error loading materials:', error);
-      setError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    loadMaterials();
-  }, [loadMaterials]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+    // UI State
+    selectedTab,
+    searchQuery,
+    sortBy,
+    sortOrder,
+    activeStatusFilter,
+    supplierFilter,
     
-    try {
-      const isUpdate = !!editingMaterial;
-      let savedMaterial;
-      
-      if (isUpdate) {
-        savedMaterial = await materialsService.updateMaterial(editingMaterial._id, formData);
-      } else {
-        savedMaterial = await materialsService.createMaterial(formData);
-      }
-      
-      // If this was an update, trigger cascading updates
-      if (isUpdate && savedMaterial.material) {
-        console.log('🔄 Material updated, triggering cascading updates...');
-        try {
-          const cascadingResult = await cascadingUpdatesService.updateFromMaterialsChange([savedMaterial.material._id]);
-          console.log('✅ Cascading updates completed:', cascadingResult);
-        } catch (cascadingError) {
-          console.error('⚠️ Cascading updates failed:', cascadingError);
-          // Don't fail the whole operation, just log the error
-        }
-      }
-
-      setOpenDialog(false);
-      setEditingMaterial(null);
-      resetForm();
-      loadMaterials();
-    } catch (error) {
-      console.error('Error saving material:', error);
-      setError(error.message);
-    }
-  };
-
-  // Handle edit material
-  const handleEdit = (material) => {
-    setEditingMaterial(material);
-    setFormData(transformMaterialForForm(material));
-    setOpenDialog(true);
-  };
-
-  // Handle delete material
-  const handleDeleteClick = (material) => {
-    setDeleteDialog({ open: true, material });
-  };
-
-  const handleDelete = async (materialId) => {
-    try {
-      await materialsService.deleteMaterial(materialId);
-      setDeleteDialog({ open: false, material: null });
-      loadMaterials();
-    } catch (error) {
-      console.error('Error deleting material:', error);
-      setError(error.message);
-    }
-  };
-
-  const resetForm = () => {
-    setFormData({ ...DEFAULT_MATERIAL_FORM });
-  };
-
-  const handleOpenDialog = () => {
-    resetForm();
-    setEditingMaterial(null);
-    setOpenDialog(true);
-  };
-
-  const handleUpdatePrices = async () => {
-    if (updatingPrices) return;
+    // Dialog State
+    openDialog,
+    editingMaterial,
+    deleteDialog,
+    loadingStuller,
+    updatingPrices,
+    formData,
     
-    setUpdatingPrices(true);
-    try {
-      const response = await fetch('/api/materials/bulk-update-pricing', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+    // Actions
+    setSelectedTab,
+    setSearchQuery,
+    setSortBy,
+    setSortOrder,
+    setActiveStatusFilter,
+    setSupplierFilter,
+    setFormData,
+    clearFilters,
+    
+    // Operations
+    handleSubmit,
+    handleEdit,
+    handleDelete,
+    handleUpdatePrices,
+    fetchStullerData,
+    
+    // Dialog Management
+    openCreateDialog,
+    closeDialog,
+    openDeleteDialog,
+    closeDeleteDialog,
+    
+    // Computed
+    hasActiveFilters,
+    isFiltered
+  } = useMaterialsManager();
 
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.message || `HTTP error! status: ${response.status}`);
-      }
-
-      console.log('Materials price update completed:', data);
-      
-      // Refresh the materials list to show updated prices
-      await fetchMaterials();
-      
-      // Show success message (assuming there's a snackbar or similar)
-      console.log(`Successfully updated prices for ${data.updated || 0} materials`);
-    } catch (error) {
-      console.error('Error updating materials prices:', error);
-    } finally {
-      setUpdatingPrices(false);
-    }
-  };
-
-  // Auto-calculate cost per portion when form data changes
-  React.useEffect(() => {
-    const costPerPortion = materialsService.calculateCostPerPortion(formData.unitCost, formData.portionsPerUnit);
-    if (parseFloat(costPerPortion) !== parseFloat(formData.costPerPortion)) {
-      setFormData(prev => ({ ...prev, costPerPortion: parseFloat(costPerPortion) }));
-    }
-  }, [formData.unitCost, formData.portionsPerUnit, formData.costPerPortion]);
-
+  // Show loading state
   if (loading) {
     return (
       <PageContainer title="Materials Management">
@@ -201,39 +91,73 @@ export default function MaterialsPage() {
   return (
     <PageContainer title="Materials Management">
       <Box sx={{ pb: 8 }}>
+        {/* Error Display */}
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
           </Alert>
         )}
 
-        <MaterialsHeader 
-          onAddNew={handleOpenDialog} 
+        {/* Enhanced Header with Search and Filters */}
+        <EnhancedMaterialsHeader
+          stats={stats}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          activeStatusFilter={activeStatusFilter}
+          setActiveStatusFilter={setActiveStatusFilter}
+          supplierFilter={supplierFilter}
+          setSupplierFilter={setSupplierFilter}
+          uniqueSuppliers={uniqueSuppliers}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          sortOrder={sortOrder}
+          setSortOrder={setSortOrder}
+          hasActiveFilters={hasActiveFilters}
+          clearFilters={clearFilters}
+          onAddNew={openCreateDialog}
           onUpdatePrices={handleUpdatePrices}
           updatingPrices={updatingPrices}
         />
-        
+
+        {/* Category Tabs */}
+        <MaterialsCategoryTabs
+          materialTabs={materialTabs}
+          selectedTab={selectedTab}
+          onTabChange={setSelectedTab}
+        />
+
+        {/* Results Summary */}
+        {isFiltered && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Showing {materials.length} of {stats.total} materials
+            {selectedTab !== 'all' && ` in ${formatCategoryDisplay(selectedTab)}`}
+          </Alert>
+        )}
+
+        {/* Materials Grid */}
         <MaterialsGrid
           materials={materials}
           onEdit={handleEdit}
-          onDelete={handleDeleteClick}
-          onAddNew={handleOpenDialog}
+          onDelete={openDeleteDialog}
+          onAddNew={openCreateDialog}
         />
 
         {/* Floating Action Button */}
-        <Fab
-          color="primary"
-          aria-label="add material"
-          sx={{ position: 'fixed', bottom: 16, right: 16 }}
-          onClick={handleOpenDialog}
-        >
-          <AddIcon />
-        </Fab>
+        <Tooltip title="Add New Material">
+          <Fab
+            color="primary"
+            aria-label="add material"
+            sx={{ position: 'fixed', bottom: 16, right: 16 }}
+            onClick={openCreateDialog}
+          >
+            <AddIcon />
+          </Fab>
+        </Tooltip>
 
         {/* Material Create/Edit Dialog */}
         <MaterialDialog
           open={openDialog}
-          onClose={() => setOpenDialog(false)}
+          onClose={closeDialog}
           onSubmit={handleSubmit}
           formData={formData}
           setFormData={setFormData}
@@ -245,7 +169,7 @@ export default function MaterialsPage() {
         {/* Delete Confirmation Dialog */}
         <DeleteConfirmDialog
           open={deleteDialog.open}
-          onClose={() => setDeleteDialog({ open: false, material: null })}
+          onClose={closeDeleteDialog}
           onConfirm={handleDelete}
           material={deleteDialog.material}
         />

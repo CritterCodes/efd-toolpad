@@ -9,3 +9,5 @@ export { default as MaterialDialog } from './MaterialDialog';
 export { default as DeleteConfirmDialog } from './DeleteConfirmDialog';
 export { default as MaterialsGrid } from './MaterialsGrid';
 export { default as MaterialsHeader } from './MaterialsHeader';
+export { default as EnhancedMaterialsHeader } from './EnhancedMaterialsHeader';
+export { default as MaterialsCategoryTabs } from './MaterialsCategoryTabs';
