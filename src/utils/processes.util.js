@@ -406,6 +406,104 @@ export const transformProcessForForm = (process) => {
 };
 
 /**
+ * Format category display name
+ */
+export const formatCategoryDisplay = (category) => {
+  return category
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+/**
+ * Filter processes based on multiple criteria
+ */
+export const filterProcesses = (processes, filters = {}) => {
+  return processes.filter(process => {
+    // Search filter
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      const searchableText = [
+        process.name,
+        process.description,
+        process.category,
+        process.skillLevel,
+        process.metalType,
+        process.karat
+      ].join(' ').toLowerCase();
+      
+      if (!searchableText.includes(searchLower)) {
+        return false;
+      }
+    }
+
+    // Active status filter
+    if (filters.isActive !== undefined) {
+      if (filters.isActive !== (process.isActive !== false)) {
+        return false;
+      }
+    }
+
+    // Skill level filter
+    if (filters.skillLevel && process.skillLevel !== filters.skillLevel) {
+      return false;
+    }
+
+    // Metal type filter
+    if (filters.metalType && process.metalType !== filters.metalType) {
+      return false;
+    }
+
+    // Karat filter
+    if (filters.karat && process.karat !== filters.karat) {
+      return false;
+    }
+
+    return true;
+  });
+};
+
+/**
+ * Sort processes by specified field and order
+ */
+export const sortProcesses = (processes, sortBy = 'name', sortOrder = 'asc') => {
+  const sorted = [...processes].sort((a, b) => {
+    let aValue = a[sortBy];
+    let bValue = b[sortBy];
+
+    // Handle special cases
+    if (sortBy === 'totalCost' || sortBy === 'laborCost' || sortBy === 'materialsCost') {
+      aValue = parseFloat(aValue) || 0;
+      bValue = parseFloat(bValue) || 0;
+    } else if (sortBy === 'timeRequired' || sortBy === 'laborHours') {
+      aValue = parseFloat(aValue) || 0;
+      bValue = parseFloat(bValue) || 0;
+    } else if (sortBy === 'createdAt' || sortBy === 'updatedAt') {
+      aValue = new Date(aValue);
+      bValue = new Date(bValue);
+    } else {
+      // String comparison
+      aValue = String(aValue || '').toLowerCase();
+      bValue = String(bValue || '').toLowerCase();
+    }
+
+    if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  return sorted;
+};
+
+/**
+ * Get unique values from an array of objects for a specific field
+ */
+export const getUniqueValues = (array, field) => {
+  const values = array.map(item => item[field]).filter(value => value != null);
+  return [...new Set(values)].sort();
+};
+
+/**
  * Calculate estimated process cost
  */
 export const calculateProcessCost = (processData, adminSettings = {}) => {

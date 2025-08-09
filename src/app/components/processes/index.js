@@ -9,3 +9,7 @@ export { ProcessDialog } from './ProcessDialog';
 export { ProcessesGrid } from './ProcessesGrid';
 export { ProcessesHeader } from './ProcessesHeader';
 export { DeleteConfirmDialog } from './DeleteConfirmDialog';
+
+// Enhanced components
+export { EnhancedProcessesHeader } from './EnhancedProcessesHeader';
+export { ProcessesCategoryTabs } from './ProcessesCategoryTabs';

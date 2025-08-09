@@ -36,6 +36,8 @@ export const useMaterialsManager = () => {
   const [sortOrder, setSortOrder] = useState('asc');
   const [activeStatusFilter, setActiveStatusFilter] = useState('all');
   const [supplierFilter, setSupplierFilter] = useState('all');
+  const [metalTypeFilter, setMetalTypeFilter] = useState('all');
+  const [karatFilter, setKaratFilter] = useState('all');
   
   // Form state
   const [formData, setFormData] = useState(DEFAULT_MATERIAL_FORM);
@@ -60,6 +62,18 @@ export const useMaterialsManager = () => {
     [materials]
   );
 
+  // Get unique metal types for filtering
+  const uniqueMetalTypes = useMemo(() => 
+    getUniqueValues(materials, 'compatibleMetals').flat().filter(metal => metal && metal.trim() !== ''), 
+    [materials]
+  );
+
+  // Get unique karats for filtering
+  const uniqueKarats = useMemo(() => 
+    getUniqueValues(materials, 'karat').filter(karat => karat && karat.trim() !== ''), 
+    [materials]
+  );
+
   // Apply filters and sorting to current tab materials
   const filteredMaterials = useMemo(() => {
     const tabMaterials = categorizedMaterials[selectedTab] || [];
@@ -67,12 +81,14 @@ export const useMaterialsManager = () => {
     const filters = {
       search: searchQuery,
       isActive: activeStatusFilter === 'all' ? undefined : activeStatusFilter === 'active',
-      supplier: supplierFilter === 'all' ? null : supplierFilter
+      supplier: supplierFilter === 'all' ? null : supplierFilter,
+      metalType: metalTypeFilter === 'all' ? null : metalTypeFilter,
+      karat: karatFilter === 'all' ? null : karatFilter
     };
 
     const filtered = filterMaterials(tabMaterials, filters);
     return sortMaterials(filtered, sortBy, sortOrder);
-  }, [categorizedMaterials, selectedTab, searchQuery, activeStatusFilter, supplierFilter, sortBy, sortOrder]);
+  }, [categorizedMaterials, selectedTab, searchQuery, activeStatusFilter, supplierFilter, metalTypeFilter, karatFilter, sortBy, sortOrder]);
 
   // Calculate statistics for current view
   const stats = useMemo(() => {
@@ -235,9 +251,18 @@ export const useMaterialsManager = () => {
     setSearchQuery('');
     setActiveStatusFilter('all');
     setSupplierFilter('all');
+    setMetalTypeFilter('all');
+    setKaratFilter('all');
     setSortBy('displayName');
     setSortOrder('asc');
   }, []);
+
+  // Check if any filters are active
+  const hasActiveFilters = searchQuery || activeStatusFilter !== 'all' || supplierFilter !== 'all' || 
+                          metalTypeFilter !== 'all' || karatFilter !== 'all' || sortBy !== 'displayName' || 
+                          sortOrder !== 'asc';
+  
+  const isFiltered = hasActiveFilters || selectedTab !== 'all';
 
   // Auto-calculate cost per portion
   useEffect(() => {
@@ -264,6 +289,8 @@ export const useMaterialsManager = () => {
     stats,
     materialTabs,
     uniqueSuppliers,
+    uniqueMetalTypes,
+    uniqueKarats,
     
     // UI State
     selectedTab,
@@ -272,6 +299,8 @@ export const useMaterialsManager = () => {
     sortOrder,
     activeStatusFilter,
     supplierFilter,
+    metalTypeFilter,
+    karatFilter,
     
     // Dialog State
     openDialog,
@@ -288,6 +317,8 @@ export const useMaterialsManager = () => {
     setSortOrder,
     setActiveStatusFilter,
     setSupplierFilter,
+    setMetalTypeFilter,
+    setKaratFilter,
     setFormData,
     clearFilters,
     
@@ -306,7 +337,7 @@ export const useMaterialsManager = () => {
     closeDeleteDialog,
     
     // Computed
-    hasActiveFilters: !!(searchQuery || activeStatusFilter !== 'all' || supplierFilter !== 'all' || sortBy !== 'displayName'),
-    isFiltered: filteredMaterials.length !== stats.total
+    hasActiveFilters,
+    isFiltered
   };
 };

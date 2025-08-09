@@ -267,8 +267,9 @@ export const filterMaterials = (materials, filters) => {
       const matchesName = material.displayName?.toLowerCase().includes(searchLower);
       const matchesDescription = material.description?.toLowerCase().includes(searchLower);
       const matchesSupplier = material.supplier?.toLowerCase().includes(searchLower);
+      const matchesKarat = material.karat?.toLowerCase().includes(searchLower);
       
-      if (!matchesName && !matchesDescription && !matchesSupplier) {
+      if (!matchesName && !matchesDescription && !matchesSupplier && !matchesKarat) {
         return false;
       }
     }
@@ -288,7 +289,17 @@ export const filterMaterials = (materials, filters) => {
       return false;
     }
 
-    // Filter by metal compatibility
+    // Filter by metal type (compatible metals)
+    if (filters.metalType && (!material.compatibleMetals || !material.compatibleMetals.includes(filters.metalType))) {
+      return false;
+    }
+
+    // Filter by karat/purity
+    if (filters.karat && material.karat !== filters.karat) {
+      return false;
+    }
+
+    // Backward compatibility - Filter by metal compatibility
     if (filters.metal && (!material.compatibleMetals || !material.compatibleMetals.includes(filters.metal))) {
       return false;
     }

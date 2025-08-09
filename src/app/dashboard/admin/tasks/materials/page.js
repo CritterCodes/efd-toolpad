@@ -32,6 +32,8 @@ export default function MaterialsPage() {
     stats,
     materialTabs,
     uniqueSuppliers,
+    uniqueMetalTypes,
+    uniqueKarats,
     
     // UI State
     selectedTab,
@@ -40,6 +42,8 @@ export default function MaterialsPage() {
     sortOrder,
     activeStatusFilter,
     supplierFilter,
+    metalTypeFilter,
+    karatFilter,
     
     // Dialog State
     openDialog,
@@ -56,6 +60,8 @@ export default function MaterialsPage() {
     setSortOrder,
     setActiveStatusFilter,
     setSupplierFilter,
+    setMetalTypeFilter,
+    setKaratFilter,
     setFormData,
     clearFilters,
     
@@ -107,7 +113,13 @@ export default function MaterialsPage() {
           setActiveStatusFilter={setActiveStatusFilter}
           supplierFilter={supplierFilter}
           setSupplierFilter={setSupplierFilter}
+          metalTypeFilter={metalTypeFilter}
+          setMetalTypeFilter={setMetalTypeFilter}
+          karatFilter={karatFilter}
+          setKaratFilter={setKaratFilter}
           uniqueSuppliers={uniqueSuppliers}
+          uniqueMetalTypes={uniqueMetalTypes}
+          uniqueKarats={uniqueKarats}
           sortBy={sortBy}
           setSortBy={setSortBy}
           sortOrder={sortOrder}

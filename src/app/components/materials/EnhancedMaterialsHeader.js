@@ -27,6 +27,7 @@ import {
   Sort as SortIcon,
   Assessment as StatsIcon
 } from '@mui/icons-material';
+import { METAL_OPTIONS, KARAT_OPTIONS } from '@/utils/materials.util';
 
 export default function EnhancedMaterialsHeader({
   stats,
@@ -36,7 +37,13 @@ export default function EnhancedMaterialsHeader({
   setActiveStatusFilter,
   supplierFilter,
   setSupplierFilter,
+  metalTypeFilter,
+  setMetalTypeFilter,
+  karatFilter,
+  setKaratFilter,
   uniqueSuppliers = [],
+  uniqueMetalTypes = [],
+  uniqueKarats = [],
   sortBy,
   setSortBy,
   sortOrder,
@@ -148,6 +155,40 @@ export default function EnhancedMaterialsHeader({
             </Select>
           </FormControl>
         )}
+
+        {/* Metal Type Filter */}
+        <FormControl size="small" sx={{ minWidth: 150 }}>
+          <InputLabel>Metal Type</InputLabel>
+          <Select
+            value={metalTypeFilter}
+            label="Metal Type"
+            onChange={(e) => setMetalTypeFilter(e.target.value)}
+          >
+            <MenuItem value="all">All Metals</MenuItem>
+            {METAL_OPTIONS.map(metal => (
+              <MenuItem key={metal.value} value={metal.value}>
+                {metal.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        {/* Karat/Purity Filter */}
+        <FormControl size="small" sx={{ minWidth: 120 }}>
+          <InputLabel>Karat/Purity</InputLabel>
+          <Select
+            value={karatFilter}
+            label="Karat/Purity"
+            onChange={(e) => setKaratFilter(e.target.value)}
+          >
+            <MenuItem value="all">All Karats</MenuItem>
+            {KARAT_OPTIONS.filter(k => k.value).map(karat => (
+              <MenuItem key={karat.value} value={karat.value}>
+                {karat.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
 
         {/* Sort Controls */}
         <FormControl size="small" sx={{ minWidth: 120 }}>

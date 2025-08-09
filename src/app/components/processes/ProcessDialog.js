@@ -11,6 +11,7 @@ import { ProcessForm } from './ProcessForm';
 /**
  * ProcessDialog Component
  * Modal dialog wrapper for process creation and editing
+ * Enhanced to support all form capabilities
  */
 export const ProcessDialog = ({
   open,
@@ -20,7 +21,14 @@ export const ProcessDialog = ({
   setFormData,
   availableMaterials = [],
   adminSettings = null,
-  editingProcess = null
+  editingProcess = null,
+  // Additional props for material management
+  selectedMaterial,
+  setSelectedMaterial,
+  materialQuantity,
+  setMaterialQuantity,
+  onAddMaterial,
+  onRemoveMaterial
 }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -45,6 +53,13 @@ export const ProcessDialog = ({
             availableMaterials={availableMaterials}
             adminSettings={adminSettings}
             editingProcess={editingProcess}
+            // Pass through material management props if provided
+            selectedMaterial={selectedMaterial}
+            setSelectedMaterial={setSelectedMaterial}
+            materialQuantity={materialQuantity}
+            setMaterialQuantity={setMaterialQuantity}
+            onAddMaterial={onAddMaterial}
+            onRemoveMaterial={onRemoveMaterial}
           />
         </DialogContent>
         <DialogActions>
