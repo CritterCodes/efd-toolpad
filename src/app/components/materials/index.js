@@ -11,3 +11,5 @@ export { default as MaterialsGrid } from './MaterialsGrid';
 export { default as MaterialsHeader } from './MaterialsHeader';
 export { default as EnhancedMaterialsHeader } from './EnhancedMaterialsHeader';
 export { default as MaterialsCategoryTabs } from './MaterialsCategoryTabs';
+export { default as StullerSearchDialog } from './StullerSearchDialog';
+export { default as MaterialVariantsManager } from './MaterialVariantsManager';
