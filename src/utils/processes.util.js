@@ -111,9 +111,6 @@ export const DEFAULT_PROCESS_FORM = {
   category: '',
   laborHours: 0,
   skillLevel: 'standard',
-  metalType: '',
-  karat: '',
-  metalComplexityMultiplier: 1.0,
   description: '',
   materials: [],
   isActive: true
@@ -124,6 +121,41 @@ export const DEFAULT_PROCESS_FORM = {
  */
 export const getKaratOptionsForMetal = (metalType) => {
   return KARAT_OPTIONS[metalType] || [{ value: 'na', label: 'N/A' }];
+};
+
+/**
+ * Parse metal keys like "Sterling Silver 925" into structured data
+ * @param {string} metalKey - The metal key to parse
+ * @returns {object|null} Parsed metal data or null if invalid
+ */
+export const parseMetalKey = (metalKey) => {
+  if (!metalKey || typeof metalKey !== 'string') return null;
+  
+  // Common metal type mappings
+  const metalMappings = {
+    'sterling silver': 'sterling_silver',
+    'yellow gold': 'yellow_gold',
+    'white gold': 'white_gold',
+    'rose gold': 'rose_gold',
+    'platinum': 'platinum'
+  };
+  
+  // Extract karat/purity (look for patterns like 10K, 14K, 18K, 925, 950, etc.)
+  const karatMatch = metalKey.match(/(\d+K?|\d{3})/i);
+  const karat = karatMatch ? karatMatch[1].toUpperCase() : 'standard';
+  
+  // Find metal type by checking each mapping
+  for (const [displayName, metalValue] of Object.entries(metalMappings)) {
+    if (metalKey.toLowerCase().includes(displayName)) {
+      return {
+        metalType: metalValue,
+        karat: karat,
+        metalLabel: metalKey
+      };
+    }
+  }
+  
+  return null;
 };
 
 /**
@@ -388,6 +420,100 @@ export const generateProcessStats = (processes) => {
 /**
  * Transform process for form editing
  */
+/**
+ * Prepare process data with calculated prices for saving
+ * @param {Object} formData - Process form data
+ * @param {Object} adminSettings - Admin settings
+ * @param {Array} availableMaterials - Array of all available materials
+ * @returns {Object} Process data ready for saving
+ */
+export const prepareProcessForSaving = (formData, adminSettings, availableMaterials = []) => {
+  const costPreview = calculateProcessCost(formData, adminSettings, availableMaterials);
+  
+  // Enrich materials with full data from availableMaterials
+  const enrichedMaterials = (formData.materials || []).map(material => {
+    const fullMaterial = availableMaterials.find(m => 
+      m.sku === material.materialSku || m._id === material.materialId
+    );
+    
+    if (!fullMaterial) return material;
+    
+    return {
+      ...material,
+      materialName: fullMaterial.displayName || fullMaterial.name,
+      stullerProducts: fullMaterial.stullerProducts || [],
+      portionsPerUnit: fullMaterial.portionsPerUnit || 1,
+      baseCostPerPortion: material.estimatedCost / material.quantity || 0,
+      estimatedCost: material.estimatedCost || 0,
+      isMetalDependent: fullMaterial.isMetalDependent || false,
+      metalTypes: fullMaterial.stullerProducts ? 
+        [...new Set(fullMaterial.stullerProducts.map(p => p.metalType).filter(Boolean))] : []
+    };
+  });
+
+  const processData = {
+    displayName: formData.displayName,
+    category: formData.category,
+    laborHours: parseFloat(formData.laborHours) || 0,
+    skillLevel: formData.skillLevel,
+    description: formData.description,
+    materials: enrichedMaterials,
+    isActive: formData.isActive !== false,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+
+  // Create the new pricing structure
+  if (costPreview) {
+    const baseHourlyRate = adminSettings.laborRates?.baseRate || 40;
+    const skillMultiplier = getSkillLevelMultiplier(formData.skillLevel);
+    const hourlyRate = baseHourlyRate * skillMultiplier;
+    const laborCost = (parseFloat(formData.laborHours) || 0) * hourlyRate;
+    const materialMarkup = parseFloat(adminSettings.materialMarkup) || 2.0;
+    
+    // Calculate base materials cost (lowest cost variant)
+    const baseMaterialsCost = costPreview.summary?.baseMaterialsCost || 0;
+    
+    if (costPreview.isMetalDependent && costPreview.metalPrices) {
+      // Metal-dependent process: create costs per metal/karat combination
+      const materialsCost = {};
+      const totalCost = {};
+      
+      Object.entries(costPreview.metalPrices).forEach(([variantKey, prices]) => {
+        const metalLabel = prices.metalLabel || variantKey;
+        materialsCost[metalLabel] = prices.materialsCost;
+        totalCost[metalLabel] = prices.totalCost;
+      });
+      
+      processData.pricing = {
+        laborCost,
+        baseMaterialsCost,
+        materialsCost,
+        materialMarkup,
+        totalCost,
+        hourlyRate,
+        calculatedAt: new Date()
+      };
+    } else {
+      // Universal process: single pricing
+      const materialsCost = baseMaterialsCost * materialMarkup;
+      const totalCostValue = laborCost + materialsCost;
+      
+      processData.pricing = {
+        laborCost,
+        baseMaterialsCost,
+        materialsCost: { "universal": materialsCost },
+        materialMarkup,
+        totalCost: { "universal": totalCostValue },
+        hourlyRate,
+        calculatedAt: new Date()
+      };
+    }
+  }
+
+  return processData;
+};
+
 export const transformProcessForForm = (process) => {
   if (!process) return { ...DEFAULT_PROCESS_FORM };
 
@@ -396,9 +522,6 @@ export const transformProcessForForm = (process) => {
     category: process.category || '',
     laborHours: process.laborHours || 0,
     skillLevel: process.skillLevel || 'standard',
-    metalType: process.metalType || '',
-    karat: process.karat || '',
-    metalComplexityMultiplier: process.metalComplexityMultiplier || 1.0,
     description: process.description || '',
     materials: process.materials || [],
     isActive: process.isActive !== false
@@ -406,136 +529,304 @@ export const transformProcessForForm = (process) => {
 };
 
 /**
- * Format category display name
+ * Get unique values from processes for filter options
+ * @param {Array} processes - Array of processes
+ * @param {string} field - Field to extract unique values from
+ * @returns {Array} Unique values
  */
-export const formatCategoryDisplay = (category) => {
-  return category
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-};
-
-/**
- * Filter processes based on multiple criteria
- */
-export const filterProcesses = (processes, filters = {}) => {
-  return processes.filter(process => {
-    // Search filter
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      const searchableText = [
-        process.name,
-        process.description,
-        process.category,
-        process.skillLevel,
-        process.metalType,
-        process.karat
-      ].join(' ').toLowerCase();
-      
-      if (!searchableText.includes(searchLower)) {
-        return false;
-      }
-    }
-
-    // Active status filter
-    if (filters.isActive !== undefined) {
-      if (filters.isActive !== (process.isActive !== false)) {
-        return false;
-      }
-    }
-
-    // Skill level filter
-    if (filters.skillLevel && process.skillLevel !== filters.skillLevel) {
-      return false;
-    }
-
-    // Metal type filter
-    if (filters.metalType && process.metalType !== filters.metalType) {
-      return false;
-    }
-
-    // Karat filter
-    if (filters.karat && process.karat !== filters.karat) {
-      return false;
-    }
-
-    return true;
-  });
-};
-
-/**
- * Sort processes by specified field and order
- */
-export const sortProcesses = (processes, sortBy = 'name', sortOrder = 'asc') => {
-  const sorted = [...processes].sort((a, b) => {
-    let aValue = a[sortBy];
-    let bValue = b[sortBy];
-
-    // Handle special cases
-    if (sortBy === 'totalCost' || sortBy === 'laborCost' || sortBy === 'materialsCost') {
-      aValue = parseFloat(aValue) || 0;
-      bValue = parseFloat(bValue) || 0;
-    } else if (sortBy === 'timeRequired' || sortBy === 'laborHours') {
-      aValue = parseFloat(aValue) || 0;
-      bValue = parseFloat(bValue) || 0;
-    } else if (sortBy === 'createdAt' || sortBy === 'updatedAt') {
-      aValue = new Date(aValue);
-      bValue = new Date(bValue);
-    } else {
-      // String comparison
-      aValue = String(aValue || '').toLowerCase();
-      bValue = String(bValue || '').toLowerCase();
-    }
-
-    if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
-    if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
-    return 0;
-  });
-
-  return sorted;
-};
-
-/**
- * Get unique values from an array of objects for a specific field
- */
-export const getUniqueValues = (array, field) => {
-  const values = array.map(item => item[field]).filter(value => value != null);
+export const getUniqueValues = (processes, field) => {
+  if (!Array.isArray(processes)) {
+    return [];
+  }
+  
+  const values = processes
+    .map(process => process[field])
+    .filter(value => value != null && value !== '');
+  
   return [...new Set(values)].sort();
 };
 
 /**
- * Calculate estimated process cost
+ * Get unique metal type + karat combinations from process materials
+ * @param {Array} materials - Array of materials used in the process
+ * @param {Array} availableMaterials - Array of all available materials with full data
+ * @returns {Array} Array of unique metal type + karat combinations found in materials
  */
-export const calculateProcessCost = (processData, adminSettings = {}) => {
-  // Ensure adminSettings is not null and provide defaults
-  const settings = adminSettings || {};
-  const pricing = settings.pricing || {};
+export const getMetalVariantsFromMaterials = (materials, availableMaterials) => {
+  const metalVariants = new Map(); // Use Map to store full variant objects
   
-  const laborHours = parseFloat(processData.laborHours) || 0;
-  const baseWage = pricing.wage || 30;
-  const skillMultiplier = getSkillLevelMultiplier(processData.skillLevel);
-  const hourlyRate = baseWage * skillMultiplier;
-  const laborCost = laborHours * hourlyRate;
+  materials.forEach(material => {
+    // Find the full material data
+    const fullMaterial = availableMaterials.find(m => 
+      m.sku === material.materialSku || m._id === material.materialId
+    );
+    
+    if (!fullMaterial) return;
+    
+    // Check if material has stullerProducts (metal-dependent materials)
+    if (fullMaterial.stullerProducts && Array.isArray(fullMaterial.stullerProducts)) {
+      fullMaterial.stullerProducts.forEach(product => {
+        if (product.metalType) {
+          const variantKey = `${product.metalType}_${product.karat || 'standard'}`;
+          metalVariants.set(variantKey, {
+            metalType: product.metalType,
+            karat: product.karat || 'standard'
+          });
+        }
+      });
+    }
+    
+    // Check legacy materials with compatibleMetals (treat as standard variants)
+    else if (fullMaterial.compatibleMetals && Array.isArray(fullMaterial.compatibleMetals)) {
+      fullMaterial.compatibleMetals.forEach(metalType => {
+        const variantKey = `${metalType}_standard`;
+        metalVariants.set(variantKey, {
+          metalType: metalType,
+          karat: 'standard'
+        });
+      });
+    }
+  });
+  
+  const variants = Array.from(metalVariants.values());
+  return variants;
+};
 
-  // Calculate materials cost
-  const materialMarkup = pricing.materialMarkup || 1.3;
-  const baseMaterialsCost = (processData.materials || []).reduce((total, material) => {
+/**
+ * Get unique metal types from process materials
+ * @param {Array} materials - Array of materials used in the process
+ * @param {Array} availableMaterials - Array of all available materials with full data
+ * @returns {Array} Array of unique metal types found in materials
+ */
+export const getMetalTypesFromMaterials = (materials, availableMaterials) => {
+  const metalTypes = new Set();
+  
+  materials.forEach(material => {
+    // Find the full material data
+    const fullMaterial = availableMaterials.find(m => 
+      m.sku === material.materialSku || m._id === material.materialId
+    );
+    
+    if (!fullMaterial) return;
+    
+    // Check if material has stullerProducts (indicates metal-dependent)
+    if (fullMaterial.stullerProducts && Array.isArray(fullMaterial.stullerProducts)) {
+      fullMaterial.stullerProducts.forEach(product => {
+        if (product.metalType) {
+          metalTypes.add(product.metalType);
+        }
+      });
+    }
+    
+    // Check legacy materials with compatibleMetals
+    else if (fullMaterial.compatibleMetals && Array.isArray(fullMaterial.compatibleMetals)) {
+      fullMaterial.compatibleMetals.forEach(metalType => {
+        metalTypes.add(metalType);
+      });
+    }
+  });
+  
+  return Array.from(metalTypes);
+};
+
+/**
+ * Check if process should be metal dependent based on its materials
+ * @param {Array} materials - Array of materials used in the process
+ * @param {Array} availableMaterials - Array of all available materials with full data
+ * @returns {boolean} True if any material is metal dependent
+ */
+export const shouldProcessBeMetalDependent = (materials, availableMaterials) => {
+  return materials.some(material => {
+    const fullMaterial = availableMaterials.find(m => 
+      m.sku === material.materialSku || m._id === material.materialId
+    );
+    
+    if (!fullMaterial) return false;
+    
+    // If material has explicit isMetalDependent flag, respect it
+    if (fullMaterial.hasOwnProperty('isMetalDependent')) {
+      return Boolean(fullMaterial.isMetalDependent);
+    }
+    
+    // If material has stullerProducts, it's metal dependent
+    if (fullMaterial.stullerProducts && Array.isArray(fullMaterial.stullerProducts) && fullMaterial.stullerProducts.length > 0) {
+      return true;
+    }
+    
+    // If material has compatibleMetals, it's metal dependent
+    if (fullMaterial.compatibleMetals && Array.isArray(fullMaterial.compatibleMetals) && fullMaterial.compatibleMetals.length > 0) {
+      return true;
+    }
+    
+    // Default to false if we can't determine metal dependency
+    return false;
+  });
+};
+
+/**
+ * Calculate process cost for all relevant metal types based on materials
+ * @param {Object} formData - Process form data
+ * @param {Object} adminSettings - Admin settings for labor rates and metal multipliers
+ * @param {Array} availableMaterials - Array of all available materials with full data
+ * @returns {Object} Cost breakdown for each relevant metal type
+ */
+export const calculateProcessCost = (formData, adminSettings, availableMaterials = []) => {
+  if (!adminSettings || !formData.laborHours || !formData.skillLevel) {
+    return null;
+  }
+
+  // Get base hourly rate
+  const baseHourlyRate = adminSettings.laborRates?.baseRate || 50;
+  
+  // Apply skill level multiplier
+  const skillMultiplier = getSkillLevelMultiplier(formData.skillLevel);
+  const hourlyRate = baseHourlyRate * skillMultiplier;
+  
+  // Calculate base labor cost
+  const laborHours = parseFloat(formData.laborHours) || 0;
+  const baseLaborCost = laborHours * hourlyRate;
+  
+  // Calculate base materials cost (before metal-specific variants)
+  const baseMaterialsCost = (formData.materials || []).reduce((total, material) => {
     return total + (material.estimatedCost || 0);
   }, 0);
-  const materialsCost = baseMaterialsCost * materialMarkup;
-
-  // Apply complexity multiplier
-  const complexityMultiplier = parseFloat(processData.metalComplexityMultiplier) || 1.0;
-  const totalCost = (laborCost + materialsCost) * complexityMultiplier;
-
+  
+  // Apply material markup if specified (default 1.0 = no markup)
+  const materialMarkup = parseFloat(adminSettings.materialMarkup) || 1.0;
+  
+  // Determine metal dependency based on materials (this is the only factor now)
+  const isMetalDependent = shouldProcessBeMetalDependent(formData.materials || [], availableMaterials);
+  
+  // If materials are not metal dependent, return single calculation
+  if (!isMetalDependent) {
+    const materialsCost = baseMaterialsCost * materialMarkup;
+    const totalCost = baseLaborCost + materialsCost;
+    
+    return {
+      isMetalDependent: false,
+      universal: {
+        laborCost: baseLaborCost,
+        materialsCost,
+        baseMaterialsCost,
+        materialMarkup,
+        totalCost,
+        hourlyRate,
+        skillMultiplier,
+        laborHours
+      }
+    };
+  }
+  
+  // Get metal variants (metal type + karat combinations) from the materials used in this process
+  const relevantMetalVariants = getMetalVariantsFromMaterials(formData.materials || [], availableMaterials);
+  
+  // If no metal variants found in materials, fall back to universal pricing
+  if (relevantMetalVariants.length === 0) {
+    const materialsCost = baseMaterialsCost * materialMarkup;
+    const totalCost = baseLaborCost + materialsCost;
+    
+    return {
+      isMetalDependent: false,
+      universal: {
+        laborCost: baseLaborCost,
+        materialsCost,
+        baseMaterialsCost,
+        materialMarkup,
+        totalCost,
+        hourlyRate,
+        skillMultiplier,
+        laborHours
+      }
+    };
+  }
+  
+  // Calculate for each metal variant (metal type + karat combination) found in materials
+  const metalPrices = {};
+  const metalMultipliers = adminSettings.metalComplexityMultipliers || {};
+  
+  // Get readable variant labels for display
+  const relevantVariantLabels = relevantMetalVariants.map(variant => {
+    const metalTypeInfo = METAL_TYPES.find(mt => mt.value === variant.metalType) || 
+                         { value: variant.metalType, label: variant.metalType };
+    return variant.karat === 'standard' ? metalTypeInfo.label : `${metalTypeInfo.label} ${variant.karat}`;
+  });
+  
+  relevantMetalVariants.forEach(variant => {
+    const { metalType: metalTypeValue, karat } = variant;
+    
+    // Find the metal type info for labeling
+    const metalTypeInfo = METAL_TYPES.find(mt => mt.value === metalTypeValue) || 
+                         { value: metalTypeValue, label: metalTypeValue };
+    
+    const metalComplexity = metalMultipliers[metalTypeValue] || 1.0;
+    const adjustedLaborCost = baseLaborCost * metalComplexity;
+    
+    // Calculate metal-specific material costs based on variants
+    const materialsCostForVariant = (formData.materials || []).reduce((total, material) => {
+      const fullMaterial = availableMaterials.find(m => 
+        m.sku === material.materialSku || m._id === material.materialId
+      );
+      
+      if (!fullMaterial) return total;
+      
+      // Find the specific variant for this metal type + karat
+      if (fullMaterial.stullerProducts && Array.isArray(fullMaterial.stullerProducts)) {
+        const matchingProduct = fullMaterial.stullerProducts.find(p => 
+          p.metalType === metalTypeValue && p.karat === karat
+        );
+        
+        if (matchingProduct) {
+          // Use new costPerPortion if available (more accurate)
+          let variantCost;
+          if (matchingProduct.costPerPortion !== undefined) {
+            variantCost = matchingProduct.costPerPortion;
+          } else {
+            // Fallback to calculating from stullerPrice (old structure)
+            variantCost = (matchingProduct.stullerPrice || 0) / (fullMaterial.portionsPerUnit || 1);
+          }
+          return total + (variantCost * material.quantity);
+        }
+      }
+      
+      // Fallback to base cost if no specific variant found
+      return total + (material.estimatedCost || 0);
+    }, 0);
+    
+    const finalMaterialsCost = materialsCostForVariant * materialMarkup;
+    const totalCost = adjustedLaborCost + finalMaterialsCost;
+    
+    // Create unique key for this variant
+    const variantKey = `${metalTypeValue}_${karat}`;
+    const variantLabel = karat === 'standard' ? metalTypeInfo.label : `${metalTypeInfo.label} ${karat}`;
+    
+    metalPrices[variantKey] = {
+      metalType: metalTypeValue,
+      karat: karat,
+      metalLabel: variantLabel,
+      laborCost: adjustedLaborCost,
+      materialsCost: finalMaterialsCost,
+      baseMaterialsCost,
+      materialMarkup,
+      totalCost,
+      hourlyRate,
+      skillMultiplier,
+      metalComplexity,
+      laborHours
+    };
+  });
+  
   return {
-    laborCost: Math.round(laborCost * 100) / 100,
-    baseMaterialsCost: Math.round(baseMaterialsCost * 100) / 100,
-    materialsCost: Math.round(materialsCost * 100) / 100,
-    materialMarkup,
-    totalCost: Math.round(totalCost * 100) / 100,
-    hourlyRate: Math.round(hourlyRate * 100) / 100,
-    complexityMultiplier,
-    calculatedAt: new Date()
+    isMetalDependent: true,
+    relevantVariantLabels,
+    relevantMetalVariants,
+    metalPrices,
+    summary: {
+      baseHourlyRate,
+      skillMultiplier,
+      baseLaborCost,
+      baseMaterialsCost,
+      materialMarkup,
+      laborHours
+    }
   };
 };

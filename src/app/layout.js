@@ -19,9 +19,11 @@ import PrintIcon from "@mui/icons-material/Print";
 import { SessionProvider } from "next-auth/react";
 import theme from "../../theme";
 import { RepairsProvider } from "./context/repairs.context";
+import { AdminSettingsProvider } from "@/context/AdminSettingsContext";
 import { auth } from "../../auth";
 import { signIn, signOut } from "next-auth/react";
 import Image from 'next/image';
+import PWAInstallPrompt from '@/components/PWAInstallPrompt';
 
 // 🎯 ADMIN-ONLY CRM NAVIGATION
 // Simplified navigation for internal admin use only
@@ -84,11 +86,6 @@ const NAVIGATION = [
         icon: <HandymanIcon />,
         children: [
             {
-                segment: '',
-                title: 'Tasks',
-                icon: <BuildIcon />
-            },
-            {
                 segment: 'materials',
                 title: 'Materials',
                 icon: <InventoryIcon />
@@ -130,6 +127,50 @@ const BRANDING = {
 
 const AUTHENTICATION = { signIn, signOut };
 
+// PWA Metadata
+export const metadata = {
+    title: 'Engel Fine Design - Jewelry Repair Management',
+    description: 'Complete jewelry repair and task management system for Engel Fine Design',
+    manifest: '/manifest.json',
+    icons: {
+        icon: [
+            { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+            { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' }
+        ],
+        apple: [
+            { url: '/icons/icon-152x152.png', sizes: '152x152', type: 'image/png' }
+        ]
+    },
+    appleWebApp: {
+        capable: true,
+        statusBarStyle: 'default',
+        title: 'EFD Admin'
+    },
+    formatDetection: {
+        telephone: false
+    },
+    openGraph: {
+        type: 'website',
+        siteName: 'Engel Fine Design',
+        title: 'EFD - Jewelry Repair Management',
+        description: 'Complete jewelry repair and task management system'
+    },
+    twitter: {
+        card: 'summary',
+        title: 'EFD - Jewelry Repair Management',
+        description: 'Complete jewelry repair and task management system'
+    }
+};
+
+export const viewport = {
+    themeColor: '#1976d2',
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+    viewportFit: 'cover'
+};
+
 export default async function RootLayout({ children }) {
     const session = await auth();
 
@@ -148,6 +189,7 @@ export default async function RootLayout({ children }) {
                                 theme={theme}
                             >
                                 {children}
+                                <PWAInstallPrompt />
                             </AppProvider>
                         </ThemeProvider>
                     </SessionProvider>
@@ -161,19 +203,22 @@ export default async function RootLayout({ children }) {
         <html lang="en">
             <body>
                 <SessionProvider session={session}>
-                    <RepairsProvider>
-                        <ThemeProvider theme={theme}>
-                            <AppProvider
-                                session={session}
-                                navigation={NAVIGATION}
-                                branding={BRANDING}
-                                authentication={AUTHENTICATION}
-                                theme={theme}
-                            >
-                                {children}
-                            </AppProvider>
-                        </ThemeProvider>
-                    </RepairsProvider>
+                    <AdminSettingsProvider>
+                        <RepairsProvider>
+                            <ThemeProvider theme={theme}>
+                                <AppProvider
+                                    session={session}
+                                    navigation={NAVIGATION}
+                                    branding={BRANDING}
+                                    authentication={AUTHENTICATION}
+                                    theme={theme}
+                                >
+                                    {children}
+                                    <PWAInstallPrompt />
+                                </AppProvider>
+                            </ThemeProvider>
+                        </RepairsProvider>
+                    </AdminSettingsProvider>
                 </SessionProvider>
             </body>
         </html>

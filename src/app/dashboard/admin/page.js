@@ -37,7 +37,7 @@ export default function AdminPage() {
         },
         {
           label: 'Create Task',
-          path: '/dashboard/admin/tasks/process-based',
+          path: '/dashboard/admin/tasks/create',
           icon: <AddIcon />,
           variant: 'outlined'
         }
@@ -156,7 +156,7 @@ export default function AdminPage() {
                 fullWidth
                 variant="outlined"
                 startIcon={<AddIcon />}
-                onClick={() => router.push('/dashboard/admin/tasks/process-based')}
+                onClick={() => router.push('/dashboard/admin/tasks/create')}
                 sx={{ py: 2 }}
               >
                 Create New Task

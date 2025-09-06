@@ -32,7 +32,6 @@ export default function ProcessesPage() {
     stats,
     processTabs,
     availableMaterials,
-    adminSettings,
     uniqueSkillLevels,
     uniqueMetalTypes,
     uniqueKarats,
@@ -180,7 +179,6 @@ export default function ProcessesPage() {
           formData={formData}
           setFormData={setFormData}
           availableMaterials={availableMaterials}
-          adminSettings={adminSettings}
           editingProcess={editingProcess}
           selectedMaterial={selectedMaterial}
           setSelectedMaterial={setSelectedMaterial}

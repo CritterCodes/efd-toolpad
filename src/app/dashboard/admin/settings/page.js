@@ -13,11 +13,13 @@ import {
 } from '@mui/material';
 import { 
     Store as StoreIcon,
-    Extension as IntegrationIcon
+    Extension as IntegrationIcon,
+    PhoneIphone as PWAIcon
 } from '@mui/icons-material';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import StoreSettingsTab from '@/components/admin/StoreSettingsTab';
 import IntegrationsTab from '@/components/admin/IntegrationsTab';
+import PWASettingsTab from '@/components/admin/PWASettingsTab';
 
 function TabPanel({ children, value, index, ...other }) {
     return (
@@ -90,6 +92,12 @@ export default function AdminSettingsPage() {
                                 id="admin-tab-1"
                                 aria-controls="admin-tabpanel-1"
                             />
+                            <Tab 
+                                icon={<PWAIcon />} 
+                                label="PWA / App Install" 
+                                id="admin-tab-2"
+                                aria-controls="admin-tabpanel-2"
+                            />
                         </Tabs>
                     </Box>
                     
@@ -99,6 +107,10 @@ export default function AdminSettingsPage() {
                     
                     <TabPanel value={tabValue} index={1}>
                         <IntegrationsTab />
+                    </TabPanel>
+                    
+                    <TabPanel value={tabValue} index={2}>
+                        <PWASettingsTab />
                     </TabPanel>
                 </Box>
             </Container>

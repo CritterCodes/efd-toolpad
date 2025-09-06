@@ -1,42 +1,27 @@
 /**
- * SKexport function generateTaskSku(category, shortCode) {
-  const categoryNameMap = {
-    'shanks': 'SHANK',
-    'prongs': 'PRONG', 
-    'stone_setting': 'STONE',
-    'engraving': 'ENGRAVE',
-    'chains': 'CHAIN',
-    'bracelets': 'BRACELET',
-    'watches': 'WATCH',
-    'misc': 'MISC'
-  };
-
-  // Add null safety for category
-  const safeCategory = category || 'misc';
-  const categoryName = categoryNameMap[safeCategory.toLowerCase()] || 'MISC';
-  
-  // Generate shortCode if not provided
-  const safeShortCode = shortCode || Math.floor(Math.random() * 90000) + 10000;
-  
-  return `RT-${categoryName}-${safeShortCode}`;
-}ilities
+ * SKU Generator Utilities
  * Generates unique identifiers for tasks, processes, and materials
  */
 
 /**
  * Generate SKU for tasks using shortCode system
  * Format: RT-{CategoryName}-{shortCode}
- * Example: RT-SHANK-02201
+ * Example: RT-REPAIR-01234
  */
 export function generateTaskSku(category, shortCode) {
   const categoryNameMap = {
-    'shank': 'SHANK',
-    'prongs': 'PRONG', 
-    'stone_setting': 'STONE',
-    'engraving': 'ENGRAVE',
-    'chains': 'CHAIN',
-    'bracelet': 'BRACELET',
-    'watch': 'WATCH',
+    'ring_sizing': 'RSIZ',
+    'stone_setting': 'STON', 
+    'repair': 'REPR',
+    'chain_repair': 'CHAI',
+    'cleaning': 'CLEA',
+    'polishing': 'POLI',
+    'soldering': 'SOLD',
+    'casting': 'CAST',
+    'engraving': 'ENGR',
+    'plating': 'PLAT',
+    'custom_work': 'CUST',
+    'appraisal': 'APPR',
     'misc': 'MISC'
   };
 
@@ -116,85 +101,41 @@ function getMaterialTypePrefix(materialType, category) {
 }
 
 /**
- * Generate a 5-digit shortCode following the specification: [Category][Karat][Metal][Task]
- * @param {string} category - The task category (shank, prongs, stone_setting, etc.)
- * @param {string} metalType - The metal type (silver, yellow_gold, white_gold, etc.)
- * @param {string} karat - The karat/purity (925_silver, 14k, 18k, etc.)
- * @param {number} taskNumber - Optional specific task number (01-99)
+ * Generate a shortCode based only on category (since metal type/karat are determined by the repair job)
+ * @param {string} category - The task category
+ * @param {number} taskNumber - Optional specific task number
  */
-export function generateShortCode(category, metalType = 'not_applicable', karat = 'not_applicable', taskNumber = null) {
-  // Category mapping (Position 1: 0-7)
+export function generateShortCode(category, taskNumber = null) {
+  // Category mapping
   const categoryMap = {
-    'shank': '0',
-    'prongs': '1', 
-    'stone_setting': '2',
-    'engraving': '3',
-    'chains': '4',
-    'bracelet': '5',
-    'watch': '6',
-    'misc': '7'
+    'ring_sizing': '0',
+    'stone_setting': '1', 
+    'repair': '2',
+    'chain_repair': '3',
+    'cleaning': '4',
+    'polishing': '5',
+    'soldering': '6',
+    'casting': '7',
+    'engraving': '8',
+    'plating': '9',
+    'custom_work': 'C',
+    'appraisal': 'A',
+    'misc': 'M'
   };
 
-  // Karat mapping (Position 2: 0-9)
-  const karatMap = {
-    'not_applicable': '0',
-    'mixed': '0',
-    '925_silver': '1',
-    '14k': '2',
-    '18k': '3', 
-    '22k': '4',
-    '24k': '5',
-    '10k': '6',
-    'platinum_950': '7',
-    'platinum_900': '8',
-    'other': '9'
-  };
-
-  // Metal Type mapping (Position 3: 0-9)
-  const metalTypeMap = {
-    'not_applicable': '0',
-    'mixed': '0',
-    'silver': '1',
-    'yellow_gold': '2',
-    'white_gold': '3',
-    'rose_gold': '4',
-    'platinum': '5',
-    'palladium': '6',
-    'stainless_steel': '7',
-    'titanium': '8',
-    'other': '9'
-  };
-
-  const categoryCode = categoryMap[category.toLowerCase()] || '7';
-  const karatCode = karatMap[karat.toLowerCase()] || '0';
-  const metalCode = metalTypeMap[metalType.toLowerCase()] || '0';
+  const categoryCode = categoryMap[category.toLowerCase()] || 'M';
   
-  // Task code (Positions 4-5: 01-99)
-  let taskCode = '01'; // Default
+  // Generate 4-digit task number
+  const finalTaskNumber = taskNumber ? 
+    taskNumber.toString().padStart(4, '0') : 
+    Math.floor(Math.random() * 9000 + 1000);
   
-  if (taskNumber) {
-    taskCode = taskNumber.toString().padStart(2, '0');
-  } else {
-    // Generate default task codes based on category
-    const defaultTaskCodes = {
-      'shank': '01', // Size Down (1 size)
-      'prongs': '10', // Basic Prong Repair
-      'stone_setting': '20', // Basic Stone Setting
-      'engraving': '30', // Hand Engraving
-      'chains': '40', // Chain Link Repair
-      'bracelet': '50', // Bracelet Sizing
-      'watch': '60', // Battery Replacement
-      'misc': '70' // General Cleaning
-    };
-    taskCode = defaultTaskCodes[category.toLowerCase()] || '01';
-  }
-
-  return `${categoryCode}${karatCode}${metalCode}${taskCode}`;
+  return `${categoryCode}${finalTaskNumber}`;
 }
 
 /**
  * Parse a shortCode into its components
- * @param {string} shortCode - 5-digit shortCode
+ * @param {string} shortCode - Category code + 4-digit number (e.g., "01234")
  */
 export function parseShortCode(shortCode) {
   if (!shortCode || shortCode.length !== 5) {
@@ -202,16 +143,12 @@ export function parseShortCode(shortCode) {
   }
 
   const categoryCode = shortCode.charAt(0);
-  const karatCode = shortCode.charAt(1);
-  const metalCode = shortCode.charAt(2);
-  const taskCode = shortCode.substring(3);
+  const taskNumber = shortCode.substring(1);
 
   return {
     categoryCode,
-    karatCode,
-    metalCode,
-    taskCode: parseInt(taskCode),
-    rawTaskCode: taskCode
+    taskNumber: parseInt(taskNumber),
+    rawTaskNumber: taskNumber
   };
 }
 

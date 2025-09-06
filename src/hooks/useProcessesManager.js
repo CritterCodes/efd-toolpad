@@ -4,6 +4,7 @@
  */
 
 import * as React from 'react';
+import { useAdminSettings } from '@/context/AdminSettingsContext';
 import processesService from '@/services/processes.service';
 import materialsService from '@/services/materials.service';
 import cascadingUpdatesService from '@/services/cascadingUpdates.service';
@@ -18,14 +19,17 @@ import {
   filterProcesses,
   sortProcesses,
   getUniqueValues,
-  calculateProcessCost
+  calculateProcessCost,
+  prepareProcessForSaving
 } from '@/utils/processes.util';
 
 export function useProcessesManager() {
+  // Get admin settings from context
+  const { adminSettings } = useAdminSettings();
+  
   // Data state
   const [processes, setProcesses] = React.useState([]);
   const [availableMaterials, setAvailableMaterials] = React.useState([]);
-  const [adminSettings, setAdminSettings] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
 
@@ -158,54 +162,11 @@ export function useProcessesManager() {
     }
   }, []);
 
-  // Load admin settings
-  const loadAdminSettings = React.useCallback(async () => {
-    try {
-      const response = await fetch('/api/admin/settings');
-      
-      if (!response.ok) throw new Error('Failed to load admin settings');
-      
-      const data = await response.json();
-      const settings = data || {};
-      
-      // Map database structure to expected format
-      const baseWage = settings.pricing?.wage || 30;
-      const mappedSettings = {
-        laborRates: {
-          basic: baseWage * 0.75,
-          standard: baseWage,
-          advanced: baseWage * 1.25,
-          expert: baseWage * 1.5
-        },
-        materialMarkup: settings.pricing?.materialMarkup || 1.3,
-        pricing: settings.pricing || { wage: baseWage, materialMarkup: settings.pricing?.materialMarkup || 1.3 }
-      };
-      
-      setAdminSettings(mappedSettings);
-    } catch (error) {
-      console.error('Error loading admin settings:', error);
-      // Set default values
-      const baseWage = 30;
-      const defaultSettings = {
-        laborRates: { 
-          basic: baseWage * 0.75,
-          standard: baseWage,
-          advanced: baseWage * 1.25,
-          expert: baseWage * 1.5
-        },
-        materialMarkup: 1.3,
-        pricing: { wage: baseWage, materialMarkup: 1.3 }
-      };
-      setAdminSettings(defaultSettings);
-    }
-  }, []);
-
   // Initialize data
   React.useEffect(() => {
     loadProcesses();
     loadMaterials();
-    loadAdminSettings();
-  }, [loadProcesses, loadMaterials, loadAdminSettings]);
+  }, [loadProcesses, loadMaterials]);
 
   // Handle form submission
   const handleSubmit = async (e) => {
@@ -213,12 +174,17 @@ export function useProcessesManager() {
     
     try {
       const isUpdate = !!editingProcess;
+      
+      // Prepare process data with calculated prices
+      // Use adminSettings from context
+      const processData = prepareProcessForSaving(formData, adminSettings, availableMaterials);
+      
       let savedProcess;
       
       if (isUpdate) {
-        savedProcess = await processesService.updateProcess(editingProcess._id, formData);
+        savedProcess = await processesService.updateProcess(editingProcess._id, processData);
       } else {
-        savedProcess = await processesService.createProcess(formData);
+        savedProcess = await processesService.createProcess(processData);
       }
       
       // If this was an update, trigger cascading updates
@@ -370,27 +336,6 @@ export function useProcessesManager() {
   
   const isFiltered = hasActiveFilters || selectedTab !== 'all';
 
-  // Auto-calculate costs when relevant form data changes
-  React.useEffect(() => {
-    if (adminSettings && formData.timeRequired) {
-      const newCosts = calculateProcessCost(formData, adminSettings);
-      // Only update if the costs have actually changed to prevent infinite loops
-      const currentLaborCost = parseFloat(formData.laborCost) || 0;
-      const currentMaterialsCost = parseFloat(formData.materialsCost) || 0;
-      
-      if (Math.abs(newCosts.laborCost - currentLaborCost) > 0.01 || 
-          Math.abs(newCosts.materialsCost - currentMaterialsCost) > 0.01) {
-        setFormData(prev => ({
-          ...prev,
-          laborCost: newCosts.laborCost,
-          materialsCost: newCosts.materialsCost,
-          totalCost: newCosts.totalCost
-        }));
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.timeRequired, formData.skillLevel, formData.materials?.length, adminSettings]);
-
   return {
     // Data
     processes: filteredProcesses,
@@ -399,7 +344,6 @@ export function useProcessesManager() {
     stats,
     processTabs,
     availableMaterials,
-    adminSettings,
     uniqueSkillLevels,
     uniqueMetalTypes,
     

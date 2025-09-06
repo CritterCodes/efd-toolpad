@@ -1,6 +1,8 @@
 import { ProcessModel } from './model.js';
 import { generateProcessSku } from '@/utils/skuGenerator';
 import { db } from '@/lib/database';
+import { prepareProcessForSaving } from '@/utils/processes.util';
+import MaterialModel from '@/app/api/materials/model.js';
 
 /**
  * Process Business Logic Service
@@ -70,27 +72,22 @@ export class ProcessService {
       // Get admin settings for pricing
       const adminSettings = await this.getAdminSettings();
       
+      // Get all available materials for multi-variant pricing calculation
+      const availableMaterials = await MaterialModel.getMaterials();
+      
       // Generate SKU
       const sku = generateProcessSku(processData.category, processData.skillLevel);
       
-      // Calculate pricing
-      const pricing = this.calculateProcessPricing(processData, adminSettings);
+      // Use proper multi-variant pricing calculation
+      const processDataWithSku = { ...processData, sku };
+      const processForSaving = prepareProcessForSaving(processDataWithSku, adminSettings, availableMaterials);
       
       // Prepare process data
       const newProcessData = {
-        sku,
-        displayName: processData.displayName.trim(),
-        category: processData.category.toLowerCase(),
-        laborHours: parseFloat(processData.laborHours) || 0,
-        skillLevel: processData.skillLevel || 'standard',
-        metalType: processData.metalType || '',
-        karat: processData.karat || '',
-        metalComplexityMultiplier: parseFloat(processData.metalComplexityMultiplier) || 1.0,
-        description: processData.description || '',
-        materials: processData.materials || [],
-        pricing,
-        isActive: true,
-        createdBy: userEmail
+        ...processForSaving,
+        createdBy: userEmail,
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
       
       const result = await ProcessModel.create(newProcessData);
@@ -130,22 +127,17 @@ export class ProcessService {
       // Get admin settings for pricing
       const adminSettings = await this.getAdminSettings();
       
-      // Calculate updated pricing
-      const pricing = this.calculateProcessPricing(processData, adminSettings);
+      // Get all available materials for multi-variant pricing calculation
+      const availableMaterials = await MaterialModel.getMaterials();
+      
+      // Use proper multi-variant pricing calculation
+      const processForSaving = prepareProcessForSaving(processData, adminSettings, availableMaterials);
       
       // Prepare update data
       const updateData = {
-        displayName: processData.displayName.trim(),
-        category: processData.category.toLowerCase(),
-        laborHours: parseFloat(processData.laborHours) || 0,
-        skillLevel: processData.skillLevel || 'standard',
-        metalType: processData.metalType || '',
-        karat: processData.karat || '',
-        metalComplexityMultiplier: parseFloat(processData.metalComplexityMultiplier) || 1.0,
-        description: processData.description || '',
-        materials: processData.materials || [],
-        pricing,
-        updatedBy: userEmail
+        ...processForSaving,
+        updatedBy: userEmail,
+        updatedAt: new Date()
       };
       
       const result = await ProcessModel.updateById(id, updateData);

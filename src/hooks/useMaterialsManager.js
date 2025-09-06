@@ -132,28 +132,42 @@ export const useMaterialsManager = () => {
     setLoadingStuller(true);
     try {
       const data = await materialsService.fetchStullerData(itemNumber);
-      const updatedFormData = materialsService.transformStullerToFormData(data, formData);
-      setFormData(updatedFormData);
+      
+      // Transform Stuller data for product creation
+      const stullerInfo = materialsService.transformStullerToFormData(data, {});
+      
+      // Update only the temporary Stuller fields needed for StullerProductsManager
+      // This preserves all General Info fields that the user entered
+      setFormData(prev => ({
+        ...prev, // Keep all existing form data (displayName, category, supplier, etc.)
+        
+        // Update only the temporary Stuller-specific fields for product creation
+        unitCost: stullerInfo.unitCost,
+        karat: stullerInfo.karat,
+        compatibleMetals: stullerInfo.compatibleMetals,
+        stuller_item_number: itemNumber,
+        auto_update_pricing: true,
+        last_price_update: new Date().toISOString()
+      }));
+      
     } catch (err) {
       console.error('Error fetching Stuller data:', err);
       setError(`Failed to fetch Stuller data: ${err.message}`);
     } finally {
       setLoadingStuller(false);
     }
-  }, [formData]);
+  }, []);
 
   // Handle form submission (create/update)
-  const handleSubmit = useCallback(async (e) => {
-    e.preventDefault();
-    
+  const handleSubmit = useCallback(async (submittedFormData) => {
     try {
       const isUpdate = !!editingMaterial;
       let savedMaterial;
       
       if (isUpdate) {
-        savedMaterial = await materialsService.updateMaterial(editingMaterial._id, formData);
+        savedMaterial = await materialsService.updateMaterial(editingMaterial._id, submittedFormData);
       } else {
-        savedMaterial = await materialsService.createMaterial(formData);
+        savedMaterial = await materialsService.createMaterial(submittedFormData);
       }
       
       // Trigger cascading updates for material changes
@@ -176,7 +190,7 @@ export const useMaterialsManager = () => {
       console.error('Error saving material:', err);
       setError(err.message || 'Failed to save material');
     }
-  }, [editingMaterial, formData, loadMaterials]);
+  }, [editingMaterial, loadMaterials]);
 
   // Handle edit material
   const handleEdit = useCallback((material) => {
@@ -214,7 +228,6 @@ export const useMaterialsManager = () => {
       }
 
       const data = await response.json();
-      console.log(`Successfully updated prices for ${data.updated || 0} materials`);
       await loadMaterials();
       
     } catch (err) {

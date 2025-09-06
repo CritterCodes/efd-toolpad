@@ -34,7 +34,8 @@ export default function MaterialForm({
   setFormData,
   onFetchStullerData,
   loadingStuller = false,
-  isEditing = false
+  isEditing = false,
+  isVariantMode = false
 }) {
   // Generate preview SKU based on category and display name
   const generatePreviewSku = React.useCallback((displayName, category) => {
@@ -48,26 +49,35 @@ export default function MaterialForm({
         <Typography variant="h6" gutterBottom>
           Stuller Integration
         </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {isVariantMode 
+            ? 'Enter a Stuller item number to find related products across different karats and metals'
+            : 'Enter Stuller item number to auto-populate material data'
+          }
+        </Typography>
       </Grid>
       <Grid item xs={12} sm={8}>
         <TextField
           fullWidth
           label="Stuller Item Number"
-          value={formData.stuller_item_number}
+          value={formData.stuller_item_number || ''}
           onChange={(e) => setFormData({ ...formData, stuller_item_number: e.target.value })}
-          helperText="Enter Stuller item number to auto-populate material data"
+          helperText={isVariantMode 
+            ? "Will search for related products to create variants"
+            : "Enter Stuller item number to auto-populate material data"
+          }
         />
       </Grid>
       <Grid item xs={12} sm={4}>
         <LoadingButton
           variant="outlined"
           loading={loadingStuller}
-          onClick={() => onFetchStullerData(formData.stuller_item_number)}
-          disabled={!formData.stuller_item_number.trim()}
+          onClick={() => onFetchStullerData(formData.stuller_item_number, isVariantMode)}
+          disabled={!formData.stuller_item_number?.trim()}
           fullWidth
           sx={{ height: '56px' }}
         >
-          Fetch Data
+          {isVariantMode ? 'Find Variants' : 'Fetch Data'}
         </LoadingButton>
       </Grid>
       <Grid item xs={12}>
@@ -139,39 +149,53 @@ export default function MaterialForm({
           </Select>
         </FormControl>
       </Grid>
-      <Grid item xs={12} sm={6}>
-        <FormControl fullWidth>
-          <InputLabel>Karat/Purity</InputLabel>
-          <Select
-            value={formData.karat}
-            label="Karat/Purity"
-            onChange={(e) => setFormData({ ...formData, karat: e.target.value })}
-          >
-            {KARAT_OPTIONS.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      </Grid>
-      <Grid item xs={12} sm={6}>
-        <TextField
-          required
-          fullWidth
-          type="number"
-          label="Unit Cost"
-          value={formData.unitCost}
-          onChange={(e) => setFormData({ ...formData, unitCost: e.target.value })}
-          InputProps={{
-            startAdornment: '$'
-          }}
-          inputProps={{
-            min: 0,
-            step: 0.01
-          }}
-        />
-      </Grid>
+      
+      {/* Pricing fields - only show for single materials, not variants */}
+      {!isVariantMode && (
+        <>
+          <Grid item xs={12} sm={6}>
+            <FormControl fullWidth>
+              <InputLabel>Karat/Purity</InputLabel>
+              <Select
+                value={formData.karat}
+                label="Karat/Purity"
+                onChange={(e) => setFormData({ ...formData, karat: e.target.value })}
+              >
+                {KARAT_OPTIONS.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              required
+              fullWidth
+              type="number"
+              label="Unit Cost"
+              value={formData.unitCost}
+              onChange={(e) => setFormData({ ...formData, unitCost: e.target.value })}
+              InputProps={{
+                startAdornment: '$'
+              }}
+              inputProps={{
+                min: 0,
+                step: 0.01
+              }}
+            />
+          </Grid>
+        </>
+      )}
+      
+      {isVariantMode && (
+        <Grid item xs={12}>
+          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+            Pricing and metal-specific details are managed in the Variants tab.
+          </Typography>
+        </Grid>
+      )}
       
       {/* Portion Management Section */}
       <Grid item xs={12}>
@@ -238,9 +262,10 @@ export default function MaterialForm({
           <InputLabel>Compatible Metals</InputLabel>
           <Select
             multiple
-            value={formData.compatibleMetals}
+            value={formData.compatibleMetals || []}
             label="Compatible Metals"
             onChange={(e) => setFormData({ ...formData, compatibleMetals: e.target.value })}
+            disabled={isVariantMode}
             renderValue={(selected) => (
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                 {selected.map((value) => {
@@ -258,6 +283,11 @@ export default function MaterialForm({
               </MenuItem>
             ))}
           </Select>
+          {isVariantMode && (
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+              Compatible metals are managed per variant
+            </Typography>
+          )}
         </FormControl>
       </Grid>
       <Grid item xs={12} sm={6}>

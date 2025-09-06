@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useAdminSettings } from '@/context/AdminSettingsContext';
 import cascadingUpdatesService from '@/services/cascadingUpdates.service';
 import { 
     Card, 
@@ -43,21 +44,27 @@ import {
 
 export default function StoreSettingsTab() {
     const { data: session } = useSession();
+    const { 
+        adminSettings, 
+        loading: contextLoading, 
+        error: contextError, 
+        updateAdminSettings, 
+        refreshSettings,
+        getTotalEffectiveWage 
+    } = useAdminSettings();
     
-    // State management - using correct database format
-    const [settings, setSettings] = useState({
-        wage: 30.00, // Base wage for standard skill level
+    // Local state for form editing
+    const [localSettings, setLocalSettings] = useState({
+        wage: 30.00,
         materialMarkup: 1.5,
-        administrativeFee: 0.15,  // 15% as decimal
-        businessFee: 0.25,       // 25% as decimal
-        consumablesFee: 0.08,    // 8% as decimal
-        rushMultiplier: 1.5,     // 50% rush markup
-        deliveryFee: 25.00,      // Fixed delivery fee
-        taxRate: 0.0875          // 8.75% tax rate
+        administrativeFee: 0.15,
+        businessFee: 0.25,
+        consumablesFee: 0.08,
+        rushMultiplier: 1.5,
+        deliveryFee: 25.00,
+        taxRate: 0.0875
     });
     
-    const [originalSettings, setOriginalSettings] = useState({});
-    const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
@@ -69,67 +76,43 @@ export default function StoreSettingsTab() {
     const [generatedPin, setGeneratedPin] = useState(null);
     const [showPinDialog, setShowPinDialog] = useState(false);
 
-    // Load settings on mount
+    // Sync local settings with context when adminSettings loads
     useEffect(() => {
-        loadSettings();
-    }, []);
+        if (adminSettings) {
+            setLocalSettings({
+                wage: adminSettings.wage || 30.00,
+                materialMarkup: adminSettings.materialMarkup || 1.5,
+                administrativeFee: adminSettings.administrativeFee || 0.15,
+                businessFee: adminSettings.businessFee || 0.25,
+                consumablesFee: adminSettings.consumablesFee || 0.08,
+                rushMultiplier: adminSettings.rushMultiplier || 1.5,
+                deliveryFee: adminSettings.deliveryFee || 25.00,
+                taxRate: adminSettings.taxRate || 0.0875
+            });
+        }
+    }, [adminSettings]);
 
     // Check for changes
     useEffect(() => {
-        const changed = Object.keys(settings).some(key => 
-            parseFloat(settings[key]) !== parseFloat(originalSettings[key])
+        if (!adminSettings) return;
+        
+        const changed = Object.keys(localSettings).some(key => 
+            parseFloat(localSettings[key]) !== parseFloat(adminSettings[key])
         );
         setHasChanges(changed);
-    }, [settings, originalSettings]);
-
-    const loadSettings = async () => {
-        try {
-            setLoading(true);
-            setError(null);
-            
-            const response = await fetch('/api/admin/settings');
-            
-            if (!response.ok) {
-                throw new Error('Failed to load settings');
-            }
-            
-            const data = await response.json();
-            
-            if (data.pricing) {
-                const pricingSettings = data.pricing;
-                const settingsData = {
-                    wage: pricingSettings.wage || 30.00,
-                    materialMarkup: pricingSettings.materialMarkup || 1.5,
-                    administrativeFee: pricingSettings.administrativeFee || 0.15,
-                    businessFee: pricingSettings.businessFee || 0.25,
-                    consumablesFee: pricingSettings.consumablesFee || 0.08,
-                    rushMultiplier: pricingSettings.rushMultiplier || 1.5,
-                    deliveryFee: pricingSettings.deliveryFee || 25.00,
-                    taxRate: pricingSettings.taxRate || 0.0875
-                };
-                
-                setSettings(settingsData);
-                setOriginalSettings({ ...settingsData });
-            }
-        } catch (error) {
-            console.error('Settings load error:', error);
-            setError(error.message);
-        } finally {
-            setLoading(false);
-        }
-    };
+    }, [localSettings, adminSettings]);
 
     const handleSettingChange = (field, value) => {
         const numericValue = parseFloat(value);
         if (!isNaN(numericValue) && numericValue >= 0) {
             // For percentage fields, convert from percentage to decimal
             if (field === 'administrativeFee' || field === 'businessFee' || field === 'consumablesFee' || field === 'taxRate') {
-                setSettings(prev => ({
+                setLocalSettings(prev => ({
                     ...prev,
                     [field]: numericValue / 100  // Convert percentage to decimal
                 }));
             } else {
-                setSettings(prev => ({
+                setLocalSettings(prev => ({
                     ...prev,
                     [field]: numericValue
                 }));
@@ -153,25 +136,15 @@ export default function StoreSettingsTab() {
             setSaving(true);
             setError(null);
 
-            // Save the settings first
-            const response = await fetch('/api/admin/settings', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    pricing: settings,  // Send as 'pricing' object to match API expectation
-                    securityCode: securityCodeInput
-                })
-            });
+            // Use the AdminSettingsContext to update settings
+            const updateData = {
+                ...localSettings,
+                securityCode: securityCodeInput
+            };
 
-            const data = await response.json();
+            const result = await updateAdminSettings(updateData);
 
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to save settings');
-            }
-
-            if (data.success) {
+            if (result.success) {
                 // Settings saved successfully, now trigger cascading updates
                 console.log('🔄 Admin settings saved, triggering cascading updates...');
                 
@@ -179,21 +152,21 @@ export default function StoreSettingsTab() {
                     // Create admin settings object in the expected format for cascading updates
                     const adminSettingsForUpdate = {
                         laborRates: {
-                            basic: settings.wage * 0.75,      // 75% of base wage
-                            standard: settings.wage,          // 100% of base wage
-                            advanced: settings.wage * 1.25,   // 125% of base wage
-                            expert: settings.wage * 1.5       // 150% of base wage
+                            basic: localSettings.wage * 0.75,      // 75% of base wage
+                            standard: localSettings.wage,          // 100% of base wage
+                            advanced: localSettings.wage * 1.25,   // 125% of base wage
+                            expert: localSettings.wage * 1.5       // 150% of base wage
                         },
-                        materialMarkup: settings.materialMarkup,
+                        materialMarkup: localSettings.materialMarkup,
                         pricing: {
-                            wage: settings.wage,
-                            materialMarkup: settings.materialMarkup,
-                            administrativeFee: settings.administrativeFee,
-                            businessFee: settings.businessFee,
-                            consumablesFee: settings.consumablesFee,
-                            rushMultiplier: settings.rushMultiplier,
-                            deliveryFee: settings.deliveryFee,
-                            taxRate: settings.taxRate
+                            wage: localSettings.wage,
+                            materialMarkup: localSettings.materialMarkup,
+                            administrativeFee: localSettings.administrativeFee,
+                            businessFee: localSettings.businessFee,
+                            consumablesFee: localSettings.consumablesFee,
+                            rushMultiplier: localSettings.rushMultiplier,
+                            deliveryFee: localSettings.deliveryFee,
+                            taxRate: localSettings.taxRate
                         }
                     };
                     
@@ -211,7 +184,6 @@ export default function StoreSettingsTab() {
                     setSuccess('Settings saved successfully, but some dependent objects may need manual updates.');
                 }
                 
-                setOriginalSettings({ ...settings });
                 setShowSecurityDialog(false);
                 setSecurityCodeInput('');
                 setShowSnackbar(true);
@@ -219,7 +191,7 @@ export default function StoreSettingsTab() {
 
         } catch (error) {
             console.error('Settings save error:', error);
-            setError(error.message);
+            setError(error.message || 'Failed to save settings');
         } finally {
             setSaving(false);
         }
@@ -259,11 +231,11 @@ export default function StoreSettingsTab() {
 
     const calculateLaborRate = () => {
         // Convert percentage fees to dollar amounts based on wage
-        const adminFee = settings.wage * settings.administrativeFee;
-        const bizFee = settings.wage * settings.businessFee;
-        const consumablesFee = settings.wage * settings.consumablesFee;
+        const adminFee = localSettings.wage * localSettings.administrativeFee;
+        const bizFee = localSettings.wage * localSettings.businessFee;
+        const consumablesFee = localSettings.wage * localSettings.consumablesFee;
         
-        return settings.wage + adminFee + bizFee + consumablesFee;
+        return localSettings.wage + adminFee + bizFee + consumablesFee;
     };
 
     const calculateSampleProject = () => {
@@ -272,7 +244,7 @@ export default function StoreSettingsTab() {
         const materialCost = 25; // $25 in materials
         
         const laborCost = laborTime * laborRate;
-        const materialTotal = materialCost * settings.materialMarkup;
+        const materialTotal = materialCost * localSettings.materialMarkup;
         const total = laborCost + materialTotal;
         
         return {
@@ -282,7 +254,7 @@ export default function StoreSettingsTab() {
         };
     };
 
-    if (loading) {
+    if (contextLoading) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
                 <CircularProgress />
@@ -324,7 +296,7 @@ export default function StoreSettingsTab() {
                                         fullWidth
                                         label="Base Hourly Wage (Standard Skill)"
                                         type="number"
-                                        value={settings.wage}
+                                        value={localSettings.wage}
                                         onChange={(e) => handleSettingChange('wage', e.target.value)}
                                         InputProps={{
                                             startAdornment: <InputAdornment position="start">$</InputAdornment>,
@@ -346,7 +318,7 @@ export default function StoreSettingsTab() {
                                                     Basic (75%):
                                                 </Typography>
                                                 <Typography variant="body2" fontWeight="bold">
-                                                    ${(settings.wage * 0.75).toFixed(2)}/hr
+                                                    ${(localSettings.wage * 0.75).toFixed(2)}/hr
                                                 </Typography>
                                             </Grid>
                                             <Grid item xs={6} sm={3}>
@@ -354,7 +326,7 @@ export default function StoreSettingsTab() {
                                                     Standard (100%):
                                                 </Typography>
                                                 <Typography variant="body2" fontWeight="bold">
-                                                    ${settings.wage.toFixed(2)}/hr
+                                                    ${localSettings.wage.toFixed(2)}/hr
                                                 </Typography>
                                             </Grid>
                                             <Grid item xs={6} sm={3}>
@@ -362,7 +334,7 @@ export default function StoreSettingsTab() {
                                                     Advanced (125%):
                                                 </Typography>
                                                 <Typography variant="body2" fontWeight="bold">
-                                                    ${(settings.wage * 1.25).toFixed(2)}/hr
+                                                    ${(localSettings.wage * 1.25).toFixed(2)}/hr
                                                 </Typography>
                                             </Grid>
                                             <Grid item xs={6} sm={3}>
@@ -370,7 +342,7 @@ export default function StoreSettingsTab() {
                                                     Expert (150%):
                                                 </Typography>
                                                 <Typography variant="body2" fontWeight="bold">
-                                                    ${(settings.wage * 1.5).toFixed(2)}/hr
+                                                    ${(localSettings.wage * 1.5).toFixed(2)}/hr
                                                 </Typography>
                                             </Grid>
                                         </Grid>
@@ -382,7 +354,7 @@ export default function StoreSettingsTab() {
                                         fullWidth
                                         label="Administrative Fee"
                                         type="number"
-                                        value={(settings.administrativeFee * 100).toFixed(1)}
+                                        value={(localSettings.administrativeFee * 100).toFixed(1)}
                                         onChange={(e) => handleSettingChange('administrativeFee', e.target.value)}
                                         InputProps={{
                                             endAdornment: <InputAdornment position="end">%</InputAdornment>,
@@ -396,7 +368,7 @@ export default function StoreSettingsTab() {
                                         fullWidth
                                         label="Business Fee"
                                         type="number"
-                                        value={(settings.businessFee * 100).toFixed(1)}
+                                        value={(localSettings.businessFee * 100).toFixed(1)}
                                         onChange={(e) => handleSettingChange('businessFee', e.target.value)}
                                         InputProps={{
                                             endAdornment: <InputAdornment position="end">%</InputAdornment>,
@@ -410,7 +382,7 @@ export default function StoreSettingsTab() {
                                         fullWidth
                                         label="Consumables Fee"
                                         type="number"
-                                        value={(settings.consumablesFee * 100).toFixed(1)}
+                                        value={(localSettings.consumablesFee * 100).toFixed(1)}
                                         onChange={(e) => handleSettingChange('consumablesFee', e.target.value)}
                                         InputProps={{
                                             endAdornment: <InputAdornment position="end">%</InputAdornment>,
@@ -436,7 +408,7 @@ export default function StoreSettingsTab() {
                                 fullWidth
                                 label="Material Markup Multiplier"
                                 type="number"
-                                value={settings.materialMarkup}
+                                value={localSettings.materialMarkup}
                                 onChange={(e) => handleSettingChange('materialMarkup', e.target.value)}
                                 InputProps={{
                                     startAdornment: <InputAdornment position="start">×</InputAdornment>,
@@ -445,7 +417,7 @@ export default function StoreSettingsTab() {
                                 helperText="Multiply material costs by this amount"
                             />
                             <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                                Current markup: {((settings.materialMarkup - 1) * 100).toFixed(1)}% above cost
+                                Current markup: {((localSettings.materialMarkup - 1) * 100).toFixed(1)}% above cost
                             </Typography>
                         </CardContent>
                     </Card>
@@ -465,7 +437,7 @@ export default function StoreSettingsTab() {
                                         fullWidth
                                         label="Rush Job Multiplier"
                                         type="number"
-                                        value={settings.rushMultiplier}
+                                        value={localSettings.rushMultiplier}
                                         onChange={(e) => handleSettingChange('rushMultiplier', e.target.value)}
                                         InputProps={{
                                             startAdornment: <InputAdornment position="start">×</InputAdornment>,
@@ -479,7 +451,7 @@ export default function StoreSettingsTab() {
                                         fullWidth
                                         label="Delivery Fee"
                                         type="number"
-                                        value={settings.deliveryFee}
+                                        value={localSettings.deliveryFee}
                                         onChange={(e) => handleSettingChange('deliveryFee', e.target.value)}
                                         InputProps={{
                                             startAdornment: <InputAdornment position="start">$</InputAdornment>,
@@ -493,7 +465,7 @@ export default function StoreSettingsTab() {
                                         fullWidth
                                         label="Tax Rate"
                                         type="number"
-                                        value={(settings.taxRate * 100).toFixed(3)}
+                                        value={(localSettings.taxRate * 100).toFixed(3)}
                                         onChange={(e) => handleSettingChange('taxRate', e.target.value)}
                                         InputProps={{
                                             endAdornment: <InputAdornment position="end">%</InputAdornment>,
@@ -523,25 +495,25 @@ export default function StoreSettingsTab() {
                                     <Typography variant="body2">Base Wage:</Typography>
                                 </Grid>
                                 <Grid item xs={4}>
-                                    <Typography variant="body2" align="right">${settings.wage.toFixed(2)}/hr</Typography>
+                                    <Typography variant="body2" align="right">${localSettings.wage.toFixed(2)}/hr</Typography>
                                 </Grid>
                                 <Grid item xs={8}>
-                                    <Typography variant="body2">Administrative Fee ({(settings.administrativeFee * 100).toFixed(1)}%):</Typography>
+                                    <Typography variant="body2">Administrative Fee ({(localSettings.administrativeFee * 100).toFixed(1)}%):</Typography>
                                 </Grid>
                                 <Grid item xs={4}>
-                                    <Typography variant="body2" align="right">${(settings.wage * settings.administrativeFee).toFixed(2)}/hr</Typography>
+                                    <Typography variant="body2" align="right">${(localSettings.wage * localSettings.administrativeFee).toFixed(2)}/hr</Typography>
                                 </Grid>
                                 <Grid item xs={8}>
-                                    <Typography variant="body2">Business Fee ({(settings.businessFee * 100).toFixed(1)}%):</Typography>
+                                    <Typography variant="body2">Business Fee ({(localSettings.businessFee * 100).toFixed(1)}%):</Typography>
                                 </Grid>
                                 <Grid item xs={4}>
-                                    <Typography variant="body2" align="right">${(settings.wage * settings.businessFee).toFixed(2)}/hr</Typography>
+                                    <Typography variant="body2" align="right">${(localSettings.wage * localSettings.businessFee).toFixed(2)}/hr</Typography>
                                 </Grid>
                                 <Grid item xs={8}>
-                                    <Typography variant="body2">Consumables Fee ({(settings.consumablesFee * 100).toFixed(1)}%):</Typography>
+                                    <Typography variant="body2">Consumables Fee ({(localSettings.consumablesFee * 100).toFixed(1)}%):</Typography>
                                 </Grid>
                                 <Grid item xs={4}>
-                                    <Typography variant="body2" align="right">${(settings.wage * settings.consumablesFee).toFixed(2)}/hr</Typography>
+                                    <Typography variant="body2" align="right">${(localSettings.wage * localSettings.consumablesFee).toFixed(2)}/hr</Typography>
                                 </Grid>
                                 <Grid item xs={12}>
                                     <Divider sx={{ my: 1 }} />
@@ -694,8 +666,8 @@ export default function StoreSettingsTab() {
                         <Button
                             variant="outlined"
                             startIcon={<RefreshCwIcon />}
-                            onClick={loadSettings}
-                            disabled={loading}
+                            onClick={refreshSettings}
+                            disabled={contextLoading}
                         >
                             Reset
                         </Button>

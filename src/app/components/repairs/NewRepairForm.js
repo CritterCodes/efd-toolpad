@@ -1568,7 +1568,16 @@ function RepairItemsSection({
                         {option.displayName}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {option.laborHours}hrs • ${(option.pricing?.totalCost || option.price || 0).toFixed(2)} • {option.skillLevel}
+                        {option.laborHours}hrs • ${(() => {
+                          const totalCost = option.pricing?.totalCost || option.price || 0;
+                          if (typeof totalCost === 'object' && totalCost !== null) {
+                            const costs = Object.values(totalCost);
+                            const min = Math.min(...costs);
+                            const max = Math.max(...costs);
+                            return min === max ? min.toFixed(2) : `${min.toFixed(2)}-${max.toFixed(2)}`;
+                          }
+                          return totalCost.toFixed(2);
+                        })()} • {option.skillLevel}
                         {option.processType && ` • ${option.processType}`}
                       </Typography>
                       {option.description && (

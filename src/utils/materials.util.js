@@ -83,23 +83,24 @@ export const METAL_OPTIONS = [
  * Default form data structure for materials
  */
 export const DEFAULT_MATERIAL_FORM = {
+  // General material information
+  name: '', // Internal name (auto-generated from displayName)
   displayName: '',
   category: '',
-  unitCost: '',
   unitType: 'application',
-  karat: '',
-  compatibleMetals: [],
-  supplier: '',
+  supplier: 'Stuller',
   description: '',
   isActive: true,
-  // Stuller integration fields
-  stuller_item_number: '',
-  auto_update_pricing: false,
-  last_price_update: null,
+  
+  // Metal dependency configuration
+  isMetalDependent: true, // Default to true - most materials are metal dependent
+  
   // Portion tracking fields
   portionsPerUnit: 1,
-  portionType: '',
-  costPerPortion: 0
+  portionType: 'piece',
+  
+  // Multi-variant structure - Array of Stuller products
+  stullerProducts: []
 };
 
 /**
@@ -234,23 +235,49 @@ export const prepareFormDataForSubmission = (formData) => {
  * @returns {Object} Form data object
  */
 export const transformMaterialForForm = (material) => {
+  // Multi-variant structure (only format we support now)
   return {
+    // General material information from the material root
+    name: material.name || '',
     displayName: material.displayName || '',
     category: material.category || '',
-    unitCost: material.unitCost?.toString() || '',
     unitType: material.unitType || 'application',
-    karat: material.karat || '',
-    compatibleMetals: material.compatibleMetals || [],
-    supplier: material.supplier || '',
+    supplier: material.supplier || 'Stuller',
     description: material.description || '',
     isActive: material.isActive !== false,
-    stuller_item_number: material.stuller_item_number || '',
-    auto_update_pricing: material.auto_update_pricing || false,
-    last_price_update: material.last_price_update,
+    
+    // Metal dependency configuration - respect explicit values
+    isMetalDependent: material.hasOwnProperty('isMetalDependent') ? Boolean(material.isMetalDependent) : true,
+    
     portionsPerUnit: material.portionsPerUnit || 1,
-    portionType: material.portionType || '',
-    costPerPortion: material.costPerPortion || 0
+    portionType: material.portionType || 'piece',
+    unitCost: material.unitCost || 0,
+    
+    // Multi-variant structure - preserve the stullerProducts array
+    stullerProducts: material.stullerProducts || []
   };
+};
+
+/**
+ * Process form data for API submission, handling custom types
+ * @param {Object} formData - Raw form data from the form
+ * @returns {Object} Processed data ready for API
+ */
+export const processFormDataForSubmission = (formData) => {
+  // With autocomplete, custom values are stored directly in unitType and portionType
+  // No special processing needed - just clean up any empty strings
+  const processedData = { ...formData };
+  
+  // Ensure we have valid values
+  if (!processedData.unitType?.trim()) {
+    processedData.unitType = 'application';
+  }
+  
+  if (!processedData.portionType?.trim()) {
+    processedData.portionType = 'piece';
+  }
+
+  return processedData;
 };
 
 /**

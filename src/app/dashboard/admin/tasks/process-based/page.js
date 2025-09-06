@@ -578,12 +578,18 @@ export default function ProcessBasedTaskBuilder() {
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
           <SettingsIcon sx={{ mr: 2, color: 'primary.main' }} />
           <Typography variant="h4" component="h1">
-            Process-Based Task Builder
+            Task Builder
           </Typography>
+          <Chip 
+            label="Recommended" 
+            color="success" 
+            size="small" 
+            sx={{ ml: 2 }}
+          />
         </Box>
 
         <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          Create tasks by selecting individual processes and materials for accurate pricing.
+          Create tasks by selecting processes and materials for accurate pricing and better workflow management.
         </Typography>
 
         {error && (

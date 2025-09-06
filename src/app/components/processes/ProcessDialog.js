@@ -20,7 +20,6 @@ export const ProcessDialog = ({
   formData,
   setFormData,
   availableMaterials = [],
-  adminSettings = null,
   editingProcess = null,
   // Additional props for material management
   selectedMaterial,
@@ -51,7 +50,6 @@ export const ProcessDialog = ({
             formData={formData}
             setFormData={setFormData}
             availableMaterials={availableMaterials}
-            adminSettings={adminSettings}
             editingProcess={editingProcess}
             // Pass through material management props if provided
             selectedMaterial={selectedMaterial}

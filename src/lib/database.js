@@ -32,12 +32,34 @@ class Database {
     async connect() {
         if (!this._instance) {
             try {
+                console.log("🔄 Attempting MongoDB connection...");
                 await this.client.connect();
                 console.log("✅ MongoDB Connected");
                 this._instance = this.client.db(process.env.MONGO_DB_NAME || "efd-database");
             } catch (error) {
-                console.error("❌ MongoDB Connection Error:", error);
-                throw new Error("Failed to connect to MongoDB");
+                console.error("❌ MongoDB Connection Error:", error.message);
+                // Try alternative connection string without directConnection
+                if (error.message.includes('Server selection timed out')) {
+                    console.log("🔄 Retrying with alternative connection settings...");
+                    try {
+                        // Create new client with different settings
+                        const altClient = new MongoClient(process.env.MONGODB_URI.replace('directConnection=true&', ''), {
+                            minPoolSize: 2,
+                            maxPoolSize: 5,
+                            serverSelectionTimeoutMS: 15000,
+                            connectTimeoutMS: 15000,
+                        });
+                        await altClient.connect();
+                        console.log("✅ MongoDB Connected (alternative settings)");
+                        this.client = altClient;
+                        this._instance = this.client.db(process.env.MONGO_DB_NAME || "efd-database");
+                    } catch (altError) {
+                        console.error("❌ Alternative MongoDB Connection Also Failed:", altError.message);
+                        throw new Error("Failed to connect to MongoDB");
+                    }
+                } else {
+                    throw new Error("Failed to connect to MongoDB");
+                }
             }
         }
         return this._instance;

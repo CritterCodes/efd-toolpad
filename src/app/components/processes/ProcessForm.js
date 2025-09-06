@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAdminSettings } from '@/context/AdminSettingsContext';
 import {
   Grid,
   TextField,
@@ -15,7 +16,10 @@ import {
   ListItemText,
   ListItemSecondaryAction,
   IconButton,
-  Divider
+  Divider,
+  Alert,
+  Card,
+  CardContent
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import {
@@ -37,54 +41,130 @@ export const ProcessForm = ({
   formData,
   setFormData,
   availableMaterials = [],
-  adminSettings = null,
   editingProcess = null
 }) => {
-  const [selectedMaterial, setSelectedMaterial] = React.useState(null);
-  const [materialQuantity, setMaterialQuantity] = React.useState('');
+  const { adminSettings } = useAdminSettings();
+  const [materialLines, setMaterialLines] = React.useState([]);
 
-  // Handle adding material to the process
-  const handleAddMaterial = () => {
-    if (!selectedMaterial || !materialQuantity) return;
+  // Add a new material line
+  const handleAddMaterialLine = () => {
+    const newLine = {
+      id: Date.now(),
+      material: null,
+      quantity: ''
+    };
+    setMaterialLines(prev => [...prev, newLine]);
+  };
 
-    console.log('🔵 ProcessForm: Adding material to process');
-    console.log('🔵 ProcessForm: Selected material:', JSON.stringify(selectedMaterial, null, 2));
+  // Remove a material line
+  const handleRemoveMaterialLine = (lineId) => {
+    setMaterialLines(prev => prev.filter(line => line.id !== lineId));
+    // Also remove from formData.materials if it was added
+    setFormData(prev => ({
+      ...prev,
+      materials: prev.materials.filter(material => material.lineId !== lineId)
+    }));
+  };
+
+  // Update material selection for a line
+  const handleMaterialSelect = (lineId, material) => {
+    setMaterialLines(prev => prev.map(line => 
+      line.id === lineId ? { ...line, material } : line
+    ));
+  };
+
+  // Update quantity for a line
+  const handleQuantityChange = (lineId, quantity) => {
+    setMaterialLines(prev => prev.map(line => 
+      line.id === lineId ? { ...line, quantity } : line
+    ));
     
-    // Use BASE PRICE to avoid double markup - same fix as in the main page
-    const basePrice = selectedMaterial.pricing?.basePrice || selectedMaterial.costPerPortion || 0;
-    const estimatedCost = basePrice * parseFloat(materialQuantity);
+    // Update formData if both material and quantity exist
+    const line = materialLines.find(l => l.id === lineId);
+    if (line?.material && quantity) {
+      const numQuantity = parseFloat(quantity);
+      if (!isNaN(numQuantity) && numQuantity > 0) {
+        updateFormDataMaterial(lineId, line.material, numQuantity);
+      }
+    }
+  };
+
+  // Update formData.materials with the material from a line
+  const updateFormDataMaterial = (lineId, selectedMaterial, quantity) => {
+    if (!selectedMaterial || !quantity) return;
+
+    // Calculate base cost per portion using the new migrated structure
+    const portionsPerUnit = selectedMaterial.portionsPerUnit || 1;
+    let baseCostPerPortion = 0;
     
-    console.log('🔵 ProcessForm: costPerPortion (marked up):', selectedMaterial.costPerPortion);
-    console.log('🔵 ProcessForm: basePrice (no markup):', basePrice);
-    console.log('🔵 ProcessForm: Using basePrice to avoid double markup');
-    console.log('🔵 ProcessForm: Calculation:', basePrice, '×', materialQuantity, '=', estimatedCost);
+    // For universal materials (not metal dependent)
+    if (!selectedMaterial.isMetalDependent) {
+      // First check for migrated costPerPortion in stullerProducts
+      if (selectedMaterial.stullerProducts && selectedMaterial.stullerProducts.length > 0) {
+        const firstProduct = selectedMaterial.stullerProducts[0];
+        if (firstProduct.costPerPortion !== undefined) {
+          baseCostPerPortion = firstProduct.costPerPortion;
+        } else {
+          // Fallback to calculating from stullerPrice
+          baseCostPerPortion = (firstProduct.stullerPrice || 0) / portionsPerUnit;
+        }
+      }
+      // Fallback to unitCost calculation if no stullerProducts
+      else if (selectedMaterial.unitCost && selectedMaterial.unitCost > 0) {
+        baseCostPerPortion = selectedMaterial.unitCost / portionsPerUnit;
+      }
+    }
+    // For metal-dependent materials
+    else if (selectedMaterial.stullerProducts && selectedMaterial.stullerProducts.length > 0) {
+      // Use the lowest costPerPortion if available (from migration)
+      const costPerPortions = selectedMaterial.stullerProducts
+        .map(p => p.costPerPortion)
+        .filter(cost => cost !== undefined && cost > 0);
+      
+      if (costPerPortions.length > 0) {
+        baseCostPerPortion = Math.min(...costPerPortions);
+      } else {
+        // Fallback to calculating from stullerPrice (old structure)
+        const stullerPrices = selectedMaterial.stullerProducts
+          .map(p => p.stullerPrice || 0)
+          .filter(price => price > 0);
+        if (stullerPrices.length > 0) {
+          baseCostPerPortion = Math.min(...stullerPrices) / portionsPerUnit;
+        }
+      }
+    }
+    // Legacy fallback for variant-based materials
+    else if (selectedMaterial.variants && selectedMaterial.variants.length > 0) {
+      const baseVariant = selectedMaterial.variants[0];
+      baseCostPerPortion = baseVariant.price / portionsPerUnit;
+    }
+    
+    const baseTotalCost = baseCostPerPortion * quantity;
     
     const newMaterial = {
+      lineId: lineId,
       materialId: selectedMaterial._id,
       materialName: selectedMaterial.displayName,
       materialSku: selectedMaterial.sku,
-      quantity: parseFloat(materialQuantity),
+      quantity: quantity,
       unit: selectedMaterial.portionType || 'portion',
-      estimatedCost: estimatedCost
+      
+      // Include Stuller products for metal-dependent materials
+      stullerProducts: selectedMaterial.stullerProducts || [],
+      
+      // Base cost calculations (will be adjusted per metal type during pricing)
+      portionsPerUnit: portionsPerUnit,
+      baseCostPerPortion: baseCostPerPortion,
+      estimatedCost: baseTotalCost,
+      
+      // Material properties for metal dependency calculation
+      isMetalDependent: selectedMaterial.isMetalDependent || false,
+      metalTypes: selectedMaterial.metalTypes || []
     };
 
-    console.log('🔵 ProcessForm: New material being added:', JSON.stringify(newMaterial, null, 2));
-
     setFormData(prev => ({
       ...prev,
-      materials: [...prev.materials, newMaterial]
-    }));
-
-    // Reset form
-    setSelectedMaterial(null);
-    setMaterialQuantity('');
-  };
-
-  // Handle removing material from the process
-  const handleRemoveMaterial = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      materials: prev.materials.filter((_, i) => i !== index)
+      materials: prev.materials.filter(m => m.lineId !== lineId).concat(newMaterial)
     }));
   };
 
@@ -94,7 +174,7 @@ export const ProcessForm = ({
       return null;
     }
 
-    const costBreakdown = calculateProcessCost(formData, adminSettings);
+    const costBreakdown = calculateProcessCost(formData, adminSettings, availableMaterials);
     return costBreakdown;
   };
 
@@ -167,107 +247,6 @@ export const ProcessForm = ({
         />
       </Grid>
 
-      {/* Metal Information */}
-      <Grid item xs={12} sx={{ mt: 2 }}>
-        <Typography variant="h6" gutterBottom>
-          Metal Information
-        </Typography>
-      </Grid>
-
-      <Grid item xs={12} sm={6}>
-        <FormControl fullWidth>
-          <InputLabel>Metal Type</InputLabel>
-          <Select
-            value={formData.metalType}
-            label="Metal Type"
-            onChange={(e) => {
-              const newMetalType = e.target.value;
-              setFormData({ 
-                ...formData, 
-                metalType: newMetalType,
-                // Clear karat selection when metal type changes
-                karat: ''
-              });
-            }}
-          >
-            {METAL_TYPES.map((type) => (
-              <MenuItem key={type.value} value={type.value}>
-                {type.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      </Grid>
-
-      <Grid item xs={12} sm={6}>
-        <FormControl fullWidth>
-          <InputLabel>Karat/Purity</InputLabel>
-          <Select
-            value={formData.karat}
-            label="Karat/Purity"
-            onChange={(e) => setFormData({ ...formData, karat: e.target.value })}
-            disabled={!formData.metalType}
-          >
-            {getKaratOptionsForMetal(formData.metalType).map((karat) => (
-              <MenuItem key={karat.value} value={karat.value}>
-                {karat.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      </Grid>
-
-      <Grid item xs={12} sm={6}>
-        <TextField
-          fullWidth
-          type="number"
-          label="Metal Complexity Multiplier"
-          value={formData.metalComplexityMultiplier}
-          onChange={(e) => setFormData({ ...formData, metalComplexityMultiplier: e.target.value })}
-          helperText="Pricing multiplier for this metal type (1.0 = standard)"
-          inputProps={{
-            min: 0.1,
-            max: 5.0,
-            step: 0.1
-          }}
-        />
-      </Grid>
-
-      {/* Cost Preview */}
-      <Grid item xs={12} sm={6}>
-        {costPreview && (
-          <Box sx={{ p: 2, bgcolor: 'success.light', borderRadius: 1, color: 'success.contrastText' }}>
-            <Typography variant="subtitle2" gutterBottom>
-              Real-Time Cost Preview
-            </Typography>
-            <Typography variant="body2">
-              <strong>Labor:</strong> ${costPreview.laborCost.toFixed(2)} 
-              <br />
-              <Typography component="span" variant="caption" color="success.contrastText" sx={{ opacity: 0.8 }}>
-                {formData.laborHours}hrs × ${costPreview.hourlyRate}/hr ({formData.skillLevel} rate)
-              </Typography>
-            </Typography>
-            <Typography variant="body2" sx={{ mt: 1 }}>
-              <strong>Materials:</strong> ${costPreview.materialsCost.toFixed(2)}
-              <br />
-              <Typography component="span" variant="caption" color="success.contrastText" sx={{ opacity: 0.8 }}>
-                {formData.materials.length} material(s), base cost: ${costPreview.baseMaterialsCost.toFixed(2)}
-                {costPreview.materialMarkup !== 1.0 && ` with ${((costPreview.materialMarkup - 1) * 100).toFixed(0)}% markup`}
-              </Typography>
-            </Typography>
-            {costPreview.complexityMultiplier !== 1.0 && (
-              <Typography variant="body2" sx={{ mt: 1 }}>
-                <strong>Metal Complexity:</strong> ×{costPreview.complexityMultiplier}
-              </Typography>
-            )}
-            <Divider sx={{ my: 1, bgcolor: 'success.contrastText', opacity: 0.3 }} />
-            <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'success.contrastText' }}>
-              Total: ${costPreview.totalCost.toFixed(2)}
-            </Typography>
-          </Box>
-        )}
-      </Grid>
-
       {/* Materials Required */}
       <Grid item xs={12} sx={{ mt: 2 }}>
         <Typography variant="h6" gutterBottom>
@@ -277,77 +256,136 @@ export const ProcessForm = ({
           Add materials that are consumed during this process. Leave empty if no materials are required (labor-only process).
         </Typography>
         
-        {/* Add Material Form */}
-        <Box sx={{ mb: 2, p: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
-          <Grid container spacing={2} alignItems="end">
-            <Grid item xs={12} sm={6}>
-              <Autocomplete
-                options={Array.isArray(availableMaterials) ? availableMaterials : []}
-                getOptionLabel={(option) => `${option.displayName} (${option.sku})`}
-                value={selectedMaterial}
-                onChange={(event, newValue) => setSelectedMaterial(newValue)}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Select Material"
-                    variant="outlined"
-                    size="small"
-                  />
-                )}
-              />
-            </Grid>
-            <Grid item xs={12} sm={3}>
-              <TextField
-                fullWidth
-                size="small"
-                type="number"
-                label="Portions Needed"
-                value={materialQuantity}
-                onChange={(e) => setMaterialQuantity(e.target.value)}
-                inputProps={{ min: 0, step: 0.1 }}
-                helperText="Number of portions"
-              />
-            </Grid>
-            <Grid item xs={12} sm={3}>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<AddIcon />}
-                onClick={handleAddMaterial}
-                disabled={!selectedMaterial || !materialQuantity}
-              >
-                Add
-              </Button>
-            </Grid>
-          </Grid>
+        {/* Add Material Button */}
+        <Box sx={{ mb: 2 }}>
+          <Button
+            variant="outlined"
+            startIcon={<AddIcon />}
+            onClick={handleAddMaterialLine}
+            size="small"
+          >
+            Add Material
+          </Button>
         </Box>
 
-        {/* Materials List */}
-        {formData.materials.length > 0 ? (
-          <List dense>
-            {formData.materials.map((material, index) => (
-              <ListItem key={index} divider>
-                <ListItemText
-                  primary={`${material.materialName} (${material.materialSku})`}
-                  secondary={`${material.quantity} ${material.unit}${material.quantity !== 1 ? 's' : ''} - Est. Cost: $${material.estimatedCost?.toFixed(2) || '0.00'}`}
+        {/* Material Lines */}
+        {materialLines.map((line, index) => (
+          <Box 
+            key={line.id} 
+            sx={{ 
+              mb: 2, 
+              p: 2, 
+              border: '1px solid #e0e0e0', 
+              borderRadius: 1,
+              bgcolor: 'grey.50'
+            }}
+          >
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={6}>
+                <Autocomplete
+                  options={availableMaterials}
+                  getOptionLabel={(option) => `${option.displayName} (${option.sku})`}
+                  value={line.material}
+                  onChange={(event, newValue) => handleMaterialSelect(line.id, newValue)}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Select Material"
+                      variant="outlined"
+                      size="small"
+                    />
+                  )}
+                  renderOption={(props, option) => {
+                    const { key, ...otherProps } = props;
+                    return (
+                      <li key={key} {...otherProps}>
+                        <Box>
+                          <Typography variant="body2">
+                            {option.displayName}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            SKU: {option.sku} | {option.variants?.length || 0} variants
+                          </Typography>
+                        </Box>
+                      </li>
+                    );
+                  }}
                 />
-                <ListItemSecondaryAction>
-                  <IconButton 
-                    edge="end" 
-                    size="small" 
-                    onClick={() => handleRemoveMaterial(index)}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </ListItemSecondaryAction>
-              </ListItem>
-            ))}
-          </List>
-        ) : (
-          <Box sx={{ p: 2, textAlign: 'center', bgcolor: 'grey.50', borderRadius: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              No materials added - this will be a labor-only process
+              </Grid>
+              <Grid item xs={8} md={4}>
+                <TextField
+                  size="small"
+                  label="Quantity"
+                  type="number"
+                  value={line.quantity}
+                  onChange={(e) => handleQuantityChange(line.id, e.target.value)}
+                  inputProps={{ min: 0.01, step: 0.01 }}
+                  helperText={line.material ? `per ${line.material.portionType || 'portion'}` : ''}
+                />
+              </Grid>
+              <Grid item xs={4} md={2}>
+                <IconButton 
+                  size="small" 
+                  color="error"
+                  onClick={() => handleRemoveMaterialLine(line.id)}
+                >
+                  <DeleteIcon />
+                </IconButton>
+              </Grid>
+            </Grid>
+            
+            {/* Show variant info when material is selected */}
+            {line.material && (
+              <Box sx={{ mt: 1, p: 1, bgcolor: 'primary.50', borderRadius: 1 }}>
+                <Typography variant="caption" color="primary.main">
+                  {!line.material.isMetalDependent ? (
+                    '✓ Universal material - works with all metal types'
+                  ) : line.material.stullerProducts?.length > 0 ? (
+                    `✓ All metal type variants will be included (${line.material.stullerProducts.length} variants available)`
+                  ) : (
+                    '✓ Material selected'
+                  )}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        ))}
+
+        {/* Current Materials List */}
+        {formData.materials.length > 0 && (
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              Added Materials:
             </Typography>
+            <List dense>
+              {formData.materials.map((material, index) => (
+                <ListItem key={index} divider sx={{ bgcolor: 'success.50' }}>
+                  <ListItemText
+                    primary={`${material.materialName} (${material.materialSku})`}
+                    secondary={
+                      <React.Fragment>
+                        <Box component="span" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.875rem' }}>
+                          {material.quantity} {material.unit}${material.quantity !== 1 ? 's' : ''} - Base Est. Cost: ${material.estimatedCost?.toFixed(2) || '0.00'}
+                        </Box>
+                        {material.isMetalDependent === false ? (
+                          <Box component="span" sx={{ display: 'block', color: 'secondary.main', fontSize: '0.75rem' }}>
+                            Universal Material (works with all metal types)
+                          </Box>
+                        ) : material.stullerProducts && material.stullerProducts.length > 0 ? (
+                          <Box component="span" sx={{ display: 'block', color: 'primary.main', fontSize: '0.75rem' }}>
+                            All variants included: {material.stullerProducts.map(p => `${p.metalType || 'Unknown'} ${p.karat || ''}`.trim()).join(', ')}
+                          </Box>
+                        ) : (
+                          <Box component="span" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.75rem' }}>
+                            Metal-dependent material
+                          </Box>
+                        )}
+                      </React.Fragment>
+                    }
+                  />
+                </ListItem>
+              ))}
+            </List>
           </Box>
         )}
       </Grid>
@@ -363,6 +401,97 @@ export const ProcessForm = ({
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           helperText="Optional detailed description of this process"
         />
+      </Grid>
+
+      {/* Cost Preview - Moved to Bottom */}
+      <Grid item xs={12}>
+        {costPreview && (
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Process Cost Preview
+            </Typography>
+            
+            {/* Universal Process Cost */}
+            {!costPreview.isMetalDependent && costPreview.universal && (
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Universal Process
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Labor: {formData.laborHours}hrs × ${costPreview.universal.hourlyRate?.toFixed(2) || '0'}/hr ({formData.skillLevel} rate) = ${costPreview.universal.laborCost?.toFixed(2) || '0.00'}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Materials: ${costPreview.universal.materialsCost?.toFixed(2) || '0.00'}
+                  </Typography>
+                  <Divider sx={{ my: 1 }} />
+                  <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                    Total: ${costPreview.universal.totalCost?.toFixed(2) || '0.00'}
+                  </Typography>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Metal-Dependent Process Costs - Card Grid */}
+            {costPreview.isMetalDependent && costPreview.metalPrices && (
+              <Box>
+                {/* Base Labor Info */}
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  <Typography variant="body2">
+                    <strong>Base Labor:</strong> {formData.laborHours}hrs × ${costPreview.summary?.baseHourlyRate || 0}/hr ({formData.skillLevel} rate)
+                    <br />
+                    Metal variants found in materials: {costPreview.relevantVariantLabels?.join(', ') || 'none'}
+                  </Typography>
+                </Alert>
+                
+                {/* Metal Type Cards Grid */}
+                <Box sx={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
+                  gap: 2,
+                  mt: 2 
+                }}>
+                  {Object.entries(costPreview.metalPrices).map(([variantKey, prices]) => (
+                    <Card key={variantKey} elevation={2}>
+                      <CardContent>
+                        <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 'bold' }}>
+                          {prices.metalLabel}
+                        </Typography>
+                        
+                        <Box sx={{ mb: 2 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            Materials Total: <strong>${prices.materialsCost?.toFixed(2) || '0.00'}</strong>
+                          </Typography>
+                          
+                          {/* Show individual material costs if available */}
+                          {prices.materialBreakdown && (
+                            <Box sx={{ ml: 1, mt: 1 }}>
+                              {prices.materialBreakdown.map((item, idx) => (
+                                <Typography key={idx} variant="caption" display="block" color="text.secondary">
+                                  • {item.name}: {item.quantity} × ${item.unitPrice?.toFixed(2)} = ${item.total?.toFixed(2)}
+                                </Typography>
+                              ))}
+                            </Box>
+                          )}
+                        </Box>
+
+                        <Divider sx={{ my: 1 }} />
+                        
+                        <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'success.main' }}>
+                          Total: ${prices.totalCost?.toFixed(2) || '0.00'}
+                        </Typography>
+                        
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                          (Materials + ${prices.laborCost?.toFixed(2) || '0.00'} labor{prices.metalComplexity !== 1.0 ? ` ×${prices.metalComplexity}` : ''})
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Box>
+              </Box>
+            )}
+          </Box>
+        )}
       </Grid>
     </Grid>
   );

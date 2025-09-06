@@ -5,7 +5,7 @@ import { useMaterialsManager } from '@/hooks/useMaterialsManager';
 import { formatCategoryDisplay } from '@/utils/materials.util';
 import {
   MaterialsGrid,
-  MaterialDialog,
+  MaterialDialogNew as MaterialDialog,
   DeleteConfirmDialog,
   EnhancedMaterialsHeader,
   MaterialsCategoryTabs

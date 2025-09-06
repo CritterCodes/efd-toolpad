@@ -35,6 +35,31 @@ export async function GET(request) {
       business: settings.business,
       version: settings.version,
       updatedAt: settings.updatedAt,
+      // Add labor rates structure for process calculations
+      laborRates: {
+        baseRate: settings.pricing?.wage || 50,
+        basic: (settings.pricing?.wage || 50) * 0.75,
+        standard: settings.pricing?.wage || 50,
+        advanced: (settings.pricing?.wage || 50) * 1.25,
+        expert: (settings.pricing?.wage || 50) * 1.5
+      },
+      // Add legacy fields for compatibility
+      wage: settings.pricing?.wage || 50,
+      materialMarkup: settings.pricing?.materialMarkup || 1.5,
+      administrativeFee: settings.pricing?.administrativeFee || 0.10,
+      businessFee: settings.pricing?.businessFee || 0.15,
+      consumablesFee: settings.pricing?.consumablesFee || 0.05,
+      metalComplexityMultipliers: settings.metalComplexityMultipliers || {
+        gold: 1.0,
+        silver: 0.9,
+        platinum: 1.3,
+        palladium: 1.2,
+        copper: 0.8,
+        brass: 0.7,
+        stainless: 0.8,
+        titanium: 1.4,
+        other: 1.0
+      },
       security: {
         requiresCode: settings.security?.requiresCodeForPricing || true,
         codeExpired: settings.security?.expiresAt ? new Date() > new Date(settings.security.expiresAt) : true

@@ -211,14 +211,43 @@ class MaterialsService {
    * @private
    */
   _processFormData(formData) {
+    // Multi-variant structure (only format we support now)
     return {
-      ...formData,
+      // General material information
       name: this.generateName(formData.displayName),
-      unitCost: parseFloat(formData.unitCost),
-      karat: formData.karat,
+      displayName: formData.displayName,
+      category: formData.category,
+      description: formData.description,
+      unitType: formData.unitType,
+      supplier: formData.supplier,
+      isActive: formData.isActive !== false,
+      isMetalDependent: formData.hasOwnProperty('isMetalDependent') ? Boolean(formData.isMetalDependent) : true,
+      
+      // Portion information
       portionsPerUnit: parseInt(formData.portionsPerUnit) || 1,
       portionType: formData.portionType,
-      costPerPortion: parseFloat(formData.costPerPortion) || 0
+      
+      // Base pricing (for non-metal dependent materials)
+      unitCost: parseFloat(formData.unitCost) || 0,
+      
+      // Multi-variant structure - Array of Stuller products
+      stullerProducts: formData.stullerProducts?.map(product => ({
+        id: product.id,
+        stullerItemNumber: product.stullerItemNumber,
+        metalType: product.metalType,
+        karat: product.karat,
+        stullerPrice: parseFloat(product.stullerPrice) || 0,
+        markupRate: parseFloat(product.markupRate) || 1.5,
+        markedUpPrice: parseFloat(product.markedUpPrice) || 0,
+        unitCost: parseFloat(product.markedUpPrice) || 0, // For compatibility
+        sku: product.sku || '',
+        description: product.description || '',
+        weight: parseFloat(product.weight) || 0,
+        dimensions: product.dimensions || '',
+        addedAt: product.addedAt || new Date().toISOString(),
+        lastUpdated: new Date().toISOString(),
+        autoUpdatePricing: product.autoUpdatePricing !== false
+      })) || []
     };
   }
 

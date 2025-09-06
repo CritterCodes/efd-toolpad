@@ -1,0 +1,302 @@
+[
+    {
+        "_id": {
+            "$oid": "6899448146c839751de619fa"
+        },
+        "displayName": "Solder",
+        "category": "soldering",
+        "laborHours": 0.12,
+        "skillLevel": "standard",
+        "description": "",
+        "materials": [
+            {
+                "lineId": 1754874981197,
+                "materialId": "6897a9836d92aab5eed8db90",
+                "materialName": "Hard Solder Sheet",
+                "materialSku": "MT-SO-G774",
+                "quantity": 1,
+                "unit": "piece",
+                "stullerProducts": [
+                    {
+                        "id": "1754769640757",
+                        "stullerItemNumber": "SOLDER:46017:P",
+                        "metalType": "sterling_silver",
+                        "karat": "925",
+                        "stullerPrice": 4.11,
+                        "markupRate": 2,
+                        "markedUpPrice": 8.22,
+                        "sku": "",
+                        "description": "Hard Solder Sheet",
+                        "weight": 0,
+                        "dimensions": "",
+                        "addedAt": "2025-08-09T20:00:40.757Z",
+                        "lastUpdated": "2025-08-10T22:31:51.231Z",
+                        "autoUpdatePricing": true,
+                        "costPerPortion": 0.137,
+                        "pricePerPortion": 0.274
+                    },
+                    {
+                        "id": "1754769657382",
+                        "stullerItemNumber": "SOLDER:77424:P",
+                        "metalType": "yellow_gold",
+                        "karat": "10K",
+                        "stullerPrice": 82.56,
+                        "markupRate": 2,
+                        "markedUpPrice": 165.12,
+                        "sku": "",
+                        "description": "Hard Solder Sheet",
+                        "weight": 0,
+                        "dimensions": "",
+                        "addedAt": "2025-08-09T20:00:57.382Z",
+                        "lastUpdated": "2025-08-10T22:31:51.231Z",
+                        "autoUpdatePricing": true,
+                        "costPerPortion": 2.7520000000000002,
+                        "pricePerPortion": 5.5040000000000004
+                    },
+                    {
+                        "id": "1754769671017",
+                        "stullerItemNumber": "SOLDER:77428:P",
+                        "metalType": "white_gold",
+                        "karat": "10K",
+                        "stullerPrice": 83.2,
+                        "markupRate": 2,
+                        "markedUpPrice": 166.4,
+                        "sku": "",
+                        "description": "Hard Solder Sheet",
+                        "weight": 0,
+                        "dimensions": "",
+                        "addedAt": "2025-08-09T20:01:11.017Z",
+                        "lastUpdated": "2025-08-10T22:31:51.231Z",
+                        "autoUpdatePricing": true,
+                        "costPerPortion": 2.7733333333333334,
+                        "pricePerPortion": 5.546666666666667
+                    },
+                    {
+                        "id": "1754769687763",
+                        "stullerItemNumber": "SOLDER:9947:P",
+                        "metalType": "rose_gold",
+                        "karat": "14K",
+                        "stullerPrice": 112.14,
+                        "markupRate": 2,
+                        "markedUpPrice": 224.28,
+                        "sku": "",
+                        "description": "Hard Solder Sheet",
+                        "weight": 0,
+                        "dimensions": "",
+                        "addedAt": "2025-08-09T20:01:27.763Z",
+                        "lastUpdated": "2025-08-10T22:31:51.232Z",
+                        "autoUpdatePricing": true,
+                        "costPerPortion": 3.738,
+                        "pricePerPortion": 7.476
+                    },
+                    {
+                        "id": "1754769707225",
+                        "stullerItemNumber": "SOLDER:77436:P",
+                        "metalType": "white_gold",
+                        "karat": "14K",
+                        "stullerPrice": 111.62,
+                        "markupRate": 2,
+                        "markedUpPrice": 223.24,
+                        "sku": "",
+                        "description": "Hard Solder Sheet",
+                        "weight": 0,
+                        "dimensions": "",
+                        "addedAt": "2025-08-09T20:01:47.225Z",
+                        "lastUpdated": "2025-08-10T22:31:51.232Z",
+                        "autoUpdatePricing": true,
+                        "costPerPortion": 3.720666666666667,
+                        "pricePerPortion": 7.441333333333334
+                    },
+                    {
+                        "id": "1754769731610",
+                        "stullerItemNumber": "SOLDER:77433:P",
+                        "metalType": "yellow_gold",
+                        "karat": "14K",
+                        "stullerPrice": 111.41,
+                        "markupRate": 2,
+                        "markedUpPrice": 222.82,
+                        "sku": "",
+                        "description": "Hard Solder Sheet",
+                        "weight": 0,
+                        "dimensions": "",
+                        "addedAt": "2025-08-09T20:02:11.610Z",
+                        "lastUpdated": "2025-08-10T22:31:51.232Z",
+                        "autoUpdatePricing": true,
+                        "costPerPortion": 3.7136666666666667,
+                        "pricePerPortion": 7.427333333333333
+                    },
+                    {
+                        "id": "1754769754796",
+                        "stullerItemNumber": "SOLDER:191:P",
+                        "metalType": "rose_gold",
+                        "karat": "18K",
+                        "stullerPrice": 141.43,
+                        "markupRate": 2,
+                        "markedUpPrice": 282.86,
+                        "sku": "",
+                        "description": "Hard Solder Sheet",
+                        "weight": 0,
+                        "dimensions": "",
+                        "addedAt": "2025-08-09T20:02:34.796Z",
+                        "lastUpdated": "2025-08-10T22:31:51.233Z",
+                        "autoUpdatePricing": true,
+                        "costPerPortion": 4.714333333333333,
+                        "pricePerPortion": 9.428666666666667
+                    },
+                    {
+                        "id": "1754769774041",
+                        "stullerItemNumber": "SOLDER:77441:P",
+                        "metalType": "white_gold",
+                        "karat": "18K",
+                        "stullerPrice": 140.52,
+                        "markupRate": 2,
+                        "markedUpPrice": 281.04,
+                        "sku": "",
+                        "description": "Hard Solder Sheet",
+                        "weight": 0,
+                        "dimensions": "",
+                        "addedAt": "2025-08-09T20:02:54.041Z",
+                        "lastUpdated": "2025-08-10T22:31:51.233Z",
+                        "autoUpdatePricing": true,
+                        "costPerPortion": 4.684,
+                        "pricePerPortion": 9.368
+                    },
+                    {
+                        "id": "1754769789499",
+                        "stullerItemNumber": "SOLDER:77438:P",
+                        "metalType": "yellow_gold",
+                        "karat": "18K",
+                        "stullerPrice": 140.56,
+                        "markupRate": 2,
+                        "markedUpPrice": 281.12,
+                        "sku": "",
+                        "description": "Hard Solder Sheet",
+                        "weight": 0,
+                        "dimensions": "",
+                        "addedAt": "2025-08-09T20:03:09.499Z",
+                        "lastUpdated": "2025-08-10T22:31:51.233Z",
+                        "autoUpdatePricing": true,
+                        "costPerPortion": 4.685333333333333,
+                        "pricePerPortion": 9.370666666666667
+                    }
+                ],
+                "portionsPerUnit": 30,
+                "baseCostPerPortion": 0.137,
+                "estimatedCost": 0.137,
+                "isMetalDependent": true,
+                "metalTypes": [
+                    "sterling_silver",
+                    "yellow_gold",
+                    "white_gold",
+                    "rose_gold"
+                ]
+            }
+        ],
+        "isActive": true,
+        "createdAt": {
+            "$date": "2025-08-11T01:16:49.186Z"
+        },
+        "updatedAt": {
+            "$date": "2025-08-11T01:16:49.186Z"
+        },
+        "pricing": {
+            "laborCost": 4.8,
+            "baseMaterialsCost": 0.137,
+            "materialsCost": {
+                "Sterling Silver 925": 0.137,
+                "Yellow Gold 10K": 2.7520000000000002,
+                "White Gold 10K": 2.7733333333333334,
+                "Rose Gold 14K": 3.738,
+                "White Gold 14K": 3.720666666666667,
+                "Yellow Gold 14K": 3.7136666666666667,
+                "Rose Gold 18K": 4.714333333333333,
+                "White Gold 18K": 4.684,
+                "Yellow Gold 18K": 4.685333333333333
+            },
+            "materialMarkup": 2,
+            "totalCost": {
+                "Sterling Silver 925": 6.1370000000000005,
+                "Yellow Gold 10K": 8.752,
+                "White Gold 10K": 8.773333333333333,
+                "Rose Gold 14K": 9.738,
+                "White Gold 14K": 9.720666666666666,
+                "Yellow Gold 14K": 9.713666666666667,
+                "Rose Gold 18K": 10.714333333333332,
+                "White Gold 18K": 10.684000000000001,
+                "Yellow Gold 18K": 10.685333333333332
+            },
+            "hourlyRate": 40,
+            "calculatedAt": {
+                "$date": "2025-08-11T01:16:49.185Z"
+            }
+        },
+        "createdBy": "jacobaengel55@gmail.com"
+    },
+    {
+        "_id": {
+            "$oid": "689825f6366cdb98eb75911c"
+        },
+        "sku": "PR-RH-S687",
+        "displayName": "Rhodium Plating",
+        "category": "rhodium_plating",
+        "laborHours": 0.12,
+        "skillLevel": "standard",
+        "metalType": "",
+        "karat": "",
+        "metalComplexityMultiplier": 1,
+        "description": "",
+        "materials": [
+            {
+                "lineId": 1754801635091,
+                "materialId": "689818aa366cdb98eb75911b",
+                "materialName": "Rhodium Bath",
+                "materialSku": "MT-OT-G109",
+                "quantity": 1,
+                "unit": "dip",
+                "stullerProducts": [
+                    {
+                        "id": "1754798181841",
+                        "stullerItemNumber": "45-4141:147619:T",
+                        "metalType": null,
+                        "karat": null,
+                        "stullerPrice": 343.02,
+                        "markupRate": 2,
+                        "markedUpPrice": 686.04,
+                        "unitCost": 686.04,
+                        "sku": "",
+                        "description": "Stuller Product",
+                        "weight": 0,
+                        "dimensions": "",
+                        "addedAt": "2025-08-10T03:56:21.841Z",
+                        "lastUpdated": "2025-08-10T04:26:40.802Z",
+                        "autoUpdatePricing": true
+                    }
+                ],
+                "portionsPerUnit": 500,
+                "baseCostPerPortion": 0.68604,
+                "estimatedCost": 0.68604,
+                "isMetalDependent": false,
+                "metalTypes": []
+            }
+        ],
+        "pricing": {
+            "laborCost": 4.8,
+            "baseMaterialsCost": 0.69,
+            "materialsCost": 1.37,
+            "materialMarkup": 2,
+            "totalCost": 6.17,
+            "hourlyRate": 40,
+            "calculatedAt": {
+                "$date": "2025-08-10T04:54:14.284Z"
+            }
+        },
+        "isActive": true,
+        "createdBy": "jacobaengel55@gmail.com",
+        "createdAt": {
+            "$date": "2025-08-10T04:54:14.284Z"
+        },
+        "updatedAt": {
+            "$date": "2025-08-10T04:54:14.284Z"
+        }
+    }
+]

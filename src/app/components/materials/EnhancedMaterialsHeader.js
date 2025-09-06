@@ -25,7 +25,8 @@ import {
   Search as SearchIcon,
   Clear as ClearIcon,
   Sort as SortIcon,
-  Assessment as StatsIcon
+  Assessment as StatsIcon,
+  CloudDownload as StullerIcon
 } from '@mui/icons-material';
 import { METAL_OPTIONS, KARAT_OPTIONS } from '@/utils/materials.util';
 

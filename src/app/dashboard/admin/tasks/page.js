@@ -226,14 +226,14 @@ export default function TasksPage() {
               onClick={() => router.push('/dashboard/admin/tasks/create')}
               size="large"
             >
-              Create Task
+              Create Universal Task
             </Button>
             <Button
               variant="outlined"
               onClick={handleCreateTask}
               size="large"
             >
-              Create Menu
+              More Options
             </Button>
           </Stack>
         </Box>
@@ -421,9 +421,9 @@ export default function TasksPage() {
                 <Button
                   variant="contained"
                   startIcon={<AddIcon />}
-                  onClick={handleCreateTask}
+                  onClick={() => router.push('/dashboard/admin/tasks/create')}
                 >
-                  Create Task
+                  Create Universal Task
                 </Button>
               </Box>
             </CardContent>
@@ -437,9 +437,9 @@ export default function TasksPage() {
                     height: '100%',
                     display: 'flex',
                     flexDirection: 'column',
-                    opacity: task.isActive ? 1 : 0.7,
-                    borderLeft: task.isActive ? 3 : 1, 
-                    borderLeftColor: task.isActive ? 'primary.main' : 'grey.300'
+                    opacity: task.display?.isActive ?? task.isActive ? 1 : 0.7,
+                    borderLeft: task.display?.isActive ?? task.isActive ? 3 : 1, 
+                    borderLeftColor: task.display?.isActive ?? task.isActive ? 'primary.main' : 'grey.300'
                   }}
                 >
                   <CardContent sx={{ flexGrow: 1 }}>
@@ -447,11 +447,21 @@ export default function TasksPage() {
                       <Typography variant="h6" component="h2" noWrap sx={{ flexGrow: 1, mr: 1 }}>
                         {task.title}
                       </Typography>
-                      <Chip 
-                        label={(task.display?.isActive ?? task.isActive) ? 'Active' : 'Inactive'}
-                        color={(task.display?.isActive ?? task.isActive) ? 'success' : 'default'}
-                        size="small"
-                      />
+                      <Box display="flex" gap={0.5}>
+                        <Chip 
+                          label={(task.display?.isActive ?? task.isActive) ? 'Active' : 'Inactive'}
+                          color={(task.display?.isActive ?? task.isActive) ? 'success' : 'default'}
+                          size="small"
+                        />
+                        {task.isUniversal && (
+                          <Chip 
+                            label="Universal"
+                            color="primary"
+                            size="small"
+                            variant="outlined"
+                          />
+                        )}
+                      </Box>
                     </Box>
                     
                     <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>
@@ -465,6 +475,14 @@ export default function TasksPage() {
                         size="small"
                         icon={<CategoryIcon />}
                       />
+                      {task.subcategory && (
+                        <Chip 
+                          label={task.subcategory}
+                          variant="outlined"
+                          size="small"
+                          color="secondary"
+                        />
+                      )}
                       {task.metalType && (
                         <Chip 
                           label={task.metalType}
@@ -475,23 +493,63 @@ export default function TasksPage() {
                       )}
                     </Box>
 
-                    <Box display="flex" justifyContent="space-between" alignItems="center">
-                      <Box display="flex" align="center" gap={0.5}>
-                        <MoneyIcon fontSize="small" color="success" />
-                        <Typography variant="h6" color="success.main">
-                          ${(task.pricing?.retailPrice || task.basePrice)?.toFixed(2) || '0.00'}
+                    {/* Pricing Display - Universal vs Legacy */}
+                    {task.universalPricing ? (
+                      <Box>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Multi-Metal Pricing:
                         </Typography>
-                      </Box>
-                      
-                      {(task.pricing?.totalLaborHours || task.laborHours) && (
-                        <Box display="flex" alignItems="center" gap={0.5}>
-                          <TimeIcon fontSize="small" color="action" />
+                        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
                           <Typography variant="body2" color="text.secondary">
-                            {task.pricing?.totalLaborHours || task.laborHours}h
+                            Price Range:
+                          </Typography>
+                          <Typography variant="body2" color="success.main" fontWeight="bold">
+                            ${Math.min(...Object.values(task.universalPricing).map(p => p.retailPrice || 0)).toFixed(2)} - 
+                            ${Math.max(...Object.values(task.universalPricing).map(p => p.retailPrice || 0)).toFixed(2)}
                           </Typography>
                         </Box>
-                      )}
-                    </Box>
+                        <Box display="flex" justifyContent="space-between" alignItems="center">
+                          <Typography variant="body2" color="text.secondary">
+                            Metal Options:
+                          </Typography>
+                          <Typography variant="body2" color="primary.main">
+                            {Object.keys(task.universalPricing).length} variants
+                          </Typography>
+                        </Box>
+                      </Box>
+                    ) : (
+                      <Box display="flex" justifyContent="space-between" alignItems="center">
+                        <Box display="flex" align="center" gap={0.5}>
+                          <MoneyIcon fontSize="small" color="success" />
+                          <Typography variant="h6" color="success.main">
+                            ${(task.pricing?.retailPrice || task.basePrice)?.toFixed(2) || '0.00'}
+                          </Typography>
+                        </Box>
+                        
+                        {(task.pricing?.totalLaborHours || task.laborHours) && (
+                          <Box display="flex" alignItems="center" gap={0.5}>
+                            <TimeIcon fontSize="small" color="action" />
+                            <Typography variant="body2" color="text.secondary">
+                              {task.pricing?.totalLaborHours || task.laborHours}h
+                            </Typography>
+                          </Box>
+                        )}
+                      </Box>
+                    )}
+
+                    {/* Service Information */}
+                    {task.service && (
+                      <Box mt={2} pt={1} borderTop={1} borderColor="divider">
+                        <Box display="flex" justifyContent="space-between" alignItems="center">
+                          <Typography variant="body2" color="text.secondary">
+                            Est. {task.service.estimatedDays} days
+                          </Typography>
+                          {task.service.requiresApproval && (
+                            <Chip label="Approval Required" size="small" color="warning" variant="outlined" />
+                          )}
+                        </Box>
+                      </Box>
+                    )}
                   </CardContent>
 
                   <CardActions>
@@ -548,12 +606,12 @@ export default function TasksPage() {
           </Box>
         )}
 
-        {/* Floating Action Button with Dropdown */}
+        {/* Floating Action Button for Universal Tasks */}
         <Fab
           color="primary"
-          aria-label="create task"
+          aria-label="create universal task"
           sx={{ position: 'fixed', bottom: 16, right: 16 }}
-          onClick={handleCreateTask}
+          onClick={() => router.push('/dashboard/admin/tasks/create')}
         >
           <AddIcon />
         </Fab>
@@ -571,15 +629,16 @@ export default function TasksPage() {
             handleCloseTaskMenu();
             router.push('/dashboard/admin/tasks/create');
           }}>
-            <BuildIcon sx={{ mr: 1 }} />
-            Basic Task
+            <SettingsIcon sx={{ mr: 1 }} />
+            Create Universal Task
           </MenuItem>
+          <Divider />
           <MenuItem onClick={() => {
             handleCloseTaskMenu();
             router.push('/dashboard/admin/tasks/process-based');
           }}>
-            <SettingsIcon sx={{ mr: 1 }} />
-            Process-Based Task
+            <BuildIcon sx={{ mr: 1, opacity: 0.7 }} />
+            Legacy Process Builder
           </MenuItem>
           <Divider />
           <MenuItem onClick={() => {
@@ -678,7 +737,41 @@ export default function TasksPage() {
                           Pricing Information
                         </Typography>
                         
-                        {selectedTask.pricing ? (
+                        {selectedTask.universalPricing ? (
+                          <>
+                            <Typography variant="subtitle2" gutterBottom>Universal Multi-Metal Pricing</Typography>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              Supports {Object.keys(selectedTask.universalPricing).length} metal variants
+                            </Typography>
+                            
+                            <Box sx={{ mb: 2 }}>
+                              <Typography variant="caption" color="text.secondary">Price Range</Typography>
+                              <Typography variant="h5" color="success.main">
+                                ${Math.min(...Object.values(selectedTask.universalPricing).map(p => p.retailPrice || 0)).toFixed(2)} - 
+                                ${Math.max(...Object.values(selectedTask.universalPricing).map(p => p.retailPrice || 0)).toFixed(2)}
+                              </Typography>
+                            </Box>
+                            
+                            <Typography variant="subtitle2" gutterBottom>Metal Variants</Typography>
+                            <Box sx={{ maxHeight: 200, overflow: 'auto', mb: 2 }}>
+                              {Object.entries(selectedTask.universalPricing).map(([metalKey, pricing]) => (
+                                <Box key={metalKey} sx={{ mb: 1, p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+                                  <Box display="flex" justifyContent="space-between" alignItems="center">
+                                    <Typography variant="body2" fontWeight="medium">
+                                      {pricing.metalLabel}
+                                    </Typography>
+                                    <Typography variant="body2" color="success.main">
+                                      ${pricing.retailPrice?.toFixed(2) || '0.00'}
+                                    </Typography>
+                                  </Box>
+                                  <Typography variant="caption" color="text.secondary">
+                                    Labor: {pricing.totalLaborHours}h • Process: ${pricing.totalProcessCost?.toFixed(2)}
+                                  </Typography>
+                                </Box>
+                              ))}
+                            </Box>
+                          </>
+                        ) : selectedTask.pricing ? (
                           <>
                             <Typography variant="subtitle2" gutterBottom>Retail Price</Typography>
                             <Typography variant="h4" color="success.main" gutterBottom>
@@ -734,6 +827,95 @@ export default function TasksPage() {
                       </CardContent>
                     </Card>
                   </Grid>
+
+                  {/* Service Information */}
+                  {selectedTask.service && (
+                    <Grid item xs={12} md={6}>
+                      <Card>
+                        <CardContent>
+                          <Typography variant="h6" gutterBottom color="primary.main">
+                            Service Settings
+                          </Typography>
+                          
+                          <Stack spacing={2}>
+                            <Box display="flex" justifyContent="space-between">
+                              <Typography variant="body2">Estimated Days:</Typography>
+                              <Typography variant="body2" fontWeight="medium">
+                                {selectedTask.service.estimatedDays} days
+                              </Typography>
+                            </Box>
+                            
+                            <Box display="flex" justifyContent="space-between">
+                              <Typography variant="body2">Rush Days:</Typography>
+                              <Typography variant="body2" fontWeight="medium">
+                                {selectedTask.service.rushDays} days
+                              </Typography>
+                            </Box>
+                            
+                            <Box display="flex" justifyContent="space-between">
+                              <Typography variant="body2">Rush Multiplier:</Typography>
+                              <Typography variant="body2" fontWeight="medium">
+                                {selectedTask.service.rushMultiplier}x
+                              </Typography>
+                            </Box>
+                            
+                            <Box>
+                              <Typography variant="body2" gutterBottom>Requirements:</Typography>
+                              <Stack direction="row" spacing={1} flexWrap="wrap">
+                                {selectedTask.service.requiresApproval && (
+                                  <Chip label="Approval Required" size="small" color="warning" />
+                                )}
+                                {selectedTask.service.requiresInspection && (
+                                  <Chip label="Inspection Required" size="small" color="info" />
+                                )}
+                                {selectedTask.service.canBeBundled && (
+                                  <Chip label="Can Be Bundled" size="small" color="success" />
+                                )}
+                              </Stack>
+                            </Box>
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  )}
+
+                  {/* Display Settings */}
+                  {selectedTask.display && (
+                    <Grid item xs={12} md={6}>
+                      <Card>
+                        <CardContent>
+                          <Typography variant="h6" gutterBottom color="secondary.main">
+                            Display Settings
+                          </Typography>
+                          
+                          <Stack spacing={2}>
+                            <Box display="flex" justifyContent="space-between">
+                              <Typography variant="body2">Status:</Typography>
+                              <Chip 
+                                label={selectedTask.display.isActive ? 'Active' : 'Inactive'}
+                                color={selectedTask.display.isActive ? 'success' : 'default'}
+                                size="small"
+                              />
+                            </Box>
+                            
+                            {selectedTask.display.isFeatured && (
+                              <Box display="flex" justifyContent="space-between">
+                                <Typography variant="body2">Featured:</Typography>
+                                <Chip label="Featured" color="primary" size="small" />
+                              </Box>
+                            )}
+                            
+                            <Box display="flex" justifyContent="space-between">
+                              <Typography variant="body2">Sort Order:</Typography>
+                              <Typography variant="body2" fontWeight="medium">
+                                {selectedTask.display.sortOrder}
+                              </Typography>
+                            </Box>
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  )}
 
                   {/* Processes */}
                   {selectedTask.processes && selectedTask.processes.length > 0 && (
