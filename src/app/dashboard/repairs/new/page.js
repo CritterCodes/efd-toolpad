@@ -69,11 +69,6 @@ const NewRepairPage = () => {
         </Button>
       </Box>
 
-      {/* Page title */}
-      <Typography variant="h4" component="h1" sx={{ mb: 3 }}>
-        Create New Repair
-      </Typography>
-
       {/* New Repair Form - no longer a modal, rendered directly */}
       <Box sx={{ backgroundColor: 'background.paper', borderRadius: 2, p: 0 }}>
         <NewRepairForm

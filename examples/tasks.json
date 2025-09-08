@@ -1,0 +1,162 @@
+{
+  "_id": {
+    "$oid": "68bcab87f4fc6631302a9f1c"
+  },
+  "title": "drfsdf",
+  "description": "sdfgsfd",
+  "category": "shanks",
+  "subcategory": "",
+  "processes": [
+    {
+      "processId": "6899448146c839751de619fa",
+      "quantity": 2
+    }
+  ],
+  "materials": [
+    {
+      "materialId": "689818aa366cdb98eb75911b",
+      "quantity": 1
+    }
+  ],
+  "universalPricing": {
+    "sterling_silver_925": {
+      "metalLabel": "Sterling Silver 925",
+      "metalType": "sterling_silver",
+      "karat": "925",
+      "totalLaborHours": 0.24,
+      "totalProcessCost": 12.27,
+      "totalMaterialCost": 0,
+      "baseCost": 12.27,
+      "retailPrice": 24.55,
+      "wholesalePrice": 18.41,
+      "businessMultiplier": 2,
+      "metalComplexity": 1
+    },
+    "yellow_gold_10K": {
+      "metalLabel": "Yellow Gold 10K",
+      "metalType": "yellow_gold",
+      "karat": "10K",
+      "totalLaborHours": 0.24,
+      "totalProcessCost": 17.5,
+      "totalMaterialCost": 0,
+      "baseCost": 17.5,
+      "retailPrice": 35.01,
+      "wholesalePrice": 26.26,
+      "businessMultiplier": 2,
+      "metalComplexity": 1
+    },
+    "white_gold_10K": {
+      "metalLabel": "White Gold 10K",
+      "metalType": "white_gold",
+      "karat": "10K",
+      "totalLaborHours": 0.24,
+      "totalProcessCost": 17.55,
+      "totalMaterialCost": 0,
+      "baseCost": 17.55,
+      "retailPrice": 35.09,
+      "wholesalePrice": 26.32,
+      "businessMultiplier": 2,
+      "metalComplexity": 1
+    },
+    "rose_gold_14K": {
+      "metalLabel": "Rose Gold 14K",
+      "metalType": "rose_gold",
+      "karat": "14K",
+      "totalLaborHours": 0.24,
+      "totalProcessCost": 19.48,
+      "totalMaterialCost": 0,
+      "baseCost": 19.48,
+      "retailPrice": 38.95,
+      "wholesalePrice": 29.21,
+      "businessMultiplier": 2,
+      "metalComplexity": 1
+    },
+    "white_gold_14K": {
+      "metalLabel": "White Gold 14K",
+      "metalType": "white_gold",
+      "karat": "14K",
+      "totalLaborHours": 0.24,
+      "totalProcessCost": 19.44,
+      "totalMaterialCost": 0,
+      "baseCost": 19.44,
+      "retailPrice": 38.88,
+      "wholesalePrice": 29.16,
+      "businessMultiplier": 2,
+      "metalComplexity": 1
+    },
+    "yellow_gold_14K": {
+      "metalLabel": "Yellow Gold 14K",
+      "metalType": "yellow_gold",
+      "karat": "14K",
+      "totalLaborHours": 0.24,
+      "totalProcessCost": 19.43,
+      "totalMaterialCost": 0,
+      "baseCost": 19.43,
+      "retailPrice": 38.85,
+      "wholesalePrice": 29.14,
+      "businessMultiplier": 2,
+      "metalComplexity": 1
+    },
+    "rose_gold_18K": {
+      "metalLabel": "Rose Gold 18K",
+      "metalType": "rose_gold",
+      "karat": "18K",
+      "totalLaborHours": 0.24,
+      "totalProcessCost": 21.43,
+      "totalMaterialCost": 0,
+      "baseCost": 21.43,
+      "retailPrice": 42.86,
+      "wholesalePrice": 32.14,
+      "businessMultiplier": 2,
+      "metalComplexity": 1
+    },
+    "white_gold_18K": {
+      "metalLabel": "White Gold 18K",
+      "metalType": "white_gold",
+      "karat": "18K",
+      "totalLaborHours": 0.24,
+      "totalProcessCost": 21.37,
+      "totalMaterialCost": 0,
+      "baseCost": 21.37,
+      "retailPrice": 42.74,
+      "wholesalePrice": 32.05,
+      "businessMultiplier": 2,
+      "metalComplexity": 1
+    },
+    "yellow_gold_18K": {
+      "metalLabel": "Yellow Gold 18K",
+      "metalType": "yellow_gold",
+      "karat": "18K",
+      "totalLaborHours": 0.24,
+      "totalProcessCost": 21.37,
+      "totalMaterialCost": 0,
+      "baseCost": 21.37,
+      "retailPrice": 42.74,
+      "wholesalePrice": 32.06,
+      "businessMultiplier": 2,
+      "metalComplexity": 1
+    }
+  },
+  "service": {
+    "estimatedDays": 3,
+    "rushDays": 1,
+    "rushMultiplier": 1.5,
+    "requiresApproval": true,
+    "requiresInspection": true,
+    "canBeBundled": true
+  },
+  "display": {
+    "isActive": true,
+    "isFeatured": false,
+    "sortOrder": 0
+  },
+  "isUniversal": true,
+  "supportsAllMetals": true,
+  "createdAt": {
+    "$date": "2025-09-06T21:45:43.859Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-06T21:45:43.859Z"
+  },
+  "createdBy": "admin@example.com"
+}

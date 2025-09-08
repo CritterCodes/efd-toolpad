@@ -1,0 +1,59 @@
+{
+  "_id": "repair_task_admin_settings",
+  "pricing": {
+    "wage": 40,
+    "materialMarkup": 2,
+    "administrativeFee": 0.25,
+    "businessFee": 0.5,
+    "consumablesFee": 0.25,
+    "rushMultiplier": 1.5,
+    "deliveryFee": 5,
+    "taxRate": 0.095
+  },
+  "security": {
+    "securityCode": "f334af161e8d38b727af0409afa25fe7d3d60fd66aeddee05ad83ec729f4585c",
+    "lastModified": {
+      "$date": "2025-08-02T18:48:49.764Z"
+    },
+    "expiresAt": {
+      "$date": "2025-08-07T07:28:29.980Z"
+    },
+    "modifiedBy": "system_initialization",
+    "isLocked": false,
+    "codeExpiresAfter": 3600000,
+    "generatedBy": "jacobaengel55@gmail.com",
+    "lastCodeChange": {
+      "$date": "2025-08-07T06:28:29.984Z"
+    },
+    "requiresCodeForPricing": true
+  },
+  "business": {
+    "defaultEstimatedDays": 3,
+    "defaultRushDays": 1,
+    "workingDaysPerWeek": 5,
+    "maxRushJobs": 5
+  },
+  "version": "2.0.0",
+  "createdAt": {
+    "$date": "2025-08-02T18:48:49.764Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-07T06:28:41.293Z"
+  },
+  "createdBy": "admin_initialization_script",
+  "lastModifiedBy": "jacobaengel55@gmail.com",
+  "stuller": {
+    "enabled": true,
+    "username": "engelfinedesign",
+    "apiUrl": "https://api.stuller.com",
+    "updateFrequency": "monthly",
+    "password": "0rqhEuD6MDr1rTnf7z5A+NcH4gBDG1W/KrTU5tf5JLSdy1S8pKYyzkTVUQ=="
+  },
+  "shopify": {
+    "enabled": true,
+    "shopUrl": "engel-fine-design.myshopify.com",
+    "apiVersion": "2025-07",
+    "webhooksEnabled": true,
+    "accessToken": "KdBviMUkXGm+lwbVJTRWmbKd1DIWT7yrSxVWIAxprXzpj9cuO2zTN0tAIJdgIM1loLdT17RlbRc5oikO+wTFz8hBmkfLWQ=="
+  }
+}

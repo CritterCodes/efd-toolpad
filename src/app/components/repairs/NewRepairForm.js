@@ -57,9 +57,14 @@ import UsersService from '@/services/users';
 // Context
 import { useRepairs } from '@/app/context/repairs.context';
 
+// Utils
+import { getMetalSpecificPrice, supportsMetalType } from '@/utils/repair-pricing.util';
+
 // Metal configuration
 const METAL_TYPES = [
-  { value: 'gold', label: 'Gold', karatOptions: ['10k', '14k', '18k', '22k'] },
+  { value: 'yellow-gold', label: 'Yellow Gold', karatOptions: ['10k', '14k', '18k', '22k'] },
+  { value: 'white-gold', label: 'White Gold', karatOptions: ['10k', '14k', '18k'] },
+  { value: 'rose-gold', label: 'Rose Gold', karatOptions: ['10k', '14k', '18k'] },
   { value: 'silver', label: 'Silver', karatOptions: ['925', '999'] },
   { value: 'platinum', label: 'Platinum', karatOptions: ['950', '999'] },
   { value: 'palladium', label: 'Palladium', karatOptions: ['950', '999'] },
@@ -168,29 +173,54 @@ export default function NewRepairForm({
   const [stullerError, setStullerError] = useState('');
 
   // Admin settings for pricing display
-  const [adminSettings, setAdminSettings] = useState({
-    rushMultiplier: 1.5,
-    deliveryFee: 25.00,
-    taxRate: 0.0875
-  });
+  const [adminSettings, setAdminSettings] = useState(null);
+  const [adminSettingsError, setAdminSettingsError] = useState(null);
+  const [adminSettingsLoading, setAdminSettingsLoading] = useState(true);
   
   // Load admin settings for pricing display
   useEffect(() => {
     const loadAdminSettings = async () => {
+      setAdminSettingsLoading(true);
+      setAdminSettingsError(null);
+      
       try {
         const response = await fetch('/api/admin/settings');
-        if (response.ok) {
-          const settings = await response.json();
-          const pricing = settings.pricing || {};
-          setAdminSettings({
-            rushMultiplier: pricing.rushMultiplier || 1.5,
-            deliveryFee: pricing.deliveryFee || 25.00,
-            taxRate: pricing.taxRate || 0.0875
-          });
+        if (!response.ok) {
+          throw new Error(`Failed to load admin settings: ${response.status} ${response.statusText}`);
         }
+        
+        const settings = await response.json();
+        
+        // Validate required pricing structure
+        if (!settings.pricing) {
+          throw new Error('Admin settings missing pricing configuration');
+        }
+        
+        const { administrativeFee, businessFee, consumablesFee } = settings.pricing;
+        if (administrativeFee === undefined || businessFee === undefined || consumablesFee === undefined) {
+          throw new Error('Admin settings pricing configuration is incomplete. Missing: ' + 
+            [
+              administrativeFee === undefined ? 'administrativeFee' : null,
+              businessFee === undefined ? 'businessFee' : null,
+              consumablesFee === undefined ? 'consumablesFee' : null
+            ].filter(Boolean).join(', '));
+        }
+        
+        setAdminSettings({
+          rushMultiplier: settings.pricing.rushMultiplier,
+          deliveryFee: settings.pricing.deliveryFee,
+          taxRate: settings.pricing.taxRate,
+          pricing: {
+            administrativeFee: settings.pricing.administrativeFee,
+            businessFee: settings.pricing.businessFee,
+            consumablesFee: settings.pricing.consumablesFee
+          }
+        });
       } catch (error) {
-        console.warn('Failed to load admin settings for display:', error);
-        // Keep default values
+        console.error('Failed to load admin settings:', error);
+        setAdminSettingsError(error.message);
+      } finally {
+        setAdminSettingsLoading(false);
       }
     };
 
@@ -210,13 +240,6 @@ export default function NewRepairForm({
       const clientName = clientInfo.name || `${clientInfo.firstName || ''} ${clientInfo.lastName || ''}`.trim();
       const isClientWholesale = clientInfo.role === 'wholesaler';
       
-      console.log('🔍 Client info detected:', { 
-        clientName, 
-        role: clientInfo.role, 
-        isWholesale: isClientWholesale,
-        clientInfo: clientInfo 
-      });
-      
       setFormData(prev => ({ 
         ...prev, 
         clientName,
@@ -225,7 +248,6 @@ export default function NewRepairForm({
       }));
 
       // Trigger price recalculation if wholesale status changed
-      console.log('💰 Client wholesale status detected:', isClientWholesale);
       // Use a timeout to avoid dependency loop
       setTimeout(() => {
         recalculateAllItemPrices(isClientWholesale);
@@ -237,7 +259,6 @@ export default function NewRepairForm({
   useEffect(() => {
     const loadData = async () => {
       try {
-        console.log('🔄 Loading repair form data...');
         
         const [tasks, processes, materials, users] = await Promise.all([
           tasksService.getTasks(),
@@ -248,12 +269,6 @@ export default function NewRepairForm({
           // fetch('/api/rush-jobs?action=canCreate').then(res => res.json())
         ]);
         
-        console.log('📋 Tasks loaded:', tasks);
-        console.log('⚙️ Processes loaded:', processes);
-        console.log('📦 Materials loaded:', materials);
-        console.log('👥 Users loaded:', users);
-        console.log('👥 Users raw data:', users.data || users);
-        console.log('👥 Users array check:', Array.isArray(users.data || users));
         
         setAvailableTasks(tasks.data || tasks || []);
         setAvailableProcesses(processes.data || processes || []);
@@ -261,12 +276,7 @@ export default function NewRepairForm({
         
         // Fix: Handle users response format properly
         const usersData = users?.users || users?.data || users || [];
-        console.log('👥 Processed users data:', usersData);
-        console.log('👥 Processed users array check:', Array.isArray(usersData));
         setAvailableUsers(usersData);
-        
-        console.log('✅ Data loading completed');
-        console.log('👥 Final availableUsers state:', users.data || users || []);
         
         // Temporarily disable rush job functionality
         setRushJobInfo({
@@ -275,8 +285,6 @@ export default function NewRepairForm({
           maxRushJobs: 10
         });
       } catch (error) {
-        console.error('❌ Error loading data:', error);
-        console.error('Error details:', error.message, error.stack);
         setRushJobInfo({
           canCreate: true,
           currentRushJobs: 0,
@@ -303,7 +311,6 @@ export default function NewRepairForm({
   useEffect(() => {
     // Only update if the prop actually changed, not the form state
     if (prevWholesaleProp.current !== isWholesale) {
-      console.log('💰 Wholesale status changed from prop:', prevWholesaleProp.current, '->', isWholesale);
       prevWholesaleProp.current = isWholesale;
       setFormData(prev => ({
         ...prev,
@@ -316,6 +323,27 @@ export default function NewRepairForm({
     }
   }, [isWholesale]); // Only depend on the prop, not the form state
 
+  // Recalculate prices when metal type or karat changes
+  const prevMetalType = useRef(formData.metalType);
+  const prevKarat = useRef(formData.karat);
+  useEffect(() => {
+    const metalTypeChanged = prevMetalType.current !== formData.metalType;
+    const karatChanged = prevKarat.current !== formData.karat;
+    
+    if ((metalTypeChanged || karatChanged) && formData.metalType && formData.karat) {
+      // Update refs
+      prevMetalType.current = formData.metalType;
+      prevKarat.current = formData.karat;
+      
+      // Recalculate prices for all existing items
+      if (formData.tasks.length > 0 || formData.processes.length > 0 || formData.materials.length > 0) {
+        setTimeout(() => {
+          recalculateItemPricesForMetal(formData.metalType, formData.karat);
+        }, 0);
+      }
+    }
+  }, [formData.metalType, formData.karat, formData.tasks.length, formData.processes.length, formData.materials.length]);
+
   // Get karat options based on selected metal
   const getKaratOptions = () => {
     const metalConfig = METAL_TYPES.find(m => m.value === formData.metalType);
@@ -324,7 +352,19 @@ export default function NewRepairForm({
 
   // Calculate total cost with admin settings
   const calculateTotalCost = useCallback(async () => {
-    console.log('🧮 CALCULATETOTALCOST START');
+    // If admin settings aren't loaded yet, throw error
+    if (adminSettingsLoading) {
+      throw new Error('Admin settings are still loading. Please wait.');
+    }
+    
+    if (adminSettingsError) {
+      throw new Error(`Cannot calculate total cost: ${adminSettingsError}`);
+    }
+    
+    if (!adminSettings) {
+      throw new Error('Admin settings are not available. Cannot calculate total cost.');
+    }
+    
     const tasksCost = formData.tasks.reduce((sum, item) => 
       sum + (parseFloat(item.price || item.basePrice || 0) * (item.quantity || 1)), 0);
     const processesCost = formData.processes.reduce((sum, item) => 
@@ -336,68 +376,42 @@ export default function NewRepairForm({
     
     let subtotal = tasksCost + processesCost + materialsCost + customCost;
     
-    console.log('📊 CALCULATETOTALCOST - Individual Costs:', {
-      tasksCost,
-      processesCost,
-      materialsCost,
-      customCost,
-      subtotal,
-      isWholesale: formData.isWholesale
-    });
-    
     // Note: Individual item prices are already discounted by recalculateAllItemPrices()
     // for wholesale clients, so no additional discount needed here
 
-    // Get admin settings for dynamic pricing
-    try {
-      const response = await fetch('/api/admin/settings');
-      if (response.ok) {
-        const settings = await response.json();
-        const pricing = settings.pricing || {};
-        
-        // Apply rush job markup if applicable
-        if (formData.isRush) {
-          const rushMultiplier = pricing.rushMultiplier || 1.5;
-          subtotal = subtotal * rushMultiplier;
-        }
+    // Apply rush job markup if applicable
+    if (formData.isRush && adminSettings.rushMultiplier) {
+      subtotal = subtotal * adminSettings.rushMultiplier;
+    }
 
-        // Add delivery fee if applicable (not subject to wholesale discount)
-        if (formData.includeDelivery) {
-          const deliveryFee = pricing.deliveryFee || 25.00;
-          subtotal = subtotal + deliveryFee;
-        }
+    // Add delivery fee if applicable (not subject to wholesale discount)
+    if (formData.includeDelivery && adminSettings.deliveryFee) {
+      subtotal = subtotal + adminSettings.deliveryFee;
+    }
 
-        // Add tax if applicable (wholesale clients don't pay taxes)
-        if (formData.includeTax && !formData.isWholesale) {
-          const taxRate = pricing.taxRate || 0.0875;
-          subtotal = subtotal * (1 + taxRate);
-        }
-      }
-    } catch (error) {
-      console.warn('Failed to fetch admin settings for pricing:', error);
-      // Fallback to hardcoded values
-      if (formData.isRush) {
-        subtotal = subtotal * 1.5;
-      }
-      if (formData.includeDelivery) {
-        subtotal = subtotal + 25.00; // Default delivery fee
-      }
-      if (formData.includeTax && !formData.isWholesale) {
-        subtotal = subtotal * 1.0875; // Default tax rate (8.75%)
-      }
+    // Add tax if applicable (wholesale clients don't pay taxes)
+    if (formData.includeTax && !formData.isWholesale && adminSettings.taxRate) {
+      subtotal = subtotal * (1 + adminSettings.taxRate);
     }
     
     return subtotal;
-  }, [formData.tasks, formData.processes, formData.materials, formData.customLineItems, formData.isWholesale, formData.isRush, formData.includeDelivery, formData.includeTax]);
+  }, [formData.tasks, formData.processes, formData.materials, formData.customLineItems, formData.isWholesale, formData.isRush, formData.includeDelivery, formData.includeTax, adminSettings, adminSettingsLoading, adminSettingsError]);
 
   // Add item handlers
   const addTask = (task) => {
+    // Get metal-specific price based on repair's metal type and karat
+    const price = getMetalSpecificPrice(task, formData.metalType, formData.karat, formData.isWholesale, adminSettings);
+    
     const newTask = {
       ...task,
       id: Date.now(),
       quantity: 1,
-      price: formData.isWholesale ? (task.basePrice || 0) * 0.5 : (task.basePrice || 0)
+      price: price,
+      metalType: formData.metalType,
+      karat: formData.karat,
+      isMetalSpecific: !!task.universalPricing
     };
+    
     setFormData(prev => ({
       ...prev,
       tasks: [...prev.tasks, newTask]
@@ -405,15 +419,19 @@ export default function NewRepairForm({
   };
 
   const addProcess = (process) => {
-    // Calculate wholesale price if applicable
-    const basePrice = process.pricing?.totalCost || process.price || 0;
+    // Get metal-specific price based on repair's metal type and karat
+    const price = getMetalSpecificPrice(process, formData.metalType, formData.karat, formData.isWholesale, adminSettings);
+    
     const newProcess = {
       ...process,
       id: Date.now(),
       quantity: 1,
-      // Apply wholesale discount if customer is wholesale
-      price: formData.isWholesale ? basePrice * 0.5 : basePrice
+      price: price,
+      metalType: formData.metalType,
+      karat: formData.karat,
+      isMetalSpecific: !!process.pricing?.totalCost && typeof process.pricing.totalCost === 'object'
     };
+    
     setFormData(prev => ({
       ...prev,
       processes: [...prev.processes, newProcess]
@@ -421,15 +439,19 @@ export default function NewRepairForm({
   };
 
   const addMaterial = (material) => {
-    // Calculate wholesale price if applicable
-    const basePrice = material.unitCost || material.costPerPortion || 0;
+    // Get metal-specific price based on repair's metal type and karat
+    const price = getMetalSpecificPrice(material, formData.metalType, formData.karat, formData.isWholesale, adminSettings);
+    
     const newMaterial = {
       ...material,
       id: Date.now(),
       quantity: 1,
-      // Apply wholesale discount if customer is wholesale
-      price: formData.isWholesale ? basePrice * 0.5 : basePrice
+      price: price,
+      metalType: formData.metalType,
+      karat: formData.karat,
+      isMetalSpecific: material.isMetalDependent || !!material.stullerProducts?.length
     };
+    
     setFormData(prev => ({
       ...prev,
       materials: [...prev.materials, newMaterial]
@@ -451,38 +473,64 @@ export default function NewRepairForm({
 
   // Recalculate all item prices when wholesale status changes
   const recalculateAllItemPrices = (isWholesale) => {
-    console.log('🔄 RECALCULATING ALL ITEM PRICES:', { isWholesale });
     
     setFormData(prev => ({
       ...prev,
       tasks: prev.tasks.map((task, index) => {
-        const originalPrice = task.basePrice || 0;
-        const newPrice = isWholesale ? originalPrice * 0.5 : originalPrice;
-        console.log(`📝 Task ${index}: ${task.title} - ${originalPrice} → ${newPrice}`);
+        const newPrice = getMetalSpecificPrice(task, prev.metalType, prev.karat, isWholesale, adminSettings);
         return {
           ...task,
           price: newPrice
         };
       }),
       processes: prev.processes.map((process, index) => {
-        const basePrice = process.pricing?.totalCost || process.basePrice || process.price || 0;
-        const newPrice = isWholesale ? basePrice * 0.5 : basePrice;
-        console.log(`🔧 Process ${index}: ${process.displayName} - ${basePrice} → ${newPrice}`);
+        const newPrice = getMetalSpecificPrice(process, prev.metalType, prev.karat, isWholesale, adminSettings);
         return {
           ...process,
           price: newPrice
         };
       }),
       materials: prev.materials.map((material, index) => {
-        const basePrice = material.unitCost || material.costPerPortion || material.basePrice || material.price || 0;
-        const newPrice = isWholesale ? basePrice * 0.5 : basePrice;
-        console.log(`🧱 Material ${index}: ${material.displayName} - ${basePrice} → ${newPrice}`);
+        const newPrice = getMetalSpecificPrice(material, prev.metalType, prev.karat, isWholesale, adminSettings);
         return {
           ...material,
           price: newPrice
         };
       })
-      // Removed isWholesale update to avoid conflicts - state should be managed separately
+    }));
+  };
+
+  // Recalculate all item prices when metal type or karat changes
+  const recalculateItemPricesForMetal = (metalType, karat) => {
+    setFormData(prev => ({
+      ...prev,
+      tasks: prev.tasks.map((task, index) => {
+        const newPrice = getMetalSpecificPrice(task, metalType, karat, prev.isWholesale, adminSettings);
+        return {
+          ...task,
+          price: newPrice,
+          metalType: metalType,
+          karat: karat
+        };
+      }),
+      processes: prev.processes.map((process, index) => {
+        const newPrice = getMetalSpecificPrice(process, metalType, karat, prev.isWholesale, adminSettings);
+        return {
+          ...process,
+          price: newPrice,
+          metalType: metalType,
+          karat: karat
+        };
+      }),
+      materials: prev.materials.map((material, index) => {
+        const newPrice = getMetalSpecificPrice(material, metalType, karat, prev.isWholesale, adminSettings);
+        return {
+          ...material,
+          price: newPrice,
+          metalType: metalType,
+          karat: karat
+        };
+      })
     }));
   };
 
@@ -514,11 +562,16 @@ export default function NewRepairForm({
       // Get admin settings for markup calculation
       const settingsResponse = await fetch('/api/admin/settings');
       let adminSettings = {};
-      let materialMarkup = 1.3; // Default markup
+      let materialMarkup = 0; // No default markup - force proper admin settings
       
       if (settingsResponse.ok) {
         adminSettings = await settingsResponse.json();
-        materialMarkup = adminSettings.pricing?.materialMarkup || 1.3;
+        if (!adminSettings.pricing?.materialMarkup) {
+          throw new Error('Admin settings missing material markup configuration');
+        }
+        materialMarkup = adminSettings.pricing.materialMarkup;
+      } else {
+        throw new Error('Failed to load admin settings for material pricing');
       }
 
       // Calculate marked up price
@@ -556,11 +609,8 @@ export default function NewRepairForm({
 
       // Clear the SKU input
       setStullerSku('');
-      
-      console.log('Added Stuller material:', newMaterial);
 
     } catch (error) {
-      console.error('Error adding Stuller material:', error);
       setStullerError(error.message);
     } finally {
       setLoadingStuller(false);
@@ -635,31 +685,23 @@ export default function NewRepairForm({
       
       // Note: No additional wholesale discount needed - individual prices are already adjusted
       
+      // Validate admin settings before calculating fees
+      if (!adminSettings) {
+        throw new Error('Admin settings are not loaded. Cannot submit repair.');
+      }
+      
       // Calculate rush fee (applied to subtotal after wholesale discount)
       const rushFee = formData.isRush ? 
-        subtotal * ((adminSettings.rushMultiplier || 1.5) - 1) : 0;
+        subtotal * ((adminSettings.rushMultiplier || 0) - 1) : 0;
       
-      // Calculate delivery fee (flat rate, not subject to wholesale discount)
-      const deliveryFee = formData.includeDelivery ? (adminSettings.deliveryFee || 25.00) : 0;
+      // Calculate delivery fee (flat rate, not subject to wholesale discount)  
+      const deliveryFee = formData.includeDelivery ? (adminSettings.deliveryFee || 0) : 0;
       
       // Calculate tax amount (applied to subtotal + rushFee + deliveryFee, wholesale exempt)
       const taxableAmount = subtotal + rushFee + deliveryFee;
       const taxAmount = (formData.includeTax && !formData.isWholesale) ? 
-        taxableAmount * (adminSettings.taxRate || 0.0875) : 0;
+        taxableAmount * (adminSettings.taxRate || 0) : 0;
 
-      // Add comprehensive logging
-      console.log('🔍 PRICING BREAKDOWN DEBUG:');
-      console.log('📊 Base Costs (individual prices already wholesale-adjusted):', { tasksCost, processesCost, materialsCost, customCost, subtotal });
-      console.log('💰 Calculated Values:', { subtotal, rushFee, deliveryFee, taxAmount, totalCost });
-      console.log('⚙️ Settings:', { 
-        isWholesale: formData.isWholesale,
-        isRush: formData.isRush, 
-        includeDelivery: formData.includeDelivery,
-        includeTax: formData.includeTax,
-        taxRate: adminSettings.taxRate,
-        rushMultiplier: adminSettings.rushMultiplier 
-      });
-      
       const submissionData = {
         ...formData,
         totalCost,
@@ -668,7 +710,7 @@ export default function NewRepairForm({
         rushFee,
         deliveryFee,
         taxAmount,
-        taxRate: adminSettings.taxRate || 0.0875,
+        taxRate: adminSettings.taxRate || 0,
         isWholesale: formData.isWholesale,
         includeDelivery: formData.includeDelivery,
         includeTax: formData.includeTax && !formData.isWholesale, // Store actual tax application
@@ -680,34 +722,13 @@ export default function NewRepairForm({
         status: 'RECEIVING' // Use legacy status for compatibility
       };
 
-      // Add comprehensive logging for submission
-      console.log('📤 SUBMISSION DATA DEBUG:');
-      console.log('🔢 Pricing Fields in Submission:', {
-        totalCost: submissionData.totalCost,
-        subtotal: submissionData.subtotal,
-        rushFee: submissionData.rushFee,
-        deliveryFee: submissionData.deliveryFee,
-        taxAmount: submissionData.taxAmount,
-        taxRate: submissionData.taxRate
-      });
-      console.log('🎛️ Flags in Submission:', {
-        isWholesale: submissionData.isWholesale,
-        includeDelivery: submissionData.includeDelivery,
-        includeTax: submissionData.includeTax,
-        isRush: submissionData.isRush
-      });
-      console.log('📋 Full Submission Object:', submissionData);
-
       // Submit the repair
       const result = await RepairsService.createRepair(submissionData);
       
       // ✅ Add the new repair to the repairs context immediately
       if (result && (result.repairID || result.newRepair?.repairID)) {
         const repairToAdd = result.newRepair || result;
-        console.log('📝 Adding new repair to context:', repairToAdd.repairID);
         addRepair(repairToAdd);
-      } else {
-        console.warn('⚠️  Could not add repair to context - no repairID found in result:', result);
       }
       
       onSubmit(result);
@@ -723,8 +744,6 @@ export default function NewRepairForm({
   const handleAddNewClient = async () => {
     setNewClientLoading(true);
     try {
-      console.log('🔄 Creating new client:', newClientData);
-      
       const clientToCreate = {
         firstName: newClientData.firstName.trim(),
         lastName: newClientData.lastName.trim(),
@@ -735,16 +754,11 @@ export default function NewRepairForm({
         status: 'unverified' // Default status for new clients
       };
 
-      console.log('📤 Sending client creation request:', clientToCreate);
       const createdClientResponse = await UsersService.createUser(clientToCreate);
       const createdClient = createdClientResponse.user || createdClientResponse;
       
-      console.log('✅ Created client response:', createdClientResponse);
-      console.log('✅ Created client data:', createdClient);
-      
       // Check if client is wholesale
       const isWholesaleClient = createdClient.role === 'wholesaler';
-      console.log('💰 New client wholesale status:', isWholesaleClient);
       
       // Add to available users list
       setAvailableUsers(prev => [...prev, createdClient]);
@@ -779,11 +793,8 @@ export default function NewRepairForm({
         role: 'customer'
       });
       setShowNewClientDialog(false);
-
-      console.log('🎉 New client created and selected successfully');
       
     } catch (error) {
-      console.error('❌ Error creating new client:', error);
       alert('Failed to create new client: ' + (error.message || 'Unknown error'));
     } finally {
       setNewClientLoading(false);
@@ -800,71 +811,49 @@ export default function NewRepairForm({
 
   return (
     <Box sx={{ maxWidth: 1000, mx: 'auto' }}>
-      {/* Header */}
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 4 }}>
-        <Box>
-          <Typography variant="h4" gutterBottom>
-            {initialData ? 'Edit Repair' : 'Create New Repair'}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Fill out the details below to create a new repair job
-          </Typography>
-        </Box>
-      </Stack>
-
       {errors.submit && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {errors.submit}
         </Alert>
       )}
 
-      <Stack spacing={3}>
+      {adminSettingsError && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          <strong>Admin Settings Error:</strong> {adminSettingsError}
+          <br />
+          <em>Pricing calculations will not work until admin settings are properly configured.</em>
+        </Alert>
+      )}
 
-        {/* Client Information */}
-        <Card sx={{ borderRadius: 2, boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
-          <CardHeader 
-            title="Client Information" 
-            sx={{ 
-              bgcolor: 'primary.main', 
-              color: 'primary.contrastText',
-              '& .MuiCardHeader-title': { 
-                fontWeight: 600,
-                fontSize: '1.1rem'
-              }
-            }}
-          />
-          <CardContent sx={{ p: 3 }}>
+      {adminSettingsLoading && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          Loading admin settings for pricing calculations...
+        </Alert>
+      )}
+
+      <Paper sx={{ p: 3, borderRadius: 2, boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
+        <Stack spacing={4}>
+
+          {/* Client Information Section */}
+          <Box>
+            <Typography variant="h6" sx={{ mb: 2, color: 'primary.main', fontWeight: 600 }}>
+              Client Information
+            </Typography>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
-                {/* Debug logging for availableUsers */}
-                {(() => {
-                  console.log('🔍 Render - availableUsers state:', availableUsers);
-                  console.log('🔍 Render - availableUsers length:', availableUsers?.length);
-                  console.log('🔍 Render - availableUsers type:', typeof availableUsers);
-                  console.log('🔍 Render - availableUsers isArray:', Array.isArray(availableUsers));
-                  return null;
-                })()}
-                
                 <Autocomplete
                   freeSolo
                   options={Array.isArray(availableUsers) ? availableUsers : []}
                   getOptionLabel={(option) => {
-                    console.log('🏷️ getOptionLabel called with:', option);
                     if (typeof option === 'string') return option;
                     if (option && typeof option === 'object') {
                       const label = option.name || `${option.firstName || ''} ${option.lastName || ''}`.trim() || option.email || '';
-                      console.log('🏷️ Generated label:', label);
                       return label;
                     }
                     return '';
                   }}
                   value={formData.clientName}
                   onInputChange={(event, newInputValue) => {
-                    console.log('⌨️ Input change:', newInputValue);
-                    console.log('📋 Available users count:', availableUsers?.length);
-                    console.log('📋 Available users type:', typeof availableUsers);
-                    console.log('📋 Available users isArray:', Array.isArray(availableUsers));
-                    console.log('📋 Available users sample:', availableUsers ? availableUsers.slice(0, 3) : 'No users available');
                     setFormData(prev => ({ 
                       ...prev, 
                       clientName: newInputValue || '',
@@ -872,13 +861,10 @@ export default function NewRepairForm({
                     }));
                   }}
                   onChange={(event, newValue) => {
-                    console.log('🎯 Autocomplete change:', newValue);
                     if (newValue && typeof newValue === 'object') {
                       const clientName = newValue.name || `${newValue.firstName || ''} ${newValue.lastName || ''}`.trim() || newValue.email || '';
                       const userID = newValue._id || newValue.id || '';
                       const isClientWholesale = newValue.role === 'wholesaler';
-                      
-                      console.log('👤 Selected client:', { clientName, userID, role: newValue.role, isWholesale: isClientWholesale });
                       
                       setFormData(prev => ({ 
                         ...prev, 
@@ -888,7 +874,6 @@ export default function NewRepairForm({
                       }));
 
                       // Always trigger price recalculation for wholesale clients
-                      console.log('💰 Client wholesale status changed, recalculating prices:', isClientWholesale);
                       // Use timeout to ensure state update completes first
                       setTimeout(() => {
                         recalculateAllItemPrices(isClientWholesale);
@@ -898,7 +883,6 @@ export default function NewRepairForm({
                         onWholesaleChange(isClientWholesale);
                       }
                     } else if (typeof newValue === 'string') {
-                      console.log('📝 String value entered:', newValue);
                       setFormData(prev => ({ 
                         ...prev, 
                         clientName: newValue,
@@ -992,7 +976,7 @@ export default function NewRepairForm({
                       onChange={(e) => setFormData(prev => ({ ...prev, isRush: e.target.checked }))}
                       disabled={!rushJobInfo.canCreate && !formData.isRush}
                     />
-                    {formData.isRush && (
+                    {formData.isRush && adminSettings?.rushMultiplier && (
                       <Chip 
                         label={`×${adminSettings.rushMultiplier}`}
                         color="warning" 
@@ -1011,7 +995,7 @@ export default function NewRepairForm({
                       {rushJobInfo.remainingSlots} rush job slots remaining
                     </Typography>
                   )}
-                  {formData.isRush && (
+                  {formData.isRush && adminSettings?.rushMultiplier && (
                     <Typography variant="caption" color="text.secondary">
                       Rush jobs have {((adminSettings.rushMultiplier - 1) * 100).toFixed(0)}% markup
                     </Typography>
@@ -1026,7 +1010,6 @@ export default function NewRepairForm({
                       checked={formData.isWholesale}
                       onChange={(e) => {
                         const newWholesaleStatus = e.target.checked;
-                        console.log('💰 Manual wholesale toggle:', newWholesaleStatus, 'Previous:', formData.isWholesale);
                         // Update form data first
                         setFormData(prev => ({
                           ...prev,
@@ -1064,7 +1047,7 @@ export default function NewRepairForm({
                       checked={formData.includeDelivery}
                       onChange={(e) => setFormData(prev => ({ ...prev, includeDelivery: e.target.checked }))}
                     />
-                    {formData.includeDelivery && (
+                    {formData.includeDelivery && adminSettings?.deliveryFee && (
                       <Chip 
                         label={`+$${adminSettings.deliveryFee.toFixed(2)}`}
                         color="info" 
@@ -1074,7 +1057,10 @@ export default function NewRepairForm({
                     )}
                   </Stack>
                   <Typography variant="caption" color="text.secondary">
-                    Add ${adminSettings.deliveryFee.toFixed(2)} delivery fee to total cost (not subject to wholesale discount)
+                    {adminSettings?.deliveryFee ? 
+                      `Add $${adminSettings.deliveryFee.toFixed(2)} delivery fee to total cost (not subject to wholesale discount)` :
+                      'Delivery fee will be calculated when admin settings load'
+                    }
                   </Typography>
                 </FormControl>
               </Grid>
@@ -1088,7 +1074,7 @@ export default function NewRepairForm({
                       onChange={(e) => setFormData(prev => ({ ...prev, includeTax: e.target.checked }))}
                       disabled={formData.isWholesale}
                     />
-                    {formData.includeTax && !formData.isWholesale && (
+                    {formData.includeTax && !formData.isWholesale && adminSettings?.taxRate && (
                       <Chip 
                         label={`+${(adminSettings.taxRate * 100).toFixed(2)}%`}
                         color="secondary" 
@@ -1108,29 +1094,21 @@ export default function NewRepairForm({
                   <Typography variant="caption" color="text.secondary">
                     {formData.isWholesale 
                       ? "Wholesale clients are tax exempt" 
-                      : `Apply ${(adminSettings.taxRate * 100).toFixed(2)}% tax rate to total cost`
+                      : adminSettings?.taxRate 
+                        ? `Apply ${(adminSettings.taxRate * 100).toFixed(2)}% tax rate to total cost`
+                        : "Tax rate will be shown when admin settings load"
                     }
                   </Typography>
                 </FormControl>
               </Grid>
             </Grid>
-          </CardContent>
-        </Card>
+          </Box>
 
-        {/* Item Details */}
-        <Card sx={{ borderRadius: 2, boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
-          <CardHeader 
-            title="Item Details" 
-            sx={{ 
-              bgcolor: 'secondary.main', 
-              color: 'secondary.contrastText',
-              '& .MuiCardHeader-title': { 
-                fontWeight: 600,
-                fontSize: '1.1rem'
-              }
-            }}
-          />
-          <CardContent sx={{ p: 3 }}>
+          {/* Item Details Section */}
+          <Box>
+            <Typography variant="h6" sx={{ mb: 2, color: 'secondary.main', fontWeight: 600 }}>
+              Item Details
+            </Typography>
             <Grid container spacing={2}>
               <Grid item xs={12}>
                 <TextField
@@ -1275,38 +1253,26 @@ export default function NewRepairForm({
                 />
               </Grid>
             </Grid>
-          </CardContent>
-        </Card>
+          </Box>
 
-        {/* Image Capture */}
-        <Card sx={{ borderRadius: 2, boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
-          <CardHeader 
-            title="Item Photo"
-            subheader="Take or upload a photo of the item"
-            sx={{ 
-              bgcolor: 'info.main', 
-              color: 'info.contrastText',
-              '& .MuiCardHeader-title': { 
-                fontWeight: 600,
-                fontSize: '1.1rem'
-              },
-              '& .MuiCardHeader-subheader': { 
-                color: 'info.contrastText',
-                opacity: 0.8
-              }
-            }}
-            action={
-              <input
-                type="file"
-                accept="image/*"
-                capture="camera"
-                onChange={handleImageCapture}
-                style={{ display: 'none' }}
-                id="camera-input"
-              />
-            }
-          />
-          <CardContent sx={{ p: 3 }}>
+          {/* Image Capture Section */}
+          <Box>
+            <Typography variant="h6" sx={{ mb: 2, color: 'info.main', fontWeight: 600 }}>
+              Item Photo
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Take or upload a photo of the item
+            </Typography>
+            
+            <input
+              type="file"
+              accept="image/*"
+              capture="camera"
+              onChange={handleImageCapture}
+              style={{ display: 'none' }}
+              id="camera-input"
+            />
+            
             <Box sx={{ textAlign: 'center' }}>
               <label htmlFor="camera-input">
                 <Button
@@ -1335,8 +1301,7 @@ export default function NewRepairForm({
                 </Typography>
               )}
             </Box>
-          </CardContent>
-        </Card>
+          </Box>
 
         {/* Work Items */}
         <RepairItemsSection
@@ -1356,6 +1321,7 @@ export default function NewRepairForm({
           loadingStuller={loadingStuller}
           stullerError={stullerError}
           addStullerMaterial={addStullerMaterial}
+          adminSettings={adminSettings}
         />
 
         {/* Total Cost */}
@@ -1364,7 +1330,8 @@ export default function NewRepairForm({
           calculateTotalCost={calculateTotalCost}
           adminSettings={adminSettings}
         />
-      </Stack>
+        </Stack>
+      </Paper>
 
       {/* New Client Dialog */}
       <Dialog 
@@ -1483,9 +1450,39 @@ function RepairItemsSection({
   setStullerSku,
   loadingStuller,
   stullerError,
-  addStullerMaterial
+  addStullerMaterial,
+  adminSettings
 }) {
   const [expandedSection, setExpandedSection] = useState('tasks');
+
+  // Filter and prepare items based on metal compatibility
+  const metalType = formData.metalType;
+  const karat = formData.karat;
+  const isWholesale = formData.isWholesale;
+
+  // Filter tasks that support the selected metal type
+  const compatibleTasks = availableTasks.filter(task => 
+    supportsMetalType(task, metalType, karat)
+  );
+
+  // Filter processes that support the selected metal type
+  const compatibleProcesses = availableProcesses.filter((process, index) => {
+    const isSupported = supportsMetalType(process, metalType, karat);
+    return isSupported;
+  });
+  
+  // Filter materials that support the selected metal type
+  const compatibleMaterials = availableMaterials.filter((material, index) => {
+    const isSupported = supportsMetalType(material, metalType, karat);
+    return isSupported;
+  });
+  
+  // Get price display helper
+  const getPriceDisplay = (item) => {
+    if (!metalType || !karat) return '0.00';
+    const price = getMetalSpecificPrice(item, metalType, karat, isWholesale, adminSettings);
+    return price.toFixed(2);
+  };
 
   return (
     <Card sx={{ borderRadius: 2, boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
@@ -1518,14 +1515,51 @@ function RepairItemsSection({
           </AccordionSummary>
           <AccordionDetails>
             <Stack spacing={2}>
-              <Autocomplete
-                options={availableTasks}
-                getOptionLabel={(option) => `${option.title} - $${option.basePrice || 0}`}
-                renderInput={(params) => (
-                  <TextField {...params} label="Add Task" />
-                )}
-                onChange={(e, value) => value && addTask(value)}
-              />
+              {!metalType || !karat ? (
+                <Alert severity="info">
+                  Please select a metal type and karat above to see available tasks.
+                </Alert>
+              ) : compatibleTasks.length === 0 ? (
+                <Alert severity="warning">
+                  No tasks are compatible with {metalType} {karat}. You can still add custom line items.
+                </Alert>
+              ) : (
+                <Autocomplete
+                  options={compatibleTasks}
+                  getOptionLabel={(option) => {
+                    const price = getPriceDisplay(option);
+                    const metalInfo = option.isUniversal ? ` (Universal)` : '';
+                    return `${option.title} - $${price}${metalInfo}`;
+                  }}
+                  renderInput={(params) => (
+                    <TextField 
+                      {...params} 
+                      label={`Add Task (${compatibleTasks.length} compatible with ${metalType} ${karat})`}
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <Box component="li" {...props}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+                        <Typography variant="body1">
+                          {option.title}
+                        </Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="body2" color="text.secondary">
+                            {option.category}
+                            {option.isUniversal && (
+                              <Chip label="Universal" size="small" color="primary" sx={{ ml: 1 }} />
+                            )}
+                          </Typography>
+                          <Typography variant="body2" color="success.main" fontWeight="bold">
+                            ${getPriceDisplay(option)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+                  )}
+                  onChange={(e, value) => value && addTask(value)}
+                />
+              )}
               
               {formData.tasks.map(task => (
                 <TaskItem
@@ -1552,44 +1586,51 @@ function RepairItemsSection({
           </AccordionSummary>
           <AccordionDetails>
             <Stack spacing={2}>
-                              <Autocomplete
-                options={availableProcesses}
-                getOptionLabel={(option) => {
-                  const price = option.pricing?.totalCost || option.price || 0;
-                  return `${option.displayName} - $${price.toFixed(2)}`;
-                }}
-                renderInput={(params) => (
-                  <TextField {...params} label="Add Process" />
-                )}
-                renderOption={(props, option) => (
-                  <Box component="li" {...props}>
-                    <Box sx={{ width: '100%' }}>
-                      <Typography variant="body2" fontWeight="bold">
-                        {option.displayName}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {option.laborHours}hrs • ${(() => {
-                          const totalCost = option.pricing?.totalCost || option.price || 0;
-                          if (typeof totalCost === 'object' && totalCost !== null) {
-                            const costs = Object.values(totalCost);
-                            const min = Math.min(...costs);
-                            const max = Math.max(...costs);
-                            return min === max ? min.toFixed(2) : `${min.toFixed(2)}-${max.toFixed(2)}`;
-                          }
-                          return totalCost.toFixed(2);
-                        })()} • {option.skillLevel}
-                        {option.processType && ` • ${option.processType}`}
-                      </Typography>
-                      {option.description && (
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                          {option.description}
+              {!metalType || !karat ? (
+                <Alert severity="info">
+                  Please select a metal type and karat above to see available processes.
+                </Alert>
+              ) : compatibleProcesses.length === 0 ? (
+                <Alert severity="warning">
+                  No processes are compatible with {metalType} {karat}. You can still add custom line items.
+                </Alert>
+              ) : (
+                <Autocomplete
+                  options={compatibleProcesses}
+                  getOptionLabel={(option) => {
+                    const price = getPriceDisplay(option);
+                    const metalInfo = option.pricing?.totalCost && typeof option.pricing.totalCost === 'object' ? ` (Metal-specific)` : '';
+                    return `${option.displayName} - $${price}${metalInfo}`;
+                  }}
+                  renderInput={(params) => (
+                    <TextField 
+                      {...params} 
+                      label={`Add Process (${compatibleProcesses.length} compatible with ${metalType} ${karat})`}
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <Box component="li" {...props}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+                        <Typography variant="body1">
+                          {option.displayName}
                         </Typography>
-                      )}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="body2" color="text.secondary">
+                            {option.category} • {option.laborHours}h • {option.skillLevel}
+                            {option.pricing?.totalCost && typeof option.pricing.totalCost === 'object' && (
+                              <Chip label="Metal-specific" size="small" color="info" sx={{ ml: 1 }} />
+                            )}
+                          </Typography>
+                          <Typography variant="body2" color="success.main" fontWeight="bold">
+                            ${getPriceDisplay(option)}
+                          </Typography>
+                        </Box>
+                      </Box>
                     </Box>
-                  </Box>
-                )}
-                onChange={(e, value) => value && addProcess(value)}
-              />
+                  )}
+                  onChange={(e, value) => value && addProcess(value)}
+                />
+              )}
               
               {formData.processes.map(process => (
                 <TaskItem
@@ -1616,14 +1657,54 @@ function RepairItemsSection({
           </AccordionSummary>
           <AccordionDetails>
             <Stack spacing={2}>
-              <Autocomplete
-                options={availableMaterials}
-                getOptionLabel={(option) => `${option.name} - $${option.unitCost || option.costPerPortion || 0}`}
-                renderInput={(params) => (
-                  <TextField {...params} label="Add Material" />
-                )}
-                onChange={(e, value) => value && addMaterial(value)}
-              />
+              {!metalType || !karat ? (
+                <Alert severity="info">
+                  Please select a metal type and karat above to see available materials.
+                </Alert>
+              ) : compatibleMaterials.length === 0 ? (
+                <Alert severity="warning">
+                  No materials are compatible with {metalType} {karat}. You can still add Stuller materials or custom line items.
+                </Alert>
+              ) : (
+                <Autocomplete
+                  options={compatibleMaterials}
+                  getOptionLabel={(option) => {
+                    const price = getPriceDisplay(option);
+                    const metalInfo = (option.pricing?.unitCost && typeof option.pricing.unitCost === 'object') ||
+                                     (option.pricing?.costPerPortion && typeof option.pricing.costPerPortion === 'object') ? 
+                                     ` (Metal-specific)` : '';
+                    return `${option.name} - $${price}${metalInfo}`;
+                  }}
+                  renderInput={(params) => (
+                    <TextField 
+                      {...params} 
+                      label={`Add Material (${compatibleMaterials.length} compatible with ${metalType} ${karat})`}
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <Box component="li" {...props}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+                        <Typography variant="body1">
+                          {option.name}
+                        </Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="body2" color="text.secondary">
+                            {option.unit} • {option.category || 'Material'}
+                            {((option.pricing?.unitCost && typeof option.pricing.unitCost === 'object') ||
+                              (option.pricing?.costPerPortion && typeof option.pricing.costPerPortion === 'object')) && (
+                              <Chip label="Metal-specific" size="small" color="info" sx={{ ml: 1 }} />
+                            )}
+                          </Typography>
+                          <Typography variant="body2" color="success.main" fontWeight="bold">
+                            ${getPriceDisplay(option)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+                  )}
+                  onChange={(e, value) => value && addMaterial(value)}
+                />
+              )}
               
               {/* Stuller Integration Section */}
               <Card variant="outlined" sx={{ p: 2, bgcolor: 'primary.50', borderColor: 'primary.main' }}>
@@ -1852,26 +1933,6 @@ function TotalCostCard({ formData, calculateTotalCost, adminSettings }) {
         
         let originalSubtotal = tasksCost + processesCost + materialsCost + customCost;
         
-        console.log('🔍 TOTALCOSTCARD DEBUG:');
-        console.log('📊 Individual Item Prices (already discounted if wholesale):', {
-          tasksCost,
-          processesCost,
-          materialsCost,
-          customCost,
-          originalSubtotal
-        });
-        console.log('🎛️ Form Flags:', {
-          isWholesale: formData.isWholesale,
-          isRush: formData.isRush,
-          includeDelivery: formData.includeDelivery,
-          includeTax: formData.includeTax
-        });
-        
-        // Sample individual item logging
-        if (formData.tasks.length > 0) {
-          console.log('🔍 Sample Task Item:', formData.tasks[0]);
-        }
-        
         let currentTotal = originalSubtotal;
         let wholesaleDiscount = 0;
         let rushFee = 0;
@@ -1886,29 +1947,23 @@ function TotalCostCard({ formData, calculateTotalCost, adminSettings }) {
           const retailSubtotal = originalSubtotal * 2; // Reverse the already-applied 50% discount
           wholesaleDiscount = retailSubtotal * 0.5;
           // currentTotal stays the same since individual items are already discounted
-          console.log('💰 WHOLESALE DISPLAY CALCULATION:', {
-            currentDiscountedSubtotal: originalSubtotal,
-            theoreticalRetailSubtotal: retailSubtotal,
-            displayWholesaleDiscount: wholesaleDiscount,
-            finalCurrentTotal: currentTotal
-          });
         }
 
         // Apply rush job markup if applicable
-        if (formData.isRush) {
+        if (formData.isRush && adminSettings?.rushMultiplier) {
           const beforeRush = currentTotal;
           currentTotal = currentTotal * adminSettings.rushMultiplier;
           rushFee = currentTotal - beforeRush;
         }
 
         // Add delivery fee if applicable (not subject to wholesale discount)
-        if (formData.includeDelivery) {
+        if (formData.includeDelivery && adminSettings?.deliveryFee) {
           deliveryFee = adminSettings.deliveryFee;
           currentTotal = currentTotal + deliveryFee;
         }
 
         // Add tax if applicable (wholesale clients don't pay taxes)
-        if (formData.includeTax && !formData.isWholesale) {
+        if (formData.includeTax && !formData.isWholesale && adminSettings?.taxRate) {
           taxAmount = currentTotal * adminSettings.taxRate;
           currentTotal = currentTotal + taxAmount;
         }
@@ -1925,7 +1980,6 @@ function TotalCostCard({ formData, calculateTotalCost, adminSettings }) {
         const cost = await calculateTotalCost();
         setTotalCost(cost);
       } catch (error) {
-        console.error('Error calculating total cost:', error);
         setTotalCost(0);
       } finally {
         setLoading(false);
@@ -1959,13 +2013,13 @@ function TotalCostCard({ formData, calculateTotalCost, adminSettings }) {
               {formData.isWholesale && (
                 <Chip label="Wholesale (50% off)" color="primary" variant="outlined" size="small" />
               )}
-              {formData.isRush && (
+              {formData.isRush && adminSettings?.rushMultiplier && (
                 <Chip label={`Rush (×${adminSettings.rushMultiplier})`} color="warning" variant="outlined" size="small" />
               )}
-              {formData.includeDelivery && (
+              {formData.includeDelivery && adminSettings?.deliveryFee && (
                 <Chip label={`Delivery (+$${adminSettings.deliveryFee.toFixed(2)})`} color="info" variant="outlined" size="small" />
               )}
-              {formData.includeTax && !formData.isWholesale && (
+              {formData.includeTax && !formData.isWholesale && adminSettings?.taxRate && (
                 <Chip label={`Tax (+${(adminSettings.taxRate * 100).toFixed(2)}%)`} color="secondary" variant="outlined" size="small" />
               )}
               {formData.isWholesale && (
