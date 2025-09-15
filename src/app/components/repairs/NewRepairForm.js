@@ -173,54 +173,28 @@ export default function NewRepairForm({
   const [stullerError, setStullerError] = useState('');
 
   // Admin settings for pricing display
-  const [adminSettings, setAdminSettings] = useState(null);
-  const [adminSettingsError, setAdminSettingsError] = useState(null);
-  const [adminSettingsLoading, setAdminSettingsLoading] = useState(true);
+  const [adminSettings, setAdminSettings] = useState({
+    rushMultiplier: 1.5,
+    deliveryFee: 25.00,
+    taxRate: 0.0875
+  });
   
   // Load admin settings for pricing display
   useEffect(() => {
     const loadAdminSettings = async () => {
-      setAdminSettingsLoading(true);
-      setAdminSettingsError(null);
-      
       try {
         const response = await fetch('/api/admin/settings');
-        if (!response.ok) {
-          throw new Error(`Failed to load admin settings: ${response.status} ${response.statusText}`);
+        if (response.ok) {
+          const settings = await response.json();
+          const pricing = settings.pricing || {};
+          setAdminSettings({
+            rushMultiplier: pricing.rushMultiplier || 1.5,
+            deliveryFee: pricing.deliveryFee || 25.00,
+            taxRate: pricing.taxRate || 0.0875
+          });
         }
-        
-        const settings = await response.json();
-        
-        // Validate required pricing structure
-        if (!settings.pricing) {
-          throw new Error('Admin settings missing pricing configuration');
-        }
-        
-        const { administrativeFee, businessFee, consumablesFee } = settings.pricing;
-        if (administrativeFee === undefined || businessFee === undefined || consumablesFee === undefined) {
-          throw new Error('Admin settings pricing configuration is incomplete. Missing: ' + 
-            [
-              administrativeFee === undefined ? 'administrativeFee' : null,
-              businessFee === undefined ? 'businessFee' : null,
-              consumablesFee === undefined ? 'consumablesFee' : null
-            ].filter(Boolean).join(', '));
-        }
-        
-        setAdminSettings({
-          rushMultiplier: settings.pricing.rushMultiplier,
-          deliveryFee: settings.pricing.deliveryFee,
-          taxRate: settings.pricing.taxRate,
-          pricing: {
-            administrativeFee: settings.pricing.administrativeFee,
-            businessFee: settings.pricing.businessFee,
-            consumablesFee: settings.pricing.consumablesFee
-          }
-        });
       } catch (error) {
-        console.error('Failed to load admin settings:', error);
-        setAdminSettingsError(error.message);
-      } finally {
-        setAdminSettingsLoading(false);
+        // Keep default values
       }
     };
 
@@ -352,19 +326,6 @@ export default function NewRepairForm({
 
   // Calculate total cost with admin settings
   const calculateTotalCost = useCallback(async () => {
-    // If admin settings aren't loaded yet, throw error
-    if (adminSettingsLoading) {
-      throw new Error('Admin settings are still loading. Please wait.');
-    }
-    
-    if (adminSettingsError) {
-      throw new Error(`Cannot calculate total cost: ${adminSettingsError}`);
-    }
-    
-    if (!adminSettings) {
-      throw new Error('Admin settings are not available. Cannot calculate total cost.');
-    }
-    
     const tasksCost = formData.tasks.reduce((sum, item) => 
       sum + (parseFloat(item.price || item.basePrice || 0) * (item.quantity || 1)), 0);
     const processesCost = formData.processes.reduce((sum, item) => 
@@ -379,23 +340,46 @@ export default function NewRepairForm({
     // Note: Individual item prices are already discounted by recalculateAllItemPrices()
     // for wholesale clients, so no additional discount needed here
 
-    // Apply rush job markup if applicable
-    if (formData.isRush && adminSettings.rushMultiplier) {
-      subtotal = subtotal * adminSettings.rushMultiplier;
-    }
+    // Get admin settings for dynamic pricing
+    try {
+      const response = await fetch('/api/admin/settings');
+      if (response.ok) {
+        const settings = await response.json();
+        const pricing = settings.pricing || {};
+        
+        // Apply rush job markup if applicable
+        if (formData.isRush) {
+          const rushMultiplier = pricing.rushMultiplier || 1.5;
+          subtotal = subtotal * rushMultiplier;
+        }
 
-    // Add delivery fee if applicable (not subject to wholesale discount)
-    if (formData.includeDelivery && adminSettings.deliveryFee) {
-      subtotal = subtotal + adminSettings.deliveryFee;
-    }
+        // Add delivery fee if applicable (not subject to wholesale discount)
+        if (formData.includeDelivery) {
+          const deliveryFee = pricing.deliveryFee || 25.00;
+          subtotal = subtotal + deliveryFee;
+        }
 
-    // Add tax if applicable (wholesale clients don't pay taxes)
-    if (formData.includeTax && !formData.isWholesale && adminSettings.taxRate) {
-      subtotal = subtotal * (1 + adminSettings.taxRate);
+        // Add tax if applicable (wholesale clients don't pay taxes)
+        if (formData.includeTax && !formData.isWholesale) {
+          const taxRate = pricing.taxRate || 0.0875;
+          subtotal = subtotal * (1 + taxRate);
+        }
+      }
+    } catch (error) {
+      // Fallback to hardcoded values
+      if (formData.isRush) {
+        subtotal = subtotal * 1.5;
+      }
+      if (formData.includeDelivery) {
+        subtotal = subtotal + 25.00; // Default delivery fee
+      }
+      if (formData.includeTax && !formData.isWholesale) {
+        subtotal = subtotal * 1.0875; // Default tax rate (8.75%)
+      }
     }
     
     return subtotal;
-  }, [formData.tasks, formData.processes, formData.materials, formData.customLineItems, formData.isWholesale, formData.isRush, formData.includeDelivery, formData.includeTax, adminSettings, adminSettingsLoading, adminSettingsError]);
+  }, [formData.tasks, formData.processes, formData.materials, formData.customLineItems, formData.isWholesale, formData.isRush, formData.includeDelivery, formData.includeTax]);
 
   // Add item handlers
   const addTask = (task) => {
@@ -562,16 +546,11 @@ export default function NewRepairForm({
       // Get admin settings for markup calculation
       const settingsResponse = await fetch('/api/admin/settings');
       let adminSettings = {};
-      let materialMarkup = 0; // No default markup - force proper admin settings
+      let materialMarkup = 1.3; // Default markup
       
       if (settingsResponse.ok) {
         adminSettings = await settingsResponse.json();
-        if (!adminSettings.pricing?.materialMarkup) {
-          throw new Error('Admin settings missing material markup configuration');
-        }
-        materialMarkup = adminSettings.pricing.materialMarkup;
-      } else {
-        throw new Error('Failed to load admin settings for material pricing');
+        materialMarkup = adminSettings.pricing?.materialMarkup || 1.3;
       }
 
       // Calculate marked up price
@@ -685,22 +664,17 @@ export default function NewRepairForm({
       
       // Note: No additional wholesale discount needed - individual prices are already adjusted
       
-      // Validate admin settings before calculating fees
-      if (!adminSettings) {
-        throw new Error('Admin settings are not loaded. Cannot submit repair.');
-      }
-      
       // Calculate rush fee (applied to subtotal after wholesale discount)
       const rushFee = formData.isRush ? 
-        subtotal * ((adminSettings.rushMultiplier || 0) - 1) : 0;
+        subtotal * ((adminSettings.rushMultiplier || 1.5) - 1) : 0;
       
-      // Calculate delivery fee (flat rate, not subject to wholesale discount)  
-      const deliveryFee = formData.includeDelivery ? (adminSettings.deliveryFee || 0) : 0;
+      // Calculate delivery fee (flat rate, not subject to wholesale discount)
+      const deliveryFee = formData.includeDelivery ? (adminSettings.deliveryFee || 25.00) : 0;
       
       // Calculate tax amount (applied to subtotal + rushFee + deliveryFee, wholesale exempt)
       const taxableAmount = subtotal + rushFee + deliveryFee;
       const taxAmount = (formData.includeTax && !formData.isWholesale) ? 
-        taxableAmount * (adminSettings.taxRate || 0) : 0;
+        taxableAmount * (adminSettings.taxRate || 0.0875) : 0;
 
       const submissionData = {
         ...formData,
@@ -710,7 +684,7 @@ export default function NewRepairForm({
         rushFee,
         deliveryFee,
         taxAmount,
-        taxRate: adminSettings.taxRate || 0,
+        taxRate: adminSettings.taxRate || 0.0875,
         isWholesale: formData.isWholesale,
         includeDelivery: formData.includeDelivery,
         includeTax: formData.includeTax && !formData.isWholesale, // Store actual tax application
@@ -814,20 +788,6 @@ export default function NewRepairForm({
       {errors.submit && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {errors.submit}
-        </Alert>
-      )}
-
-      {adminSettingsError && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          <strong>Admin Settings Error:</strong> {adminSettingsError}
-          <br />
-          <em>Pricing calculations will not work until admin settings are properly configured.</em>
-        </Alert>
-      )}
-
-      {adminSettingsLoading && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          Loading admin settings for pricing calculations...
         </Alert>
       )}
 
@@ -976,7 +936,7 @@ export default function NewRepairForm({
                       onChange={(e) => setFormData(prev => ({ ...prev, isRush: e.target.checked }))}
                       disabled={!rushJobInfo.canCreate && !formData.isRush}
                     />
-                    {formData.isRush && adminSettings?.rushMultiplier && (
+                    {formData.isRush && (
                       <Chip 
                         label={`×${adminSettings.rushMultiplier}`}
                         color="warning" 
@@ -995,7 +955,7 @@ export default function NewRepairForm({
                       {rushJobInfo.remainingSlots} rush job slots remaining
                     </Typography>
                   )}
-                  {formData.isRush && adminSettings?.rushMultiplier && (
+                  {formData.isRush && (
                     <Typography variant="caption" color="text.secondary">
                       Rush jobs have {((adminSettings.rushMultiplier - 1) * 100).toFixed(0)}% markup
                     </Typography>
@@ -1047,7 +1007,7 @@ export default function NewRepairForm({
                       checked={formData.includeDelivery}
                       onChange={(e) => setFormData(prev => ({ ...prev, includeDelivery: e.target.checked }))}
                     />
-                    {formData.includeDelivery && adminSettings?.deliveryFee && (
+                    {formData.includeDelivery && (
                       <Chip 
                         label={`+$${adminSettings.deliveryFee.toFixed(2)}`}
                         color="info" 
@@ -1057,10 +1017,7 @@ export default function NewRepairForm({
                     )}
                   </Stack>
                   <Typography variant="caption" color="text.secondary">
-                    {adminSettings?.deliveryFee ? 
-                      `Add $${adminSettings.deliveryFee.toFixed(2)} delivery fee to total cost (not subject to wholesale discount)` :
-                      'Delivery fee will be calculated when admin settings load'
-                    }
+                    Add ${adminSettings.deliveryFee.toFixed(2)} delivery fee to total cost (not subject to wholesale discount)
                   </Typography>
                 </FormControl>
               </Grid>
@@ -1074,7 +1031,7 @@ export default function NewRepairForm({
                       onChange={(e) => setFormData(prev => ({ ...prev, includeTax: e.target.checked }))}
                       disabled={formData.isWholesale}
                     />
-                    {formData.includeTax && !formData.isWholesale && adminSettings?.taxRate && (
+                    {formData.includeTax && !formData.isWholesale && (
                       <Chip 
                         label={`+${(adminSettings.taxRate * 100).toFixed(2)}%`}
                         color="secondary" 
@@ -1094,9 +1051,7 @@ export default function NewRepairForm({
                   <Typography variant="caption" color="text.secondary">
                     {formData.isWholesale 
                       ? "Wholesale clients are tax exempt" 
-                      : adminSettings?.taxRate 
-                        ? `Apply ${(adminSettings.taxRate * 100).toFixed(2)}% tax rate to total cost`
-                        : "Tax rate will be shown when admin settings load"
+                      : `Apply ${(adminSettings.taxRate * 100).toFixed(2)}% tax rate to total cost`
                     }
                   </Typography>
                 </FormControl>
@@ -1950,20 +1905,20 @@ function TotalCostCard({ formData, calculateTotalCost, adminSettings }) {
         }
 
         // Apply rush job markup if applicable
-        if (formData.isRush && adminSettings?.rushMultiplier) {
+        if (formData.isRush) {
           const beforeRush = currentTotal;
           currentTotal = currentTotal * adminSettings.rushMultiplier;
           rushFee = currentTotal - beforeRush;
         }
 
         // Add delivery fee if applicable (not subject to wholesale discount)
-        if (formData.includeDelivery && adminSettings?.deliveryFee) {
+        if (formData.includeDelivery) {
           deliveryFee = adminSettings.deliveryFee;
           currentTotal = currentTotal + deliveryFee;
         }
 
         // Add tax if applicable (wholesale clients don't pay taxes)
-        if (formData.includeTax && !formData.isWholesale && adminSettings?.taxRate) {
+        if (formData.includeTax && !formData.isWholesale) {
           taxAmount = currentTotal * adminSettings.taxRate;
           currentTotal = currentTotal + taxAmount;
         }
@@ -2013,13 +1968,13 @@ function TotalCostCard({ formData, calculateTotalCost, adminSettings }) {
               {formData.isWholesale && (
                 <Chip label="Wholesale (50% off)" color="primary" variant="outlined" size="small" />
               )}
-              {formData.isRush && adminSettings?.rushMultiplier && (
+              {formData.isRush && (
                 <Chip label={`Rush (×${adminSettings.rushMultiplier})`} color="warning" variant="outlined" size="small" />
               )}
-              {formData.includeDelivery && adminSettings?.deliveryFee && (
+              {formData.includeDelivery && (
                 <Chip label={`Delivery (+$${adminSettings.deliveryFee.toFixed(2)})`} color="info" variant="outlined" size="small" />
               )}
-              {formData.includeTax && !formData.isWholesale && adminSettings?.taxRate && (
+              {formData.includeTax && !formData.isWholesale && (
                 <Chip label={`Tax (+${(adminSettings.taxRate * 100).toFixed(2)}%)`} color="secondary" variant="outlined" size="small" />
               )}
               {formData.isWholesale && (

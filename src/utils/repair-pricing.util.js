@@ -59,8 +59,8 @@ export function generateMetalKey(metalType, karat) {
     let metalPart = metal.toLowerCase().replace(/[\s-]+/g, '_');
     
     if (karat && karat !== 'N/A') {
-      // Convert karat to uppercase K format to match database keys (10k -> 10K)
-      const karatPart = karat.replace(/\s+/g, '_').toUpperCase();
+      // Keep karat in original case (uppercase K) to match database keys
+      const karatPart = karat.replace(/\s+/g, '_');
       return `${metalPart}_${karatPart}`;
     }
     
@@ -72,7 +72,6 @@ export function generateMetalKey(metalType, karat) {
  * @param {number} basePrice - The base price to apply multiplier to
  * @param {Object} adminSettings - Admin settings containing fee structure
  * @returns {number} The price with business multiplier applied
- * @throws {Error} When admin settings are missing or invalid
  */
 function applyBusinessMultiplier(basePrice, adminSettings) {
   if (!basePrice || basePrice === 0) {
@@ -80,20 +79,10 @@ function applyBusinessMultiplier(basePrice, adminSettings) {
   }
   
   if (!adminSettings?.pricing) {
-    throw new Error('Admin settings pricing configuration is missing. Cannot calculate business multiplier.');
+    return basePrice;
   }
   
-  const { administrativeFee, businessFee, consumablesFee } = adminSettings.pricing;
-  
-  if (administrativeFee === undefined || businessFee === undefined || consumablesFee === undefined) {
-    throw new Error('Admin settings pricing fees are incomplete. Missing: ' + 
-      [
-        administrativeFee === undefined ? 'administrativeFee' : null,
-        businessFee === undefined ? 'businessFee' : null,
-        consumablesFee === undefined ? 'consumablesFee' : null
-      ].filter(Boolean).join(', '));
-  }
-  
+  const { administrativeFee = 0.10, businessFee = 0.15, consumablesFee = 0.05 } = adminSettings.pricing;
   const businessMultiplier = (administrativeFee + businessFee + consumablesFee) + 1;
   
   return basePrice * businessMultiplier;
@@ -109,65 +98,84 @@ function applyBusinessMultiplier(basePrice, adminSettings) {
  * @returns {number} The appropriate price
  */
 export const getMetalSpecificPrice = (item, repairMetalType, karat = null, isWholesale = false, adminSettings = null) => {
+  console.log('🔍 DEBUG - Input metal type:', repairMetalType, 'karat:', karat);
+  
   // Check for universal pricing first
   if (item?.price && typeof item.price === 'number') {
-    return isWholesale ? item.price : applyBusinessMultiplier(item.price, adminSettings);
+    return applyBusinessMultiplier(item.price, adminSettings);
   }
 
   // Check for process-specific pricing
   if (item?.processPrice && typeof item.processPrice === 'number') {
-    return isWholesale ? item.processPrice : applyBusinessMultiplier(item.processPrice, adminSettings);
+    return applyBusinessMultiplier(item.processPrice, adminSettings);
   }
 
   // Check for universal pricing structure (tasks)
   if (item?.universalPricing && repairMetalType && karat) {
+    // Debug: Log available keys
+    console.log('🔍 DEBUG - Universal pricing keys available:', Object.keys(item.universalPricing));
+    
     const metalKey = generateMetalKey(repairMetalType, karat);
+    console.log('🔍 DEBUG - Generated space key:', metalKey);
     
     // Try the generated key first (space format: "Sterling Silver 925")
     if (metalKey && item.universalPricing[metalKey]) {
+      console.log('✅ DEBUG - Found pricing with space key:', metalKey, 'Price:', item.universalPricing[metalKey]);
       const pricing = item.universalPricing[metalKey];
-      const basePrice = isWholesale ? 
-        (pricing.wholesalePrice || pricing.retailPrice || pricing.totalCost || 0) :
-        (pricing.retailPrice || pricing.totalCost || 0);
-      return isWholesale ? basePrice : applyBusinessMultiplier(basePrice, adminSettings);
+      const retailPrice = pricing.retailPrice || pricing.totalCost || 0;
+      return applyBusinessMultiplier(retailPrice, adminSettings);
     }
     
     // Try underscore format (task data format: "sterling_silver_925")
     const underscoreKey = generateUnderscoreMetalKey(repairMetalType, karat);
+    console.log('🔍 DEBUG - Generated underscore key:', underscoreKey);
     
     if (underscoreKey && item.universalPricing[underscoreKey]) {
+      console.log('✅ DEBUG - Found pricing with underscore key:', underscoreKey, 'Price:', item.universalPricing[underscoreKey]);
       const pricing = item.universalPricing[underscoreKey];
-      const basePrice = isWholesale ? 
-        (pricing.wholesalePrice || pricing.retailPrice || pricing.totalCost || 0) :
-        (pricing.retailPrice || pricing.totalCost || 0);
-      return isWholesale ? basePrice : applyBusinessMultiplier(basePrice, adminSettings);
+      const retailPrice = pricing.retailPrice || pricing.totalCost || 0;
+      return applyBusinessMultiplier(retailPrice, adminSettings);
     }
+    
+    console.log('❌ DEBUG - No matching key found for metal:', repairMetalType, 'karat:', karat);
   }
 
   // Check for process pricing structure
   if (item?.pricing?.totalCost) {
+    console.log('🔍 DEBUG - Process item:', item.name || item.displayName);
+    console.log('🔍 DEBUG - Process totalCost type:', typeof item.pricing.totalCost);
+    console.log('🔍 DEBUG - Process totalCost value:', item.pricing.totalCost);
+    
     // If totalCost is a number (universal pricing)
     if (typeof item.pricing.totalCost === 'number') {
-      const basePrice = item.pricing.totalCost;
-      return isWholesale ? basePrice : applyBusinessMultiplier(basePrice, adminSettings);
+      console.log('✅ DEBUG - Using universal process pricing:', item.pricing.totalCost);
+      return applyBusinessMultiplier(item.pricing.totalCost, adminSettings);
     }
     
     // If totalCost is an object (metal-specific pricing)
     if (typeof item.pricing.totalCost === 'object' && repairMetalType && karat) {
+      console.log('🔍 DEBUG - Process pricing keys available:', Object.keys(item.pricing.totalCost));
+      
       const metalKey = generateMetalKey(repairMetalType, karat);
+      console.log('🔍 DEBUG - Generated process key:', metalKey);
       
       if (metalKey && item.pricing.totalCost[metalKey]) {
+        console.log('✅ DEBUG - Found process pricing:', metalKey, 'Price:', item.pricing.totalCost[metalKey]);
         const totalCost = item.pricing.totalCost[metalKey];
-        return isWholesale ? totalCost : applyBusinessMultiplier(totalCost, adminSettings);
+        return applyBusinessMultiplier(totalCost, adminSettings);
       }
       
       // Try underscore format for processes too
       const underscoreKey = generateUnderscoreMetalKey(repairMetalType, karat);
+      console.log('🔍 DEBUG - Generated process underscore key:', underscoreKey);
       
       if (underscoreKey && item.pricing.totalCost[underscoreKey]) {
+        console.log('✅ DEBUG - Found process pricing with underscore key:', underscoreKey, 'Price:', item.pricing.totalCost[underscoreKey]);
         const totalCost = item.pricing.totalCost[underscoreKey];
-        return isWholesale ? totalCost : applyBusinessMultiplier(totalCost, adminSettings);
+        return applyBusinessMultiplier(totalCost, adminSettings);
       }
+      
+      console.log('❌ DEBUG - No matching process key found for metal:', repairMetalType, 'karat:', karat);
     }
   }
 
@@ -181,19 +189,15 @@ export const getMetalSpecificPrice = (item, repairMetalType, karat = null, isWho
       // Use the first non-metal product for universal items
       const universalProduct = stullerProducts.find(p => p.metalType === null || p.metalType === undefined);
       if (universalProduct) {
-        const selectedPrice = isWholesale ? 
-          (universalProduct.wholesalePrice || universalProduct.pricePerPortion || universalProduct.markedUpPrice || 0) :
-          (universalProduct.pricePerPortion || universalProduct.markedUpPrice || 0);
-        return isWholesale ? selectedPrice : applyBusinessMultiplier(selectedPrice, adminSettings);
+        const selectedPrice = universalProduct.pricePerPortion ?? universalProduct.markedUpPrice ?? 0;
+        return applyBusinessMultiplier(selectedPrice, adminSettings);
       }
     } else if (hasNonMetalProduct) {
       // Even if karat/metalType are provided, for non-metal items use universal price
       const universalProduct = stullerProducts.find(p => p.metalType === null || p.metalType === undefined);
       if (universalProduct) {
-        const selectedPrice = isWholesale ? 
-          (universalProduct.wholesalePrice || universalProduct.pricePerPortion || universalProduct.markedUpPrice || 0) :
-          (universalProduct.pricePerPortion || universalProduct.markedUpPrice || 0);
-        return isWholesale ? selectedPrice : applyBusinessMultiplier(selectedPrice, adminSettings);
+        const selectedPrice = universalProduct.pricePerPortion ?? universalProduct.markedUpPrice ?? 0;
+        return applyBusinessMultiplier(selectedPrice, adminSettings);
       }
     }
 
@@ -213,10 +217,8 @@ export const getMetalSpecificPrice = (item, repairMetalType, karat = null, isWho
     });
 
     if (matchingProduct) {
-      const selectedPrice = isWholesale ? 
-        (matchingProduct.wholesalePrice || matchingProduct.pricePerPortion || matchingProduct.markedUpPrice || 0) :
-        (matchingProduct.pricePerPortion || matchingProduct.markedUpPrice || 0);
-      return isWholesale ? selectedPrice : applyBusinessMultiplier(selectedPrice, adminSettings);
+      const selectedPrice = matchingProduct.pricePerPortion ?? matchingProduct.markedUpPrice ?? 0;
+      return applyBusinessMultiplier(selectedPrice, adminSettings);
     }
   }
 
@@ -225,7 +227,7 @@ export const getMetalSpecificPrice = (item, repairMetalType, karat = null, isWho
   
   if (item?.metalSpecificPricing && item.metalSpecificPricing[metalKey]) {
     const legacyPrice = item.metalSpecificPricing[metalKey];
-    return isWholesale ? legacyPrice : applyBusinessMultiplier(legacyPrice, adminSettings);
+    return applyBusinessMultiplier(legacyPrice, adminSettings);
   }
 
   return 0;

@@ -6,8 +6,7 @@
  * hardcoded fallback values.
  */
 
-import pkg from './src/utils/repair-pricing.util.js';
-const { getMetalSpecificPrice } = pkg;
+import { getMetalSpecificPrice } from './src/utils/repair-pricing.util.js';
 
 // Mock data
 const mockTask = {
