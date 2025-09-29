@@ -39,7 +39,9 @@ const nextConfig = {
             'snappy': 'commonjs snappy',
             'socks': 'commonjs socks',
             'aws4': 'commonjs aws4',
-            'mongodb-client-encryption': 'commonjs mongodb-client-encryption'
+            'mongodb-client-encryption': 'commonjs mongodb-client-encryption',
+            // Exclude microservice dependencies from main build
+            'winston': 'commonjs winston'
         });
         
         return config;

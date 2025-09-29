@@ -51,9 +51,12 @@ export default function StoreSettingsTab() {
         administrativeFee: 0.15,  // 15% as decimal
         businessFee: 0.25,       // 25% as decimal
         consumablesFee: 0.08,    // 8% as decimal
+        marketingFee: 0.05,      // 5% as decimal
         rushMultiplier: 1.5,     // 50% rush markup
         deliveryFee: 25.00,      // Fixed delivery fee
-        taxRate: 0.0875          // 8.75% tax rate
+        taxRate: 0.0875,         // 8.75% tax rate
+        customDesignFee: 100.00, // CAD design fee (flat rate)
+        commissionPercentage: 0.10 // Commission percentage on profit
     });
     
     const [originalSettings, setOriginalSettings] = useState({});
@@ -97,15 +100,19 @@ export default function StoreSettingsTab() {
             
             if (data.pricing) {
                 const pricingSettings = data.pricing;
+                const financialSettings = data.financial || {};
                 const settingsData = {
                     wage: pricingSettings.wage || 30.00,
                     materialMarkup: pricingSettings.materialMarkup || 1.5,
                     administrativeFee: pricingSettings.administrativeFee || 0.15,
                     businessFee: pricingSettings.businessFee || 0.25,
                     consumablesFee: pricingSettings.consumablesFee || 0.08,
+                    marketingFee: pricingSettings.marketingFee || 0.05,
                     rushMultiplier: pricingSettings.rushMultiplier || 1.5,
                     deliveryFee: pricingSettings.deliveryFee || 25.00,
-                    taxRate: pricingSettings.taxRate || 0.0875
+                    taxRate: pricingSettings.taxRate || 0.0875,
+                    customDesignFee: financialSettings.customDesignFee || 100.00,
+                    commissionPercentage: financialSettings.commissionPercentage || 0.10
                 };
                 
                 setSettings(settingsData);
@@ -123,7 +130,7 @@ export default function StoreSettingsTab() {
         const numericValue = parseFloat(value);
         if (!isNaN(numericValue) && numericValue >= 0) {
             // For percentage fields, convert from percentage to decimal
-            if (field === 'administrativeFee' || field === 'businessFee' || field === 'consumablesFee' || field === 'taxRate') {
+            if (field === 'administrativeFee' || field === 'businessFee' || field === 'consumablesFee' || field === 'marketingFee' || field === 'taxRate') {
                 setSettings(prev => ({
                     ...prev,
                     [field]: numericValue / 100  // Convert percentage to decimal
@@ -154,13 +161,16 @@ export default function StoreSettingsTab() {
             setError(null);
 
             // Save the settings first
+            const { customDesignFee, commissionPercentage, ...pricingSettings } = settings;
+            
             const response = await fetch('/api/admin/settings', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    pricing: settings,  // Send as 'pricing' object to match API expectation
+                    pricing: pricingSettings,  // Send pricing settings to PUT endpoint
+                    financial: { customDesignFee, commissionPercentage }, // Send financial settings too
                     securityCode: securityCodeInput
                 })
             });
@@ -191,6 +201,7 @@ export default function StoreSettingsTab() {
                             administrativeFee: settings.administrativeFee,
                             businessFee: settings.businessFee,
                             consumablesFee: settings.consumablesFee,
+                            marketingFee: settings.marketingFee,
                             rushMultiplier: settings.rushMultiplier,
                             deliveryFee: settings.deliveryFee,
                             taxRate: settings.taxRate
@@ -262,8 +273,9 @@ export default function StoreSettingsTab() {
         const adminFee = settings.wage * settings.administrativeFee;
         const bizFee = settings.wage * settings.businessFee;
         const consumablesFee = settings.wage * settings.consumablesFee;
+        const marketingFee = settings.wage * settings.marketingFee;
         
-        return settings.wage + adminFee + bizFee + consumablesFee;
+        return settings.wage + adminFee + bizFee + consumablesFee + marketingFee;
     };
 
     const calculateSampleProject = () => {
@@ -419,6 +431,20 @@ export default function StoreSettingsTab() {
                                         helperText="Percentage of wage for consumables and supplies"
                                     />
                                 </Grid>
+                                <Grid item xs={12}>
+                                    <TextField
+                                        fullWidth
+                                        label="Marketing Fee"
+                                        type="number"
+                                        value={(settings.marketingFee * 100).toFixed(1)}
+                                        onChange={(e) => handleSettingChange('marketingFee', e.target.value)}
+                                        InputProps={{
+                                            endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                                            inputProps: { min: 0, max: 100, step: 0.1 }
+                                        }}
+                                        helperText="Percentage of wage for marketing and advertising"
+                                    />
+                                </Grid>
                             </Grid>
                         </CardContent>
                     </Card>
@@ -507,6 +533,48 @@ export default function StoreSettingsTab() {
                     </Card>
                 </Grid>
 
+                {/* Quote & Commission Settings */}
+                <Grid item xs={12} md={6}>
+                    <Card>
+                        <CardHeader 
+                            title="Quote & Commission Settings"
+                            avatar={<DollarSignIcon color="primary" />}
+                        />
+                        <CardContent>
+                            <Grid container spacing={2}>
+                                <Grid item xs={12}>
+                                    <TextField
+                                        fullWidth
+                                        label="Custom Design Fee"
+                                        type="number"
+                                        value={settings.customDesignFee}
+                                        onChange={(e) => handleSettingChange('customDesignFee', e.target.value)}
+                                        InputProps={{
+                                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                                            inputProps: { min: 0, step: 0.01 }
+                                        }}
+                                        helperText="Fixed fee for custom CAD design work"
+                                    />
+                                </Grid>
+                                <Grid item xs={12}>
+                                    <TextField
+                                        fullWidth
+                                        label="Commission Percentage"
+                                        type="number"
+                                        value={(settings.commissionPercentage * 100).toFixed(1)}
+                                        onChange={(e) => handleSettingChange('commissionPercentage', parseFloat(e.target.value) / 100)}
+                                        InputProps={{
+                                            endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                                            inputProps: { min: 0, max: 100, step: 0.1 }
+                                        }}
+                                        helperText="Commission percentage on material profit"
+                                    />
+                                </Grid>
+                            </Grid>
+                        </CardContent>
+                    </Card>
+                </Grid>
+
                 {/* Labor Rate Summary */}
                 <Grid item xs={12} md={6}>
                     <Card>
@@ -542,6 +610,12 @@ export default function StoreSettingsTab() {
                                 </Grid>
                                 <Grid item xs={4}>
                                     <Typography variant="body2" align="right">${(settings.wage * settings.consumablesFee).toFixed(2)}/hr</Typography>
+                                </Grid>
+                                <Grid item xs={8}>
+                                    <Typography variant="body2">Marketing Fee ({(settings.marketingFee * 100).toFixed(1)}%):</Typography>
+                                </Grid>
+                                <Grid item xs={4}>
+                                    <Typography variant="body2" align="right">${(settings.wage * settings.marketingFee).toFixed(2)}/hr</Typography>
                                 </Grid>
                                 <Grid item xs={12}>
                                     <Divider sx={{ my: 1 }} />

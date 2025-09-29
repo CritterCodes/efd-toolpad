@@ -73,6 +73,7 @@ export default function IntegrationsTab() {
     });
     const [shopifyLoading, setShopifyLoading] = useState(false);
     const [shopifyTesting, setShopifyTesting] = useState(false);
+    const [webhooksLoading, setWebhooksLoading] = useState(false);
     const [shopifyError, setShopifyError] = useState(null);
     const [shopifySuccess, setShopifySuccess] = useState(null);
     const [showShopifyToken, setShowShopifyToken] = useState(false);
@@ -283,6 +284,38 @@ export default function IntegrationsTab() {
             setShopifyError(`Connection test failed: ${error.message}`);
         } finally {
             setShopifyTesting(false);
+        }
+    };
+
+    const setupShopifyWebhooks = async () => {
+        try {
+            setWebhooksLoading(true);
+            setShopifyError(null);
+            setShopifySuccess(null);
+
+            console.log('🔧 Setting up Shopify webhooks...');
+
+            const response = await fetch('/api/admin/shopify/webhooks/setup', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                setShopifySuccess(`Successfully registered ${result.webhooks.length} webhooks for payment notifications`);
+                console.log('✅ Webhooks registered:', result.webhooks);
+            } else {
+                throw new Error(result.message || 'Failed to setup webhooks');
+            }
+
+        } catch (error) {
+            console.error('Webhook setup error:', error);
+            setShopifyError(`Webhook setup failed: ${error.message}`);
+        } finally {
+            setWebhooksLoading(false);
         }
     };
 
@@ -524,7 +557,7 @@ export default function IntegrationsTab() {
                                             label="Enable Webhooks"
                                         />
 
-                                        <Box display="flex" gap={1}>
+                                        <Box display="flex" gap={1} flexWrap="wrap">
                                             <LoadingButton
                                                 variant="contained"
                                                 onClick={saveShopifySettings}
@@ -542,6 +575,17 @@ export default function IntegrationsTab() {
                                                 startIcon={<RefreshIcon />}
                                             >
                                                 Test Connection
+                                            </LoadingButton>
+
+                                            <LoadingButton
+                                                variant="outlined"
+                                                color="secondary"
+                                                onClick={setupShopifyWebhooks}
+                                                loading={webhooksLoading}
+                                                disabled={!shopifySettings.shopUrl || !shopifySettings.accessToken || !shopifySettings.enabled}
+                                                startIcon={<RefreshIcon />}
+                                            >
+                                                Setup Webhooks
                                             </LoadingButton>
                                         </Box>
                                     </>

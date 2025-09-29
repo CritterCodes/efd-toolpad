@@ -1,5 +1,4 @@
 import { AppProvider } from "@toolpad/core/AppProvider";
-import { ThemeProvider } from '@mui/material/styles';
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import BuildIcon from "@mui/icons-material/Handyman";
 import BarChartIcon from "@mui/icons-material/Insights";
@@ -17,7 +16,7 @@ import QualityIcon from "@mui/icons-material/VerifiedUser";
 import PartsIcon from "@mui/icons-material/Category";
 import PrintIcon from "@mui/icons-material/Print";
 import { SessionProvider } from "next-auth/react";
-import theme from "../../theme";
+import ClientThemeProvider from "../components/ThemeProvider";
 import { RepairsProvider } from "./context/repairs.context";
 import { auth } from "../../auth";
 import { signIn, signOut } from "next-auth/react";
@@ -136,20 +135,19 @@ export default async function RootLayout({ children }) {
     // 🔒 ADMIN-ONLY ACCESS - Require authentication for CRM access
     if (!session?.user) {
         return (
-            <html lang="en">
+            <html lang="en" suppressHydrationWarning>
                 <body>
                     <SessionProvider session={session}>
-                        <ThemeProvider theme={theme}>
+                        <ClientThemeProvider>
                             <AppProvider
                                 session={session}
                                 navigation={[]}
                                 branding={BRANDING}
                                 authentication={AUTHENTICATION}
-                                theme={theme}
                             >
                                 {children}
                             </AppProvider>
-                        </ThemeProvider>
+                        </ClientThemeProvider>
                     </SessionProvider>
                 </body>
             </html>
@@ -158,21 +156,20 @@ export default async function RootLayout({ children }) {
 
     // 🎯 ADMIN CRM - Simplified single navigation for all authenticated users
     return (
-        <html lang="en">
+        <html lang="en" suppressHydrationWarning>
             <body>
                 <SessionProvider session={session}>
                     <RepairsProvider>
-                        <ThemeProvider theme={theme}>
+                        <ClientThemeProvider>
                             <AppProvider
                                 session={session}
                                 navigation={NAVIGATION}
                                 branding={BRANDING}
                                 authentication={AUTHENTICATION}
-                                theme={theme}
                             >
                                 {children}
                             </AppProvider>
-                        </ThemeProvider>
+                        </ClientThemeProvider>
                     </RepairsProvider>
                 </SessionProvider>
             </body>

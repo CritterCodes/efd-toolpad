@@ -11,17 +11,20 @@ import Button from '@mui/material/Button';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
 import Chip from '@mui/material/Chip';
+import { getAdminStatuses, STATUS_CATEGORIES } from '../../../config/statuses';
 
 const typeOptions = [
     { value: 'repair', label: 'Repair' },
     { value: 'custom-design', label: 'Custom Design' }
 ];
 
-const statusOptions = [
-    { value: 'pending', label: 'Pending' },
-    { value: 'in-progress', label: 'In Progress' },
-    { value: 'completed', label: 'Completed' }
-];
+// Get status options from the new configuration
+const statusOptions = getAdminStatuses().map(status => ({
+    value: status.value,
+    label: status.label,
+    category: status.category,
+    icon: status.icon
+}));
 
 const paymentOptions = [
     { value: 'true', label: 'Yes' },
@@ -133,7 +136,7 @@ export default function CustomTicketFilters({
                 </FormControl>
 
                 {/* Status Filter */}
-                <FormControl variant="outlined" size="small" sx={{ minWidth: 120 }}>
+                <FormControl variant="outlined" size="small" sx={{ minWidth: 180 }}>
                     <InputLabel>Status</InputLabel>
                     <Select
                         value={filters.status}
@@ -141,11 +144,21 @@ export default function CustomTicketFilters({
                         label="Status"
                     >
                         <MenuItem value="">All Statuses</MenuItem>
-                        {statusOptions.map((option) => (
-                            <MenuItem key={option.value} value={option.value}>
-                                {option.label}
-                            </MenuItem>
-                        ))}
+                        {Object.entries(STATUS_CATEGORIES).map(([categoryKey, category]) => [
+                            <MenuItem key={`header-${categoryKey}`} disabled sx={{ fontWeight: 'bold', color: 'text.secondary' }}>
+                                {category.label}
+                            </MenuItem>,
+                            ...statusOptions
+                                .filter(option => option.category === categoryKey)
+                                .map((option) => (
+                                    <MenuItem key={option.value} value={option.value} sx={{ pl: 3 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <span>{option.icon}</span>
+                                            <span>{option.label}</span>
+                                        </Box>
+                                    </MenuItem>
+                                ))
+                        ]).flat()}
                     </Select>
                 </FormControl>
 

@@ -17,24 +17,27 @@ export default function CustomTicketSummary({ summary }) {
 
     if (!summary) return null;
 
+    // Provide safe defaults for undefined values from constitutional MVC
+    const safeValue = (value) => (value != null ? Number(value) : 0);
+
     const summaryCards = [
         {
             title: 'Total Outstanding',
-            value: `$${summary.totalOutstanding.toFixed(2)}`,
+            value: `$${safeValue(summary.totalOutstanding).toFixed(2)}`,
             icon: <TrendingDownIcon />,
             color: theme.palette.error.main,
             bgColor: theme.palette.error.light,
         },
         {
             title: 'Total Reimbursed',
-            value: `$${summary.totalReimbursed.toFixed(2)}`,
+            value: `$${safeValue(summary.totalReimbursed).toFixed(2)}`,
             icon: <TrendingUpIcon />,
             color: theme.palette.success.main,
             bgColor: theme.palette.success.light,
         },
         {
             title: 'Total Quote Value',
-            value: `$${summary.totalQuoteValue.toFixed(2)}`,
+            value: `$${safeValue(summary.totalQuoteValue).toFixed(2)}`,
             icon: <MonetizationOnIcon />,
             color: theme.palette.primary.main,
             bgColor: theme.palette.primary.light,

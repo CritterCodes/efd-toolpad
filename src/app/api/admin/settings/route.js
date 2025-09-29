@@ -32,6 +32,7 @@ export async function GET(request) {
     // Return public settings only (no security codes)
     const publicSettings = {
       pricing: settings.pricing,
+      financial: settings.financial,
       business: settings.business,
       version: settings.version,
       updatedAt: settings.updatedAt,
@@ -69,7 +70,7 @@ export async function PUT(request) {
     }
 
     const body = await request.json();
-    const { pricing, securityCode, business } = body;
+    const { pricing, financial, securityCode, business } = body;
 
     if (!securityCode) {
       return NextResponse.json({ error: 'Security code required' }, { status: 400 });
@@ -115,6 +116,7 @@ export async function PUT(request) {
         administrativeFee, 
         businessFee, 
         consumablesFee,
+        marketingFee,
         rushMultiplier,
         deliveryFee,
         taxRate
@@ -140,6 +142,10 @@ export async function PUT(request) {
         return NextResponse.json({ error: 'Consumables fee must be between 0 and 100%' }, { status: 400 });
       }
 
+      if (marketingFee < 0 || marketingFee > 1) {
+        return NextResponse.json({ error: 'Marketing fee must be between 0 and 100%' }, { status: 400 });
+      }
+
       if (rushMultiplier && (rushMultiplier < 1 || rushMultiplier > 5)) {
         return NextResponse.json({ error: 'Rush multiplier must be between 1.0 and 5.0' }, { status: 400 });
       }
@@ -157,6 +163,7 @@ export async function PUT(request) {
     const updatedSettings = {
       ...adminSettings,
       pricing: pricing || adminSettings.pricing,
+      financial: financial || adminSettings.financial,
       business: business || adminSettings.business,
       updatedAt: new Date(),
       lastModifiedBy: session.user.email
@@ -189,6 +196,7 @@ export async function PUT(request) {
       recalculation: recalculationResult,
       settings: {
         pricing: updatedSettings.pricing,
+        financial: updatedSettings.financial,
         business: updatedSettings.business,
         updatedAt: updatedSettings.updatedAt
       }
@@ -221,7 +229,8 @@ async function recalculateAllPrices(dbInstance, pricingSettings) {
         
         const businessMultiplier = pricingSettings.administrativeFee + 
                                  pricingSettings.businessFee + 
-                                 pricingSettings.consumablesFee + 1;
+                                 pricingSettings.consumablesFee + 
+                                 (pricingSettings.marketingFee || 0) + 1;
         
         const newBasePrice = Math.round(subtotal * businessMultiplier * 100) / 100;
 
@@ -244,7 +253,8 @@ async function recalculateAllPrices(dbInstance, pricingSettings) {
                   fees: {
                     administrative: pricingSettings.administrativeFee,
                     business: pricingSettings.businessFee,
-                    consumables: pricingSettings.consumablesFee
+                    consumables: pricingSettings.consumablesFee,
+                    marketing: pricingSettings.marketingFee || 0
                   },
                   // New pricing components
                   rushMultiplier: pricingSettings.rushMultiplier || 1.5,
@@ -292,5 +302,92 @@ async function recalculateAllPrices(dbInstance, pricingSettings) {
   } catch (error) {
     console.error('Price recalculation error:', error);
     throw error;
+  }
+}
+
+/**
+ * POST /api/admin/settings
+ * Update financial settings (no security code required)
+ */
+export async function POST(request) {
+  try {
+    const session = await auth();
+    
+    if (!session || !session.user?.email?.includes('@')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { financial } = body;
+
+    if (!financial) {
+      return NextResponse.json({ error: 'Financial settings required' }, { status: 400 });
+    }
+
+    await db.connect();
+    
+    const adminSettings = await db._instance.collection('adminSettings').findOne({ 
+      _id: 'repair_task_admin_settings' 
+    });
+
+    if (!adminSettings) {
+      return NextResponse.json({ error: 'Settings not found' }, { status: 404 });
+    }
+
+    // Validate financial inputs
+    const {
+      customDesignFee,
+      commissionPercentage,
+      jewelerLaborRate,
+      cadDesignerRate,
+      materialMarkupPercentage,
+      shippingRate,
+      rushMultiplier
+    } = financial;
+
+    if (customDesignFee < 0 || commissionPercentage < 0 || jewelerLaborRate < 0 || 
+        cadDesignerRate < 0 || materialMarkupPercentage < 0 || shippingRate < 0 || 
+        rushMultiplier < 1) {
+      return NextResponse.json({ error: 'Invalid financial values' }, { status: 400 });
+    }
+
+    // Update the settings
+    const updatedSettings = {
+      ...adminSettings,
+      financial: financial,
+      updatedAt: new Date(),
+      version: (adminSettings.version || 0) + 1
+    };
+
+    await db._instance.collection('adminSettings').updateOne(
+      { _id: 'repair_task_admin_settings' },
+      { $set: updatedSettings }
+    );
+
+    // Create audit log
+    await createAuditLogEntry(db._instance, {
+      action: 'UPDATE_FINANCIAL_SETTINGS',
+      userId: session.user.email,
+      details: {
+        financial: financial,
+        timestamp: new Date()
+      }
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'Financial settings updated successfully',
+      data: {
+        financial: updatedSettings.financial,
+        updatedAt: updatedSettings.updatedAt
+      }
+    });
+
+  } catch (error) {
+    console.error('Error updating financial settings:', error);
+    return NextResponse.json(
+      { error: 'Failed to update financial settings: ' + error.message },
+      { status: 500 }
+    );
   }
 }

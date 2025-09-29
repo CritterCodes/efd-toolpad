@@ -1,0 +1,174 @@
+
+> efd-react@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.1.3
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.0.141:3000
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 2.2s
+ ○ Compiling /api/custom-tickets/summary ...
+ ✓ Compiled /api/custom-tickets/summary in 1675ms (334 modules)
+ERROR: Microservice API request failed: http://localhost:3002/api/tickets/stats/summary TypeError: fetch failed
+    at async CustomTicketsMicroserviceAdapter.makeApiRequest (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\api-clients\customTicketsMicroserviceAdapter.js:56:23)
+    at async CustomTicketsMicroserviceAdapter.getTicketsSummary (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\api-clients\customTicketsMicroserviceAdapter.js:144:11)
+    at async CustomTicketService.getTicketsSummary (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\app\api\custom-tickets\service.js:193:21)
+    at async CustomTicketController.getTicketsSummary (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\app\api\custom-tickets\controller.js:240:22)
+    at async GET (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\app\api\custom-tickets\summary\route.js:9:9)
+  54 |
+  55 |     try {
+> 56 |       const response = await fetch(url, {
+     |                       ^
+  57 |         ...options,
+  58 |         signal: controller.signal,
+  59 |         headers: { {
+  [cause]: [AggregateError: ] { code: 'ECONNREFUSED' }
+}
+CustomTicketService.getTicketsSummary error: TypeError: fetch failed
+    at async CustomTicketsMicroserviceAdapter.makeApiRequest (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\api-clients\customTicketsMicroserviceAdapter.js:56:23)
+    at async CustomTicketsMicroserviceAdapter.getTicketsSummary (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\api-clients\customTicketsMicroserviceAdapter.js:144:11)
+    at async CustomTicketService.getTicketsSummary (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\app\api\custom-tickets\service.js:193:21)
+    at async CustomTicketController.getTicketsSummary (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\app\api\custom-tickets\controller.js:240:22)
+    at async GET (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\app\api\custom-tickets\summary\route.js:9:9)
+  54 |
+  55 |     try {
+> 56 |       const response = await fetch(url, {
+     |                       ^
+  57 |         ...options,
+  58 |         signal: controller.signal,
+  59 |         headers: { {
+  [cause]: [AggregateError: ] { code: 'ECONNREFUSED' }
+}
+CustomTicketController.getTicketsSummary error: Error: fetch failed
+    at CustomTicketService.getTicketsSummary (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\app\api\custom-tickets\service.js:202:12)
+    at async CustomTicketController.getTicketsSummary (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\app\api\custom-tickets\controller.js:240:22)
+    at async GET (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\app\api\custom-tickets\summary\route.js:9:9)
+  200 |     } catch (error) {
+  201 |       console.error('CustomTicketService.getTicketsSummary error:', error);
+> 202 |       throw new Error(error.message);
+      |            ^
+  203 |     }
+  204 |   }
+  205 |
+ GET /api/custom-tickets/summary 500 in 3029ms
+ ✓ Compiled in 367ms (84 modules)
+ ✓ Compiled in 93ms (84 modules)
+ ✓ Compiled in 26ms
+ ✓ Compiled /api/custom-tickets/summary in 278ms (84 modules)
+ERROR: Failed to initialize embedded custom tickets service: Error: Cannot find module 'winston'
+Require stack:
+- C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\.next\server\app\api\custom-tickets\summary\route.js
+- C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\node_modules\next\dist\server\require.js
+- C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\node_modules\next\dist\server\load-components.js
+- C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\node_modules\next\dist\build\utils.js
+- C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\node_modules\next\dist\build\swc\options.js
+- C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\node_modules\next\dist\build\swc\index.js
+- C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\node_modules\next\dist\build\analysis\parse-module.js
+- C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\node_modules\next\dist\build\analysis\get-page-static-info.js
+- C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js
+- C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\node_modules\next\dist\server\lib\router-server.js
+- C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\node_modules\next\dist\server\lib\start-server.js
+    at Object.winston (C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\.next\server\app\api\custom-tickets\summary\route.js:77:18)
+    at __webpack_require__ (C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\.next\server\webpack-runtime.js:33:42)
+    at eval (webpack-internal:///(rsc)/./microservices/custom-tickets-service/src/utils/logger.js:6:65)
+    at (rsc)/./microservices/custom-tickets-service/src/utils/logger.js (C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\.next\server\_rsc_microservices_custom-tickets-service_src_services_CustomTicketService_js.js:30:1)
+    at __webpack_require__ (C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\.next\server\webpack-runtime.js:33:42)
+    at eval (webpack-internal:///(rsc)/./microservices/custom-tickets-service/src/services/CustomTicketService.js:7:74)
+    at (rsc)/./microservices/custom-tickets-service/src/services/CustomTicketService.js (C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\.next\server\_rsc_microservices_custom-tickets-service_src_services_CustomTicketService_js.js:20:1)
+    at Function.__webpack_require__ (C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\.next\server\webpack-runtime.js:33:42)
+    at async CustomTicketsMicroserviceAdapter.initializeEmbeddedService (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\api-clients\customTicketsMicroserviceAdapter.js:37:40)
+  35 |       // Only import when actually needed to avoid build-time dependency issues
+  36 |       if (typeof window === 'undefined') { // Server-side only
+> 37 |         const { CustomTicketService } = await import('../../microservices/custom-tickets-service/src/services/CustomTicketService.js');
+     |                                        ^
+  38 |         await CustomTicketService.initializeDatabase();
+  39 |         this.embeddedService = CustomTicketService;
+  40 |         logger.info('Custom Tickets microservice initialized in embedded mode'); {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+INFO: Switched to API mode due to embedded service initialization failure {}
+ERROR: Microservice API request failed: http://localhost:3002/api/tickets/stats/summary TypeError: fetch failed
+    at async CustomTicketsMicroserviceAdapter.makeApiRequest (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\api-clients\customTicketsMicroserviceAdapter.js:56:23)
+    at async CustomTicketsMicroserviceAdapter.getTicketsSummary (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\api-clients\customTicketsMicroserviceAdapter.js:173:13)
+    at async CustomTicketService.getTicketsSummary (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\app\api\custom-tickets\service.js:193:21)
+    at async CustomTicketController.getTicketsSummary (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\app\api\custom-tickets\controller.js:240:22)
+    at async GET (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\app\api\custom-tickets\summary\route.js:9:9)
+  54 |
+  55 |     try {
+> 56 |       const response = await fetch(url, {
+     |                       ^
+  57 |         ...options,
+  58 |         signal: controller.signal,
+  59 |         headers: { {
+  [cause]: [AggregateError: ] { code: 'ECONNREFUSED' }
+}
+WARN: API connection failed, attempting fallback to embedded mode... {}
+ERROR: Failed to initialize embedded custom tickets service: Error: Cannot find module 'winston'
+Require stack:
+- C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\.next\server\app\api\custom-tickets\summary\route.js
+- C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\node_modules\next\dist\server\require.js
+- C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\node_modules\next\dist\server\load-components.js
+- C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\node_modules\next\dist\build\utils.js
+- C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\node_modules\next\dist\build\swc\options.js
+- C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\node_modules\next\dist\build\swc\index.js
+- C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\node_modules\next\dist\build\analysis\parse-module.js
+- C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\node_modules\next\dist\build\analysis\get-page-static-info.js
+- C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js
+- C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\node_modules\next\dist\server\lib\router-server.js
+- C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\node_modules\next\dist\server\lib\start-server.js
+    at Object.winston (C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\.next\server\app\api\custom-tickets\summary\route.js:77:18)
+    at __webpack_require__ (C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\.next\server\webpack-runtime.js:33:42)
+    at eval (webpack-internal:///(rsc)/./microservices/custom-tickets-service/src/utils/logger.js:6:65)
+    at (rsc)/./microservices/custom-tickets-service/src/utils/logger.js (C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\.next\server\_rsc_microservices_custom-tickets-service_src_services_CustomTicketService_js.js:30:1)
+    at __webpack_require__ (C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\.next\server\webpack-runtime.js:33:42)
+    at eval (webpack-internal:///(rsc)/./microservices/custom-tickets-service/src/services/CustomTicketService.js:7:74)
+    at (rsc)/./microservices/custom-tickets-service/src/services/CustomTicketService.js (C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\.next\server\_rsc_microservices_custom-tickets-service_src_services_CustomTicketService_js.js:20:1)
+    at Function.__webpack_require__ (C:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\.next\server\webpack-runtime.js:33:42)
+    at async CustomTicketsMicroserviceAdapter.initializeEmbeddedService (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\api-clients\customTicketsMicroserviceAdapter.js:37:40)
+    at async CustomTicketsMicroserviceAdapter.makeApiRequest (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\api-clients\customTicketsMicroserviceAdapter.js:83:10)
+    at async CustomTicketsMicroserviceAdapter.getTicketsSummary (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\api-clients\customTicketsMicroserviceAdapter.js:173:13)
+    at async CustomTicketService.getTicketsSummary (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\app\api\custom-tickets\service.js:193:21)
+    at async CustomTicketController.getTicketsSummary (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\app\api\custom-tickets\controller.js:240:22)
+    at async GET (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\app\api\custom-tickets\summary\route.js:9:9)
+  35 |       // Only import when actually needed to avoid build-time dependency issues
+  36 |       if (typeof window === 'undefined') { // Server-side only
+> 37 |         const { CustomTicketService } = await import('../../microservices/custom-tickets-service/src/services/CustomTicketService.js');
+     |                                        ^
+  38 |         await CustomTicketService.initializeDatabase();
+  39 |         this.embeddedService = CustomTicketService;
+  40 |         logger.info('Custom Tickets microservice initialized in embedded mode'); {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+INFO: Switched to API mode due to embedded service initialization failure {}
+CustomTicketService.getTicketsSummary error: TypeError: fetch failed
+    at async CustomTicketsMicroserviceAdapter.makeApiRequest (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\api-clients\customTicketsMicroserviceAdapter.js:56:23)
+    at async CustomTicketsMicroserviceAdapter.getTicketsSummary (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\api-clients\customTicketsMicroserviceAdapter.js:173:13)
+    at async CustomTicketService.getTicketsSummary (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\app\api\custom-tickets\service.js:193:21)
+    at async CustomTicketController.getTicketsSummary (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\app\api\custom-tickets\controller.js:240:22)
+    at async GET (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\app\api\custom-tickets\summary\route.js:9:9)
+  54 |
+  55 |     try {
+> 56 |       const response = await fetch(url, {
+     |                       ^
+  57 |         ...options,
+  58 |         signal: controller.signal,
+  59 |         headers: { {
+  [cause]: [AggregateError: ] { code: 'ECONNREFUSED' }
+}
+CustomTicketController.getTicketsSummary error: Error: fetch failed
+    at CustomTicketService.getTicketsSummary (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\app\api\custom-tickets\service.js:202:12)
+    at async CustomTicketController.getTicketsSummary (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\app\api\custom-tickets\controller.js:240:22)
+    at async GET (c:\Users\jacob\OneDrive\Desktop\Projects\crittercodes\EngelFineDesign\web\efd-admin\src\app\api\custom-tickets\summary\route.js:9:9)
+  200 |     } catch (error) {
+  201 |       console.error('CustomTicketService.getTicketsSummary error:', error);
+> 202 |       throw new Error(error.message);
+      |            ^
+  203 |     }
+  204 |   }
+  205 |
+ GET /api/custom-tickets/summary 500 in 528ms
+ ✓ Compiled in 101ms (84 modules)

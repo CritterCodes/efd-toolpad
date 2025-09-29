@@ -406,96 +406,6 @@ export const transformProcessForForm = (process) => {
 };
 
 /**
- * Format category display name
- */
-export const formatCategoryDisplay = (category) => {
-  return category
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-};
-
-/**
- * Filter processes based on multiple criteria
- */
-export const filterProcesses = (processes, filters = {}) => {
-  return processes.filter(process => {
-    // Search filter
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      const searchableText = [
-        process.name,
-        process.description,
-        process.category,
-        process.skillLevel,
-        process.metalType,
-        process.karat
-      ].join(' ').toLowerCase();
-      
-      if (!searchableText.includes(searchLower)) {
-        return false;
-      }
-    }
-
-    // Active status filter
-    if (filters.isActive !== undefined) {
-      if (filters.isActive !== (process.isActive !== false)) {
-        return false;
-      }
-    }
-
-    // Skill level filter
-    if (filters.skillLevel && process.skillLevel !== filters.skillLevel) {
-      return false;
-    }
-
-    // Metal type filter
-    if (filters.metalType && process.metalType !== filters.metalType) {
-      return false;
-    }
-
-    // Karat filter
-    if (filters.karat && process.karat !== filters.karat) {
-      return false;
-    }
-
-    return true;
-  });
-};
-
-/**
- * Sort processes by specified field and order
- */
-export const sortProcesses = (processes, sortBy = 'name', sortOrder = 'asc') => {
-  const sorted = [...processes].sort((a, b) => {
-    let aValue = a[sortBy];
-    let bValue = b[sortBy];
-
-    // Handle special cases
-    if (sortBy === 'totalCost' || sortBy === 'laborCost' || sortBy === 'materialsCost') {
-      aValue = parseFloat(aValue) || 0;
-      bValue = parseFloat(bValue) || 0;
-    } else if (sortBy === 'timeRequired' || sortBy === 'laborHours') {
-      aValue = parseFloat(aValue) || 0;
-      bValue = parseFloat(bValue) || 0;
-    } else if (sortBy === 'createdAt' || sortBy === 'updatedAt') {
-      aValue = new Date(aValue);
-      bValue = new Date(bValue);
-    } else {
-      // String comparison
-      aValue = String(aValue || '').toLowerCase();
-      bValue = String(bValue || '').toLowerCase();
-    }
-
-    if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
-    if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
-    return 0;
-  });
-
-  return sorted;
-};
-
-/**
  * Get unique values from an array of objects for a specific field
  */
 export const getUniqueValues = (array, field) => {
@@ -509,24 +419,40 @@ export const getUniqueValues = (array, field) => {
 export const calculateProcessCost = (processData, adminSettings = {}) => {
   // Ensure adminSettings is not null and provide defaults
   const settings = adminSettings || {};
-  const pricing = settings.pricing || {};
-  
+  const baseHourlyRate = parseFloat(settings.baseHourlyRate) || 50;
+  const materialMarkupPercent = parseFloat(settings.materialMarkupPercent) || 25;
+
+  const basePrice = parseFloat(processData.basePrice) || 0;
   const laborHours = parseFloat(processData.laborHours) || 0;
-  const baseWage = pricing.wage || 30;
-  const skillMultiplier = getSkillLevelMultiplier(processData.skillLevel);
-  const hourlyRate = baseWage * skillMultiplier;
-  const laborCost = laborHours * hourlyRate;
+  const skillLevel = processData.skillLevel || 'standard';
+  const metalComplexityMultiplier = parseFloat(processData.metalComplexityMultiplier) || 1.0;
 
-  // Calculate materials cost
-  const materialMarkup = pricing.materialMarkup || 1.3;
-  const baseMaterialsCost = (processData.materials || []).reduce((total, material) => {
-    return total + (material.estimatedCost || 0);
+  // Get skill level multiplier
+  const skillLevelMultiplier = getSkillLevelMultiplier(skillLevel);
+  
+  // Calculate adjusted hourly rate
+  const hourlyRate = baseHourlyRate * skillLevelMultiplier * metalComplexityMultiplier;
+  
+  // Calculate labor cost
+  const laborCost = hourlyRate * laborHours;
+  
+  // Calculate materials cost (if materials are provided)
+  const materials = processData.materials || [];
+  const baseMaterialsCost = materials.reduce((total, material) => {
+    const cost = parseFloat(material.cost) || 0;
+    const quantity = parseFloat(material.quantity) || 1;
+    return total + (cost * quantity);
   }, 0);
-  const materialsCost = baseMaterialsCost * materialMarkup;
-
-  // Apply complexity multiplier
-  const complexityMultiplier = parseFloat(processData.metalComplexityMultiplier) || 1.0;
-  const totalCost = (laborCost + materialsCost) * complexityMultiplier;
+  
+  // Apply material markup
+  const materialMarkup = baseMaterialsCost * (materialMarkupPercent / 100);
+  const materialsCost = baseMaterialsCost + materialMarkup;
+  
+  // Total cost
+  const totalCost = basePrice + laborCost + materialsCost;
+  
+  // Calculate complexity multiplier for display
+  const complexityMultiplier = skillLevelMultiplier * metalComplexityMultiplier;
 
   return {
     laborCost: Math.round(laborCost * 100) / 100,

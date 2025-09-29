@@ -80,7 +80,7 @@ export default function AdminSettingsPage() {
                         >
                             <Tab 
                                 icon={<StoreIcon />} 
-                                label="Store Settings" 
+                                label="Pricing & Business" 
                                 id="admin-tab-0"
                                 aria-controls="admin-tabpanel-0"
                             />

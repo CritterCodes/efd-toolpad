@@ -9,7 +9,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "migrate:quote-structure": "node scripts/migrate-quote-structure.js",
+    "cleanup:quote-duplicates": "node scripts/cleanup-quote-duplicates.js",
+    "cleanup:deprecated-quote-fields": "node scripts/cleanup-deprecated-quote-fields.js"
   },
   "dependencies": {
     "@auth/mongodb-adapter": "^3.7.4",
@@ -43,7 +46,8 @@
     "react-dom": "^18.3.1",
     "react-icons": "^5.4.0",
     "react-to-print": "^3.0.4",
-    "recharts": "^2.15.0"
+    "recharts": "^2.15.0",
+    "winston": "^3.17.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

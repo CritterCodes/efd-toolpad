@@ -1,16 +1,10 @@
-import { NextResponse } from 'next/server';
-import { CustomTicketService } from '@/services/customTicket.service';
+/**
+ * Custom Tickets Summary API Route - Constitutional MVC Architecture
+ * Route Layer: Delegates to Controller
+ */
 
-export async function GET() {
-  try {
-    const summary = await CustomTicketService.getFinancialSummary({});
-    
-    return NextResponse.json({ success: true, data: summary });
-  } catch (error) {
-    console.error('Error fetching financial summary:', error);
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
-  }
+import CustomTicketController from "../controller.js";
+
+export async function GET(request) {
+  return await CustomTicketController.getTicketsSummary();
 }

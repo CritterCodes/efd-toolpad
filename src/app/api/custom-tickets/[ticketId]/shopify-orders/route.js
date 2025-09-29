@@ -1,33 +1,24 @@
+/**
+ * Custom Tickets Shopify Orders Route - Constitutional MVC Architecture
+ * Handles linking Shopify orders to custom tickets
+ */
+
 import { NextResponse } from 'next/server';
-import { CustomTicketService } from '@/services/customTicket.service';
+import CustomTicketController from '../../controller.js';
 
 export async function POST(request, { params }) {
   try {
     const ticketId = params.ticketId;
     const { orderType, orderId } = await request.json();
     
-    if (!orderType || !orderId) {
-      return NextResponse.json(
-        { success: false, error: 'orderType and orderId are required' },
-        { status: 400 }
-      );
-    }
-
-    if (!['deposit', 'final'].includes(orderType)) {
-      return NextResponse.json(
-        { success: false, error: 'orderType must be either "deposit" or "final"' },
-        { status: 400 }
-      );
-    }
+    // Delegate to MVC controller
+    return await CustomTicketController.linkShopifyOrder(ticketId, orderType, orderId);
     
-    const updatedTicket = await CustomTicketService.linkShopifyOrder(ticketId, orderType, orderId);
-    
-    return NextResponse.json({ success: true, data: updatedTicket });
   } catch (error) {
-    console.error('Error linking Shopify order:', error);
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: error.message === 'Ticket not found' ? 404 : 500 }
-    );
+    console.error('Shopify orders route error:', error);
+    return Response.json({
+      success: false,
+      error: 'Failed to parse request data'
+    }, { status: 400 });
   }
 }
