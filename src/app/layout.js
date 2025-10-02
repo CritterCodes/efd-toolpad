@@ -15,6 +15,7 @@ import PickupIcon from "@mui/icons-material/LocalShipping";
 import QualityIcon from "@mui/icons-material/VerifiedUser";
 import PartsIcon from "@mui/icons-material/Category";
 import PrintIcon from "@mui/icons-material/Print";
+import StorefrontIcon from "@mui/icons-material/Storefront";
 import { SessionProvider } from "next-auth/react";
 import ClientThemeProvider from "../components/ThemeProvider";
 import { RepairsProvider } from "./context/repairs.context";
@@ -34,6 +35,33 @@ const NAVIGATION = [
         segment: 'dashboard/clients',
         title: 'Clients',
         icon: <PeopleIcon />
+    },
+    {
+        segment: 'dashboard/users',
+        title: 'User Management',
+        icon: <PeopleIcon />,
+        children: [
+            {
+                segment: 'admin',
+                title: 'Administrators',
+                icon: <SettingsIcon />
+            },
+            {
+                segment: 'developers',
+                title: 'Developers',
+                icon: <BuildIcon />
+            },
+            {
+                segment: 'wholesalers',
+                title: 'Wholesalers',
+                icon: <StorefrontIcon />
+            },
+            {
+                segment: 'artisans',
+                title: 'Artisans',
+                icon: <HandymanIcon />
+            }
+        ]
     },
     {
         segment: 'dashboard/repairs',

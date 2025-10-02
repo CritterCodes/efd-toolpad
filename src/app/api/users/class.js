@@ -29,8 +29,9 @@ export default class User {
         this.password = password;
         this.createdAt = new Date();
         this.updatedAt = new Date();
-        this.appointments = [];
-        this.jewelry = [];
+        // Vendor profile integration (for artisans)
+        this.vendorProfileId = null;
+        this.vendorSlug = null;
         this.verificationToken = this.generateVerificationToken();
     }
 

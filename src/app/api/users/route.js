@@ -11,12 +11,18 @@ export async function POST(req) {
 /**
  * ✅ Route for getting users
  * If a query parameter is provided, fetch a specific user
+ * If a role parameter is provided, fetch users by role
  * Otherwise, fetch all users
  */
 export async function GET(req) {
     const { searchParams } = new URL(req.url);
-    if (searchParams.get("query")) {
+    const query = searchParams.get("query");
+    const role = searchParams.get("role");
+    
+    if (query) {
         return await UserController.getUserByQuery(req);
+    } else if (role) {
+        return await UserController.getUsersByRole(req);
     } else {
         return await UserController.getAllUsers(req);
     }

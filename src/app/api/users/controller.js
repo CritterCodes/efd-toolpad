@@ -97,6 +97,39 @@ export default class UserController {
     }
 
     /**
+     * ✅ Get users by role from the database
+     * @param {Request} request - Request object with role parameter
+     * @returns {Response} - JSON response with filtered users or error message
+     */
+    static async getUsersByRole(request) {
+        try {
+            const { searchParams } = new URL(request.url);
+            const role = searchParams.get("role");
+            
+            if (!role) {
+                return new Response(
+                    JSON.stringify({ error: "Role parameter is required." }),
+                    { status: 400 }
+                );
+            }
+
+            console.log("✅ Fetching users with role:", role);
+            const users = await UserService.getUsersByRole(role);
+            
+            return new Response(
+                JSON.stringify({ users }),
+                { status: 200 }
+            );
+        } catch (error) {
+            console.error("Error in UserController.getUsersByRole:", error);
+            return new Response(
+                JSON.stringify({ error: "Failed to fetch users by role." }),
+                { status: 500 }
+            );
+        }
+    }
+
+    /**
      * ✅ Update a user by query
      * @param {Request} req - Request containing the query and update data
      * @returns {Response} - JSON response with success or error message

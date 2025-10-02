@@ -19,9 +19,11 @@ const ClientsPage = () => {
 
     const fetchClients = async () => {
         try {
-            const response = await UsersService.getAllUsers();
-            setClients(response.users);
-            setFilteredClients(response.users);
+            // Fetch only users with 'client' role
+            const response = await fetch('/api/users?role=client');
+            const data = await response.json();
+            setClients(data.users || []);
+            setFilteredClients(data.users || []);
         } catch (error) {
             console.error("Failed to fetch clients:", error);
         }

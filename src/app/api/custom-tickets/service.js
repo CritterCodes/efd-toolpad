@@ -7,15 +7,15 @@
 import { getCustomTicketsAdapter } from '@/api-clients/customTicketsMicroserviceAdapter.js';
 import CustomTicketModel from './model.js';
 
-// Force embedded mode for development when microservice isn't running
+// Default to embedded mode unless explicitly configured otherwise
 const adapter = getCustomTicketsAdapter({
-  mode: process.env.NODE_ENV === 'development' ? 'embedded' : 'api'
+  mode: process.env.MICROSERVICE_MODE || 'embedded'
 });
 
 // Initialize adapter for embedded mode (async initialization handled in methods)
 let adapterInitialized = false;
 const ensureAdapterInitialized = async () => {
-  if (!adapterInitialized && process.env.NODE_ENV === 'development') {
+  if (!adapterInitialized) {
     await adapter.initializeEmbeddedService();
     adapterInitialized = true;
   }

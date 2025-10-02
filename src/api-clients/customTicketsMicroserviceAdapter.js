@@ -13,7 +13,7 @@ const logger = {
 
 class CustomTicketsMicroserviceAdapter {
   constructor(options = {}) {
-    this.mode = options.mode || (process.env.MICROSERVICE_MODE || 'api'); // Default to API mode
+    this.mode = options.mode || (process.env.MICROSERVICE_MODE || 'embedded'); // Default to embedded mode
     this.baseUrl = options.baseUrl || process.env.CUSTOM_TICKETS_SERVICE_URL || 'http://localhost:3002';
     this.timeout = options.timeout || 5000;
     
@@ -25,13 +25,6 @@ class CustomTicketsMicroserviceAdapter {
 
   async initializeEmbeddedService() {
     try {
-      // Skip embedded service initialization during build process
-      if (process.env.NODE_ENV === 'production') {
-        logger.info('Skipping embedded service initialization in production build');
-        this.mode = 'api';
-        return;
-      }
-      
       // Only import when actually needed to avoid build-time dependency issues
       if (typeof window === 'undefined') { // Server-side only
         const { CustomTicketService } = await import('../../microservices/custom-tickets-service/src/services/CustomTicketService.js');
@@ -73,7 +66,7 @@ class CustomTicketsMicroserviceAdapter {
       clearTimeout(timeoutId);
       logger.error(`Microservice API request failed: ${url}`, error);
       
-      // Auto-fallback to embedded mode on connection errors in development
+      // Auto-fallback to embedded mode on connection errors
       if (error.cause?.code === 'ECONNREFUSED' || error.name === 'AbortError') {
         logger.warn(`API connection failed, attempting fallback to embedded mode...`);
         
@@ -89,8 +82,8 @@ class CustomTicketsMicroserviceAdapter {
             throw new Error('FALLBACK_TO_EMBEDDED');
           } else {
             logger.error(`Failed to initialize embedded service during fallback`);
-            // Still throw fallback error to let calling method try embedded mode again
-            throw new Error('FALLBACK_TO_EMBEDDED');
+            // In production, return a more specific error for graceful handling
+            throw new Error('CUSTOM_TICKETS_SERVICE_UNAVAILABLE');
           }
         } else {
           // Already in embedded mode, but still failed - check if service exists
@@ -103,6 +96,8 @@ class CustomTicketsMicroserviceAdapter {
             await this.initializeEmbeddedService();
             if (this.embeddedService) {
               throw new Error('FALLBACK_TO_EMBEDDED');
+            } else {
+              throw new Error('CUSTOM_TICKETS_SERVICE_UNAVAILABLE');
             }
           }
         }
@@ -126,6 +121,22 @@ class CustomTicketsMicroserviceAdapter {
         logger.info(`Using embedded service for getAllTickets fallback`);
         return await this.embeddedService.getAllTickets(filters);
       }
+      
+      // Production fallback: return empty result if service unavailable
+      if (error.message === 'CUSTOM_TICKETS_SERVICE_UNAVAILABLE' || process.env.NODE_ENV === 'production') {
+        logger.warn('Custom tickets service unavailable in production, returning empty result');
+        return {
+          tickets: [],
+          totalCount: 0,
+          pagination: {
+            currentPage: 1,
+            totalPages: 0,
+            hasNextPage: false,
+            hasPreviousPage: false
+          }
+        };
+      }
+      
       throw error;
     }
   }
@@ -293,6 +304,21 @@ class CustomTicketsMicroserviceAdapter {
         logger.info(`Using embedded service for getTicketsSummary fallback`);
         return await this.embeddedService.getTicketsSummary();
       }
+      
+      // Production fallback: return empty summary if service unavailable
+      if (error.message === 'CUSTOM_TICKETS_SERVICE_UNAVAILABLE' || process.env.NODE_ENV === 'production') {
+        logger.warn('Custom tickets service unavailable in production, returning empty summary');
+        return {
+          totalTickets: 0,
+          pendingTickets: 0,
+          completedTickets: 0,
+          totalRevenue: 0,
+          averageTicketValue: 0,
+          statusBreakdown: {},
+          monthlyStats: []
+        };
+      }
+      
       throw error;
     }
   }

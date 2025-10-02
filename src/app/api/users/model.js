@@ -79,6 +79,24 @@ export default class UserModel {
     }
 
     /**
+     * ✅ Get users by role
+     * @param {string} role - The role to filter by
+     * @returns {Array} - Array of users with the specified role
+     */
+    static getUsersByRole = async (role) => {
+        try {
+            console.log("🔍 Querying database for users with role:", role);
+            const dbUsers = await db.dbUsers();
+            const users = await dbUsers.find({ role: role }).toArray();
+            console.log(`✅ Database returned ${users.length} users with role ${role}`);
+            return users;
+        } catch (error) {
+            console.error("Error retrieving users by role:", error);
+            return [];
+        }
+    }
+
+    /**
      * ✅ Update a user's data
      * @param {Object} query - Query to find the user
      * @param {Object} updateData - Data to update
