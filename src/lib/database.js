@@ -5,12 +5,19 @@ import Constants from "./constants.js";
 class Database {
     constructor() {
         if (!Database.instance) {
+            // Check if MONGODB_URI is defined
+            const mongoUri = process.env.MONGODB_URI;
+            
+            if (!mongoUri) {
+                throw new Error('MONGODB_URI environment variable is not defined');
+            }
+            
             // Use HMR-friendly approach from Vercel example
             if (process.env.NODE_ENV === "development") {
                 // In development mode, use a global variable for HMR compatibility
                 let globalWithMongo = global;
                 if (!globalWithMongo._mongoClient) {
-                    globalWithMongo._mongoClient = new MongoClient(process.env.MONGODB_URI, {
+                    globalWithMongo._mongoClient = new MongoClient(mongoUri, {
                         minPoolSize: 5,
                         maxPoolSize: 10,
                     });
@@ -18,7 +25,7 @@ class Database {
                 this.client = globalWithMongo._mongoClient;
             } else {
                 // In production mode, create a new client
-                this.client = new MongoClient(process.env.MONGODB_URI, {
+                this.client = new MongoClient(mongoUri, {
                     minPoolSize: 5,
                     maxPoolSize: 10,
                 });

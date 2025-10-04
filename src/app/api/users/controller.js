@@ -14,18 +14,28 @@ export default class UserController {
             const createdUser = await UserService.createUser(userData);
             if (!createdUser) {
                 return new Response(
-                    JSON.stringify({ error: "Failed to create user." }),
+                    JSON.stringify({ 
+                        success: false, 
+                        error: "Failed to create user." 
+                    }),
                     { status: 400 }
                 );
             }
             return new Response(
-                JSON.stringify({ message: "User created successfully", user: createdUser }),
+                JSON.stringify({ 
+                    success: true, 
+                    message: "User created successfully", 
+                    data: createdUser 
+                }),
                 { status: 201 }
             );
         } catch (error) {
             console.error("Error in UserController.createUser:", error);
             return new Response(
-                JSON.stringify({ error: "An error occurred while creating the user." }),
+                JSON.stringify({ 
+                    success: false, 
+                    error: error.message || "An error occurred while creating the user." 
+                }),
                 { status: 500 }
             );
         }
@@ -117,13 +127,19 @@ export default class UserController {
             const users = await UserService.getUsersByRole(role);
             
             return new Response(
-                JSON.stringify({ users }),
+                JSON.stringify({ 
+                    success: true, 
+                    data: users 
+                }),
                 { status: 200 }
             );
         } catch (error) {
             console.error("Error in UserController.getUsersByRole:", error);
             return new Response(
-                JSON.stringify({ error: "Failed to fetch users by role." }),
+                JSON.stringify({ 
+                    success: false, 
+                    error: "Failed to fetch users by role." 
+                }),
                 { status: 500 }
             );
         }

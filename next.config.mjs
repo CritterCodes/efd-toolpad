@@ -25,7 +25,9 @@ const nextConfig = {
             snappy: false,
             socks: false,
             aws4: false,
-            'mongodb-client-encryption': false
+            'mongodb-client-encryption': false,
+            // Node.js built-ins
+            'timers/promises': false
         };
         
         // Ignore optional MongoDB modules that cause build issues

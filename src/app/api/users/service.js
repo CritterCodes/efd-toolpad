@@ -91,7 +91,7 @@ export default class UserService {
     static async getUserById(userId) {
         try {
             console.log(`🔍 Fetching user by ID: ${userId}`);
-            const user = await UserModel.getUserByQuery({ _id: userId });
+            const user = await UserModel.getUserById(userId);
             if (user) {
                 console.log("✅ User found by ID:", user._id);
             } else {
@@ -132,6 +132,28 @@ export default class UserService {
         } catch (error) {
             console.error("Error in UserService.deleteUser:", error);
             throw new Error("Failed to delete user.");
+        }
+    }
+
+    /**
+     * ✅ Update a user by ID
+     * @param {String} userId - The ID of the user to update
+     * @param {Object} updateData - The data to update
+     * @returns {Object|null} - Updated user data or null if not found
+     */
+    static async updateUser(userId, updateData) {
+        try {
+            console.log(`🔄 Updating user with ID: ${userId}`);
+            const updatedUser = await UserModel.updateUser(userId, updateData);
+            if (updatedUser) {
+                console.log("✅ User updated successfully:", updatedUser._id);
+            } else {
+                console.warn("⚠️ No user found to update with ID:", userId);
+            }
+            return updatedUser;
+        } catch (error) {
+            console.error("Error in UserService.updateUser:", error);
+            throw new Error("Failed to update user.");
         }
     }
 }

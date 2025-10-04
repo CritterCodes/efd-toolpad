@@ -14,7 +14,8 @@ import {
   Inventory as MaterialsIcon,
   Engineering as ProcessesIcon,
   Add as AddIcon,
-  List as ListIcon
+  List as ListIcon,
+  Person as ArtisanIcon
 } from '@mui/icons-material';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useRouter } from 'next/navigation';
@@ -67,6 +68,20 @@ export default function AdminPage() {
           label: 'Manage Processes',
           path: '/dashboard/admin/tasks/processes',
           icon: <ProcessesIcon />,
+          variant: 'contained'
+        }
+      ]
+    },
+    {
+      title: 'Artisan Management',
+      description: 'Review and manage artisan partnership applications',
+      icon: <ArtisanIcon sx={{ fontSize: 48 }} />,
+      color: 'success',
+      actions: [
+        {
+          label: 'Manage Applications',
+          path: '/dashboard/admin/artisans',
+          icon: <ArtisanIcon />,
           variant: 'contained'
         }
       ]

@@ -1,6 +1,6 @@
 // app/api/repairs/route.js
 import { NextResponse } from "next/server";
-import { uploadFileToS3 } from "@/utils/s3.util"; 
+import { uploadRepairImage } from "@/utils/s3.util"; 
 import RepairsController from "./controller";
 
 export const POST = async (request) => {
@@ -17,7 +17,7 @@ export const POST = async (request) => {
 
             // Upload image to S3 if provided
             if (picture && picture instanceof File) {
-                imageUrl = await uploadFileToS3(picture);
+                imageUrl = await uploadRepairImage(picture, formData.get("userID") || 'unknown');
             }
 
             // Extract repair data from FormData
@@ -87,7 +87,7 @@ export const POST = async (request) => {
                 const file = new File([buffer], jsonData.picture.name || 'repair-image.jpg', {
                     type: jsonData.picture.type || 'image/jpeg'
                 });
-                imageUrl = await uploadFileToS3(file);
+                imageUrl = await uploadRepairImage(file, jsonData.userID || 'unknown');
             }
             
             repairData = {

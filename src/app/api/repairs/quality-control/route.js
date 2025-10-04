@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { uploadFileToS3 } from "@/utils/s3.util"; 
+import { uploadRepairImage } from "@/utils/s3.util"; 
 import RepairsController from "../controller";
 
 /**
@@ -23,7 +23,7 @@ export const POST = async (req) => {
         const status = formData.get("status");
         const notes = formData.get("notes");
         const checklist = JSON.parse(formData.get("checklist"));
-        const imagePath = await uploadFileToS3(formData.get("qcPicture")); // ✅ Upload image to S3
+        const imagePath = await uploadRepairImage(formData.get("qcPicture"), repairID); // ✅ Upload image to S3
 
         // ✅ Prepare the repair data for updating
         const updateData = {

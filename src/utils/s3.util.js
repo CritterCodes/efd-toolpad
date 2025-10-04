@@ -10,14 +10,18 @@ const s3Client = new S3Client({
 });
 
 /**
- * Upload a file directly to S3 without ACLs (Bucket must have proper policy)
+ * Upload a file directly to S3 with organized folder structure
  * @param {File} file - The file to upload.
+ * @param {string} folder - The folder path (e.g., 'admin/repairs', 'admin/tasks')
+ * @param {string} prefix - Optional prefix for the filename
  * @returns {Promise<string>} - The public URL of the uploaded file.
  */
-export const uploadFileToS3 = async (file) => {
+export const uploadFileToS3 = async (file, folder = 'admin/general', prefix = '') => {
     try {
         const fileBuffer = await file.arrayBuffer();  // Convert file to buffer
-        const fileKey = `${Date.now()}-${file.name.replace(/\s/g, '_')}`;
+        const timestamp = Date.now();
+        const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const fileKey = `${folder}/${prefix}${timestamp}-${sanitizedName}`;
 
         const uploadParams = {
             Bucket: process.env.AWS_BUCKET_NAME,
@@ -38,4 +42,24 @@ export const uploadFileToS3 = async (file) => {
         console.error("❌ Error uploading to S3:", error);
         throw new Error("Failed to upload file to S3");
     }
+};
+
+/**
+ * Upload repair task image with organized structure
+ * @param {File} file - The file to upload
+ * @param {string} taskId - The repair task ID
+ * @returns {Promise<string>} - The public URL of the uploaded file
+ */
+export const uploadRepairTaskImage = async (file, taskId) => {
+    return uploadFileToS3(file, `admin/repair-tasks/${taskId}`, 'image-');
+};
+
+/**
+ * Upload general repair image with organized structure
+ * @param {File} file - The file to upload
+ * @param {string} repairId - The repair ID
+ * @returns {Promise<string>} - The public URL of the uploaded file
+ */
+export const uploadRepairImage = async (file, repairId = 'general') => {
+    return uploadFileToS3(file, `admin/repairs/${repairId}`, 'image-');
 };

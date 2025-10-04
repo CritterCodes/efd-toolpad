@@ -60,6 +60,34 @@ export default class UserModel {
         }
     }
 
+    /**
+     * ✅ Get a single user by ID
+     * @param {String} userId - The ID of the user to fetch
+     * @returns {Object|null} - User data or null if not found
+     */
+    static async getUserById(userId) {
+        try {
+            const { ObjectId } = require('mongodb');
+            const dbInstance = await db.connect();
+            console.log(`🔍 Searching user in the database with ID: ${userId}`);
+            
+            const user = await dbInstance.collection("users").findOne({
+                _id: new ObjectId(userId)
+            });
+
+            if (!user) {
+                console.warn("⚠️ No user found in database for ID:", userId);
+            } else {
+                console.log("✅ User found in database:", user);
+            }
+
+            return user;
+        } catch (error) {
+            console.error("❌ Error retrieving user by ID from database:", error);
+            return null;
+        }
+    }
+
 
 
 
@@ -141,9 +169,44 @@ export default class UserModel {
         }
     }
 
+        /**
+     * ✅ Update a user by ID
+     * @param {String} userId - The ID of the user to update
+     * @param {Object} updateData - The data to update
+     * @returns {Object|null} - Updated user data or null if not found
+     */
+    static async updateUser(userId, updateData) {
+        try {
+            const { ObjectId } = require('mongodb');
+            const dbInstance = await db.connect();
+            console.log(`🔄 Updating user in database with ID: ${userId}`);
+            
+            const result = await dbInstance.collection("users").updateOne(
+                { _id: new ObjectId(userId) },
+                { $set: updateData }
+            );
+
+            if (result.matchedCount === 0) {
+                console.warn("⚠️ No user found to update with ID:", userId);
+                return null;
+            }
+
+            // Fetch and return the updated user
+            const updatedUser = await dbInstance.collection("users").findOne({
+                _id: new ObjectId(userId)
+            });
+
+            console.log("✅ User updated in database:", updatedUser);
+            return updatedUser;
+        } catch (error) {
+            console.error("❌ Error updating user in database:", error);
+            return null;
+        }
+    }
+
     /**
      * ✅ Delete a user
-     * @param {Object} query - Query to find the user
+     * @param {Object} query - Query object to identify the user to delete
      * @returns {Boolean} - True if deletion was successful, false otherwise
      */
     static deleteUser = async (query) => {

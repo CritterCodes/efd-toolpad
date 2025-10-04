@@ -16,6 +16,15 @@ export default class User {
         business,
         status
     ) {
+        // Basic validation
+        if (!firstName || !lastName || !email) {
+            throw new Error('firstName, lastName, and email are required');
+        }
+        
+        if (!role) {
+            throw new Error('role is required');
+        }
+
         this.userID = `user-${uuidv4().slice(0, 8)}`;
         this.firstName = firstName;
         this.lastName = lastName;

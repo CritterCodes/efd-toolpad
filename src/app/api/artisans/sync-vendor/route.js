@@ -59,48 +59,49 @@ export async function POST(request) {
       adminUserId: userId
     };
 
-    // Create or update vendor profile in efd-shop
-    const shopApiUrl = process.env.NEXT_PUBLIC_SHOP_URL || 'http://localhost:3001';
-    const response = await fetch(`${shopApiUrl}/api/vendors`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // Add any authentication headers if needed
-      },
-      body: JSON.stringify(vendorProfileData)
+    // Instead of syncing to external shop, create vendor profile data locally
+    // This will be used to populate the vendor profile tab in the admin
+    const localVendorProfile = {
+      type: 'jeweler', // Default type, can be customized in profile
+      bio: '',
+      shortDescription: `Skilled artisan specializing in fine jewelry craftsmanship`,
+      experience: '',
+      specialties: [],
+      services: [],
+      skills: [],
+      createdAt: new Date(),
+      isActive: true
+    };
+
+    // Generate vendor slug from business name
+    const vendorSlug = generateSlug(artisanData.business || `${artisanData.firstName}-${artisanData.lastName}`);
+    
+    // Generate a local vendor profile ID
+    const vendorProfileId = `vendor-${Date.now()}`;
+
+    // Update the artisan user with vendor profile reference
+    const updatedUser = await UserService.updateUser(userId, {
+      vendorProfile: localVendorProfile,
+      vendorProfileId: vendorProfileId,
+      vendorSlug: vendorSlug,
+      hasVendorProfile: true,
+      updatedAt: new Date()
     });
 
-    const vendorResult = await response.json();
-
-    if (!vendorResult.success) {
+    if (!updatedUser) {
       return NextResponse.json(
-        { success: false, error: vendorResult.error || 'Failed to create vendor profile' },
+        { success: false, error: 'Failed to update user with vendor profile' },
         { status: 500 }
       );
     }
-
-    // Fetch the created vendor profile to get complete data
-    const vendorGetResponse = await fetch(`${shopApiUrl}/api/vendors?search=${vendorProfileData.vendorName}`);
-    const vendorGetData = await vendorGetResponse.json();
-    let createdVendor = null;
-    
-    if (vendorGetData.success && vendorGetData.data.length > 0) {
-      createdVendor = vendorGetData.data.find(v => v.vendorName === vendorProfileData.vendorName);
-    }
-
-    // Update the artisan user with vendor profile reference
-    await UserService.updateUser(userId, {
-      vendorProfileId: vendorResult.vendorId,
-      vendorSlug: vendorProfileData.slug,
-      updatedAt: new Date()
-    });
 
     return NextResponse.json({
       success: true,
       message: 'Vendor profile created successfully',
       data: {
-        vendorProfile: createdVendor || { _id: vendorResult.vendorId, ...vendorProfileData },
-        userId: userId
+        vendorProfileId: vendorProfileId,
+        vendorSlug: vendorSlug,
+        user: updatedUser
       }
     });
 
