@@ -4,8 +4,7 @@
  */
 
 import { UnifiedUserService, USER_ROLES } from '../../../lib/unifiedUserService.js';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../[...nextauth]/route.js';
+import { auth } from '../../../../../auth.js';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -13,7 +12,7 @@ const ADMIN_CREATABLE_ROLES = [USER_ROLES.STAFF, USER_ROLES.DEV, USER_ROLES.ADMI
 
 export async function POST(request) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     
     if (!session || !session.user) {
       return new Response(
@@ -105,7 +104,7 @@ export async function POST(request) {
 
 export async function GET(request) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     
     if (!session || !session.user) {
       return new Response(

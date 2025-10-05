@@ -4,12 +4,11 @@
  */
 
 import { UnifiedUserService, USER_ROLES, ROLE_PERMISSIONS } from '../../../lib/unifiedUserService.js';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../[...nextauth]/route.js';
+import { auth } from '../../../../../auth.js';
 
 export async function GET(request) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     
     if (!session || !session.user) {
       return new Response(
@@ -88,7 +87,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     
     if (!session || !session.user) {
       return new Response(
