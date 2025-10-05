@@ -206,7 +206,7 @@ export default function CustomTicketDetailPage() {
       <TabPanel value={activeTab} index={2}>
         <CustomTicketImages
           ticket={ticket}
-          images={ticket?.images || []}
+          images={ticket?.files?.moodBoard || []}
           imageModal={imageModal}
           onOpenImageModal={openImageModal}
           onCloseImageModal={closeImageModal}

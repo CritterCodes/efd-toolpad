@@ -21,7 +21,7 @@ const CustomTicketCard = ({ ticket }) => {
   const router = useRouter();
   
   const statusInfo = getClientStatusInfo(ticket.status);
-  const hasImages = ticket.images && ticket.images.length > 0;
+  const hasImages = ticket.files?.moodBoard && ticket.files.moodBoard.length > 0;
   
   const handleViewDetails = () => {
     router.push(`/dashboard/custom-tickets/${ticket.ticketID}`);
@@ -108,7 +108,7 @@ const CustomTicketCard = ({ ticket }) => {
         {hasImages && (
           <Box sx={{ mb: 2 }}>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              {ticket.images.slice(0, 3).map((image, index) => (
+              {ticket.files.moodBoard.slice(0, 3).map((image, index) => (
                 <Box
                   key={index}
                   sx={{
@@ -129,7 +129,7 @@ const CustomTicketCard = ({ ticket }) => {
                   />
                 </Box>
               ))}
-              {ticket.images.length > 3 && (
+              {ticket.files.moodBoard.length > 3 && (
                 <Box
                   sx={{
                     width: 60,
@@ -144,7 +144,7 @@ const CustomTicketCard = ({ ticket }) => {
                   }}
                 >
                   <Typography variant="caption" color="text.secondary">
-                    +{ticket.images.length - 3}
+                    +{ticket.files.moodBoard.length - 3}
                   </Typography>
                 </Box>
               )}

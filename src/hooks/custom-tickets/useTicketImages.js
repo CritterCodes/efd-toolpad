@@ -29,7 +29,7 @@ export function useTicketImages(ticket) {
   };
 
   const nextImage = () => {
-    const images = ticket?.images || [];
+    const images = ticket?.files?.moodBoard || [];
     if (images.length === 0) return;
     
     const nextIndex = (imageModal.index + 1) % images.length;
@@ -41,7 +41,7 @@ export function useTicketImages(ticket) {
   };
 
   const previousImage = () => {
-    const images = ticket?.images || [];
+    const images = ticket?.files?.moodBoard || [];
     if (images.length === 0) return;
     
     const prevIndex = imageModal.index === 0 ? images.length - 1 : imageModal.index - 1;
@@ -58,7 +58,7 @@ export function useTicketImages(ticket) {
     closeImageModal,
     nextImage,
     previousImage,
-    hasImages: ticket?.images && ticket.images.length > 0,
+    hasImages: ticket?.files?.moodBoard && ticket.files.moodBoard.length > 0,
     imageCount: ticket?.images?.length || 0
   };
 }

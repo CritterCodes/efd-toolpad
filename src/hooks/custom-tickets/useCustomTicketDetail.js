@@ -135,7 +135,7 @@ export function useCustomTicketDetail(ticketId) {
     refreshTicket,
     // Helper computed values
     hasFinancials: ticket && (ticket.materialCosts || ticket.laborCost || ticket.quoteTotal),
-    hasImages: ticket && ticket.images && ticket.images.length > 0,
+    hasImages: ticket && ticket.files?.moodBoard && ticket.files.moodBoard.length > 0,
     hasNotes: ticket && ticket.notes && ticket.notes.length > 0
   };
 }

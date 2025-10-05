@@ -71,7 +71,7 @@ export function CustomTicketImages({
         <CardContent>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h6">
-              Images ({images.length})
+              Moodboard ({images.length})
             </Typography>
             
             {images.length > 0 && (
@@ -94,7 +94,7 @@ export function CustomTicketImages({
             }}>
               <ImageIcon sx={{ fontSize: 48, mb: 1, opacity: 0.5 }} />
               <Typography variant="body2">
-                No images attached to this ticket.
+                No images in the moodboard yet.
               </Typography>
             </Box>
           ) : (
