@@ -1,6 +1,7 @@
 import NextAuth from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
+import { UnifiedUserService, AUTH_PROVIDERS } from './src/lib/unifiedUserService.js';
 
 const baseURL = `${process.env.NEXT_PUBLIC_URL}`;
 
@@ -19,61 +20,24 @@ const providers = [
             try {
                 console.log("Google Profile:", profile);
 
-                // ✅ Check if user exists in the database
-                const response = await fetch(`${baseURL}/api/users?query=${profile.email}`, {
-                    method: "GET",
-                    headers: { "Content-Type": "application/json" }
+                // Use the new hybrid authentication method
+                const user = await UnifiedUserService.authenticateWithGoogle(profile, {
+                    provider: AUTH_PROVIDERS.GOOGLE,
+                    status: "active" // Google OAuth users are auto-approved
                 });
 
-                const existingUser = await response.json();
-                console.log("Existing User:", existingUser);
+                console.log("Unified User:", user);
 
-                if (!response.ok || existingUser.length === 0) {
-                    // ✅ Create the user if not found
-                    const createResponse = await fetch(`${baseURL}/api/auth/register`, {
-                        method: "POST",
-                        body: JSON.stringify({
-                            firstName: profile.given_name,
-                            lastName: profile.family_name,
-                            email: profile.email,
-                            provider: 'google',
-                            status: "verified"
-                        }),
-                        headers: { "Content-Type": "application/json" }
-                    });
-                    console.log("Create Response:", createResponse);
-                    if (!createResponse.ok) {
-                        throw new Error("Failed to create user.");
-                    }
-
-                    const newUser = await createResponse.json();
-                    console.log("New User:", newUser);
-                    return {
-                        userID: newUser.user.userID,
-                        name: `${newUser.user.firstName} ${newUser.user.lastName}`,
-                        email: newUser.user.email,
-                        role: newUser.user.role,
-                        image: profile.picture
-                    };
-                }
-
-                // ✅ Return existing user data
-                const user = existingUser.user;
-                return user.role === "client" ? {
-                        userID: user.userID,
-                        name: `${user.firstName} ${user.user.lastName}`,
-                        email: user.email,
-                        role: user.role,
-                        image: profile.picture
-                    } : 
-                    {
-                        userID: user.userID,
-                        storeID: user.storeID,
-                        name: `${user.firstName} ${user.lastName}`,
-                        email: user.email,
-                        role: user.role,
-                        image: profile.picture
-                    };
+                // Return user data for NextAuth session
+                return {
+                    userID: user.userID,
+                    name: `${user.firstName} ${user.lastName}`,
+                    email: user.email,
+                    role: user.role,
+                    status: user.status,
+                    providers: user.providers,
+                    image: profile.picture
+                };
 
             } catch (error) {
                 console.error("Google Auth Error:", error);
@@ -88,40 +52,34 @@ const providers = [
         },
         async authorize(credentials) {
             try {
-                const response = await fetch(`${baseURL}/api/auth/signin`, {
-                    method: "POST",
-                    body: JSON.stringify(credentials),
-                    headers: { "Content-Type": "application/json" }
-                });
+                console.log("Shopify Auth attempt for:", credentials.email);
 
-                if (!response.ok) {
-                    console.error("Login failed. Invalid credentials.");
-                    return null;
-                }
+                // Use the new hybrid Shopify authentication method
+                const result = await UnifiedUserService.authenticateWithShopify(
+                    credentials.email, 
+                    credentials.password
+                );
 
-                const user = await response.json();
-                if (user) {
-                    return user.role === "client" ? {
-                        userID: user.userID,
-                        name: `${user.firstName} ${user.lastName}`,
-                        email: user.email,
-                        role: user.role,
-                        token: user.token,
-                        image: user.image
-                    } : 
-                    {
-                        userID: user.userID,
-                        storeID: user.storeID,
-                        name: `${user.firstName} ${user.lastName}`,
-                        email: user.email,
-                        role: user.role,
-                        token: user.token,
-                        image: user.image
-                    };
-                }
+                const user = result.user;
+                const shopifyAuth = result.shopifyAuth;
+
+                console.log("Shopify Auth successful for:", user.email);
+
+                // Return user data for NextAuth session
+                return {
+                    userID: user.userID,
+                    name: `${user.firstName} ${user.lastName}`,
+                    email: user.email,
+                    role: user.role,
+                    status: user.status,
+                    providers: user.providers,
+                    shopifyAccessToken: shopifyAuth.accessToken,
+                    image: user.image || null
+                };
+
             } catch (error) {
-                console.error("Login error:", error);
-                return null;
+                console.error("Shopify Auth Error:", error);
+                return null; // Return null for failed authentication
             }
         }
     })

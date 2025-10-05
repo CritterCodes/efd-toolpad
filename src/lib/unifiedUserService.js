@@ -1,10 +1,12 @@
 /**
  * Unified User Service
  * Handles user management across efd-shop and efd-admin with role-based access control
+ * Supports both Google OAuth and Shopify authentication with account linking
  */
 
 import { connectToDatabase } from './mongodb.js';
 import { v4 as uuidv4 } from 'uuid';
+import ShopifyCustomerService from './shopifyCustomerService.js';
 
 // User roles and their hierarchy
 export const USER_ROLES = {
@@ -24,6 +26,12 @@ export const USER_STATUS = {
   REJECTED: 'rejected',
   ACTIVE: 'active',
   SUSPENDED: 'suspended'
+};
+
+// Authentication providers
+export const AUTH_PROVIDERS = {
+  GOOGLE: 'google',
+  SHOPIFY: 'shopify'
 };
 
 // Permission definitions for each role
@@ -102,6 +110,8 @@ export const ROLE_PERMISSIONS = {
 
 export class UnifiedUserService {
   
+  static shopifyService = new ShopifyCustomerService();
+  
   // =====================
   // User Lookup Methods
   // =====================
@@ -135,6 +145,458 @@ export class UnifiedUserService {
       return user;
     } catch (error) {
       console.error('Error finding user by userID:', error);
+      throw error;
+    }
+  }
+
+  static async findUserByProvider(provider, providerId) {
+    try {
+      const { db } = await connectToDatabase();
+      const query = {};
+      query[`providers.${provider}.id`] = providerId;
+      const user = await db.collection('users').findOne(query);
+      return user;
+    } catch (error) {
+      console.error(`Error finding user by ${provider} ID:`, error);
+      throw error;
+    }
+  }
+
+  // =====================
+  // Hybrid Authentication Methods
+  // =====================
+
+  /**
+   * Authenticate user with Google OAuth and create/link Shopify account
+   */
+  static async authenticateWithGoogle(googleProfile, additionalData = {}) {
+    try {
+      const { db } = await connectToDatabase();
+      
+      // Check if user exists by email
+      let user = await this.findUserByEmail(googleProfile.email);
+      
+      if (user) {
+        // User exists - update Google provider data and link Shopify if needed
+        const updateData = {
+          [`providers.${AUTH_PROVIDERS.GOOGLE}`]: {
+            id: googleProfile.sub,
+            verified: true,
+            profile: googleProfile,
+            lastSignIn: new Date()
+          },
+          lastSignIn: new Date(),
+          updatedAt: new Date()
+        };
+
+        // If user doesn't have Shopify account, create one
+        if (!user.providers?.shopify?.id) {
+          try {
+            const shopifyCustomer = await this.shopifyService.createCustomerForGoogleUser(googleProfile);
+            updateData[`providers.${AUTH_PROVIDERS.SHOPIFY}`] = {
+              id: shopifyCustomer.id,
+              verified: true,
+              lastSignIn: new Date()
+            };
+            updateData.primaryProvider = user.primaryProvider || AUTH_PROVIDERS.GOOGLE;
+            console.log('✅ Created Shopify account for existing Google user');
+          } catch (shopifyError) {
+            console.warn('Failed to create Shopify account for Google user:', shopifyError.message);
+          }
+        } else {
+          // Link existing Shopify account
+          try {
+            await this.shopifyService.linkGoogleAccount(user.providers.shopify.id, googleProfile);
+            updateData.linkedAt = new Date();
+            console.log('✅ Linked Google account to existing Shopify customer');
+          } catch (linkError) {
+            console.warn('Failed to link Google account to Shopify:', linkError.message);
+          }
+        }
+
+        await db.collection('users').updateOne(
+          { userID: user.userID },
+          { $set: updateData }
+        );
+
+        return await this.findUserByUserID(user.userID);
+      } else {
+        // New user - create both Google and Shopify accounts
+        let shopifyCustomer = null;
+        try {
+          shopifyCustomer = await this.shopifyService.createCustomerForGoogleUser(googleProfile);
+          console.log('✅ Created Shopify account for new Google user');
+        } catch (shopifyError) {
+          console.warn('Failed to create Shopify account for new Google user:', shopifyError.message);
+        }
+
+        const newUser = {
+          userID: uuidv4(),
+          email: googleProfile.email,
+          firstName: googleProfile.given_name,
+          lastName: googleProfile.family_name,
+          role: additionalData.role || USER_ROLES.CLIENT,
+          status: this.getDefaultStatusForRole(additionalData.role || USER_ROLES.CLIENT),
+          permissions: ROLE_PERMISSIONS[additionalData.role || USER_ROLES.CLIENT],
+          primaryProvider: AUTH_PROVIDERS.GOOGLE,
+          providers: {
+            [AUTH_PROVIDERS.GOOGLE]: {
+              id: googleProfile.sub,
+              verified: true,
+              profile: googleProfile,
+              lastSignIn: new Date()
+            }
+          },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          lastSignIn: new Date(),
+          approvalData: this.requiresApproval(additionalData.role || USER_ROLES.CLIENT) ? {
+            requestedAt: new Date(),
+            requestedRole: additionalData.role || USER_ROLES.CLIENT,
+            businessInfo: additionalData.businessInfo || {},
+            status: USER_STATUS.PENDING
+          } : null,
+          ...additionalData
+        };
+
+        // Add Shopify provider data if account was created successfully
+        if (shopifyCustomer) {
+          newUser.providers[AUTH_PROVIDERS.SHOPIFY] = {
+            id: shopifyCustomer.id,
+            verified: true,
+            lastSignIn: new Date()
+          };
+        }
+
+        await db.collection('users').insertOne(newUser);
+        console.log('✅ Created new unified user account for Google user');
+        return newUser;
+      }
+    } catch (error) {
+      console.error('Error authenticating with Google:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Authenticate user with Shopify and link Google account if exists
+   */
+  static async authenticateWithShopify(email, password, additionalData = {}) {
+    try {
+      const { db } = await connectToDatabase();
+      
+      // Authenticate with Shopify first
+      const shopifyAuth = await this.shopifyService.authenticateCustomer(email, password);
+      const shopifyCustomer = shopifyAuth.customer;
+
+      // Check if user exists by email
+      let user = await this.findUserByEmail(email);
+      
+      if (user) {
+        // User exists - update Shopify provider data
+        const updateData = {
+          [`providers.${AUTH_PROVIDERS.SHOPIFY}`]: {
+            id: shopifyCustomer.id,
+            verified: true,
+            customerAccessToken: shopifyAuth.accessToken,
+            lastSignIn: new Date()
+          },
+          lastSignIn: new Date(),
+          updatedAt: new Date()
+        };
+
+        // If user has Google account, ensure linking
+        if (user.providers?.google?.id) {
+          try {
+            await this.shopifyService.linkGoogleAccount(shopifyCustomer.id, user.providers.google.profile);
+            updateData.linkedAt = new Date();
+            console.log('✅ Linked existing Google account to Shopify authentication');
+          } catch (linkError) {
+            console.warn('Failed to link Google account during Shopify auth:', linkError.message);
+          }
+        }
+
+        await db.collection('users').updateOne(
+          { userID: user.userID },
+          { $set: updateData }
+        );
+
+        const updatedUser = await this.findUserByUserID(user.userID);
+        return {
+          user: updatedUser,
+          shopifyAuth
+        };
+      } else {
+        // New user - create unified account
+        const newUser = {
+          userID: uuidv4(),
+          email: shopifyCustomer.email,
+          firstName: shopifyCustomer.firstName,
+          lastName: shopifyCustomer.lastName,
+          phoneNumber: shopifyCustomer.phone,
+          role: additionalData.role || USER_ROLES.CLIENT,
+          status: this.getDefaultStatusForRole(additionalData.role || USER_ROLES.CLIENT),
+          permissions: ROLE_PERMISSIONS[additionalData.role || USER_ROLES.CLIENT],
+          primaryProvider: AUTH_PROVIDERS.SHOPIFY,
+          providers: {
+            [AUTH_PROVIDERS.SHOPIFY]: {
+              id: shopifyCustomer.id,
+              verified: true,
+              customerAccessToken: shopifyAuth.accessToken,
+              lastSignIn: new Date()
+            }
+          },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          lastSignIn: new Date(),
+          approvalData: this.requiresApproval(additionalData.role || USER_ROLES.CLIENT) ? {
+            requestedAt: new Date(),
+            requestedRole: additionalData.role || USER_ROLES.CLIENT,
+            businessInfo: additionalData.businessInfo || {},
+            status: USER_STATUS.PENDING
+          } : null,
+          ...additionalData
+        };
+
+        await db.collection('users').insertOne(newUser);
+        console.log('✅ Created new unified user account for Shopify user');
+        
+        return {
+          user: newUser,
+          shopifyAuth
+        };
+      }
+    } catch (error) {
+      console.error('Error authenticating with Shopify:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Register new user with Shopify and optional role
+   */
+  static async registerWithShopify(userData) {
+    try {
+      const { email, password, firstName, lastName, phoneNumber, role, businessInfo } = userData;
+      
+      // Check if user already exists
+      const existingUser = await this.findUserByEmail(email);
+      if (existingUser) {
+        throw new Error('User with this email already exists');
+      }
+
+      // Register with Shopify
+      const shopifyCustomer = await this.shopifyService.registerCustomer({
+        firstName,
+        lastName,
+        email,
+        password,
+        phoneNumber
+      });
+
+      // Create unified user account
+      const newUser = {
+        userID: uuidv4(),
+        email: email,
+        firstName: firstName,
+        lastName: lastName,
+        phoneNumber: phoneNumber,
+        role: role || USER_ROLES.CLIENT,
+        status: this.getDefaultStatusForRole(role || USER_ROLES.CLIENT),
+        permissions: ROLE_PERMISSIONS[role || USER_ROLES.CLIENT],
+        primaryProvider: AUTH_PROVIDERS.SHOPIFY,
+        providers: {
+          [AUTH_PROVIDERS.SHOPIFY]: {
+            id: shopifyCustomer.id,
+            verified: true,
+            lastSignIn: new Date()
+          }
+        },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastSignIn: new Date(),
+        approvalData: this.requiresApproval(role || USER_ROLES.CLIENT) ? {
+          requestedAt: new Date(),
+          requestedRole: role || USER_ROLES.CLIENT,
+          businessInfo: businessInfo || {},
+          status: USER_STATUS.PENDING
+        } : null
+      };
+
+      const { db } = await connectToDatabase();
+      await db.collection('users').insertOne(newUser);
+
+      console.log('✅ Registered new user with Shopify account');
+      
+      // Send pending approval notification if needed
+      if (this.requiresApproval(role || USER_ROLES.CLIENT)) {
+        await this.sendPendingApprovalNotification(newUser);
+      }
+
+      return newUser;
+    } catch (error) {
+      console.error('Error registering with Shopify:', error);
+      throw error;
+    }
+  }
+
+  // =====================
+  // Account Linking Methods
+  // =====================
+
+  /**
+   * Link Google account to existing user
+   */
+  static async linkGoogleAccount(userID, googleProfile) {
+    try {
+      const { db } = await connectToDatabase();
+      const user = await this.findUserByUserID(userID);
+      
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      if (user.providers?.google?.id) {
+        throw new Error('Google account already linked');
+      }
+
+      const updateData = {
+        [`providers.${AUTH_PROVIDERS.GOOGLE}`]: {
+          id: googleProfile.sub,
+          verified: true,
+          profile: googleProfile,
+          lastSignIn: new Date()
+        },
+        linkedAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      // Create Shopify customer if doesn't exist
+      if (!user.providers?.shopify?.id) {
+        try {
+          const shopifyCustomer = await this.shopifyService.createCustomerForGoogleUser(googleProfile);
+          updateData[`providers.${AUTH_PROVIDERS.SHOPIFY}`] = {
+            id: shopifyCustomer.id,
+            verified: true,
+            lastSignIn: new Date()
+          };
+        } catch (shopifyError) {
+          console.warn('Failed to create Shopify account during Google linking:', shopifyError.message);
+        }
+      } else {
+        // Link to existing Shopify account
+        try {
+          await this.shopifyService.linkGoogleAccount(user.providers.shopify.id, googleProfile);
+        } catch (linkError) {
+          console.warn('Failed to link Google account to Shopify:', linkError.message);
+        }
+      }
+
+      await db.collection('users').updateOne(
+        { userID },
+        { $set: updateData }
+      );
+
+      console.log('✅ Successfully linked Google account to user');
+      return await this.findUserByUserID(userID);
+    } catch (error) {
+      console.error('Error linking Google account:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Link Shopify account to existing user
+   */
+  static async linkShopifyAccount(userID, email, password) {
+    try {
+      const { db } = await connectToDatabase();
+      const user = await this.findUserByUserID(userID);
+      
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      if (user.providers?.shopify?.id) {
+        throw new Error('Shopify account already linked');
+      }
+
+      // Authenticate with Shopify
+      const shopifyAuth = await this.shopifyService.authenticateCustomer(email, password);
+      const shopifyCustomer = shopifyAuth.customer;
+
+      const updateData = {
+        [`providers.${AUTH_PROVIDERS.SHOPIFY}`]: {
+          id: shopifyCustomer.id,
+          verified: true,
+          customerAccessToken: shopifyAuth.accessToken,
+          lastSignIn: new Date()
+        },
+        linkedAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      // Link Google account if exists
+      if (user.providers?.google?.id) {
+        try {
+          await this.shopifyService.linkGoogleAccount(shopifyCustomer.id, user.providers.google.profile);
+        } catch (linkError) {
+          console.warn('Failed to link Google account to Shopify during linking:', linkError.message);
+        }
+      }
+
+      await db.collection('users').updateOne(
+        { userID },
+        { $set: updateData }
+      );
+
+      console.log('✅ Successfully linked Shopify account to user');
+      return await this.findUserByUserID(userID);
+    } catch (error) {
+      console.error('Error linking Shopify account:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Unlink provider account
+   */
+  static async unlinkProvider(userID, provider) {
+    try {
+      const { db } = await connectToDatabase();
+      const user = await this.findUserByUserID(userID);
+      
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      if (!user.providers?.[provider]) {
+        throw new Error(`${provider} account not linked`);
+      }
+
+      // Don't allow unlinking if it's the only provider
+      const linkedProviders = Object.keys(user.providers || {});
+      if (linkedProviders.length <= 1) {
+        throw new Error('Cannot unlink the only authentication provider');
+      }
+
+      const updateData = {
+        [`providers.${provider}`]: null,
+        updatedAt: new Date()
+      };
+
+      await db.collection('users').updateOne(
+        { userID },
+        { 
+          $unset: { [`providers.${provider}`]: "" },
+          $set: { updatedAt: new Date() }
+        }
+      );
+
+      console.log(`✅ Successfully unlinked ${provider} account from user`);
+      return await this.findUserByUserID(userID);
+    } catch (error) {
+      console.error(`Error unlinking ${provider} account:`, error);
       throw error;
     }
   }
