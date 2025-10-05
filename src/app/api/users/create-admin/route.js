@@ -4,7 +4,7 @@
  */
 
 import { UnifiedUserService, USER_ROLES } from '../../../lib/unifiedUserService.js';
-import { auth } from '../../../../../auth.js';
+import { checkAPIPermissions } from '../../../lib/authHelpers.js';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -12,23 +12,16 @@ const ADMIN_CREATABLE_ROLES = [USER_ROLES.STAFF, USER_ROLES.DEV, USER_ROLES.ADMI
 
 export async function POST(request) {
   try {
-    const session = await auth();
+    const authCheck = await checkAPIPermissions(request, ['userManagement']);
     
-    if (!session || !session.user) {
+    if (!authCheck.success) {
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: authCheck.error }),
+        { status: authCheck.status, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    // Check if user has permission to create admin users
-    const adminUser = await UnifiedUserService.findUserByEmail(session.user.email);
-    if (!adminUser || !UnifiedUserService.hasPermission(adminUser, 'userManagement')) {
-      return new Response(
-        JSON.stringify({ error: 'Insufficient permissions to create admin users' }),
-        { status: 403, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
+    const adminUser = authCheck.user;
 
     const { firstName, lastName, email, phoneNumber, role } = await request.json();
 
@@ -104,21 +97,12 @@ export async function POST(request) {
 
 export async function GET(request) {
   try {
-    const session = await auth();
+    const authCheck = await checkAPIPermissions(request, ['userManagement']);
     
-    if (!session || !session.user) {
+    if (!authCheck.success) {
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Check if user has permission to view user stats
-    const adminUser = await UnifiedUserService.findUserByEmail(session.user.email);
-    if (!adminUser || !UnifiedUserService.hasPermission(adminUser, 'userManagement')) {
-      return new Response(
-        JSON.stringify({ error: 'Insufficient permissions' }),
-        { status: 403, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: authCheck.error }),
+        { status: authCheck.status, headers: { 'Content-Type': 'application/json' } }
       );
     }
 

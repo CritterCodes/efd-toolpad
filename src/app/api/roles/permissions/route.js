@@ -4,13 +4,13 @@
  */
 
 import { UnifiedUserService, USER_ROLES, ROLE_PERMISSIONS } from '../../../lib/unifiedUserService.js';
-import { auth } from '../../../../../auth.js';
+import { checkAPIPermissions, authenticateAPIRequest } from '../../../lib/authHelpers.js';
 
 export async function GET(request) {
   try {
-    const session = await auth();
-    
-    if (!session || !session.user) {
+    // Authenticate user using helper
+    const user = await authenticateAPIRequest(request);
+    if (!user) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { 'Content-Type': 'application/json' } }
@@ -21,16 +21,7 @@ export async function GET(request) {
     const action = searchParams.get('action');
 
     if (action === 'current-user') {
-      // Get current user's permissions
-      const user = await UnifiedUserService.findUserByEmail(session.user.email);
-      
-      if (!user) {
-        return new Response(
-          JSON.stringify({ error: 'User not found' }),
-          { status: 404, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
-
+      // Return current user's information
       return new Response(
         JSON.stringify({ 
           success: true,
@@ -48,8 +39,8 @@ export async function GET(request) {
 
     if (action === 'all-roles') {
       // Check if user has permission to view role information
-      const adminUser = await UnifiedUserService.findUserByEmail(session.user.email);
-      if (!adminUser || !UnifiedUserService.hasPermission(adminUser, 'userManagement')) {
+      const hasPermission = await checkAPIPermissions(request, ['MANAGE_USERS']);
+      if (!hasPermission) {
         return new Response(
           JSON.stringify({ error: 'Insufficient permissions' }),
           { status: 403, headers: { 'Content-Type': 'application/json' } }
@@ -87,9 +78,9 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const session = await auth();
-    
-    if (!session || !session.user) {
+    // Authenticate user using helper
+    const user = await authenticateAPIRequest(request);
+    if (!user) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { 'Content-Type': 'application/json' } }
@@ -97,8 +88,8 @@ export async function POST(request) {
     }
 
     // Check if user has permission to update roles
-    const adminUser = await UnifiedUserService.findUserByEmail(session.user.email);
-    if (!adminUser || !UnifiedUserService.hasPermission(adminUser, 'userManagement')) {
+    const hasPermission = await checkAPIPermissions(request, ['MANAGE_USERS']);
+    if (!hasPermission) {
       return new Response(
         JSON.stringify({ error: 'Insufficient permissions' }),
         { status: 403, headers: { 'Content-Type': 'application/json' } }
@@ -121,7 +112,8 @@ export async function POST(request) {
       );
     }
 
-    const updatedUser = await UnifiedUserService.updateUserRole(userID, newRole, adminUser.userID);
+    const userService = new UnifiedUserService();
+    const updatedUser = await userService.updateUserRole(userID, newRole, user.userID);
 
     return new Response(
       JSON.stringify({ 

@@ -1,6 +1,5 @@
-import { auth } from "../auth";
 import { NextResponse } from "next/server";
-import { UnifiedUserService } from "./lib/unifiedUserService.js";
+import { getToken } from "next-auth/jwt";
 
 // List of public routes that can be accessed without authentication  
 const publicRoutes = ["/auth/signin", "/auth/register"];
@@ -13,12 +12,12 @@ const protectedRoutes = {
 };
 
 export default async function middleware(req) {
-    const session = await auth();
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     const { pathname } = req.nextUrl;
 
     // ✅ Redirect root path to appropriate location
     if (pathname === "/") {
-        if (session) {
+        if (token) {
             return NextResponse.redirect(new URL("/dashboard", req.url));
         } else {
             return NextResponse.redirect(new URL("/auth/signin", req.url));
@@ -31,73 +30,26 @@ export default async function middleware(req) {
     }
 
     // ✅ Block protected routes if not authenticated
-    if (!session) {
+    if (!token) {
         return NextResponse.redirect(new URL("/auth/signin", req.url));
     }
 
-    try {
-        // Get user data with permissions
-        const user = await UnifiedUserService.findUserByEmail(session.user.email);
-        
-        if (!user) {
-            console.error("User not found in database:", session.user.email);
-            return NextResponse.redirect(new URL("/auth/signin", req.url));
-        }
-
-        // Check if user can access efd-admin
-        if (!UnifiedUserService.canAccessEfdAdmin(user)) {
-            return new NextResponse("Access Denied: Insufficient permissions for admin panel", { 
-                status: 403 
-            });
-        }
-
-        // Check if user is pending approval
-        if (user.status === 'pending') {
-            // Allow access to pending status page only
-            if (pathname !== '/dashboard/pending') {
-                return NextResponse.redirect(new URL("/dashboard/pending", req.url));
-            }
-            return NextResponse.next();
-        }
-
-        // Check if user account is suspended or rejected
-        if (user.status === 'suspended' || user.status === 'rejected') {
-            return new NextResponse("Account suspended or rejected", { 
-                status: 403 
-            });
-        }
-
-        // Check route-specific permissions
-        for (const [route, requiredPermissions] of Object.entries(protectedRoutes)) {
-            if (pathname.startsWith(route)) {
-                const hasPermission = requiredPermissions.some(permission => 
-                    UnifiedUserService.hasPermission(user, permission)
-                );
-                
-                if (!hasPermission) {
-                    return new NextResponse("Access Denied: Insufficient permissions", { 
-                        status: 403 
-                    });
-                }
-            }
-        }
-
-        // Add user data to request headers for use in components
-        const requestHeaders = new Headers(req.headers);
-        requestHeaders.set('x-user-id', user.userID);
-        requestHeaders.set('x-user-role', user.role);
-        requestHeaders.set('x-user-permissions', JSON.stringify(user.permissions));
-
-        return NextResponse.next({
-            request: {
-                headers: requestHeaders,
-            },
-        });
-
-    } catch (error) {
-        console.error("Middleware error:", error);
-        return NextResponse.redirect(new URL("/auth/signin", req.url));
+    // For authenticated users, we'll handle role/permission checking in the actual pages
+    // rather than in middleware to avoid Edge Runtime limitations
+    
+    // Add basic user info to headers if available from token
+    const requestHeaders = new Headers(req.headers);
+    if (token) {
+        requestHeaders.set('x-user-email', token.email || '');
+        requestHeaders.set('x-user-role', token.role || '');
+        requestHeaders.set('x-user-id', token.userID || '');
     }
+
+    return NextResponse.next({
+        request: {
+            headers: requestHeaders,
+        },
+    });
 }
 
 // ✅ Apply middleware to all routes except public ones
