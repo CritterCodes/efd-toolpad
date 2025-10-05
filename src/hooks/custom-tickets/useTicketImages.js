@@ -59,7 +59,7 @@ export function useTicketImages(ticket) {
     nextImage,
     previousImage,
     hasImages: ticket?.files?.moodBoard && ticket.files.moodBoard.length > 0,
-    imageCount: ticket?.images?.length || 0
+    imageCount: ticket?.files?.moodBoard?.length || 0
   };
 }
 

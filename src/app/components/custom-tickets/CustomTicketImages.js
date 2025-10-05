@@ -62,6 +62,12 @@ export function CustomTicketImages({
     if (typeof imageUrl === 'string') {
       return imageUrl.split('/').pop() || `image-${index + 1}`;
     }
+    if (imageUrl?.name) {
+      return imageUrl.name;
+    }
+    if (imageUrl?.url) {
+      return imageUrl.url.split('/').pop() || `image-${index + 1}`;
+    }
     return `attachment-${index + 1}`;
   };
 
@@ -119,6 +125,22 @@ export function CustomTicketImages({
                   >
                     {/* Image Display */}
                     {typeof image === 'string' ? (
+                      <Image
+                        src={image}
+                        alt={`Ticket image ${index + 1}`}
+                        fill
+                        style={{ objectFit: 'cover' }}
+                        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 20vw"
+                      />
+                    ) : image?.url ? (
+                      <Image
+                        src={image.url}
+                        alt={`Ticket image ${index + 1}`}
+                        fill
+                        style={{ objectFit: 'cover' }}
+                        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 20vw"
+                      />
+                    ) : (
                       <Box
                         sx={{
                           width: '100%',
@@ -131,14 +153,6 @@ export function CustomTicketImages({
                       >
                         <ImageIcon sx={{ fontSize: 32, color: 'text.secondary' }} />
                       </Box>
-                    ) : (
-                      <Image
-                        src={URL.createObjectURL(image)}
-                        alt={`Ticket image ${index + 1}`}
-                        fill
-                        style={{ objectFit: 'cover' }}
-                        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 20vw"
-                      />
                     )}
 
                     {/* Hover Overlay */}
@@ -177,7 +191,8 @@ export function CustomTicketImages({
                       }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDownload(image, getImageName(image, index));
+                        const imageUrl = typeof image === 'string' ? image : image?.url;
+                        handleDownload(imageUrl, getImageName(imageUrl, index));
                       }}
                     >
                       <DownloadIcon fontSize="small" />
@@ -197,7 +212,7 @@ export function CustomTicketImages({
                       whiteSpace: 'nowrap'
                     }}
                   >
-                    {getImageName(image, index)}
+                    {getImageName(typeof image === 'string' ? image : image?.url || image, index)}
                   </Typography>
                 </Grid>
               ))}
@@ -235,6 +250,24 @@ export function CustomTicketImages({
               </Typography>
               
               {typeof imageModal.image === 'string' ? (
+                <Box sx={{ position: 'relative', height: 500 }}>
+                  <Image
+                    src={imageModal.image}
+                    alt="Preview"
+                    fill
+                    style={{ objectFit: 'contain' }}
+                  />
+                </Box>
+              ) : imageModal.image?.url ? (
+                <Box sx={{ position: 'relative', height: 500 }}>
+                  <Image
+                    src={imageModal.image.url}
+                    alt="Preview"
+                    fill
+                    style={{ objectFit: 'contain' }}
+                  />
+                </Box>
+              ) : (
                 <Box sx={{ 
                   height: 400, 
                   display: 'flex', 
@@ -244,15 +277,6 @@ export function CustomTicketImages({
                   borderRadius: 1
                 }}>
                   <ImageIcon sx={{ fontSize: 64, color: 'grey.600' }} />
-                </Box>
-              ) : (
-                <Box sx={{ position: 'relative', height: 500 }}>
-                  <Image
-                    src={URL.createObjectURL(imageModal.image)}
-                    alt="Preview"
-                    fill
-                    style={{ objectFit: 'contain' }}
-                  />
                 </Box>
               )}
             </Box>
