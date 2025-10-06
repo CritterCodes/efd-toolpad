@@ -1,148 +1,14 @@
 import { AppProvider } from "@toolpad/core/AppProvider";
-import DashboardIcon from "@mui/icons-material/Dashboard";
-import BuildIcon from "@mui/icons-material/Handyman";
-import BarChartIcon from "@mui/icons-material/Insights";
-import PeopleIcon from "@mui/icons-material/People";
-import InventoryIcon from "@mui/icons-material/Inventory2";
-import AssignmentIcon from "@mui/icons-material/Assignment";
-import SettingsIcon from "@mui/icons-material/Settings";
-import ReceiptIcon from "@mui/icons-material/Receipt";
-import HandymanIcon from "@mui/icons-material/Handyman";
-import ListIcon from "@mui/icons-material/List";
-import ReceivingIcon from "@mui/icons-material/Inbox";
-import MoveUpIcon from "@mui/icons-material/DriveFileMove";
-import PickupIcon from "@mui/icons-material/LocalShipping";
-import QualityIcon from "@mui/icons-material/VerifiedUser";
-import PartsIcon from "@mui/icons-material/Category";
-import PrintIcon from "@mui/icons-material/Print";
-import StorefrontIcon from "@mui/icons-material/Storefront";
 import { SessionProvider } from "next-auth/react";
 import ClientThemeProvider from "../components/ThemeProvider";
 import { RepairsProvider } from "./context/repairs.context";
 import { auth } from "../../auth";
 import { signIn, signOut } from "next-auth/react";
+import { getNavigationForRole, canAccessAdmin } from "@/lib/roleBasedNavigation";
+import RoleAwareNavigationProvider from "@/components/RoleAwareNavigationProvider";
+import { UnifiedUserService, USER_ROLES } from "@/lib/unifiedUserService";
 import Image from 'next/image';
-
-// 🎯 ADMIN-ONLY CRM NAVIGATION
-// Simplified navigation for internal admin use only
-const NAVIGATION = [
-    {
-        segment: 'dashboard',
-        title: 'Dashboard',
-        icon: <DashboardIcon />
-    },
-    {
-        segment: 'dashboard/clients',
-        title: 'Clients',
-        icon: <PeopleIcon />
-    },
-    {
-        segment: 'dashboard/users',
-        title: 'User Management',
-        icon: <PeopleIcon />,
-        children: [
-            {
-                segment: 'admin',
-                title: 'Administrators',
-                icon: <SettingsIcon />
-            },
-            {
-                segment: 'developers',
-                title: 'Developers',
-                icon: <BuildIcon />
-            },
-            {
-                segment: 'wholesalers',
-                title: 'Wholesalers',
-                icon: <StorefrontIcon />
-            },
-            {
-                segment: 'artisans',
-                title: 'Artisans',
-                icon: <HandymanIcon />
-            }
-        ]
-    },
-    {
-        segment: 'dashboard/repairs',
-        title: 'Repairs',
-        icon: <BuildIcon />,
-        children: [
-            {
-                segment: 'receiving',
-                title: 'Receiving',
-                icon: <ReceivingIcon />
-            },
-            {
-                segment: 'parts',
-                title: 'Parts',
-                icon: <PartsIcon />
-            },
-            {
-                segment: 'ready-for-work',
-                title: 'Ready for Work',
-                icon: <ListIcon />
-            },
-            {
-                segment: 'quality-control',
-                title: 'Quality Control',
-                icon: <QualityIcon />
-            },
-            {
-                segment: 'pick-up',
-                title: 'Payment & Pickup',
-                icon: <PickupIcon />
-            },
-            {
-                segment: 'move',
-                title: 'Move',
-                icon: <MoveUpIcon />
-            },
-            {
-                segment: 'bulk-print',
-                title: 'Bulk Print',
-                icon: <PrintIcon />
-            }
-        ]
-    },
-    {
-        segment: 'dashboard/admin/tasks',
-        title: 'Tasks',
-        icon: <HandymanIcon />,
-        children: [
-            {
-                segment: '',
-                title: 'Tasks',
-                icon: <BuildIcon />
-            },
-            {
-                segment: 'materials',
-                title: 'Materials',
-                icon: <InventoryIcon />
-            },
-            {
-                segment: 'processes',
-                title: 'Processes',
-                icon: <SettingsIcon />
-            }
-        ]
-    },
-    {
-        segment: 'dashboard/custom-tickets',
-        title: 'Custom Tickets',
-        icon: <ReceiptIcon />
-    },
-    {
-        segment: 'dashboard/analytics',
-        title: 'Analytics',
-        icon: <BarChartIcon />
-    },
-    {
-        segment: 'dashboard/admin/settings',
-        title: 'Admin Settings',
-        icon: <SettingsIcon />
-    }
-];
+import { redirect } from 'next/navigation';
 
 const BRANDING = {
     logo: <Image 
@@ -160,7 +26,7 @@ const AUTHENTICATION = { signIn, signOut };
 export default async function RootLayout({ children }) {
     const session = await auth();
 
-    // 🔒 ADMIN-ONLY ACCESS - Require authentication for CRM access
+    // 🔒 REQUIRE AUTHENTICATION
     if (!session?.user) {
         return (
             <html lang="en" suppressHydrationWarning>
@@ -182,21 +48,56 @@ export default async function RootLayout({ children }) {
         );
     }
 
-    // 🎯 ADMIN CRM - Simplified single navigation for all authenticated users
+    // 🚫 BLOCK CLIENT ROLE ACCESS
+    // Clients should only use efd-shop, not efd-admin
+    if (session.user.role === USER_ROLES.CLIENT) {
+        // Redirect clients to the shop instead of showing admin panel
+        redirect('https://engelfinedesign.com');
+    }
+
+    // 🔒 VERIFY ADMIN ACCESS PERMISSIONS
+    if (!canAccessAdmin(session.user.role)) {
+        return (
+            <html lang="en" suppressHydrationWarning>
+                <body>
+                    <SessionProvider session={session}>
+                        <ClientThemeProvider>
+                            <div style={{ 
+                                display: 'flex', 
+                                justifyContent: 'center', 
+                                alignItems: 'center', 
+                                height: '100vh',
+                                flexDirection: 'column',
+                                gap: '1rem'
+                            }}>
+                                <h1>Access Denied</h1>
+                                <p>You do not have permission to access the admin panel.</p>
+                                <p>Role: {session.user.role}</p>
+                                <button onClick={() => signOut()}>Sign Out</button>
+                            </div>
+                        </ClientThemeProvider>
+                    </SessionProvider>
+                </body>
+            </html>
+        );
+    }
+
+    // 🎯 ROLE-BASED NAVIGATION - Now handled by RoleAwareNavigationProvider
+    const userNavigation = getNavigationForRole(session.user.role); // Fallback for SSR
+
     return (
         <html lang="en" suppressHydrationWarning>
             <body>
                 <SessionProvider session={session}>
                     <RepairsProvider>
                         <ClientThemeProvider>
-                            <AppProvider
+                            <RoleAwareNavigationProvider
                                 session={session}
-                                navigation={NAVIGATION}
                                 branding={BRANDING}
                                 authentication={AUTHENTICATION}
                             >
                                 {children}
-                            </AppProvider>
+                            </RoleAwareNavigationProvider>
                         </ClientThemeProvider>
                     </RepairsProvider>
                 </SessionProvider>

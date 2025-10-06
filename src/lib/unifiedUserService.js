@@ -113,6 +113,150 @@ export class UnifiedUserService {
   static shopifyService = new ShopifyCustomerService();
   
   // =====================
+  // Database Initialization and Maintenance
+  // =====================
+
+  /**
+   * Initialize database indexes to prevent duplicate emails
+   */
+  static async initializeDatabase() {
+    try {
+      const { db } = await connectToDatabase();
+      
+      // Create unique index on email field
+      await db.collection('users').createIndex(
+        { email: 1 },
+        { 
+          unique: true,
+          background: true,
+          name: 'unique_email_index'
+        }
+      );
+      
+      console.log('✅ Created unique email index');
+      
+      // Create other useful indexes
+      await db.collection('users').createIndex(
+        { userID: 1 },
+        { 
+          unique: true,
+          background: true,
+          name: 'unique_userID_index'
+        }
+      );
+      
+      await db.collection('users').createIndex(
+        { 'providers.google.id': 1 },
+        { 
+          background: true,
+          sparse: true,
+          name: 'google_id_index'
+        }
+      );
+      
+      await db.collection('users').createIndex(
+        { 'providers.shopify.id': 1 },
+        { 
+          background: true,
+          sparse: true,
+          name: 'shopify_id_index'
+        }
+      );
+      
+      console.log('✅ Initialized all database indexes');
+      
+    } catch (error) {
+      if (error.code === 11000) {
+        console.warn('⚠️ Duplicate email index creation failed - duplicates exist in database');
+        await this.cleanupDuplicateEmails();
+        // Try again after cleanup
+        await this.initializeDatabase();
+      } else {
+        console.error('Error initializing database:', error);
+        throw error;
+      }
+    }
+  }
+
+  /**
+   * Find and cleanup all duplicate emails in the database
+   */
+  static async cleanupDuplicateEmails() {
+    try {
+      const { db } = await connectToDatabase();
+      
+      console.log('🔄 Scanning for duplicate emails...');
+      
+      // Find all emails that have duplicates
+      const duplicateEmails = await this.findDuplicateEmails();
+      
+      console.log(`Found ${duplicateEmails.length} emails with duplicates`);
+      
+      for (const emailGroup of duplicateEmails) {
+        const email = emailGroup._id;
+        const users = emailGroup.users;
+        
+        console.log(`🔄 Processing ${users.length} duplicates for ${email}`);
+        
+        // Sort by preference: most recent updatedAt, then most complete provider data
+        const sortedUsers = users.sort((a, b) => {
+          // Prefer user with more providers
+          const aProviders = Object.keys(a.providers || {}).length;
+          const bProviders = Object.keys(b.providers || {}).length;
+          if (aProviders !== bProviders) {
+            return bProviders - aProviders;
+          }
+          
+          // Then prefer most recently updated
+          const aUpdated = new Date(a.updatedAt || a.createdAt || 0);
+          const bUpdated = new Date(b.updatedAt || b.createdAt || 0);
+          return bUpdated - aUpdated;
+        });
+        
+        const preferredUser = sortedUsers[0];
+        const duplicateUsers = sortedUsers.slice(1);
+        
+        // Merge the duplicates into the preferred user
+        await this.mergeDuplicateUsers(preferredUser, duplicateUsers);
+      }
+      
+      console.log('✅ Completed duplicate email cleanup');
+      
+    } catch (error) {
+      console.error('Error cleaning up duplicate emails:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Find all emails that have duplicate users
+   */
+  static async findDuplicateEmails() {
+    try {
+      const { db } = await connectToDatabase();
+      
+      return await db.collection('users').aggregate([
+        {
+          $group: {
+            _id: '$email',
+            count: { $sum: 1 },
+            users: { $push: '$$ROOT' }
+          }
+        },
+        {
+          $match: {
+            count: { $gt: 1 }
+          }
+        }
+      ]).toArray();
+      
+    } catch (error) {
+      console.error('Error finding duplicate emails:', error);
+      throw error;
+    }
+  }
+
+  // =====================
   // User Lookup Methods
   // =====================
   
@@ -124,6 +268,126 @@ export class UnifiedUserService {
     } catch (error) {
       console.error('Error finding user by email:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Find all users with the same email (to detect duplicates)
+   */
+  static async findUsersByEmail(email) {
+    try {
+      const { db } = await connectToDatabase();
+      const users = await db.collection('users').find({ email }).toArray();
+      return users;
+    } catch (error) {
+      console.error('Error finding users by email:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Find user by email with duplicate detection and resolution
+   */
+  static async findUserByEmailSafe(email) {
+    try {
+      const users = await this.findUsersByEmail(email);
+      
+      if (users.length === 0) {
+        return null;
+      }
+      
+      if (users.length === 1) {
+        return users[0];
+      }
+      
+      // Handle duplicates - prefer the most recently updated user with the most complete data
+      console.warn(`🔄 Found ${users.length} duplicate users for email: ${email}`);
+      
+      // Sort by preference: most recent updatedAt, then most complete provider data
+      const sortedUsers = users.sort((a, b) => {
+        // Prefer user with more providers
+        const aProviders = Object.keys(a.providers || {}).length;
+        const bProviders = Object.keys(b.providers || {}).length;
+        if (aProviders !== bProviders) {
+          return bProviders - aProviders;
+        }
+        
+        // Then prefer most recently updated
+        const aUpdated = new Date(a.updatedAt || a.createdAt || 0);
+        const bUpdated = new Date(b.updatedAt || b.createdAt || 0);
+        return bUpdated - aUpdated;
+      });
+      
+      const preferredUser = sortedUsers[0];
+      console.log(`✅ Selected user ${preferredUser.userID} as preferred from ${users.length} duplicates`);
+      
+      // Optionally merge data from other users into the preferred user
+      await this.mergeDuplicateUsers(preferredUser, sortedUsers.slice(1));
+      
+      return preferredUser;
+    } catch (error) {
+      console.error('Error finding user by email safely:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Merge duplicate users into a single preferred user
+   */
+  static async mergeDuplicateUsers(preferredUser, duplicateUsers) {
+    try {
+      const { db } = await connectToDatabase();
+      
+      if (duplicateUsers.length === 0) return;
+      
+      console.log(`🔄 Merging ${duplicateUsers.length} duplicate users into ${preferredUser.userID}`);
+      
+      const mergeData = {
+        providers: { ...preferredUser.providers },
+        updatedAt: new Date(),
+        mergedFrom: duplicateUsers.map(u => u.userID)
+      };
+      
+      // Merge provider data from duplicates
+      for (const duplicate of duplicateUsers) {
+        if (duplicate.providers) {
+          Object.entries(duplicate.providers).forEach(([provider, data]) => {
+            if (!mergeData.providers[provider] || !mergeData.providers[provider].verified) {
+              mergeData.providers[provider] = data;
+              console.log(`✅ Merged ${provider} provider data from duplicate user`);
+            }
+          });
+        }
+        
+        // Merge other important fields if they're missing from preferred user
+        if (!preferredUser.firstName && duplicate.firstName) {
+          mergeData.firstName = duplicate.firstName;
+        }
+        if (!preferredUser.lastName && duplicate.lastName) {
+          mergeData.lastName = duplicate.lastName;
+        }
+        if (!preferredUser.phoneNumber && duplicate.phoneNumber) {
+          mergeData.phoneNumber = duplicate.phoneNumber;
+        }
+      }
+      
+      // Update the preferred user with merged data
+      await db.collection('users').updateOne(
+        { userID: preferredUser.userID },
+        { $set: mergeData }
+      );
+      
+      // Remove duplicate users
+      const duplicateIds = duplicateUsers.map(u => u.userID);
+      await db.collection('users').deleteMany({
+        userID: { $in: duplicateIds }
+      });
+      
+      console.log(`✅ Removed ${duplicateUsers.length} duplicate users: ${duplicateIds.join(', ')}`);
+      
+    } catch (error) {
+      console.error('Error merging duplicate users:', error);
+      // Don't throw - continue with the preferred user even if merge fails
     }
   }
 
@@ -140,11 +404,21 @@ export class UnifiedUserService {
 
   static async findUserByUserID(userID) {
     try {
+      console.log('🔍 findUserByUserID - Looking for userID:', userID);
       const { db } = await connectToDatabase();
       const user = await db.collection('users').findOne({ userID });
+      console.log('📋 findUserByUserID - Database result:', user ? {
+        userID: user.userID,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role,
+        authProvider: user.authProvider,
+        primaryProvider: user.primaryProvider
+      } : 'USER NOT FOUND');
       return user;
     } catch (error) {
-      console.error('Error finding user by userID:', error);
+      console.error('❌ Error finding user by userID:', error);
       throw error;
     }
   }
@@ -173,8 +447,8 @@ export class UnifiedUserService {
     try {
       const { db } = await connectToDatabase();
       
-      // Check if user exists by email
-      let user = await this.findUserByEmail(googleProfile.email);
+      // Check if user exists by email (with duplicate detection)
+      let user = await this.findUserByEmailSafe(googleProfile.email);
       
       if (user) {
         // User exists - update Google provider data and link Shopify if needed
@@ -289,8 +563,8 @@ export class UnifiedUserService {
       const shopifyAuth = await this.shopifyService.authenticateCustomer(email, password);
       const shopifyCustomer = shopifyAuth.customer;
 
-      // Check if user exists by email
-      let user = await this.findUserByEmail(email);
+      // Check if user exists by email (with duplicate detection)
+      let user = await this.findUserByEmailSafe(email);
       
       if (user) {
         // User exists - update Shopify provider data
@@ -379,8 +653,8 @@ export class UnifiedUserService {
     try {
       const { email, password, firstName, lastName, phoneNumber, role, businessInfo } = userData;
       
-      // Check if user already exists
-      const existingUser = await this.findUserByEmail(email);
+      // Check if user already exists (with duplicate detection)
+      const existingUser = await this.findUserByEmailSafe(email);
       if (existingUser) {
         throw new Error('User with this email already exists');
       }

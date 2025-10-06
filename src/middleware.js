@@ -4,12 +4,8 @@ import { getToken } from "next-auth/jwt";
 // List of public routes that can be accessed without authentication  
 const publicRoutes = ["/auth/signin", "/auth/register"];
 
-// Routes that require specific permissions
-const protectedRoutes = {
-  "/dashboard/admin": ["adminSettings"],
-  "/dashboard/users": ["userManagement"],
-  "/dashboard/settings": ["adminSettings"]
-};
+// Client role constant (to avoid import issues in Edge Runtime)
+const CLIENT_ROLE = 'client';
 
 export default async function middleware(req) {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
@@ -18,6 +14,10 @@ export default async function middleware(req) {
     // ✅ Redirect root path to appropriate location
     if (pathname === "/") {
         if (token) {
+            // Block clients from accessing admin panel
+            if (token.role === CLIENT_ROLE) {
+                return NextResponse.redirect(new URL("https://engelfinedesign.com", req.url));
+            }
             return NextResponse.redirect(new URL("/dashboard", req.url));
         } else {
             return NextResponse.redirect(new URL("/auth/signin", req.url));
@@ -34,7 +34,13 @@ export default async function middleware(req) {
         return NextResponse.redirect(new URL("/auth/signin", req.url));
     }
 
-    // For authenticated users, we'll handle role/permission checking in the actual pages
+    // 🚫 CRITICAL: Block client role from accessing any admin routes
+    if (token.role === CLIENT_ROLE) {
+        console.log(`Blocking client access to admin panel: ${token.email}`);
+        return NextResponse.redirect(new URL("https://engelfinedesign.com", req.url));
+    }
+
+    // For authenticated users with proper roles, we'll handle permission checking in the actual pages
     // rather than in middleware to avoid Edge Runtime limitations
     
     // Add basic user info to headers if available from token
