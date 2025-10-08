@@ -253,20 +253,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     session.user.userID = currentUser.userID;
                     session.user.name = constructedName;
                     session.user.email = currentUser.email;
-                    session.user.provider = currentUser.authProvider;
-                    session.user.shopifyCustomerID = currentUser.shopifyCustomerID;
-                    session.user.shopifyCustomerToken = currentUser.shopifyCustomerToken;
-                    session.user.googleSub = currentUser.googleSub;
                     session.user.role = currentUser.role;
                     session.user.status = currentUser.status;
-                    session.user.image = currentUser.profileImage || currentUser.avatar || token.image;
                     session.user.storeID = token.storeID;
+                    session.user.image = currentUser.profileImage || currentUser.avatar || token.image;
+                    
+                    // 🔄 LEGACY USER SUPPORT: Handle provider data for both legacy and new users
+                    if (currentUser.providers) {
+                        // New dual-auth user structure
+                        session.user.provider = currentUser.primaryProvider || currentUser.authProvider;
+                        session.user.shopifyCustomerID = currentUser.providers.shopify?.id;
+                        session.user.shopifyCustomerToken = currentUser.providers.shopify?.customerAccessToken;
+                        session.user.googleSub = currentUser.providers.google?.id;
+                    } else {
+                        // Legacy user structure - use fallback values
+                        console.log('🔄 Using legacy user structure, mapping provider data from token');
+                        session.user.provider = currentUser.authProvider || token.provider || 'google';
+                        session.user.shopifyCustomerID = currentUser.shopifyCustomerID || token.shopifyCustomerID;
+                        session.user.shopifyCustomerToken = currentUser.shopifyCustomerToken || token.shopifyCustomerToken;
+                        session.user.googleSub = currentUser.googleSub || token.googleSub;
+                    }
                     
                     console.log('✅ Final session user after DB update:', {
                         name: session.user.name,
                         email: session.user.email,
                         userID: session.user.userID,
-                        role: session.user.role
+                        role: session.user.role,
+                        provider: session.user.provider
                     });
                 } else {
                     console.log('⚠️ User not found in database, using token fallback');

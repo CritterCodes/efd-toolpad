@@ -451,7 +451,9 @@ export class UnifiedUserService {
       let user = await this.findUserByEmailSafe(googleProfile.email);
       
       if (user) {
-        // User exists - update Google provider data and link Shopify if needed
+        // User exists - handle both new dual-auth users and legacy users
+        console.log(`🔄 Updating existing user: ${user.email}`);
+        
         const updateData = {
           [`providers.${AUTH_PROVIDERS.GOOGLE}`]: {
             id: googleProfile.sub,
@@ -462,6 +464,18 @@ export class UnifiedUserService {
           lastSignIn: new Date(),
           updatedAt: new Date()
         };
+
+        // 🔄 LEGACY USER MIGRATION: Initialize providers object if missing
+        if (!user.providers) {
+          console.log('🔄 Migrating legacy user - initializing providers object');
+          updateData.providers = {};
+          updateData.primaryProvider = AUTH_PROVIDERS.GOOGLE;
+        }
+
+        // 🔄 LEGACY USER MIGRATION: Set primary provider if missing
+        if (!user.primaryProvider) {
+          updateData.primaryProvider = AUTH_PROVIDERS.GOOGLE;
+        }
 
         // Update role only if specified and different (but preserve existing roles for existing users)
         if (additionalData.role && additionalData.role !== user.role) {
@@ -477,19 +491,23 @@ export class UnifiedUserService {
           }
         }
 
-        // If user doesn't have Shopify account, create one
-        if (!user.providers?.shopify?.id) {
+        // 🔄 LEGACY USER MIGRATION: Create Shopify account if missing
+        // For legacy users, user.providers might be undefined, so we need to check carefully
+        const hasShopifyAccount = user.providers?.shopify?.id;
+        
+        if (!hasShopifyAccount) {
           try {
+            console.log('🔄 Creating Shopify account for user (legacy migration or new Google user)');
             const shopifyCustomer = await this.shopifyService.createCustomerForGoogleUser(googleProfile);
             updateData[`providers.${AUTH_PROVIDERS.SHOPIFY}`] = {
               id: shopifyCustomer.id,
               verified: true,
               lastSignIn: new Date()
             };
-            updateData.primaryProvider = user.primaryProvider || AUTH_PROVIDERS.GOOGLE;
-            console.log('✅ Created Shopify account for existing Google user');
+            console.log('✅ Created Shopify account for user');
           } catch (shopifyError) {
-            console.warn('Failed to create Shopify account for Google user:', shopifyError.message);
+            console.warn('⚠️ Failed to create Shopify account (non-blocking):', shopifyError.message);
+            // Continue without Shopify - this shouldn't block authentication
           }
         } else {
           // Link existing Shopify account
@@ -498,7 +516,8 @@ export class UnifiedUserService {
             updateData.linkedAt = new Date();
             console.log('✅ Linked Google account to existing Shopify customer');
           } catch (linkError) {
-            console.warn('Failed to link Google account to Shopify:', linkError.message);
+            console.warn('⚠️ Failed to link Google account to Shopify (non-blocking):', linkError.message);
+            // Continue without linking - this shouldn't block authentication
           }
         }
 
@@ -581,7 +600,9 @@ export class UnifiedUserService {
       let user = await this.findUserByEmailSafe(email);
       
       if (user) {
-        // User exists - update Shopify provider data
+        // User exists - handle both new dual-auth users and legacy users
+        console.log(`🔄 Updating existing user via Shopify: ${user.email}`);
+        
         const updateData = {
           [`providers.${AUTH_PROVIDERS.SHOPIFY}`]: {
             id: shopifyCustomer.id,
@@ -593,14 +614,26 @@ export class UnifiedUserService {
           updatedAt: new Date()
         };
 
-        // If user has Google account, ensure linking
+        // 🔄 LEGACY USER MIGRATION: Initialize providers object if missing
+        if (!user.providers) {
+          console.log('🔄 Migrating legacy user via Shopify - initializing providers object');
+          updateData.providers = {};
+          updateData.primaryProvider = AUTH_PROVIDERS.SHOPIFY;
+        }
+
+        // 🔄 LEGACY USER MIGRATION: Set primary provider if missing
+        if (!user.primaryProvider) {
+          updateData.primaryProvider = AUTH_PROVIDERS.SHOPIFY;
+        }
+
+        // Link existing Google account if present
         if (user.providers?.google?.id) {
           try {
             await this.shopifyService.linkGoogleAccount(shopifyCustomer.id, user.providers.google.profile);
             updateData.linkedAt = new Date();
             console.log('✅ Linked existing Google account to Shopify authentication');
           } catch (linkError) {
-            console.warn('Failed to link Google account during Shopify auth:', linkError.message);
+            console.warn('⚠️ Failed to link Google account during Shopify auth (non-blocking):', linkError.message);
           }
         }
 
