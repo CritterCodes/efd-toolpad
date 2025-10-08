@@ -444,11 +444,15 @@ export class UnifiedUserService {
    * Authenticate user with Google OAuth and create/link Shopify account
    */
   static async authenticateWithGoogle(googleProfile, additionalData = {}) {
+    console.log("🔄 UnifiedUserService.authenticateWithGoogle started for:", googleProfile.email);
     try {
       const { db } = await connectToDatabase();
+      console.log("✅ Database connection successful");
       
       // Check if user exists by email (with duplicate detection)
+      console.log("🔍 Looking up user by email...");
       let user = await this.findUserByEmailSafe(googleProfile.email);
+      console.log("📋 User lookup result:", user ? `Found user ${user.userID}` : 'User not found');
       
       if (user) {
         // User exists - handle both new dual-auth users and legacy users
@@ -580,8 +584,14 @@ export class UnifiedUserService {
         return newUser;
       }
     } catch (error) {
-      console.error('Error authenticating with Google:', error);
-      throw error;
+      console.error('❌ ERROR in authenticateWithGoogle:', error);
+      console.error('❌ Error stack:', error.stack);
+      console.error('❌ Error details:', {
+        message: error.message,
+        name: error.name,
+        code: error.code
+      });
+      throw new Error(`Google authentication failed: ${error.message}`);
     }
   }
 

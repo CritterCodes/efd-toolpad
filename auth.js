@@ -18,36 +18,50 @@ const providers = [
         },
         async profile(profile) {
             try {
-                console.log("Google Profile:", profile);
+                console.log("🔍 Google Profile received:", profile.email);
 
                 // Check if user exists in database first to get their existing role
-                const existingUser = await UnifiedUserService.findUserByEmailSafe(profile.email);
-                let userRole = null;
+                let existingUser = null;
+                try {
+                    existingUser = await UnifiedUserService.findUserByEmailSafe(profile.email);
+                    console.log("📋 Existing user lookup result:", existingUser ? {
+                        userID: existingUser.userID,
+                        role: existingUser.role,
+                        hasProviders: !!existingUser.providers
+                    } : 'USER NOT FOUND');
+                } catch (dbError) {
+                    console.error("❌ Database lookup error:", dbError);
+                    throw new Error(`Database lookup failed: ${dbError.message}`);
+                }
 
+                let userRole = null;
                 if (existingUser) {
                     // Use existing role from database
                     userRole = existingUser.role;
-                    console.log(`Found existing user with role: ${userRole}`);
+                    console.log(`✅ Found existing user with role: ${userRole}`);
                 } else {
                     // For new users, only create admin accounts for known admin emails
-                    // All other new users will need to be manually promoted
                     if (profile.email === 'jacobaengel55@gmail.com') {
                         userRole = 'admin';
                     } else {
-                        // Default new users to a role that requires approval/promotion
-                        userRole = 'staff'; // or whatever role you want for new admin users
+                        userRole = 'staff'; // Default for new admin users
                     }
-                    console.log(`New user will be created with role: ${userRole}`);
+                    console.log(`🆕 New user will be created with role: ${userRole}`);
                 }
 
                 // Use the new hybrid authentication method
+                console.log("🔄 Calling UnifiedUserService.authenticateWithGoogle...");
                 const user = await UnifiedUserService.authenticateWithGoogle(profile, {
                     provider: AUTH_PROVIDERS.GOOGLE,
                     role: userRole,
-                    status: "active" // Google OAuth users are auto-approved
+                    status: "active"
                 });
 
-                console.log("Unified User:", user);
+                console.log("✅ UnifiedUserService.authenticateWithGoogle completed:", {
+                    userID: user.userID,
+                    email: user.email,
+                    role: user.role
+                });
 
                 // Return user data for NextAuth session
                 return {
