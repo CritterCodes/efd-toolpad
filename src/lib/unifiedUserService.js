@@ -463,12 +463,18 @@ export class UnifiedUserService {
           updatedAt: new Date()
         };
 
-        // Update role if specified in additionalData (for existing users)
+        // Update role only if specified and different (but preserve existing roles for existing users)
         if (additionalData.role && additionalData.role !== user.role) {
-          updateData.role = additionalData.role;
-          updateData.permissions = ROLE_PERMISSIONS[additionalData.role];
-          updateData.status = this.getDefaultStatusForRole(additionalData.role);
-          console.log(`✅ Updated user role from ${user.role} to ${additionalData.role}`);
+          // Only update role if it's not downgrading an existing admin/staff user
+          const shouldUpdateRole = this.shouldAllowRoleUpdate(user.role, additionalData.role);
+          if (shouldUpdateRole) {
+            updateData.role = additionalData.role;
+            updateData.permissions = ROLE_PERMISSIONS[additionalData.role];
+            updateData.status = this.getDefaultStatusForRole(additionalData.role);
+            console.log(`✅ Updated user role from ${user.role} to ${additionalData.role}`);
+          } else {
+            console.log(`⚠️ Preserving existing role ${user.role}, not updating to ${additionalData.role}`);
+          }
         }
 
         // If user doesn't have Shopify account, create one
@@ -1285,6 +1291,34 @@ export class UnifiedUserService {
       console.error('Error adding jewelry:', error);
       throw error;
     }
+  }
+
+  /**
+   * Determine if a role update should be allowed
+   * Prevents downgrading admin/staff users accidentally
+   */
+  static shouldAllowRoleUpdate(currentRole, newRole) {
+    // Define role hierarchy (higher number = more privileged)
+    const roleHierarchy = {
+      [USER_ROLES.CLIENT]: 1,
+      [USER_ROLES.WHOLESALER]: 2,
+      [USER_ROLES.ARTISAN_APPLICANT]: 3,
+      [USER_ROLES.ARTISAN]: 4,
+      [USER_ROLES.STAFF]: 5,
+      [USER_ROLES.DEV]: 6,
+      [USER_ROLES.ADMIN]: 7
+    };
+
+    const currentLevel = roleHierarchy[currentRole] || 0;
+    const newLevel = roleHierarchy[newRole] || 0;
+
+    // Allow upgrades, prevent downgrades of privileged users
+    if (currentLevel >= 5) { // staff, dev, admin
+      return newLevel >= currentLevel; // Only allow same level or upgrades
+    }
+    
+    // Allow any role change for non-privileged users
+    return true;
   }
 }
 

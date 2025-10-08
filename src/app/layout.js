@@ -50,36 +50,11 @@ export default async function RootLayout({ children }) {
 
     // 🚫 BLOCK CLIENT ROLE ACCESS
     // Clients should only use efd-shop, not efd-admin
-    if (session.user.role === USER_ROLES.CLIENT) {
+    // All other roles (wholesaler, artisan, staff, dev, admin) can access admin panel
+    if (!canAccessAdmin(session.user.role)) {
+        console.log(`Access denied for role: ${session.user.role}`);
         // Redirect clients to the shop instead of showing admin panel
         redirect('https://engelfinedesign.com');
-    }
-
-    // 🔒 VERIFY ADMIN ACCESS PERMISSIONS
-    if (!canAccessAdmin(session.user.role)) {
-        return (
-            <html lang="en" suppressHydrationWarning>
-                <body>
-                    <SessionProvider session={session}>
-                        <ClientThemeProvider>
-                            <div style={{ 
-                                display: 'flex', 
-                                justifyContent: 'center', 
-                                alignItems: 'center', 
-                                height: '100vh',
-                                flexDirection: 'column',
-                                gap: '1rem'
-                            }}>
-                                <h1>Access Denied</h1>
-                                <p>You do not have permission to access the admin panel.</p>
-                                <p>Role: {session.user.role}</p>
-                                <button onClick={() => signOut()}>Sign Out</button>
-                            </div>
-                        </ClientThemeProvider>
-                    </SessionProvider>
-                </body>
-            </html>
-        );
     }
 
     // 🎯 ROLE-BASED NAVIGATION - Now handled by RoleAwareNavigationProvider

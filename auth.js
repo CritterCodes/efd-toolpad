@@ -20,10 +20,24 @@ const providers = [
             try {
                 console.log("Google Profile:", profile);
 
-                // Determine role based on email address
-                let userRole = 'client'; // Default role
-                if (profile.email === 'jacobaengel55@gmail.com') {
-                    userRole = 'admin'; // Set admin role for your email
+                // Check if user exists in database first to get their existing role
+                const existingUser = await UnifiedUserService.findUserByEmailSafe(profile.email);
+                let userRole = null;
+
+                if (existingUser) {
+                    // Use existing role from database
+                    userRole = existingUser.role;
+                    console.log(`Found existing user with role: ${userRole}`);
+                } else {
+                    // For new users, only create admin accounts for known admin emails
+                    // All other new users will need to be manually promoted
+                    if (profile.email === 'jacobaengel55@gmail.com') {
+                        userRole = 'admin';
+                    } else {
+                        // Default new users to a role that requires approval/promotion
+                        userRole = 'staff'; // or whatever role you want for new admin users
+                    }
+                    console.log(`New user will be created with role: ${userRole}`);
                 }
 
                 // Use the new hybrid authentication method
