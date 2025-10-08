@@ -1,4 +1,4 @@
-import UnifiedUserService from '../../../lib/unifiedUserService.js';
+import UnifiedUserService from '../../../../lib/unifiedUserService.js';
 
 export async function GET(request) {
   try {

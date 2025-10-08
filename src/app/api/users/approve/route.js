@@ -3,8 +3,8 @@
  * Handles approval/rejection of pending users
  */
 
-import { UnifiedUserService } from '../../../lib/unifiedUserService.js';
-import { checkAPIPermissions } from '../../../lib/authHelpers.js';
+import { UnifiedUserService } from '../../../../lib/unifiedUserService.js';
+import { checkAPIPermissions } from '../../../../lib/authHelpers.js';
 
 export async function POST(request) {
   try {

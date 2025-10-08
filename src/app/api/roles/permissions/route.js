@@ -3,8 +3,8 @@
  * Provides role and permission information
  */
 
-import { UnifiedUserService, USER_ROLES, ROLE_PERMISSIONS } from '../../../lib/unifiedUserService.js';
-import { checkAPIPermissions, authenticateAPIRequest } from '../../../lib/authHelpers.js';
+import { UnifiedUserService, USER_ROLES, ROLE_PERMISSIONS } from '../../../../lib/unifiedUserService.js';
+import { checkAPIPermissions, authenticateAPIRequest } from '../../../../lib/authHelpers.js';
 
 export async function GET(request) {
   try {

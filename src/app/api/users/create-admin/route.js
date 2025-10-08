@@ -3,8 +3,8 @@
  * Allows admins to create staff/dev/admin users
  */
 
-import { UnifiedUserService, USER_ROLES } from '../../../lib/unifiedUserService.js';
-import { checkAPIPermissions } from '../../../lib/authHelpers.js';
+import { UnifiedUserService, USER_ROLES } from '../../../../lib/unifiedUserService.js';
+import { checkAPIPermissions } from '../../../../lib/authHelpers.js';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 
