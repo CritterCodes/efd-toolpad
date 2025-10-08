@@ -459,21 +459,31 @@ export class UnifiedUserService {
         console.log(`🔄 Updating existing user: ${user.email}`);
         
         const updateData = {
-          [`providers.${AUTH_PROVIDERS.GOOGLE}`]: {
-            id: googleProfile.sub,
-            verified: true,
-            profile: googleProfile,
-            lastSignIn: new Date()
-          },
           lastSignIn: new Date(),
           updatedAt: new Date()
         };
 
-        // 🔄 LEGACY USER MIGRATION: Initialize providers object if missing
+        // 🔄 LEGACY USER MIGRATION: Handle providers structure
         if (!user.providers) {
           console.log('🔄 Migrating legacy user - initializing providers object');
-          updateData.providers = {};
+          // For legacy users, create the entire providers structure at once
+          updateData.providers = {
+            [AUTH_PROVIDERS.GOOGLE]: {
+              id: googleProfile.sub,
+              verified: true,
+              profile: googleProfile,
+              lastSignIn: new Date()
+            }
+          };
           updateData.primaryProvider = AUTH_PROVIDERS.GOOGLE;
+        } else {
+          // For existing dual-auth users, just update the Google provider
+          updateData[`providers.${AUTH_PROVIDERS.GOOGLE}`] = {
+            id: googleProfile.sub,
+            verified: true,
+            profile: googleProfile,
+            lastSignIn: new Date()
+          };
         }
 
         // 🔄 LEGACY USER MIGRATION: Set primary provider if missing
@@ -503,11 +513,23 @@ export class UnifiedUserService {
           try {
             console.log('🔄 Creating Shopify account for user (legacy migration or new Google user)');
             const shopifyCustomer = await this.shopifyService.createCustomerForGoogleUser(googleProfile);
-            updateData[`providers.${AUTH_PROVIDERS.SHOPIFY}`] = {
-              id: shopifyCustomer.id,
-              verified: true,
-              lastSignIn: new Date()
-            };
+            
+            // Handle Shopify provider data based on whether we're migrating legacy user or updating existing
+            if (!user.providers) {
+              // Legacy user - providers object is being created, add Shopify to it
+              updateData.providers[AUTH_PROVIDERS.SHOPIFY] = {
+                id: shopifyCustomer.id,
+                verified: true,
+                lastSignIn: new Date()
+              };
+            } else {
+              // Existing dual-auth user - update just the Shopify provider
+              updateData[`providers.${AUTH_PROVIDERS.SHOPIFY}`] = {
+                id: shopifyCustomer.id,
+                verified: true,
+                lastSignIn: new Date()
+              };
+            }
             console.log('✅ Created Shopify account for user');
           } catch (shopifyError) {
             console.warn('⚠️ Failed to create Shopify account (non-blocking):', shopifyError.message);
