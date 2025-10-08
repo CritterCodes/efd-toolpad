@@ -20,9 +20,16 @@ const providers = [
             try {
                 console.log("Google Profile:", profile);
 
+                // Determine role based on email address
+                let userRole = 'client'; // Default role
+                if (profile.email === 'jacobaengel55@gmail.com') {
+                    userRole = 'admin'; // Set admin role for your email
+                }
+
                 // Use the new hybrid authentication method
                 const user = await UnifiedUserService.authenticateWithGoogle(profile, {
                     provider: AUTH_PROVIDERS.GOOGLE,
+                    role: userRole,
                     status: "active" // Google OAuth users are auto-approved
                 });
 

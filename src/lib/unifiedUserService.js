@@ -463,6 +463,14 @@ export class UnifiedUserService {
           updatedAt: new Date()
         };
 
+        // Update role if specified in additionalData (for existing users)
+        if (additionalData.role && additionalData.role !== user.role) {
+          updateData.role = additionalData.role;
+          updateData.permissions = ROLE_PERMISSIONS[additionalData.role];
+          updateData.status = this.getDefaultStatusForRole(additionalData.role);
+          console.log(`✅ Updated user role from ${user.role} to ${additionalData.role}`);
+        }
+
         // If user doesn't have Shopify account, create one
         if (!user.providers?.shopify?.id) {
           try {
