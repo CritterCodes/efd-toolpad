@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '../../../../lib/database';
+import { db } from '../../../../lib/database';
 import { ObjectId } from 'mongodb';
 
 /**
@@ -13,7 +13,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Material IDs array required' }, { status: 400 });
     }
     
-    const { db } = await connectToDatabase();
+    await db.connect();
     const processesCollection = db.collection('processes');
     
     // Convert string IDs to ObjectIds

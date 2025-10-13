@@ -170,8 +170,28 @@ export const providerMap = providers.map((provider) => {
 export const { handlers, auth, signIn, signOut } = NextAuth({
     providers,
     secret: process.env.NEXTAUTH_SECRET,
+    session: {
+        strategy: 'jwt',
+        maxAge: 30 * 24 * 60 * 60, // 30 days
+        updateAge: 24 * 60 * 60, // 24 hours
+    },
+    jwt: {
+        maxAge: 30 * 24 * 60 * 60, // 30 days
+    },
     pages: {
         signIn: '/auth/signin',
+    },
+    debug: true, // Enable debug mode for production troubleshooting
+    cookies: {
+        sessionToken: {
+            name: `next-auth.session-token`,
+            options: {
+                httpOnly: true,
+                sameSite: 'lax',
+                path: '/',
+                secure: process.env.NODE_ENV === 'production'
+            }
+        }
     },
     callbacks: {
         async jwt({ token, account, user }) {

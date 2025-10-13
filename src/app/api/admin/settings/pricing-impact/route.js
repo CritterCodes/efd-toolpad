@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../../../../../../auth';
-import { connectToDatabase } from '@/lib/database';
+import { auth } from '../../../../../../auth.js';
+import { db } from '@/lib/database';
 
 /**
  * POST /api/admin/settings/pricing-impact
@@ -9,7 +8,7 @@ import { connectToDatabase } from '@/lib/database';
  */
 export async function POST(request) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     
     if (!session || !session.user?.email?.includes('@')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -22,7 +21,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Pricing data required' }, { status: 400 });
     }
 
-    const { db } = await connectToDatabase();
+    await db.connect();
     
     // Get current settings for comparison
     const currentSettings = await db.collection('adminSettings').findOne({ 
