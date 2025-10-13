@@ -1,85 +1,10 @@
 import NextAuth from 'next-auth';
-import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { UnifiedUserService, AUTH_PROVIDERS } from './src/lib/unifiedUserService.js';
 
 const baseURL = `${process.env.NEXT_PUBLIC_URL}`;
 
 const providers = [
-    GoogleProvider({
-        clientId: process.env.GOOGLE_CLIENT_ID,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        authorization: {
-            params: {
-                scope: "https://www.googleapis.com/auth/calendar.readonly email profile",
-                access_type: "offline",
-                prompt: "consent",
-            },
-        },
-        async profile(profile) {
-            try {
-                console.log("🔍 Google Profile received:", profile.email);
-
-                // Check if user exists in database first to get their existing role
-                let existingUser = null;
-                try {
-                    existingUser = await UnifiedUserService.findUserByEmailSafe(profile.email);
-                    console.log("📋 Existing user lookup result:", existingUser ? {
-                        userID: existingUser.userID,
-                        role: existingUser.role,
-                        hasProviders: !!existingUser.providers
-                    } : 'USER NOT FOUND');
-                } catch (dbError) {
-                    console.error("❌ Database lookup error:", dbError);
-                    throw new Error(`Database lookup failed: ${dbError.message}`);
-                }
-
-                let userRole = null;
-                if (existingUser) {
-                    // Use existing role from database
-                    userRole = existingUser.role;
-                    console.log(`✅ Found existing user with role: ${userRole}`);
-                } else {
-                    // For new users, only create admin accounts for known admin emails
-                    if (profile.email === 'jacobaengel55@gmail.com') {
-                        userRole = 'admin';
-                    } else {
-                        userRole = 'staff'; // Default for new admin users
-                    }
-                    console.log(`🆕 New user will be created with role: ${userRole}`);
-                }
-
-                // Use the new hybrid authentication method
-                console.log("🔄 Calling UnifiedUserService.authenticateWithGoogle...");
-                const user = await UnifiedUserService.authenticateWithGoogle(profile, {
-                    provider: AUTH_PROVIDERS.GOOGLE,
-                    role: userRole,
-                    status: "active"
-                });
-
-                console.log("✅ UnifiedUserService.authenticateWithGoogle completed:", {
-                    userID: user.userID,
-                    email: user.email,
-                    role: user.role
-                });
-
-                // Return user data for NextAuth session
-                return {
-                    userID: user.userID,
-                    name: `${user.firstName} ${user.lastName}`,
-                    email: user.email,
-                    role: user.role,
-                    status: user.status,
-                    providers: user.providers,
-                    image: profile.picture
-                };
-
-            } catch (error) {
-                console.error("Google Auth Error:", error);
-                throw new Error("Failed to authenticate with Google.");
-            }
-        }
-    }),
     CredentialsProvider({
         credentials: {
             email: { label: 'Email Address', type: 'email' },
@@ -218,7 +143,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 token.provider = user.provider;
                 token.shopifyCustomerID = user.shopifyCustomerID;
                 token.shopifyCustomerToken = user.shopifyCustomerToken;
-                token.googleSub = user.googleSub;
                 token.role = user.role;
                 token.image = user.image;
                 
@@ -292,20 +216,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     session.user.storeID = token.storeID;
                     session.user.image = currentUser.profileImage || currentUser.avatar || token.image;
                     
-                    // 🔄 LEGACY USER SUPPORT: Handle provider data for both legacy and new users
+                    // Set provider data - Shopify only now
                     if (currentUser.providers) {
-                        // New dual-auth user structure
-                        session.user.provider = currentUser.primaryProvider || currentUser.authProvider;
+                        // New structure with providers object
+                        session.user.provider = currentUser.primaryProvider || 'shopify';
                         session.user.shopifyCustomerID = currentUser.providers.shopify?.id;
                         session.user.shopifyCustomerToken = currentUser.providers.shopify?.customerAccessToken;
-                        session.user.googleSub = currentUser.providers.google?.id;
                     } else {
-                        // Legacy user structure - use fallback values
+                        // Legacy user structure - default to shopify
                         console.log('🔄 Using legacy user structure, mapping provider data from token');
-                        session.user.provider = currentUser.authProvider || token.provider || 'google';
+                        session.user.provider = currentUser.authProvider || token.provider || 'shopify';
                         session.user.shopifyCustomerID = currentUser.shopifyCustomerID || token.shopifyCustomerID;
                         session.user.shopifyCustomerToken = currentUser.shopifyCustomerToken || token.shopifyCustomerToken;
-                        session.user.googleSub = currentUser.googleSub || token.googleSub;
                     }
                     
                     console.log('✅ Final session user after DB update:', {
@@ -324,7 +246,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     session.user.provider = token.provider;
                     session.user.shopifyCustomerID = token.shopifyCustomerID;
                     session.user.shopifyCustomerToken = token.shopifyCustomerToken;
-                    session.user.googleSub = token.googleSub;
                     session.user.role = token.role;
                     session.user.image = token.image;
                     session.user.storeID = token.storeID;
@@ -367,50 +288,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     
 });
 
-async function refreshAccessToken(token) {
-    try {
-        console.log("Attempting to refresh access token...");
-        
-        if (!token.refreshToken) {
-            console.error("No refresh token available");
-            return {
-                ...token,
-                error: "RefreshAccessTokenError",
-            };
-        }
 
-        const url = "https://oauth2.googleapis.com/token";
-        const response = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: new URLSearchParams({
-                client_id: process.env.GOOGLE_CLIENT_ID,
-                client_secret: process.env.GOOGLE_CLIENT_SECRET,
-                grant_type: "refresh_token",
-                refresh_token: token.refreshToken,
-            }),
-        });
-
-        const refreshedTokens = await response.json();
-
-        if (!response.ok) {
-            console.error("Error refreshing access token - Response not ok:", refreshedTokens);
-            throw refreshedTokens;
-        }
-
-        console.log("Access token refreshed successfully");
-        return {
-            ...token,
-            accessToken: refreshedTokens.access_token,
-            accessTokenExpires: Date.now() + refreshedTokens.expires_in * 1000, // 1 hour
-            refreshToken: refreshedTokens.refresh_token || token.refreshToken, // Use old refresh token if none returned
-        };
-    } catch (error) {
-        console.error("Error refreshing access token:", error);
-
-        return {
-            ...token,
-            error: "RefreshAccessTokenError",
-        };
-    }
-}
