@@ -1384,7 +1384,7 @@ export class UnifiedUserService {
         jewelry: []
       };
 
-      const db = await connectToDatabase();
+      const { db } = await connectToDatabase();
       const result = await db.collection('users').insertOne(newUser);
       
       console.log(`✅ Created new user: ${newUser.email} with role: ${newUser.role}`);
@@ -1416,7 +1416,7 @@ export class UnifiedUserService {
         updateData.shopifyData = shopifyData.shopifyData;
       }
 
-      const db = await connectToDatabase();
+      const { db } = await connectToDatabase();
       const result = await db.collection('users').updateOne(
         { userID: userID },
         { $set: updateData }
