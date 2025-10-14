@@ -1,10 +1,10 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { SignInPage } from "@toolpad/core/SignInPage";
-import { Link, Snackbar, Alert, Typography, Box } from "@mui/material";
-import { useSearchParams } from 'next/navigation';
+import { Link, Snackbar, Alert, Typography, Box, CircularProgress } from "@mui/material";
+import { useSearchParams, useRouter } from 'next/navigation';
 import { providerMap } from "../../../../auth";
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import Image from 'next/image';
 
 const ForgotPasswordLink = () => {
@@ -31,9 +31,55 @@ const InternalAppNote = () => {
 
 const SignIn = () => {
     const searchParams = useSearchParams();
+    const router = useRouter();
+    const { data: session, status } = useSession();
     const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
     const [error, setError] = useState(null);
     const [snackbarOpen, setSnackbarOpen] = useState(false);
+    const [isRedirecting, setIsRedirecting] = useState(false);
+
+    // If user is already authenticated, redirect them
+    useEffect(() => {
+        console.log('🔍 [SIGNIN] Session status:', status, 'Session:', session);
+        if (status === 'authenticated' && session?.user) {
+            console.log('🔄 [SIGNIN] User already authenticated, checking current location...');
+            // Only redirect if we're actually on the signin page to prevent loops
+            if (window.location.pathname === '/auth/signin') {
+                console.log('🚀 [SIGNIN] Redirecting to dashboard from signin page...');
+                setIsRedirecting(true);
+                
+                // Try router first, with window.location as backup
+                router.replace('/dashboard');
+                
+                // Backup redirect in case router fails
+                setTimeout(() => {
+                    if (window.location.pathname === '/auth/signin') {
+                        console.log('🔄 [SIGNIN] Router redirect failed, using window.location...');
+                        window.location.href = '/dashboard';
+                    }
+                }, 2000);
+            }
+        }
+    }, [status, session, router]);
+
+    // Show loading state if we're authenticated and redirecting
+    if (status === 'authenticated' && session?.user && isRedirecting) {
+        return (
+            <Box sx={{ 
+                minHeight: '100vh', 
+                display: 'flex', 
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: 'background.default'
+            }}>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                    Redirecting to dashboard...
+                </Typography>
+                <CircularProgress />
+            </Box>
+        );
+    }
 
     const handleSnackbarClose = () => {
         setSnackbarOpen(false);

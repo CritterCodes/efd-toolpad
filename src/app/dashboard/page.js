@@ -14,6 +14,8 @@ export default function DashboardPage() {
     const { data: session, status } = useSession();
     const [effectiveRole, setEffectiveRole] = useState(null);
     
+    console.log('🏠 [DASHBOARD] Component mounted - Status:', status, 'Session:', session);
+    
     // Update effective role when session loads or role view changes
     useEffect(() => {
         if (!session?.user?.role) return;
@@ -42,12 +44,15 @@ export default function DashboardPage() {
     }, [session?.user?.role]);
     
     if (status === 'loading' || !effectiveRole) {
+        console.log('🔄 [DASHBOARD] Loading state - Status:', status, 'EffectiveRole:', effectiveRole);
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
                 <CircularProgress />
             </Box>
         );
     }
+    
+    console.log('🎯 [DASHBOARD] Rendering dashboard for role:', effectiveRole);
 
     if (!session?.user) {
         return (

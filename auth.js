@@ -66,8 +66,8 @@ const providers = [
                                         customerAccessToken: authResult.customerAccessToken.accessToken,
                                         lastSignIn: new Date()
                                     }
-                                },
-                                primaryProvider: 'shopify'
+                                }
+                                // Removed primaryProvider - we don't need it anymore
                             };
                             
                             user = await UnifiedUserService.createUser(newUserData);
@@ -249,16 +249,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     session.user.storeID = token.storeID;
                     session.user.image = currentUser.profileImage || currentUser.avatar || token.image;
                     
-                    // Set provider data - Shopify only now
-                    if (currentUser.providers) {
+                    // Set provider data - Always Shopify since it's our only auth method
+                    session.user.provider = 'shopify';
+                    
+                    // Set Shopify data from user record or token
+                    if (currentUser.providers?.shopify) {
                         // New structure with providers object
-                        session.user.provider = currentUser.primaryProvider || 'shopify';
-                        session.user.shopifyCustomerID = currentUser.providers.shopify?.id;
-                        session.user.shopifyCustomerToken = currentUser.providers.shopify?.customerAccessToken;
+                        session.user.shopifyCustomerID = currentUser.providers.shopify.id;
+                        session.user.shopifyCustomerToken = currentUser.providers.shopify.customerAccessToken;
                     } else {
-                        // Legacy user structure - default to shopify
-                        console.log('🔄 Using legacy user structure, mapping provider data from token');
-                        session.user.provider = currentUser.authProvider || token.provider || 'shopify';
+                        // Legacy user structure or token fallback
                         session.user.shopifyCustomerID = currentUser.shopifyCustomerID || token.shopifyCustomerID;
                         session.user.shopifyCustomerToken = currentUser.shopifyCustomerToken || token.shopifyCustomerToken;
                     }
