@@ -42,20 +42,21 @@ const SignIn = () => {
     const handleSignIn = async (provider, formData) => {
         try {
             if (provider.id === 'credentials') {
-                const response = await signIn("credentials", {
+                console.log('🔐 Starting client-side signin...');
+                await signIn("credentials", {
                     redirect: true,
                     email: formData.get('email'),
                     password: formData.get('password'),
                     callbackUrl
                 });
-                if (!response || response.error) {
-                    throw new Error("Invalid credentials. Please try again.");
-                }
-                return response;
+                // When redirect: true, signIn doesn't return a response - it redirects
+                // So we don't need to check response here
+                return;
             } else {
                 return signIn(provider.id, { callbackUrl });
             }
         } catch (error) {
+            console.error('❌ Client-side signin error:', error);
             setError(error.message || "An error occurred during sign-in.");
             setSnackbarOpen(true);
         }
