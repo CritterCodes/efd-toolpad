@@ -143,6 +143,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
     },
     callbacks: {
+        async redirect({ url, baseUrl }) {
+            console.log('🔄 REDIRECT CALLBACK - URL:', url, 'BaseUrl:', baseUrl);
+            // Allows relative callback URLs
+            if (url.startsWith("/")) return `${baseUrl}${url}`;
+            // Allows callback URLs on the same origin
+            else if (new URL(url).origin === baseUrl) return url;
+            console.log('🔄 REDIRECT CALLBACK - Redirecting to dashboard');
+            return baseUrl + "/dashboard";
+        },
         async jwt({ token, account, user }) {
             console.log('🔍 JWT CALLBACK - Starting');
             console.log('📝 Account present:', !!account);
