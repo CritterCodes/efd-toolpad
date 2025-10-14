@@ -12,72 +12,96 @@ const providers = [
         },
         async authorize(credentials) {
             try {
-                console.log("Attempting authentication for:", credentials.email);
+                console.log("🔐 Starting Shopify authentication for:", credentials.email);
 
-                // First try Shopify authentication
-                try {
-                    console.log("Trying Shopify authentication...");
-                    const result = await UnifiedUserService.authenticateWithShopify(
-                        credentials.email, 
-                        credentials.password
-                    );
+                // Import Shopify helpers
+                const { authenticateCustomer, getCustomerData } = await import('./src/lib/shopify.js');
 
-                    const user = result.user;
-                    const shopifyAuth = result.shopifyAuth;
-
-                    console.log("✅ Shopify Auth successful for:", user.email);
-
-                    return {
-                        userID: user.userID,
-                        name: `${user.firstName} ${user.lastName}`,
-                        email: user.email,
-                        role: user.role,
-                        status: user.status,
-                        providers: user.providers,
-                        shopifyAccessToken: shopifyAuth.accessToken,
-                        image: user.image || null
-                    };
-                } catch (shopifyError) {
-                    console.log("Shopify auth failed, trying legacy API...", shopifyError.message);
-                    
-                    // Fallback to existing API
-                    const response = await fetch(`${baseURL}/api/auth/signin`, {
-                        method: "POST",
-                        body: JSON.stringify(credentials),
-                        headers: { "Content-Type": "application/json" }
-                    });
-
-                    if (!response.ok) {
-                        console.error("Legacy API auth also failed");
-                        return null;
-                    }
-
-                    const user = await response.json();
-                    if (user) {
-                        console.log("✅ Legacy API auth successful for:", user.email);
-                        return user.role === "client" ? {
-                            userID: user.userID,
-                            name: `${user.firstName} ${user.lastName}`,
-                            email: user.email,
-                            role: user.role,
-                            token: user.token,
-                            image: user.image
-                        } : 
-                        {
-                            userID: user.userID,
-                            storeID: user.storeID,
-                            name: `${user.firstName} ${user.lastName}`,
-                            email: user.email,
-                            role: user.role,
-                            token: user.token,
-                            image: user.image
-                        };
-                    }
+                // Authenticate with Shopify Storefront API
+                const authResult = await authenticateCustomer(credentials.email, credentials.password);
+                
+                if (!authResult || authResult.customerUserErrors?.length > 0) {
+                    console.log("❌ Shopify authentication failed:", authResult?.customerUserErrors?.[0]?.message || 'Invalid credentials');
                     return null;
                 }
 
+                if (!authResult.customerAccessToken) {
+                    console.log("❌ No access token received from Shopify");
+                    return null;
+                }
+
+                // Get customer data from Shopify
+                const customerData = await getCustomerData(authResult.customerAccessToken.accessToken);
+                
+                if (!customerData) {
+                    console.log("❌ Failed to get customer data from Shopify");
+                    return null;
+                }
+
+                console.log("✅ Shopify authentication successful for:", customerData.email);
+
+                // Find or create user in MongoDB (using UnifiedUserService for admin role assignment)
+                let user;
+                try {
+                    user = await UnifiedUserService.findUserByEmailSafe(customerData.email);
+                    
+                    if (!user) {
+                        // Create new admin user - only allow known admin emails
+                        if (customerData.email === 'jacobaengel55@gmail.com') {
+                            console.log("🔧 Creating new admin user for:", customerData.email);
+                            
+                            // Create admin user with Shopify data
+                            const newUserData = {
+                                firstName: customerData.firstName || 'Admin',
+                                lastName: customerData.lastName || 'User',
+                                email: customerData.email,
+                                role: 'admin',
+                                status: 'verified',
+                                shopifyId: customerData.id,
+                                phoneNumber: customerData.phone || '',
+                                providers: {
+                                    shopify: {
+                                        id: customerData.id,
+                                        verified: true,
+                                        customerAccessToken: authResult.customerAccessToken.accessToken,
+                                        lastSignIn: new Date()
+                                    }
+                                },
+                                primaryProvider: 'shopify'
+                            };
+                            
+                            user = await UnifiedUserService.createUser(newUserData);
+                        } else {
+                            console.log("❌ Email not authorized for admin access:", customerData.email);
+                            return null;
+                        }
+                    } else {
+                        // Update existing user's Shopify data
+                        await UnifiedUserService.updateUserShopifyData(user.userID, {
+                            shopifyId: customerData.id,
+                            customerAccessToken: authResult.customerAccessToken.accessToken,
+                            shopifyData: customerData
+                        });
+                    }
+                } catch (dbError) {
+                    console.error("❌ Database error:", dbError);
+                    return null;
+                }
+
+                return {
+                    userID: user.userID,
+                    name: `${user.firstName} ${user.lastName}`,
+                    email: user.email,
+                    role: user.role,
+                    status: user.status,
+                    shopifyCustomerID: customerData.id,
+                    shopifyCustomerToken: authResult.customerAccessToken.accessToken,
+                    provider: 'shopify',
+                    image: user.image || null
+                };
+
             } catch (error) {
-                console.error("Complete authentication failure:", error);
+                console.error("❌ Authentication failure:", error);
                 return null;
             }
         }

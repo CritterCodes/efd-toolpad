@@ -1359,6 +1359,82 @@ export class UnifiedUserService {
   }
 
   /**
+   * Create a new user directly in the database
+   */
+  static async createUser(userData) {
+    try {
+      await connectToDatabase();
+      
+      const newUser = {
+        userID: userData.userID || `user-${uuidv4().substring(0, 8)}`,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        email: userData.email,
+        role: userData.role || USER_ROLES.CLIENT,
+        status: userData.status || USER_STATUS.PENDING,
+        phoneNumber: userData.phoneNumber || '',
+        address: userData.address || {},
+        shopifyId: userData.shopifyId || null,
+        providers: userData.providers || {},
+        primaryProvider: userData.primaryProvider || AUTH_PROVIDERS.SHOPIFY,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastSignIn: new Date(),
+        appointments: [],
+        jewelry: []
+      };
+
+      const db = await connectToDatabase();
+      const result = await db.collection('users').insertOne(newUser);
+      
+      console.log(`✅ Created new user: ${newUser.email} with role: ${newUser.role}`);
+      return { ...newUser, _id: result.insertedId };
+    } catch (error) {
+      console.error('Error creating user:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update user's Shopify data
+   */
+  static async updateUserShopifyData(userID, shopifyData) {
+    try {
+      await connectToDatabase();
+      
+      const updateData = {
+        'providers.shopify.id': shopifyData.shopifyId,
+        'providers.shopify.customerAccessToken': shopifyData.customerAccessToken,
+        'providers.shopify.lastSignIn': new Date(),
+        'providers.shopify.verified': true,
+        shopifyId: shopifyData.shopifyId,
+        lastSignIn: new Date(),
+        updatedAt: new Date()
+      };
+
+      if (shopifyData.shopifyData) {
+        updateData.shopifyData = shopifyData.shopifyData;
+      }
+
+      const db = await connectToDatabase();
+      const result = await db.collection('users').updateOne(
+        { userID: userID },
+        { $set: updateData }
+      );
+
+      if (result.matchedCount === 0) {
+        throw new Error('User not found');
+      }
+
+      console.log(`✅ Updated Shopify data for user: ${userID}`);
+      return result;
+    } catch (error) {
+      console.error('Error updating user Shopify data:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Determine if a role update should be allowed
    * Prevents downgrading admin/staff users accidentally
    */
