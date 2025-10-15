@@ -95,11 +95,34 @@ const SignIn = () => {
 
             // Check if NextAuth is trying to redirect back to signin (production issue)
             if (result?.url && result.url.includes('/auth/signin')) {
-                console.error('NextAuth redirecting back to signin - possible session creation failure');
-                const errorMsg = "Authentication failed. Please try again.";
-                setError(errorMsg);
-                setSnackbarOpen(true);
-                return { error: errorMsg };
+                console.error('NextAuth redirecting back to signin - checking session...');
+                
+                // Wait a moment for session to propagate, then check
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                try {
+                    const sessionCheck = await fetch('/api/auth/session');
+                    const session = await sessionCheck.json();
+                    console.log('Session check after signin redirect:', session);
+                    
+                    if (session?.user) {
+                        console.log('Session exists despite redirect URL - proceeding to dashboard');
+                        router.push(callbackUrl || '/dashboard');
+                        return { type: 'CredentialsSignin' };
+                    } else {
+                        console.error('No session found after signin redirect');
+                        const errorMsg = "Authentication failed. Please try again.";
+                        setError(errorMsg);
+                        setSnackbarOpen(true);
+                        return { error: errorMsg };
+                    }
+                } catch (sessionError) {
+                    console.error('Session check failed:', sessionError);
+                    const errorMsg = "Authentication failed. Please try again.";
+                    setError(errorMsg);
+                    setSnackbarOpen(true);
+                    return { error: errorMsg };
+                }
             }
 
             // NextAuth success conditions: ok=true AND status=200

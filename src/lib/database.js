@@ -4,6 +4,11 @@ import Constants from "./constants.js";
 
 class Database {
     constructor() {
+        // Prevent instantiation on client-side
+        if (typeof window !== 'undefined') {
+            throw new Error('Database class should only be used on the server-side');
+        }
+        
         if (!Database.instance) {
             // Check if MONGODB_URI is defined
             const mongoUri = process.env.MONGODB_URI;

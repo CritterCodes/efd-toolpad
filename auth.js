@@ -1,7 +1,16 @@
 import NextAuth from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import AuthService from './src/app/api/auth/[...nextauth]/service';
+
+// Use internal URL for server-side calls, external for client-side
+const getApiUrl = () => {
+    // In server-side context, use internal localhost
+    if (typeof window === 'undefined') {
+        return process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_URL || 'http://localhost:3000';
+    }
+    // In client-side context, use the external URL
+    return process.env.NEXT_PUBLIC_URL || window.location.origin;
+};
 
 const providers = [
     CredentialsProvider({
@@ -11,29 +20,37 @@ const providers = [
         },
         async authorize(credentials) {
             try {
-                // Call AuthService directly instead of making HTTP request
-                const userData = await AuthService.login(credentials.email, credentials.password);
+                const apiUrl = getApiUrl();
+                console.log('Auth calling API at:', apiUrl);
+                
+                const response = await fetch(`${apiUrl}/api/auth/signin`, {
+                    method: "POST",
+                    body: JSON.stringify(credentials),
+                    headers: { "Content-Type": "application/json" }
+                });
 
-                if (!userData) {
+                if (response.status === 403) {
+                    // Client user trying to access admin panel - don't throw, just return null
+                    console.error("Client access denied");
+                    return null;
+                }
+
+                if (!response.ok) {
                     console.error("Login failed. Invalid credentials.");
                     return null;
                 }
 
-                // Block client users from accessing admin panel
-                if (userData.role === "client") {
-                    console.error("Client access denied");
-                    return null;
-                }
+                const user = await response.json();
                 
-                if (userData) {
+                if (user) {
                     return {
-                        userID: userData.userID,
-                        storeID: userData.storeID,
-                        name: `${userData.firstName} ${userData.lastName}`,
-                        email: userData.email,
-                        role: userData.role,
-                        token: userData.token,
-                        image: userData.image
+                        userID: user.userID,
+                        storeID: user.storeID,
+                        name: `${user.firstName} ${user.lastName}`,
+                        email: user.email,
+                        role: user.role,
+                        token: user.token,
+                        image: user.image
                     };
                 }
             } catch (error) {
