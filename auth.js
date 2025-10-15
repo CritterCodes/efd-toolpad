@@ -18,22 +18,21 @@ const providers = [
                     headers: { "Content-Type": "application/json" }
                 });
 
+                if (response.status === 403) {
+                    // Client user trying to access admin panel - don't throw, just return null
+                    console.error("Client access denied");
+                    return null;
+                }
+
                 if (!response.ok) {
                     console.error("Login failed. Invalid credentials.");
                     return null;
                 }
 
                 const user = await response.json();
+                
                 if (user) {
-                    return user.role === "client" ? {
-                        userID: user.userID,
-                        name: `${user.firstName} ${user.lastName}`,
-                        email: user.email,
-                        role: user.role,
-                        token: user.token,
-                        image: user.image
-                    } : 
-                    {
+                    return {
                         userID: user.userID,
                         storeID: user.storeID,
                         name: `${user.firstName} ${user.lastName}`,

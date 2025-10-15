@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { SignInPage } from "@toolpad/core/SignInPage";
 import { Link, Snackbar, Alert, Typography, Box } from "@mui/material";
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { providerMap } from "../../../../auth";
 import { signIn } from "next-auth/react";
 import Image from 'next/image';
@@ -31,6 +31,7 @@ const InternalAppNote = () => {
 
 const SignIn = () => {
     const searchParams = useSearchParams();
+    const router = useRouter();
     const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
     const [error, setError] = useState(null);
     const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -39,25 +40,87 @@ const SignIn = () => {
         setSnackbarOpen(false);
     };
 
-    const handleSignIn = async (provider, formData) => {
+    const handleSignIn = async (provider, formData, callbackUrl) => {
         try {
-            if (provider.id === 'credentials') {
-                const response = await signIn("credentials", {
-                    redirect: true,
-                    email: formData.get('email'),
-                    password: formData.get('password'),
-                    callbackUrl
-                });
-                if (!response || response.error) {
-                    throw new Error("Invalid credentials. Please try again.");
-                }
-                return response;
+            const email = formData.get('email');
+            const password = formData.get('password');
+
+            console.log('Starting signin process for:', email);
+
+            // First, check if this would be a client access issue by calling our API directly
+            const preCheckResponse = await fetch('/api/auth/signin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+
+            console.log('Pre-check response status:', preCheckResponse.status);
+
+            if (preCheckResponse.status === 403) {
+                // Client user trying to access admin panel
+                const errorData = await preCheckResponse.json();
+                const adminOnlyMsg = errorData.message || "This login is for admin users only. Please visit our shop to access your customer account.";
+                setError(adminOnlyMsg);
+                setSnackbarOpen(true);
+                return { error: adminOnlyMsg };
+            }
+
+            if (!preCheckResponse.ok && preCheckResponse.status !== 401) {
+                // Some other error
+                console.log('Pre-check failed with status:', preCheckResponse.status);
+                const errorMsg = "An error occurred during sign in";
+                setError(errorMsg);
+                setSnackbarOpen(true);
+                return { error: errorMsg };
+            }
+
+            // If we get here, either it's valid admin credentials (200) or invalid credentials (401)
+            if (preCheckResponse.status === 401) {
+                // Invalid credentials
+                const errorMsg = "Invalid email or password";
+                setError(errorMsg);
+                setSnackbarOpen(true);
+                return { error: errorMsg };
+            }
+
+            // If precheck was successful (200), proceed with NextAuth
+            console.log('Pre-check successful, proceeding with NextAuth');
+            const result = await signIn("credentials", {
+                email,
+                password,
+                redirect: false,
+            });
+
+            console.log("NextAuth SignIn result:", result);
+
+            // NextAuth success conditions: ok=true AND status=200
+            // Note: error='CredentialsSignin' is actually SUCCESS when ok=true
+            if (result?.ok && result?.status === 200) {
+                console.log('NextAuth successful, redirecting to dashboard');
+                // Success - redirect to dashboard
+                router.push(callbackUrl || '/dashboard');
+                return { type: 'CredentialsSignin' };
+            } else if (result?.error && result?.error !== 'CredentialsSignin') {
+                // Only treat as error if it's not the success indicator
+                console.log('NextAuth actual error:', result.error);
+                const errorMsg = "Invalid email or password";
+                setError(errorMsg);
+                setSnackbarOpen(true);
+                return { error: errorMsg };
             } else {
-                return signIn(provider.id, { callbackUrl });
+                // Fallback for other failure cases
+                console.log('NextAuth failed with unknown state:', result);
+                const errorMsg = "An error occurred during sign in";
+                setError(errorMsg);
+                setSnackbarOpen(true);
+                return { error: errorMsg };
             }
         } catch (error) {
-            setError(error.message || "An error occurred during sign-in.");
+            console.error("Sign in error:", error);
+            const errorMsg = "An error occurred during sign in";
+            setError(errorMsg);
             setSnackbarOpen(true);
+            return { error: errorMsg };
         }
     };
 
