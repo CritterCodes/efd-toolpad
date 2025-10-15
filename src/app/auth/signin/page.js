@@ -93,13 +93,43 @@ const SignIn = () => {
 
             console.log("NextAuth SignIn result:", result);
 
+            // Check if NextAuth is trying to redirect back to signin (production issue)
+            if (result?.url && result.url.includes('/auth/signin')) {
+                console.error('NextAuth redirecting back to signin - possible session creation failure');
+                const errorMsg = "Authentication failed. Please try again.";
+                setError(errorMsg);
+                setSnackbarOpen(true);
+                return { error: errorMsg };
+            }
+
             // NextAuth success conditions: ok=true AND status=200
             // Note: error='CredentialsSignin' is actually SUCCESS when ok=true
             if (result?.ok && result?.status === 200) {
                 console.log('NextAuth successful, redirecting to dashboard');
-                // Success - redirect to dashboard
-                router.push(callbackUrl || '/dashboard');
-                return { type: 'CredentialsSignin' };
+                
+                // Double-check session was created by checking auth state
+                try {
+                    const sessionCheck = await fetch('/api/auth/session');
+                    const session = await sessionCheck.json();
+                    console.log('Session check result:', session);
+                    
+                    if (session?.user) {
+                        // Session confirmed, safe to redirect
+                        router.push(callbackUrl || '/dashboard');
+                        return { type: 'CredentialsSignin' };
+                    } else {
+                        console.error('Session not created despite successful auth');
+                        const errorMsg = "Session creation failed. Please try again.";
+                        setError(errorMsg);
+                        setSnackbarOpen(true);
+                        return { error: errorMsg };
+                    }
+                } catch (sessionError) {
+                    console.error('Session check failed:', sessionError);
+                    // Proceed with redirect anyway - might be a temporary issue
+                    router.push(callbackUrl || '/dashboard');
+                    return { type: 'CredentialsSignin' };
+                }
             } else if (result?.error && result?.error !== 'CredentialsSignin') {
                 // Only treat as error if it's not the success indicator
                 console.log('NextAuth actual error:', result.error);

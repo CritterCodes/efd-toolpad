@@ -1,8 +1,7 @@
 import NextAuth from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
-
-const baseURL = `${process.env.NEXT_PUBLIC_URL}`;
+import AuthService from './src/app/api/auth/[...nextauth]/service';
 
 const providers = [
     CredentialsProvider({
@@ -12,34 +11,29 @@ const providers = [
         },
         async authorize(credentials) {
             try {
-                const response = await fetch(`${baseURL}/api/auth/signin`, {
-                    method: "POST",
-                    body: JSON.stringify(credentials),
-                    headers: { "Content-Type": "application/json" }
-                });
+                // Call AuthService directly instead of making HTTP request
+                const userData = await AuthService.login(credentials.email, credentials.password);
 
-                if (response.status === 403) {
-                    // Client user trying to access admin panel - don't throw, just return null
-                    console.error("Client access denied");
-                    return null;
-                }
-
-                if (!response.ok) {
+                if (!userData) {
                     console.error("Login failed. Invalid credentials.");
                     return null;
                 }
 
-                const user = await response.json();
+                // Block client users from accessing admin panel
+                if (userData.role === "client") {
+                    console.error("Client access denied");
+                    return null;
+                }
                 
-                if (user) {
+                if (userData) {
                     return {
-                        userID: user.userID,
-                        storeID: user.storeID,
-                        name: `${user.firstName} ${user.lastName}`,
-                        email: user.email,
-                        role: user.role,
-                        token: user.token,
-                        image: user.image
+                        userID: userData.userID,
+                        storeID: userData.storeID,
+                        name: `${userData.firstName} ${userData.lastName}`,
+                        email: userData.email,
+                        role: userData.role,
+                        token: userData.token,
+                        image: userData.image
                     };
                 }
             } catch (error) {
