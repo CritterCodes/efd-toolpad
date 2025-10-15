@@ -6,6 +6,7 @@ import crypto, { hash } from 'crypto';
 import User from '../../users/class';
 import UserModel from './model';
 import { sendVerificationEmail, sendInviteEmail } from '@/app/utils/email.util.js';
+import storefront from '@/lib/shopify';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRATION = '7d'; // Token expiration for JWT tokens
@@ -52,41 +53,95 @@ export default class AuthService {
 
     /**
      * ✅ Login a user with email and password
-     * - Called in CredentialsProvider flow of NextAuth
+     * - Uses Shopify Storefront API to authenticate credentials
+     * - Then fetches user from MongoDB if Shopify auth succeeds
      */
     static async login(email, password) {
-        const user = await UserModel.findByEmail(email);
-        if (!user) {
-            throw new Error("User not found.");
+        try {
+            console.log('🔐 [AUTH_SERVICE] Starting Shopify authentication for:', email);
+
+            // Step 1: Authenticate with Shopify Storefront API
+            const mutation = `
+              mutation customerAccessTokenCreate($input: CustomerAccessTokenCreateInput!) {
+                customerAccessTokenCreate(input: $input) {
+                  customerAccessToken {
+                    accessToken
+                    expiresAt
+                  }
+                  customerUserErrors {
+                    field
+                    message
+                    code
+                  }
+                }
+              }
+            `;
+
+            const variables = {
+              input: {
+                email,
+                password
+              }
+            };
+
+            const response = await storefront(mutation, variables);
+            const result = response?.customerAccessTokenCreate;
+
+            if (!result) {
+                console.log('❌ [AUTH_SERVICE] No response from Shopify API');
+                throw new Error("Authentication service unavailable.");
+            }
+
+            if (result.customerUserErrors && result.customerUserErrors.length > 0) {
+                const error = result.customerUserErrors[0];
+                console.log('❌ [AUTH_SERVICE] Shopify authentication failed:', error.message);
+                throw new Error("Invalid email or password.");
+            }
+
+            if (!result.customerAccessToken) {
+                console.log('❌ [AUTH_SERVICE] Invalid Shopify credentials for:', email);
+                throw new Error("Invalid email or password.");
+            }
+
+            console.log('✅ [AUTH_SERVICE] Shopify authentication successful for:', email);
+
+            // Step 2: Fetch user from MongoDB for admin authorization
+            const user = await UserModel.findByEmail(email);
+            if (!user) {
+                console.log('❌ [AUTH_SERVICE] User not found in admin database:', email);
+                throw new Error("Access denied. Contact administrator for admin access.");
+            }
+
+            if (user.status !== 'verified') {
+                console.log('❌ [AUTH_SERVICE] User not verified:', email);
+                throw new Error("Please verify your email before logging in.");
+            }
+
+            console.log('✅ [AUTH_SERVICE] user found:', user);
+
+            // ✅ Generate JWT Token for the authenticated user
+            const token = jwt.sign({ userID: user.userID, role: user.role }, JWT_SECRET, {
+                expiresIn: JWT_EXPIRATION
+            });
+
+            console.log("✅ [AUTH_SERVICE] Token generated for admin user.");
+
+            // ✅ Return the full user data along with the token and Shopify access token
+            return {
+                token,
+                userID: user.userID,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                role: user.role,
+                image: user.image,
+                shopifyAccessToken: result.customerAccessToken.accessToken
+            };
+
+        } catch (error) {
+            console.error('❌ [AUTH_SERVICE] Login error:', error);
+            throw error;
         }
-        if (user.status !== 'verified') {
-            throw new Error("Please verify your email before logging in.");
-        }
-
-        // Check if the password is valid
-        const isValidPassword = await bcrypt.compare(password, user.password);
-        if (!isValidPassword) {
-            console.error("Password comparison failed!");
-            throw new Error("Invalid password.");
-        }
-
-        // ✅ Generate JWT Token for the authenticated user
-        const token = jwt.sign({ userID: user.userID, role: user.role }, JWT_SECRET, {
-            expiresIn: JWT_EXPIRATION
-        });
-
-        console.log("Password matched. Token generated.");
-
-        // ✅ Return the full user data along with the token
-        return {
-            token,
-            userID: user.userID,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            email: user.email,
-            role: user.role,
-            image: user.image
-        };
     }
 
 
