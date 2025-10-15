@@ -1,20 +1,25 @@
+import { auth } from "../auth";
 import { NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
 
 // List of public routes that can be accessed without authentication  
-const publicRoutes = ["/auth/signin", "/auth/register"];
+const publicRoutes = ["/auth/signin"];
 
 export default async function middleware(req) {
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    const session = await auth();
     const { pathname } = req.nextUrl;
 
-    // ✅ Redirect root path to appropriate location
+    // ✅ Redirect root path to sign-in for internal app
     if (pathname === "/") {
-        if (token) {
+        if (session) {
             return NextResponse.redirect(new URL("/dashboard", req.url));
         } else {
             return NextResponse.redirect(new URL("/auth/signin", req.url));
         }
+    }
+
+    // ✅ Redirect register page to sign-in (internal app only)
+    if (pathname === "/auth/register") {
+        return NextResponse.redirect(new URL("/auth/signin", req.url));
     }
 
     // ✅ Allow public routes to be accessed without authentication
@@ -23,26 +28,12 @@ export default async function middleware(req) {
     }
 
     // ✅ Block protected routes if not authenticated
-    if (!token) {
+    if (!session) {
         return NextResponse.redirect(new URL("/auth/signin", req.url));
     }
 
-    // For authenticated users, we'll handle permission checking in the actual pages
-    // rather than in middleware to avoid Edge Runtime limitations
-    
-    // Add basic user info to headers if available from token
-    const requestHeaders = new Headers(req.headers);
-    if (token) {
-        requestHeaders.set('x-user-email', token.email || '');
-        requestHeaders.set('x-user-role', token.role || '');
-        requestHeaders.set('x-user-id', token.userID || '');
-    }
-
-    return NextResponse.next({
-        request: {
-            headers: requestHeaders,
-        },
-    });
+    // ✅ If authenticated, allow access to dashboard routes
+    return NextResponse.next();
 }
 
 // ✅ Apply middleware to all routes except public ones
