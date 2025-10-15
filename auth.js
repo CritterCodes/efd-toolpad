@@ -118,6 +118,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             session.user.image = token.image;
             return session;
         },
+
+        async redirect({ url, baseUrl }) {
+            console.log('NextAuth redirect called:', { url, baseUrl });
+            
+            // Allows relative callback URLs
+            if (url.startsWith("/")) {
+                return `${baseUrl}${url}`;
+            }
+            
+            // Allows callback URLs on the same origin
+            if (new URL(url).origin === baseUrl) {
+                return url;
+            }
+            
+            // Default redirect to dashboard after successful signin
+            return `${baseUrl}/dashboard`;
+        },
         
     }
     
