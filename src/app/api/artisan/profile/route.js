@@ -166,29 +166,42 @@ export async function PUT(request) {
             }
         }
 
+        // Get existing user data to preserve critical fields
+        const existingUser = await db.collection('users').findOne({ userID });
+        if (!existingUser) {
+            return NextResponse.json(
+                { success: false, error: 'User not found' },
+                { status: 404 }
+            );
+        }
+
         // Update the user's artisan application data using dot notation to preserve existing fields
-        const updateData = {
-            'artisanApplication.businessName': profileData.businessName,
-            'artisanApplication.artisanType': profileData.artisanType,
-            'artisanApplication.about': profileData.about,
-            'artisanApplication.experience': profileData.experience,
-            'artisanApplication.yearsExperience': profileData.yearsExperience,
-            'artisanApplication.businessAddress': profileData.businessAddress,
-            'artisanApplication.businessCity': profileData.businessCity,
-            'artisanApplication.businessState': profileData.businessState,
-            'artisanApplication.businessZip': profileData.businessZip,
-            'artisanApplication.businessCountry': profileData.businessCountry,
-            'artisanApplication.portfolioWebsite': profileData.portfolioWebsite,
-            'artisanApplication.instagramHandle': profileData.instagramHandle,
-            'artisanApplication.facebookPage': profileData.facebookPage,
-            'artisanApplication.tiktokHandle': profileData.tiktokHandle,
-            'artisanApplication.specialties': profileData.specialties,
-            'artisanApplication.services': profileData.services,
-            'artisanApplication.materials': profileData.materials,
-            'artisanApplication.techniques': profileData.techniques,
-            'artisanApplication.updatedAt': new Date(),
-            updatedAt: new Date()
-        };
+        // CRITICAL: Only update fields that are being changed, preserve all existing critical fields
+        const updateData = {};
+        
+        // Only update fields that have values (preserve existing data for empty/missing fields)
+        if (profileData.businessName !== undefined) updateData['artisanApplication.businessName'] = profileData.businessName;
+        if (profileData.artisanType !== undefined) updateData['artisanApplication.artisanType'] = profileData.artisanType;
+        if (profileData.about !== undefined) updateData['artisanApplication.about'] = profileData.about;
+        if (profileData.experience !== undefined) updateData['artisanApplication.experience'] = profileData.experience;
+        if (profileData.yearsExperience !== undefined) updateData['artisanApplication.yearsExperience'] = profileData.yearsExperience;
+        if (profileData.businessAddress !== undefined) updateData['artisanApplication.businessAddress'] = profileData.businessAddress;
+        if (profileData.businessCity !== undefined) updateData['artisanApplication.businessCity'] = profileData.businessCity;
+        if (profileData.businessState !== undefined) updateData['artisanApplication.businessState'] = profileData.businessState;
+        if (profileData.businessZip !== undefined) updateData['artisanApplication.businessZip'] = profileData.businessZip;
+        if (profileData.businessCountry !== undefined) updateData['artisanApplication.businessCountry'] = profileData.businessCountry;
+        if (profileData.portfolioWebsite !== undefined) updateData['artisanApplication.portfolioWebsite'] = profileData.portfolioWebsite;
+        if (profileData.instagramHandle !== undefined) updateData['artisanApplication.instagramHandle'] = profileData.instagramHandle;
+        if (profileData.facebookPage !== undefined) updateData['artisanApplication.facebookPage'] = profileData.facebookPage;
+        if (profileData.tiktokHandle !== undefined) updateData['artisanApplication.tiktokHandle'] = profileData.tiktokHandle;
+        if (profileData.specialties !== undefined) updateData['artisanApplication.specialties'] = profileData.specialties;
+        if (profileData.services !== undefined) updateData['artisanApplication.services'] = profileData.services;
+        if (profileData.materials !== undefined) updateData['artisanApplication.materials'] = profileData.materials;
+        if (profileData.techniques !== undefined) updateData['artisanApplication.techniques'] = profileData.techniques;
+        
+        // Always update timestamp
+        updateData['artisanApplication.updatedAt'] = new Date();
+        updateData['updatedAt'] = new Date();
 
         // Add image URLs if provided
         if (imageUrls.profileImageUrl) {
@@ -198,6 +211,25 @@ export async function PUT(request) {
         if (imageUrls.coverImageUrl) {
             updateData['artisanApplication.coverImageUrl'] = imageUrls.coverImageUrl;
             updateData['artisanApplication.coverImageKey'] = imageUrls.coverImageKey;
+        }
+
+        // CRITICAL SAFETY CHECK: Ensure essential fields are never lost
+        const currentArtisanApp = existingUser.artisanApplication || {};
+        
+        // Preserve critical fields that must never be lost
+        const criticalFields = ['status', 'slug', 'applicationId', 'userID', 'userEmail', 'submittedAt', 'approvedAt', 'reviewedAt'];
+        criticalFields.forEach(field => {
+            if (currentArtisanApp[field] && !updateData[`artisanApplication.${field}`]) {
+                // Field exists in current data but not in update - preserve it
+                updateData[`artisanApplication.${field}`] = currentArtisanApp[field];
+                console.log(`🛡️ Preserving critical field: ${field} = ${currentArtisanApp[field]}`);
+            }
+        });
+
+        // Ensure roles array is preserved at user level
+        if (existingUser.roles && !updateData.roles) {
+            updateData.roles = existingUser.roles;
+            console.log(`🛡️ Preserving user roles: ${existingUser.roles}`);
         }
 
         const result = await db.collection('users').updateOne(
