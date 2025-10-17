@@ -138,23 +138,43 @@ export async function PUT(request) {
             // imageUrls.coverImageUrl = await uploadToS3(coverImage);
         }
 
-        // Update the user's artisan application data
+        // Update the user's artisan application data using dot notation to preserve existing fields
         const updateData = {
-            ...profileData,
-            ...imageUrls,
+            'artisanApplication.businessName': profileData.businessName,
+            'artisanApplication.artisanType': profileData.artisanType,
+            'artisanApplication.about': profileData.about,
+            'artisanApplication.experience': profileData.experience,
+            'artisanApplication.yearsExperience': profileData.yearsExperience,
+            'artisanApplication.businessAddress': profileData.businessAddress,
+            'artisanApplication.businessCity': profileData.businessCity,
+            'artisanApplication.businessState': profileData.businessState,
+            'artisanApplication.businessZip': profileData.businessZip,
+            'artisanApplication.businessCountry': profileData.businessCountry,
+            'artisanApplication.portfolioWebsite': profileData.portfolioWebsite,
+            'artisanApplication.instagramHandle': profileData.instagramHandle,
+            'artisanApplication.facebookPage': profileData.facebookPage,
+            'artisanApplication.tiktokHandle': profileData.tiktokHandle,
+            'artisanApplication.specialties': profileData.specialties,
+            'artisanApplication.services': profileData.services,
+            'artisanApplication.materials': profileData.materials,
+            'artisanApplication.techniques': profileData.techniques,
+            'artisanApplication.updatedAt': new Date(),
             updatedAt: new Date()
         };
 
+        // Add image URLs if provided
+        if (imageUrls.profileImageUrl) {
+            updateData['artisanApplication.profileImageUrl'] = imageUrls.profileImageUrl;
+            updateData['artisanApplication.profileImageKey'] = imageUrls.profileImageKey;
+        }
+        if (imageUrls.coverImageUrl) {
+            updateData['artisanApplication.coverImageUrl'] = imageUrls.coverImageUrl;
+            updateData['artisanApplication.coverImageKey'] = imageUrls.coverImageKey;
+        }
+
         const result = await db.collection('users').updateOne(
             { userID },
-            { 
-                $set: {
-                    'artisanApplication': {
-                        ...updateData
-                    },
-                    updatedAt: new Date()
-                }
-            }
+            { $set: updateData }
         );
 
         if (result.matchedCount === 0) {
@@ -167,7 +187,11 @@ export async function PUT(request) {
         return NextResponse.json({
             success: true,
             message: 'Profile updated successfully',
-            data: updateData
+            data: {
+                ...profileData,
+                ...imageUrls,
+                updatedAt: new Date()
+            }
         });
 
     } catch (error) {
