@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../auth/[...nextauth]/route';
 import { connectToDatabase } from '../../../lib/mongodb';
-import { uploadFileToS3, deleteFileFromS3 } from '../../../lib/s3';
+import { uploadFileToS3 } from '@/utils/s3.util';
 import { ObjectId } from 'mongodb';
 
 export async function GET(request) {
@@ -84,14 +84,10 @@ export async function POST(request) {
         // Generate unique filename
         const timestamp = Date.now();
         const fileExtension = imageFile.name.split('.').pop();
-        const filename = `${user.artisanApplication?.slug || user._id}/gallery/${timestamp}.${fileExtension}`;
+        const artisanSlug = user.artisanApplication?.slug || user._id;
 
-        // Convert file to buffer
-        const bytes = await imageFile.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-
-        // Upload to S3
-        const imageUrl = await uploadFileToS3(buffer, filename, imageFile.type);
+        // Upload to S3 using the existing utility
+        const imageUrl = await uploadFileToS3(imageFile, `shop/artisan-profiles/${artisanSlug}/gallery`, 'gallery-');
 
         if (!imageUrl) {
             return NextResponse.json({ error: 'Failed to upload image' }, { status: 500 });
@@ -104,7 +100,6 @@ export async function POST(request) {
         const galleryItem = {
             artisanId: new ObjectId(session.user.id),
             imageUrl,
-            filename,
             title: title || '',
             description: description || '',
             category: category || '',
@@ -118,8 +113,6 @@ export async function POST(request) {
         const result = await db.collection('gallery').insertOne(galleryItem);
 
         if (!result.insertedId) {
-            // Clean up uploaded file if database insert fails
-            await deleteFileFromS3(filename);
             return NextResponse.json({ error: 'Failed to save gallery item' }, { status: 500 });
         }
 

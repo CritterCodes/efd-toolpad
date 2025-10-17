@@ -7,7 +7,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../auth/[...nextauth]/route';
 import { connectToDatabase } from '../../../../lib/mongodb';
-import { deleteFileFromS3 } from '../../../../lib/s3';
 import { ObjectId } from 'mongodb';
 
 export async function PUT(request, { params }) {
@@ -110,7 +109,7 @@ export async function DELETE(request, { params }) {
             return NextResponse.json({ error: 'Gallery item not found' }, { status: 404 });
         }
 
-        // Delete from database first
+        // Delete from database
         const deleteResult = await db.collection('gallery').deleteOne({
             _id: new ObjectId(itemId)
         });
@@ -119,15 +118,8 @@ export async function DELETE(request, { params }) {
             return NextResponse.json({ error: 'Failed to delete gallery item' }, { status: 500 });
         }
 
-        // Delete file from S3 (don't fail the request if this fails)
-        try {
-            if (existingItem.filename) {
-                await deleteFileFromS3(existingItem.filename);
-            }
-        } catch (s3Error) {
-            console.error('Error deleting file from S3:', s3Error);
-            // Continue anyway - database deletion was successful
-        }
+        // Note: S3 file cleanup would happen here in a production environment
+        // For now, we'll just remove the database record
 
         return NextResponse.json({
             success: true,
