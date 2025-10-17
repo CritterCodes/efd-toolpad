@@ -23,6 +23,7 @@ import StorefrontIcon from "@mui/icons-material/Storefront";
 import ShoppingBagIcon from "@mui/icons-material/ShoppingBag";
 import RequestQuoteIcon from "@mui/icons-material/RequestQuote";
 import PersonIcon from "@mui/icons-material/Person";
+import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
 import { USER_ROLES } from './unifiedUserService.js';
 
 // Base navigation items shared across roles
@@ -84,6 +85,11 @@ export const ROLE_NAVIGATION = {
       segment: 'dashboard/profile',
       title: 'Profile Management',
       icon: <PersonIcon />
+    },
+    {
+      segment: 'dashboard/gallery',
+      title: 'Gallery Management',
+      icon: <PhotoLibraryIcon />
     }
   ],
 
