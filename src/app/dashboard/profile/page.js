@@ -101,7 +101,7 @@ const ArtisanProfilePage = () => {
     ];
 
     const artisanTypes = [
-        'Jewelry Designer', 'Goldsmith', 'Silversmith', 'Stone Setter',
+        'Jeweler', 'Jewelry Designer', 'Goldsmith', 'Silversmith', 'Stone Setter',
         'Engraver', 'Watchmaker', 'Restoration Specialist', 'Custom Designer'
     ];
 
