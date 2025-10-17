@@ -23,7 +23,6 @@ import StorefrontIcon from "@mui/icons-material/Storefront";
 import ShoppingBagIcon from "@mui/icons-material/ShoppingBag";
 import RequestQuoteIcon from "@mui/icons-material/RequestQuote";
 import PersonIcon from "@mui/icons-material/Person";
-import BugReportIcon from "@mui/icons-material/BugReport";
 import { USER_ROLES } from './unifiedUserService.js';
 
 // Base navigation items shared across roles
@@ -152,11 +151,6 @@ export const ROLE_NAVIGATION = {
       segment: 'dashboard/analytics',
       title: 'Analytics',
       icon: <BarChartIcon />
-    },
-    {
-      segment: 'diagnostics',
-      title: 'Diagnostics',
-      icon: <BugReportIcon />
     }
   ],
 
@@ -268,11 +262,6 @@ export const ROLE_NAVIGATION = {
       segment: 'dashboard/analytics',
       title: 'Analytics',
       icon: <BarChartIcon />
-    },
-    {
-      segment: 'diagnostics',
-      title: 'Diagnostics',
-      icon: <BugReportIcon />
     },
     {
       segment: 'dashboard/admin/settings',
@@ -389,11 +378,6 @@ export const ROLE_NAVIGATION = {
       segment: 'dashboard/analytics',
       title: 'Analytics',
       icon: <BarChartIcon />
-    },
-    {
-      segment: 'diagnostics',
-      title: 'Diagnostics',
-      icon: <BugReportIcon />
     },
     {
       segment: 'dashboard/admin/settings',
