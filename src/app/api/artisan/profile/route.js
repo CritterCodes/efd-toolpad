@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server';
 import { UnifiedUserService } from '@/lib/unifiedUserService';
 import { connectToDatabase } from '@/lib/mongodb';
 import { auth } from '@/../auth';
+import { uploadFileToS3 } from '@/utils/s3.util';
 
 export async function GET(request) {
     try {
@@ -122,20 +123,47 @@ export async function PUT(request) {
             profileData = jsonData;
         }
 
-        // TODO: Handle file uploads to S3/storage service
-        // For now, we'll just update the text data
+        // Handle file uploads to S3
         let imageUrls = {};
         
-        if (profileImage && profileImage instanceof File) {
-            // TODO: Upload to S3 and get URL
-            console.log('Profile image upload needed:', profileImage.name);
-            // imageUrls.profileImageUrl = await uploadToS3(profileImage);
+        if (profileImage && profileImage instanceof File && profileImage.size > 0) {
+            try {
+                console.log('Uploading profile image:', profileImage.name);
+                const profileImageUrl = await uploadFileToS3(
+                    profileImage, 
+                    `shop/artisan-profiles/${userID}/profile`,
+                    ''
+                );
+                imageUrls.profileImageUrl = profileImageUrl;
+                imageUrls.profileImageKey = profileImageUrl.split('.amazonaws.com/')[1]; // Extract key from URL
+                console.log('✅ Profile image uploaded:', profileImageUrl);
+            } catch (error) {
+                console.error('❌ Failed to upload profile image:', error);
+                return NextResponse.json(
+                    { success: false, error: 'Failed to upload profile image' },
+                    { status: 500 }
+                );
+            }
         }
         
-        if (coverImage && coverImage instanceof File) {
-            // TODO: Upload to S3 and get URL
-            console.log('Cover image upload needed:', coverImage.name);
-            // imageUrls.coverImageUrl = await uploadToS3(coverImage);
+        if (coverImage && coverImage instanceof File && coverImage.size > 0) {
+            try {
+                console.log('Uploading cover image:', coverImage.name);
+                const coverImageUrl = await uploadFileToS3(
+                    coverImage, 
+                    `shop/artisan-profiles/${userID}/cover`,
+                    ''
+                );
+                imageUrls.coverImageUrl = coverImageUrl;
+                imageUrls.coverImageKey = coverImageUrl.split('.amazonaws.com/')[1]; // Extract key from URL
+                console.log('✅ Cover image uploaded:', coverImageUrl);
+            } catch (error) {
+                console.error('❌ Failed to upload cover image:', error);
+                return NextResponse.json(
+                    { success: false, error: 'Failed to upload cover image' },
+                    { status: 500 }
+                );
+            }
         }
 
         // Update the user's artisan application data using dot notation to preserve existing fields
