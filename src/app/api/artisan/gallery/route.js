@@ -4,15 +4,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../../auth/[...nextauth]/route';
-import { connectToDatabase } from '../../../lib/mongodb';
+import { auth } from '../../../../../auth';
+import { connectToDatabase } from '@/lib/mongodb';
 import { uploadFileToS3 } from '@/utils/s3.util';
 import { ObjectId } from 'mongodb';
 
 export async function GET(request) {
     try {
-        const session = await getServerSession(authOptions);
+        const session = await auth();
         
         if (!session || !session.user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -47,7 +46,7 @@ export async function GET(request) {
 
 export async function POST(request) {
     try {
-        const session = await getServerSession(authOptions);
+        const session = await auth();
         
         if (!session || !session.user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
