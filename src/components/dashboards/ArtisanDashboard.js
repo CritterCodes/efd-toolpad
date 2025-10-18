@@ -152,7 +152,7 @@ export default function ArtisanDashboardContent() {
                     variant="contained"
                     startIcon={<EditIcon />}
                     onClick={() => router.push('/dashboard/profile')}
-                    size={{ xs: 'small', sm: 'medium' }}
+                    size="small"
                     fullWidth={{ xs: true, sm: false }}
                 >
                     Edit Profile
@@ -191,7 +191,7 @@ export default function ArtisanDashboardContent() {
                                 startIcon={<StorefrontIcon />}
                                 onClick={() => window.open(`https://shop.engelfinedesign.com/vendors/crystal-canyon-arts`, '_blank')}
                                 sx={{ flex: 1, px: { xs: 2, sm: 3 } }}
-                                size={{ xs: 'small', sm: 'medium' }}
+                                size="small"
                             >
                                 View Your Shop Profile
                             </Button>
@@ -201,7 +201,7 @@ export default function ArtisanDashboardContent() {
                                 startIcon={<ShoppingBagIcon />}
                                 onClick={() => window.open('https://shop.engelfinedesign.com/dashboard/orders', '_blank')}
                                 sx={{ flex: 1, px: { xs: 2, sm: 3 } }}
-                                size={{ xs: 'small', sm: 'medium' }}
+                                size="small"
                             >
                                 Manage Orders
                             </Button>

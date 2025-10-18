@@ -284,7 +284,7 @@ const ArtisanProfilePage = () => {
                     startIcon={<SaveIcon />}
                     onClick={handleSave}
                     disabled={saving}
-                    size={{ xs: 'small', sm: 'medium' }}
+                    size="small"
                     fullWidth={{ xs: true, sm: false }}
                 >
                     {saving ? 'Saving...' : 'Save Profile'}
@@ -335,7 +335,7 @@ const ArtisanProfilePage = () => {
                                                 variant="outlined"
                                                 component="span"
                                                 startIcon={<PhotoCameraIcon />}
-                                                size={{ xs: 'small', sm: 'medium' }}
+                                                size="small"
                                                 fullWidth={{ xs: true, sm: false }}
                                             >
                                                 Upload Profile Image
@@ -381,7 +381,7 @@ const ArtisanProfilePage = () => {
                                                 variant="outlined"
                                                 component="span"
                                                 startIcon={<PhotoCameraIcon />}
-                                                size={{ xs: 'small', sm: 'medium' }}
+                                                size="small"
                                                 fullWidth={{ xs: true, sm: false }}
                                             >
                                                 Upload Cover Image
@@ -409,11 +409,11 @@ const ArtisanProfilePage = () => {
                                         value={profileData.businessName}
                                         onChange={(e) => handleInputChange('businessName', e.target.value)}
                                         required
-                                        size={{ xs: 'small', sm: 'medium' }}
+                                        size="small"
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                    <FormControl fullWidth size={{ xs: 'small', sm: 'medium' }}>
+                                    <FormControl fullWidth size="small">
                                         <InputLabel>Artisan Type</InputLabel>
                                         <Select
                                             value={profileData.artisanType}
@@ -437,7 +437,7 @@ const ArtisanProfilePage = () => {
                                         value={profileData.about}
                                         onChange={(e) => handleInputChange('about', e.target.value)}
                                         placeholder="Tell potential customers about your business, style, and what makes you unique..."
-                                        size={{ xs: 'small', sm: 'medium' }}
+                                        size="small"
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={8}>
@@ -449,7 +449,7 @@ const ArtisanProfilePage = () => {
                                         value={profileData.experience}
                                         onChange={(e) => handleInputChange('experience', e.target.value)}
                                         placeholder="Describe your training, experience, and background in jewelry making..."
-                                        size={{ xs: 'small', sm: 'medium' }}
+                                        size="small"
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={4}>
@@ -460,7 +460,7 @@ const ArtisanProfilePage = () => {
                                         value={profileData.yearsExperience}
                                         onChange={(e) => handleInputChange('yearsExperience', parseInt(e.target.value) || 0)}
                                         InputProps={{ inputProps: { min: 0, max: 100 } }}
-                                        size={{ xs: 'small', sm: 'medium' }}
+                                        size="small"
                                     />
                                 </Grid>
                             </Grid>
@@ -483,7 +483,7 @@ const ArtisanProfilePage = () => {
                                         label="Business Address"
                                         value={profileData.businessAddress}
                                         onChange={(e) => handleInputChange('businessAddress', e.target.value)}
-                                        size={{ xs: 'small', sm: 'medium' }}
+                                        size="small"
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={4}>
@@ -492,7 +492,7 @@ const ArtisanProfilePage = () => {
                                         label="City"
                                         value={profileData.businessCity}
                                         onChange={(e) => handleInputChange('businessCity', e.target.value)}
-                                        size={{ xs: 'small', sm: 'medium' }}
+                                        size="small"
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={4}>
@@ -504,11 +504,11 @@ const ArtisanProfilePage = () => {
                                             <TextField 
                                                 {...params} 
                                                 label="State" 
-                                                size={{ xs: 'small', sm: 'medium' }}
+                                                size="small"
                                             />
                                         )}
                                         freeSolo
-                                        size={{ xs: 'small', sm: 'medium' }}
+                                        size="small"
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={4}>
@@ -517,7 +517,7 @@ const ArtisanProfilePage = () => {
                                         label="ZIP Code"
                                         value={profileData.businessZip}
                                         onChange={(e) => handleInputChange('businessZip', e.target.value)}
-                                        size={{ xs: 'small', sm: 'medium' }}
+                                        size="small"
                                     />
                                 </Grid>
                             </Grid>
@@ -545,7 +545,7 @@ const ArtisanProfilePage = () => {
                                                     key={index} 
                                                     variant="outlined" 
                                                     label={option} 
-                                                    size={{ xs: 'small', sm: 'medium' }}
+                                                    size="small"
                                                     {...getTagProps({ index })} 
                                                 />
                                             ))
@@ -555,11 +555,11 @@ const ArtisanProfilePage = () => {
                                                 {...params}
                                                 label="Specialties"
                                                 placeholder="Select or type your specialties..."
-                                                size={{ xs: 'small', sm: 'medium' }}
+                                                size="small"
                                             />
                                         )}
                                         freeSolo
-                                        size={{ xs: 'small', sm: 'medium' }}
+                                        size="small"
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
@@ -574,7 +574,7 @@ const ArtisanProfilePage = () => {
                                                     key={index} 
                                                     variant="outlined" 
                                                     label={option} 
-                                                    size={{ xs: 'small', sm: 'medium' }}
+                                                    size="small"
                                                     {...getTagProps({ index })} 
                                                 />
                                             ))
@@ -584,11 +584,11 @@ const ArtisanProfilePage = () => {
                                                 {...params}
                                                 label="Services Offered"
                                                 placeholder="Select or type your services..."
-                                                size={{ xs: 'small', sm: 'medium' }}
+                                                size="small"
                                             />
                                         )}
                                         freeSolo
-                                        size={{ xs: 'small', sm: 'medium' }}
+                                        size="small"
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
@@ -603,7 +603,7 @@ const ArtisanProfilePage = () => {
                                                     key={index} 
                                                     variant="outlined" 
                                                     label={option} 
-                                                    size={{ xs: 'small', sm: 'medium' }}
+                                                    size="small"
                                                     {...getTagProps({ index })} 
                                                 />
                                             ))
@@ -613,11 +613,11 @@ const ArtisanProfilePage = () => {
                                                 {...params}
                                                 label="Materials You Work With"
                                                 placeholder="Select or type materials..."
-                                                size={{ xs: 'small', sm: 'medium' }}
+                                                size="small"
                                             />
                                         )}
                                         freeSolo
-                                        size={{ xs: 'small', sm: 'medium' }}
+                                        size="small"
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
@@ -632,7 +632,7 @@ const ArtisanProfilePage = () => {
                                                     key={index} 
                                                     variant="outlined" 
                                                     label={option} 
-                                                    size={{ xs: 'small', sm: 'medium' }}
+                                                    size="small"
                                                     {...getTagProps({ index })} 
                                                 />
                                             ))
@@ -642,11 +642,11 @@ const ArtisanProfilePage = () => {
                                                 {...params}
                                                 label="Techniques"
                                                 placeholder="Select or type techniques..."
-                                                size={{ xs: 'small', sm: 'medium' }}
+                                                size="small"
                                             />
                                         )}
                                         freeSolo
-                                        size={{ xs: 'small', sm: 'medium' }}
+                                        size="small"
                                     />
                                 </Grid>
                             </Grid>
@@ -669,7 +669,7 @@ const ArtisanProfilePage = () => {
                                         value={profileData.portfolioWebsite}
                                         onChange={(e) => handleInputChange('portfolioWebsite', e.target.value)}
                                         placeholder="https://yourwebsite.com"
-                                        size={{ xs: 'small', sm: 'medium' }}
+                                        size="small"
                                         InputProps={{
                                             startAdornment: (
                                                 <InputAdornment position="start">
@@ -686,7 +686,7 @@ const ArtisanProfilePage = () => {
                                         value={profileData.instagramHandle}
                                         onChange={(e) => handleInputChange('instagramHandle', e.target.value)}
                                         placeholder="@yourusername"
-                                        size={{ xs: 'small', sm: 'medium' }}
+                                        size="small"
                                         InputProps={{
                                             startAdornment: (
                                                 <InputAdornment position="start">
@@ -703,7 +703,7 @@ const ArtisanProfilePage = () => {
                                         value={profileData.facebookPage}
                                         onChange={(e) => handleInputChange('facebookPage', e.target.value)}
                                         placeholder="facebook.com/yourpage"
-                                        size={{ xs: 'small', sm: 'medium' }}
+                                        size="small"
                                         InputProps={{
                                             startAdornment: (
                                                 <InputAdornment position="start">
@@ -720,7 +720,7 @@ const ArtisanProfilePage = () => {
                                         value={profileData.tiktokHandle}
                                         onChange={(e) => handleInputChange('tiktokHandle', e.target.value)}
                                         placeholder="@yourusername"
-                                        size={{ xs: 'small', sm: 'medium' }}
+                                        size="small"
                                     />
                                 </Grid>
                             </Grid>

@@ -311,7 +311,7 @@ export default function GalleryManagementPage() {
                         variant="contained"
                         component="span"
                         startIcon={<CloudUploadIcon />}
-                        size={{ xs: 'small', sm: 'medium' }}
+                        size="small"
                         fullWidth={{ xs: true, sm: false }}
                     >
                         Upload Image
@@ -418,7 +418,7 @@ export default function GalleryManagementPage() {
                                                     p: { xs: 0.5, sm: 1 }
                                                 }}
                                                 onClick={() => handleEdit(item)}
-                                                size={{ xs: 'small', sm: 'medium' }}
+                                                size="small"
                                             >
                                                 <EditIcon fontSize="small" />
                                             </IconButton>
@@ -430,7 +430,7 @@ export default function GalleryManagementPage() {
                                                     p: { xs: 0.5, sm: 1 }
                                                 }}
                                                 onClick={() => handleDelete(item)}
-                                                size={{ xs: 'small', sm: 'medium' }}
+                                                size="small"
                                             >
                                                 <DeleteIcon fontSize="small" />
                                             </IconButton>
@@ -488,7 +488,7 @@ export default function GalleryManagementPage() {
                                 value={formData.title}
                                 onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                                 sx={{ mb: { xs: 1.5, sm: 2 } }}
-                                size={{ xs: 'small', sm: 'medium' }}
+                                size="small"
                             />
                             <TextField
                                 fullWidth
@@ -498,7 +498,7 @@ export default function GalleryManagementPage() {
                                 value={formData.description}
                                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                                 sx={{ mb: { xs: 1.5, sm: 2 } }}
-                                size={{ xs: 'small', sm: 'medium' }}
+                                size="small"
                             />
                             <TextField
                                 fullWidth
@@ -510,7 +510,7 @@ export default function GalleryManagementPage() {
                                     native: true,
                                 }}
                                 sx={{ mb: { xs: 1.5, sm: 2 } }}
-                                size={{ xs: 'small', sm: 'medium' }}
+                                size="small"
                             >
                                 <option value="">Select a category</option>
                                 {getCategoryOptions().map((category) => (
@@ -526,7 +526,7 @@ export default function GalleryManagementPage() {
                                 onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
                                 placeholder="e.g., custom, engagement, gold"
                                 helperText="Tags help customers find your work"
-                                size={{ xs: 'small', sm: 'medium' }}
+                                size="small"
                             />
                         </Grid>
                     </Grid>
@@ -539,7 +539,7 @@ export default function GalleryManagementPage() {
                     <Button 
                         onClick={handleCloseUploadDialog}
                         fullWidth={{ xs: true, sm: false }}
-                        size={{ xs: 'medium', sm: 'medium' }}
+                        size="medium"
                     >
                         Cancel
                     </Button>
@@ -548,7 +548,7 @@ export default function GalleryManagementPage() {
                         variant="contained"
                         disabled={uploading || !uploadFile}
                         fullWidth={{ xs: true, sm: false }}
-                        size={{ xs: 'medium', sm: 'medium' }}
+                        size="medium"
                     >
                         {uploading ? 'Uploading...' : 'Upload Image'}
                     </Button>
@@ -582,7 +582,7 @@ export default function GalleryManagementPage() {
                         value={formData.title}
                         onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                         sx={{ mb: { xs: 1.5, sm: 2 }, mt: 1 }}
-                        size={{ xs: 'small', sm: 'medium' }}
+                        size="small"
                     />
                     <TextField
                         fullWidth
@@ -592,7 +592,7 @@ export default function GalleryManagementPage() {
                         value={formData.description}
                         onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                         sx={{ mb: { xs: 1.5, sm: 2 } }}
-                        size={{ xs: 'small', sm: 'medium' }}
+                        size="small"
                     />
                     <TextField
                         fullWidth
@@ -604,7 +604,7 @@ export default function GalleryManagementPage() {
                             native: true,
                         }}
                         sx={{ mb: { xs: 1.5, sm: 2 } }}
-                        size={{ xs: 'small', sm: 'medium' }}
+                        size="small"
                     >
                         <option value="">Select a category</option>
                         {getCategoryOptions().map((category) => (
@@ -620,7 +620,7 @@ export default function GalleryManagementPage() {
                         onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
                         placeholder="e.g., custom, engagement, gold"
                         helperText="Tags help customers find your work"
-                        size={{ xs: 'small', sm: 'medium' }}
+                        size="small"
                     />
                 </DialogContent>
                 <DialogActions sx={{ 
@@ -631,7 +631,7 @@ export default function GalleryManagementPage() {
                     <Button 
                         onClick={handleCloseEditDialog}
                         fullWidth={{ xs: true, sm: false }}
-                        size={{ xs: 'medium', sm: 'medium' }}
+                        size="medium"
                     >
                         Cancel
                     </Button>
@@ -640,7 +640,7 @@ export default function GalleryManagementPage() {
                         variant="contained"
                         disabled={uploading}
                         fullWidth={{ xs: true, sm: false }}
-                        size={{ xs: 'medium', sm: 'medium' }}
+                        size="medium"
                     >
                         {uploading ? 'Updating...' : 'Update Image'}
                     </Button>
