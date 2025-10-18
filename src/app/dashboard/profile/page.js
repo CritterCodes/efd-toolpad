@@ -243,8 +243,8 @@ const ArtisanProfilePage = () => {
 
     if (loading) {
         return (
-            <Box sx={{ p: 3 }}>
-                <Typography variant="h4" gutterBottom>
+            <Box sx={{ p: { xs: 2, sm: 3 } }}>
+                <Typography variant={{ xs: 'h5', sm: 'h4' }} gutterBottom>
                     Artisan Profile
                 </Typography>
                 <LinearProgress />
@@ -253,25 +253,39 @@ const ArtisanProfilePage = () => {
     }
 
     return (
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: { xs: 2, sm: 3 } }}>
             {/* Header */}
-            <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
-                <IconButton onClick={() => router.push('/dashboard')}>
-                    <ArrowBackIcon />
-                </IconButton>
-                <Box sx={{ flex: 1 }}>
-                    <Typography variant="h4" gutterBottom>
-                        Artisan Profile
-                    </Typography>
-                    <Typography variant="body1" color="text.secondary">
-                        Manage your professional artisan profile and business information
-                    </Typography>
+            <Box sx={{ 
+                mb: 4, 
+                display: 'flex', 
+                flexDirection: { xs: 'column', sm: 'row' },
+                alignItems: { xs: 'flex-start', sm: 'center' }, 
+                gap: 2 
+            }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: { xs: '100%', sm: 'auto' } }}>
+                    <IconButton onClick={() => router.push('/dashboard')}>
+                        <ArrowBackIcon />
+                    </IconButton>
+                    <Box sx={{ flex: 1 }}>
+                        <Typography variant={{ xs: 'h5', sm: 'h4' }} gutterBottom>
+                            Artisan Profile
+                        </Typography>
+                        <Typography 
+                            variant="body2" 
+                            color="text.secondary"
+                            sx={{ display: { xs: 'none', sm: 'block' } }}
+                        >
+                            Manage your professional artisan profile and business information
+                        </Typography>
+                    </Box>
                 </Box>
                 <Button
                     variant="contained"
                     startIcon={<SaveIcon />}
                     onClick={handleSave}
                     disabled={saving}
+                    size={{ xs: 'small', sm: 'medium' }}
+                    fullWidth={{ xs: true, sm: false }}
                 >
                     {saving ? 'Saving...' : 'Save Profile'}
                 </Button>
@@ -284,15 +298,15 @@ const ArtisanProfilePage = () => {
                 </Alert>
             )}
 
-            <Grid container spacing={3}>
+            <Grid container spacing={{ xs: 2, sm: 3 }}>
                 {/* Profile Images */}
                 <Grid item xs={12}>
                     <Card>
-                        <CardContent>
+                        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
                             <Typography variant="h6" gutterBottom>
                                 Profile Images
                             </Typography>
-                            <Grid container spacing={3}>
+                            <Grid container spacing={{ xs: 2, sm: 3 }}>
                                 <Grid item xs={12} md={6}>
                                     <Box sx={{ textAlign: 'center' }}>
                                         <Typography variant="subtitle2" gutterBottom>
@@ -300,9 +314,14 @@ const ArtisanProfilePage = () => {
                                         </Typography>
                                         <Avatar
                                             src={profileImagePreview}
-                                            sx={{ width: 120, height: 120, mx: 'auto', mb: 2 }}
+                                            sx={{ 
+                                                width: { xs: 80, sm: 120 }, 
+                                                height: { xs: 80, sm: 120 }, 
+                                                mx: 'auto', 
+                                                mb: 2 
+                                            }}
                                         >
-                                            <PersonIcon sx={{ fontSize: 60 }} />
+                                            <PersonIcon sx={{ fontSize: { xs: 40, sm: 60 } }} />
                                         </Avatar>
                                         <input
                                             accept="image/*"
@@ -316,6 +335,8 @@ const ArtisanProfilePage = () => {
                                                 variant="outlined"
                                                 component="span"
                                                 startIcon={<PhotoCameraIcon />}
+                                                size={{ xs: 'small', sm: 'medium' }}
+                                                fullWidth={{ xs: true, sm: false }}
                                             >
                                                 Upload Profile Image
                                             </Button>
@@ -330,7 +351,7 @@ const ArtisanProfilePage = () => {
                                         <Box
                                             sx={{
                                                 width: '100%',
-                                                height: 120,
+                                                height: { xs: 80, sm: 120 },
                                                 border: '2px dashed #ccc',
                                                 borderRadius: 2,
                                                 display: 'flex',
@@ -360,6 +381,8 @@ const ArtisanProfilePage = () => {
                                                 variant="outlined"
                                                 component="span"
                                                 startIcon={<PhotoCameraIcon />}
+                                                size={{ xs: 'small', sm: 'medium' }}
+                                                fullWidth={{ xs: true, sm: false }}
                                             >
                                                 Upload Cover Image
                                             </Button>
@@ -374,11 +397,11 @@ const ArtisanProfilePage = () => {
                 {/* Business Information */}
                 <Grid item xs={12}>
                     <Card>
-                        <CardContent>
+                        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
                             <Typography variant="h6" gutterBottom startIcon={<BusinessIcon />}>
                                 Business Information
                             </Typography>
-                            <Grid container spacing={3}>
+                            <Grid container spacing={{ xs: 2, sm: 3 }}>
                                 <Grid item xs={12} md={6}>
                                     <TextField
                                         fullWidth
@@ -386,10 +409,11 @@ const ArtisanProfilePage = () => {
                                         value={profileData.businessName}
                                         onChange={(e) => handleInputChange('businessName', e.target.value)}
                                         required
+                                        size={{ xs: 'small', sm: 'medium' }}
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                    <FormControl fullWidth>
+                                    <FormControl fullWidth size={{ xs: 'small', sm: 'medium' }}>
                                         <InputLabel>Artisan Type</InputLabel>
                                         <Select
                                             value={profileData.artisanType}
@@ -408,22 +432,24 @@ const ArtisanProfilePage = () => {
                                     <TextField
                                         fullWidth
                                         multiline
-                                        rows={4}
+                                        rows={{ xs: 3, sm: 4 }}
                                         label="About Your Business"
                                         value={profileData.about}
                                         onChange={(e) => handleInputChange('about', e.target.value)}
                                         placeholder="Tell potential customers about your business, style, and what makes you unique..."
+                                        size={{ xs: 'small', sm: 'medium' }}
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={8}>
                                     <TextField
                                         fullWidth
                                         multiline
-                                        rows={3}
+                                        rows={{ xs: 2, sm: 3 }}
                                         label="Experience & Background"
                                         value={profileData.experience}
                                         onChange={(e) => handleInputChange('experience', e.target.value)}
                                         placeholder="Describe your training, experience, and background in jewelry making..."
+                                        size={{ xs: 'small', sm: 'medium' }}
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={4}>
@@ -434,6 +460,7 @@ const ArtisanProfilePage = () => {
                                         value={profileData.yearsExperience}
                                         onChange={(e) => handleInputChange('yearsExperience', parseInt(e.target.value) || 0)}
                                         InputProps={{ inputProps: { min: 0, max: 100 } }}
+                                        size={{ xs: 'small', sm: 'medium' }}
                                     />
                                 </Grid>
                             </Grid>
@@ -444,18 +471,19 @@ const ArtisanProfilePage = () => {
                 {/* Location Information */}
                 <Grid item xs={12}>
                     <Card>
-                        <CardContent>
+                        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
                             <Typography variant="h6" gutterBottom>
                                 <LocationIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
                                 Business Location
                             </Typography>
-                            <Grid container spacing={3}>
+                            <Grid container spacing={{ xs: 2, sm: 3 }}>
                                 <Grid item xs={12}>
                                     <TextField
                                         fullWidth
                                         label="Business Address"
                                         value={profileData.businessAddress}
                                         onChange={(e) => handleInputChange('businessAddress', e.target.value)}
+                                        size={{ xs: 'small', sm: 'medium' }}
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={4}>
@@ -464,6 +492,7 @@ const ArtisanProfilePage = () => {
                                         label="City"
                                         value={profileData.businessCity}
                                         onChange={(e) => handleInputChange('businessCity', e.target.value)}
+                                        size={{ xs: 'small', sm: 'medium' }}
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={4}>
@@ -471,8 +500,15 @@ const ArtisanProfilePage = () => {
                                         options={usStates}
                                         value={profileData.businessState}
                                         onChange={(event, newValue) => handleInputChange('businessState', newValue || '')}
-                                        renderInput={(params) => <TextField {...params} label="State" />}
+                                        renderInput={(params) => (
+                                            <TextField 
+                                                {...params} 
+                                                label="State" 
+                                                size={{ xs: 'small', sm: 'medium' }}
+                                            />
+                                        )}
                                         freeSolo
+                                        size={{ xs: 'small', sm: 'medium' }}
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={4}>
@@ -481,6 +517,7 @@ const ArtisanProfilePage = () => {
                                         label="ZIP Code"
                                         value={profileData.businessZip}
                                         onChange={(e) => handleInputChange('businessZip', e.target.value)}
+                                        size={{ xs: 'small', sm: 'medium' }}
                                     />
                                 </Grid>
                             </Grid>
@@ -491,11 +528,11 @@ const ArtisanProfilePage = () => {
                 {/* Specialties and Services */}
                 <Grid item xs={12}>
                     <Card>
-                        <CardContent>
+                        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
                             <Typography variant="h6" gutterBottom>
                                 Specialties & Services
                             </Typography>
-                            <Grid container spacing={3}>
+                            <Grid container spacing={{ xs: 2, sm: 3 }}>
                                 <Grid item xs={12} md={6}>
                                     <Autocomplete
                                         multiple
@@ -504,7 +541,13 @@ const ArtisanProfilePage = () => {
                                         onChange={(event, newValue) => handleInputChange('specialties', newValue)}
                                         renderTags={(value, getTagProps) =>
                                             value.map((option, index) => (
-                                                <Chip key={index} variant="outlined" label={option} {...getTagProps({ index })} />
+                                                <Chip 
+                                                    key={index} 
+                                                    variant="outlined" 
+                                                    label={option} 
+                                                    size={{ xs: 'small', sm: 'medium' }}
+                                                    {...getTagProps({ index })} 
+                                                />
                                             ))
                                         }
                                         renderInput={(params) => (
@@ -512,9 +555,11 @@ const ArtisanProfilePage = () => {
                                                 {...params}
                                                 label="Specialties"
                                                 placeholder="Select or type your specialties..."
+                                                size={{ xs: 'small', sm: 'medium' }}
                                             />
                                         )}
                                         freeSolo
+                                        size={{ xs: 'small', sm: 'medium' }}
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
@@ -525,7 +570,13 @@ const ArtisanProfilePage = () => {
                                         onChange={(event, newValue) => handleInputChange('services', newValue)}
                                         renderTags={(value, getTagProps) =>
                                             value.map((option, index) => (
-                                                <Chip key={index} variant="outlined" label={option} {...getTagProps({ index })} />
+                                                <Chip 
+                                                    key={index} 
+                                                    variant="outlined" 
+                                                    label={option} 
+                                                    size={{ xs: 'small', sm: 'medium' }}
+                                                    {...getTagProps({ index })} 
+                                                />
                                             ))
                                         }
                                         renderInput={(params) => (
@@ -533,9 +584,11 @@ const ArtisanProfilePage = () => {
                                                 {...params}
                                                 label="Services Offered"
                                                 placeholder="Select or type your services..."
+                                                size={{ xs: 'small', sm: 'medium' }}
                                             />
                                         )}
                                         freeSolo
+                                        size={{ xs: 'small', sm: 'medium' }}
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
@@ -546,7 +599,13 @@ const ArtisanProfilePage = () => {
                                         onChange={(event, newValue) => handleInputChange('materials', newValue)}
                                         renderTags={(value, getTagProps) =>
                                             value.map((option, index) => (
-                                                <Chip key={index} variant="outlined" label={option} {...getTagProps({ index })} />
+                                                <Chip 
+                                                    key={index} 
+                                                    variant="outlined" 
+                                                    label={option} 
+                                                    size={{ xs: 'small', sm: 'medium' }}
+                                                    {...getTagProps({ index })} 
+                                                />
                                             ))
                                         }
                                         renderInput={(params) => (
@@ -554,9 +613,11 @@ const ArtisanProfilePage = () => {
                                                 {...params}
                                                 label="Materials You Work With"
                                                 placeholder="Select or type materials..."
+                                                size={{ xs: 'small', sm: 'medium' }}
                                             />
                                         )}
                                         freeSolo
+                                        size={{ xs: 'small', sm: 'medium' }}
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
@@ -567,7 +628,13 @@ const ArtisanProfilePage = () => {
                                         onChange={(event, newValue) => handleInputChange('techniques', newValue)}
                                         renderTags={(value, getTagProps) =>
                                             value.map((option, index) => (
-                                                <Chip key={index} variant="outlined" label={option} {...getTagProps({ index })} />
+                                                <Chip 
+                                                    key={index} 
+                                                    variant="outlined" 
+                                                    label={option} 
+                                                    size={{ xs: 'small', sm: 'medium' }}
+                                                    {...getTagProps({ index })} 
+                                                />
                                             ))
                                         }
                                         renderInput={(params) => (
@@ -575,9 +642,11 @@ const ArtisanProfilePage = () => {
                                                 {...params}
                                                 label="Techniques"
                                                 placeholder="Select or type techniques..."
+                                                size={{ xs: 'small', sm: 'medium' }}
                                             />
                                         )}
                                         freeSolo
+                                        size={{ xs: 'small', sm: 'medium' }}
                                     />
                                 </Grid>
                             </Grid>
@@ -588,11 +657,11 @@ const ArtisanProfilePage = () => {
                 {/* Online Presence */}
                 <Grid item xs={12}>
                     <Card>
-                        <CardContent>
+                        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
                             <Typography variant="h6" gutterBottom>
                                 Online Presence
                             </Typography>
-                            <Grid container spacing={3}>
+                            <Grid container spacing={{ xs: 2, sm: 3 }}>
                                 <Grid item xs={12} md={6}>
                                     <TextField
                                         fullWidth
@@ -600,6 +669,7 @@ const ArtisanProfilePage = () => {
                                         value={profileData.portfolioWebsite}
                                         onChange={(e) => handleInputChange('portfolioWebsite', e.target.value)}
                                         placeholder="https://yourwebsite.com"
+                                        size={{ xs: 'small', sm: 'medium' }}
                                         InputProps={{
                                             startAdornment: (
                                                 <InputAdornment position="start">
@@ -616,6 +686,7 @@ const ArtisanProfilePage = () => {
                                         value={profileData.instagramHandle}
                                         onChange={(e) => handleInputChange('instagramHandle', e.target.value)}
                                         placeholder="@yourusername"
+                                        size={{ xs: 'small', sm: 'medium' }}
                                         InputProps={{
                                             startAdornment: (
                                                 <InputAdornment position="start">
@@ -632,6 +703,7 @@ const ArtisanProfilePage = () => {
                                         value={profileData.facebookPage}
                                         onChange={(e) => handleInputChange('facebookPage', e.target.value)}
                                         placeholder="facebook.com/yourpage"
+                                        size={{ xs: 'small', sm: 'medium' }}
                                         InputProps={{
                                             startAdornment: (
                                                 <InputAdornment position="start">
@@ -648,6 +720,7 @@ const ArtisanProfilePage = () => {
                                         value={profileData.tiktokHandle}
                                         onChange={(e) => handleInputChange('tiktokHandle', e.target.value)}
                                         placeholder="@yourusername"
+                                        size={{ xs: 'small', sm: 'medium' }}
                                     />
                                 </Grid>
                             </Grid>

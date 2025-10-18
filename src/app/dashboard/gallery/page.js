@@ -263,8 +263,8 @@ export default function GalleryManagementPage() {
 
     if (loading) {
         return (
-            <Box sx={{ p: 3 }}>
-                <Typography variant="h4" gutterBottom>
+            <Box sx={{ p: { xs: 2, sm: 3 } }}>
+                <Typography variant={{ xs: 'h5', sm: 'h4' }} gutterBottom>
                     Gallery Management
                 </Typography>
                 <LinearProgress />
@@ -273,19 +273,31 @@ export default function GalleryManagementPage() {
     }
 
     return (
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: { xs: 2, sm: 3 } }}>
             {/* Header */}
-            <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
-                <IconButton onClick={() => router.push('/dashboard')}>
-                    <ArrowBackIcon />
-                </IconButton>
-                <Box sx={{ flex: 1 }}>
-                    <Typography variant="h4" gutterBottom>
-                        Gallery Management
-                    </Typography>
-                    <Typography variant="body1" color="text.secondary">
-                        Upload and manage portfolio images for your shop profile
-                    </Typography>
+            <Box sx={{ 
+                mb: 4, 
+                display: 'flex', 
+                flexDirection: { xs: 'column', sm: 'row' },
+                alignItems: { xs: 'flex-start', sm: 'center' }, 
+                gap: 2 
+            }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: { xs: '100%', sm: 'auto' } }}>
+                    <IconButton onClick={() => router.push('/dashboard')}>
+                        <ArrowBackIcon />
+                    </IconButton>
+                    <Box sx={{ flex: 1 }}>
+                        <Typography variant={{ xs: 'h5', sm: 'h4' }} gutterBottom>
+                            Gallery Management
+                        </Typography>
+                        <Typography 
+                            variant="body2" 
+                            color="text.secondary"
+                            sx={{ display: { xs: 'none', sm: 'block' } }}
+                        >
+                            Upload and manage portfolio images for your shop profile
+                        </Typography>
+                    </Box>
                 </Box>
                 <input
                     accept="image/*"
@@ -299,6 +311,8 @@ export default function GalleryManagementPage() {
                         variant="contained"
                         component="span"
                         startIcon={<CloudUploadIcon />}
+                        size={{ xs: 'small', sm: 'medium' }}
+                        fullWidth={{ xs: true, sm: false }}
                     >
                         Upload Image
                     </Button>
@@ -342,7 +356,18 @@ export default function GalleryManagementPage() {
                     </CardContent>
                 </Card>
             ) : (
-                <ImageList variant="masonry" cols={3} gap={16}>
+                <ImageList 
+                    variant="masonry" 
+                    cols={{ xs: 1, sm: 2, md: 3 }} 
+                    gap={{ xs: 8, sm: 12, md: 16 }}
+                    sx={{
+                        // Ensure proper spacing on mobile
+                        '& .MuiImageListItem-root': {
+                            borderRadius: 2,
+                            overflow: 'hidden'
+                        }
+                    }}
+                >
                     {galleryItems.map((item) => (
                         <ImageListItem key={item._id}>
                             <Image
@@ -364,30 +389,50 @@ export default function GalleryManagementPage() {
                                             <Chip 
                                                 label={item.category} 
                                                 size="small" 
-                                                sx={{ mr: 1, mb: 1 }} 
+                                                sx={{ mr: 1, mb: 1, fontSize: { xs: '0.7rem', sm: '0.75rem' } }} 
                                             />
                                         )}
-                                        <Typography variant="caption" display="block">
+                                        <Typography 
+                                            variant="caption" 
+                                            display="block"
+                                            sx={{
+                                                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                                                lineHeight: 1.3,
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                display: '-webkit-box',
+                                                WebkitLineClamp: { xs: 2, sm: 3 },
+                                                WebkitBoxOrient: 'vertical',
+                                            }}
+                                        >
                                             {item.description}
                                         </Typography>
                                     </Box>
                                 }
                                 actionIcon={
-                                    <Box>
+                                    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' } }}>
                                         <Tooltip title="Edit">
                                             <IconButton
-                                                sx={{ color: 'rgba(255, 255, 255, 0.54)' }}
+                                                sx={{ 
+                                                    color: 'rgba(255, 255, 255, 0.54)',
+                                                    p: { xs: 0.5, sm: 1 }
+                                                }}
                                                 onClick={() => handleEdit(item)}
+                                                size={{ xs: 'small', sm: 'medium' }}
                                             >
-                                                <EditIcon />
+                                                <EditIcon fontSize="small" />
                                             </IconButton>
                                         </Tooltip>
                                         <Tooltip title="Delete">
                                             <IconButton
-                                                sx={{ color: 'rgba(255, 255, 255, 0.54)' }}
+                                                sx={{ 
+                                                    color: 'rgba(255, 255, 255, 0.54)',
+                                                    p: { xs: 0.5, sm: 1 }
+                                                }}
                                                 onClick={() => handleDelete(item)}
+                                                size={{ xs: 'small', sm: 'medium' }}
                                             >
-                                                <DeleteIcon />
+                                                <DeleteIcon fontSize="small" />
                                             </IconButton>
                                         </Tooltip>
                                     </Box>
@@ -399,10 +444,27 @@ export default function GalleryManagementPage() {
             )}
 
             {/* Upload Dialog */}
-            <Dialog open={uploadDialogOpen} onClose={handleCloseUploadDialog} maxWidth="md" fullWidth>
-                <DialogTitle>Upload New Image</DialogTitle>
-                <DialogContent>
-                    <Grid container spacing={3}>
+            <Dialog 
+                open={uploadDialogOpen} 
+                onClose={handleCloseUploadDialog} 
+                maxWidth="md" 
+                fullWidth
+                fullScreen={{ xs: true, sm: false }}
+                sx={{
+                    '& .MuiDialog-paper': {
+                        margin: { xs: 0, sm: 2 },
+                        maxHeight: { xs: '100vh', sm: 'calc(100% - 64px)' }
+                    }
+                }}
+            >
+                <DialogTitle sx={{ 
+                    pb: { xs: 1, sm: 2 },
+                    typography: { xs: 'h6', sm: 'h5' }
+                }}>
+                    Upload New Image
+                </DialogTitle>
+                <DialogContent sx={{ p: { xs: 2, sm: 3 } }}>
+                    <Grid container spacing={{ xs: 2, sm: 3 }}>
                         <Grid item xs={12} md={6}>
                             {previewImage && (
                                 <Box sx={{ textAlign: 'center', mb: 2 }}>
@@ -412,7 +474,7 @@ export default function GalleryManagementPage() {
                                         alt="Preview"
                                         style={{
                                             maxWidth: '100%',
-                                            maxHeight: 300,
+                                            maxHeight: { xs: 200, sm: 300 },
                                             borderRadius: 8
                                         }}
                                     />
@@ -425,16 +487,18 @@ export default function GalleryManagementPage() {
                                 label="Title"
                                 value={formData.title}
                                 onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                                sx={{ mb: 2 }}
+                                sx={{ mb: { xs: 1.5, sm: 2 } }}
+                                size={{ xs: 'small', sm: 'medium' }}
                             />
                             <TextField
                                 fullWidth
                                 label="Description"
                                 multiline
-                                rows={3}
+                                rows={{ xs: 2, sm: 3 }}
                                 value={formData.description}
                                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                                sx={{ mb: 2 }}
+                                sx={{ mb: { xs: 1.5, sm: 2 } }}
+                                size={{ xs: 'small', sm: 'medium' }}
                             />
                             <TextField
                                 fullWidth
@@ -445,7 +509,8 @@ export default function GalleryManagementPage() {
                                 SelectProps={{
                                     native: true,
                                 }}
-                                sx={{ mb: 2 }}
+                                sx={{ mb: { xs: 1.5, sm: 2 } }}
+                                size={{ xs: 'small', sm: 'medium' }}
                             >
                                 <option value="">Select a category</option>
                                 {getCategoryOptions().map((category) => (
@@ -461,16 +526,29 @@ export default function GalleryManagementPage() {
                                 onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
                                 placeholder="e.g., custom, engagement, gold"
                                 helperText="Tags help customers find your work"
+                                size={{ xs: 'small', sm: 'medium' }}
                             />
                         </Grid>
                     </Grid>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseUploadDialog}>Cancel</Button>
+                <DialogActions sx={{ 
+                    p: { xs: 2, sm: 3 },
+                    flexDirection: { xs: 'column', sm: 'row' },
+                    gap: { xs: 1, sm: 0 }
+                }}>
+                    <Button 
+                        onClick={handleCloseUploadDialog}
+                        fullWidth={{ xs: true, sm: false }}
+                        size={{ xs: 'medium', sm: 'medium' }}
+                    >
+                        Cancel
+                    </Button>
                     <Button 
                         onClick={handleUpload} 
                         variant="contained"
                         disabled={uploading || !uploadFile}
+                        fullWidth={{ xs: true, sm: false }}
+                        size={{ xs: 'medium', sm: 'medium' }}
                     >
                         {uploading ? 'Uploading...' : 'Upload Image'}
                     </Button>
@@ -478,24 +556,43 @@ export default function GalleryManagementPage() {
             </Dialog>
 
             {/* Edit Dialog */}
-            <Dialog open={editDialogOpen} onClose={handleCloseEditDialog} maxWidth="sm" fullWidth>
-                <DialogTitle>Edit Image Details</DialogTitle>
-                <DialogContent>
+            <Dialog 
+                open={editDialogOpen} 
+                onClose={handleCloseEditDialog} 
+                maxWidth="sm" 
+                fullWidth
+                fullScreen={{ xs: true, sm: false }}
+                sx={{
+                    '& .MuiDialog-paper': {
+                        margin: { xs: 0, sm: 2 },
+                        maxHeight: { xs: '100vh', sm: 'calc(100% - 64px)' }
+                    }
+                }}
+            >
+                <DialogTitle sx={{ 
+                    pb: { xs: 1, sm: 2 },
+                    typography: { xs: 'h6', sm: 'h5' }
+                }}>
+                    Edit Image Details
+                </DialogTitle>
+                <DialogContent sx={{ p: { xs: 2, sm: 3 } }}>
                     <TextField
                         fullWidth
                         label="Title"
                         value={formData.title}
                         onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                        sx={{ mb: 2, mt: 1 }}
+                        sx={{ mb: { xs: 1.5, sm: 2 }, mt: 1 }}
+                        size={{ xs: 'small', sm: 'medium' }}
                     />
                     <TextField
                         fullWidth
                         label="Description"
                         multiline
-                        rows={3}
+                        rows={{ xs: 2, sm: 3 }}
                         value={formData.description}
                         onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                        sx={{ mb: 2 }}
+                        sx={{ mb: { xs: 1.5, sm: 2 } }}
+                        size={{ xs: 'small', sm: 'medium' }}
                     />
                     <TextField
                         fullWidth
@@ -506,7 +603,8 @@ export default function GalleryManagementPage() {
                         SelectProps={{
                             native: true,
                         }}
-                        sx={{ mb: 2 }}
+                        sx={{ mb: { xs: 1.5, sm: 2 } }}
+                        size={{ xs: 'small', sm: 'medium' }}
                     >
                         <option value="">Select a category</option>
                         {getCategoryOptions().map((category) => (
@@ -522,14 +620,27 @@ export default function GalleryManagementPage() {
                         onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
                         placeholder="e.g., custom, engagement, gold"
                         helperText="Tags help customers find your work"
+                        size={{ xs: 'small', sm: 'medium' }}
                     />
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseEditDialog}>Cancel</Button>
+                <DialogActions sx={{ 
+                    p: { xs: 2, sm: 3 },
+                    flexDirection: { xs: 'column', sm: 'row' },
+                    gap: { xs: 1, sm: 0 }
+                }}>
+                    <Button 
+                        onClick={handleCloseEditDialog}
+                        fullWidth={{ xs: true, sm: false }}
+                        size={{ xs: 'medium', sm: 'medium' }}
+                    >
+                        Cancel
+                    </Button>
                     <Button 
                         onClick={handleUpdate} 
                         variant="contained"
                         disabled={uploading}
+                        fullWidth={{ xs: true, sm: false }}
+                        size={{ xs: 'medium', sm: 'medium' }}
                     >
                         {uploading ? 'Updating...' : 'Update Image'}
                     </Button>
