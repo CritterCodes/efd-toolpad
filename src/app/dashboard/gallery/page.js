@@ -29,7 +29,8 @@ import {
     IconButton,
     Chip,
     Fab,
-    Tooltip
+    Tooltip,
+    Autocomplete
 } from '@mui/material';
 import {
     PhotoCamera as PhotoCameraIcon,
@@ -54,36 +55,14 @@ export default function GalleryManagementPage() {
     const [previewImage, setPreviewImage] = useState(null);
     const [uploadFile, setUploadFile] = useState(null);
     const [formData, setFormData] = useState({
-        title: '',
-        description: '',
-        category: '',
-        tags: ''
+        tags: []
     });
     const [saveStatus, setSaveStatus] = useState(null);
-
-    // Category options based on artisan type
-    const getCategoryOptions = () => {
-        const artisanType = session?.user?.artisanApplication?.artisanType;
-        
-        switch (artisanType) {
-            case 'Jeweler':
-            case 'Jewelry Designer':
-            case 'Goldsmith':
-            case 'Silversmith':
-                return ['Rings', 'Necklaces', 'Bracelets', 'Earrings', 'Custom Pieces', 'Repairs', 'Other'];
-            case 'Stone Setter':
-                return ['Stone Setting', 'Gemstone Work', 'Custom Settings', 'Repairs', 'Other'];
-            case 'Engraver':
-                return ['Engraving', 'Custom Text', 'Monograms', 'Decorative Work', 'Other'];
-            case 'Watchmaker':
-                return ['Watch Repair', 'Custom Timepieces', 'Vintage Restoration', 'Other'];
-            default:
-                return ['Custom Work', 'Repairs', 'Designs', 'Other'];
-        }
-    };
+    const [availableTags, setAvailableTags] = useState([]);
 
     useEffect(() => {
         loadGalleryItems();
+        loadAvailableTags();
     }, [session]);
 
     const loadGalleryItems = async () => {
@@ -101,6 +80,20 @@ export default function GalleryManagementPage() {
             setSaveStatus({ type: 'error', message: 'Failed to load gallery items' });
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadAvailableTags = async () => {
+        try {
+            const response = await fetch('/api/artisan/gallery/tags');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    setAvailableTags(data.data || []);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading tags:', error);
         }
     };
 
@@ -133,10 +126,7 @@ export default function GalleryManagementPage() {
         try {
             const uploadFormData = new FormData();
             uploadFormData.append('image', uploadFile);
-            uploadFormData.append('title', formData.title);
-            uploadFormData.append('description', formData.description);
-            uploadFormData.append('category', formData.category);
-            uploadFormData.append('tags', formData.tags);
+            uploadFormData.append('tags', JSON.stringify(formData.tags));
 
             const response = await fetch('/api/artisan/gallery', {
                 method: 'POST',
@@ -150,6 +140,7 @@ export default function GalleryManagementPage() {
                 setUploadDialogOpen(false);
                 resetForm();
                 loadGalleryItems(); // Reload gallery
+                loadAvailableTags(); // Reload tags for suggestions
             } else {
                 setSaveStatus({ type: 'error', message: result.error || 'Failed to upload image' });
             }
@@ -164,10 +155,7 @@ export default function GalleryManagementPage() {
     const handleEdit = (item) => {
         setSelectedItem(item);
         setFormData({
-            title: item.title || '',
-            description: item.description || '',
-            category: item.category || '',
-            tags: item.tags?.join(', ') || ''
+            tags: item.tags || []
         });
         setEditDialogOpen(true);
     };
@@ -180,13 +168,10 @@ export default function GalleryManagementPage() {
 
         try {
             const updateData = {
-                title: formData.title,
-                description: formData.description,
-                category: formData.category,
-                tags: formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag)
+                tags: formData.tags
             };
 
-            const response = await fetch(`/api/artisan/gallery/${selectedItem._id}`, {
+            const response = await fetch(`/api/artisan/gallery/${selectedItem.id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -201,6 +186,7 @@ export default function GalleryManagementPage() {
                 setEditDialogOpen(false);
                 resetForm();
                 loadGalleryItems(); // Reload gallery
+                loadAvailableTags(); // Reload tags for suggestions
             } else {
                 setSaveStatus({ type: 'error', message: result.error || 'Failed to update image' });
             }
@@ -218,7 +204,7 @@ export default function GalleryManagementPage() {
         }
 
         try {
-            const response = await fetch(`/api/artisan/gallery/${item._id}`, {
+            const response = await fetch(`/api/artisan/gallery/${item.id}`, {
                 method: 'DELETE'
             });
 
@@ -238,10 +224,7 @@ export default function GalleryManagementPage() {
 
     const resetForm = () => {
         setFormData({
-            title: '',
-            description: '',
-            category: '',
-            tags: ''
+            tags: []
         });
         setUploadFile(null);
         setPreviewImage(null);
@@ -356,91 +339,96 @@ export default function GalleryManagementPage() {
                     </CardContent>
                 </Card>
             ) : (
-                <ImageList 
-                    variant="masonry" 
-                    cols={{ xs: 1, sm: 2, md: 3 }} 
-                    gap={{ xs: 8, sm: 12, md: 16 }}
-                    sx={{
-                        // Ensure proper spacing on mobile
-                        '& .MuiImageListItem-root': {
-                            borderRadius: 2,
-                            overflow: 'hidden'
-                        }
-                    }}
-                >
+                <Grid container spacing={2}>
                     {galleryItems.map((item) => (
-                        <ImageListItem key={item._id}>
-                            <Image
-                                src={item.imageUrl}
-                                alt={item.title || 'Gallery image'}
-                                width={500}
-                                height={300}
-                                style={{ 
-                                    borderRadius: 8,
-                                    width: '100%',
-                                    height: 'auto'
-                                }}
-                            />
-                            <ImageListItemBar
-                                title={item.title || 'Untitled'}
-                                subtitle={
-                                    <Box>
-                                        {item.category && (
-                                            <Chip 
-                                                label={item.category} 
-                                                size="small" 
-                                                sx={{ mr: 1, mb: 1, fontSize: { xs: '0.7rem', sm: '0.75rem' } }} 
-                                            />
-                                        )}
-                                        <Typography 
-                                            variant="caption" 
-                                            display="block"
-                                            sx={{
-                                                fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                                                lineHeight: 1.3,
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                display: '-webkit-box',
-                                                WebkitLineClamp: { xs: 2, sm: 3 },
-                                                WebkitBoxOrient: 'vertical',
-                                            }}
-                                        >
-                                            {item.description}
-                                        </Typography>
-                                    </Box>
-                                }
-                                actionIcon={
-                                    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' } }}>
+                        <Grid item xs={12} sm={6} md={4} lg={3} key={item._id}>
+                            <Card sx={{ position: 'relative', borderRadius: 2 }}>
+                                <Box sx={{ position: 'relative' }}>
+                                    <Image
+                                        src={item.imageUrl}
+                                        alt="Gallery image"
+                                        width={400}
+                                        height={300}
+                                        style={{ 
+                                            borderRadius: 8,
+                                            width: '100%',
+                                            height: '200px',
+                                            objectFit: 'cover'
+                                        }}
+                                    />
+                                    
+                                    {/* Action buttons overlay */}
+                                    <Box 
+                                        sx={{ 
+                                            position: 'absolute',
+                                            top: 8,
+                                            right: 8,
+                                            display: 'flex',
+                                            gap: 0.5
+                                        }}
+                                    >
                                         <Tooltip title="Edit">
                                             <IconButton
+                                                size="small"
                                                 sx={{ 
-                                                    color: 'rgba(255, 255, 255, 0.54)',
-                                                    p: { xs: 0.5, sm: 1 }
+                                                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                                                    color: 'white',
+                                                    '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.7)' }
                                                 }}
                                                 onClick={() => handleEdit(item)}
-                                                size="small"
                                             >
                                                 <EditIcon fontSize="small" />
                                             </IconButton>
                                         </Tooltip>
                                         <Tooltip title="Delete">
                                             <IconButton
+                                                size="small"
                                                 sx={{ 
-                                                    color: 'rgba(255, 255, 255, 0.54)',
-                                                    p: { xs: 0.5, sm: 1 }
+                                                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                                                    color: 'white',
+                                                    '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.7)' }
                                                 }}
                                                 onClick={() => handleDelete(item)}
-                                                size="small"
                                             >
                                                 <DeleteIcon fontSize="small" />
                                             </IconButton>
                                         </Tooltip>
                                     </Box>
-                                }
-                            />
-                        </ImageListItem>
+                                </Box>
+                                
+                                {/* Content area */}
+                                <CardContent sx={{ p: 2 }}>
+                                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                        Uploaded {new Date(item.uploadedAt).toLocaleDateString()}
+                                    </Typography>
+                                    
+                                    {/* Tags */}
+                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                        {item.tags && item.tags.length > 0 ? (
+                                            item.tags.map((tag, index) => (
+                                                <Chip 
+                                                    key={index}
+                                                    label={tag} 
+                                                    size="small" 
+                                                    variant="outlined"
+                                                    sx={{ fontSize: '0.7rem' }}
+                                                />
+                                            ))
+                                        ) : (
+                                            <Typography 
+                                                variant="caption" 
+                                                color="text.secondary"
+                                                sx={{ fontStyle: 'italic' }}
+                                            >
+                                                No tags
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                </CardContent>
+                            </Card>
+                        </Grid>
                     ))}
-                </ImageList>
+                </Grid>
             )}
 
             {/* Upload Dialog */}
@@ -482,51 +470,36 @@ export default function GalleryManagementPage() {
                             )}
                         </Grid>
                         <Grid item xs={12} md={6}>
-                            <TextField
-                                fullWidth
-                                label="Title"
-                                value={formData.title}
-                                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                                sx={{ mb: { xs: 1.5, sm: 2 } }}
-                                size="small"
-                            />
-                            <TextField
-                                fullWidth
-                                label="Description"
-                                multiline
-                                rows={{ xs: 2, sm: 3 }}
-                                value={formData.description}
-                                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                                sx={{ mb: { xs: 1.5, sm: 2 } }}
-                                size="small"
-                            />
-                            <TextField
-                                fullWidth
-                                select
-                                label="Category"
-                                value={formData.category}
-                                onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
-                                SelectProps={{
-                                    native: true,
-                                }}
-                                sx={{ mb: { xs: 1.5, sm: 2 } }}
-                                size="small"
-                            >
-                                <option value="">Select a category</option>
-                                {getCategoryOptions().map((category) => (
-                                    <option key={category} value={category}>
-                                        {category}
-                                    </option>
-                                ))}
-                            </TextField>
-                            <TextField
-                                fullWidth
-                                label="Tags (comma separated)"
+                            <Autocomplete
+                                multiple
+                                id="tags"
+                                options={availableTags.map(tag => tag.tag)}
+                                freeSolo
                                 value={formData.tags}
-                                onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
-                                placeholder="e.g., custom, engagement, gold"
-                                helperText="Tags help customers find your work"
-                                size="small"
+                                onChange={(event, newValue) => {
+                                    setFormData(prev => ({ ...prev, tags: newValue }));
+                                }}
+                                renderTags={(value, getTagProps) =>
+                                    value.map((option, index) => (
+                                        <Chip 
+                                            variant="outlined" 
+                                            label={option} 
+                                            {...getTagProps({ index })}
+                                            key={index}
+                                            size="small"
+                                        />
+                                    ))
+                                }
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        label="Tags"
+                                        placeholder="Type to add tags..."
+                                        helperText="Tags help customers find your work. Press Enter to add new tags."
+                                        size="small"
+                                    />
+                                )}
+                                sx={{ mb: { xs: 1.5, sm: 2 } }}
                             />
                         </Grid>
                     </Grid>
@@ -573,54 +546,38 @@ export default function GalleryManagementPage() {
                     pb: { xs: 1, sm: 2 },
                     typography: { xs: 'h6', sm: 'h5' }
                 }}>
-                    Edit Image Details
+                    Edit Tags
                 </DialogTitle>
                 <DialogContent sx={{ p: { xs: 2, sm: 3 } }}>
-                    <TextField
-                        fullWidth
-                        label="Title"
-                        value={formData.title}
-                        onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                        sx={{ mb: { xs: 1.5, sm: 2 }, mt: 1 }}
-                        size="small"
-                    />
-                    <TextField
-                        fullWidth
-                        label="Description"
-                        multiline
-                        rows={{ xs: 2, sm: 3 }}
-                        value={formData.description}
-                        onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                        sx={{ mb: { xs: 1.5, sm: 2 } }}
-                        size="small"
-                    />
-                    <TextField
-                        fullWidth
-                        select
-                        label="Category"
-                        value={formData.category}
-                        onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
-                        SelectProps={{
-                            native: true,
-                        }}
-                        sx={{ mb: { xs: 1.5, sm: 2 } }}
-                        size="small"
-                    >
-                        <option value="">Select a category</option>
-                        {getCategoryOptions().map((category) => (
-                            <option key={category} value={category}>
-                                {category}
-                            </option>
-                        ))}
-                    </TextField>
-                    <TextField
-                        fullWidth
-                        label="Tags (comma separated)"
+                    <Autocomplete
+                        multiple
+                        id="edit-tags"
+                        options={availableTags.map(tag => tag.tag)}
+                        freeSolo
                         value={formData.tags}
-                        onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
-                        placeholder="e.g., custom, engagement, gold"
-                        helperText="Tags help customers find your work"
-                        size="small"
+                        onChange={(event, newValue) => {
+                            setFormData(prev => ({ ...prev, tags: newValue }));
+                        }}
+                        renderTags={(value, getTagProps) =>
+                            value.map((option, index) => (
+                                <Chip 
+                                    variant="outlined" 
+                                    label={option} 
+                                    {...getTagProps({ index })}
+                                    key={index}
+                                    size="small"
+                                />
+                            ))
+                        }
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                label="Tags"
+                                placeholder="Type to add tags..."
+                                helperText="Tags help customers find your work. Press Enter to add new tags."
+                                size="small"
+                            />
+                        )}
                     />
                 </DialogContent>
                 <DialogActions sx={{ 

@@ -1,206 +1,127 @@
 /**
- * Gallery Item API Route
- * Handles update and delete operations for individual gallery items
+ * Individual Gallery Item API Route
+ * Handles DELETE and PUT operations for specific gallery items
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '../../../../../../auth';
 import { connectToDatabase } from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
 
-export async function PUT(request, { params }) {
+export async function DELETE(req, { params }) {
     try {
         const session = await auth();
-        
-        if (!session || !session.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        if (!session) {
+            return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+        }
+
+        const { id: itemId } = params;
+
+        if (!itemId) {
+            return NextResponse.json({ error: 'Item ID is required' }, { status: 400 });
         }
 
         const { db } = await connectToDatabase();
-        const user = await db.collection('users').findOne({ _id: new ObjectId(session.user.id) });
-
-        // Allow artisan, admin, and dev roles access to gallery management
-        const allowedRoles = ['artisan', 'admin', 'dev'];
-        if (!user || !allowedRoles.includes(user.role)) {
-            return NextResponse.json({ 
-                error: 'Access denied. Artisan role required.',
-                debug: {
-                    userRole: user?.role,
-                    sessionRole: session.user.role,
-                    allowedRoles: allowedRoles
-                }
-            }, { status: 403 });
-        }
-
-        const itemId = params.id;
-        if (!ObjectId.isValid(itemId)) {
-            return NextResponse.json({ error: 'Invalid item ID' }, { status: 400 });
-        }
-
-        // Check if gallery item exists and belongs to this artisan
-        const existingItem = await db.collection('gallery').findOne({
-            _id: new ObjectId(itemId),
-            artisanId: new ObjectId(session.user.id)
-        });
-
-        if (!existingItem) {
-            return NextResponse.json({ error: 'Gallery item not found' }, { status: 404 });
-        }
-
-        const updateData = await request.json();
-        const { title, description, category, tags } = updateData;
-
-        // Prepare update object
-        const updateFields = {
-            updatedAt: new Date()
-        };
-
-        if (title !== undefined) updateFields.title = title;
-        if (description !== undefined) updateFields.description = description;
-        if (category !== undefined) updateFields.category = category;
-        if (tags !== undefined) updateFields.tags = Array.isArray(tags) ? tags : [];
-
-        // Update the gallery item
-        const result = await db.collection('gallery').updateOne(
-            { _id: new ObjectId(itemId) },
-            { $set: updateFields }
-        );
-
-        if (result.matchedCount === 0) {
-            return NextResponse.json({ error: 'Gallery item not found' }, { status: 404 });
-        }
-
-        // Fetch updated item
-        const updatedItem = await db.collection('gallery').findOne({ _id: new ObjectId(itemId) });
-
-        return NextResponse.json({
-            success: true,
-            data: updatedItem
-        });
-
-    } catch (error) {
-        console.error('Error updating gallery item:', error);
-        return NextResponse.json(
-            { error: 'Failed to update gallery item' },
-            { status: 500 }
-        );
-    }
-}
-
-export async function DELETE(request, { params }) {
-    try {
-        const session = await auth();
         
-        if (!session || !session.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        // Find user by userID
+        const user = await db.collection('users').findOne({ userID: session.user.userID });
+        
+        if (!user || !user.gallery) {
+            return NextResponse.json({ error: 'User not found or no gallery' }, { status: 404 });
         }
 
-        const { db } = await connectToDatabase();
-        const user = await db.collection('users').findOne({ _id: new ObjectId(session.user.id) });
+        // Find the gallery item to verify ownership
+        const galleryItem = user.gallery.find(item => item.id === itemId);
 
-        // Allow artisan, admin, and dev roles access to gallery management
-        const allowedRoles = ['artisan', 'admin', 'dev'];
-        if (!user || !allowedRoles.includes(user.role)) {
-            return NextResponse.json({ 
-                error: 'Access denied. Artisan role required.',
-                debug: {
-                    userRole: user?.role,
-                    sessionRole: session.user.role,
-                    allowedRoles: allowedRoles
-                }
-            }, { status: 403 });
+        if (!galleryItem) {
+            return NextResponse.json({ error: 'Gallery item not found or access denied' }, { status: 404 });
         }
 
-        const itemId = params.id;
-        if (!ObjectId.isValid(itemId)) {
-            return NextResponse.json({ error: 'Invalid item ID' }, { status: 400 });
-        }
+        // Remove the gallery item from user's gallery array
+        const result = await db.collection('users').updateOne(
+            { userID: session.user.userID },
+            { 
+                $pull: { gallery: { id: itemId } },
+                $set: { updatedAt: new Date() }
+            }
+        );
 
-        // Check if gallery item exists and belongs to this artisan
-        const existingItem = await db.collection('gallery').findOne({
-            _id: new ObjectId(itemId),
-            artisanId: new ObjectId(session.user.id)
-        });
-
-        if (!existingItem) {
-            return NextResponse.json({ error: 'Gallery item not found' }, { status: 404 });
-        }
-
-        // Delete from database
-        const deleteResult = await db.collection('gallery').deleteOne({
-            _id: new ObjectId(itemId)
-        });
-
-        if (deleteResult.deletedCount === 0) {
+        if (result.modifiedCount === 0) {
             return NextResponse.json({ error: 'Failed to delete gallery item' }, { status: 500 });
         }
 
-        // Note: S3 file cleanup would happen here in a production environment
-        // For now, we'll just remove the database record
-
-        return NextResponse.json({
+        return NextResponse.json({ 
             success: true,
             message: 'Gallery item deleted successfully'
         });
 
     } catch (error) {
-        console.error('Error deleting gallery item:', error);
-        return NextResponse.json(
-            { error: 'Failed to delete gallery item' },
-            { status: 500 }
-        );
+        console.error('Gallery DELETE error:', error);
+        return NextResponse.json({ 
+            error: 'Failed to delete gallery item',
+            details: error.message 
+        }, { status: 500 });
     }
 }
 
-export async function GET(request, { params }) {
+export async function PUT(req, { params }) {
     try {
         const session = await auth();
-        
-        if (!session || !session.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        if (!session) {
+            return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+        }
+
+        const { id: itemId } = params;
+        const body = await req.json();
+        const { tags } = body;
+
+        if (!itemId) {
+            return NextResponse.json({ error: 'Item ID is required' }, { status: 400 });
         }
 
         const { db } = await connectToDatabase();
-        const user = await db.collection('users').findOne({ _id: new ObjectId(session.user.id) });
-
-        // Allow artisan, admin, and dev roles access to gallery management
-        const allowedRoles = ['artisan', 'admin', 'dev'];
-        if (!user || !allowedRoles.includes(user.role)) {
-            return NextResponse.json({ 
-                error: 'Access denied. Artisan role required.',
-                debug: {
-                    userRole: user?.role,
-                    sessionRole: session.user.role,
-                    allowedRoles: allowedRoles
-                }
-            }, { status: 403 });
+        
+        // Find user by userID
+        const user = await db.collection('users').findOne({ userID: session.user.userID });
+        
+        if (!user || !user.gallery) {
+            return NextResponse.json({ error: 'User not found or no gallery' }, { status: 404 });
         }
 
-        const itemId = params.id;
-        if (!ObjectId.isValid(itemId)) {
-            return NextResponse.json({ error: 'Invalid item ID' }, { status: 400 });
-        }
-
-        // Get gallery item
-        const galleryItem = await db.collection('gallery').findOne({
-            _id: new ObjectId(itemId),
-            artisanId: new ObjectId(session.user.id)
-        });
+        const galleryItem = user.gallery.find(item => item.id === itemId);
 
         if (!galleryItem) {
-            return NextResponse.json({ error: 'Gallery item not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Gallery item not found or access denied' }, { status: 404 });
         }
 
-        return NextResponse.json({
+        // Update the gallery item in user's gallery array
+        const result = await db.collection('users').updateOne(
+            { 
+                userID: session.user.userID,
+                'gallery.id': itemId
+            },
+            { 
+                $set: { 
+                    'gallery.$.tags': tags,
+                    'gallery.$.updatedAt': new Date(),
+                    updatedAt: new Date()
+                }
+            }
+        );
+
+        if (result.modifiedCount === 0) {
+            return NextResponse.json({ error: 'Failed to update gallery item' }, { status: 500 });
+        }
+
+        return NextResponse.json({ 
             success: true,
-            data: galleryItem
+            message: 'Gallery item updated successfully'
         });
 
     } catch (error) {
-        console.error('Error fetching gallery item:', error);
-        return NextResponse.json(
-            { error: 'Failed to fetch gallery item' },
-            { status: 500 }
-        );
+        console.error('Gallery PUT error:', error);
+        return NextResponse.json({ 
+            error: 'Failed to update gallery item',
+            details: error.message 
+        }, { status: 500 });
     }
 }
