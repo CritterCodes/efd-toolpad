@@ -33,9 +33,12 @@ export async function getAllArtisanApplications(filters = {}) {
       }
     }
     
-    // Filter by artisan type
+    // Filter by artisan type - handle both array and string formats
     if (filters.artisanType) {
-      query['artisanApplication.artisanType'] = filters.artisanType;
+      query.$or = [
+        { 'artisanApplication.artisanType': filters.artisanType }, // String format (legacy)
+        { 'artisanApplication.artisanType': { $in: [filters.artisanType] } } // Array format
+      ];
     }
     
     const usersCollection = await db.dbUsers();
@@ -56,7 +59,7 @@ export async function getAllArtisanApplications(filters = {}) {
       };
 
       // Parse comma-separated string fields back into arrays
-      const arrayFields = ['specialties', 'services', 'materials', 'techniques'];
+      const arrayFields = ['artisanType', 'specialties', 'services', 'materials', 'techniques'];
       arrayFields.forEach(field => {
         if (application[field] && typeof application[field] === 'string') {
           application[field] = application[field].split(', ').filter(item => item.trim() !== '');
@@ -101,7 +104,7 @@ export async function getArtisanApplicationById(applicationId) {
     };
 
     // Parse comma-separated string fields back into arrays
-    const arrayFields = ['specialties', 'services', 'materials', 'techniques'];
+    const arrayFields = ['artisanType', 'specialties', 'services', 'materials', 'techniques'];
     arrayFields.forEach(field => {
       if (application[field] && typeof application[field] === 'string') {
         application[field] = application[field].split(', ').filter(item => item.trim() !== '');
@@ -233,7 +236,10 @@ export async function searchArtisanApplications(searchTerm, filters = {}) {
     }
     
     if (filters.artisanType) {
-      query['artisanApplication.artisanType'] = filters.artisanType;
+      query.$or = [
+        { 'artisanApplication.artisanType': filters.artisanType }, // String format (legacy)
+        { 'artisanApplication.artisanType': { $in: [filters.artisanType] } } // Array format
+      ];
     }
     
     const users = await usersCollection
@@ -253,7 +259,7 @@ export async function searchArtisanApplications(searchTerm, filters = {}) {
       };
 
       // Parse comma-separated string fields back into arrays
-      const arrayFields = ['specialties', 'services', 'materials', 'techniques'];
+      const arrayFields = ['artisanType', 'specialties', 'services', 'materials', 'techniques'];
       arrayFields.forEach(field => {
         if (application[field] && typeof application[field] === 'string') {
           application[field] = application[field].split(', ').filter(item => item.trim() !== '');

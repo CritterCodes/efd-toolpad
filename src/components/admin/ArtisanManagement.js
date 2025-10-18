@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Constants from '../../lib/constants';
 import {
   Paper,
   Typography,
@@ -284,16 +285,9 @@ const ArtisanManagement = () => {
                 onChange={(e) => setArtisanTypeFilter(e.target.value)}
               >
                 <MenuItem value="">All</MenuItem>
-                <MenuItem value="Jeweler">Jeweler</MenuItem>
-                <MenuItem value="Designer">Designer</MenuItem>
-                <MenuItem value="Lapidarist">Lapidarist</MenuItem>
-                <MenuItem value="Metalworker">Metalworker</MenuItem>
-                <MenuItem value="Gemcutter">Gemcutter</MenuItem>
-                <MenuItem value="Engraver">Engraver</MenuItem>
-                <MenuItem value="Stone Setter">Stone Setter</MenuItem>
-                <MenuItem value="Chain Maker">Chain Maker</MenuItem>
-                <MenuItem value="Enamelist">Enamelist</MenuItem>
-                <MenuItem value="Other">Other</MenuItem>
+                {Constants.ARTISAN_TYPES.map((type) => (
+                  <MenuItem key={type} value={type}>{type}</MenuItem>
+                ))}
               </Select>
             </FormControl>
           </Grid>
@@ -340,7 +334,11 @@ const ArtisanManagement = () => {
                 </TableCell>
                 <TableCell>{application.email}</TableCell>
                 <TableCell>{application.businessName || 'N/A'}</TableCell>
-                <TableCell>{application.artisanType}</TableCell>
+                <TableCell>
+                  {Array.isArray(application.artisanType) 
+                    ? application.artisanType.join(', ') 
+                    : application.artisanType || 'N/A'}
+                </TableCell>
                 <TableCell>
                   <Chip
                     label={application.status}
@@ -467,7 +465,11 @@ const ArtisanManagement = () => {
                       <Typography variant="subtitle2" color="textSecondary">
                         Artisan Type
                       </Typography>
-                      <Typography>{selectedApplication.artisanType}</Typography>
+                      <Typography>
+                        {Array.isArray(selectedApplication.artisanType) 
+                          ? selectedApplication.artisanType.join(', ') 
+                          : selectedApplication.artisanType || 'N/A'}
+                      </Typography>
                     </Box>
                   </Stack>
                 </Grid>

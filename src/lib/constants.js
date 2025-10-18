@@ -30,6 +30,37 @@ const Constants = {
         resetToken: 0,
         resetTokenExpiry: 0
     },
+    
+    // Artisan Application Constants
+    ARTISAN_TYPES: [
+        'Jeweler',
+        'Gem Cutter', 
+        'CAD Designer',
+        'Hand Engraver'
+    ],
+    
+    SPECIALTIES_SUGGESTIONS: [
+        'Rings', 'Necklaces', 'Bracelets', 'Earrings', 'Brooches', 'Pendants',
+        'Custom Designs', 'Vintage Restoration', 'Stone Setting', 'Engraving',
+        'Chain Making', 'Enameling'
+    ],
+    
+    SERVICES_SUGGESTIONS: [
+        'Custom Design', 'Jewelry Repair', 'Stone Setting', 'Engraving',
+        'Resizing', 'Restoration', 'Appraisal', 'Consultation',
+        'Education/Classes', 'Stone Cutting', 'Metal Fabrication'
+    ],
+    
+    MATERIALS_SUGGESTIONS: [
+        'Gold', 'Silver', 'Platinum', 'Palladium', 'Copper', 'Brass',
+        'Precious Stones', 'Semi-Precious Stones', 'Pearls', 'Alternative Materials'
+    ],
+    
+    TECHNIQUES_SUGGESTIONS: [
+        'Hand Fabrication', 'Lost Wax Casting', 'Stone Setting', 'Engraving',
+        'Enameling', 'Granulation', 'Filigree', 'Repoussé', 'Chain Making',
+        'Wire Wrapping', 'Electroforming', 'CAD/CAM'
+    ],
 };
 
 export default Constants;

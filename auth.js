@@ -75,6 +75,37 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     pages: {
         signIn: '/auth/signin',
     },
+    cookies: {
+        sessionToken: {
+            name: `next-auth.session-token`,
+            options: {
+                httpOnly: true,
+                sameSite: 'lax',
+                path: '/',
+                domain: process.env.NEXTAUTH_COOKIE_DOMAIN || 'localhost',
+                secure: process.env.NODE_ENV === 'production'
+            }
+        },
+        callbackUrl: {
+            name: `next-auth.callback-url`,
+            options: {
+                sameSite: 'lax',
+                path: '/',
+                domain: process.env.NEXTAUTH_COOKIE_DOMAIN || 'localhost',
+                secure: process.env.NODE_ENV === 'production'
+            }
+        },
+        csrfToken: {
+            name: `next-auth.csrf-token`,
+            options: {
+                httpOnly: true,
+                sameSite: 'lax',
+                path: '/',
+                domain: process.env.NEXTAUTH_COOKIE_DOMAIN || 'localhost',
+                secure: process.env.NODE_ENV === 'production'
+            }
+        }
+    },
     callbacks: {
         async jwt({ token, account, user }) {
             // When the user signs in

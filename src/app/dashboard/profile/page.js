@@ -6,8 +6,9 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import Constants from '@/lib/constants';
 import { useRouter } from 'next/navigation';
 import {
     Box,
@@ -49,7 +50,7 @@ const ArtisanProfilePage = () => {
     
     const [profileData, setProfileData] = useState({
         businessName: '',
-        artisanType: '',
+        artisanType: [], // Changed to array for multi-select
         about: '',
         experience: '',
         yearsExperience: 0,
@@ -100,10 +101,7 @@ const ArtisanProfilePage = () => {
         'Wire Wrapping', 'Electroforming', 'CAD/CAM'
     ];
 
-    const artisanTypes = [
-        'Jeweler', 'Jewelry Designer', 'Goldsmith', 'Silversmith', 'Stone Setter',
-        'Engraver', 'Watchmaker', 'Restoration Specialist', 'Custom Designer'
-    ];
+    const artisanTypes = Constants.ARTISAN_TYPES;
 
     const usStates = [
         'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado',
@@ -134,7 +132,7 @@ const ArtisanProfilePage = () => {
                     const profile = data.data;
                     setProfileData({
                         businessName: profile.businessName || '',
-                        artisanType: profile.artisanType || '',
+                        artisanType: parseArrayField(profile.artisanType),
                         about: profile.about || '',
                         experience: profile.experience || '',
                         yearsExperience: profile.yearsExperience || 0,
@@ -413,20 +411,32 @@ const ArtisanProfilePage = () => {
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                    <FormControl fullWidth size="small">
-                                        <InputLabel>Artisan Type</InputLabel>
-                                        <Select
-                                            value={profileData.artisanType}
-                                            label="Artisan Type"
-                                            onChange={(e) => handleInputChange('artisanType', e.target.value)}
-                                        >
-                                            {artisanTypes.map((type) => (
-                                                <MenuItem key={type} value={type}>
-                                                    {type}
-                                                </MenuItem>
-                                            ))}
-                                        </Select>
-                                    </FormControl>
+                                    <Autocomplete
+                                        multiple
+                                        options={artisanTypes}
+                                        value={profileData.artisanType || []}
+                                        onChange={(event, newValue) => handleInputChange('artisanType', newValue)}
+                                        renderTags={(value, getTagProps) =>
+                                            value.map((option, index) => (
+                                                <Chip 
+                                                    key={index} 
+                                                    variant="outlined" 
+                                                    label={option} 
+                                                    size="small"
+                                                    {...getTagProps({ index })} 
+                                                />
+                                            ))
+                                        }
+                                        renderInput={(params) => (
+                                            <TextField
+                                                {...params}
+                                                label="Artisan Type"
+                                                placeholder="Select your artisan types..."
+                                                size="small"
+                                            />
+                                        )}
+                                        size="small"
+                                    />
                                 </Grid>
                                 <Grid item xs={12}>
                                     <TextField
