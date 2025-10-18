@@ -19,8 +19,17 @@ export async function PUT(request, { params }) {
         const { db } = await connectToDatabase();
         const user = await db.collection('users').findOne({ _id: new ObjectId(session.user.id) });
 
-        if (!user || !user.roles?.includes('artisan')) {
-            return NextResponse.json({ error: 'Access denied. Artisan role required.' }, { status: 403 });
+        // Allow artisan, admin, and dev roles access to gallery management
+        const allowedRoles = ['artisan', 'admin', 'dev'];
+        if (!user || !allowedRoles.includes(user.role)) {
+            return NextResponse.json({ 
+                error: 'Access denied. Artisan role required.',
+                debug: {
+                    userRole: user?.role,
+                    sessionRole: session.user.role,
+                    allowedRoles: allowedRoles
+                }
+            }, { status: 403 });
         }
 
         const itemId = params.id;
@@ -89,8 +98,17 @@ export async function DELETE(request, { params }) {
         const { db } = await connectToDatabase();
         const user = await db.collection('users').findOne({ _id: new ObjectId(session.user.id) });
 
-        if (!user || !user.roles?.includes('artisan')) {
-            return NextResponse.json({ error: 'Access denied. Artisan role required.' }, { status: 403 });
+        // Allow artisan, admin, and dev roles access to gallery management
+        const allowedRoles = ['artisan', 'admin', 'dev'];
+        if (!user || !allowedRoles.includes(user.role)) {
+            return NextResponse.json({ 
+                error: 'Access denied. Artisan role required.',
+                debug: {
+                    userRole: user?.role,
+                    sessionRole: session.user.role,
+                    allowedRoles: allowedRoles
+                }
+            }, { status: 403 });
         }
 
         const itemId = params.id;
@@ -145,8 +163,17 @@ export async function GET(request, { params }) {
         const { db } = await connectToDatabase();
         const user = await db.collection('users').findOne({ _id: new ObjectId(session.user.id) });
 
-        if (!user || !user.roles?.includes('artisan')) {
-            return NextResponse.json({ error: 'Access denied. Artisan role required.' }, { status: 403 });
+        // Allow artisan, admin, and dev roles access to gallery management
+        const allowedRoles = ['artisan', 'admin', 'dev'];
+        if (!user || !allowedRoles.includes(user.role)) {
+            return NextResponse.json({ 
+                error: 'Access denied. Artisan role required.',
+                debug: {
+                    userRole: user?.role,
+                    sessionRole: session.user.role,
+                    allowedRoles: allowedRoles
+                }
+            }, { status: 403 });
         }
 
         const itemId = params.id;
