@@ -6,9 +6,10 @@
 /**
  * Validate repair data structure
  * @param {Object} repair - The repair object to validate
+ * @param {String} userRole - The role of the user performing validation (optional)
  * @returns {Object} Validation result with isValid boolean and errors array
  */
-export const validateRepairData = (repair) => {
+export const validateRepairData = (repair, userRole = null) => {
     const errors = [];
     
     if (!repair) {
@@ -24,17 +25,23 @@ export const validateRepairData = (repair) => {
         errors.push('Client name is required');
     }
 
-    // Validate work items exist
-    const hasWorkItems = (
-        (repair.tasks && repair.tasks.length > 0) ||
-        (repair.processes && repair.processes.length > 0) ||
-        (repair.materials && repair.materials.length > 0) ||
-        (repair.customLineItems && repair.customLineItems.length > 0) ||
-        (repair.repairTasks && repair.repairTasks.length > 0)
-    );
+    // Only validate work items for non-wholesaler roles
+    // Wholesalers submit repairs without work items - these are added by staff later
+    const isWholesaler = userRole === 'wholesaler';
+    
+    if (!isWholesaler) {
+        // Validate work items exist for admin/staff roles
+        const hasWorkItems = (
+            (repair.tasks && repair.tasks.length > 0) ||
+            (repair.processes && repair.processes.length > 0) ||
+            (repair.materials && repair.materials.length > 0) ||
+            (repair.customLineItems && repair.customLineItems.length > 0) ||
+            (repair.repairTasks && repair.repairTasks.length > 0)
+        );
 
-    if (!hasWorkItems) {
-        errors.push('At least one work item is required');
+        if (!hasWorkItems) {
+            errors.push('At least one work item is required');
+        }
     }
 
     return {

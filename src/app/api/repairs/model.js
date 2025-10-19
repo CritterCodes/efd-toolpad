@@ -88,4 +88,22 @@ export default class RepairsModel {
 
         return { message: `Successfully deleted repair with ID: ${repairID}` };
     };
+
+    /**
+     * ✅ Find repairs created by a specific user
+     */
+    static findByCreator = async (creatorEmail) => {
+        const dbInstance = await db.connect();
+        return await dbInstance.collection("repairs")
+            .find({ 
+                $or: [
+                    { "createdBy": creatorEmail },
+                    { "submittedBy": creatorEmail },
+                    { "userID": creatorEmail }
+                ]
+            })
+            .project({ _id: 0 })
+            .sort({ createdAt: -1 })
+            .toArray();
+    };
 }

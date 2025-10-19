@@ -81,11 +81,11 @@ export default function WholesalerDashboardContent() {
         const allRepairs = repairData.allRepairs || [];
         
         const pendingReceipts = allRepairs.filter(r => r.status === 'receiving');
-        const inProgress = allRepairs.filter(r => ['ready-for-work', 'in-progress'].includes(r.status));
+        const inProgress = allRepairs.filter(r => r.status === 'in-progress');
         const completed = allRepairs.filter(r => ['completed', 'picked-up'].includes(r.status));
+        const qcRequired = allRepairs.filter(r => r.status === 'quality-control');
+        const readyForPickup = allRepairs.filter(r => r.status === 'ready-for-pickup');
         const needsParts = allRepairs.filter(r => ['needs-parts', 'parts-ordered'].includes(r.status));
-        const readyForPickup = allRepairs.filter(r => ['quality-control', 'ready-for-pickup'].includes(r.status));
-        const waitingForAction = allRepairs.filter(r => ['receiving', 'needs-parts'].includes(r.status));
 
         // Calculate value metrics for current month
         const monthlyCompleted = completed.filter(r => {
@@ -104,9 +104,9 @@ export default function WholesalerDashboardContent() {
             pendingReceipts,
             inProgress,
             completed,
-            needsParts,
+            qcRequired,
             readyForPickup,
-            waitingForAction,
+            needsParts,
             averageValue,
             monthlyValue
         };
@@ -293,16 +293,16 @@ export default function WholesalerDashboardContent() {
                 </Typography>
             </Box>
 
-            {/* Parts Alert */}
+            {/* Rush/Priority Alert */}
             {dashboardMetrics.needsParts.length > 0 && (
-                <Alert severity="info" sx={{ mb: 3 }} icon={<WarningIcon />}>
-                    <strong>Parts Status:</strong> {dashboardMetrics.needsParts.length} repairs are waiting for parts to proceed.
+                <Alert severity="warning" sx={{ mb: 3 }} icon={<WarningIcon />}>
+                    <strong>Parts Required:</strong> {dashboardMetrics.needsParts.length} repairs are waiting for parts.
                     <Button 
                         size="small" 
                         sx={{ ml: 2 }}
                         onClick={() => router.push('/dashboard/repairs/current?filter=needs-parts')}
                     >
-                        View Details
+                        View Parts Needed
                     </Button>
                 </Alert>
             )}
@@ -315,13 +315,13 @@ export default function WholesalerDashboardContent() {
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <Box>
                                     <Typography color="text.secondary" gutterBottom variant="body2">
-                                        Just Received
+                                        Receiving
                                     </Typography>
                                     <Typography variant="h4">
                                         {dashboardMetrics.pendingReceipts.length}
                                     </Typography>
                                 </Box>
-                                <ScheduleIcon sx={{ color: 'info.main', fontSize: 40 }} />
+                                <ScheduleIcon sx={{ color: 'warning.main', fontSize: 40 }} />
                             </Box>
                         </CardContent>
                     </Card>
@@ -333,13 +333,13 @@ export default function WholesalerDashboardContent() {
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <Box>
                                     <Typography color="text.secondary" gutterBottom variant="body2">
-                                        Being Worked On
+                                        In Progress
                                     </Typography>
                                     <Typography variant="h4">
                                         {dashboardMetrics.inProgress.length}
                                     </Typography>
                                 </Box>
-                                <BuildIcon sx={{ color: 'primary.main', fontSize: 40 }} />
+                                <BuildIcon sx={{ color: 'info.main', fontSize: 40 }} />
                             </Box>
                         </CardContent>
                     </Card>
@@ -351,13 +351,13 @@ export default function WholesalerDashboardContent() {
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <Box>
                                     <Typography color="text.secondary" gutterBottom variant="body2">
-                                        Needs Parts
+                                        QC Required
                                     </Typography>
                                     <Typography variant="h4">
-                                        {dashboardMetrics.needsParts.length}
+                                        {dashboardMetrics.qcRequired.length}
                                     </Typography>
                                 </Box>
-                                <WarningIcon sx={{ color: 'warning.main', fontSize: 40 }} />
+                                <CheckCircleIcon sx={{ color: 'warning.main', fontSize: 40 }} />
                             </Box>
                         </CardContent>
                     </Card>
@@ -369,13 +369,13 @@ export default function WholesalerDashboardContent() {
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <Box>
                                     <Typography color="text.secondary" gutterBottom variant="body2">
-                                        Finishing/Ready
+                                        Ready for Pickup
                                     </Typography>
                                     <Typography variant="h4">
                                         {dashboardMetrics.readyForPickup.length}
                                     </Typography>
                                 </Box>
-                                <CheckCircleIcon sx={{ color: 'success.main', fontSize: 40 }} />
+                                <ShoppingCartIcon sx={{ color: 'success.main', fontSize: 40 }} />
                             </Box>
                         </CardContent>
                     </Card>
@@ -441,8 +441,32 @@ export default function WholesalerDashboardContent() {
                     </Card>
                 </Grid>
 
-                {/* Quick Actions */}
+                {/* Value Metrics & Quick Actions */}
                 <Grid item xs={12} lg={4}>
+                    <Card sx={{ mb: 3 }}>
+                        <CardContent>
+                            <Typography variant="h6" gutterBottom>
+                                Repair Metrics
+                            </Typography>
+                            <Box sx={{ mb: 2 }}>
+                                <Typography variant="body2" color="text.secondary">
+                                    Monthly Repair Value
+                                </Typography>
+                                <Typography variant="h5" color="success.main">
+                                    ${dashboardMetrics.monthlyValue.toFixed(2)}
+                                </Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">
+                                    Average Repair Value
+                                </Typography>
+                                <Typography variant="h6">
+                                    ${dashboardMetrics.averageValue.toFixed(2)}
+                                </Typography>
+                            </Box>
+                        </CardContent>
+                    </Card>
+
                     <Card>
                         <CardContent>
                             <Typography variant="h6" gutterBottom>

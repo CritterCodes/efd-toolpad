@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState, useMemo } from 'react';
 import { Box, Typography, Button, ButtonGroup } from '@mui/material';
+import { useSession } from 'next-auth/react';
 import { useRepairs } from '@/app/context/repairs.context';
 import { useParams } from 'next/navigation';
 import RepairTicketComponent from '@/components/print/RepairTicketComponent';
@@ -10,6 +11,7 @@ import { calculateRepairTotal, getAllWorkItems } from '@/services/pricingCalcula
 import { getRepairSummary, validateRepairData } from '@/services/repairDataStructure.service';
 
 const PrintRepairTicket = () => {
+    const { data: session } = useSession();
     const { repairs } = useRepairs();
     const params = useParams();
     const repairID = params.repairID;
@@ -24,8 +26,9 @@ const PrintRepairTicket = () => {
 
     // Memoize computations to avoid changing dependencies
     const validation = useMemo(() => {
-        return repair ? validateRepairData(repair) : { isValid: false, errors: ['Repair not found'] };
-    }, [repair]);
+        const userRole = session?.user?.role;
+        return repair ? validateRepairData(repair, userRole) : { isValid: false, errors: ['Repair not found'] };
+    }, [repair, session?.user?.role]);
 
     const repairSummary = useMemo(() => {
         return repair ? getRepairSummary(repair) : null;

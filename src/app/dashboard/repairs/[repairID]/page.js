@@ -1,6 +1,7 @@
 "use client";
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 import { useRepairs } from '@/app/context/repairs.context';
 import { 
@@ -18,7 +19,8 @@ import {
     List,
     ListItem,
     ListItemText,
-    ListItemSecondaryAction
+    ListItemSecondaryAction,
+    Alert
 } from '@mui/material';
 import { 
     Print as PrintIcon,
@@ -33,6 +35,7 @@ import UsersService from '@/services/users';
 
 const ViewRepairPage = ({ params }) => {
     const { repairs, setRepairs, removeRepair } = useRepairs();
+    const { data: session } = useSession();
     const router = useRouter();
 
     const [repairID, setRepairID] = React.useState(null);
@@ -43,6 +46,7 @@ const ViewRepairPage = ({ params }) => {
     const [loading, setLoading] = React.useState(true);
     const [isWholesale, setIsWholesale] = React.useState(false);
     const [clientInfo, setClientInfo] = React.useState(null);
+    const [accessDenied, setAccessDenied] = React.useState(false);
 
     // ✅ Unwrapping the params with useEffect
     React.useEffect(() => {
@@ -54,10 +58,32 @@ const ViewRepairPage = ({ params }) => {
     }, [params]);
 
     React.useEffect(() => {
-        if (repairID) {
+        if (repairID && session?.user) {
             const foundRepair = repairs.find(r => r.repairID === repairID);
             console.log('foundRepair', foundRepair);
+            
             if (foundRepair) {
+                // Check access permissions
+                const userRole = session.user.role;
+                const userEmail = session.user.email;
+                
+                // Admins can see all repairs
+                // Wholesalers can only see repairs they created
+                if (userRole === 'wholesaler') {
+                    const isOwner = (
+                        foundRepair.createdBy === userEmail ||
+                        foundRepair.submittedBy === userEmail ||
+                        foundRepair.userID === userEmail
+                    );
+                    
+                    if (!isOwner) {
+                        console.log('Access denied: Wholesaler trying to view repair not created by them');
+                        setAccessDenied(true);
+                        setLoading(false);
+                        return;
+                    }
+                }
+                
                 setRepair(foundRepair);
 
                 const getUser = async () => {
@@ -76,16 +102,48 @@ const ViewRepairPage = ({ params }) => {
                 };
                 getUser();
                 setLoading(false);
+            } else {
+                // Repair not found in context, could be access denied
+                setAccessDenied(true);
+                setLoading(false);
             }
         }
-    }, [repairID, repairs]);
+    }, [repairID, repairs, session?.user]);
 
     if (loading) {
         return <Typography>Loading repair data...</Typography>;
     }
 
+    if (accessDenied) {
+        return (
+            <Box sx={{ p: 3 }}>
+                <Alert severity="error" sx={{ mb: 3 }}>
+                    Access Denied: You can only view repairs that you created.
+                </Alert>
+                <Button 
+                    variant="contained" 
+                    onClick={() => router.push('/dashboard/repairs/my-repairs')}
+                >
+                    Back to My Repairs
+                </Button>
+            </Box>
+        );
+    }
+
     if (!repair) {
-        return <Typography>Repair not found.</Typography>;
+        return (
+            <Box sx={{ p: 3 }}>
+                <Alert severity="warning" sx={{ mb: 3 }}>
+                    Repair not found.
+                </Alert>
+                <Button 
+                    variant="contained" 
+                    onClick={() => router.push('/dashboard/repairs/my-repairs')}
+                >
+                    Back to My Repairs
+                </Button>
+            </Box>
+        );
     }
 
     const handleDeleteRepair = async () => {
@@ -146,8 +204,10 @@ const ViewRepairPage = ({ params }) => {
                 <Link underline="hover" color="inherit" onClick={() => router.push('/dashboard')} sx={{ cursor: 'pointer' }}>
                     Dashboard
                 </Link>
-                <Link underline="hover" color="inherit" onClick={() => router.push('/dashboard/repairs/all')} sx={{ cursor: 'pointer' }}>
-                    Repairs
+                <Link underline="hover" color="inherit" onClick={() => router.push(
+                    session?.user?.role === 'wholesaler' ? '/dashboard/repairs/my-repairs' : '/dashboard/repairs/all'
+                )} sx={{ cursor: 'pointer' }}>
+                    {session?.user?.role === 'wholesaler' ? 'My Repairs' : 'Repairs'}
                 </Link>
                 <Typography color="text.primary">View Repair</Typography>
             </Breadcrumbs>
@@ -168,22 +228,27 @@ const ViewRepairPage = ({ params }) => {
                             >
                                 Print
                             </Button>
-                            <Button
-                                variant="outlined"
-                                startIcon={<EditIcon />}
-                                onClick={handleEdit}
-                                color="info"
-                            >
-                                Edit
-                            </Button>
-                            <Button
-                                variant="outlined"
-                                startIcon={<DeleteIcon />}
-                                onClick={handleDeleteRepair}
-                                color="error"
-                            >
-                                Delete
-                            </Button>
+                            {/* Hide Edit and Delete buttons for wholesalers */}
+                            {session?.user?.role !== 'wholesaler' && (
+                                <>
+                                    <Button
+                                        variant="outlined"
+                                        startIcon={<EditIcon />}
+                                        onClick={handleEdit}
+                                        color="info"
+                                    >
+                                        Edit
+                                    </Button>
+                                    <Button
+                                        variant="outlined"
+                                        startIcon={<DeleteIcon />}
+                                        onClick={handleDeleteRepair}
+                                        color="error"
+                                    >
+                                        Delete
+                                    </Button>
+                                </>
+                            )}
                         </Box>
                     </Box>
 

@@ -38,23 +38,30 @@ const SHARED_NAVIGATION = {
 // Role-specific navigation configurations
 export const ROLE_NAVIGATION = {
   
-  // WHOLESALER - Focused on orders and inventory
+  // WHOLESALER - Enhanced repair management with structured navigation
   [USER_ROLES.WHOLESALER]: [
     SHARED_NAVIGATION.dashboard,
     {
-      segment: 'dashboard/orders',
-      title: 'My Orders',
-      icon: <ShoppingBagIcon />
-    },
-    {
-      segment: 'dashboard/wholesale',
-      title: 'Wholesale Catalog',
-      icon: <StorefrontIcon />
-    },
-    {
-      segment: 'dashboard/analytics',
-      title: 'Order Analytics',
-      icon: <BarChartIcon />
+      segment: 'dashboard/repairs',
+      title: 'Repairs',
+      icon: <BuildIcon />,
+      children: [
+        {
+          segment: 'new',
+          title: 'Create Repair',
+          icon: <BuildIcon />
+        },
+        {
+          segment: 'current',
+          title: 'Current Repairs',
+          icon: <ListIcon />
+        },
+        {
+          segment: 'completed',
+          title: 'Completed Repairs',
+          icon: <QualityIcon />
+        }
+      ]
     },
     {
       segment: 'dashboard/profile',

@@ -1,6 +1,7 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { Box, Button, Typography, Alert, Snackbar } from '@mui/material';
 import { ArrowBack } from '@mui/icons-material';
@@ -8,7 +9,27 @@ import NewRepairForm from '@/app/components/repairs/NewRepairForm';
 
 const NewRepairPage = () => {
   const router = useRouter();
+  const { data: session } = useSession();
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+  const [clientInfo, setClientInfo] = useState(null);
+  const [isWholesaler, setIsWholesaler] = useState(false);
+
+  // Set up client info for wholesalers
+  useEffect(() => {
+    if (session?.user) {
+      const userRole = session.user.role;
+      if (userRole === 'wholesaler') {
+        setIsWholesaler(true);
+        // For wholesalers, they are always the client
+        setClientInfo({
+          userID: session.user.id || session.user.email, // Use email as fallback ID
+          name: session.user.name || session.user.email,
+          email: session.user.email,
+          role: 'wholesaler'
+        });
+      }
+    }
+  }, [session]);
 
   const showToast = (message, severity = 'success') => {
     setNotification({ open: true, message, severity });
@@ -45,7 +66,11 @@ const NewRepairPage = () => {
   };
 
   const handleCancel = () => {
-    router.push('/dashboard/repairs/all');
+    if (isWholesaler) {
+      router.push('/dashboard/repairs/my-repairs');
+    } else {
+      router.push('/dashboard/repairs/all');
+    }
   };
 
   return (
@@ -53,7 +78,10 @@ const NewRepairPage = () => {
       title="New Repair"
       breadcrumbs={[
         { title: 'Dashboard', path: '/dashboard' },
-        { title: 'Repairs', path: '/dashboard/repairs/all' },
+        { 
+          title: isWholesaler ? 'My Repairs' : 'Repairs', 
+          path: isWholesaler ? '/dashboard/repairs/my-repairs' : '/dashboard/repairs/all'
+        },
         { title: 'New Repair', path: '/dashboard/repairs/new' }
       ]}
     >
@@ -69,15 +97,12 @@ const NewRepairPage = () => {
         </Button>
       </Box>
 
-      {/* Page title */}
-      <Typography variant="h4" component="h1" sx={{ mb: 3 }}>
-        Create New Repair
-      </Typography>
-
       {/* New Repair Form - no longer a modal, rendered directly */}
       <Box sx={{ backgroundColor: 'background.paper', borderRadius: 2, p: 0 }}>
         <NewRepairForm
           onSubmit={handleSubmit}
+          clientInfo={clientInfo}
+          isWholesale={isWholesaler}
         />
       </Box>
 

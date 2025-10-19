@@ -85,4 +85,51 @@ export default class RepairsService {
             throw new Error("Failed to delete repair.");
         }
     };
+
+    /**
+     * ✅ Get repairs created by a specific user (for wholesaler view)
+     */
+    static getRepairsByCreator = async (creatorEmail) => {
+        if (!creatorEmail) {
+            throw new Error("Creator email is required.");
+        }
+        try {
+            return await RepairsModel.findByCreator(creatorEmail);
+        } catch (error) {
+            console.error("Error in getRepairsByCreator:", error);
+            throw new Error("Failed to fetch repairs by creator.");
+        }
+    };
+
+    /**
+     * ✅ Get repairs created by a specific user with status filtering
+     */
+    static getRepairsByCreatorAndStatus = async (creatorEmail, statusFilter) => {
+        if (!creatorEmail) {
+            throw new Error("Creator email is required.");
+        }
+        try {
+            const repairs = await RepairsModel.findByCreator(creatorEmail);
+            
+            if (!statusFilter) {
+                return repairs;
+            }
+
+            // Filter based on status categories
+            if (statusFilter === 'current') {
+                return repairs.filter(repair => 
+                    !['completed', 'ready_for_pickup', 'cancelled'].includes(repair.status?.toLowerCase())
+                );
+            } else if (statusFilter === 'completed') {
+                return repairs.filter(repair => 
+                    ['completed', 'ready_for_pickup'].includes(repair.status?.toLowerCase())
+                );
+            }
+
+            return repairs;
+        } catch (error) {
+            console.error("Error in getRepairsByCreatorAndStatus:", error);
+            throw new Error("Failed to fetch filtered repairs by creator.");
+        }
+    };
 }

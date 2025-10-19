@@ -1,5 +1,6 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import RepairsService from "@/services/repairs";
 
 // Create the Repairs Context with default values
@@ -24,19 +25,42 @@ export const useRepairs = () => {
 
 // Repairs Provider Component
 export const RepairsProvider = ({ children }) => {
+    const { data: session } = useSession();
     const [repairs, setRepairs] = useState([]);
     const [loading, setLoading] = useState(true);
 
     /**
-     * Fetch all repairs using the RepairsService
+     * Fetch repairs based on user role
      */
     const fetchRepairs = async () => {
+        if (!session?.user) {
+            setLoading(false);
+            return;
+        }
+
         setLoading(true);
         try {
-            const data = await RepairsService.getRepairs();
+            let data;
+            
+            // Role-based data fetching
+            if (session.user.role === 'wholesaler') {
+                // Wholesalers only see their own repairs
+                const response = await fetch('/api/repairs/my-repairs');
+                if (response.ok) {
+                    const result = await response.json();
+                    data = result.repairs || [];
+                } else {
+                    throw new Error('Failed to fetch user repairs');
+                }
+            } else {
+                // Admins and other roles see all repairs
+                data = await RepairsService.getRepairs();
+            }
+            
             setRepairs(data);
         } catch (error) {
             console.error("❌ Error fetching repairs:", error);
+            setRepairs([]); // Set empty array on error
         } finally {
             setLoading(false);
         }
@@ -84,7 +108,7 @@ export const RepairsProvider = ({ children }) => {
 
     useEffect(() => {
         fetchRepairs();
-    }, []);
+    }, [session?.user]); // Refetch when session changes
 
     return (
         <RepairsContext.Provider value={{ 
