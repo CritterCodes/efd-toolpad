@@ -121,17 +121,52 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         },
 
         async redirect({ url, baseUrl }) {
+            console.log(`🔄 [AUTH REDIRECT] Called with url: ${url}, baseUrl: ${baseUrl}`);
+            console.log(`🔄 [AUTH REDIRECT] URL type: ${typeof url}, URL constructor test:`, url);
+            
             // Allows relative callback URLs
             if (url.startsWith("/")) {
+                console.log(`🔄 [AUTH] Relative URL redirect: ${baseUrl}${url}`);
                 return `${baseUrl}${url}`;
             }
             
             // Allows callback URLs on the same origin
-            if (new URL(url).origin === baseUrl) {
-                return url;
+            try {
+                const urlObj = new URL(url);
+                const baseUrlObj = new URL(baseUrl);
+                console.log(`🔄 [AUTH] URL origin: ${urlObj.origin}, Base origin: ${baseUrlObj.origin}`);
+                
+                if (urlObj.origin === baseUrlObj.origin) {
+                    console.log(`🔄 [AUTH] Same origin redirect: ${url}`);
+                    return url;
+                }
+            } catch (urlError) {
+                console.log(`⚠️ [AUTH] Error parsing URL: ${url}`, urlError);
+            }
+            
+            // Allow redirects to other EFD ecosystem apps
+            const allowedOrigins = [
+                process.env.NEXT_PUBLIC_SHOP_URL || 'http://localhost:3000',
+                process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001', 
+                process.env.NEXT_PUBLIC_DOCS_URL || 'http://localhost:3002'
+            ];
+            
+            console.log(`🔄 [AUTH] Checking against allowed origins:`, allowedOrigins);
+            
+            try {
+                const urlOrigin = new URL(url).origin;
+                console.log(`🔄 [AUTH] URL origin: ${urlOrigin}`);
+                
+                if (allowedOrigins.includes(urlOrigin)) {
+                    console.log(`✅ [AUTH] Redirecting to EFD ecosystem app: ${url}`);
+                    return url;
+                }
+            } catch (error) {
+                console.log(`⚠️ [AUTH] Invalid redirect URL: ${url}`, error);
             }
             
             // Default redirect to dashboard after successful signin
+            console.log(`🔄 [AUTH] Default redirect to dashboard from: ${url}`);
             return `${baseUrl}/dashboard`;
         },
         

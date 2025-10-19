@@ -1,5 +1,32 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    // CORS headers for cross-origin requests from other EFD apps
+    async headers() {
+        return [
+            {
+                // Apply CORS to all API routes
+                source: '/api/:path*',
+                headers: [
+                    {
+                        key: 'Access-Control-Allow-Origin',
+                        value: 'http://localhost:3002', // Allow docs app
+                    },
+                    {
+                        key: 'Access-Control-Allow-Methods',
+                        value: 'GET, POST, PUT, DELETE, OPTIONS',
+                    },
+                    {
+                        key: 'Access-Control-Allow-Headers',
+                        value: 'Content-Type, Authorization, Cookie',
+                    },
+                    {
+                        key: 'Access-Control-Allow-Credentials',
+                        value: 'true',
+                    },
+                ],
+            },
+        ];
+    },
     images: {
         remotePatterns: [
             {

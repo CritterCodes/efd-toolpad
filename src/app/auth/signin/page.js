@@ -36,16 +36,25 @@ const SignIn = () => {
     const [error, setError] = useState(null);
     const [snackbarOpen, setSnackbarOpen] = useState(false);
 
+    // Debug logging
+    console.log('🔍 [SIGNIN PAGE] Search params:', Object.fromEntries(searchParams.entries()));
+    console.log('🔍 [SIGNIN PAGE] Extracted callbackUrl:', callbackUrl);
+    console.log('🔍 [SIGNIN PAGE] Current URL:', typeof window !== 'undefined' ? window.location.href : 'server-side');
+
     const handleSnackbarClose = () => {
         setSnackbarOpen(false);
     };
 
-    const handleSignIn = async (provider, formData, callbackUrl) => {
+    const handleSignIn = async (provider, formData, toolpadCallbackUrl) => {
         try {
             const email = formData.get('email');
             const password = formData.get('password');
 
-            console.log('Starting signin process for:', email);
+            console.log('🔥 [SIGNIN HANDLER] Starting signin process for:', email);
+            console.log('🔥 [SIGNIN HANDLER] Original callbackUrl from search params:', callbackUrl);
+            console.log('🔥 [SIGNIN HANDLER] Toolpad callbackUrl parameter:', toolpadCallbackUrl);
+            console.log('🔥 [SIGNIN HANDLER] Provider:', provider);
+            console.log('🔥 [SIGNIN HANDLER] Current window location:', typeof window !== 'undefined' ? window.location.href : 'server-side');
 
             // First, check if this would be a client access issue by calling our API directly
             const preCheckResponse = await fetch('/api/auth/signin', {
@@ -85,85 +94,52 @@ const SignIn = () => {
 
             // If precheck was successful (200), proceed with NextAuth
             console.log('Pre-check successful, proceeding with NextAuth');
+            console.log('Using callbackUrl:', callbackUrl);
             const result = await signIn("credentials", {
                 email,
                 password,
-                redirect: false,
+                callbackUrl: callbackUrl,
+                redirect: false, // Handle redirect manually
             });
 
             console.log("NextAuth SignIn result:", result);
-
-            // Check if NextAuth is trying to redirect back to signin (production issue)
-            if (result?.url && result.url.includes('/auth/signin')) {
-                console.error('NextAuth redirecting back to signin - checking session...');
+            
+            if (result?.ok) {
+                console.log('✅ NextAuth signin successful, redirecting to:', callbackUrl);
                 
-                // Wait a moment for session to propagate, then check
-                await new Promise(resolve => setTimeout(resolve, 500));
-                
-                try {
-                    const sessionCheck = await fetch('/api/auth/session');
-                    const session = await sessionCheck.json();
-                    console.log('Session check after signin redirect:', session);
+                // Check if this is a cross-origin redirect (different port)
+                if (callbackUrl.includes('localhost:3002') || callbackUrl.includes('localhost:3000')) {
+                    console.log('🔄 Cross-origin redirect detected, generating auth token...');
                     
-                    if (session?.user) {
-                        console.log('Session exists despite redirect URL - proceeding to dashboard');
-                        router.push(callbackUrl || '/dashboard');
-                        return { type: 'CredentialsSignin' };
-                    } else {
-                        console.error('No session found after signin redirect');
-                        const errorMsg = "Authentication failed. Please try again.";
-                        setError(errorMsg);
-                        setSnackbarOpen(true);
-                        return { error: errorMsg };
+                    // Generate a temporary auth token for cross-origin redirect
+                    try {
+                        const tokenResponse = await fetch('/api/auth/generate-token', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email, callbackUrl })
+                        });
+                        
+                        if (tokenResponse.ok) {
+                            const { token } = await tokenResponse.json();
+                            const urlWithToken = `${callbackUrl}${callbackUrl.includes('?') ? '&' : '?'}auth_token=${token}`;
+                            console.log('🔄 Redirecting with auth token:', urlWithToken);
+                            window.location.href = urlWithToken;
+                        } else {
+                            console.log('Failed to generate token, using direct redirect');
+                            window.location.href = callbackUrl;
+                        }
+                    } catch (error) {
+                        console.error('Error generating auth token:', error);
+                        window.location.href = callbackUrl;
                     }
-                } catch (sessionError) {
-                    console.error('Session check failed:', sessionError);
-                    const errorMsg = "Authentication failed. Please try again.";
-                    setError(errorMsg);
-                    setSnackbarOpen(true);
-                    return { error: errorMsg };
+                } else {
+                    // Same-origin redirect, use normal redirect
+                    window.location.href = callbackUrl;
                 }
-            }
-
-            // NextAuth success conditions: ok=true AND status=200
-            // Note: error='CredentialsSignin' is actually SUCCESS when ok=true
-            if (result?.ok && result?.status === 200) {
-                console.log('NextAuth successful, redirecting to dashboard');
-                
-                // Double-check session was created by checking auth state
-                try {
-                    const sessionCheck = await fetch('/api/auth/session');
-                    const session = await sessionCheck.json();
-                    console.log('Session check result:', session);
-                    
-                    if (session?.user) {
-                        // Session confirmed, safe to redirect
-                        router.push(callbackUrl || '/dashboard');
-                        return { type: 'CredentialsSignin' };
-                    } else {
-                        console.error('Session not created despite successful auth');
-                        const errorMsg = "Session creation failed. Please try again.";
-                        setError(errorMsg);
-                        setSnackbarOpen(true);
-                        return { error: errorMsg };
-                    }
-                } catch (sessionError) {
-                    console.error('Session check failed:', sessionError);
-                    // Proceed with redirect anyway - might be a temporary issue
-                    router.push(callbackUrl || '/dashboard');
-                    return { type: 'CredentialsSignin' };
-                }
-            } else if (result?.error && result?.error !== 'CredentialsSignin') {
-                // Only treat as error if it's not the success indicator
-                console.log('NextAuth actual error:', result.error);
-                const errorMsg = "Invalid email or password";
-                setError(errorMsg);
-                setSnackbarOpen(true);
-                return { error: errorMsg };
+                return { success: true };
             } else {
-                // Fallback for other failure cases
-                console.log('NextAuth failed with unknown state:', result);
-                const errorMsg = "An error occurred during sign in";
+                console.log('❌ NextAuth signin failed:', result?.error);
+                const errorMsg = result?.error || "Authentication failed";
                 setError(errorMsg);
                 setSnackbarOpen(true);
                 return { error: errorMsg };
