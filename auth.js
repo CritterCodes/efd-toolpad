@@ -119,52 +119,41 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 userID: user?.userID
             });
 
-            // When the user signs in
-            if (account) {
-                console.log("🆕 JWT callback - Setting up new token for account signin:", {
+            // When the user signs in (new session)
+            if (account && user) {
+                console.log("🆕 JWT callback - Setting up new token for credentials signin:", {
                     userID: user?.userID,
                     email: user?.email,
                     role: user?.role,
                     name: user?.name
                 });
 
-                token.accessToken = account.access_token;
-                token.refreshToken = account.refresh_token; // Store refresh token for later use
-                token.accessTokenExpires = Date.now() + (account.expires_in || 3600) * 1000; // Calculate expiry time
+                // For credentials provider, just copy user data to token
                 token.userID = user.userID;
                 token.name = user.name;
                 token.role = user.role;
+                token.email = user.email;
                 token.image = user.image;
                 
-                console.log("✅ JWT callback - New token created with role:", token.role);
+                console.log("✅ JWT callback - New credentials token created with role:", token.role);
                 return token;
             }
     
-            // If there's an error from a previous refresh attempt, just return the token
-            if (token.error === "RefreshAccessTokenError") {
-                console.log("JWT callback - Previous refresh error, returning token as-is");
-                return token;
-            }
-
-            // Return the token if the access token is still valid (with buffer)
-            if (token.accessTokenExpires && Date.now() < token.accessTokenExpires - 60000) { // 1 minute buffer
-                return token;
-            }
-    
-            // Refresh the token if it has expired
-            console.log("JWT callback - Token expired, attempting refresh");
-            return await refreshAccessToken(token);
+            // For credentials authentication, we don't need token refresh
+            // Just return the existing token with all data preserved
+            console.log("🔄 JWT callback - Returning existing token with role:", token.role);
+            return token;
         },
     
         async session({ session, token }) {
-            // Pass accessToken to the session for use in your app
-            session.accessToken = token.accessToken;
-            session.refreshToken = token.refreshToken;
-            session.accessTokenExpires = token.accessTokenExpires;
+            // Pass user data to the session for use in your app
             session.user.userID = token.userID;
-            session.user.storeID = token.storeID;
             session.user.role = token.role;
             session.user.image = token.image;
+            session.user.name = token.name;
+            session.user.email = token.email;
+            
+            console.log("📋 Session callback - Creating session with role:", token.role);
             return session;
         },
 
@@ -189,50 +178,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     
 });
 
-async function refreshAccessToken(token) {
-    try {
-        console.log("Attempting to refresh access token...");
-        
-        if (!token.refreshToken) {
-            console.error("No refresh token available");
-            return {
-                ...token,
-                error: "RefreshAccessTokenError",
-            };
-        }
-
-        const url = "https://oauth2.googleapis.com/token";
-        const response = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: new URLSearchParams({
-                client_id: process.env.GOOGLE_CLIENT_ID,
-                client_secret: process.env.GOOGLE_CLIENT_SECRET,
-                grant_type: "refresh_token",
-                refresh_token: token.refreshToken,
-            }),
-        });
-
-        const refreshedTokens = await response.json();
-
-        if (!response.ok) {
-            console.error("Error refreshing access token - Response not ok:", refreshedTokens);
-            throw refreshedTokens;
-        }
-
-        console.log("Access token refreshed successfully");
-        return {
-            ...token,
-            accessToken: refreshedTokens.access_token,
-            accessTokenExpires: Date.now() + refreshedTokens.expires_in * 1000, // 1 hour
-            refreshToken: refreshedTokens.refresh_token || token.refreshToken, // Use old refresh token if none returned
-        };
-    } catch (error) {
-        console.error("Error refreshing access token:", error);
-
-        return {
-            ...token,
-            error: "RefreshAccessTokenError",
-        };
-    }
-}
+// No refresh token logic needed for credentials authentication
