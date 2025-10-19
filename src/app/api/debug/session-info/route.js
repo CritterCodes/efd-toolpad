@@ -3,7 +3,7 @@
  * GET /api/debug/session-info
  */
 
-import { auth } from '../../../auth';
+import { auth } from '../../../../../auth.js';
 
 export async function GET(req) {
   try {
