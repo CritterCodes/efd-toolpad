@@ -188,6 +188,15 @@ export default function EmergencyLogoutPage() {
                 
                 // Check localStorage with auth focus
                 console.log('\n💾 === LOCAL STORAGE ANALYSIS ===')
+                
+                // CRITICAL: Check for devViewRole first!
+                const devViewRole = localStorage.getItem('devViewRole')
+                console.log('🎭 CRITICAL: devViewRole in localStorage:', devViewRole)
+                if (devViewRole) {
+                  console.log('⚠️  THIS IS OVERRIDING YOUR SESSION ROLE!')
+                  console.log('🔧 This role switching feature is why you see "client" instead of "admin"')
+                }
+                
                 const authLocalStorage = []
                 for (let i = 0; i < localStorage.length; i++) {
                   const key = localStorage.key(i)
@@ -195,13 +204,13 @@ export default function EmergencyLogoutPage() {
                     const value = localStorage.getItem(key)
                     console.log(`  💾 "${key}" = "${value?.substring(0, 100)}${value?.length > 100 ? '...' : ''}"`)
                     
-                    if (key.includes('auth') || key.includes('session') || key.includes('next')) {
+                    if (key.includes('auth') || key.includes('session') || key.includes('next') || key.includes('role') || key.includes('devView')) {
                       authLocalStorage.push({ key, value })
-                      console.log(`    ⚠️  AUTH LOCAL STORAGE: ${key}`)
+                      console.log(`    ⚠️  AUTH/ROLE RELATED: ${key}`)
                     }
                   }
                 }
-                console.log('🎯 Auth localStorage items:', authLocalStorage.length)
+                console.log('🎯 Auth/Role localStorage items:', authLocalStorage.length)
                 
                 // Check sessionStorage with auth focus
                 console.log('\n🔒 === SESSION STORAGE ANALYSIS ===')
@@ -284,6 +293,32 @@ export default function EmergencyLogoutPage() {
 
           <Button 
             variant="contained"
+            color="warning" 
+            onClick={() => {
+              console.log('🎭 Checking and clearing devViewRole...')
+              
+              const devViewRole = localStorage.getItem('devViewRole')
+              console.log('🔍 Current devViewRole:', devViewRole)
+              
+              if (devViewRole) {
+                localStorage.removeItem('devViewRole')
+                console.log('✅ Cleared devViewRole from localStorage')
+                
+                // Trigger a page reload to refresh the navigation
+                console.log('🔄 Reloading page to refresh navigation...')
+                window.location.reload()
+              } else {
+                console.log('ℹ️ No devViewRole found in localStorage')
+                alert('No devViewRole found in localStorage. The issue might be elsewhere.')
+              }
+            }}
+            sx={{ mr: 2, mb: 2 }}
+          >
+            🎭 Clear Role Override
+          </Button>
+
+          <Button 
+            variant="contained"
             color="error" 
             onClick={async () => {
               console.log('☢️ Starting NUCLEAR logout...')
@@ -291,8 +326,17 @@ export default function EmergencyLogoutPage() {
               // Clear all browser storage first
               const clearAllStorage = async () => {
                 try {
-                  // Clear all localStorage
                   console.log('🗑️ Clearing localStorage...')
+                  
+                  // CRITICAL: Clear the devViewRole that's overriding admin role!
+                  const devViewRole = localStorage.getItem('devViewRole')
+                  console.log('🎭 Found devViewRole in localStorage:', devViewRole)
+                  if (devViewRole) {
+                    localStorage.removeItem('devViewRole')
+                    console.log('✅ Cleared devViewRole from localStorage')
+                  }
+                  
+                  // Clear all localStorage
                   localStorage.clear()
                   
                   // Clear all sessionStorage
