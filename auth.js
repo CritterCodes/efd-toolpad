@@ -82,7 +82,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 httpOnly: true,
                 sameSite: 'lax',
                 path: '/',
-                domain: process.env.NEXTAUTH_COOKIE_DOMAIN || 'localhost',
+                // Fix: Don't use shared domain for admin - use subdomain specific
+                domain: process.env.NODE_ENV === 'production' ? 'repairs.engelsfinedesign.com' : 'localhost',
                 secure: process.env.NODE_ENV === 'production'
             }
         },
@@ -91,7 +92,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             options: {
                 sameSite: 'lax',
                 path: '/',
-                domain: process.env.NEXTAUTH_COOKIE_DOMAIN || 'localhost',
+                // Fix: Don't use shared domain for admin - use subdomain specific  
+                domain: process.env.NODE_ENV === 'production' ? 'repairs.engelsfinedesign.com' : 'localhost',
                 secure: process.env.NODE_ENV === 'production'
             }
         },
@@ -101,7 +103,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 httpOnly: true,
                 sameSite: 'lax',
                 path: '/',
-                domain: process.env.NEXTAUTH_COOKIE_DOMAIN || 'localhost',
+                // Fix: Don't use shared domain for admin - use subdomain specific
+                domain: process.env.NODE_ENV === 'production' ? 'repairs.engelsfinedesign.com' : 'localhost',
                 secure: process.env.NODE_ENV === 'production'
             }
         }
