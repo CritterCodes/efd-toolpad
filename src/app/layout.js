@@ -48,14 +48,17 @@ export default async function RootLayout({ children }) {
         );
     }
 
-    // 🚫 BLOCK CLIENT ROLE ACCESS
+    // 🚫 BLOCK CLIENT ROLE ACCESS - TEMPORARILY DISABLED
     // Clients should only use efd-shop, not efd-admin
     // All other roles (wholesaler, artisan, staff, dev, admin) can access admin panel
-    if (!canAccessAdmin(session.user.role)) {
+    // BUT: Allow signin page access even for clients to enable re-authentication
+    /*
+    if (!canAccessAdmin(session.user.role) && !pathname.includes('/auth/signin')) {
         console.log(`Access denied for role: ${session.user.role}`);
         // Redirect clients to the shop instead of showing admin panel
         redirect('https://engelfinedesign.com');
     }
+    */
 
     // 🎯 ROLE-BASED NAVIGATION - Now handled by RoleAwareNavigationProvider
     const userNavigation = getNavigationForRole(session.user.role); // Fallback for SSR
