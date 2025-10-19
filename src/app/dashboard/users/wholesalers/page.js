@@ -1,16 +1,9 @@
 "use client";
 import React from 'react';
-import UserManagement from '@/app/components/users/UserManagement';
+import WholesaleManagement from '@/app/components/users/WholesaleManagement';
 
 const WholesalersPage = () => {
-  return (
-    <UserManagement
-      userRole="wholesaler"
-      title="Wholesalers"
-      description="Manage wholesale partner accounts with bulk ordering and special pricing access."
-      createButtonText="Add Wholesaler"
-    />
-  );
+  return <WholesaleManagement />;
 };
 
 export default WholesalersPage;
