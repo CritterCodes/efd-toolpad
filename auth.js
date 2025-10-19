@@ -66,6 +66,9 @@ const providers = [
     })
 ];
 
+// Export providers array for the signin page
+export const providerMap = providers;
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
     providers,
     session: {
