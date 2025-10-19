@@ -58,9 +58,13 @@ export default class AuthService {
      */
     static async login(email, password) {
         try {
-            console.log('🔐 [AUTH_SERVICE] Starting Shopify authentication for:', email);
+            console.log('\n🔐 === AUTH_SERVICE LOGIN START ===');
+            console.log('⏰ Timestamp:', new Date().toISOString());
+            console.log('📧 Login attempt for email:', email);
+            console.log('🔑 Password provided:', !!password);
 
             // Step 1: Authenticate with Shopify Storefront API
+            console.log('🛍️ [STEP 1] Starting Shopify Storefront authentication...');
             const mutation = `
               mutation customerAccessTokenCreate($input: CustomerAccessTokenCreateInput!) {
                 customerAccessTokenCreate(input: $input) {
@@ -84,54 +88,67 @@ export default class AuthService {
               }
             };
 
+            console.log('🌐 Calling Shopify storefront API...');
             const response = await storefront(mutation, variables);
+            console.log('📥 Shopify API response received');
+            
             const result = response?.customerAccessTokenCreate;
 
             if (!result) {
-                console.log('❌ [AUTH_SERVICE] No response from Shopify API');
+                console.log('❌ [SHOPIFY] No response from Shopify API');
                 throw new Error("Authentication service unavailable.");
             }
 
             if (result.customerUserErrors && result.customerUserErrors.length > 0) {
                 const error = result.customerUserErrors[0];
-                console.log('❌ [AUTH_SERVICE] Shopify authentication failed:', error.message);
+                console.log('❌ [SHOPIFY] Authentication failed:');
+                console.log('  Field:', error.field);
+                console.log('  Message:', error.message);
+                console.log('  Code:', error.code);
                 throw new Error("Invalid email or password.");
             }
 
             if (!result.customerAccessToken) {
-                console.log('❌ [AUTH_SERVICE] Invalid Shopify credentials for:', email);
+                console.log('❌ [SHOPIFY] No access token received - invalid credentials');
                 throw new Error("Invalid email or password.");
             }
 
-            console.log('✅ [AUTH_SERVICE] Shopify authentication successful for:', email);
+            console.log('✅ [SHOPIFY] Authentication successful');
+            console.log('  🎫 Access token received (length):', result.customerAccessToken.accessToken?.length);
+            console.log('  ⏰ Expires at:', result.customerAccessToken.expiresAt);
 
             // Step 2: Fetch user from MongoDB for admin authorization
+            console.log('🗄️ [STEP 2] Fetching user from MongoDB...');
             const user = await UserModel.findByEmail(email);
+            
             if (!user) {
-                console.log('❌ [AUTH_SERVICE] User not found in admin database:', email);
+                console.log('❌ [MONGODB] User not found in admin database for email:', email);
                 throw new Error("Access denied. Contact administrator for admin access.");
             }
 
+            console.log('✅ [MONGODB] User found in database:');
+            console.log('  🆔 UserID:', user.userID);
+            console.log('  📧 Email:', user.email);
+            console.log('  🎭 Role:', user.role);
+            console.log('  📋 Status:', user.status);
+            console.log('  👤 Name:', user.firstName, user.lastName);
+
             if (user.status !== 'verified') {
-                console.log('❌ [AUTH_SERVICE] User not verified:', email);
+                console.log('❌ [MONGODB] User not verified - status:', user.status);
                 throw new Error("Please verify your email before logging in.");
             }
 
-            console.log('✅ [AUTH_SERVICE] user found in MongoDB:', {
-                userID: user.userID,
-                email: user.email,
-                role: user.role,
-                status: user.status,
-                firstName: user.firstName,
-                lastName: user.lastName
-            });
+            console.log('✅ [MONGODB] User verification status OK');
 
             // ✅ Generate JWT Token for the authenticated user
+            console.log('🎫 [STEP 3] Generating JWT token...');
             const token = jwt.sign({ userID: user.userID, role: user.role }, JWT_SECRET, {
                 expiresIn: JWT_EXPIRATION
             });
 
-            console.log("✅ [AUTH_SERVICE] Token generated for admin user with role:", user.role);
+            console.log('✅ [JWT] Token generated successfully');
+            console.log('  🎭 Token role:', user.role);
+            console.log('  🆔 Token userID:', user.userID);
 
             // ✅ Return the full user data along with the token and Shopify access token
             const returnData = {
@@ -145,11 +162,24 @@ export default class AuthService {
                 shopifyAccessToken: result.customerAccessToken.accessToken
             };
 
-            console.log("🚀 [AUTH_SERVICE] Returning user data with role:", returnData.role);
+            console.log('🚀 [FINAL] Returning complete user data:');
+            console.log('  📧 Email:', returnData.email);
+            console.log('  🎭 Role:', returnData.role);
+            console.log('  👤 Name:', returnData.firstName, returnData.lastName);
+            console.log('  🆔 UserID:', returnData.userID);
+            console.log('  🎫 Has JWT token:', !!returnData.token);
+            console.log('  🛍️ Has Shopify token:', !!returnData.shopifyAccessToken);
+            console.log('🔐 === AUTH_SERVICE LOGIN END (SUCCESS) ===\n');
+            
             return returnData;
 
         } catch (error) {
-            console.error('❌ [AUTH_SERVICE] Login error:', error);
+            console.error('❌ === AUTH_SERVICE LOGIN ERROR ===');
+            console.error('⏰ Timestamp:', new Date().toISOString());
+            console.error('📧 Email:', email);
+            console.error('🚨 Error:', error.message);
+            console.error('📚 Stack:', error.stack);
+            console.error('❌ === AUTH_SERVICE LOGIN END (ERROR) ===\n');
             throw error;
         }
     }

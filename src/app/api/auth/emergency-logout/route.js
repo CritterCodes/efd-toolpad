@@ -10,55 +10,50 @@ export async function POST(req) {
       message: 'Emergency logout completed' 
     })
     
-    // Clear all NextAuth cookies explicitly
-    const domain = process.env.NODE_ENV === 'production' ? 'repair.engelfinedesign.com' : 'localhost'
+    // NUCLEAR cookie clearing - try every possible variant
+    const domains = ['repair.engelfinedesign.com', '.repair.engelfinedesign.com', '.engelfinedesign.com', 'localhost']
+    const cookieNames = [
+      'next-auth.session-token',
+      'next-auth.csrf-token', 
+      'next-auth.callback-url',
+      '__Secure-next-auth.session-token',
+      '__Secure-next-auth.csrf-token',
+      '__Host-next-auth.session-token',
+      '__Host-next-auth.csrf-token',
+      'session-token',
+      'csrf-token',
+      'authjs.session-token',
+      'authjs.csrf-token'
+    ]
+    const paths = ['/', '/api', '/auth']
     
-    // Clear session token
-    response.cookies.set('next-auth.session-token', '', {
-      expires: new Date(0),
-      path: '/',
-      domain,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax'
-    })
-    
-    // Clear CSRF token
-    response.cookies.set('next-auth.csrf-token', '', {
-      expires: new Date(0),
-      path: '/',
-      domain,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax'
-    })
-    
-    // Clear callback URL
-    response.cookies.set('next-auth.callback-url', '', {
-      expires: new Date(0),
-      path: '/',
-      domain,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax'
-    })
-    
-    // Also try to clear any secure variants
-    response.cookies.set('__Secure-next-auth.session-token', '', {
-      expires: new Date(0),
-      path: '/',
-      domain,
-      httpOnly: true,
-      secure: true,
-      sameSite: 'lax'
-    })
-    
-    response.cookies.set('__Secure-next-auth.csrf-token', '', {
-      expires: new Date(0),
-      path: '/',
-      domain,
-      httpOnly: true,
-      secure: true,
-      sameSite: 'lax'
+    domains.forEach(domain => {
+      cookieNames.forEach(cookieName => {
+        paths.forEach(path => {
+          // Try all combinations of secure/non-secure, different samesite values
+          const cookieOptions = [
+            { path, domain, httpOnly: true, secure: true, sameSite: 'lax' },
+            { path, domain, httpOnly: true, secure: true, sameSite: 'strict' },
+            { path, domain, httpOnly: true, secure: true, sameSite: 'none' },
+            { path, domain, httpOnly: true, secure: false, sameSite: 'lax' },
+            { path, domain, httpOnly: false, secure: true, sameSite: 'lax' },
+            { path, domain, httpOnly: false, secure: false, sameSite: 'lax' },
+            { path, secure: true, sameSite: 'lax' }, // No domain specified
+            { path, secure: false, sameSite: 'lax' }, // No domain specified
+          ]
+          
+          cookieOptions.forEach(options => {
+            try {
+              response.cookies.set(cookieName, '', {
+                expires: new Date(0),
+                ...options
+              })
+            } catch (e) {
+              // Ignore cookie setting errors for invalid combinations
+            }
+          })
+        })
+      })
     })
     
     console.log('✅ [EMERGENCY_LOGOUT] All auth cookies cleared')
