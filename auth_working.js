@@ -48,12 +48,7 @@ const providers = [
                         storeID: user.storeID,
                         name: `${user.firstName} ${user.lastName}`,
                         email: user.email,
-                        
-                        // 🔥 EMERGENCY FIX: Force admin role for jacobaengel55@gmail.com
-                        role: user.email === 'jacobaengel55@gmail.com' 
-                            ? 'admin'  // Force admin role for your email
-                            : (user.role || 'admin'), // Use database role or fallback to admin
-                            
+                        role: user.role,
                         token: user.token,
                         image: user.image
                     };
@@ -66,11 +61,17 @@ const providers = [
     })
 ];
 
+export const providerMap = providers.map((provider) => {
+    if (typeof provider === 'function') {
+        const providerData = provider();
+        return { id: providerData.id, name: providerData.name };
+    }
+    return { id: provider.id, name: provider.name };
+});
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
     providers,
-    session: {
-        strategy: "jwt",
-    },
+    secret: process.env.NEXTAUTH_SECRET,
     pages: {
         signIn: '/auth/signin',
     },
@@ -82,8 +83,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 token.refreshToken = account.refresh_token; // Store refresh token for later use
                 token.accessTokenExpires = Date.now() + (account.expires_in || 3600) * 1000; // Calculate expiry time
                 token.userID = user.userID;
+                user.role === user.role
                 token.name = user.name;
-                token.role = user.role; // Clean role assignment
+                token.role = user.role;
                 token.image = user.image;
                 console.log("JWT callback - New token created");
                 return token;
@@ -112,7 +114,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             session.accessTokenExpires = token.accessTokenExpires;
             session.user.userID = token.userID;
             session.user.storeID = token.storeID;
-            session.user.role = token.role; // Clean role assignment
+            session.user.role = token.role;
             session.user.image = token.image;
             return session;
         },

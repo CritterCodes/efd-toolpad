@@ -133,12 +133,7 @@ export default class AuthService {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 email: user.email,
-                
-                // 🔥 EMERGENCY FIX: Force admin role for jacobaengel55@gmail.com
-                role: user.email === 'jacobaengel55@gmail.com' 
-                    ? 'admin'  // Force admin role for your email
-                    : (user.role || 'admin'), // Use database role or fallback to admin
-                    
+                role: user.role,
                 image: user.image,
                 shopifyAccessToken: result.customerAccessToken.accessToken
             };
