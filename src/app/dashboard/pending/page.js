@@ -27,8 +27,31 @@ import { signOut, useSession } from 'next-auth/react';
 export default function PendingApprovalPage() {
   const { data: session } = useSession();
 
-  const handleSignOut = () => {
-    signOut({ callbackUrl: '/auth/signin' });
+  const handleSignOut = async () => {
+    try {
+      console.log('🚪 [CLIENT] Starting enhanced logout process...');
+      
+      // Call our custom logout API to clear server-side session
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        console.log('✅ [CLIENT] Server-side logout successful');
+      }
+      
+      // Also call NextAuth signOut to handle client-side cleanup
+      await signOut({ 
+        callbackUrl: '/auth/signin',
+        redirect: true
+      });
+      
+    } catch (error) {
+      console.error('❌ [CLIENT] Error during logout:', error);
+      // Fallback to regular signOut if custom logout fails
+      await signOut({ callbackUrl: '/auth/signin' });
+    }
   };
 
   return (
