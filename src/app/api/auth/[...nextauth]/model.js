@@ -124,4 +124,30 @@ export default class UserModel {
         );
         return result.modifiedCount > 0;
     }
+
+    /**
+     * ✅ Update user role by email
+     * @param {string} email
+     * @param {string} newRole
+     * @returns {Object | null} - Updated user object or null if not found
+     */
+    static async updateUserRole(email, newRole) {
+        const dbInstance = await db.connect();
+        
+        const result = await dbInstance.collection("users").updateOne(
+            { email },
+            { $set: { role: newRole, updatedAt: new Date() } }
+        );
+
+        if (result.matchedCount === 0) {
+            throw new Error("User not found.");
+        }
+
+        if (result.modifiedCount > 0) {
+            // Return the updated user
+            return await this.findByEmail(email);
+        }
+        
+        return null;
+    }
 }

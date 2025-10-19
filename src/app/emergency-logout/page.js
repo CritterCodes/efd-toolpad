@@ -443,6 +443,116 @@ export default function EmergencyLogoutPage() {
               Use only if regular force logout fails.
             </Typography>
           </Alert>
+
+          <Divider sx={{ my: 3 }} />
+
+          <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>
+            🔧 Database Role Fix
+          </Typography>
+
+          <Button 
+            variant="outlined"
+            color="secondary" 
+            onClick={async () => {
+              console.log('🔍 Checking user role in database...')
+              
+              try {
+                const email = session?.user?.email || 'jacobaengel55@gmail.com'
+                console.log('📧 Checking role for email:', email)
+                
+                const response = await fetch(`/api/auth/fix-role?email=${encodeURIComponent(email)}`, {
+                  credentials: 'include'
+                })
+                
+                const data = await response.json()
+                console.log('📊 Database user data:', data)
+                
+                if (data.success) {
+                  console.log('👤 Current user in database:')
+                  console.log('  📧 Email:', data.user.email)
+                  console.log('  🎭 Role:', data.user.role)
+                  console.log('  📋 Status:', data.user.status)
+                  console.log('  👤 Name:', data.user.firstName, data.user.lastName)
+                  
+                  alert(`Database Role Check:\n\nEmail: ${data.user.email}\nRole: ${data.user.role}\nStatus: ${data.user.status}\n\nIf role is wrong, use the Fix Role button.`)
+                } else {
+                  console.error('❌ Error:', data.error)
+                  alert(`Error checking role: ${data.error}`)
+                }
+              } catch (error) {
+                console.error('❌ Failed to check role:', error)
+                alert(`Failed to check role: ${error.message}`)
+              }
+            }}
+            sx={{ mr: 2, mb: 2 }}
+          >
+            🔍 Check Database Role
+          </Button>
+
+          <Button 
+            variant="contained"
+            color="success" 
+            onClick={async () => {
+              console.log('🔧 Fixing user role in database...')
+              
+              const confirmFix = confirm('This will change your database role from "client" to "admin".\n\nAre you sure you want to proceed?')
+              if (!confirmFix) {
+                console.log('ℹ️ Role fix cancelled by user')
+                return
+              }
+              
+              try {
+                const email = session?.user?.email || 'jacobaengel55@gmail.com'
+                console.log('📧 Fixing role for email:', email)
+                
+                const response = await fetch('/api/auth/fix-role', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  credentials: 'include',
+                  body: JSON.stringify({
+                    email: email,
+                    newRole: 'admin'
+                  })
+                })
+                
+                const data = await response.json()
+                console.log('📊 Role fix response:', data)
+                
+                if (data.success) {
+                  console.log('✅ Role fixed successfully!')
+                  console.log('  📧 Email:', data.user.email)
+                  console.log('  🎭 Old Role:', data.user.oldRole)
+                  console.log('  🎭 New Role:', data.user.newRole)
+                  
+                  alert(`✅ Role Fixed Successfully!\n\nEmail: ${data.user.email}\nOld Role: ${data.user.oldRole}\nNew Role: ${data.user.newRole}\n\nPlease logout and login again to see the changes.`)
+                  
+                  // Suggest logout after role fix
+                  const shouldLogout = confirm('Role has been fixed in the database.\n\nWould you like to logout now so you can login with the new admin role?')
+                  if (shouldLogout) {
+                    window.location.href = '/api/auth/signout'
+                  }
+                } else {
+                  console.error('❌ Role fix failed:', data.error)
+                  alert(`❌ Role Fix Failed: ${data.error}`)
+                }
+              } catch (error) {
+                console.error('❌ Failed to fix role:', error)
+                alert(`Failed to fix role: ${error.message}`)
+              }
+            }}
+            sx={{ mb: 2 }}
+          >
+            🔧 Fix Role to Admin
+          </Button>
+
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            <Typography variant="body2">
+              <strong>Database Role Fix:</strong> If your session shows &quot;client&quot; role but you should have &quot;admin&quot; access, 
+              this will check and update your role directly in the MongoDB database. You&apos;ll need to logout and login again after the fix.
+            </Typography>
+          </Alert>
         </CardContent>
       </Card>
     </Container>
