@@ -5,8 +5,8 @@ export async function forceLogout() {
   try {
     console.log('🚪 [FORCE_LOGOUT] Starting complete session cleanup...');
     
-    // 1. Call server-side logout API
-    const logoutResponse = await fetch('/api/auth/logout', {
+    // 1. Try emergency logout API first (doesn't require auth)
+    const logoutResponse = await fetch('/api/auth/emergency-logout', {
       method: 'POST',
       credentials: 'include'
     });

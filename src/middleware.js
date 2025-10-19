@@ -2,7 +2,7 @@ import { auth } from "../auth";
 import { NextResponse } from "next/server";
 
 // List of public routes that can be accessed without authentication  
-const publicRoutes = ["/auth/signin"];
+const publicRoutes = ["/auth/signin", "/emergency-logout"];
 
 export default async function middleware(req) {
     const session = await auth();
