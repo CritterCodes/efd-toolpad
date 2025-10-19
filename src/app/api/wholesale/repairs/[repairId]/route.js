@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/auth';
+import { auth } from '../../../../../../auth';
 import { ObjectId } from 'mongodb';
 
 // PUT /api/wholesale/repairs/[repairId] - Update repair
 export async function PUT(request, { params }) {
     try {
-        const session = await getServerSession(authOptions);
+        const session = await auth();
         if (!session?.user) {
             return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
         }
@@ -69,7 +68,7 @@ export async function PUT(request, { params }) {
 // DELETE /api/wholesale/repairs/[repairId] - Delete repair
 export async function DELETE(request, { params }) {
     try {
-        const session = await getServerSession(authOptions);
+        const session = await auth();
         if (!session?.user) {
             return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
         }
