@@ -73,9 +73,7 @@ export default class UserService {
      */
     static async getUsersByRole(role) {
         try {
-            console.log("🔍 Fetching users by role in UserService:", role);
             const users = await UserModel.getUsersByRole(role);
-            console.log(`✅ Found ${users.length} users with role ${role}`);
             return users;
         } catch (error) {
             console.error("Error in UserService.getUsersByRole:", error);

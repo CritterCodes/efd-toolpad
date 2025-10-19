@@ -21,7 +21,7 @@ const providers = [
         async authorize(credentials) {
             try {
                 const apiUrl = getApiUrl();
-                console.log('Auth calling API at:', apiUrl);
+                // Auth API call
                 
                 const response = await fetch(`${apiUrl}/api/auth/signin`, {
                     method: "POST",
@@ -88,7 +88,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 token.name = user.name;
                 token.role = user.role; // Clean role assignment
                 token.image = user.image;
-                console.log("JWT callback - New token created");
+                // JWT token created
                 return token;
             }
     
@@ -121,8 +121,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         },
 
         async redirect({ url, baseUrl }) {
-            console.log('NextAuth redirect called:', { url, baseUrl });
-            
             // Allows relative callback URLs
             if (url.startsWith("/")) {
                 return `${baseUrl}${url}`;

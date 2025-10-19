@@ -113,10 +113,8 @@ export default class UserModel {
      */
     static getUsersByRole = async (role) => {
         try {
-            console.log("🔍 Querying database for users with role:", role);
             const dbUsers = await db.dbUsers();
             const users = await dbUsers.find({ role: role }).toArray();
-            console.log(`✅ Database returned ${users.length} users with role ${role}`);
             return users;
         } catch (error) {
             console.error("Error retrieving users by role:", error);

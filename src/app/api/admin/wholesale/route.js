@@ -1,38 +1,26 @@
-import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+// /api/admin/wholesale/route.js
+import { getAllWholesaleApplications, getWholesaleApplicationStats } from '../../../../lib/wholesaleService.js';
 
-// GET /api/admin/wholesale - Get all wholesale applications with optional filters
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status');
-    
-    const { db } = await connectToDatabase();
-    
-    // Build query to find users with wholesale applications
-    let query = {
-      role: { $in: ['wholesale-applicant', 'wholesaler'] },
-      wholesaleApplication: { $exists: true }
-    };
-    
-    // Filter by status if specified
-    if (status) {
-      query['wholesaleApplication.status'] = status;
+    const action = searchParams.get('action');
+
+    if (action === 'stats') {
+      const stats = await getWholesaleApplicationStats();
+      return Response.json(stats);
     }
-    
-    const users = await db.collection('users')
-      .find(query)
-      .sort({ 'wholesaleApplication.submittedAt': -1 })
-      .toArray();
-    
-    console.log(`Found ${users.length} wholesale applications`);
-    
-    return NextResponse.json(users);
+
+    // Default: get all applications
+    const filters = {};
+    if (searchParams.get('status')) filters.status = searchParams.get('status');
+    if (searchParams.get('dateFrom')) filters.dateFrom = searchParams.get('dateFrom');
+    if (searchParams.get('dateTo')) filters.dateTo = searchParams.get('dateTo');
+
+    const applications = await getAllWholesaleApplications(filters);
+    return Response.json(applications);
   } catch (error) {
-    console.error('Error fetching wholesale applications:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch wholesale applications' },
-      { status: 500 }
-    );
+    console.error('Error in GET /api/admin/wholesale:', error);
+    return Response.json({ error: 'Failed to fetch wholesale data' }, { status: 500 });
   }
 }

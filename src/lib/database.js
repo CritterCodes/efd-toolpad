@@ -45,7 +45,6 @@ class Database {
         if (!this._instance) {
             try {
                 await this.client.connect();
-                console.log("✅ MongoDB Connected");
                 this._instance = this.client.db(process.env.MONGO_DB_NAME || "efd-database");
             } catch (error) {
                 console.error("❌ MongoDB Connection Error:", error);

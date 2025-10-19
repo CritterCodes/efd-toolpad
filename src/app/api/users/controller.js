@@ -123,7 +123,6 @@ export default class UserController {
                 );
             }
 
-            console.log("✅ Fetching users with role:", role);
             const users = await UserService.getUsersByRole(role);
             
             return new Response(

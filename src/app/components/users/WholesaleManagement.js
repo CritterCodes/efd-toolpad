@@ -301,7 +301,7 @@ export default function WholesaleManagement() {
                       </Avatar>
                       <Box>
                         <Typography variant="h6">
-                          {application.wholesaleApplication?.businessName || 'N/A'}
+                          {application.businessName || 'N/A'}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                           {application.email}
@@ -310,26 +310,26 @@ export default function WholesaleManagement() {
                     </Box>
 
                     <Chip 
-                      label={application.wholesaleApplication?.status || 'unknown'} 
+                      label={application.status || 'unknown'} 
                       color={
-                        application.wholesaleApplication?.status === 'approved' ? 'success' :
-                        application.wholesaleApplication?.status === 'rejected' ? 'error' : 'warning'
+                        application.status === 'approved' ? 'success' :
+                        application.status === 'rejected' ? 'error' : 'warning'
                       }
                       size="small"
                       sx={{ mb: 1 }}
                     />
 
                     <Typography variant="body2" gutterBottom>
-                      <strong>Contact:</strong> {application.wholesaleApplication?.contactFirstName} {application.wholesaleApplication?.contactLastName}
+                      <strong>Contact:</strong> {application.contactFirstName} {application.contactLastName}
                     </Typography>
                     <Typography variant="body2" gutterBottom>
-                      <strong>Phone:</strong> {application.wholesaleApplication?.contactPhone || 'N/A'}
+                      <strong>Phone:</strong> {application.contactPhone || 'N/A'}
                     </Typography>
                     <Typography variant="body2" gutterBottom>
-                      <strong>Location:</strong> {application.wholesaleApplication?.businessCity}, {application.wholesaleApplication?.businessState}
+                      <strong>Location:</strong> {application.businessCity}, {application.businessState}
                     </Typography>
                     <Typography variant="body2" gutterBottom>
-                      <strong>Submitted:</strong> {formatDate(application.wholesaleApplication?.submittedAt)}
+                      <strong>Submitted:</strong> {formatDate(application.submittedAt)}
                     </Typography>
 
                     <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
@@ -339,7 +339,7 @@ export default function WholesaleManagement() {
                         </IconButton>
                       </Tooltip>
                       
-                      {application.wholesaleApplication?.status === 'pending' && (
+                      {application.status === 'pending' && (
                         <>
                           <Tooltip title="Approve Application">
                             <IconButton 
@@ -407,7 +407,7 @@ export default function WholesaleManagement() {
                     </TableCell>
                     <TableCell>{wholesaler.email}</TableCell>
                     <TableCell>
-                      {wholesaler.wholesaleApplication?.businessName || 'N/A'}
+                      {wholesaler.businessName || 'N/A'}
                     </TableCell>
                     <TableCell>{formatDate(wholesaler.createdAt)}</TableCell>
                     <TableCell align="center">
@@ -416,9 +416,9 @@ export default function WholesaleManagement() {
                           <EmailIcon />
                         </IconButton>
                       </Tooltip>
-                      {wholesaler.wholesaleApplication?.contactPhone && (
+                      {wholesaler.contactPhone && (
                         <Tooltip title="Call">
-                          <IconButton size="small" href={`tel:${wholesaler.wholesaleApplication.contactPhone}`}>
+                          <IconButton size="small" href={`tel:${wholesaler.contactPhone}`}>
                             <PhoneIcon />
                           </IconButton>
                         </Tooltip>
@@ -441,10 +441,10 @@ export default function WholesaleManagement() {
           {selectedApplication && (
             <Box>
               <Typography variant="body1" gutterBottom>
-                <strong>Business:</strong> {selectedApplication.wholesaleApplication?.businessName}
+                <strong>Business:</strong> {selectedApplication.businessName}
               </Typography>
               <Typography variant="body1" gutterBottom>
-                <strong>Contact:</strong> {selectedApplication.wholesaleApplication?.contactFirstName} {selectedApplication.wholesaleApplication?.contactLastName}
+                <strong>Contact:</strong> {selectedApplication.contactFirstName} {selectedApplication.contactLastName}
               </Typography>
               <Typography variant="body1" gutterBottom>
                 <strong>Email:</strong> {selectedApplication.email}
@@ -493,74 +493,74 @@ export default function WholesaleManagement() {
               <Grid item xs={12} md={6}>
                 <Typography variant="h6" gutterBottom>Business Information</Typography>
                 <Typography variant="body2" gutterBottom>
-                  <strong>Business Name:</strong> {selectedApplication.wholesaleApplication?.businessName}
+                  <strong>Business Name:</strong> {selectedApplication.businessName}
                 </Typography>
                 <Typography variant="body2" gutterBottom>
-                  <strong>Address:</strong> {selectedApplication.wholesaleApplication?.businessAddress}
+                  <strong>Address:</strong> {selectedApplication.businessAddress}
                 </Typography>
                 <Typography variant="body2" gutterBottom>
-                  <strong>City:</strong> {selectedApplication.wholesaleApplication?.businessCity}
+                  <strong>City:</strong> {selectedApplication.businessCity}
                 </Typography>
                 <Typography variant="body2" gutterBottom>
-                  <strong>State:</strong> {selectedApplication.wholesaleApplication?.businessState}
+                  <strong>State:</strong> {selectedApplication.businessState}
                 </Typography>
                 <Typography variant="body2" gutterBottom>
-                  <strong>ZIP:</strong> {selectedApplication.wholesaleApplication?.businessZip}
+                  <strong>ZIP:</strong> {selectedApplication.businessZip}
                 </Typography>
                 <Typography variant="body2" gutterBottom>
-                  <strong>Country:</strong> {selectedApplication.wholesaleApplication?.businessCountry}
+                  <strong>Country:</strong> {selectedApplication.businessCountry}
                 </Typography>
               </Grid>
               
               <Grid item xs={12} md={6}>
                 <Typography variant="h6" gutterBottom>Contact Information</Typography>
                 <Typography variant="body2" gutterBottom>
-                  <strong>Name:</strong> {selectedApplication.wholesaleApplication?.contactFirstName} {selectedApplication.wholesaleApplication?.contactLastName}
+                  <strong>Name:</strong> {selectedApplication.contactFirstName} {selectedApplication.contactLastName}
                 </Typography>
                 <Typography variant="body2" gutterBottom>
-                  <strong>Title:</strong> {selectedApplication.wholesaleApplication?.contactTitle}
+                  <strong>Title:</strong> {selectedApplication.contactTitle}
                 </Typography>
                 <Typography variant="body2" gutterBottom>
-                  <strong>Email:</strong> {selectedApplication.wholesaleApplication?.contactEmail}
+                  <strong>Email:</strong> {selectedApplication.contactEmail}
                 </Typography>
                 <Typography variant="body2" gutterBottom>
-                  <strong>Phone:</strong> {selectedApplication.wholesaleApplication?.contactPhone}
+                  <strong>Phone:</strong> {selectedApplication.contactPhone}
                 </Typography>
               </Grid>
               
               <Grid item xs={12}>
                 <Typography variant="h6" gutterBottom>Application Status</Typography>
                 <Typography variant="body2" gutterBottom>
-                  <strong>Status:</strong> {selectedApplication.wholesaleApplication?.status}
+                  <strong>Status:</strong> {selectedApplication.status}
                 </Typography>
                 <Typography variant="body2" gutterBottom>
-                  <strong>Submitted:</strong> {formatDate(selectedApplication.wholesaleApplication?.submittedAt)}
+                  <strong>Submitted:</strong> {formatDate(selectedApplication.submittedAt)}
                 </Typography>
-                {selectedApplication.wholesaleApplication?.reviewedAt && (
+                {selectedApplication.reviewedAt && (
                   <Typography variant="body2" gutterBottom>
-                    <strong>Reviewed:</strong> {formatDate(selectedApplication.wholesaleApplication?.reviewedAt)}
+                    <strong>Reviewed:</strong> {formatDate(selectedApplication.reviewedAt)}
                   </Typography>
                 )}
-                {selectedApplication.wholesaleApplication?.reviewNotes && (
+                {selectedApplication.reviewNotes && (
                   <Typography variant="body2" gutterBottom>
-                    <strong>Review Notes:</strong> {selectedApplication.wholesaleApplication?.reviewNotes}
+                    <strong>Review Notes:</strong> {selectedApplication.reviewNotes}
                   </Typography>
                 )}
               </Grid>
               
-              {selectedApplication.wholesaleApplication?.documents && (
+              {selectedApplication.documents && (
                 <Grid item xs={12}>
                   <Typography variant="h6" gutterBottom>Documents</Typography>
-                  {selectedApplication.wholesaleApplication.documents.salesTaxPermit && (
+                  {selectedApplication.documents.salesTaxPermit && (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <DocumentIcon />
                       <Typography variant="body2">
                         <a 
-                          href={selectedApplication.wholesaleApplication.documents.salesTaxPermit.url} 
+                          href={selectedApplication.documents.salesTaxPermit.url} 
                           target="_blank" 
                           rel="noopener noreferrer"
                         >
-                          Sales Tax Permit ({selectedApplication.wholesaleApplication.documents.salesTaxPermit.originalName})
+                          Sales Tax Permit ({selectedApplication.documents.salesTaxPermit.originalName})
                         </a>
                       </Typography>
                     </Box>
