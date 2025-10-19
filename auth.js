@@ -1,5 +1,4 @@
 import NextAuth from 'next-auth';
-import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
 
 // Use internal URL for server-side calls, external for client-side
@@ -111,17 +110,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     callbacks: {
         async jwt({ token, account, user }) {
+            console.log("🔍 JWT Callback triggered:", {
+                hasAccount: !!account,
+                hasUser: !!user,
+                tokenRole: token?.role,
+                userRole: user?.role,
+                userEmail: user?.email || token?.email,
+                userID: user?.userID
+            });
+
             // When the user signs in
             if (account) {
+                console.log("🆕 JWT callback - Setting up new token for account signin:", {
+                    userID: user?.userID,
+                    email: user?.email,
+                    role: user?.role,
+                    name: user?.name
+                });
+
                 token.accessToken = account.access_token;
                 token.refreshToken = account.refresh_token; // Store refresh token for later use
                 token.accessTokenExpires = Date.now() + (account.expires_in || 3600) * 1000; // Calculate expiry time
                 token.userID = user.userID;
-                user.role === user.role
                 token.name = user.name;
                 token.role = user.role;
                 token.image = user.image;
-                console.log("JWT callback - New token created");
+                
+                console.log("✅ JWT callback - New token created with role:", token.role);
                 return token;
             }
     

@@ -117,17 +117,24 @@ export default class AuthService {
                 throw new Error("Please verify your email before logging in.");
             }
 
-            console.log('✅ [AUTH_SERVICE] user found:', user);
+            console.log('✅ [AUTH_SERVICE] user found in MongoDB:', {
+                userID: user.userID,
+                email: user.email,
+                role: user.role,
+                status: user.status,
+                firstName: user.firstName,
+                lastName: user.lastName
+            });
 
             // ✅ Generate JWT Token for the authenticated user
             const token = jwt.sign({ userID: user.userID, role: user.role }, JWT_SECRET, {
                 expiresIn: JWT_EXPIRATION
             });
 
-            console.log("✅ [AUTH_SERVICE] Token generated for admin user.");
+            console.log("✅ [AUTH_SERVICE] Token generated for admin user with role:", user.role);
 
             // ✅ Return the full user data along with the token and Shopify access token
-            return {
+            const returnData = {
                 token,
                 userID: user.userID,
                 firstName: user.firstName,
@@ -137,6 +144,9 @@ export default class AuthService {
                 image: user.image,
                 shopifyAccessToken: result.customerAccessToken.accessToken
             };
+
+            console.log("🚀 [AUTH_SERVICE] Returning user data with role:", returnData.role);
+            return returnData;
 
         } catch (error) {
             console.error('❌ [AUTH_SERVICE] Login error:', error);
