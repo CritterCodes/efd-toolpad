@@ -113,7 +113,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             session.refreshToken = token.refreshToken;
             session.accessTokenExpires = token.accessTokenExpires;
             session.user.userID = token.userID;
-            session.user.storeID = token.storeID;
             session.user.role = token.role; // Clean role assignment
             session.user.image = token.image;
             return session;
