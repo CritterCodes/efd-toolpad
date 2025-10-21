@@ -107,7 +107,10 @@ const SignIn = () => {
                     
                     if (session?.user) {
                         console.log('Session exists despite redirect URL - proceeding to dashboard');
-                        router.push(callbackUrl || '/dashboard');
+                        // Use window.location for more reliable redirect
+                        const targetUrl = callbackUrl || '/dashboard';
+                        console.log('Redirecting to:', targetUrl);
+                        window.location.href = targetUrl;
                         return { type: 'CredentialsSignin' };
                     } else {
                         console.error('No session found after signin redirect');
@@ -138,7 +141,9 @@ const SignIn = () => {
                     
                     if (session?.user) {
                         // Session confirmed, safe to redirect
-                        router.push(callbackUrl || '/dashboard');
+                        const targetUrl = callbackUrl || '/dashboard';
+                        console.log('Session confirmed, redirecting to:', targetUrl);
+                        window.location.href = targetUrl;
                         return { type: 'CredentialsSignin' };
                     } else {
                         console.error('Session not created despite successful auth');
@@ -150,7 +155,9 @@ const SignIn = () => {
                 } catch (sessionError) {
                     console.error('Session check failed:', sessionError);
                     // Proceed with redirect anyway - might be a temporary issue
-                    router.push(callbackUrl || '/dashboard');
+                    const targetUrl = callbackUrl || '/dashboard';
+                    console.log('Session check failed, but proceeding with redirect to:', targetUrl);
+                    window.location.href = targetUrl;
                     return { type: 'CredentialsSignin' };
                 }
             } else if (result?.error && result?.error !== 'CredentialsSignin') {
@@ -161,8 +168,25 @@ const SignIn = () => {
                 setSnackbarOpen(true);
                 return { error: errorMsg };
             } else {
-                // Fallback for other failure cases
-                console.log('NextAuth failed with unknown state:', result);
+                // Fallback for other cases - if result exists but doesn't match our patterns
+                // This might be a successful login that doesn't follow expected patterns
+                console.log('NextAuth result with unknown state, checking session:', result);
+                
+                try {
+                    const sessionCheck = await fetch('/api/auth/session');
+                    const session = await sessionCheck.json();
+                    
+                    if (session?.user) {
+                        console.log('Session exists in fallback check - redirecting to dashboard');
+                        const targetUrl = callbackUrl || '/dashboard';
+                        window.location.href = targetUrl;
+                        return { type: 'CredentialsSignin' };
+                    }
+                } catch (error) {
+                    console.error('Fallback session check failed:', error);
+                }
+                
+                // If no session found, treat as error
                 const errorMsg = "An error occurred during sign in";
                 setError(errorMsg);
                 setSnackbarOpen(true);
