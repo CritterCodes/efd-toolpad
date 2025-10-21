@@ -1,7 +1,7 @@
 import NextAuth from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
-// comment to trigger redeployment
+
 // Use internal URL for server-side calls, external for client-side
 const getApiUrl = () => {
     // In server-side context, use internal localhost
