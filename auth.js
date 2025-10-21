@@ -45,7 +45,6 @@ const providers = [
                 if (user) {
                     return {
                         userID: user.userID,
-                        storeID: user.storeID,
                         name: `${user.firstName} ${user.lastName}`,
                         email: user.email,
                         
