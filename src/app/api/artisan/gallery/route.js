@@ -109,9 +109,14 @@ export async function POST(request) {
             return NextResponse.json({ error: 'File must be an image' }, { status: 400 });
         }
 
-        // Validate file size (10MB limit)
-        if (imageFile.size > 10 * 1024 * 1024) {
-            return NextResponse.json({ error: 'File size must be less than 10MB' }, { status: 400 });
+        // Validate file size (4MB limit for Vercel platform)
+        // Note: Vercel has a ~4.5MB request body limit on serverless functions
+        if (imageFile.size > 4 * 1024 * 1024) {
+            return NextResponse.json({ 
+                error: 'File size must be less than 4MB due to platform limitations. Please compress your image or use a smaller file.',
+                actualSize: `${(imageFile.size / 1024 / 1024).toFixed(2)}MB`,
+                maxSize: '4MB'
+            }, { status: 400 });
         }
 
         // Generate unique filename

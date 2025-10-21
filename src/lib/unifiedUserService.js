@@ -263,7 +263,10 @@ export class UnifiedUserService {
   static async findUserByEmail(email) {
     try {
       const { db } = await connectToDatabase();
-      const user = await db.collection('users').findOne({ email });
+      // Use case-insensitive regex to match emails regardless of case
+      const user = await db.collection('users').findOne({ 
+        email: { $regex: new RegExp(`^${email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+      });
       return user;
     } catch (error) {
       console.error('Error finding user by email:', error);
@@ -272,12 +275,15 @@ export class UnifiedUserService {
   }
 
   /**
-   * Find all users with the same email (to detect duplicates)
+   * Find all users with the same email (to detect duplicates) - case-insensitive
    */
   static async findUsersByEmail(email) {
     try {
       const { db } = await connectToDatabase();
-      const users = await db.collection('users').find({ email }).toArray();
+      // Use case-insensitive regex to match emails regardless of case
+      const users = await db.collection('users').find({ 
+        email: { $regex: new RegExp(`^${email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+      }).toArray();
       return users;
     } catch (error) {
       console.error('Error finding users by email:', error);

@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "src/app/api/*/route.js": {
+      "maxDuration": 30
+    },
+    "src/app/api/artisan/gallery/route.js": {
+      "maxDuration": 60
+    }
+  }
+}
