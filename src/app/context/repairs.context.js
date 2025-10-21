@@ -1,5 +1,5 @@
 "use client";
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import RepairsService from "@/services/repairs";
 
@@ -32,29 +32,41 @@ export const RepairsProvider = ({ children }) => {
     /**
      * Fetch repairs based on user role
      */
-    const fetchRepairs = async () => {
+    const fetchRepairs = useCallback(async () => {
         if (!session?.user) {
             setLoading(false);
             return;
         }
 
+        console.log("🔄 Starting repairs fetch for role:", session.user.role);
         setLoading(true);
         try {
             let data;
             
             // Role-based data fetching
             if (session.user.role === 'wholesaler') {
+                console.log("🔄 Fetching repairs for wholesaler via /api/repairs/my-repairs");
                 // Wholesalers only see their own repairs
                 const response = await fetch('/api/repairs/my-repairs');
                 if (response.ok) {
                     const result = await response.json();
                     data = result.repairs || [];
+                    console.log("✅ Wholesaler repairs fetched:", data.length, "repairs");
                 } else {
                     throw new Error('Failed to fetch user repairs');
                 }
             } else {
-                // Admins and other roles see all repairs
-                data = await RepairsService.getRepairs();
+                console.log("🔄 Fetching all repairs for admin via /api/repairs");
+                // Admins and other roles see all repairs - use fetch to ensure session cookies are sent
+                const response = await fetch('/api/repairs', {
+                    credentials: 'include' // Ensure cookies are included
+                });
+                if (response.ok) {
+                    data = await response.json();
+                    console.log("✅ Admin repairs fetched:", data?.length || 0, "repairs");
+                } else {
+                    throw new Error('Failed to fetch all repairs');
+                }
             }
             
             setRepairs(data);
@@ -64,7 +76,7 @@ export const RepairsProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [session?.user]);
 
     /**
      * Add a new repair to the context
@@ -107,8 +119,14 @@ export const RepairsProvider = ({ children }) => {
     };
 
     useEffect(() => {
-        fetchRepairs();
-    }, [session?.user]); // Refetch when session changes
+        if (session?.user) {
+            // Add a small delay to ensure session cookies are established
+            const timer = setTimeout(() => {
+                fetchRepairs();
+            }, 100);
+            return () => clearTimeout(timer);
+        }
+    }, [session?.user, fetchRepairs]); // Refetch when session changes
 
     return (
         <RepairsContext.Provider value={{ 
