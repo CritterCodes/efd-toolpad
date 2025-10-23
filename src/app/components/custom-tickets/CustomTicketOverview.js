@@ -182,6 +182,37 @@ export function CustomTicketOverview({ ticket }) {
             </Box>
           </Grid>
 
+          {/* Description and Special Requests */}
+          {(ticket.description || ticket.requestDetails?.specialRequests) && (
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Additional Details
+              </Typography>
+              
+              {ticket.description && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Description:
+                  </Typography>
+                  <Typography variant="body2" sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, whiteSpace: 'pre-wrap' }}>
+                    {ticket.description}
+                  </Typography>
+                </Box>
+              )}
+              
+              {ticket.requestDetails?.specialRequests && ticket.requestDetails.specialRequests.trim() && (
+                <Box sx={{ mb: 1 }}>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Special Requests:
+                  </Typography>
+                  <Typography variant="body2" sx={{ p: 2, bgcolor: 'warning.50', borderRadius: 1, whiteSpace: 'pre-wrap' }}>
+                    {ticket.requestDetails.specialRequests}
+                  </Typography>
+                </Box>
+              )}
+            </Grid>
+          )}
+
           {/* Financial Overview */}
           <Grid item xs={12}>
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
