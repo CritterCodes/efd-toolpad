@@ -1,6 +1,6 @@
 {
   "name": "efd-react",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "private": true,
   "scripts": {
     "toolpad-studio:dev": "toolpad-studio dev .",
