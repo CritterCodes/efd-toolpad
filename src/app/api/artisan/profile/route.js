@@ -95,7 +95,11 @@ export async function PUT(request) {
             
             profileData = {
                 businessName: formData.get('businessName') || '',
-                artisanType: formData.get('artisanType') || '',
+                artisanType: (() => {
+                    const typeValue = formData.get('artisanType') || '';
+                    if (Array.isArray(typeValue)) return typeValue;
+                    return typeValue ? typeValue.split(',').map(t => t.trim()) : [];
+                })(),
                 about: formData.get('about') || '',
                 experience: formData.get('experience') || '',
                 yearsExperience: parseInt(formData.get('yearsExperience')) || 0,
@@ -120,7 +124,15 @@ export async function PUT(request) {
         } else {
             // Parse JSON data
             const jsonData = await request.json();
-            profileData = jsonData;
+            profileData = {
+                ...jsonData,
+                // Ensure artisanType is always an array
+                artisanType: (() => {
+                    const typeValue = jsonData.artisanType;
+                    if (Array.isArray(typeValue)) return typeValue;
+                    return typeValue ? (typeof typeValue === 'string' ? typeValue.split(',').map(t => t.trim()) : [typeValue]) : [];
+                })()
+            };
         }
 
         // Handle file uploads to S3
@@ -181,7 +193,13 @@ export async function PUT(request) {
         
         // Only update fields that have values (preserve existing data for empty/missing fields)
         if (profileData.businessName !== undefined) updateData['artisanApplication.businessName'] = profileData.businessName;
-        if (profileData.artisanType !== undefined) updateData['artisanApplication.artisanType'] = profileData.artisanType;
+        if (profileData.artisanType !== undefined) {
+            // Ensure artisanType is saved as an array
+            const artisanTypeArray = Array.isArray(profileData.artisanType) 
+                ? profileData.artisanType 
+                : (profileData.artisanType ? profileData.artisanType.split(',').map(t => t.trim()) : []);
+            updateData['artisanApplication.artisanType'] = artisanTypeArray;
+        }
         if (profileData.about !== undefined) updateData['artisanApplication.about'] = profileData.about;
         if (profileData.experience !== undefined) updateData['artisanApplication.experience'] = profileData.experience;
         if (profileData.yearsExperience !== undefined) updateData['artisanApplication.yearsExperience'] = profileData.yearsExperience;

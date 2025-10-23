@@ -86,6 +86,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 token.userID = user.userID;
                 token.name = user.name;
                 token.role = user.role; // Clean role assignment
+                token.artisanTypes = user.artisanTypes || []; // Include artisan types
                 token.image = user.image;
                 // JWT token created
                 return token;
@@ -114,6 +115,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             session.accessTokenExpires = token.accessTokenExpires;
             session.user.userID = token.userID;
             session.user.role = token.role; // Clean role assignment
+            session.user.artisanTypes = token.artisanTypes || []; // Include artisan types in session
             session.user.image = token.image;
             return session;
         },
