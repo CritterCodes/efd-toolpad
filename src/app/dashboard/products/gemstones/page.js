@@ -15,8 +15,7 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DiamondIcon from '@mui/icons-material/Diamond';
-import GemstonCreationForm from '@/components/products/GemstonCreationForm';
-import GemCutterProductsPage from '@/components/products/GemCutterProductsPage';
+import GemstonCreationForm from '@/app/components/products/GemstonCreationForm';
 
 // Tab panel component
 function TabPanel(props) {
@@ -206,24 +205,37 @@ export default function GemstonesManagementPage() {
         </TabPanel>
 
         <TabPanel value={currentTab} index={1}>
-          <GemCutterProductsPage 
-            filterStatus="all"
-            showCreateButton={false}
-          />
+          <Box textAlign="center" py={4}>
+            <Typography variant="h6" color="text.secondary">
+              Gemstone Management Coming Soon
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              The full gemstone inventory management interface is being finalized.
+              Use the Create tab above to add new gemstones.
+            </Typography>
+          </Box>
         </TabPanel>
 
         <TabPanel value={currentTab} index={2}>
-          <GemCutterProductsPage 
-            filterStatus="draft"
-            showCreateButton={false}
-          />
+          <Box textAlign="center" py={4}>
+            <Typography variant="h6" color="text.secondary">
+              Draft Listings
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Draft gemstone listings will appear here.
+            </Typography>
+          </Box>
         </TabPanel>
 
         <TabPanel value={currentTab} index={3}>
-          <GemCutterProductsPage 
-            filterStatus="pending"
-            showCreateButton={false}
-          />
+          <Box textAlign="center" py={4}>
+            <Typography variant="h6" color="text.secondary">
+              Pending Approval
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Gemstones awaiting admin approval will appear here.
+            </Typography>
+          </Box>
         </TabPanel>
       </Paper>
 

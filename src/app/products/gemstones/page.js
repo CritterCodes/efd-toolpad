@@ -38,8 +38,8 @@ import {
   LocalOffer,
   Inventory
 } from '@mui/icons-material';
-import { useAuth } from '../../../../context/AuthContext';
-import GemstonCreationForm from '../../components/products/GemstonCreationForm';
+import { useSession } from 'next-auth/react';
+import GemstonCreationForm from '../components/products/GemstonCreationForm';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -60,7 +60,7 @@ function TabPanel({ children, value, index, ...other }) {
 }
 
 export default function GemCutterProductsPage() {
-  const { mongoUser } = useAuth();
+  const { data: session } = useSession();
   const [products, setProducts] = useState([]);
   const [tabValue, setTabValue] = useState(0);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -71,7 +71,8 @@ export default function GemCutterProductsPage() {
   const [success, setSuccess] = useState(null);
 
   // Check if user is a gem cutter
-  const isGemCutter = mongoUser?.artisanApplication?.artisanType === 'Gem Cutters';
+  const artisanTypes = session?.user?.artisanTypes || [];
+  const isGemCutter = artisanTypes.includes('Gem Cutter');
 
   useEffect(() => {
     if (isGemCutter) {
@@ -196,8 +197,8 @@ export default function GemCutterProductsPage() {
         </Typography>
         <Typography variant="body1" color="text.secondary">
           This section is only available to verified gem cutters. 
-          {mongoUser?.artisanApplication ? (
-            ' Your artisan type is listed as: ' + mongoUser.artisanApplication.artisanType
+          {artisanTypes.length > 0 ? (
+            ' Your artisan types: ' + artisanTypes.join(', ')
           ) : (
             ' Please complete your artisan application first.'
           )}
