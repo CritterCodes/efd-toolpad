@@ -19,12 +19,16 @@ import PickupIcon from "@mui/icons-material/LocalShipping";
 import QualityIcon from "@mui/icons-material/VerifiedUser";
 import PartsIcon from "@mui/icons-material/Category";
 import PrintIcon from "@mui/icons-material/Print";
-import StorefrontIcon from "@mui/icons-material/Storefront";
+import DiamondIcon from "@mui/icons-material/Diamond";
 import ShoppingBagIcon from "@mui/icons-material/ShoppingBag";
 import RequestQuoteIcon from "@mui/icons-material/RequestQuote";
 import PersonIcon from "@mui/icons-material/Person";
 import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
+import DesignServicesIcon from "@mui/icons-material/DesignServices";
+import CategoryIcon from "@mui/icons-material/Category";
+import StorefrontIcon from "@mui/icons-material/Storefront";
 import { USER_ROLES } from './unifiedUserService.js';
+import { ARTISAN_TYPES } from './constants.js';
 
 // Base navigation items shared across roles
 const SHARED_NAVIGATION = {
@@ -34,6 +38,58 @@ const SHARED_NAVIGATION = {
     icon: <DashboardIcon />
   }
 };
+
+// Product type navigation mapping
+const PRODUCT_TYPE_NAVIGATION = {
+  'Gem Cutter': {
+    segment: 'gemstones',
+    title: 'Gemstones',
+    icon: <DiamondIcon />
+  },
+  'Jeweler': {
+    segment: 'jewelry',
+    title: 'Jewelry',
+    icon: <CategoryIcon />
+  },
+  'CAD Designer': {
+    segment: 'designs',
+    title: 'Designs',
+    icon: <DesignServicesIcon />
+  },
+  'Hand Engraver': {
+    segment: 'engravings',
+    title: 'Engravings',
+    icon: <DesignServicesIcon />
+  }
+};
+
+/**
+ * Generate products navigation based on artisan types
+ */
+function generateProductsNavigation(artisanTypes = []) {
+  if (!artisanTypes || artisanTypes.length === 0) {
+    return null;
+  }
+
+  const productChildren = artisanTypes
+    .filter(type => PRODUCT_TYPE_NAVIGATION[type])
+    .map(type => ({
+      segment: PRODUCT_TYPE_NAVIGATION[type].segment,
+      title: PRODUCT_TYPE_NAVIGATION[type].title,
+      icon: PRODUCT_TYPE_NAVIGATION[type].icon
+    }));
+
+  if (productChildren.length === 0) {
+    return null;
+  }
+
+  return {
+    segment: 'dashboard/products',
+    title: 'Products',
+    icon: <CategoryIcon />,
+    children: productChildren
+  };
+}
 
 // Role-specific navigation configurations
 export const ROLE_NAVIGATION = {
@@ -86,19 +142,31 @@ export const ROLE_NAVIGATION = {
   ],
 
   // ARTISAN - Artist profile management and shop presence
-  [USER_ROLES.ARTISAN]: [
-    SHARED_NAVIGATION.dashboard,
-    {
-      segment: 'dashboard/profile',
-      title: 'Profile Management',
-      icon: <PersonIcon />
-    },
-    {
+  [USER_ROLES.ARTISAN]: (artisanTypes = []) => {
+    const baseNavigation = [
+      SHARED_NAVIGATION.dashboard,
+      {
+        segment: 'dashboard/profile',
+        title: 'Profile Management',
+        icon: <PersonIcon />
+      }
+    ];
+
+    // Add products navigation if artisan has product-related types
+    const productsNav = generateProductsNavigation(artisanTypes);
+    if (productsNav) {
+      baseNavigation.push(productsNav);
+    }
+
+    // Add gallery management
+    baseNavigation.push({
       segment: 'dashboard/gallery',
       title: 'Gallery Management',
       icon: <PhotoLibraryIcon />
-    }
-  ],
+    });
+
+    return baseNavigation;
+  },
 
   // STAFF - Full operational access
   [USER_ROLES.STAFF]: [
@@ -403,13 +471,25 @@ export const ROLE_NAVIGATION = {
 /**
  * Get navigation for a specific user role
  */
-export function getNavigationForRole(userRole) {
+export function getNavigationForRole(userRole, userContext = {}) {
   // CLIENT role should not have access to admin panel
   if (userRole === USER_ROLES.CLIENT) {
     return [];
   }
   
-  return ROLE_NAVIGATION[userRole] || [];
+  const navigation = ROLE_NAVIGATION[userRole];
+  
+  // Handle dynamic ARTISAN navigation
+  if (userRole === USER_ROLES.ARTISAN && typeof navigation === 'function') {
+    return navigation(userContext.artisanTypes || []);
+  }
+  
+  // Handle static navigation arrays
+  if (Array.isArray(navigation)) {
+    return navigation;
+  }
+  
+  return [];
 }
 
 /**

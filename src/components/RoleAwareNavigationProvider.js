@@ -24,10 +24,13 @@ export default function RoleAwareNavigationProvider({
 
     const updateNavigation = () => {
       const effectiveRole = getEffectiveRole(session.user.role);
-      const navigation = getNavigationForRole(effectiveRole);
+      const userContext = {
+        artisanTypes: session.user.artisanTypes || []
+      };
+      const navigation = getNavigationForRole(effectiveRole, userContext);
       setCurrentNavigation(navigation);
       
-      console.log('📋 [NAVIGATION] Updated for role:', effectiveRole);
+      console.log('📋 [NAVIGATION] Updated for role:', effectiveRole, 'with context:', userContext);
     };
 
     // Initial navigation setup
@@ -54,7 +57,7 @@ export default function RoleAwareNavigationProvider({
       window.removeEventListener('roleViewChanged', handleRoleChange);
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, [session?.user?.role]);
+  }, [session?.user?.role, session?.user?.artisanTypes]);
 
   return (
     <AppProvider
