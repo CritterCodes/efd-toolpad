@@ -89,9 +89,9 @@ const STLViewer = ({ fileUrl, title = 'STL Model Viewer', style = {} }) => {
         scene.add(mesh);
         meshRef.current = mesh;
 
-        // Position camera to view entire model
+        // Position camera to view entire model (further back for better initial view)
         const distance = maxDim / 2 / Math.tan((camera.fov * Math.PI) / 180 / 2);
-        camera.position.z = distance * 1.5;
+        camera.position.z = distance * 2.5;
         camera.updateProjectionMatrix();
 
         setLoading(false);

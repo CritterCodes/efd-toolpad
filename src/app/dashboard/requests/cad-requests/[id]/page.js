@@ -316,7 +316,13 @@ export default function CADRequestViewPage() {
     };
 
     const handleDeclineDesign = async (designId) => {
-        const notes = window.prompt('Enter feedback for the designer (optional):');
+        const notes = window.prompt('Please enter feedback for the designer about why this design was declined:');
+        
+        // Require feedback when declining
+        if (!notes || notes.trim() === '') {
+            setError('Feedback is required when declining a design');
+            return;
+        }
         
         try {
             setActionLoading(true);
@@ -325,7 +331,7 @@ export default function CADRequestViewPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     status: 'declined',
-                    statusNotes: notes || ''
+                    statusNotes: notes.trim()
                 })
             });
 
@@ -1228,12 +1234,11 @@ export default function CADRequestViewPage() {
                                                         )}
                                                     </Box>
 
-                                                    {/* Admin Actions */}
+                                                    {/* Admin & Gem Cutter Actions */}
                                                     {design.status === 'pending_approval' && (
                                                         (() => {
                                                             const isAdmin = session?.user?.role === 'admin';
-                                                            const isGemCutter = session?.user?.artisanTypes?.includes('Gem Cutter') && 
-                                                                               session?.user?.userID === request?.gemCutterId;
+                                                            const isGemCutter = session?.user?.artisanTypes?.includes('Gem Cutter');
                                                             const canApprove = isAdmin || isGemCutter;
                                                             
                                                             return canApprove ? (
