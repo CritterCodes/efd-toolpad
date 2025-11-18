@@ -61,6 +61,7 @@ import {
     ThumbDown as DeclineIcon
 } from '@mui/icons-material';
 import GLBViewer from '@/components/viewers/GLBViewer';
+import STLViewer from '@/components/viewers/STLViewer';
 import CADRequestTracker from '@/components/CADRequestTracker';
 
 const STATUS_CONFIG = {
@@ -110,6 +111,7 @@ export default function CADRequestViewPage() {
     // 3D Viewer states
     const [selectedFileIndex, setSelectedFileIndex] = useState(0);
     const [selectedGlbDesign, setSelectedGlbDesign] = useState(null);
+    const [selectedStlDesign, setSelectedStlDesign] = useState(null);
     
     // Design management
     const [designFeedbackDialog, setDesignFeedbackDialog] = useState(false);
@@ -125,6 +127,16 @@ export default function CADRequestViewPage() {
             setSelectedGlbDesign(glbDesigns[0]);
         }
     }, [uploadedDesigns, selectedGlbDesign]);
+
+    // Auto-select first STL design when designs load
+    useEffect(() => {
+        const stlDesigns = uploadedDesigns.filter(d => d.files?.stl);
+        console.log('🔍 STL Designs filtered:', stlDesigns.length, stlDesigns);
+        if (stlDesigns.length > 0 && !selectedStlDesign) {
+            console.log('✅ Auto-selecting first STL design:', stlDesigns[0]);
+            setSelectedStlDesign(stlDesigns[0]);
+        }
+    }, [uploadedDesigns, selectedStlDesign]);
 
     const loadRequest = useCallback(async () => {
         try {
@@ -1056,248 +1068,219 @@ export default function CADRequestViewPage() {
                 <TabPanel value={currentTab} index={3}>
                     <Box>
                         {uploadedDesigns.filter(d => d.files?.stl).length > 0 ? (
-                            <Box>
-                                {/* Add STL File Button */}
-                                <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Typography variant="h6">STL Files (3D Print Models)</Typography>
-                                    {(request.status === 'in_progress' || request.status === 'stl_approved') && session?.user?.userID === request.designerId && (
-                                        <>
-                                            <input
-                                                type="file"
-                                                accept=".stl"
-                                                onChange={(e) => handleFileSelect(e, 'stl')}
-                                                style={{ display: 'none' }}
-                                                id="stl-upload-another-input"
-                                                disabled={actionLoading}
+                            <Grid container spacing={2} sx={{ minHeight: '700px' }}>
+                                {/* Left Column: 3D Viewer */}
+                                <Grid item xs={12} md={7}>
+                                    {selectedStlDesign && selectedStlDesign.files?.stl?.url ? (
+                                        <Paper key={`stl-viewer-${selectedStlDesign._id}`} sx={{ height: '100%', minHeight: '700px', overflow: 'hidden' }}>
+                                            <STLViewer 
+                                                fileUrl={selectedStlDesign.files.stl.url}
+                                                title={selectedStlDesign.title}
+                                                style={{ width: '100%', height: '100%' }}
                                             />
-                                            <label htmlFor="stl-upload-another-input">
-                                                <Button
-                                                    variant="contained"
-                                                    startIcon={<AddIcon />}
-                                                    component="span"
-                                                    disabled={actionLoading}
-                                                >
-                                                    {actionLoading ? 'Uploading...' : 'Upload Another STL'}
-                                                </Button>
-                                            </label>
-                                        </>
+                                        </Paper>
+                                    ) : (
+                                        <Paper sx={{ height: '100%', minHeight: '700px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', bgcolor: '#fafafa' }}>
+                                            <DesignIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
+                                            <Typography variant="h6" color="text.secondary" gutterBottom>
+                                                Select a model to preview
+                                            </Typography>
+                                            <Typography variant="body2" color="text.secondary">
+                                                Click on an STL file in the list to view it in 3D
+                                            </Typography>
+                                        </Paper>
                                     )}
-                                </Box>
-                                <Stack spacing={2}>
-                                    {uploadedDesigns.filter(d => d.files?.stl).map((design, idx) => (
-                                    <Card key={idx} variant="outlined">
-                                        <CardContent>
-                                            <Grid container spacing={2}>
-                                                {/* STL Info */}
-                                                <Grid item xs={12} md={6}>
-                                                    <Box sx={{ mb: 2 }}>
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, justifyContent: 'space-between' }}>
-                                                            <Typography variant="h6">
-                                                                {design.title}
-                                                            </Typography>
-                                                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                                                                <Chip 
-                                                                    label={design.status?.replace(/_/g, ' ').toUpperCase() || 'PENDING'}
-                                                                    size="small"
-                                                                    color={
-                                                                        design.status === 'approved' ? 'success' : 
-                                                                        design.status === 'declined' ? 'error' : 
-                                                                        design.status === 'pending_approval' ? 'warning' :
-                                                                        'default'
-                                                                    }
-                                                                    variant={design.status === 'pending_approval' ? 'outlined' : 'filled'}
-                                                                />
-                                                                {session?.user?.userID === request.designerId && (
-                                                                    <Tooltip title="Delete STL File">
-                                                                        <IconButton
-                                                                            size="small"
-                                                                            color="error"
-                                                                            onClick={() => handleDeleteDesign(design._id)}
-                                                                            disabled={actionLoading}
-                                                                        >
-                                                                            <CloseIcon fontSize="small" />
-                                                                        </IconButton>
-                                                                    </Tooltip>
-                                                                )}
-                                                            </Box>
-                                                        </Box>
-                                                        {design.description && (
-                                                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                                                                {design.description}
-                                                            </Typography>
-                                                        )}
-                                                        <Typography variant="caption" color="text.secondary">
-                                                            Submitted by {design.designerName} on {new Date(design.createdAt).toLocaleDateString()}
+                                </Grid>
+
+                                {/* Right Column: STL List */}
+                                <Grid item xs={12} md={5}>
+                                    <Stack spacing={2} sx={{ height: '100%', overflow: 'auto', maxHeight: '700px', pr: 1 }}>
+                                        {/* Upload Button */}
+                                        {(request.status === 'in_progress' || request.status === 'stl_approved') && session?.user?.userID === request.designerId && (
+                                            <Box sx={{ mb: 1 }}>
+                                                <input
+                                                    type="file"
+                                                    accept=".stl"
+                                                    onChange={(e) => handleFileSelect(e, 'stl')}
+                                                    style={{ display: 'none' }}
+                                                    id="stl-upload-list-input"
+                                                    disabled={actionLoading}
+                                                />
+                                                <label htmlFor="stl-upload-list-input">
+                                                    <Button
+                                                        variant="contained"
+                                                        startIcon={<AddIcon />}
+                                                        component="span"
+                                                        fullWidth
+                                                        disabled={actionLoading}
+                                                    >
+                                                        {actionLoading ? 'Uploading...' : 'Upload Another STL'}
+                                                    </Button>
+                                                </label>
+                                            </Box>
+                                        )}
+
+                                        {/* STL Files List */}
+                                        {uploadedDesigns.filter(d => d.files?.stl).map((design, idx) => (
+                                            <Card 
+                                                key={idx}
+                                                variant="outlined"
+                                                sx={{
+                                                    cursor: 'pointer',
+                                                    backgroundColor: selectedStlDesign?._id === design._id ? 'primary.lighter' : 'background.paper',
+                                                    border: selectedStlDesign?._id === design._id ? '2px solid' : '1px solid',
+                                                    borderColor: selectedStlDesign?._id === design._id ? 'primary.main' : 'divider',
+                                                    transition: 'all 0.2s ease',
+                                                    '&:hover': {
+                                                        boxShadow: 2,
+                                                        borderColor: 'primary.main'
+                                                    }
+                                                }}
+                                                onClick={() => {
+                                                    console.log('🖱️ STL Card clicked:', design);
+                                                    setSelectedStlDesign(design);
+                                                }}
+                                            >
+                                                <CardContent sx={{ pb: 2 }}>
+                                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 1 }}>
+                                                        <Typography variant="subtitle2" fontWeight="bold" sx={{ flex: 1, mr: 1 }}>
+                                                            {design.title}
                                                         </Typography>
+                                                        <Chip 
+                                                            label={design.status?.replace(/_/g, ' ').toUpperCase() || 'PENDING'}
+                                                            size="small"
+                                                            color={
+                                                                design.status === 'approved' ? 'success' : 
+                                                                design.status === 'declined' ? 'error' : 
+                                                                design.status === 'pending_approval' ? 'warning' :
+                                                                'default'
+                                                            }
+                                                            variant={design.status === 'pending_approval' ? 'outlined' : 'filled'}
+                                                        />
                                                     </Box>
 
-                                                    {/* STL Specs with Volume */}
-                                                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mt: 2, p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
-                                                        <Box>
-                                                            <Typography variant="caption" color="text.secondary" fontWeight="bold">
-                                                                Print Volume
-                                                            </Typography>
-                                                            <Typography variant="h6" fontWeight="bold" color="primary">
-                                                                {design.printVolume || 0} mm³
-                                                            </Typography>
+                                                    {design.description && (
+                                                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.875rem' }}>
+                                                            {design.description.substring(0, 80)}...
+                                                        </Typography>
+                                                    )}
+
+                                                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                                                        by {design.designerName}
+                                                    </Typography>
+
+                                                    {/* Print Specs */}
+                                                    <Box sx={{ mb: 1.5, p: 1, bgcolor: '#f0f7ff', borderRadius: 1 }}>
+                                                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+                                                            <Box>
+                                                                <Typography variant="caption" color="text.secondary" fontSize="0.7rem">
+                                                                    VOLUME
+                                                                </Typography>
+                                                                <Typography variant="body2" fontWeight="bold" color="primary">
+                                                                    {design.printVolume || 0} mm³
+                                                                </Typography>
+                                                            </Box>
+                                                            {design.meshStats && (
+                                                                <Box>
+                                                                    <Typography variant="caption" color="text.secondary" fontSize="0.7rem">
+                                                                        SIZE
+                                                                    </Typography>
+                                                                    <Typography variant="caption" display="block" fontWeight="medium">
+                                                                        {design.meshStats.width?.toFixed(1)} × {design.meshStats.height?.toFixed(1)} mm
+                                                                    </Typography>
+                                                                </Box>
+                                                            )}
                                                         </Box>
-                                                        {design.estimatedTime > 0 && (
-                                                            <Box>
-                                                                <Typography variant="caption" color="text.secondary">Est. Print Time</Typography>
-                                                                <Typography variant="body2" fontWeight="medium">{design.estimatedTime}h</Typography>
-                                                            </Box>
-                                                        )}
-                                                        {design.pricing?.totalCost && (
-                                                            <Box>
-                                                                <Typography variant="caption" color="text.secondary">Print Cost</Typography>
-                                                                <Typography variant="body2" fontWeight="medium" color="primary">
-                                                                    ${design.pricing.totalCost}
-                                                                </Typography>
-                                                            </Box>
-                                                        )}
-                                                        {design.meshStats && (
-                                                            <Box>
-                                                                <Typography variant="caption" color="text.secondary">Dimensions</Typography>
-                                                                <Typography variant="caption" display="block">
-                                                                    {design.meshStats.width?.toFixed(1)} × {design.meshStats.height?.toFixed(1)} × {design.meshStats.depth?.toFixed(1)} mm
-                                                                </Typography>
-                                                            </Box>
-                                                        )}
                                                     </Box>
 
                                                     {/* File Info */}
                                                     {design.files?.stl && (
-                                                        <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                                                <DesignIcon fontSize="small" color="primary" />
-                                                                <Typography variant="caption" sx={{ flex: 1 }}>
+                                                        <Box sx={{ mb: 1.5, p: 1, bgcolor: '#fafafa', borderRadius: 1 }}>
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'space-between' }}>
+                                                                <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 500, flex: 1, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
                                                                     {design.files.stl.originalName}
                                                                 </Typography>
-                                                                <Typography variant="caption" color="text.secondary">
-                                                                    {(design.files.stl.size / (1024 * 1024)).toFixed(1)} MB
-                                                                </Typography>
-                                                            </Box>
-                                                            <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                                                                <Button
-                                                                    size="small"
-                                                                    variant="outlined"
-                                                                    startIcon={<DownloadIcon />}
-                                                                    href={design.files.stl.url}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                >
-                                                                    Download
-                                                                </Button>
-                                                                <Button
-                                                                    size="small"
-                                                                    variant="outlined"
-                                                                    startIcon={<ViewIcon />}
-                                                                    href={design.files.stl.url}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                >
-                                                                    View
-                                                                </Button>
+                                                                {design.files.stl.size && (
+                                                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+                                                                        {(design.files.stl.size / (1024 * 1024)).toFixed(1)} MB
+                                                                    </Typography>
+                                                                )}
                                                             </Box>
                                                         </Box>
+                                                    )}
+
+                                                    {/* Actions */}
+                                                    <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
+                                                        {session?.user?.userID === request.designerId && (
+                                                            <Tooltip title="Delete STL File">
+                                                                <IconButton
+                                                                    size="small"
+                                                                    color="error"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDeleteDesign(design._id);
+                                                                    }}
+                                                                    disabled={actionLoading}
+                                                                >
+                                                                    <CloseIcon fontSize="small" />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                        )}
+                                                    </Box>
+
+                                                    {/* Admin Actions */}
+                                                    {design.status === 'pending_approval' && (
+                                                        (() => {
+                                                            const isAdmin = session?.user?.role === 'admin';
+                                                            const isGemCutter = session?.user?.artisanTypes?.includes('Gem Cutter') && 
+                                                                               session?.user?.userID === request?.gemCutterId;
+                                                            const canApprove = isAdmin || isGemCutter;
+                                                            
+                                                            return canApprove ? (
+                                                                <Box sx={{ mt: 1, pt: 1, borderTop: 1, borderColor: 'divider', display: 'flex', gap: 0.5 }}>
+                                                                    <Button
+                                                                        variant="contained"
+                                                                        color="success"
+                                                                        size="small"
+                                                                        fullWidth
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleApproveDesign(design._id);
+                                                                        }}
+                                                                        disabled={actionLoading}
+                                                                    >
+                                                                        Approve
+                                                                    </Button>
+                                                                    <Button
+                                                                        variant="outlined"
+                                                                        color="error"
+                                                                        size="small"
+                                                                        fullWidth
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleDeclineDesign(design._id);
+                                                                        }}
+                                                                        disabled={actionLoading}
+                                                                    >
+                                                                        Decline
+                                                                    </Button>
+                                                                </Box>
+                                                            ) : null;
+                                                        })()
                                                     )}
 
                                                     {/* Status Notes */}
                                                     {design.statusNotes && (
-                                                        <Alert severity={design.status === 'declined' ? 'error' : 'info'} sx={{ mt: 2 }}>
+                                                        <Alert severity={design.status === 'declined' ? 'error' : 'info'} sx={{ mt: 1 }}>
                                                             <Typography variant="caption">{design.statusNotes}</Typography>
                                                         </Alert>
                                                     )}
-                                                </Grid>
-
-                                                {/* STL Info Column */}
-                                                <Grid item xs={12} md={6}>
-                                                    <Paper sx={{ p: 2, backgroundColor: '#fafafa' }}>
-                                                        <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
-                                                            3D Print Specifications
-                                                        </Typography>
-                                                        <Divider sx={{ my: 1 }} />
-                                                        <Stack spacing={1.5}>
-                                                            <Box>
-                                                                <Typography variant="caption" color="text.secondary">
-                                                                    Volume Calculation
-                                                                </Typography>
-                                                                <Typography variant="body2">
-                                                                    {design.printVolume ? `${design.printVolume.toLocaleString()} mm³` : 'Not calculated'}
-                                                                </Typography>
-                                                            </Box>
-                                                            {design.meshStats && (
-                                                                <>
-                                                                    <Box>
-                                                                        <Typography variant="caption" color="text.secondary">
-                                                                            Bounding Box
-                                                                        </Typography>
-                                                                        <Typography variant="body2">
-                                                                            W: {design.meshStats.width?.toFixed(2)} mm
-                                                                        </Typography>
-                                                                        <Typography variant="body2">
-                                                                            H: {design.meshStats.height?.toFixed(2)} mm
-                                                                        </Typography>
-                                                                        <Typography variant="body2">
-                                                                            D: {design.meshStats.depth?.toFixed(2)} mm
-                                                                        </Typography>
-                                                                    </Box>
-                                                                </>
-                                                            )}
-                                                            {design.notes && (
-                                                                <Box>
-                                                                    <Typography variant="caption" color="text.secondary">
-                                                                        Notes
-                                                                    </Typography>
-                                                                    <Typography variant="body2">
-                                                                        {design.notes}
-                                                                    </Typography>
-                                                                </Box>
-                                                            )}
-                                                        </Stack>
-                                                    </Paper>
-                                                </Grid>
-                                            </Grid>
-
-                                            {/* Admin & Gem Cutter Actions */}
-                                            {design.status === 'pending_approval' && (
-                                                (() => {
-                                                    const isAdmin = session?.user?.role === 'admin';
-                                                    const isGemCutter = session?.user?.artisanTypes?.includes('Gem Cutter') && 
-                                                                       session?.user?.userID === request?.gemCutterId;
-                                                    const canApprove = isAdmin || isGemCutter;
-                                                    
-                                                    return canApprove ? (
-                                                        <Box sx={{ mt: 3, pt: 2, borderTop: 1, borderColor: 'divider', display: 'flex', gap: 1 }}>
-                                                            <Button
-                                                                variant="contained"
-                                                                color="success"
-                                                                startIcon={<ApproveIcon />}
-                                                                onClick={() => handleApproveDesign(design._id)}
-                                                                disabled={actionLoading}
-                                                                size="small"
-                                                            >
-                                                                Approve
-                                                            </Button>
-                                                            <Button
-                                                                variant="outlined"
-                                                                color="error"
-                                                                startIcon={<DeclineIcon />}
-                                                                onClick={() => handleDeclineDesign(design._id)}
-                                                                disabled={actionLoading}
-                                                                size="small"
-                                                            >
-                                                                Decline
-                                                            </Button>
-                                                        </Box>
-                                                    ) : null;
-                                                })()
-                                            )}
-                                        </CardContent>
-                                    </Card>
-                                ))}
-                                </Stack>
-                            </Box>
+                                                </CardContent>
+                                            </Card>
+                                        ))}
+                                    </Stack>
+                                </Grid>
+                            </Grid>
                         ) : (
                             <Box sx={{ textAlign: 'center', py: 6 }}>
                                 <DesignIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
