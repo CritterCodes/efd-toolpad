@@ -52,10 +52,6 @@ const STLViewer = ({ fileUrl, title = 'STL Model Viewer', style = {} }) => {
     directionalLight2.position.set(-100, -100, -100);
     scene.add(directionalLight2);
 
-    // Grid helper for reference
-    const gridHelper = new THREE.GridHelper(200, 20, 0xcccccc, 0xeeeeee);
-    scene.add(gridHelper);
-
     // Load STL file
     const loader = new STLLoader();
     loader.load(

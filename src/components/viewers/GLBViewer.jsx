@@ -60,11 +60,6 @@ export default function GLBViewer({ fileUrl, title = 'CAD Design Preview', style
       directionalLight.shadow.mapSize.height = 2048;
       scene.add(directionalLight);
 
-      // Add grid helper for reference
-      const gridHelper = new THREE.GridHelper(10, 10, 0xcccccc, 0xeeeeee);
-      gridHelper.position.y = -3;
-      scene.add(gridHelper);
-
       // Simple orbit-like controls with mouse
       let isDragging = false;
       let previousMousePosition = { x: 0, y: 0 };
