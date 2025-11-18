@@ -168,10 +168,20 @@ const STLViewer = ({ fileUrl, title = 'STL Model Viewer', style = {} }) => {
       renderer.render(scene, camera);
     };
 
+    let animationFrameId;
+    const animate = () => {
+      animationFrameId = requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    };
     animate();
 
     // Cleanup
     return () => {
+      // Cancel animation frame
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+
       window.removeEventListener('resize', handleResize);
       renderer.domElement.removeEventListener('mousedown', onMouseDown);
       renderer.domElement.removeEventListener('mousemove', onMouseMove);
