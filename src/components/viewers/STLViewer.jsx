@@ -11,6 +11,7 @@ const STLViewer = ({ fileUrl, title = 'STL Model Viewer', style = {} }) => {
   const cameraRef = useRef(null);
   const rendererRef = useRef(null);
   const meshRef = useRef(null);
+  const animationFrameIdRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -163,9 +164,8 @@ const STLViewer = ({ fileUrl, title = 'STL Model Viewer', style = {} }) => {
     window.addEventListener('resize', handleResize);
 
     // Animation loop
-    let animationFrameId;
     const animate = () => {
-      animationFrameId = requestAnimationFrame(animate);
+      animationFrameIdRef.current = requestAnimationFrame(animate);
       renderer.render(scene, camera);
     };
     animate();
@@ -173,8 +173,8 @@ const STLViewer = ({ fileUrl, title = 'STL Model Viewer', style = {} }) => {
     // Cleanup
     return () => {
       // Cancel animation frame
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
       }
 
       window.removeEventListener('resize', handleResize);

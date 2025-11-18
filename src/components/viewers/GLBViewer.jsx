@@ -19,6 +19,7 @@ export default function GLBViewer({ fileUrl, title = 'CAD Design Preview', style
   const cameraRef = useRef(null);
   const rendererRef = useRef(null);
   const controlsRef = useRef(null);
+  const animationFrameIdRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -116,9 +117,8 @@ export default function GLBViewer({ fileUrl, title = 'CAD Design Preview', style
           scene.add(model);
 
           // Animation loop
-          let animationFrameId;
           const animate = () => {
-            animationFrameId = requestAnimationFrame(animate);
+            animationFrameIdRef.current = requestAnimationFrame(animate);
             renderer.render(scene, camera);
           };
           animate();
@@ -153,8 +153,8 @@ export default function GLBViewer({ fileUrl, title = 'CAD Design Preview', style
       // Cleanup
       return () => {
         // Cancel animation frame
-        if (animationFrameId) {
-          cancelAnimationFrame(animationFrameId);
+        if (animationFrameIdRef.current) {
+          cancelAnimationFrame(animationFrameIdRef.current);
         }
 
         window.removeEventListener('resize', handleResize);
