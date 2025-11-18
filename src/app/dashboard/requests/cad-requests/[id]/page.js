@@ -120,23 +120,25 @@ export default function CADRequestViewPage() {
 
     // Auto-select first GLB design when designs load
     useEffect(() => {
+        if (currentTab !== 2) return; // Only run when GLB tab is active
         const glbDesigns = uploadedDesigns.filter(d => d.files?.glb);
         console.log('🔍 GLB Designs filtered:', glbDesigns.length, glbDesigns);
         if (glbDesigns.length > 0 && !selectedGlbDesign) {
             console.log('✅ Auto-selecting first GLB design:', glbDesigns[0]);
             setSelectedGlbDesign(glbDesigns[0]);
         }
-    }, [uploadedDesigns, selectedGlbDesign]);
+    }, [uploadedDesigns, selectedGlbDesign, currentTab]);
 
     // Auto-select first STL design when designs load
     useEffect(() => {
+        if (currentTab !== 3) return; // Only run when STL tab is active
         const stlDesigns = uploadedDesigns.filter(d => d.files?.stl);
         console.log('🔍 STL Designs filtered:', stlDesigns.length, stlDesigns);
         if (stlDesigns.length > 0 && !selectedStlDesign) {
             console.log('✅ Auto-selecting first STL design:', stlDesigns[0]);
             setSelectedStlDesign(stlDesigns[0]);
         }
-    }, [uploadedDesigns, selectedStlDesign]);
+    }, [uploadedDesigns, selectedStlDesign, currentTab]);
 
     const loadRequest = useCallback(async () => {
         try {
@@ -1322,38 +1324,6 @@ export default function CADRequestViewPage() {
                                         Waiting for designer to upload STL files...
                                     </Typography>
                                 )}
-                            </Box>
-                        )}
-                    </Box>
-                </TabPanel>
-
-                {/* Comments Tab */}
-                <TabPanel value={currentTab} index={4}>
-                    <Box>
-                        {request.comments && request.comments.length > 0 ? (
-                            <List>
-                                {request.comments.map((comment) => (
-                                    <ListItem key={comment._id}>
-                                        <ListItemText
-                                            primary={comment.author}
-                                            secondary={
-                                                <>
-                                                    <Typography variant="body2">{comment.text}</Typography>
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        {new Date(comment.createdAt).toLocaleString()}
-                                                    </Typography>
-                                                </>
-                                            }
-                                        />
-                                    </ListItem>
-                                ))}
-                            </List>
-                        ) : (
-                            <Box sx={{ textAlign: 'center', py: 6 }}>
-                                <CommentIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-                                <Typography variant="h6" color="text.secondary">
-                                    No Comments Yet
-                                </Typography>
                             </Box>
                         )}
                     </Box>
