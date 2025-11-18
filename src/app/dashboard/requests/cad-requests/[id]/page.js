@@ -216,7 +216,11 @@ export default function CADRequestViewPage() {
             const response = await fetch(`/api/cad-requests/${id}/claim`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ designerId: session.user.userID })
+                body: JSON.stringify({ 
+                    designerId: session.user.userID,
+                    designerName: session.user.name || 'CAD Designer',
+                    designerEmail: session.user.email
+                })
             });
 
             if (!response.ok) throw new Error('Failed to claim request');
@@ -1016,7 +1020,7 @@ export default function CADRequestViewPage() {
                                     <Typography variant="body2" color="error" sx={{ mt: 1 }}>
                                         🔒 GLB upload is locked until STL is approved
                                     </Typography>
-                                ) : request.status === 'claimed' && session?.user?.userID === request.designerId ? (
+                                ) : (request.status === 'in_progress' || request.status === 'stl_approved') && session?.user?.userID === request.designerId ? (
                                     <>
                                         <input
                                             type="file"
@@ -1056,7 +1060,7 @@ export default function CADRequestViewPage() {
                                 {/* Add STL File Button */}
                                 <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <Typography variant="h6">STL Files (3D Print Models)</Typography>
-                                    {request.status === 'claimed' && session?.user?.userID === request.designerId && (
+                                    {(request.status === 'in_progress' || request.status === 'stl_approved') && session?.user?.userID === request.designerId && (
                                         <>
                                             <input
                                                 type="file"
@@ -1303,17 +1307,17 @@ export default function CADRequestViewPage() {
                                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                                     Request must be claimed first
                                 </Typography>
-                                {request.status === 'claimed' && session?.user?.userID === request.designerId ? (
+                                {(request.status === 'in_progress' || request.status === 'stl_approved') && session?.user?.userID === request.designerId ? (
                                     <>
                                         <input
                                             type="file"
                                             accept=".stl"
                                             onChange={(e) => handleFileSelect(e, 'stl')}
                                             style={{ display: 'none' }}
-                                            id="stl-upload-first-input"
+                                            id="stl-upload-empty-input"
                                             disabled={actionLoading}
                                         />
-                                        <label htmlFor="stl-upload-first-input">
+                                        <label htmlFor="stl-upload-empty-input">
                                             <Button
                                                 variant="contained"
                                                 startIcon={<AddIcon />}
