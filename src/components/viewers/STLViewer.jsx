@@ -18,6 +18,17 @@ const STLViewer = ({ fileUrl, title = 'STL Model Viewer', style = {} }) => {
   useEffect(() => {
     if (!containerRef.current || !fileUrl) return;
 
+    // Clean up any existing renderer before creating a new one
+    if (animationFrameIdRef.current) {
+      cancelAnimationFrame(animationFrameIdRef.current);
+      animationFrameIdRef.current = null;
+    }
+    
+    // Clear any existing canvas elements
+    while (containerRef.current.firstChild) {
+      containerRef.current.removeChild(containerRef.current.firstChild);
+    }
+
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
 

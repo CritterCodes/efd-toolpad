@@ -27,6 +27,17 @@ export default function GLBViewer({ fileUrl, title = 'CAD Design Preview', style
     if (!fileUrl || !containerRef.current) return;
 
     try {
+      // Clean up any existing renderer before creating a new one
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+        animationFrameIdRef.current = null;
+      }
+      
+      // Clear any existing canvas elements
+      while (containerRef.current.firstChild) {
+        containerRef.current.removeChild(containerRef.current.firstChild);
+      }
+
       // Initialize Three.js scene
       const width = containerRef.current.clientWidth;
       const height = containerRef.current.clientHeight;
