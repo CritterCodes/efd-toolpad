@@ -163,11 +163,6 @@ const STLViewer = ({ fileUrl, title = 'STL Model Viewer', style = {} }) => {
     window.addEventListener('resize', handleResize);
 
     // Animation loop
-    const animate = () => {
-      requestAnimationFrame(animate);
-      renderer.render(scene, camera);
-    };
-
     let animationFrameId;
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
