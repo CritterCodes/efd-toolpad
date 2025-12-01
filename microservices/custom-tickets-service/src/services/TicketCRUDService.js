@@ -26,6 +26,8 @@ export class TicketCRUDService {
    */
   static async getAllTickets(filters = {}) {
     try {
+      console.log('🔍 [EMBEDDED] TicketCRUDService.getAllTickets - Starting with filters:', filters);
+      
       const collection = DatabaseService.getTicketsCollection();
       const {
         page = 1,
@@ -34,6 +36,8 @@ export class TicketCRUDService {
         sortOrder = 'desc',
         ...searchFilters
       } = filters;
+
+      console.log('🔍 [EMBEDDED] TicketCRUDService.getAllTickets - Search filters:', searchFilters);
 
       // Build MongoDB query
       const query = {};
@@ -85,6 +89,19 @@ export class TicketCRUDService {
         }
       }
 
+      // Assigned artisan filter
+      if (searchFilters.assignedArtisan) {
+        // assignedArtisans is an array of objects with userId field
+        // We need to match against the userId field within the array objects
+        query['assignedArtisans.userId'] = searchFilters.assignedArtisan;
+        console.log('🎯 [EMBEDDED] TicketCRUDService.getAllTickets - Added artisan filter:', {
+          assignedArtisan: searchFilters.assignedArtisan,
+          queryFilter: query['assignedArtisans.userId']
+        });
+      }
+
+      console.log('🔍 [EMBEDDED] TicketCRUDService.getAllTickets - Final MongoDB query:', JSON.stringify(query, null, 2));
+
       // Calculate pagination
       const skip = (page - 1) * limit;
       const sortOptions = { [sortBy]: sortOrder === 'desc' ? -1 : 1 };
@@ -99,10 +116,19 @@ export class TicketCRUDService {
         collection.countDocuments(query)
       ]);
 
+      console.log('📊 [EMBEDDED] TicketCRUDService.getAllTickets - Database results:', {
+        ticketCount: tickets.length,
+        totalCount,
+        page,
+        limit,
+        hasAssignedArtisanFilter: !!searchFilters.assignedArtisan,
+        assignedArtisan: searchFilters.assignedArtisan
+      });
+
       // Enrich tickets with customer data
       const enrichedTickets = await CustomerService.enrichTicketsWithCustomers(tickets);
 
-      return {
+      const result = {
         tickets: enrichedTickets,
         totalCount,
         pagination: {
@@ -112,6 +138,15 @@ export class TicketCRUDService {
           hasPreviousPage: page > 1
         }
       };
+
+      console.log('✅ [EMBEDDED] TicketCRUDService.getAllTickets - Returning result:', {
+        enrichedTicketsCount: enrichedTickets.length,
+        totalCount: result.totalCount,
+        pagination: result.pagination,
+        hasAssignedArtisanFilter: !!searchFilters.assignedArtisan
+      });
+
+      return result;
     } catch (error) {
       logger.error('Error fetching tickets:', error);
       throw error;
@@ -124,12 +159,38 @@ export class TicketCRUDService {
   static async getTicketById(ticketId) {
     try {
       const collection = DatabaseService.getTicketsCollection();
-      const ticket = await collection.findOne({ 
-        $or: [
-          { ticketID: ticketId },
-          { _id: ticketId }
-        ]
-      });
+      const { ObjectId } = require('mongodb');
+      
+      console.log('🔍 [CRUD] Looking for ticket with ID:', ticketId, 'type:', typeof ticketId);
+      
+      let query;
+      // Try to create ObjectId if the ticketId looks like one
+      if (typeof ticketId === 'string' && ticketId.match(/^[0-9a-fA-F]{24}$/)) {
+        console.log('🔍 [CRUD] Treating as MongoDB ObjectId');
+        query = {
+          $or: [
+            { ticketID: ticketId },
+            { _id: new ObjectId(ticketId) }
+          ]
+        };
+      } else {
+        console.log('🔍 [CRUD] Treating as string ID');
+        query = { 
+          $or: [
+            { ticketID: ticketId },
+            { _id: ticketId }
+          ]
+        };
+      }
+      
+      console.log('🔍 [CRUD] Query:', JSON.stringify(query, null, 2));
+      
+      const ticket = await collection.findOne(query);
+      
+      console.log('🔍 [CRUD] Found ticket:', ticket ? 'YES' : 'NO');
+      if (ticket) {
+        console.log('🔍 [CRUD] Ticket keys:', Object.keys(ticket));
+      }
 
       if (!ticket) {
         return null;
@@ -200,15 +261,32 @@ export class TicketCRUDService {
         finalUpdateStringified: JSON.stringify(update, null, 2)
       });
 
-      const result = await collection.updateOne(
-        { 
+      // Use the same query logic as getTicketById for consistency
+      const { ObjectId } = require('mongodb');
+      let query;
+      
+      // Try to create ObjectId if the ticketId looks like one
+      if (typeof ticketId === 'string' && ticketId.match(/^[0-9a-fA-F]{24}$/)) {
+        console.log('🔄 [EMBEDDED] TicketCRUDService.updateTicket - Treating as MongoDB ObjectId');
+        query = {
+          $or: [
+            { ticketID: ticketId },
+            { _id: new ObjectId(ticketId) }
+          ]
+        };
+      } else {
+        console.log('🔄 [EMBEDDED] TicketCRUDService.updateTicket - Treating as string ID');
+        query = { 
           $or: [
             { ticketID: ticketId },
             { _id: ticketId }
           ]
-        },
-        { $set: update }
-      );
+        };
+      }
+      
+      console.log('🔄 [EMBEDDED] TicketCRUDService.updateTicket - Update Query:', JSON.stringify(query, null, 2));
+
+      const result = await collection.updateOne(query, { $set: update });
 
       console.log('🔄 [EMBEDDED] TicketCRUDService.updateTicket - Database update result:', {
         matchedCount: result.matchedCount,

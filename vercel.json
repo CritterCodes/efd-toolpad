@@ -5,6 +5,15 @@
     },
     "src/app/api/artisan/gallery/route.js": {
       "maxDuration": 60
+    },
+    "src/app/api/cron/update-metal-prices/route.js": {
+      "maxDuration": 60
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/update-metal-prices",
+      "schedule": "0 9 * * *"
+    }
+  ]
 }

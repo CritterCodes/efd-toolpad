@@ -35,6 +35,7 @@ import CustomTicketImages from '@/app/components/custom-tickets/CustomTicketImag
 import CustomTicketQuote from '@/app/components/custom-tickets/CustomTicketQuote';
 import CustomTicketCommunications from '@/app/components/custom-tickets/CustomTicketCommunications';
 import CustomTicketInvoices from '@/app/components/custom-tickets/CustomTicketInvoices';
+import ArtisanAssignment from '@/app/components/custom-tickets/ArtisanAssignment';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -178,6 +179,7 @@ export default function CustomTicketDetailPage() {
           <Tab label={`Notes (${notesCount})`} />
           <Tab label={`Images (${imageCount})`} />
           <Tab label={`Communications (${communicationsCount})`} />
+          <Tab label={`Artisans (${ticket?.assignedArtisans?.length || 0})`} />
           <Tab label="Quote" />
           <Tab label="Invoices" />
         </Tabs>
@@ -223,6 +225,14 @@ export default function CustomTicketDetailPage() {
       </TabPanel>
 
       <TabPanel value={activeTab} index={4}>
+        <ArtisanAssignment
+          ticketId={ticket._id}
+          assignedArtisans={ticket?.assignedArtisans || []}
+          onUpdate={refreshTicket}
+        />
+      </TabPanel>
+
+      <TabPanel value={activeTab} index={5}>
         <CustomTicketQuote
           ticket={ticket}
           onUpdateFinancials={updateFinancials}
@@ -230,7 +240,7 @@ export default function CustomTicketDetailPage() {
         />
       </TabPanel>
 
-      <TabPanel value={activeTab} index={5}>
+      <TabPanel value={activeTab} index={6}>
         <CustomTicketInvoices
           ticket={ticket}
           onRefresh={refreshTicket}

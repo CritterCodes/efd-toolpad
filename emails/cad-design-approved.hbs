@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Design Approved</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+    .header h1 { margin: 0; font-size: 28px; }
+    .content { background: #f9f9f9; padding: 30px; border: 1px solid #ddd; border-radius: 0 0 8px 8px; }
+    .approval-box { background: #f0f4ff; border-left: 4px solid #667eea; padding: 15px; margin: 20px 0; border-radius: 4px; }
+    .cta-button { display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 20px; }
+    .footer { text-align: center; font-size: 12px; color: #666; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>✅ Design Approved!</h1>
+    </div>
+    <div class="content">
+      <p>Hello {{recipientName}},</p>
+      
+      <p>Excellent work! Your design for <strong>"{{productTitle}}"</strong> has been approved.</p>
+      
+      <div class="approval-box">
+        <strong>Design Approval:</strong><br>
+        <strong>Design:</strong> {{designTitle}}<br>
+        <strong>Approved By:</strong> {{approverName}}<br>
+        <strong>Approved Date:</strong> {{approvalDate}}
+      </div>
+      
+      <p><strong>Next Steps:</strong></p>
+      <ul>
+        <li>The customer will be notified of the approval</li>
+        <li>You can now proceed with creating the final artwork</li>
+        <li>Coordinate delivery timeline with the customer</li>
+        <li>Track project progress in your dashboard</li>
+      </ul>
+      
+      <p>Thank you for delivering excellent design work!</p>
+      
+      <a href="{{actionUrl}}" class="cta-button">{{actionLabel}}</a>
+      
+      <p style="margin-top: 30px; color: #666;">
+        Need assistance? Contact us at <a href="mailto:{{supportEmail}}">{{supportEmail}}</a>
+      </p>
+    </div>
+    <div class="footer">
+      <p>&copy; 2025 Engel Fine Design. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>

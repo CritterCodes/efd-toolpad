@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Product Not Approved</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+    .header h1 { margin: 0; font-size: 28px; }
+    .content { background: #f9f9f9; padding: 30px; border: 1px solid #ddd; border-radius: 0 0 8px 8px; }
+    .feedback-box { background: #fff3cd; border-left: 4px solid #f5576c; padding: 15px; margin: 20px 0; border-radius: 4px; }
+    .cta-button { display: inline-block; background: #f5576c; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 20px; }
+    .footer { text-align: center; font-size: 12px; color: #666; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📋 Product Review Update</h1>
+    </div>
+    <div class="content">
+      <p>Hello {{recipientName}},</p>
+      
+      <p>Thank you for submitting <strong>"{{title}}"</strong> to Engel Fine Design. We've carefully reviewed your product and unfortunately cannot approve it at this time.</p>
+      
+      <div class="feedback-box">
+        <strong>Feedback:</strong><br>
+        {{reason}}
+      </div>
+      
+      <p><strong>Next Steps:</strong></p>
+      <ul>
+        <li>Review the feedback provided above</li>
+        <li>You're welcome to resubmit with improvements</li>
+        <li>Our team is happy to discuss details</li>
+      </ul>
+      
+      <p>We appreciate your contribution and would love to see you try again. Your quality and artistry are valuable to our community.</p>
+      
+      <a href="{{actionUrl}}" class="cta-button">View Details</a>
+      
+      <p style="margin-top: 30px; color: #666;">
+        Have questions? Contact us at <a href="mailto:{{supportEmail}}">{{supportEmail}}</a>
+      </p>
+    </div>
+    <div class="footer">
+      <p>&copy; 2025 Engel Fine Design. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>

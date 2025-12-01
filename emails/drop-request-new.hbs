@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Drop Request</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #ff6b6b 0%, #ff8e72 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+    .header h1 { margin: 0; font-size: 28px; }
+    .content { background: #f9f9f9; padding: 30px; border: 1px solid #ddd; border-radius: 0 0 8px 8px; }
+    .drop-box { background: #ffe7e7; border-left: 4px solid #ff6b6b; padding: 15px; margin: 20px 0; border-radius: 4px; }
+    .cta-button { display: inline-block; background: #ff6b6b; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 20px; }
+    .footer { text-align: center; font-size: 12px; color: #666; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎯 You're Invited to a Drop!</h1>
+    </div>
+    <div class="content">
+      <p>Hello {{recipientName}},</p>
+      
+      <p>We're excited to invite you to participate in an exclusive product drop! Here are the details:</p>
+      
+      <div class="drop-box">
+        <strong>Drop Details:</strong><br>
+        <strong>Theme:</strong> {{theme}}<br>
+        <strong>Vibes:</strong> {{vibes}}<br>
+        <strong>Release Date:</strong> {{releaseDate}}<br>
+        <strong>Target Quantity:</strong> {{targetQuantity}} pieces
+      </div>
+      
+      <p><strong>Requirements:</strong></p>
+      <p>{{requirements}}</p>
+      
+      <p><strong>How to Participate:</strong></p>
+      <ul>
+        <li>Review the drop theme and vibes</li>
+        <li>Create designs that fit the aesthetic</li>
+        <li>Submit your pieces before the deadline</li>
+        <li>We'll select the best designs for the drop</li>
+        <li>Your work will be featured to thousands of customers</li>
+      </ul>
+      
+      <p>This is a fantastic opportunity to reach new customers and collaborate with the Engel Fine Design community!</p>
+      
+      <a href="{{actionUrl}}" class="cta-button">{{actionLabel}}</a>
+      
+      <p style="margin-top: 30px; color: #666;">
+        Questions? Contact us at <a href="mailto:{{supportEmail}}">{{supportEmail}}</a>
+      </p>
+    </div>
+    <div class="footer">
+      <p>&copy; 2025 Engel Fine Design. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>

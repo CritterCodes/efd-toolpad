@@ -5,7 +5,8 @@ import { ObjectId } from 'mongodb';
 
 export async function POST(request, { params }) {
     try {
-        console.log('✅ Design Approval API called for design ID:', params.designId);
+        const { designId } = await params;
+        console.log('✅ Design Approval API called for design ID:', designId);
         
         const session = await auth();
         if (!session?.user) {
@@ -17,17 +18,31 @@ export async function POST(request, { params }) {
 
         const { db } = await connectToDatabase();
 
-        // Find the gemstone with the design
-        const gemstone = await db.collection('products').findOne({
-            'designs._id': new ObjectId(params.designId),
+        // Find the gemstone with the design using custom design ID (or fall back to _id for old designs)
+        let gemstone = await db.collection('products').findOne({
+            'designs.id': designId,
             productType: 'gemstone'
         });
 
+        // If not found with new ID format, try old _id format
         if (!gemstone) {
+            console.log('🔍 Design not found with new ID format, trying old _id format...');
+            gemstone = await db.collection('products').findOne({
+                'designs._id': new ObjectId(designId),
+                productType: 'gemstone'
+            });
+        }
+
+        if (!gemstone) {
+            console.log('❌ Design not found with ID:', designId);
             return NextResponse.json({ error: 'Design not found' }, { status: 404 });
         }
 
-        const design = gemstone.designs.find(d => d._id.toString() === params.designId);
+        // Find design by new ID first, then fall back to old _id
+        let design = gemstone.designs.find(d => d.id === designId);
+        if (!design) {
+            design = gemstone.designs.find(d => d._id?.toString() === designId);
+        }
         
         if (!design) {
             return NextResponse.json({ error: 'Design not found' }, { status: 404 });
@@ -47,27 +62,43 @@ export async function POST(request, { params }) {
             }, { status: 403 });
         }
 
-        if (design.status !== 'pending_approval') {
+        // Allow approval if status is pending_approval, stl_only, stl_submitted, glb_only, or complete
+        const approvableStatuses = ['pending_approval', 'stl_only', 'stl_submitted', 'glb_only', 'complete'];
+        if (!approvableStatuses.includes(design.status)) {
             return NextResponse.json({ 
-                error: 'Design is not in pending approval status',
-                currentStatus: design.status 
+                error: 'Design is not in an approvable status',
+                currentStatus: design.status,
+                approvableStatuses 
             }, { status: 400 });
         }
 
-        // Update the design in the gemstone
+        // Update the design in the gemstone - handle both new (id) and old (_id) formats
+        const designIndex = gemstone.designs.findIndex(d => d.id === designId || d._id?.toString() === designId);
+        
+        if (designIndex === -1) {
+            return NextResponse.json({ error: 'Design not found in gemstone' }, { status: 404 });
+        }
+        
+        // Determine new design status based on file type
+        // STL approval → stl_approved (waiting for GLB)
+        // GLB approval → approved (ready for purchase)
+        const newDesignStatus = design.files?.stl && !design.files?.glb ? 'stl_approved' : 'approved';
+        
+        // Build query to match the design (works with both id and _id formats)
+        const updateQuery = design.id ? 
+            { productId: gemstone.productId, 'designs.id': designId } :
+            { productId: gemstone.productId, 'designs._id': new ObjectId(designId) };
+        
         const updateResult = await db.collection('products').updateOne(
-            {
-                productId: gemstone.productId,
-                'designs._id': new ObjectId(params.designId)
-            },
+            updateQuery,
             {
                 $set: {
-                    'designs.$.status': 'approved',
+                    'designs.$.status': newDesignStatus,
                     'designs.$.approvedAt': new Date(),
                     'designs.$.approvedBy': approvedBy,
                     'designs.$.approvedByName': session.user.name,
                     'designs.$.approvalNotes': notes,
-                    'designs.$.isAvailableForPurchase': true,
+                    'designs.$.isAvailableForPurchase': newDesignStatus === 'approved', // Only available for purchase after GLB approval
                     'designs.$.updatedAt': new Date()
                 }
             }
@@ -80,7 +111,7 @@ export async function POST(request, { params }) {
         // Update the standalone design product
         const designProductResult = await db.collection('products').updateOne(
             {
-                productId: `design_${params.designId}`,
+                productId: `design_${designId}`,
                 productType: 'design'
             },
             {
@@ -138,44 +169,74 @@ export async function POST(request, { params }) {
             );
         }
 
-        // Create pricing variants for different metals
-        const metalVariants = {
-            '14k_gold': calculatePricingForMetal('14k_gold', design.printVolume),
-            '18k_gold': calculatePricingForMetal('18k_gold', design.printVolume),
-            'sterling_silver': calculatePricingForMetal('sterling_silver', design.printVolume),
-            'platinum': calculatePricingForMetal('platinum', design.printVolume),
-            'palladium': calculatePricingForMetal('palladium', design.printVolume)
-        };
+        // Only create/update standalone product and pricing for GLB approval (full approval)
+        if (newDesignStatus === 'approved') {
+            // Create pricing variants for different metals
+            const metalVariants = {
+                '14k_gold': calculatePricingForMetal('14k_gold', design.printVolume),
+                '18k_gold': calculatePricingForMetal('18k_gold', design.printVolume),
+                'sterling_silver': calculatePricingForMetal('sterling_silver', design.printVolume),
+                'platinum': calculatePricingForMetal('platinum', design.printVolume),
+                'palladium': calculatePricingForMetal('palladium', design.printVolume)
+            };
 
-        // Update the standalone product with metal variants
-        await db.collection('products').updateOne(
-            {
-                productId: `design_${params.designId}`,
-                productType: 'design'
-            },
-            {
-                $set: {
-                    metalVariants,
-                    pricing: metalVariants,  // Keep original pricing structure
-                    variants: Object.keys(metalVariants).map(metal => ({
-                        id: metal,
-                        name: metal.replace('_', ' ').toUpperCase(),
-                        price: metalVariants[metal].totalCost,
-                        available: true
-                    }))
+            // Update the standalone design product
+            const designProductResult = await db.collection('products').updateOne(
+                {
+                    productId: `design_${designId}`,
+                    productType: 'design'
+                },
+                {
+                    $set: {
+                        status: 'approved',
+                        isAvailableForPurchase: true,
+                        isEcommerceReady: true,
+                        approvedAt: new Date(),
+                        approvedBy: approvedBy,
+                        approvedByName: session.user.name,
+                        approvalNotes: notes,
+                        updatedAt: new Date()
+                    }
                 }
-            }
-        );
+            );
 
-        console.log('✅ Design approved and made available for purchase');
-        console.log('📊 Created product variants:', Object.keys(metalVariants));
+            // Update the standalone product with metal variants
+            await db.collection('products').updateOne(
+                {
+                    productId: `design_${designId}`,
+                    productType: 'design'
+                },
+                {
+                    $set: {
+                        metalVariants,
+                        pricing: metalVariants,  // Keep original pricing structure
+                        variants: Object.keys(metalVariants).map(metal => ({
+                            id: metal,
+                            name: metal.replace('_', ' ').toUpperCase(),
+                            price: metalVariants[metal].totalCost,
+                            available: true
+                        }))
+                    }
+                }
+            );
 
-        return NextResponse.json({
-            success: true,
-            message: 'Design approved and made available for purchase',
-            designProductId: `design_${params.designId}`,
-            variants: metalVariants
-        });
+            console.log('✅ GLB Design fully approved and made available for purchase');
+            console.log('📊 Created product variants:', Object.keys(metalVariants));
+
+            return NextResponse.json({
+                success: true,
+                message: 'Design approved and made available for purchase',
+                designProductId: `design_${designId}`,
+                variants: metalVariants
+            });
+        } else {
+            console.log('✅ STL Design approved! Ready for GLB design upload');
+            return NextResponse.json({
+                success: true,
+                message: 'STL design approved! Ready for GLB design upload',
+                designId: designId
+            });
+        }
 
     } catch (error) {
         console.error('❌ Design Approval API error:', error);

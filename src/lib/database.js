@@ -124,4 +124,5 @@ class Database {
     }
 }
 
+export default Database;
 export const db = new Database();

@@ -183,6 +183,26 @@ const CustomTicketCard = ({ ticket }) => {
             )}
           </Box>
         )}
+
+        {/* Assigned Artisans */}
+        {ticket.assignedArtisans && ticket.assignedArtisans.length > 0 && (
+          <Box sx={{ mt: 1 }}>
+            <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+              Assigned Artisans:
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+              {ticket.assignedArtisans.map((artisan, index) => (
+                <Chip
+                  key={index}
+                  label={`${artisan.userName} (${artisan.artisanType})`}
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                />
+              ))}
+            </Box>
+          </Box>
+        )}
       </CardContent>
 
       {/* Actions */}

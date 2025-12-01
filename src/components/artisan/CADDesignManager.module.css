@@ -1,0 +1,170 @@
+/* CAD Design Manager Styles */
+
+.container {
+  padding: 24px;
+}
+
+.header {
+  margin-bottom: 24px;
+}
+
+.tabs {
+  margin-bottom: 24px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.designsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.designCard {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.designCard:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: #0084ff;
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.cardTitle {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.fileIndicators {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+
+.statusChip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.uploadDialog {
+  padding: 24px;
+}
+
+.fileUploadBox {
+  padding: 16px;
+  border: 1px dashed #ccc;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.fileUploadBox:hover {
+  border-color: #0084ff;
+  background-color: #f5f9ff;
+}
+
+.fileInput {
+  width: 100%;
+  padding: 8px;
+}
+
+.successText {
+  color: #4caf50;
+  margin-top: 8px;
+  display: block;
+}
+
+.volumeDisplay {
+  font-weight: 600;
+  color: #0084ff;
+}
+
+.approvedChip {
+  background-color: #4caf50 !important;
+  color: white !important;
+}
+
+.declinedChip {
+  background-color: #f44336 !important;
+  color: white !important;
+}
+
+.pendingChip {
+  background-color: #ff9800 !important;
+  color: white !important;
+}
+
+.reviewChip {
+  background-color: #2196f3 !important;
+  color: white !important;
+}
+
+.feedbackAlert {
+  margin-top: 16px;
+}
+
+.emptyState {
+  padding: 48px 16px;
+  text-align: center;
+  color: #999;
+}
+
+.actionButtons {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.actionButton {
+  flex: 1;
+  min-width: 100px;
+}
+
+.tabContent {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .designsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .container {
+    padding: 16px;
+  }
+
+  .fileIndicators {
+    margin: 8px 0;
+  }
+
+  .actionButtons {
+    flex-direction: column;
+  }
+
+  .actionButton {
+    width: 100%;
+  }
+}

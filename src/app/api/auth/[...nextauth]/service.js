@@ -138,6 +138,14 @@ export default class AuthService {
                 role: user.email === 'jacobaengel55@gmail.com' 
                     ? 'admin'  // Force admin role for your email
                     : (user.role || 'admin'), // Use database role or fallback to admin
+                
+                // Include artisan types for navigation
+                artisanTypes: (() => {
+                    const artisanType = user.artisanApplication?.artisanType;
+                    if (!artisanType) return [];
+                    if (Array.isArray(artisanType)) return artisanType;
+                    return typeof artisanType === 'string' ? artisanType.split(',').map(t => t.trim()) : [];
+                })(),
                     
                 image: user.image,
                 shopifyAccessToken: result.customerAccessToken.accessToken

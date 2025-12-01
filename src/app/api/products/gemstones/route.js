@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '../../../../../auth';
 import { connectToDatabase } from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
 
 export async function GET() {
   try {
@@ -266,15 +265,15 @@ export async function PUT(request) {
     console.log('PUT /api/products/gemstones - Received data:', data);
 
     // Handle both flat (legacy) and hierarchical (new) data structures
-    let title, description, tags, images, isPublic, status, gemstoneData, _id;
+    let title, description, tags, images, isPublic, status, gemstoneData, productId;
     
     if (data.gemstone) {
       // New hierarchical structure
-      ({ _id, title, description, tags = [], images = [], isPublic = true, status = 'active' } = data);
+      ({ productId, title, description, tags = [], images = [], isPublic = true, status = 'active' } = data);
       gemstoneData = data.gemstone;
     } else {
       // Legacy flat structure - map to new structure
-      _id = data._id;
+      productId = data.productId;
       title = data.title;
       description = data.description || '';
       tags = data.tags || [];
@@ -304,9 +303,9 @@ export async function PUT(request) {
     }
 
     // Validate required fields
-    if (!_id || !title || !gemstoneData.species) {
+    if (!productId || !title || !gemstoneData.species) {
         return NextResponse.json(
-            { error: 'ID, title and species are required' },
+            { error: 'ProductId, title and species are required' },
             { status: 400 }
         );
     }
@@ -352,10 +351,11 @@ export async function PUT(request) {
       updatedAt: new Date()
     };
 
-    console.log('PUT /api/products/gemstones - Updating gemstone:', _id, updateData);
+    console.log('PUT /api/products/gemstones - Updating gemstone:', productId, updateData);
 
+    // Update by productId, not MongoDB _id
     const result = await db.collection('products').updateOne(
-        { _id: new ObjectId(_id) },
+        { productId: productId },
         { $set: updateData }
     );
 
@@ -368,7 +368,7 @@ export async function PUT(request) {
     
     return NextResponse.json({ 
         success: true, 
-        gemstone: { ...updateData, _id }
+        gemstone: { ...updateData, productId }
     });
   } catch (error) {
     console.error('PUT /api/products/gemstones error:', error);
@@ -400,8 +400,9 @@ export async function DELETE(request) {
     
     console.log('DELETE /api/products/gemstones - Deleting gemstone:', id);
 
+    // Delete by productId, not MongoDB _id
     const result = await db.collection('products').deleteOne(
-        { _id: new ObjectId(id) }
+        { productId: id }
     );
 
     if (result.deletedCount === 0) {

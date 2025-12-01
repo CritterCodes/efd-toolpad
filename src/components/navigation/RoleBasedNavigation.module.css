@@ -1,0 +1,168 @@
+.navigation {
+  background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+  color: white;
+  padding: 1.5rem 0;
+  border-right: 1px solid #374151;
+  height: 100vh;
+  overflow-y: auto;
+  position: sticky;
+  top: 0;
+}
+
+.header {
+  padding: 0 1.5rem 1.5rem;
+  border-bottom: 1px solid #374151;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.roleIndicator {
+  background: #3b82f6;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.menu {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  color: #d1d5db;
+  text-decoration: none;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.link:hover {
+  background: #374151;
+  color: white;
+  padding-left: 1.75rem;
+}
+
+li.active .link {
+  background: #3b82f6;
+  color: white;
+  font-weight: 600;
+  border-left: 3px solid #1d4ed8;
+  padding-left: calc(1.5rem - 3px);
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  font-size: 1.25rem;
+  min-width: 1.5rem;
+}
+
+.label {
+  flex: 1;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ef4444;
+  color: white;
+  border-radius: 9999px;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  min-width: 1.5rem;
+}
+
+.artisanTypesSection {
+  padding: 1.5rem;
+  border-top: 1px solid #374151;
+  margin-top: 1.5rem;
+}
+
+.artisanTypesSection h3 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #9ca3af;
+  letter-spacing: 0.05em;
+}
+
+.artisanTypes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.artisanTypeTag {
+  display: inline-block;
+  background: #1f2937;
+  border: 1px solid #4b5563;
+  color: #93c5fd;
+  padding: 0.35rem 0.65rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .navigation {
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid #374151;
+  }
+
+  .menu {
+    display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .link {
+    padding: 0.75rem 1rem;
+    white-space: nowrap;
+  }
+
+  .label {
+    display: none;
+  }
+
+  .icon {
+    font-size: 1.5rem;
+  }
+}
+
+/* Scrollbar Styling */
+.navigation::-webkit-scrollbar {
+  width: 6px;
+}
+
+.navigation::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
+.navigation::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 3px;
+}
+
+.navigation::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}

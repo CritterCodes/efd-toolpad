@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Product Revision Requested</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+    .header h1 { margin: 0; font-size: 28px; }
+    .content { background: #f9f9f9; padding: 30px; border: 1px solid #ddd; border-radius: 0 0 8px 8px; }
+    .feedback-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px; }
+    .cta-button { display: inline-block; background: #f5576c; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 20px; }
+    .footer { text-align: center; font-size: 12px; color: #666; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Product Revision Requested</h1>
+    </div>
+    <div class="content">
+      <p>Hello {{recipientName}},</p>
+      
+      <p>Thank you for submitting your product <strong>"{{title}}"</strong>. Our team has reviewed it and has some feedback to help make it perfect.</p>
+      
+      <div class="feedback-box">
+        <h3>Admin Feedback:</h3>
+        <p>{{notes}}</p>
+      </div>
+      
+      <p>Please make the requested changes and resubmit your product. We're here to help ensure your work meets our quality standards!</p>
+      
+      <a href="{{actionUrl}}" class="cta-button">Edit Product</a>
+      
+      <p style="margin-top: 30px; color: #666;">
+        Have questions about the feedback? Reach out to us at <a href="mailto:{{supportEmail}}">{{supportEmail}}</a>
+      </p>
+    </div>
+    <div class="footer">
+      <p>&copy; 2025 Engel Fine Design. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>

@@ -73,4 +73,18 @@ export default class CustomTicketController {
   static async getPerformanceMetrics(request) {
     return await AnalyticsController.getPerformanceMetrics(request);
   }
+
+  // ===== ARTISAN ASSIGNMENT OPERATIONS =====
+
+  static async assignArtisanToTicket(request, ticketId) {
+    return await TicketCRUDController.assignArtisanToTicket(request, ticketId);
+  }
+
+  static async removeArtisanFromTicket(request, ticketId) {
+    return await TicketCRUDController.removeArtisanFromTicket(request, ticketId);
+  }
+
+  static async getArtisanTickets(request) {
+    return await TicketCRUDController.getArtisanTickets(request);
+  }
 }

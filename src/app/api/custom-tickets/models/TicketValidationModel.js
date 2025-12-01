@@ -74,6 +74,25 @@ export default class TicketValidationModel {
       }
     }
 
+    // Artisan assignments validation
+    if (ticketData.assignedArtisans !== undefined) {
+      if (!Array.isArray(ticketData.assignedArtisans)) {
+        errors.push('Assigned artisans must be an array');
+      } else {
+        ticketData.assignedArtisans.forEach((artisan, index) => {
+          if (!artisan.userId || typeof artisan.userId !== 'string') {
+            errors.push(`Assigned artisan ${index + 1} must have a valid userId`);
+          }
+          if (!artisan.artisanType || typeof artisan.artisanType !== 'string') {
+            errors.push(`Assigned artisan ${index + 1} must have a valid artisanType`);
+          }
+          if (artisan.assignedAt && typeof artisan.assignedAt !== 'string') {
+            errors.push(`Assigned artisan ${index + 1} assignedAt must be a string`);
+          }
+        });
+      }
+    }
+
     if (errors.length > 0) {
       throw new Error(`Validation failed: ${errors.join(', ')}`);
     }
@@ -124,6 +143,25 @@ export default class TicketValidationModel {
     if (updateData.amountOwedToCard !== undefined) {
       if (typeof updateData.amountOwedToCard !== 'number' || updateData.amountOwedToCard < 0) {
         errors.push('Amount owed to card must be a non-negative number');
+      }
+    }
+
+    // Artisan assignments validation
+    if (updateData.assignedArtisans !== undefined) {
+      if (!Array.isArray(updateData.assignedArtisans)) {
+        errors.push('Assigned artisans must be an array');
+      } else {
+        updateData.assignedArtisans.forEach((artisan, index) => {
+          if (!artisan.userId || typeof artisan.userId !== 'string') {
+            errors.push(`Assigned artisan ${index + 1} must have a valid userId`);
+          }
+          if (!artisan.artisanType || typeof artisan.artisanType !== 'string') {
+            errors.push(`Assigned artisan ${index + 1} must have a valid artisanType`);
+          }
+          if (artisan.assignedAt && typeof artisan.assignedAt !== 'string') {
+            errors.push(`Assigned artisan ${index + 1} assignedAt must be a string`);
+          }
+        });
       }
     }
 

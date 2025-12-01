@@ -53,6 +53,9 @@ const providers = [
                             ? 'admin'  // Force admin role for your email
                             : (user.role || 'admin'), // Use database role or fallback to admin
                             
+                        // Include artisan types for navigation
+                        artisanTypes: user.artisanTypes || [],
+                            
                         token: user.token,
                         image: user.image
                     };
@@ -78,42 +81,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     callbacks: {
         async jwt({ token, account, user }) {
-            // When the user signs in
-            if (account) {
-                token.accessToken = account.access_token;
-                token.refreshToken = account.refresh_token; // Store refresh token for later use
-                token.accessTokenExpires = Date.now() + (account.expires_in || 3600) * 1000; // Calculate expiry time
+            // When the user signs in with credentials
+            if (user) {
                 token.userID = user.userID;
                 token.name = user.name;
-                token.role = user.role; // Clean role assignment
+                token.role = user.role;
+                token.artisanTypes = user.artisanTypes || [];
                 token.image = user.image;
-                // JWT token created
-                return token;
             }
-    
-            // If there's an error from a previous refresh attempt, just return the token
-            if (token.error === "RefreshAccessTokenError") {
-                console.log("JWT callback - Previous refresh error, returning token as-is");
-                return token;
-            }
-
-            // Return the token if the access token is still valid (with buffer)
-            if (token.accessTokenExpires && Date.now() < token.accessTokenExpires - 60000) { // 1 minute buffer
-                return token;
-            }
-    
-            // Refresh the token if it has expired
-            console.log("JWT callback - Token expired, attempting refresh");
-            return await refreshAccessToken(token);
+            return token;
         },
     
         async session({ session, token }) {
-            // Pass accessToken to the session for use in your app
-            session.accessToken = token.accessToken;
-            session.refreshToken = token.refreshToken;
-            session.accessTokenExpires = token.accessTokenExpires;
+            // Pass user information to the session
             session.user.userID = token.userID;
-            session.user.role = token.role; // Clean role assignment
+            session.user.id = token.userID; // Add lowercase id for compatibility
+            session.user.role = token.role;
+            session.user.artisanTypes = token.artisanTypes || [];
             session.user.image = token.image;
             return session;
         },
@@ -136,51 +120,3 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }
     
 });
-
-async function refreshAccessToken(token) {
-    try {
-        console.log("Attempting to refresh access token...");
-        
-        if (!token.refreshToken) {
-            console.error("No refresh token available");
-            return {
-                ...token,
-                error: "RefreshAccessTokenError",
-            };
-        }
-
-        const url = "https://oauth2.googleapis.com/token";
-        const response = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: new URLSearchParams({
-                client_id: process.env.GOOGLE_CLIENT_ID,
-                client_secret: process.env.GOOGLE_CLIENT_SECRET,
-                grant_type: "refresh_token",
-                refresh_token: token.refreshToken,
-            }),
-        });
-
-        const refreshedTokens = await response.json();
-
-        if (!response.ok) {
-            console.error("Error refreshing access token - Response not ok:", refreshedTokens);
-            throw refreshedTokens;
-        }
-
-        console.log("Access token refreshed successfully");
-        return {
-            ...token,
-            accessToken: refreshedTokens.access_token,
-            accessTokenExpires: Date.now() + refreshedTokens.expires_in * 1000, // 1 hour
-            refreshToken: refreshedTokens.refresh_token || token.refreshToken, // Use old refresh token if none returned
-        };
-    } catch (error) {
-        console.error("Error refreshing access token:", error);
-
-        return {
-            ...token,
-            error: "RefreshAccessTokenError",
-        };
-    }
-}

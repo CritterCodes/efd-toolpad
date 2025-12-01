@@ -24,7 +24,7 @@ import {
     ListItem,
     ListItemText,
     ListItemIcon,
-    Paper
+    Paper,
 } from '@mui/material';
 import { 
     Settings as SettingsIcon,
@@ -320,10 +320,18 @@ export default function AdminDashboardContent() {
                                 <Button
                                     variant="outlined"
                                     startIcon={<AnalyticsIcon />}
-                                    onClick={() => router.push('/dashboard/analytics')}
+                                    onClick={() => router.push('/dashboard/admin/analytics')}
                                     fullWidth
                                 >
-                                    Analytics
+                                    View Analytics
+                                </Button>
+                                <Button
+                                    variant="outlined"
+                                    startIcon={<AssignmentIcon />}
+                                    onClick={() => router.push('/dashboard/design-requests')}
+                                    fullWidth
+                                >
+                                    Design Requests
                                 </Button>
                                 <Button
                                     variant="outlined"

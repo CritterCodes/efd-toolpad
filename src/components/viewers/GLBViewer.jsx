@@ -33,9 +33,14 @@ export default function GLBViewer({ fileUrl, title = 'CAD Design Preview', style
         animationFrameIdRef.current = null;
       }
       
-      // Clear any existing canvas elements
-      while (containerRef.current.firstChild) {
-        containerRef.current.removeChild(containerRef.current.firstChild);
+      // Remove previous renderer if it exists
+      if (rendererRef.current && rendererRef.current.domElement.parentNode === containerRef.current) {
+        try {
+          containerRef.current.removeChild(rendererRef.current.domElement);
+        } catch (e) {
+          // Ignore if already removed
+        }
+        rendererRef.current.dispose();
       }
 
       // Initialize Three.js scene
@@ -53,23 +58,58 @@ export default function GLBViewer({ fileUrl, title = 'CAD Design Preview', style
       cameraRef.current = camera;
 
       // Renderer setup
-      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
       renderer.setSize(width, height);
       renderer.setPixelRatio(window.devicePixelRatio);
       renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFShadowShadowMap;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.2;
       containerRef.current.appendChild(renderer.domElement);
       rendererRef.current = renderer;
 
-      // Lighting setup
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      // Enhanced Lighting setup for better material visibility
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
       scene.add(ambientLight);
 
-      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-      directionalLight.position.set(5, 10, 5);
+      // Main directional light
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+      directionalLight.position.set(8, 12, 8);
       directionalLight.castShadow = true;
       directionalLight.shadow.mapSize.width = 2048;
       directionalLight.shadow.mapSize.height = 2048;
+      directionalLight.shadow.camera.near = 0.1;
+      directionalLight.shadow.camera.far = 100;
       scene.add(directionalLight);
+
+      // Secondary fill light for better material visibility
+      const fillLight = new THREE.DirectionalLight(0xffffff, 0.5);
+      fillLight.position.set(-8, 5, -8);
+      scene.add(fillLight);
+
+      // Additional point light for reflection highlight
+      const pointLight = new THREE.PointLight(0xffffff, 0.6);
+      pointLight.position.set(0, 8, 0);
+      scene.add(pointLight);
+
+      // Create a procedural environment map for better material reflections
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+      
+      // Create a gradient environment (simulates studio lighting)
+      const gradient = ctx.createLinearGradient(0, 0, 256, 256);
+      gradient.addColorStop(0, '#ffffff');
+      gradient.addColorStop(0.5, '#e8e8e8');
+      gradient.addColorStop(1, '#d0d0d0');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 256, 256);
+      
+      const envTexture = new THREE.CanvasTexture(canvas);
+      envTexture.mapping = THREE.EquirectangularReflectionMapping;
+      scene.environment = envTexture;
+      scene.background = new THREE.Color(0xf5f5f5);
 
       // Simple orbit-like controls with mouse
       let isDragging = false;
@@ -109,6 +149,45 @@ export default function GLBViewer({ fileUrl, title = 'CAD Design Preview', style
         fileUrl,
         (gltf) => {
           const model = gltf.scene;
+          
+          // Traverse and ensure materials are properly configured
+          model.traverse((node) => {
+            if (node.isMesh) {
+              // Keep existing materials from the GLB file
+              if (node.material) {
+                // Ensure material properties are preserved
+                if (Array.isArray(node.material)) {
+                  node.material.forEach(mat => {
+                    mat.side = THREE.DoubleSide;
+                    mat.needsUpdate = true;
+                    // Enhance metallic and glass materials
+                    if (mat.metalness !== undefined) {
+                      mat.metalness = Math.max(mat.metalness, 0.1);
+                    }
+                    if (mat.roughness !== undefined) {
+                      mat.roughness = Math.min(mat.roughness, 0.8);
+                    }
+                  });
+                } else {
+                  node.material.side = THREE.DoubleSide;
+                  node.material.needsUpdate = true;
+                  // Enhance metallic and glass materials
+                  if (node.material.metalness !== undefined) {
+                    node.material.metalness = Math.max(node.material.metalness, 0.1);
+                  }
+                  if (node.material.roughness !== undefined) {
+                    node.material.roughness = Math.min(node.material.roughness, 0.8);
+                  }
+                }
+              }
+              node.castShadow = true;
+              node.receiveShadow = true;
+              // Ensure geometry is properly indexed for better rendering
+              if (node.geometry) {
+                node.geometry.computeVertexNormals();
+              }
+            }
+          });
           
           // Center and scale the model
           const box = new THREE.Box3().setFromObject(model);
@@ -161,12 +240,20 @@ export default function GLBViewer({ fileUrl, title = 'CAD Design Preview', style
         // Cancel animation frame
         if (animationFrameIdRef.current) {
           cancelAnimationFrame(animationFrameIdRef.current);
+          animationFrameIdRef.current = null;
         }
 
         window.removeEventListener('resize', handleResize);
-        if (containerRef.current && renderer.domElement.parentNode === containerRef.current) {
-          containerRef.current.removeChild(renderer.domElement);
+        
+        // Only remove if still attached to container
+        try {
+          if (containerRef.current && renderer.domElement && renderer.domElement.parentNode === containerRef.current) {
+            containerRef.current.removeChild(renderer.domElement);
+          }
+        } catch (e) {
+          // Silently fail if already removed
         }
+        
         renderer.dispose();
       };
     } catch (err) {

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Custom Design Request</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+    .header h1 { margin: 0; font-size: 28px; }
+    .content { background: #f9f9f9; padding: 30px; border: 1px solid #ddd; border-radius: 0 0 8px 8px; }
+    .request-box { background: #e7f3ff; border-left: 4px solid #0072ff; padding: 15px; margin: 20px 0; border-radius: 4px; }
+    .cta-button { display: inline-block; background: #0072ff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 20px; }
+    .footer { text-align: center; font-size: 12px; color: #666; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>✨ New Custom Design Request</h1>
+    </div>
+    <div class="content">
+      <p>Hello {{recipientName}},</p>
+      
+      <p>Congratulations! A customer has requested a custom design from you. Here are the details:</p>
+      
+      <div class="request-box">
+        <strong>Customer Request:</strong><br>
+        <strong>Product:</strong> {{productTitle}}<br>
+        <strong>Timeline:</strong> {{timeline}}<br>
+        <strong>Budget:</strong> {{budget}}<br>
+        <strong>Special Requirements:</strong> {{requirements}}
+      </div>
+      
+      <p><strong>What to do next:</strong></p>
+      <ul>
+        <li>Review the customer's requirements</li>
+        <li>Submit your design proposal within the requested timeline</li>
+        <li>Include sketches or CAD files if possible</li>
+        <li>Communicate any questions with the customer</li>
+      </ul>
+      
+      <p>This is a great opportunity to showcase your creativity and build a relationship with a customer!</p>
+      
+      <a href="{{actionUrl}}" class="cta-button">{{actionLabel}}</a>
+      
+      <p style="margin-top: 30px; color: #666;">
+        Questions? Contact us at <a href="mailto:{{supportEmail}}">{{supportEmail}}</a>
+      </p>
+    </div>
+    <div class="footer">
+      <p>&copy; 2025 Engel Fine Design. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>

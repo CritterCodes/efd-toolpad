@@ -61,7 +61,7 @@ export default async function RootLayout({ children }) {
     */
 
     // 🎯 ROLE-BASED NAVIGATION - Now handled by RoleAwareNavigationProvider
-    const userNavigation = getNavigationForRole(session.user.role); // Fallback for SSR
+    const userNavigation = getNavigationForRole(session.user.role, session.user.artisanTypes); // Fallback for SSR
 
     return (
         <html lang="en" suppressHydrationWarning>

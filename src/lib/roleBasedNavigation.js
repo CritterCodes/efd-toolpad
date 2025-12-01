@@ -24,6 +24,9 @@ import ShoppingBagIcon from "@mui/icons-material/ShoppingBag";
 import RequestQuoteIcon from "@mui/icons-material/RequestQuote";
 import PersonIcon from "@mui/icons-material/Person";
 import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
+import DiamondIcon from "@mui/icons-material/Diamond";
+import RingIcon from "@mui/icons-material/Circle";
+import DesignServicesIcon from "@mui/icons-material/DesignServices";
 import { USER_ROLES } from './unifiedUserService.js';
 
 // Base navigation items shared across roles
@@ -34,6 +37,148 @@ const SHARED_NAVIGATION = {
     icon: <DashboardIcon />
   }
 };
+
+// Artisan type to navigation mapping
+const ARTISAN_TYPE_NAVIGATION = {
+  'Jeweler': [
+    {
+      segment: 'jewelry',
+      title: 'Jewelry',
+      icon: <RingIcon />
+    },
+    {
+      segment: 'cad-design',
+      title: 'CAD Design',
+      icon: <DesignServicesIcon />
+    }
+  ],
+  'Gem Cutter': [
+    {
+      segment: 'gemstones',
+      title: 'Gemstones',
+      icon: <DiamondIcon />
+    }
+  ],
+};
+
+// Requests navigation for artisans
+const ARTISAN_REQUESTS_NAVIGATION = {
+  'CAD Designer': [
+    {
+      segment: 'cad-requests',
+      title: 'CAD Requests',
+      icon: <DesignServicesIcon />
+    },
+    {
+      segment: 'custom-tickets',
+      title: 'Custom Tickets',
+      icon: <ReceiptIcon />
+    }
+  ],
+  'Jeweler': [
+    {
+      segment: 'custom-tickets',
+      title: 'Custom Tickets',
+      icon: <ReceiptIcon />
+    }
+  ],
+  'Gem Cutter': [
+    {
+      segment: 'custom-tickets',
+      title: 'Custom Tickets',
+      icon: <ReceiptIcon />
+    }
+  ],
+  'Hand Engraver': [
+    {
+      segment: 'custom-tickets',
+      title: 'Custom Tickets',
+      icon: <ReceiptIcon />
+    }
+  ]
+};
+
+/**
+ * Generate dynamic artisan navigation based on artisan types
+ * @param {Array} artisanTypes - Array of artisan types for the user
+ * @returns {Array} Navigation items specific to the artisan's capabilities
+ */
+export function generateArtisanNavigation(artisanTypes = []) {
+  console.log('🏗️ [NAV] Generating artisan navigation for types:', artisanTypes);
+  
+  const baseNavigation = [
+    SHARED_NAVIGATION.dashboard,
+    {
+      segment: 'dashboard/profile',
+      title: 'Profile Management',
+      icon: <PersonIcon />
+    },
+    {
+      segment: 'dashboard/gallery',
+      title: 'Gallery Management',
+      icon: <PhotoLibraryIcon />
+    }
+  ];
+
+  // Add Products dropdown if artisan has any product types
+  if (artisanTypes && artisanTypes.length > 0) {
+    const productChildren = [];
+    
+    // Add navigation items based on artisan types
+    artisanTypes.forEach(type => {
+      console.log('🔍 [NAV] Processing artisan type:', type);
+      const typeNavigation = ARTISAN_TYPE_NAVIGATION[type];
+      console.log('🔍 [NAV] Found navigation for type:', type, typeNavigation);
+      if (typeNavigation) {
+        productChildren.push(...typeNavigation);
+      }
+    });
+
+    console.log('📦 [NAV] Product children:', productChildren);
+    
+    // Only add Products dropdown if we have children
+    if (productChildren.length > 0) {
+      const productsDropdown = {
+        segment: 'dashboard/products',
+        title: 'Products',
+        icon: <InventoryIcon />,
+        children: productChildren
+      };
+      
+      console.log('✅ [NAV] Adding Products dropdown:', productsDropdown);
+      baseNavigation.push(productsDropdown);
+    }
+
+    // Add Requests dropdown
+    const requestsChildren = [];
+    artisanTypes.forEach(type => {
+      const requestsNavigation = ARTISAN_REQUESTS_NAVIGATION[type];
+      if (requestsNavigation) {
+        requestsNavigation.forEach(request => {
+          // Avoid duplicates
+          if (!requestsChildren.find(r => r.segment === request.segment)) {
+            requestsChildren.push(request);
+          }
+        });
+      }
+    });
+
+    if (requestsChildren.length > 0) {
+      const requestsDropdown = {
+        segment: 'dashboard/requests',
+        title: 'Requests',
+        icon: <AssignmentIcon />,
+        children: requestsChildren
+      };
+      
+      console.log('✅ [NAV] Adding Requests dropdown:', requestsDropdown);
+      baseNavigation.push(requestsDropdown);
+    }
+  }
+
+  console.log('🏁 [NAV] Final navigation:', baseNavigation);
+  return baseNavigation;
+}
 
 // Role-specific navigation configurations
 export const ROLE_NAVIGATION = {
@@ -104,6 +249,35 @@ export const ROLE_NAVIGATION = {
   [USER_ROLES.STAFF]: [
     SHARED_NAVIGATION.dashboard,
     {
+      segment: 'dashboard/products',
+      title: 'Products',
+      icon: <InventoryIcon />,
+      children: [
+        {
+          segment: 'jewelry',
+          title: 'Jewelry',
+          icon: <RingIcon />
+        },
+        {
+          segment: 'gemstones',
+          title: 'Gemstones',
+          icon: <DiamondIcon />
+        }
+      ]
+    },
+    {
+      segment: 'dashboard/requests',
+      title: 'Requests',
+      icon: <AssignmentIcon />,
+      children: [
+        {
+          segment: 'custom-tickets',
+          title: 'Custom Tickets',
+          icon: <ReceiptIcon />
+        }
+      ]
+    },
+    {
       segment: 'dashboard/clients',
       title: 'Clients',
       icon: <PeopleIcon />
@@ -154,11 +328,6 @@ export const ROLE_NAVIGATION = {
       segment: 'dashboard/users/artisans',
       title: 'Artisan Management',
       icon: <HandymanIcon />
-    },
-    {
-      segment: 'dashboard/custom-tickets',
-      title: 'Custom Tickets',
-      icon: <ReceiptIcon />
     },
     {
       segment: 'dashboard/analytics',
@@ -287,6 +456,45 @@ export const ROLE_NAVIGATION = {
   [USER_ROLES.ADMIN]: [
     SHARED_NAVIGATION.dashboard,
     {
+      segment: 'dashboard/products',
+      title: 'Products',
+      icon: <InventoryIcon />,
+      children: [
+        {
+          segment: 'jewelry',
+          title: 'Jewelry',
+          icon: <RingIcon />
+        },
+        {
+          segment: 'gemstones',
+          title: 'Gemstones',
+          icon: <DiamondIcon />
+        },
+        {
+          segment: 'awaiting-approval',
+          title: 'Awaiting Approval',
+          icon: <AssignmentIcon />
+        }
+      ]
+    },
+    {
+      segment: 'dashboard/requests',
+      title: 'Requests',
+      icon: <AssignmentIcon />,
+      children: [
+        {
+          segment: 'cad-requests',
+          title: 'CAD Requests',
+          icon: <DesignServicesIcon />
+        },
+        {
+          segment: 'custom-tickets',
+          title: 'Custom Tickets',
+          icon: <ReceiptIcon />
+        }
+      ]
+    },
+    {
       segment: 'dashboard/clients',
       title: 'Clients',
       icon: <PeopleIcon />
@@ -383,11 +591,6 @@ export const ROLE_NAVIGATION = {
       ]
     },
     {
-      segment: 'dashboard/custom-tickets',
-      title: 'Custom Tickets',
-      icon: <ReceiptIcon />
-    },
-    {
       segment: 'dashboard/analytics',
       title: 'Analytics',
       icon: <BarChartIcon />
@@ -403,13 +606,24 @@ export const ROLE_NAVIGATION = {
 /**
  * Get navigation for a specific user role
  */
-export function getNavigationForRole(userRole) {
+export function getNavigationForRole(userRole, artisanTypes = []) {
+  console.log('🔍 [NAV] getNavigationForRole called with:', { userRole, artisanTypes });
+  
   // CLIENT role should not have access to admin panel
   if (userRole === USER_ROLES.CLIENT) {
     return [];
   }
   
-  return ROLE_NAVIGATION[userRole] || [];
+  // For artisan roles, use dynamic navigation based on artisan types
+  if (userRole === USER_ROLES.ARTISAN) {
+    const navigation = generateArtisanNavigation(artisanTypes);
+    console.log('🎯 [NAV] Generated artisan navigation:', navigation);
+    return navigation;
+  }
+  
+  const staticNavigation = ROLE_NAVIGATION[userRole] || [];
+  console.log('📋 [NAV] Using static navigation for role:', userRole, staticNavigation);
+  return staticNavigation;
 }
 
 /**

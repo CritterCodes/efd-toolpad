@@ -24,9 +24,14 @@ const STLViewer = ({ fileUrl, title = 'STL Model Viewer', style = {} }) => {
       animationFrameIdRef.current = null;
     }
     
-    // Clear any existing canvas elements
-    while (containerRef.current.firstChild) {
-      containerRef.current.removeChild(containerRef.current.firstChild);
+    // Remove previous renderer if it exists
+    if (rendererRef.current && rendererRef.current.domElement.parentNode === containerRef.current) {
+      try {
+        containerRef.current.removeChild(rendererRef.current.domElement);
+      } catch (e) {
+        // Ignore if already removed
+      }
+      rendererRef.current.dispose();
     }
 
     const width = containerRef.current.clientWidth;
@@ -182,6 +187,7 @@ const STLViewer = ({ fileUrl, title = 'STL Model Viewer', style = {} }) => {
       // Cancel animation frame
       if (animationFrameIdRef.current) {
         cancelAnimationFrame(animationFrameIdRef.current);
+        animationFrameIdRef.current = null;
       }
 
       window.removeEventListener('resize', handleResize);
@@ -190,9 +196,15 @@ const STLViewer = ({ fileUrl, title = 'STL Model Viewer', style = {} }) => {
       renderer.domElement.removeEventListener('mouseup', onMouseUp);
       renderer.domElement.removeEventListener('wheel', onMouseWheel);
 
-      if (containerRef.current && renderer.domElement.parentNode === containerRef.current) {
-        containerRef.current.removeChild(renderer.domElement);
+      // Only remove if still attached to container
+      try {
+        if (containerRef.current && renderer.domElement && renderer.domElement.parentNode === containerRef.current) {
+          containerRef.current.removeChild(renderer.domElement);
+        }
+      } catch (e) {
+        // Silently fail if already removed
       }
+      
       renderer.dispose();
     };
   }, [fileUrl]);

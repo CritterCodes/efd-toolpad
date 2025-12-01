@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Selected for Drop</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+    .header h1 { margin: 0; font-size: 28px; }
+    .content { background: #f9f9f9; padding: 30px; border: 1px solid #ddd; border-radius: 0 0 8px 8px; }
+    .selection-box { background: #f0fdf4; border-left: 4px solid #38ef7d; padding: 15px; margin: 20px 0; border-radius: 4px; }
+    .highlight { background: #fef08a; padding: 10px; border-radius: 4px; margin: 15px 0; }
+    .cta-button { display: inline-block; background: #38ef7d; color: #111; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 20px; }
+    .footer { text-align: center; font-size: 12px; color: #666; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎉 You're In the Drop!</h1>
+    </div>
+    <div class="content">
+      <p>Hello {{recipientName}},</p>
+      
+      <p>Congratulations! Your design <strong>"{{productTitle}}"</strong> has been selected for the exclusive product drop!</p>
+      
+      <div class="selection-box">
+        <strong>Drop Selection:</strong><br>
+        <strong>Drop Theme:</strong> {{theme}}<br>
+        <strong>Your Position:</strong> {{position}} of {{totalSelected}}<br>
+        <strong>Release Date:</strong> {{releaseDate}}<br>
+        <strong>Expected Sales:</strong> {{estimatedSales}}
+      </div>
+      
+      <div class="highlight">
+        <strong>🚀 Your Piece is Going Live!</strong><br>
+        Your design will be featured alongside other premium creators in a curated collection that reaches thousands of potential customers.
+      </div>
+      
+      <p><strong>What Happens Next:</strong></p>
+      <ul>
+        <li>Final artwork will be featured in our marketing campaign</li>
+        <li>You'll receive promotional support to help drive sales</li>
+        <li>Customers can purchase directly from the drop</li>
+        <li>You'll earn {{commissionRate}}% commission on each sale</li>
+        <li>Payouts processed within 7 days of sale completion</li>
+      </ul>
+      
+      <p>This is an amazing opportunity to showcase your work to our customers. We're excited to see your pieces come to life!</p>
+      
+      <a href="{{actionUrl}}" class="cta-button">{{actionLabel}}</a>
+      
+      <p style="margin-top: 30px; color: #666;">
+        Questions about the drop? Contact us at <a href="mailto:{{supportEmail}}">{{supportEmail}}</a>
+      </p>
+    </div>
+    <div class="footer">
+      <p>&copy; 2025 Engel Fine Design. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>
