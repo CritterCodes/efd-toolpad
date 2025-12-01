@@ -1,13 +1,11 @@
-import { getServerSession } from 'next-auth/next';
+import { auth } from '@/auth';
 import { connectDB } from '@/lib/mongodb';
-import authOptions from '@/app/api/auth/[...nextauth]/options';
-import Product from '@/models/Product';
 
 export async function POST(req, { params }) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
 
-    if (!session?.user?.role === 'admin') {
+    if (!session?.user || session.user.role !== 'admin') {
       return Response.json({ error: 'Admin access required' }, { status: 403 });
     }
 
@@ -21,10 +19,10 @@ export async function POST(req, { params }) {
       );
     }
 
-    await connectDB();
+    const { db } = await connectDB();
 
-    const product = await Product.findByIdAndUpdate(
-      productId,
+    const product = await db.collection('products').findOneAndUpdate(
+      { _id: productId },
       {
         $set: {
           approvalStatus: 'declined',
@@ -34,7 +32,7 @@ export async function POST(req, { params }) {
           isActive: false // Keep product inactive
         }
       },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!product) {

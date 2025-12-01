@@ -10,8 +10,6 @@ import DropOrchestrationDashboard from '@/components/admin/DropOrchestrationDash
 import NotificationCenter from '@/components/notifications/NotificationCenter';
 import ArtisanProductManager from '@/components/artisan/ArtisanProductManager';
 import ArtisanDropParticipation from '@/components/artisan/ArtisanDropParticipation';
-import ArtisanEarnings from '@/components/artisan/ArtisanEarnings';
-import AdminAnalytics from '@/components/admin/AdminAnalytics';
 import styles from './DashboardLayout.module.css';
 
 export default function DashboardLayout({ children }) {
