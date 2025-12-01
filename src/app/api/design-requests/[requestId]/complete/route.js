@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../../auth';
-import { connectToDatabase } from '@/lib/mongodb';
+import { auth } from '@/lib/auth';
+import { connectDB } from '@/lib/database';
 import { ObjectId } from 'mongodb';
 
 export async function POST(request, { params }) {
     try {
-        const session = await getServerSession(authOptions);
+        const session = await auth();
         
         if (!session) {
             return NextResponse.json({ error: 'Authentication required' }, { status: 401 });

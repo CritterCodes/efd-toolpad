@@ -1,14 +1,8 @@
-/**
- * /api/drop-requests/[id]/submissions/[submissionIndex]/[action]/route.js
- * Approve or reject artisan submissions for drop
- */
-
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '../../../../../../lib/mongodb.js';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../../../../../../lib/auth.js';
+import { connectDB } from '../../../../../../lib/database';
+import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
-import { notifyArtisanSelectedForDrop, notifyArtisanNotSelectedForDrop } from '../../../../../../lib/notificationService.js';
+import { notifyArtisanSelectedForDrop, notifyArtisanNotSelectedForDrop } from '@/lib/notificationService';
 
 /**
  * POST /api/drop-requests/:id/submissions/:submissionIndex/approve
@@ -16,7 +10,7 @@ import { notifyArtisanSelectedForDrop, notifyArtisanNotSelectedForDrop } from '.
  */
 export async function POST(request, { params }) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
