@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../../../auth/[...nextauth]/route';
+import { auth } from '@/lib/auth';
 import { uploadFileToS3 } from '../../../../utils/s3.util';
 
 export async function POST(request) {
     try {
-        const session = await getServerSession(authOptions);
+        const session = await auth();
         
         if (!session) {
             return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
