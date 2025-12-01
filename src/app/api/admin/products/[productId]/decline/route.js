@@ -1,4 +1,4 @@
-import { auth } from '../../../../../../auth';
+import { auth } from '@/lib/auth';
 import { connectDB } from '@/lib/database';
 
 export async function POST(req, { params }) {

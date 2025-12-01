@@ -5,9 +5,9 @@
 
 import { NextResponse } from 'next/server';
 import { connectDB } from '../../../../../lib/database';
-import { auth } from '../../../../../auth';
+import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
-import { notifyArtisanSelectedForDrop } from '../../../../../lib/notificationService';
+import { notifyArtisanSelectedForDrop } from '@/lib/notificationService';
 
 /**
  * POST /api/collections/:id/publish
