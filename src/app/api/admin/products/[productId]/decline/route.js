@@ -1,5 +1,5 @@
-import { auth } from '@/auth';
-import { connectDB } from '@/lib/mongodb';
+import { auth } from '../../../../../../auth';
+import { connectDB } from '@/lib/database';
 
 export async function POST(req, { params }) {
   try {

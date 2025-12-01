@@ -4,11 +4,10 @@
  */
 
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '../../../../../lib/mongodb.js';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../../../../../lib/auth.js';
+import { connectDB } from '../../../../../lib/database';
+import { auth } from '../../../../../auth';
 import { ObjectId } from 'mongodb';
-import { notifyArtisanSelectedForDrop } from '../../../../../lib/notificationService.js';
+import { notifyArtisanSelectedForDrop } from '../../../../../lib/notificationService';
 
 /**
  * POST /api/collections/:id/publish
@@ -16,7 +15,7 @@ import { notifyArtisanSelectedForDrop } from '../../../../../lib/notificationSer
  */
 export async function POST(request, { params }) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
