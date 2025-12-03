@@ -2200,7 +2200,11 @@ export default function CADRequestViewPage() {
                                         })}
                                     </Grid>
                                 </Grid>
-                                )}
+                            ) : (
+                                <Typography variant="body2" color="text.secondary">
+                                    No designs with STL files available for COG calculation
+                                </Typography>
+                            )}
 
                                 {/* Save COG Button */}
                                 <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>

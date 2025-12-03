@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
-import { notifyArtisansAboutDrop } from '@/lib/notificationService';
+import { notifyArtisansAboutDrop } from '../../../../lib/notificationService.js';
 
 /**
  * POST /api/drop-requests/:id/publish
