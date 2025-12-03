@@ -2206,60 +2206,55 @@ export default function CADRequestViewPage() {
                                 </Typography>
                             )}
 
-                                {/* Save COG Button */}
-                                <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
-                                    <Button
-                                        variant="contained"
-                                        color="success"
-                                        onClick={async () => {
-                                            try {
-                                                setSavingConfiguration('saving');
-                                                const response = await fetch(`/api/cad-requests/${id}/cog`, {
-                                                    method: 'POST',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({
-                                                        cogData: configurationStates,
-                                                        selectedMetals: selectedMetals,
-                                                        metalPrices: metalPrices,
-                                                        markCompleted: true
-                                                    })
-                                                });
+                            {/* Save COG Button */}
+                            <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
+                                <Button
+                                    variant="contained"
+                                    color="success"
+                                    onClick={async () => {
+                                        try {
+                                            setSavingConfiguration('saving');
+                                            const response = await fetch(`/api/cad-requests/${id}/cog`, {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                    cogData: configurationStates,
+                                                    selectedMetals: selectedMetals,
+                                                    metalPrices: metalPrices,
+                                                    markCompleted: true
+                                                })
+                                            });
 
-                                                if (!response.ok) {
-                                                    const errorData = await response.json();
-                                                    throw new Error(errorData.error || 'Failed to save COG data');
-                                                }
-
-                                                setSavingConfiguration('success');
-                                                setTimeout(() => {
-                                                    setSavingConfiguration(null);
-                                                    // Reload to show updated status
-                                                    loadRequest();
-                                                }, 1500);
-                                            } catch (err) {
-                                                console.error('❌ COG save error:', err);
-                                                setSavingConfiguration('error');
-                                                setError(err.message);
-                                                setTimeout(() => setSavingConfiguration(null), 3000);
+                                            if (!response.ok) {
+                                                const errorData = await response.json();
+                                                throw new Error(errorData.error || 'Failed to save COG data');
                                             }
-                                        }}
-                                        disabled={actionLoading || savingConfiguration === 'saving'}
-                                        size="large"
-                                        startIcon={savingConfiguration === 'saving' ? <CircularProgress size={20} /> : <CheckIcon />}
-                                    >
-                                        {savingConfiguration === 'saving' ? 'Saving...' : savingConfiguration === 'success' ? '✅ Saved & Completed!' : 'Save COG & Mark Completed'}
-                                    </Button>
-                                    {savingConfiguration === 'error' && (
-                                        <Alert severity="error" sx={{ flex: 1 }}>
-                                            Failed to save COG data
-                                        </Alert>
-                                    )}
-                                </Box>
-                            ) : (
-                                <Alert severity="info">
-                                    No STL files available. Upload an STL file to calculate COG.
-                                </Alert>
-                            )}
+
+                                            setSavingConfiguration('success');
+                                            setTimeout(() => {
+                                                setSavingConfiguration(null);
+                                                // Reload to show updated status
+                                                loadRequest();
+                                            }, 1500);
+                                        } catch (err) {
+                                            console.error('❌ COG save error:', err);
+                                            setSavingConfiguration('error');
+                                            setError(err.message);
+                                            setTimeout(() => setSavingConfiguration(null), 3000);
+                                        }
+                                    }}
+                                    disabled={actionLoading || savingConfiguration === 'saving'}
+                                    size="large"
+                                    startIcon={savingConfiguration === 'saving' ? <CircularProgress size={20} /> : <CheckIcon />}
+                                >
+                                    {savingConfiguration === 'saving' ? 'Saving...' : savingConfiguration === 'success' ? '✅ Saved & Completed!' : 'Save COG & Mark Completed'}
+                                </Button>
+                                {savingConfiguration === 'error' && (
+                                    <Alert severity="error" sx={{ flex: 1 }}>
+                                        Failed to save COG data
+                                    </Alert>
+                                )}
+                            </Box>
                         </Box>
                     ) : (
                         <Alert severity="warning">
