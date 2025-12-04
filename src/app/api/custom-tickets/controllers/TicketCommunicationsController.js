@@ -6,6 +6,7 @@
 
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/database.js';
+import { NotificationService, NOTIFICATION_TYPES, CHANNELS } from '@/lib/notificationService.js';
 
 class TicketCommunicationsController {
   /**
@@ -23,7 +24,7 @@ class TicketCommunicationsController {
       }
 
       const body = await request.json();
-      const { message, type = 'chat', from = 'admin', to = 'client' } = body;
+      const { message, type = 'chat', from = 'admin', to = 'client', fromName = 'Artisan' } = body;
 
       // Validate required fields
       if (!message?.trim()) {
@@ -39,6 +40,7 @@ class TicketCommunicationsController {
         type,
         from,
         to,
+        fromName,
         date: new Date().toISOString(),
         timestamp: new Date().toISOString()
       };
@@ -46,6 +48,21 @@ class TicketCommunicationsController {
       // Get database collection
       const collection = await db.dbCustomTickets();
       
+      // Get ticket first to get client info
+      const ticket = await collection.findOne({
+        $or: [
+          { ticketID: ticketId },
+          { _id: ticketId }
+        ]
+      });
+
+      if (!ticket) {
+        return NextResponse.json(
+          { error: 'Ticket not found' },
+          { status: 404 }
+        );
+      }
+
       // Add communication to ticket
       const result = await collection.updateOne(
         {
@@ -85,6 +102,31 @@ class TicketCommunicationsController {
           { _id: ticketId }
         ]
       });
+
+      // Send notification if message is FROM artisan TO client
+      if (from === 'admin' && to === 'client' && ticket.userID) {
+        try {
+          const ticketNumber = ticket.ticketID || ticketId.slice(-8);
+          
+          await NotificationService.createNotification({
+            userId: ticket.userID,
+            type: NOTIFICATION_TYPES.CUSTOM_TICKET_MESSAGE_SENT,
+            title: `New Message on Ticket #${ticketNumber}`,
+            message: `You have a new message from the artisan regarding your custom design.`,
+            channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
+            data: {
+              ticketNumber,
+              fromName: fromName || 'Artisan',
+              message: message.substring(0, 100) + (message.length > 100 ? '...' : '')
+            },
+            templateName: 'custom_ticket_message_sent',
+            recipientEmail: ticket.clientEmail
+          });
+        } catch (notificationError) {
+          console.error('⚠️ Failed to send message notification:', notificationError);
+          // Don't fail the API if notifications fail
+        }
+      }
 
       return NextResponse.json({
         success: true,

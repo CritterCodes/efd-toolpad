@@ -83,6 +83,30 @@ export default class CustomTicketService {
         throw new Error(result.error || 'Failed to create ticket');
       }
 
+      // Send confirmation notification to client
+      try {
+        const { NotificationService, NOTIFICATION_TYPES, CHANNELS } = await import('@/lib/notificationService.js');
+        
+        if (result.ticket?.userID) {
+          await NotificationService.createNotification({
+            userId: result.ticket.userID,
+            type: NOTIFICATION_TYPES.CUSTOM_TICKET_CREATED,
+            title: `Custom Ticket Created - #${result.ticket.ticketID || 'N/A'}`,
+            message: `Your custom design ticket has been created and is now available to our artisan team.`,
+            channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
+            data: {
+              ticketNumber: result.ticket.ticketID || 'N/A',
+              description: result.ticket.description || 'Custom design work'
+            },
+            templateName: 'custom_ticket_created',
+            recipientEmail: result.ticket.clientEmail
+          });
+        }
+      } catch (notificationError) {
+        console.error('⚠️ Failed to send ticket creation notification:', notificationError);
+        // Don't fail the API if notifications fail
+      }
+
       return {
         ticket: result.ticket
       };
@@ -165,32 +189,62 @@ export default class CustomTicketService {
     }
   }
 
-  /**
-   * Update ticket status with workflow validation
-   */
-  static async updateTicketStatus(ticketId, status, metadata = {}) {
-    try {
-      // Validate inputs
-      await CustomTicketModel.validateTicketId(ticketId);
-      await CustomTicketModel.validateStatusTransition(ticketId, status);
+/**
+ * Update ticket status with workflow validation
+ */
+static async updateTicketStatus(ticketId, status, metadata = {}) {
+  try {
+    // Validate inputs
+    await CustomTicketModel.validateTicketId(ticketId);
+    await CustomTicketModel.validateStatusTransition(ticketId, status);
 
-      // Use microservice for status update
-      const adapter = getCustomTicketsAdapter();
-      const updatedTicket = await adapter.updateTicketStatus(ticketId, status, metadata);
-      
-      // The microservice returns the ticket directly, not wrapped in success/error
-      if (!updatedTicket) {
-        throw new Error('Failed to update status - no ticket returned');
-      }
-
-      return {
-        ticket: updatedTicket
-      };
-    } catch (error) {
-      console.error('CustomTicketService.updateTicketStatus error:', error);
-      throw new Error(error.message);
+    // Use microservice for status update
+    const adapter = getCustomTicketsAdapter();
+    const updatedTicket = await adapter.updateTicketStatus(ticketId, status, metadata);
+    
+    // The microservice returns the ticket directly, not wrapped in success/error
+    if (!updatedTicket) {
+      throw new Error('Failed to update status - no ticket returned');
     }
+
+    // Send notification to client about status change
+    try {
+      const { NotificationService, NOTIFICATION_TYPES, CHANNELS } = await import('@/lib/notificationService.js');
+      
+      const previousStatus = metadata.previousStatus || 'Unknown';
+      const ticketNumber = updatedTicket.ticketID || ticketId.slice(-8);
+      
+      // Notify the client who created the ticket
+      if (updatedTicket.userID) {
+        await NotificationService.createNotification({
+          userId: updatedTicket.userID,
+          type: NOTIFICATION_TYPES.CUSTOM_TICKET_STATUS_CHANGED,
+          title: `Ticket #${ticketNumber} Status Updated`,
+          message: `Your custom ticket status changed from ${previousStatus} to ${status}`,
+          channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
+          data: {
+            ticketNumber,
+            previousStatus,
+            newStatus: status,
+            reason: metadata.reason || ''
+          },
+          templateName: 'custom_ticket_status_changed',
+          recipientEmail: updatedTicket.clientEmail
+        });
+      }
+    } catch (notificationError) {
+      console.error('⚠️ Failed to send status change notification:', notificationError);
+      // Don't fail the API if notifications fail
+    }
+
+    return {
+      ticket: updatedTicket
+    };
+  } catch (error) {
+    console.error('CustomTicketService.updateTicketStatus error:', error);
+    throw new Error(error.message);
   }
+}
 
   /**
    * Delete ticket with validation

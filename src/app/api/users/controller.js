@@ -1,6 +1,7 @@
 // src/app/api/users/user.controller.js
 
 import UserService from "./service";
+import { NotificationService, NOTIFICATION_TYPES, CHANNELS } from "@/lib/notificationService.js";
 
 export default class UserController {
     /**
@@ -21,6 +22,33 @@ export default class UserController {
                     { status: 400 }
                 );
             }
+
+            // Send notification if user is an artisan being added by admin
+            try {
+              if (userData.role === 'artisan' || userData.artisanTypes?.length > 0) {
+                const artisanName = `${createdUser.firstName || ''} ${createdUser.lastName || ''}`.trim();
+                
+                await NotificationService.createNotification({
+                  userId: createdUser.userID,
+                  type: NOTIFICATION_TYPES.ARTISAN_ADDED,
+                  title: 'Welcome to Engel Fine Design',
+                  message: 'Your artisan account has been created and is ready to use.',
+                  channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
+                  data: {
+                    artisanName: artisanName || 'Artisan',
+                    email: createdUser.email,
+                    business: createdUser.business || 'N/A',
+                    loginUrl: process.env.NEXTAUTH_URL || 'https://admin.engelsfinedesign.com'
+                  },
+                  templateName: 'artisan_added',
+                  recipientEmail: createdUser.email
+                });
+              }
+            } catch (notificationError) {
+              console.error('⚠️ Failed to send artisan welcome notification:', notificationError);
+              // Don't fail the API if notifications fail
+            }
+
             return new Response(
                 JSON.stringify({ 
                     success: true, 

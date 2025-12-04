@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
+import { NotificationService, NOTIFICATION_TYPES, CHANNELS } from '@/lib/notificationService';
 
 export async function POST(request, { params }) {
     try {
@@ -223,6 +224,46 @@ export async function POST(request, { params }) {
             console.log('✅ GLB Design fully approved and made available for purchase');
             console.log('📊 Created product variants:', Object.keys(metalVariants));
 
+            // Send notifications
+            try {
+                // 1. Notify designer of approval
+                const designer = await db.collection('users').findOne({ userID: design.designerId });
+                if (designer) {
+                    await NotificationService.createNotification({
+                        userId: design.designerId,
+                        type: NOTIFICATION_TYPES.CAD_GLB_APPROVED,
+                        title: 'GLB Design Approved',
+                        message: 'Your GLB design has been approved! The design is now available for purchase.',
+                        channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
+                        templateName: 'cad_glb_approved',
+                        data: {
+                            requestId: design.cadRequestId
+                        },
+                        recipientEmail: designer.email
+                    });
+                }
+                
+                // 2. Notify the Gem Cutter who created the request
+                const cadRequest = gemstone.cadRequests?.find(req => req.id === design.cadRequestId);
+                if (cadRequest?.requestedBy?.email) {
+                    await NotificationService.createNotification({
+                        userId: cadRequest.requestedBy?.userId,
+                        type: NOTIFICATION_TYPES.CAD_COMPLETED,
+                        title: 'Your Design Is Complete & Ready!',
+                        message: `Your CAD design for ${gemstone.name} has been approved and is now ready for production!`,
+                        channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
+                        templateName: 'cad_completed',
+                        data: {
+                            requestId: design.cadRequestId,
+                            totalCost: design.pricing?.totalCost
+                        },
+                        recipientEmail: cadRequest.requestedBy.email
+                    });
+                }
+            } catch (notificationError) {
+                console.error('⚠️ Failed to send notifications:', notificationError);
+            }
+
             return NextResponse.json({
                 success: true,
                 message: 'Design approved and made available for purchase',
@@ -231,6 +272,46 @@ export async function POST(request, { params }) {
             });
         } else {
             console.log('✅ STL Design approved! Ready for GLB design upload');
+            
+            // Send notifications
+            try {
+                // 1. Notify designer of approval
+                const designer = await db.collection('users').findOne({ userID: design.designerId });
+                if (designer) {
+                    await NotificationService.createNotification({
+                        userId: design.designerId,
+                        type: NOTIFICATION_TYPES.CAD_STL_APPROVED,
+                        title: 'STL File Approved',
+                        message: 'Your STL file has been approved. Please submit the GLB design file.',
+                        channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
+                        templateName: 'cad_stl_approved',
+                        data: {
+                            requestId: design.cadRequestId
+                        },
+                        recipientEmail: designer.email
+                    });
+                }
+                
+                // 2. Notify the Gem Cutter who created the request
+                const cadRequest = gemstone.cadRequests?.find(req => req.id === design.cadRequestId);
+                if (cadRequest?.requestedBy?.email) {
+                    await NotificationService.createNotification({
+                        userId: cadRequest.requestedBy?.userId,
+                        type: NOTIFICATION_TYPES.CAD_STL_APPROVED,
+                        title: 'STL File Approved',
+                        message: 'The STL file for your design has been approved. The designer will now create the final GLB design.',
+                        channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
+                        templateName: 'cad_stl_approved',
+                        data: {
+                            requestId: design.cadRequestId
+                        },
+                        recipientEmail: cadRequest.requestedBy.email
+                    });
+                }
+            } catch (notificationError) {
+                console.error('⚠️ Failed to send notifications:', notificationError);
+            }
+            
             return NextResponse.json({
                 success: true,
                 message: 'STL design approved! Ready for GLB design upload',

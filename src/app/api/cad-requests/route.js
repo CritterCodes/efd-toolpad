@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
+import { NotificationService, NOTIFICATION_TYPES, CHANNELS } from '@/lib/notificationService';
 
 export async function GET(request) {
     try {
@@ -172,6 +173,59 @@ export async function POST(request) {
         }
         
         console.log('✅ Added CAD request to gemstone:', gemstoneId);
+        
+        // Send notifications
+        try {
+            // 1. Notify all CAD Designers that new work is available
+            const cadDesigners = await db.collection('users')
+                .find({ artisanTypes: { $in: ['CAD Designer'] } })
+                .toArray();
+            
+            console.log(`📢 Notifying ${cadDesigners.length} CAD designers of available work`);
+            
+            for (const designer of cadDesigners) {
+                await NotificationService.createNotification({
+                    userId: designer.userID,
+                    type: NOTIFICATION_TYPES.CAD_REQUEST_AVAILABLE,
+                    title: 'New Design Work Available',
+                    message: `A new CAD design request for ${gemstone.name} is available. Material: ${requestData.metalType}`,
+                    channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
+                    templateName: 'cad_request_available',
+                    data: {
+                        requestId: newCadRequest.id,
+                        gemName: gemstone.name,
+                        material: requestData.metalType,
+                        styleDescription: requestData.styleDescription,
+                        priority: requestData.priority || 'medium',
+                        timeline: requestData.timeline
+                    },
+                    recipientEmail: designer.email
+                });
+            }
+            
+            // 2. Notify the Gem Cutter (person who created the request) of confirmation
+            const gemCutter = session.user;
+            await NotificationService.createNotification({
+                userId: gemCutter.userID,
+                type: NOTIFICATION_TYPES.CAD_REQUEST_CREATED,
+                title: 'CAD Request Created',
+                message: `Your CAD design request for ${gemstone.name} has been created and is now available for designers to claim.`,
+                channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
+                templateName: 'cad_request_created',
+                data: {
+                    requestId: newCadRequest.id,
+                    gemName: gemstone.name,
+                    material: requestData.metalType,
+                    timeline: requestData.timeline
+                },
+                recipientEmail: gemCutter.email
+            });
+            
+            console.log('✅ Notifications sent successfully');
+        } catch (notificationError) {
+            console.error('⚠️ Failed to send notifications:', notificationError);
+            // Don't fail the whole request if notifications fail
+        }
         
         return NextResponse.json({
             success: true,

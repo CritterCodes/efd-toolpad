@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { auth } from '@/lib/auth';
+import { NotificationService, NOTIFICATION_TYPES, CHANNELS } from '@/lib/notificationService';
 
 export async function POST(request, { params }) {
     try {
@@ -86,6 +87,50 @@ export async function POST(request, { params }) {
         );
 
         console.log('✅ CAD request claimed successfully by:', designerName);
+        
+        // Send notifications
+        try {
+            // 1. Notify all admins about the claim
+            const adminUsers = await db.collection('users').find({ role: 'admin' }).toArray();
+            
+            for (const admin of adminUsers) {
+                await NotificationService.createNotification({
+                    userId: admin.userID,
+                    type: NOTIFICATION_TYPES.CAD_CLAIMED,
+                    title: 'CAD Request Claimed',
+                    message: `${designerName} has claimed CAD request ${id}`,
+                    channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
+                    templateName: 'cad_claimed',
+                    data: {
+                        requestId: id,
+                        designerName,
+                        gemName: gemstone.name
+                    },
+                    recipientEmail: admin.email
+                });
+            }
+            
+            // 2. Notify the Gem Cutter who created the request
+            if (cadRequest.requestedBy?.email) {
+                await NotificationService.createNotification({
+                    userId: cadRequest.requestedBy?.userId,
+                    type: NOTIFICATION_TYPES.CAD_CLAIMED,
+                    title: 'Your CAD Request Has Been Claimed',
+                    message: `${designerName} has claimed your CAD design request for ${gemstone.name}. Work is now in progress.`,
+                    channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
+                    templateName: 'cad_claimed',
+                    data: {
+                        requestId: id,
+                        designerName,
+                        gemName: gemstone.name
+                    },
+                    recipientEmail: cadRequest.requestedBy.email
+                });
+            }
+        } catch (notificationError) {
+            console.error('⚠️ Failed to send notifications:', notificationError);
+            // Don't fail the whole request if notifications fail
+        }
         
         return NextResponse.json({ 
             success: true,

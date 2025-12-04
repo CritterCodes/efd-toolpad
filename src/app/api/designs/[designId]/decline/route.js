@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
+import { NotificationService, NOTIFICATION_TYPES, CHANNELS } from '@/lib/notificationService';
 
 export async function POST(request, { params }) {
     try {
@@ -195,6 +196,55 @@ export async function POST(request, { params }) {
         }
 
         console.log('✅ Design declined successfully:', designId);
+
+        // Send notifications
+        try {
+            // 1. Notify designer of decline
+            const designer = await db.collection('users').findOne({ userID: design.designerId });
+            if (designer) {
+                const isSTL = design.files?.stl && !design.files?.glb;
+                const notificationType = isSTL ? NOTIFICATION_TYPES.CAD_STL_DECLINED : NOTIFICATION_TYPES.CAD_GLB_DECLINED;
+                const templateName = isSTL ? 'cad_stl_declined' : 'cad_glb_declined';
+                
+                await NotificationService.createNotification({
+                    userId: design.designerId,
+                    type: notificationType,
+                    title: `${isSTL ? 'STL' : 'GLB'} File Needs Revision`,
+                    message: `Your ${isSTL ? 'STL' : 'GLB'} file requires revisions. Please review the feedback and resubmit.`,
+                    channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
+                    templateName,
+                    data: {
+                        requestId: design.cadRequestId,
+                        feedback: statusNotes || 'Please review the feedback and resubmit your file.'
+                    },
+                    recipientEmail: designer.email
+                });
+            }
+            
+            // 2. Notify the Gem Cutter who created the request
+            const cadRequest = gemstone.cadRequests?.find(req => req.id === design.cadRequestId);
+            if (cadRequest?.requestedBy?.email) {
+                const isSTL = design.files?.stl && !design.files?.glb;
+                const notificationType = isSTL ? NOTIFICATION_TYPES.CAD_STL_DECLINED : NOTIFICATION_TYPES.CAD_GLB_DECLINED;
+                const templateName = isSTL ? 'cad_stl_declined' : 'cad_glb_declined';
+                
+                await NotificationService.createNotification({
+                    userId: cadRequest.requestedBy?.userId,
+                    type: notificationType,
+                    title: `${isSTL ? 'STL' : 'GLB'} File Revision Needed`,
+                    message: `The ${isSTL ? 'STL' : 'GLB'} file for your design needs revisions. The designer will resubmit shortly.`,
+                    channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
+                    templateName,
+                    data: {
+                        requestId: design.cadRequestId,
+                        feedback: statusNotes || 'Revisions requested.'
+                    },
+                    recipientEmail: cadRequest.requestedBy.email
+                });
+            }
+        } catch (notificationError) {
+            console.error('⚠️ Failed to send notifications:', notificationError);
+        }
 
         return NextResponse.json({
             success: true,

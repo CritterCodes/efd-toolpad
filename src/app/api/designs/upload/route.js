@@ -4,6 +4,7 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { uploadFileToS3 } from '@/utils/s3.util';
 import { calculateSTLVolume } from '@/utils/stlVolumeCalculator';
 import { ObjectId } from 'mongodb';
+import { NotificationService, NOTIFICATION_TYPES, CHANNELS } from '@/lib/notificationService';
 
 export async function POST(request) {
     try {
@@ -276,6 +277,53 @@ export async function POST(request) {
         );
 
         console.log('✅ CAD request status updated');
+
+        // Send notifications
+        try {
+            // 1. Notify admins about submission
+            const adminUsers = await db.collection('users').find({ role: 'admin' }).toArray();
+            const notificationType = fileType === 'stl' ? NOTIFICATION_TYPES.CAD_STL_SUBMITTED : NOTIFICATION_TYPES.CAD_GLB_SUBMITTED;
+            const templateName = fileType === 'stl' ? 'cad_stl_submitted' : 'cad_glb_submitted';
+            
+            for (const admin of adminUsers) {
+                await NotificationService.createNotification({
+                    userId: admin.userID,
+                    type: notificationType,
+                    title: `${fileType.toUpperCase()} File Submitted`,
+                    message: `${session.user.name} has submitted a ${fileType.toUpperCase()} file for CAD request ${requestId}`,
+                    channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
+                    templateName,
+                    data: {
+                        requestId,
+                        fileName: uploadedFile.name,
+                        volume: fileType === 'stl' ? printVolume : undefined
+                    },
+                    recipientEmail: admin.email
+                });
+            }
+            
+            // 2. Notify the Gem Cutter who created the request
+            const cadRequest = cadRequests.find(req => req.id === requestId);
+            if (cadRequest?.requestedBy?.email) {
+                await NotificationService.createNotification({
+                    userId: cadRequest.requestedBy?.userId,
+                    type: notificationType,
+                    title: `${fileType.toUpperCase()} File Submitted to Your Request`,
+                    message: `The designer has submitted a ${fileType.toUpperCase()} file for your ${fileType === 'stl' ? 'initial design' : 'final design'}.`,
+                    channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
+                    templateName,
+                    data: {
+                        requestId,
+                        fileName: uploadedFile.name,
+                        volume: fileType === 'stl' ? printVolume : undefined
+                    },
+                    recipientEmail: cadRequest.requestedBy.email
+                });
+            }
+        } catch (notificationError) {
+            console.error('⚠️ Failed to send notifications:', notificationError);
+            // Don't fail the whole request if notifications fail
+        }
 
         return NextResponse.json({
             success: true,
