@@ -47,6 +47,7 @@ export const NOTIFICATION_TYPES = {
   CUSTOM_TICKET_REJECTED: 'custom_ticket_rejected',    // Client rejected work
   CUSTOM_TICKET_COMPLETED: 'custom_ticket_completed',  // Work completed
   CUSTOM_TICKET_CANCELLED: 'custom_ticket_cancelled',  // Ticket cancelled
+  CUSTOM_TICKET_ARTISAN_ASSIGNED: 'custom_ticket_artisan_assigned', // Artisan assigned to custom ticket
 
   // Admin Artisan Management
   ARTISAN_ADDED: 'artisan_added',                      // Artisan added by admin
@@ -388,6 +389,24 @@ const emailTemplates = {
       <p>If you have questions about the cancellation, please contact our support team.</p>
     `,
     text: `Ticket #${data.ticketNumber} has been cancelled`
+  }),
+
+  custom_ticket_artisan_assigned: (data) => ({
+    subject: `✨ Artisan Assigned to Your Custom Ticket - #${data.ticketNumber}`,
+    html: `
+      <h2>Artisan Assigned to Your Custom Design</h2>
+      <p>Great news! An artisan has been assigned to work on your custom design ticket.</p>
+      
+      <div style="background: #f3e5f5; padding: 16px; border-radius: 8px; margin: 16px 0;">
+        <p><strong>Ticket #:</strong> ${data.ticketNumber}</p>
+        <p><strong>Artisan:</strong> ${data.artisanName}</p>
+        <p><strong>Specialty:</strong> ${data.artisanType || 'Custom Design Work'}</p>
+      </div>
+      
+      <p>Your assigned artisan will review your custom design requirements and may reach out with questions or to discuss your vision in more detail.</p>
+      <p>You can message your artisan directly through your ticket to discuss any details or preferences.</p>
+    `,
+    text: `Artisan ${data.artisanName} has been assigned to your custom ticket #${data.ticketNumber}`
   }),
 
   // ====== ARTISAN MANAGEMENT NOTIFICATIONS ======

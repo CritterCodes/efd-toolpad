@@ -409,6 +409,72 @@ static async updateTicketStatus(ticketId, status, metadata = {}) {
         throw new Error(result.error || 'Failed to assign artisan');
       }
 
+      // Send notification to artisan about assignment
+      try {
+        const { NotificationService, NOTIFICATION_TYPES, CHANNELS } = await import('@/lib/notificationService.js');
+        
+        console.log(`📧 Sending artisan assignment notification to artisan ${assignmentData.userId}`);
+        
+        // Fetch artisan details
+        const db = require('@/lib/database.js').db;
+        const usersCollection = await db.dbUsers();
+        const artisan = await usersCollection.findOne({ userID: assignmentData.userId });
+        
+        if (artisan && artisan.email) {
+          // Get ticket number for notification
+          const ticketNumber = result.ticket?.ticketID || ticketId.slice(-8);
+          
+          await NotificationService.createNotification({
+            userId: assignmentData.userId,
+            type: NOTIFICATION_TYPES.CUSTOM_TICKET_ARTISAN_ASSIGNED,
+            title: `You've Been Assigned to Custom Ticket #${ticketNumber}`,
+            message: `A new custom design ticket has been assigned to you.`,
+            channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
+            data: {
+              ticketNumber,
+              artisanName: artisan.firstName || artisan.email,
+              artisanType: assignmentData.artisanType,
+              ticketTitle: result.ticket?.title || 'Custom Design Request'
+            },
+            templateName: 'custom_ticket_artisan_assigned',
+            recipientEmail: artisan.email
+          });
+          
+          console.log(`✅ Artisan assignment notification sent to ${artisan.email}`);
+        } else {
+          console.warn(`⚠️ Could not send notification - artisan not found or has no email`);
+        }
+        
+        // Also notify the client that an artisan has been assigned
+        if (result.ticket?.userID) {
+          const client = await usersCollection.findOne({ userID: result.ticket.userID });
+          
+          if (client && client.email) {
+            const ticketNumber = result.ticket?.ticketID || ticketId.slice(-8);
+            
+            await NotificationService.createNotification({
+              userId: result.ticket.userID,
+              type: NOTIFICATION_TYPES.CUSTOM_TICKET_STATUS_CHANGED,
+              title: `Artisan Assigned to Your Ticket #${ticketNumber}`,
+              message: `${assignmentData.userName || 'An artisan'} has been assigned to work on your custom design.`,
+              channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
+              data: {
+                ticketNumber,
+                artisanName: assignmentData.userName || 'An artisan',
+                status: 'Artisan Assigned'
+              },
+              templateName: 'custom_ticket_status_changed',
+              recipientEmail: client.email
+            });
+            
+            console.log(`✅ Client notification sent to ${client.email}`);
+          }
+        }
+      } catch (notificationError) {
+        console.error('⚠️ Failed to send artisan assignment notification:', notificationError);
+        // Don't fail the API if notifications fail
+      }
+
       return {
         ticket: result.ticket
       };
