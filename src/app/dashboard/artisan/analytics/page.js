@@ -1,4 +1,4 @@
-import { getServerSession } from 'next-auth/next';
+import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import ArtisanAnalytics from '@/components/artisan/ArtisanAnalytics';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
@@ -9,7 +9,7 @@ export const metadata = {
 };
 
 export default async function ArtisanAnalyticsPage() {
-  const session = await getServerSession();
+  const session = await auth();
 
   if (!session?.user) {
     redirect('/auth/signin');
