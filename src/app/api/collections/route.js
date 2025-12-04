@@ -5,8 +5,7 @@
 
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '../../../lib/mongodb.js';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../../../lib/auth.js';
+import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 
 /**

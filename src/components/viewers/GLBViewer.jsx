@@ -62,7 +62,7 @@ export default function GLBViewer({ fileUrl, title = 'CAD Design Preview', style
       renderer.setSize(width, height);
       renderer.setPixelRatio(window.devicePixelRatio);
       renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFShadowShadowMap;
+      renderer.shadowMap.type = THREE.PCFShadowMap;
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.2;
       containerRef.current.appendChild(renderer.domElement);

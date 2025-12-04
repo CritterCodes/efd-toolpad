@@ -126,3 +126,9 @@ class Database {
 
 export default Database;
 export const db = new Database();
+
+// Backward compatibility export
+export const connectDB = async () => {
+    await db.connect();
+    return db;
+};
