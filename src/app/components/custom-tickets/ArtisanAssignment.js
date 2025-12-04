@@ -47,6 +47,20 @@ const ARTISAN_TYPE_ICONS = {
   'Jeweler': RingIcon
 };
 
+/**
+ * Normalize artisanType to always return an array
+ * Some artisans have artisanType as string, others as array
+ */
+const normalizeArtisanType = (artisanType) => {
+  if (Array.isArray(artisanType)) {
+    return artisanType;
+  }
+  if (typeof artisanType === 'string') {
+    return [artisanType];
+  }
+  return [];
+};
+
 export default function ArtisanAssignment({ ticketId, assignedArtisans = [], onUpdate }) {
   const [open, setOpen] = useState(false);
   const [availableArtisans, setAvailableArtisans] = useState([]);
@@ -106,6 +120,9 @@ export default function ArtisanAssignment({ ticketId, assignedArtisans = [], onU
     try {
       const artisan = availableArtisans.find(a => a.userID === selectedArtisan);
       
+      // Normalize artisanType to handle both string and array formats
+      const artisanTypeArray = normalizeArtisanType(artisan.artisanApplication?.artisanType);
+      
       const response = await fetch(`/api/custom-tickets/${ticketId}/assign-artisan`, {
         method: 'POST',
         headers: {
@@ -114,7 +131,7 @@ export default function ArtisanAssignment({ ticketId, assignedArtisans = [], onU
         body: JSON.stringify({
           userId: artisan.userID,
           userName: artisan.name || artisan.email,
-          artisanType: artisan.artisanType?.[0] || 'Artisan'
+          artisanType: artisanTypeArray[0] || 'Artisan'
         })
       });
 
@@ -286,11 +303,14 @@ export default function ArtisanAssignment({ ticketId, assignedArtisans = [], onU
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
                           {artisan.artisanApplication?.slug && `@${artisan.artisanApplication.slug}`}
-                          {artisan.artisanApplication?.artisanType?.length > 0 && (
-                            <span style={{ marginLeft: artisan.artisanApplication?.slug ? 4 : 0 }}>
-                              • {artisan.artisanApplication.artisanType.join(', ')}
-                            </span>
-                          )}
+                          {(() => {
+                            const types = normalizeArtisanType(artisan.artisanApplication?.artisanType);
+                            return types.length > 0 && (
+                              <span style={{ marginLeft: artisan.artisanApplication?.slug ? 4 : 0 }}>
+                                • {types.join(', ')}
+                              </span>
+                            );
+                          })()}
                         </Typography>
                       </Box>
                     </Box>
