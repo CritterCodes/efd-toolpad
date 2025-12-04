@@ -103,25 +103,37 @@ class TicketCommunicationsController {
         ]
       });
 
-      // Send notification if message is FROM artisan TO client
+      // Send notification if message is FROM admin/artisan TO client
       if (from === 'admin' && to === 'client' && ticket.userID) {
         try {
           const ticketNumber = ticket.ticketID || ticketId.slice(-8);
           
-          await NotificationService.createNotification({
-            userId: ticket.userID,
-            type: NOTIFICATION_TYPES.CUSTOM_TICKET_MESSAGE_SENT,
-            title: `New Message on Ticket #${ticketNumber}`,
-            message: `You have a new message from the artisan regarding your custom design.`,
-            channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
-            data: {
-              ticketNumber,
-              fromName: fromName || 'Artisan',
-              message: message.substring(0, 100) + (message.length > 100 ? '...' : '')
-            },
-            templateName: 'custom_ticket_message_sent',
-            recipientEmail: ticket.clientEmail
-          });
+          // Fetch user to get their email
+          const usersCollection = await db.dbUsers();
+          const user = await usersCollection.findOne({ userID: ticket.userID });
+          
+          if (user && user.email) {
+            console.log(`📧 Sending message notification to client ${user.email} for ticket ${ticketNumber}`);
+            
+            await NotificationService.createNotification({
+              userId: ticket.userID,
+              type: NOTIFICATION_TYPES.CUSTOM_TICKET_MESSAGE_SENT,
+              title: `New Message on Ticket #${ticketNumber}`,
+              message: `You have a new message from the artisan regarding your custom design.`,
+              channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
+              data: {
+                ticketNumber,
+                fromName: fromName || 'Artisan',
+                message: message.substring(0, 100) + (message.length > 100 ? '...' : '')
+              },
+              templateName: 'custom_ticket_message_sent',
+              recipientEmail: user.email
+            });
+            
+            console.log(`✅ Message notification sent to ${user.email}`);
+          } else {
+            console.warn(`⚠️ Could not send notification - user not found or has no email for ticket ${ticketNumber}`);
+          }
         } catch (notificationError) {
           console.error('⚠️ Failed to send message notification:', notificationError);
           // Don't fail the API if notifications fail

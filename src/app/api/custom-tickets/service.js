@@ -88,19 +88,35 @@ export default class CustomTicketService {
         const { NotificationService, NOTIFICATION_TYPES, CHANNELS } = await import('@/lib/notificationService.js');
         
         if (result.ticket?.userID) {
-          await NotificationService.createNotification({
-            userId: result.ticket.userID,
-            type: NOTIFICATION_TYPES.CUSTOM_TICKET_CREATED,
-            title: `Custom Ticket Created - #${result.ticket.ticketID || 'N/A'}`,
-            message: `Your custom design ticket has been created and is now available to our artisan team.`,
-            channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
-            data: {
-              ticketNumber: result.ticket.ticketID || 'N/A',
-              description: result.ticket.description || 'Custom design work'
-            },
-            templateName: 'custom_ticket_created',
-            recipientEmail: result.ticket.clientEmail
-          });
+          // Fetch user to get their email
+          try {
+            const usersCollection = await db.dbUsers();
+            const user = await usersCollection.findOne({ userID: result.ticket.userID });
+            
+            if (user && user.email) {
+              console.log(`📧 Sending ticket creation notification to ${user.email}`);
+              
+              await NotificationService.createNotification({
+                userId: result.ticket.userID,
+                type: NOTIFICATION_TYPES.CUSTOM_TICKET_CREATED,
+                title: `Custom Ticket Created - #${result.ticket.ticketID || 'N/A'}`,
+                message: `Your custom design ticket has been created and is now available to our artisan team.`,
+                channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
+                data: {
+                  ticketNumber: result.ticket.ticketID || 'N/A',
+                  description: result.ticket.description || 'Custom design work'
+                },
+                templateName: 'custom_ticket_created',
+                recipientEmail: user.email
+              });
+              
+              console.log(`✅ Ticket creation notification sent to ${user.email}`);
+            } else {
+              console.warn(`⚠️ Could not send notification - user not found or has no email`);
+            }
+          } catch (userFetchError) {
+            console.error('⚠️ Failed to fetch user for notification:', userFetchError);
+          }
         }
       } catch (notificationError) {
         console.error('⚠️ Failed to send ticket creation notification:', notificationError);
