@@ -35,9 +35,13 @@ export default class TicketCRUDController {
       };
 
       // Auto-filter for artisan users: they should only see tickets assigned to them
+      // Admins and staff see all tickets
       if (session?.user?.role === 'artisan' && session?.user?.id) {
         filters.assignedArtisan = session.user.id;
         console.log('👨‍🎨 Artisan user detected - filtering tickets assigned to:', session.user.id);
+      } else if (session?.user?.role === 'admin' || session?.user?.role === 'staff') {
+        // Admins and staff see all tickets - no additional filtering applied
+        console.log('👤 Admin/Staff user detected - showing all tickets');
       }
 
       // Remove null/undefined filters

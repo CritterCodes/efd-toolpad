@@ -10,6 +10,7 @@ import React, { useState } from 'react';
 import { Box, Typography, Button, Pagination } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import { PageContainer } from '@toolpad/core/PageContainer';
+import { useSession } from 'next-auth/react';
 
 // Constitutional imports - hooks and components
 import { useCustomTicketsData } from '@/hooks/custom-tickets/useCustomTicketsData';
@@ -23,6 +24,8 @@ import NewCustomTicketStepper from '@/app/components/custom-tickets/newCustomTic
 
 export default function CustomTicketsPage() {
   const [isNewTicketOpen, setIsNewTicketOpen] = useState(false);
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'staff';
 
   // Use constitutional hooks for data management
   const {
@@ -74,17 +77,17 @@ export default function CustomTicketsPage() {
   };
 
   return (
-    <PageContainer title="Custom Tickets">
+    <PageContainer title={isAdmin ? "Custom Tickets Management" : "My Custom Tickets"}>
       <Box sx={{ maxWidth: 1200, mx: 'auto', p: 3 }}>
         
         {/* Header */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
           <Box>
             <Typography variant="h4" component="h1" gutterBottom>
-              Custom Tickets
+              {isAdmin ? 'Custom Tickets Management' : 'My Custom Tickets'}
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              Manage custom jewelry requests and orders
+              {isAdmin ? 'View and manage all custom jewelry requests from all customers' : 'Manage custom jewelry requests assigned to you'}
             </Typography>
           </Box>
           <Button

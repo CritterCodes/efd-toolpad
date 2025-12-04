@@ -35,6 +35,13 @@ export default function ArtisanCustomTicketsPage() {
   const [error, setError] = useState(null);
   const [tabValue, setTabValue] = useState(0);
 
+  // Redirect admins to the main custom tickets page
+  useEffect(() => {
+    if (session?.user?.role === 'admin' || session?.user?.role === 'staff') {
+      window.location.href = '/dashboard/custom-tickets';
+    }
+  }, [session]);
+
   // Fetch tickets assigned to this artisan
   const fetchArtisanTickets = useCallback(async () => {
     try {
