@@ -47,7 +47,11 @@ export async function POST(request) {
         // Send test email via notification service
         const result = await NotificationService.sendEmailNotification(
             { type: 'test_email' },
-            { email: recipientEmail, firstName: session.user?.name || 'Admin User' },
+            { 
+                email: recipientEmail, 
+                firstName: session.user?.name?.split(' ')[0] || 'Admin',
+                lastName: session.user?.name?.split(' ')[1] || 'User'
+            },
             {
                 recipientEmail: recipientEmail,
                 timestamp: new Date().toLocaleString(),
