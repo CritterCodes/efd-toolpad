@@ -97,7 +97,7 @@ export default class CustomTicketService {
               console.log(`📧 Sending ticket creation notification to ${user.email}`);
               
               const adminBaseUrl = process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001';
-              const ticketUrl = `${adminBaseUrl}/custom-tickets/${result.ticket._id}`;
+              const ticketUrl = `${adminBaseUrl}/dashboard/custom-tickets/${result.ticket.ticketID}`;
               
               await NotificationService.createNotification({
                 userId: result.ticket.userID,
@@ -237,7 +237,7 @@ static async updateTicketStatus(ticketId, status, metadata = {}) {
       // Notify the client who created the ticket
       if (updatedTicket.userID) {
         const adminBaseUrl = process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001';
-        const ticketUrl = `${adminBaseUrl}/custom-tickets/${ticketId}`;
+        const ticketUrl = `${adminBaseUrl}/dashboard/custom-tickets/${updatedTicket.ticketID}`;
         
         await NotificationService.createNotification({
           userId: updatedTicket.userID,
@@ -432,7 +432,7 @@ static async updateTicketStatus(ticketId, status, metadata = {}) {
           // Get ticket number for notification
           const ticketNumber = result.ticket?.ticketID || ticketId.slice(-8);
           const adminBaseUrl = process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001';
-          const ticketUrl = `${adminBaseUrl}/custom-tickets/${ticketId}`;
+          const ticketUrl = `${adminBaseUrl}/dashboard/custom-tickets/${result.ticket?.ticketID}`;
           
           await NotificationService.createNotification({
             userId: assignmentData.userId,
