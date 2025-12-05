@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Artisan Has Been Assigned</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #1f2937;
+            background-color: #f9fafb;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: white;
+            padding: 32px 24px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .header p {
+            margin: 8px 0 0 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 32px 24px;
+        }
+        .content h2 {
+            margin: 0 0 16px 0;
+            font-size: 20px;
+            color: #0f172a;
+        }
+        .content p {
+            margin: 0 0 16px 0;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .artisan-card {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-left: 4px solid #fbbf24;
+            padding: 16px;
+            border-radius: 4px;
+            margin: 24px 0;
+        }
+        .artisan-card h3 {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            font-weight: 700;
+            color: #92400e;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .artisan-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 8px 0;
+        }
+        .artisan-specialty {
+            font-size: 14px;
+            color: #4b5563;
+            margin: 8px 0;
+        }
+        .artisan-specialty strong {
+            color: #92400e;
+        }
+        .info-box {
+            background-color: #f0f9ff;
+            border: 1px solid #bfdbfe;
+            padding: 16px;
+            border-radius: 4px;
+            margin: 24px 0;
+        }
+        .info-box h3 {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            font-weight: 700;
+            color: #1565c0;
+        }
+        .info-box ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .info-box li {
+            margin: 8px 0;
+            font-size: 14px;
+            color: #4b5563;
+        }
+        .cta-section {
+            margin: 24px 0;
+            padding: 16px;
+            background-color: #faf9f7;
+            border-radius: 4px;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            color: #0f172a;
+            padding: 12px 32px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 14px;
+            text-align: center;
+            margin-top: 12px;
+            transition: transform 0.2s;
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .secondary-button {
+            display: inline-block;
+            background-color: #e5e7eb;
+            color: #0f172a;
+            padding: 10px 24px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 13px;
+            text-align: center;
+            margin-right: 12px;
+            margin-top: 12px;
+            transition: transform 0.2s;
+        }
+        .secondary-button:hover {
+            transform: translateY(-2px);
+        }
+        .button-group {
+            margin: 16px 0;
+        }
+        .footer {
+            background-color: #f9fafb;
+            padding: 24px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .footer a {
+            color: #2196F3;
+            text-decoration: none;
+        }
+        .footer-divider {
+            margin: 16px 0;
+            height: 1px;
+            background-color: #e5e7eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>✨ Great News!</h1>
+            <p>Your artisan has been assigned</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <h2>Meet Your Artisan</h2>
+            <p>We're excited to tell you that we've selected the perfect artisan for your custom design. Here's who will be bringing your vision to life:</p>
+
+            <!-- Artisan Card -->
+            <div class="artisan-card">
+                <h3>👨‍🎨 Your Selected Artisan</h3>
+                <div class="artisan-name">{{artisanName}}</div>
+                <div class="artisan-specialty">
+                    <strong>Specialty:</strong> {{artisanType}}
+                </div>
+                <p style="margin: 12px 0 0 0; font-size: 13px; color: #4b5563;">
+                    This artisan has been carefully selected based on their expertise in {{artisanType}} work and their experience creating exceptional custom pieces.
+                </p>
+            </div>
+
+            <!-- Next Steps -->
+            <div class="info-box">
+                <h3>💬 What Happens Next?</h3>
+                <ul>
+                    <li><strong>Early Communication:</strong> Your artisan will reach out soon with questions about your design preferences</li>
+                    <li><strong>Design Discussion:</strong> They'll work with you to refine your vision and discuss materials, timeline, and budget</li>
+                    <li><strong>Collaboration:</strong> You'll be able to communicate directly with your artisan throughout the process</li>
+                    <li><strong>Regular Updates:</strong> Get progress updates as your custom piece is created</li>
+                </ul>
+            </div>
+
+            <!-- CTA Section -->
+            <div class="cta-section">
+                <p style="margin: 0 0 12px 0; font-weight: 600;">🌟 Want to Learn More About Your Artisan?</p>
+                <p style="margin: 0 0 12px 0; font-size: 14px;">Visit {{artisanName}}'s profile on our shop to see their portfolio, read reviews, and learn more about their work.</p>
+                <a href="{{artisanProfileUrl}}" class="cta-button">View Artisan Profile</a>
+            </div>
+
+            <!-- Ticket Management -->
+            <div class="cta-section" style="background-color: #f3f4f6;">
+                <p style="margin: 0 0 8px 0; font-weight: 600;">📋 Your Ticket Details</p>
+                <p style="margin: 8px 0; font-size: 14px;">Ticket #: <strong>{{ticketNumber}}</strong></p>
+                <p style="margin: 0 0 12px 0; font-size: 13px; color: #6b7280;">Access your ticket to view requirements, communicate with your artisan, and track progress.</p>
+                <a href="{{ticketUrl}}" class="secondary-button">View Your Ticket</a>
+            </div>
+
+            <p>This is an exciting journey, and we're thrilled to help bring your custom design to life. If you have any questions in the meantime, feel free to reply to this email.</p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p style="margin: 0;">Engel Fine Design Custom Tickets</p>
+            <div class="footer-divider"></div>
+            <p style="margin: 8px 0; color: #999;">
+                This is an automated email from your custom ticket system.<br>
+                Please do not reply directly to this email.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

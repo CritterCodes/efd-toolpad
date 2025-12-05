@@ -462,19 +462,25 @@ static async updateTicketStatus(ticketId, status, metadata = {}) {
           
           if (client && client.email) {
             const ticketNumber = result.ticket?.ticketID || ticketId.slice(-8);
+            const adminBaseUrl = process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001';
+            const shopBaseUrl = process.env.NEXT_PUBLIC_SHOP_URL || 'http://localhost:3000';
+            const ticketUrl = `${adminBaseUrl}/dashboard/custom-tickets/${result.ticket?.ticketID}`;
+            const artisanProfileUrl = `${shopBaseUrl}/artisans/${assignmentData.artisanSlug || 'profile'}`;
             
             await NotificationService.createNotification({
               userId: result.ticket.userID,
-              type: NOTIFICATION_TYPES.CUSTOM_TICKET_STATUS_CHANGED,
-              title: `Artisan Assigned to Your Ticket #${ticketNumber}`,
+              type: NOTIFICATION_TYPES.CUSTOM_TICKET_ARTISAN_ASSIGNED,
+              title: `🎨 Your Artisan Has Been Assigned - {{artisanName}}`,
               message: `${assignmentData.userName || 'An artisan'} has been assigned to work on your custom design.`,
               channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
               data: {
                 ticketNumber,
                 artisanName: assignmentData.userName || 'An artisan',
-                status: 'Artisan Assigned'
+                artisanType: assignmentData.artisanType || 'Custom Work',
+                artisanProfileUrl,
+                ticketUrl
               },
-              templateName: 'custom_ticket_status_changed',
+              templateName: 'custom_ticket_artisan_assigned_client',
               recipientEmail: client.email
             });
             
