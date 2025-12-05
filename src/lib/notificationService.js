@@ -452,6 +452,51 @@ const emailTemplates = {
       <p>If you have questions about this change, please contact our support team.</p>
     `,
     text: `Your artisan account has been deactivated`
+  }),
+
+  // ====== TEST EMAIL ======
+  test_email: (data) => ({
+    subject: `🧪 EFD Admin - Test Email Configuration`,
+    html: `
+      <h2>📧 Email Configuration Test</h2>
+      <p>This is a test email to verify that your email notification system is working correctly.</p>
+      
+      <div style="background: #e3f2fd; padding: 16px; border-radius: 8px; margin: 16px 0;">
+        <p><strong>✅ Email System Status:</strong> <span style="color: #388e3c; font-weight: bold;">WORKING</span></p>
+        <p><strong>Sent to:</strong> ${data.recipientEmail || 'Your email'}</p>
+        <p><strong>Test ID:</strong> <code style="background: #f5f5f5; padding: 4px 8px; border-radius: 4px;">${data.testId}</code></p>
+        <p><strong>Environment:</strong> ${data.environment}</p>
+        <p><strong>Sent:</strong> ${data.timestamp}</p>
+      </div>
+      
+      <div style="background: #f5f5f5; padding: 16px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #2196F3;">
+        <h3 style="margin-top: 0;">Email System Information</h3>
+        <ul>
+          <li>✅ SMTP Connection: Successful</li>
+          <li>✅ Email Template: Rendering correctly</li>
+          <li>✅ Message Delivered: Successfully</li>
+          <li>✅ User Authentication: Verified</li>
+        </ul>
+      </div>
+      
+      <h3>What This Means</h3>
+      <p>Your Engel Fine Design email notification system is configured correctly and operational. Users will receive:</p>
+      <ul>
+        <li>📧 Custom ticket notifications</li>
+        <li>📧 Artisan assignment alerts</li>
+        <li>📧 Message notifications</li>
+        <li>📧 Status change updates</li>
+        <li>📧 System alerts and important updates</li>
+      </ul>
+      
+      <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 24px 0;">
+      
+      <p style="color: #999; font-size: 12px;">
+        This is an automated test email from your EFD Admin Development Tools. 
+        You can safely ignore or delete this email.
+      </p>
+    `,
+    text: `This is a test email confirming your EFD Admin email system is working correctly.`
   })
 };
 
