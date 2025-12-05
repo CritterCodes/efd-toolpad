@@ -7,7 +7,7 @@
  */
 
 import { auth } from '@/lib/auth';
-import { notificationService } from '@/lib/notificationService';
+import { NotificationService, NOTIFICATION_TYPES, CHANNELS } from '@/lib/notificationService';
 import { USER_ROLES } from '@/lib/unifiedUserService';
 
 export async function POST(request) {
@@ -45,22 +45,34 @@ export async function POST(request) {
         console.log(`[Test Email] Sending test email to ${recipientEmail}`);
 
         // Send test email via notification service
-        const result = await notificationService.sendEmail({
-            to: recipientEmail,
-            subject: '🧪 EFD Admin - Test Email',
-            template: 'test_email',
-            data: {
-                userName: session.user?.name || 'Admin User',
+        const result = await NotificationService.sendEmailNotification(
+            { type: 'test_email' },
+            { email: recipientEmail, firstName: session.user?.name || 'Admin User' },
+            {
+                recipientEmail: recipientEmail,
                 timestamp: new Date().toLocaleString(),
                 environment: process.env.NODE_ENV,
                 testId: `test-${Date.now()}`
-            }
-        });
+            },
+            'test_email',
+            recipientEmail
+        );
 
         console.log('[Test Email] Email sent successfully', {
             to: recipientEmail,
+            success: result.success,
             messageId: result.messageId
         });
+
+        if (!result.success) {
+            return Response.json({
+                error: 'Failed to send test email',
+                details: result.error || 'Unknown error',
+                type: 'EmailError'
+            }, {
+                status: 500
+            });
+        }
 
         return Response.json({
             success: true,
