@@ -491,7 +491,7 @@ export default function CADRequestsPage() {
                                                 </Button>
                                             )}
                                             
-                                            {request.designerId === session?.user?.userID && ['claimed', 'in_progress'].includes(request.status) && (
+                                            {request.designerId === session?.user?.userID && ['in_progress', 'design_submitted'].includes(request.status) && (
                                                 <Button
                                                     size="small"
                                                     variant="contained"
@@ -503,7 +503,7 @@ export default function CADRequestsPage() {
                                                     startIcon={<EditIcon />}
                                                     sx={{ flex: 1, minWidth: '120px' }}
                                                 >
-                                                    {request.status === 'claimed' ? 'Start Design' : 'Continue'}
+                                                    {request.status === 'in_progress' ? 'Start Design' : 'Continue'}
                                                 </Button>
                                             )}
                                             
