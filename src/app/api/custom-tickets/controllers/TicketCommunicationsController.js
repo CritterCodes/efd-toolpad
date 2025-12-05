@@ -27,6 +27,15 @@ class TicketCommunicationsController {
       const body = await request.json();
       const { message, type = 'chat', from = 'admin', to = 'client', fromName = 'Artisan', images = [], link } = body;
 
+      console.log('📨 TicketCommunicationsController.addCommunication received:', {
+        message,
+        type,
+        from,
+        imagesCount: images?.length || 0,
+        imagesFirstItem: images?.[0] ? { name: images[0].name, type: images[0].type, hasData: !!images[0].data } : null,
+        link
+      });
+
       // Validate required fields
       if (!message?.trim() && (!images || images.length === 0) && !link) {
         return NextResponse.json(
@@ -49,24 +58,32 @@ class TicketCommunicationsController {
       // Process and upload images if provided
       if (images && images.length > 0) {
         try {
+          console.log(`🖼️ Processing ${images.length} image(s) for upload...`);
           const uploadedImages = [];
           
           for (const img of images) {
+            console.log(`📸 Image check - has data: ${!!img.data}, starts with data: ${img.data?.startsWith('data:')}, type: ${img.type}, name: ${img.name}`);
+            
             if (img.data && img.data.startsWith('data:')) {
+              console.log(`✅ Image ${img.name} has valid base64 data, uploading to S3...`);
               // Convert base64 to S3 URL
               const s3Url = await uploadBase64ToS3(
                 img.data,
                 `communications/ticket-${ticketId}/image-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                 img.type || 'image/png'
               );
+              console.log(`✅ Image ${img.name} uploaded to S3: ${s3Url}`);
               uploadedImages.push({
                 url: s3Url,
                 name: img.name || 'image.png',
                 type: img.type || 'image/png'
               });
+            } else {
+              console.warn(`⚠️ Image ${img.name} skipped - no valid base64 data`);
             }
           }
           
+          console.log(`🎯 Successfully processed ${uploadedImages.length} of ${images.length} images`);
           if (uploadedImages.length > 0) {
             communicationData.images = uploadedImages;
           }

@@ -133,6 +133,14 @@ const MessageInterface = ({
   const handleSendMessage = async () => {
     if (!newMessage.trim() && attachedImages.length === 0 && !attachedLink) return;
 
+    console.log('📤 MessageInterface.handleSendMessage - Sending:', {
+      messageLength: newMessage.length,
+      imagesCount: attachedImages.length,
+      firstImageName: attachedImages[0]?.name,
+      hasLink: !!attachedLink,
+      attachedImages: attachedImages.map(img => ({ name: img.name, type: img.type, hasData: !!img.data }))
+    });
+
     const communicationData = {
       message: newMessage,
       type: 'chat',
