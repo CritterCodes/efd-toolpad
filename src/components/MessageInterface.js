@@ -291,20 +291,26 @@ const MessageInterface = ({
                   {/* Display attached images */}
                   {message.images && message.images.length > 0 && (
                     <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      {message.images.map((img, idx) => (
-                        <Box key={idx} sx={{ borderRadius: 1, overflow: 'hidden', maxWidth: '100%' }}>
-                          <img 
-                            src={typeof img === 'string' ? img : img.data} 
-                            alt={img.name || `Image ${idx + 1}`}
-                            style={{ maxWidth: '100%', maxHeight: '300px', display: 'block', borderRadius: '8px' }}
-                          />
-                          {img.name && (
-                            <Typography variant="caption" sx={{ display: 'block', mt: 0.5, opacity: 0.7 }}>
-                              {img.name}
-                            </Typography>
-                          )}
-                        </Box>
-                      ))}
+                      {message.images.map((img, idx) => {
+                        // Handle both formats: { url, name, type } from S3 and { data, name, type } from preview
+                        const imgSrc = img.url || img.data;
+                        const imgName = img.name || `Image ${idx + 1}`;
+                        
+                        return (
+                          <Box key={idx} sx={{ borderRadius: 1, overflow: 'hidden', maxWidth: '100%' }}>
+                            <img 
+                              src={imgSrc} 
+                              alt={imgName}
+                              style={{ maxWidth: '100%', maxHeight: '300px', display: 'block', borderRadius: '8px' }}
+                            />
+                            {imgName && (
+                              <Typography variant="caption" sx={{ display: 'block', mt: 0.5, opacity: 0.7 }}>
+                                {imgName}
+                              </Typography>
+                            )}
+                          </Box>
+                        );
+                      })}
                     </Box>
                   )}
 
