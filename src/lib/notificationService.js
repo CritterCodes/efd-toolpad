@@ -392,21 +392,28 @@ const emailTemplates = {
   }),
 
   custom_ticket_artisan_assigned: (data) => ({
-    subject: `✨ Artisan Assigned to Your Custom Ticket - #${data.ticketNumber}`,
+    subject: `✨ New Custom Design Assignment - Ticket #${data.ticketNumber}`,
     html: `
-      <h2>Artisan Assigned to Your Custom Design</h2>
-      <p>Great news! An artisan has been assigned to work on your custom design ticket.</p>
+      <h2>You've Been Assigned a Custom Design</h2>
+      <p>A client has submitted a custom design request and you've been selected as the artisan to work on it.</p>
       
       <div style="background: #f3e5f5; padding: 16px; border-radius: 8px; margin: 16px 0;">
         <p><strong>Ticket #:</strong> ${data.ticketNumber}</p>
-        <p><strong>Artisan:</strong> ${data.artisanName}</p>
-        <p><strong>Specialty:</strong> ${data.artisanType || 'Custom Design Work'}</p>
+        <p><strong>Your Specialty:</strong> ${data.artisanType || 'Custom Design Work'}</p>
       </div>
       
-      <p>Your assigned artisan will review your custom design requirements and may reach out with questions or to discuss your vision in more detail.</p>
-      <p>You can message your artisan directly through your ticket to discuss any details or preferences.</p>
+      <h3>What's Next?</h3>
+      <p>Please review the client's custom design requirements and reach out if you have any questions or need clarification. You can message the client directly through your ticket to discuss:</p>
+      <ul>
+        <li>Design preferences and vision</li>
+        <li>Timeline and deadlines</li>
+        <li>Budget and pricing</li>
+        <li>Any technical specifications or constraints</li>
+      </ul>
+      
+      <p><strong>Access your ticket:</strong> Log in to your artisan dashboard to view the full details and begin working on this custom design.</p>
     `,
-    text: `Artisan ${data.artisanName} has been assigned to your custom ticket #${data.ticketNumber}`
+    text: `You have been assigned to custom ticket #${data.ticketNumber}. Please review the client's design requirements.`
   }),
 
   // ====== ARTISAN MANAGEMENT NOTIFICATIONS ======
