@@ -96,6 +96,9 @@ export default class CustomTicketService {
             if (user && user.email) {
               console.log(`📧 Sending ticket creation notification to ${user.email}`);
               
+              const adminBaseUrl = process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001';
+              const ticketUrl = `${adminBaseUrl}/custom-tickets/${result.ticket._id}`;
+              
               await NotificationService.createNotification({
                 userId: result.ticket.userID,
                 type: NOTIFICATION_TYPES.CUSTOM_TICKET_CREATED,
@@ -104,7 +107,8 @@ export default class CustomTicketService {
                 channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
                 data: {
                   ticketNumber: result.ticket.ticketID || 'N/A',
-                  description: result.ticket.description || 'Custom design work'
+                  description: result.ticket.description || 'Custom design work',
+                  ticketUrl
                 },
                 templateName: 'custom_ticket_created',
                 recipientEmail: user.email
@@ -232,6 +236,9 @@ static async updateTicketStatus(ticketId, status, metadata = {}) {
       
       // Notify the client who created the ticket
       if (updatedTicket.userID) {
+        const adminBaseUrl = process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001';
+        const ticketUrl = `${adminBaseUrl}/custom-tickets/${ticketId}`;
+        
         await NotificationService.createNotification({
           userId: updatedTicket.userID,
           type: NOTIFICATION_TYPES.CUSTOM_TICKET_STATUS_CHANGED,
@@ -242,7 +249,8 @@ static async updateTicketStatus(ticketId, status, metadata = {}) {
             ticketNumber,
             previousStatus,
             newStatus: status,
-            reason: metadata.reason || ''
+            reason: metadata.reason || '',
+            ticketUrl
           },
           templateName: 'custom_ticket_status_changed',
           recipientEmail: updatedTicket.clientEmail
@@ -423,6 +431,8 @@ static async updateTicketStatus(ticketId, status, metadata = {}) {
         if (artisan && artisan.email) {
           // Get ticket number for notification
           const ticketNumber = result.ticket?.ticketID || ticketId.slice(-8);
+          const adminBaseUrl = process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001';
+          const ticketUrl = `${adminBaseUrl}/custom-tickets/${ticketId}`;
           
           await NotificationService.createNotification({
             userId: assignmentData.userId,
@@ -434,7 +444,8 @@ static async updateTicketStatus(ticketId, status, metadata = {}) {
               ticketNumber,
               artisanName: artisan.firstName || artisan.email,
               artisanType: assignmentData.artisanType,
-              ticketTitle: result.ticket?.title || 'Custom Design Request'
+              ticketTitle: result.ticket?.title || 'Custom Design Request',
+              ticketUrl
             },
             templateName: 'custom_ticket_artisan_assigned',
             recipientEmail: artisan.email
