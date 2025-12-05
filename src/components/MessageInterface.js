@@ -10,12 +10,25 @@ import {
   IconButton,
   Chip,
   useTheme,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Alert,
+  Grid,
+  Card,
+  CardMedia,
+  CardContent,
 } from '@mui/material';
 import {
   Send as SendIcon,
   Add as AddIcon,
   Chat as ChatIcon,
   AttachFile as AttachFileIcon,
+  Link as LinkIcon,
+  Close as CloseIcon,
+  Image as ImageIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 
 const MessageInterface = ({ 
@@ -25,6 +38,12 @@ const MessageInterface = ({
 }) => {
   const theme = useTheme();
   const [newMessage, setNewMessage] = useState('');
+  const [attachedImages, setAttachedImages] = useState([]);
+  const [attachedLink, setAttachedLink] = useState('');
+  const [linkInput, setLinkInput] = useState('');
+  const [linkError, setLinkError] = useState('');
+  const [openLinkDialog, setOpenLinkDialog] = useState(false);
+  const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -34,6 +53,64 @@ const MessageInterface = ({
   useEffect(() => {
     scrollToBottom();
   }, [ticket?.communications]);
+
+  // Validate and format URL
+  const validateUrl = (url) => {
+    try {
+      const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
+      return urlObj.toString();
+    } catch {
+      return null;
+    }
+  };
+
+  // Handle image file selection
+  const handleImageSelect = (e) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach(file => {
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setAttachedImages(prev => [...prev, {
+            name: file.name,
+            data: event.target.result,
+            type: file.type,
+            size: file.size
+          }]);
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Handle adding link
+  const handleAddLink = () => {
+    const trimmedLink = linkInput.trim();
+    if (!trimmedLink) {
+      setLinkError('Please enter a URL');
+      return;
+    }
+
+    const validatedUrl = validateUrl(trimmedLink);
+    if (!validatedUrl) {
+      setLinkError('Invalid URL format');
+      return;
+    }
+
+    setAttachedLink(validatedUrl);
+    setLinkInput('');
+    setLinkError('');
+    setOpenLinkDialog(false);
+  };
+
+  // Remove attached image
+  const removeImage = (index) => {
+    setAttachedImages(prev => prev.filter((_, i) => i !== index));
+  };
 
   // Combine and sort all messages
   const allMessages = [
@@ -54,18 +131,22 @@ const MessageInterface = ({
   ].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() && attachedImages.length === 0 && !attachedLink) return;
 
     const communicationData = {
       message: newMessage,
       type: 'chat',
       from: 'admin',
       to: 'client',
-      date: new Date().toISOString()
+      date: new Date().toISOString(),
+      images: attachedImages.length > 0 ? attachedImages : undefined,
+      link: attachedLink || undefined
     };
 
     await onAddCommunication(communicationData);
     setNewMessage('');
+    setAttachedImages([]);
+    setAttachedLink('');
   };
 
   const handleKeyPress = (e) => {
@@ -207,6 +288,58 @@ const MessageInterface = ({
                     {message.message || message.content}
                   </Typography>
 
+                  {/* Display attached images */}
+                  {message.images && message.images.length > 0 && (
+                    <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      {message.images.map((img, idx) => (
+                        <Box key={idx} sx={{ borderRadius: 1, overflow: 'hidden', maxWidth: '100%' }}>
+                          <img 
+                            src={typeof img === 'string' ? img : img.data} 
+                            alt={img.name || `Image ${idx + 1}`}
+                            style={{ maxWidth: '100%', maxHeight: '300px', display: 'block', borderRadius: '8px' }}
+                          />
+                          {img.name && (
+                            <Typography variant="caption" sx={{ display: 'block', mt: 0.5, opacity: 0.7 }}>
+                              {img.name}
+                            </Typography>
+                          )}
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
+
+                  {/* Display attached link */}
+                  {message.link && (
+                    <Box sx={{ 
+                      mt: 1, 
+                      p: 1,
+                      bgcolor: 'rgba(0,0,0,0.2)',
+                      borderRadius: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5
+                    }}>
+                      <LinkIcon sx={{ fontSize: '0.875rem', opacity: 0.7 }} />
+                      <Typography
+                        component="a"
+                        href={message.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        variant="caption"
+                        sx={{
+                          textDecoration: 'underline',
+                          cursor: 'pointer',
+                          opacity: 0.9,
+                          '&:hover': {
+                            opacity: 1
+                          }
+                        }}
+                      >
+                        {message.link.replace(/^https?:\/\/(www\.)?/, '').slice(0, 50)}...
+                      </Typography>
+                    </Box>
+                  )}
+
                   {/* Message Footer */}
                   <Typography 
                     variant="caption" 
@@ -236,11 +369,83 @@ const MessageInterface = ({
           border: `1px solid ${theme.palette.divider}`,
         }}
       >
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+        {/* Attached images preview */}
+        {attachedImages.length > 0 && (
+          <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {attachedImages.map((img, idx) => (
+              <Box key={idx} sx={{ position: 'relative' }}>
+                <Box
+                  sx={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 1,
+                    overflow: 'hidden',
+                    border: `2px solid ${theme.palette.primary.main}`,
+                    backgroundImage: `url(${img.data})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center'
+                  }}
+                />
+                <IconButton
+                  size="small"
+                  onClick={() => removeImage(idx)}
+                  sx={{
+                    position: 'absolute',
+                    top: -8,
+                    right: -8,
+                    bgcolor: 'error.main',
+                    color: 'white',
+                    '&:hover': { bgcolor: 'error.dark' },
+                    width: 24,
+                    height: 24
+                  }}
+                >
+                  <CloseIcon sx={{ fontSize: '0.875rem' }} />
+                </IconButton>
+              </Box>
+            ))}
+          </Box>
+        )}
+
+        {/* Attached link preview */}
+        {attachedLink && (
+          <Box sx={{ 
+            mb: 2, 
+            p: 1.5,
+            bgcolor: 'primary.light',
+            borderRadius: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
+              <LinkIcon />
+              <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
+                {attachedLink.slice(0, 60)}...
+              </Typography>
+            </Box>
+            <IconButton
+              size="small"
+              onClick={() => setAttachedLink('')}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        )}
+
+        {/* Input controls */}
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end', mb: 1 }}>
           <TextField
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (newMessage.trim() || attachedImages.length > 0 || attachedLink) {
+                  handleSendMessage();
+                }
+              }
+            }}
             placeholder="Type your message..."
             multiline
             maxRows={4}
@@ -267,9 +472,38 @@ const MessageInterface = ({
             }}
           />
           
+          {/* Image upload button */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*"
+            onChange={handleImageSelect}
+            style={{ display: 'none' }}
+          />
+          <IconButton
+            onClick={() => fileInputRef.current?.click()}
+            size="small"
+            title="Attach images"
+            sx={{ height: 40, width: 40 }}
+          >
+            <ImageIcon />
+          </IconButton>
+
+          {/* Link button */}
+          <IconButton
+            onClick={() => setOpenLinkDialog(true)}
+            size="small"
+            title="Attach link"
+            sx={{ height: 40, width: 40 }}
+          >
+            <LinkIcon />
+          </IconButton>
+          
+          {/* Send button */}
           <Button
             onClick={handleSendMessage}
-            disabled={!newMessage.trim() || isSubmitting}
+            disabled={(!newMessage.trim() && attachedImages.length === 0 && !attachedLink) || isSubmitting}
             variant="contained"
             size="small"
             sx={{ 
@@ -306,14 +540,44 @@ const MessageInterface = ({
           sx={{ 
             color: 'text.secondary', 
             fontSize: '0.65rem',
-            mt: 1,
             display: 'block'
           }}
         >
-          Press Enter to prepare message, Shift+Enter for new line
+          Press Enter to send, Shift+Enter for new line. Attach images and links above.
         </Typography>
       </Box>
 
+      {/* Link Dialog */}
+      <Dialog open={openLinkDialog} onClose={() => setOpenLinkDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Attach Link</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <TextField
+            autoFocus
+            fullWidth
+            label="URL"
+            placeholder="https://example.com"
+            value={linkInput}
+            onChange={(e) => {
+              setLinkInput(e.target.value);
+              setLinkError('');
+            }}
+            error={!!linkError}
+            helperText={linkError}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setOpenLinkDialog(false);
+            setLinkInput('');
+            setLinkError('');
+          }}>
+            Cancel
+          </Button>
+          <Button onClick={handleAddLink} variant="contained">
+            Attach Link
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

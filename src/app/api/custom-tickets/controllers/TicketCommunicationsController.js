@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/database.js';
 import { NotificationService, NOTIFICATION_TYPES, CHANNELS } from '@/lib/notificationService.js';
+import { uploadBase64ToS3 } from '@/utils/s3.util.js';
 
 class TicketCommunicationsController {
   /**
@@ -24,19 +25,19 @@ class TicketCommunicationsController {
       }
 
       const body = await request.json();
-      const { message, type = 'chat', from = 'admin', to = 'client', fromName = 'Artisan' } = body;
+      const { message, type = 'chat', from = 'admin', to = 'client', fromName = 'Artisan', images = [], link } = body;
 
       // Validate required fields
-      if (!message?.trim()) {
+      if (!message?.trim() && (!images || images.length === 0) && !link) {
         return NextResponse.json(
-          { error: 'Message content is required' },
+          { error: 'Message content, images, or link is required' },
           { status: 400 }
         );
       }
 
       // Create communication data
       const communicationData = {
-        message: message.trim(),
+        message: message?.trim() || '',
         type,
         from,
         to,
@@ -44,6 +45,47 @@ class TicketCommunicationsController {
         date: new Date().toISOString(),
         timestamp: new Date().toISOString()
       };
+
+      // Process and upload images if provided
+      if (images && images.length > 0) {
+        try {
+          const uploadedImages = [];
+          
+          for (const img of images) {
+            if (img.data && img.data.startsWith('data:')) {
+              // Convert base64 to S3 URL
+              const s3Url = await uploadBase64ToS3(
+                img.data,
+                `communications/ticket-${ticketId}/image-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                img.type || 'image/png'
+              );
+              uploadedImages.push({
+                url: s3Url,
+                name: img.name || 'image.png',
+                type: img.type || 'image/png'
+              });
+            }
+          }
+          
+          if (uploadedImages.length > 0) {
+            communicationData.images = uploadedImages;
+          }
+        } catch (imageError) {
+          console.error('⚠️ Error uploading images:', imageError);
+          // Continue without images if upload fails
+        }
+      }
+
+      // Validate and add link if provided
+      if (link) {
+        try {
+          const linkUrl = new URL(link);
+          communicationData.link = linkUrl.toString();
+        } catch (linkError) {
+          console.warn('⚠️ Invalid link URL provided:', link);
+          // Continue without link if validation fails
+        }
+      }
 
       // Get database collection
       const collection = await db.dbCustomTickets();
