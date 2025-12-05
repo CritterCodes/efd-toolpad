@@ -63,3 +63,47 @@ export const uploadRepairTaskImage = async (file, taskId) => {
 export const uploadRepairImage = async (file, repairId = 'general') => {
     return uploadFileToS3(file, `admin/repairs/${repairId}`, 'image-');
 };
+
+/**
+ * Upload base64 encoded image to S3
+ * Used for images uploaded via communication channels
+ * @param {string} base64Data - Base64 encoded image data (with or without data: prefix)
+ * @param {string} fileName - Original filename
+ * @param {string} fileType - MIME type (e.g., 'image/png')
+ * @param {string} folder - Folder path for organization (default: 'communications')
+ * @returns {Promise<string>} - The public URL of the uploaded file
+ */
+export const uploadBase64ToS3 = async (base64Data, fileName, fileType, folder = 'communications') => {
+    try {
+        // Remove data: prefix if present
+        const base64String = base64Data.startsWith('data:') 
+            ? base64Data.split(',')[1] 
+            : base64Data;
+
+        // Convert base64 to buffer
+        const buffer = Buffer.from(base64String, 'base64');
+        
+        const timestamp = Date.now();
+        const sanitizedName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const fileKey = `${folder}/${timestamp}-${sanitizedName}`;
+
+        const uploadParams = {
+            Bucket: process.env.AWS_BUCKET_NAME,
+            Key: fileKey,
+            Body: buffer,
+            ContentType: fileType || 'application/octet-stream',
+        };
+
+        // Upload file to S3
+        await s3Client.send(new PutObjectCommand(uploadParams));
+
+        // Construct the public URL
+        const fileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileKey}`;
+        
+        console.log('✅ Base64 image uploaded successfully:', fileUrl);
+        return fileUrl;
+    } catch (error) {
+        console.error("❌ Error uploading base64 image to S3:", error);
+        throw new Error(`Failed to upload image to S3: ${error.message}`);
+    }
+};
