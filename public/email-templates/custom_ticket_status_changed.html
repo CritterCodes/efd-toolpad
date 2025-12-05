@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Ticket Status Changed</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #1f2937;
+            background-color: #f9fafb;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: white;
+            padding: 32px 24px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .header p {
+            margin: 8px 0 0 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 32px 24px;
+        }
+        .content h2 {
+            margin: 0 0 16px 0;
+            font-size: 20px;
+            color: #0f172a;
+        }
+        .content p {
+            margin: 0 0 16px 0;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .details-box {
+            background-color: #f3e5f5;
+            border-left: 4px solid #7b1fa2;
+            padding: 16px;
+            border-radius: 4px;
+            margin: 24px 0;
+        }
+        .details-box h3 {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            font-weight: 700;
+            color: #6a1b9a;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .detail-item {
+            margin: 8px 0;
+            font-size: 14px;
+        }
+        .detail-label {
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .detail-value {
+            color: #4b5563;
+        }
+        .status-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 12px 0;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .status-old {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+        .status-new {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+        .arrow {
+            color: #d1d5db;
+            font-weight: bold;
+        }
+        .reason-box {
+            background-color: #fff3cd;
+            border-left: 4px solid #fbbf24;
+            padding: 12px;
+            border-radius: 4px;
+            margin: 12px 0;
+        }
+        .reason-box strong {
+            display: block;
+            margin-bottom: 8px;
+            color: #92400e;
+        }
+        .cta-section {
+            margin: 24px 0;
+            padding: 16px;
+            background-color: #faf9f7;
+            border-radius: 4px;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            color: #0f172a;
+            padding: 12px 32px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 14px;
+            text-align: center;
+            margin-top: 12px;
+            transition: transform 0.2s;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .footer {
+            background-color: #f9fafb;
+            padding: 24px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .footer a {
+            color: #2196F3;
+            text-decoration: none;
+        }
+        .footer-divider {
+            margin: 16px 0;
+            height: 1px;
+            background-color: #e5e7eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📊 Status Update</h1>
+            <p>Your custom ticket has been updated</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <h2>Ticket Status Changed</h2>
+            <p>Your custom design ticket status has been updated. Here's what changed:</p>
+
+            <!-- Details Box -->
+            <div class="details-box">
+                <h3>Status Update</h3>
+                <div class="detail-item">
+                    <span class="detail-label">Ticket #:</span>
+                    <span class="detail-value">{{ticketNumber}}</span>
+                </div>
+                
+                <div class="status-row">
+                    <span class="detail-label">Status:</span>
+                    <span class="status-badge status-old">{{previousStatus}}</span>
+                    <span class="arrow">→</span>
+                    <span class="status-badge status-new">{{newStatus}}</span>
+                </div>
+
+                {{#if reason}}
+                <div class="reason-box">
+                    <strong>📝 Reason for Change:</strong>
+                    {{reason}}
+                </div>
+                {{/if}}
+            </div>
+
+            <p>This change reflects the current progress on your custom design. If you have any questions about this update, please check your ticket or contact us.</p>
+
+            <!-- CTA Section -->
+            <div class="cta-section">
+                <p style="margin: 0 0 12px 0; font-weight: 600;">🔍 View Full Ticket Details</p>
+                <p style="margin: 0 0 12px 0; font-size: 14px;">Log in to see more information about your ticket and any messages from the artisan.</p>
+                <a href="{{ticketUrl}}" class="cta-button">View Ticket</a>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p style="margin: 0;">Engel Fine Design Custom Tickets</p>
+            <div class="footer-divider"></div>
+            <p style="margin: 8px 0; color: #999;">
+                This is an automated email from your custom ticket system.<br>
+                Please do not reply directly to this email.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

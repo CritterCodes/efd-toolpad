@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: 'Georgia', 'Garamond', serif;
+            line-height: 1.6;
+            color: #1f2937;
+            background: #f9fafb;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 0;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        .header {
+            background: #0f172a;
+            padding: 40px 20px;
+            text-align: center;
+            color: white;
+            border-bottom: 3px solid #fbbf24;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+        }
+        .header-subtitle {
+            font-size: 13px;
+            margin-top: 8px;
+            opacity: 0.85;
+            font-weight: 300;
+        }
+        .content {
+            padding: 40px;
+            background: white;
+        }
+        .content h2 {
+            color: #0f172a;
+            font-size: 18px;
+            margin-top: 0;
+            margin-bottom: 16px;
+            font-weight: 400;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 12px;
+        }
+        .content h3 {
+            color: #0f172a;
+            font-size: 14px;
+            margin: 20px 0 12px 0;
+            font-weight: 500;
+        }
+        .content p {
+            margin: 12px 0;
+            color: #4b5563;
+            font-size: 14px;
+            line-height: 1.7;
+        }
+        .content ul {
+            margin: 16px 0;
+            padding-left: 24px;
+        }
+        .content li {
+            margin: 8px 0;
+            color: #4b5563;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 28px;
+            margin: 20px 0;
+            background: #0f172a;
+            color: white;
+            text-decoration: none;
+            border-radius: 2px;
+            font-weight: 500;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+            border: 1px solid #0f172a;
+        }
+        .button:hover {
+            background: #1e293b;
+            border-color: #1e293b;
+        }
+        .info-box {
+            background: #f9fafb;
+            border-left: 3px solid #fbbf24;
+            padding: 16px;
+            margin: 16px 0;
+            border-radius: 0;
+        }
+        .info-box.alert {
+            border-left-color: #ef4444;
+        }
+        .info-box.success {
+            border-left-color: #10b981;
+        }
+        .info-box.warning {
+            border-left-color: #f59e0b;
+        }
+        .info-box strong {
+            color: #0f172a;
+        }
+        .ticket-details {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            padding: 16px;
+            margin: 16px 0;
+            border-radius: 0;
+        }
+        .ticket-details p {
+            margin: 8px 0;
+            font-size: 13px;
+        }
+        .ticket-number {
+            color: #fbbf24;
+            font-weight: 500;
+            font-size: 16px;
+        }
+        .footer {
+            background: #f9fafb;
+            padding: 20px;
+            text-align: center;
+            font-size: 11px;
+            color: #6b7280;
+            border-top: 1px solid #e5e7eb;
+        }
+        .footer a {
+            color: #0f172a;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .highlight {
+            color: #fbbf24;
+            font-weight: 500;
+        }
+        .signature {
+            margin-top: 24px;
+            padding-top: 16px;
+            border-top: 1px solid #e5e7eb;
+            font-style: italic;
+            color: #6b7280;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        {{> header}}
+        
+        <div class="content">
+            {{> body}}
+        </div>
+        
+        {{> footer}}
+    </div>
+</body>
+</html>

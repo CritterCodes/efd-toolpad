@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Ticket Created</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #1f2937;
+            background-color: #f9fafb;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: white;
+            padding: 32px 24px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .header p {
+            margin: 8px 0 0 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 32px 24px;
+        }
+        .content h2 {
+            margin: 0 0 16px 0;
+            font-size: 20px;
+            color: #0f172a;
+        }
+        .content p {
+            margin: 0 0 16px 0;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .details-box {
+            background-color: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 16px;
+            border-radius: 4px;
+            margin: 24px 0;
+        }
+        .details-box h3 {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            font-weight: 700;
+            color: #1565c0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .detail-item {
+            margin: 8px 0;
+            font-size: 14px;
+        }
+        .detail-label {
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .detail-value {
+            color: #4b5563;
+        }
+        .status-badge {
+            display: inline-block;
+            background-color: #dcfce7;
+            color: #166534;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .cta-section {
+            margin: 24px 0;
+            padding: 16px;
+            background-color: #faf9f7;
+            border-radius: 4px;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            color: #0f172a;
+            padding: 12px 32px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 14px;
+            text-align: center;
+            margin-top: 12px;
+            transition: transform 0.2s;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .footer {
+            background-color: #f9fafb;
+            padding: 24px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .footer a {
+            color: #2196F3;
+            text-decoration: none;
+        }
+        .footer-divider {
+            margin: 16px 0;
+            height: 1px;
+            background-color: #e5e7eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📋 Ticket Created</h1>
+            <p>Your custom design request has been submitted</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <h2>Custom Ticket Confirmation</h2>
+            <p>Your custom design ticket has been successfully created and assigned to our artisan team for review and work.</p>
+
+            <!-- Details Box -->
+            <div class="details-box">
+                <h3>Ticket Details</h3>
+                <div class="detail-item">
+                    <span class="detail-label">Ticket #:</span>
+                    <span class="detail-value">{{ticketNumber}}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Description:</span>
+                    <span class="detail-value">{{description}}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Status:</span>
+                    <span class="status-badge">Open</span>
+                </div>
+            </div>
+
+            <p>You'll receive updates as our artisan team reviews and begins working on your custom design. Here's what happens next:</p>
+            
+            <ol style="margin: 16px 0; padding-left: 20px;">
+                <li><strong>Review:</strong> Our team will review your design requirements</li>
+                <li><strong>Planning:</strong> The assigned artisan will reach out with questions or clarifications</li>
+                <li><strong>Design:</strong> Work begins on your custom piece</li>
+                <li><strong>Presentation:</strong> We'll show you the design for approval</li>
+                <li><strong>Production:</strong> Once approved, we craft your custom piece</li>
+            </ol>
+
+            <!-- CTA Section -->
+            <div class="cta-section">
+                <p style="margin: 0 0 12px 0; font-weight: 600;">💬 Want to communicate with your artisan?</p>
+                <p style="margin: 0 0 12px 0; font-size: 14px;">Check your ticket for messages and updates. You can reply directly to communicate with the artisan working on your custom design.</p>
+                <a href="{{ticketUrl}}" class="cta-button">View Your Ticket</a>
+            </div>
+
+            <p>If you have any questions, feel free to reply to this email or contact our support team.</p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p style="margin: 0;">Engel Fine Design Custom Tickets</p>
+            <div class="footer-divider"></div>
+            <p style="margin: 8px 0; color: #999;">
+                This is an automated email from your custom ticket system.<br>
+                Please do not reply directly to this email.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

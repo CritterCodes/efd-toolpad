@@ -10,13 +10,20 @@
  * - Respects user consent preferences
  * - Complete audit trail
  * - Retry logic for failed sends
- * - Template-based email generation
+ * - Template-based email generation (file-based with Handlebars)
  * - CAD workflow specific notifications
  */
 
 import { connectToDatabase } from './mongodb.js';
 import { ObjectId } from 'mongodb';
 import nodemailer from 'nodemailer';
+import handlebars from 'handlebars';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Notification Types for CAD & Admin Workflows
@@ -99,413 +106,32 @@ function getEmailTransport() {
 }
 
 /**
- * Email Templates for CAD Notifications
+ * Get email template from filesystem (using Handlebars)
+ * Mirrors efd-shop implementation for consistent email handling
  */
-const emailTemplates = {
-  cad_request_available: (data) => ({
-    subject: `🎨 New CAD Design Request Available - ${data.gemName}`,
-    html: `
-      <h2>New Design Work Available</h2>
-      <p>A new CAD design request is available for you to claim.</p>
-      
-      <div style="background: #e8f5e9; padding: 16px; border-radius: 8px; margin: 16px 0;">
-        <h3>Request Details:</h3>
-        <p><strong>Gemstone:</strong> ${data.gemName}</p>
-        <p><strong>Material:</strong> ${data.material}</p>
-        <p><strong>Style:</strong> ${data.styleDescription || 'N/A'}</p>
-        <p><strong>Priority:</strong> ${data.priority || 'Medium'}</p>
-        <p><strong>Timeline:</strong> ${data.timeline || 'N/A'}</p>
-      </div>
-      
-      <p>Log in to your CAD Designer dashboard to claim this request.</p>
-    `,
-    text: `New CAD design request available: ${data.gemName}`
-  }),
+async function getEmailTemplate(templateName) {
+  try {
+    // Template path: public/email-templates/{templateName}.html
+    const templatePath = path.join(
+      process.cwd(),
+      'public/email-templates',
+      `${templateName}.html`
+    );
 
-  cad_request_created: (data) => ({
-    subject: `✅ Your CAD Request Has Been Created - ${data.gemName}`,
-    html: `
-      <h2>CAD Request Confirmation</h2>
-      <p>Your CAD design request has been successfully created and is now available for designers to claim.</p>
-      
-      <div style="background: #e3f2fd; padding: 16px; border-radius: 8px; margin: 16px 0;">
-        <h3>Request Details:</h3>
-        <p><strong>Request ID:</strong> ${data.requestId}</p>
-        <p><strong>Gemstone:</strong> ${data.gemName}</p>
-        <p><strong>Material:</strong> ${data.material}</p>
-        <p><strong>Timeline:</strong> ${data.timeline || 'N/A'}</p>
-      </div>
-      
-      <p>You'll be notified when a designer claims this request.</p>
-    `,
-    text: `Your CAD request ${data.requestId} has been created`
-  }),
+    const templateContent = await fs.readFile(templatePath, 'utf-8');
+    return handlebars.compile(templateContent);
 
-  cad_claimed: (data) => ({
-    subject: `✋ Your CAD Request Has Been Claimed - ${data.gemName}`,
-    html: `
-      <h2>Request Claimed</h2>
-      <p>A designer has claimed your CAD design request!</p>
-      
-      <div style="background: #fff3e0; padding: 16px; border-radius: 8px; margin: 16px 0;">
-        <p><strong>Request ID:</strong> ${data.requestId}</p>
-        <p><strong>Designer:</strong> ${data.designerName}</p>
-        <p><strong>Status:</strong> In Progress</p>
-      </div>
-      
-      <p>You'll be notified when the designer submits the STL file.</p>
-    `,
-    text: `Your CAD request ${data.requestId} has been claimed by ${data.designerName}`
-  }),
+  } catch (error) {
+    console.error(`❌ Error loading email template ${templateName}:`, error.message);
+    return null;
+  }
+}
 
-  cad_stl_submitted: (data) => ({
-    subject: `📤 STL File Submitted for Your Request - ${data.requestId}`,
-    html: `
-      <h2>STL File Submitted</h2>
-      <p>The designer has submitted an STL file for your review.</p>
-      
-      <div style="background: #f3e5f5; padding: 16px; border-radius: 8px; margin: 16px 0;">
-        <p><strong>Request ID:</strong> ${data.requestId}</p>
-        <p><strong>File:</strong> ${data.fileName}</p>
-        <p><strong>Volume:</strong> ${data.volume ? data.volume + ' mm³' : 'N/A'}</p>
-      </div>
-      
-      <p>An admin will review and approve the STL file.</p>
-    `,
-    text: `STL file submitted for request ${data.requestId}`
-  }),
-
-  cad_glb_submitted: (data) => ({
-    subject: `📤 Final GLB Design Submitted - ${data.requestId}`,
-    html: `
-      <h2>Final Design Submitted</h2>
-      <p>The designer has submitted the final GLB design file for your request.</p>
-      
-      <div style="background: #f3e5f5; padding: 16px; border-radius: 8px; margin: 16px 0;">
-        <p><strong>Request ID:</strong> ${data.requestId}</p>
-        <p><strong>File:</strong> ${data.fileName}</p>
-      </div>
-      
-      <p>An admin will review the design and notify you of approval.</p>
-    `,
-    text: `Final GLB design submitted for request ${data.requestId}`
-  }),
-
-  cad_completed: (data) => ({
-    subject: `🎉 Your CAD Design Is Ready! - ${data.requestId}`,
-    html: `
-      <h2>Design Complete & Ready for Production</h2>
-      <p>Your CAD design is complete and approved! It's now ready to move to production.</p>
-      
-      <div style="background: #e8f5e9; padding: 16px; border-radius: 8px; margin: 16px 0;">
-        <p><strong>Request ID:</strong> ${data.requestId}</p>
-        <p><strong>Total Cost:</strong> ${data.totalCost ? '$' + data.totalCost : 'TBD'}</p>
-      </div>
-      
-      <p>Your custom design is now available for purchase or can be manufactured.</p>
-    `,
-    text: `Your CAD design ${data.requestId} is complete`
-  }),
-
-  cad_stl_approved: (data) => ({
-    subject: `✅ STL Approved - Ready for GLB Design - ${data.requestId}`,
-    html: `
-      <h2>STL File Approved</h2>
-      <p>The STL file has been approved! You may now submit the final GLB design file.</p>
-      
-      <div style="background: #e8f5e9; padding: 16px; border-radius: 8px; margin: 16px 0;">
-        <p><strong>Request ID:</strong> ${data.requestId}</p>
-        <p><strong>Status:</strong> Ready for GLB Submission</p>
-      </div>
-    `,
-    text: `STL approved for request ${data.requestId}`
-  }),
-
-  cad_stl_declined: (data) => ({
-    subject: `❌ STL File Needs Revisions - ${data.requestId}`,
-    html: `
-      <h2>STL File Revision Needed</h2>
-      <p>The STL file requires revisions. Please review the feedback and resubmit.</p>
-      
-      <div style="background: #ffebee; padding: 16px; border-radius: 8px; margin: 16px 0;">
-        <p><strong>Request ID:</strong> ${data.requestId}</p>
-        <p><strong>Feedback:</strong></p>
-        <p>${data.feedback || 'No specific feedback provided'}</p>
-      </div>
-      
-      <p>You can resubmit a revised STL file.</p>
-    `,
-    text: `STL revision needed for request ${data.requestId}`
-  }),
-
-  cad_glb_approved: (data) => ({
-    subject: `✅ Design Approved & Live - ${data.requestId}`,
-    html: `
-      <h2>Final Design Approved!</h2>
-      <p>Your final GLB design has been approved and is now live!</p>
-      
-      <div style="background: #e8f5e9; padding: 16px; border-radius: 8px; margin: 16px 0;">
-        <p><strong>Request ID:</strong> ${data.requestId}</p>
-        <p><strong>Status:</strong> Approved & Ready</p>
-      </div>
-    `,
-    text: `GLB design approved for request ${data.requestId}`
-  }),
-
-  cad_glb_declined: (data) => ({
-    subject: `❌ GLB Design Needs Revisions - ${data.requestId}`,
-    html: `
-      <h2>GLB Design Revision Needed</h2>
-      <p>The GLB design requires revisions. Please review the feedback and resubmit.</p>
-      
-      <div style="background: #ffebee; padding: 16px; border-radius: 8px; margin: 16px 0;">
-        <p><strong>Request ID:</strong> ${data.requestId}</p>
-        <p><strong>Feedback:</strong></p>
-        <p>${data.feedback || 'No specific feedback provided'}</p>
-      </div>
-      
-      <p>You can resubmit a revised GLB design file.</p>
-    `,
-    text: `GLB design revision needed for request ${data.requestId}`
-  }),
-
-  // ====== CUSTOM TICKET NOTIFICATIONS ======
-  custom_ticket_created: (data) => ({
-    subject: `📋 Your Custom Ticket Has Been Created - #${data.ticketNumber}`,
-    html: `
-      <h2>Custom Ticket Confirmation</h2>
-      <p>Your custom design ticket has been successfully created and assigned to our artisan team.</p>
-      
-      <div style="background: #e3f2fd; padding: 16px; border-radius: 8px; margin: 16px 0;">
-        <h3>Ticket Details:</h3>
-        <p><strong>Ticket #:</strong> ${data.ticketNumber}</p>
-        <p><strong>Description:</strong> ${data.description}</p>
-        <p><strong>Status:</strong> <span style="color: #2196F3; font-weight: bold;">Open</span></p>
-      </div>
-      
-      <p>You'll receive updates as our artisan works on your design. Check your ticket for messages and progress updates.</p>
-    `,
-    text: `Your custom ticket #${data.ticketNumber} has been created`
-  }),
-
-  custom_ticket_status_changed: (data) => ({
-    subject: `📊 Your Custom Ticket Status Changed - #${data.ticketNumber}`,
-    html: `
-      <h2>Ticket Status Update</h2>
-      <p>Your custom design ticket status has been updated.</p>
-      
-      <div style="background: #f3e5f5; padding: 16px; border-radius: 8px; margin: 16px 0;">
-        <p><strong>Ticket #:</strong> ${data.ticketNumber}</p>
-        <p><strong>Previous Status:</strong> ${data.previousStatus}</p>
-        <p><strong>New Status:</strong> <span style="color: #7b1fa2; font-weight: bold;">${data.newStatus}</span></p>
-        ${data.reason ? `<p><strong>Reason:</strong> ${data.reason}</p>` : ''}
-      </div>
-      
-      <p>Log in to your account to view more details.</p>
-    `,
-    text: `Ticket #${data.ticketNumber} status changed to ${data.newStatus}`
-  }),
-
-  custom_ticket_message_sent: (data) => ({
-    subject: `💬 New Message on Your Custom Ticket - #${data.ticketNumber}`,
-    html: `
-      <h2>You Have a New Message</h2>
-      <p>The artisan has sent you a message regarding your custom design ticket.</p>
-      
-      <div style="background: #fff3e0; padding: 16px; border-radius: 8px; margin: 16px 0;">
-        <p><strong>Ticket #:</strong> ${data.ticketNumber}</p>
-        <p><strong>From:</strong> ${data.fromName}</p>
-        <p><strong>Message:</strong></p>
-        <p style="font-style: italic; margin-top: 8px;">"${data.message}"</p>
-      </div>
-      
-      <p>Reply to the message in your ticket to continue the conversation.</p>
-    `,
-    text: `New message from ${data.fromName} on ticket #${data.ticketNumber}`
-  }),
-
-  custom_ticket_approved: (data) => ({
-    subject: `✅ Your Custom Ticket Has Been Approved - #${data.ticketNumber}`,
-    html: `
-      <h2>Ticket Approved!</h2>
-      <p>Great news! You have approved the work on your custom design ticket.</p>
-      
-      <div style="background: #e8f5e9; padding: 16px; border-radius: 8px; margin: 16px 0;">
-        <p><strong>Ticket #:</strong> ${data.ticketNumber}</p>
-        <p><strong>Status:</strong> <span style="color: #388e3c; font-weight: bold;">Approved</span></p>
-        ${data.approvalNotes ? `<p><strong>Notes:</strong> ${data.approvalNotes}</p>` : ''}
-      </div>
-      
-      <p>Your custom design is complete and ready for production. Thank you for working with us!</p>
-    `,
-    text: `Ticket #${data.ticketNumber} has been approved`
-  }),
-
-  custom_ticket_rejected: (data) => ({
-    subject: `❌ Changes Requested on Your Custom Ticket - #${data.ticketNumber}`,
-    html: `
-      <h2>Revisions Requested</h2>
-      <p>Please review the following feedback for your custom design ticket.</p>
-      
-      <div style="background: #ffebee; padding: 16px; border-radius: 8px; margin: 16px 0;">
-        <p><strong>Ticket #:</strong> ${data.ticketNumber}</p>
-        <p><strong>Feedback:</strong></p>
-        <p>${data.feedback || 'No specific feedback provided'}</p>
-      </div>
-      
-      <p>The artisan will make the necessary revisions and resubmit for your approval.</p>
-    `,
-    text: `Revisions requested on ticket #${data.ticketNumber}`
-  }),
-
-  custom_ticket_completed: (data) => ({
-    subject: `🎉 Your Custom Ticket is Complete - #${data.ticketNumber}`,
-    html: `
-      <h2>Ticket Complete!</h2>
-      <p>Your custom design is finished and ready for the next step.</p>
-      
-      <div style="background: #e0f2f1; padding: 16px; border-radius: 8px; margin: 16px 0;">
-        <p><strong>Ticket #:</strong> ${data.ticketNumber}</p>
-        <p><strong>Status:</strong> <span style="color: #00796b; font-weight: bold;">Completed</span></p>
-        ${data.completionNotes ? `<p><strong>Notes:</strong> ${data.completionNotes}</p>` : ''}
-      </div>
-      
-      <p>Please review the final design and approve it to proceed.</p>
-    `,
-    text: `Ticket #${data.ticketNumber} is complete`
-  }),
-
-  custom_ticket_cancelled: (data) => ({
-    subject: `⚠️ Your Custom Ticket Has Been Cancelled - #${data.ticketNumber}`,
-    html: `
-      <h2>Ticket Cancelled</h2>
-      <p>Your custom design ticket has been cancelled.</p>
-      
-      <div style="background: #fce4ec; padding: 16px; border-radius: 8px; margin: 16px 0;">
-        <p><strong>Ticket #:</strong> ${data.ticketNumber}</p>
-        <p><strong>Reason:</strong> ${data.reason || 'No reason provided'}</p>
-      </div>
-      
-      <p>If you have questions about the cancellation, please contact our support team.</p>
-    `,
-    text: `Ticket #${data.ticketNumber} has been cancelled`
-  }),
-
-  custom_ticket_artisan_assigned: (data) => ({
-    subject: `✨ New Custom Design Assignment - Ticket #${data.ticketNumber}`,
-    html: `
-      <h2>You've Been Assigned a Custom Design</h2>
-      <p>A client has submitted a custom design request and you've been selected as the artisan to work on it.</p>
-      
-      <div style="background: #f3e5f5; padding: 16px; border-radius: 8px; margin: 16px 0;">
-        <p><strong>Ticket #:</strong> ${data.ticketNumber}</p>
-        <p><strong>Your Specialty:</strong> ${data.artisanType || 'Custom Design Work'}</p>
-      </div>
-      
-      <h3>What's Next?</h3>
-      <p>Please review the client's custom design requirements and reach out if you have any questions or need clarification. You can message the client directly through your ticket to discuss:</p>
-      <ul>
-        <li>Design preferences and vision</li>
-        <li>Timeline and deadlines</li>
-        <li>Budget and pricing</li>
-        <li>Any technical specifications or constraints</li>
-      </ul>
-      
-      <p><strong>Access your ticket:</strong> Log in to your artisan dashboard to view the full details and begin working on this custom design.</p>
-    `,
-    text: `You have been assigned to custom ticket #${data.ticketNumber}. Please review the client's design requirements.`
-  }),
-
-  // ====== ARTISAN MANAGEMENT NOTIFICATIONS ======
-  artisan_added: (data) => ({
-    subject: `🎨 Welcome to Engel Fine Design - Artisan Account Created`,
-    html: `
-      <h2>Welcome to Our Artisan Community!</h2>
-      <p>Your artisan account has been successfully created by our admin team at Engel Fine Design.</p>
-      
-      <div style="background: #e1f5fe; padding: 16px; border-radius: 8px; margin: 16px 0;">
-        <h3>Your Account Details:</h3>
-        <p><strong>Name:</strong> ${data.artisanName}</p>
-        <p><strong>Email:</strong> ${data.email}</p>
-        <p><strong>Business:</strong> ${data.business || 'N/A'}</p>
-        <p><strong>Role:</strong> Artisan</p>
-      </div>
-      
-      <p>You can now log in to your dashboard to:</p>
-      <ul>
-        <li>View and manage your custom design tickets</li>
-        <li>Receive project assignments</li>
-        <li>Communicate with clients</li>
-        <li>Track your earnings and performance</li>
-      </ul>
-      
-      <p>Log in at: <strong>${data.loginUrl}</strong></p>
-      
-      <p>If you have any questions or need assistance, please contact our support team.</p>
-    `,
-    text: `Welcome to Engel Fine Design! Your artisan account has been created.`
-  }),
-
-  artisan_removed: (data) => ({
-    subject: `⚠️ Account Status Change - Engel Fine Design`,
-    html: `
-      <h2>Account Update</h2>
-      <p>Your artisan account has been deactivated.</p>
-      
-      <div style="background: #ffebee; padding: 16px; border-radius: 8px; margin: 16px 0;">
-        <p><strong>Reason:</strong> ${data.reason || 'No reason provided'}</p>
-      </div>
-      
-      <p>If you have questions about this change, please contact our support team.</p>
-    `,
-    text: `Your artisan account has been deactivated`
-  }),
-
-  // ====== TEST EMAIL ======
-  test_email: (data) => ({
-    subject: `🧪 EFD Admin - Test Email Configuration`,
-    html: `
-      <h2>📧 Email Configuration Test</h2>
-      <p>This is a test email to verify that your email notification system is working correctly.</p>
-      
-      <div style="background: #e3f2fd; padding: 16px; border-radius: 8px; margin: 16px 0;">
-        <p><strong>✅ Email System Status:</strong> <span style="color: #388e3c; font-weight: bold;">WORKING</span></p>
-        <p><strong>Sent to:</strong> ${data.recipientEmail || 'Your email'}</p>
-        <p><strong>Test ID:</strong> <code style="background: #f5f5f5; padding: 4px 8px; border-radius: 4px;">${data.testId}</code></p>
-        <p><strong>Environment:</strong> ${data.environment}</p>
-        <p><strong>Sent:</strong> ${data.timestamp}</p>
-      </div>
-      
-      <div style="background: #f5f5f5; padding: 16px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #2196F3;">
-        <h3 style="margin-top: 0;">Email System Information</h3>
-        <ul>
-          <li>✅ SMTP Connection: Successful</li>
-          <li>✅ Email Template: Rendering correctly</li>
-          <li>✅ Message Delivered: Successfully</li>
-          <li>✅ User Authentication: Verified</li>
-        </ul>
-      </div>
-      
-      <h3>What This Means</h3>
-      <p>Your Engel Fine Design email notification system is configured correctly and operational. Users will receive:</p>
-      <ul>
-        <li>📧 Custom ticket notifications</li>
-        <li>📧 Artisan assignment alerts</li>
-        <li>📧 Message notifications</li>
-        <li>📧 Status change updates</li>
-        <li>📧 System alerts and important updates</li>
-      </ul>
-      
-      <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 24px 0;">
-      
-      <p style="color: #999; font-size: 12px;">
-        This is an automated test email from your EFD Admin Development Tools. 
-        You can safely ignore or delete this email.
-      </p>
-    `,
-    text: `This is a test email confirming your EFD Admin email system is working correctly.`
-  })
-};
+/**
+ * Email Templates
+ * NOTE: Templates are now file-based (public/email-templates/) using Handlebars
+ * This mirrors efd-shop implementation for unified email system
+ */
 
 export class NotificationService {
   /**
@@ -666,38 +292,67 @@ export class NotificationService {
   }
 
   /**
-   * Send email notification
+   * Send email notification (using file-based templates)
    */
   static async sendEmailNotification(notification, user, data, templateName, recipientEmail) {
     try {
-      const template = emailTemplates[templateName] || emailTemplates.cad_request_created;
-      const emailContent = template(data);
+      const emailTo = recipientEmail || user.email;
+      console.log('📧 [EMAIL] Sending email notification:', { templateName, to: emailTo });
 
-      const mailOptions = {
-        from: process.env.GMAIL_USER,
-        to: recipientEmail || user.email,
-        subject: emailContent.subject,
-        html: emailContent.html,
-        text: emailContent.text
+      // Load email template from filesystem
+      const template = await getEmailTemplate(templateName);
+      if (!template) {
+        console.error('📧 [EMAIL] Template not found:', templateName);
+        return {
+          success: false,
+          error: `Email template not found: ${templateName}`
+        };
+      }
+
+      console.log('📧 [EMAIL] Template loaded successfully for:', templateName);
+
+      // Prepare template data
+      const templateData = {
+        recipientName: `${user.firstName} ${user.lastName}`,
+        recipientEmail: emailTo,
+        ...data,
+        currentYear: new Date().getFullYear(),
+        companyName: 'Engel Fine Design'
       };
 
+      // Render template
+      const html = template(templateData);
+
+      // Prepare email with consistent branding
+      const mailOptions = {
+        from: process.env.GMAIL_USER,
+        to: emailTo,
+        subject: notification.title || notification.subject || 'Engel Fine Design Notification',
+        html: html,
+        headers: {
+          'X-Mailer': 'EFD-Notification-Service/1.0',
+          'X-Priority': '3'
+        }
+      };
+
+      // Send email
       const transport = getEmailTransport();
-      const result = await transport.sendMail(mailOptions);
+      const info = await transport.sendMail(mailOptions);
 
       console.log('✅ [EMAIL] Sent successfully:', {
-        to: mailOptions.to,
-        messageId: result.messageId,
+        to: emailTo,
+        messageId: info.messageId,
         type: notification.type
       });
 
       return {
         success: true,
-        messageId: result.messageId,
+        messageId: info.messageId,
         timestamp: new Date()
       };
 
     } catch (error) {
-      console.error('❌ [EMAIL] Failed to send:', error);
+      console.error('❌ [EMAIL] Failed to send:', error.message);
       return {
         success: false,
         error: error.message

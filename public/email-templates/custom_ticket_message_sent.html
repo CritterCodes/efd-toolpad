@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Message on Your Ticket</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #1f2937;
+            background-color: #f9fafb;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: white;
+            padding: 32px 24px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .header p {
+            margin: 8px 0 0 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 32px 24px;
+        }
+        .content h2 {
+            margin: 0 0 16px 0;
+            font-size: 20px;
+            color: #0f172a;
+        }
+        .content p {
+            margin: 0 0 16px 0;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .message-header {
+            background-color: #fff3e0;
+            border-left: 4px solid #fbbf24;
+            padding: 16px;
+            border-radius: 4px;
+            margin: 24px 0;
+        }
+        .message-header h3 {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            font-weight: 700;
+            color: #92400e;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .message-meta {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+        .message-from {
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .message-ticket {
+            color: #6b7280;
+        }
+        .message-content {
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            padding: 16px;
+            border-radius: 4px;
+            margin-top: 12px;
+            font-style: italic;
+            color: #4b5563;
+            line-height: 1.6;
+        }
+        .cta-section {
+            margin: 24px 0;
+            padding: 16px;
+            background-color: #e3f2fd;
+            border-radius: 4px;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            color: #0f172a;
+            padding: 12px 32px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 14px;
+            text-align: center;
+            margin-top: 12px;
+            transition: transform 0.2s;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .footer {
+            background-color: #f9fafb;
+            padding: 24px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .footer a {
+            color: #2196F3;
+            text-decoration: none;
+        }
+        .footer-divider {
+            margin: 16px 0;
+            height: 1px;
+            background-color: #e5e7eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>💬 New Message</h1>
+            <p>You have a message on your custom ticket</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <h2>Message from {{fromName}}</h2>
+            <p>The artisan working on your custom design has sent you a message. Here's what they said:</p>
+
+            <!-- Message Box -->
+            <div class="message-header">
+                <h3>💌 Message Details</h3>
+                <div class="message-meta">
+                    <span class="message-from">From: {{fromName}}</span>
+                    <span class="message-ticket">Ticket #{{ticketNumber}}</span>
+                </div>
+                <div class="message-content">
+                    {{message}}
+                </div>
+            </div>
+
+            <p>This could be important information about your custom design, such as:</p>
+            <ul style="margin: 16px 0; padding-left: 20px;">
+                <li>Clarifying questions about your design preferences</li>
+                <li>Design suggestions or recommendations</li>
+                <li>Progress updates on your custom piece</li>
+                <li>Requests for additional information</li>
+                <li>Next steps in the design process</li>
+            </ul>
+
+            <!-- CTA Section -->
+            <div class="cta-section">
+                <p style="margin: 0 0 12px 0; font-weight: 600;">📨 Reply to This Message</p>
+                <p style="margin: 0 0 12px 0; font-size: 14px;">Click below to view the full ticket and send a reply to the artisan.</p>
+                <a href="{{ticketUrl}}" class="cta-button">Reply to Message</a>
+            </div>
+
+            <p>Communication is key to creating the perfect custom design for you. Please reply as soon as you can so the artisan can continue their work.</p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p style="margin: 0;">Engel Fine Design Custom Tickets</p>
+            <div class="footer-divider"></div>
+            <p style="margin: 8px 0; color: #999;">
+                This is an automated email from your custom ticket system.<br>
+                Please do not reply directly to this email.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
