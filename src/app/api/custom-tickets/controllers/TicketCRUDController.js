@@ -186,10 +186,19 @@ export default class TicketCRUDController {
         }, { status: 400 });
       }
 
+      // Fetch full artisan data to get business name, real name, and slug
+      const db = require('@/lib/database.js').db;
+      const usersCollection = await db.dbUsers();
+      const artisan = await usersCollection.findOne({ userID: userId });
+      
       const assignmentData = {
         userId,
         artisanType,
         userName: userName || 'Unknown Artisan',
+        artisanBusinessName: artisan?.artisanApplication?.businessName || userName || 'Unknown Artisan',
+        artisanFirstName: artisan?.firstName || artisan?.artisanApplication?.firstName || '',
+        artisanLastName: artisan?.lastName || artisan?.artisanApplication?.lastName || '',
+        artisanSlug: artisan?.artisanApplication?.slug || '',
         assignedAt: new Date().toISOString()
       };
 

@@ -466,6 +466,11 @@ static async updateTicketStatus(ticketId, status, metadata = {}) {
             const artisanProfileUrl = `${shopBaseUrl}/vendors/${assignmentData.artisanSlug || 'profile'}`;
             const clientPortalUrl = `${shopBaseUrl}/custom-work/portal`;
             
+            // Format real name
+            const artisanRealName = assignmentData.artisanFirstName && assignmentData.artisanLastName 
+              ? `${assignmentData.artisanFirstName} ${assignmentData.artisanLastName}`
+              : (assignmentData.artisanFirstName || 'Your Artisan');
+            
             await NotificationService.createNotification({
               userId: result.ticket.userID,
               type: NOTIFICATION_TYPES.CUSTOM_TICKET_ARTISAN_ASSIGNED,
@@ -475,6 +480,7 @@ static async updateTicketStatus(ticketId, status, metadata = {}) {
               data: {
                 ticketNumber,
                 artisanBusinessName: assignmentData.artisanBusinessName || 'Your Artisan',
+                artisanRealName: artisanRealName,
                 artisanType: assignmentData.artisanType || 'Custom Work',
                 artisanProfileUrl,
                 clientPortalUrl
