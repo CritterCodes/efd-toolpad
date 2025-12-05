@@ -40,9 +40,10 @@ export function useTicketCommunications(ticket, onTicketUpdate) {
         throw new Error(result.error || `HTTP error! status: ${response.status}`);
       }
 
-      // Update the ticket data if callback provided
-      if (onTicketUpdate && result.ticket) {
-        onTicketUpdate(result.ticket);
+      // Refresh the ticket data if callback provided
+      if (onTicketUpdate) {
+        // onTicketUpdate is refreshTicket function, call it to fetch latest data
+        await onTicketUpdate();
       }
 
       return { success: true, data: result };
