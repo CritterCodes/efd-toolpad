@@ -220,6 +220,10 @@ const MessageInterface = ({
             <Typography variant="h4" sx={{ mb: 1 }}>💬</Typography>
             <Typography variant="body1" sx={{ mb: 1, color: 'text.secondary' }}>No messages yet</Typography>
             <Typography variant="body2" sx={{ textAlign: 'center', color: 'text.secondary' }}>
+              Start the conversation with your customer below
+            </Typography>
+          </Box>
+        ) : (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {allMessages.map((message, index) => (
               <Box 
