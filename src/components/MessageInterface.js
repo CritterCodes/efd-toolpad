@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import {
   Box,
   TextField,
@@ -36,6 +37,7 @@ const MessageInterface = ({
   onAddCommunication, 
   isSubmitting = false 
 }) => {
+  const { data: session } = useSession();
   const theme = useTheme();
   const [newMessage, setNewMessage] = useState('');
   const [attachedImages, setAttachedImages] = useState([]);
@@ -112,19 +114,23 @@ const MessageInterface = ({
     setAttachedImages(prev => prev.filter((_, i) => i !== index));
   };
 
+  const getFirstName = (name) => name ? name.split(' ')[0] : '';
+  const adminName = getFirstName(session?.user?.name) || 'Admin';
+  const clientName = getFirstName(ticket?.customerName) || 'Customer';
+
   // Combine and sort all messages
   const allMessages = [
     ...(ticket?.communications?.map(comm => ({
       ...comm,
       type: 'admin',
-      sender: comm.from || 'Admin',
+      sender: comm.fromName || (comm.from === 'artisan' ? 'Artisan' : 'Admin'),
       timestamp: comm.date || comm.timestamp,
       messageType: 'chat'
     })) || []),
     ...(ticket?.clientFeedback?.map(feedback => ({
       ...feedback,
       type: 'client',
-      sender: 'Customer',
+      sender: clientName,
       timestamp: feedback.timestamp || feedback.date,
       messageType: 'chat'
     })) || [])
@@ -144,7 +150,8 @@ const MessageInterface = ({
     const communicationData = {
       message: newMessage,
       type: 'chat',
-      from: 'admin',
+      from: session?.user?.role === 'artisan' ? 'artisan' : 'admin',
+      fromName: adminName,
       to: 'client',
       date: new Date().toISOString(),
       images: attachedImages.length > 0 ? attachedImages : undefined,
@@ -213,33 +220,29 @@ const MessageInterface = ({
             <Typography variant="h4" sx={{ mb: 1 }}>💬</Typography>
             <Typography variant="body1" sx={{ mb: 1, color: 'text.secondary' }}>No messages yet</Typography>
             <Typography variant="body2" sx={{ textAlign: 'center', color: 'text.secondary' }}>
-              Start the conversation with your customer below
-            </Typography>
-          </Box>
-        ) : (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {allMessages.map((message, index) => (
               <Box 
                 key={index} 
                 sx={{ 
                   display: 'flex', 
-                  justifyContent: message.type === 'client' ? 'flex-end' : 'flex-start'
+                  justifyContent: message.type === 'admin' ? 'flex-end' : 'flex-start'
                 }}
               >
                 <Box
                   sx={{
                     maxWidth: '75%',
-                    bgcolor: message.type === 'client' 
+                    bgcolor: message.type === 'admin' 
                       ? 'primary.main' 
                       : theme.palette.mode === 'dark' ? 'grey.700' : 'grey.200',
-                    color: message.type === 'client' 
+                    color: message.type === 'admin' 
                       ? 'primary.contrastText'
                       : 'text.primary',
                     borderRadius: '18px',
                     px: 2,
                     py: 1.5,
-                    ml: message.type === 'admin' ? 0 : 2,
-                    mr: message.type === 'client' ? 0 : 2,
+                    ml: message.type === 'client' ? 0 : 2,
+                    mr: message.type === 'admin' ? 0 : 2,
                   }}
                 >
                   {/* Message Header */}
