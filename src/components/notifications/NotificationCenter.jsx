@@ -18,13 +18,14 @@ export default function NotificationCenter() {
     const fetchNotifications = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/notifications');
+        const response = await fetch('/api/admin/notifications');
         if (!response.ok) throw new Error('Failed to fetch notifications');
         const data = await response.json();
-        setNotifications(data.notifications || []);
+        const allNotifications = data.data?.notifications || [];
+        setNotifications(allNotifications);
         
         // Count unread
-        const unread = (data.notifications || []).filter(n => !n.read).length;
+        const unread = allNotifications.filter(n => !n.read).length;
         setUnreadCount(unread);
       } catch (err) {
         setError(err.message);
@@ -43,10 +44,9 @@ export default function NotificationCenter() {
 
   const handleMarkAsRead = async (notificationId) => {
     try {
-      const response = await fetch(`/api/notifications/${notificationId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ read: true })
+      const response = await fetch(`/api/admin/notifications/${notificationId}/read`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
       });
       if (!response.ok) throw new Error('Failed to mark as read');
       
@@ -59,24 +59,10 @@ export default function NotificationCenter() {
     }
   };
 
-  const handleMarkAllAsRead = async () => {
-    try {
-      const response = await fetch('/api/notifications/mark-all-read', {
-        method: 'PATCH'
-      });
-      if (!response.ok) throw new Error('Failed to mark all as read');
-      
-      setNotifications(notifications.map(n => ({ ...n, read: true })));
-      setUnreadCount(0);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
   const handleDeleteNotification = async (notificationId) => {
     try {
-      const response = await fetch(`/api/notifications/${notificationId}`, {
-        method: 'DELETE'
+      const response = await fetch(`/api/admin/notifications/${notificationId}/archive`, {
+        method: 'POST'
       });
       if (!response.ok) throw new Error('Failed to delete notification');
       
@@ -138,14 +124,6 @@ export default function NotificationCenter() {
         <h2>Notifications</h2>
         <div className={styles.headerActions}>
           <span className={styles.unreadBadge}>{unreadCount} unread</span>
-          {unreadCount > 0 && (
-            <button 
-              className={styles.markAllBtn}
-              onClick={handleMarkAllAsRead}
-            >
-              Mark all as read
-            </button>
-          )}
         </div>
       </div>
 

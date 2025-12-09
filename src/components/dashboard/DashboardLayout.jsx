@@ -8,6 +8,7 @@ import PendingProductsPanel from '@/components/admin/PendingProductsPanel';
 import CollectionManager from '@/components/admin/CollectionManager';
 import DropOrchestrationDashboard from '@/components/admin/DropOrchestrationDashboard';
 import NotificationCenter from '@/components/notifications/NotificationCenter';
+import NotificationBell from '@/components/notifications/NotificationBell';
 import ArtisanProductManager from '@/components/artisan/ArtisanProductManager';
 import ArtisanDropParticipation from '@/components/artisan/ArtisanDropParticipation';
 import styles from './DashboardLayout.module.css';
@@ -47,6 +48,7 @@ export default function DashboardLayout({ children }) {
           <div className={styles.topBarContent}>
             <h1>Dashboard</h1>
             <div className={styles.userInfo}>
+              <NotificationBell />
               <span className={styles.userName}>{session?.user?.name}</span>
               <span className={styles.userRole}>{session?.user?.role}</span>
             </div>
