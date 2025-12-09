@@ -96,7 +96,7 @@ export default function NotificationBell() {
 
   const handleViewAll = () => {
     handleClose();
-    router.push('/dashboard/admin/notifications'); 
+    // router.push('/dashboard/admin/notifications'); 
   };
 
   const recentNotifications = notifications.slice(0, 5);
