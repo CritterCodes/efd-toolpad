@@ -5,15 +5,14 @@ import {
   IconButton, 
   Badge, 
   Menu, 
-  MenuItem, 
   Typography, 
   Box, 
   List, 
   ListItem, 
   ListItemText, 
   Divider,
-  Button,
-  CircularProgress
+  CircularProgress,
+  Chip
 } from '@mui/material';
 import { Notifications as NotificationsIcon, Circle as CircleIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
@@ -27,6 +26,7 @@ export default function NotificationBell() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState('all'); // 'all' | 'unread'
 
   const open = Boolean(anchorEl);
 
@@ -34,7 +34,6 @@ export default function NotificationBell() {
     if (!session?.user) return;
     
     try {
-      // Don't set loading on background refreshes if we already have data
       if (notifications.length === 0) setLoading(true);
       
       const response = await fetch('/api/admin/notifications');
@@ -53,20 +52,13 @@ export default function NotificationBell() {
 
   useEffect(() => {
     fetchNotifications();
-    // Poll every minute
     const interval = setInterval(fetchNotifications, 60000);
     return () => clearInterval(interval);
   }, [session]);
 
   const handleClick = (event) => {
     setAnchorEl(event.currentTarget);
-    // Refresh when opening
     fetchNotifications();
-    
-    // Mark all visible notifications as read when opening
-    if (unreadCount > 0) {
-      handleMarkAllRead();
-    }
   };
 
   const handleClose = () => {
@@ -74,7 +66,6 @@ export default function NotificationBell() {
   };
 
   const handleNotificationClick = async (notification) => {
-    // Mark as read if unread
     if (!notification.read) {
       try {
         await fetch(`/api/admin/notifications/${notification._id}/read`, {
@@ -82,7 +73,6 @@ export default function NotificationBell() {
           headers: { 'Content-Type': 'application/json' }
         });
         
-        // Update local state
         setNotifications(prev => 
           prev.map(n => n._id === notification._id ? { ...n, read: true } : n)
         );
@@ -99,12 +89,11 @@ export default function NotificationBell() {
     }
   };
 
-  const handleViewAll = () => {
-    handleClose();
-    // router.push('/dashboard/admin/notifications'); 
-  };
+  const filteredNotifications = filter === 'unread' 
+    ? notifications.filter(n => !n.read) 
+    : notifications;
 
-  const recentNotifications = notifications.slice(0, 5);
+  const displayNotifications = filteredNotifications.slice(0, 8);
 
   return (
     <>
@@ -132,7 +121,7 @@ export default function NotificationBell() {
             filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.32))',
             mt: 1.5,
             width: 360,
-            maxHeight: 480,
+            maxHeight: 500,
             '&:before': {
               content: '""',
               display: 'block',
@@ -150,8 +139,26 @@ export default function NotificationBell() {
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
       >
-        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography variant="h6">Notifications</Typography>
+        <Box sx={{ p: 2 }}>
+          <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold' }}>Notifications</Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Chip 
+              label="All" 
+              onClick={() => setFilter('all')}
+              color={filter === 'all' ? 'primary' : 'default'}
+              variant={filter === 'all' ? 'filled' : 'outlined'}
+              size="small"
+              clickable
+            />
+            <Chip 
+              label="Unread" 
+              onClick={() => setFilter('unread')}
+              color={filter === 'unread' ? 'primary' : 'default'}
+              variant={filter === 'unread' ? 'filled' : 'outlined'}
+              size="small"
+              clickable
+            />
+          </Box>
         </Box>
         
         <Divider />
@@ -160,57 +167,55 @@ export default function NotificationBell() {
           <Box sx={{ p: 2, textAlign: 'center' }}>
             <CircularProgress size={24} />
           </Box>
-        ) : recentNotifications.length === 0 ? (
+        ) : displayNotifications.length === 0 ? (
           <Box sx={{ p: 2, textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">
               No notifications
             </Typography>
           </Box>
         ) : (
-          <List sx={{ p: 0 }}>
-            {recentNotifications.map((notification) => (
-              <ListItem 
-                key={notification._id} 
-                button 
-                onClick={() => handleNotificationClick(notification)}
-                alignItems="flex-start"
-                sx={{ 
-                  bgcolor: notification.read ? 'transparent' : 'action.hover',
-                  '&:hover': { bgcolor: 'action.selected' }
-                }}
-              >
-                {!notification.read && (
-                  <CircleIcon sx={{ fontSize: 10, color: 'primary.main', mt: 1, mr: 1 }} />
-                )}
-                <ListItemText
-                  primary={
-                    <Typography variant="subtitle2" component="span">
-                      {notification.title}
-                    </Typography>
-                  }
-                  secondary={
-                    <>
-                      <Typography variant="body2" color="text.primary" component="span" display="block">
-                        {notification.message}
+          <>
+            <Box sx={{ px: 2, py: 1 }}>
+              <Typography variant="subtitle2" fontWeight="bold">New</Typography>
+            </Box>
+            <List sx={{ p: 0 }}>
+              {displayNotifications.map((notification) => (
+                <ListItem 
+                  key={notification._id} 
+                  button 
+                  onClick={() => handleNotificationClick(notification)}
+                  alignItems="flex-start"
+                  sx={{ 
+                    bgcolor: notification.read ? 'transparent' : 'action.hover',
+                    '&:hover': { bgcolor: 'action.selected' },
+                    cursor: 'pointer'
+                  }}
+                >
+                  {!notification.read && (
+                    <CircleIcon sx={{ fontSize: 12, color: '#1877F2', mt: 1, mr: 1 }} />
+                  )}
+                  <ListItemText
+                    primary={
+                      <Typography variant="subtitle2" component="span" sx={{ fontWeight: notification.read ? 'normal' : 'bold' }}>
+                        {notification.title}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {notification.createdAt ? formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true }) : ''}
-                      </Typography>
-                    </>
-                  }
-                />
-              </ListItem>
-            ))}
-          </List>
+                    }
+                    secondary={
+                      <>
+                        <Typography variant="body2" color="text.primary" component="span" display="block">
+                          {notification.message}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {notification.createdAt ? formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true }) : ''}
+                        </Typography>
+                      </>
+                    }
+                  />
+                </ListItem>
+              ))}
+            </List>
+          </>
         )}
-        
-        <Divider />
-        
-        <Box sx={{ p: 1, textAlign: 'center' }}>
-          <Button fullWidth onClick={handleViewAll}>
-            View All Notifications
-          </Button>
-        </Box>
       </Menu>
     </>
   );
