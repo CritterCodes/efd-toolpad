@@ -62,6 +62,11 @@ export default function NotificationBell() {
     setAnchorEl(event.currentTarget);
     // Refresh when opening
     fetchNotifications();
+    
+    // Mark all visible notifications as read when opening
+    if (unreadCount > 0) {
+      handleMarkAllRead();
+    }
   };
 
   const handleClose = () => {
