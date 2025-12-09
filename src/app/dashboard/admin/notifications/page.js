@@ -1,11 +1,9 @@
-import DashboardLayout, { 
+import { 
   AdminNotifications
 } from '@/components/dashboard/DashboardLayout';
 
 export default function AdminNotificationsPage() {
   return (
-    <DashboardLayout>
-      <AdminNotifications />
-    </DashboardLayout>
+    <AdminNotifications />
   );
 }
