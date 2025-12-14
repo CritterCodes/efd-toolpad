@@ -1,321 +1,313 @@
 'use client';
 
-import React, { useState } from 'react';
-import { 
-    Box, 
-    Typography, 
-    Card, 
-    CardContent, 
-    Grid, 
-    Button, 
+import React, { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import {
+    Box,
+    Typography,
+    Card,
+    CardContent,
+    CardMedia,
+    CardActions,
+    Grid,
+    Button,
     Chip,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
     Paper,
     IconButton,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
     TextField,
     MenuItem,
     FormControl,
     InputLabel,
-    Select
+    Select,
+    CircularProgress,
+    Alert,
+    Pagination,
+    Tooltip
 } from '@mui/material';
-import { 
+import {
     Add as AddIcon,
     Edit as EditIcon,
     Delete as DeleteIcon,
-    Visibility as ViewIcon,
-    Image as ImageIcon
+    Visibility as VisibilityIcon,
+    Search as SearchIcon,
+    Diamond as DiamondIcon
 } from '@mui/icons-material';
 
 export default function JewelryPage() {
-    const [jewelry, setJewelry] = useState([
-        {
-            id: 1,
-            name: 'Custom Engagement Ring',
-            type: 'Ring',
-            material: '18K White Gold',
-            status: 'In Progress',
-            price: 4500,
-            customer: 'Sarah Johnson',
-            dueDate: '2025-11-15',
-            completion: 75
-        },
-        {
-            id: 2,
-            name: 'Diamond Tennis Bracelet',
-            type: 'Bracelet',
-            material: '14K Yellow Gold',
-            status: 'Completed',
-            price: 8200,
-            customer: 'Michael Chen',
-            dueDate: '2025-10-20',
-            completion: 100
-        }
-    ]);
+    const { data: session } = useSession();
+    const router = useRouter();
+    
+    const [jewelry, setJewelry] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(12);
+    
+    // Filtering and sorting state
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterType, setFilterType] = useState('');
+    const [sortBy, setSortBy] = useState('date');
+    const [sortOrder, setSortOrder] = useState('desc');
 
-    const [openDialog, setOpenDialog] = useState(false);
-    const [selectedJewelry, setSelectedJewelry] = useState(null);
+    // Fetch jewelry from API
+    useEffect(() => {
+        fetchJewelry();
+    }, []);
 
-    const handleAddJewelry = () => {
-        setSelectedJewelry(null);
-        setOpenDialog(true);
-    };
-
-    const handleEditJewelry = (item) => {
-        setSelectedJewelry(item);
-        setOpenDialog(true);
-    };
-
-    const getStatusColor = (status) => {
-        switch (status) {
-            case 'Completed': return 'success';
-            case 'In Progress': return 'info';
-            case 'Pending': return 'warning';
-            case 'On Hold': return 'default';
-            default: return 'default';
+    const fetchJewelry = async () => {
+        try {
+            setLoading(true);
+            const response = await fetch('/api/products/jewelry');
+            if (!response.ok) {
+                throw new Error('Failed to fetch jewelry');
+            }
+            const data = await response.json();
+            setJewelry(data.jewelry || []);
+        } catch (err) {
+            console.error('Fetch error:', err);
+            setError(err.message);
+        } finally {
+            setLoading(false);
         }
     };
+
+    const handleDeleteJewelry = async (jewelryId) => {
+        if (!confirm('Are you sure you want to delete this jewelry?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/products/jewelry/${jewelryId}`, {
+                method: 'DELETE',
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to delete jewelry');
+            }
+
+            await fetchJewelry(); // Refresh the list
+        } catch (err) {
+            console.error('Delete error:', err);
+            setError(err.message);
+        }
+    };
+
+    // Filtering Logic
+    const filteredJewelry = jewelry.filter(item => {
+        const matchesSearch = (item.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            (item.jewelry?.type || '').toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesType = filterType ? item.jewelry?.type === filterType : true;
+        return matchesSearch && matchesType;
+    });
+
+    // Sorting Logic
+    const sortedJewelry = [...filteredJewelry].sort((a, b) => {
+        let comparison = 0;
+        if (sortBy === 'date') {
+            comparison = new Date(b.createdAt) - new Date(a.createdAt);
+        } else if (sortBy === 'price') {
+            comparison = (parseFloat(a.price) || 0) - (parseFloat(b.price) || 0);
+        } else if (sortBy === 'title') {
+            comparison = (a.title || '').localeCompare(b.title || '');
+        }
+        return sortOrder === 'asc' ? comparison * -1 : comparison;
+    });
+
+    // Pagination Logic
+    const totalPages = Math.ceil(sortedJewelry.length / itemsPerPage);
+    const paginatedJewelry = sortedJewelry.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+    );
+
+    const handlePageChange = (event, value) => {
+        setCurrentPage(value);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const typeOptions = ['Ring', 'Necklace', 'Earrings', 'Bracelet', 'Pendant', 'Brooch', 'Cufflinks', 'Other'];
+
+    if (loading) {
+        return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
 
     return (
         <Box sx={{ p: 3 }}>
+            {/* Header */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                 <Box>
-                    <Typography variant="h4" gutterBottom>
-                        Jewelry
-                    </Typography>
+                    <Typography variant="h4" gutterBottom>Jewelry</Typography>
                     <Typography variant="subtitle1" color="text.secondary">
-                        Your jewelry pieces and custom creations
+                        Manage your jewelry collection
                     </Typography>
                 </Box>
                 <Button
                     variant="contained"
                     startIcon={<AddIcon />}
-                    onClick={handleAddJewelry}
+                    onClick={() => router.push('/dashboard/products/jewelry/new')}
                 >
-                    New Project
+                    Add New Jewelry
                 </Button>
             </Box>
 
-            {/* Summary Cards */}
-            <Grid container spacing={3} sx={{ mb: 4 }}>
-                <Grid item xs={12} sm={6} md={3}>
-                    <Card>
-                        <CardContent>
-                            <Typography color="text.secondary" gutterBottom>
-                                Active Projects
-                            </Typography>
-                            <Typography variant="h4">
-                                {jewelry.filter(j => j.status === 'In Progress').length}
-                            </Typography>
-                        </CardContent>
-                    </Card>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                    <Card>
-                        <CardContent>
-                            <Typography color="text.secondary" gutterBottom>
-                                Completed
-                            </Typography>
-                            <Typography variant="h4" color="success.main">
-                                {jewelry.filter(j => j.status === 'Completed').length}
-                            </Typography>
-                        </CardContent>
-                    </Card>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                    <Card>
-                        <CardContent>
-                            <Typography color="text.secondary" gutterBottom>
-                                Total Value
-                            </Typography>
-                            <Typography variant="h4">
-                                ${jewelry.reduce((sum, j) => sum + j.price, 0).toLocaleString()}
-                            </Typography>
-                        </CardContent>
-                    </Card>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                    <Card>
-                        <CardContent>
-                            <Typography color="text.secondary" gutterBottom>
-                                Avg. Completion
-                            </Typography>
-                            <Typography variant="h4">
-                                {Math.round(jewelry.reduce((sum, j) => sum + j.completion, 0) / jewelry.length)}%
-                            </Typography>
-                        </CardContent>
-                    </Card>
-                </Grid>
-            </Grid>
+            {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
-            {/* Jewelry Projects Table */}
-            <Card>
-                <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                        Project Details
-                    </Typography>
-                    <TableContainer component={Paper} variant="outlined">
-                        <Table>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell>Project Name</TableCell>
-                                    <TableCell>Type</TableCell>
-                                    <TableCell>Material</TableCell>
-                                    <TableCell>Customer</TableCell>
-                                    <TableCell>Status</TableCell>
-                                    <TableCell>Progress</TableCell>
-                                    <TableCell>Due Date</TableCell>
-                                    <TableCell>Price</TableCell>
-                                    <TableCell>Actions</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {jewelry.map((item) => (
-                                    <TableRow key={item.id}>
-                                        <TableCell>{item.name}</TableCell>
-                                        <TableCell>{item.type}</TableCell>
-                                        <TableCell>{item.material}</TableCell>
-                                        <TableCell>{item.customer}</TableCell>
-                                        <TableCell>
-                                            <Chip 
-                                                label={item.status} 
-                                                color={getStatusColor(item.status)}
-                                                size="small"
-                                            />
-                                        </TableCell>
-                                        <TableCell>{item.completion}%</TableCell>
-                                        <TableCell>{new Date(item.dueDate).toLocaleDateString()}</TableCell>
-                                        <TableCell>${item.price.toLocaleString()}</TableCell>
-                                        <TableCell>
-                                            <IconButton 
-                                                size="small" 
-                                                onClick={() => handleEditJewelry(item)}
-                                            >
-                                                <EditIcon />
-                                            </IconButton>
-                                            <IconButton size="small">
-                                                <ImageIcon />
-                                            </IconButton>
-                                            <IconButton size="small">
-                                                <ViewIcon />
-                                            </IconButton>
-                                            <IconButton size="small" color="error">
-                                                <DeleteIcon />
-                                            </IconButton>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
-                </CardContent>
-            </Card>
-
-            {/* Add/Edit Jewelry Dialog */}
-            <Dialog 
-                open={openDialog} 
-                onClose={() => setOpenDialog(false)}
-                maxWidth="md"
-                fullWidth
-            >
-                <DialogTitle>
-                    {selectedJewelry ? 'Edit Project' : 'New Jewelry Project'}
-                </DialogTitle>
-                <DialogContent>
-                    <Grid container spacing={2} sx={{ mt: 1 }}>
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                fullWidth
-                                label="Project Name"
-                                defaultValue={selectedJewelry?.name || ''}
-                            />
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                            <FormControl fullWidth>
-                                <InputLabel>Type</InputLabel>
-                                <Select
-                                    defaultValue={selectedJewelry?.type || ''}
-                                    label="Type"
-                                >
-                                    <MenuItem value="Ring">Ring</MenuItem>
-                                    <MenuItem value="Necklace">Necklace</MenuItem>
-                                    <MenuItem value="Bracelet">Bracelet</MenuItem>
-                                    <MenuItem value="Earrings">Earrings</MenuItem>
-                                    <MenuItem value="Pendant">Pendant</MenuItem>
-                                    <MenuItem value="Brooch">Brooch</MenuItem>
-                                    <MenuItem value="Other">Other</MenuItem>
-                                </Select>
-                            </FormControl>
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                            <FormControl fullWidth>
-                                <InputLabel>Material</InputLabel>
-                                <Select
-                                    defaultValue={selectedJewelry?.material || ''}
-                                    label="Material"
-                                >
-                                    <MenuItem value="14K Yellow Gold">14K Yellow Gold</MenuItem>
-                                    <MenuItem value="14K White Gold">14K White Gold</MenuItem>
-                                    <MenuItem value="18K Yellow Gold">18K Yellow Gold</MenuItem>
-                                    <MenuItem value="18K White Gold">18K White Gold</MenuItem>
-                                    <MenuItem value="Platinum">Platinum</MenuItem>
-                                    <MenuItem value="Sterling Silver">Sterling Silver</MenuItem>
-                                    <MenuItem value="Other">Other</MenuItem>
-                                </Select>
-                            </FormControl>
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                fullWidth
-                                label="Customer Name"
-                                defaultValue={selectedJewelry?.customer || ''}
-                            />
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                fullWidth
-                                label="Price ($)"
-                                type="number"
-                                defaultValue={selectedJewelry?.price || ''}
-                            />
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                fullWidth
-                                label="Due Date"
-                                type="date"
-                                defaultValue={selectedJewelry?.dueDate || ''}
-                                InputLabelProps={{ shrink: true }}
-                            />
-                        </Grid>
-                        <Grid item xs={12}>
-                            <TextField
-                                fullWidth
-                                label="Project Description"
-                                multiline
-                                rows={3}
-                                placeholder="Describe the jewelry piece, customer requirements, and any special notes..."
-                            />
-                        </Grid>
+            {/* Filters */}
+            <Paper sx={{ p: 2, mb: 3 }}>
+                <Grid container spacing={2} alignItems="center">
+                    <Grid item xs={12} md={4}>
+                        <TextField
+                            fullWidth
+                            placeholder="Search jewelry..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            InputProps={{
+                                startAdornment: <SearchIcon sx={{ color: 'text.secondary', mr: 1 }} />
+                            }}
+                            size="small"
+                        />
                     </Grid>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setOpenDialog(false)}>
-                        Cancel
-                    </Button>
-                    <Button variant="contained" onClick={() => setOpenDialog(false)}>
-                        {selectedJewelry ? 'Update' : 'Create'} Project
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                    <Grid item xs={12} md={3}>
+                        <FormControl fullWidth size="small">
+                            <InputLabel>Type</InputLabel>
+                            <Select
+                                value={filterType}
+                                label="Type"
+                                onChange={(e) => setFilterType(e.target.value)}
+                            >
+                                <MenuItem value="">All Types</MenuItem>
+                                {typeOptions.map(type => (
+                                    <MenuItem key={type} value={type}>{type}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    </Grid>
+                    <Grid item xs={12} md={3}>
+                        <FormControl fullWidth size="small">
+                            <InputLabel>Sort By</InputLabel>
+                            <Select
+                                value={sortBy}
+                                label="Sort By"
+                                onChange={(e) => setSortBy(e.target.value)}
+                            >
+                                <MenuItem value="date">Date Added</MenuItem>
+                                <MenuItem value="price">Price</MenuItem>
+                                <MenuItem value="title">Title</MenuItem>
+                            </Select>
+                        </FormControl>
+                    </Grid>
+                </Grid>
+            </Paper>
+
+            {/* Grid */}
+            {paginatedJewelry.length === 0 ? (
+                <Paper sx={{ p: 4, textAlign: 'center' }}>
+                    <Typography variant="h6" color="text.secondary">
+                        No jewelry found matching your criteria.
+                    </Typography>
+                </Paper>
+            ) : (
+                <Grid container spacing={3}>
+                    {paginatedJewelry.map((item) => (
+                        <Grid item xs={12} sm={6} md={4} lg={3} key={item._id}>
+                            <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                                <Box sx={{ position: 'relative', pt: '100%' }}>
+                                    {item.images && item.images.length > 0 ? (
+                                        <img
+                                            src={item.images[0]}
+                                            alt={item.title}
+                                            style={{
+                                                position: 'absolute',
+                                                top: 0,
+                                                left: 0,
+                                                width: '100%',
+                                                height: '100%',
+                                                objectFit: 'cover'
+                                            }}
+                                        />
+                                    ) : (
+                                        <Box
+                                            sx={{
+                                                position: 'absolute',
+                                                top: 0,
+                                                left: 0,
+                                                width: '100%',
+                                                height: '100%',
+                                                bgcolor: 'grey.100',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center'
+                                            }}
+                                        >
+                                            <DiamondIcon sx={{ fontSize: 60, color: 'grey.300' }} />
+                                        </Box>
+                                    )}
+                                    <Chip
+                                        label={item.status || 'Draft'}
+                                        color={item.status === 'active' ? 'success' : 'default'}
+                                        size="small"
+                                        sx={{ position: 'absolute', top: 8, right: 8 }}
+                                    />
+                                </Box>
+                                <CardContent sx={{ flexGrow: 1 }}>
+                                    <Typography variant="h6" noWrap gutterBottom>
+                                        {item.title}
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                                        {item.jewelry?.type} • {item.jewelry?.material}
+                                    </Typography>
+                                    <Typography variant="h6" color="primary">
+                                        ${item.price?.toLocaleString() || '0'}
+                                    </Typography>
+                                </CardContent>
+                                <CardActions sx={{ justifyContent: 'space-between', px: 2, pb: 2 }}>
+                                    <Button 
+                                        size="small" 
+                                        startIcon={<VisibilityIcon />}
+                                        onClick={() => router.push(`/dashboard/products/jewelry/${item.productId || item._id}`)}
+                                    >
+                                        View
+                                    </Button>
+                                    <Box>
+                                        <IconButton 
+                                            size="small" 
+                                            onClick={() => router.push(`/dashboard/products/jewelry/${item.productId || item._id}`)}
+                                        >
+                                            <EditIcon fontSize="small" />
+                                        </IconButton>
+                                        <IconButton 
+                                            size="small" 
+                                            color="error"
+                                            onClick={() => handleDeleteJewelry(item.productId || item._id)}
+                                        >
+                                            <DeleteIcon fontSize="small" />
+                                        </IconButton>
+                                    </Box>
+                                </CardActions>
+                            </Card>
+                        </Grid>
+                    ))}
+                </Grid>
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                    <Pagination 
+                        count={totalPages} 
+                        page={currentPage} 
+                        onChange={handlePageChange} 
+                        color="primary" 
+                    />
+                </Box>
+            )}
         </Box>
     );
 }
