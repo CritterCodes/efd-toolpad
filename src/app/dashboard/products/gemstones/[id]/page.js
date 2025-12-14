@@ -34,7 +34,11 @@ import {
     ImageListItem,
     ImageListItemBar,
     Divider,
-    Stack
+    Stack,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions
 } from '@mui/material';
 import {
     ArrowBack as ArrowBackIcon,
@@ -43,7 +47,9 @@ import {
     Delete as DeleteIcon,
     PhotoCamera as PhotoCameraIcon,
     Publish as PublishIcon,
-    Drafts as DraftsIcon
+    Drafts as DraftsIcon,
+    Add as AddIcon,
+    Edit as EditIcon
 } from '@mui/icons-material';
 
 // Import existing components if needed
@@ -60,6 +66,19 @@ export default function GemstoneEditorPage() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
     const [tabValue, setTabValue] = useState(0);
+
+    // CAD Request State
+    const [cadRequests, setCadRequests] = useState([]);
+    const [designs, setDesigns] = useState([]);
+    const [cadDialogOpen, setCadDialogOpen] = useState(false);
+    const [editingCadRequest, setEditingCadRequest] = useState(null);
+    const [cadFormData, setCadFormData] = useState({
+        mountingType: '',
+        styleDescription: '',
+        ringSize: '',
+        specialRequests: '',
+        assignedDesigner: ''
+    });
     
     // Dynamic suggestions state
     const [dynamicSuggestions, setDynamicSuggestions] = useState({
@@ -247,6 +266,9 @@ export default function GemstoneEditorPage() {
                     vendor: gemstone.vendor || '',
                     notes: gemstone.notes || ''
                 });
+
+                setCadRequests(gemstone.cadRequests || []);
+                setDesigns(gemstone.designs || []);
             } catch (err) {
                 console.error('Error fetching gemstone:', err);
                 setError('Failed to load gemstone details');
@@ -330,6 +352,93 @@ export default function GemstoneEditorPage() {
             setFormData(prev => ({ ...prev, objFile: file }));
         } else {
             alert('Please select a valid .obj file');
+        }
+    };
+
+    const handleOpenCadDialog = (request = null) => {
+        if (request) {
+            setEditingCadRequest(request);
+            setCadFormData({
+                mountingType: request.mountingDetails?.mountingType || '',
+                styleDescription: request.mountingDetails?.styleDescription || '',
+                ringSize: request.mountingDetails?.ringSize || '',
+                specialRequests: request.mountingDetails?.specialRequests || '',
+                assignedDesigner: request.assignedDesigner || ''
+            });
+        } else {
+            setEditingCadRequest(null);
+            setCadFormData({
+                mountingType: '',
+                styleDescription: '',
+                ringSize: '',
+                specialRequests: '',
+                assignedDesigner: ''
+            });
+        }
+        setCadDialogOpen(true);
+    };
+
+    const handleCloseCadDialog = () => {
+        setCadDialogOpen(false);
+        setEditingCadRequest(null);
+    };
+
+    const handleSaveCadRequest = async () => {
+        try {
+            setSaving(true);
+            const url = editingCadRequest 
+                ? `/api/cad-requests/${editingCadRequest.id}?gemstoneId=${gemstoneId}`
+                : `/api/cad-requests/create?gemstoneId=${gemstoneId}`;
+            
+            const method = editingCadRequest ? 'PUT' : 'POST';
+            
+            const response = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...cadFormData,
+                    gemstoneId
+                })
+            });
+
+            if (!response.ok) throw new Error('Failed to save CAD request');
+
+            // Refresh data
+            const refreshResponse = await fetch(`/api/products/gemstones/${gemstoneId}`);
+            const refreshData = await refreshResponse.json();
+            const refreshedGemstone = refreshData.gemstone || refreshData;
+            setCadRequests(refreshedGemstone.cadRequests || []);
+            
+            handleCloseCadDialog();
+        } catch (err) {
+            console.error('Error saving CAD request:', err);
+            setError('Failed to save CAD request');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDeleteCadRequest = async (requestId) => {
+        if (!confirm('Are you sure you want to delete this CAD request?')) return;
+
+        try {
+            setSaving(true);
+            const response = await fetch(`/api/cad-requests/${requestId}?gemstoneId=${gemstoneId}`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) throw new Error('Failed to delete CAD request');
+
+            // Refresh data
+            const refreshResponse = await fetch(`/api/products/gemstones/${gemstoneId}`);
+            const refreshData = await refreshResponse.json();
+            const refreshedGemstone = refreshData.gemstone || refreshData;
+            setCadRequests(refreshedGemstone.cadRequests || []);
+        } catch (err) {
+            console.error('Error deleting CAD request:', err);
+            setError('Failed to delete CAD request');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -816,11 +925,207 @@ export default function GemstoneEditorPage() {
                         <Tab label="CAD Requests" />
                     </Tabs>
                     <Box sx={{ py: 3 }}>
-                        {tabValue === 0 && <Typography color="text.secondary">Designs management coming soon...</Typography>}
-                        {tabValue === 1 && <Typography color="text.secondary">CAD Requests management coming soon...</Typography>}
+                        {/* Designs Tab */}
+                        {tabValue === 0 && (
+                            <Box>
+                                {designs.length === 0 ? (
+                                    <Paper sx={{ p: 4, textAlign: 'center', bgcolor: 'action.hover' }}>
+                                        <Typography variant="h6" color="text.secondary" gutterBottom>
+                                            No Designs Yet
+                                        </Typography>
+                                        <Typography color="text.secondary" sx={{ mb: 2 }}>
+                                            Create a CAD request to start the design process.
+                                        </Typography>
+                                        <Button 
+                                            variant="contained" 
+                                            startIcon={<AddIcon />}
+                                            onClick={() => setTabValue(1)}
+                                        >
+                                            Go to CAD Requests
+                                        </Button>
+                                    </Paper>
+                                ) : (
+                                    <Grid container spacing={3}>
+                                        {designs.map((design, index) => (
+                                            <Grid item xs={12} md={6} lg={4} key={index}>
+                                                <Card>
+                                                    <CardContent>
+                                                        <Typography variant="h6">{design.title}</Typography>
+                                                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                                                            Status: {design.status}
+                                                        </Typography>
+                                                        <Typography variant="body2">
+                                                            {design.description}
+                                                        </Typography>
+                                                    </CardContent>
+                                                </Card>
+                                            </Grid>
+                                        ))}
+                                    </Grid>
+                                )}
+                            </Box>
+                        )}
+
+                        {/* CAD Requests Tab */}
+                        {tabValue === 1 && (
+                            <Box>
+                                <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
+                                    <Button 
+                                        variant="contained" 
+                                        startIcon={<AddIcon />}
+                                        onClick={() => handleOpenCadDialog()}
+                                    >
+                                        Create New Request
+                                    </Button>
+                                </Box>
+
+                                {cadRequests.length === 0 ? (
+                                    <Paper sx={{ p: 4, textAlign: 'center', bgcolor: 'action.hover' }}>
+                                        <Typography variant="h6" color="text.secondary" gutterBottom>
+                                            No CAD Requests
+                                        </Typography>
+                                        <Typography color="text.secondary">
+                                            Create a request to start the custom design process.
+                                        </Typography>
+                                    </Paper>
+                                ) : (
+                                    <Grid container spacing={3}>
+                                        {cadRequests.map((request, index) => (
+                                            <Grid item xs={12} md={6} key={request.id || index}>
+                                                <Card>
+                                                    <CardContent>
+                                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                                                            <Typography variant="h6">
+                                                                {request.mountingDetails?.mountingType || 'Custom Request'}
+                                                            </Typography>
+                                                            <Chip 
+                                                                label={request.status || 'Pending'} 
+                                                                color={request.status === 'completed' ? 'success' : 'default'}
+                                                                size="small"
+                                                            />
+                                                        </Box>
+                                                        
+                                                        <Typography variant="body2" color="text.secondary" paragraph>
+                                                            {request.mountingDetails?.styleDescription}
+                                                        </Typography>
+
+                                                        <Grid container spacing={2} sx={{ mb: 2 }}>
+                                                            <Grid item xs={6}>
+                                                                <Typography variant="caption" display="block" color="text.secondary">
+                                                                    Ring Size
+                                                                </Typography>
+                                                                <Typography variant="body2">
+                                                                    {request.mountingDetails?.ringSize || 'N/A'}
+                                                                </Typography>
+                                                            </Grid>
+                                                            <Grid item xs={6}>
+                                                                <Typography variant="caption" display="block" color="text.secondary">
+                                                                    Designer
+                                                                </Typography>
+                                                                <Typography variant="body2">
+                                                                    {request.assignedDesigner || 'Unassigned'}
+                                                                </Typography>
+                                                            </Grid>
+                                                        </Grid>
+
+                                                        <Divider sx={{ my: 2 }} />
+
+                                                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                                                            <Button 
+                                                                size="small" 
+                                                                variant="outlined"
+                                                                onClick={() => router.push(`/dashboard/cad-requests/${request.id}`)}
+                                                            >
+                                                                View Details
+                                                            </Button>
+                                                            <Button 
+                                                                size="small" 
+                                                                startIcon={<EditIcon />}
+                                                                onClick={() => handleOpenCadDialog(request)}
+                                                            >
+                                                                Edit
+                                                            </Button>
+                                                            <Button 
+                                                                size="small" 
+                                                                color="error" 
+                                                                startIcon={<DeleteIcon />}
+                                                                onClick={() => handleDeleteCadRequest(request.id)}
+                                                            >
+                                                                Delete
+                                                            </Button>
+                                                        </Box>
+                                                    </CardContent>
+                                                </Card>
+                                            </Grid>
+                                        ))}
+                                    </Grid>
+                                )}
+                            </Box>
+                        )}
                     </Box>
                 </Box>
             )}
+
+            {/* CAD Request Dialog */}
+            <Dialog open={cadDialogOpen} onClose={handleCloseCadDialog} maxWidth="sm" fullWidth>
+                <DialogTitle>
+                    {editingCadRequest ? 'Edit CAD Request' : 'New CAD Request'}
+                </DialogTitle>
+                <DialogContent>
+                    <Stack spacing={3} sx={{ mt: 1 }}>
+                        <FormControl fullWidth>
+                            <InputLabel>Mounting Type</InputLabel>
+                            <Select
+                                value={cadFormData.mountingType}
+                                label="Mounting Type"
+                                onChange={(e) => setCadFormData({ ...cadFormData, mountingType: e.target.value })}
+                            >
+                                <MenuItem value="Ring">Ring</MenuItem>
+                                <MenuItem value="Pendant">Pendant</MenuItem>
+                                <MenuItem value="Earrings">Earrings</MenuItem>
+                                <MenuItem value="Bracelet">Bracelet</MenuItem>
+                                <MenuItem value="Other">Other</MenuItem>
+                            </Select>
+                        </FormControl>
+
+                        <TextField
+                            fullWidth
+                            multiline
+                            rows={4}
+                            label="Style Description"
+                            value={cadFormData.styleDescription}
+                            onChange={(e) => setCadFormData({ ...cadFormData, styleDescription: e.target.value })}
+                            placeholder="Describe the desired style, inspiration, etc."
+                        />
+
+                        <TextField
+                            fullWidth
+                            label="Ring Size (if applicable)"
+                            value={cadFormData.ringSize}
+                            onChange={(e) => setCadFormData({ ...cadFormData, ringSize: e.target.value })}
+                        />
+
+                        <TextField
+                            fullWidth
+                            multiline
+                            rows={2}
+                            label="Special Requests"
+                            value={cadFormData.specialRequests}
+                            onChange={(e) => setCadFormData({ ...cadFormData, specialRequests: e.target.value })}
+                        />
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseCadDialog}>Cancel</Button>
+                    <Button 
+                        onClick={handleSaveCadRequest} 
+                        variant="contained"
+                        disabled={saving}
+                    >
+                        {saving ? 'Saving...' : 'Save Request'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 }
