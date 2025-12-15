@@ -729,9 +729,14 @@ export default function JewelryEditorPage() {
                             {/* Existing Images */}
                             {formData.existingImages.length > 0 && (
                                 <ImageList cols={4} rowHeight={160} sx={{ mb: 2 }}>
-                                    {formData.existingImages.map((url, index) => (
+                                    {formData.existingImages.map((item, index) => (
                                         <ImageListItem key={index}>
-                                            <img src={url} alt={`Existing ${index}`} loading="lazy" style={{ height: '100%', objectFit: 'cover' }} />
+                                            <img 
+                                                src={typeof item === 'string' ? item : item?.url} 
+                                                alt={`Existing ${index}`} 
+                                                loading="lazy" 
+                                                style={{ height: '100%', objectFit: 'cover' }} 
+                                            />
                                             <ImageListItemBar
                                                 actionIcon={
                                                     <IconButton sx={{ color: 'white' }} onClick={() => handleRemoveExistingImage(index)}>

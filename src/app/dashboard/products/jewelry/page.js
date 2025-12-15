@@ -65,6 +65,11 @@ export default function JewelryPage() {
                 throw new Error('Failed to fetch jewelry');
             }
             const data = await response.json();
+            console.log('Fetched jewelry data:', data);
+            if (data.jewelry && data.jewelry.length > 0) {
+                console.log('First jewelry item images:', data.jewelry[0].images);
+                console.log('First image type:', typeof data.jewelry[0].images?.[0]);
+            }
             setJewelry(data.jewelry || []);
         } catch (err) {
             console.error('Fetch error:', err);
@@ -221,7 +226,7 @@ export default function JewelryPage() {
                                 <Box sx={{ position: 'relative', pt: '100%' }}>
                                     {item.images && item.images.length > 0 ? (
                                         <img
-                                            src={item.images[0]}
+                                            src={typeof item.images[0] === 'string' ? item.images[0] : item.images[0]?.url}
                                             alt={item.title}
                                             style={{
                                                 position: 'absolute',
