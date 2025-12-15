@@ -252,6 +252,22 @@ export default function GemstonCreationForm({ initialData, onSubmit, onCancel })
             </Box>
           </Grid>
 
+          {/* Images Display */}
+          <Grid item xs={12}>
+             <Typography variant="subtitle1" color="primary" gutterBottom>
+              Images
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              {formData.images.map((img, index) => (
+                <Box key={index} component="img" 
+                  src={typeof img === 'string' ? img : img.url} 
+                  sx={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 1, border: '1px solid #eee' }} 
+                />
+              ))}
+              {formData.images.length === 0 && <Typography variant="body2" color="text.secondary">No images available</Typography>}
+            </Box>
+          </Grid>
+
           {/* Gemstone-Specific Fields */}
           <Grid item xs={12}>
             <Typography variant="subtitle1" color="primary" gutterBottom sx={{ mt: 2 }}>

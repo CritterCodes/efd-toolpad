@@ -517,7 +517,7 @@ function ProductCard({ product, onEdit, onDelete }) {
         <CardMedia
           component="img"
           height={200}
-          image={product.images[0]}
+          image={typeof product.images[0] === 'string' ? product.images[0] : product.images[0]?.url}
           alt={product.title}
         />
       )}
