@@ -86,9 +86,15 @@ export async function POST(request) {
         size,
         price,
         status,
+        availability, // New field
         images,
         customMounting,
         vendor,
+        // Ring Specifics
+        ringSize,
+        canBeSized,
+        sizingRangeUp,
+        sizingRangeDown,
         ...otherData
     } = data;
 
@@ -102,6 +108,7 @@ export async function POST(request) {
         description: description || '',
         notes: notes || '',
         status: status || 'draft',
+        availability: availability || 'ready-to-ship', // Default
         userId: userIdentifier,
         vendor: vendor || session.user.businessName || session.user.name || '',
         createdAt: new Date(),
@@ -116,6 +123,11 @@ export async function POST(request) {
             weight: weight || '',
             size: size || '',
             customMounting: customMounting || false,
+            // Ring Specifics
+            ringSize: ringSize || '',
+            canBeSized: canBeSized || false,
+            sizingRangeUp: sizingRangeUp || '',
+            sizingRangeDown: sizingRangeDown || '',
             ...otherData
         },
         

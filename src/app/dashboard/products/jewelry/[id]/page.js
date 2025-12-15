@@ -277,6 +277,7 @@ export default function JewelryEditorPage() {
         type: '',
         price: '',
         status: 'draft',
+        availability: 'ready-to-ship', // New field
         images: [], // Array of image files (for new uploads)
         existingImages: [], // Array of URLs (for existing images)
         userId: '',
@@ -288,6 +289,12 @@ export default function JewelryEditorPage() {
         centerStones: [], // { type, count, size, weight }
         accentStones: [], // { type, count, size, weight }
         gemstoneLinks: [], // Array of gemstone IDs
+        
+        // Ring Specifics
+        ringSize: '',
+        canBeSized: false,
+        sizingRangeUp: '',
+        sizingRangeDown: '',
         
         // Files
         objFile: null, // URL or File object (if new)
@@ -339,6 +346,7 @@ export default function JewelryEditorPage() {
                     type: jDetails.type || '',
                     price: jewelry.price || '',
                     status: jewelry.status || 'draft',
+                    availability: jewelry.availability || 'ready-to-ship',
                     images: [],
                     existingImages: jewelry.images || [],
                     userId: jewelry.userId || session?.user?.id,
@@ -349,6 +357,12 @@ export default function JewelryEditorPage() {
                     centerStones: jDetails.centerStones || [],
                     accentStones: jDetails.accentStones || [],
                     gemstoneLinks: jDetails.gemstoneLinks || [],
+                    
+                    // Ring Specifics
+                    ringSize: jDetails.ringSize || '',
+                    canBeSized: jDetails.canBeSized || false,
+                    sizingRangeUp: jDetails.sizingRangeUp || '',
+                    sizingRangeDown: jDetails.sizingRangeDown || '',
                     
                     objFile: jDetails.objFile || null,
                     stlFile: jDetails.stlFile || null,
@@ -469,6 +483,7 @@ export default function JewelryEditorPage() {
                 objFile, stlFile, glbFile, 
                 images, existingImages, 
                 metals, centerStones, accentStones, gemstoneLinks,
+                ringSize, canBeSized, sizingRangeUp, sizingRangeDown,
                 ...metadata 
             } = formData;
             
@@ -483,6 +498,12 @@ export default function JewelryEditorPage() {
                 centerStones,
                 accentStones,
                 gemstoneLinks,
+                
+                // Ring Specifics
+                ringSize,
+                canBeSized,
+                sizingRangeUp,
+                sizingRangeDown,
                 
                 // Files (URLs)
                 objFile: typeof objFile === 'string' ? objFile : undefined,
@@ -705,6 +726,62 @@ export default function JewelryEditorPage() {
                                     <TextField {...params} label="Select Gemstones from Inventory" placeholder="Search..." />
                                 )}
                             />
+
+                            {/* Ring Specifics */}
+                            {formData.type === 'Ring' && (
+                                <>
+                                    <Divider sx={{ my: 3 }} />
+                                    <Typography variant="subtitle1" gutterBottom>Ring Specifics</Typography>
+                                    <Grid container spacing={2}>
+                                        <Grid item xs={12} sm={4}>
+                                            <TextField
+                                                fullWidth
+                                                label="Current Size"
+                                                value={formData.ringSize}
+                                                onChange={(e) => handleInputChange('ringSize', e.target.value)}
+                                                placeholder="e.g. 6.5"
+                                            />
+                                        </Grid>
+                                        <Grid item xs={12} sm={8} sx={{ display: 'flex', alignItems: 'center' }}>
+                                            <FormControlLabel
+                                                control={
+                                                    <Switch
+                                                        checked={formData.canBeSized}
+                                                        onChange={(e) => handleInputChange('canBeSized', e.target.checked)}
+                                                    />
+                                                }
+                                                label="Can be sized?"
+                                            />
+                                        </Grid>
+                                        {formData.canBeSized && (
+                                            <>
+                                                <Grid item xs={12} sm={6}>
+                                                    <TextField
+                                                        fullWidth
+                                                        label="Sizing Range (Up)"
+                                                        type="number"
+                                                        value={formData.sizingRangeUp}
+                                                        onChange={(e) => handleInputChange('sizingRangeUp', e.target.value)}
+                                                        placeholder="e.g. 2"
+                                                        InputProps={{ endAdornment: <Typography variant="caption">sizes</Typography> }}
+                                                    />
+                                                </Grid>
+                                                <Grid item xs={12} sm={6}>
+                                                    <TextField
+                                                        fullWidth
+                                                        label="Sizing Range (Down)"
+                                                        type="number"
+                                                        value={formData.sizingRangeDown}
+                                                        onChange={(e) => handleInputChange('sizingRangeDown', e.target.value)}
+                                                        placeholder="e.g. 1"
+                                                        InputProps={{ endAdornment: <Typography variant="caption">sizes</Typography> }}
+                                                    />
+                                                </Grid>
+                                            </>
+                                        )}
+                                    </Grid>
+                                </>
+                            )}
                         </Box>
 
                         {/* Tab 2: Images */}
@@ -838,6 +915,18 @@ export default function JewelryEditorPage() {
                     <Card sx={{ mb: 3 }}>
                         <CardContent>
                             <Typography variant="h6" gutterBottom>Publishing</Typography>
+                            <FormControl fullWidth sx={{ mb: 2 }}>
+                                <InputLabel>Availability</InputLabel>
+                                <Select
+                                    value={formData.availability}
+                                    label="Availability"
+                                    onChange={(e) => handleInputChange('availability', e.target.value)}
+                                >
+                                    <MenuItem value="ready-to-ship">Ready to Ship</MenuItem>
+                                    <MenuItem value="made-to-order">Made to Order</MenuItem>
+                                    <MenuItem value="one-of-one">One of One</MenuItem>
+                                </Select>
+                            </FormControl>
                             <FormControl fullWidth sx={{ mb: 2 }}>
                                 <InputLabel>Status</InputLabel>
                                 <Select

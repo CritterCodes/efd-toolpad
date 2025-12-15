@@ -268,6 +268,15 @@ export default function JewelryPage() {
                                     <Typography variant="body2" color="text.secondary" gutterBottom>
                                         {item.jewelry?.type} • {item.jewelry?.material}
                                     </Typography>
+                                    {item.availability && (
+                                        <Chip 
+                                            label={item.availability.replace(/-/g, ' ')} 
+                                            size="small" 
+                                            variant="outlined" 
+                                            color="info" 
+                                            sx={{ mb: 1, textTransform: 'capitalize' }} 
+                                        />
+                                    )}
                                     <Typography variant="h6" color="primary">
                                         ${item.price?.toLocaleString() || '0'}
                                     </Typography>

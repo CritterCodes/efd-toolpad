@@ -117,9 +117,15 @@ export async function PUT(request, { params }) {
             size,
             price,
             status,
+            availability, // New field
             images,
             customMounting,
             vendor,
+            // Ring Specifics
+            ringSize,
+            canBeSized,
+            sizingRangeUp,
+            sizingRangeDown,
             ...otherData
         } = data;
 
@@ -128,6 +134,7 @@ export async function PUT(request, { params }) {
             description: description || existingJewelry.description,
             notes: notes || existingJewelry.notes,
             status: status || existingJewelry.status,
+            availability: availability || existingJewelry.availability || 'ready-to-ship',
             vendor: vendor || existingJewelry.vendor,
             updatedAt: new Date(),
             images: images || existingJewelry.images,
@@ -141,6 +148,11 @@ export async function PUT(request, { params }) {
                 weight: weight || existingJewelry.jewelry?.weight,
                 size: size || existingJewelry.jewelry?.size,
                 customMounting: customMounting !== undefined ? customMounting : existingJewelry.jewelry?.customMounting,
+                // Ring Specifics
+                ringSize: ringSize !== undefined ? ringSize : existingJewelry.jewelry?.ringSize,
+                canBeSized: canBeSized !== undefined ? canBeSized : existingJewelry.jewelry?.canBeSized,
+                sizingRangeUp: sizingRangeUp !== undefined ? sizingRangeUp : existingJewelry.jewelry?.sizingRangeUp,
+                sizingRangeDown: sizingRangeDown !== undefined ? sizingRangeDown : existingJewelry.jewelry?.sizingRangeDown,
                 ...otherData
             }
         };
