@@ -174,6 +174,13 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        // Parse body for cursor
+        let body = {};
+        try {
+            body = await request.json();
+        } catch (e) {}
+        const { cursor } = body;
+
         const { db } = await connectToDatabase();
         
         // 1. Get Shopify Config
@@ -201,14 +208,18 @@ export async function POST(request) {
         const version = apiVersion || '2024-01';
 
         // 2. Find last migrated ID to support batching (prevent timeouts)
-        const lastProduct = await db.collection('products')
-            .find({ shopifyId: { $exists: true } })
-            .sort({ shopifyId: -1 })
-            .limit(1)
-            .toArray();
-            
-        const lastId = lastProduct.length > 0 ? lastProduct[0].shopifyId : 0;
-        console.log(`Resuming migration from Shopify ID: ${lastId}`);
+        let lastId = cursor;
+        if (!lastId) {
+            const lastProduct = await db.collection('products')
+                .find({ shopifyId: { $exists: true } })
+                .sort({ shopifyId: -1 })
+                .limit(1)
+                .toArray();
+            lastId = lastProduct.length > 0 ? lastProduct[0].shopifyId : 0;
+            console.log(`Resuming migration from DB max ID: ${lastId}`);
+        } else {
+            console.log(`Resuming migration from provided cursor: ${lastId}`);
+        }
 
         // 3. Fetch BATCH of Products (Limit 10 to prevent Vercel 10s timeout)
         let allProducts = [];
@@ -354,7 +365,11 @@ export async function POST(request) {
             }
         }
 
-        return NextResponse.json({ success: true, stats });
+        // Determine the ID of the last item fetched, regardless of whether it was skipped or processed
+        const lastFetchedProduct = allProducts.length > 0 ? allProducts[allProducts.length - 1] : null;
+        const nextCursor = lastFetchedProduct ? lastFetchedProduct.id : null;
+
+        return NextResponse.json({ success: true, stats, nextCursor });
 
     } catch (error) {
         console.error('Migration error:', error);

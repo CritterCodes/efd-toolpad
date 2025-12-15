@@ -335,6 +335,7 @@ export default function IntegrationsTab() {
             let totalUpdated = 0;
             let batchCount = 0;
             let keepGoing = true;
+            let cursor = null; // Initialize cursor
             const MAX_BATCHES = 500; // Safety limit
 
             while (keepGoing && batchCount < MAX_BATCHES) {
@@ -342,7 +343,9 @@ export default function IntegrationsTab() {
                 setShopifySuccess(`Processing batch ${batchCount}... (Total processed so far: ${totalProcessed})`);
                 
                 const response = await fetch('/api/admin/migrate-shopify', {
-                    method: 'POST'
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cursor })
                 });
 
                 const result = await response.json();
@@ -369,8 +372,11 @@ export default function IntegrationsTab() {
                 totalNew += ((stats.jewelry?.new || 0) + (stats.gemstones?.new || 0));
                 totalUpdated += ((stats.jewelry?.updated || 0) + (stats.gemstones?.updated || 0));
 
-                // Stop if we processed 0 items (end of list)
-                if (batchProcessed === 0) {
+                // Update cursor for next batch
+                cursor = result.nextCursor;
+
+                // Stop if no next cursor (end of list)
+                if (!cursor) {
                     keepGoing = false;
                 } else {
                     // Small delay to prevent rate limiting
