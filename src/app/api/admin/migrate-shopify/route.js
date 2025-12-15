@@ -15,17 +15,26 @@ const s3Client = new S3Client({
 async function uploadImageToS3(imageUrl, folder = 'products') {
     try {
         // Skip if already an S3 URL
-        if (imageUrl.includes('amazonaws.com')) return imageUrl;
+        if (!imageUrl || imageUrl.includes('amazonaws.com')) return imageUrl;
+
+        // Check for credentials
+        if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY || !process.env.AWS_BUCKET_NAME) {
+            throw new Error('Missing AWS Credentials in environment variables');
+        }
 
         // 1. Fetch image
         const response = await fetch(imageUrl);
         if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
-        const buffer = Buffer.from(await response.arrayBuffer());
+        
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
         const contentType = response.headers.get('content-type') || 'image/jpeg';
         
         // 2. Generate Key
         const urlParts = imageUrl.split('/');
-        const filename = urlParts[urlParts.length - 1].split('?')[0]; // Remove query params
+        let filename = urlParts[urlParts.length - 1].split('?')[0]; // Remove query params
+        filename = filename.replace(/[^a-zA-Z0-9.-]/g, '_'); // Sanitize filename
+        
         const timestamp = Date.now();
         const key = `${folder}/${timestamp}-${filename}`;
 
@@ -40,11 +49,11 @@ async function uploadImageToS3(imageUrl, folder = 'products') {
         await s3Client.send(command);
 
         // 4. Return URL
-        return `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+        return `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION || 'us-east-2'}.amazonaws.com/${key}`;
 
     } catch (error) {
         console.error(`Failed to upload image ${imageUrl} to S3:`, error);
-        return imageUrl; // Fallback to original URL if upload fails
+        throw error; // Re-throw to be caught by the loop
     }
 }
 
@@ -227,7 +236,8 @@ export async function POST(request) {
             jewelry: { new: 0, updated: 0 },
             gemstones: { new: 0, updated: 0 },
             skipped: 0,
-            processed: allProducts.length
+            processed: allProducts.length,
+            errors: []
         };
 
         for (const p of allProducts) {
@@ -242,13 +252,23 @@ export async function POST(request) {
 
             // Common Fields
             const images = await Promise.all((p.images || []).map(async (img) => {
-                const s3Url = await uploadImageToS3(img.src, `products/${p.handle || 'misc'}`);
-                return {
-                    id: img.id.toString(),
-                    url: s3Url,
-                    alt: img.alt || p.title,
-                    position: img.position
-                };
+                try {
+                    const s3Url = await uploadImageToS3(img.src, `products/${p.handle || 'misc'}`);
+                    return {
+                        id: img.id.toString(),
+                        url: s3Url,
+                        alt: img.alt || p.title,
+                        position: img.position
+                    };
+                } catch (err) {
+                    stats.errors.push(`Image upload failed for ${p.title} (${img.id}): ${err.message}`);
+                    return {
+                        id: img.id.toString(),
+                        url: img.src, // Fallback to Shopify URL
+                        alt: img.alt || p.title,
+                        position: img.position
+                    };
+                }
             }));
 
             const prices = (p.variants || []).map(v => parseFloat(v.price));
