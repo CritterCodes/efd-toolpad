@@ -341,9 +341,26 @@ export default function IntegrationsTab() {
             }
 
             const stats = result.stats;
-            setShopifySuccess(
-                `Migration Complete! Jewelry: ${stats.jewelry.new} new, ${stats.jewelry.updated} updated. Gemstones: ${stats.gemstones.new} new, ${stats.gemstones.updated} updated.`
-            );
+            
+            // Log detailed stats and errors to console
+            console.log('Migration Stats:', stats);
+            if (stats.errors && stats.errors.length > 0) {
+                console.error('Migration Errors:', stats.errors);
+            }
+
+            let message = `Batch Complete! Processed: ${stats.processed}. Jewelry: ${stats.jewelry.new} new, ${stats.jewelry.updated} updated. Gemstones: ${stats.gemstones.new} new, ${stats.gemstones.updated} updated.`;
+            
+            if (stats.errors && stats.errors.length > 0) {
+                message += ` (${stats.errors.length} errors - check console)`;
+            }
+
+            if (stats.processed === 0) {
+                message = "Migration Complete! No more products to process.";
+            } else {
+                message += " Click 'Sync Catalog' again to process the next batch.";
+            }
+
+            setShopifySuccess(message);
 
         } catch (error) {
             console.error('Migration error:', error);
