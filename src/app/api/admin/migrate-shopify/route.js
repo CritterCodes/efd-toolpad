@@ -191,13 +191,25 @@ export async function POST(request) {
 
         const version = apiVersion || '2024-01';
 
-        // 2. Fetch ALL Products with pagination
+        // 2. Find last migrated ID to support batching (prevent timeouts)
+        const lastProduct = await db.collection('products')
+            .find({ shopifyId: { $exists: true } })
+            .sort({ shopifyId: -1 })
+            .limit(1)
+            .toArray();
+            
+        const lastId = lastProduct.length > 0 ? lastProduct[0].shopifyId : 0;
+        console.log(`Resuming migration from Shopify ID: ${lastId}`);
+
+        // 3. Fetch BATCH of Products (Limit 10 to prevent Vercel 10s timeout)
         let allProducts = [];
-        let url = `https://${shopUrl}/admin/api/${version}/products.json?limit=250`;
+        // Use since_id to skip already migrated items
+        let url = `https://${shopUrl}/admin/api/${version}/products.json?limit=10&since_id=${lastId}`;
         
         console.log('Starting Shopify migration fetch...');
 
-        while (url) {
+        // Only fetch ONE page per request to ensure we process and return quickly
+        if (url) {
             const response = await fetch(url, {
                 headers: { 'X-Shopify-Access-Token': accessToken, 'Content-Type': 'application/json' }
             });
@@ -205,25 +217,17 @@ export async function POST(request) {
             if (!response.ok) throw new Error(`Shopify API error: ${response.statusText}`);
             
             const data = await response.json();
-            allProducts = allProducts.concat(data.products);
-            
-            // Check for Link header for pagination
-            const linkHeader = response.headers.get('Link');
-            if (linkHeader && linkHeader.includes('rel="next"')) {
-                const match = linkHeader.match(/<([^>]+)>; rel="next"/);
-                url = match ? match[1] : null;
-            } else {
-                url = null;
-            }
+            allProducts = data.products;
         }
 
         console.log(`Fetched ${allProducts.length} products from Shopify.`);
 
-        // 3. Process
+        // 4. Process
         let stats = {
             jewelry: { new: 0, updated: 0 },
             gemstones: { new: 0, updated: 0 },
-            skipped: 0
+            skipped: 0,
+            processed: allProducts.length
         };
 
         for (const p of allProducts) {
