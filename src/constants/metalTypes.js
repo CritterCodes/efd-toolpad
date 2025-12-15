@@ -182,3 +182,15 @@ export function calculateMetalCost(metalWeightG, pricePerGram) {
 export function calculateMountingCOG(metalCost, laborCharge = 15) {
   return metalCost + laborCharge;
 }
+
+/**
+ * Get all available metal options for UI selection
+ * @returns Array of metal option objects { key, label, category }
+ */
+export function getAllMetalOptions() {
+  return Object.entries(METAL_TYPES).map(([key, value]) => ({
+    key,
+    label: value.label,
+    category: value.category
+  }));
+}
