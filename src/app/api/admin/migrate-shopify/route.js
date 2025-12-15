@@ -130,8 +130,14 @@ export async function POST(request) {
 
         const { shopUrl, accessToken: rawToken, apiVersion } = adminSettings.shopify;
         let accessToken = rawToken;
+        
         if (isDataEncrypted(rawToken)) {
-            accessToken = decryptSensitiveData(rawToken);
+            try {
+                accessToken = decryptSensitiveData(rawToken);
+            } catch (e) {
+                console.warn('Failed to decrypt Shopify token, attempting to use as plain text:', e.message);
+                accessToken = rawToken;
+            }
         }
 
         if (!shopUrl || !accessToken) {
