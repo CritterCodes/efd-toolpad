@@ -511,6 +511,9 @@ function ProductCard({ product, onEdit, onDelete }) {
   // Support both old (gemstoneData) and new (gemstone) structure
   const gemstoneData = product.gemstone || product.gemstoneData || {};
   
+  // Debug log for images
+  console.log('ProductCard images:', product.title, product.images);
+
   return (
     <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {product.images?.[0] && (
@@ -519,6 +522,10 @@ function ProductCard({ product, onEdit, onDelete }) {
           height={200}
           image={typeof product.images[0] === 'string' ? product.images[0] : product.images[0]?.url}
           alt={product.title}
+          onError={(e) => {
+            console.error('Image load error:', product.title, e.target.src);
+            e.target.src = 'https://via.placeholder.com/200?text=Image+Error';
+          }}
         />
       )}
       <CardContent sx={{ flexGrow: 1 }}>
