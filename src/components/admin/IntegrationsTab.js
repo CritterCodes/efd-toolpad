@@ -321,46 +321,64 @@ export default function IntegrationsTab() {
     };
 
     const handleMigrateCatalog = async () => {
-        if (!window.confirm('This will import/update all Jewelry and Gemstone products from Shopify. Continue?')) {
+        if (!window.confirm('This will import/update all Jewelry and Gemstone products from Shopify. This process runs in batches and may take several minutes. Continue?')) {
             return;
         }
 
         try {
             setMigrationLoading(true);
             setShopifyError(null);
-            setShopifySuccess(null);
+            setShopifySuccess('Starting migration...');
 
-            const response = await fetch('/api/admin/migrate-shopify', {
-                method: 'POST'
-            });
+            let totalProcessed = 0;
+            let totalNew = 0;
+            let totalUpdated = 0;
+            let batchCount = 0;
+            let keepGoing = true;
+            const MAX_BATCHES = 500; // Safety limit
 
-            const result = await response.json();
+            while (keepGoing && batchCount < MAX_BATCHES) {
+                batchCount++;
+                setShopifySuccess(`Processing batch ${batchCount}... (Total processed so far: ${totalProcessed})`);
+                
+                const response = await fetch('/api/admin/migrate-shopify', {
+                    method: 'POST'
+                });
 
-            if (!response.ok) {
-                throw new Error(result.error || 'Migration failed');
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error || 'Migration failed');
+                }
+
+                const stats = result.stats;
+                
+                // Log detailed stats and errors to console
+                console.log(`Batch ${batchCount} Stats:`, stats);
+                
+                if (stats.logs && stats.logs.length > 0) {
+                    console.log(`Batch ${batchCount} Logs:`, stats.logs);
+                }
+
+                if (stats.errors && stats.errors.length > 0) {
+                    console.error(`Batch ${batchCount} Errors:`, stats.errors);
+                }
+
+                const batchProcessed = stats.processed || 0;
+                totalProcessed += batchProcessed;
+                totalNew += ((stats.jewelry?.new || 0) + (stats.gemstones?.new || 0));
+                totalUpdated += ((stats.jewelry?.updated || 0) + (stats.gemstones?.updated || 0));
+
+                // Stop if we processed 0 items (end of list)
+                if (batchProcessed === 0) {
+                    keepGoing = false;
+                } else {
+                    // Small delay to prevent rate limiting
+                    await new Promise(r => setTimeout(r, 1000));
+                }
             }
 
-            const stats = result.stats;
-            
-            // Log detailed stats and errors to console
-            console.log('Migration Stats:', stats);
-            if (stats.errors && stats.errors.length > 0) {
-                console.error('Migration Errors:', stats.errors);
-            }
-
-            let message = `Batch Complete! Processed: ${stats.processed}. Jewelry: ${stats.jewelry.new} new, ${stats.jewelry.updated} updated. Gemstones: ${stats.gemstones.new} new, ${stats.gemstones.updated} updated.`;
-            
-            if (stats.errors && stats.errors.length > 0) {
-                message += ` (${stats.errors.length} errors - check console)`;
-            }
-
-            if (stats.processed === 0) {
-                message = "Migration Complete! No more products to process.";
-            } else {
-                message += " Click 'Sync Catalog' again to process the next batch.";
-            }
-
-            setShopifySuccess(message);
+            setShopifySuccess(`Migration Complete! Processed ${totalProcessed} products. (${totalNew} new, ${totalUpdated} updated). Check console for detailed logs.`);
 
         } catch (error) {
             console.error('Migration error:', error);

@@ -237,7 +237,8 @@ export async function POST(request) {
             gemstones: { new: 0, updated: 0 },
             skipped: 0,
             processed: allProducts.length,
-            errors: []
+            errors: [],
+            logs: [] // Debug logs
         };
 
         for (const p of allProducts) {
@@ -254,6 +255,11 @@ export async function POST(request) {
             const images = await Promise.all((p.images || []).map(async (img) => {
                 try {
                     const s3Url = await uploadImageToS3(img.src, `products/${p.handle || 'misc'}`);
+                    if (s3Url !== img.src) {
+                        stats.logs.push(`Uploaded ${p.title} image to S3: ${s3Url}`);
+                    } else {
+                        stats.logs.push(`Skipped upload for ${p.title} (already S3 or invalid)`);
+                    }
                     return {
                         id: img.id.toString(),
                         url: s3Url,
