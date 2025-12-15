@@ -133,7 +133,7 @@ export default function JewelryPage() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const typeOptions = ['Ring', 'Necklace', 'Earrings', 'Bracelet', 'Pendant', 'Brooch', 'Cufflinks', 'Other'];
+    const typeOptions = ['Ring', 'Pendant', 'Bracelet', 'Earrings', 'Other'];
 
     if (loading) {
         return (

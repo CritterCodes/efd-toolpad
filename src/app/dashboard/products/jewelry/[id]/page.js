@@ -297,6 +297,19 @@ export default function JewelryEditorPage() {
         sizingRangeUp: '',
         sizingRangeDown: '',
         
+        // Pendant Specifics
+        chainIncluded: false,
+        chainMaterial: '',
+        chainLength: '',
+        chainStyle: '',
+        
+        // Bracelet Specifics
+        length: '',
+        claspType: '',
+        
+        // General
+        dimensions: '',
+        
         // Files
         objFile: null, // URL or File object (if new)
         stlFile: null,
@@ -365,6 +378,19 @@ export default function JewelryEditorPage() {
                     canBeSized: jDetails.canBeSized || false,
                     sizingRangeUp: jDetails.sizingRangeUp || '',
                     sizingRangeDown: jDetails.sizingRangeDown || '',
+                    
+                    // Pendant Specifics
+                    chainIncluded: jDetails.chainIncluded || false,
+                    chainMaterial: jDetails.chainMaterial || '',
+                    chainLength: jDetails.chainLength || '',
+                    chainStyle: jDetails.chainStyle || '',
+                    
+                    // Bracelet Specifics
+                    length: jDetails.length || '',
+                    claspType: jDetails.claspType || '',
+                    
+                    // General
+                    dimensions: jDetails.dimensions || '',
                     
                     objFile: jDetails.objFile || null,
                     stlFile: jDetails.stlFile || null,
@@ -486,6 +512,8 @@ export default function JewelryEditorPage() {
                 images, existingImages, 
                 metals, centerStones, accentStones, gemstoneLinks,
                 ringSize, canBeSized, sizingRangeUp, sizingRangeDown,
+                chainIncluded, chainMaterial, chainLength, chainStyle,
+                length, claspType, dimensions,
                 classification,
                 ...metadata 
             } = formData;
@@ -508,6 +536,19 @@ export default function JewelryEditorPage() {
                 canBeSized,
                 sizingRangeUp,
                 sizingRangeDown,
+                
+                // Pendant Specifics
+                chainIncluded,
+                chainMaterial,
+                chainLength,
+                chainStyle,
+                
+                // Bracelet Specifics
+                length,
+                claspType,
+                
+                // General
+                dimensions,
                 
                 // Files (URLs)
                 objFile: typeof objFile === 'string' ? objFile : undefined,
@@ -669,7 +710,7 @@ export default function JewelryEditorPage() {
                                             label="Type"
                                             onChange={(e) => handleInputChange('type', e.target.value)}
                                         >
-                                            {['Ring', 'Necklace', 'Earrings', 'Bracelet', 'Pendant', 'Brooch', 'Cufflinks', 'Other'].map(t => (
+                                            {['Ring', 'Pendant', 'Bracelet', 'Earrings', 'Other'].map(t => (
                                                 <MenuItem key={t} value={t}>{t}</MenuItem>
                                             ))}
                                         </Select>
@@ -738,6 +779,114 @@ export default function JewelryEditorPage() {
                                             </Grid>
                                         </>
                                     )}
+                                </>
+                            )}
+
+                            {/* Pendant Specifics */}
+                            {formData.type === 'Pendant' && (
+                                <>
+                                    <Grid item xs={12}>
+                                        <Divider sx={{ my: 1 }} />
+                                        <Typography variant="subtitle2" gutterBottom sx={{ mt: 1 }}>Pendant Specifics</Typography>
+                                    </Grid>
+                                    <Grid item xs={12} sm={6}>
+                                        <FormControlLabel
+                                            control={
+                                                <Switch
+                                                    checked={formData.chainIncluded}
+                                                    onChange={(e) => handleInputChange('chainIncluded', e.target.checked)}
+                                                />
+                                            }
+                                            label="Chain Included?"
+                                        />
+                                    </Grid>
+                                    {formData.chainIncluded && (
+                                        <>
+                                            <Grid item xs={12} sm={6}>
+                                                <TextField
+                                                    fullWidth
+                                                    label="Chain Length"
+                                                    value={formData.chainLength}
+                                                    onChange={(e) => handleInputChange('chainLength', e.target.value)}
+                                                    placeholder="e.g. 18 inches"
+                                                />
+                                            </Grid>
+                                            <Grid item xs={12} sm={6}>
+                                                <TextField
+                                                    fullWidth
+                                                    label="Chain Material"
+                                                    value={formData.chainMaterial}
+                                                    onChange={(e) => handleInputChange('chainMaterial', e.target.value)}
+                                                    placeholder="e.g. 14K Gold"
+                                                />
+                                            </Grid>
+                                            <Grid item xs={12} sm={6}>
+                                                <TextField
+                                                    fullWidth
+                                                    label="Chain Style"
+                                                    value={formData.chainStyle}
+                                                    onChange={(e) => handleInputChange('chainStyle', e.target.value)}
+                                                    placeholder="e.g. Cable"
+                                                />
+                                            </Grid>
+                                        </>
+                                    )}
+                                    <Grid item xs={12} sm={6}>
+                                        <TextField
+                                            fullWidth
+                                            label="Dimensions"
+                                            value={formData.dimensions}
+                                            onChange={(e) => handleInputChange('dimensions', e.target.value)}
+                                            placeholder="e.g. 20mm x 15mm"
+                                        />
+                                    </Grid>
+                                </>
+                            )}
+
+                            {/* Bracelet Specifics */}
+                            {formData.type === 'Bracelet' && (
+                                <>
+                                    <Grid item xs={12}>
+                                        <Divider sx={{ my: 1 }} />
+                                        <Typography variant="subtitle2" gutterBottom sx={{ mt: 1 }}>Bracelet Specifics</Typography>
+                                    </Grid>
+                                    <Grid item xs={12} sm={6}>
+                                        <TextField
+                                            fullWidth
+                                            label="Length"
+                                            value={formData.length}
+                                            onChange={(e) => handleInputChange('length', e.target.value)}
+                                            placeholder="e.g. 7 inches"
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12} sm={6}>
+                                        <TextField
+                                            fullWidth
+                                            label="Clasp Type"
+                                            value={formData.claspType}
+                                            onChange={(e) => handleInputChange('claspType', e.target.value)}
+                                            placeholder="e.g. Lobster"
+                                        />
+                                    </Grid>
+                                </>
+                            )}
+
+                            {/* Other/Earrings Specifics */}
+                            {(formData.type === 'Other' || formData.type === 'Earrings') && (
+                                <>
+                                    <Grid item xs={12}>
+                                        <Divider sx={{ my: 1 }} />
+                                        <Typography variant="subtitle2" gutterBottom sx={{ mt: 1 }}>Details</Typography>
+                                    </Grid>
+                                    <Grid item xs={12}>
+                                        <TextField
+                                            fullWidth
+                                            label="Dimensions / Size Description"
+                                            value={formData.dimensions}
+                                            onChange={(e) => handleInputChange('dimensions', e.target.value)}
+                                            placeholder="e.g. 10mm drop"
+                                        />
+                                    </Grid>
                                 </>
                             )}
 

@@ -96,6 +96,16 @@ export async function POST(request) {
         canBeSized,
         sizingRangeUp,
         sizingRangeDown,
+        // Pendant Specifics
+        chainIncluded,
+        chainMaterial,
+        chainLength,
+        chainStyle,
+        // Bracelet Specifics
+        length,
+        claspType,
+        // General
+        dimensions,
         ...otherData
     } = data;
 
@@ -130,6 +140,16 @@ export async function POST(request) {
             canBeSized: canBeSized || false,
             sizingRangeUp: sizingRangeUp || '',
             sizingRangeDown: sizingRangeDown || '',
+            // Pendant Specifics
+            chainIncluded: chainIncluded || false,
+            chainMaterial: chainMaterial || '',
+            chainLength: chainLength || '',
+            chainStyle: chainStyle || '',
+            // Bracelet Specifics
+            length: length || '',
+            claspType: claspType || '',
+            // General
+            dimensions: dimensions || '',
             ...otherData
         },
         

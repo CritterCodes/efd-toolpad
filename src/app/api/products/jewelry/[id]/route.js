@@ -127,6 +127,16 @@ export async function PUT(request, { params }) {
             canBeSized,
             sizingRangeUp,
             sizingRangeDown,
+            // Pendant Specifics
+            chainIncluded,
+            chainMaterial,
+            chainLength,
+            chainStyle,
+            // Bracelet Specifics
+            length,
+            claspType,
+            // General
+            dimensions,
             ...otherData
         } = data;
 
@@ -155,6 +165,16 @@ export async function PUT(request, { params }) {
                 canBeSized: canBeSized !== undefined ? canBeSized : existingJewelry.jewelry?.canBeSized,
                 sizingRangeUp: sizingRangeUp !== undefined ? sizingRangeUp : existingJewelry.jewelry?.sizingRangeUp,
                 sizingRangeDown: sizingRangeDown !== undefined ? sizingRangeDown : existingJewelry.jewelry?.sizingRangeDown,
+                // Pendant Specifics
+                chainIncluded: chainIncluded !== undefined ? chainIncluded : existingJewelry.jewelry?.chainIncluded,
+                chainMaterial: chainMaterial !== undefined ? chainMaterial : existingJewelry.jewelry?.chainMaterial,
+                chainLength: chainLength !== undefined ? chainLength : existingJewelry.jewelry?.chainLength,
+                chainStyle: chainStyle !== undefined ? chainStyle : existingJewelry.jewelry?.chainStyle,
+                // Bracelet Specifics
+                length: length !== undefined ? length : existingJewelry.jewelry?.length,
+                claspType: claspType !== undefined ? claspType : existingJewelry.jewelry?.claspType,
+                // General
+                dimensions: dimensions !== undefined ? dimensions : existingJewelry.jewelry?.dimensions,
                 ...otherData
             }
         };
