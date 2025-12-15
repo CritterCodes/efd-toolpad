@@ -117,7 +117,8 @@ export async function PUT(request, { params }) {
             size,
             price,
             status,
-            availability, // New field
+            availability,
+            classification, // New field
             images,
             customMounting,
             vendor,
@@ -135,6 +136,7 @@ export async function PUT(request, { params }) {
             notes: notes || existingJewelry.notes,
             status: status || existingJewelry.status,
             availability: availability || existingJewelry.availability || 'ready-to-ship',
+            classification: classification || existingJewelry.classification || 'signature',
             vendor: vendor || existingJewelry.vendor,
             updatedAt: new Date(),
             images: images || existingJewelry.images,

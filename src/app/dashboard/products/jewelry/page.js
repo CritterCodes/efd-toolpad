@@ -274,6 +274,15 @@ export default function JewelryPage() {
                                             size="small" 
                                             variant="outlined" 
                                             color="info" 
+                                            sx={{ mb: 1, mr: 0.5, textTransform: 'capitalize' }} 
+                                        />
+                                    )}
+                                    {item.classification && (
+                                        <Chip 
+                                            label={item.classification === 'one-of-one' ? '1 of 1' : 'Signature'} 
+                                            size="small" 
+                                            variant="outlined" 
+                                            color="secondary" 
                                             sx={{ mb: 1, textTransform: 'capitalize' }} 
                                         />
                                     )}

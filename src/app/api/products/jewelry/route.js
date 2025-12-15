@@ -86,7 +86,8 @@ export async function POST(request) {
         size,
         price,
         status,
-        availability, // New field
+        availability,
+        classification, // New field
         images,
         customMounting,
         vendor,
@@ -108,7 +109,8 @@ export async function POST(request) {
         description: description || '',
         notes: notes || '',
         status: status || 'draft',
-        availability: availability || 'ready-to-ship', // Default
+        availability: availability || 'ready-to-ship',
+        classification: classification || 'signature', // Default to signature
         userId: userIdentifier,
         vendor: vendor || session.user.businessName || session.user.name || '',
         createdAt: new Date(),

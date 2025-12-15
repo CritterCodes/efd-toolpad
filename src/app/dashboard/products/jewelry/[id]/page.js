@@ -277,7 +277,8 @@ export default function JewelryEditorPage() {
         type: '',
         price: '',
         status: 'draft',
-        availability: 'ready-to-ship', // New field
+        availability: 'ready-to-ship',
+        classification: 'signature', // New field
         images: [], // Array of image files (for new uploads)
         existingImages: [], // Array of URLs (for existing images)
         userId: '',
@@ -347,6 +348,7 @@ export default function JewelryEditorPage() {
                     price: jewelry.price || '',
                     status: jewelry.status || 'draft',
                     availability: jewelry.availability || 'ready-to-ship',
+                    classification: jewelry.classification || 'signature',
                     images: [],
                     existingImages: jewelry.images || [],
                     userId: jewelry.userId || session?.user?.id,
@@ -484,12 +486,14 @@ export default function JewelryEditorPage() {
                 images, existingImages, 
                 metals, centerStones, accentStones, gemstoneLinks,
                 ringSize, canBeSized, sizingRangeUp, sizingRangeDown,
+                classification,
                 ...metadata 
             } = formData;
             
             const dataToSend = {
                 ...metadata,
                 status: targetStatus || formData.status,
+                classification,
                 images: existingImages,
                 productId: !isNew ? jewelryId : undefined,
                 
@@ -916,6 +920,17 @@ export default function JewelryEditorPage() {
                         <CardContent>
                             <Typography variant="h6" gutterBottom>Publishing</Typography>
                             <FormControl fullWidth sx={{ mb: 2 }}>
+                                <InputLabel>Classification</InputLabel>
+                                <Select
+                                    value={formData.classification}
+                                    label="Classification"
+                                    onChange={(e) => handleInputChange('classification', e.target.value)}
+                                >
+                                    <MenuItem value="signature">Signature Design</MenuItem>
+                                    <MenuItem value="one-of-one">One of One</MenuItem>
+                                </Select>
+                            </FormControl>
+                            <FormControl fullWidth sx={{ mb: 2 }}>
                                 <InputLabel>Availability</InputLabel>
                                 <Select
                                     value={formData.availability}
@@ -924,7 +939,6 @@ export default function JewelryEditorPage() {
                                 >
                                     <MenuItem value="ready-to-ship">Ready to Ship</MenuItem>
                                     <MenuItem value="made-to-order">Made to Order</MenuItem>
-                                    <MenuItem value="one-of-one">One of One</MenuItem>
                                 </Select>
                             </FormControl>
                             <FormControl fullWidth sx={{ mb: 2 }}>
