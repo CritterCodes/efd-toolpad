@@ -77,6 +77,7 @@ export default function IntegrationsTab() {
     const [shopifyError, setShopifyError] = useState(null);
     const [shopifySuccess, setShopifySuccess] = useState(null);
     const [showShopifyToken, setShowShopifyToken] = useState(false);
+    const [migrationLoading, setMigrationLoading] = useState(false);
 
     // Materials with integrations
     const [materials, setMaterials] = useState([]);
@@ -316,6 +317,39 @@ export default function IntegrationsTab() {
             setShopifyError(`Webhook setup failed: ${error.message}`);
         } finally {
             setWebhooksLoading(false);
+        }
+    };
+
+    const handleMigrateCatalog = async () => {
+        if (!window.confirm('This will import/update all Jewelry and Gemstone products from Shopify. Continue?')) {
+            return;
+        }
+
+        try {
+            setMigrationLoading(true);
+            setShopifyError(null);
+            setShopifySuccess(null);
+
+            const response = await fetch('/api/admin/migrate-shopify', {
+                method: 'POST'
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Migration failed');
+            }
+
+            const stats = result.stats;
+            setShopifySuccess(
+                `Migration Complete! Jewelry: ${stats.jewelry.new} new, ${stats.jewelry.updated} updated. Gemstones: ${stats.gemstones.new} new, ${stats.gemstones.updated} updated.`
+            );
+
+        } catch (error) {
+            console.error('Migration error:', error);
+            setShopifyError(`Migration failed: ${error.message}`);
+        } finally {
+            setMigrationLoading(false);
         }
     };
 
@@ -586,6 +620,17 @@ export default function IntegrationsTab() {
                                                 startIcon={<RefreshIcon />}
                                             >
                                                 Setup Webhooks
+                                            </LoadingButton>
+
+                                            <LoadingButton
+                                                variant="outlined"
+                                                color="warning"
+                                                onClick={handleMigrateCatalog}
+                                                loading={migrationLoading}
+                                                disabled={!shopifySettings.shopUrl || !shopifySettings.accessToken || !shopifySettings.enabled}
+                                                startIcon={<RefreshIcon />}
+                                            >
+                                                Sync Catalog
                                             </LoadingButton>
                                         </Box>
                                     </>
