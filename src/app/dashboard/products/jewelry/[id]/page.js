@@ -685,16 +685,72 @@ export default function JewelryEditorPage() {
                                         InputProps={{ startAdornment: <Typography sx={{ mr: 1 }}>$</Typography> }}
                                     />
                                 </Grid>
-                                <Grid item xs={12}>
-                                    <TextField
-                                        fullWidth
-                                        multiline
-                                        rows={4}
-                                        label="Notes (Internal)"
-                                        value={formData.notes}
-                                        onChange={(e) => handleInputChange('notes', e.target.value)}
-                                    />
-                                </Grid>
+                            {/* Ring Specifics */}
+                            {formData.type === 'Ring' && (
+                                <>
+                                    <Grid item xs={12}>
+                                        <Divider sx={{ my: 1 }} />
+                                        <Typography variant="subtitle2" gutterBottom sx={{ mt: 1 }}>Ring Specifics</Typography>
+                                    </Grid>
+                                    <Grid item xs={12} sm={4}>
+                                        <TextField
+                                            fullWidth
+                                            label="Current Size"
+                                            value={formData.ringSize}
+                                            onChange={(e) => handleInputChange('ringSize', e.target.value)}
+                                            placeholder="e.g. 6.5"
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12} sm={8} sx={{ display: 'flex', alignItems: 'center' }}>
+                                        <FormControlLabel
+                                            control={
+                                                <Switch
+                                                    checked={formData.canBeSized}
+                                                    onChange={(e) => handleInputChange('canBeSized', e.target.checked)}
+                                                />
+                                            }
+                                            label="Can be sized?"
+                                        />
+                                    </Grid>
+                                    {formData.canBeSized && (
+                                        <>
+                                            <Grid item xs={12} sm={6}>
+                                                <TextField
+                                                    fullWidth
+                                                    label="Sizing Range (Up)"
+                                                    type="number"
+                                                    value={formData.sizingRangeUp}
+                                                    onChange={(e) => handleInputChange('sizingRangeUp', e.target.value)}
+                                                    placeholder="e.g. 2"
+                                                    InputProps={{ endAdornment: <Typography variant="caption">sizes</Typography> }}
+                                                />
+                                            </Grid>
+                                            <Grid item xs={12} sm={6}>
+                                                <TextField
+                                                    fullWidth
+                                                    label="Sizing Range (Down)"
+                                                    type="number"
+                                                    value={formData.sizingRangeDown}
+                                                    onChange={(e) => handleInputChange('sizingRangeDown', e.target.value)}
+                                                    placeholder="e.g. 1"
+                                                    InputProps={{ endAdornment: <Typography variant="caption">sizes</Typography> }}
+                                                />
+                                            </Grid>
+                                        </>
+                                    )}
+                                </>
+                            )}
+
+                            <Grid item xs={12}>
+                                <TextField
+                                    fullWidth
+                                    multiline
+                                    rows={4}
+                                    label="Notes (Internal)"
+                                    value={formData.notes}
+                                    onChange={(e) => handleInputChange('notes', e.target.value)}
+                                />
+                            </Grid>
                             </Grid>
                         </Box>
 
@@ -731,61 +787,6 @@ export default function JewelryEditorPage() {
                                 )}
                             />
 
-                            {/* Ring Specifics */}
-                            {formData.type === 'Ring' && (
-                                <>
-                                    <Divider sx={{ my: 3 }} />
-                                    <Typography variant="subtitle1" gutterBottom>Ring Specifics</Typography>
-                                    <Grid container spacing={2}>
-                                        <Grid item xs={12} sm={4}>
-                                            <TextField
-                                                fullWidth
-                                                label="Current Size"
-                                                value={formData.ringSize}
-                                                onChange={(e) => handleInputChange('ringSize', e.target.value)}
-                                                placeholder="e.g. 6.5"
-                                            />
-                                        </Grid>
-                                        <Grid item xs={12} sm={8} sx={{ display: 'flex', alignItems: 'center' }}>
-                                            <FormControlLabel
-                                                control={
-                                                    <Switch
-                                                        checked={formData.canBeSized}
-                                                        onChange={(e) => handleInputChange('canBeSized', e.target.checked)}
-                                                    />
-                                                }
-                                                label="Can be sized?"
-                                            />
-                                        </Grid>
-                                        {formData.canBeSized && (
-                                            <>
-                                                <Grid item xs={12} sm={6}>
-                                                    <TextField
-                                                        fullWidth
-                                                        label="Sizing Range (Up)"
-                                                        type="number"
-                                                        value={formData.sizingRangeUp}
-                                                        onChange={(e) => handleInputChange('sizingRangeUp', e.target.value)}
-                                                        placeholder="e.g. 2"
-                                                        InputProps={{ endAdornment: <Typography variant="caption">sizes</Typography> }}
-                                                    />
-                                                </Grid>
-                                                <Grid item xs={12} sm={6}>
-                                                    <TextField
-                                                        fullWidth
-                                                        label="Sizing Range (Down)"
-                                                        type="number"
-                                                        value={formData.sizingRangeDown}
-                                                        onChange={(e) => handleInputChange('sizingRangeDown', e.target.value)}
-                                                        placeholder="e.g. 1"
-                                                        InputProps={{ endAdornment: <Typography variant="caption">sizes</Typography> }}
-                                                    />
-                                                </Grid>
-                                            </>
-                                        )}
-                                    </Grid>
-                                </>
-                            )}
                         </Box>
 
                         {/* Tab 2: Images */}
