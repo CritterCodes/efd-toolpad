@@ -59,10 +59,13 @@ import {
 // --- Sub-Components ---
 
 const METAL_TYPES = [
-  { value: 'gold', label: 'Gold', karatOptions: ['10k', '14k', '18k', '22k'] },
-  { value: 'silver', label: 'Silver', karatOptions: ['925', '999'] },
-  { value: 'platinum', label: 'Platinum', karatOptions: ['950', '999'] },
-  { value: 'palladium', label: 'Palladium', karatOptions: ['950', '999'] },
+  { value: 'yellow-gold', label: 'Yellow Gold', karatOptions: ['10k', '14k', '18k', '22k', '24k'] },
+  { value: 'white-gold', label: 'White Gold', karatOptions: ['10k', '14k', '18k', '19k'] },
+  { value: 'rose-gold', label: 'Rose Gold', karatOptions: ['10k', '14k', '18k'] },
+  { value: 'sterling-silver', label: 'Sterling Silver', karatOptions: ['925'] },
+  { value: 'fine-silver', label: 'Fine Silver', karatOptions: ['999'] },
+  { value: 'platinum', label: 'Platinum', karatOptions: ['900', '950'] },
+  { value: 'palladium', label: 'Palladium', karatOptions: ['950'] },
   { value: 'stainless', label: 'Stainless Steel', karatOptions: [] },
   { value: 'brass', label: 'Brass', karatOptions: [] },
   { value: 'copper', label: 'Copper', karatOptions: [] },
@@ -107,12 +110,12 @@ const FileUploader = ({ label, fileUrl, onUpload, onDelete, accept, type }) => (
 );
 
 const MetalList = ({ metals, onChange }) => {
-    const [newMetal, setNewMetal] = useState({ type: '', purity: '', color: '' });
+    const [newMetal, setNewMetal] = useState({ type: '', purity: '' });
 
     const handleAdd = () => {
         if (newMetal.type) {
             onChange([...metals, newMetal]);
-            setNewMetal({ type: '', purity: '', color: '' });
+            setNewMetal({ type: '', purity: '' });
         }
     };
 
@@ -126,7 +129,7 @@ const MetalList = ({ metals, onChange }) => {
         <Box sx={{ mb: 3 }}>
             <Typography variant="subtitle1" gutterBottom>Metals Used</Typography>
             <Grid container spacing={2} sx={{ mb: 2 }}>
-                <Grid item xs={4}>
+                <Grid item xs={6}>
                     <FormControl fullWidth size="small">
                         <InputLabel>Metal Type</InputLabel>
                         <Select
@@ -142,7 +145,7 @@ const MetalList = ({ metals, onChange }) => {
                         </Select>
                     </FormControl>
                 </Grid>
-                <Grid item xs={3}>
+                <Grid item xs={4}>
                     {selectedMetalType?.karatOptions?.length > 0 ? (
                         <FormControl fullWidth size="small">
                             <InputLabel>Purity</InputLabel>
@@ -167,16 +170,6 @@ const MetalList = ({ metals, onChange }) => {
                         />
                     )}
                 </Grid>
-                <Grid item xs={3}>
-                    <TextField
-                        label="Color"
-                        size="small"
-                        fullWidth
-                        value={newMetal.color}
-                        onChange={(e) => setNewMetal({ ...newMetal, color: e.target.value })}
-                        placeholder="e.g. Rose"
-                    />
-                </Grid>
                 <Grid item xs={2}>
                     <Button variant="contained" onClick={handleAdd} fullWidth disabled={!newMetal.type}>Add</Button>
                 </Grid>
@@ -184,7 +177,7 @@ const MetalList = ({ metals, onChange }) => {
             <List dense>
                 {metals.map((metal, index) => (
                     <ListItem key={index} sx={{ bgcolor: 'background.paper', mb: 1, borderRadius: 1, border: '1px solid #eee' }}>
-                        <ListItemText primary={`${metal.purity || ''} ${metal.color || ''} ${METAL_TYPES.find(m => m.value === metal.type)?.label || metal.type}`} />
+                        <ListItemText primary={`${metal.purity || ''} ${METAL_TYPES.find(m => m.value === metal.type)?.label || metal.type}`} />
                         <ListItemSecondaryAction>
                             <IconButton edge="end" size="small" onClick={() => handleDelete(index)}>
                                 <DeleteIcon />
