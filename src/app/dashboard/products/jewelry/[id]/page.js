@@ -28,8 +28,6 @@ import {
     Paper,
     Breadcrumbs,
     Link,
-    Tabs,
-    Tab,
     ImageList,
     ImageListItem,
     ImageListItemBar,
@@ -59,6 +57,18 @@ import {
 } from '@mui/icons-material';
 
 // --- Sub-Components ---
+
+const METAL_TYPES = [
+  { value: 'gold', label: 'Gold', karatOptions: ['10k', '14k', '18k', '22k'] },
+  { value: 'silver', label: 'Silver', karatOptions: ['925', '999'] },
+  { value: 'platinum', label: 'Platinum', karatOptions: ['950', '999'] },
+  { value: 'palladium', label: 'Palladium', karatOptions: ['950', '999'] },
+  { value: 'stainless', label: 'Stainless Steel', karatOptions: [] },
+  { value: 'brass', label: 'Brass', karatOptions: [] },
+  { value: 'copper', label: 'Copper', karatOptions: [] },
+  { value: 'titanium', label: 'Titanium', karatOptions: [] },
+  { value: 'other', label: 'Other', karatOptions: [] }
+];
 
 const FileUploader = ({ label, fileUrl, onUpload, onDelete, accept, type }) => (
     <Card variant="outlined" sx={{ mb: 2 }}>
@@ -100,7 +110,7 @@ const MetalList = ({ metals, onChange }) => {
     const [newMetal, setNewMetal] = useState({ type: '', purity: '', color: '' });
 
     const handleAdd = () => {
-        if (newMetal.type && newMetal.purity) {
+        if (newMetal.type) {
             onChange([...metals, newMetal]);
             setNewMetal({ type: '', purity: '', color: '' });
         }
@@ -110,29 +120,52 @@ const MetalList = ({ metals, onChange }) => {
         onChange(metals.filter((_, i) => i !== index));
     };
 
+    const selectedMetalType = METAL_TYPES.find(m => m.value === newMetal.type);
+
     return (
         <Box sx={{ mb: 3 }}>
             <Typography variant="subtitle1" gutterBottom>Metals Used</Typography>
             <Grid container spacing={2} sx={{ mb: 2 }}>
                 <Grid item xs={4}>
-                    <TextField
-                        label="Metal Type"
-                        size="small"
-                        fullWidth
-                        value={newMetal.type}
-                        onChange={(e) => setNewMetal({ ...newMetal, type: e.target.value })}
-                        placeholder="e.g. Gold"
-                    />
+                    <FormControl fullWidth size="small">
+                        <InputLabel>Metal Type</InputLabel>
+                        <Select
+                            value={newMetal.type}
+                            label="Metal Type"
+                            onChange={(e) => setNewMetal({ ...newMetal, type: e.target.value, purity: '' })}
+                        >
+                            {METAL_TYPES.map((metal) => (
+                                <MenuItem key={metal.value} value={metal.value}>
+                                    {metal.label}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
                 </Grid>
                 <Grid item xs={3}>
-                    <TextField
-                        label="Purity"
-                        size="small"
-                        fullWidth
-                        value={newMetal.purity}
-                        onChange={(e) => setNewMetal({ ...newMetal, purity: e.target.value })}
-                        placeholder="e.g. 18K"
-                    />
+                    {selectedMetalType?.karatOptions?.length > 0 ? (
+                        <FormControl fullWidth size="small">
+                            <InputLabel>Purity</InputLabel>
+                            <Select
+                                value={newMetal.purity}
+                                label="Purity"
+                                onChange={(e) => setNewMetal({ ...newMetal, purity: e.target.value })}
+                            >
+                                {selectedMetalType.karatOptions.map((opt) => (
+                                    <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    ) : (
+                        <TextField
+                            label="Purity"
+                            size="small"
+                            fullWidth
+                            value={newMetal.purity}
+                            onChange={(e) => setNewMetal({ ...newMetal, purity: e.target.value })}
+                            disabled={!newMetal.type}
+                        />
+                    )}
                 </Grid>
                 <Grid item xs={3}>
                     <TextField
@@ -145,13 +178,13 @@ const MetalList = ({ metals, onChange }) => {
                     />
                 </Grid>
                 <Grid item xs={2}>
-                    <Button variant="contained" onClick={handleAdd} fullWidth>Add</Button>
+                    <Button variant="contained" onClick={handleAdd} fullWidth disabled={!newMetal.type}>Add</Button>
                 </Grid>
             </Grid>
             <List dense>
                 {metals.map((metal, index) => (
                     <ListItem key={index} sx={{ bgcolor: 'background.paper', mb: 1, borderRadius: 1, border: '1px solid #eee' }}>
-                        <ListItemText primary={`${metal.purity} ${metal.color} ${metal.type}`} />
+                        <ListItemText primary={`${metal.purity || ''} ${metal.color || ''} ${METAL_TYPES.find(m => m.value === metal.type)?.label || metal.type}`} />
                         <ListItemSecondaryAction>
                             <IconButton edge="end" size="small" onClick={() => handleDelete(index)}>
                                 <DeleteIcon />
@@ -255,7 +288,6 @@ export default function JewelryEditorPage() {
     const [loading, setLoading] = useState(!isNew);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
-    const [tabValue, setTabValue] = useState(0);
     const [availableGemstones, setAvailableGemstones] = useState([]);
 
     // CAD Request State
@@ -682,50 +714,43 @@ export default function JewelryEditorPage() {
             <Grid container spacing={3}>
                 {/* Left Column - Main Info */}
                 <Grid item xs={12} md={8}>
-                    <Paper sx={{ mb: 3 }}>
-                        <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                            <Tab label="Basic Info" />
-                            <Tab label="Details & Materials" />
-                            <Tab label="Images" />
-                            <Tab label="3D Models" />
-                            <Tab label="CAD Requests" />
-                        </Tabs>
+                    {/* Product Details Section */}
+                    <Paper sx={{ mb: 3, p: 3 }}>
+                        <Typography variant="h6" gutterBottom>Product Details</Typography>
+                        <Grid container spacing={2}>
+                            <Grid item xs={12}>
+                                <TextField
+                                    fullWidth
+                                    label="Title"
+                                    value={formData.title}
+                                    onChange={(e) => handleInputChange('title', e.target.value)}
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                                <FormControl fullWidth>
+                                    <InputLabel>Type</InputLabel>
+                                    <Select
+                                        value={formData.type}
+                                        label="Type"
+                                        onChange={(e) => handleInputChange('type', e.target.value)}
+                                    >
+                                        {['Ring', 'Pendant', 'Bracelet', 'Earrings', 'Other'].map(t => (
+                                            <MenuItem key={t} value={t}>{t}</MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                                <TextField
+                                    fullWidth
+                                    label="Price"
+                                    type="number"
+                                    value={formData.price}
+                                    onChange={(e) => handleInputChange('price', e.target.value)}
+                                    InputProps={{ startAdornment: <Typography sx={{ mr: 1 }}>$</Typography> }}
+                                />
+                            </Grid>
 
-                        {/* Tab 0: Basic Info */}
-                        <Box role="tabpanel" hidden={tabValue !== 0} sx={{ p: 3 }}>
-                            <Grid container spacing={2}>
-                                <Grid item xs={12}>
-                                    <TextField
-                                        fullWidth
-                                        label="Title"
-                                        value={formData.title}
-                                        onChange={(e) => handleInputChange('title', e.target.value)}
-                                    />
-                                </Grid>
-                                <Grid item xs={12} sm={6}>
-                                    <FormControl fullWidth>
-                                        <InputLabel>Type</InputLabel>
-                                        <Select
-                                            value={formData.type}
-                                            label="Type"
-                                            onChange={(e) => handleInputChange('type', e.target.value)}
-                                        >
-                                            {['Ring', 'Pendant', 'Bracelet', 'Earrings', 'Other'].map(t => (
-                                                <MenuItem key={t} value={t}>{t}</MenuItem>
-                                            ))}
-                                        </Select>
-                                    </FormControl>
-                                </Grid>
-                                <Grid item xs={12} sm={6}>
-                                    <TextField
-                                        fullWidth
-                                        label="Price"
-                                        type="number"
-                                        value={formData.price}
-                                        onChange={(e) => handleInputChange('price', e.target.value)}
-                                        InputProps={{ startAdornment: <Typography sx={{ mr: 1 }}>$</Typography> }}
-                                    />
-                                </Grid>
                             {/* Ring Specifics */}
                             {formData.type === 'Ring' && (
                                 <>
@@ -900,77 +925,98 @@ export default function JewelryEditorPage() {
                                     onChange={(e) => handleInputChange('notes', e.target.value)}
                                 />
                             </Grid>
-                            </Grid>
+                        </Grid>
+
+                        <Divider sx={{ my: 4 }} />
+                        
+                        {/* Materials Section */}
+                        <Typography variant="h6" gutterBottom>Materials & Stones</Typography>
+                        <MetalList 
+                            metals={formData.metals} 
+                            onChange={(val) => handleInputChange('metals', val)} 
+                        />
+                        <Divider sx={{ my: 3 }} />
+                        <StoneList 
+                            title="Center Stones" 
+                            stones={formData.centerStones} 
+                            onChange={(val) => handleInputChange('centerStones', val)} 
+                        />
+                        <Divider sx={{ my: 3 }} />
+                        <StoneList 
+                            title="Accent Stones" 
+                            stones={formData.accentStones} 
+                            onChange={(val) => handleInputChange('accentStones', val)} 
+                        />
+                        <Divider sx={{ my: 3 }} />
+                        <Typography variant="subtitle1" gutterBottom>Linked Gemstones</Typography>
+                        <Autocomplete
+                            multiple
+                            options={availableGemstones}
+                            getOptionLabel={(option) => `${option.title} (${option.gemstone?.gemType})`}
+                            value={availableGemstones.filter(g => formData.gemstoneLinks.includes(g._id || g.productId))}
+                            onChange={(event, newValue) => {
+                                handleInputChange('gemstoneLinks', newValue.map(v => v._id || v.productId));
+                            }}
+                            renderInput={(params) => (
+                                <TextField {...params} label="Select Gemstones from Inventory" placeholder="Search..." />
+                            )}
+                        />
+                    </Paper>
+
+                    {/* Images Section */}
+                    <Paper sx={{ mb: 3, p: 3 }}>
+                        <Typography variant="h6" gutterBottom>Images</Typography>
+                        <Box sx={{ mb: 2 }}>
+                            <Button
+                                variant="contained"
+                                component="label"
+                                startIcon={<CloudUploadIcon />}
+                            >
+                                Upload Images
+                                <input
+                                    type="file"
+                                    hidden
+                                    multiple
+                                    accept="image/*"
+                                    onChange={handleImageUpload}
+                                />
+                            </Button>
                         </Box>
+                        
+                        {/* Existing Images */}
+                        {formData.existingImages.length > 0 && (
+                            <ImageList cols={4} rowHeight={160} sx={{ mb: 2 }}>
+                                {formData.existingImages.map((item, index) => (
+                                    <ImageListItem key={index}>
+                                        <img 
+                                            src={typeof item === 'string' ? item : item?.url} 
+                                            alt={`Existing ${index}`} 
+                                            loading="lazy" 
+                                            style={{ height: '100%', objectFit: 'cover' }} 
+                                        />
+                                        <ImageListItemBar
+                                            actionIcon={
+                                                <IconButton sx={{ color: 'white' }} onClick={() => handleRemoveExistingImage(index)}>
+                                                    <DeleteIcon />
+                                                </IconButton>
+                                            }
+                                        />
+                                    </ImageListItem>
+                                ))}
+                            </ImageList>
+                        )}
 
-                        {/* Tab 1: Details & Materials */}
-                        <Box role="tabpanel" hidden={tabValue !== 1} sx={{ p: 3 }}>
-                            <MetalList 
-                                metals={formData.metals} 
-                                onChange={(val) => handleInputChange('metals', val)} 
-                            />
-                            <Divider sx={{ my: 3 }} />
-                            <StoneList 
-                                title="Center Stones" 
-                                stones={formData.centerStones} 
-                                onChange={(val) => handleInputChange('centerStones', val)} 
-                            />
-                            <Divider sx={{ my: 3 }} />
-                            <StoneList 
-                                title="Accent Stones" 
-                                stones={formData.accentStones} 
-                                onChange={(val) => handleInputChange('accentStones', val)} 
-                            />
-                            <Divider sx={{ my: 3 }} />
-                            <Typography variant="subtitle1" gutterBottom>Linked Gemstones</Typography>
-                            <Autocomplete
-                                multiple
-                                options={availableGemstones}
-                                getOptionLabel={(option) => `${option.title} (${option.gemstone?.gemType})`}
-                                value={availableGemstones.filter(g => formData.gemstoneLinks.includes(g._id || g.productId))}
-                                onChange={(event, newValue) => {
-                                    handleInputChange('gemstoneLinks', newValue.map(v => v._id || v.productId));
-                                }}
-                                renderInput={(params) => (
-                                    <TextField {...params} label="Select Gemstones from Inventory" placeholder="Search..." />
-                                )}
-                            />
-
-                        </Box>
-
-                        {/* Tab 2: Images */}
-                        <Box role="tabpanel" hidden={tabValue !== 2} sx={{ p: 3 }}>
-                            <Box sx={{ mb: 2 }}>
-                                <Button
-                                    variant="contained"
-                                    component="label"
-                                    startIcon={<CloudUploadIcon />}
-                                >
-                                    Upload Images
-                                    <input
-                                        type="file"
-                                        hidden
-                                        multiple
-                                        accept="image/*"
-                                        onChange={handleImageUpload}
-                                    />
-                                </Button>
-                            </Box>
-                            
-                            {/* Existing Images */}
-                            {formData.existingImages.length > 0 && (
-                                <ImageList cols={4} rowHeight={160} sx={{ mb: 2 }}>
-                                    {formData.existingImages.map((item, index) => (
+                        {/* New Images */}
+                        {formData.images.length > 0 && (
+                            <Box>
+                                <Typography variant="subtitle2" gutterBottom>New Uploads:</Typography>
+                                <ImageList cols={4} rowHeight={160}>
+                                    {formData.images.map((file, index) => (
                                         <ImageListItem key={index}>
-                                            <img 
-                                                src={typeof item === 'string' ? item : item?.url} 
-                                                alt={`Existing ${index}`} 
-                                                loading="lazy" 
-                                                style={{ height: '100%', objectFit: 'cover' }} 
-                                            />
+                                            <img src={URL.createObjectURL(file)} alt={`New ${index}`} loading="lazy" style={{ height: '100%', objectFit: 'cover' }} />
                                             <ImageListItemBar
                                                 actionIcon={
-                                                    <IconButton sx={{ color: 'white' }} onClick={() => handleRemoveExistingImage(index)}>
+                                                    <IconButton sx={{ color: 'white' }} onClick={() => handleRemoveNewImage(index)}>
                                                         <DeleteIcon />
                                                     </IconButton>
                                                 }
@@ -978,89 +1024,69 @@ export default function JewelryEditorPage() {
                                         </ImageListItem>
                                     ))}
                                 </ImageList>
-                            )}
-
-                            {/* New Images */}
-                            {formData.images.length > 0 && (
-                                <Box>
-                                    <Typography variant="subtitle2" gutterBottom>New Uploads:</Typography>
-                                    <ImageList cols={4} rowHeight={160}>
-                                        {formData.images.map((file, index) => (
-                                            <ImageListItem key={index}>
-                                                <img src={URL.createObjectURL(file)} alt={`New ${index}`} loading="lazy" style={{ height: '100%', objectFit: 'cover' }} />
-                                                <ImageListItemBar
-                                                    actionIcon={
-                                                        <IconButton sx={{ color: 'white' }} onClick={() => handleRemoveNewImage(index)}>
-                                                            <DeleteIcon />
-                                                        </IconButton>
-                                                    }
-                                                />
-                                            </ImageListItem>
-                                        ))}
-                                    </ImageList>
-                                </Box>
-                            )}
-                        </Box>
-
-                        {/* Tab 3: 3D Models */}
-                        <Box role="tabpanel" hidden={tabValue !== 3} sx={{ p: 3 }}>
-                            <Alert severity="info" sx={{ mb: 3 }}>
-                                Upload 3D files for manufacturing and visualization. 
-                                {isNew && " Please save the product first to enable uploads."}
-                            </Alert>
-                            
-                            <FileUploader 
-                                label="STL File (For Printing)" 
-                                fileUrl={formData.stlFile} 
-                                type="stl"
-                                accept=".stl"
-                                onUpload={handleFileUpload}
-                                onDelete={() => handleDeleteFile('stl')}
-                            />
-                            
-                            <FileUploader 
-                                label="GLB File (For Web Viewer)" 
-                                fileUrl={formData.glbFile} 
-                                type="glb"
-                                accept=".glb"
-                                onUpload={handleFileUpload}
-                                onDelete={() => handleDeleteFile('glb')}
-                            />
-                            
-                            <FileUploader 
-                                label="OBJ File (Legacy/Other)" 
-                                fileUrl={formData.objFile} 
-                                type="obj"
-                                accept=".obj"
-                                onUpload={handleFileUpload}
-                                onDelete={() => handleDeleteFile('obj')}
-                            />
-                        </Box>
-
-                        {/* Tab 4: CAD Requests */}
-                        <Box role="tabpanel" hidden={tabValue !== 4} sx={{ p: 3 }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                                <Typography variant="h6">CAD Requests</Typography>
-                                <Button startIcon={<AddIcon />} onClick={() => handleOpenCadDialog()}>
-                                    New Request
-                                </Button>
                             </Box>
-                            {cadRequests.length === 0 ? (
-                                <Typography color="text.secondary">No CAD requests yet.</Typography>
-                            ) : (
-                                <List>
-                                    {cadRequests.map((req, i) => (
-                                        <ListItem key={i} divider>
-                                            <ListItemText 
-                                                primary={`Request #${i+1} - ${req.status}`}
-                                                secondary={req.mountingDetails?.styleDescription}
-                                            />
-                                            <Button size="small" onClick={() => handleOpenCadDialog(req)}>View</Button>
-                                        </ListItem>
-                                    ))}
-                                </List>
-                            )}
+                        )}
+                    </Paper>
+
+                    {/* 3D Models Section */}
+                    <Paper sx={{ mb: 3, p: 3 }}>
+                        <Typography variant="h6" gutterBottom>3D Models</Typography>
+                        <Alert severity="info" sx={{ mb: 3 }}>
+                            Upload 3D files for manufacturing and visualization. 
+                            {isNew && " Please save the product first to enable uploads."}
+                        </Alert>
+                        
+                        <FileUploader 
+                            label="STL File (For Printing)" 
+                            fileUrl={formData.stlFile} 
+                            type="stl"
+                            accept=".stl"
+                            onUpload={handleFileUpload}
+                            onDelete={() => handleDeleteFile('stl')}
+                        />
+                        
+                        <FileUploader 
+                            label="GLB File (For Web Viewer)" 
+                            fileUrl={formData.glbFile} 
+                            type="glb"
+                            accept=".glb"
+                            onUpload={handleFileUpload}
+                            onDelete={() => handleDeleteFile('glb')}
+                        />
+                        
+                        <FileUploader 
+                            label="OBJ File (Legacy/Other)" 
+                            fileUrl={formData.objFile} 
+                            type="obj"
+                            accept=".obj"
+                            onUpload={handleFileUpload}
+                            onDelete={() => handleDeleteFile('obj')}
+                        />
+                    </Paper>
+
+                    {/* CAD Requests Section */}
+                    <Paper sx={{ mb: 3, p: 3 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                            <Typography variant="h6">CAD Requests</Typography>
+                            <Button startIcon={<AddIcon />} onClick={() => handleOpenCadDialog()}>
+                                New Request
+                            </Button>
                         </Box>
+                        {cadRequests.length === 0 ? (
+                            <Typography color="text.secondary">No CAD requests yet.</Typography>
+                        ) : (
+                            <List>
+                                {cadRequests.map((req, i) => (
+                                    <ListItem key={i} divider>
+                                        <ListItemText 
+                                            primary={`Request #${i+1} - ${req.status}`}
+                                            secondary={req.mountingDetails?.styleDescription}
+                                        />
+                                        <Button size="small" onClick={() => handleOpenCadDialog(req)}>View</Button>
+                                    </ListItem>
+                                ))}
+                            </List>
+                        )}
                     </Paper>
                 </Grid>
 
