@@ -6,6 +6,7 @@
 import { TasksModel } from './model';
 import { generateTaskSku, generateShortCode } from '@/utils/skuGenerator';
 import { ObjectId } from 'mongodb';
+import pricingEngine from '@/services/PricingEngine';
 
 export class TasksService {
   /**
@@ -565,10 +566,15 @@ export class TasksService {
 
   /**
    * Calculate process-based pricing for a task
+   * 
+   * @deprecated This method is deprecated. Use PricingEngine.calculateTaskCost() instead.
+   * This method now calls PricingEngine internally for backward compatibility.
+   * 
    * @param {Object} taskData - Task data with processes and materials
    * @returns {Promise<Object>} Pricing data
    */
   static async calculateProcessBasedPricing(taskData) {
+    console.warn('⚠️ DEPRECATED: TasksService.calculateProcessBasedPricing() - Please migrate to PricingEngine.calculateTaskCost()');
     try {
       console.log('🔥 SERVICE - Starting calculateProcessBasedPricing for task:', {
         title: taskData.title,
@@ -805,53 +811,29 @@ export class TasksService {
         console.log('🔥 SERVICE - No task materials to process');
       }
 
-      // Apply business formula
-      console.log('🔥 SERVICE - Applying business formula...');
-      const materialMarkup = adminSettings.pricing.materialMarkup || 1.5;
-      const markedUpTaskMaterials = taskMaterialCost * materialMarkup;
-      const baseCost = totalProcessCost + markedUpTaskMaterials;
-      
-      const businessMultiplier = (
-        (adminSettings.pricing.administrativeFee || 0) + 
-        (adminSettings.pricing.businessFee || 0) + 
-        (adminSettings.pricing.consumablesFee || 0) + 1
-      );
-      
-      const retailPrice = Math.round(baseCost * businessMultiplier * 100) / 100;
-      const wholesalePrice = Math.round(retailPrice * 0.5 * 100) / 100;
+      // Use PricingEngine for consistent calculations
+      console.log('🔥 SERVICE - Using PricingEngine for calculation...');
+      const pricing = pricingEngine.calculateTaskCost(taskData, adminSettings);
 
-      console.log('🔥 SERVICE - Business formula breakdown:', {
-        totalProcessCost,
-        taskMaterialCost,
-        materialMarkup,
-        markedUpTaskMaterials,
-        baseCost,
-        administrativeFee: adminSettings.pricing.administrativeFee,
-        businessFee: adminSettings.pricing.businessFee,
-        consumablesFee: adminSettings.pricing.consumablesFee,
-        businessMultiplier,
-        retailPrice,
-        wholesalePrice
-      });
-
+      // Transform PricingEngine output to match old format for backward compatibility
       const calculatedPricing = {
-        totalLaborHours: Math.round(totalLaborHours * 100) / 100,
-        totalProcessCost: Math.round(totalProcessCost * 100) / 100,
-        totalMaterialCost: Math.round((processMaterialCost + taskMaterialCost) * 100) / 100,
-        markedUpMaterialCost: Math.round((processMaterialCost + markedUpTaskMaterials) * 100) / 100,
-        baseCost: Math.round(baseCost * 100) / 100,
-        retailPrice: retailPrice,
-        wholesalePrice: wholesalePrice,
-        businessMultiplier: Math.round(businessMultiplier * 100) / 100,
-        calculatedAt: new Date().toISOString()
+        totalLaborHours: pricing.totalLaborHours,
+        totalProcessCost: pricing.totalProcessCost,
+        totalMaterialCost: pricing.totalMaterialCost,
+        markedUpMaterialCost: pricing.markedUpMaterialCost,
+        baseCost: pricing.baseCost,
+        retailPrice: pricing.retailPrice,
+        wholesalePrice: pricing.wholesalePrice,
+        businessMultiplier: pricing.businessMultiplier,
+        calculatedAt: pricing.calculatedAt
       };
 
       console.log('🔥 SERVICE - Final calculated pricing for task:', taskData.title, calculatedPricing);
 
       const result = {
         pricing: calculatedPricing,
-        basePrice: retailPrice,
-        laborHours: totalLaborHours
+        basePrice: pricing.retailPrice,
+        laborHours: pricing.totalLaborHours
       };
 
       console.log('🔥 SERVICE - Returning pricing result:', result);

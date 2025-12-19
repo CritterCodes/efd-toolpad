@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../../../../auth';
 import { connectToDatabase } from '@/lib/database';
+import pricingEngine from '@/services/PricingEngine';
 
 /**
  * POST /api/admin/settings/pricing-impact
@@ -57,16 +58,28 @@ export async function POST(request) {
     for (const task of repairTasks) {
       const currentPrice = task.basePrice || 0;
       
-      // Calculate new price with proposed settings
-      const laborCost = task.laborHours * pricing.wage;
-      const materialMarkup = task.materialCost * 1.5;
-      const subtotal = laborCost + materialMarkup;
+      // Use PricingEngine for accurate impact analysis
+      console.warn('⚠️ DEPRECATED: Inline pricing calculation - Using PricingEngine');
       
-      const businessMultiplier = pricing.administrativeFee + 
-                               pricing.businessFee + 
-                               pricing.consumablesFee + 1;
+      const taskData = {
+        processes: task.processes || [],
+        materials: task.materials || [],
+        laborHours: task.laborHours || 0,
+        materialCost: task.materialCost || 0
+      };
       
-      const newPrice = Math.round(subtotal * businessMultiplier * 100) / 100;
+      const proposedSettings = {
+        pricing: {
+          wage: pricing.wage,
+          materialMarkup: pricing.materialMarkup || 2.0,
+          administrativeFee: pricing.administrativeFee,
+          businessFee: pricing.businessFee,
+          consumablesFee: pricing.consumablesFee
+        }
+      };
+      
+      const pricingResult = pricingEngine.calculateTaskCost(taskData, proposedSettings);
+      const newPrice = pricingResult.retailPrice;
       const change = newPrice - currentPrice;
       const percentChange = currentPrice > 0 ? (change / currentPrice * 100) : 0;
 

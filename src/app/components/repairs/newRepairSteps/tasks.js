@@ -21,6 +21,7 @@ import {
 import DeleteIcon from "@mui/icons-material/Delete";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import tasksService from "@/services/tasks.service";
+import { SKILL_LEVEL } from "@/constants/pricing.constants.mjs";
 
 export default function TasksStep({ formData, setFormData, isWholesale }) {
     const [repairTasks, setRepairTasks] = React.useState([]);
@@ -387,7 +388,7 @@ export default function TasksStep({ formData, setFormData, isWholesale }) {
                                                 Labor: {task.laborHours}h
                                             </Typography>
                                         )}
-                                        {task.skillLevel && task.skillLevel !== 'standard' && (
+                                        {task.skillLevel && task.skillLevel !== SKILL_LEVEL.STANDARD && (
                                             <Typography variant="caption" color="text.secondary">
                                                 Skill: {task.skillLevel.toUpperCase()}
                                             </Typography>

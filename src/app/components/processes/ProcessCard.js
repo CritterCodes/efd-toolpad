@@ -24,6 +24,7 @@ import {
   getKaratLabel,
   calculateProcessCost
 } from '@/utils/processes.util';
+import { SKILL_LEVEL } from '@/constants/pricing.constants.mjs';
 
 /**
  * ProcessCard Component
@@ -146,10 +147,10 @@ export const ProcessCard = ({
   // Get skill level color
   const getSkillColor = (skillLevel) => {
     switch (skillLevel) {
-      case 'basic': return 'default';
-      case 'standard': return 'primary';
-      case 'advanced': return 'warning';
-      case 'expert': return 'error';
+      case SKILL_LEVEL.BASIC: return 'default';
+      case SKILL_LEVEL.STANDARD: return 'primary';
+      case SKILL_LEVEL.ADVANCED: return 'warning';
+      case SKILL_LEVEL.EXPERT: return 'error';
       default: return 'primary';
     }
   };

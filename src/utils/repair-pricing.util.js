@@ -69,23 +69,18 @@ export function generateMetalKey(metalType, karat) {
 
 /**
  * Apply business multiplier to a base price based on admin settings
+ * 
+ * @deprecated This function is deprecated. Use PricingEngine.applyBusinessMultiplier() instead.
+ * This function now calls PricingEngine internally for backward compatibility.
+ * 
  * @param {number} basePrice - The base price to apply multiplier to
  * @param {Object} adminSettings - Admin settings containing fee structure
  * @returns {number} The price with business multiplier applied
  */
 function applyBusinessMultiplier(basePrice, adminSettings) {
-  if (!basePrice || basePrice === 0) {
-    return 0;
-  }
-  
-  if (!adminSettings?.pricing) {
-    return basePrice;
-  }
-  
-  const { administrativeFee = 0.10, businessFee = 0.15, consumablesFee = 0.05 } = adminSettings.pricing;
-  const businessMultiplier = (administrativeFee + businessFee + consumablesFee) + 1;
-  
-  return basePrice * businessMultiplier;
+  // Use PricingEngine for consistent calculations
+  console.warn('⚠️ DEPRECATED: applyBusinessMultiplier() - Please migrate to PricingEngine.applyBusinessMultiplier()');
+  return pricingEngine.applyBusinessMultiplier(basePrice, adminSettings);
 }
 
 /**

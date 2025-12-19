@@ -18,6 +18,7 @@ import Switch from '@mui/material/Switch';
 import CircularProgress from '@mui/material/CircularProgress';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useRouter, useParams } from 'next/navigation';
+import { VALID_SKILL_LEVELS } from '@/constants/pricing.constants.mjs';
 
 export default function EditTaskPage() {
   const router = useRouter();
@@ -48,7 +49,7 @@ export default function EditTaskPage() {
       requiresApproval: true,
       requiresInspection: true,
       canBeBundled: true,
-      skillLevel: 'standard',
+      skillLevel: 'standard', // Will be normalized to use DEFAULT_SKILL_LEVEL constant
       riskLevel: 'low'
     },
     display: {
@@ -89,12 +90,8 @@ export default function EditTaskPage() {
     'N/A' // Not applicable
   ];
 
-  const skillLevels = [
-    'basic',
-    'standard', 
-    'advanced',
-    'expert'
-  ];
+  // Use constants from pricing.constants.mjs for consistency
+  const skillLevels = VALID_SKILL_LEVELS;
 
   const riskLevels = [
     'low',
@@ -134,7 +131,7 @@ export default function EditTaskPage() {
             requiresApproval: task.service?.requiresApproval !== false,
             requiresInspection: task.service?.requiresInspection !== false,
             canBeBundled: task.service?.canBeBundled !== false,
-            skillLevel: task.service?.skillLevel || task.skillLevel || 'standard',
+            skillLevel: task.service?.skillLevel || task.skillLevel || VALID_SKILL_LEVELS[1], // Default to 'standard'
             riskLevel: task.service?.riskLevel || task.riskLevel || 'low'
           },
           display: {

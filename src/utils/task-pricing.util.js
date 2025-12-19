@@ -1,17 +1,60 @@
 /**
  * Task Pricing Utilities
  * Handles pricing calculations for tasks using the new process and material structures
+ * 
+ * @deprecated This class is deprecated in favor of PricingEngine.
+ * Methods now call PricingEngine internally for backward compatibility.
  */
+
+import pricingEngine from '@/services/PricingEngine';
 
 export class TaskPricingUtil {
   /**
    * Calculate task pricing based on new process and material structures
+   * 
+   * @deprecated This method is deprecated. Use PricingEngine.calculateTaskCost() instead.
+   * This method now calls PricingEngine internally for backward compatibility.
+   * 
    * @param {Object} taskData - Task data with processes
    * @param {string} selectedMetal - Selected metal type for pricing (e.g., "Sterling Silver 925")
    * @param {Object} adminSettings - Admin settings with hourly rate and markups
    * @returns {Object} Complete pricing breakdown
    */
   static calculateTaskPricing(taskData, selectedMetal = null, adminSettings = {}) {
+    console.warn('⚠️ DEPRECATED: TaskPricingUtil.calculateTaskPricing() - Please migrate to PricingEngine.calculateTaskCost()');
+    
+    // Use PricingEngine for consistent calculations
+    try {
+      const pricing = pricingEngine.calculateTaskCost(taskData, adminSettings);
+      
+      // Transform PricingEngine output to match old format for backward compatibility
+      return {
+        pricing: {
+          totalLaborHours: pricing.totalLaborHours,
+          totalLaborCost: pricing.totalProcessCost, // Note: PricingEngine combines process costs
+          totalMaterialsCost: pricing.totalMaterialCost,
+          markedUpMaterialCost: pricing.markedUpMaterialCost,
+          baseCost: pricing.baseCost,
+          retailPrice: pricing.retailPrice,
+          wholesalePrice: pricing.wholesalePrice,
+          businessMultiplier: pricing.businessMultiplier,
+          calculatedAt: pricing.calculatedAt,
+          pricingType: 'universal'
+        },
+        basePrice: pricing.retailPrice,
+        laborHours: pricing.totalLaborHours
+      };
+    } catch (error) {
+      console.error('🔥 TASK-PRICING - Error calculating pricing:', error);
+      return this.getDefaultPricing();
+    }
+  }
+  
+  /**
+   * @deprecated Legacy implementation - kept for reference only
+   * Use PricingEngine.calculateTaskCost() instead
+   */
+  static _legacyCalculateTaskPricing(taskData, selectedMetal = null, adminSettings = {}) {
     try {
       console.log('🔥 TASK-PRICING - Starting calculation for task:', taskData.title || 'Unnamed Task');
       

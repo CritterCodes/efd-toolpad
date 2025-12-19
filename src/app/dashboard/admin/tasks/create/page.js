@@ -41,6 +41,8 @@ import {
   calculateProcessCost,
   parseMetalKey
 } from '@/utils/processes.util';
+import pricingEngine from '@/services/PricingEngine';
+import { DEFAULT_SKILL_LEVEL, SKILL_LEVEL } from '@/constants/pricing.constants.mjs';
 
 // Simple Metal Context Hook (inline implementation)
 const useSimpleMetalContext = () => {
@@ -407,7 +409,7 @@ export default function CreateTaskPage() {
             _id: process._id || '',
             name: typeof process.name === 'string' ? process.name : 'Unknown Process',
             displayName: typeof process.displayName === 'string' ? process.displayName : process.name || 'Unknown Process',
-            skillLevel: typeof process.skillLevel === 'string' ? process.skillLevel : 'Standard',
+            skillLevel: typeof process.skillLevel === 'string' ? process.skillLevel : DEFAULT_SKILL_LEVEL,
             laborHours: typeof process.laborHours === 'number' ? process.laborHours : 0,
             category: typeof process.category === 'string' ? process.category : '',
             materials: Array.isArray(process.materials) ? process.materials : [],
@@ -573,17 +575,27 @@ export default function CreateTaskPage() {
           }
         }
 
-        const markedUpMaterials = taskMaterialCost * (adminSettings.pricing?.materialMarkup || 1.5);
-        const baseCost = totalProcessCost + markedUpMaterials;
+        // Use PricingEngine for consistent calculations
+        console.warn('⚠️ DEPRECATED: Inline pricing calculation - Using PricingEngine');
         
-        const businessMultiplier = (
-          (adminSettings.pricing?.administrativeFee || 0) + 
-          (adminSettings.pricing?.businessFee || 0) + 
-          (adminSettings.pricing?.consumablesFee || 0) + 1
-        );
-
-        const retailPrice = baseCost * businessMultiplier;
-        const wholesalePrice = baseCost * (businessMultiplier * 0.75); // 75% of retail
+        const taskData = {
+          processes: formData.processes.map(ps => ({
+            processId: ps.processId,
+            quantity: ps.quantity || 1
+          })),
+          materials: formData.materials.map(ms => ({
+            materialId: ms.materialId,
+            quantity: ms.quantity || 1
+          }))
+        };
+        
+        const pricing = pricingEngine.calculateTaskCost(taskData, adminSettings, availableProcesses, availableMaterials);
+        
+        const retailPrice = pricing.retailPrice;
+        const wholesalePrice = pricing.wholesalePrice;
+        const businessMultiplier = pricing.businessMultiplier;
+        const baseCost = pricing.baseCost;
+        const markedUpMaterials = pricing.markedUpMaterialCost;
 
         priceCalculations['universal'] = {
           metalLabel: 'Universal Pricing',
@@ -899,19 +911,28 @@ export default function CreateTaskPage() {
             console.log(`=== END 10K YELLOW GOLD CALCULATION ===\n`);
           }
 
-          const materialMarkup = adminSettings.pricing?.materialMarkup || 1.5;
-          const markedUpMaterials = taskMaterialCostWithoutMarkup * materialMarkup;
-          const totalMaterialCost = markedUpMaterials + (taskMaterialCost - taskMaterialCostWithoutMarkup);
+          // Use PricingEngine for consistent calculations
+          console.warn('⚠️ DEPRECATED: Inline pricing calculation - Using PricingEngine');
           
-          const baseCost = totalProcessCost + totalMaterialCost;
+          const taskDataForMetal = {
+            processes: formData.processes.map(ps => ({
+              processId: ps.processId,
+              quantity: ps.quantity || 1
+            })),
+            materials: formData.materials.map(ms => ({
+              materialId: ms.materialId,
+              quantity: ms.quantity || 1
+            }))
+          };
           
-          const adminFee = adminSettings.pricing?.administrativeFee || 0;
-          const businessFee = adminSettings.pricing?.businessFee || 0;
-          const consumablesFee = adminSettings.pricing?.consumablesFee || 0;
-          const businessMultiplier = adminFee + businessFee + consumablesFee + 1;
-
-          const retailPrice = baseCost * businessMultiplier;
-          const wholesalePrice = baseCost * (businessMultiplier * 0.75);
+          const pricingForMetal = pricingEngine.calculateTaskCost(taskDataForMetal, adminSettings, availableProcesses, availableMaterials);
+          
+          const retailPrice = pricingForMetal.retailPrice;
+          const wholesalePrice = pricingForMetal.wholesalePrice;
+          const businessMultiplier = pricingForMetal.businessMultiplier;
+          const baseCost = pricingForMetal.baseCost;
+          const totalMaterialCost = pricingForMetal.totalMaterialCost;
+          const materialMarkup = pricingForMetal.materialMarkup;
 
           const variantKey = `${metalType}_${karat}`;
           
@@ -1251,7 +1272,7 @@ export default function CreateTaskPage() {
                                       {option.laborHours || 0}hrs • ${typeof option.pricing?.totalCost === 'number' ? option.pricing.totalCost : 'Multi-Metal'} • {
                                         typeof option.skillLevel === 'string' 
                                           ? option.skillLevel 
-                                          : 'Standard'
+                                          : DEFAULT_SKILL_LEVEL
                                       }
                                     </Typography>
                                   </Box>

@@ -39,6 +39,7 @@ import {
   Calculate as CalculateIcon,
   PreviewOutlined as PreviewIcon
 } from '@mui/icons-material';
+import pricingEngine from '@/services/PricingEngine';
 
 export default function ProcessBasedTaskBuilder() {
   const router = useRouter();
@@ -216,40 +217,48 @@ export default function ProcessBasedTaskBuilder() {
         }
       }
 
-      // Apply business formula - only markup the TASK materials (not process materials)
-      const markedUpTaskMaterials = taskMaterialCost * (adminSettings.pricing.materialMarkup || 1.5);
+      // Use PricingEngine for consistent calculations
+      console.warn('⚠️ DEPRECATED: Inline pricing calculation - Using PricingEngine');
       
-      // Base cost = process costs (which already include labor AND process materials) + marked up task materials
-      // NOTE: We do NOT add labor separately because totalProcessCost already includes labor!
-      const baseCost = totalProcessCost + markedUpTaskMaterials;
+      // Build task data structure for PricingEngine
+      const taskData = {
+        processes: formData.processes.map(ps => ({
+          processId: ps.processId,
+          quantity: ps.quantity || 1
+        })),
+        materials: formData.materials.map(ms => ({
+          materialId: ms.materialId,
+          quantity: ms.quantity || 1
+        }))
+      };
+      
+      const pricing = pricingEngine.calculateTaskCost(taskData, adminSettings, availableProcesses, availableMaterials);
+      
+      // Use PricingEngine results
+      const retailPrice = pricing.retailPrice;
+      const wholesalePrice = pricing.wholesalePrice;
+      const businessMultiplier = pricing.businessMultiplier;
+      const baseCost = pricing.baseCost;
+      const markedUpTaskMaterials = pricing.markedUpMaterialCost - processMarkedUpMaterialCost;
       
       // Calculate display totals (for UI display only)
       const totalDisplayMaterialCost = processMaterialCost + taskMaterialCost;
-      // For display: combine process marked-up materials + task marked-up materials
       const totalDisplayMarkedUpMaterials = processMarkedUpMaterialCost + markedUpTaskMaterials;
       
-      const businessMultiplier = (
-        (adminSettings.pricing?.administrativeFee || 0) + 
-        (adminSettings.pricing?.businessFee || 0) + 
-        (adminSettings.pricing?.consumablesFee || 0) + 1
-      );
-      
-      console.log('🔥 Fixed calculation - no double counting of labor or materials:', {
+      console.log('🔥 Using PricingEngine for consistent calculations:', {
         totalLaborHours,
         totalProcessCost: `$${totalProcessCost.toFixed(2)} (includes labor AND process materials already)`,
         processMaterialCost: `$${processMaterialCost.toFixed(2)} (raw process materials for display)`,
         processMarkedUpMaterialCost: `$${processMarkedUpMaterialCost.toFixed(2)} (marked-up process materials for display)`,
         taskMaterialCost: `$${taskMaterialCost.toFixed(2)} (raw task materials)`,
-        markedUpTaskMaterials: `$${markedUpTaskMaterials.toFixed(2)} (task materials × ${adminSettings.pricing.materialMarkup || 1.5})`,
+        markedUpTaskMaterials: `$${markedUpTaskMaterials.toFixed(2)} (task materials with markup)`,
         totalDisplayMaterialCost: `$${totalDisplayMaterialCost.toFixed(2)} (all raw materials for display)`,
         totalDisplayMarkedUpMaterials: `$${totalDisplayMarkedUpMaterials.toFixed(2)} (all marked-up materials for display)`,
-        baseCost: `$${baseCost.toFixed(2)} (process costs + marked up task materials only - NO DOUBLE LABOR)`,
-        businessMultiplier,
-        retailPriceCalculation: `${baseCost} × ${businessMultiplier} = ${baseCost * businessMultiplier}`
+        baseCost: `$${baseCost.toFixed(2)} (from PricingEngine)`,
+        businessMultiplier: `${businessMultiplier}x (from PricingEngine)`,
+        retailPrice: `$${retailPrice.toFixed(2)} (from PricingEngine)`,
+        wholesalePrice: `$${wholesalePrice.toFixed(2)} (from PricingEngine)`
       });
-      
-      const retailPrice = Math.round(baseCost * businessMultiplier * 100) / 100;
-      const wholesalePrice = Math.round(retailPrice * 0.5 * 100) / 100;
 
       console.log('🔥 Final price preview calculation (fixed double counting of labor):', {
         totalLaborHours,

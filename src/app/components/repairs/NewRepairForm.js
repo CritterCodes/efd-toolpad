@@ -53,6 +53,7 @@ import processesService from '@/services/processes.service';
 import materialsService from '@/services/materials.service';
 import RepairsService from '@/services/repairs';
 import UsersService from '@/services/users';
+import pricingEngine from '@/services/PricingEngine';
 
 // Context
 import { useRepairs } from '@/app/context/repairs.context';
@@ -553,9 +554,12 @@ export default function NewRepairForm({
         materialMarkup = adminSettings.pricing?.materialMarkup || 1.3;
       }
 
-      // Calculate marked up price
-      const basePrice = stullerData.data.price || 0;
-      const markedUpPrice = basePrice * materialMarkup;
+      // Use PricingEngine for consistent calculations
+      console.warn('⚠️ DEPRECATED: Inline pricing calculation - Using PricingEngine');
+      
+      const material = { estimatedCost: stullerData.data.price || 0 };
+      const materialCost = pricingEngine.calculateMaterialCost(material, 1, adminSettings);
+      const markedUpPrice = materialCost.markedUpCost;
 
       // Create material item for the repair
       const newMaterial = {

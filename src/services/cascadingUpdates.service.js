@@ -8,6 +8,8 @@
  * Processes → Tasks
  */
 
+import pricingEngine from '@/services/PricingEngine';
+
 class CascadingUpdatesService {
   
   /**
@@ -288,33 +290,21 @@ class CascadingUpdatesService {
   
   /**
    * Recalculate process pricing
+   * 
+   * @deprecated This method is deprecated. Use PricingEngine.calculateProcessCost() instead.
+   * This method now calls PricingEngine internally for backward compatibility.
    */
   recalculateProcessPricing(process, adminSettings) {
-    // Labor cost calculation
-    const laborRates = adminSettings.laborRates || { basic: 22.5, standard: 30, advanced: 37.5, expert: 45 };
-    const hourlyRate = laborRates[process.skillLevel] || laborRates.standard;
-    const laborCost = (process.laborHours || 0) * hourlyRate;
+    console.warn('⚠️ DEPRECATED: CascadingUpdatesService.recalculateProcessPricing() - Please migrate to PricingEngine.calculateProcessCost()');
     
-    // Materials cost calculation
-    const materialMarkup = adminSettings.pricing?.materialMarkup || 1.3;
-    const baseMaterialsCost = (process.materials || []).reduce((total, material) => {
-      return total + (material.estimatedCost || 0);
-    }, 0);
-    const materialsCost = baseMaterialsCost * materialMarkup;
-    
-    // Total cost with complexity multiplier
-    const multiplier = process.metalComplexityMultiplier || 1.0;
-    const totalCost = (laborCost + materialsCost) * multiplier;
+    // Use PricingEngine for consistent calculations
+    const pricingEngine = require('@/services/PricingEngine').default;
+    const pricing = pricingEngine.calculateProcessCost(process, adminSettings);
     
     return {
       ...process,
       pricing: {
-        laborCost: laborCost,
-        baseMaterialsCost: baseMaterialsCost,
-        materialsCost: materialsCost,
-        materialMarkup: materialMarkup,
-        hourlyRate: hourlyRate,
-        totalCost: totalCost,
+        ...pricing,
         calculatedAt: new Date().toISOString()
       }
     };
@@ -322,70 +312,20 @@ class CascadingUpdatesService {
   
   /**
    * Recalculate task pricing
+   * 
+   * @deprecated This method is deprecated. Use PricingEngine.calculateTaskCost() instead.
+   * This method now calls PricingEngine internally for backward compatibility.
    */
   recalculateTaskPricing(task, adminSettings) {
-    let totalLaborHours = 0;
-    let totalProcessCost = 0;
-    let totalMaterialCost = 0;
+    console.warn('⚠️ DEPRECATED: CascadingUpdatesService.recalculateTaskPricing() - Please migrate to PricingEngine.calculateTaskCost()');
     
-    // Calculate from processes
-    if (task.processes) {
-      for (const processSelection of task.processes) {
-        const quantity = processSelection.quantity || 1;
-        
-        if (processSelection.process) {
-          // Labor hours
-          totalLaborHours += (processSelection.process.laborHours || 0) * quantity;
-          
-          // Process cost
-          if (processSelection.process.pricing?.totalCost) {
-            totalProcessCost += processSelection.process.pricing.totalCost * quantity;
-          }
-          
-          // Material costs from process
-          if (processSelection.process.pricing?.baseMaterialsCost) {
-            totalMaterialCost += (processSelection.process.pricing.baseMaterialsCost || 0) * quantity;
-          }
-        }
-      }
-    }
-    
-    // Calculate from additional materials
-    if (task.materials) {
-      for (const materialSelection of task.materials) {
-        const quantity = materialSelection.quantity || 1;
-        if (materialSelection.material) {
-          totalMaterialCost += (materialSelection.material.costPerPortion || 0) * quantity;
-        }
-      }
-    }
-    
-    // Apply business formula
-    const markedUpMaterialCost = totalMaterialCost * (adminSettings.pricing?.materialMarkup || 1.5);
-    const laborRate = adminSettings.pricing?.wage || 25;
-    const fallbackLaborCost = totalLaborHours * laborRate;
-    const baseCost = fallbackLaborCost + totalProcessCost + markedUpMaterialCost;
-    
-    const businessMultiplier = (
-      (adminSettings.pricing?.administrativeFee || 0) + 
-      (adminSettings.pricing?.businessFee || 0) + 
-      (adminSettings.pricing?.consumablesFee || 0) + 1
-    );
-    
-    const retailPrice = Math.round(baseCost * businessMultiplier * 100) / 100;
-    const wholesalePrice = Math.round(retailPrice * 0.5 * 100) / 100;
+    // Use PricingEngine for consistent calculations
+    const pricing = pricingEngine.calculateTaskCost(task, adminSettings);
     
     return {
       ...task,
       pricing: {
-        totalLaborHours: Math.round(totalLaborHours * 100) / 100,
-        totalProcessCost: Math.round(totalProcessCost * 100) / 100,
-        totalMaterialCost: Math.round(totalMaterialCost * 100) / 100,
-        markedUpMaterialCost: Math.round(markedUpMaterialCost * 100) / 100,
-        baseCost: Math.round(baseCost * 100) / 100,
-        retailPrice: retailPrice || 0,
-        wholesalePrice: wholesalePrice || 0,
-        businessMultiplier: Math.round(businessMultiplier * 100) / 100,
+        ...pricing,
         adminSettings: {
           materialMarkup: adminSettings.pricing?.materialMarkup || adminSettings.materialMarkup,
           laborRates: adminSettings.laborRates,

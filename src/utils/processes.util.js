@@ -1,7 +1,12 @@
 /**
  * Processes Utilities
  * Constants, formatters, and helper functions for repair processes
+ * 
+ * @deprecated calculateProcessCost() is deprecated in favor of PricingEngine
  */
+
+import pricingEngine from '@/services/PricingEngine';
+import { SKILL_LEVEL, SKILL_LEVEL_MULTIPLIERS, DEFAULT_SKILL_LEVEL } from '@/constants/pricing.constants.mjs';
 
 // Process Categories
 export const PROCESS_CATEGORIES = [
@@ -17,12 +22,13 @@ export const PROCESS_CATEGORIES = [
   'soldering'
 ];
 
-// Skill Levels
+// Skill Levels - Uses constants from pricing.constants.mjs for consistency
+// This ensures single source of truth for skill level values
 export const SKILL_LEVELS = [
-  { value: 'basic', label: 'Basic', multiplier: 0.75 },
-  { value: 'standard', label: 'Standard', multiplier: 1.0 },
-  { value: 'advanced', label: 'Advanced', multiplier: 1.25 },
-  { value: 'expert', label: 'Expert', multiplier: 1.5 }
+  { value: SKILL_LEVEL.BASIC, label: 'Basic', multiplier: SKILL_LEVEL_MULTIPLIERS[SKILL_LEVEL.BASIC] },
+  { value: SKILL_LEVEL.STANDARD, label: 'Standard', multiplier: SKILL_LEVEL_MULTIPLIERS[SKILL_LEVEL.STANDARD] },
+  { value: SKILL_LEVEL.ADVANCED, label: 'Advanced', multiplier: SKILL_LEVEL_MULTIPLIERS[SKILL_LEVEL.ADVANCED] },
+  { value: SKILL_LEVEL.EXPERT, label: 'Expert', multiplier: SKILL_LEVEL_MULTIPLIERS[SKILL_LEVEL.EXPERT] }
 ];
 
 // Metal Types
@@ -110,7 +116,7 @@ export const DEFAULT_PROCESS_FORM = {
   displayName: '',
   category: '',
   laborHours: 0,
-  skillLevel: 'standard',
+  skillLevel: DEFAULT_SKILL_LEVEL,
   description: '',
   materials: [],
   isActive: true
@@ -665,168 +671,22 @@ export const shouldProcessBeMetalDependent = (materials, availableMaterials) => 
 
 /**
  * Calculate process cost for all relevant metal types based on materials
+ * 
+ * @deprecated This function is deprecated. Use PricingEngine.calculateProcessCost() instead.
+ * This function now calls PricingEngine internally for backward compatibility.
+ * 
  * @param {Object} formData - Process form data
  * @param {Object} adminSettings - Admin settings for labor rates and metal multipliers
  * @param {Array} availableMaterials - Array of all available materials with full data
  * @returns {Object} Cost breakdown for each relevant metal type
  */
 export const calculateProcessCost = (formData, adminSettings, availableMaterials = []) => {
+  console.warn('⚠️ DEPRECATED: calculateProcessCost() - Please migrate to PricingEngine.calculateProcessCost()');
+  
+  // Use PricingEngine for consistent calculations
   if (!adminSettings || !formData.laborHours || !formData.skillLevel) {
     return null;
   }
-
-  // Get base hourly rate
-  const baseHourlyRate = adminSettings.laborRates?.baseRate || 50;
   
-  // Apply skill level multiplier
-  const skillMultiplier = getSkillLevelMultiplier(formData.skillLevel);
-  const hourlyRate = baseHourlyRate * skillMultiplier;
-  
-  // Calculate base labor cost
-  const laborHours = parseFloat(formData.laborHours) || 0;
-  const baseLaborCost = laborHours * hourlyRate;
-  
-  // Calculate base materials cost (before metal-specific variants)
-  const baseMaterialsCost = (formData.materials || []).reduce((total, material) => {
-    return total + (material.estimatedCost || 0);
-  }, 0);
-  
-  // Apply material markup if specified (default 1.0 = no markup)
-  const materialMarkup = parseFloat(adminSettings.materialMarkup) || 1.0;
-  
-  // Determine metal dependency based on materials (this is the only factor now)
-  const isMetalDependent = shouldProcessBeMetalDependent(formData.materials || [], availableMaterials);
-  
-  // If materials are not metal dependent, return single calculation
-  if (!isMetalDependent) {
-    const materialsCost = baseMaterialsCost * materialMarkup;
-    const totalCost = baseLaborCost + materialsCost;
-    
-    return {
-      isMetalDependent: false,
-      universal: {
-        laborCost: baseLaborCost,
-        materialsCost,
-        baseMaterialsCost,
-        materialMarkup,
-        totalCost,
-        hourlyRate,
-        skillMultiplier,
-        laborHours
-      }
-    };
-  }
-  
-  // Get metal variants (metal type + karat combinations) from the materials used in this process
-  const relevantMetalVariants = getMetalVariantsFromMaterials(formData.materials || [], availableMaterials);
-  
-  // If no metal variants found in materials, fall back to universal pricing
-  if (relevantMetalVariants.length === 0) {
-    const materialsCost = baseMaterialsCost * materialMarkup;
-    const totalCost = baseLaborCost + materialsCost;
-    
-    return {
-      isMetalDependent: false,
-      universal: {
-        laborCost: baseLaborCost,
-        materialsCost,
-        baseMaterialsCost,
-        materialMarkup,
-        totalCost,
-        hourlyRate,
-        skillMultiplier,
-        laborHours
-      }
-    };
-  }
-  
-  // Calculate for each metal variant (metal type + karat combination) found in materials
-  const metalPrices = {};
-  const metalMultipliers = adminSettings.metalComplexityMultipliers || {};
-  
-  // Get readable variant labels for display
-  const relevantVariantLabels = relevantMetalVariants.map(variant => {
-    const metalTypeInfo = METAL_TYPES.find(mt => mt.value === variant.metalType) || 
-                         { value: variant.metalType, label: variant.metalType };
-    return variant.karat === 'standard' ? metalTypeInfo.label : `${metalTypeInfo.label} ${variant.karat}`;
-  });
-  
-  relevantMetalVariants.forEach(variant => {
-    const { metalType: metalTypeValue, karat } = variant;
-    
-    // Find the metal type info for labeling
-    const metalTypeInfo = METAL_TYPES.find(mt => mt.value === metalTypeValue) || 
-                         { value: metalTypeValue, label: metalTypeValue };
-    
-    const metalComplexity = metalMultipliers[metalTypeValue] || 1.0;
-    const adjustedLaborCost = baseLaborCost * metalComplexity;
-    
-    // Calculate metal-specific material costs based on variants
-    const materialsCostForVariant = (formData.materials || []).reduce((total, material) => {
-      const fullMaterial = availableMaterials.find(m => 
-        m.sku === material.materialSku || m._id === material.materialId
-      );
-      
-      if (!fullMaterial) return total;
-      
-      // Find the specific variant for this metal type + karat
-      if (fullMaterial.stullerProducts && Array.isArray(fullMaterial.stullerProducts)) {
-        const matchingProduct = fullMaterial.stullerProducts.find(p => 
-          p.metalType === metalTypeValue && p.karat === karat
-        );
-        
-        if (matchingProduct) {
-          // Use new costPerPortion if available (more accurate)
-          let variantCost;
-          if (matchingProduct.costPerPortion !== undefined) {
-            variantCost = matchingProduct.costPerPortion;
-          } else {
-            // Fallback to calculating from stullerPrice (old structure)
-            variantCost = (matchingProduct.stullerPrice || 0) / (fullMaterial.portionsPerUnit || 1);
-          }
-          return total + (variantCost * material.quantity);
-        }
-      }
-      
-      // Fallback to base cost if no specific variant found
-      return total + (material.estimatedCost || 0);
-    }, 0);
-    
-    const finalMaterialsCost = materialsCostForVariant * materialMarkup;
-    const totalCost = adjustedLaborCost + finalMaterialsCost;
-    
-    // Create unique key for this variant
-    const variantKey = `${metalTypeValue}_${karat}`;
-    const variantLabel = karat === 'standard' ? metalTypeInfo.label : `${metalTypeInfo.label} ${karat}`;
-    
-    metalPrices[variantKey] = {
-      metalType: metalTypeValue,
-      karat: karat,
-      metalLabel: variantLabel,
-      laborCost: adjustedLaborCost,
-      materialsCost: finalMaterialsCost,
-      baseMaterialsCost,
-      materialMarkup,
-      totalCost,
-      hourlyRate,
-      skillMultiplier,
-      metalComplexity,
-      laborHours
-    };
-  });
-  
-  return {
-    isMetalDependent: true,
-    relevantVariantLabels,
-    relevantMetalVariants,
-    metalPrices,
-    summary: {
-      baseHourlyRate,
-      skillMultiplier,
-      baseLaborCost,
-      baseMaterialsCost,
-      materialMarkup,
-      laborHours
-    }
-  };
+  return pricingEngine.calculateProcessCost(formData, adminSettings);
 };

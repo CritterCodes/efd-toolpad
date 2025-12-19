@@ -31,6 +31,7 @@ import {
 } from '@mui/icons-material';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useRouter, useParams } from 'next/navigation';
+import { SKILL_LEVEL } from '@/constants/pricing.constants.mjs';
 
 export default function RepairTaskFormPage() {
   const router = useRouter();
@@ -59,7 +60,7 @@ export default function RepairTaskFormPage() {
       requiresApproval: false,
       requiresInspection: true,
       canBeBundled: true,
-      skillLevel: 'standard',
+      skillLevel: SKILL_LEVEL.STANDARD,
       riskLevel: 'low'
     },
     workflow: {
@@ -153,7 +154,7 @@ export default function RepairTaskFormPage() {
           requiresApproval: task.service?.requiresApproval || false,
           requiresInspection: task.service?.requiresInspection !== false,
           canBeBundled: task.service?.canBeBundled !== false,
-          skillLevel: task.service?.skillLevel || 'standard',
+          skillLevel: task.service?.skillLevel || SKILL_LEVEL.STANDARD,
           riskLevel: task.service?.riskLevel || 'low'
         },
         workflow: {
@@ -512,10 +513,10 @@ export default function RepairTaskFormPage() {
                         onChange={(e) => handleInputChange('service.skillLevel', e.target.value)}
                         label="Skill Level"
                       >
-                        <MenuItem value="basic">Basic</MenuItem>
-                        <MenuItem value="standard">Standard</MenuItem>
-                        <MenuItem value="advanced">Advanced</MenuItem>
-                        <MenuItem value="expert">Expert</MenuItem>
+                        <MenuItem value={SKILL_LEVEL.BASIC}>Basic</MenuItem>
+                        <MenuItem value={SKILL_LEVEL.STANDARD}>Standard</MenuItem>
+                        <MenuItem value={SKILL_LEVEL.ADVANCED}>Advanced</MenuItem>
+                        <MenuItem value={SKILL_LEVEL.EXPERT}>Expert</MenuItem>
                       </Select>
                     </FormControl>
                   </Grid>
