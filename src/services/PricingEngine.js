@@ -230,12 +230,18 @@ class PricingEngine {
         
         if (product) {
           // Use product cost
-          // unitCost is usually user-facing cost, but we need cost basis
-          // In ProcessForm construction, costPerPortion is calculated
-          // We need base cost to apply markup
+          // unitCost is usually user-facing cost (purchase price of item), but we need cost basis for the PORTION.
+          // In ProcessForm construction, portionsPerUnit is set.
           
           // Check if product has costPerPortion (migrated) or unitCost (raw)
-          const basePrice = product.costPerPortion || product.unitCost || 0;
+          let basePrice = product.costPerPortion;
+          
+          if (basePrice === undefined) {
+             const unitCost = product.unitCost || product.stullerPrice || 0;
+             const portions = m.portionsPerUnit || 1;
+             basePrice = unitCost / portions;
+          }
+
           const markedUp = basePrice * materialMarkup;
           const quantity = parseFloat(m.quantity) || 1;
           
