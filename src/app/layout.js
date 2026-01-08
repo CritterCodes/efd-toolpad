@@ -1,6 +1,5 @@
 import { AppProvider } from "@toolpad/core/AppProvider";
 import { SessionProvider } from "next-auth/react";
-import ClientThemeProvider from "../components/ThemeProvider";
 import { RepairsProvider } from "./context/repairs.context";
 import { AdminSettingsProvider } from "@/context/AdminSettingsContext";
 import { auth } from "@/lib/auth";
@@ -11,6 +10,7 @@ import { UnifiedUserService, USER_ROLES } from "@/lib/unifiedUserService";
 import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
+import theme from '@/lib/theme';
 
 const BRANDING = {
     logo: <Image 
@@ -84,17 +84,16 @@ export default async function RootLayout({ children }) {
             <html lang="en" suppressHydrationWarning>
                 <body>
                     <SessionProvider session={session}>
-                        <ClientThemeProvider>
-                            <AppProvider
-                                session={session}
-                                navigation={[]}
-                                branding={BRANDING}
-                                authentication={AUTHENTICATION}
-                            >
-                                {children}
-                                <PWAInstallPrompt />
-                            </AppProvider>
-                        </ClientThemeProvider>
+                        <AppProvider
+                            session={session}
+                            navigation={[]}
+                            branding={BRANDING}
+                            authentication={AUTHENTICATION}
+                            theme={theme}
+                        >
+                            {children}
+                            <PWAInstallPrompt />
+                        </AppProvider>
                     </SessionProvider>
                 </body>
             </html>
@@ -122,16 +121,15 @@ export default async function RootLayout({ children }) {
                 <SessionProvider session={session}>
                     <AdminSettingsProvider>
                         <RepairsProvider>
-                            <ClientThemeProvider>
-                                <RoleAwareNavigationProvider
-                                    session={session}
-                                    branding={BRANDING}
-                                    authentication={AUTHENTICATION}
-                                >
-                                    {children}
-                                    <PWAInstallPrompt />
-                                </RoleAwareNavigationProvider>
-                            </ClientThemeProvider>
+                            <RoleAwareNavigationProvider
+                                session={session}
+                                branding={BRANDING}
+                                authentication={AUTHENTICATION}
+                                theme={theme}
+                            >
+                                {children}
+                                <PWAInstallPrompt />
+                            </RoleAwareNavigationProvider>
                         </RepairsProvider>
                     </AdminSettingsProvider>
                 </SessionProvider>

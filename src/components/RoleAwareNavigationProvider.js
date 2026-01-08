@@ -14,7 +14,8 @@ export default function RoleAwareNavigationProvider({
   children, 
   branding, 
   authentication, 
-  session 
+  session,
+  theme
 }) {
   const [currentNavigation, setCurrentNavigation] = useState([]);
 
@@ -63,6 +64,7 @@ export default function RoleAwareNavigationProvider({
       navigation={currentNavigation}
       branding={branding}
       authentication={authentication}
+      theme={theme}
     >
       {children}
     </AppProvider>
