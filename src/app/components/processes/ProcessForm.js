@@ -160,7 +160,8 @@ export const ProcessForm = ({
       estimatedCost: baseTotalCost,
       
       // Material properties for metal dependency calculation
-      isMetalDependent: selectedMaterial.isMetalDependent || false,
+      // Robust check: Look for flag OR presence of variants
+      isMetalDependent: selectedMaterial.isMetalDependent || (selectedMaterial.stullerProducts?.length > 0) || false,
       metalTypes: selectedMaterial.metalTypes || []
     };
 
@@ -295,7 +296,7 @@ export const ProcessForm = ({
               <Grid item xs={12} md={6}>
                 <Autocomplete
                   options={availableMaterials}
-                  getOptionLabel={(option) => `${option.displayName} (${option.sku})`}
+                  getOptionLabel={(option) => `${option.displayName} (${option.sku || 'No SKU'})`}
                   value={line.material}
                   onChange={(event, newValue) => handleMaterialSelect(line.id, newValue)}
                   renderInput={(params) => (
@@ -315,7 +316,7 @@ export const ProcessForm = ({
                             {option.displayName}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            SKU: {option.sku} | {option.variants?.length || 0} variants
+                            SKU: {option.sku || 'N/A'} | {option.variants?.length || 0} variants
                           </Typography>
                         </Box>
                       </li>
