@@ -278,20 +278,8 @@ class PricingEngine {
       });
       
       // Get complexity for this variant
-      // Simplify metal type for complexity lookup (e.g. "yellow-gold" -> "gold")
-      let complexityKey = 'other';
-      const mt = variant.metalType.toLowerCase();
-      
-      if (mt.includes('platinum')) complexityKey = 'platinum';
-      else if (mt.includes('palladium')) complexityKey = 'palladium';
-      else if (mt.includes('gold')) complexityKey = 'gold';
-      else if (mt.includes('silver')) complexityKey = 'silver';
-      else if (mt.includes('titanium')) complexityKey = 'titanium';
-      else if (mt.includes('stainless')) complexityKey = 'stainless';
-      else if (mt.includes('brass')) complexityKey = 'brass';
-      else if (mt.includes('copper')) complexityKey = 'copper';
-      
-      const metalComplexity = getMetalComplexityMultiplier(complexityKey, settings.metalComplexityMultipliers);
+      // DEPRECATED: Metal complexity is no longer used for pricing.
+      const metalComplexity = 1.0;
       
       // Calculate retail price for variant using new formula
       const weightedLabor = laborCost * metalComplexity;
