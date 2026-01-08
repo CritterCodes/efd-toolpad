@@ -432,15 +432,16 @@ export const ProcessForm = ({
 {/* Debug Info (To be removed) */}
         <Box sx={{ my: 2, p: 2, bgcolor: '#f0f0f0', border: '1px dashed #ccc' }}>
            <Typography variant="subtitle2" sx={{ fontFamily: 'monospace' }}>
-             DEBUG: isMetalDependent check
+             DEBUG: Cost Calc Internals
            </Typography>
            <Typography variant="caption" component="pre" sx={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
              {JSON.stringify({
-               materialsCount: formData.materials.length,
-               firstMaterialISMD: formData.materials[0]?.isMetalDependent,
-               firstMaterialStullerLen: formData.materials[0]?.stullerProducts?.length,
+               firstMaterialPortions: formData.materials[0]?.portionsPerUnit,
+               firstMaterialStullerCount: formData.materials[0]?.stullerProducts?.length,
+               firstStullerPrice: formData.materials[0]?.stullerProducts?.[0]?.stullerPrice,
+               firstStullerUnitCost: formData.materials[0]?.stullerProducts?.[0]?.unitCost,
                costPreviewIsMD: costPreview?.isMetalDependent,
-               costPreviewKeys: costPreview ? Object.keys(costPreview) : 'null'
+               metalsCount: costPreview?.metalPrices ? Object.keys(costPreview.metalPrices).length : 0
              }, null, 2)}
            </Typography>
         </Box>
