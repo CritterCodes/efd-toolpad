@@ -1,6 +1,6 @@
 // /api/admin/wholesale/[applicationId]/reject/route.js
 import { updateWholesaleApplicationStatus, getWholesaleApplicationById } from '../../../../../../lib/wholesaleService.js';
-import { auth } from '../../../../../../../auth';
+import { auth } from "@/lib/auth";
 
 export async function POST(request, { params }) {
   try {

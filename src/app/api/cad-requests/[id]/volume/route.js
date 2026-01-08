@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { MongoClient } from 'mongodb';
-import { auth } from '../../../../../../auth';
+import { auth } from "@/lib/auth";
 
 const client = new MongoClient(process.env.MONGODB_URI);
 

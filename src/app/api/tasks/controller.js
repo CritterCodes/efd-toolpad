@@ -4,7 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { auth } from '../../../../auth';
+import { auth } from "@/lib/auth";
 import { TasksService } from './service';
 
 export class TasksController {

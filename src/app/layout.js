@@ -3,7 +3,7 @@ import { SessionProvider } from "next-auth/react";
 import ClientThemeProvider from "../components/ThemeProvider";
 import { RepairsProvider } from "./context/repairs.context";
 import { AdminSettingsProvider } from "@/context/AdminSettingsContext";
-import { auth } from "../../auth";
+import { auth } from "@/lib/auth";
 import { signIn, signOut } from "next-auth/react";
 import { getNavigationForRole, canAccessAdmin } from "@/lib/roleBasedNavigation";
 import RoleAwareNavigationProvider from "@/components/RoleAwareNavigationProvider";
@@ -70,7 +70,13 @@ export const viewport = {
 };
 
 export default async function RootLayout({ children }) {
-    const session = await auth();
+    let session = null;
+    try {
+        session = await auth();
+    } catch (error) {
+        console.error("Auth error (likely invalid session cookie):", error);
+        // Session remains null, user will be treated as unauthenticated
+    }
 
     // 🔒 REQUIRE AUTHENTICATION
     if (!session?.user) {

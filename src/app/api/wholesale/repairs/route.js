@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
-import { auth } from '../../../../../auth';
+import { auth } from "@/lib/auth";
 
 // GET /api/wholesale/repairs - Get repairs for a wholesaler
 export async function GET(request) {

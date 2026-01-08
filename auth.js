@@ -73,6 +73,7 @@ export const providerMap = providers;
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
     providers,
+    secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
     session: {
         strategy: "jwt",
     },

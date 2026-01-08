@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '../../../../../auth';
+import { auth } from "@/lib/auth";
 import { connectToDatabase } from '@/lib/mongodb';
 import { uploadFileToS3 } from '@/utils/s3.util';
 import { ObjectId } from 'mongodb';

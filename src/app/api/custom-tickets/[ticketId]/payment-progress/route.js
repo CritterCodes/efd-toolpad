@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/database';
-import { auth } from '../../../../../../auth';
+import { auth } from "@/lib/auth";
 
 /**
  * GET /api/custom-tickets/[ticketId]/payment-progress

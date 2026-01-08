@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { auth } from '../../../../../auth';
+import { auth } from "@/lib/auth";
 import { connectToDatabase } from '@/lib/mongodb';
 import { decryptSensitiveData, isDataEncrypted } from '@/utils/encryption';
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";

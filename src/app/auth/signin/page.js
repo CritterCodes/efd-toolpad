@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { SignInPage } from "@toolpad/core/SignInPage";
 import { Link, Snackbar, Alert, Typography, Box } from "@mui/material";
 import { useSearchParams } from 'next/navigation';
-import { providerMap } from "../../../../auth";
+import { providerMap } from "@/lib/auth";
 import { signIn } from "next-auth/react";
 import Image from 'next/image';
 

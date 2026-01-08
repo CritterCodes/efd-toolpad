@@ -1,5 +1,6 @@
 // Auth utility wrapper for API routes
 // This file provides a clean import path for auth functionality
+export * from '../../auth';
 export { auth } from '../../auth';
 
 // Backward compatibility for NextAuth v4 style imports

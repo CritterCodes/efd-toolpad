@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
-import { auth } from '../../../../../../auth';
+import { auth } from "@/lib/auth";
 import { ObjectId } from 'mongodb';
 
 // PUT /api/wholesale/repairs/[repairId] - Update repair

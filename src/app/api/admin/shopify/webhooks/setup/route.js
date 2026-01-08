@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { auth } from '../../../../../../../auth';
+import { auth } from "@/lib/auth";
 import { setupShopifyWebhooks } from '@/utils/shopifyConfig';
 
 export async function POST(request) {
