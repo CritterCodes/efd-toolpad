@@ -175,7 +175,11 @@ export const ProcessForm = ({
     }
 
     try {
+      console.log('--- ProcessForm: Calculating Cost ---');
+      console.log('Process Data:', formData);
+      console.log('Admin Settings:', adminSettings);
       const costBreakdown = pricingEngine.calculateProcessCost(formData, adminSettings);
+      console.log('Resulting Breakdown:', costBreakdown);
       return costBreakdown;
     } catch (error) {
       console.error("PricingEngine Error:", error);

@@ -95,7 +95,15 @@ class PricingEngine {
     
     // Calculate labor cost with skill multiplier
     const hourlyRate = calculateHourlyRateForSkill(settings.baseWage, skillLevel);
+    
+    console.log('--- PricingEngine: calculateProcessCost ---');
+    console.log('Skill Level:', skillLevel);
+    console.log('Base Wage:', settings.baseWage);
+    console.log('Hourly Rate:', hourlyRate);
+    console.log('Labor Hours:', laborHours);
+    
     const laborCost = laborHours * hourlyRate;
+    console.log('Labor Cost:', laborCost);
     
     // Calculate base materials cost
     const baseMaterialsCost = (process.materials || []).reduce((total, material) => {
