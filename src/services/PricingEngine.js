@@ -175,11 +175,16 @@ class PricingEngine {
     const weightedLaborCost = laborCost * metalComplexityMultiplier;
     const weightedBaseMaterialsCost = baseMaterialsCost * metalComplexityMultiplier;
     
-    const term1 = (weightedLaborCost + weightedBaseMaterialsCost) * businessMultiplier;
-    const term2 = weightedBaseMaterialsCost * (materialMarkup - 1);
+    // UPDATED REQUIREMENT: Process Cost is essentially COG (Labor + Material).
+    // Markups are applied at the Task level or higher.
+    // So for Process level, we return the raw COG.
     
-    const retailPrice = term1 + term2;
-        
+    // const term1 = (weightedLaborCost + weightedBaseMaterialsCost) * businessMultiplier;
+    // const term2 = weightedBaseMaterialsCost * (materialMarkup - 1);
+    // const retailPrice = term1 + term2;
+    
+    const retailPrice = weightedLaborCost + weightedBaseMaterialsCost;
+    
     return {
       laborCost: Math.round(laborCost * 100) / 100,
       baseMaterialsCost: Math.round(baseMaterialsCost * 100) / 100,
@@ -371,9 +376,12 @@ class PricingEngine {
       // Formula: ((M_base + L) * Biz) + (M_base * (Mk - 1))
       // With complex: ((weightedBaseMat + weightedLabor) * Biz) + (weightedBaseMat * (Mk - 1))
       
-      const term1_v = (weightedBaseMaterials + weightedLabor) * enforcedBizMul;
-      const term2_v = weightedBaseMaterials * (materialMarkup - 1);
-      const totalVariantRetail = term1_v + term2_v;
+      // UPDATED REQUIREMENT: Process Cost is essentially COG.
+      // const term1_v = (weightedBaseMaterials + weightedLabor) * enforcedBizMul;
+      // const term2_v = weightedBaseMaterials * (materialMarkup - 1);
+      // const totalVariantRetail = term1_v + term2_v;
+      
+      const totalVariantRetail = weightedBaseMaterials + weightedLabor;
       
       metalPrices[variantKey] = {
         metalLabel: variant.label,
@@ -392,7 +400,8 @@ class PricingEngine {
     });
     
     // Fallback for "Universal" preview (e.g. if we just want a summary or simple view)
-    const baseTotalCost = (laborCost * enforcedBizMul); 
+    // UPDATED REQUIREMENT: Process Cost is essentially COG. Remove markup.
+    const baseTotalCost = laborCost; 
 
     return {
       isMetalDependent: true,
