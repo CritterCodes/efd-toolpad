@@ -418,7 +418,23 @@ export const ProcessForm = ({
       <Grid item xs={12}>
         {costPreview && (
           <Box sx={{ mt: 2 }}>
-            <Typography variant="h6" gutterBottom>
+{/* Debug Info (To be removed) */}
+        <Box sx={{ my: 2, p: 2, bgcolor: '#f0f0f0', border: '1px dashed #ccc' }}>
+           <Typography variant="subtitle2" sx={{ fontFamily: 'monospace' }}>
+             DEBUG: isMetalDependent check
+           </Typography>
+           <Typography variant="caption" component="pre" sx={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
+             {JSON.stringify({
+               materialsCount: formData.materials.length,
+               firstMaterialISMD: formData.materials[0]?.isMetalDependent,
+               firstMaterialStullerLen: formData.materials[0]?.stullerProducts?.length,
+               costPreviewIsMD: costPreview?.isMetalDependent,
+               costPreviewKeys: costPreview ? Object.keys(costPreview) : 'null'
+             }, null, 2)}
+           </Typography>
+        </Box>
+
+      <Typography variant="h6" gutterBottom>
               Process Cost Preview
             </Typography>
             
