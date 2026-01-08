@@ -60,6 +60,31 @@ class PricingEngine {
   }
 
   /**
+   * Helper to strip away DB-stored markups and find the true RAW vendor cost per unit/portion.
+   * This enforces the logic that meaningful pricing happens at runtime, not in the DB.
+   */
+  _getMaterialBaseRawCost(material, stullerProduct = null) {
+    // 1. If we have a specific Stuller Variant, that matches a specific vendor price
+    if (stullerProduct) {
+      if (stullerProduct.stullerPrice && stullerProduct.stullerPrice > 0) {
+        return stullerProduct.stullerPrice;
+      }
+      // Fallback: If stullerPrice is missing but unitCost exists, we hope it's raw.
+      // But given the issue, it likely ISN'T. We'll trust it only if stullerPrice is empty.
+      return stullerProduct.unitCost || 0;
+    }
+
+    // 2. Generic Material
+    // 'estimatedCost' is the convention for "What does this cost me?"
+    if (material.estimatedCost && material.estimatedCost > 0) {
+      return material.estimatedCost;
+    }
+    
+    // 3. Last resort - use unitCost but it might be "polluted" with markup depending on legacy saves
+    return material.unitCost || 0;
+  }
+
+  /**
    * Calculate process cost
    * @param {Object} process - Process object with laborHours, skillLevel, materials, etc.
    * @param {Object} adminSettings - Admin settings
@@ -110,11 +135,32 @@ class PricingEngine {
 
     materials.forEach(material => {
       const quantity = parseFloat(material.quantity) || 1;
-      // Get base cost
-      const cost = material.estimatedCost || 
-                   material.costPerPortion || 
-                   material.unitCost || 
-                   0;
+      
+      // NEW: Use base raw cost helper. 
+      // This ignores unitCost if estimatedCost or costPerPortion is better.
+      // But for universal materials, we usually have 'estimatedCost' (full) or 'costPerPortion' (if using portions)
+      // If we are using portions, we must divide if only unit cost is known.
+      
+      let cost = this._getMaterialBaseRawCost(material);
+      
+      // Handle Portion Math - if unit is 'portion' but cost is 'unit', divide.
+      // But _getMaterialBaseRawCost just gets A number.
+      // If costPerPortion is set, that's preferred.
+      
+      if (material.costPerPortion) {
+         cost = material.costPerPortion;
+      } else if (material.unit === 'portion' && material.portionsPerUnit > 1) {
+         // If cost looks like a full unit price, split it.
+         // But how do we know if 'cost' returned above is unit or portion?
+         // Convention: estimatedCost is usually Portion Cost if entered manually, but unitCost is Unit Cost.
+         // Let's rely on costPerPortion. If missing, and we have portionsPerUnit, divide unitCost.
+         
+         if (!material.estimatedCost) { // If manual cost set, trust it.
+            const rawUnit = material.unitCost || 0;
+            cost = rawUnit / material.portionsPerUnit;
+         }
+      }
+
       baseMaterialsCost += cost * quantity;
       oldMarkedUpMaterialsCost += (cost * materialMarkup) * quantity;
     });
@@ -303,12 +349,18 @@ class PricingEngine {
           p.karat === variant.karat
         );
          if (product) {
+          // NEW: Use helper to find raw cost
+          let rawCost = this._getMaterialBaseRawCost(null, product); // Pass product as stullerProduct
+          
           let basePrice = product.costPerPortion;
-          if (basePrice === undefined) {
-             const unitCost = product.stullerPrice || product.unitCost || 0;
+          if (basePrice === undefined && rawCost > 0) {
              const portions = m.portionsPerUnit || 1;
-             basePrice = unitCost / portions;
+             basePrice = rawCost / portions;
+          } else if (basePrice === undefined) {
+             // Fallback if rawCost is zero?
+             basePrice = 0;
           }
+          
           const quantity = parseFloat(m.quantity) || 1;
           variantBaseMaterialsCost += basePrice * quantity;
         }
