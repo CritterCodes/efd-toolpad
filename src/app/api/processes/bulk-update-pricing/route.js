@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/database';
 import { ObjectId } from 'mongodb';
+import pricingEngine from '@/services/PricingEngine';
 
 /**
  * Bulk update process pricing based on new admin settings
@@ -26,28 +27,19 @@ export async function POST(request) {
     const updateOperations = [];
     
     for (const process of processes) {
-      // Labor cost calculation
-      const hourlyRate = laborRates[process.skillLevel] || laborRates.standard;
-      const laborCost = (process.laborHours || 0) * hourlyRate;
+      // Use PricingEngine for consistent calculations
+      console.warn('⚠️ DEPRECATED: Inline pricing calculation - Using PricingEngine');
       
-      // Materials cost calculation
-      const baseMaterialsCost = (process.materials || []).reduce((total, material) => {
-        return total + (material.estimatedCost || 0);
-      }, 0);
-      const materialsCost = baseMaterialsCost * materialMarkup;
-      
-      // Total cost with complexity multiplier
-      const multiplier = process.metalComplexityMultiplier || 1.0;
-      const totalCost = (laborCost + materialsCost) * multiplier;
+      const processPricing = pricingEngine.calculateProcessCost(process, adminSettings);
       
       const updatedPricing = {
-        laborCost: laborCost,
-        baseMaterialsCost: baseMaterialsCost,
-        materialsCost: materialsCost,
-        materialMarkup: materialMarkup,
-        hourlyRate: hourlyRate,
-        totalCost: totalCost,
-        calculatedAt: new Date()
+        laborCost: processPricing.laborCost,
+        baseMaterialsCost: processPricing.baseMaterialsCost,
+        materialsCost: processPricing.materialsCost,
+        materialMarkup: processPricing.materialMarkup,
+        hourlyRate: processPricing.hourlyRate,
+        totalCost: processPricing.totalCost,
+        calculatedAt: processPricing.calculatedAt
       };
       
       updateOperations.push({

@@ -24,6 +24,7 @@ import {
   getKaratLabel,
   calculateProcessCost
 } from '@/utils/processes.util';
+import { SKILL_LEVEL } from '@/constants/pricing.constants.mjs';
 
 /**
  * ProcessCard Component
@@ -35,16 +36,121 @@ export const ProcessCard = ({
   onDelete,
   adminSettings = null
 }) => {
-  // Calculate process cost with admin settings
-  const costBreakdown = calculateProcessCost(process, adminSettings);
+  // Use stored pricing data if available, otherwise calculate on-the-fly
+  let costData = {
+    totalCost: 0,
+    laborCost: 0,
+    materialsCost: 0,
+    materialMarkup: 1.0,
+    complexityMultiplier: 1.0
+  };
+  let isMultiVariant = false;
+  let priceRange = null;
+  
+  // Check if this process has materials with multiple metal variants
+  const hasMultiVariantMaterials = process.materials?.some(material => 
+    material.stullerProducts && Array.isArray(material.stullerProducts) && material.stullerProducts.length > 1
+  );
+  
+  // Always check if process should be multi-variant by examining its materials (only needed for fallback)
+  const costBreakdown = hasMultiVariantMaterials && !process.pricing ? calculateProcessCost(process, adminSettings) : null;
+  
+  // Check for new pricing structure first
+  if (process.pricing && process.pricing.totalCost) {
+    // New pricing structure: totalCost is an object with metal/karat keys
+    if (typeof process.pricing.totalCost === 'object' && !Array.isArray(process.pricing.totalCost)) {
+      const totalCosts = Object.values(process.pricing.totalCost).filter(cost => cost > 0);
+      const materialsCosts = typeof process.pricing.materialsCost === 'object' ? 
+        Object.values(process.pricing.materialsCost).filter(cost => cost > 0) : [];
+      
+      if (totalCosts.length > 1) {
+        // Multi-variant process - show price range
+        isMultiVariant = true;
+        const minPrice = Math.min(...totalCosts);
+        const maxPrice = Math.max(...totalCosts);
+        priceRange = { min: minPrice, max: maxPrice };
+        
+        costData = {
+          totalCost: minPrice, // Use minimum for fallback display
+          laborCost: process.pricing.laborCost || 0,
+          materialsCost: materialsCosts.length > 0 ? Math.min(...materialsCosts) : 0,
+          materialMarkup: process.pricing.materialMarkup || 1.0,
+          complexityMultiplier: 1.0
+        };
+      } else {
+        // Single variant or universal
+        costData = {
+          totalCost: totalCosts[0] || 0,
+          laborCost: process.pricing.laborCost || 0,
+          materialsCost: materialsCosts[0] || 0,
+          materialMarkup: process.pricing.materialMarkup || 1.0,
+          complexityMultiplier: 1.0
+        };
+      }
+    } else {
+      // Legacy pricing structure: totalCost is a number
+      costData = {
+        totalCost: process.pricing.totalCost || 0,
+        laborCost: process.pricing.laborCost || 0,
+        materialsCost: process.pricing.materialsCost || 0,
+        materialMarkup: process.pricing.materialMarkup || 1.0,
+        complexityMultiplier: 1.0
+      };
+    }
+  }
+  // Fallback to old metalPrices structure  
+  else if (process.metalPrices && Object.keys(process.metalPrices).length > 0) {
+    // Multi-variant process with stored pricing - show price range
+    isMultiVariant = true;
+    const prices = Object.values(process.metalPrices).map(p => p.totalCost);
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    
+    priceRange = { min: minPrice, max: maxPrice };
+    costData = {
+      totalCost: minPrice, // Use minimum for fallback display
+      laborCost: Object.values(process.metalPrices)[0]?.laborCost || 0,
+      materialsCost: Object.values(process.metalPrices)[0]?.materialsCost || 0,
+      materialMarkup: Object.values(process.metalPrices)[0]?.materialMarkup || 1.0,
+      complexityMultiplier: process.metalComplexityMultiplier || 1.0
+    };
+  }
+  // Fallback to calculated costs
+  else if (costBreakdown) {
+    if (costBreakdown.isMetalDependent && costBreakdown.metalPrices) {
+      // Multi-variant process - show price range
+      isMultiVariant = true;
+      const prices = Object.values(costBreakdown.metalPrices).map(p => p.totalCost);
+      const minPrice = Math.min(...prices);
+      const maxPrice = Math.max(...prices);
+      priceRange = { min: minPrice, max: maxPrice };
+      
+      costData = {
+        totalCost: minPrice, // Use minimum for fallback display
+        laborCost: costBreakdown.metalPrices[Object.keys(costBreakdown.metalPrices)[0]]?.laborCost || 0,
+        materialsCost: costBreakdown.metalPrices[Object.keys(costBreakdown.metalPrices)[0]]?.materialsCost || 0,
+        materialMarkup: costBreakdown.metalPrices[Object.keys(costBreakdown.metalPrices)[0]]?.materialMarkup || 1.0,
+        complexityMultiplier: 1.0
+      };
+    } else if (costBreakdown.universal) {
+      // Universal pricing process
+      costData = {
+        totalCost: costBreakdown.universal.totalCost,
+        laborCost: costBreakdown.universal.laborCost,
+        materialsCost: costBreakdown.universal.materialsCost,
+        materialMarkup: costBreakdown.universal.materialMarkup || 1.0,
+        complexityMultiplier: 1.0
+      };
+    }
+  }
   
   // Get skill level color
   const getSkillColor = (skillLevel) => {
     switch (skillLevel) {
-      case 'basic': return 'default';
-      case 'standard': return 'primary';
-      case 'advanced': return 'warning';
-      case 'expert': return 'error';
+      case SKILL_LEVEL.BASIC: return 'default';
+      case SKILL_LEVEL.STANDARD: return 'primary';
+      case SKILL_LEVEL.ADVANCED: return 'warning';
+      case SKILL_LEVEL.EXPERT: return 'error';
       default: return 'primary';
     }
   };
@@ -106,24 +212,47 @@ export const ProcessCard = ({
           <Box display="flex" alignItems="center" gap={0.5}>
             <MoneyIcon fontSize="small" color="success" />
             <Typography variant="body2" color="success.main" fontWeight="bold">
-              {formatPrice(costBreakdown.totalCost)}
+              {isMultiVariant && priceRange ? 
+                `${formatPrice(priceRange.min)} - ${formatPrice(priceRange.max)}` :
+                formatPrice(costData?.totalCost || 0)
+              }
             </Typography>
+            {isMultiVariant && (
+              <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+                (varies by metal)
+              </Typography>
+            )}
           </Box>
         </Box>
 
         {/* Metal Information and Cost Breakdown */}
-        {process.metalType && (
+        {(process.metalType || isMultiVariant) && (
           <Box mb={2}>
-            <Typography variant="caption" color="text.secondary" display="block">
-              Metal: {formatMetalTypeDisplay(process.metalType)}
-              {process.karat && ` (${getKaratLabel(process.karat, process.metalType)})`} 
-              - Complexity: {process.metalComplexityMultiplier || 1.0}x
-            </Typography>
-            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-              Labor: {formatPrice(costBreakdown.laborCost)} + Materials: {formatPrice(costBreakdown.materialsCost)}
-              {costBreakdown.materialMarkup !== 1.0 && ` (${((costBreakdown.materialMarkup - 1) * 100).toFixed(0)}% markup)`}
-              {costBreakdown.complexityMultiplier !== 1.0 && ` × ${costBreakdown.complexityMultiplier}`}
-            </Typography>
+            {process.metalType ? (
+              <Typography variant="caption" color="text.secondary" display="block">
+                Metal: {formatMetalTypeDisplay(process.metalType)}
+                {process.karat && ` (${getKaratLabel(process.karat, process.metalType)})`} 
+                - Complexity: {process.metalComplexityMultiplier || 1.0}x
+              </Typography>
+            ) : isMultiVariant ? (
+              <Typography variant="caption" color="text.secondary" display="block">
+                Universal Process - Price varies by metal type and karat
+              </Typography>
+            ) : null}
+            
+            {!isMultiVariant && (
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                Labor: {formatPrice(costData.laborCost)} + Materials: {formatPrice(costData.materialsCost)}
+                {costData.materialMarkup !== 1.0 && ` (${((costData.materialMarkup - 1) * 100).toFixed(0)}% markup)`}
+                {costData.complexityMultiplier !== 1.0 && ` × ${costData.complexityMultiplier}`}
+              </Typography>
+            )}
+            
+            {isMultiVariant && (
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                Base: {formatPrice(costData.laborCost)} labor + materials (adjusted per metal type)
+              </Typography>
+            )}
           </Box>
         )}
 
@@ -134,15 +263,22 @@ export const ProcessCard = ({
           </Typography>
           {process.materials && process.materials.length > 0 ? (
             <Box display="flex" gap={0.5} flexWrap="wrap">
-              {process.materials.slice(0, 3).map((material, index) => (
-                <Chip
-                  key={index}
-                  label={`${material.materialName}: ${material.quantity} ${material.unit}${material.quantity !== 1 ? 's' : ''}`}
-                  size="small"
-                  variant="outlined"
-                  color="primary"
-                />
-              ))}
+              {process.materials.slice(0, 3).map((material, index) => {
+                // Handle both old and new material structure
+                const materialName = material.materialName || material.name || 'Unknown Material';
+                const quantity = material.quantity || 0;
+                const unit = material.unit || 'unit';
+                
+                return (
+                  <Chip
+                    key={index}
+                    label={`${materialName}: ${quantity} ${unit}${quantity !== 1 ? 's' : ''}`}
+                    size="small"
+                    variant="outlined"
+                    color="primary"
+                  />
+                );
+              })}
               {process.materials.length > 3 && (
                 <Chip
                   label={`+${process.materials.length - 3} more`}

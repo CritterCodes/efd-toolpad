@@ -153,8 +153,8 @@ export function EnhancedProcessesHeader({
           </Select>
         </FormControl>
 
-        {/* Skill Level Filter */}
-        {uniqueSkillLevels.length > 0 && (
+                {/* Skill Level Filter */}
+        {uniqueSkillLevels?.length > 0 && (
           <FormControl size="small" sx={{ minWidth: 140 }}>
             <InputLabel>Skill Level</InputLabel>
             <Select
@@ -163,9 +163,9 @@ export function EnhancedProcessesHeader({
               onChange={(e) => setSkillLevelFilter(e.target.value)}
             >
               <MenuItem value="all">All Levels</MenuItem>
-              {SKILL_LEVELS.map(level => (
-                <MenuItem key={level.value} value={level.value}>
-                  {level.label}
+              {uniqueSkillLevels.map(level => (
+                <MenuItem key={level} value={level}>
+                  {level}
                 </MenuItem>
               ))}
             </Select>
@@ -173,7 +173,7 @@ export function EnhancedProcessesHeader({
         )}
 
         {/* Metal Type Filter */}
-        {uniqueMetalTypes.length > 0 && (
+        {uniqueMetalTypes?.length > 0 && (
           <FormControl size="small" sx={{ minWidth: 150 }}>
             <InputLabel>Metal Type</InputLabel>
             <Select
@@ -192,7 +192,7 @@ export function EnhancedProcessesHeader({
         )}
 
         {/* Karat Filter */}
-        {uniqueKarats.length > 0 && (
+        {uniqueKarats?.length > 0 && (
           <FormControl size="small" sx={{ minWidth: 120 }}>
             <InputLabel>Karat</InputLabel>
             <Select

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
-import { auth } from '../../../../../../auth.js';
-import { db } from '@/lib/database';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../../../../../../auth';
+import { connectToDatabase } from '@/lib/database';
+import pricingEngine from '@/services/PricingEngine';
 
 /**
  * POST /api/admin/settings/pricing-impact
@@ -8,7 +10,7 @@ import { db } from '@/lib/database';
  */
 export async function POST(request) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     
     if (!session || !session.user?.email?.includes('@')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -21,7 +23,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Pricing data required' }, { status: 400 });
     }
 
-    await db.connect();
+    const { db } = await connectToDatabase();
     
     // Get current settings for comparison
     const currentSettings = await db.collection('adminSettings').findOne({ 
@@ -56,16 +58,28 @@ export async function POST(request) {
     for (const task of repairTasks) {
       const currentPrice = task.basePrice || 0;
       
-      // Calculate new price with proposed settings
-      const laborCost = task.laborHours * pricing.wage;
-      const materialMarkup = task.materialCost * 1.5;
-      const subtotal = laborCost + materialMarkup;
+      // Use PricingEngine for accurate impact analysis
+      console.warn('⚠️ DEPRECATED: Inline pricing calculation - Using PricingEngine');
       
-      const businessMultiplier = pricing.administrativeFee + 
-                               pricing.businessFee + 
-                               pricing.consumablesFee + 1;
+      const taskData = {
+        processes: task.processes || [],
+        materials: task.materials || [],
+        laborHours: task.laborHours || 0,
+        materialCost: task.materialCost || 0
+      };
       
-      const newPrice = Math.round(subtotal * businessMultiplier * 100) / 100;
+      const proposedSettings = {
+        pricing: {
+          wage: pricing.wage,
+          materialMarkup: pricing.materialMarkup || 2.0,
+          administrativeFee: pricing.administrativeFee,
+          businessFee: pricing.businessFee,
+          consumablesFee: pricing.consumablesFee
+        }
+      };
+      
+      const pricingResult = pricingEngine.calculateTaskCost(taskData, proposedSettings);
+      const newPrice = pricingResult.retailPrice;
       const change = newPrice - currentPrice;
       const percentChange = currentPrice > 0 ? (change / currentPrice * 100) : 0;
 

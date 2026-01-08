@@ -1,6 +1,10 @@
 import { ProcessModel } from './model.js';
 import { generateProcessSku } from '@/utils/skuGenerator';
 import { db } from '@/lib/database';
+import { prepareProcessForSaving } from '@/utils/processes.util';
+import pricingEngine from '@/services/PricingEngine';
+import MaterialModel from '@/app/api/materials/model.js';
+import { VALID_SKILL_LEVELS } from '@/constants/pricing.constants.mjs';
 
 /**
  * Process Business Logic Service
@@ -70,27 +74,22 @@ export class ProcessService {
       // Get admin settings for pricing
       const adminSettings = await this.getAdminSettings();
       
+      // Get all available materials for multi-variant pricing calculation
+      const availableMaterials = await MaterialModel.getMaterials();
+      
       // Generate SKU
       const sku = generateProcessSku(processData.category, processData.skillLevel);
       
-      // Calculate pricing
-      const pricing = this.calculateProcessPricing(processData, adminSettings);
+      // Use proper multi-variant pricing calculation
+      const processDataWithSku = { ...processData, sku };
+      const processForSaving = prepareProcessForSaving(processDataWithSku, adminSettings, availableMaterials);
       
       // Prepare process data
       const newProcessData = {
-        sku,
-        displayName: processData.displayName.trim(),
-        category: processData.category.toLowerCase(),
-        laborHours: parseFloat(processData.laborHours) || 0,
-        skillLevel: processData.skillLevel || 'standard',
-        metalType: processData.metalType || '',
-        karat: processData.karat || '',
-        metalComplexityMultiplier: parseFloat(processData.metalComplexityMultiplier) || 1.0,
-        description: processData.description || '',
-        materials: processData.materials || [],
-        pricing,
-        isActive: true,
-        createdBy: userEmail
+        ...processForSaving,
+        createdBy: userEmail,
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
       
       const result = await ProcessModel.create(newProcessData);
@@ -130,22 +129,17 @@ export class ProcessService {
       // Get admin settings for pricing
       const adminSettings = await this.getAdminSettings();
       
-      // Calculate updated pricing
-      const pricing = this.calculateProcessPricing(processData, adminSettings);
+      // Get all available materials for multi-variant pricing calculation
+      const availableMaterials = await MaterialModel.getMaterials();
+      
+      // Use proper multi-variant pricing calculation
+      const processForSaving = prepareProcessForSaving(processData, adminSettings, availableMaterials);
       
       // Prepare update data
       const updateData = {
-        displayName: processData.displayName.trim(),
-        category: processData.category.toLowerCase(),
-        laborHours: parseFloat(processData.laborHours) || 0,
-        skillLevel: processData.skillLevel || 'standard',
-        metalType: processData.metalType || '',
-        karat: processData.karat || '',
-        metalComplexityMultiplier: parseFloat(processData.metalComplexityMultiplier) || 1.0,
-        description: processData.description || '',
-        materials: processData.materials || [],
-        pricing,
-        updatedBy: userEmail
+        ...processForSaving,
+        updatedBy: userEmail,
+        updatedAt: new Date()
       };
       
       const result = await ProcessModel.updateById(id, updateData);
@@ -218,42 +212,23 @@ export class ProcessService {
       throw new Error('Labor hours must be between 0 and 8');
     }
     
-    const validSkillLevels = ['basic', 'standard', 'advanced', 'expert'];
-    if (data.skillLevel && !validSkillLevels.includes(data.skillLevel)) {
+    // Use constants from pricing.constants to avoid duplication and enable strong type checking
+    if (data.skillLevel && !VALID_SKILL_LEVELS.includes(data.skillLevel)) {
       throw new Error('Invalid skill level');
     }
   }
 
   /**
    * Calculate process pricing
+   * 
+   * @deprecated This method is deprecated. Use PricingEngine.calculateProcessCost() instead.
+   * This method now calls PricingEngine internally for backward compatibility.
    */
   static calculateProcessPricing(processData, adminSettings) {
-    const laborHours = parseFloat(processData.laborHours) || 0;
-    const baseWage = adminSettings.pricing?.wage || 30;
-    const skillMultipliers = { basic: 0.75, standard: 1.0, advanced: 1.25, expert: 1.5 };
-    const hourlyRate = baseWage * (skillMultipliers[processData.skillLevel] || 1.0);
-    const laborCost = laborHours * hourlyRate;
-
-    // Calculate materials cost
-    const materialMarkup = adminSettings.pricing?.materialMarkup || 1.3;
-    const baseMaterialsCost = (processData.materials || []).reduce((total, material) => {
-      return total + (material.estimatedCost || 0);
-    }, 0);
-    const materialsCost = baseMaterialsCost * materialMarkup;
-
-    // Apply metal complexity multiplier
-    const multiplier = parseFloat(processData.metalComplexityMultiplier) || 1.0;
-    const totalCost = (laborCost + materialsCost) * multiplier;
-
-    return {
-      laborCost: Math.round(laborCost * 100) / 100,
-      baseMaterialsCost: Math.round(baseMaterialsCost * 100) / 100,
-      materialsCost: Math.round(materialsCost * 100) / 100,
-      materialMarkup: materialMarkup,
-      totalCost: Math.round(totalCost * 100) / 100,
-      hourlyRate: hourlyRate,
-      calculatedAt: new Date()
-    };
+    console.warn('⚠️ DEPRECATED: ProcessService.calculateProcessPricing() - Please migrate to PricingEngine.calculateProcessCost()');
+    
+    // Use PricingEngine for consistent calculations
+    return pricingEngine.calculateProcessCost(processData, adminSettings);
   }
 
   /**

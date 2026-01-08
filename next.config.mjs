@@ -1,5 +1,113 @@
+import withPWA from 'next-pwa';
+
+// PWA is enabled only when ENABLE_PWA=true environment variable is set
+const isPWAEnabled = process.env.ENABLE_PWA === 'true';
+
 /** @type {import('next').NextConfig} */
-const nextConfig = {
+const nextConfig = withPWA({
+    dest: 'public',
+    register: isPWAEnabled,
+    skipWaiting: isPWAEnabled,
+    disable: !isPWAEnabled, // Only enable if ENABLE_PWA=true
+    fallbacks: isPWAEnabled ? {
+        document: '/offline'
+    } : undefined,
+    runtimeCaching: isPWAEnabled ? [
+        {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+                cacheName: 'google-fonts-cache',
+                expiration: {
+                    maxEntries: 10,
+                    maxAgeSeconds: 60 * 60 * 24 * 365 // <== 365 days
+                },
+                cacheKeyWillBeUsed: async ({ request }) => {
+                    return `${request.url}?${Date.now()}`;
+                }
+            }
+        },
+        {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+                cacheName: 'gstatic-fonts-cache',
+                expiration: {
+                    maxEntries: 10,
+                    maxAgeSeconds: 60 * 60 * 24 * 365
+                }
+            }
+        },
+        {
+            urlPattern: /\.(?:eot|otf|ttc|ttf|woff|woff2|font.css)$/i,
+            handler: 'StaleWhileRevalidate',
+            options: {
+                cacheName: 'static-font-assets',
+                expiration: {
+                    maxEntries: 4,
+                    maxAgeSeconds: 60 * 60 * 24 * 7 // 7 days
+                }
+            }
+        },
+        {
+            urlPattern: /\.(?:jpg|jpeg|gif|png|svg|ico|webp)$/i,
+            handler: 'StaleWhileRevalidate',
+            options: {
+                cacheName: 'static-image-assets',
+                expiration: {
+                    maxEntries: 64,
+                    maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+                }
+            }
+        },
+        {
+            urlPattern: /\/_next\/image\?url=.+$/i,
+            handler: 'StaleWhileRevalidate',
+            options: {
+                cacheName: 'nextjs-image-cache',
+                expiration: {
+                    maxEntries: 64,
+                    maxAgeSeconds: 60 * 60 * 24 * 30
+                }
+            }
+        },
+        {
+            urlPattern: /\.(?:js)$/i,
+            handler: 'StaleWhileRevalidate',
+            options: {
+                cacheName: 'static-js-assets',
+                expiration: {
+                    maxEntries: 48,
+                    maxAgeSeconds: 60 * 60 * 24 * 30
+                }
+            }
+        },
+        {
+            urlPattern: /\.(?:css|less)$/i,
+            handler: 'StaleWhileRevalidate',
+            options: {
+                cacheName: 'static-style-assets',
+                expiration: {
+                    maxEntries: 32,
+                    maxAgeSeconds: 60 * 60 * 24 * 30
+                }
+            }
+        },
+        {
+            urlPattern: /^\/api\/.*$/i,
+            handler: 'NetworkFirst',
+            method: 'GET',
+            options: {
+                cacheName: 'apis',
+                expiration: {
+                    maxEntries: 16,
+                    maxAgeSeconds: 60 * 60 * 24 // 24 hours
+                },
+                networkTimeoutSeconds: 10 // fall back to cache if api does not response within 10 seconds
+            }
+        }
+    ] : []
+})({
     images: {
         remotePatterns: [
             {
@@ -48,6 +156,6 @@ const nextConfig = {
         
         return config;
     }
-};
+});
 
 export default nextConfig;

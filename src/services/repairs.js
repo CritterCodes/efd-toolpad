@@ -12,10 +12,8 @@ class RepairsService {
     static getRepairs = async () => {
         try {
             const response = await axiosInstance.get('/repairs');
-            console.log("🔧 Repairs fetched:", response.data);
             return response.data;
         } catch (error) {
-            console.error("❌ Error fetching repairs:", error);
             throw error;
         }
     }
@@ -30,7 +28,6 @@ class RepairsService {
             const response = await axiosInstance.get(`/repairs?repairID=${repairID}`);
             return response.data;
         } catch (error) {
-            console.error("❌ Error fetching repair by ID:", error);
             throw error;
         }
     }
@@ -80,7 +77,6 @@ class RepairsService {
             const response = await axiosInstance.post('/repairs', dataToSend, requestConfig);
             return response.data;
         } catch (error) {
-            console.error("❌ Error creating repair:", error);
             throw error;
         }
     }
@@ -96,7 +92,6 @@ class RepairsService {
             const response = await axiosInstance.put(`/repairs?repairID=${repairID}`, repairData);
             return response.data;
         } catch (error) {
-            console.error("❌ Error updating repair:", error);
             throw error;
         }
     }
@@ -111,7 +106,6 @@ class RepairsService {
             const response = await axiosInstance.delete(`/repairs?repairID=${repairID}`);
             return response.data;
         } catch (error) {
-            console.error("❌ Error deleting repair:", error);
             throw error;
         }
     }
@@ -135,16 +129,12 @@ class RepairsService {
                 return acc;
             }, []);
 
-            console.log("📦 Sending combined parts:", combinedParts);
-
             for (const part of combinedParts) {
                 const response = await axiosInstance.post(`/repairs/parts`, { repairID, part });
-                console.log(`✅ Part added successfully:`, part);
             }
 
             return { message: "All parts added successfully" };
         } catch (error) {
-            console.error("❌ Error adding part to repair:", error);
             throw error;
         }
     };
@@ -161,7 +151,6 @@ class RepairsService {
             const response = await axiosInstance.put('/repairs/move', { repairIDs, status });
             return response.data;
         } catch (error) {
-            console.error("❌ Error moving repair status:", error);
             throw error;
         }
     }
@@ -176,10 +165,8 @@ class RepairsService {
             const response = await axiosInstance.post('/repairs/quality-control', qcData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            console.log("✅ QC Update Successful:", response.data);
             return response.data;
         } catch (error) {
-            console.error("❌ Error during Quality Control update:", error);
             throw error;
         }
     }

@@ -1,0 +1,196 @@
+openapi: 3.0.3
+info:
+  title: Admin Repair Costing Demo API
+  version: 0.1.0
+  description: >
+    Contract-only description for demo workflows. No changes to existing code flows.
+servers:
+  - url: https://example.local/api
+paths:
+  /estimates:
+    post:
+      summary: Create draft estimate
+      description: Create a new draft Estimate for admin demo.
+      x-user-story: US1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                discount:
+                  type: object
+                depositApplied:
+                  type: number
+              additionalProperties: false
+            examples:
+              basic:
+                value:
+                  discount: { type: percentage, value: 0 }
+                  depositApplied: 0
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Estimate'
+  /estimates/{estimateId}/line-items:
+    post:
+      summary: Add line item
+      x-user-story: US1
+      parameters:
+        - name: estimateId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                defaults:
+                  type: object
+              required: [name]
+            examples:
+              resize:
+                value:
+                  name: Ring Resize
+                  defaults:
+                    materialMarkupRate: 0.35
+                    laborMarkupRate: 0.5
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LineItem'
+  /line-items/{lineItemId}/processes:
+    post:
+      summary: Add process
+      x-user-story: US1
+      parameters:
+        - name: lineItemId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                overrides:
+                  type: object
+              required: [name]
+            examples:
+              solder-bar:
+                value:
+                  name: Solder new bar
+                  overrides:
+                    laborMarkupRate: 0.6
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Process'
+  /processes/{processId}/steps:
+    post:
+      summary: Add step
+      x-user-story: US1
+      parameters:
+        - name: processId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                inputs:
+                  type: object
+                  properties:
+                    materialsCost: { type: number }
+                    laborHours: { type: number }
+                    laborBaseRate: { type: number }
+                    otherDirectCosts: { type: number }
+                    materialMarkupRate: { type: number }
+                    laborMarkupRate: { type: number }
+                    taxabilityFlags: { type: object }
+                  required: [materialsCost, laborHours, laborBaseRate, materialMarkupRate, laborMarkupRate]
+              required: [name, inputs]
+            examples:
+              step-basic:
+                value:
+                  name: Fit bar and solder
+                  inputs:
+                    materialsCost: 75
+                    laborHours: 1.5
+                    laborBaseRate: 80
+                    otherDirectCosts: 10
+                    materialMarkupRate: 0.35
+                    laborMarkupRate: 0.5
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Step'
+  /estimates/{estimateId}/recalculate:
+    post:
+      summary: Recalculate totals
+      description: Recompute totals using component-specific markups and hybrid tax policy.
+      x-user-story: US3
+      parameters:
+        - name: estimateId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totals:
+                    type: object
+                    properties:
+                      subtotal: { type: number }
+                      discountAmount: { type: number }
+                      taxableBase: { type: number }
+                      taxAmount: { type: number }
+                      total: { type: number }
+                      amountDue: { type: number }
+components:
+  schemas:
+    Estimate:
+      type: object
+    LineItem:
+      type: object
+    Process:
+      type: object
+    Step:
+      type: object

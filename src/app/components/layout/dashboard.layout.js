@@ -20,6 +20,11 @@ const NAVIGATION = [
     title: 'Login',
     icon: <LoginIcon />,
   },
+  // Demo link appended for testing (non-production)
+  {
+    segment: 'admin/demo/repair-costing',
+    title: 'Repair Costing (Demo)',
+  },
 ];
 
 const demoTheme = createTheme({

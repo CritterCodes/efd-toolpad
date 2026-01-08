@@ -14,12 +14,12 @@ import {
 import { 
     Store as StoreIcon,
     Extension as IntegrationIcon,
-    Code as DevIcon
+    PhoneIphone as PWAIcon
 } from '@mui/icons-material';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import StoreSettingsTab from '@/components/admin/StoreSettingsTab';
 import IntegrationsTab from '@/components/admin/IntegrationsTab';
-import DevTab from '@/components/admin/DevTab';
+import PWASettingsTab from '@/components/admin/PWASettingsTab';
 
 function TabPanel({ children, value, index, ...other }) {
     return (
@@ -82,7 +82,7 @@ export default function AdminSettingsPage() {
                         >
                             <Tab 
                                 icon={<StoreIcon />} 
-                                label="Pricing & Business" 
+                                label="Store Settings" 
                                 id="admin-tab-0"
                                 aria-controls="admin-tabpanel-0"
                             />
@@ -93,8 +93,8 @@ export default function AdminSettingsPage() {
                                 aria-controls="admin-tabpanel-1"
                             />
                             <Tab 
-                                icon={<DevIcon />} 
-                                label="Dev Tools" 
+                                icon={<PWAIcon />} 
+                                label="PWA / App Install" 
                                 id="admin-tab-2"
                                 aria-controls="admin-tabpanel-2"
                             />
@@ -110,7 +110,7 @@ export default function AdminSettingsPage() {
                     </TabPanel>
                     
                     <TabPanel value={tabValue} index={2}>
-                        <DevTab />
+                        <PWASettingsTab />
                     </TabPanel>
                 </Box>
             </Container>

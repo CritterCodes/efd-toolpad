@@ -29,44 +29,43 @@ export default class MaterialService {
      */
     static createMaterial = async (materialData, createdBy = 'system') => {
         try {
-            // Create new Material instance with validation
-            const newMaterial = new Material(
-                materialData.displayName,
-                materialData.category,
-                materialData.unitCost,
-                materialData.unitType,
-                materialData.compatibleMetals,
-                materialData.supplier,
-                materialData.description,
-                materialData.stuller_item_number,
-                materialData.auto_update_pricing,
-                createdBy
-            );
-            
-            // Set additional material properties if provided
-            if (materialData.karat) newMaterial.karat = materialData.karat;
-            if (materialData.portionsPerUnit) newMaterial.portionsPerUnit = materialData.portionsPerUnit;
-            if (materialData.portionType) newMaterial.portionType = materialData.portionType;
+            // Create material with multi-variant structure (only format we support)
+            const materialDoc = {
+                name: materialData.name,
+                displayName: materialData.displayName,
+                category: materialData.category,
+                description: materialData.description,
+                unitType: materialData.unitType,
+                supplier: materialData.supplier,
+                isActive: materialData.isActive !== false,
+                isMetalDependent: materialData.hasOwnProperty('isMetalDependent') ? Boolean(materialData.isMetalDependent) : true,
+                portionsPerUnit: materialData.portionsPerUnit || 1,
+                portionType: materialData.portionType || '',
+                
+                // Multi-variant structure
+                stullerProducts: materialData.stullerProducts || [],
+                
+                // Metadata
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                createdBy: createdBy
+            };
 
-            // Calculate pricing with admin settings
-            const adminSettings = await this.getAdminSettings();
-            newMaterial.calculatePricing(adminSettings);
-
-            // Validate the material
-            const validationErrors = newMaterial.validate();
-            if (validationErrors.length > 0) {
-                throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
+            // Validate required fields
+            if (!materialDoc.name || !materialDoc.displayName || !materialDoc.category) {
+                throw new Error('Missing required fields: name, displayName, or category');
             }
 
             // Check for duplicate names
-            const exists = await MaterialModel.materialExists(newMaterial.name);
+            const exists = await MaterialModel.materialExists(materialDoc.name);
             if (exists) {
                 throw new Error('A material with this name already exists');
             }
 
-            // Create the material
-            const createdMaterial = await MaterialModel.createMaterial(newMaterial.toObject());
+            // Create the material directly in database
+            const createdMaterial = await MaterialModel.createMaterial(materialDoc);
             return createdMaterial;
+            
         } catch (error) {
             console.error("Error in MaterialService.createMaterial:", error);
             throw new Error(`Failed to create material: ${error.message}`);
@@ -135,13 +134,15 @@ export default class MaterialService {
                 existingMaterial.createdBy
             );
             
-            // Set existing additional properties
+            // Set existing additional properties (including multi-variant fields)
             materialInstance.karat = existingMaterial.karat || '';
             materialInstance.portionsPerUnit = existingMaterial.portionsPerUnit || 1;
             materialInstance.portionType = existingMaterial.portionType || '';
             materialInstance.pricing = existingMaterial.pricing || null;
+            materialInstance.stullerProducts = existingMaterial.stullerProducts || [];
+            materialInstance.isMetalDependent = existingMaterial.hasOwnProperty('isMetalDependent') ? existingMaterial.isMetalDependent : true;
 
-            // Update with new data
+            // Update with new data (this will handle isMetalDependent in the update method)
             materialInstance.update(updateData);
             
             // Recalculate pricing if cost-related fields changed

@@ -3,6 +3,9 @@
  * Constants, formatters, and helper functions for task management
  */
 
+// Import skill level constants for consistency
+import { SKILL_LEVEL } from '@/constants/pricing.constants.mjs';
+
 // Task Categories
 export const TASK_CATEGORIES = [
   'sizing',
@@ -42,12 +45,12 @@ export const TASK_METAL_TYPES = [
   { value: 'n_a', label: 'Not Applicable' }
 ];
 
-// Skill Levels
+// Skill Levels - Uses constants from pricing.constants.mjs for consistency
 export const TASK_SKILL_LEVELS = [
-  { value: 'basic', label: 'Basic' },
-  { value: 'standard', label: 'Standard' },
-  { value: 'advanced', label: 'Advanced' },
-  { value: 'expert', label: 'Expert' }
+  { value: SKILL_LEVEL.BASIC, label: 'Basic' },
+  { value: SKILL_LEVEL.STANDARD, label: 'Standard' },
+  { value: SKILL_LEVEL.ADVANCED, label: 'Advanced' },
+  { value: SKILL_LEVEL.EXPERT, label: 'Expert' }
 ];
 
 // Sort Options
@@ -66,7 +69,7 @@ export const DEFAULT_TASK_FORM = {
   description: '',
   category: '',
   metalType: '',
-  skillLevel: 'standard',
+  skillLevel: SKILL_LEVEL.STANDARD,
   price: 0,
   laborHours: 0,
   sku: '',
@@ -154,10 +157,10 @@ export const getCategoryColor = (category) => {
  */
 export const getSkillLevelColor = (skillLevel) => {
   const colorMap = {
-    'basic': 'success',
-    'standard': 'primary',
-    'advanced': 'warning',
-    'expert': 'error'
+    [SKILL_LEVEL.BASIC]: 'success',
+    [SKILL_LEVEL.STANDARD]: 'primary',
+    [SKILL_LEVEL.ADVANCED]: 'warning',
+    [SKILL_LEVEL.EXPERT]: 'error'
   };
   
   return colorMap[skillLevel] || 'primary';
@@ -221,7 +224,7 @@ export const transformTaskForForm = (task) => {
     description: task.description || '',
     category: task.category || '',
     metalType: task.metalType || '',
-    skillLevel: task.skillLevel || 'standard',
+    skillLevel: task.skillLevel || SKILL_LEVEL.STANDARD,
     price: task.price || 0,
     laborHours: task.laborHours || 0,
     sku: task.sku || '',

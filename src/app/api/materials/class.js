@@ -42,6 +42,10 @@ export default class Material {
         this.portionType = '';
         this.costPerPortion = 0;
         
+        // Multi-variant system fields
+        this.stullerProducts = []; // Array of Stuller product variants
+        // Note: isMetalDependent will be set by the service layer - don't default here
+        
         // Initialize pricing structure - will be calculated later
         this.pricing = null;
     }
@@ -119,9 +123,19 @@ export default class Material {
             errors.push('Unit cost must be between 0 and $10,000');
         }
         
-        // Compatible metals is only required for non-Stuller materials
-        if (!this.stuller_item_number && (!this.compatibleMetals || this.compatibleMetals.length === 0)) {
-            errors.push('At least one compatible metal must be specified for manual materials');
+        // Metal compatibility validation - updated for multi-variant structure
+        // Materials should either:
+        // 1. Have stullerProducts (any material can have Stuller products for ordering)
+        // 2. Be marked as non-metal dependent (universal materials) with standard pricing
+        // 3. Have compatibleMetals (legacy manual materials)
+        const hasStullerProducts = this.stullerProducts && this.stullerProducts.length > 0;
+        const isUniversal = this.isMetalDependent === false;
+        const hasCompatibleMetals = this.compatibleMetals && this.compatibleMetals.length > 0;
+        
+        // Universal materials are valid on their own (they work with any metal)
+        // Metal-dependent materials need either Stuller products or compatible metals
+        if (!isUniversal && !hasStullerProducts && !hasCompatibleMetals) {
+            errors.push('Metal-dependent materials must have either Stuller products or compatible metals specified');
         }
         
         return errors;
@@ -134,7 +148,9 @@ export default class Material {
         const allowedFields = [
             'displayName', 'category', 'unitCost', 'unitType', 'compatibleMetals',
             'supplier', 'description', 'isActive', 'stuller_item_number',
-            'auto_update_pricing', 'karat', 'portionsPerUnit', 'portionType', 'costPerPortion', 'pricing'
+            'auto_update_pricing', 'karat', 'portionsPerUnit', 'portionType', 'costPerPortion', 'pricing',
+            // New multi-variant fields
+            'stullerProducts', 'isMetalDependent'
         ];
         
         allowedFields.forEach(field => {
@@ -177,7 +193,10 @@ export default class Material {
             karat: this.karat,
             portionsPerUnit: this.portionsPerUnit,
             portionType: this.portionType,
-            costPerPortion: this.costPerPortion
+            costPerPortion: this.costPerPortion,
+            // Multi-variant system fields
+            stullerProducts: this.stullerProducts,
+            isMetalDependent: this.isMetalDependent
         };
         
         // Include pricing structure if it exists

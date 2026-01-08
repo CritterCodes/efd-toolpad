@@ -53,13 +53,19 @@ import processesService from '@/services/processes.service';
 import materialsService from '@/services/materials.service';
 import RepairsService from '@/services/repairs';
 import UsersService from '@/services/users';
+import pricingEngine from '@/services/PricingEngine';
 
 // Context
 import { useRepairs } from '@/app/context/repairs.context';
 
+// Utils
+import { getMetalSpecificPrice, supportsMetalType } from '@/utils/repair-pricing.util';
+
 // Metal configuration
 const METAL_TYPES = [
-  { value: 'gold', label: 'Gold', karatOptions: ['10k', '14k', '18k', '22k'] },
+  { value: 'yellow-gold', label: 'Yellow Gold', karatOptions: ['10k', '14k', '18k', '22k'] },
+  { value: 'white-gold', label: 'White Gold', karatOptions: ['10k', '14k', '18k'] },
+  { value: 'rose-gold', label: 'Rose Gold', karatOptions: ['10k', '14k', '18k'] },
   { value: 'silver', label: 'Silver', karatOptions: ['925', '999'] },
   { value: 'platinum', label: 'Platinum', karatOptions: ['950', '999'] },
   { value: 'palladium', label: 'Palladium', karatOptions: ['950', '999'] },
@@ -126,7 +132,7 @@ export default function NewRepairForm({
     customLineItems: [],
     
     // Pricing
-    isWholesale: isWholesale || false, // Set wholesale status from prop
+    isWholesale: false,
     includeDelivery: false,
     includeTax: true, // Tax enabled by default
     
@@ -189,7 +195,6 @@ export default function NewRepairForm({
           });
         }
       } catch (error) {
-        console.warn('Failed to load admin settings for display:', error);
         // Keep default values
       }
     };
@@ -210,13 +215,6 @@ export default function NewRepairForm({
       const clientName = clientInfo.name || `${clientInfo.firstName || ''} ${clientInfo.lastName || ''}`.trim();
       const isClientWholesale = clientInfo.role === 'wholesaler';
       
-      console.log('🔍 Client info detected:', { 
-        clientName, 
-        role: clientInfo.role, 
-        isWholesale: isClientWholesale,
-        clientInfo: clientInfo 
-      });
-      
       setFormData(prev => ({ 
         ...prev, 
         clientName,
@@ -225,7 +223,6 @@ export default function NewRepairForm({
       }));
 
       // Trigger price recalculation if wholesale status changed
-      console.log('💰 Client wholesale status detected:', isClientWholesale);
       // Use a timeout to avoid dependency loop
       setTimeout(() => {
         recalculateAllItemPrices(isClientWholesale);
@@ -237,51 +234,32 @@ export default function NewRepairForm({
   useEffect(() => {
     const loadData = async () => {
       try {
-        console.log('🔄 Loading repair form data...');
         
-        // For wholesalers, only load users (for admin mode we load everything)
-        if (isWholesale) {
-          console.log('👤 Wholesale mode: Loading only user data...');
-          const users = await UsersService.getAllUsers();
-          
-          console.log('👥 Users loaded:', users);
-          const usersData = users?.users || users?.data || users || [];
-          setAvailableUsers(usersData);
-          console.log('✅ Wholesale data loading completed');
-        } else {
-          console.log('🔧 Admin mode: Loading all data...');
-          const [tasks, processes, materials, users] = await Promise.all([
-            tasksService.getTasks(),
-            processesService.getProcesses(),
-            materialsService.getMaterials(),
-            UsersService.getAllUsers(),
-            // Temporarily disable rush jobs API call due to MongoDB import issues
-            // fetch('/api/rush-jobs?action=canCreate').then(res => res.json())
-          ]);
-          
-          console.log('📋 Tasks loaded:', tasks);
-          console.log('⚙️ Processes loaded:', processes);
-          console.log('📦 Materials loaded:', materials);
-          console.log('👥 Users loaded:', users);
-          
-          setAvailableTasks(tasks.data || tasks || []);
-          setAvailableProcesses(processes.data || processes || []);
-          setAvailableMaterials(materials.data || materials || []);
-          
-          const usersData = users?.users || users?.data || users || [];
-          setAvailableUsers(usersData);
-          console.log('✅ Admin data loading completed');
-        }
+        const [tasks, processes, materials, users] = await Promise.all([
+          tasksService.getTasks(),
+          processesService.getProcesses(),
+          materialsService.getMaterials(),
+          UsersService.getAllUsers(),
+          // Temporarily disable rush jobs API call due to MongoDB import issues
+          // fetch('/api/rush-jobs?action=canCreate').then(res => res.json())
+        ]);
         
-        // Rush job functionality (same for both modes)
+        
+        setAvailableTasks(tasks.data || tasks || []);
+        setAvailableProcesses(processes.data || processes || []);
+        setAvailableMaterials(materials.data || materials || []);
+        
+        // Fix: Handle users response format properly
+        const usersData = users?.users || users?.data || users || [];
+        setAvailableUsers(usersData);
+        
+        // Temporarily disable rush job functionality
         setRushJobInfo({
           canCreate: true,
           currentRushJobs: 0,
           maxRushJobs: 10
         });
       } catch (error) {
-        console.error('❌ Error loading data:', error);
-        console.error('Error details:', error.message, error.stack);
         setRushJobInfo({
           canCreate: true,
           currentRushJobs: 0,
@@ -291,7 +269,7 @@ export default function NewRepairForm({
     };
     
     loadData();
-  }, [isWholesale]); // Add isWholesale as dependency
+  }, []);
 
   // Auto-detect if item is a ring based on description
   useEffect(() => {
@@ -308,7 +286,6 @@ export default function NewRepairForm({
   useEffect(() => {
     // Only update if the prop actually changed, not the form state
     if (prevWholesaleProp.current !== isWholesale) {
-      console.log('💰 Wholesale status changed from prop:', prevWholesaleProp.current, '->', isWholesale);
       prevWholesaleProp.current = isWholesale;
       setFormData(prev => ({
         ...prev,
@@ -321,6 +298,27 @@ export default function NewRepairForm({
     }
   }, [isWholesale]); // Only depend on the prop, not the form state
 
+  // Recalculate prices when metal type or karat changes
+  const prevMetalType = useRef(formData.metalType);
+  const prevKarat = useRef(formData.karat);
+  useEffect(() => {
+    const metalTypeChanged = prevMetalType.current !== formData.metalType;
+    const karatChanged = prevKarat.current !== formData.karat;
+    
+    if ((metalTypeChanged || karatChanged) && formData.metalType && formData.karat) {
+      // Update refs
+      prevMetalType.current = formData.metalType;
+      prevKarat.current = formData.karat;
+      
+      // Recalculate prices for all existing items
+      if (formData.tasks.length > 0 || formData.processes.length > 0 || formData.materials.length > 0) {
+        setTimeout(() => {
+          recalculateItemPricesForMetal(formData.metalType, formData.karat);
+        }, 0);
+      }
+    }
+  }, [formData.metalType, formData.karat, formData.tasks.length, formData.processes.length, formData.materials.length]);
+
   // Get karat options based on selected metal
   const getKaratOptions = () => {
     const metalConfig = METAL_TYPES.find(m => m.value === formData.metalType);
@@ -329,7 +327,6 @@ export default function NewRepairForm({
 
   // Calculate total cost with admin settings
   const calculateTotalCost = useCallback(async () => {
-    console.log('🧮 CALCULATETOTALCOST START');
     const tasksCost = formData.tasks.reduce((sum, item) => 
       sum + (parseFloat(item.price || item.basePrice || 0) * (item.quantity || 1)), 0);
     const processesCost = formData.processes.reduce((sum, item) => 
@@ -340,15 +337,6 @@ export default function NewRepairForm({
       sum + (parseFloat(item.price || 0) * (item.quantity || 1)), 0);
     
     let subtotal = tasksCost + processesCost + materialsCost + customCost;
-    
-    console.log('📊 CALCULATETOTALCOST - Individual Costs:', {
-      tasksCost,
-      processesCost,
-      materialsCost,
-      customCost,
-      subtotal,
-      isWholesale: formData.isWholesale
-    });
     
     // Note: Individual item prices are already discounted by recalculateAllItemPrices()
     // for wholesale clients, so no additional discount needed here
@@ -379,7 +367,6 @@ export default function NewRepairForm({
         }
       }
     } catch (error) {
-      console.warn('Failed to fetch admin settings for pricing:', error);
       // Fallback to hardcoded values
       if (formData.isRush) {
         subtotal = subtotal * 1.5;
@@ -397,12 +384,19 @@ export default function NewRepairForm({
 
   // Add item handlers
   const addTask = (task) => {
+    // Get metal-specific price based on repair's metal type and karat
+    const price = getMetalSpecificPrice(task, formData.metalType, formData.karat, formData.isWholesale, adminSettings);
+    
     const newTask = {
       ...task,
       id: Date.now(),
       quantity: 1,
-      price: formData.isWholesale ? (task.basePrice || 0) * 0.5 : (task.basePrice || 0)
+      price: price,
+      metalType: formData.metalType,
+      karat: formData.karat,
+      isMetalSpecific: !!task.universalPricing
     };
+    
     setFormData(prev => ({
       ...prev,
       tasks: [...prev.tasks, newTask]
@@ -410,15 +404,19 @@ export default function NewRepairForm({
   };
 
   const addProcess = (process) => {
-    // Calculate wholesale price if applicable
-    const basePrice = process.pricing?.totalCost || process.price || 0;
+    // Get metal-specific price based on repair's metal type and karat
+    const price = getMetalSpecificPrice(process, formData.metalType, formData.karat, formData.isWholesale, adminSettings);
+    
     const newProcess = {
       ...process,
       id: Date.now(),
       quantity: 1,
-      // Apply wholesale discount if customer is wholesale
-      price: formData.isWholesale ? basePrice * 0.5 : basePrice
+      price: price,
+      metalType: formData.metalType,
+      karat: formData.karat,
+      isMetalSpecific: !!process.pricing?.totalCost && typeof process.pricing.totalCost === 'object'
     };
+    
     setFormData(prev => ({
       ...prev,
       processes: [...prev.processes, newProcess]
@@ -426,15 +424,19 @@ export default function NewRepairForm({
   };
 
   const addMaterial = (material) => {
-    // Calculate wholesale price if applicable
-    const basePrice = material.unitCost || material.costPerPortion || 0;
+    // Get metal-specific price based on repair's metal type and karat
+    const price = getMetalSpecificPrice(material, formData.metalType, formData.karat, formData.isWholesale, adminSettings);
+    
     const newMaterial = {
       ...material,
       id: Date.now(),
       quantity: 1,
-      // Apply wholesale discount if customer is wholesale
-      price: formData.isWholesale ? basePrice * 0.5 : basePrice
+      price: price,
+      metalType: formData.metalType,
+      karat: formData.karat,
+      isMetalSpecific: material.isMetalDependent || !!material.stullerProducts?.length
     };
+    
     setFormData(prev => ({
       ...prev,
       materials: [...prev.materials, newMaterial]
@@ -456,38 +458,64 @@ export default function NewRepairForm({
 
   // Recalculate all item prices when wholesale status changes
   const recalculateAllItemPrices = (isWholesale) => {
-    console.log('🔄 RECALCULATING ALL ITEM PRICES:', { isWholesale });
     
     setFormData(prev => ({
       ...prev,
       tasks: prev.tasks.map((task, index) => {
-        const originalPrice = task.basePrice || 0;
-        const newPrice = isWholesale ? originalPrice * 0.5 : originalPrice;
-        console.log(`📝 Task ${index}: ${task.title} - ${originalPrice} → ${newPrice}`);
+        const newPrice = getMetalSpecificPrice(task, prev.metalType, prev.karat, isWholesale, adminSettings);
         return {
           ...task,
           price: newPrice
         };
       }),
       processes: prev.processes.map((process, index) => {
-        const basePrice = process.pricing?.totalCost || process.basePrice || process.price || 0;
-        const newPrice = isWholesale ? basePrice * 0.5 : basePrice;
-        console.log(`🔧 Process ${index}: ${process.displayName} - ${basePrice} → ${newPrice}`);
+        const newPrice = getMetalSpecificPrice(process, prev.metalType, prev.karat, isWholesale, adminSettings);
         return {
           ...process,
           price: newPrice
         };
       }),
       materials: prev.materials.map((material, index) => {
-        const basePrice = material.unitCost || material.costPerPortion || material.basePrice || material.price || 0;
-        const newPrice = isWholesale ? basePrice * 0.5 : basePrice;
-        console.log(`🧱 Material ${index}: ${material.displayName} - ${basePrice} → ${newPrice}`);
+        const newPrice = getMetalSpecificPrice(material, prev.metalType, prev.karat, isWholesale, adminSettings);
         return {
           ...material,
           price: newPrice
         };
       })
-      // Removed isWholesale update to avoid conflicts - state should be managed separately
+    }));
+  };
+
+  // Recalculate all item prices when metal type or karat changes
+  const recalculateItemPricesForMetal = (metalType, karat) => {
+    setFormData(prev => ({
+      ...prev,
+      tasks: prev.tasks.map((task, index) => {
+        const newPrice = getMetalSpecificPrice(task, metalType, karat, prev.isWholesale, adminSettings);
+        return {
+          ...task,
+          price: newPrice,
+          metalType: metalType,
+          karat: karat
+        };
+      }),
+      processes: prev.processes.map((process, index) => {
+        const newPrice = getMetalSpecificPrice(process, metalType, karat, prev.isWholesale, adminSettings);
+        return {
+          ...process,
+          price: newPrice,
+          metalType: metalType,
+          karat: karat
+        };
+      }),
+      materials: prev.materials.map((material, index) => {
+        const newPrice = getMetalSpecificPrice(material, metalType, karat, prev.isWholesale, adminSettings);
+        return {
+          ...material,
+          price: newPrice,
+          metalType: metalType,
+          karat: karat
+        };
+      })
     }));
   };
 
@@ -526,9 +554,12 @@ export default function NewRepairForm({
         materialMarkup = adminSettings.pricing?.materialMarkup || 1.3;
       }
 
-      // Calculate marked up price
-      const basePrice = stullerData.data.price || 0;
-      const markedUpPrice = basePrice * materialMarkup;
+      // Use PricingEngine for consistent calculations
+      console.warn('⚠️ DEPRECATED: Inline pricing calculation - Using PricingEngine');
+      
+      const material = { estimatedCost: stullerData.data.price || 0 };
+      const materialCost = pricingEngine.calculateMaterialCost(material, 1, adminSettings);
+      const markedUpPrice = materialCost.markedUpCost;
 
       // Create material item for the repair
       const newMaterial = {
@@ -561,11 +592,8 @@ export default function NewRepairForm({
 
       // Clear the SKU input
       setStullerSku('');
-      
-      console.log('Added Stuller material:', newMaterial);
 
     } catch (error) {
-      console.error('Error adding Stuller material:', error);
       setStullerError(error.message);
     } finally {
       setLoadingStuller(false);
@@ -603,8 +631,7 @@ export default function NewRepairForm({
       if (!formData.description.trim()) {
         throw new Error('Description is required');
       }
-      // Promise date is only required for non-wholesale submissions (admin will set it for wholesalers)
-      if (!isWholesale && !formData.promiseDate) {
+      if (!formData.promiseDate) {
         throw new Error('Promise date is required');
       }
       
@@ -624,70 +651,37 @@ export default function NewRepairForm({
       }
 
       // Prepare submission data with detailed pricing breakdown
-      let totalCost = 0;
-      let subtotal = 0;
-      let tasksCost = 0;
-      let processesCost = 0;
-      let materialsCost = 0;
-      let customCost = 0;
+      const totalCost = await calculateTotalCost();
       
-      // For admin users, calculate detailed pricing
-      if (!isWholesale) {
-        totalCost = await calculateTotalCost();
-        
-        // Calculate pricing breakdown properly
-        tasksCost = formData.tasks.reduce((sum, item) => 
-          sum + (parseFloat(item.price || item.basePrice || 0) * (item.quantity || 1)), 0);
-        processesCost = formData.processes.reduce((sum, item) => 
-          sum + (parseFloat(item.price || item.pricing?.totalCost || 0) * (item.quantity || 1)), 0);
-        materialsCost = formData.materials.reduce((sum, item) => 
-          sum + (parseFloat(item.price || item.unitCost || item.costPerPortion || 0) * (item.quantity || 1)), 0);
-        customCost = formData.customLineItems.reduce((sum, item) => 
-          sum + (parseFloat(item.price || 0) * (item.quantity || 1)), 0);
-        
-        // Base subtotal (individual item prices are already wholesale-discounted if applicable)
-        subtotal = tasksCost + processesCost + materialsCost + customCost;
-      } else {
-        // For wholesalers, pricing will be determined by admin later
-        console.log('👤 Wholesaler submission: Pricing to be determined by admin');
-        totalCost = 0;
-        subtotal = 0;
-      }
+      // Calculate pricing breakdown properly
+      const tasksCost = formData.tasks.reduce((sum, item) => 
+        sum + (parseFloat(item.price || item.basePrice || 0) * (item.quantity || 1)), 0);
+      const processesCost = formData.processes.reduce((sum, item) => 
+        sum + (parseFloat(item.price || item.pricing?.totalCost || 0) * (item.quantity || 1)), 0);
+      const materialsCost = formData.materials.reduce((sum, item) => 
+        sum + (parseFloat(item.price || item.unitCost || item.costPerPortion || 0) * (item.quantity || 1)), 0);
+      const customCost = formData.customLineItems.reduce((sum, item) => 
+        sum + (parseFloat(item.price || 0) * (item.quantity || 1)), 0);
+      
+      // Base subtotal (individual item prices are already wholesale-discounted if applicable)
+      let subtotal = tasksCost + processesCost + materialsCost + customCost;
       
       // Note: No additional wholesale discount needed - individual prices are already adjusted
       
-      // Calculate fees (only for admin mode)
-      const rushFee = (!isWholesale && formData.isRush) ? 
+      // Calculate rush fee (applied to subtotal after wholesale discount)
+      const rushFee = formData.isRush ? 
         subtotal * ((adminSettings.rushMultiplier || 1.5) - 1) : 0;
       
       // Calculate delivery fee (flat rate, not subject to wholesale discount)
-      const deliveryFee = (!isWholesale && formData.includeDelivery) ? 
-        (adminSettings.deliveryFee || 25.00) : 0;
+      const deliveryFee = formData.includeDelivery ? (adminSettings.deliveryFee || 25.00) : 0;
       
       // Calculate tax amount (applied to subtotal + rushFee + deliveryFee, wholesale exempt)
       const taxableAmount = subtotal + rushFee + deliveryFee;
-      const taxAmount = (!isWholesale && formData.includeTax && !formData.isWholesale) ? 
+      const taxAmount = (formData.includeTax && !formData.isWholesale) ? 
         taxableAmount * (adminSettings.taxRate || 0.0875) : 0;
 
-      // Add comprehensive logging
-      console.log('🔍 PRICING BREAKDOWN DEBUG:');
-      console.log('📊 Base Costs (individual prices already wholesale-adjusted):', { tasksCost, processesCost, materialsCost, customCost, subtotal });
-      console.log('💰 Calculated Values:', { subtotal, rushFee, deliveryFee, taxAmount, totalCost });
-      console.log('⚙️ Settings:', { 
-        isWholesale: formData.isWholesale,
-        isRush: formData.isRush, 
-        includeDelivery: formData.includeDelivery,
-        includeTax: formData.includeTax,
-        taxRate: adminSettings.taxRate,
-        rushMultiplier: adminSettings.rushMultiplier 
-      });
-      
       const submissionData = {
         ...formData,
-        // For wholesalers, set a placeholder promise date if none provided (admin will update it)
-        promiseDate: isWholesale && !formData.promiseDate 
-          ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 7 days from now
-          : formData.promiseDate,
         totalCost,
         // Detailed pricing breakdown
         subtotal,
@@ -706,34 +700,13 @@ export default function NewRepairForm({
         status: 'RECEIVING' // Use legacy status for compatibility
       };
 
-      // Add comprehensive logging for submission
-      console.log('📤 SUBMISSION DATA DEBUG:');
-      console.log('🔢 Pricing Fields in Submission:', {
-        totalCost: submissionData.totalCost,
-        subtotal: submissionData.subtotal,
-        rushFee: submissionData.rushFee,
-        deliveryFee: submissionData.deliveryFee,
-        taxAmount: submissionData.taxAmount,
-        taxRate: submissionData.taxRate
-      });
-      console.log('🎛️ Flags in Submission:', {
-        isWholesale: submissionData.isWholesale,
-        includeDelivery: submissionData.includeDelivery,
-        includeTax: submissionData.includeTax,
-        isRush: submissionData.isRush
-      });
-      console.log('📋 Full Submission Object:', submissionData);
-
       // Submit the repair
       const result = await RepairsService.createRepair(submissionData);
       
       // ✅ Add the new repair to the repairs context immediately
       if (result && (result.repairID || result.newRepair?.repairID)) {
         const repairToAdd = result.newRepair || result;
-        console.log('📝 Adding new repair to context:', repairToAdd.repairID);
         addRepair(repairToAdd);
-      } else {
-        console.warn('⚠️  Could not add repair to context - no repairID found in result:', result);
       }
       
       onSubmit(result);
@@ -749,8 +722,6 @@ export default function NewRepairForm({
   const handleAddNewClient = async () => {
     setNewClientLoading(true);
     try {
-      console.log('🔄 Creating new client:', newClientData);
-      
       const clientToCreate = {
         firstName: newClientData.firstName.trim(),
         lastName: newClientData.lastName.trim(),
@@ -761,16 +732,11 @@ export default function NewRepairForm({
         status: 'unverified' // Default status for new clients
       };
 
-      console.log('📤 Sending client creation request:', clientToCreate);
       const createdClientResponse = await UsersService.createUser(clientToCreate);
       const createdClient = createdClientResponse.user || createdClientResponse;
       
-      console.log('✅ Created client response:', createdClientResponse);
-      console.log('✅ Created client data:', createdClient);
-      
       // Check if client is wholesale
       const isWholesaleClient = createdClient.role === 'wholesaler';
-      console.log('💰 New client wholesale status:', isWholesaleClient);
       
       // Add to available users list
       setAvailableUsers(prev => [...prev, createdClient]);
@@ -805,11 +771,8 @@ export default function NewRepairForm({
         role: 'customer'
       });
       setShowNewClientDialog(false);
-
-      console.log('🎉 New client created and selected successfully');
       
     } catch (error) {
-      console.error('❌ Error creating new client:', error);
       alert('Failed to create new client: ' + (error.message || 'Unknown error'));
     } finally {
       setNewClientLoading(false);
@@ -825,209 +788,148 @@ export default function NewRepairForm({
   };
 
   return (
-    <Box sx={{ 
-      maxWidth: 1000, 
-      mx: 'auto',
-      px: { xs: 1, sm: 2 }, // Reduce padding on mobile
-      pb: { xs: 2, sm: 0 }  // Add bottom padding on mobile for scroll space
-    }}>
-      {/* Header */}
-
+    <Box sx={{ maxWidth: 1000, mx: 'auto' }}>
       {errors.submit && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {errors.submit}
         </Alert>
       )}
 
-      <Stack spacing={{ xs: 2, sm: 3 }}>
+      <Paper sx={{ p: 3, borderRadius: 2, boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
+        <Stack spacing={4}>
 
-        {/* Client Information - Hidden for wholesalers (they record client info in notes) */}
-        {!isWholesale && (
-          <Card sx={{ borderRadius: 2, boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
-          <CardHeader 
-            title="Client Information" 
-            sx={{ 
-              bgcolor: 'primary.main', 
-              color: 'primary.contrastText',
-              '& .MuiCardHeader-title': { 
-                fontWeight: 600,
-                fontSize: '1.1rem'
-              }
-            }}
-          />
-          <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+          {/* Client Information Section */}
+          <Box>
+            <Typography variant="h6" sx={{ mb: 2, color: 'primary.main', fontWeight: 600 }}>
+              Client Information
+            </Typography>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
-                {/* Debug logging for availableUsers */}
-                {(() => {
-                  console.log('🔍 Render - availableUsers state:', availableUsers);
-                  console.log('🔍 Render - availableUsers length:', availableUsers?.length);
-                  console.log('🔍 Render - availableUsers type:', typeof availableUsers);
-                  console.log('🔍 Render - availableUsers isArray:', Array.isArray(availableUsers));
-                  return null;
-                })()}
-                
-                {/* Show read-only field for wholesalers, autocomplete for others */}
-                {isWholesale ? (
-                  <TextField
-                    fullWidth
-                    label="Client Name"
-                    value={formData.clientName}
-                    InputProps={{
-                      readOnly: true,
-                      endAdornment: (
-                        <Chip 
-                          label="Wholesale" 
-                          size="small" 
-                          color="primary" 
-                          variant="filled"
-                        />
-                      )
-                    }}
-                    helperText="Wholesalers create repairs for themselves only"
-                    disabled={false} // Keep enabled for styling but read-only
-                  />
-                ) : (
-                  <Autocomplete
-                    freeSolo
-                    options={Array.isArray(availableUsers) ? availableUsers : []}
-                    getOptionLabel={(option) => {
-                      console.log('🏷️ getOptionLabel called with:', option);
-                      if (typeof option === 'string') return option;
-                      if (option && typeof option === 'object') {
-                        const label = option.name || `${option.firstName || ''} ${option.lastName || ''}`.trim() || option.email || '';
-                        console.log('🏷️ Generated label:', label);
-                        return label;
-                      }
-                      return '';
-                    }}
-                    value={formData.clientName}
-                    onInputChange={(event, newInputValue) => {
-                      console.log('⌨️ Input change:', newInputValue);
-                      console.log('📋 Available users count:', availableUsers?.length);
-                      console.log('📋 Available users type:', typeof availableUsers);
-                      console.log('📋 Available users isArray:', Array.isArray(availableUsers));
-                      console.log('📋 Available users sample:', availableUsers ? availableUsers.slice(0, 3) : 'No users available');
+                <Autocomplete
+                  freeSolo
+                  options={Array.isArray(availableUsers) ? availableUsers : []}
+                  getOptionLabel={(option) => {
+                    if (typeof option === 'string') return option;
+                    if (option && typeof option === 'object') {
+                      const label = option.name || `${option.firstName || ''} ${option.lastName || ''}`.trim() || option.email || '';
+                      return label;
+                    }
+                    return '';
+                  }}
+                  value={formData.clientName}
+                  onInputChange={(event, newInputValue) => {
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      clientName: newInputValue || '',
+                      userID: ''
+                    }));
+                  }}
+                  onChange={(event, newValue) => {
+                    if (newValue && typeof newValue === 'object') {
+                      const clientName = newValue.name || `${newValue.firstName || ''} ${newValue.lastName || ''}`.trim() || newValue.email || '';
+                      const userID = newValue._id || newValue.id || '';
+                      const isClientWholesale = newValue.role === 'wholesaler';
+                      
                       setFormData(prev => ({ 
                         ...prev, 
-                        clientName: newInputValue || '',
-                        userID: ''
+                        clientName,
+                        userID,
+                        isWholesale: isClientWholesale
                       }));
-                    }}
-                    onChange={(event, newValue) => {
-                      console.log('🎯 Autocomplete change:', newValue);
-                      if (newValue && typeof newValue === 'object') {
-                        const clientName = newValue.name || `${newValue.firstName || ''} ${newValue.lastName || ''}`.trim() || newValue.email || '';
-                        const userID = newValue._id || newValue.id || '';
-                        const isClientWholesale = newValue.role === 'wholesaler';
-                        
-                        console.log('👤 Selected client:', { clientName, userID, role: newValue.role, isWholesale: isClientWholesale });
-                        
-                        setFormData(prev => ({ 
-                          ...prev, 
-                          clientName,
-                          userID,
-                          isWholesale: isClientWholesale
-                        }));
 
-                        // Always trigger price recalculation for wholesale clients
-                        console.log('💰 Client wholesale status changed, recalculating prices:', isClientWholesale);
-                        // Use timeout to ensure state update completes first
-                        setTimeout(() => {
-                          recalculateAllItemPrices(isClientWholesale);
-                        }, 0);
+                      // Always trigger price recalculation for wholesale clients
+                      // Use timeout to ensure state update completes first
+                      setTimeout(() => {
+                        recalculateAllItemPrices(isClientWholesale);
+                      }, 0);
 
-                        if (onWholesaleChange) {
-                          onWholesaleChange(isClientWholesale);
-                        }
-                      } else if (typeof newValue === 'string') {
-                        console.log('📝 String value entered:', newValue);
-                        setFormData(prev => ({ 
-                          ...prev, 
-                          clientName: newValue,
-                          userID: '',
-                          isWholesale: false // Reset wholesale for manual entries
-                        }));
-
-                        if (onWholesaleChange) {
-                          onWholesaleChange(false);
-                        }
+                      if (onWholesaleChange) {
+                        onWholesaleChange(isClientWholesale);
                       }
-                    }}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        fullWidth
-                        label="Client Name"
-                        required
-                        placeholder="Type to search clients..."
-                        helperText="Start typing to search existing clients"
-                      />
-                    )}
-                    renderOption={(props, option) => (
-                      <Box component="li" {...props} key={option._id || option.id || option}>
-                        <Stack sx={{ width: '100%' }}>
-                          <Stack direction="row" alignItems="center" spacing={1}>
-                            <Typography variant="body2">
-                              {option.name || `${option.firstName || ''} ${option.lastName || ''}`.trim()}
-                            </Typography>
-                            {option.role === 'wholesaler' && (
-                              <Chip 
-                                label="Wholesale" 
-                                size="small" 
-                                color="primary" 
-                                variant="outlined"
-                              />
-                            )}
-                          </Stack>
-                          {option.email && (
-                            <Typography variant="caption" color="text.secondary">
-                              📧 {option.email}
-                            </Typography>
-                          )}
-                          {(option.phone || option.phoneNumber) && (
-                            <Typography variant="caption" color="text.secondary">
-                              📞 {option.phone || option.phoneNumber}
-                            </Typography>
+                    } else if (typeof newValue === 'string') {
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        clientName: newValue,
+                        userID: '',
+                        isWholesale: false // Reset wholesale for manual entries
+                      }));
+
+                      if (onWholesaleChange) {
+                        onWholesaleChange(false);
+                      }
+                    }
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      fullWidth
+                      label="Client Name"
+                      required
+                      placeholder="Type to search clients..."
+                      helperText="Start typing to search existing clients"
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <Box component="li" {...props} key={option._id || option.id || option}>
+                      <Stack sx={{ width: '100%' }}>
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <Typography variant="body2">
+                            {option.name || `${option.firstName || ''} ${option.lastName || ''}`.trim()}
+                          </Typography>
+                          {option.role === 'wholesaler' && (
+                            <Chip 
+                              label="Wholesale" 
+                              size="small" 
+                              color="primary" 
+                              variant="outlined"
+                            />
                           )}
                         </Stack>
-                      </Box>
-                    )}
-                    noOptionsText={
-                      <Box sx={{ p: 2, textAlign: 'center' }}>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                          No existing clients found
-                        </Typography>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          startIcon={<AddIcon />}
-                          onClick={() => setShowNewClientDialog(true)}
-                        >
-                          Add New Client
-                        </Button>
-                      </Box>
-                    }
-                  />
-                )}
+                        {option.email && (
+                          <Typography variant="caption" color="text.secondary">
+                            📧 {option.email}
+                          </Typography>
+                        )}
+                        {(option.phone || option.phoneNumber) && (
+                          <Typography variant="caption" color="text.secondary">
+                            📞 {option.phone || option.phoneNumber}
+                          </Typography>
+                        )}
+                      </Stack>
+                    </Box>
+                  )}
+                  noOptionsText={
+                    <Box sx={{ p: 2, textAlign: 'center' }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        No existing clients found
+                      </Typography>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<AddIcon />}
+                        onClick={() => setShowNewClientDialog(true)}
+                      >
+                        Add New Client
+                      </Button>
+                    </Box>
+                  }
+                />
               </Grid>
               
-              {/* Quick Add Client Button - Hidden for wholesalers */}
-              {!isWholesale && (
-                <Grid item xs={12}>
-                  <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
-                    <Button
-                      variant="text"
-                      size="small"
-                      startIcon={<AddIcon />}
-                      onClick={() => setShowNewClientDialog(true)}
-                      sx={{ color: 'primary.main' }}
-                    >
-                      Add New Client
-                    </Button>
-                  </Box>
-                </Grid>
-              )}
+              {/* Quick Add Client Button */}
+              <Grid item xs={12}>
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
+                  <Button
+                    variant="text"
+                    size="small"
+                    startIcon={<AddIcon />}
+                    onClick={() => setShowNewClientDialog(true)}
+                    sx={{ color: 'primary.main' }}
+                  >
+                    Add New Client
+                  </Button>
+                </Box>
+              </Grid>
               
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth>
@@ -1064,46 +966,42 @@ export default function NewRepairForm({
                   )}
                 </FormControl>
               </Grid>
-              {/* Wholesale toggle - Hidden for wholesalers since they're always wholesale */}
-              {!isWholesale && (
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      <Typography>Wholesale Client</Typography>
-                      <Switch
-                        checked={formData.isWholesale}
-                        onChange={(e) => {
-                          const newWholesaleStatus = e.target.checked;
-                          console.log('💰 Manual wholesale toggle:', newWholesaleStatus, 'Previous:', formData.isWholesale);
-                          // Update form data first
-                          setFormData(prev => ({
-                            ...prev,
-                            isWholesale: newWholesaleStatus
-                          }));
-                          // Then trigger price recalculation
-                          setTimeout(() => {
-                            recalculateAllItemPrices(newWholesaleStatus);
-                          }, 0);
-                          if (onWholesaleChange) {
-                            onWholesaleChange(newWholesaleStatus);
-                          }
-                        }}
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <Typography>Wholesale Client</Typography>
+                    <Switch
+                      checked={formData.isWholesale}
+                      onChange={(e) => {
+                        const newWholesaleStatus = e.target.checked;
+                        // Update form data first
+                        setFormData(prev => ({
+                          ...prev,
+                          isWholesale: newWholesaleStatus
+                        }));
+                        // Then trigger price recalculation
+                        setTimeout(() => {
+                          recalculateAllItemPrices(newWholesaleStatus);
+                        }, 0);
+                        if (onWholesaleChange) {
+                          onWholesaleChange(newWholesaleStatus);
+                        }
+                      }}
+                    />
+                    {formData.isWholesale && (
+                      <Chip 
+                        label="50% OFF" 
+                        color="primary" 
+                        size="small"
+                        variant="filled"
                       />
-                      {formData.isWholesale && (
-                        <Chip 
-                          label="50% OFF" 
-                          color="primary" 
-                          size="small"
-                          variant="filled"
-                        />
-                      )}
-                    </Stack>
-                    <Typography variant="caption" color="primary">
-                      Automatically set when wholesale client selected
-                    </Typography>
-                  </FormControl>
-                </Grid>
-              )}
+                    )}
+                  </Stack>
+                  <Typography variant="caption" color="primary">
+                    Automatically set when wholesale client selected
+                  </Typography>
+                </FormControl>
+              </Grid>
               
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth>
@@ -1163,39 +1061,13 @@ export default function NewRepairForm({
                 </FormControl>
               </Grid>
             </Grid>
-          </CardContent>
-        </Card>
-        )}
+          </Box>
 
-        {/* Wholesaler Information Card */}
-        {isWholesale && (
-          <Card sx={{ borderRadius: 2, boxShadow: '0 2px 12px rgba(0,0,0,0.08)', bgcolor: 'info.light' }}>
-            <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-              <Typography variant={isMobile ? "subtitle1" : "h6"} gutterBottom color="info.dark">
-                📝 Wholesaler Repair Submission
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.875rem' } }}>
-                As a wholesaler, you can record your client&apos;s information and special instructions in the notes section below. 
-                Our admin team will review your submission and provide pricing details.
-              </Typography>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Item Details */}
-        <Card sx={{ borderRadius: 2, boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
-          <CardHeader 
-            title="Item Details" 
-            sx={{ 
-              bgcolor: 'secondary.main', 
-              color: 'secondary.contrastText',
-              '& .MuiCardHeader-title': { 
-                fontWeight: 600,
-                fontSize: '1.1rem'
-              }
-            }}
-          />
-          <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+          {/* Item Details Section */}
+          <Box>
+            <Typography variant="h6" sx={{ mb: 2, color: 'secondary.main', fontWeight: 600 }}>
+              Item Details
+            </Typography>
             <Grid container spacing={2}>
               <Grid item xs={12}>
                 <TextField
@@ -1209,20 +1081,17 @@ export default function NewRepairForm({
                 />
               </Grid>
               
-              {/* Promise Date - Hidden for wholesalers (admin will set it) */}
-              {!isWholesale && (
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Promise Date"
-                    type="date"
-                    value={formData.promiseDate}
-                    onChange={(e) => setFormData(prev => ({ ...prev, promiseDate: e.target.value }))}
-                    InputLabelProps={{ shrink: true }}
-                    required
-                  />
-                </Grid>
-              )}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Promise Date"
+                  type="date"
+                  value={formData.promiseDate}
+                  onChange={(e) => setFormData(prev => ({ ...prev, promiseDate: e.target.value }))}
+                  InputLabelProps={{ shrink: true }}
+                  required
+                />
+              </Grid>
 
               <Grid item xs={12} sm={6}>
                 {/* Spacer for grid alignment */}
@@ -1322,80 +1191,57 @@ export default function NewRepairForm({
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label={isWholesale ? "Client Information & Notes" : "Notes"}
+                  label="Notes"
                   multiline
-                  rows={isWholesale ? (isMobile ? 4 : 3) : (isMobile ? 3 : 2)}
+                  rows={2}
                   value={formData.notes}
                   onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                  placeholder={isWholesale 
-                    ? "Client name, contact info, special instructions..." 
-                    : "Customer notes, special instructions..."
-                  }
+                  placeholder="Customer notes, special instructions..."
                 />
               </Grid>
 
-              {/* Internal Notes - Hidden for wholesalers since admin will handle pricing/workflow */}
-              {!isWholesale && (
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Internal Notes"
-                    multiline
-                    rows={isMobile ? 3 : 2}
-                    value={formData.internalNotes}
-                    onChange={(e) => setFormData(prev => ({ ...prev, internalNotes: e.target.value }))}
-                    placeholder="Internal team notes, not visible to customer..."
-                  />
-                </Grid>
-              )}
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Internal Notes"
+                  multiline
+                  rows={2}
+                  value={formData.internalNotes}
+                  onChange={(e) => setFormData(prev => ({ ...prev, internalNotes: e.target.value }))}
+                  placeholder="Internal team notes, not visible to customer..."
+                />
+              </Grid>
             </Grid>
-          </CardContent>
-        </Card>
+          </Box>
 
-        {/* Image Capture */}
-        <Card sx={{ borderRadius: 2, boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
-          <CardHeader 
-            title="Item Photo"
-            subheader="Take or upload a photo of the item"
-            sx={{ 
-              bgcolor: 'info.main', 
-              color: 'info.contrastText',
-              '& .MuiCardHeader-title': { 
-                fontWeight: 600,
-                fontSize: '1.1rem'
-              },
-              '& .MuiCardHeader-subheader': { 
-                color: 'info.contrastText',
-                opacity: 0.8
-              }
-            }}
-            action={
-              <input
-                type="file"
-                accept="image/*"
-                capture="camera"
-                onChange={handleImageCapture}
-                style={{ display: 'none' }}
-                id="camera-input"
-              />
-            }
-          />
-          <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+          {/* Image Capture Section */}
+          <Box>
+            <Typography variant="h6" sx={{ mb: 2, color: 'info.main', fontWeight: 600 }}>
+              Item Photo
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Take or upload a photo of the item
+            </Typography>
+            
+            <input
+              type="file"
+              accept="image/*"
+              capture="camera"
+              onChange={handleImageCapture}
+              style={{ display: 'none' }}
+              id="camera-input"
+            />
+            
             <Box sx={{ textAlign: 'center' }}>
               <label htmlFor="camera-input">
                 <Button
                   variant="contained"
                   component="span"
                   startIcon={<PhotoCameraIcon />}
-                  size={isMobile ? "medium" : "large"}
-                  fullWidth={isMobile}
-                  sx={{ 
-                    mb: 2,
-                    py: { xs: 1.5, sm: 1 },
-                    fontSize: { xs: '1rem', sm: '1.1rem' }
-                  }}
+                  size="large"
+                  sx={{ mb: 2 }}
                 >
-                  {isMobile ? 'Take Photo' : 'Take Photo'}
+                  Take Photo
                 </Button>
               </label>
               {formData.picture ? (
@@ -1414,73 +1260,37 @@ export default function NewRepairForm({
                 </Typography>
               )}
             </Box>
-          </CardContent>
-        </Card>
+          </Box>
 
-        {/* Work Items - Admin Only */}
-        {!isWholesale && (
-          <RepairItemsSection
-            formData={formData}
-            setFormData={setFormData}
-            availableTasks={availableTasks}
-            availableProcesses={availableProcesses}
-            availableMaterials={availableMaterials}
-            addTask={addTask}
-            addProcess={addProcess}
-            addMaterial={addMaterial}
-            addCustomLineItem={addCustomLineItem}
-            removeItem={removeItem}
-            updateItem={updateItem}
-            stullerSku={stullerSku}
-            setStullerSku={setStullerSku}
-            loadingStuller={loadingStuller}
-            stullerError={stullerError}
-            addStullerMaterial={addStullerMaterial}
-          />
-        )}
+        {/* Work Items */}
+        <RepairItemsSection
+          formData={formData}
+          setFormData={setFormData}
+          availableTasks={availableTasks}
+          availableProcesses={availableProcesses}
+          availableMaterials={availableMaterials}
+          addTask={addTask}
+          addProcess={addProcess}
+          addMaterial={addMaterial}
+          addCustomLineItem={addCustomLineItem}
+          removeItem={removeItem}
+          updateItem={updateItem}
+          stullerSku={stullerSku}
+          setStullerSku={setStullerSku}
+          loadingStuller={loadingStuller}
+          stullerError={stullerError}
+          addStullerMaterial={addStullerMaterial}
+          adminSettings={adminSettings}
+        />
 
-        {/* Wholesale Pricing Information */}
-        {isWholesale && (
-          <Card sx={{ borderRadius: 2, boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
-            <CardHeader 
-              title="Pricing & Work Items" 
-              sx={{ 
-                bgcolor: 'primary.main', 
-                color: 'primary.contrastText',
-                '& .MuiCardHeader-title': { 
-                  fontWeight: 600,
-                  fontSize: '1.1rem'
-                }
-              }}
-            />
-            <CardContent sx={{ p: 3 }}>
-              <Alert severity="info" sx={{ mb: 2 }}>
-                <Typography variant="body2">
-                  <strong>Pricing & Work Items</strong>
-                </Typography>
-                <Typography variant="body2">
-                  Our team will review your repair request and provide detailed pricing and work breakdown within 24 hours. 
-                  You&apos;ll receive wholesale pricing on all services and materials.
-                </Typography>
-              </Alert>
-              <Typography variant="body2" color="text.secondary">
-                • Detailed work items will be added by our technicians<br/>
-                • Wholesale pricing automatically applied<br/>
-                • You&apos;ll receive a detailed quote before work begins
-              </Typography>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Total Cost - Admin Only */}
-        {!isWholesale && (
-          <TotalCostCard 
-            formData={formData}
-            calculateTotalCost={calculateTotalCost}
-            adminSettings={adminSettings}
-          />
-        )}
-      </Stack>
+        {/* Total Cost */}
+        <TotalCostCard 
+          formData={formData}
+          calculateTotalCost={calculateTotalCost}
+          adminSettings={adminSettings}
+        />
+        </Stack>
+      </Paper>
 
       {/* New Client Dialog */}
       <Dialog 
@@ -1561,27 +1371,18 @@ export default function NewRepairForm({
       </Dialog>
 
       {/* Save Button at Bottom */}
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        mt: 4,
-        px: { xs: 1, sm: 0 }, // Add padding on mobile
-        pb: { xs: 2, sm: 0 }  // Extra bottom padding on mobile
-      }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
         <Button 
           variant="contained" 
           onClick={handleSubmit}
           disabled={loading}
           startIcon={<SaveIcon />}
-          size={isMobile ? "medium" : "large"}
-          fullWidth={isMobile}
+          size="large"
           sx={{ 
-            minWidth: { xs: 'auto', sm: 200 },
-            maxWidth: { xs: 400, sm: 'none' }, // Limit width on mobile
-            py: { xs: 1.5, sm: 1.5 },
-            fontSize: { xs: '1rem', sm: '1.1rem' },
-            fontWeight: 600,
-            boxShadow: { xs: 3, sm: 1 } // More prominent shadow on mobile
+            minWidth: 200,
+            py: 1.5,
+            fontSize: '1.1rem',
+            fontWeight: 600
           }}
         >
           {loading ? 'Saving...' : 'Save Repair'}
@@ -1608,9 +1409,39 @@ function RepairItemsSection({
   setStullerSku,
   loadingStuller,
   stullerError,
-  addStullerMaterial
+  addStullerMaterial,
+  adminSettings
 }) {
   const [expandedSection, setExpandedSection] = useState('tasks');
+
+  // Filter and prepare items based on metal compatibility
+  const metalType = formData.metalType;
+  const karat = formData.karat;
+  const isWholesale = formData.isWholesale;
+
+  // Filter tasks that support the selected metal type
+  const compatibleTasks = availableTasks.filter(task => 
+    supportsMetalType(task, metalType, karat)
+  );
+
+  // Filter processes that support the selected metal type
+  const compatibleProcesses = availableProcesses.filter((process, index) => {
+    const isSupported = supportsMetalType(process, metalType, karat);
+    return isSupported;
+  });
+  
+  // Filter materials that support the selected metal type
+  const compatibleMaterials = availableMaterials.filter((material, index) => {
+    const isSupported = supportsMetalType(material, metalType, karat);
+    return isSupported;
+  });
+  
+  // Get price display helper
+  const getPriceDisplay = (item) => {
+    if (!metalType || !karat) return '0.00';
+    const price = getMetalSpecificPrice(item, metalType, karat, isWholesale, adminSettings);
+    return price.toFixed(2);
+  };
 
   return (
     <Card sx={{ borderRadius: 2, boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
@@ -1643,14 +1474,51 @@ function RepairItemsSection({
           </AccordionSummary>
           <AccordionDetails>
             <Stack spacing={2}>
-              <Autocomplete
-                options={availableTasks}
-                getOptionLabel={(option) => `${option.title} - $${option.basePrice || 0}`}
-                renderInput={(params) => (
-                  <TextField {...params} label="Add Task" />
-                )}
-                onChange={(e, value) => value && addTask(value)}
-              />
+              {!metalType || !karat ? (
+                <Alert severity="info">
+                  Please select a metal type and karat above to see available tasks.
+                </Alert>
+              ) : compatibleTasks.length === 0 ? (
+                <Alert severity="warning">
+                  No tasks are compatible with {metalType} {karat}. You can still add custom line items.
+                </Alert>
+              ) : (
+                <Autocomplete
+                  options={compatibleTasks}
+                  getOptionLabel={(option) => {
+                    const price = getPriceDisplay(option);
+                    const metalInfo = option.isUniversal ? ` (Universal)` : '';
+                    return `${option.title} - $${price}${metalInfo}`;
+                  }}
+                  renderInput={(params) => (
+                    <TextField 
+                      {...params} 
+                      label={`Add Task (${compatibleTasks.length} compatible with ${metalType} ${karat})`}
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <Box component="li" {...props}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+                        <Typography variant="body1">
+                          {option.title}
+                        </Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="body2" color="text.secondary">
+                            {option.category}
+                            {option.isUniversal && (
+                              <Chip label="Universal" size="small" color="primary" sx={{ ml: 1 }} />
+                            )}
+                          </Typography>
+                          <Typography variant="body2" color="success.main" fontWeight="bold">
+                            ${getPriceDisplay(option)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+                  )}
+                  onChange={(e, value) => value && addTask(value)}
+                />
+              )}
               
               {formData.tasks.map(task => (
                 <TaskItem
@@ -1677,35 +1545,51 @@ function RepairItemsSection({
           </AccordionSummary>
           <AccordionDetails>
             <Stack spacing={2}>
-                              <Autocomplete
-                options={availableProcesses}
-                getOptionLabel={(option) => {
-                  const price = option.pricing?.totalCost || option.price || 0;
-                  return `${option.displayName} - $${price.toFixed(2)}`;
-                }}
-                renderInput={(params) => (
-                  <TextField {...params} label="Add Process" />
-                )}
-                renderOption={(props, option) => (
-                  <Box component="li" {...props}>
-                    <Box sx={{ width: '100%' }}>
-                      <Typography variant="body2" fontWeight="bold">
-                        {option.displayName}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {option.laborHours}hrs • ${(option.pricing?.totalCost || option.price || 0).toFixed(2)} • {option.skillLevel}
-                        {option.processType && ` • ${option.processType}`}
-                      </Typography>
-                      {option.description && (
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                          {option.description}
+              {!metalType || !karat ? (
+                <Alert severity="info">
+                  Please select a metal type and karat above to see available processes.
+                </Alert>
+              ) : compatibleProcesses.length === 0 ? (
+                <Alert severity="warning">
+                  No processes are compatible with {metalType} {karat}. You can still add custom line items.
+                </Alert>
+              ) : (
+                <Autocomplete
+                  options={compatibleProcesses}
+                  getOptionLabel={(option) => {
+                    const price = getPriceDisplay(option);
+                    const metalInfo = option.pricing?.totalCost && typeof option.pricing.totalCost === 'object' ? ` (Metal-specific)` : '';
+                    return `${option.displayName} - $${price}${metalInfo}`;
+                  }}
+                  renderInput={(params) => (
+                    <TextField 
+                      {...params} 
+                      label={`Add Process (${compatibleProcesses.length} compatible with ${metalType} ${karat})`}
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <Box component="li" {...props}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+                        <Typography variant="body1">
+                          {option.displayName}
                         </Typography>
-                      )}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="body2" color="text.secondary">
+                            {option.category} • {option.laborHours}h • {option.skillLevel}
+                            {option.pricing?.totalCost && typeof option.pricing.totalCost === 'object' && (
+                              <Chip label="Metal-specific" size="small" color="info" sx={{ ml: 1 }} />
+                            )}
+                          </Typography>
+                          <Typography variant="body2" color="success.main" fontWeight="bold">
+                            ${getPriceDisplay(option)}
+                          </Typography>
+                        </Box>
+                      </Box>
                     </Box>
-                  </Box>
-                )}
-                onChange={(e, value) => value && addProcess(value)}
-              />
+                  )}
+                  onChange={(e, value) => value && addProcess(value)}
+                />
+              )}
               
               {formData.processes.map(process => (
                 <TaskItem
@@ -1732,14 +1616,54 @@ function RepairItemsSection({
           </AccordionSummary>
           <AccordionDetails>
             <Stack spacing={2}>
-              <Autocomplete
-                options={availableMaterials}
-                getOptionLabel={(option) => `${option.name} - $${option.unitCost || option.costPerPortion || 0}`}
-                renderInput={(params) => (
-                  <TextField {...params} label="Add Material" />
-                )}
-                onChange={(e, value) => value && addMaterial(value)}
-              />
+              {!metalType || !karat ? (
+                <Alert severity="info">
+                  Please select a metal type and karat above to see available materials.
+                </Alert>
+              ) : compatibleMaterials.length === 0 ? (
+                <Alert severity="warning">
+                  No materials are compatible with {metalType} {karat}. You can still add Stuller materials or custom line items.
+                </Alert>
+              ) : (
+                <Autocomplete
+                  options={compatibleMaterials}
+                  getOptionLabel={(option) => {
+                    const price = getPriceDisplay(option);
+                    const metalInfo = (option.pricing?.unitCost && typeof option.pricing.unitCost === 'object') ||
+                                     (option.pricing?.costPerPortion && typeof option.pricing.costPerPortion === 'object') ? 
+                                     ` (Metal-specific)` : '';
+                    return `${option.name} - $${price}${metalInfo}`;
+                  }}
+                  renderInput={(params) => (
+                    <TextField 
+                      {...params} 
+                      label={`Add Material (${compatibleMaterials.length} compatible with ${metalType} ${karat})`}
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <Box component="li" {...props}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+                        <Typography variant="body1">
+                          {option.name}
+                        </Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="body2" color="text.secondary">
+                            {option.unit} • {option.category || 'Material'}
+                            {((option.pricing?.unitCost && typeof option.pricing.unitCost === 'object') ||
+                              (option.pricing?.costPerPortion && typeof option.pricing.costPerPortion === 'object')) && (
+                              <Chip label="Metal-specific" size="small" color="info" sx={{ ml: 1 }} />
+                            )}
+                          </Typography>
+                          <Typography variant="body2" color="success.main" fontWeight="bold">
+                            ${getPriceDisplay(option)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+                  )}
+                  onChange={(e, value) => value && addMaterial(value)}
+                />
+              )}
               
               {/* Stuller Integration Section */}
               <Card variant="outlined" sx={{ p: 2, bgcolor: 'primary.50', borderColor: 'primary.main' }}>
@@ -1968,26 +1892,6 @@ function TotalCostCard({ formData, calculateTotalCost, adminSettings }) {
         
         let originalSubtotal = tasksCost + processesCost + materialsCost + customCost;
         
-        console.log('🔍 TOTALCOSTCARD DEBUG:');
-        console.log('📊 Individual Item Prices (already discounted if wholesale):', {
-          tasksCost,
-          processesCost,
-          materialsCost,
-          customCost,
-          originalSubtotal
-        });
-        console.log('🎛️ Form Flags:', {
-          isWholesale: formData.isWholesale,
-          isRush: formData.isRush,
-          includeDelivery: formData.includeDelivery,
-          includeTax: formData.includeTax
-        });
-        
-        // Sample individual item logging
-        if (formData.tasks.length > 0) {
-          console.log('🔍 Sample Task Item:', formData.tasks[0]);
-        }
-        
         let currentTotal = originalSubtotal;
         let wholesaleDiscount = 0;
         let rushFee = 0;
@@ -2002,12 +1906,6 @@ function TotalCostCard({ formData, calculateTotalCost, adminSettings }) {
           const retailSubtotal = originalSubtotal * 2; // Reverse the already-applied 50% discount
           wholesaleDiscount = retailSubtotal * 0.5;
           // currentTotal stays the same since individual items are already discounted
-          console.log('💰 WHOLESALE DISPLAY CALCULATION:', {
-            currentDiscountedSubtotal: originalSubtotal,
-            theoreticalRetailSubtotal: retailSubtotal,
-            displayWholesaleDiscount: wholesaleDiscount,
-            finalCurrentTotal: currentTotal
-          });
         }
 
         // Apply rush job markup if applicable
@@ -2041,7 +1939,6 @@ function TotalCostCard({ formData, calculateTotalCost, adminSettings }) {
         const cost = await calculateTotalCost();
         setTotalCost(cost);
       } catch (error) {
-        console.error('Error calculating total cost:', error);
         setTotalCost(0);
       } finally {
         setLoading(false);

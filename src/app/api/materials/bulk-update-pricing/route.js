@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/database';
 import { ObjectId } from 'mongodb';
+import pricingEngine from '@/services/PricingEngine';
 
 /**
  * Bulk update material pricing based on new admin settings
@@ -29,14 +30,16 @@ export async function POST(request) {
     const updateOperations = [];
     
     for (const material of materials) {
-      const basePrice = material.basePrice || material.costPerPortion || 0;
-      const newCostPerPortion = basePrice * materialMarkup;
+      // Use PricingEngine for consistent calculations
+      console.warn('⚠️ DEPRECATED: Inline pricing calculation - Using PricingEngine');
+      
+      const materialCost = pricingEngine.calculateMaterialCost(material, 1, adminSettings);
       
       const updatedPricing = {
-        basePrice: basePrice,
-        materialMarkup: materialMarkup,
-        finalPrice: newCostPerPortion,
-        calculatedAt: new Date()
+        basePrice: materialCost.baseCost,
+        materialMarkup: materialCost.materialMarkup,
+        finalPrice: materialCost.markedUpCost,
+        calculatedAt: materialCost.calculatedAt
       };
       
       updateOperations.push({

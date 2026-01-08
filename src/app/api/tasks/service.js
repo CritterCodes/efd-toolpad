@@ -6,6 +6,7 @@
 import { TasksModel } from './model';
 import { generateTaskSku, generateShortCode } from '@/utils/skuGenerator';
 import { ObjectId } from 'mongodb';
+import pricingEngine from '@/services/PricingEngine';
 
 export class TasksService {
   /**
@@ -565,10 +566,15 @@ export class TasksService {
 
   /**
    * Calculate process-based pricing for a task
+   * 
+   * @deprecated This method is deprecated. Use PricingEngine.calculateTaskCost() instead.
+   * This method now calls PricingEngine internally for backward compatibility.
+   * 
    * @param {Object} taskData - Task data with processes and materials
    * @returns {Promise<Object>} Pricing data
    */
   static async calculateProcessBasedPricing(taskData) {
+    console.warn('⚠️ DEPRECATED: TasksService.calculateProcessBasedPricing() - Please migrate to PricingEngine.calculateTaskCost()');
     try {
       console.log('🔥 SERVICE - Starting calculateProcessBasedPricing for task:', {
         title: taskData.title,
@@ -805,53 +811,29 @@ export class TasksService {
         console.log('🔥 SERVICE - No task materials to process');
       }
 
-      // Apply business formula
-      console.log('🔥 SERVICE - Applying business formula...');
-      const materialMarkup = adminSettings.pricing.materialMarkup || 1.5;
-      const markedUpTaskMaterials = taskMaterialCost * materialMarkup;
-      const baseCost = totalProcessCost + markedUpTaskMaterials;
-      
-      const businessMultiplier = (
-        (adminSettings.pricing.administrativeFee || 0) + 
-        (adminSettings.pricing.businessFee || 0) + 
-        (adminSettings.pricing.consumablesFee || 0) + 1
-      );
-      
-      const retailPrice = Math.round(baseCost * businessMultiplier * 100) / 100;
-      const wholesalePrice = Math.round(retailPrice * 0.5 * 100) / 100;
+      // Use PricingEngine for consistent calculations
+      console.log('🔥 SERVICE - Using PricingEngine for calculation...');
+      const pricing = pricingEngine.calculateTaskCost(taskData, adminSettings);
 
-      console.log('🔥 SERVICE - Business formula breakdown:', {
-        totalProcessCost,
-        taskMaterialCost,
-        materialMarkup,
-        markedUpTaskMaterials,
-        baseCost,
-        administrativeFee: adminSettings.pricing.administrativeFee,
-        businessFee: adminSettings.pricing.businessFee,
-        consumablesFee: adminSettings.pricing.consumablesFee,
-        businessMultiplier,
-        retailPrice,
-        wholesalePrice
-      });
-
+      // Transform PricingEngine output to match old format for backward compatibility
       const calculatedPricing = {
-        totalLaborHours: Math.round(totalLaborHours * 100) / 100,
-        totalProcessCost: Math.round(totalProcessCost * 100) / 100,
-        totalMaterialCost: Math.round((processMaterialCost + taskMaterialCost) * 100) / 100,
-        markedUpMaterialCost: Math.round((processMaterialCost + markedUpTaskMaterials) * 100) / 100,
-        baseCost: Math.round(baseCost * 100) / 100,
-        retailPrice: retailPrice,
-        wholesalePrice: wholesalePrice,
-        businessMultiplier: Math.round(businessMultiplier * 100) / 100,
-        calculatedAt: new Date().toISOString()
+        totalLaborHours: pricing.totalLaborHours,
+        totalProcessCost: pricing.totalProcessCost,
+        totalMaterialCost: pricing.totalMaterialCost,
+        markedUpMaterialCost: pricing.markedUpMaterialCost,
+        baseCost: pricing.baseCost,
+        retailPrice: pricing.retailPrice,
+        wholesalePrice: pricing.wholesalePrice,
+        businessMultiplier: pricing.businessMultiplier,
+        calculatedAt: pricing.calculatedAt
       };
 
       console.log('🔥 SERVICE - Final calculated pricing for task:', taskData.title, calculatedPricing);
 
       const result = {
         pricing: calculatedPricing,
-        basePrice: retailPrice,
-        laborHours: totalLaborHours
+        basePrice: pricing.retailPrice,
+        laborHours: pricing.totalLaborHours
       };
 
       console.log('🔥 SERVICE - Returning pricing result:', result);
@@ -885,5 +867,320 @@ export class TasksService {
       basePrice: 0,
       laborHours: 0
     };
+  }
+
+  /**
+   * Calculate universal pricing for all metal combinations
+   * @param {Object} taskData - Task data with processes
+   * @returns {Object} Universal pricing structure
+   */
+  static async calculateUniversalTaskPricing(taskData) {
+    try {
+      console.log('🔥 SERVICE - Calculating universal pricing for task:', {
+        title: taskData.title,
+        processesCount: taskData.processes?.length || 0
+      });
+
+      // Get all supported metal keys from processes
+      const supportedMetals = await this.getAllSupportedMetalKeys(taskData.processes);
+      
+      if (supportedMetals.length === 0) {
+        console.log('🔥 SERVICE - No supported metals found, returning default pricing');
+        return {
+          pricing: {
+            processCosts: {},
+            totalCosts: {},
+            baseLaborHours: 0,
+            supportedMetals: [],
+            calculatedAt: new Date()
+          }
+        };
+      }
+
+      let processCosts = {};
+      let totalCosts = {};
+      let baseLaborHours = 0;
+
+      // Import process model
+      const { ProcessModel } = await import('../processes/model');
+
+      // Calculate pricing for each process
+      for (const processSelection of taskData.processes || []) {
+        const processData = await ProcessModel.findById(processSelection.processId);
+        
+        if (!processData) {
+          console.warn(`Process not found: ${processSelection.processId}`);
+          continue;
+        }
+
+        baseLaborHours += (processData.laborHours || 0) * (processSelection.quantity || 1);
+        processCosts[processSelection.processId] = {};
+
+        // Calculate costs for all supported metals
+        for (const metalKey of supportedMetals) {
+          const processCost = processData.pricing?.totalCost?.[metalKey] || 0;
+          const adjustedCost = processCost * (processSelection.quantity || 1);
+          
+          processCosts[processSelection.processId][metalKey] = adjustedCost;
+          totalCosts[metalKey] = (totalCosts[metalKey] || 0) + adjustedCost;
+        }
+      }
+
+      const result = {
+        pricing: {
+          processCosts,
+          totalCosts,
+          baseLaborHours,
+          supportedMetals,
+          calculatedAt: new Date(),
+          lastRecalculated: new Date()
+        }
+      };
+
+      console.log('🔥 SERVICE - Universal pricing calculated:', {
+        supportedMetalsCount: supportedMetals.length,
+        processesCount: Object.keys(processCosts).length,
+        baseLaborHours
+      });
+
+      return result;
+    } catch (error) {
+      console.error('🔥 SERVICE - Error calculating universal pricing:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get task price for specific metal context
+   * @param {string} taskId - Task ID
+   * @param {string} metalType - Metal type
+   * @param {string} karat - Karat
+   * @returns {Object} Pricing information for specific metal
+   */
+  static async getTaskPriceForMetal(taskId, metalType, karat) {
+    try {
+      const result = await TasksModel.getTaskPriceForMetal(taskId, metalType, karat);
+      
+      return {
+        success: true,
+        data: result,
+        message: `Pricing retrieved for ${metalType} ${karat}`
+      };
+    } catch (error) {
+      console.error('Service error getting task price for metal:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Get supported metals for a task
+   * @param {string} taskId - Task ID
+   * @returns {Object} Supported metals array
+   */
+  static async getTaskSupportedMetals(taskId) {
+    try {
+      const metals = await TasksModel.getTaskSupportedMetals(taskId);
+      
+      return {
+        success: true,
+        data: metals,
+        message: 'Supported metals retrieved'
+      };
+    } catch (error) {
+      console.error('Service error getting task supported metals:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Get tasks compatible with specific metal context
+   * @param {string} metalType - Metal type
+   * @param {string} karat - Karat
+   * @param {Object} filters - Additional filters
+   * @returns {Object} Compatible tasks with metal-specific pricing
+   */
+  static async getTasksForMetalContext(metalType, karat, filters = {}) {
+    try {
+      const result = await TasksModel.getTasksForMetalContext(metalType, karat, filters);
+      
+      return {
+        success: true,
+        ...result,
+        message: `Retrieved ${result.tasks.length} tasks compatible with ${metalType} ${karat}`
+      };
+    } catch (error) {
+      console.error('Service error getting tasks for metal context:', error);
+      return {
+        success: false,
+        error: error.message,
+        data: []
+      };
+    }
+  }
+
+  /**
+   * Recalculate universal pricing for specific tasks
+   * @param {Array} taskIds - Array of task IDs
+   * @param {string} userEmail - User performing the operation
+   * @returns {Object} Update results
+   */
+  static async recalculateUniversalPricingForTasks(taskIds, userEmail) {
+    try {
+      let updated = 0;
+      let errors = [];
+
+      for (const taskId of taskIds) {
+        try {
+          const task = await TasksModel.getTaskById(taskId);
+          if (!task) {
+            errors.push(`Task not found: ${taskId}`);
+            continue;
+          }
+
+          const universalPricing = await this.calculateUniversalTaskPricing(task);
+          await TasksModel.updateTaskPricing(taskId, universalPricing.pricing);
+          updated++;
+        } catch (error) {
+          errors.push(`Error updating task ${taskId}: ${error.message}`);
+        }
+      }
+
+      return {
+        success: true,
+        data: {
+          updated,
+          errors,
+          total: taskIds.length
+        },
+        message: `Updated ${updated}/${taskIds.length} tasks`
+      };
+    } catch (error) {
+      console.error('Service error recalculating universal pricing for tasks:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Recalculate universal pricing for all tasks
+   * @param {string} userEmail - User performing the operation
+   * @returns {Object} Update results
+   */
+  static async recalculateAllUniversalPricing(userEmail) {
+    try {
+      // Get all tasks with processes
+      const tasksResult = await TasksModel.getTasks({ 
+        limit: 1000, // Adjust as needed
+        isActive: true 
+      });
+
+      const tasksToUpdate = tasksResult.tasks.filter(task => 
+        task.processes && task.processes.length > 0
+      );
+
+      let updated = 0;
+      let errors = [];
+
+      for (const task of tasksToUpdate) {
+        try {
+          const universalPricing = await this.calculateUniversalTaskPricing(task);
+          await TasksModel.updateTaskPricing(task._id, universalPricing.pricing);
+          updated++;
+        } catch (error) {
+          errors.push(`Error updating task ${task._id}: ${error.message}`);
+        }
+      }
+
+      return {
+        success: true,
+        data: {
+          updated,
+          errors,
+          total: tasksToUpdate.length,
+          skipped: tasksResult.tasks.length - tasksToUpdate.length
+        },
+        message: `Updated ${updated}/${tasksToUpdate.length} tasks with universal pricing`
+      };
+    } catch (error) {
+      console.error('Service error recalculating all universal pricing:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Get all supported metal keys from processes
+   * @param {Array} processes - Array of process selections
+   * @returns {Array} Array of supported metal keys
+   */
+  static async getAllSupportedMetalKeys(processes = []) {
+    try {
+      const metalKeySet = new Set();
+      
+      // Import process model
+      const { ProcessModel } = await import('../processes/model');
+
+      for (const processSelection of processes) {
+        const processData = await ProcessModel.findById(processSelection.processId);
+        
+        if (processData?.pricing?.totalCost) {
+          Object.keys(processData.pricing.totalCost).forEach(metalKey => {
+            metalKeySet.add(metalKey);
+          });
+        }
+      }
+
+      return Array.from(metalKeySet).sort();
+    } catch (error) {
+      console.error('Error getting supported metal keys:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get all supported metals across all tasks
+   * @returns {Object} All supported metals
+   */
+  static async getAllSupportedMetals() {
+    try {
+      // Import process model to get all available metals
+      const { ProcessModel } = await import('../processes/model');
+      
+      const processes = await ProcessModel.findAll();
+      const metalKeySet = new Set();
+
+      processes.forEach(process => {
+        if (process.pricing?.totalCost) {
+          Object.keys(process.pricing.totalCost).forEach(metalKey => {
+            metalKeySet.add(metalKey);
+          });
+        }
+      });
+
+      const allMetals = Array.from(metalKeySet).sort();
+
+      return {
+        success: true,
+        data: allMetals,
+        message: `Found ${allMetals.length} supported metal types`
+      };
+    } catch (error) {
+      console.error('Service error getting all supported metals:', error);
+      return {
+        success: false,
+        error: error.message,
+        data: []
+      };
+    }
   }
 }
