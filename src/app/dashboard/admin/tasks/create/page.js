@@ -925,28 +925,28 @@ export default function CreateTaskPage() {
             }))
           };
           
-          const pricingForMetal = pricingEngine.calculateTaskCost(taskDataForMetal, adminSettings, availableProcesses, availableMaterials);
-          
-          const retailPrice = pricingForMetal.retailPrice;
-          const wholesalePrice = pricingForMetal.wholesalePrice;
-          const businessMultiplier = pricingForMetal.businessMultiplier;
-          const baseCost = pricingForMetal.baseCost;
-          const totalMaterialCost = pricingForMetal.totalMaterialCost;
-          const materialMarkup = pricingForMetal.materialMarkup;
-
           const variantKey = `${metalType}_${karat}`;
+
+          // Pass object so Engine normalizes key (e.g. 10K -> 10k)
+          const pricingForMetal = pricingEngine.calculateTaskCost(
+            taskDataForMetal, 
+            adminSettings, 
+            availableProcesses, 
+            availableMaterials,
+            { metalType, karat }
+          );
           
           priceCalculations[variantKey] = {
             metalLabel: metalLabel,
             metalType: metalType,
             karat: karat,
-            totalLaborHours: Math.round(totalLaborHours * 100) / 100,
-            totalProcessCost: Math.round(totalProcessCost * 100) / 100,
-            totalMaterialCost: Math.round(totalMaterialCost * 100) / 100, // Use the calculated totalMaterialCost, not taskMaterialCost
-            baseCost: Math.round(baseCost * 100) / 100,
-            retailPrice: Math.round(retailPrice * 100) / 100,
-            wholesalePrice: Math.round(wholesalePrice * 100) / 100,
-            businessMultiplier: Math.round(businessMultiplier * 100) / 100,
+            totalLaborHours: Math.round((pricingForMetal.totalLaborHours || totalLaborHours) * 100) / 100,
+            totalProcessCost: Math.round((pricingForMetal.totalProcessCost || 0) * 100) / 100,
+            totalMaterialCost: Math.round((pricingForMetal.totalMaterialCost || 0) * 100) / 100,
+            baseCost: Math.round((pricingForMetal.baseCost || 0) * 100) / 100,
+            retailPrice: Math.round((pricingForMetal.retailPrice || 0) * 100) / 100,
+            wholesalePrice: Math.round((pricingForMetal.wholesalePrice || 0) * 100) / 100,
+            businessMultiplier: Math.round((pricingForMetal.businessMultiplier || 1) * 100) / 100,
             metalComplexity: metalComplexity
           };
         }

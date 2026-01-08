@@ -598,11 +598,12 @@ class PricingEngine {
    * @param {Object} adminSettings - Admin settings
    * @param {Array} availableProcesses - Optional: array of available processes (for legacy format)
    * @param {Array} availableMaterials - Optional: array of available materials (for legacy format)
+   * @param {Object} context - Optional: { metalType, karat } or string key for specific variant
    * @returns {Object} Task cost breakdown
    * @throws {TypeError} If taskData is not an object
    * @throws {TypeError} If availableProcesses or availableMaterials are not arrays
    */
-  calculateTaskCost(taskData, adminSettings = {}, availableProcesses = [], availableMaterials = []) {
+  calculateTaskCost(taskData, adminSettings = {}, availableProcesses = [], availableMaterials = [], context = null) {
     // Guard clause: validate taskData parameter
     if (!taskData || typeof taskData !== 'object') {
       throw new TypeError(ERROR_MESSAGES.TASK_DATA_MUST_BE_OBJECT);
@@ -619,6 +620,16 @@ class PricingEngine {
     }
     
     const settings = this._getNormalizedSettings(adminSettings);
+    
+    // Prepare Context Key
+    let contextKey = null;
+    if (context) {
+        if (typeof context === 'string') {
+            contextKey = context;
+        } else if (context.metalType && context.karat) {
+            contextKey = `${context.metalType}_${context.karat}`.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        }
+    }
     
     let totalLaborHours = 0;
     let totalProcessCost = 0;
@@ -638,17 +649,29 @@ class PricingEngine {
         }
         
         if (process) {
-          // Calculate dynamic cost if not stored
-          // Even if stored, we generally prefer fresh calculation for Admin tool, 
-          // unless this is a locked historic quote.
+          // Calculate dynamic cost
           const processCost = this.calculateProcessCost(process, adminSettings);
             
-          // Aggregate weighted components
-          // If we had stored cost, we'd need to assume it.
-          // For now, assume dynamic.
-            
-          let weightedLabor = processCost.weightedLaborCost || (processCost.laborCost * (processCost.metalComplexityMultiplier || 1));
-          let weightedMaterials = processCost.weightedBaseMaterialsCost || (processCost.baseMaterialsCost * (processCost.metalComplexityMultiplier || 1));
+          let weightedLabor = 0;
+          let weightedMaterials = 0;
+          let currentTotalCost = 0; // For tracking
+          
+          // Check for Context Specific Pricing
+          if (contextKey && processCost.isMetalDependent && processCost.metalPrices && processCost.metalPrices[contextKey]) {
+              const variantPricing = processCost.metalPrices[contextKey];
+              weightedLabor = variantPricing.weightedLaborCost;
+              weightedMaterials = variantPricing.weightedBaseMaterialsCost;
+              currentTotalCost = variantPricing.totalCost; // This is Retail (ProcessCOGs)
+          } else {
+              // Universal Fallback
+              const complexity = processCost.metalComplexityMultiplier || 1;
+              const pLabor = processCost.laborCost || 0;
+              const pBaseMat = processCost.baseMaterialsCost || 0;
+              
+              weightedLabor = processCost.weightedLaborCost || (pLabor * complexity);
+              weightedMaterials = processCost.weightedBaseMaterialsCost || (pBaseMat * complexity);
+              currentTotalCost = processCost.totalCost || 0;
+          }
             
           totalWeightedLaborCost += weightedLabor * quantity;
           totalWeightedBaseMaterialsCost += weightedMaterials * quantity;
@@ -656,7 +679,7 @@ class PricingEngine {
           totalLaborHours += (process.laborHours || 0) * quantity;
           
           // Also track raw costs for reference if needed
-          totalProcessCost += processCost.totalCost * quantity; // This is now retail
+          totalProcessCost += currentTotalCost * quantity; 
         }
       });
     }
