@@ -423,21 +423,21 @@ export const ProcessForm = ({
             </Typography>
             
             {/* Universal Process Cost */}
-            {!costPreview.isMetalDependent && costPreview.universal && (
+            {!costPreview.isMetalDependent && (costPreview.universal || costPreview.totalCost !== undefined) && (
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
                     Universal Process
                   </Typography>
                   <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Labor: {formData.laborHours}hrs × ${costPreview.universal.hourlyRate?.toFixed(2) || '0'}/hr ({formData.skillLevel} rate) = ${costPreview.universal.laborCost?.toFixed(2) || '0.00'}
+                    Labor: {formData.laborHours}hrs × ${(costPreview.universal || costPreview).hourlyRate?.toFixed(2) || '0'}/hr ({formData.skillLevel} rate) = ${(costPreview.universal || costPreview).laborCost?.toFixed(2) || '0.00'}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Materials: ${costPreview.universal.materialsCost?.toFixed(2) || '0.00'}
+                    Materials: ${(costPreview.universal || costPreview).materialsCost?.toFixed(2) || '0.00'}
                   </Typography>
                   <Divider sx={{ my: 1 }} />
                   <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-                    Total: ${costPreview.universal.totalCost?.toFixed(2) || '0.00'}
+                    Total: ${(costPreview.universal || costPreview).totalCost?.toFixed(2) || '0.00'}
                   </Typography>
                 </CardContent>
               </Card>
