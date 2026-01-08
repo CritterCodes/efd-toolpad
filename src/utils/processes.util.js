@@ -469,49 +469,45 @@ export const prepareProcessForSaving = (formData, adminSettings, availableMateri
     updatedAt: new Date()
   };
 
-  // Create the new pricing structure
+  // Create the new pricing structure by delegating to PricingEngine
   if (costPreview) {
-    const baseHourlyRate = adminSettings.laborRates?.baseRate || 40;
-    const skillMultiplier = getSkillLevelMultiplier(formData.skillLevel);
-    const hourlyRate = baseHourlyRate * skillMultiplier;
-    const laborCost = (parseFloat(formData.laborHours) || 0) * hourlyRate;
-    const materialMarkup = parseFloat(adminSettings.materialMarkup) || 2.0;
+    // Generate fresh cost breakdown using standard engine
+    const breakdown = pricingEngine.calculateProcessCost(processData, adminSettings);
     
-    // Calculate base materials cost (lowest cost variant)
-    const baseMaterialsCost = costPreview.summary?.baseMaterialsCost || 0;
-    
-    if (costPreview.isMetalDependent && costPreview.metalPrices) {
-      // Metal-dependent process: create costs per metal/karat combination
-      const materialsCost = {};
-      const totalCost = {};
-      
-      Object.entries(costPreview.metalPrices).forEach(([variantKey, prices]) => {
-        const metalLabel = prices.metalLabel || variantKey;
-        materialsCost[metalLabel] = prices.materialsCost;
-        totalCost[metalLabel] = prices.totalCost;
-      });
-      
-      processData.pricing = {
-        laborCost,
-        baseMaterialsCost,
-        materialsCost,
-        materialMarkup,
-        totalCost,
-        hourlyRate,
-        calculatedAt: new Date()
-      };
+    // Map the PricingEngine output to the DB schema structure
+    if (breakdown.isMetalDependent && breakdown.metalPrices) {
+       // Metal-dependent structure
+       const materialsCost = {};
+       const totalCost = {};
+       
+       Object.entries(breakdown.metalPrices).forEach(([variantKey, prices]) => {
+         const metalLabel = prices.metalLabel || variantKey;
+         materialsCost[metalLabel] = prices.materialsCost;
+         totalCost[metalLabel] = prices.totalCost;
+       });
+       
+       processData.pricing = {
+         laborCost: breakdown.summary?.laborCost || breakdown.laborCost,
+         baseMaterialsCost: breakdown.summary?.baseMaterialsCost || breakdown.baseMaterialsCost,
+         materialsCost,
+         materialMarkup: breakdown.materialMarkup || 2.0,
+         totalCost,
+         hourlyRate: breakdown.summary?.hourlyRate || breakdown.hourlyRate,
+         calculatedAt: new Date()
+       };
     } else {
-      // Universal process: single pricing
-      const materialsCost = baseMaterialsCost * materialMarkup;
-      const totalCostValue = laborCost + materialsCost;
+      // Universal/Standard structure
+      // For universal processes, PricingEngine returns a simpler object or 'universal' nested object
+      // Detect if we have 'universal' key or flat values
+      const coreData = breakdown.universal || breakdown;
       
       processData.pricing = {
-        laborCost,
-        baseMaterialsCost,
-        materialsCost: { "universal": materialsCost },
-        materialMarkup,
-        totalCost: { "universal": totalCostValue },
-        hourlyRate,
+        laborCost: coreData.laborCost,
+        baseMaterialsCost: coreData.baseMaterialsCost || 0,
+        materialsCost: { "universal": coreData.materialsCost },
+        materialMarkup: coreData.materialMarkup,
+        totalCost: { "universal": coreData.totalCost },
+        hourlyRate: coreData.hourlyRate,
         calculatedAt: new Date()
       };
     }
