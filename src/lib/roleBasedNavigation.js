@@ -419,11 +419,6 @@ export const ROLE_NAVIGATION = {
       icon: <HandymanIcon />,
       children: [
         {
-          segment: '',
-          title: 'Tasks',
-          icon: <BuildIcon />
-        },
-        {
           segment: 'materials',
           title: 'Materials',
           icon: <InventoryIcon />
@@ -573,11 +568,6 @@ export const ROLE_NAVIGATION = {
       title: 'Tasks',
       icon: <HandymanIcon />,
       children: [
-        {
-          segment: '',
-          title: 'Tasks',
-          icon: <BuildIcon />
-        },
         {
           segment: 'materials',
           title: 'Materials',

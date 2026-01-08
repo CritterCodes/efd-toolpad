@@ -2,8 +2,13 @@
 import axios from 'axios';
 
 // Create an Axios instance
+// Use relative path for client-side to avoid CORS and ensure correct environment usage
+const baseURL = typeof window !== 'undefined' 
+    ? '/api' 
+    : (process.env.NEXT_PUBLIC_URL ? `${process.env.NEXT_PUBLIC_URL}/api` : 'http://localhost:3000/api');
+
 const axiosInstance = axios.create({
-    baseURL: `${process.env.NEXT_PUBLIC_URL}/api`, // Keep your base URL in .env file
+    baseURL,
     headers: {
         'Content-Type': 'application/json'
     }
