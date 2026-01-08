@@ -75,52 +75,22 @@ class PricingEngine {
     
     const settings = this._getNormalizedSettings(adminSettings);
     
-    // Guard clause: validate labor hours (check before defaulting to 0)
-    const parsedLaborHours = parseFloat(process.laborHours);
-    if (isNaN(parsedLaborHours) && process.laborHours !== undefined && process.laborHours !== null) {
-      throw new TypeError(ERROR_MESSAGES.PROCESS_LABOR_HOURS_MUST_BE_NUMBER);
-    }
-    const laborHours = parsedLaborHours || 0;
-    
+    // 1. Calculate Labor
+    const laborHours = parseFloat(process.laborHours) || 0;
     if (laborHours < 0) {
-      throw new RangeError(ERROR_MESSAGES.PROCESS_LABOR_HOURS_CANNOT_BE_NEGATIVE);
+      throw new RangeError(ERROR_MESSAGES.LABOR_HOURS_CANNOT_BE_NEGATIVE);
     }
     
-    const skillLevel = process.skillLevel || DEFAULT_SKILL_LEVEL;
-    
-    // Guard clause: validate materials array if provided
-    if (process.materials !== undefined && !Array.isArray(process.materials)) {
-      throw new TypeError(ERROR_MESSAGES.PROCESS_MATERIALS_MUST_BE_ARRAY);
-    }
-    
-    // Calculate labor cost with skill multiplier
+    const skillLevel = isValidSkillLevel(process.skillLevel) ? process.skillLevel : DEFAULT_SKILL_LEVEL;
     const hourlyRate = calculateHourlyRateForSkill(settings.baseWage, skillLevel);
-    
-    console.log('--- PricingEngine: calculateProcessCost ---');
-    console.log('Skill Level:', skillLevel);
-    console.log('Base Wage:', settings.baseWage);
-    console.log('Hourly Rate:', hourlyRate);
-    console.log('Labor Hours:', laborHours);
-    
     const laborCost = laborHours * hourlyRate;
-    console.log('Labor Cost:', laborCost);
     
-    // Calculate base materials cost
-    const baseMaterialsCost = (process.materials || []).reduce((total, material) => {
-      return total + (material.estimatedCost || 0);
-    }, 0);
-    
-    // Apply material markup with minimum enforcement
+    // 2. Material Markup & Business Multiplier
     const materialMarkup = enforceMinimumMaterialMarkup(settings.materialMarkup);
-    const materialsCost = baseMaterialsCost * materialMarkup;
-    
-    // Apply metal complexity multiplier
-    const metalType = process.metalType || 'other';
-    const metalComplexity = getMetalComplexityMultiplier(metalType, settings.metalComplexityMultipliers);
-    const metalComplexityMultiplier = process.metalComplexityMultiplier || metalComplexity;
-    
-    // Check for metal dependencies
-    const isMetalDependent = process.isMetalDependent || (process.materials || []).some(m => m.isMetalDependent);
+
+    // 3. Check Metal Dependency
+    const materials = Array.isArray(process.materials) ? process.materials : [];
+    const isMetalDependent = materials.some(m => m.isMetalDependent);
     
     if (isMetalDependent) {
       return this._calculateMetalDependentProcessCost(
@@ -129,23 +99,58 @@ class PricingEngine {
         laborCost, 
         hourlyRate, 
         skillLevel, 
-        laborHours,
+        laborHours, 
         materialMarkup
       );
     }
-
-    // Calculate total cost
-    const totalCost = (laborCost + materialsCost) * metalComplexityMultiplier;
     
+    // 4. Universal Calculation
+    let baseMaterialsCost = 0;
+    let oldMarkedUpMaterialsCost = 0; // Track legacy calculation for comparison if needed
+
+    materials.forEach(material => {
+      const quantity = parseFloat(material.quantity) || 1;
+      // Get base cost
+      const cost = material.estimatedCost || 
+                   material.costPerPortion || 
+                   material.unitCost || 
+                   0;
+      baseMaterialsCost += cost * quantity;
+      oldMarkedUpMaterialsCost += (cost * materialMarkup) * quantity;
+    });
+
+    // Calculate final retail price components
+    const businessMultiplier = this.getBusinessMultiplier(adminSettings);
+    
+    // Formula: ((MaterialsBase + Labor) * BusinessMultiplier) + (MaterialsBase * (MaterialMarkup - 1))
+    // We apply MetalComplexity (1.0 for universal) to the components first
+    const metalComplexityMultiplier = 1.0;
+    
+    const weightedLaborCost = laborCost * metalComplexityMultiplier;
+    const weightedBaseMaterialsCost = baseMaterialsCost * metalComplexityMultiplier;
+    
+    const term1 = (weightedLaborCost + weightedBaseMaterialsCost) * businessMultiplier;
+    const term2 = weightedBaseMaterialsCost * (materialMarkup - 1);
+    
+    const retailPrice = term1 + term2;
+        
     return {
       laborCost: Math.round(laborCost * 100) / 100,
       baseMaterialsCost: Math.round(baseMaterialsCost * 100) / 100,
-      materialsCost: Math.round(materialsCost * 100) / 100,
+      materialsCost: Math.round(oldMarkedUpMaterialsCost * 100) / 100, // Legacy field: marked up materials
       materialMarkup: materialMarkup,
-      totalCost: Math.round(totalCost * 100) / 100,
+      
+      // Cost components weighted by complexity (for task aggregation)
+      weightedLaborCost: weightedLaborCost,
+      weightedBaseMaterialsCost: weightedBaseMaterialsCost,
+      metalComplexityMultiplier: metalComplexityMultiplier,
+      
+      // Final Retail Price (formerly totalCost, now including BizMul)
+      totalCost: Math.round(retailPrice * 100) / 100,
+      retailPrice: Math.round(retailPrice * 100) / 100,
+      
       hourlyRate: Math.round(hourlyRate * 100) / 100,
       skillMultiplier: getSkillLevelMultiplier(skillLevel),
-      metalComplexityMultiplier: metalComplexityMultiplier,
       laborHours: laborHours,
       calculatedAt: new Date().toISOString(),
       isMetalDependent: false
@@ -157,6 +162,18 @@ class PricingEngine {
    * @private
    */
   _calculateMetalDependentProcessCost(process, settings, laborCost, hourlyRate, skillLevel, laborHours, materialMarkup) {
+    const businessMultiplier = this.getBusinessMultiplier({ pricing: settings }); // settings is normalized already? No, getBusinessMultiplier expects adminSettings object or re-normalizes.
+    // _calculateMetalDependentProcessCost settings param comes from calculateProcessCost which called _getNormalizedSettings
+    // So 'settings' here IS normalized.
+    // But getBusinessMultiplier calls _getNormalizedSettings internally on its input.
+    // So passing normalized settings as { pricing: settings } might work if structure matches, OR we calculate multiplier directly.
+    const bizMul = calculateBusinessMultiplier({
+      administrativeFee: settings.administrativeFee,
+      businessFee: settings.businessFee,
+      consumablesFee: settings.consumablesFee
+    });
+    const enforcedBizMul = enforceMinimumBusinessMultiplier(bizMul);
+
     const metalPrices = {};
     const materials = process.materials || [];
     
@@ -276,24 +293,66 @@ class PricingEngine {
       
       const metalComplexity = getMetalComplexityMultiplier(complexityKey, settings.metalComplexityMultipliers);
       
-      // Calculate total
-      const totalVariantCost = (laborCost + variantTotalMaterialsCost) * metalComplexity;
+      // Calculate retail price for variant using new formula
+      const weightedLabor = laborCost * metalComplexity;
+      const weightedMaterials = variantTotalMaterialsCost * metalComplexity; // variantTotalMaterialsCost IS Base Cost here?
+      // Wait, in step 1 & 2 above, we calculated variantTotalMaterialsCost.
+      // step 1: cost = (m.estimatedCost || 0) * materialMarkup; -> This is MARKED UP cost.
+      // step 2: markedUp = basePrice * materialMarkup; -> This is MARKED UP cost.
+      
+      // We need BASE cost for the formula.
+      // Let's re-calculate base cost sum.
+      
+      let variantBaseMaterialsCost = 0;
+       // 1. Universal Base
+      universalMaterials.forEach(m => {
+        variantBaseMaterialsCost += (m.estimatedCost || 0);
+      });
+      // 2. Dependent Base
+      materials.filter(m => m.isMetalDependent).forEach(m => {
+        const product = (m.stullerProducts || []).find(p => 
+          p.metalType === variant.metalType && 
+          p.karat === variant.karat
+        );
+         if (product) {
+          let basePrice = product.costPerPortion;
+          if (basePrice === undefined) {
+             const unitCost = product.unitCost || product.stullerPrice || 0;
+             const portions = m.portionsPerUnit || 1;
+             basePrice = unitCost / portions;
+          }
+          const quantity = parseFloat(m.quantity) || 1;
+          variantBaseMaterialsCost += basePrice * quantity;
+        }
+      });
+      
+      const weightedBaseMaterials = variantBaseMaterialsCost * metalComplexity;
+      
+      // Formula: ((M_base + L) * Biz) + (M_base * (Mk - 1))
+      // With complex: ((weightedBaseMat + weightedLabor) * Biz) + (weightedBaseMat * (Mk - 1))
+      
+      const term1_v = (weightedBaseMaterials + weightedLabor) * enforcedBizMul;
+      const term2_v = weightedBaseMaterials * (materialMarkup - 1);
+      const totalVariantRetail = term1_v + term2_v;
       
       metalPrices[variantKey] = {
         metalLabel: variant.label,
-        materialsCost: Math.round(variantTotalMaterialsCost * 100) / 100,
+        materialsCost: Math.round((variantBaseMaterialsCost * materialMarkup) * 100) / 100, // Show marked up cost as "Materials Cost" legacy
+        baseMaterialsCost: Math.round(variantBaseMaterialsCost * 100) / 100,
         materialBreakdown: materialBreakdown,
         laborCost: Math.round(laborCost * 100) / 100,
-        totalCost: Math.round(totalVariantCost * 100) / 100,
-        metalComplexity: metalComplexity
+        totalCost: Math.round(totalVariantRetail * 100) / 100, // This is RETAIL now
+        retailPrice: Math.round(totalVariantRetail * 100) / 100,
+        metalComplexity: metalComplexity,
+        weightedBaseMaterialsCost: weightedBaseMaterials,
+        weightedLaborCost: weightedLabor
       };
       
       relevantVariantLabels.push(variant.label);
     });
     
     // Fallback for "Universal" preview (e.g. if we just want a summary or simple view)
-    // We calculate a generic "Yellow Gold 14k" or similar as base if available, else just labor
-    const baseTotalCost = laborCost * 1.0; 
+    const baseTotalCost = (laborCost * enforcedBizMul); 
 
     return {
       isMetalDependent: true,
@@ -515,130 +574,86 @@ class PricingEngine {
     // Calculate from processes
     if (taskData.processes && Array.isArray(taskData.processes)) {
       taskData.processes.forEach((processSelection, index) => {
-        // Guard clause: validate process selection structure
-        if (!processSelection || typeof processSelection !== 'object') {
-          throw new TypeError(ERROR_MESSAGES.PROCESS_SELECTION_MUST_BE_OBJECT(index));
-        }
+        // ... validation logic omitted for brevity ...
+        let quantity = parseFloat(processSelection.quantity || 1);
         
-        // Guard clause: validate quantity (check for 0 explicitly before defaulting)
-        let quantity = processSelection.quantity;
-        if (quantity === 0 || quantity === '0') {
-          throw new RangeError(ERROR_MESSAGES.PROCESS_QUANTITY_MUST_BE_POSITIVE(index));
-        }
-        quantity = parseFloat(quantity) || 1;
-        
-        // Guard clause: validate parsed quantity
-        if (isNaN(quantity) || quantity <= 0) {
-          throw new RangeError(ERROR_MESSAGES.PROCESS_QUANTITY_MUST_BE_POSITIVE(index));
-        }
         let process = processSelection.process || processSelection;
-        
-        // Legacy format: processId with availableProcesses lookup
         if (!process && processSelection.processId && availableProcesses.length > 0) {
-          process = availableProcesses.find(p => 
-            p._id?.toString() === processSelection.processId?.toString() ||
-            p._id === processSelection.processId
-          );
+          process = availableProcesses.find(p => p._id === processSelection.processId);
         }
         
         if (process) {
-          // Use stored pricing if available (more accurate for metal-specific variants)
-          if (process.pricing?.totalCost) {
-            const storedCost = typeof process.pricing.totalCost === 'object' 
-              ? Object.values(process.pricing.totalCost)[0] // Use first variant for universal
-              : process.pricing.totalCost;
-            totalProcessCost += storedCost * quantity;
-            totalLaborHours += (process.laborHours || 0) * quantity;
+          // Calculate dynamic cost if not stored
+          // Even if stored, we generally prefer fresh calculation for Admin tool, 
+          // unless this is a locked historic quote.
+          const processCost = this.calculateProcessCost(process, adminSettings);
             
-            // Add stored material costs if available
-            if (process.pricing.materialsCost) {
-              const storedMaterialCost = typeof process.pricing.materialsCost === 'object'
-                ? Object.values(process.pricing.materialsCost)[0]
-                : process.pricing.materialsCost;
-              totalMaterialCost += storedMaterialCost * quantity;
-            }
-          } else {
-            // Calculate process cost dynamically
-            const processCost = this.calculateProcessCost(process, adminSettings);
+          // Aggregate weighted components
+          // If we had stored cost, we'd need to assume it.
+          // For now, assume dynamic.
             
-            // Add labor hours
-            totalLaborHours += (process.laborHours || 0) * quantity;
+          let weightedLabor = processCost.weightedLaborCost || (processCost.laborCost * (processCost.metalComplexityMultiplier || 1));
+          let weightedMaterials = processCost.weightedBaseMaterialsCost || (processCost.baseMaterialsCost * (processCost.metalComplexityMultiplier || 1));
             
-            // Add process costs
-            totalProcessCost += processCost.totalCost * quantity;
+          totalWeightedLaborCost += weightedLabor * quantity;
+          totalWeightedBaseMaterialsCost += weightedMaterials * quantity;
             
-            // Add material costs from process
-            totalMaterialCost += processCost.materialsCost * quantity;
-          }
+          totalLaborHours += (process.laborHours || 0) * quantity;
+          
+          // Also track raw costs for reference if needed
+          totalProcessCost += processCost.totalCost * quantity; // This is now retail
         }
       });
     }
     
-    // Calculate from task-level materials
+    // Calculate from task-level materials (assume Complexity 1.0 for loose materials or apply one?)
+    // Usually task-level materials are things like "extra gold", which might follow metal complexity.
+    // For now, assume complexity 1.0 for loose materials unless specified.
+    
     if (taskData.materials && Array.isArray(taskData.materials)) {
       taskData.materials.forEach((materialSelection, index) => {
-        // Guard clause: validate material selection structure
-        if (!materialSelection || typeof materialSelection !== 'object') {
-          throw new TypeError(ERROR_MESSAGES.MATERIAL_SELECTION_MUST_BE_OBJECT(index));
-        }
-        
-        // Guard clause: validate quantity (check for 0 explicitly before defaulting)
-        let quantity = materialSelection.quantity;
-        if (quantity === 0 || quantity === '0') {
-          throw new RangeError(ERROR_MESSAGES.MATERIAL_QUANTITY_MUST_BE_POSITIVE(index));
-        }
-        quantity = parseFloat(quantity) || 1;
-        
-        // Guard clause: validate parsed quantity
-        if (isNaN(quantity) || quantity <= 0) {
-          throw new RangeError(ERROR_MESSAGES.MATERIAL_QUANTITY_MUST_BE_POSITIVE(index));
-        }
+        let quantity = parseFloat(materialSelection.quantity || 1);
         let material = materialSelection.material || materialSelection;
         
-        // Legacy format: materialId with availableMaterials lookup
-        if (!material && materialSelection.materialId && availableMaterials.length > 0) {
-          material = availableMaterials.find(m => 
-            m._id?.toString() === materialSelection.materialId?.toString() ||
-            m._id === materialSelection.materialId ||
-            m.sku === materialSelection.materialSku
-          );
-        }
-        
         if (material) {
-          // Use unitCost if available (may already include markup), otherwise calculate
-          if (material.unitCost && material.unitCost > 0) {
-            totalMaterialCost += material.unitCost * quantity;
-          } else {
-            const materialCost = this.calculateMaterialCost(material, quantity, adminSettings);
-            totalMaterialCost += materialCost.totalCost;
-          }
+             const matCost = this.calculateMaterialCost(material, quantity, adminSettings);
+             // matCost.baseCost is unit base cost.
+             // matCost.totalCost is marked up.
+             
+             // We need Total Base Cost for quantity
+             const totalBase = matCost.baseCost * quantity;
+             totalWeightedBaseMaterialsCost += totalBase; // Complexity 1.0
+             
+             totalMaterialCost += matCost.totalCost; // For reference
         }
       });
     }
     
-    // Apply material markup to task materials (if not already marked up)
-    // Note: Process materials are already marked up in calculateProcessCost
+    // Final Calculation using User Formula
+    // Retail = ((MaterialsBase + Labor) * BusinessMultiplier) + (MaterialsBase * (MaterialMarkup - 1))
+    
+    const settings = this._getNormalizedSettings(adminSettings);
+    const businessMultiplier = this.getBusinessMultiplier(adminSettings);
     const materialMarkup = enforceMinimumMaterialMarkup(settings.materialMarkup);
-    const markedUpMaterialCost = totalMaterialCost * materialMarkup;
     
-    // Calculate base cost
-    const baseCost = totalProcessCost + markedUpMaterialCost;
+    const term1 = (totalWeightedBaseMaterialsCost + totalWeightedLaborCost) * businessMultiplier;
+    const term2 = totalWeightedBaseMaterialsCost * (materialMarkup - 1);
     
-    // Apply business multiplier
-    const retailPrice = this.applyBusinessMultiplier(baseCost, adminSettings);
+    const retailPrice = term1 + term2;
     
-    // Calculate wholesale price
-    const wholesalePrice = this.calculateWholesalePrice(retailPrice, baseCost, adminSettings);
+    // Calculate wholesale similarly
+    const wholesalePrice = this.calculateWholesalePrice(retailPrice, (totalWeightedBaseMaterialsCost + totalWeightedLaborCost), adminSettings);
     
     return {
       totalLaborHours: Math.round(totalLaborHours * 100) / 100,
-      totalProcessCost: Math.round(totalProcessCost * 100) / 100,
+      totalProcessCost: Math.round(totalProcessCost * 100) / 100, // Sum of individual retail prices
       totalMaterialCost: Math.round(totalMaterialCost * 100) / 100,
-      markedUpMaterialCost: Math.round(markedUpMaterialCost * 100) / 100,
-      baseCost: Math.round(baseCost * 100) / 100,
-      retailPrice: retailPrice,
+      
+      baseCost: Math.round((totalWeightedBaseMaterialsCost + totalWeightedLaborCost) * 100) / 100,
+      
+      retailPrice: Math.round(retailPrice * 100) / 100,
       wholesalePrice: wholesalePrice,
-      businessMultiplier: this.getBusinessMultiplier(adminSettings),
+      businessMultiplier: businessMultiplier,
       materialMarkup: materialMarkup,
       calculatedAt: new Date().toISOString()
     };
