@@ -73,6 +73,16 @@ export const ProcessForm = ({
     setMaterialLines(prev => prev.map(line => 
       line.id === lineId ? { ...line, material } : line
     ));
+
+    // Update formData immediately if quantity exists
+    const line = materialLines.find(l => l.id === lineId);
+    if (line && line.quantity && material) {
+      const numQuantity = parseFloat(line.quantity);
+      if (!isNaN(numQuantity) && numQuantity > 0) {
+        // Need to wait for state update? No, use the passed 'material'
+        updateFormDataMaterial(lineId, material, numQuantity);
+      }
+    }
   };
 
   // Update quantity for a line

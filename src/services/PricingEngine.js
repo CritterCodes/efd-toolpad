@@ -305,7 +305,7 @@ class PricingEngine {
          if (product) {
           let basePrice = product.costPerPortion;
           if (basePrice === undefined) {
-             const unitCost = product.unitCost || product.stullerPrice || 0;
+             const unitCost = product.stullerPrice || product.unitCost || 0;
              const portions = m.portionsPerUnit || 1;
              basePrice = unitCost / portions;
           }
