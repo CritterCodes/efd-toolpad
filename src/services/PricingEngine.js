@@ -570,6 +570,8 @@ class PricingEngine {
     let totalLaborHours = 0;
     let totalProcessCost = 0;
     let totalMaterialCost = 0;
+    let totalWeightedLaborCost = 0;
+    let totalWeightedBaseMaterialsCost = 0;
     
     // Calculate from processes
     if (taskData.processes && Array.isArray(taskData.processes)) {
@@ -632,7 +634,7 @@ class PricingEngine {
     // Final Calculation using User Formula
     // Retail = ((MaterialsBase + Labor) * BusinessMultiplier) + (MaterialsBase * (MaterialMarkup - 1))
     
-    const settings = this._getNormalizedSettings(adminSettings);
+    // settings already normalized above
     const businessMultiplier = this.getBusinessMultiplier(adminSettings);
     const materialMarkup = enforceMinimumMaterialMarkup(settings.materialMarkup);
     
