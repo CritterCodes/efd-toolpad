@@ -298,6 +298,9 @@ class PricingEngine {
         
         if (product) {
           // Use product cost
+          // NEW: Use helper to find raw cost to ensure consistency (COG)
+          let rawCost = this._getMaterialBaseRawCost(null, product);
+
           // unitCost is usually user-facing cost (purchase price of item), but we need cost basis for the PORTION.
           // In ProcessForm construction, portionsPerUnit is set.
           
@@ -305,12 +308,13 @@ class PricingEngine {
           let basePrice = product.costPerPortion;
           
           if (basePrice === undefined) {
-             const unitCost = product.unitCost || product.stullerPrice || 0;
+             // Fallback logic changed to use rawCost
              const portions = m.portionsPerUnit || 1;
-             basePrice = unitCost / portions;
+             basePrice = (rawCost > 0 ? rawCost : (product.unitCost || 0)) / portions;
           }
 
-          const markedUp = basePrice * materialMarkup;
+          // REMOVED MARKUP: Process Cost is COG.
+          const markedUp = basePrice; // * materialMarkup;
           const quantity = parseFloat(m.quantity) || 1;
           
           cost = markedUp * quantity;
@@ -385,7 +389,7 @@ class PricingEngine {
       
       metalPrices[variantKey] = {
         metalLabel: variant.label,
-        materialsCost: Math.round((variantBaseMaterialsCost * materialMarkup) * 100) / 100, // Show marked up cost as "Materials Cost" legacy
+        materialsCost: Math.round(variantBaseMaterialsCost * 100) / 100, // Now purely base cost
         baseMaterialsCost: Math.round(variantBaseMaterialsCost * 100) / 100,
         materialBreakdown: materialBreakdown,
         laborCost: Math.round(laborCost * 100) / 100,

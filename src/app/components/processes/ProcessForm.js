@@ -429,22 +429,6 @@ export const ProcessForm = ({
       <Grid item xs={12}>
         {costPreview && (
           <Box sx={{ mt: 2 }}>
-{/* Debug Info (To be removed) */}
-        <Box sx={{ my: 2, p: 2, bgcolor: '#f0f0f0', border: '1px dashed #ccc' }}>
-           <Typography variant="subtitle2" sx={{ fontFamily: 'monospace' }}>
-             DEBUG: Cost Calc Internals
-           </Typography>
-           <Typography variant="caption" component="pre" sx={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
-             {JSON.stringify({
-               firstMaterialPortions: formData.materials[0]?.portionsPerUnit,
-               firstMaterialStullerCount: formData.materials[0]?.stullerProducts?.length,
-               firstStullerPrice: formData.materials[0]?.stullerProducts?.[0]?.stullerPrice,
-               firstStullerUnitCost: formData.materials[0]?.stullerProducts?.[0]?.unitCost,
-               costPreviewIsMD: costPreview?.isMetalDependent,
-               metalsCount: costPreview?.metalPrices ? Object.keys(costPreview.metalPrices).length : 0
-             }, null, 2)}
-           </Typography>
-        </Box>
 
       <Typography variant="h6" gutterBottom>
               Process Cost Preview
@@ -499,7 +483,7 @@ export const ProcessForm = ({
                         
                         <Box sx={{ mb: 2 }}>
                           <Typography variant="body2" color="text.secondary">
-                            Materials Total: <strong>${prices.materialsCost?.toFixed(2) || '0.00'}</strong>
+                            Materials Cost (COG): <strong>${prices.materialsCost?.toFixed(2) || '0.00'}</strong>
                           </Typography>
                           
                           {/* Show individual material costs if available */}
