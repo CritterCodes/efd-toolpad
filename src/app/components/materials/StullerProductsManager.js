@@ -68,8 +68,6 @@ export default function StullerProductsManager({
     if (pendingItemNumber && formData.stuller_item_number === pendingItemNumber && !processingFetch) {
       // Create product entry using the fresh formData
       const stullerPrice = formData.unitCost || 0;
-      const markupRate = adminSettings?.pricing?.materialMarkup || 1.5;
-      const markedUpPrice = stullerPrice * markupRate;
       
       const newProduct = {
         id: Date.now().toString(),
@@ -77,11 +75,9 @@ export default function StullerProductsManager({
         // Use the exact metal type from compatibleMetals array, or null if not metal-based
         metalType: formData.compatibleMetals?.[0] || null, 
         karat: formData.karat || null,
-        // Store all pricing information
+        // Store only RAW pricing information. Markups are now applied dynamically by PricingEngine.
         stullerPrice: stullerPrice,
-        markupRate: markupRate,
-        markedUpPrice: markedUpPrice,
-        unitCost: markedUpPrice, // For backward compatibility, use marked up price as unitCost
+        unitCost: stullerPrice, // unitCost is now synonymous with stullerPrice (Raw Cost)
         sku: formData.sku || '',
         description: formData.description || formData.displayName || 'Stuller Product',
         weight: 0,
