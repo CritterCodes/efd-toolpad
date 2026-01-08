@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, Suspense } from "react";
 import { SignInPage } from "@toolpad/core/SignInPage";
 import { Link, Snackbar, Alert, Typography, Box } from "@mui/material";
 import { useSearchParams } from 'next/navigation';
@@ -24,7 +24,7 @@ const InternalAppNote = () => (
     </Box>
 );
 
-const SignIn = () => {
+const SignInContent = () => {
     const searchParams = useSearchParams();
     const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
     const [error, setError] = useState(null);
@@ -104,6 +104,14 @@ const SignIn = () => {
                 </Alert>
             </Snackbar>
         </>
+    );
+};
+
+const SignIn = () => {
+    return (
+        <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>Loading...</Box>}>
+            <SignInContent />
+        </Suspense>
     );
 };
 
