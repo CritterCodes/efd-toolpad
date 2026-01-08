@@ -119,6 +119,21 @@ class PricingEngine {
     const metalComplexity = getMetalComplexityMultiplier(metalType, settings.metalComplexityMultipliers);
     const metalComplexityMultiplier = process.metalComplexityMultiplier || metalComplexity;
     
+    // Check for metal dependencies
+    const isMetalDependent = process.isMetalDependent || (process.materials || []).some(m => m.isMetalDependent);
+    
+    if (isMetalDependent) {
+      return this._calculateMetalDependentProcessCost(
+        process, 
+        settings, 
+        laborCost, 
+        hourlyRate, 
+        skillLevel, 
+        laborHours,
+        materialMarkup
+      );
+    }
+
     // Calculate total cost
     const totalCost = (laborCost + materialsCost) * metalComplexityMultiplier;
     
@@ -131,6 +146,162 @@ class PricingEngine {
       hourlyRate: Math.round(hourlyRate * 100) / 100,
       skillMultiplier: getSkillLevelMultiplier(skillLevel),
       metalComplexityMultiplier: metalComplexityMultiplier,
+      laborHours: laborHours,
+      calculatedAt: new Date().toISOString(),
+      isMetalDependent: false
+    };
+  }
+
+  /**
+   * Calculate process cost for metal-dependent processes
+   * @private
+   */
+  _calculateMetalDependentProcessCost(process, settings, laborCost, hourlyRate, skillLevel, laborHours, materialMarkup) {
+    const metalPrices = {};
+    const materials = process.materials || [];
+    
+    // Identify all relevant metal variants from stuller products
+    // We group by metal type and karat
+    const foundVariants = new Set();
+    const variantMap = new Map(); // key -> { metalType, karat, label }
+
+    materials.forEach(material => {
+      if (material.isMetalDependent && Array.isArray(material.stullerProducts)) {
+        material.stullerProducts.forEach(prod => {
+          if (!prod.metalType || !prod.karat) return;
+          
+          // Create unique key for variant
+          const key = `${prod.metalType}_${prod.karat}`.toLowerCase().replace(/[^a-z0-9]/g, '_');
+          
+          if (!foundVariants.has(key)) {
+            foundVariants.add(key);
+            
+            // Format label
+            const metalLabel = prod.metalType.split('-')
+              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(' ');
+            const label = `${metalLabel} ${prod.karat.toUpperCase()}`;
+            
+            variantMap.set(key, {
+              metalType: prod.metalType,
+              karat: prod.karat,
+              label,
+              key
+            });
+          }
+        });
+      }
+    });
+
+    // If no specific variants found but isMetalDependent is true, 
+    // we might want to return default valid metals (common logic), 
+    // but for now only use what's found in materials.
+    
+    const relevantVariantLabels = [];
+    const universalMaterials = materials.filter(m => !m.isMetalDependent);
+    
+    // Calculate cost for each variant
+    variantMap.forEach((variant, variantKey) => {
+      let variantTotalMaterialsCost = 0;
+      const materialBreakdown = [];
+      
+      // 1. Add non-dependent materials (universal cost)
+      universalMaterials.forEach(m => {
+        const cost = (m.estimatedCost || 0) * materialMarkup;
+        variantTotalMaterialsCost += cost;
+        materialBreakdown.push({
+          name: m.displayName || m.name,
+          quantity: m.quantity || 1,
+          unitPrice: cost / (m.quantity || 1), // approximate
+          total: cost
+        });
+      });
+      
+      // 2. Add dependent materials (variant specific cost)
+      materials.filter(m => m.isMetalDependent).forEach(m => {
+        // Find matching product
+        const product = (m.stullerProducts || []).find(p => 
+          p.metalType === variant.metalType && 
+          p.karat === variant.karat
+        );
+        
+        let cost = 0;
+        let unitPrice = 0;
+        
+        if (product) {
+          // Use product cost
+          // unitCost is usually user-facing cost, but we need cost basis
+          // In ProcessForm construction, costPerPortion is calculated
+          // We need base cost to apply markup
+          
+          // Check if product has costPerPortion (migrated) or unitCost (raw)
+          const basePrice = product.costPerPortion || product.unitCost || 0;
+          const markedUp = basePrice * materialMarkup;
+          const quantity = parseFloat(m.quantity) || 1;
+          
+          cost = markedUp * quantity;
+          unitPrice = markedUp;
+        }
+        
+        variantTotalMaterialsCost += cost;
+        materialBreakdown.push({
+          name: m.displayName || m.name,
+          quantity: m.quantity || 1,
+          unitPrice: unitPrice,
+          total: cost,
+          isVariant: true,
+          found: !!product
+        });
+      });
+      
+      // Get complexity for this variant
+      // Simplify metal type for complexity lookup (e.g. "yellow-gold" -> "gold")
+      let complexityKey = 'other';
+      const mt = variant.metalType.toLowerCase();
+      
+      if (mt.includes('platinum')) complexityKey = 'platinum';
+      else if (mt.includes('palladium')) complexityKey = 'palladium';
+      else if (mt.includes('gold')) complexityKey = 'gold';
+      else if (mt.includes('silver')) complexityKey = 'silver';
+      else if (mt.includes('titanium')) complexityKey = 'titanium';
+      else if (mt.includes('stainless')) complexityKey = 'stainless';
+      else if (mt.includes('brass')) complexityKey = 'brass';
+      else if (mt.includes('copper')) complexityKey = 'copper';
+      
+      const metalComplexity = getMetalComplexityMultiplier(complexityKey, settings.metalComplexityMultipliers);
+      
+      // Calculate total
+      const totalVariantCost = (laborCost + variantTotalMaterialsCost) * metalComplexity;
+      
+      metalPrices[variantKey] = {
+        metalLabel: variant.label,
+        materialsCost: Math.round(variantTotalMaterialsCost * 100) / 100,
+        materialBreakdown: materialBreakdown,
+        laborCost: Math.round(laborCost * 100) / 100,
+        totalCost: Math.round(totalVariantCost * 100) / 100,
+        metalComplexity: metalComplexity
+      };
+      
+      relevantVariantLabels.push(variant.label);
+    });
+    
+    // Fallback for "Universal" preview (e.g. if we just want a summary or simple view)
+    // We calculate a generic "Yellow Gold 14k" or similar as base if available, else just labor
+    const baseTotalCost = laborCost * 1.0; 
+
+    return {
+      isMetalDependent: true,
+      metalPrices: metalPrices,
+      relevantVariantLabels: relevantVariantLabels,
+      summary: {
+        baseHourlyRate: hourlyRate,
+        laborHours: laborHours,
+        laborCost: laborCost
+      },
+      // Keep flat structure populated with reasonable defaults for backward compatibility
+      laborCost: Math.round(laborCost * 100) / 100,
+      totalCost: Math.round(baseTotalCost * 100) / 100,
+      hourlyRate: Math.round(hourlyRate * 100) / 100, 
       laborHours: laborHours,
       calculatedAt: new Date().toISOString()
     };
