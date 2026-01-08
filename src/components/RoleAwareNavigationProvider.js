@@ -9,13 +9,13 @@ import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { AppProvider } from '@toolpad/core/AppProvider';
 import { getNavigationForRole, getEffectiveRole } from '@/lib/roleBasedNavigation';
+import theme from '@/lib/theme';
 
 export default function RoleAwareNavigationProvider({ 
   children, 
   branding, 
   authentication, 
-  session,
-  theme
+  session
 }) {
   const [currentNavigation, setCurrentNavigation] = useState([]);
 

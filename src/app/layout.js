@@ -10,7 +10,6 @@ import { UnifiedUserService, USER_ROLES } from "@/lib/unifiedUserService";
 import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
-import theme from '@/lib/theme';
 
 const BRANDING = {
     logo: <Image 
@@ -89,7 +88,6 @@ export default async function RootLayout({ children }) {
                             navigation={[]}
                             branding={BRANDING}
                             authentication={AUTHENTICATION}
-                            theme={theme}
                         >
                             {children}
                             <PWAInstallPrompt />
@@ -125,7 +123,6 @@ export default async function RootLayout({ children }) {
                                 session={session}
                                 branding={BRANDING}
                                 authentication={AUTHENTICATION}
-                                theme={theme}
                             >
                                 {children}
                                 <PWAInstallPrompt />
