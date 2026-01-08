@@ -95,6 +95,9 @@ export const AdminSettingsProvider = ({ children }) => {
       
       // Transform the API response to our expected structure
       const transformedSettings = {
+        // Preserve original pricing structure for PricingEngine compatibility
+        pricing: data.pricing || {},
+
         // Labor rates structure for process calculations
         laborRates: {
           baseRate: data.pricing?.wage || defaultSettings.laborRates.baseRate,
