@@ -2,11 +2,8 @@
 import { createTheme } from '@mui/material/styles';
 
 const theme = createTheme({
-    cssVariables: {
-      colorSchemeSelector: 'data-toolpad-color-scheme',
-    },
-    colorSchemes: { light: true, dark: true },
     palette: {
+        mode: 'light',
         primary: {
             main: '#1976d2',
         },
