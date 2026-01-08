@@ -29,9 +29,9 @@ import {
   KARAT_OPTIONS,
   getKaratOptionsForMetal,
   formatCategoryDisplay,
-  formatMetalTypeDisplay,
-  calculateProcessCost
+  formatMetalTypeDisplay
 } from '@/utils/processes.util';
+import pricingEngine from '@/services/PricingEngine';
 
 /**
  * ProcessForm Component
@@ -174,8 +174,13 @@ export const ProcessForm = ({
       return null;
     }
 
-    const costBreakdown = calculateProcessCost(formData, adminSettings, availableMaterials);
-    return costBreakdown;
+    try {
+      const costBreakdown = pricingEngine.calculateProcessCost(formData, adminSettings);
+      return costBreakdown;
+    } catch (error) {
+      console.error("PricingEngine Error:", error);
+      return null;
+    }
   };
 
   const costPreview = getCostPreview();

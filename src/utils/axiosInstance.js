@@ -32,9 +32,13 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response.status === 401) {
-            alert('Session expired. Please log in again.');
-            window.location.href = '/login';
+        // Safe check for error.response
+        if (error.response && error.response.status === 401) {
+            // Only redirect if we are in the browser
+            if (typeof window !== 'undefined') {
+                alert('Session expired. Please log in again.');
+                window.location.href = '/login';
+            }
         }
         return Promise.reject(error);
     }

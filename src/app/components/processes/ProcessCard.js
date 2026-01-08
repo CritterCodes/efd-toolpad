@@ -21,10 +21,10 @@ import {
   formatCategoryDisplay,
   formatSkillLevelDisplay,
   formatMetalTypeDisplay,
-  getKaratLabel,
-  calculateProcessCost
+  getKaratLabel
 } from '@/utils/processes.util';
 import { SKILL_LEVEL } from '@/constants/pricing.constants.mjs';
+import pricingEngine from '@/services/PricingEngine';
 
 /**
  * ProcessCard Component
@@ -53,7 +53,7 @@ export const ProcessCard = ({
   );
   
   // Always check if process should be multi-variant by examining its materials (only needed for fallback)
-  const costBreakdown = hasMultiVariantMaterials && !process.pricing ? calculateProcessCost(process, adminSettings) : null;
+  const costBreakdown = hasMultiVariantMaterials && !process.pricing ? pricingEngine.calculateProcessCost(process, adminSettings) : null;
   
   // Check for new pricing structure first
   if (process.pricing && process.pricing.totalCost) {
