@@ -1,0 +1,6 @@
+import { DEFAULT_SKILL_LEVEL, VALID_SKILL_LEVELS, ERROR_MESSAGES, isValidSkillLevel, calculateHourlyRateForSkill } from '@/constants/pricing.constants.mjs';
+import { getNormalizedSettings } from './config.pricing.js';
+
+export function getHourlyRateForSkill(skillLevel, adminSettings = {}) { if (skillLevel !== undefined && !isValidSkillLevel(skillLevel)) { throw new TypeError(`${ERROR_MESSAGES.SKILL_LEVEL_MUST_BE_STRING}. Valid values: ${VALID_SKILL_LEVELS.join(', ')}`); } const settings = getNormalizedSettings(adminSettings); return calculateHourlyRateForSkill(settings.baseWage, skillLevel); }
+
+export function calculateLaborCost(laborHours, skillLevel = DEFAULT_SKILL_LEVEL, adminSettings = {}) { const parsedHours = parseFloat(laborHours); if (isNaN(parsedHours)) throw new TypeError(ERROR_MESSAGES.LABOR_HOURS_MUST_BE_NUMBER); if (parsedHours < 0) throw new RangeError(ERROR_MESSAGES.LABOR_HOURS_CANNOT_BE_NEGATIVE); if (skillLevel !== undefined && !isValidSkillLevel(skillLevel)) { throw new TypeError(`${ERROR_MESSAGES.SKILL_LEVEL_MUST_BE_STRING}. Valid values: ${VALID_SKILL_LEVELS.join(', ')}`); } const hourlyRate = getHourlyRateForSkill(skillLevel, adminSettings); return Math.round((parsedHours * hourlyRate) * 100) / 100; }

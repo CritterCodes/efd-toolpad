@@ -1,80 +1,21 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Typography,
-  Card,
-  CardContent,
-  Avatar,
-  Chip,
-  Grid,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Alert,
   Tabs,
   Tab,
-  IconButton,
-  Tooltip,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   CircularProgress,
-  TextField
 } from '@mui/material';
-import {
-  CheckCircle as ApproveIcon,
-  Cancel as RejectIcon,
-  Visibility as ViewIcon,
-  Email as EmailIcon,
-  Phone as PhoneIcon,
-  Business as BusinessIcon,
-  Storefront as StoreIcon,
-  Description as DocumentIcon
-} from '@mui/icons-material';
 
-// API service functions
-const wholesaleService = {
-  getAllApplications: async (filters = {}) => {
-    const params = new URLSearchParams(filters);
-    const response = await fetch(`/api/admin/wholesale?${params}`);
-    if (!response.ok) throw new Error('Failed to fetch wholesale applications');
-    return response.json();
-  },
-  
-  getStats: async () => {
-    const response = await fetch('/api/admin/wholesale/stats');
-    if (!response.ok) throw new Error('Failed to fetch wholesale stats');
-    return response.json();
-  },
-  
-  approveApplication: async (applicationId, reviewNotes = '') => {
-    const response = await fetch(`/api/admin/wholesale/${applicationId}/approve`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reviewNotes })
-    });
-    if (!response.ok) throw new Error('Failed to approve application');
-    return response.json();
-  },
-  
-  rejectApplication: async (applicationId, reviewNotes = '') => {
-    const response = await fetch(`/api/admin/wholesale/${applicationId}/reject`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reviewNotes })
-    });
-    if (!response.ok) throw new Error('Failed to reject application');
-    return response.json();
-  }
-};
+import { useWholesaleManagement } from '@/hooks/users/useWholesaleManagement';
+import StatsCards from './wholesale/StatsCards';
+import ApplicationsList from './wholesale/ApplicationsList';
+import WholesalersTable from './wholesale/WholesalersTable';
+import ActionDialog from './wholesale/ActionDialog';
+import DetailDialog from './wholesale/DetailDialog';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -94,100 +35,24 @@ function TabPanel({ children, value, index, ...other }) {
   );
 }
 
-function formatDate(date) {
-  if (!date) return 'N/A';
-  return new Date(date).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
-}
-
 export default function WholesaleManagement() {
-  const [wholesalers, setWholesalers] = useState([]);
-  const [applications, setApplications] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const {
+    wholesalers,
+    applications,
+    stats,
+    loading,
+    error,
+    handleApprove,
+    handleReject,
+  } = useWholesaleManagement();
+
   const [tabValue, setTabValue] = useState(0);
+  
+  // Dialog States
   const [selectedApplication, setSelectedApplication] = useState(null);
   const [actionDialogOpen, setActionDialogOpen] = useState(false);
   const [actionType, setActionType] = useState('');
-  const [reviewNotes, setReviewNotes] = useState('');
-  const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
-
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch existing wholesalers (role: 'wholesaler')
-        const wholesalersResponse = await fetch('/api/users?role=wholesaler');
-        const wholesalersData = await wholesalersResponse.json();
-        
-        // Fetch applications using the new API service
-        const applicationsData = await wholesaleService.getAllApplications();
-        
-        // Fetch stats using the new API service
-        const statsData = await wholesaleService.getStats();
-        
-        if (wholesalersData.success) {
-          setWholesalers(wholesalersData.data || []);
-        }
-        
-        setApplications(applicationsData || []);
-        setStats(statsData || { total: 0, pending: 0, approved: 0, rejected: 0 });
-        setError(null);
-      } catch (error) {
-        console.error('Error loading wholesale data:', error);
-        setError(error.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, []);
-
-  const handleApprove = async (application) => {
-    try {
-      setLoading(true);
-      await wholesaleService.approveApplication(application.applicationId, reviewNotes);
-      setActionDialogOpen(false);
-      setReviewNotes('');
-      
-      // Refresh data
-      const applicationsData = await wholesaleService.getAllApplications();
-      const statsData = await wholesaleService.getStats();
-      setApplications(applicationsData || []);
-      setStats(statsData || { total: 0, pending: 0, approved: 0, rejected: 0 });
-    } catch (error) {
-      console.error('Error approving application:', error);
-      setError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleReject = async (application) => {
-    try {
-      setLoading(true);
-      await wholesaleService.rejectApplication(application.applicationId, reviewNotes);
-      setActionDialogOpen(false);
-      setReviewNotes('');
-      
-      // Refresh data
-      const applicationsData = await wholesaleService.getAllApplications();
-      const statsData = await wholesaleService.getStats();
-      setApplications(applicationsData || []);
-      setStats(statsData || { total: 0, pending: 0, approved: 0, rejected: 0 });
-    } catch (error) {
-      console.error('Error rejecting application:', error);
-      setError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const openActionDialog = (application, action) => {
     setSelectedApplication(application);
@@ -198,6 +63,15 @@ export default function WholesaleManagement() {
   const openDetailDialog = (application) => {
     setSelectedApplication(application);
     setDetailDialogOpen(true);
+  };
+
+  const confirmAction = async (applicationId, reviewNotes) => {
+    if (actionType === 'approve') {
+      await handleApprove(applicationId, reviewNotes);
+    } else {
+      await handleReject(applicationId, reviewNotes);
+    }
+    setActionDialogOpen(false);
   };
 
   if (loading && applications.length === 0) {
@@ -224,56 +98,7 @@ export default function WholesaleManagement() {
       )}
 
       {/* Statistics Cards */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" component="div">
-                {stats.total}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Total Applications
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" component="div" color="warning.main">
-                {stats.pending}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Pending Review
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" component="div" color="success.main">
-                {stats.approved}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Approved
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" component="div" color="error.main">
-                {stats.rejected}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Rejected
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+      <StatsCards stats={stats} />
 
       {/* Tabs */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
@@ -285,297 +110,34 @@ export default function WholesaleManagement() {
 
       {/* Applications Tab */}
       <TabPanel value={tabValue} index={0}>
-        {applications.length === 0 ? (
-          <Typography variant="body1" color="text.secondary">
-            No wholesale applications found.
-          </Typography>
-        ) : (
-          <Grid container spacing={2}>
-            {applications.map((application) => (
-              <Grid item xs={12} md={6} lg={4} key={application.applicationId}>
-                <Card>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                      <Avatar sx={{ mr: 2, bgcolor: 'primary.main' }}>
-                        <StoreIcon />
-                      </Avatar>
-                      <Box>
-                        <Typography variant="h6">
-                          {application.businessName || 'N/A'}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {application.email}
-                        </Typography>
-                      </Box>
-                    </Box>
-
-                    <Chip 
-                      label={application.status || 'unknown'} 
-                      color={
-                        application.status === 'approved' ? 'success' :
-                        application.status === 'rejected' ? 'error' : 'warning'
-                      }
-                      size="small"
-                      sx={{ mb: 1 }}
-                    />
-
-                    <Typography variant="body2" gutterBottom>
-                      <strong>Contact:</strong> {application.contactFirstName} {application.contactLastName}
-                    </Typography>
-                    <Typography variant="body2" gutterBottom>
-                      <strong>Phone:</strong> {application.contactPhone || 'N/A'}
-                    </Typography>
-                    <Typography variant="body2" gutterBottom>
-                      <strong>Location:</strong> {application.businessCity}, {application.businessState}
-                    </Typography>
-                    <Typography variant="body2" gutterBottom>
-                      <strong>Submitted:</strong> {formatDate(application.submittedAt)}
-                    </Typography>
-
-                    <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
-                      <Tooltip title="View Details">
-                        <IconButton size="small" onClick={() => openDetailDialog(application)}>
-                          <ViewIcon />
-                        </IconButton>
-                      </Tooltip>
-                      
-                      {application.status === 'pending' && (
-                        <>
-                          <Tooltip title="Approve Application">
-                            <IconButton 
-                              size="small" 
-                              color="success"
-                              onClick={() => openActionDialog(application, 'approve')}
-                            >
-                              <ApproveIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Reject Application">
-                            <IconButton 
-                              size="small" 
-                              color="error"
-                              onClick={() => openActionDialog(application, 'reject')}
-                            >
-                              <RejectIcon />
-                            </IconButton>
-                          </Tooltip>
-                        </>
-                      )}
-                      
-                      <Tooltip title="Contact">
-                        <IconButton size="small" href={`mailto:${application.email}`}>
-                          <EmailIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        )}
+        <ApplicationsList 
+          applications={applications} 
+          onOpenDetail={openDetailDialog}
+          onOpenAction={openActionDialog}
+        />
       </TabPanel>
 
       {/* Active Wholesalers Tab */}
       <TabPanel value={tabValue} index={1}>
-        {wholesalers.length === 0 ? (
-          <Typography variant="body1" color="text.secondary">
-            No active wholesalers found.
-          </Typography>
-        ) : (
-          <TableContainer component={Paper}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Email</TableCell>
-                  <TableCell>Business</TableCell>
-                  <TableCell>Joined</TableCell>
-                  <TableCell align="center">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {wholesalers.map((wholesaler) => (
-                  <TableRow key={wholesaler._id}>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <Avatar sx={{ mr: 2, width: 32, height: 32 }}>
-                          <StoreIcon />
-                        </Avatar>
-                        {wholesaler.firstName} {wholesaler.lastName}
-                      </Box>
-                    </TableCell>
-                    <TableCell>{wholesaler.email}</TableCell>
-                    <TableCell>
-                      {wholesaler.businessName || 'N/A'}
-                    </TableCell>
-                    <TableCell>{formatDate(wholesaler.createdAt)}</TableCell>
-                    <TableCell align="center">
-                      <Tooltip title="Contact">
-                        <IconButton size="small" href={`mailto:${wholesaler.email}`}>
-                          <EmailIcon />
-                        </IconButton>
-                      </Tooltip>
-                      {wholesaler.contactPhone && (
-                        <Tooltip title="Call">
-                          <IconButton size="small" href={`tel:${wholesaler.contactPhone}`}>
-                            <PhoneIcon />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
+        <WholesalersTable wholesalers={wholesalers} />
       </TabPanel>
 
       {/* Action Dialog */}
-      <Dialog open={actionDialogOpen} onClose={() => setActionDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {actionType === 'approve' ? 'Approve' : 'Reject'} Wholesale Application
-        </DialogTitle>
-        <DialogContent>
-          {selectedApplication && (
-            <Box>
-              <Typography variant="body1" gutterBottom>
-                <strong>Business:</strong> {selectedApplication.businessName}
-              </Typography>
-              <Typography variant="body1" gutterBottom>
-                <strong>Contact:</strong> {selectedApplication.contactFirstName} {selectedApplication.contactLastName}
-              </Typography>
-              <Typography variant="body1" gutterBottom>
-                <strong>Email:</strong> {selectedApplication.email}
-              </Typography>
-              
-              <TextField
-                fullWidth
-                multiline
-                rows={3}
-                label="Review Notes"
-                value={reviewNotes}
-                onChange={(e) => setReviewNotes(e.target.value)}
-                sx={{ mt: 2 }}
-                placeholder={
-                  actionType === 'approve' 
-                    ? 'Optional notes about the approval...' 
-                    : 'Required: Please provide a reason for rejection...'
-                }
-              />
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setActionDialogOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            onClick={() => actionType === 'approve' ? handleApprove(selectedApplication) : handleReject(selectedApplication)}
-            color={actionType === 'approve' ? 'success' : 'error'}
-            variant="contained"
-            disabled={loading || (actionType === 'reject' && !reviewNotes.trim())}
-          >
-            {loading ? 'Processing...' : (actionType === 'approve' ? 'Approve' : 'Reject')}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ActionDialog 
+        open={actionDialogOpen}
+        onClose={() => setActionDialogOpen(false)}
+        application={selectedApplication}
+        actionType={actionType}
+        onConfirm={confirmAction}
+        loading={loading}
+      />
 
       {/* Detail Dialog */}
-      <Dialog open={detailDialogOpen} onClose={() => setDetailDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>
-          Wholesale Application Details
-        </DialogTitle>
-        <DialogContent>
-          {selectedApplication && (
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <Typography variant="h6" gutterBottom>Business Information</Typography>
-                <Typography variant="body2" gutterBottom>
-                  <strong>Business Name:</strong> {selectedApplication.businessName}
-                </Typography>
-                <Typography variant="body2" gutterBottom>
-                  <strong>Address:</strong> {selectedApplication.businessAddress}
-                </Typography>
-                <Typography variant="body2" gutterBottom>
-                  <strong>City:</strong> {selectedApplication.businessCity}
-                </Typography>
-                <Typography variant="body2" gutterBottom>
-                  <strong>State:</strong> {selectedApplication.businessState}
-                </Typography>
-                <Typography variant="body2" gutterBottom>
-                  <strong>ZIP:</strong> {selectedApplication.businessZip}
-                </Typography>
-                <Typography variant="body2" gutterBottom>
-                  <strong>Country:</strong> {selectedApplication.businessCountry}
-                </Typography>
-              </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <Typography variant="h6" gutterBottom>Contact Information</Typography>
-                <Typography variant="body2" gutterBottom>
-                  <strong>Name:</strong> {selectedApplication.contactFirstName} {selectedApplication.contactLastName}
-                </Typography>
-                <Typography variant="body2" gutterBottom>
-                  <strong>Title:</strong> {selectedApplication.contactTitle}
-                </Typography>
-                <Typography variant="body2" gutterBottom>
-                  <strong>Email:</strong> {selectedApplication.contactEmail}
-                </Typography>
-                <Typography variant="body2" gutterBottom>
-                  <strong>Phone:</strong> {selectedApplication.contactPhone}
-                </Typography>
-              </Grid>
-              
-              <Grid item xs={12}>
-                <Typography variant="h6" gutterBottom>Application Status</Typography>
-                <Typography variant="body2" gutterBottom>
-                  <strong>Status:</strong> {selectedApplication.status}
-                </Typography>
-                <Typography variant="body2" gutterBottom>
-                  <strong>Submitted:</strong> {formatDate(selectedApplication.submittedAt)}
-                </Typography>
-                {selectedApplication.reviewedAt && (
-                  <Typography variant="body2" gutterBottom>
-                    <strong>Reviewed:</strong> {formatDate(selectedApplication.reviewedAt)}
-                  </Typography>
-                )}
-                {selectedApplication.reviewNotes && (
-                  <Typography variant="body2" gutterBottom>
-                    <strong>Review Notes:</strong> {selectedApplication.reviewNotes}
-                  </Typography>
-                )}
-              </Grid>
-              
-              {selectedApplication.documents && (
-                <Grid item xs={12}>
-                  <Typography variant="h6" gutterBottom>Documents</Typography>
-                  {selectedApplication.documents.salesTaxPermit && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <DocumentIcon />
-                      <Typography variant="body2">
-                        <a 
-                          href={selectedApplication.documents.salesTaxPermit.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                        >
-                          Sales Tax Permit ({selectedApplication.documents.salesTaxPermit.originalName})
-                        </a>
-                      </Typography>
-                    </Box>
-                  )}
-                </Grid>
-              )}
-            </Grid>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDetailDialogOpen(false)}>
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <DetailDialog 
+        open={detailDialogOpen}
+        onClose={() => setDetailDialogOpen(false)}
+        application={selectedApplication}
+      />
     </Box>
   );
 }

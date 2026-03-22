@@ -1,0 +1,1 @@
+export default function GemstoneDetails() { return null; }
