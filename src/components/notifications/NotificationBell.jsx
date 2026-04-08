@@ -20,7 +20,8 @@ import { useSession } from 'next-auth/react';
 import { formatDistanceToNow } from 'date-fns';
 
 export default function NotificationBell() {
-  const { data: session } = useSession();
+  const sessionState = useSession() || {};
+  const { data: session = null } = sessionState;
   const router = useRouter();
   const [anchorEl, setAnchorEl] = useState(null);
   const [notifications, setNotifications] = useState([]);

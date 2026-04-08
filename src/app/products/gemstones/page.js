@@ -8,7 +8,8 @@ import GemstoneGrid from '../../../components/products/gemstones/GemstoneGrid';
 import { useGemstoneManagement } from '../../../hooks/products/gemstones/useGemstoneManagement';
 
 export default function GemCutterProductsPage() {
-  const { data: session } = useSession();
+  const sessionState = useSession() || {};
+  const { data: session = null } = sessionState;
   const { products, loading, error, setError, success, setSuccess, handleDeleteProduct } = useGemstoneManagement('/api/products/gemstones');
   const [tabValue, setTabValue] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');

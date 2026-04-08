@@ -65,4 +65,6 @@ export const devNavigation = {
           icon: <HandymanIcon />
         }
       ]
+    }
+  ]
 };

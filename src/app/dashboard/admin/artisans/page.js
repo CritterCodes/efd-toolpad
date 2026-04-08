@@ -1,6 +1,6 @@
 'use client';
 
-import ArtisanManagement from '@/components/admin/ArtisanManagement';
+import ArtisanManagement from '@/app/components/users/ArtisanManagement';
 
 export default function ArtisansPage() {
   return <ArtisanManagement />;

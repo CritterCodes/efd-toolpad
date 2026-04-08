@@ -1,7 +1,5 @@
-
-import { useState, useEffect } from "react";
+import { useState, useEffect } from 'react';
 import axiosInstance from '@/utils/axiosInstance';
-import { CAD_STATUS, CAD_PRIORITY } from '@/constants/status.constants.mjs';
 
 export default function useCadDesign() {
   const [requests, setRequests] = useState([]);
@@ -15,47 +13,75 @@ export default function useCadDesign() {
   const [sortDirection, setSortDirection] = useState('desc');
   const [users, setUsers] = useState({});
 
-  useEffect(() => { fetchRequests(); fetchUsers(); }, []);
+  useEffect(() => {
+    fetchRequests();
+    fetchUsers();
+  }, []);
 
   const fetchUsers = async () => {
     try {
       const response = await axiosInstance.get('/users/designers');
       const userMap = {};
-      response.data.users?.forEach(user => { userMap[user._id] = user.name; });
+      response.data?.users?.forEach((user) => {
+        userMap[user._id] = user.name;
+      });
       setUsers(userMap);
-    } catch (err) {}
+    } catch (err) {
+      // best-effort lookup only
+    }
   };
 
   const fetchRequests = async () => {
     try {
       setLoading(true);
       const response = await axiosInstance.get('/cad-requests');
-      setRequests(response.data.data || []);
-      setFilteredRequests(response.data.data || []);
-    } catch (err) { setError(err.message); } finally { setLoading(false); }
+      const data = response.data?.data || [];
+      setRequests(data);
+      setFilteredRequests(data);
+    } catch (err) {
+      setError(err?.message || 'Failed to load CAD requests');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     let result = [...requests];
-    if (statusFilter !== 'all') result = result.filter(r => r.status === statusFilter);
-    if (priorityFilter !== 'all') result = result.filter(r => r.priority === priorityFilter);
+    if (statusFilter !== 'all') result = result.filter((r) => r.status === statusFilter);
+    if (priorityFilter !== 'all') result = result.filter((r) => r.priority === priorityFilter);
+
     if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        result = result.filter(r => r.title?.toLowerCase().includes(q) || r.sku?.toLowerCase().includes(q));
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (r) => r.title?.toLowerCase().includes(q) || r.sku?.toLowerCase().includes(q)
+      );
     }
+
     result.sort((a, b) => {
-        let valA = a[sortField] || '';
-        let valB = b[sortField] || '';
-        if (sortDirection === 'desc') return valA < valB ? 1 : -1;
-        return valA > valB ? 1 : -1;
+      const valA = a[sortField] || '';
+      const valB = b[sortField] || '';
+      if (sortDirection === 'desc') return valA < valB ? 1 : -1;
+      return valA > valB ? 1 : -1;
     });
+
     setFilteredRequests(result);
   }, [requests, statusFilter, priorityFilter, searchQuery, sortField, sortDirection]);
 
   return {
-    requests: filteredRequests, loading, error, users,
-    statusFilter, setStatusFilter, priorityFilter, setPriorityFilter,
-    searchQuery, setSearchQuery, sortField, setSortField,
-    sortDirection, setSortDirection, refresh: fetchRequests
+    requests: filteredRequests,
+    loading,
+    error,
+    users,
+    statusFilter,
+    setStatusFilter,
+    priorityFilter,
+    setPriorityFilter,
+    searchQuery,
+    setSearchQuery,
+    sortField,
+    setSortField,
+    sortDirection,
+    setSortDirection,
+    refresh: fetchRequests
   };
 }

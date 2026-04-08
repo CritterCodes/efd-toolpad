@@ -6,7 +6,8 @@ import { Box, CircularProgress, Typography } from '@mui/material';
 
 export default function HomePage() {
     const router = useRouter();
-    const { data: session, status } = useSession();
+    const sessionState = useSession() || {};
+    const { data: session = null, status = 'unauthenticated' } = sessionState;
 
     useEffect(() => {
         if (status === 'loading') return; // Still loading

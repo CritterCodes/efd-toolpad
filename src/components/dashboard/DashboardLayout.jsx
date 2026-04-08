@@ -14,7 +14,8 @@ import ArtisanDropParticipation from '@/components/artisan/ArtisanDropParticipat
 import styles from './DashboardLayout.module.css';
 
 export default function DashboardLayout({ children }) {
-  const { data: session, status } = useSession();
+  const sessionState = useSession() || {};
+  const { data: session = null, status = 'unauthenticated' } = sessionState;
   const router = useRouter();
 
   // Redirect to login if not authenticated

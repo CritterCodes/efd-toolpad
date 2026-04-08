@@ -67,7 +67,8 @@ const ROLE_DISPLAY = {
 };
 
 export default function RoleSwitcher() {
-  const { data: session } = useSession();
+  const sessionState = useSession() || {};
+  const { data: session = null } = sessionState;
   const userRole = session?.user?.role;
   const [currentViewRole, setCurrentViewRole] = useState(userRole);
   

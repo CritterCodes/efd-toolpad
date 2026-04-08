@@ -2,7 +2,7 @@
 import { NOTIFICATION_TYPES, NOTIFICATION_STATUS, CHANNELS } from './notifications/emailConfigs';
 import { getEmailTemplate, formatNotificationMessage } from './notifications/templates';
 
-class NotificationService {
+export class NotificationService {
     async sendNotification(options) {
         const { type, channel, to, data } = options;
         
@@ -26,6 +26,17 @@ class NotificationService {
         const message = formatNotificationMessage(type, data);
         console.log(`Sending SMS to ${to}`, { message });
         return { success: true, status: NOTIFICATION_STATUS.SENT };
+    }
+
+    async getNotifications(userId, options = {}) {
+        console.log(`Fetching notifications for user ${userId}`, options);
+        return {
+            notifications: [],
+            total: 0,
+            unreadCount: 0,
+            page: 1,
+            totalPages: 0
+        };
     }
 
     async sendAppNotification(to, type, data) {

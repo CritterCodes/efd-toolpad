@@ -68,7 +68,7 @@ export default function ProductsAwaitingApprovalPage() {
         <Container maxWidth="xl" sx={{ py: 4 }}>
             <Box sx={{ mb: 4 }}>
                 <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 'bold', mb: 1 }}>
-                    í¾ Products Awaiting Approval
+                    Ã­Â¾Â Products Awaiting Approval
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                     Manage and review designs that are ready to be listed on the website

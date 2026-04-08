@@ -1,3 +1,4 @@
+import "./globals.css";
 import { AppProvider } from "@toolpad/core/AppProvider";
 import { SessionProvider } from "next-auth/react";
 import { RepairsProvider } from "./context/repairs.context";
@@ -10,6 +11,8 @@ import { UnifiedUserService, USER_ROLES } from "@/lib/unifiedUserService";
 import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
+
+export const dynamic = 'force-dynamic';
 
 const BRANDING = {
     logo: <Image 
@@ -77,22 +80,13 @@ export default async function RootLayout({ children }) {
         // Session remains null, user will be treated as unauthenticated
     }
 
-    // 🔒 REQUIRE AUTHENTICATION
+    // 🔒 Unauthenticated users are routed by middleware to /auth/* pages.
+    // Render children directly here so custom auth pages (signin/forgot/reset) are visible.
     if (!session?.user) {
         return (
             <html lang="en" suppressHydrationWarning>
                 <body>
-                    <SessionProvider session={session}>
-                        <AppProvider
-                            session={session}
-                            navigation={[]}
-                            branding={BRANDING}
-                            authentication={AUTHENTICATION}
-                        >
-                            {children}
-                            <PWAInstallPrompt />
-                        </AppProvider>
-                    </SessionProvider>
+                    {children}
                 </body>
             </html>
         );

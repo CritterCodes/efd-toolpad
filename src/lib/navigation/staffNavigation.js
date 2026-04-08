@@ -50,4 +50,6 @@ export const staffNavigation = {
           icon: <DiamondIcon />
         }
       ]
+    }
+  ]
 };

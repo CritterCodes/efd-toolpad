@@ -7,7 +7,8 @@ import { getDashboardSections } from '@/constants/roles';
 import styles from './RoleBasedNavigation.module.css';
 
 export default function RoleBasedNavigation() {
-  const { data: session } = useSession();
+  const sessionState = useSession() || {};
+  const { data: session = null } = sessionState;
   const pathname = usePathname();
 
   if (!session?.user) {

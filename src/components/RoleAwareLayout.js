@@ -12,7 +12,8 @@ import RoleViewBanner from '@/components/RoleViewBanner';
 import { USER_ROLES } from '@/lib/unifiedUserService';
 
 export default function RoleAwareLayout({ children }) {
-  const { data: session } = useSession();
+  const sessionState = useSession() || {};
+  const { data: session = null } = sessionState;
   const [currentViewRole, setCurrentViewRole] = useState(null);
 
   // Check for saved role view and listen for changes

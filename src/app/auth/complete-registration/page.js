@@ -6,7 +6,12 @@ import UsersService from "@/services/users";
 import { CircularProgress, Box, Typography } from "@mui/material";
 
 const CompleteRegistration = () => {
-    const { data: session, status, update } = useSession(); // Access the update method
+    const sessionState = useSession() || {};
+    const {
+        data: session = null,
+        status = "unauthenticated",
+        update = async () => null
+    } = sessionState;
     const router = useRouter();
 
     useEffect(() => {

@@ -54,7 +54,8 @@ const ROLE_DISPLAY = {
 };
 
 export default function RoleViewBanner() {
-  const { data: session } = useSession();
+  const sessionState = useSession() || {};
+  const { data: session = null } = sessionState;
   const [currentViewRole, setCurrentViewRole] = useState(null);
   const [showBanner, setShowBanner] = useState(false);
   

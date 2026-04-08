@@ -25,7 +25,8 @@ export const useRepairs = () => {
 
 // Repairs Provider Component
 export const RepairsProvider = ({ children }) => {
-    const { data: session } = useSession();
+    const sessionState = useSession() || {};
+    const { data: session = null } = sessionState;
     const [repairs, setRepairs] = useState([]);
     const [loading, setLoading] = useState(true);
 

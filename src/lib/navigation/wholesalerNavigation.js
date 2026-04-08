@@ -55,4 +55,6 @@ export const wholesalerNavigation = {
           icon: <QualityIcon />
         }
       ]
+    }
+  ]
 };

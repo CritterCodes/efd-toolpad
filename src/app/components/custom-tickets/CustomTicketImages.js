@@ -4,27 +4,15 @@
  */
 
 import React from 'react';
-import Image from 'next/image';
 import {
   Card,
   CardContent,
   Typography,
   Box,
-  Grid,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  IconButton,
   Chip
 } from '@mui/material';
-import {
-  Image as ImageIcon,
-  Visibility as VisibilityIcon,
-  Download as DownloadIcon,
-  Close as CloseIcon
-} from '@mui/icons-material';
+import { CustomTicketImagesGrid } from './parts/CustomTicketImagesGrid';
+import { CustomTicketImageModal } from './parts/CustomTicketImageModal';
 
 export function CustomTicketImages({ 
   ticket,
@@ -33,44 +21,6 @@ export function CustomTicketImages({
   onOpenImageModal,
   onCloseImageModal
 }) {
-  const handleImageClick = (image, index) => {
-    if (onOpenImageModal) {
-      onOpenImageModal(image, index);
-    }
-  };
-
-  const handleDownload = async (imageUrl, imageName) => {
-    try {
-      const response = await fetch(imageUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = imageName || 'ticket-image.jpg';
-      document.body.appendChild(a);
-      a.click();
-      
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error) {
-      console.error('Error downloading image:', error);
-    }
-  };
-
-  const getImageName = (imageUrl, index) => {
-    if (typeof imageUrl === 'string') {
-      return imageUrl.split('/').pop() || `image-${index + 1}`;
-    }
-    if (imageUrl?.name) {
-      return imageUrl.name;
-    }
-    if (imageUrl?.url) {
-      return imageUrl.url.split('/').pop() || `image-${index + 1}`;
-    }
-    return `attachment-${index + 1}`;
-  };
-
   return (
     <>
       <Card>
@@ -90,212 +40,17 @@ export function CustomTicketImages({
             )}
           </Box>
 
-          {images.length === 0 ? (
-            <Box sx={{ 
-              textAlign: 'center', 
-              py: 4, 
-              color: 'text.secondary',
-              bgcolor: 'grey.50',
-              borderRadius: 1
-            }}>
-              <ImageIcon sx={{ fontSize: 48, mb: 1, opacity: 0.5 }} />
-              <Typography variant="body2">
-                No images in the moodboard yet.
-              </Typography>
-            </Box>
-          ) : (
-            <Grid container spacing={2}>
-              {images.map((image, index) => (
-                <Grid item xs={6} sm={4} md={3} key={index}>
-                  <Box
-                    sx={{
-                      position: 'relative',
-                      aspectRatio: '1',
-                      bgcolor: 'grey.100',
-                      borderRadius: 1,
-                      overflow: 'hidden',
-                      cursor: 'pointer',
-                      '&:hover': {
-                        '& .image-overlay': {
-                          opacity: 1
-                        }
-                      }
-                    }}
-                    onClick={() => handleImageClick(image, index)}
-                  >
-                    {/* Image Display */}
-                    {typeof image === 'string' ? (
-                      <Image
-                        src={image}
-                        alt={`Ticket image ${index + 1}`}
-                        fill
-                        style={{ objectFit: 'cover' }}
-                        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 20vw"
-                      />
-                    ) : image?.url ? (
-                      <Image
-                        src={image.url}
-                        alt={`Ticket image ${index + 1}`}
-                        fill
-                        style={{ objectFit: 'cover' }}
-                        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 20vw"
-                      />
-                    ) : (
-                      <Box
-                        sx={{
-                          width: '100%',
-                          height: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          bgcolor: 'grey.200'
-                        }}
-                      >
-                        <ImageIcon sx={{ fontSize: 32, color: 'text.secondary' }} />
-                      </Box>
-                    )}
-
-                    {/* Hover Overlay */}
-                    <Box
-                      className="image-overlay"
-                      sx={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        bgcolor: 'rgba(0, 0, 0, 0.5)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        opacity: 0,
-                        transition: 'opacity 0.2s'
-                      }}
-                    >
-                      <IconButton sx={{ color: 'white' }}>
-                        <VisibilityIcon />
-                      </IconButton>
-                    </Box>
-
-                    {/* Download Button */}
-                    <IconButton
-                      size="small"
-                      sx={{
-                        position: 'absolute',
-                        top: 4,
-                        right: 4,
-                        bgcolor: 'rgba(255, 255, 255, 0.9)',
-                        '&:hover': {
-                          bgcolor: 'rgba(255, 255, 255, 1)'
-                        }
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const imageUrl = typeof image === 'string' ? image : image?.url;
-                        handleDownload(imageUrl, getImageName(imageUrl, index));
-                      }}
-                    >
-                      <DownloadIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-
-                  {/* Image Name */}
-                  <Typography 
-                    variant="caption" 
-                    color="text.secondary"
-                    sx={{ 
-                      display: 'block', 
-                      mt: 0.5, 
-                      textAlign: 'center',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap'
-                    }}
-                  >
-                    {getImageName(typeof image === 'string' ? image : image?.url || image, index)}
-                  </Typography>
-                </Grid>
-              ))}
-            </Grid>
-          )}
+          <CustomTicketImagesGrid 
+            images={images} 
+            onOpenImageModal={onOpenImageModal} 
+          />
         </CardContent>
       </Card>
 
-      {/* Image Modal */}
-      <Dialog 
-        open={imageModal?.open || false} 
-        onClose={onCloseImageModal}
-        maxWidth="lg"
-        fullWidth
-        PaperProps={{
-          sx: { bgcolor: 'black' }
-        }}
-      >
-        <DialogTitle sx={{ color: 'white', pb: 1 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6">
-              Image Preview
-            </Typography>
-            <IconButton onClick={onCloseImageModal} sx={{ color: 'white' }}>
-              <CloseIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        
-        <DialogContent sx={{ p: 2 }}>
-          {imageModal?.image && (
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="body2" color="grey.300" gutterBottom>
-                {getImageName(imageModal.image, imageModal.index || 0)}
-              </Typography>
-              
-              {typeof imageModal.image === 'string' ? (
-                <Box sx={{ position: 'relative', height: 500 }}>
-                  <Image
-                    src={imageModal.image}
-                    alt="Preview"
-                    fill
-                    style={{ objectFit: 'contain' }}
-                  />
-                </Box>
-              ) : imageModal.image?.url ? (
-                <Box sx={{ position: 'relative', height: 500 }}>
-                  <Image
-                    src={imageModal.image.url}
-                    alt="Preview"
-                    fill
-                    style={{ objectFit: 'contain' }}
-                  />
-                </Box>
-              ) : (
-                <Box sx={{ 
-                  height: 400, 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  bgcolor: 'grey.900',
-                  borderRadius: 1
-                }}>
-                  <ImageIcon sx={{ fontSize: 64, color: 'grey.600' }} />
-                </Box>
-              )}
-            </Box>
-          )}
-        </DialogContent>
-        
-        <DialogActions sx={{ justifyContent: 'space-between' }}>
-          <Button 
-            onClick={() => handleDownload(imageModal?.image, getImageName(imageModal?.image, imageModal?.index || 0))}
-            startIcon={<DownloadIcon />}
-            sx={{ color: 'white' }}
-          >
-            Download
-          </Button>
-          <Button onClick={onCloseImageModal} sx={{ color: 'white' }}>
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <CustomTicketImageModal 
+        imageModal={imageModal} 
+        onClose={onCloseImageModal} 
+      />
     </>
   );
 }

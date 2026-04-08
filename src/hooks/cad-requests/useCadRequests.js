@@ -1,7 +1,9 @@
+'use client';
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 export function useCadRequests() {
-    const { data: session } = useSession();
+    const sessionState = useSession() || {};
+    const { data: session = null } = sessionState;
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -174,7 +176,7 @@ export function useCadRequests() {
         }
     };
 
-    if (!session?.user?.artisanTypes?.includes('CAD Designer')) {
+    
         
 return { session, requests, loading, error, setError, selectedTab, setSelectedTab, selectedRequest, setSelectedRequest, designDialogOpen, setDesignDialogOpen, uploadProgress, designData, setDesignData, statusFilter, setStatusFilter, priorityFilter, setPriorityFilter, handleStartDesign, handleFileUpload, handleSubmitDesign};
 }

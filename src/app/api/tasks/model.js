@@ -44,14 +44,14 @@ export class TasksModel {
    */
   static async getTasks(filters = {}) {
     try {
-      console.log('í´¥ MODEL - getTasks called with filters:', filters);
+      console.log('Ã­Â´Â¥ MODEL - getTasks called with filters:', filters);
 
       await db.connect();
       const collection = db._instance.collection(this.collectionName);
-      console.log('í´¥ MODEL - Connected to collection:', this.collectionName);
+      console.log('Ã­Â´Â¥ MODEL - Connected to collection:', this.collectionName);
 
       const query = this.buildQuery(filters);
-      console.log('í´¥ MODEL - Query to execute:', query);
+      console.log('Ã­Â´Â¥ MODEL - Query to execute:', query);
 
       // Handle pagination
       const page = parseInt(filters.page) || 1;
@@ -66,7 +66,7 @@ export class TasksModel {
         sort.title = 1; // Default sort by title ascending
       }
 
-      console.log('í´¥ MODEL - Pagination and sort:', { page, limit, skip, sort });
+      console.log('Ã­Â´Â¥ MODEL - Pagination and sort:', { page, limit, skip, sort });
 
       const tasks = await collection
         .find(query)
@@ -75,13 +75,13 @@ export class TasksModel {
         .limit(limit)
         .toArray();
 
-      console.log('í´¥ MODEL - Tasks found:', {
+      console.log('Ã­Â´Â¥ MODEL - Tasks found:', {
         count: tasks.length,
         sampleTitles: tasks.slice(0, 3).map(t => t.title)
       });
 
       const total = await collection.countDocuments(query);
-      console.log('í´¥ MODEL - Total documents matching query:', total);
+      console.log('Ã­Â´Â¥ MODEL - Total documents matching query:', total);
 
       const result = {
         tasks,
@@ -93,14 +93,14 @@ export class TasksModel {
         }
       };
 
-      console.log('í´¥ MODEL - Returning result:', {
+      console.log('Ã­Â´Â¥ MODEL - Returning result:', {
         tasksCount: result.tasks.length,
         paginationTotal: result.pagination.total
       });
 
       return result;
     } catch (error) {
-      console.error('í´¥ MODEL - Error getting tasks:', error);
+      console.error('Ã­Â´Â¥ MODEL - Error getting tasks:', error);
       throw error;
     }
   }

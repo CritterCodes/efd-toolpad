@@ -19,7 +19,8 @@ import DebugToolsList from './components/DebugToolsList';
 import DatabaseRoleFixTools from './components/DatabaseRoleFixTools';
 
 export default function EmergencyLogoutPage() {
-  const { data: session, status } = useSession();
+  const sessionState = useSession() || {};
+  const { data: session = null, status = 'unauthenticated' } = sessionState;
   const {
     handleForceLogout,
     handleRegularLogout,
@@ -38,7 +39,7 @@ export default function EmergencyLogoutPage() {
           <Box sx={{ textAlign: 'center', mb: 4 }}>
             <BugReportIcon sx={{ fontSize: 60, color: 'warning.main', mb: 2 }} />
             <Typography variant="h4" gutterBottom>
-              íº¨ Emergency Session Management
+               Emergency Session Management
             </Typography>
             <Typography variant="h6" color="text.secondary">
               Use this page to resolve authentication issues

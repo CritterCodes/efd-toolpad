@@ -6,7 +6,8 @@ import { NOTIFICATION_CHANNELS } from '@/constants/roles';
 import styles from './NotificationCenter.module.css';
 
 export default function NotificationCenter() {
-  const { data: session } = useSession();
+  const sessionState = useSession() || {};
+  const { data: session = null } = sessionState;
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
