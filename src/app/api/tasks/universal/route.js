@@ -55,17 +55,32 @@ export async function POST(request) {
       // Process-based structure
       processes: taskData.processes.map(process => ({
         processId: process.processId,
-        quantity: process.quantity || 1
+        quantity: process.quantity || 1,
+        processName: process.processName || process.displayName || '',
+        displayName: process.displayName || process.processName || '',
+        baseLaborHours: process.baseLaborHours || 0,
+        skillLevel: process.skillLevel || ''
       })),
       
       // Materials (optional)
       materials: taskData.materials?.map(material => ({
         materialId: material.materialId,
-        quantity: material.quantity || 1
+        quantity: material.quantity || 1,
+        materialName: material.materialName || material.displayName || '',
+        displayName: material.displayName || material.materialName || ''
       })) || [],
       
       // Universal pricing data
       universalPricing: taskData.universalPricing || null,
+      pricing: taskData.pricing || null,
+      basePrice: Number(taskData.basePrice) || 0,
+      minimumPrice: Number(taskData.minimumPrice) || 0,
+      priceOverride: Number(taskData.priceOverride) || 0,
+      minimumWholesalePrice: Number(taskData.minimumWholesalePrice) || 0,
+      minimumLaborPrice: Number(taskData.minimumLaborPrice) || 0,
+      variantPricingAdjustments: taskData.variantPricingAdjustments && typeof taskData.variantPricingAdjustments === 'object'
+        ? taskData.variantPricingAdjustments
+        : {},
       
       // Service settings
       service: {
