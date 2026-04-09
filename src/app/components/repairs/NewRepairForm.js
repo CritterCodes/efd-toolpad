@@ -4,8 +4,8 @@ import { useNewRepair } from '@/hooks/repairs/useNewRepair';
 import ClientInfoSection from './sections/ClientInfoSection';
 import { Container, Typography } from '@mui/material';
 
-export default function NewRepairForm() {
-  const { formData, setFormData, submitForm } = useNewRepair();
+export default function NewRepairForm({ onSubmit }) {
+  const { formData, setFormData } = useNewRepair({ onSubmit });
   
   return (
     <Container>
