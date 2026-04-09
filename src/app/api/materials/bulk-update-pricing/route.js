@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/database';
-import { ObjectId } from 'mongodb';
+import Constants from '@/lib/constants';
 import pricingEngine from '@/services/PricingEngine';
 
 /**
@@ -17,7 +17,7 @@ export async function POST(request) {
     }
     
     await db.connect();
-    const materialsCollection = db._instance.collection('repairMaterials');
+    const materialsCollection = db._instance.collection(Constants.MATERIALS_COLLECTION);
     
     console.log('🔄 Connected to database, accessing repairMaterials collection');
     
@@ -26,7 +26,6 @@ export async function POST(request) {
     
     console.log(`🔄 Found ${materials.length} materials to update`);
     
-    const materialMarkup = adminSettings.pricing?.materialMarkup || adminSettings.materialMarkup || 1.3;
     const updateOperations = [];
     
     for (const material of materials) {
@@ -41,13 +40,32 @@ export async function POST(request) {
         finalPrice: materialCost.markedUpCost,
         calculatedAt: materialCost.calculatedAt
       };
+
+      const updatedStullerProducts = Array.isArray(material.stullerProducts)
+        ? material.stullerProducts.map((product) => {
+            const stullerPrice = parseFloat(product.stullerPrice) || 0;
+            const markupRate = adminSettings.pricing?.materialMarkup || adminSettings.materialMarkup || parseFloat(product.markupRate) || 1;
+            const markedUpPrice = stullerPrice * markupRate;
+            return {
+              ...product,
+              markupRate,
+              markedUpPrice: Math.round(markedUpPrice * 100) / 100,
+              unitCost: Math.round(markedUpPrice * 100) / 100,
+              costPerPortion: material.portionsPerUnit > 0 ? Math.round((stullerPrice / material.portionsPerUnit) * 100) / 100 : stullerPrice,
+              pricePerPortion: material.portionsPerUnit > 0 ? Math.round((markedUpPrice / material.portionsPerUnit) * 100) / 100 : markedUpPrice,
+              lastUpdated: new Date().toISOString()
+            };
+          })
+        : [];
       
       updateOperations.push({
         updateOne: {
           filter: { _id: material._id },
           update: {
             $set: {
-              costPerPortion: newCostPerPortion,
+              costPerPortion: materialCost.baseCost,
+              unitCost: materialCost.markedUpCost,
+              stullerProducts: updatedStullerProducts,
               pricing: updatedPricing,
               updatedAt: new Date()
             }

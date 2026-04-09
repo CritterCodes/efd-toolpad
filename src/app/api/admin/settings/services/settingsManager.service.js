@@ -144,10 +144,23 @@ export default class SettingsManagerService {
       if (taxRate && (taxRate < 0 || taxRate > 0.5)) throw Object.assign(new Error('Tax rate must be between 0 and 50%'), { status: 400 });
     }
 
+    const mergedPricing = pricing ? {
+      ...adminSettings.pricing,
+      ...pricing,
+      wholesaleConfig: {
+        ...(adminSettings.pricing?.wholesaleConfig || {}),
+        ...(pricing.wholesaleConfig || {}),
+        minimumMultiplier: pricing.wholesaleMarkup || pricing.wholesaleConfig?.minimumMultiplier || adminSettings.pricing?.wholesaleConfig?.minimumMultiplier || 1.5
+      },
+      wholesaleMarkup: pricing.wholesaleMarkup || pricing.wholesaleConfig?.minimumMultiplier || adminSettings.pricing?.wholesaleMarkup || adminSettings.pricing?.wholesaleConfig?.minimumMultiplier || 1.5,
+      minimumTaskRetailPrice: pricing.minimumTaskRetailPrice ?? adminSettings.pricing?.minimumTaskRetailPrice ?? DEFAULT_TASK_MINIMUM_RETAIL,
+      minimumTaskWholesalePrice: pricing.minimumTaskWholesalePrice ?? adminSettings.pricing?.minimumTaskWholesalePrice ?? DEFAULT_TASK_MINIMUM_WHOLESALE
+    } : adminSettings.pricing;
+
     // Update settings
     const updatedSettings = {
       ...adminSettings,
-      pricing: pricing || adminSettings.pricing,
+      pricing: mergedPricing,
       financial: financial || adminSettings.financial,
       business: business || adminSettings.business,
       updatedAt: new Date(),

@@ -15,6 +15,9 @@ export const useStoreSettings = () => {
     const [localSettings, setLocalSettings] = useState({
         wage: 30.00,
         materialMarkup: 1.5,
+        wholesaleMarkup: 1.5,
+        minimumTaskRetailPrice: 0,
+        minimumTaskWholesalePrice: 0,
         administrativeFee: 0.15,
         businessFee: 0.25,
         consumablesFee: 0.08,
@@ -39,6 +42,9 @@ export const useStoreSettings = () => {
             setLocalSettings({
                 wage: adminSettings.wage || 30.00,
                 materialMarkup: adminSettings.materialMarkup || 1.5,
+                wholesaleMarkup: adminSettings.wholesaleMarkup || 1.5,
+                minimumTaskRetailPrice: adminSettings.minimumTaskRetailPrice ?? 0,
+                minimumTaskWholesalePrice: adminSettings.minimumTaskWholesalePrice ?? 0,
                 administrativeFee: adminSettings.administrativeFee || 0.15,
                 businessFee: adminSettings.businessFee || 0.25,
                 consumablesFee: adminSettings.consumablesFee || 0.08,
@@ -113,12 +119,18 @@ export const useStoreSettings = () => {
                         pricing: {
                             wage: localSettings.wage,
                             materialMarkup: localSettings.materialMarkup,
+                            wholesaleMarkup: localSettings.wholesaleMarkup,
+                            minimumTaskRetailPrice: localSettings.minimumTaskRetailPrice,
+                            minimumTaskWholesalePrice: localSettings.minimumTaskWholesalePrice,
                             administrativeFee: localSettings.administrativeFee,
                             businessFee: localSettings.businessFee,
                             consumablesFee: localSettings.consumablesFee,
                             rushMultiplier: localSettings.rushMultiplier,
                             deliveryFee: localSettings.deliveryFee,
-                            taxRate: localSettings.taxRate
+                            taxRate: localSettings.taxRate,
+                            wholesaleConfig: {
+                                minimumMultiplier: localSettings.wholesaleMarkup
+                            }
                         }
                     };
                     

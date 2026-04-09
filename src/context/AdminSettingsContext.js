@@ -35,6 +35,9 @@ export const AdminSettingsProvider = ({ children }) => {
     
     // Material markup multiplier
     materialMarkup: 1.5,
+    wholesaleMarkup: 1.5,
+    minimumTaskRetailPrice: 0,
+    minimumTaskWholesalePrice: 0,
     
     // Fee structure (as percentages of base wage)
     administrativeFee: 0.10,  // 10% of base wage
@@ -85,7 +88,7 @@ export const AdminSettingsProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       
-      const response = await fetch('/api/admin/settings');
+      const response = await fetch('/api/admin/settings/manage');
       
       if (!response.ok) {
         throw new Error(`Failed to fetch admin settings: ${response.status}`);
@@ -110,6 +113,9 @@ export const AdminSettingsProvider = ({ children }) => {
         // Direct mappings from the API response
         wage: data.pricing?.wage || defaultSettings.wage,
         materialMarkup: data.pricing?.materialMarkup || defaultSettings.materialMarkup,
+        wholesaleMarkup: data.pricing?.wholesaleMarkup || data.pricing?.wholesaleConfig?.minimumMultiplier || defaultSettings.wholesaleMarkup,
+        minimumTaskRetailPrice: data.pricing?.minimumTaskRetailPrice ?? defaultSettings.minimumTaskRetailPrice,
+        minimumTaskWholesalePrice: data.pricing?.minimumTaskWholesalePrice ?? defaultSettings.minimumTaskWholesalePrice,
         administrativeFee: data.pricing?.administrativeFee || defaultSettings.administrativeFee,
         businessFee: data.pricing?.businessFee || defaultSettings.businessFee,
         consumablesFee: data.pricing?.consumablesFee || defaultSettings.consumablesFee,
@@ -175,12 +181,19 @@ export const AdminSettingsProvider = ({ children }) => {
         pricing: {
           wage: newSettings.wage || adminSettings?.wage,
           materialMarkup: newSettings.materialMarkup || adminSettings?.materialMarkup,
+          wholesaleMarkup: newSettings.wholesaleMarkup || adminSettings?.wholesaleMarkup || 1.5,
+          minimumTaskRetailPrice: newSettings.minimumTaskRetailPrice ?? adminSettings?.minimumTaskRetailPrice ?? 0,
+          minimumTaskWholesalePrice: newSettings.minimumTaskWholesalePrice ?? adminSettings?.minimumTaskWholesalePrice ?? 0,
           administrativeFee: newSettings.administrativeFee || adminSettings?.administrativeFee,
           businessFee: newSettings.businessFee || adminSettings?.businessFee,
           consumablesFee: newSettings.consumablesFee || adminSettings?.consumablesFee,
           rushMultiplier: newSettings.rushMultiplier || adminSettings?.rushMultiplier || 1.5,
           deliveryFee: newSettings.deliveryFee || adminSettings?.deliveryFee || 0,
-          taxRate: newSettings.taxRate || adminSettings?.taxRate || 0
+          taxRate: newSettings.taxRate || adminSettings?.taxRate || 0,
+          wholesaleConfig: {
+            ...(adminSettings?.pricing?.wholesaleConfig || {}),
+            minimumMultiplier: newSettings.wholesaleMarkup || adminSettings?.wholesaleMarkup || adminSettings?.pricing?.wholesaleConfig?.minimumMultiplier || 1.5
+          }
         },
         business: newSettings.store ? {
           defaultEstimatedDays: newSettings.store.defaultEstimatedDays || adminSettings?.store?.defaultEstimatedDays || 3,
@@ -192,7 +205,7 @@ export const AdminSettingsProvider = ({ children }) => {
         securityCode: newSettings.securityCode
       };
       
-      const response = await fetch('/api/admin/settings', {
+      const response = await fetch('/api/admin/settings/manage', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

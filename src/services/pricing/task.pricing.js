@@ -94,7 +94,9 @@ export function calculateTaskCost(taskData, adminSettings = {}, availableProcess
     globalMinimumWholesalePrice,
     normalizePositiveNumber(taskData.minimumWholesalePrice)
   );
-  const wholesalePrice = Math.max(calculatedWholesalePrice, minimumWholesalePrice);
+  const wholesalePriceBeforeRounding = Math.max(calculatedWholesalePrice, minimumWholesalePrice);
+  const roundedWholesalePrice = roundToNearestIncrement(wholesalePriceBeforeRounding, priceRoundingIncrement);
+  const wholesalePrice = Math.round(roundedWholesalePrice * 100) / 100;
   return {
     totalLaborHours: Math.round(totalLaborHours * 100) / 100,
     totalProcessCost: Math.round(totalProcessCost * 100) / 100,
@@ -115,6 +117,8 @@ export function calculateTaskCost(taskData, adminSettings = {}, availableProcess
     minimumPrice: minimumRetailPrice,
     priceOverride,
     calculatedWholesalePrice: Math.round(calculatedWholesalePrice * 100) / 100,
+    wholesalePriceBeforeRounding: Math.round(wholesalePriceBeforeRounding * 100) / 100,
+    wholesaleRoundingApplied: priceRoundingIncrement > 0 && Math.abs(wholesalePrice - wholesalePriceBeforeRounding) >= 0.01,
     wholesalePrice: Math.round(wholesalePrice * 100) / 100,
     globalMinimumWholesalePrice,
     minimumWholesalePrice,

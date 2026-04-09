@@ -34,9 +34,9 @@ class CascadingUpdatesService {
       
       return {
         success: true,
-        materialsUpdated: materialsUpdateResult.updated,
-        processesUpdated: processesUpdateResult.updated,
-        tasksUpdated: tasksUpdateResult.updated
+        materialsUpdated: materialsUpdateResult.updated || materialsUpdateResult.data?.updated || 0,
+        processesUpdated: processesUpdateResult.updated || processesUpdateResult.data?.updated || 0,
+        tasksUpdated: tasksUpdateResult.updated || tasksUpdateResult.data?.updated || 0
       };
       
     } catch (error) {
@@ -149,7 +149,7 @@ class CascadingUpdatesService {
    * Update all tasks with new admin settings
    */
   async updateAllTasks(adminSettings) {
-    const response = await fetch('/api/tasks/bulk-update-pricing', {
+    const response = await fetch('/api/tasks/update-prices', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ adminSettings })
@@ -159,7 +159,11 @@ class CascadingUpdatesService {
       throw new Error('Failed to update tasks');
     }
     
-    return await response.json();
+    const result = await response.json();
+    return {
+      ...result,
+      updated: result?.updated || result?.data?.updated || 0
+    };
   }
   
   /**

@@ -23,20 +23,41 @@ export default function PricingMultiplierConfig({ localSettings, handleSettingCh
                         avatar={<DollarSignIcon color="primary" />}
                     />
                     <CardContent>
-                        <TextField
-                            fullWidth
-                            label="Material Markup Multiplier"
-                            type="number"
-                            value={localSettings.materialMarkup}
-                            onChange={(e) => handleSettingChange('materialMarkup', e.target.value)}
-                            InputProps={{
-                                startAdornment: <InputAdornment position="start">×</InputAdornment>,
-                                inputProps: { min: 1, step: 0.1 }
-                            }}
-                            helperText="Multiply material costs by this amount"
-                        />
+                        <Grid container spacing={2}>
+                            <Grid item xs={12}>
+                                <TextField
+                                    fullWidth
+                                    label="Material Markup Multiplier"
+                                    type="number"
+                                    value={localSettings.materialMarkup}
+                                    onChange={(e) => handleSettingChange('materialMarkup', e.target.value)}
+                                    InputProps={{
+                                        startAdornment: <InputAdornment position="start">×</InputAdornment>,
+                                        inputProps: { min: 1, step: 0.1 }
+                                    }}
+                                    helperText="Multiply material costs by this amount"
+                                />
+                            </Grid>
+                            <Grid item xs={12}>
+                                <TextField
+                                    fullWidth
+                                    label="Wholesale Multiplier"
+                                    type="number"
+                                    value={localSettings.wholesaleMarkup}
+                                    onChange={(e) => handleSettingChange('wholesaleMarkup', e.target.value)}
+                                    InputProps={{
+                                        startAdornment: <InputAdornment position="start">×</InputAdornment>,
+                                        inputProps: { min: 1, step: 0.1 }
+                                    }}
+                                    helperText="Dedicated wholesale multiplier kept separate from the retail business multiplier stack"
+                                />
+                            </Grid>
+                        </Grid>
                         <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                            Current markup: {((localSettings.materialMarkup - 1) * 100).toFixed(1)}% above cost
+                            Retail materials: {((localSettings.materialMarkup - 1) * 100).toFixed(1)}% above cost
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                            Wholesale floor: {((localSettings.wholesaleMarkup - 1) * 100).toFixed(1)}% above base cost
                         </Typography>
                     </CardContent>
                 </Card>
@@ -51,6 +72,34 @@ export default function PricingMultiplierConfig({ localSettings, handleSettingCh
                     />
                     <CardContent>
                         <Grid container spacing={2}>
+                            <Grid item xs={12}>
+                                <TextField
+                                    fullWidth
+                                    label="Minimum Task Retail Price"
+                                    type="number"
+                                    value={localSettings.minimumTaskRetailPrice}
+                                    onChange={(e) => handleSettingChange('minimumTaskRetailPrice', e.target.value)}
+                                    InputProps={{
+                                        startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                                        inputProps: { min: 0, step: 0.01 }
+                                    }}
+                                    helperText="Global retail floor applied before task rounding"
+                                />
+                            </Grid>
+                            <Grid item xs={12}>
+                                <TextField
+                                    fullWidth
+                                    label="Minimum Task Wholesale Price"
+                                    type="number"
+                                    value={localSettings.minimumTaskWholesalePrice}
+                                    onChange={(e) => handleSettingChange('minimumTaskWholesalePrice', e.target.value)}
+                                    InputProps={{
+                                        startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                                        inputProps: { min: 0, step: 0.01 }
+                                    }}
+                                    helperText="Global wholesale floor applied before wholesale rounding"
+                                />
+                            </Grid>
                             <Grid item xs={12}>
                                 <TextField
                                     fullWidth

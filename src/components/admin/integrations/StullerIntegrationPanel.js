@@ -131,7 +131,7 @@ export default function StullerIntegrationPanel() {
                 throw new Error(errData.error || 'Failed to update prices');
             }
             const result = await res.json();
-            setSuccess(`${result.message}. Updated ${result.updated} of ${result.total} materials.`);
+            setSuccess(result.message || `Updated ${result.updated || 0} materials.`);
             if (result.errors?.length) setError(`Some errors: ${result.errors.join(', ')}`);
             loadMaterials();
         } catch (err) {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/database';
-import { ObjectId } from 'mongodb';
+import Constants from '@/lib/constants';
 import pricingEngine from '@/services/PricingEngine';
 
 /**
@@ -15,22 +15,47 @@ export async function POST(request) {
     }
     
     await db.connect();
-    const processesCollection = db._instance.collection('repairProcesses');
+    const processesCollection = db._instance.collection(Constants.PROCESSES_COLLECTION);
+    const materialsCollection = db._instance.collection(Constants.MATERIALS_COLLECTION);
     
     // Get all processes
     const processes = await processesCollection.find({ isActive: { $ne: false } }).toArray();
     
     console.log(`🔄 Updating pricing for ${processes.length} processes`);
     
-    const laborRates = adminSettings.laborRates || { basic: 22.5, standard: 30, advanced: 37.5, expert: 45 };
-    const materialMarkup = adminSettings.pricing?.materialMarkup || adminSettings.materialMarkup || 1.3;
+    const materials = await materialsCollection.find({ isActive: { $ne: false } }).toArray();
+    const materialsById = new Map(materials.map((material) => [String(material._id), material]));
     const updateOperations = [];
     
     for (const process of processes) {
       // Use PricingEngine for consistent calculations
       console.warn('⚠️ DEPRECATED: Inline pricing calculation - Using PricingEngine');
       
-      const processPricing = pricingEngine.calculateProcessCost(process, adminSettings);
+      const hydratedMaterials = (process.materials || []).map((materialSelection) => {
+        const materialId = materialSelection?.materialId || materialSelection?._id;
+        const latestMaterial = materialId ? materialsById.get(String(materialId)) : null;
+
+        if (!latestMaterial) {
+          return materialSelection;
+        }
+
+        return {
+          ...latestMaterial,
+          ...materialSelection,
+          _id: latestMaterial._id,
+          materialId,
+          quantity: parseFloat(materialSelection?.quantity || latestMaterial?.quantity || 1) || 1,
+          portionsPerUnit: materialSelection?.portionsPerUnit || latestMaterial?.portionsPerUnit || 1,
+          stullerProducts: latestMaterial.stullerProducts || materialSelection.stullerProducts || []
+        };
+      });
+
+      const hydratedProcess = {
+        ...process,
+        materials: hydratedMaterials
+      };
+
+      const processPricing = pricingEngine.calculateProcessCost(hydratedProcess, adminSettings);
       
       const updatedPricing = {
         laborCost: processPricing.laborCost,
@@ -48,6 +73,7 @@ export async function POST(request) {
           update: {
             $set: {
               pricing: updatedPricing,
+              materials: hydratedMaterials,
               updatedAt: new Date()
             }
           }

@@ -37,6 +37,8 @@ export function PriceControlsSection({ formData, setFormData, pricePreview }) {
   })();
   const roundedEffectivePrice = pricePreview?.retailPrice ?? effectivePrice;
   const roundingApplied = Boolean(pricePreview?.roundingApplied);
+  const roundedWholesalePrice = pricePreview?.wholesalePrice ?? calculatedWholesalePrice;
+  const wholesaleRoundingApplied = Boolean(pricePreview?.wholesaleRoundingApplied);
 
   return (
     <Grid item xs={12}>
@@ -213,6 +215,20 @@ export function PriceControlsSection({ formData, setFormData, pricePreview }) {
             ) : (
               <Alert severity="info" sx={{ mt: 2 }}>
                 Retail rounding is always on to the nearest $5. Current retail already lands on a $0/$5 ending.
+              </Alert>
+            )
+          )}
+
+          {roundedWholesalePrice !== null && (
+            wholesaleRoundingApplied ? (
+              <Alert severity="info" sx={{ mt: 2 }}>
+                <strong>Wholesale rounding applied.</strong> Final wholesale was rounded from{' '}
+                <strong>${(pricePreview?.wholesalePriceBeforeRounding ?? calculatedWholesalePrice)?.toFixed(2)}</strong> to{' '}
+                <strong>${roundedWholesalePrice.toFixed(2)}</strong> using the nearest $5 rule.
+              </Alert>
+            ) : (
+              <Alert severity="info" sx={{ mt: 2 }}>
+                Wholesale rounding is always on to the nearest $5. Current wholesale already lands on a $0/$5 ending.
               </Alert>
             )
           )}
