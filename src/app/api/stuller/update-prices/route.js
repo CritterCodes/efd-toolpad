@@ -181,12 +181,11 @@ export async function POST(request) {
           headers: {
             'Authorization': `Basic ${Buffer.from(`${username}:${decryptedPassword}`).toString('base64')}`,
             'Content-Type': 'application/json',
-            let updated = 0;
-            let variantsUpdated = 0;
             'User-Agent': 'EFD-CRM/1.0'
           }
-            // Update each current-format material and its Stuller variants
+        });
 
+        // Update each current-format material and its Stuller variants
         if (!response.ok) {
           continue;
                 let materialChanged = false;
