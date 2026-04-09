@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Custom Ticket Notes Management Hook
  * Handles notes state and operations

@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import { getSTLVolume, getMeshStats, parseSTL } from '@/lib/stlParser';
 

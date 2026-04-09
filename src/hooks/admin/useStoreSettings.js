@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { useAdminSettings } from '@/context/AdminSettingsContext';
 import cascadingUpdatesService from '@/services/cascadingUpdates.service';

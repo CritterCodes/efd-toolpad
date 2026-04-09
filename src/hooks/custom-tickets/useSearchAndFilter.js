@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Search and Filter Management Hook
  * Handles search and filtering state for custom tickets

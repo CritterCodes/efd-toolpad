@@ -1,3 +1,5 @@
+'use client';
+
 
 import { useState, useEffect } from "react";
 import tasksService from "@/services/tasks.service";

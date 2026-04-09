@@ -1,3 +1,5 @@
+'use client';
+
 import { useCallback } from 'react';
 import { forceLogout, debugAuthState } from '@/lib/auth-utils';
 import { 

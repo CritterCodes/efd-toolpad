@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Custom Tickets Data Management Hook - Constitutional Architecture
  * Handles data fetching, filtering, and state management for custom tickets

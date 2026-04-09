@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Custom Ticket Status Management Hook
  * Handles status transitions and workflow logic

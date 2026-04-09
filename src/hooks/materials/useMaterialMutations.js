@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useCallback } from 'react';
 import materialsService from '@/services/materials.service';
 import cascadingUpdatesService from '@/services/cascadingUpdates.service';

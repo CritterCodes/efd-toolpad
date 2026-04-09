@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useCallback, useEffect } from 'react';
 import { DEFAULT_MATERIAL_FORM, transformMaterialForForm } from '@/utils/materials.util';
 import materialsService from '@/services/materials.service';

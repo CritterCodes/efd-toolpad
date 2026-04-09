@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Pagination Management Hook
  * Handles pagination state and logic for custom tickets

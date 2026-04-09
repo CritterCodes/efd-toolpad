@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * useTicketCommunications Hook
  * Manages ticket communications state and operations with smart polling

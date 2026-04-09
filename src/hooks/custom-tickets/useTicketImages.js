@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Custom Ticket Images Management Hook
  * Handles image gallery state and operations

@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Custom Ticket Detail Data Hook - Constitutional Architecture
  * Manages state and side effects for ticket detail view

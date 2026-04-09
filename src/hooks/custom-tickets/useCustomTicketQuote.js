@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { calculateAnalyticMetrics } from '@/utilities/helpers/quote.helpers';
 
