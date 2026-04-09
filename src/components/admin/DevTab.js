@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Dev Tab Component for Admin Settings
  * Contains development tools including role switching

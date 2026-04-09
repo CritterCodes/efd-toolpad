@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Artisan-Specific Dashboard Content
  * Shows repair workflow, available work, performance metrics, and profile management for artisans

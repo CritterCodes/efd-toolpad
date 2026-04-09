@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Custom Ticket Financials Component
  * Displays and manages financial information - Constitutional Architecture

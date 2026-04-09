@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * MaterialSelector Component
  * Handles selecti      // For multi-variant materials, check if any variant matches the repair metal type

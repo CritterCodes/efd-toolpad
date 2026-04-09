@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * StullerProductsManager Component
  * Manages multiple Stuller products for a single material

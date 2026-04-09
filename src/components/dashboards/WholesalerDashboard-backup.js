@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Wholesaler Dashboard Content
  * Admin-style dashboard focused on repair management for wholesalers

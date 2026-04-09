@@ -1,3 +1,5 @@
+'use client';
+
 "use client";
 import { Button, CircularProgress } from "@mui/material";
 import { signIn } from "next-auth/react";

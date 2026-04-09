@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * TaskCard.js - Enhanced task card with universal pricing
  * 

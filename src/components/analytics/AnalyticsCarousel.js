@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Analytics Carousel Component
  * Shopify-style analytics with multiple chart views and adjustable timelines

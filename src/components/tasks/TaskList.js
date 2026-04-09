@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * TaskList.js - Universal task list with filtering and sorting
  * 

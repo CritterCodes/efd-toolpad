@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Artisan Assignment Component
  * Allows admin to assign multiple artisans to a custom ticket

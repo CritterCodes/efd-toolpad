@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Artisan-Specific Dashboard Content - Streamlined Version
  * Shows artist profile analytics, shop presence metrics, and profile management tools

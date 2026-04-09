@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * MaterialDialog Component
  * Modal dialog for creating/editing materials with separate tabs for general info and Stuller products
