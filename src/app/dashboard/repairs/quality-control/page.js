@@ -88,9 +88,9 @@ export default function QualityControlPage() {
             {/* QC Queue */}
             <Grid container spacing={3}>
                 {qcRepairs.map((repair) => (
-                    <Grid item xs={12} md={6} lg={4} key={repair._id}>
+                    <Grid item xs={12} md={6} lg={4} key={repair.repairID || repair._id}>
                         <Card sx={{ height: '100%', cursor: 'pointer' }} 
-                              onClick={() => router.push(`/dashboard/repairs/quality-control/${repair._id}`)}>
+                              onClick={() => router.push(`/dashboard/repairs/quality-control/${repair.repairID || repair._id}`)}>
                             <CardContent>
                                 {/* Repair Header */}
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
@@ -141,7 +141,7 @@ export default function QualityControlPage() {
                                     fullWidth
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        router.push(`/dashboard/repairs/quality-control/${repair._id}`);
+                                        router.push(`/dashboard/repairs/quality-control/${repair.repairID || repair._id}`);
                                     }}
                                 >
                                     Start QC Review

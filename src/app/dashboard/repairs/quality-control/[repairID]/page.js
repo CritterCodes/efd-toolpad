@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { Box, Typography, Alert, CircularProgress, Container } from '@mui/material';
 import { useQualityControl } from '../../../../../hooks/repairs/useQualityControl';
@@ -10,7 +12,8 @@ export default function QualityControlPage({ params }) {
         repair, loading, error, 
         validationNotes, setValidationNotes, 
         handleStatusUpdate, handleValidationChange, 
-        checklist 
+        checklist,
+        isUpdating
     } = useQualityControl({ params });
 
     if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>;
@@ -35,6 +38,7 @@ export default function QualityControlPage({ params }) {
                 <QualityControlActions 
                     repair={repair} 
                     handleStatusUpdate={handleStatusUpdate} 
+                    isUpdating={isUpdating}
                 />
             </Box>
         </Container>
