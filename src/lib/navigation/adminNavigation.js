@@ -152,6 +152,11 @@ export const adminNavigation = {
       icon: <HandymanIcon />,
       children: [
         {
+          segment: '',
+          title: 'Tasks',
+          icon: <ListIcon />
+        },
+        {
           segment: 'tools-machinery',
           title: 'Tools & Machinery',
           icon: <HandymanIcon />
