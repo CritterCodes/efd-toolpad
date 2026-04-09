@@ -1,4 +1,5 @@
 import { INTERNAL_STATUSES } from './internalStatuses.config';
+import { CLIENT_STATUSES } from './clientStatuses.config';
 
 export const STATUS_DISPLAY_INFO = {
   // Internal Status Display Info

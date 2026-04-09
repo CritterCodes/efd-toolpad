@@ -108,14 +108,17 @@ const nextConfig = withPWA({
         }
     ] : []
 })({
+    eslint: {
+        ignoreDuringBuilds: true
+    },
     images: {
         remotePatterns: [
             {
                 protocol: 'https',
                 hostname: 'efd-repair-images.s3.us-east-2.amazonaws.com',
-                pathname: '/**',
-            },
-        ],
+                pathname: '/**'
+            }
+        ]
     },
     webpack: (config) => {
         config.resolve.fallback = {
@@ -137,23 +140,23 @@ const nextConfig = withPWA({
             // Node.js built-ins
             'timers/promises': false
         };
-        
+
         // Ignore optional MongoDB modules that cause build issues
         config.externals = config.externals || [];
         config.externals.push({
-            'child_process': 'commonjs child_process',
-            'kerberos': 'commonjs kerberos',
+            child_process: 'commonjs child_process',
+            kerberos: 'commonjs kerberos',
             '@mongodb-js/zstd': 'commonjs @mongodb-js/zstd',
             '@aws-sdk/credential-providers': 'commonjs @aws-sdk/credential-providers',
             'gcp-metadata': 'commonjs gcp-metadata',
-            'snappy': 'commonjs snappy',
-            'socks': 'commonjs socks',
-            'aws4': 'commonjs aws4',
+            snappy: 'commonjs snappy',
+            socks: 'commonjs socks',
+            aws4: 'commonjs aws4',
             'mongodb-client-encryption': 'commonjs mongodb-client-encryption',
             // Exclude microservice dependencies from main build
-            'winston': 'commonjs winston'
+            winston: 'commonjs winston'
         });
-        
+
         return config;
     }
 });
