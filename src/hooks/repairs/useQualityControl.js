@@ -1,52 +1,116 @@
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-
 "use client";
-import React, { useState, useEffect } from 'react';
-import {
-    Box,
-    Typography,
-    Grid,
-    Button,
-    Breadcrumbs,
-    Link,
-    Snackbar,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    CircularProgress,
-    Alert,
-    Fab
-} from '@mui/material';
-import {
-    Save as SaveIcon,
-    ArrowBack as BackIcon,
-    NavigateNext as NextIcon,
-    NavigateBefore as PrevIcon
-} from '@mui/icons-material';
-import { useParams, useRouter } from 'next/navigation';
-import { useRepairs } from '@/app/context/repairs.context';
 
-// Custom hook
-import { useQualityControl } from '../hooks/useQualityControl';
+import { useState } from 'react';
 
-// Components
-import QcRepairSummary from '../components/QcRepairSummary';
-import QcDecisionForm from '../components/QcDecisionForm';
-import QcPhotoUploader from '../components/QcPhotoUploader';
+export const useQualityControl = () => {
+    const [qcDecision, setQcDecision] = useState('');
+    const [inspector, setInspector] = useState('');
+    const [qcNotes, setQcNotes] = useState('');
+    const [issueCategory, setIssueCategory] = useState('');
+    const [severityLevel, setSeverityLevel] = useState('low');
+    const [photos, setPhotos] = useState([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [validationErrors, setValidationErrors] = useState({});
 
-// Utils
-import { completeQualityControl, uploadQcPhoto } from '../utils/qcUtils';
+    // Snackbar state
+    const [snackbarOpen, setSnackbarOpen] = useState(false);
+    const [snackbarMessage, setSnackbarMessage] = useState('');
+    const [snackbarSeverity, setSnackbarSeverity] = useState('info');
 
-const QualityControlDetailPage = () => {
-    const { repairID } = useParams();
-    const router = useRouter();
-    const { repairs, setRepairs } = useRepairs();
-    
-    const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+    const showSnackbar = (message, severity = 'info') => {
+        setSnackbarMessage(message);
+        setSnackbarSeverity(severity);
+        setSnackbarOpen(true);
+    };
 
-    const {
+    const closeSnackbar = () => {
+        setSnackbarOpen(false);
+    };
+
+    const addPhoto = (photoData) => {
+        setPhotos((prev) => [
+            ...prev,
+            {
+                id: Date.now(),
+                file: photoData.file,
+                url: photoData.url,
+                type: photoData.type || 'After QC',
+                caption: photoData.caption || '',
+                timestamp: new Date().toISOString(),
+            },
+        ]);
+    };
+
+    const removePhoto = (photoId) => {
+        setPhotos((prev) => prev.filter((photo) => photo.id !== photoId));
+    };
+
+    const updatePhotoCaption = (photoId, caption) => {
+        setPhotos((prev) =>
+            prev.map((photo) => (photo.id === photoId ? { ...photo, caption } : photo))
+        );
+    };
+
+    const validateQcForm = () => {
+        const errors = {};
+
+        // Inspector is required
+        if (!inspector.trim()) {
+            errors.inspector = 'Inspector is required';
+        }
+
+        // Decision is required
+        if (!qcDecision) {
+            errors.qcDecision = 'QC decision is required';
+        }
+
+        // If rejecting, additional fields are required
+        if (qcDecision === 'REJECT') {
+            if (!qcNotes.trim()) {
+                errors.qcNotes = 'Notes are required when rejecting';
+            }
+            if (!issueCategory) {
+                errors.issueCategory = 'Issue category is required when rejecting';
+            }
+        }
+
+        // At least one photo is required
+        if (photos.length === 0) {
+            errors.photos = 'At least one photo is required for quality control';
+        }
+
+        setValidationErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
+    const resetForm = () => {
+        setQcDecision('');
+        setInspector('');
+        setQcNotes('');
+        setIssueCategory('');
+        setSeverityLevel('low');
+        setPhotos([]);
+        setValidationErrors({});
+    };
+
+    const getQcFormData = () => ({
+        decision: qcDecision,
+        inspector,
+        notes: qcNotes,
+        issueCategory: qcDecision === 'REJECT' ? issueCategory : null,
+        severityLevel: qcDecision === 'REJECT' ? severityLevel : null,
+        photos: photos.map((photo) => ({
+            url: photo.url,
+            type: photo.type,
+            caption: photo.caption,
+            timestamp: photo.timestamp,
+        })),
+        qcCompletedAt: new Date().toISOString(),
+        qcCompletedBy: inspector,
+    });
+
+    return {
+        // Form state
         qcDecision,
         setQcDecision,
         inspector,
@@ -58,111 +122,26 @@ const QualityControlDetailPage = () => {
         severityLevel,
         setSeverityLevel,
         photos,
+        setPhotos,
         isSubmitting,
         setIsSubmitting,
         validationErrors,
+
+        // Snackbar
         snackbarOpen,
         snackbarMessage,
         snackbarSeverity,
         showSnackbar,
         closeSnackbar,
+
+        // Photo management
         addPhoto,
         removePhoto,
         updatePhotoCaption,
+
+        // Form management
         validateQcForm,
         resetForm,
-        getQcFormData
-    } = useQualityControl();
-
-    // Find the current repair
-    const repair = repairs.find(r => r.repairID === repairID);
-    
-    // Get all repairs currently in QC for navigation
-    const qcRepairs = repairs.filter(r => r.status === "QUALITY CONTROL");
-    const currentIndex = qcRepairs.findIndex(r => r.repairID === repairID);
-    const hasNext = currentIndex < qcRepairs.length - 1;
-    const hasPrevious = currentIndex > 0;
-
-    // Check if repair exists and is in QC
-    useEffect(() => {
-        if (!repair) {
-            showSnackbar('Repair not found', 'error');
-            router.push('/dashboard/repairs/quality-control');
-            return;
-        }
-
-        if (repair.status !== 'QUALITY CONTROL') {
-            showSnackbar('This repair is not in quality control', 'warning');
-            router.push('/dashboard/repairs/quality-control');
-            return;
-        }
-    }, [repair, router, showSnackbar]);
-
-    const handlePhotoUpload = async (photoData) => {
-        try {
-            // For now, we'll use the preview URL directly
-            // In production, you'd upload to your file storage service
-            addPhoto(photoData);
-            showSnackbar('Photo added successfully', 'success');
-        } catch (error) {
-            showSnackbar('Failed to add photo: ' + error.message, 'error');
-        }
+        getQcFormData,
     };
-
-    const handleSubmitQc = () => {
-        if (!validateQcForm()) {
-            showSnackbar('Please fix the validation errors', 'error');
-            return;
-        }
-        setConfirmDialogOpen(true);
-    };
-
-    const handleConfirmSubmit = async () => {
-        setConfirmDialogOpen(false);
-        setIsSubmitting(true);
-
-        try {
-            const qcData = getQcFormData();
-            const result = await completeQualityControl(repairID, qcData);
-
-            if (result.success) {
-                // Update the repair in context
-                setRepairs(prevRepairs => 
-                    prevRepairs.map(r => 
-                        r.repairID === repairID 
-                            ? { ...r, status: result.newStatus, ...qcData }
-                            : r
-                    )
-                );
-
-                showSnackbar(result.message, 'success');
-                
-                // Navigate to next repair or back to QC queue
-                if (hasNext) {
-                    const nextRepair = qcRepairs[currentIndex + 1];
-                    router.push(`/dashboard/repairs/quality-control/${nextRepair.repairID}`);
-                } else {
-                    router.push('/dashboard/repairs/quality-control');
-                }
-                
-                resetForm();
-            } else {
-                throw new Error(result.error);
-            }
-        } catch (error) {
-            showSnackbar('Failed to complete QC: ' + error.message, 'error');
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    const handleNavigation = (direction) => {
-        const targetIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
-        const targetRepair = qcRepairs[targetIndex];
-        if (targetRepair) {
-            router.push(`/dashboard/repairs/quality-control/${targetRepair.repairID}`);
-        }
-    };
-
-    if (!repair) {
-            return { repair, loading, error, validationNotes, setValidationNotes, handleStatusUpdate, handleValidationChange, checklist, setChecklist };
+};

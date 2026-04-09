@@ -20,3 +20,7 @@ export const artisanNavigation = {
     }
   ]
 };
+
+export function generateArtisanNavigation(artisanTypes = []) {
+  return artisanNavigation[USER_ROLES.ARTISAN] || [];
+}

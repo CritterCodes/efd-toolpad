@@ -1,0 +1,1 @@
+export { default as AuthShell } from "@/components/auth/AuthShell";

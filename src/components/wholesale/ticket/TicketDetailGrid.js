@@ -1,0 +1,1 @@
+export const TicketDetailGrid = (props) => <div>Grid</div>;

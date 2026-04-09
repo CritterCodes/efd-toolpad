@@ -1,0 +1,42 @@
+/**
+ * taskUtils.js - Task management and structure utilities
+ * 
+ * Barrel file re-exporting domain-specific utility functions.
+ */
+
+export {
+  generateTaskId,
+  cloneTask,
+  tasksAreEquivalent,
+  mergeTaskPricing,
+  groupTasksByCategory
+} from './tasks/taskManipulation.util.js';
+
+export {
+  validateTaskStructure
+} from './tasks/taskValidation.util.js';
+
+export {
+  getTaskSupportedMetals,
+  getTaskSupportedKarats,
+  taskSupportsMetalContext
+} from './tasks/taskContext.util.js';
+
+export {
+  getTaskPrice,
+  calculateTaskComplexity,
+  calculateAverageTaskPrice,
+  getTaskPriceRange
+} from './tasks/taskPricing.util.js';
+
+export {
+  sortTasks,
+  filterTasks
+} from './tasks/taskSortingFiltering.util.js';
+
+export {
+  createTaskSummary,
+  exportTaskToJSON,
+  importTaskFromJSON
+} from './tasks/taskFormatting.util.js';
+

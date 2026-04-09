@@ -1,0 +1,1 @@
+export const DropsListTable = () => <div>Table</div>;
