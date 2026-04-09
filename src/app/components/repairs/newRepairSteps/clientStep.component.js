@@ -6,6 +6,24 @@ import { TextField, Autocomplete, CircularProgress, Button, Box, Typography, Ava
 import NewClientForm from '../../clients/newClientForm.component';
 import UsersService from '@/services/users';
 
+const getClientNames = (client = {}) => {
+    const firstName = client.firstName || client.customerInfo?.firstName || client.name?.split(' ')?.[0] || '';
+    const lastName = client.lastName || client.customerInfo?.lastName || client.name?.split(' ')?.slice(1).join(' ') || '';
+
+    return {
+        firstName: firstName.trim(),
+        lastName: lastName.trim()
+    };
+};
+
+const getClientLabel = (client = {}) => {
+    const { firstName, lastName } = getClientNames(client);
+    const fullName = `${firstName} ${lastName}`.trim() || client.name || client.email || 'Unnamed Client';
+    const userId = client.userID || client.id || 'No ID';
+
+    return `${fullName} (${userId})`;
+};
+
 // ✅ Fetch all clients once on component load
 async function fetchAllClients() {
     try {
@@ -14,7 +32,7 @@ async function fetchAllClients() {
         if (!Array.isArray(response.users)) {
             throw new Error('Invalid data format received');
         }
-        return response.users;
+        return response.users.filter(Boolean);
     } catch (error) {
         console.error('❌ Error fetching all clients:', error.response?.data || error.message);
         return [];
@@ -38,13 +56,14 @@ export default function ClientStep({ formData, setFormData, handleNext, userID =
             if (userID) {
                 const selectedUser = clients.find(client => client.userID === userID);
                 if (selectedUser) {
+                    const { firstName, lastName } = getClientNames(selectedUser);
                     console.log("✅ Auto-selected User:", selectedUser);
                     setFormData(prev => ({
                         ...prev,
                         selectedClient: selectedUser,
                         userID: selectedUser.userID,
-                        firstName: selectedUser.firstName,
-                        lastName: selectedUser.lastName
+                        firstName,
+                        lastName
                     }));
                     handleNext();
                 } else {
@@ -64,9 +83,8 @@ export default function ClientStep({ formData, setFormData, handleNext, userID =
         }
 
         const filteredClients = clientOptions.filter(client =>
-            client.firstName.toLowerCase().includes(value.toLowerCase()) ||
-            client.lastName.toLowerCase().includes(value.toLowerCase()) ||
-            client.userID.includes(value)
+            getClientLabel(client).toLowerCase().includes(value.toLowerCase()) ||
+            (client.userID || '').toLowerCase().includes(value.toLowerCase())
         );
 
         setShowAddClient(filteredClients.length === 0);
@@ -76,12 +94,13 @@ export default function ClientStep({ formData, setFormData, handleNext, userID =
     const handleClientSelect = (event, newValue) => {
         const selectedClient = clientOptions.find(client => client.userID === newValue?.value);
         if (selectedClient) {
+            const { firstName, lastName } = getClientNames(selectedClient);
             setFormData(prev => ({
                 ...prev,
                 selectedClient,
                 userID: selectedClient.userID,
-                firstName: selectedClient.firstName,
-                lastName: selectedClient.lastName
+                firstName,
+                lastName
             }));
             selectedClient.role === 'wholesaler' ? setIsWholesale(true) : setIsWholesale(false);
             handleNext(); 
@@ -91,13 +110,14 @@ export default function ClientStep({ formData, setFormData, handleNext, userID =
     const handleAddNewClient = () => setOpenModal(true);
 
     const handleClientCreated = (newClient) => {
+        const { firstName, lastName } = getClientNames(newClient);
         setClientOptions(prev => [...prev, newClient]);
         setFormData(prev => ({
             ...prev,
             selectedClient: newClient,
             userID: newClient.userID,
-            firstName: newClient.firstName,
-            lastName: newClient.lastName
+            firstName,
+            lastName
         }));
         setOpenModal(false);
         handleNext();
@@ -119,7 +139,7 @@ export default function ClientStep({ formData, setFormData, handleNext, userID =
             <Autocomplete
                 freeSolo
                 options={clientOptions.map(client => ({
-                    label: `${client.firstName} ${client.lastName} (${client.userID})`,
+                    label: getClientLabel(client),
                     value: client.userID
                 }))}
                 inputValue={inputValue}
@@ -158,18 +178,27 @@ export default function ClientStep({ formData, setFormData, handleNext, userID =
                         boxShadow: 1,
                     }}
                 >
+                    {(() => {
+                        const { firstName, lastName } = getClientNames(formData.selectedClient);
+                        const displayName = `${firstName} ${lastName}`.trim() || formData.selectedClient.name || 'Unnamed Client';
+
+                        return (
+                            <>
                     <Avatar
-                        alt={`${formData.selectedClient.firstName}`}
+                        alt={displayName}
                         src={formData.selectedClient.image || '/default-avatar.png'}
                     />
                     <Box>
                         <Typography variant="h6">
-                            {formData.selectedClient.firstName} {formData.selectedClient.lastName}
+                            {displayName}
                         </Typography>
                         <Typography variant="body2">
                             Phone: {formData.selectedClient.phoneNumber || 'N/A'}
                         </Typography>
                     </Box>
+                            </>
+                        );
+                    })()}
                     <Button variant="outlined" color="secondary" onClick={clearSelectedClient}>
                         Change Client
                     </Button>
