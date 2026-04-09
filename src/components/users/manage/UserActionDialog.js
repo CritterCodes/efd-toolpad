@@ -12,6 +12,14 @@ import {
   TextField
 } from '@mui/material';
 
+const formatUserName = (user = {}) => {
+  const firstName = String(user?.firstName || '').trim();
+  const lastName = String(user?.lastName || '').trim();
+  const fullName = `${firstName} ${lastName}`.trim();
+
+  return fullName || user?.name || user?.email || 'Unnamed User';
+};
+
 export default function UserActionDialog({
   actionDialog,
   closeActionDialog,
@@ -32,7 +40,7 @@ export default function UserActionDialog({
         {actionDialog.user && (
           <Box sx={{ mb: 3 }}>
             <Typography variant="body1" gutterBottom>
-              <strong>User:</strong> {actionDialog.user.firstName} {actionDialog.user.lastName}
+              <strong>User:</strong> {formatUserName(actionDialog.user)}
             </Typography>
             <Typography variant="body2" color="text.secondary" gutterBottom>
               <strong>Email:</strong> {actionDialog.user.email}

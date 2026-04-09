@@ -40,6 +40,14 @@ const getRoleColor = (role) => {
   }
 };
 
+const formatUserName = (user = {}) => {
+  const firstName = String(user?.firstName || '').trim();
+  const lastName = String(user?.lastName || '').trim();
+  const fullName = `${firstName} ${lastName}`.trim();
+
+  return fullName || user?.name || user?.email || 'Unnamed User';
+};
+
 export default function UserListTable({
   pendingUsers,
   openActionDialog
@@ -71,14 +79,14 @@ export default function UserListTable({
           </TableRow>
         </TableHead>
         <TableBody>
-          {pendingUsers.map((user) => (
-            <TableRow key={user.userID}>
+          {pendingUsers.filter(Boolean).map((user) => (
+            <TableRow key={user.userID || user.email || user._id}>
               <TableCell>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <PersonIcon sx={{ color: 'text.secondary' }} />
                   <Box>
                     <Typography variant="body2" fontWeight="medium">
-                      {user.firstName} {user.lastName}
+                      {formatUserName(user)}
                     </Typography>
                     {user.phoneNumber && (
                       <Typography variant="caption" color="text.secondary">

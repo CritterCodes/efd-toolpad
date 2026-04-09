@@ -56,6 +56,14 @@ const getStatusColor = (status) => {
   }
 };
 
+const formatUserName = (user = {}) => {
+  const firstName = String(user?.firstName || '').trim();
+  const lastName = String(user?.lastName || '').trim();
+  const fullName = `${firstName} ${lastName}`.trim();
+
+  return fullName || user?.name || user?.email || 'Unnamed User';
+};
+
 const UserGridList = ({ paginatedUsers, loading, title, userRole, searchQuery }) => {
   if (loading) {
     return (
@@ -83,8 +91,8 @@ const UserGridList = ({ paginatedUsers, loading, title, userRole, searchQuery })
 
   return (
     <Grid container spacing={3}>
-      {paginatedUsers.map((user) => (
-        <Grid item xs={12} sm={6} md={4} lg={3} key={user.userID || user._id}>
+      {paginatedUsers.filter(Boolean).map((user) => (
+        <Grid item xs={12} sm={6} md={4} lg={3} key={user.userID || user._id || user.email}>
           <Card 
             sx={{ 
               height: '100%',
@@ -104,7 +112,7 @@ const UserGridList = ({ paginatedUsers, loading, title, userRole, searchQuery })
                 </Avatar>
                 <Box sx={{ flexGrow: 1 }}>
                   <Typography variant="h6" noWrap>
-                    {user.firstName} {user.lastName}
+                    {formatUserName(user)}
                   </Typography>
                   <Chip 
                     label={user.status || 'Active'} 
