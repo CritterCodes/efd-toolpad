@@ -11,8 +11,8 @@ import {
   Box,
   Chip
 } from '@mui/material';
-import { CustomTicketImagesGrid } from './parts/CustomTicketImagesGrid';
-import { CustomTicketImageModal } from './parts/CustomTicketImageModal';
+import { CustomTicketImagesGrid } from './parts/CustomTicketImagesGrid.js';
+import { CustomTicketImageModal } from './parts/CustomTicketImageModal.js';
 
 export function CustomTicketImages({ 
   ticket,

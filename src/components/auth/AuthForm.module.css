@@ -1,0 +1,215 @@
+.formStack {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.75rem;
+}
+
+.inputGroup {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.labelRow,
+.checkboxRow,
+.pillRow,
+.footerLinks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.labelRow,
+.checkboxRow {
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.label,
+.helperLink,
+.subtleText,
+.tinyText,
+.input,
+.checkboxText,
+.message,
+.footerArea,
+.pill,
+.linkButton,
+.ghostButton,
+.textLink,
+.submitButton {
+  font-family: var(--auth-body-font);
+}
+
+.label {
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.helperLink,
+.textLink {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.input {
+  min-height: 3.5rem;
+  width: 100%;
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.07);
+  color: #f8f8f8;
+  font-size: 1rem;
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+}
+
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.checkbox input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #ffffff;
+}
+
+.checkboxText,
+.subtleText,
+.tinyText {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.linkButton,
+.ghostButton,
+.submitButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-weight: 700;
+  transition: transform 180ms ease, background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+
+.linkButton,
+.submitButton {
+  background: linear-gradient(135deg, #111111, #2a2a2a);
+  color: #ffffff;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28);
+}
+
+.linkButton,
+.ghostButton {
+  min-height: 3rem;
+  padding: 0.75rem 1.2rem;
+  border: 1px solid transparent;
+}
+
+.ghostButton {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.submitButton {
+  min-height: 3.6rem;
+  width: 100%;
+  border: 0;
+  padding: 0.95rem 1.3rem;
+  font-size: 0.96rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.submitButton:disabled {
+  cursor: wait;
+  opacity: 0.75;
+}
+
+.message {
+  padding: 0.95rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid transparent;
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
+.messageError {
+  color: #7c1d1d;
+  background: rgba(219, 77, 77, 0.12);
+  border-color: rgba(219, 77, 77, 0.22);
+}
+
+.messageWarning {
+  color: #f5f5f5;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.messageSuccess {
+  color: #f5f5f5;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.pillRow,
+.footerLinks {
+  gap: 0.65rem;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.42rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.footerArea {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1.25rem;
+}
+
+.footerLinks {
+  font-size: 0.9rem;
+}
+
+.textLink:hover,
+.helperLink:hover,
+.linkButton:hover,
+.ghostButton:hover,
+.submitButton:hover {
+  transform: translateY(-1px);
+}
+
+@media (max-width: 640px) {
+  .labelRow,
+  .checkboxRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

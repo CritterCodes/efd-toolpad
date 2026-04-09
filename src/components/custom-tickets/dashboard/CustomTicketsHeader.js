@@ -1,0 +1,1 @@
+export const CustomTicketsHeader = (props) => <div {...props}>Header</div>;

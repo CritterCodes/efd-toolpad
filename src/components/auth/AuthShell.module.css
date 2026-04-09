@@ -1,0 +1,270 @@
+.shell {
+  min-height: 100dvh;
+  height: 100dvh;
+  position: relative;
+  overflow-x: hidden;
+  overflow-y: auto;
+  color: #f5f5f5;
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.09), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(255, 255, 255, 0.07), transparent 24%),
+    linear-gradient(135deg, #020202 0%, #0a0a0a 40%, #141414 100%);
+}
+
+.shell::before,
+.shell::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.shell::before {
+  width: 36rem;
+  height: 36rem;
+  top: -12rem;
+  right: -10rem;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.12), transparent 68%);
+}
+
+.shell::after {
+  width: 32rem;
+  height: 32rem;
+  bottom: -14rem;
+  left: -10rem;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.08), transparent 70%);
+}
+
+.grid {
+  position: relative;
+  z-index: 1;
+  width: min(1400px, calc(100% - 2rem));
+  min-height: 100dvh;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(22rem, 27rem);
+  align-items: center;
+  gap: clamp(1.25rem, 2vw, 2rem);
+  padding: clamp(1rem, 2vw, 1.75rem) 0;
+}
+
+.storyCard {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(1.6rem, 3vw, 3rem);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 2rem;
+  background: linear-gradient(180deg, rgba(18, 18, 18, 0.92), rgba(6, 6, 6, 0.96));
+  box-shadow: 0 35px 120px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(20px);
+}
+
+.brandRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 3rem;
+}
+
+.brandBadge,
+.storyTag,
+.eyebrow,
+.heroCopy,
+.statLabel,
+.storyBody,
+.panelDescription,
+.panelBadge {
+  font-family: var(--auth-body-font);
+}
+
+.brandBadge,
+.storyTag,
+.panelBadge,
+.eyebrow {
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.brandBadge,
+.storyTag,
+.panelBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.brandBadge {
+  padding: 0.55rem 0.9rem;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.eyebrow {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.heroTitle,
+.panelTitle,
+.storyHeading {
+  font-family: var(--auth-display-font);
+  font-weight: 600;
+  line-height: 0.95;
+}
+
+.heroTitle {
+  max-width: 12ch;
+  margin-top: 1rem;
+  font-size: clamp(2.9rem, 6vw, 5.5rem);
+}
+
+.heroCopy,
+.storyBody,
+.panelDescription {
+  line-height: 1.7;
+}
+
+.heroCopy {
+  max-width: 42rem;
+  margin-top: 1.2rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1rem;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-top: 2rem;
+}
+
+.statCard {
+  padding: 1rem;
+  border-radius: 1.2rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.statValue {
+  display: block;
+  font-family: var(--auth-display-font);
+  font-size: 1.9rem;
+  color: #ffffff;
+}
+
+.statLabel {
+  display: block;
+  margin-top: 0.35rem;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.82rem;
+}
+
+.storyFooter {
+  display: grid;
+  gap: 1rem;
+  margin-top: 3rem;
+}
+
+.storyTag {
+  width: fit-content;
+  padding: 0.55rem 0.85rem;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.storyHeading {
+  font-size: clamp(1.7rem, 3vw, 2.3rem);
+}
+
+.storyBody {
+  max-width: 34rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.formPanel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.formCard {
+  width: min(100%, 30rem);
+  padding: clamp(1.6rem, 3vw, 2.25rem);
+  border-radius: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: linear-gradient(180deg, rgba(25, 25, 25, 0.96), rgba(12, 12, 12, 0.95));
+  color: #f5f5f5;
+  box-shadow: 0 40px 120px rgba(0, 0, 0, 0.3);
+}
+
+.panelBadge {
+  padding: 0.45rem 0.8rem;
+  color: #f2f2f2;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.panelTitle {
+  margin-top: 1rem;
+  font-size: clamp(2.3rem, 4vw, 3.3rem);
+}
+
+.panelDescription {
+  margin-top: 0.7rem;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+@media (max-width: 1180px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr) minmax(21rem, 25rem);
+  }
+
+  .heroTitle {
+    font-size: clamp(2.7rem, 5vw, 4.5rem);
+  }
+}
+
+@media (max-width: 980px) {
+  .grid {
+    grid-template-columns: 1fr;
+    width: min(820px, calc(100% - 1.5rem));
+  }
+
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .formPanel {
+    padding-bottom: 1rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .grid {
+    width: min(100%, calc(100% - 1rem));
+    padding: 0.75rem 0;
+  }
+
+  .storyCard,
+  .formCard {
+    border-radius: 1.5rem;
+  }
+
+  .brandRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .heroTitle {
+    font-size: 2.9rem;
+  }
+}

@@ -1,0 +1,10 @@
+  return {
+    searchParams, setSearchParams,
+    searchResults, loading, error,
+    selectedProducts, setSelectedProducts,
+    importing, importResults,
+    tabValue, setTabValue,
+    handleSearch, handleProductSelect,
+    handleImport, handleClear
+  };
+}

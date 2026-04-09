@@ -1,0 +1,116 @@
+'use client';
+
+import React from 'react';
+import { useOBJViewer } from '@/hooks/viewers/useOBJViewer';
+
+
+
+import { Box, CircularProgress, Typography, Paper } from '@mui/material';
+
+/**
+ * OBJ Viewer Component
+ * Displays 3D OBJ files (gemstone models) with interactive controls
+ * 
+ * @param {string} fileUrl - S3 URL to the OBJ file
+ * @param {string} mtlUrl - Optional S3 URL to the MTL file (materials)
+ * @param {string} title - Title for the viewer
+ * @param {object} style - Optional CSS styles
+ * @param {THREE.Color} gemstoneColor - Optional color override for the gemstone
+ */
+export default function OBJViewer({ 
+  fileUrl, 
+  mtlUrl = null, 
+  title = 'Gemstone Preview',
+  style = {},
+  gemstoneColor = null 
+}) {
+    const { containerRef, loading, error } = useOBJViewer({ fileUrl, mtlUrl, gemstoneColor });
+
+
+
+  return (
+    <Paper
+      sx={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        ...style
+      }}
+    >
+      {/* Header */}
+      <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0', backgroundColor: '#fafafa' }}>
+        <Typography variant="subtitle1" fontWeight={600}>
+          {title}
+        </Typography>
+        <Typography variant="caption" color="textSecondary">
+          Drag to rotate • Scroll to zoom • Interactive 3D Preview
+        </Typography>
+      </Box>
+
+      {/* Viewer Container */}
+      <Box
+        ref={containerRef}
+        sx={{
+          flex: 1,
+          position: 'relative',
+          backgroundColor: '#f5f5f5',
+          minHeight: '400px'
+        }}
+      >
+        {loading && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 2,
+              zIndex: 10
+            }}
+          >
+            <CircularProgress />
+            <Typography variant="body2" color="textSecondary">
+              Loading gemstone model...
+            </Typography>
+          </Box>
+        )}
+
+        {error && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              textAlign: 'center',
+              p: 3,
+              backgroundColor: '#ffebee',
+              borderRadius: 1,
+              maxWidth: '80%',
+              zIndex: 10
+            }}
+          >
+            <Typography variant="body2" color="error" fontWeight={600}>
+              Error Loading Model
+            </Typography>
+            <Typography variant="caption" color="error">
+              {error}
+            </Typography>
+          </Box>
+        )}
+      </Box>
+
+      {/* Footer Info */}
+      <Box sx={{ p: 1.5, borderTop: '1px solid #e0e0e0', backgroundColor: '#fafafa' }}>
+        <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
+          Format: OBJ (Wavefront) • Optimized for gemstone visualization
+        </Typography>
+      </Box>
+    </Paper>
+  );
+}

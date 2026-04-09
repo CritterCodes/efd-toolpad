@@ -1,0 +1,213 @@
+import { NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
+
+const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
+const DEFAULT_GEMINI_MODELS = [
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
+  'gemini-1.5-flash-latest',
+  'gemini-1.5-flash'
+];
+
+const buildCandidateModels = () => {
+  const configuredModel = String(process.env.GEMINI_MODEL || '').trim();
+  if (!configuredModel) return DEFAULT_GEMINI_MODELS;
+
+  const deduped = [configuredModel, ...DEFAULT_GEMINI_MODELS].filter(Boolean);
+  return [...new Set(deduped)];
+};
+
+const extractGeminiText = (payload = {}) => {
+  const parts = payload?.candidates?.[0]?.content?.parts;
+  if (!Array.isArray(parts)) return '';
+
+  return parts
+    .map((part) => String(part?.text || '').trim())
+    .filter(Boolean)
+    .join('\n')
+    .trim();
+};
+
+const extractFirstJsonObject = (raw = '') => {
+  const text = String(raw || '').trim();
+  if (!text) return null;
+
+  const fencedMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  const candidate = fencedMatch ? fencedMatch[1] : text;
+
+  const firstBrace = candidate.indexOf('{');
+  const lastBrace = candidate.lastIndexOf('}');
+  if (firstBrace < 0 || lastBrace <= firstBrace) return null;
+
+  const jsonSlice = candidate.slice(firstBrace, lastBrace + 1);
+  try {
+    return JSON.parse(jsonSlice);
+  } catch {
+    return null;
+  }
+};
+
+const normalizeParsedPayload = (payload = {}) => {
+  const normalizeString = (value) => String(value || '').trim();
+  const normalizeEnum = (value, allowed = []) => {
+    const normalized = normalizeString(value).toLowerCase();
+    return allowed.includes(normalized) ? normalized : '';
+  };
+
+  const toBool = (value) => {
+    if (typeof value === 'boolean') return value;
+    const normalized = normalizeString(value).toLowerCase();
+    if (['true', 'yes', '1'].includes(normalized)) return true;
+    if (['false', 'no', '0'].includes(normalized)) return false;
+    return null;
+  };
+
+  const taskHints = Array.isArray(payload.taskHints)
+    ? payload.taskHints.map((item) => normalizeString(item)).filter(Boolean).slice(0, 5)
+    : [];
+
+  const confidence = Math.min(1, Math.max(0, Number(payload.confidence || 0)));
+
+  return {
+    metalType: normalizeEnum(payload.metalType, ['gold', 'silver', 'platinum', 'costume']),
+    karat: normalizeString(payload.karat),
+    goldColor: normalizeEnum(payload.goldColor, ['yellow', 'white', 'rose']),
+    isRing: toBool(payload.isRing),
+    currentRingSize: normalizeString(payload.currentRingSize),
+    desiredRingSize: normalizeString(payload.desiredRingSize),
+    taskHints,
+    normalizedSummary: normalizeString(payload.normalizedSummary),
+    confidence
+  };
+};
+
+const callGeminiWithFallback = async ({ apiKey, prompt }) => {
+  const models = buildCandidateModels();
+  let lastPayload = null;
+
+  for (const model of models) {
+    const response = await fetch(
+      `${GEMINI_API_BASE}/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.1,
+            topP: 0.9,
+            maxOutputTokens: 260
+          }
+        })
+      }
+    );
+
+    const payload = await response.json();
+    if (response.ok) {
+      return { model, payload };
+    }
+
+    lastPayload = payload;
+    const errorMessage = String(payload?.error?.message || '').toLowerCase();
+    const shouldTryNextModel = response.status === 404 || errorMessage.includes('not found') || errorMessage.includes('not supported');
+
+    if (!shouldTryNextModel) {
+      throw new Error(payload?.error?.message || 'Gemini request failed');
+    }
+  }
+
+  throw new Error(lastPayload?.error?.message || 'No compatible Gemini model found for generateContent');
+};
+
+export async function POST(request) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+    }
+
+    const geminiApiKey = process.env.GEMINI_API_KEY;
+    if (!geminiApiKey) {
+      return NextResponse.json({ success: false, error: 'GEMINI_API_KEY is not configured.' }, { status: 500 });
+    }
+
+    const body = await request.json();
+    const inputText = String(body?.inputText || '').trim();
+    const description = String(body?.description || '').trim();
+
+    if (!inputText) {
+      return NextResponse.json({ success: false, error: 'inputText is required.' }, { status: 400 });
+    }
+
+    // Combine intake input with description for richer context
+    const fullContext = [inputText, description].filter(Boolean).join('\n');
+
+    const prompt = [
+      'You are parsing jewelry repair intake text into structured data for form autofill.',
+      'Extract only what is explicitly present in the text and description.',
+      'Return ONLY valid JSON with this exact shape:',
+      '{',
+      '  "metalType": "gold|silver|platinum|costume|",',
+      '  "karat": "",',
+      '  "goldColor": "yellow|white|rose|",',
+      '  "isRing": true,',
+      '  "currentRingSize": "",',
+      '  "desiredRingSize": "",',
+      '  "taskHints": ["resize", "retip"],',
+      '  "normalizedSummary": "",',
+      '  "confidence": 0.0',
+      '}',
+      'Rules:',
+      '- taskHints should be SHORT keywords that describe repair work.',
+      '- Examples: "resize", "size up", "size down", "resize with stones", "size with accent stones", "retip", "prong", "setting", "clean", "polish", "stone", "replace", "repair", "solder", "weld", "band", "shank"',
+      '- IMPORTANT: If the ring has accent stones or multiple stones (not just a center stone), prefer task hints like "resize with stones" or "size with stones" instead of just "resize"',
+      '- taskHints must be generic repair terms that could match task names like "Ring Sizing", "Ring Sizing with Stones", "Retip Setting", "Stone Setting", "Cleaning & Polishing"',
+      '- Return 1-3 task hints, NOT full task names',
+      '- confidence must be between 0 and 1 (1.0 = very confident in parsing)',
+      '- Use empty strings or empty arrays for unknown values.',
+      '- Do not include markdown fences or extra commentary.',
+      `Input text: ${inputText}`,
+      description ? `Ring description: ${description}` : ''
+    ].filter(Boolean).join('\n');
+
+    let geminiPayload = null;
+    let selectedModel = '';
+
+    try {
+      const geminiResult = await callGeminiWithFallback({ apiKey: geminiApiKey, prompt });
+      geminiPayload = geminiResult.payload;
+      selectedModel = geminiResult.model;
+    } catch (geminiError) {
+      console.error('Gemini smart intake parse error:', geminiError.message);
+      return NextResponse.json(
+        { success: false, error: geminiError.message || 'Gemini request failed.' },
+        { status: 502 }
+      );
+    }
+
+    const rawText = extractGeminiText(geminiPayload);
+    const parsed = extractFirstJsonObject(rawText);
+    if (!parsed) {
+      return NextResponse.json(
+        { success: false, error: 'Gemini returned invalid JSON output.' },
+        { status: 502 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        parsed: normalizeParsedPayload(parsed),
+        model: selectedModel
+      }
+    });
+  } catch (error) {
+    console.error('POST /api/ai/parse-smart-intake error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to parse smart intake input.' },
+      { status: 500 }
+    );
+  }
+}

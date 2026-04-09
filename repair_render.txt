@@ -1,0 +1,148 @@
+return (
+    <Card sx={{ 
+      borderRadius: 2, 
+      boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+      border: '2px solid',
+      borderColor: 'warning.main'
+    }}>
+      <CardContent sx={{ p: 3 }}>
+        <Stack spacing={3}>
+          {/* Main Total */}
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Typography variant="h5" sx={{ fontWeight: 600, color: 'text.primary' }}>
+              Total Cost: {loading ? (
+                <Box component="span" sx={{ color: 'warning.main' }}>Calculating...</Box>
+              ) : (
+                <Box component="span" sx={{ color: 'success.main', fontSize: '1.4em' }}>
+                  ${totalCost.toFixed(2)}
+                </Box>
+              )}
+            </Typography>
+            <Stack direction="row" spacing={1}>
+              {formData.isWholesale && (
+                <Chip label="Wholesale (50% off)" color="primary" variant="outlined" size="small" />
+              )}
+              {formData.isRush && (
+                <Chip label={`Rush (×${adminSettings.rushMultiplier})`} color="warning" variant="outlined" size="small" />
+              )}
+              {formData.includeDelivery && (
+                <Chip label={`Delivery (+$${adminSettings.deliveryFee.toFixed(2)})`} color="info" variant="outlined" size="small" />
+              )}
+              {formData.includeTax && !formData.isWholesale && (
+                <Chip label={`Tax (+${(adminSettings.taxRate * 100).toFixed(2)}%)`} color="secondary" variant="outlined" size="small" />
+              )}
+              {formData.isWholesale && (
+                <Chip label="Tax Exempt" color="success" variant="outlined" size="small" />
+              )}
+            </Stack>
+          </Stack>
+          
+          {/* Detailed Cost Breakdown */}
+          {!loading && costBreakdown.subtotal > 0 && (
+            <Box sx={{ 
+              p: 2, 
+              backgroundColor: 'grey.50', 
+              borderRadius: 1,
+              border: '1px solid',
+              borderColor: 'grey.200'
+            }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, color: 'text.primary' }}>
+                Cost Breakdown:
+              </Typography>
+              <Stack spacing={1}>
+                <Stack direction="row" justifyContent="space-between">
+                  <Typography variant="body2" color="text.secondary">Services & Materials:</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    ${costBreakdown.subtotal.toFixed(2)}
+                  </Typography>
+                </Stack>
+                
+                {formData.isWholesale && (
+                  <Stack direction="row" justifyContent="space-between" sx={{ color: 'primary.main' }}>
+                    <Typography variant="body2">Wholesale Discount (50% off):</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      -${costBreakdown.wholesaleDiscount.toFixed(2)}
+                    </Typography>
+                  </Stack>
+                )}
+                
+                {formData.isRush && costBreakdown.rushFee > 0 && (
+                  <Stack direction="row" justifyContent="space-between" sx={{ color: 'warning.main' }}>
+                    <Typography variant="body2">Rush Job Fee (×{adminSettings.rushMultiplier}):</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      +${costBreakdown.rushFee.toFixed(2)}
+                    </Typography>
+                  </Stack>
+                )}
+                
+                {formData.includeDelivery && (
+                  <Stack direction="row" justifyContent="space-between" sx={{ color: 'info.main' }}>
+                    <Typography variant="body2">Delivery Fee:</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      +${costBreakdown.deliveryFee.toFixed(2)}
+                    </Typography>
+                  </Stack>
+                )}
+                
+                {formData.includeTax && !formData.isWholesale && costBreakdown.taxAmount > 0 && (
+                  <Stack direction="row" justifyContent="space-between" sx={{ color: 'secondary.main' }}>
+                    <Typography variant="body2">Tax ({(adminSettings.taxRate * 100).toFixed(2)}%):</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      +${costBreakdown.taxAmount.toFixed(2)}
+                    </Typography>
+                  </Stack>
+                )}
+                
+                {formData.isWholesale && (
+                  <Stack direction="row" justifyContent="space-between" sx={{ color: 'success.main' }}>
+                    <Typography variant="body2">Tax (Wholesale Exempt):</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      $0.00
+                    </Typography>
+                  </Stack>
+                )}
+                
+                <Divider sx={{ my: 1 }} />
+                <Stack direction="row" justifyContent="space-between">
+                  <Typography variant="body1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                    Final Total:
+                  </Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 600, color: 'success.main', fontSize: '1.1em' }}>
+                    ${costBreakdown.final.toFixed(2)}
+                  </Typography>
+                </Stack>
+              </Stack>
+            </Box>
+          )}
+          
+          {(formData.isRush || formData.isWholesale || formData.includeDelivery || (formData.includeTax && !formData.isWholesale)) && (
+            <Typography variant="body2" color="text.secondary">
+              {[
+                formData.isWholesale && 'wholesale discount',
+                formData.isRush && 'rush job markup', 
+                formData.includeDelivery && 'delivery fee',
+                (formData.includeTax && !formData.isWholesale) && 'tax',
+                formData.isWholesale && 'tax exemption'
+              ].filter(Boolean).length > 1 
+                ? `Price includes: ${[
+                    formData.isWholesale && '50% wholesale discount',
+                    formData.isRush && 'rush job markup', 
+                    formData.includeDelivery && 'delivery fee',
+                    (formData.includeTax && !formData.isWholesale) && 'tax',
+                    formData.isWholesale && 'tax exemption'
+                  ].filter(Boolean).join(', ')}`
+                : formData.isWholesale 
+                ? 'Price includes 50% wholesale discount (tax exempt)'
+                : formData.isRush 
+                ? 'Price includes rush job markup'
+                : formData.includeDelivery
+                ? 'Price includes delivery fee'
+                : 'Price includes tax'
+              }
+            </Typography>
+          )}
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+};
