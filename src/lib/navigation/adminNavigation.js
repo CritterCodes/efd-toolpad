@@ -28,6 +28,7 @@ import PaymentIcon from "@mui/icons-material/Payment";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import PrintIcon from "@mui/icons-material/Print";
 import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
+import AddIcon from "@mui/icons-material/Add";
 
 import { SHARED_NAVIGATION } from "./sharedNavigation";
 
@@ -153,6 +154,21 @@ export const adminNavigation = {
       icon: <HandymanIcon />,
       children: [
         {
+          segment: 'create',
+          title: 'Create Task',
+          icon: <AddIcon />
+        },
+        {
+          segment: 'process-based',
+          title: 'Process-Based Tasks',
+          icon: <BuildIcon />
+        },
+        {
+          segment: 'tools-machinery',
+          title: 'Tools & Machinery',
+          icon: <HandymanIcon />
+        },
+        {
           segment: 'materials',
           title: 'Materials',
           icon: <InventoryIcon />
@@ -161,8 +177,28 @@ export const adminNavigation = {
           segment: 'processes',
           title: 'Processes',
           icon: <SettingsIcon />
+        },
+        {
+          segment: 'ai-builder',
+          title: 'Task AI Builder',
+          icon: <SupportAgentIcon />
+        },
+        {
+          segment: 'processes/ai-builder',
+          title: 'Process AI Builder',
+          icon: <DesignServicesIcon />
         }
       ]
+    },
+    {
+      segment: 'dashboard/admin/stuller',
+      title: 'Stuller Admin',
+      icon: <StorefrontIcon />
+    },
+    {
+      segment: 'dashboard/admin/migrate-repair-tasks',
+      title: 'Repair Task Migration',
+      icon: <MoveUpIcon />
     },
     {
       segment: 'dashboard/analytics',

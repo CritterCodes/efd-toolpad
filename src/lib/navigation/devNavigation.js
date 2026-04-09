@@ -35,6 +35,45 @@ export const devNavigation = {
   [USER_ROLES.DEV]: [
     SHARED_NAVIGATION.dashboard,
     {
+      segment: 'dashboard/products',
+      title: 'Products',
+      icon: <InventoryIcon />,
+      children: [
+        {
+          segment: 'jewelry',
+          title: 'Jewelry',
+          icon: <RingIcon />
+        },
+        {
+          segment: 'gemstones',
+          title: 'Gemstones',
+          icon: <DiamondIcon />
+        },
+        {
+          segment: 'awaiting-approval',
+          title: 'Awaiting Approval',
+          icon: <AssignmentIcon />
+        }
+      ]
+    },
+    {
+      segment: 'dashboard/requests',
+      title: 'Requests',
+      icon: <AssignmentIcon />,
+      children: [
+        {
+          segment: 'cad-requests',
+          title: 'CAD Requests',
+          icon: <DesignServicesIcon />
+        },
+        {
+          segment: 'custom-tickets',
+          title: 'Custom Tickets',
+          icon: <ReceiptIcon />
+        }
+      ]
+    },
+    {
       segment: 'dashboard/clients',
       title: 'Clients',
       icon: <PeopleIcon />
@@ -44,11 +83,6 @@ export const devNavigation = {
       title: 'User Management',
       icon: <PeopleIcon />,
       children: [
-        {
-          segment: '',
-          title: 'All Users',
-          icon: <ListIcon />
-        },
         {
           segment: 'admin',
           title: 'Administrators',
@@ -70,6 +104,95 @@ export const devNavigation = {
           icon: <HandymanIcon />
         }
       ]
+    },
+    {
+      segment: 'dashboard/repairs',
+      title: 'Repairs',
+      icon: <BuildIcon />,
+      children: [
+        {
+          segment: 'receiving',
+          title: 'Receiving',
+          icon: <ReceivingIcon />
+        },
+        {
+          segment: 'parts',
+          title: 'Parts',
+          icon: <PartsIcon />
+        },
+        {
+          segment: 'ready-for-work',
+          title: 'Ready for Work',
+          icon: <ListIcon />
+        },
+        {
+          segment: 'quality-control',
+          title: 'Quality Control',
+          icon: <QualityIcon />
+        },
+        {
+          segment: 'pick-up',
+          title: 'Payment & Pickup',
+          icon: <PickupIcon />
+        },
+        {
+          segment: 'move',
+          title: 'Move',
+          icon: <MoveUpIcon />
+        },
+        {
+          segment: 'bulk-print',
+          title: 'Bulk Print',
+          icon: <PrintIcon />
+        }
+      ]
+    },
+    {
+      segment: 'dashboard/admin/tasks',
+      title: 'Tasks',
+      icon: <HandymanIcon />,
+      children: [
+        {
+          segment: 'create',
+          title: 'Create Task',
+          icon: <BuildIcon />
+        },
+        {
+          segment: 'process-based',
+          title: 'Process-Based Tasks',
+          icon: <BuildIcon />
+        },
+        {
+          segment: 'tools-machinery',
+          title: 'Tools & Machinery',
+          icon: <HandymanIcon />
+        },
+        {
+          segment: 'materials',
+          title: 'Materials',
+          icon: <InventoryIcon />
+        },
+        {
+          segment: 'processes',
+          title: 'Processes',
+          icon: <SettingsIcon />
+        },
+        {
+          segment: 'ai-builder',
+          title: 'Task AI Builder',
+          icon: <SupportAgentIcon />
+        }
+      ]
+    },
+    {
+      segment: 'dashboard/analytics',
+      title: 'Analytics',
+      icon: <BarChartIcon />
+    },
+    {
+      segment: 'dashboard/admin/settings',
+      title: 'Admin Settings',
+      icon: <SettingsIcon />
     }
   ]
 };
