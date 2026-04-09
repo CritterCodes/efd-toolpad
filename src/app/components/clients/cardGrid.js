@@ -18,8 +18,8 @@ const ClientCardGrid = ({ clients, onCardClick }) => {
 
     return (
         <Grid container spacing={3}>
-            {clients.map((client) => (
-                <Grid item xs={12} sm={6} md={4} key={client.userID || client.email || getDisplayName(client)}>
+            {clients.filter(Boolean).map((client) => (
+                <Grid item xs={12} sm={6} md={4} key={client?.userID || client?.email || getDisplayName(client)}>
                     <Card
                         variant="outlined"
                         sx={{
@@ -29,18 +29,18 @@ const ClientCardGrid = ({ clients, onCardClick }) => {
                             '&:hover': { transform: 'scale(1.03)' },
                             cursor: 'pointer',
                         }}
-                        onClick={() => onCardClick(client.userID)}
+                        onClick={() => onCardClick(client?.userID)}
                     >
                         <CardContent sx={{ textAlign: 'center' }}>
                             <Avatar
-                                src={client.image || '/default-avatar.png'}
+                                src={client?.image || '/default-avatar.png'}
                                 sx={{ width: 80, height: 80, margin: 'auto' }}
                             />
                             <Typography variant="h6" sx={{ mt: 2 }}>
                                 {getDisplayName(client)}
                             </Typography>
-                            <Typography color="text.secondary">{client.email}</Typography>
-                            <Typography color="text.secondary">{client.phone}</Typography>
+                            <Typography color="text.secondary">{client?.email || 'No email'}</Typography>
+                            <Typography color="text.secondary">{client?.phone || client?.phoneNumber || 'No phone'}</Typography>
                         </CardContent>
                         <Divider />
                         <Button
