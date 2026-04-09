@@ -1,5 +1,6 @@
 // Materials utility facade.
 export * from './materials.constants';
+export * from './materials.helpers';
 export * from './materials.form.utils';
 export * from './materials.data.utils';
 export * from './categories/metal.util.js';
