@@ -1,7 +1,7 @@
 'use client';
 
-import RepairTaskFormPage from '@/app/dashboard/admin/repair-tasks/create/page';
+import TaskBuilderFormPage from '@/app/dashboard/admin/tasks/components/TaskBuilderFormPage';
 
-export default function CreateTaskPage(props) {
-  return <RepairTaskFormPage {...props} />;
+export default function CreateTaskPage() {
+  return <TaskBuilderFormPage mode="create" />;
 }
