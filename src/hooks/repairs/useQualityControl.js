@@ -165,4 +165,8 @@ const QualityControlDetailPage = () => {
     };
 
     if (!repair) {
-            return { repair, loading, error, validationNotes, setValidationNotes, handleStatusUpdate, handleValidationChange, checklist, setChecklist };
+        return { repair, loading, error, validationNotes, setValidationNotes, handleStatusUpdate, handleValidationChange, checklist, setChecklist };
+    }
+
+    return { repair, loading, error, validationNotes, setValidationNotes, handleStatusUpdate, handleValidationChange, checklist, setChecklist };
+};

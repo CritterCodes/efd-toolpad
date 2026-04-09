@@ -1,33 +1,14 @@
+'use client';
+
 import React from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Box, Typography, TextField, Button, CircularProgress, LinearProgress } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+
 export default function CADApproveDialog({ 
     designDialogOpen, setDesignDialogOpen, designData, setDesignData, 
     uploadProgress, handleFileUpload, handleSubmitDesign, selectedRequest 
 }) {
-    return ('use client';
-
-import React, { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
-import { 
-    Container, 
-    Typography, 
-    Card, 
-    CardContent, 
-    Grid, 
-    Chip, 
-    Button,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    TextField,
-    Box,
-    CircularProgress,
-    Alert,
-    Tab,
-    Tabs,
-    IconButton,
+    return (
     Tooltip,
     FormControl,
     InputLabel,
