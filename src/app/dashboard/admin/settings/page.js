@@ -40,7 +40,8 @@ function TabPanel({ children, value, index, ...other }) {
 }
 
 export default function AdminSettingsPage() {
-    const { data: session, status } = useSession();
+    const sessionState = useSession() || {};
+    const { data: session = null, status = 'loading' } = sessionState;
     const [tabValue, setTabValue] = useState(0);
 
     const handleTabChange = (event, newValue) => {
