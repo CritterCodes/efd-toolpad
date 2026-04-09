@@ -5,6 +5,7 @@ import Constants from '@/lib/constants';
 import pricingEngine from '@/services/PricingEngine';
 import { TasksService } from '@/app/api/tasks/service';
 import { decryptSensitiveData, isDataEncrypted } from '@/utils/encryption';
+import { updateStullerProductPricing } from '@/utils/material-pricing.util';
 
 /**
  * Fetch a price field flexibly from a Stuller product response.
@@ -16,6 +17,14 @@ function getFetchedPrice(stullerData) {
     stullerData?.data?.pricing?.retail ??
     0
   ) || 0;
+}
+
+function getItemNumber(product, material) {
+  return product?.stullerItemNumber || product?.stuller_item_number || material?.stuller_item_number || null;
+}
+
+function getProductLastUpdated(product, material) {
+  return product?.lastUpdated || material?.last_price_update || null;
 }
 
 /**
@@ -132,7 +141,14 @@ export async function POST(request) {
 
     const [materials, legacyMaterials] = await Promise.all([
       materialsCol
-        .find({ isActive: { $ne: false }, stuller_item_number: { $exists: true, $ne: null } })
+        .find({
+          isActive: { $ne: false },
+          $or: [
+            { 'stullerProducts.stullerItemNumber': { $exists: true, $ne: null } },
+            { 'stullerProducts.stuller_item_number': { $exists: true, $ne: null } },
+            { stuller_item_number: { $exists: true, $ne: null } }
+          ]
+        })
         .toArray(),
       legacyMaterialsCol
         .find({ stuller_item_number: { $exists: true, $ne: null }, auto_update_pricing: true, isActive: true })
@@ -158,37 +174,90 @@ export async function POST(request) {
     };
 
     let updated = 0;
+    let variantsUpdated = 0;
     const errors = [];
-    const now = new Date();
 
     // ── Step 1: Update current-format materials ──────────────────────────────
     for (const material of materials) {
       try {
-        const lastUpdate = material.last_price_update ? new Date(material.last_price_update) : null;
-        const hoursSince = lastUpdate ? (now - lastUpdate) / (1000 * 60 * 60) : Infinity;
+        const now = new Date();
+        const products = material.stullerProducts?.length
+          ? material.stullerProducts
+          : [{
+              stullerItemNumber: material.stuller_item_number,
+              autoUpdatePricing: material.auto_update_pricing !== false,
+              markupRate: parseFloat(adminSettings?.pricing?.materialMarkup) || 1,
+            }];
 
-        if (!force && hoursSince < 24) continue;
+        let materialChanged = false;
+        const updatedProducts = [];
 
-        const res = await fetch(
-          `${stullerApiUrl}/api/products/${material.stuller_item_number}`,
-          { method: 'GET', headers: fetchHeaders }
-        );
+        for (const product of products) {
+          const itemNumber = getItemNumber(product, material);
+          if (!itemNumber) {
+            updatedProducts.push(product);
+            continue;
+          }
 
-        if (!res.ok) {
-          errors.push(`Failed to fetch ${material.stuller_item_number}: ${res.status}`);
+          if (!force && product.autoUpdatePricing === false) {
+            updatedProducts.push(product);
+            continue;
+          }
+
+          const lastUpdateValue = getProductLastUpdated(product, material);
+          const lastUpdate = lastUpdateValue ? new Date(lastUpdateValue) : null;
+          const hoursSince = lastUpdate ? (now - lastUpdate) / (1000 * 60 * 60) : Infinity;
+          if (!force && hoursSince < 24) {
+            updatedProducts.push(product);
+            continue;
+          }
+
+          const res = await fetch(
+            `${stullerApiUrl}/api/products/${itemNumber}`,
+            { method: 'GET', headers: fetchHeaders }
+          );
+
+          if (!res.ok) {
+            errors.push(`Failed to fetch ${itemNumber}: ${res.status}`);
+            updatedProducts.push(product);
+            continue;
+          }
+
+          const stullerData = await res.json();
+          const newPrice = getFetchedPrice(stullerData);
+          if (!newPrice) {
+            updatedProducts.push(product);
+            continue;
+          }
+
+          const normalized = updateStullerProductPricing(
+            {
+              ...product,
+              stullerPrice: newPrice,
+              markupRate: parseFloat(product.markupRate) || parseFloat(adminSettings?.pricing?.materialMarkup) || 1,
+            },
+            material.portionsPerUnit || 1
+          );
+
+          updatedProducts.push(normalized);
+          materialChanged = true;
+          variantsUpdated++;
+
+          await new Promise((r) => setTimeout(r, 100));
+        }
+
+        if (!materialChanged) {
           continue;
         }
 
-        const stullerData = await res.json();
-        const newPrice = getFetchedPrice(stullerData);
-
-        if (!newPrice) continue;
-
+        const primaryProduct = updatedProducts[0] || null;
         await materialsCol.updateOne(
           { _id: material._id },
           {
             $set: {
-              unitCost: newPrice,
+              stullerProducts: updatedProducts,
+              unitCost: primaryProduct?.markedUpPrice || material.unitCost || 0,
+              costPerPortion: primaryProduct?.costPerPortion || material.costPerPortion || 0,
               last_price_update: now,
               updatedAt: now,
               updatedBy: 'stuller_auto_update',
@@ -197,16 +266,16 @@ export async function POST(request) {
         );
 
         updated++;
-        await new Promise((r) => setTimeout(r, 100));
       } catch (err) {
-        console.error(`Error updating material ${material.stuller_item_number}:`, err);
-        errors.push(`Error updating ${material.stuller_item_number}: ${err.message}`);
+        console.error(`Error updating material ${material.displayName || material.name}:`, err);
+        errors.push(`Error updating ${material.displayName || material.name}: ${err.message}`);
       }
     }
 
     // ── Step 2: Update legacy-format materials ───────────────────────────────
     for (const material of legacyMaterials) {
       try {
+        const now = new Date();
         const lastUpdate = material.last_price_update ? new Date(material.last_price_update) : null;
         const hoursSince = lastUpdate ? (now - lastUpdate) / (1000 * 60 * 60) : Infinity;
 
@@ -270,6 +339,7 @@ export async function POST(request) {
       success: true,
       message: `Updated ${updated} materials, ${processesUpdated} processes, and ${tasksUpdated} tasks`,
       materialsUpdated: updated,
+      variantsUpdated,
       processesUpdated,
       tasksUpdated,
       total: materials.length + legacyMaterials.length,
@@ -298,14 +368,35 @@ export async function GET(request) {
     await db.connect();
 
     const materials = await db._instance
-      .collection('repairMaterials')
+      .collection(Constants.MATERIALS_COLLECTION)
       .find({
-        stuller_item_number: { $exists: true, $ne: null },
-        auto_update_pricing: true,
-        isActive: true,
+        isActive: { $ne: false },
+        $or: [
+          {
+            stullerProducts: {
+              $elemMatch: {
+                autoUpdatePricing: true,
+                stullerItemNumber: { $exists: true, $ne: null }
+              }
+            }
+          },
+          {
+            stullerProducts: {
+              $elemMatch: {
+                autoUpdatePricing: true,
+                stuller_item_number: { $exists: true, $ne: null }
+              }
+            }
+          },
+          {
+            stuller_item_number: { $exists: true, $ne: null },
+            auto_update_pricing: true
+          }
+        ]
       })
       .project({
         displayName: 1,
+        stullerProducts: 1,
         stuller_item_number: 1,
         unitCost: 1,
         last_price_update: 1,
