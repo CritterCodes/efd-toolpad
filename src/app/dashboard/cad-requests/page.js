@@ -1,9 +1,11 @@
+"use client";
+
 import React from 'react';
 import { Container, Box, Typography, Alert, CircularProgress } from '@mui/material';
-import { useCadRequests } from '../../hooks/cad-requests/useCadRequests';
-import CADRequestList from '../../components/cad-requests/CADRequestList';
-import CADRequestDetailsDrawer from '../../components/cad-requests/CADRequestDetailsDrawer';
-import CADApproveDialog from '../../components/cad-requests/CADApproveDialog';
+import { useCadRequests } from '@/hooks/cad-requests/useCadRequests';
+import CADRequestList from '@/components/cad-requests/CADRequestList';
+import CADRequestDetailsDrawer from '@/components/cad-requests/CADRequestDetailsDrawer';
+import CADApproveDialog from '@/components/cad-requests/CADApproveDialog';
 
 export default function CADRequestsPage() {
     const { 
