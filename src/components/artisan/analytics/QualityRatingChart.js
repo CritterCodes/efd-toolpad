@@ -1,0 +1,1 @@
+export const QualityRatingChart = (props) => <div {...props}>Chart</div>;

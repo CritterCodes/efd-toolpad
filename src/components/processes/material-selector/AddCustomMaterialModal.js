@@ -1,0 +1,1 @@
+export const AddCustomMaterialModal = (props) => <div>Modal</div>;

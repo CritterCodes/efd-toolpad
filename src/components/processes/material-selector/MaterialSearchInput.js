@@ -1,0 +1,1 @@
+export const MaterialSearchInput = (props) => <div>Search</div>;
