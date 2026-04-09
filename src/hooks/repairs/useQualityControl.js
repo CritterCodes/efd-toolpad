@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import React from 'react';
 import {
     Box,
@@ -17,15 +17,14 @@ import {
     DialogActions,
     CircularProgress,
     Alert,
-    Fab
+    Fab,
 } from '@mui/material';
 import {
     Save as SaveIcon,
     ArrowBack as BackIcon,
     NavigateNext as NextIcon,
-    NavigateBefore as PrevIcon
+    NavigateBefore as PrevIcon,
 } from '@mui/icons-material';
-import { useParams, useRouter } from 'next/navigation';
 import { useRepairs } from '@/app/context/repairs.context';
 
 // Custom hook
