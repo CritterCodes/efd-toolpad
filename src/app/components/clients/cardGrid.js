@@ -8,10 +8,18 @@ import { Grid, Card, CardContent, Avatar, Typography, Button, Divider } from '@m
  * - Each card shows the client's info and links to their profile page.
  */
 const ClientCardGrid = ({ clients, onCardClick }) => {
+    const getDisplayName = (client = {}) => {
+        const firstName = (client.firstName || client.customerInfo?.firstName || '').trim();
+        const lastName = (client.lastName || client.customerInfo?.lastName || '').trim();
+        const fullName = `${firstName} ${lastName}`.trim();
+
+        return fullName || client.name || client.email || 'Unnamed Client';
+    };
+
     return (
         <Grid container spacing={3}>
             {clients.map((client) => (
-                <Grid item xs={12} sm={6} md={4} key={client.userID}>
+                <Grid item xs={12} sm={6} md={4} key={client.userID || client.email || getDisplayName(client)}>
                     <Card
                         variant="outlined"
                         sx={{
@@ -29,7 +37,7 @@ const ClientCardGrid = ({ clients, onCardClick }) => {
                                 sx={{ width: 80, height: 80, margin: 'auto' }}
                             />
                             <Typography variant="h6" sx={{ mt: 2 }}>
-                                {client.firstName} {client.lastName}
+                                {getDisplayName(client)}
                             </Typography>
                             <Typography color="text.secondary">{client.email}</Typography>
                             <Typography color="text.secondary">{client.phone}</Typography>

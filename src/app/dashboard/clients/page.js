@@ -7,6 +7,18 @@ import ClientHeader from '@/app/components/clients/header';
 import UsersService from '@/services/users';
 import { useRouter } from 'next/navigation';
 
+const getClientDisplayName = (client = {}) => {
+    const firstName = (client.firstName || client.customerInfo?.firstName || '').trim();
+    const lastName = (client.lastName || client.customerInfo?.lastName || '').trim();
+    const fullName = `${firstName} ${lastName}`.trim();
+
+    return {
+        firstName,
+        lastName,
+        fullName: fullName || client.name || client.email || 'Unnamed Client'
+    };
+};
+
 const ClientsPage = () => {
     const [clients, setClients] = useState([]);
     const [filteredClients, setFilteredClients] = useState([]);
@@ -45,19 +57,30 @@ const ClientsPage = () => {
     const handleSearch = (event) => {
         const query = event.target.value.toLowerCase();
         setSearchQuery(query);
-        const filtered = clients.filter((client) =>
-            client.firstName.toLowerCase().includes(query) ||
-            client.lastName.toLowerCase().includes(query) ||
-            client.email.toLowerCase().includes(query)
-        );
+        const filtered = clients.filter((client) => {
+            const { firstName, lastName, fullName } = getClientDisplayName(client);
+            const searchableEmail = String(client?.email || '').toLowerCase();
+            const searchableUserId = String(client?.userID || '').toLowerCase();
+
+            return (
+                firstName.toLowerCase().includes(query) ||
+                lastName.toLowerCase().includes(query) ||
+                fullName.toLowerCase().includes(query) ||
+                searchableEmail.includes(query) ||
+                searchableUserId.includes(query)
+            );
+        });
         setFilteredClients(filtered);
     };
 
     const handleSort = () => {
         const order = sortOrder === 'asc' ? 'desc' : 'asc';
-        const sortedClients = [...filteredClients].sort((a, b) =>
-            a.firstName.localeCompare(b.firstName) * (order === 'asc' ? 1 : -1)
-        );
+        const sortedClients = [...filteredClients].sort((a, b) => {
+            const nameA = getClientDisplayName(a).fullName.toLowerCase();
+            const nameB = getClientDisplayName(b).fullName.toLowerCase();
+
+            return nameA.localeCompare(nameB) * (order === 'asc' ? 1 : -1);
+        });
         setSortOrder(order);
         setFilteredClients(sortedClients);
     };
