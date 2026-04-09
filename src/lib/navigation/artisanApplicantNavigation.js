@@ -28,6 +28,7 @@ import PaymentIcon from "@mui/icons-material/Payment";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import PrintIcon from "@mui/icons-material/Print";
 import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
+import RequestQuoteIcon from "@mui/icons-material/RequestQuote";
 
 import { SHARED_NAVIGATION } from "./sharedNavigation";
 
