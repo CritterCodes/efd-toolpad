@@ -1,12 +1,12 @@
 'use client';
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AuthShell } from "@/components/auth";
 import styles from "@/components/auth/AuthForm.module.css";
 
-export default function ForgotPasswordPage() {
+function ForgotPasswordContent() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -106,5 +106,13 @@ export default function ForgotPasswordPage() {
         </button>
       </form>
     </AuthShell>
+  );
+}
+
+export default function ForgotPasswordPage() {
+  return (
+    <Suspense fallback={null}>
+      <ForgotPasswordContent />
+    </Suspense>
   );
 }
