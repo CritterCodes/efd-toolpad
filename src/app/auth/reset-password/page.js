@@ -1,7 +1,5 @@
 'use client';
 
-"use client";
-
 import Link from "next/link";
 import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";

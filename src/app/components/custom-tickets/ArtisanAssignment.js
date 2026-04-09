@@ -5,8 +5,6 @@
  * Allows admin to assign multiple artisans to a custom ticket
  */
 
-'use client';
-
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,

@@ -6,8 +6,6 @@
  * Constitutional Architecture - Under 300 lines
  */
 
-'use client';
-
 import React, { useState } from 'react';
 import {
   Box,

@@ -34,8 +34,6 @@ import { useRouter, useParams } from 'next/navigation';
 import { SKILL_LEVEL } from '@/constants/pricing.constants.mjs';
 
 
-'use client';
-
 import * as React from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';

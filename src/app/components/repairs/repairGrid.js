@@ -1,6 +1,5 @@
 'use client';
 
-"use client";
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Box, Typography, Card, CardContent, Pagination } from '@mui/material';

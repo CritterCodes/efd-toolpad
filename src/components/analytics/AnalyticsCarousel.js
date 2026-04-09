@@ -6,8 +6,6 @@
  * Connects to real Shopify data via vendor analytics
  */
 
-'use client';
-
 import React, { useState, useEffect } from 'react';
 import {
     Card,

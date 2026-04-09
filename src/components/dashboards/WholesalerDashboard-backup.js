@@ -6,8 +6,6 @@
  * Shows only repair data pertaining to the current wholesaler user
  */
 
-'use client';
-
 import React, { useState, useEffect } from 'react';
 import { 
     Card, 

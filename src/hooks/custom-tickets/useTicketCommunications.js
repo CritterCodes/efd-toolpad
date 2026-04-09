@@ -6,8 +6,6 @@
  * Constitutional Architecture - Under 150 lines
  */
 
-'use client';
-
 import { useState, useRef, useEffect } from 'react';
 
 // Polling configuration

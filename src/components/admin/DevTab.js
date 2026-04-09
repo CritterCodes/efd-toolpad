@@ -5,8 +5,6 @@
  * Contains development tools including role switching
  */
 
-'use client';
-
 import React, { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { 

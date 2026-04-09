@@ -5,8 +5,6 @@
  * Shows artist profile analytics, shop presence metrics, and profile management tools
  */
 
-'use client';
-
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';

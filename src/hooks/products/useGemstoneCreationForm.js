@@ -6,8 +6,6 @@ import { useState, useCallback } from 'react';
  * Simple form to test the new hierarchical API structure
  */
 
-'use client';
-
 import React, { useState, useEffect } from 'react';
 import {
   Box,

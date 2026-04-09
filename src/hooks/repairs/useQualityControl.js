@@ -2,9 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-
-"use client";
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
     Box,
     Typography,

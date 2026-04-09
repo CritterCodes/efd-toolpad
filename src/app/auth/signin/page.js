@@ -1,6 +1,5 @@
 'use client';
 
-"use client";
 import React, { useState, Suspense } from "react";
 import { SignInPage } from "@toolpad/core/SignInPage";
 import { Link, Snackbar, Alert, Typography, Box } from "@mui/material";
