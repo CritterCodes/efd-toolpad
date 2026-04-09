@@ -21,7 +21,6 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import HistoryIcon from "@mui/icons-material/History";
 import DiamondIcon from "@mui/icons-material/AutoAwesome";
 import RingIcon from "@mui/icons-material/FiberSmartRecord";
-import SupportAgentIcon from "@mui/icons-material/SupportAgent";
 import BusinessIcon from "@mui/icons-material/Business";
 import DesignServicesIcon from "@mui/icons-material/DesignServices";
 import PaymentIcon from "@mui/icons-material/Payment";
@@ -153,16 +152,6 @@ export const devNavigation = {
       icon: <HandymanIcon />,
       children: [
         {
-          segment: 'create',
-          title: 'Create Task',
-          icon: <BuildIcon />
-        },
-        {
-          segment: 'process-based',
-          title: 'Process-Based Tasks',
-          icon: <BuildIcon />
-        },
-        {
           segment: 'tools-machinery',
           title: 'Tools & Machinery',
           icon: <HandymanIcon />
@@ -176,11 +165,6 @@ export const devNavigation = {
           segment: 'processes',
           title: 'Processes',
           icon: <SettingsIcon />
-        },
-        {
-          segment: 'ai-builder',
-          title: 'Task AI Builder',
-          icon: <SupportAgentIcon />
         }
       ]
     },
