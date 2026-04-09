@@ -19,6 +19,26 @@ function getFetchedPrice(stullerData) {
   ) || 0;
 }
 
+function getStullerProduct(stullerPayload) {
+  if (Array.isArray(stullerPayload)) {
+    return stullerPayload[0] || null;
+  }
+
+  if (Array.isArray(stullerPayload?.products)) {
+    return stullerPayload.products[0] || null;
+  }
+
+  if (Array.isArray(stullerPayload?.Products)) {
+    return stullerPayload.Products[0] || null;
+  }
+
+  if (Array.isArray(stullerPayload?.items)) {
+    return stullerPayload.items[0] || null;
+  }
+
+  return stullerPayload || null;
+}
+
 function getItemNumber(product, material) {
   return product?.stullerItemNumber || product?.stuller_item_number || material?.stuller_item_number || null;
 }
@@ -212,8 +232,9 @@ export async function POST(request) {
             continue;
           }
 
+          const encodedSku = encodeURIComponent(itemNumber);
           const res = await fetch(
-            `${stullerApiUrl}/api/products/${itemNumber}`,
+            `${stullerApiUrl}/v2/products?SKU=${encodedSku}`,
             { method: 'GET', headers: fetchHeaders }
           );
 
@@ -223,7 +244,8 @@ export async function POST(request) {
             continue;
           }
 
-          const stullerData = await res.json();
+          const stullerPayload = await res.json();
+          const stullerData = getStullerProduct(stullerPayload);
           const newPrice = getFetchedPrice(stullerData);
           if (!newPrice) {
             updatedProducts.push(product);
@@ -281,8 +303,9 @@ export async function POST(request) {
 
         if (!force && hoursSince < 24) continue;
 
+        const encodedSku = encodeURIComponent(material.stuller_item_number);
         const res = await fetch(
-          `${stullerApiUrl}/api/products/${material.stuller_item_number}`,
+          `${stullerApiUrl}/v2/products?SKU=${encodedSku}`,
           { method: 'GET', headers: fetchHeaders }
         );
 
@@ -291,7 +314,8 @@ export async function POST(request) {
           continue;
         }
 
-        const stullerData = await res.json();
+        const stullerPayload = await res.json();
+        const stullerData = getStullerProduct(stullerPayload);
         const newPrice = getFetchedPrice(stullerData);
 
         if (!newPrice) continue;
