@@ -55,6 +55,11 @@ export const wholesalerNavigation = {
           icon: <QualityIcon />
         }
       ]
+    },
+    {
+      segment: 'dashboard/wholesaler/account-settings',
+      title: 'Account Settings',
+      icon: <SettingsIcon />
     }
   ]
 };

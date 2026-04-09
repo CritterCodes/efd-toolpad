@@ -40,6 +40,11 @@ export const staffNavigation = {
       icon: <InventoryIcon />,
       children: [
         {
+          segment: '',
+          title: 'All Products',
+          icon: <ListIcon />
+        },
+        {
           segment: 'jewelry',
           title: 'Jewelry',
           icon: <RingIcon />

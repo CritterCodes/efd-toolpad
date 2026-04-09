@@ -223,9 +223,8 @@ export const getMetalVariantsFromMaterials = (materials, availableMaterials) => 
       });
     }
   });
-
-  return Array.from(metalVariants.values());
-}
+  
+  return Array.from(metalVariants.values());};
 
 /**
  * Get unique metal types from process materials

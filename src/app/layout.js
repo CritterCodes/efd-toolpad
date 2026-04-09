@@ -12,8 +12,6 @@ import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
 
-export const dynamic = 'force-dynamic';
-
 const BRANDING = {
     logo: <Image 
         src='/logos/[efd]LogoBlack.png' 

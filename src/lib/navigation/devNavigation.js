@@ -45,6 +45,11 @@ export const devNavigation = {
       icon: <PeopleIcon />,
       children: [
         {
+          segment: '',
+          title: 'All Users',
+          icon: <ListIcon />
+        },
+        {
           segment: 'admin',
           title: 'Administrators',
           icon: <SettingsIcon />
