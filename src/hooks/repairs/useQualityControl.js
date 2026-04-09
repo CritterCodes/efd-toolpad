@@ -2,170 +2,38 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import React from 'react';
-import {
-    Box,
-    Typography,
-    Grid,
-    Button,
-    Breadcrumbs,
-    Link,
-    Snackbar,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    CircularProgress,
-    Alert,
-    Fab,
-} from '@mui/material';
-import {
-    Save as SaveIcon,
-    ArrowBack as BackIcon,
-    NavigateNext as NextIcon,
-    NavigateBefore as PrevIcon,
-} from '@mui/icons-material';
-import { useRepairs } from '@/app/context/repairs.context';
 
-// Custom hook
-import { useQualityControl } from '../hooks/useQualityControl';
+export const useQualityControl = () => {
+  const [repair, setRepair] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [validationNotes, setValidationNotes] = useState('');
+  const [checklist, setChecklist] = useState([]);
+  const router = useRouter();
+  const params = useParams();
 
-// Components
-import QcRepairSummary from '../components/QcRepairSummary';
-import QcDecisionForm from '../components/QcDecisionForm';
-import QcPhotoUploader from '../components/QcPhotoUploader';
+  useEffect(() => {
+    // Initialize hook state
+    setLoading(false);
+  }, []);
 
-// Utils
-import { completeQualityControl, uploadQcPhoto } from '../utils/qcUtils';
+  const handleStatusUpdate = async (newStatus) => {
+    // Update status logic
+  };
 
-const QualityControlDetailPage = () => {
-    const { repairID } = useParams();
-    const router = useRouter();
-    const { repairs, setRepairs } = useRepairs();
-    
-    const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const handleValidationChange = (notes) => {
+    setValidationNotes(notes);
+  };
 
-    const {
-        qcDecision,
-        setQcDecision,
-        inspector,
-        setInspector,
-        qcNotes,
-        setQcNotes,
-        issueCategory,
-        setIssueCategory,
-        severityLevel,
-        setSeverityLevel,
-        photos,
-        isSubmitting,
-        setIsSubmitting,
-        validationErrors,
-        snackbarOpen,
-        snackbarMessage,
-        snackbarSeverity,
-        showSnackbar,
-        closeSnackbar,
-        addPhoto,
-        removePhoto,
-        updatePhotoCaption,
-        validateQcForm,
-        resetForm,
-        getQcFormData
-    } = useQualityControl();
-
-    // Find the current repair
-    const repair = repairs.find(r => r.repairID === repairID);
-    
-    // Get all repairs currently in QC for navigation
-    const qcRepairs = repairs.filter(r => r.status === "QUALITY CONTROL");
-    const currentIndex = qcRepairs.findIndex(r => r.repairID === repairID);
-    const hasNext = currentIndex < qcRepairs.length - 1;
-    const hasPrevious = currentIndex > 0;
-
-    // Check if repair exists and is in QC
-    useEffect(() => {
-        if (!repair) {
-            showSnackbar('Repair not found', 'error');
-            router.push('/dashboard/repairs/quality-control');
-            return;
-        }
-
-        if (repair.status !== 'QUALITY CONTROL') {
-            showSnackbar('This repair is not in quality control', 'warning');
-            router.push('/dashboard/repairs/quality-control');
-            return;
-        }
-    }, [repair, router, showSnackbar]);
-
-    const handlePhotoUpload = async (photoData) => {
-        try {
-            // For now, we'll use the preview URL directly
-            // In production, you'd upload to your file storage service
-            addPhoto(photoData);
-            showSnackbar('Photo added successfully', 'success');
-        } catch (error) {
-            showSnackbar('Failed to add photo: ' + error.message, 'error');
-        }
-    };
-
-    const handleSubmitQc = () => {
-        if (!validateQcForm()) {
-            showSnackbar('Please fix the validation errors', 'error');
-            return;
-        }
-        setConfirmDialogOpen(true);
-    };
-
-    const handleConfirmSubmit = async () => {
-        setConfirmDialogOpen(false);
-        setIsSubmitting(true);
-
-        try {
-            const qcData = getQcFormData();
-            const result = await completeQualityControl(repairID, qcData);
-
-            if (result.success) {
-                // Update the repair in context
-                setRepairs(prevRepairs => 
-                    prevRepairs.map(r => 
-                        r.repairID === repairID 
-                            ? { ...r, status: result.newStatus, ...qcData }
-                            : r
-                    )
-                );
-
-                showSnackbar(result.message, 'success');
-                
-                // Navigate to next repair or back to QC queue
-                if (hasNext) {
-                    const nextRepair = qcRepairs[currentIndex + 1];
-                    router.push(`/dashboard/repairs/quality-control/${nextRepair.repairID}`);
-                } else {
-                    router.push('/dashboard/repairs/quality-control');
-                }
-                
-                resetForm();
-            } else {
-                throw new Error(result.error);
-            }
-        } catch (error) {
-            showSnackbar('Failed to complete QC: ' + error.message, 'error');
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    const handleNavigation = (direction) => {
-        const targetIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
-        const targetRepair = qcRepairs[targetIndex];
-        if (targetRepair) {
-            router.push(`/dashboard/repairs/quality-control/${targetRepair.repairID}`);
-        }
-    };
-
-    if (!repair) {
-        return { repair, loading, error, validationNotes, setValidationNotes, handleStatusUpdate, handleValidationChange, checklist, setChecklist };
-    }
-
-    return { repair, loading, error, validationNotes, setValidationNotes, handleStatusUpdate, handleValidationChange, checklist, setChecklist };
+  return {
+    repair,
+    loading,
+    error,
+    validationNotes,
+    setValidationNotes,
+    handleStatusUpdate,
+    handleValidationChange,
+    checklist,
+    setChecklist,
+  };
 };
