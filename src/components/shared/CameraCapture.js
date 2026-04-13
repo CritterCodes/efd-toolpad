@@ -21,9 +21,12 @@ import {
 } from '@mui/icons-material';
 
 export default function CameraCapture({ onCapture, disabled = false }) {
-  // Use webcam dialog when getUserMedia is available (all modern desktop browsers).
-  // Fall back to native file input only on devices without getUserMedia.
-  const hasGetUserMedia = typeof navigator !== 'undefined'
+  // Use native camera app on mobile/tablet, webcam dialog on desktop
+  const isMobile = typeof navigator !== 'undefined'
+    && /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+  const useWebcamDialog = !isMobile
+    && typeof navigator !== 'undefined'
     && !!navigator.mediaDevices?.getUserMedia;
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -107,7 +110,7 @@ export default function CameraCapture({ onCapture, disabled = false }) {
 
   // Start camera when dialog opens
   useEffect(() => {
-    if (dialogOpen && hasGetUserMedia) {
+    if (dialogOpen && useWebcamDialog) {
       startCamera(selectedDeviceId || undefined);
     }
     return () => {
@@ -160,8 +163,8 @@ export default function CameraCapture({ onCapture, disabled = false }) {
   return (
     <>
       <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap" useFlexGap>
-        {/* Primary camera button — webcam dialog when available, native file input fallback */}
-        {hasGetUserMedia ? (
+        {/* Primary camera button — webcam dialog on desktop, native camera app on mobile */}
+        {useWebcamDialog ? (
           <Button
             variant="contained"
             startIcon={<PhotoCameraIcon />}
