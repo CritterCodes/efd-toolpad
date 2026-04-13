@@ -6,7 +6,6 @@ import crypto, { hash } from 'crypto';
 import User from '../../users/class';
 import UserModel from './model';
 import { sendVerificationEmail, sendInviteEmail } from '@/app/utils/email.util.js';
-import storefront from '@/lib/shopify';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRATION = '7d'; // Token expiration for JWT tokens
@@ -54,83 +53,43 @@ export default class AuthService {
     /**
      * ✅ Login a user with email and password
      * - Tries Shopify Storefront API first
-     * - Falls back to local bcrypt password authentication
+     * - Authenticates using local bcrypt password
      */
     static async login(email, password) {
         try {
             console.log('🔐 [AUTH_SERVICE] Starting authentication for:', email);
 
-            let shopifyAccessToken = null;
-            let shopifyAuthSuccess = false;
-
-            // Step 1: Try Shopify Storefront API authentication
-            try {
-                const mutation = `
-                  mutation customerAccessTokenCreate($input: CustomerAccessTokenCreateInput!) {
-                    customerAccessTokenCreate(input: $input) {
-                      customerAccessToken {
-                        accessToken
-                        expiresAt
-                      }
-                      customerUserErrors {
-                        field
-                        message
-                        code
-                      }
-                    }
-                  }
-                `;
-
-                const variables = { input: { email, password } };
-                const response = await storefront(mutation, variables);
-                const result = response?.customerAccessTokenCreate;
-
-                if (result?.customerAccessToken) {
-                    shopifyAccessToken = result.customerAccessToken.accessToken;
-                    shopifyAuthSuccess = true;
-                    console.log('✅ [AUTH_SERVICE] Shopify authentication successful for:', email);
-                } else {
-                    console.log('⚠️ [AUTH_SERVICE] Shopify auth failed, will try local auth');
-                }
-            } catch (shopifyError) {
-                console.log('⚠️ [AUTH_SERVICE] Shopify auth unavailable, will try local auth:', shopifyError.message);
-            }
-
-            // Step 2: Fetch user from MongoDB
+            // Step 1: Fetch user from MongoDB
             const user = await UserModel.findByEmail(email);
             if (!user) {
                 console.log('❌ [AUTH_SERVICE] User not found in admin database:', email);
                 throw new Error("Invalid email or password.");
             }
 
-            // Step 3: If Shopify auth failed, try local bcrypt password
-            if (!shopifyAuthSuccess) {
-                if (!user.password || user.password === 'no password') {
-                    console.log('❌ [AUTH_SERVICE] No local password set for:', email);
-                    throw new Error("Invalid email or password.");
-                }
-
-                const isPasswordValid = await bcrypt.compare(password, user.password);
-                if (!isPasswordValid) {
-                    console.log('❌ [AUTH_SERVICE] Local password mismatch for:', email);
-                    throw new Error("Invalid email or password.");
-                }
-                console.log('✅ [AUTH_SERVICE] Local bcrypt authentication successful for:', email);
+            // Step 2: Verify bcrypt password
+            if (!user.password || user.password === 'no password') {
+                console.log('❌ [AUTH_SERVICE] No password set for:', email);
+                throw new Error("Invalid email or password.");
             }
+
+            const isPasswordValid = await bcrypt.compare(password, user.password);
+            if (!isPasswordValid) {
+                console.log('❌ [AUTH_SERVICE] Password mismatch for:', email);
+                throw new Error("Invalid email or password.");
+            }
+            console.log('✅ [AUTH_SERVICE] Authentication successful for:', email);
 
             if (user.status !== 'verified') {
                 console.log('❌ [AUTH_SERVICE] User not verified:', email);
                 throw new Error("Please verify your email before logging in.");
             }
 
-            console.log('✅ [AUTH_SERVICE] user found:', user);
-
             // ✅ Generate JWT Token for the authenticated user
             const token = jwt.sign({ userID: user.userID, role: user.role }, JWT_SECRET, {
                 expiresIn: JWT_EXPIRATION
             });
 
-            console.log("✅ [AUTH_SERVICE] Token generated for admin user.");
+            console.log("✅ [AUTH_SERVICE] Token generated for user.");
 
             // ✅ Return the full user data along with the token
             return {
@@ -142,10 +101,9 @@ export default class AuthService {
                 
                 // 🔥 EMERGENCY FIX: Force admin role for jacobaengel55@gmail.com
                 role: user.email === 'jacobaengel55@gmail.com' 
-                    ? 'admin'  // Force admin role for your email
-                    : (user.role || 'admin'), // Use database role or fallback to admin
+                    ? 'admin'
+                    : (user.role || 'admin'),
                 
-                // Include artisan types for navigation
                 artisanTypes: (() => {
                     const artisanType = user.artisanApplication?.artisanType;
                     if (!artisanType) return [];
@@ -155,7 +113,6 @@ export default class AuthService {
                     
                 image: user.image,
                 mustChangePassword: user.mustChangePassword || false,
-                shopifyAccessToken: shopifyAccessToken
             };
 
         } catch (error) {
