@@ -798,6 +798,9 @@ export default function NewRepairForm({
   const [smartIntakeError, setSmartIntakeError] = useState('');
   const [generatingImageDescription, setGeneratingImageDescription] = useState(false);
   const [imageDescriptionError, setImageDescriptionError] = useState('');
+
+  // Ref to track business name resolved from account settings (avoids race condition)
+  const wholesalerBusinessNameRef = useRef(null);
   const [newClientData, setNewClientData] = useState({
     firstName: '',
     lastName: '',
@@ -892,6 +895,7 @@ export default function NewRepairForm({
         // Use business name from account settings as the store name
         const businessName = settings?.businessProfile?.businessName;
         if (businessName) {
+          wholesalerBusinessNameRef.current = businessName;
           setAvailableStores((prev) => prev.map((store) => 
             store.isWholesale ? { ...store, name: businessName } : store
           ));
@@ -966,19 +970,22 @@ export default function NewRepairForm({
           setAvailableProcesses(processes?.data || processes || []);
           setAvailableMaterials(materials?.data || materials || []);
           const resolvedStoreId = wholesalerStoreId || 'my-wholesale-store';
-          const resolvedStoreName = wholesalerStoreName || 'My Wholesale Store';
-          setAvailableStores([
-            {
+          const resolvedStoreName = wholesalerBusinessNameRef.current || wholesalerStoreName || 'My Wholesale Store';
+          setAvailableStores((prev) => {
+            // Don't overwrite if account settings already set the business name
+            if (prev.length > 0 && wholesalerBusinessNameRef.current) return prev;
+            return [{
               id: resolvedStoreId,
               name: resolvedStoreName,
               isWholesale: true
-            }
-          ]);
+            }];
+          });
           setFormData((prev) => ({
             ...prev,
             isWholesale: true,
             storeId: resolvedStoreId,
-            storeName: resolvedStoreName
+            // Don't overwrite storeName if account settings already set it
+            storeName: wholesalerBusinessNameRef.current || prev.storeName || resolvedStoreName
           }));
           console.log('✅ Wholesale clients and item catalogs loaded');
         } else {
