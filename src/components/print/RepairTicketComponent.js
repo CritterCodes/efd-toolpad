@@ -69,6 +69,11 @@ const RepairTicketComponent = ({ repair }) => {
                     <Typography variant="body2" sx={{ fontSize: '0.65rem', marginBottom: '1px' }}>
                         Desc: {repair.description}
                     </Typography>
+                    {repair.smartIntakeInput && (
+                        <Typography variant="body2" sx={{ fontSize: '0.65rem', marginBottom: '1px', fontStyle: 'italic' }}>
+                            Request: {repair.smartIntakeInput}
+                        </Typography>
+                    )}
                     {(repair.isRush || repair.includeDelivery) && (
                         <Typography variant="body2" sx={{ fontSize: '0.65rem', fontWeight: 'bold' }}>
                             {repair.isRush && <span style={{ color: 'red' }}>🚨 RUSH ORDER</span>}

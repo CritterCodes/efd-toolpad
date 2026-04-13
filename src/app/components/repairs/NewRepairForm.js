@@ -62,6 +62,9 @@ import wholesaleAccountSettingsAPIClient from '@/api-clients/wholesaleAccountSet
 // Context
 import { useRepairs } from '@/app/context/repairs.context';
 
+// Components
+import CameraCapture from '@/components/shared/CameraCapture';
+
 // Metal configuration
 const METAL_TYPES = [
   { value: 'gold', label: 'Gold', karatOptions: ['10k', '14k', '18k', '22k'] },
@@ -89,7 +92,9 @@ const RING_SIZES = [
 const SIZEABLE_CATEGORIES = ['ring', 'band', 'wedding-ring', 'engagement-ring'];
 
 const TASK_INFERENCE_RULES = [
-  { regex: /(resize|re-?size|sizing|size up|size down)/, keywords: ['resize', 'sizing', 'ring size', 'size'] },
+  { regex: /size\s*down|sizing\s*down/, keywords: ['size down'] },
+  { regex: /size\s*up|sizing\s*up/, keywords: ['size up'] },
+  { regex: /(resize|re-?size|sizing)/, keywords: ['resize', 'sizing', 'ring size'] },
   { regex: /(prong|retip|re-tip|tip repair|tighten stone|stone tighten|loose stone)/, keywords: ['prong', 'retip', 'tighten', 'stone'] },
   { regex: /(solder|chain repair|jump ring|weld)/, keywords: ['solder', 'chain', 'jump ring', 'weld'] },
   { regex: /(rhodium|replate|re-plate|plating|plate)/, keywords: ['rhodium', 'plate', 'plating', 'replate'] },
@@ -147,6 +152,34 @@ const extractRingSizesFromDescription = (description = '') => {
   return { currentRingSize: '', desiredRingSize: '' };
 };
 
+// Disambiguate conflicting sizing tasks (Size Up vs Size Down) based on ring sizes or input text
+const disambiguateSizingTasks = (tasks, inputText = '', currentSize = '', desiredSize = '') => {
+  const titles = tasks.map((t) => (t?.title || t?.displayName || t?.name || '').toLowerCase());
+  const hasSizeUp = titles.some((t) => t.includes('size up'));
+  const hasSizeDown = titles.some((t) => t.includes('size down'));
+  if (!hasSizeUp || !hasSizeDown) return tasks;
+
+  const text = String(inputText || '').toLowerCase();
+  const current = parseFloat(currentSize);
+  const desired = parseFloat(desiredSize);
+  let keepDirection = '';
+
+  if (Number.isFinite(current) && Number.isFinite(desired) && current !== desired) {
+    keepDirection = desired > current ? 'up' : 'down';
+  } else if (/size\s*down|sizing\s*down/.test(text)) {
+    keepDirection = 'down';
+  } else if (/size\s*up|sizing\s*up/.test(text)) {
+    keepDirection = 'up';
+  }
+
+  if (!keepDirection) return tasks;
+  const removeWord = keepDirection === 'up' ? 'size down' : 'size up';
+  return tasks.filter((t) => {
+    const title = (t?.title || t?.displayName || t?.name || '').toLowerCase();
+    return !title.includes(removeWord);
+  });
+};
+
 const inferTasksFromDescription = (description = '', availableTasks = []) => {
   const text = String(description || '').toLowerCase();
   if (!text.trim() || !Array.isArray(availableTasks) || availableTasks.length === 0) {
@@ -180,7 +213,8 @@ const inferTasksFromDescription = (description = '', availableTasks = []) => {
     deduped.push(task);
   }
 
-  return deduped.slice(0, 2);
+  const sizes = extractRingSizesFromDescription(description);
+  return disambiguateSizingTasks(deduped, description, sizes.currentRingSize, sizes.desiredRingSize).slice(0, 2);
 };
 
 const extractMetalContextFromDescription = (description = '') => {
@@ -703,6 +737,7 @@ export default function NewRepairForm({
   clientInfo = null,
   isWholesale = false,
   onWholesaleChange = null,
+  wholesalerStoreId = null,
   wholesalerStoreName = null
 }) {
   const theme = useTheme();
@@ -853,6 +888,18 @@ export default function NewRepairForm({
       try {
         const settings = await wholesaleAccountSettingsAPIClient.fetchSettings();
         setWholesalerPricingSettings(normalizeWholesalerPricingSettings(settings || {}));
+        
+        // Use business name from account settings as the store name
+        const businessName = settings?.businessProfile?.businessName;
+        if (businessName) {
+          setAvailableStores((prev) => prev.map((store) => 
+            store.isWholesale ? { ...store, name: businessName } : store
+          ));
+          setFormData((prev) => ({
+            ...prev,
+            storeName: businessName
+          }));
+        }
       } catch (error) {
         console.warn('Failed to load wholesaler markup settings:', error);
         setWholesalerPricingSettings(DEFAULT_WHOLESALER_PRICING_SETTINGS);
@@ -918,10 +965,11 @@ export default function NewRepairForm({
           setAvailableTasks(tasks?.data || tasks || []);
           setAvailableProcesses(processes?.data || processes || []);
           setAvailableMaterials(materials?.data || materials || []);
+          const resolvedStoreId = wholesalerStoreId || 'my-wholesale-store';
           const resolvedStoreName = wholesalerStoreName || 'My Wholesale Store';
           setAvailableStores([
             {
-              id: 'my-wholesale-store',
+              id: resolvedStoreId,
               name: resolvedStoreName,
               isWholesale: true
             }
@@ -929,8 +977,8 @@ export default function NewRepairForm({
           setFormData((prev) => ({
             ...prev,
             isWholesale: true,
-            storeId: prev.storeId || 'my-wholesale-store',
-            storeName: wholesalerStoreName || prev.storeName || resolvedStoreName
+            storeId: resolvedStoreId,
+            storeName: resolvedStoreName
           }));
           console.log('✅ Wholesale clients and item catalogs loaded');
         } else {
@@ -1005,7 +1053,7 @@ export default function NewRepairForm({
     };
     
     loadData();
-  }, [isWholesale, wholesalerStoreName]); // Re-run when wholesaler store name resolves
+  }, [isWholesale, wholesalerStoreId, wholesalerStoreName]); // Re-run when wholesaler store info resolves
 
   const buildTaskItemsFromInferred = useCallback((tasks = [], previousForm) => {
     if (!Array.isArray(tasks) || tasks.length === 0) {
@@ -1195,6 +1243,12 @@ export default function NewRepairForm({
       if (aiMatchedTasks.length === 0) {
         aiMatchedTasks = inferTasksFromDescription(parsingText, availableTasks);
       }
+
+      // Disambiguate conflicting sizing tasks using parsed ring sizes or input text
+      aiMatchedTasks = disambiguateSizingTasks(
+        aiMatchedTasks, parsingText,
+        parsed.currentRingSize || '', parsed.desiredRingSize || ''
+      );
 
       applySmartIntakeResults({
         inputText: parsingText,
@@ -1761,8 +1815,9 @@ export default function NewRepairForm({
     }
   };
 
-  const handleGenerateDescriptionFromImage = async () => {
-    if (!formData.picture) {
+  const handleGenerateDescriptionFromImage = async (imageFile) => {
+    const file = imageFile || formData.picture;
+    if (!file) {
       setImageDescriptionError('Please upload an item photo first.');
       return;
     }
@@ -1772,7 +1827,7 @@ export default function NewRepairForm({
 
     try {
       const payload = new FormData();
-      payload.append('image', formData.picture);
+      payload.append('image', file);
 
       const response = await fetch('/api/ai/describe-item-image', {
         method: 'POST',
@@ -1834,7 +1889,17 @@ export default function NewRepairForm({
           />
           <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
             <Grid container spacing={2}>
-              {!isWholesale && (
+              {isWholesale ? (
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Store"
+                  value={formData.storeName || 'My Wholesale Store'}
+                  InputProps={{ readOnly: true }}
+                  helperText="Your store is automatically set"
+                />
+              </Grid>
+              ) : (
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth>
                   <InputLabel>Store</InputLabel>
@@ -1880,27 +1945,51 @@ export default function NewRepairForm({
                 </FormControl>
               </Grid>
               )}
-              <Grid item xs={12} sm={isWholesale ? 12 : 6}>
+              <Grid item xs={12} sm={6}>
                 <Autocomplete
                     freeSolo
                     options={Array.isArray(availableUsers) ? availableUsers : []}
                     getOptionLabel={(option) => {
                       if (typeof option === 'string') return option;
                       if (option && typeof option === 'object') {
-                        return option.name || `${option.firstName || ''} ${option.lastName || ''}`.trim() || option.email || '';
+                        return option.name || option.fullName || `${option.firstName || ''} ${option.lastName || ''}`.trim() || option.email || '';
                       }
                       return '';
                     }}
-                    value={formData.clientName}
+                    filterOptions={(options, state) => {
+                      const input = state.inputValue.toLowerCase().trim();
+                      if (!input) return options;
+                      return options.filter((opt) => {
+                        const name = (opt.name || opt.fullName || `${opt.firstName || ''} ${opt.lastName || ''}`.trim()).toLowerCase();
+                        const email = (opt.email || '').toLowerCase();
+                        const phone = (opt.phone || opt.phoneNumber || '').toLowerCase();
+                        const business = (opt.business || '').toLowerCase();
+                        return name.includes(input) || email.includes(input) || phone.includes(input) || business.includes(input);
+                      });
+                    }}
+                    isOptionEqualToValue={(option, val) => {
+                      if (!option || !val) return false;
+                      if (typeof val === 'string') {
+                        const label = option.name || option.fullName || `${option.firstName || ''} ${option.lastName || ''}`.trim() || option.email || '';
+                        return label === val;
+                      }
+                      return (option._id || option.userID || option.clientID) === (val._id || val.userID || val.clientID);
+                    }}
+                    inputValue={formData.clientName || ''}
                     onInputChange={(event, newInputValue, reason) => {
                       setFormData(prev => ({
                         ...prev,
                         clientName: newInputValue || '',
-                        // Only clear selected userID on direct typing/clear.
-                        // Keep it for MUI "reset" events that occur after option selection.
                         userID: reason === 'input' || reason === 'clear' ? '' : prev.userID
                       }));
                     }}
+                    value={
+                      formData.userID
+                        ? (Array.isArray(availableUsers) ? availableUsers : []).find(
+                            (u) => (u._id || u.userID || u.clientID) === formData.userID
+                          ) || formData.clientName || null
+                        : null
+                    }
                     onChange={(event, newValue) => {
                       console.log('🎯 Autocomplete change:', newValue);
                       if (newValue && typeof newValue === 'object') {
@@ -2126,7 +2215,7 @@ export default function NewRepairForm({
         <Card sx={{ borderRadius: 2, boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
           <CardHeader 
             title="Item Photo"
-            subheader="Upload a photo and generate a visual ring description for the Description field"
+            subheader="Take a photo with your camera or upload from file"
             sx={{ 
               bgcolor: 'info.main', 
               color: 'info.contrastText',
@@ -2139,67 +2228,57 @@ export default function NewRepairForm({
                 opacity: 0.8
               }
             }}
-            action={
-              <input
-                type="file"
-                accept="image/*"
-                capture="camera"
-                onChange={handleImageCapture}
-                style={{ display: 'none' }}
-                id="camera-input"
-              />
-            }
           />
           <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-            <Box sx={{ textAlign: 'center' }}>
-              <label htmlFor="camera-input">
-                <Button
-                  variant="contained"
-                  component="span"
-                  startIcon={<PhotoCameraIcon />}
-                  size={isMobile ? "medium" : "large"}
-                  fullWidth={isMobile}
-                  sx={{ 
-                    mb: 2,
-                    py: { xs: 1.5, sm: 1 },
-                    fontSize: { xs: '1rem', sm: '1.1rem' }
-                  }}
-                >
-                  {isMobile ? 'Take Photo' : 'Take Photo'}
-                </Button>
-              </label>
+            <Stack spacing={2} alignItems="center">
+              <CameraCapture
+                onCapture={(file) => {
+                  setImageDescriptionError('');
+                  setFormData(prev => ({ ...prev, picture: file }));
+                  handleGenerateDescriptionFromImage(file);
+                }}
+              />
+              {formData.picture && (
+                <Box sx={{ width: '100%', textAlign: 'center' }}>
+                  <Box sx={{ mb: 1 }}>
+                    <img
+                      src={URL.createObjectURL(formData.picture)}
+                      alt="Captured item"
+                      style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 8, objectFit: 'contain' }}
+                    />
+                  </Box>
+                  <Stack direction="row" justifyContent="center" alignItems="center" spacing={1}>
+                    <Chip 
+                      label={formData.picture.name} 
+                      color="success"
+                      onDelete={() => setFormData(prev => ({ ...prev, picture: null }))}
+                      deleteIcon={<DeleteIcon />}
+                      sx={{ maxWidth: 250 }}
+                    />
+                  </Stack>
+                </Box>
+              )}
               <LoadingButton
                 variant="outlined"
-                onClick={handleGenerateDescriptionFromImage}
+                onClick={() => handleGenerateDescriptionFromImage()}
                 loading={generatingImageDescription}
                 loadingPosition="start"
                 startIcon={<AutoAwesomeIcon />}
                 disabled={!formData.picture}
-                sx={{ mb: 2 }}
               >
-                Generate Visual Description with Gemini
+                Regenerate Description with Gemini
               </LoadingButton>
-              {imageDescriptionError ? (
-                <Alert severity="error" sx={{ mb: 2, textAlign: 'left' }}>
+              {imageDescriptionError && (
+                <Alert severity="error" sx={{ width: '100%', textAlign: 'left' }}>
                   {imageDescriptionError}
                 </Alert>
-              ) : null}
-              {formData.picture ? (
-                <Stack direction="row" justifyContent="center" alignItems="center" spacing={2}>
-                  <Chip 
-                    label={formData.picture.name} 
-                    color="success"
-                    onDelete={() => setFormData(prev => ({ ...prev, picture: null }))}
-                    deleteIcon={<DeleteIcon />}
-                    sx={{ maxWidth: 200 }}
-                  />
-                </Stack>
-              ) : (
+              )}
+              {!formData.picture && (
                 <Typography variant="body2" color="text.secondary">
                   No photo selected
                 </Typography>
               )}
-            </Box>
+            </Stack>
           </CardContent>
         </Card>
 

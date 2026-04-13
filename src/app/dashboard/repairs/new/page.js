@@ -11,22 +11,19 @@ const NewRepairPage = () => {
   const router = useRouter();
   const { data: session } = useSession();
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
-  const [clientInfo, setClientInfo] = useState(null);
   const [isWholesaler, setIsWholesaler] = useState(false);
+  const [wholesalerStoreId, setWholesalerStoreId] = useState(null);
+  const [wholesalerStoreName, setWholesalerStoreName] = useState(null);
 
-  // Set up client info for wholesalers
+  // Set up wholesaler as the store (not the client)
   useEffect(() => {
     if (session?.user) {
       const userRole = session.user.role;
       if (userRole === 'wholesaler') {
         setIsWholesaler(true);
-        // For wholesalers, they are always the client
-        setClientInfo({
-          userID: session.user.id || session.user.email, // Use email as fallback ID
-          name: session.user.name || session.user.email,
-          email: session.user.email,
-          role: 'wholesaler'
-        });
+        // Wholesaler IS the store — they pick a client from their client list
+        setWholesalerStoreId(session.user.id || session.user.userID || session.user.email);
+        setWholesalerStoreName(session.user.name || session.user.email);
       }
     }
   }, [session]);
@@ -101,8 +98,9 @@ const NewRepairPage = () => {
       <Box sx={{ backgroundColor: 'background.paper', borderRadius: 2, p: 0 }}>
         <NewRepairForm
           onSubmit={handleSubmit}
-          clientInfo={clientInfo}
           isWholesale={isWholesaler}
+          wholesalerStoreId={wholesalerStoreId}
+          wholesalerStoreName={wholesalerStoreName}
         />
       </Box>
 

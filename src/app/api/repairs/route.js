@@ -49,6 +49,9 @@ export const POST = async (request) => {
                 includeDelivery: formData.get("includeDelivery") === "true",
                 includeTax: formData.get("includeTax") === "true",
                 
+                // Smart intake request text
+                smartIntakeInput: formData.get("smartIntakeInput") || '',
+                
                 // Business name for wholesale clients
                 businessName: formData.get("businessName") || '',
                 
