@@ -55,6 +55,8 @@ const providers = [
                             
                         // Include artisan types for navigation
                         artisanTypes: user.artisanTypes || [],
+                        
+                        mustChangePassword: user.mustChangePassword || false,
                             
                         token: user.token,
                         image: user.image
@@ -89,6 +91,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 token.role = user.role;
                 token.artisanTypes = user.artisanTypes || [];
                 token.image = user.image;
+                token.mustChangePassword = user.mustChangePassword || false;
             }
             return token;
         },
@@ -100,6 +103,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             session.user.role = token.role;
             session.user.artisanTypes = token.artisanTypes || [];
             session.user.image = token.image;
+            session.user.mustChangePassword = token.mustChangePassword || false;
             return session;
         },
 

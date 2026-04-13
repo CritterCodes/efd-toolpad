@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
 // List of public routes that can be accessed without authentication  
-const publicRoutes = ["/auth/signin", "/emergency-logout"];
+const publicRoutes = ["/auth/signin", "/auth/change-password", "/emergency-logout"];
 
 export default async function middleware(req) {
     const { pathname } = req.nextUrl;
@@ -46,6 +46,11 @@ export default async function middleware(req) {
     // ✅ Block protected routes if not authenticated
     if (!session) {
         return NextResponse.redirect(new URL("/auth/signin", req.url));
+    }
+
+    // ✅ Force password change if mustChangePassword flag is set
+    if (session.user?.mustChangePassword && pathname !== '/auth/change-password') {
+        return NextResponse.redirect(new URL("/auth/change-password", req.url));
     }
 
     // ✅ If authenticated, allow access to dashboard routes

@@ -53,63 +53,69 @@ export default class AuthService {
 
     /**
      * ✅ Login a user with email and password
-     * - Uses Shopify Storefront API to authenticate credentials
-     * - Then fetches user from MongoDB if Shopify auth succeeds
+     * - Tries Shopify Storefront API first
+     * - Falls back to local bcrypt password authentication
      */
     static async login(email, password) {
         try {
-            console.log('🔐 [AUTH_SERVICE] Starting Shopify authentication for:', email);
+            console.log('🔐 [AUTH_SERVICE] Starting authentication for:', email);
 
-            // Step 1: Authenticate with Shopify Storefront API
-            const mutation = `
-              mutation customerAccessTokenCreate($input: CustomerAccessTokenCreateInput!) {
-                customerAccessTokenCreate(input: $input) {
-                  customerAccessToken {
-                    accessToken
-                    expiresAt
+            let shopifyAccessToken = null;
+            let shopifyAuthSuccess = false;
+
+            // Step 1: Try Shopify Storefront API authentication
+            try {
+                const mutation = `
+                  mutation customerAccessTokenCreate($input: CustomerAccessTokenCreateInput!) {
+                    customerAccessTokenCreate(input: $input) {
+                      customerAccessToken {
+                        accessToken
+                        expiresAt
+                      }
+                      customerUserErrors {
+                        field
+                        message
+                        code
+                      }
+                    }
                   }
-                  customerUserErrors {
-                    field
-                    message
-                    code
-                  }
+                `;
+
+                const variables = { input: { email, password } };
+                const response = await storefront(mutation, variables);
+                const result = response?.customerAccessTokenCreate;
+
+                if (result?.customerAccessToken) {
+                    shopifyAccessToken = result.customerAccessToken.accessToken;
+                    shopifyAuthSuccess = true;
+                    console.log('✅ [AUTH_SERVICE] Shopify authentication successful for:', email);
+                } else {
+                    console.log('⚠️ [AUTH_SERVICE] Shopify auth failed, will try local auth');
                 }
-              }
-            `;
-
-            const variables = {
-              input: {
-                email,
-                password
-              }
-            };
-
-            const response = await storefront(mutation, variables);
-            const result = response?.customerAccessTokenCreate;
-
-            if (!result) {
-                console.log('❌ [AUTH_SERVICE] No response from Shopify API');
-                throw new Error("Authentication service unavailable.");
+            } catch (shopifyError) {
+                console.log('⚠️ [AUTH_SERVICE] Shopify auth unavailable, will try local auth:', shopifyError.message);
             }
 
-            if (result.customerUserErrors && result.customerUserErrors.length > 0) {
-                const error = result.customerUserErrors[0];
-                console.log('❌ [AUTH_SERVICE] Shopify authentication failed:', error.message);
-                throw new Error("Invalid email or password.");
-            }
-
-            if (!result.customerAccessToken) {
-                console.log('❌ [AUTH_SERVICE] Invalid Shopify credentials for:', email);
-                throw new Error("Invalid email or password.");
-            }
-
-            console.log('✅ [AUTH_SERVICE] Shopify authentication successful for:', email);
-
-            // Step 2: Fetch user from MongoDB for admin authorization
+            // Step 2: Fetch user from MongoDB
             const user = await UserModel.findByEmail(email);
             if (!user) {
                 console.log('❌ [AUTH_SERVICE] User not found in admin database:', email);
-                throw new Error("Access denied. Contact administrator for admin access.");
+                throw new Error("Invalid email or password.");
+            }
+
+            // Step 3: If Shopify auth failed, try local bcrypt password
+            if (!shopifyAuthSuccess) {
+                if (!user.password || user.password === 'no password') {
+                    console.log('❌ [AUTH_SERVICE] No local password set for:', email);
+                    throw new Error("Invalid email or password.");
+                }
+
+                const isPasswordValid = await bcrypt.compare(password, user.password);
+                if (!isPasswordValid) {
+                    console.log('❌ [AUTH_SERVICE] Local password mismatch for:', email);
+                    throw new Error("Invalid email or password.");
+                }
+                console.log('✅ [AUTH_SERVICE] Local bcrypt authentication successful for:', email);
             }
 
             if (user.status !== 'verified') {
@@ -126,7 +132,7 @@ export default class AuthService {
 
             console.log("✅ [AUTH_SERVICE] Token generated for admin user.");
 
-            // ✅ Return the full user data along with the token and Shopify access token
+            // ✅ Return the full user data along with the token
             return {
                 token,
                 userID: user.userID,
@@ -148,7 +154,8 @@ export default class AuthService {
                 })(),
                     
                 image: user.image,
-                shopifyAccessToken: result.customerAccessToken.accessToken
+                mustChangePassword: user.mustChangePassword || false,
+                shopifyAccessToken: shopifyAccessToken
             };
 
         } catch (error) {
