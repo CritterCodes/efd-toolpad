@@ -93,8 +93,8 @@ const PrintRepairTicket = () => {
             <style jsx global>{`
                 @media print {
                     @page {
-                        size: landscape;
-                        margin: 0.25in;
+                        size: 8in 6in landscape;
+                        margin: 0.1in;
                     }
                     body {
                         -webkit-print-color-adjust: exact;
@@ -103,8 +103,6 @@ const PrintRepairTicket = () => {
                     .print-container {
                         max-width: none !important;
                         width: 100% !important;
-                        transform: scale(0.85) !important;
-                        transform-origin: top left !important;
                     }
                 }
             `}</style>
@@ -167,17 +165,17 @@ const SideBySideLayoutContainer = ({ repair, maxItemsPerPage }) => {
             sx={{
                 display: 'flex',
                 width: '100%',
-                maxWidth: '10.5in',
+                maxWidth: '7.5in',
                 height: 'auto',
-                minHeight: '7.5in',
+                maxHeight: '5.75in',
                 margin: '0 auto',
-                fontSize: '0.85rem',
+                fontSize: '0.8rem',
                 '@media print': {
                     margin: '0',
                     width: '100%',
-                    maxWidth: '10.5in',
-                    height: 'auto',
-                    fontSize: '0.8rem',
+                    maxWidth: '7.5in',
+                    maxHeight: '5.75in',
+                    fontSize: '0.75rem',
                     pageBreakInside: 'avoid',
                 },
             }}

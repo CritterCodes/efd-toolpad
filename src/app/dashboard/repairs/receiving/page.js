@@ -61,7 +61,7 @@ const ReceivingPage = () => {
     );
 
     const handleViewRepair = (repairID) => {
-        router.push(`/dashboard/repairs/details/${repairID}`);
+        router.push(`/dashboard/repairs/${repairID}`);
     };
 
     const handleMoveRepair = (repairID) => {

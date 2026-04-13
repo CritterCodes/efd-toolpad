@@ -133,7 +133,7 @@ const ReadyForWorkPage = () => {
     };
 
     const handleViewDetails = (repairID) => {
-        router.push(`/dashboard/repairs/details/${repairID}`);
+        router.push(`/dashboard/repairs/${repairID}`);
     };
 
     const handleSelectAll = () => {

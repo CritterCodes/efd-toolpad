@@ -21,13 +21,13 @@ import {
 } from '@mui/icons-material';
 
 export default function CameraCapture({ onCapture, disabled = false }) {
-  // Use native camera app on mobile/tablet, webcam dialog on desktop
-  const isMobile = typeof navigator !== 'undefined'
-    && /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
-  const useWebcamDialog = !isMobile
-    && typeof navigator !== 'undefined'
-    && !!navigator.mediaDevices?.getUserMedia;
+  // Default to native file input (safe for SSR + mobile).
+  // Only show webcam dialog after confirming desktop on client.
+  const [useWebcamDialog, setUseWebcamDialog] = useState(false);
+  useEffect(() => {
+    const mobile = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    setUseWebcamDialog(!mobile && !!navigator.mediaDevices?.getUserMedia);
+  }, []);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [stream, setStream] = useState(null);
