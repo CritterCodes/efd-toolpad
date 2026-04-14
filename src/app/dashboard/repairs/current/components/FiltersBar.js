@@ -56,13 +56,13 @@ const FiltersBar = ({
                                 onChange={(e) => setStatusFilter(e.target.value)}
                             >
                                 <MenuItem value="all">All Current</MenuItem>
-                                <MenuItem value="receiving">Receiving</MenuItem>
-                                <MenuItem value="needs-parts">Needs Parts</MenuItem>
-                                <MenuItem value="parts-ordered">Parts Ordered</MenuItem>
-                                <MenuItem value="ready-for-work">Ready for Work</MenuItem>
-                                <MenuItem value="in-progress">In Progress</MenuItem>
-                                <MenuItem value="quality-control">Quality Control</MenuItem>
-                                <MenuItem value="ready-for-pickup">Ready for Pickup</MenuItem>
+                                <MenuItem value="RECEIVING">Receiving</MenuItem>
+                                <MenuItem value="NEEDS PARTS">Needs Parts</MenuItem>
+                                <MenuItem value="PARTS ORDERED">Parts Ordered</MenuItem>
+                                <MenuItem value="READY FOR WORK">Ready for Work</MenuItem>
+                                <MenuItem value="IN PROGRESS">In Progress</MenuItem>
+                                <MenuItem value="QUALITY CONTROL">Quality Control</MenuItem>
+                                <MenuItem value="READY FOR PICK-UP">Ready for Pickup</MenuItem>
                             </Select>
                         </FormControl>
                     </Grid>

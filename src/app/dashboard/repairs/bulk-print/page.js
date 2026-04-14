@@ -41,8 +41,8 @@ const PrintRepairTicketsBulk = () => {
                     key={index}
                     sx={{
                         padding: '20px',
-                        width: '4in',
-                        height: '6in',
+                        width: '3.75in',
+                        height: '5.75in',
                         margin: '0 auto',
                         border: '1px solid #000',
                         borderRadius: '8px',

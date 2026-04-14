@@ -44,12 +44,12 @@ export const useMyRepairs = () => {
     if (activeTab === 0) return repairs; // All repairs
     if (activeTab === 1) { // Current repairs
       return repairs.filter(repair => 
-        !['completed', 'ready_for_pickup', 'cancelled'].includes(repair.status?.toLowerCase())
+        !['COMPLETED', 'READY FOR PICK-UP', 'CANCELLED'].includes(repair.status)
       );
     }
     if (activeTab === 2) { // Completed repairs
       return repairs.filter(repair => 
-        ['completed', 'ready_for_pickup'].includes(repair.status?.toLowerCase())
+        ['COMPLETED', 'READY FOR PICK-UP'].includes(repair.status)
       );
     }
     return repairs;
@@ -57,13 +57,13 @@ export const useMyRepairs = () => {
 
   const getCurrentRepairsCount = useCallback(() => {
     return repairs.filter(repair => 
-      !['completed', 'ready_for_pickup', 'cancelled'].includes(repair.status?.toLowerCase())
+      !['COMPLETED', 'READY FOR PICK-UP', 'CANCELLED'].includes(repair.status)
     ).length;
   }, [repairs]);
 
   const getCompletedRepairsCount = useCallback(() => {
     return repairs.filter(repair => 
-      ['completed', 'ready_for_pickup'].includes(repair.status?.toLowerCase())
+      ['COMPLETED', 'READY FOR PICK-UP'].includes(repair.status)
     ).length;
   }, [repairs]);
 

@@ -44,7 +44,6 @@ export async function POST(request, { params }) {
     console.log(`Wholesale application ${applicationId} approved by ${session.user.email}`);
 
     // TODO: Send approval email to user
-    // TODO: Update Shopify customer with wholesale tags (if needed)
 
     return Response.json({
       success: true,

@@ -137,7 +137,7 @@ export default class CustomTicketModel {
   }
 
   /**
-   * Validate order data for Shopify orders
+   * Validate order data
    */
   static async validateOrderData(orderData) {
     if (!orderData || typeof orderData !== 'object') {
@@ -177,7 +177,7 @@ export default class CustomTicketModel {
     processedData.images = processedData.images || [];
     processedData.materials = processedData.materials || [];
     processedData.statusHistory = processedData.statusHistory || [];
-    processedData.shopifyOrders = processedData.shopifyOrders || [];
+    processedData.invoices = processedData.invoices || [];
 
     // Initialize financial fields
     processedData.materialCosts = processedData.materialCosts || [];
@@ -234,8 +234,8 @@ export default class CustomTicketModel {
       }
 
       // Business rule: Cannot delete tickets with orders
-      if (ticket.shopifyOrders && ticket.shopifyOrders.length > 0) {
-        throw new Error('Cannot delete ticket with associated Shopify orders');
+      if (ticket.invoices && ticket.invoices.length > 0) {
+        throw new Error('Cannot delete ticket with associated invoices');
       }
 
       // Business rule: Cannot delete completed tickets

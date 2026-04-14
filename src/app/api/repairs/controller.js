@@ -19,26 +19,17 @@ export default class RepairsController {
     /**
      * ✅ Get repair by repairID
      */
-    static getRepairById = async (req) => {
+    static getRepairById = async (repairID) => {
         try {
-            const { searchParams } = new URL(req.url);
-            const repairID = searchParams.get('repairID');
-
             if (!repairID) {
-                return new Response(JSON.stringify({ error: "repairID is required" }), { status: 400 });
+                throw new Error("repairID is required.");
             }
 
             const repair = await RepairsService.getRepairById(repairID);
-            if (!repair) {
-                return new Response(JSON.stringify({ error: "Repair not found" }), { status: 404 });
-            }
-
-            return new Response(JSON.stringify(repair), { status: 200 });
+            return repair;
         } catch (error) {
-            return new Response(
-                JSON.stringify({ error: "Failed to fetch repair", details: error.message }),
-                { status: 500 }
-            );
+            console.error("❌ Error in getRepairById:", error.message);
+            throw new Error(`Failed to fetch repair: ${error.message}`);
         }
     };
 
@@ -89,27 +80,17 @@ export default class RepairsController {
     /**
      * ✅ Delete a repair by repairID and return confirmation
      */
-    static deleteRepairById = async (req) => {
+    static deleteRepairById = async (repairID) => {
         try {
-            const { searchParams } = new URL(req.url);
-            const repairID = searchParams.get('repairID');
-
             if (!repairID) {
-                return new Response(JSON.stringify({ error: "repairID is required" }), { status: 400 });
+                throw new Error("repairID is required.");
             }
 
             await RepairsService.deleteRepairById(repairID);
-
-            // ✅ Return a confirmation message after deletion
-            return new Response(
-                JSON.stringify({ message: `Repair with ID ${repairID} deleted successfully.` }),
-                { status: 200 }
-            );
+            return { message: `Repair with ID ${repairID} deleted successfully.` };
         } catch (error) {
-            return new Response(
-                JSON.stringify({ error: "Failed to delete repair", details: error.message }),
-                { status: 500 }
-            );
+            console.error("❌ Error in deleteRepairById:", error.message);
+            throw new Error(`Failed to delete repair: ${error.message}`);
         }
     };
 }

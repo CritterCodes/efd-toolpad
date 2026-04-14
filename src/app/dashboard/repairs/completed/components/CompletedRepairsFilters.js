@@ -60,9 +60,8 @@ export const CompletedRepairsFilters = ({
                                 onChange={(e) => setStatusFilter(e.target.value)}
                             >
                                 <MenuItem value="all">All Completed</MenuItem>
-                                <MenuItem value="completed">Completed</MenuItem>
-                                <MenuItem value="picked-up">Picked Up</MenuItem>
-                                <MenuItem value="delivered">Delivered</MenuItem>
+                                <MenuItem value="COMPLETED">Completed</MenuItem>
+                                <MenuItem value="READY FOR PICK-UP">Ready for Pick-Up</MenuItem>
                             </Select>
                         </FormControl>
                     </Grid>

@@ -1,17 +1,15 @@
 export const getStatusColor = (status) => {
     const colorMap = {
-        'completed': 'success',
-        'picked-up': 'primary',
-        'delivered': 'success'
+        'COMPLETED': 'success',
+        'READY FOR PICK-UP': 'primary'
     };
     return colorMap[status] || 'default';
 };
 
 export const getStatusLabel = (status) => {
     const labelMap = {
-        'completed': 'Completed',
-        'picked-up': 'Picked Up',
-        'delivered': 'Delivered'
+        'COMPLETED': 'Completed',
+        'READY FOR PICK-UP': 'Ready for Pick-Up'
     };
     return labelMap[status] || status;
 };

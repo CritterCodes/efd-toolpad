@@ -2,17 +2,7 @@ import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
-
-// Mock notification functions - real implementations are in root lib
-async function notifyArtisanSelectedForDrop(...args) {
-  console.log('📧 Notification queued:', args);
-  return Promise.resolve();
-}
-
-async function notifyArtisanNotSelectedForDrop(...args) {
-  console.log('📧 Notification queued:', args);
-  return Promise.resolve();
-}
+import { NotificationService, NOTIFICATION_TYPES } from '@/lib/notificationService';
 
 /**
  * POST /api/drop-requests/:id/submissions/:submissionIndex/approve
@@ -133,22 +123,28 @@ export async function POST(request, { params }) {
 
       // Send 'artisan-selected-for-drop' notification
       try {
-        // Get the drop request to get theme info
         const fullDropRequest = await db.collection('drop-requests').findOne({
           _id: new ObjectId(id)
         });
         
-        await notifyArtisanSelectedForDrop(
-          id,
-          submission.artisanId,
-          submission.artisanEmail,
-          submission.artisanName,
-          fullDropRequest?.theme || 'Curated Drop'
-        );
+        await NotificationService.createNotification({
+          userId: submission.artisanId,
+          type: NOTIFICATION_TYPES.ARTISAN_SELECTED_FOR_DROP,
+          title: 'You\'re in the Drop!',
+          message: `Congratulations! You've been selected for "${fullDropRequest?.theme || 'Curated Drop'}"!`,
+          channels: ['inApp', 'email'],
+          templateName: 'artisan-selected-for-drop',
+          recipientEmail: submission.artisanEmail,
+          data: {
+            artisanName: submission.artisanName,
+            dropTheme: fullDropRequest?.theme || 'Curated Drop',
+            userRole: 'artisan',
+            relatedType: 'drop-request',
+          },
+        });
         console.log('✅ Selection notification sent to artisan');
       } catch (notifError) {
-        console.error('⚠️ Warning: Failed to send selection notification:', notifError);
-        // Don't fail the request if notification fails
+        console.error('⚠️ Failed to send selection notification:', notifError.message);
       }
 
       return NextResponse.json({
@@ -176,22 +172,28 @@ export async function POST(request, { params }) {
 
       // Send 'artisan-not-selected' notification
       try {
-        // Get the drop request to get theme info
         const fullDropRequest = await db.collection('drop-requests').findOne({
           _id: new ObjectId(id)
         });
         
-        await notifyArtisanNotSelectedForDrop(
-          id,
-          submission.artisanId,
-          submission.artisanEmail,
-          submission.artisanName,
-          fullDropRequest?.theme || 'Curated Drop'
-        );
+        await NotificationService.createNotification({
+          userId: submission.artisanId,
+          type: NOTIFICATION_TYPES.ARTISAN_NOT_SELECTED,
+          title: 'Drop Submission Update',
+          message: `Your submission for "${fullDropRequest?.theme || 'Curated Drop'}" was not selected this time.`,
+          channels: ['inApp', 'email'],
+          templateName: 'artisan-not-selected',
+          recipientEmail: submission.artisanEmail,
+          data: {
+            artisanName: submission.artisanName,
+            dropTheme: fullDropRequest?.theme || 'Curated Drop',
+            userRole: 'artisan',
+            relatedType: 'drop-request',
+          },
+        });
         console.log('✅ Not-selected notification sent to artisan');
       } catch (notifError) {
-        console.error('⚠️ Warning: Failed to send not-selected notification:', notifError);
-        // Don't fail the request if notification fails
+        console.error('⚠️ Failed to send not-selected notification:', notifError.message);
       }
 
       return NextResponse.json({

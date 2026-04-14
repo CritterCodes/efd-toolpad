@@ -5,7 +5,6 @@
  */
 
 import { CrudService } from './services/crud.service.js';
-import { ShopifyService } from './services/shopify.service.js';
 import { StatusService } from './services/status.service.js';
 import { AssignmentsService } from './services/assignments.service.js';
 
@@ -50,27 +49,6 @@ export default class CustomTicketService {
    */
   static async getTicketsSummary() {
     return await CrudService.getTicketsSummary();
-  }
-
-  /**
-   * Link a Shopify order to a ticket
-   */
-  static async linkShopifyOrder(ticketId, orderType, orderId) {
-    return await ShopifyService.linkShopifyOrder(ticketId, orderType, orderId);
-  }
-
-  /**
-   * Create a deposit order for a ticket
-   */
-  static async createDepositOrder(ticketId, orderData) {
-    return await ShopifyService.createDepositOrder(ticketId, orderData);
-  }
-
-  /**
-   * Create a final order for a ticket
-   */
-  static async createFinalOrder(ticketId, orderData) {
-    return await ShopifyService.createFinalOrder(ticketId, orderData);
   }
 
   /**

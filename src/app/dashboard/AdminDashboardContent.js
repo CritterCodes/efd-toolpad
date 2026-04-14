@@ -57,6 +57,7 @@ export default function AdminDashboardContent() {
             return {
                 totalRepairs: 0,
                 pendingReceipts: [],
+                pendingWholesale: [],
                 inProgress: [],
                 completed: [],
                 qcRequired: [],
@@ -71,11 +72,13 @@ export default function AdminDashboardContent() {
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
 
-        const pendingReceipts = repairs.filter(r => r.status === 'pending-receipt' || r.status === 'received');
-        const inProgress = repairs.filter(r => r.status === 'in-progress' || r.status === 'repair-started');
-        const completed = repairs.filter(r => r.status === 'completed' || r.status === 'picked-up');
-        const qcRequired = repairs.filter(r => r.status === 'quality-control' || r.status === 'qc-review');
-        const readyForPickup = repairs.filter(r => r.status === 'ready-for-pickup' || r.status === 'payment-pending');
+        const pendingReceipts = repairs.filter(r => r.status === 'RECEIVING');
+        const pendingWholesale = repairs.filter(r => r.status === 'PENDING PICKUP' || r.status === 'PICKUP REQUESTED');
+        const pickupRequested = repairs.filter(r => r.status === 'PICKUP REQUESTED');
+        const inProgress = repairs.filter(r => r.status === 'IN PROGRESS');
+        const completed = repairs.filter(r => r.status === 'COMPLETED' || r.status === 'READY FOR PICK-UP');
+        const qcRequired = repairs.filter(r => r.status === 'QUALITY CONTROL');
+        const readyForPickup = repairs.filter(r => r.status === 'READY FOR PICK-UP');
         const rushJobs = repairs.filter(r => r.rushJob === true || r.priority === 'rush');
 
         // Calculate revenue for current month
@@ -94,6 +97,8 @@ export default function AdminDashboardContent() {
         return {
             totalRepairs: repairs.length,
             pendingReceipts,
+            pendingWholesale,
+            pickupRequested,
             inProgress,
             completed,
             qcRequired,
@@ -150,6 +155,28 @@ export default function AdminDashboardContent() {
                         onClick={() => router.push('/dashboard/repairs?filter=rush')}
                     >
                         View Rush Jobs
+                    </Button>
+                </Alert>
+            )}
+
+            {/* Pending Wholesale Alert */}
+            {dashboardMetrics.pendingWholesale.length > 0 && (
+                <Alert
+                    severity={dashboardMetrics.pickupRequested.length > 0 ? 'warning' : 'info'}
+                    sx={{ mb: 3 }}
+                    icon={<InventoryIcon />}
+                >
+                    {dashboardMetrics.pickupRequested.length > 0 ? (
+                        <><strong>Pickup Requested!</strong> {dashboardMetrics.pickupRequested.length} repair(s) need pickup from wholesalers. {dashboardMetrics.pendingWholesale.length - dashboardMetrics.pickupRequested.length > 0 && `${dashboardMetrics.pendingWholesale.length - dashboardMetrics.pickupRequested.length} more pending.`}</>
+                    ) : (
+                        <><strong>Wholesale Pickup:</strong> {dashboardMetrics.pendingWholesale.length} repair(s) awaiting pickup or drop-off from wholesalers.</>
+                    )}
+                    <Button 
+                        size="small" 
+                        sx={{ ml: 2 }}
+                        onClick={() => router.push('/dashboard/repairs/pending-wholesale')}
+                    >
+                        View Pending
                     </Button>
                 </Alert>
             )}

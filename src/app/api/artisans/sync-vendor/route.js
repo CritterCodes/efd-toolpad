@@ -26,7 +26,7 @@ export async function POST(request) {
 
     // Prepare vendor profile data
     const vendorProfileData = {
-      vendorName: artisanData.business, // This must match Shopify vendor field
+      vendorName: artisanData.business, // Must match vendor field in product catalog
       displayName: `${artisanData.firstName} ${artisanData.lastName}`,
       type: 'jeweler', // Default type, can be customized
       slug: generateSlug(artisanData.business || `${artisanData.firstName}-${artisanData.lastName}`),

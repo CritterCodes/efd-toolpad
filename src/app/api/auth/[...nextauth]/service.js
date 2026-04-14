@@ -51,8 +51,7 @@ export default class AuthService {
     }
 
     /**
-     * ✅ Login a user with email and password
-     * - Tries Shopify Storefront API first
+     * Login a user with email and password
      * - Authenticates using local bcrypt password
      */
     static async login(email, password) {

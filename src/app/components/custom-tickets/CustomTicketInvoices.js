@@ -1,6 +1,6 @@
 /**
  * Custom Ticket Invoices Component
- * Manages invoices for custom tickets including creating deposit invoices through Shopify
+ * Manages invoices for custom tickets including creating deposit invoices
  */
 
 'use client';

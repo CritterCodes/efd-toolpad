@@ -2,7 +2,6 @@ import { db } from '@/lib/database';
 
 /**
  * Service for managing repair tasks stored in MongoDB
- * These are the tasks pulled from Shopify and stored locally for faster access
  */
 export class RepairTasksDatabaseService {
     
@@ -143,7 +142,7 @@ export class RepairTasksDatabaseService {
                 }
             ]).toArray();
             
-            const uniqueProducts = await collection.distinct('shopifyProductId');
+            const uniqueProducts = await collection.distinct('productId');
             const lastSync = await collection.findOne({}, { sort: { syncedAt: -1 } });
             
             return {

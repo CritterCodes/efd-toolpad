@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
+import { NotificationService, NOTIFICATION_TYPES } from '@/lib/notificationService';
 
 /**
  * POST /api/products/:id/publish
@@ -68,30 +69,28 @@ export async function POST(request, { params }) {
       { returnDocument: 'after' }
     );
 
-    // Send published notification email
-    // TODO: Implement notification integration
-    /*
+    // Send published notification to artisan
     try {
-      await createNotification({
+      await NotificationService.createNotification({
         userId: product.artisanId,
-        userEmail: product.artisanEmail,
-        userRole: 'artisan',
-        type: 'product_published',
+        type: NOTIFICATION_TYPES.PRODUCT_PUBLISHED,
         title: 'Product Published',
         message: `Your product "${product.title}" is now live on the shop!`,
-        relatedId: product._id.toString(),
-        relatedType: 'product',
-        actionUrl: `/dashboard/products/gemstones/${product._id}`,
-        actionLabel: 'View Product',
-        channels: ['email', 'inApp'],
-        priority: 'high'
+        channels: ['inApp', 'email'],
+        templateName: 'product-published',
+        recipientEmail: product.artisanEmail,
+        data: {
+          productTitle: product.title,
+          productId: product._id.toString(),
+          userRole: 'artisan',
+          relatedType: 'product',
+          actionUrl: `/dashboard/products/gemstones/${product._id}`,
+          actionLabel: 'View Product',
+        },
       });
-      console.log('✅ Publication notification sent to artisan');
     } catch (notifError) {
-      console.error('⚠️ Warning: Failed to send publication notification:', notifError);
-      // Don't fail the request if notification fails
+      console.error('⚠️ Failed to send publish notification:', notifError.message);
     }
-    */
 
     return NextResponse.json({
       success: true,

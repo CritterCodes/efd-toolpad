@@ -816,6 +816,7 @@ export default function NewRepairForm({
   const [availableProcesses, setAvailableProcesses] = useState([]);
   const [availableMaterials, setAvailableMaterials] = useState([]);
   const [availableUsers, setAvailableUsers] = useState([]);
+  const adminUsersRef = useRef([]); // Store admin client list for restoring after wholesale switch
   const [availableStores, setAvailableStores] = useState([
     {
       id: 'engel-fine-design',
@@ -1011,6 +1012,7 @@ export default function NewRepairForm({
           
           const usersData = users?.users || users?.data || users || [];
           setAvailableUsers(usersData.filter((user) => String(user?.role || '').toLowerCase() !== 'wholesaler'));
+          adminUsersRef.current = usersData.filter((user) => String(user?.role || '').toLowerCase() !== 'wholesaler');
 
           const wholesalerData = Array.isArray(wholesalers?.data) ? wholesalers.data : [];
           const wholesalerStores = wholesalerData.map((store) => ({
@@ -1752,14 +1754,25 @@ export default function NewRepairForm({
 
       console.log('📤 Sending client creation request:', clientToCreate);
 
-      const createdClientResponse = isWholesale
-        ? await wholesaleClientsAPIClient.createClient(clientToCreate)
-        : await UsersService.createUser({
-            ...clientToCreate,
-            name: `${newClientData.firstName.trim()} ${newClientData.lastName.trim()}`,
-            role: newClientData.role || 'client',
-            status: 'unverified'
-          });
+      // Determine if we're creating for a wholesale store
+      const isCreatingForWholesale = formData.isWholesale;
+
+      let createdClientResponse;
+      if (isCreatingForWholesale) {
+        // Pass store ownership info so backend assigns parentWholesalerId correctly
+        createdClientResponse = await wholesaleClientsAPIClient.createClient({
+          ...clientToCreate,
+          wholesalerId: formData.storeId,
+          wholesalerName: formData.storeName
+        });
+      } else {
+        createdClientResponse = await UsersService.createUser({
+          ...clientToCreate,
+          name: `${newClientData.firstName.trim()} ${newClientData.lastName.trim()}`,
+          role: newClientData.role || 'client',
+          status: 'unverified'
+        });
+      }
 
       const createdClient = createdClientResponse?.data || createdClientResponse.user || createdClientResponse;
       
@@ -1923,8 +1936,26 @@ export default function NewRepairForm({
                         storeId: nextStoreId,
                         storeName: selectedStore?.name || 'Engel Fine Design',
                         isWholesale: nextIsWholesale,
-                        includeTax: nextIsWholesale ? false : prev.includeTax
+                        includeTax: nextIsWholesale ? false : prev.includeTax,
+                        clientName: '',
+                        userID: ''
                       }));
+
+                      // Switch client list based on store type
+                      if (nextIsWholesale) {
+                        setAvailableUsers([]); // Clear immediately to avoid showing stale admin clients
+                        wholesaleClientsAPIClient.fetchClientsByWholesaler(nextStoreId)
+                          .then((res) => {
+                            console.log('📋 Wholesale clients fetched for store:', nextStoreId, res);
+                            setAvailableUsers(res?.data || []);
+                          })
+                          .catch((err) => {
+                            console.error('Failed to fetch wholesale clients:', err);
+                            setAvailableUsers([]);
+                          });
+                      } else {
+                        setAvailableUsers(adminUsersRef.current);
+                      }
 
                       setTimeout(() => {
                         recalculateAllItemPrices(nextIsWholesale);
@@ -2571,34 +2602,22 @@ export default function NewRepairForm({
             />
             <TextField
               fullWidth
-              label="Email"
-              type="email"
-              value={newClientData.email}
-              onChange={(e) => setNewClientData(prev => ({ ...prev, email: e.target.value }))}
-              required={!isWholesale}
-              helperText={isWholesale ? "Optional" : "Email is required for client identification"}
-            />
-            <TextField
-              fullWidth
               label="Phone"
               type="tel"
               value={newClientData.phone}
               onChange={(e) => setNewClientData(prev => ({ ...prev, phone: e.target.value }))}
               placeholder="(555) 123-4567"
+              required
             />
-            {!isWholesale && (
-              <FormControl fullWidth required>
-                <InputLabel>Client Role</InputLabel>
-                <Select
-                  value={newClientData.role}
-                  label="Client Role"
-                  onChange={(e) => setNewClientData(prev => ({ ...prev, role: e.target.value }))}
-                >
-                  <MenuItem value="client">Client</MenuItem>
-                  <MenuItem value="wholesaler">Wholesaler</MenuItem>
-                </Select>
-              </FormControl>
-            )}
+            <TextField
+              fullWidth
+              label="Email"
+              type="email"
+              value={newClientData.email}
+              onChange={(e) => setNewClientData(prev => ({ ...prev, email: e.target.value }))}
+              helperText="Optional"
+            />
+
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -2612,7 +2631,7 @@ export default function NewRepairForm({
             onClick={handleAddNewClient}
             loading={newClientLoading}
             variant="contained"
-            disabled={!newClientData.firstName.trim() || !newClientData.lastName.trim() || (!isWholesale && !newClientData.email.trim())}
+            disabled={!newClientData.firstName.trim() || !newClientData.lastName.trim() || !newClientData.phone.trim()}
           >
             {newClientLoading ? 'Creating...' : 'Add Client'}
           </LoadingButton>

@@ -43,4 +43,39 @@ export default class CustomTicketInvoicesModel {
         { projection: { invoices: 1, ticketID: 1 } }
       );
   }
+
+  static async updateInvoiceStatus(invoiceId, status, paidAt = null) {
+    await db.connect();
+    const { ObjectId } = await import('mongodb');
+    const update = { $set: { status } };
+    if (paidAt) update.$set.paidAt = paidAt;
+
+    const result = await db._instance
+      .collection('invoices')
+      .updateOne({ _id: new ObjectId(invoiceId) }, update);
+
+    return result;
+  }
+
+  static async updateTicketInvoiceStatus(ticketId, invoiceId, status, paidAt = null) {
+    await db.connect();
+    const { ObjectId } = await import('mongodb');
+    const setFields = { 'invoices.$.status': status };
+    if (paidAt) setFields['invoices.$.paidAt'] = paidAt;
+
+    return await db._instance
+      .collection('customTickets')
+      .updateOne(
+        { ticketID: ticketId, 'invoices._id': new ObjectId(invoiceId) },
+        { $set: setFields }
+      );
+  }
+
+  static async getInvoiceById(invoiceId) {
+    await db.connect();
+    const { ObjectId } = await import('mongodb');
+    return await db._instance
+      .collection('invoices')
+      .findOne({ _id: new ObjectId(invoiceId) });
+  }
 }

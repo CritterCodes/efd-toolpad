@@ -104,6 +104,13 @@ export const DEFAULT_METAL_COMPLEXITY_MULTIPLIERS = {
 export const DEFAULT_BASE_WAGE = 50.00;
 
 /**
+ * Default Task Minimum Prices
+ * Floor prices for repair tasks
+ */
+export const DEFAULT_TASK_MINIMUM_RETAIL = 25.00;
+export const DEFAULT_TASK_MINIMUM_WHOLESALE = 15.00;
+
+/**
  * Wholesale Pricing Formula Type
  * Determines how wholesale prices are calculated
  */

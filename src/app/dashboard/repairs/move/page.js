@@ -10,6 +10,7 @@ import {
 } from "@mui/material";
 import { useRepairs } from "@/app/context/repairs.context";
 import { useRouter } from "next/navigation";
+import { useSession } from 'next-auth/react';
 
 // Custom hook
 import { useMoveRepairs } from "./hooks/useMoveRepairs";
@@ -25,6 +26,7 @@ import MoveSummary from "./components/MoveSummary";
 import { moveRepairsToStatus, updateRepairWithMetadata } from "./utils/repairUtils";
 
 const MoveRepairsPage = () => {
+    const { data: session, status: authStatus } = useSession();
     const { repairs, setRepairs } = useRepairs();
     const router = useRouter();
     
@@ -47,8 +49,16 @@ const MoveRepairsPage = () => {
     } = useMoveRepairs();
 
     useEffect(() => {
+        if (authStatus !== 'loading' && (!session?.user || session.user.role !== 'admin')) {
+            router.push('/dashboard');
+        }
+    }, [authStatus, session, router]);
+
+    useEffect(() => {
         console.log("Repairs in context:", repairs);
     }, [repairs]);
+
+    if (authStatus === 'loading' || !session?.user || session.user.role !== 'admin') return null;
 
     const handleLocationSelect = (event, value) => {
         console.log("Selected Location:", value);

@@ -20,10 +20,10 @@ export const StatsCards = ({ completedRepairs }) => {
                 <Card>
                     <CardContent>
                         <Typography variant="h4" color="success.main" sx={{ fontWeight: 'bold' }}>
-                            {completedRepairs.filter(r => r.status === 'completed').length}
+                            {completedRepairs.filter(r => r.status === 'COMPLETED').length}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
-                            Ready for Pickup
+                            Completed
                         </Typography>
                     </CardContent>
                 </Card>
@@ -32,10 +32,10 @@ export const StatsCards = ({ completedRepairs }) => {
                 <Card>
                     <CardContent>
                         <Typography variant="h4" color="primary.main" sx={{ fontWeight: 'bold' }}>
-                            {completedRepairs.filter(r => r.status === 'picked-up').length}
+                            {completedRepairs.filter(r => r.status === 'READY FOR PICK-UP').length}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
-                            Picked Up
+                            Ready for Pick-Up
                         </Typography>
                     </CardContent>
                 </Card>

@@ -125,6 +125,7 @@ export const DASHBOARD_SECTIONS = {
   ],
   [USER_ROLES.WHOLESALER]: [
     { id: 'overview', label: 'Dashboard', icon: '📊', url: '/dashboard/wholesaler/overview' },
+    { id: 'repairs', label: 'Repairs', icon: '🔧', url: '/dashboard/wholesaler/repairs' },
     { id: 'products', label: 'Product Catalog', icon: '💎', url: '/dashboard/wholesaler/products' },
     { id: 'collections', label: 'Collections', icon: '📚', url: '/dashboard/wholesaler/collections' },
     { id: 'orders', label: 'My Orders', icon: '📦', url: '/dashboard/wholesaler/orders' },

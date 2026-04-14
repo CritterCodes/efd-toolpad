@@ -16,7 +16,8 @@ const RepairTicketComponent = ({ repair }) => {
     return (
         <Box
             sx={{
-                flex: 1,
+                width: '3.75in',
+                height: '5.75in',
                 maxWidth: '3.75in',
                 maxHeight: '5.75in',
                 padding: '6px',
@@ -25,12 +26,14 @@ const RepairTicketComponent = ({ repair }) => {
                 display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden',
+                boxSizing: 'border-box',
                 '@media print': {
-                    border: '1px solid #000',
-                    borderRight: '0.5px dashed #000',
-                    padding: '6px',
+                    width: '3.75in',
+                    height: '5.75in',
                     maxWidth: '3.75in',
                     maxHeight: '5.75in',
+                    padding: '6px',
+                    overflow: 'hidden',
                 },
             }}
         >

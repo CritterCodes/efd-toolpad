@@ -11,6 +11,10 @@ export default class Repair {
         this.userID = data.userID;
         this.clientName = data.clientName;
         
+        // Creator tracking (for my-repairs queries)
+        this.createdBy = data.createdBy || data.userID || '';
+        this.submittedBy = data.submittedBy || '';
+        
         // Basic repair information
         this.description = data.description;
         this.isRush = data.isRush || data.priority === 'rush'; // Handle legacy priority
@@ -56,7 +60,7 @@ export default class Repair {
         this.businessName = data.businessName || '';
         
         // Status and workflow
-        this.status = data.status || 'RECIEVING';
+        this.status = data.status || 'RECEIVING';
         
         // Media
         this.picture = data.picture;
@@ -108,7 +112,7 @@ export default class Repair {
      * Mark repair as completed
      */
     markCompleted(completedBy = null) {
-        this.status = 'completed';
+        this.status = 'COMPLETED';
         this.completedAt = new Date();
         this.updatedAt = new Date();
         if (completedBy) {
@@ -120,7 +124,7 @@ export default class Repair {
      * Mark repair as picked up
      */
     markPickedUp() {
-        this.status = 'picked-up';
+        this.status = 'READY FOR PICK-UP';
         this.pickedUpAt = new Date();
         this.updatedAt = new Date();
     }

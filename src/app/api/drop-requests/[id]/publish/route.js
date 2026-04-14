@@ -2,12 +2,7 @@ import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
-
-// Mock notification function - real implementation is in root lib
-async function notifyArtisansAboutDrop(...args) {
-  console.log('📧 Notification queued:', args);
-  return Promise.resolve();
-}
+import { NotificationService, NOTIFICATION_TYPES } from '@/lib/notificationService';
 
 /**
  * POST /api/drop-requests/:id/publish
@@ -83,15 +78,31 @@ export async function POST(request, { params }) {
 
     // Send notifications to all artisans about the drop opportunity
     try {
-      await notifyArtisansAboutDrop(
-        result.value._id.toString(),
-        result.value.theme,
-        result.value.description
-      );
-      console.log('✅ Drop opportunity notifications sent to all artisans');
+      const artisans = await db.collection('users')
+        .find({ role: 'artisan', isActive: { $ne: false } })
+        .project({ _id: 1, email: 1, name: 1, userID: 1 })
+        .toArray();
+
+      for (const artisan of artisans) {
+        await NotificationService.createNotification({
+          userId: artisan.userID || artisan._id.toString(),
+          type: NOTIFICATION_TYPES.DROP_REQUEST_NEW,
+          title: 'New Drop Opportunity',
+          message: `New drop "${result.value.theme}" is now open for submissions!`,
+          channels: ['inApp', 'email'],
+          templateName: 'drop-request-new',
+          recipientEmail: artisan.email,
+          data: {
+            dropTheme: result.value.theme,
+            dropDescription: result.value.description,
+            userRole: 'artisan',
+            relatedType: 'drop-request',
+          },
+        });
+      }
+      console.log(`✅ Drop opportunity notifications sent to ${artisans.length} artisans`);
     } catch (notifError) {
-      console.error('⚠️ Warning: Failed to send drop opportunity notifications:', notifError);
-      // Don't fail the request if notification fails
+      console.error('⚠️ Failed to send drop notifications:', notifError.message);
     }
 
     return NextResponse.json({

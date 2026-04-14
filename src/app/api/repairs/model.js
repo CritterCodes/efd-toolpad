@@ -90,18 +90,23 @@ export default class RepairsModel {
     };
 
     /**
-     * ✅ Find repairs created by a specific user
+     * ✅ Find repairs created by a specific user (by ID or email)
      */
-    static findByCreator = async (creatorEmail) => {
+    static findByCreator = async (userId, userEmail) => {
         const dbInstance = await db.connect();
+        
+        const orConditions = [];
+        if (userId) {
+            orConditions.push({ "userID": userId });
+            orConditions.push({ "createdBy": userId });
+        }
+        if (userEmail) {
+            orConditions.push({ "submittedBy": userEmail });
+            orConditions.push({ "userID": userEmail });
+        }
+        
         return await dbInstance.collection("repairs")
-            .find({ 
-                $or: [
-                    { "createdBy": creatorEmail },
-                    { "submittedBy": creatorEmail },
-                    { "userID": creatorEmail }
-                ]
-            })
+            .find({ $or: orConditions })
             .project({ _id: 0 })
             .sort({ createdAt: -1 })
             .toArray();

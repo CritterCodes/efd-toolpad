@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { auth } from '@/lib/auth';
+import { NotificationService, NOTIFICATION_TYPES } from '@/lib/notificationService';
 
 /**
  * POST /api/cad-requests/[id]/reject
@@ -82,6 +83,27 @@ export async function POST(request, { params }) {
         }
 
         console.log('✅ CAD request rejected');
+
+        // Notify designer of rejection
+        try {
+          await NotificationService.createNotification({
+            userId: cadRequest.designerId || cadRequest.claimedBy,
+            type: NOTIFICATION_TYPES.CAD_GLB_DECLINED,
+            title: 'Design Feedback',
+            message: `Feedback on your design for "${gemstone.title || gemstone.productId}": ${rejectionReason.trim()}`,
+            channels: ['inApp', 'email'],
+            templateName: 'cad-design-declined',
+            recipientEmail: cadRequest.designerEmail || cadRequest.claimedByEmail,
+            data: {
+              gemstoneTitle: gemstone.title || gemstone.productId,
+              rejectionReason: rejectionReason.trim(),
+              userRole: 'artisan',
+              relatedType: 'cad-request',
+            },
+          });
+        } catch (notifError) {
+          console.error('⚠️ Failed to send CAD rejection notification:', notifError.message);
+        }
 
         return NextResponse.json({
             success: true,

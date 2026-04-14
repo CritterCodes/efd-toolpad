@@ -21,7 +21,7 @@ export const USER_STATUS = {
 // Authentication providers
 export const AUTH_PROVIDERS = {
   GOOGLE: 'google',
-  SHOPIFY: 'shopify'
+  EMAIL: 'email'
 };
 
 // Permission definitions for each role

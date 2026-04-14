@@ -104,7 +104,7 @@ export const useCustomTicketInvoices = (ticket, onRefresh) => {
         throw new Error(result.error || 'Failed to create invoice');
       }
 
-      setSuccess(`Invoice created successfully! Shopify Order #${result.shopifyOrderNumber}`);
+      setSuccess(`Invoice created successfully!`);
       setCreateDialogOpen(false);
       
       // Reset form

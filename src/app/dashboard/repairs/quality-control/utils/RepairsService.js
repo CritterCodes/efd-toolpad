@@ -43,7 +43,7 @@ export class RepairsService {
             formData.append('repairID', repairId);
             
             // Add basic QC data
-            formData.append('status', qcData.decision === 'APPROVE' ? 'ready_for_pickup' : 'ready_for_work');
+            formData.append('status', qcData.decision === 'APPROVE' ? 'READY FOR PICK-UP' : 'READY FOR WORK');
             formData.append('notes', qcData.notes || '');
             
             // Add quality control specific data

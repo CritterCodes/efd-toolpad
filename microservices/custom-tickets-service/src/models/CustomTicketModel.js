@@ -44,10 +44,6 @@ export class CustomTicketModel {
       paymentReceived: ticketData.paymentReceived || false,
       depositPaid: ticketData.depositPaid || false,
       
-      // Shopify integration
-      shopifyDepositOrderId: ticketData.shopifyDepositOrderId || null,
-      shopifyFinalOrderId: ticketData.shopifyFinalOrderId || null,
-      
       // Notes and communication
       notes: ticketData.notes || [],
       statusHistory: [{

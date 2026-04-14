@@ -1,5 +1,5 @@
 "use client";
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
     Box,
     Typography,
@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { useRepairs } from '@/app/context/repairs.context';
 
 // Custom hooks
@@ -24,6 +25,7 @@ import AssignJewelerModal from './components/AssignJewelerModal';
 import { assignJewelerToRepairs, startWorkOnRepair, updateRepairAssignment } from './utils/workUtils';
 
 const ReadyForWorkPage = () => {
+    const { data: session, status: authStatus } = useSession();
     const { repairs, setRepairs } = useRepairs();
     const router = useRouter();
     
@@ -53,6 +55,14 @@ const ReadyForWorkPage = () => {
         clearSelection,
         getFilteredAndSortedRepairs
     } = useReadyForWork();
+
+    useEffect(() => {
+        if (authStatus !== 'loading' && (!session?.user || session.user.role !== 'admin')) {
+            router.push('/dashboard');
+        }
+    }, [authStatus, session, router]);
+
+    if (authStatus === 'loading' || !session?.user || session.user.role !== 'admin') return null;
 
     // Get filtered and sorted repairs
     const filteredRepairs = getFilteredAndSortedRepairs(repairs);

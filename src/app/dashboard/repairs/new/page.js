@@ -54,7 +54,7 @@ const NewRepairPage = () => {
       } else {
         console.error('❌ No repair ID found in response:', result);
         showToast?.('Repair created but redirect failed - check console', 'warning');
-        router.push('/dashboard/repairs/all');
+        router.push('/dashboard/repairs/receiving');
       }
     } catch (error) {
       console.error('Error handling repair creation result:', error);
@@ -66,7 +66,7 @@ const NewRepairPage = () => {
     if (isWholesaler) {
       router.push('/dashboard/repairs/my-repairs');
     } else {
-      router.push('/dashboard/repairs/all');
+      router.push('/dashboard/repairs/receiving');
     }
   };
 
@@ -77,7 +77,7 @@ const NewRepairPage = () => {
         { title: 'Dashboard', path: '/dashboard' },
         { 
           title: isWholesaler ? 'My Repairs' : 'Repairs', 
-          path: isWholesaler ? '/dashboard/repairs/my-repairs' : '/dashboard/repairs/all'
+          path: isWholesaler ? '/dashboard/repairs/my-repairs' : '/dashboard/repairs/receiving'
         },
         { title: 'New Repair', path: '/dashboard/repairs/new' }
       ]}

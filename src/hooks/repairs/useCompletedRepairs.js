@@ -29,7 +29,7 @@ export const useCompletedRepairs = () => {
     };
 
     const completedRepairs = repairs.filter(repair => 
-        ['completed', 'picked-up', 'delivered'].includes(repair.status)
+        ['COMPLETED', 'READY FOR PICK-UP'].includes(repair.status)
     );
 
     const filteredRepairs = completedRepairs.filter(repair => {

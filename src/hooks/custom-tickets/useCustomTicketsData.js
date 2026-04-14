@@ -17,7 +17,6 @@ export const useCustomTicketsData = () => {
     status: '',
     paymentReceived: '',
     cardPaymentStatus: '',
-    hasShopifyOrders: false
   });
 
   const loadTickets = useCallback(async () => {

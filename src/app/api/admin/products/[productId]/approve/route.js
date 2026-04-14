@@ -1,5 +1,6 @@
 import { auth } from '@/lib/auth';
 import { connectDB } from '@/lib/database';
+import { NotificationService, NOTIFICATION_TYPES } from '@/lib/notificationService';
 
 export async function POST(req, { params }) {
   try {
@@ -33,6 +34,27 @@ export async function POST(req, { params }) {
     }
 
     console.log('✅ Product approved:', productId);
+
+    // Send approval notification to artisan
+    try {
+      await NotificationService.createNotification({
+        userId: product.artisanId,
+        type: NOTIFICATION_TYPES.PRODUCT_APPROVED,
+        title: 'Product Approved',
+        message: `Your product "${product.title}" has been approved!`,
+        channels: ['inApp', 'email'],
+        templateName: 'product-approved',
+        recipientEmail: product.artisanEmail,
+        data: {
+          productTitle: product.title,
+          productId: productId,
+          userRole: 'artisan',
+          relatedType: 'product',
+        },
+      });
+    } catch (notifError) {
+      console.error('⚠️ Failed to send approval notification:', notifError.message);
+    }
 
     return Response.json({
       success: true,

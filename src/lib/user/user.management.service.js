@@ -25,10 +25,6 @@ export class UserManagementService {
         { background: true, sparse: true, name: 'google_id_index' }
       );
       
-      await db.collection('users').createIndex(
-        { 'providers.shopify.id': 1 },
-        { background: true, sparse: true, name: 'shopify_id_index' }
-      );
       console.log('✅ Initialized all database indexes');
     } catch (error) {
       if (error.code === 11000) {
@@ -140,71 +136,6 @@ export class UserManagementService {
     }
   }
 
-  static async createOrUpdateUser(shopifyCustomer, additionalData = {}) {
-    try {
-      const { db } = await connectToDatabase();
-      const existingUser = await UserQueryService.findUserByShopifyId(shopifyCustomer.id);
-      
-      if (existingUser) {
-        const updateData = {
-          firstName: shopifyCustomer.firstName || existingUser.firstName,
-          lastName: shopifyCustomer.lastName || existingUser.lastName,
-          email: shopifyCustomer.email || existingUser.email,
-          phoneNumber: shopifyCustomer.phone || existingUser.phoneNumber,
-          updatedAt: new Date(),
-          shopifyData: {
-            id: shopifyCustomer.id,
-            createdAt: shopifyCustomer.createdAt,
-            updatedAt: shopifyCustomer.updatedAt,
-            acceptsMarketing: shopifyCustomer.acceptsMarketing,
-            defaultAddress: shopifyCustomer.defaultAddress
-          },
-          ...additionalData
-        };
-
-        await db.collection('users').updateOne(
-          { shopifyId: shopifyCustomer.id },
-          { $set: updateData }
-        );
-        return await UserQueryService.findUserByShopifyId(shopifyCustomer.id);
-      } else {
-        const newUser = {
-          userID: uuidv4(),
-          shopifyId: shopifyCustomer.id,
-          firstName: shopifyCustomer.firstName,
-          lastName: shopifyCustomer.lastName,
-          email: shopifyCustomer.email,
-          phoneNumber: shopifyCustomer.phone,
-          role: additionalData.role || USER_ROLES.CLIENT,
-          status: UserRoleService.getDefaultStatusForRole(additionalData.role || USER_ROLES.CLIENT),
-          permissions: ROLE_PERMISSIONS[additionalData.role || USER_ROLES.CLIENT],
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          shopifyData: {
-            id: shopifyCustomer.id,
-            createdAt: shopifyCustomer.createdAt,
-            updatedAt: shopifyCustomer.updatedAt,
-            acceptsMarketing: shopifyCustomer.acceptsMarketing,
-            defaultAddress: shopifyCustomer.defaultAddress
-          },
-          approvalData: UserRoleService.requiresApproval(additionalData.role || USER_ROLES.CLIENT) ? {
-            requestedAt: new Date(),
-            requestedRole: additionalData.role || USER_ROLES.CLIENT,
-            businessInfo: additionalData.businessInfo || {},
-            status: USER_STATUS.PENDING
-          } : null,
-          ...additionalData
-        };
-
-        await db.collection('users').insertOne(newUser);
-        return newUser;
-      }
-    } catch (error) {
-      console.error('Error creating/updating user:', error);
-      throw error;
-    }
-  }
-
   static async createUser(userData) {
     try {
       await connectToDatabase();
@@ -217,9 +148,8 @@ export class UserManagementService {
         status: userData.status || USER_STATUS.PENDING,
         phoneNumber: userData.phoneNumber || '',
         address: userData.address || {},
-        shopifyId: userData.shopifyId || null,
         providers: userData.providers || {},
-        primaryProvider: userData.primaryProvider || AUTH_PROVIDERS.SHOPIFY,
+        primaryProvider: userData.primaryProvider || AUTH_PROVIDERS.EMAIL,
         createdAt: new Date(),
         updatedAt: new Date(),
         lastSignIn: new Date(),
@@ -233,38 +163,6 @@ export class UserManagementService {
       return { ...newUser, _id: result.insertedId };
     } catch (error) {
       console.error('Error creating user:', error);
-      throw error;
-    }
-  }
-
-  static async updateUserShopifyData(userID, shopifyData) {
-    try {
-      await connectToDatabase();
-      const updateData = {
-        'providers.shopify.id': shopifyData.shopifyId,
-        'providers.shopify.customerAccessToken': shopifyData.customerAccessToken,
-        'providers.shopify.lastSignIn': new Date(),
-        'providers.shopify.verified': true,
-        shopifyId: shopifyData.shopifyId,
-        lastSignIn: new Date(),
-        updatedAt: new Date()
-      };
-
-      if (shopifyData.shopifyData) {
-        updateData.shopifyData = shopifyData.shopifyData;
-      }
-
-      const { db } = await connectToDatabase();
-      const result = await db.collection('users').updateOne(
-        { userID: userID },
-        { $set: updateData }
-      );
-
-      if (result.matchedCount === 0) throw new Error('User not found');
-      console.log(`✅ Updated Shopify data for user: ${userID}`);
-      return result;
-    } catch (error) {
-      console.error('Error updating user Shopify data:', error);
       throw error;
     }
   }

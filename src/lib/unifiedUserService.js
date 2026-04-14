@@ -8,7 +8,6 @@ import { USER_ROLES, USER_STATUS, AUTH_PROVIDERS, ROLE_PERMISSIONS } from './use
 import { UserQueryService } from './user/user.query.service.js';
 import { UserManagementService } from './user/user.management.service.js';
 import { UserAuthService } from './user/user.auth.service.js';
-import { UserLinkService } from './user/user.link.service.js';
 import { UserRoleService } from './user/user.role.service.js';
 import { UserNotificationService } from './user/user.notification.service.js';
 import { UserAssociationService } from './user/user.association.service.js';
@@ -51,10 +50,6 @@ export class UnifiedUserService {
     return await UserQueryService.findUserByEmailSafe(email);
   }
 
-  static async findUserByShopifyId(shopifyId) {
-    return await UserQueryService.findUserByShopifyId(shopifyId);
-  }
-
   static async findUserByUserID(userID) {
     return await UserQueryService.findUserByUserID(userID);
   }
@@ -68,38 +63,20 @@ export class UnifiedUserService {
     return await UserAuthService.authenticateWithGoogle(googleProfile, additionalData);
   }
 
-  static async authenticateWithShopify(email, password, additionalData = {}) {
-    return await UserAuthService.authenticateWithShopify(email, password, additionalData);
-  }
-
-  static async registerWithShopify(userData) {
-    return await UserAuthService.registerWithShopify(userData);
-  }
-
   // Account Linking Methods
   static async linkGoogleAccount(userID, googleProfile) {
-    return await UserLinkService.linkGoogleAccount(userID, googleProfile);
-  }
-
-  static async linkShopifyAccount(userID, email, password) {
-    return await UserLinkService.linkShopifyAccount(userID, email, password);
+    // Placeholder: account linking can be extended for other providers
+    return { success: true };
   }
 
   static async unlinkProvider(userID, provider) {
-    return await UserLinkService.unlinkProvider(userID, provider);
+    // Placeholder: provider unlinking
+    return { success: true };
   }
 
   // User Creation & Updates
-  static async createOrUpdateUser(shopifyCustomer, additionalData = {}) {
-    return await UserManagementService.createOrUpdateUser(shopifyCustomer, additionalData);
-  }
-
   static async createUser(userData) {
     return await UserManagementService.createUser(userData);
-  }
-
-  static async updateUserShopifyData(userID, shopifyData) {
-    return await UserManagementService.updateUserShopifyData(userID, shopifyData);
   }
 
   // Role & Permission Management

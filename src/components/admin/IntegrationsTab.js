@@ -3,7 +3,6 @@ import React from 'react';
 import { Box, Alert, AlertTitle } from '@mui/material';
 import { useIntegrationsSettings } from '@/hooks/admin/useIntegrationsSettings';
 import StullerIntegrationPanel from './integrations/StullerIntegrationPanel';
-import ShopifyIntegrationPanel from './integrations/ShopifyIntegrationPanel';
 import SystemLogsPanel from './integrations/SystemLogsPanel';
 
 export default function IntegrationsTab() {
@@ -18,7 +17,6 @@ export default function IntegrationsTab() {
                 </Alert>
             )}
             <StullerIntegrationPanel settings={settings} setSettings={setSettings} saveSettings={saveSettings} testConnection={testConnection} loading={loading} />
-            <ShopifyIntegrationPanel settings={settings} setSettings={setSettings} saveSettings={saveSettings} testConnection={testConnection} loading={loading} />
             <SystemLogsPanel />
         </Box>
     );

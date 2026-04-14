@@ -1,7 +1,7 @@
 /**
  * Analytics Carousel Component
- * Shopify-style analytics with multiple chart views and adjustable timelines
- * Connects to real Shopify data via vendor analytics
+ * Analytics with multiple chart views and adjustable timelines
+ * Connects to real data via vendor analytics
  */
 
 'use client';
@@ -35,7 +35,13 @@ import {
     Tooltip,
     ResponsiveContainer
 } from 'recharts';
-import { TIMELINE_OPTIONS } from '@/lib/shopifyAnalyticsService';
+
+const TIMELINE_OPTIONS = [
+    { value: 'last_7_days', label: 'Last 7 Days' },
+    { value: 'last_30_days', label: 'Last 30 Days' },
+    { value: 'last_90_days', label: 'Last 90 Days' },
+    { value: 'last_365_days', label: 'Last Year' },
+];
 
 const CHART_CONFIGS = [
     {

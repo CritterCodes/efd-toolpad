@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { NotificationService } from '@/lib/notificationService';
+import { markNotificationAsRead } from '../../../../../../../lib/notificationService.js';
 
 /**
  * POST /api/admin/notifications/[notificationId]/read
@@ -9,23 +9,22 @@ import { NotificationService } from '@/lib/notificationService';
 export async function POST(request, { params }) {
   try {
     const { notificationId } = await params;
-    
+
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const success = await NotificationService.markAsRead(notificationId);
+    const result = await markNotificationAsRead(notificationId, session.user.userID);
 
-    if (!success) {
+    if (!result) {
       return NextResponse.json({ error: 'Notification not found' }, { status: 404 });
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Notification marked as read'
+      message: 'Notification marked as read',
     });
-
   } catch (error) {
     console.error('❌ Error marking notification as read:', error);
     return NextResponse.json(

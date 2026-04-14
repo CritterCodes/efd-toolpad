@@ -30,11 +30,11 @@ export const useAdminDashboard = () => {
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
 
-        const pendingReceipts = repairs.filter(r => r.status === 'pending-receipt' || r.status === 'received');
-        const inProgress = repairs.filter(r => r.status === 'in-progress' || r.status === 'repair-started');
-        const completed = repairs.filter(r => r.status === 'completed' || r.status === 'picked-up');
-        const qcRequired = repairs.filter(r => r.status === 'quality-control' || r.status === 'qc-review');
-        const readyForPickup = repairs.filter(r => r.status === 'ready-for-pickup' || r.status === 'payment-pending');
+        const pendingReceipts = repairs.filter(r => r.status === 'RECEIVING');
+        const inProgress = repairs.filter(r => r.status === 'IN PROGRESS');
+        const completed = repairs.filter(r => r.status === 'COMPLETED' || r.status === 'READY FOR PICK-UP');
+        const qcRequired = repairs.filter(r => r.status === 'QUALITY CONTROL');
+        const readyForPickup = repairs.filter(r => r.status === 'READY FOR PICK-UP');
         const rushJobs = repairs.filter(r => r.rushJob === true || r.priority === 'rush');
 
         // Calculate revenue for current month

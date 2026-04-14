@@ -16,8 +16,6 @@ import {
   Button
 } from '@mui/material';
 import {
-  ShoppingCart as ShopifyIcon,
-  Launch as LaunchIcon,
   ContentCopy as CopyIcon,
   Receipt as ReceiptIcon,
   Add as AddIcon
@@ -101,9 +99,8 @@ export default function InvoiceList({
             <TableRow key={index}>
               <TableCell>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  {invoice.shopifyOrderNumber && <ShopifyIcon fontSize="small" color="action" />}
                   <Typography variant="body2" fontWeight="medium">
-                    #{invoice.invoiceNumber || invoice.shopifyOrderNumber || `INV-${index + 1}`}
+                    #{invoice.invoiceNumber || `INV-${index + 1}`}
                   </Typography>
                 </Box>
               </TableCell>
@@ -133,22 +130,11 @@ export default function InvoiceList({
               </TableCell>
               <TableCell align="center">
                 <Box sx={{ display: 'flex', gap: 1 }}>
-                  {invoice.shopifyOrderUrl && (
-                    <Tooltip title="View in Shopify">
+                  {invoice.invoiceNumber && (
+                    <Tooltip title="Copy Invoice Number">
                       <IconButton
                         size="small"
-                        onClick={() => window.open(invoice.shopifyOrderUrl, '_blank')}
-                      >
-                        <LaunchIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-                  
-                  {invoice.shopifyOrderNumber && (
-                    <Tooltip title="Copy Order Number">
-                      <IconButton
-                        size="small"
-                        onClick={() => copyToClipboard(invoice.shopifyOrderNumber)}
+                        onClick={() => copyToClipboard(invoice.invoiceNumber)}
                       >
                         <CopyIcon fontSize="small" />
                       </IconButton>

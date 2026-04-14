@@ -63,7 +63,7 @@ const QualityControlDetailPage = () => {
     );
 
     const qcRepairs = useMemo(
-        () => repairs.filter((item) => item.status === 'quality_control'),
+        () => repairs.filter((item) => item.status === 'QUALITY CONTROL'),
         [repairs]
     );
 
@@ -107,7 +107,7 @@ const QualityControlDetailPage = () => {
             await RepairsService.completeQualityControl(repair.repairID || repair._id, qcData);
 
             updateRepair(repair.repairID, {
-                status: qcData.decision === 'APPROVE' ? 'ready_for_pickup' : 'ready_for_work',
+                status: qcData.decision === 'APPROVE' ? 'READY FOR PICK-UP' : 'READY FOR WORK',
                 qcData,
                 notes: qcData.notes,
                 updatedAt: new Date().toISOString(),

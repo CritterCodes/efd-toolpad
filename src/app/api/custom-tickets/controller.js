@@ -6,7 +6,6 @@
 
 import TicketCRUDController from './controllers/TicketCRUDController.js';
 import TicketStatusController from './controllers/TicketStatusController.js';
-import ShopifyController from './controllers/ShopifyController.js';
 import AnalyticsController from './controllers/AnalyticsController.js';
 
 export default class CustomTicketController {
@@ -44,20 +43,6 @@ export default class CustomTicketController {
 
   static async getStatusStatistics(request) {
     return await TicketStatusController.getStatusStatistics(request);
-  }
-
-  // ===== SHOPIFY OPERATIONS =====
-
-  static async createDepositOrder(ticketId, orderData) {
-    return await ShopifyController.createDepositOrder(ticketId, orderData);
-  }
-
-  static async createFinalOrder(ticketId, orderData) {
-    return await ShopifyController.createFinalOrder(ticketId, orderData);
-  }
-
-  static async linkShopifyOrder(ticketId, orderType, orderId) {
-    return await ShopifyController.linkShopifyOrder(ticketId, orderType, orderId);
   }
 
   // ===== ANALYTICS OPERATIONS =====

@@ -10,8 +10,8 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // For wholesalers, only return repairs they created
-    // For admins, they can see all repairs (but this endpoint is specifically for "my repairs")
+    // Use userID for lookup (falls back to email for legacy data)
+    const userId = session.user.userID || session.user.id;
     const userEmail = session.user.email;
     
     // Get status filter from query parameters
@@ -19,7 +19,7 @@ export async function GET(request) {
     const statusFilter = searchParams.get('status');
     
     // Get repairs created by this user, with optional status filtering
-    const repairs = await RepairsService.getRepairsByCreatorAndStatus(userEmail, statusFilter);
+    const repairs = await RepairsService.getRepairsByCreatorAndStatus(userId, userEmail, statusFilter);
     
     return NextResponse.json({ 
       success: true, 

@@ -2,9 +2,13 @@
 import { NextResponse } from "next/server";
 import { uploadRepairImage } from "@/utils/s3.util"; 
 import RepairsController from "./controller";
+import { requireRole, isAdmin } from "@/lib/apiAuth";
 
 export const POST = async (request) => {
     try {
+        const { session, errorResponse } = await requireRole(['admin', 'wholesaler', 'artisan']);
+        if (errorResponse) return errorResponse;
+
         console.log("📩 Incoming POST request received.");
         const contentType = request.headers.get("content-type");
         let repairData;
@@ -54,6 +58,8 @@ export const POST = async (request) => {
                 
                 // Business name for wholesale clients
                 businessName: formData.get("businessName") || '',
+                storeId: formData.get("storeId") || '',
+                storeName: formData.get("storeName") || '',
                 
                 // Workflow tracking fields
                 assignedJeweler: formData.get("assignedJeweler") || '',
@@ -62,6 +68,9 @@ export const POST = async (request) => {
                 completedBy: formData.get("completedBy") || '',
                 qcBy: formData.get("qcBy") || '',
                 qcDate: formData.get("qcDate") || null,
+                
+                // Status
+                status: formData.get("status") || 'RECEIVING',
                 
                 picture: imageUrl,
                 
@@ -127,6 +136,10 @@ export const POST = async (request) => {
 
         console.log("✅ Final Repair Data:", repairData);
 
+        // Attach creator info from authenticated session
+        repairData.createdBy = session.user.userID || session.user.id;
+        repairData.submittedBy = session.user.email;
+
         const newRepair = await RepairsController.createRepair(repairData);
 
         return NextResponse.json({ 
@@ -150,6 +163,9 @@ export const POST = async (request) => {
  */
 export const GET = async (req) => {
     try {
+        const { session, errorResponse } = await requireRole(['admin', 'wholesaler', 'artisan']);
+        if (errorResponse) return errorResponse;
+
         const { searchParams } = new URL(req.url);
         const repairID = searchParams.get("repairID");
 
@@ -170,6 +186,9 @@ export const GET = async (req) => {
  */
 export const PUT = async (req) => {
     try {
+        const { session, errorResponse } = await requireRole(['admin', 'wholesaler', 'artisan']);
+        if (errorResponse) return errorResponse;
+
         const { searchParams } = new URL(req.url);
         const repairID = searchParams.get("repairID");
 
@@ -199,6 +218,9 @@ export const PUT = async (req) => {
  */
 export const DELETE = async (req) => {
     try {
+        const { session, errorResponse } = await requireRole(['admin']);
+        if (errorResponse) return errorResponse;
+
         const { searchParams } = new URL(req.url);
         const repairID = searchParams.get("repairID");
 

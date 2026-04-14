@@ -1,5 +1,5 @@
 "use client";
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
     Box,
     Typography,
@@ -10,6 +10,7 @@ import {
     Alert
 } from '@mui/material';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { useRepairs } from '@/app/context/repairs.context';
 
 // Custom hooks
@@ -26,6 +27,7 @@ import { updateRepairStatus, savePendingMaterials, filterRepairsByStatus } from 
 import { PARTS_STATUSES } from './constants';
 
 const PartsPage = () => {
+    const { data: session, status: authStatus } = useSession();
     const { repairs, setRepairs } = useRepairs();
     const router = useRouter();
     
@@ -51,6 +53,14 @@ const PartsPage = () => {
         clearPendingParts,
         setSnackbarOpen
     } = usePartsManagement();
+
+    useEffect(() => {
+        if (authStatus !== 'loading' && (!session?.user || session.user.role !== 'admin')) {
+            router.push('/dashboard');
+        }
+    }, [authStatus, session, router]);
+
+    if (authStatus === 'loading' || !session?.user || session.user.role !== 'admin') return null;
 
     // Filter repairs based on active tab and search query
     const filteredRepairs = filterRepairsByStatus(repairs, activeTab, searchQuery);

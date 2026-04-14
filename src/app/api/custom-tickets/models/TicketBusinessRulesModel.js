@@ -154,8 +154,8 @@ export default class TicketBusinessRulesModel {
       }
 
       // Check if ticket has associated orders
-      if (ticket.shopifyOrders && ticket.shopifyOrders.length > 0) {
-        throw new Error('Cannot delete ticket with associated Shopify orders');
+      if (ticket.invoices && ticket.invoices.length > 0) {
+        throw new Error('Cannot delete ticket with associated invoices');
       }
 
       // Check if ticket has payments

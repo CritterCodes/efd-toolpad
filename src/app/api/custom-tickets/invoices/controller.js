@@ -68,4 +68,30 @@ export default class CustomTicketInvoicesController {
       }, { status });
     }
   }
+
+  static async updateInvoiceStatus(request) {
+    try {
+      const session = await auth();
+      if (!session?.user?.email) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+
+      const { invoiceId, status, ticketId } = await request.json();
+
+      if (!invoiceId || !status) {
+        return NextResponse.json({
+          error: 'Missing required fields: invoiceId, status'
+        }, { status: 400 });
+      }
+
+      const result = await CustomTicketInvoicesService.updateInvoiceStatus(invoiceId, status, ticketId);
+      return NextResponse.json(result);
+    } catch (error) {
+      console.error('Update invoice status error:', error);
+      const statusCode = error.status || 500;
+      return NextResponse.json({
+        error: error.message || 'Internal server error',
+      }, { status: statusCode });
+    }
+  }
 }

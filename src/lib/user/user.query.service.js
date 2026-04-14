@@ -66,17 +66,6 @@ export class UserQueryService {
     }
   }
 
-  static async findUserByShopifyId(shopifyId) {
-    try {
-      const { db } = await connectToDatabase();
-      const user = await db.collection('users').findOne({ shopifyId });
-      return user;
-    } catch (error) {
-      console.error('Error finding user by Shopify ID:', error);
-      throw error;
-    }
-  }
-
   static async findUserByUserID(userID) {
     try {
       console.log('🔍 findUserByUserID - Looking for userID:', userID);
@@ -107,17 +96,6 @@ export class UserQueryService {
       return user;
     } catch (error) {
       console.error(`Error finding user by ${provider} ID:`, error);
-      throw error;
-    }
-  }
-
-  static async getUserByToken(token) {
-    try {
-      const { db } = await connectToDatabase();
-      const user = await db.collection('users').findOne({ shopifyCustomerToken: token });
-      return user;
-    } catch (error) {
-      console.error('Error finding user by token:', error);
       throw error;
     }
   }

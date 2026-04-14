@@ -27,6 +27,7 @@ import PaymentIcon from "@mui/icons-material/Payment";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import PrintIcon from "@mui/icons-material/Print";
 import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
+import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 
 import { SHARED_NAVIGATION } from "./sharedNavigation";
 
@@ -109,6 +110,11 @@ export const adminNavigation = {
       title: 'Repairs',
       icon: <BuildIcon />,
       children: [
+        {
+          segment: 'pending-wholesale',
+          title: 'Wholesale Pickup',
+          icon: <NotificationsActiveIcon />
+        },
         {
           segment: 'receiving',
           title: 'Receiving',

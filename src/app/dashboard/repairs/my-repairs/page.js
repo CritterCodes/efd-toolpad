@@ -67,12 +67,12 @@ export default function MyRepairsPage() {
     if (activeTab === 0) return repairs; // All repairs
     if (activeTab === 1) { // Current repairs
       return repairs.filter(repair => 
-        !['completed', 'ready_for_pickup', 'cancelled'].includes(repair.status?.toLowerCase())
+        !['COMPLETED', 'READY FOR PICK-UP', 'CANCELLED'].includes(repair.status)
       );
     }
     if (activeTab === 2) { // Completed repairs
       return repairs.filter(repair => 
-        ['completed', 'ready_for_pickup'].includes(repair.status?.toLowerCase())
+        ['COMPLETED', 'READY FOR PICK-UP'].includes(repair.status)
       );
     }
     return repairs;
@@ -80,23 +80,23 @@ export default function MyRepairsPage() {
 
   const getCurrentRepairsCount = () => {
     return repairs.filter(repair => 
-      !['completed', 'ready_for_pickup', 'cancelled'].includes(repair.status?.toLowerCase())
+      !['COMPLETED', 'READY FOR PICK-UP', 'CANCELLED'].includes(repair.status)
     ).length;
   };
 
   const getCompletedRepairsCount = () => {
     return repairs.filter(repair => 
-      ['completed', 'ready_for_pickup'].includes(repair.status?.toLowerCase())
+      ['COMPLETED', 'READY FOR PICK-UP'].includes(repair.status)
     ).length;
   };
 
   const getStatusColor = (status) => {
     const statusColors = {
-      'received': 'info',
-      'in_progress': 'warning',
-      'ready_for_pickup': 'success',
-      'completed': 'success',
-      'on_hold': 'error'
+      'RECEIVING': 'info',
+      'IN PROGRESS': 'warning',
+      'READY FOR PICK-UP': 'success',
+      'COMPLETED': 'success',
+      'QUALITY CONTROL': 'secondary'
     };
     return statusColors[status] || 'default';
   };

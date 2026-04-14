@@ -1,4 +1,15 @@
 // repairs/actions.js
+
+const escapeHtml = (str) => {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+};
+
 export const bulkPrintReceivingRepairs = (repairs) => {
     // Filter repairs with status "RECEIVING"
     const receivingRepairs = repairs.filter(repair => repair.status === "RECEIVING");
@@ -20,12 +31,12 @@ export const bulkPrintReceivingRepairs = (repairs) => {
             <head>
                 <title>Bulk Print Repairs</title>
                 <style>
-                    @page { size: 4in 6in; margin: 0; }
+                    @page { size: 3.75in 5.75in; margin: 0; }
                     body { font-family: Arial, sans-serif; padding: 20px; }
                     .ticket-container {
                         padding: 30px;
-                        width: 4in;
-                        height: 6in;
+                        width: 3.75in;
+                        height: 5.75in;
                         border: 1px solid #000;
                         border-radius: 8px;
                         box-shadow: 0 0 5px rgba(0,0,0,0.1);
@@ -54,10 +65,10 @@ export const bulkPrintReceivingRepairs = (repairs) => {
                         <div class="repair-header">
                             <img src="/logos/[efd]500x250.png" alt="Logo" class="logo"/>
                             <div>
-                                <h2>${repair.clientName}</h2>
-                                <p><strong>Due Date:</strong> ${repair.promiseDate || 'N/A'}</p>
-                                <p><strong>Metal Type:</strong> ${repair.metalType || 'N/A'}</p>
-                                <p><strong>Description:</strong> ${repair.description}</p>
+                                <h2>${escapeHtml(repair.clientName)}</h2>
+                                <p><strong>Due Date:</strong> ${escapeHtml(repair.promiseDate || 'N/A')}</p>
+                                <p><strong>Metal Type:</strong> ${escapeHtml(repair.metalType || 'N/A')}</p>
+                                <p><strong>Description:</strong> ${escapeHtml(repair.description)}</p>
                             </div>
                         </div>
                         
@@ -69,7 +80,7 @@ export const bulkPrintReceivingRepairs = (repairs) => {
                             <p><strong>Tasks:</strong></p>
                             <ul>
                                 ${repair.repairTasks.map(task => `
-                                    <li>${task.qty}x ${task.title}</li>
+                                    <li>${escapeHtml(task.qty)}x ${escapeHtml(task.title)}</li>
                                 `).join('')}
                             </ul>
                         </div>
@@ -77,7 +88,7 @@ export const bulkPrintReceivingRepairs = (repairs) => {
                         <!-- Picture and Status Section -->
                         <div class="repair-header">
                             <div class="repair-image-section">
-                                ${repair.picture ? `<img src="${repair.picture}" class="repair-image"/>` : '<p>No Image Available</p>'}
+                                ${repair.picture ? `<img src="${escapeHtml(repair.picture)}" class="repair-image"/>` : '<p>No Image Available</p>'}
                             </div>
                             <div class="status-checklist">
                                 <p><strong>Status Checklist:</strong></p>
@@ -94,7 +105,7 @@ export const bulkPrintReceivingRepairs = (repairs) => {
 
                         <!-- Barcode Section -->
                         <div class="barcode">
-                            <p><strong>Repair ID: ${repair.repairID}</strong></p>
+                            <p><strong>Repair ID: ${escapeHtml(repair.repairID)}</strong></p>
                         </div>
                     </div>
                     <div class="divider"></div>

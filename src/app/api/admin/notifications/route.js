@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { NotificationService } from '@/lib/notificationService';
+import { getUserNotifications } from '../../../../../lib/notificationService.js';
 
 /**
  * GET /api/admin/notifications
@@ -17,20 +17,33 @@ export async function GET(request) {
     const limit = parseInt(searchParams.get('limit') || '50');
     const skip = parseInt(searchParams.get('skip') || '0');
     const status = searchParams.get('status');
-    const archived = searchParams.get('archived') === 'true';
+    const page = Math.floor(skip / limit) + 1;
 
-    const result = await NotificationService.getNotifications(session.user.userID, {
+    const result = await getUserNotifications(session.user.userID, {
       limit,
-      skip,
-      status,
-      archived
+      page,
+      unreadOnly: status === 'unread',
     });
+
+    // Flatten inApp.read to top-level read for frontend compatibility
+    const notifications = (result.notifications || []).map((n) => ({
+      ...n,
+      read: n.inApp?.read || false,
+      link: n.actionUrl || null,
+    }));
+
+    const unreadCount = notifications.filter((n) => !n.read).length;
 
     return NextResponse.json({
       success: true,
-      data: result
+      data: {
+        notifications,
+        total: result.pagination?.total || 0,
+        unreadCount,
+        page: result.pagination?.page || 1,
+        totalPages: result.pagination?.pages || 0,
+      },
     });
-
   } catch (error) {
     console.error('❌ Error fetching notifications:', error);
     return NextResponse.json(

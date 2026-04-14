@@ -17,8 +17,7 @@ import {
   CircularProgress
 } from '@mui/material';
 import {
-  Payment as PaymentIcon,
-  ShoppingCart as ShopifyIcon
+  Payment as PaymentIcon
 } from '@mui/icons-material';
 
 export default function CreateInvoiceDialog({
@@ -159,7 +158,7 @@ export default function CreateInvoiceDialog({
           </Grid>
 
           <Alert severity="info" sx={{ mt: 3 }}>
-            This will create a Shopify draft order and send a professional invoice to the customer.
+            This will create an invoice and send it to the customer.
             {paymentProgress && !paymentProgress.status?.hasReached50Percent && paymentType === 'to50percent' && (
               <strong> Production will begin once this payment is received!</strong>
             )}
@@ -178,9 +177,9 @@ export default function CreateInvoiceDialog({
           onClick={onCreate}
           variant="contained"
           disabled={creating || (!ticket?.customerEmail && !ticket?.clientInfo?.email) || (paymentType === 'custom' && !customAmount)}
-          startIcon={creating ? <CircularProgress size={16} /> : <ShopifyIcon />}
+          startIcon={creating ? <CircularProgress size={16} /> : <PaymentIcon />}
         >
-          {creating ? 'Creating...' : 'Create Shopify Invoice'}
+          {creating ? 'Creating...' : 'Create Invoice'}
         </Button>
       </DialogActions>
     </Dialog>

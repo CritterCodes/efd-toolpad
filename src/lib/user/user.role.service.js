@@ -166,7 +166,6 @@ export class UserRoleService {
 
       const newUser = {
         userID: uuidv4(),
-        shopifyId: null,
         firstName: userData.firstName,
         lastName: userData.lastName,
         email: userData.email,

@@ -18,6 +18,8 @@ export function useWholesaleRepairForm({
     });
 
     const [errors, setErrors] = useState({});
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [activeTab, setActiveTab] = useState(0);
     const [photoError, setPhotoError] = useState('');
 
     const handleInputChange = (field, value) => {
@@ -104,20 +106,22 @@ export function useWholesaleRepairForm({
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (!validateForm()) {
             return;
         }
 
-        const submissionData = {
-            ...formData,
-            status: isEditing ? formData.status : 'pending',
-            createdAt: isEditing ? formData.createdAt : new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        };
-
-        onSubmit(submissionData);
+        setIsSubmitting(true);
+        try {
+            const submissionData = { ...formData };
+            await onSubmit(submissionData);
+        } catch (error) {
+            console.error('Failed to submit repair:', error);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     
     return { formData, errors, isSubmitting, activeTab, setActiveTab, handleInputChange, handlePhotoUpload, removePhoto, handleSubmit };
+}

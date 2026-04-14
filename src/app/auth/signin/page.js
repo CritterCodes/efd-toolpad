@@ -1,118 +1,121 @@
-"use client";
-import React, { useState, Suspense } from "react";
-import { SignInPage } from "@toolpad/core/SignInPage";
-import { Link, Snackbar, Alert, Typography, Box } from "@mui/material";
-import { useSearchParams } from 'next/navigation';
-import { providerMap } from "@/lib/auth";
+'use client';
+
+import Link from "next/link";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
-import Image from 'next/image';
+import { AuthShell } from "@/components/auth";
+import styles from "@/components/auth/AuthForm.module.css";
 
-const ForgotPasswordLink = () => (
-    <Link href="/auth/forgot-password" underline="hover">
-        Forgot your password?
-    </Link>
-);
-
-const InternalAppNote = () => (
-    <Box sx={{ textAlign: 'center', mt: 2 }}>
-        <Typography variant="body2" color="text.secondary">
-            Internal Admin Access Only
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-            Contact your administrator for account access
-        </Typography>
-    </Box>
-);
-
-const SignInContent = () => {
+function SignInContent() {
     const searchParams = useSearchParams();
     const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
-    const [error, setError] = useState(null);
-    const [snackbarOpen, setSnackbarOpen] = useState(false);
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
 
-    const handleSignIn = async (provider, formData) => {
+    const handleSubmit = async (event) => {
+        event.preventDefault();
+        setError("");
+        setLoading(true);
+
         try {
-            const email = formData.get('email');
-            const password = formData.get('password');
-
-            // Call NextAuth signin
             const result = await signIn("credentials", {
                 email,
                 password,
                 redirect: false,
             });
 
-            // Handle errors
             if (result?.error === 'CredentialsSignin') {
                 setError("Invalid email or password");
-                setSnackbarOpen(true);
-                return { error: "Invalid email or password" };
-            }
-
-            if (result?.error) {
+            } else if (result?.error) {
                 setError(result.error);
-                setSnackbarOpen(true);
-                return { error: result.error };
-            }
-
-            // Success - redirect to dashboard
-            if (result?.ok) {
+            } else if (result?.ok) {
                 window.location.href = callbackUrl;
             }
-
-            return result;
-        } catch (error) {
-            console.error("Sign in error:", error);
+        } catch (err) {
+            console.error("Sign in error:", err);
             setError("An error occurred during sign in");
-            setSnackbarOpen(true);
-            return { error: "An error occurred during sign in" };
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
-        <>
-            <Box sx={{ 
-                minHeight: '100vh', 
-                display: 'flex', 
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                bgcolor: 'background.default'
-            }}>
+        <AuthShell
+            eyebrow="Welcome Back"
+            title="Sign in to your workspace"
+            description="Access repair intake, client management, and product tools."
+            footer={
+                <div className={styles.footerLinks}>
+                    <Link className={styles.textLink} href="/auth/forgot-password">
+                        Forgot password?
+                    </Link>
+                    <Link className={styles.textLink} href="https://shop.engelfinedesign.com/contact" target="_blank">
+                        Need support?
+                    </Link>
+                </div>
+            }
+        >
+            <form className={styles.formStack} onSubmit={handleSubmit}>
+                {error ? <div className={`${styles.message} ${styles.messageError}`}>{error}</div> : null}
 
-                <Box sx={{ width: '100%', maxWidth: '400px' }}>
-                    <SignInPage
-                        signIn={handleSignIn}
-                        providers={providerMap}
-                        slotProps={{
-                            forgotPasswordLink: ForgotPasswordLink,
-                            signUpLink: InternalAppNote,
-                            emailField: { autoFocus: true }
-                        }}
+                <div className={styles.pillRow}>
+                    <span className={styles.pill}>Internal access</span>
+                    <span className={styles.pill}>Admin &amp; Artisan</span>
+                </div>
+
+                <div className={styles.inputGroup}>
+                    <label className={styles.label} htmlFor="email">
+                        Email Address
+                    </label>
+                    <input
+                        autoComplete="email"
+                        autoFocus
+                        className={styles.input}
+                        id="email"
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@engelfinedesign.com"
+                        required
+                        type="email"
+                        value={email}
                     />
-                </Box>
-            </Box>
+                </div>
 
-            <Snackbar
-                open={snackbarOpen}
-                autoHideDuration={6000}
-                onClose={() => setSnackbarOpen(false)}
-                anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-            >
-                <Alert onClose={() => setSnackbarOpen(false)} severity="error" sx={{ width: '100%' }}>
-                    {error}
-                </Alert>
-            </Snackbar>
-        </>
+                <div className={styles.inputGroup}>
+                    <div className={styles.labelRow}>
+                        <label className={styles.label} htmlFor="password">
+                            Password
+                        </label>
+                        <Link className={styles.helperLink} href="/auth/forgot-password">
+                            Forgot?
+                        </Link>
+                    </div>
+                    <input
+                        autoComplete="current-password"
+                        className={styles.input}
+                        id="password"
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Enter your password"
+                        required
+                        type="password"
+                        value={password}
+                    />
+                </div>
+
+                <button className={styles.submitButton} disabled={loading} type="submit">
+                    {loading ? "Signing In..." : "Sign In"}
+                </button>
+            </form>
+        </AuthShell>
     );
-};
+}
 
-const SignIn = () => {
+export default function SignInPage() {
     return (
-        <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>Loading...</Box>}>
+        <Suspense fallback={null}>
             <SignInContent />
         </Suspense>
     );
-};
-
-export default SignIn;
+}

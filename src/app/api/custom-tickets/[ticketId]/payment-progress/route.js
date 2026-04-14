@@ -34,8 +34,8 @@ export async function GET(request, { params }) {
       .toArray();
 
     // Calculate payment progress
-    const paidInvoices = invoices.filter(inv => inv.paidAt || inv.shopifyOrderStatus === 'paid');
-    const pendingInvoices = invoices.filter(inv => !inv.paidAt && inv.shopifyOrderStatus !== 'paid');
+    const paidInvoices = invoices.filter(inv => inv.paidAt || inv.status === 'paid');
+    const pendingInvoices = invoices.filter(inv => !inv.paidAt && inv.status !== 'paid');
     
     const totalPaid = paidInvoices.reduce((sum, inv) => sum + (inv.amount || 0), 0);
     const totalPending = pendingInvoices.reduce((sum, inv) => sum + (inv.amount || 0), 0);
@@ -73,10 +73,7 @@ export async function GET(request, { params }) {
         createdAt: inv.createdAt,
         paidAt: inv.paidAt,
         description: inv.description,
-        shopifyOrderNumber: inv.shopifyOrderNumber,
-        shopifyOrderUrl: inv.shopifyOrderUrl,
-        shopifyOrderStatus: inv.shopifyOrderStatus,
-        isPaid: !!(inv.paidAt || inv.shopifyOrderStatus === 'paid')
+        isPaid: !!(inv.paidAt || inv.status === 'paid')
       }))
     });
 

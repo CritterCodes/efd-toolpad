@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { auth } from '@/lib/auth';
+import { NotificationService, NOTIFICATION_TYPES } from '@/lib/notificationService';
 
 /**
  * POST /api/cad-requests/[id]/approve
@@ -115,6 +116,28 @@ export async function POST(request, { params }) {
         );
 
         console.log('✅ CAD request approved and design added to gemstone');
+
+        // Notify designer of approval
+        try {
+          await NotificationService.createNotification({
+            userId: cadRequest.designerId || cadRequest.claimedBy,
+            type: NOTIFICATION_TYPES.CAD_GLB_APPROVED,
+            title: 'Design Approved',
+            message: `Your design for "${gemstone.title || gemstone.productId}" has been approved!`,
+            channels: ['inApp', 'email'],
+            templateName: 'cad-design-approved',
+            recipientEmail: cadRequest.designerEmail || cadRequest.claimedByEmail,
+            data: {
+              designTitle: approvedDesign.title,
+              gemstoneTitle: gemstone.title || gemstone.productId,
+              approvalNotes: approvalNotes || '',
+              userRole: 'artisan',
+              relatedType: 'cad-request',
+            },
+          });
+        } catch (notifError) {
+          console.error('⚠️ Failed to send CAD approval notification:', notifError.message);
+        }
 
         return NextResponse.json({
             success: true,

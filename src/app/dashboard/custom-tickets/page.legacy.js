@@ -35,8 +35,7 @@ export default function CustomTicketsPage() {
     type: '',
     status: '',
     paymentReceived: '',
-    cardPaymentStatus: '',
-    hasShopifyOrders: false
+    cardPaymentStatus: ''
   });
   const [summary, setSummary] = React.useState(null);
   
@@ -52,7 +51,6 @@ export default function CustomTicketsPage() {
       if (filters.status) params.append('status', filters.status);
       if (filters.paymentReceived !== '') params.append('paymentReceived', filters.paymentReceived);
       if (filters.cardPaymentStatus) params.append('cardPaymentStatus', filters.cardPaymentStatus);
-      if (filters.hasShopifyOrders) params.append('hasShopifyOrders', 'true');
 
       const response = await fetch(`/api/custom-tickets?${params.toString()}`);
       const result = await response.json();
@@ -118,8 +116,7 @@ export default function CustomTicketsPage() {
       type: '',
       status: '',
       paymentReceived: '',
-      cardPaymentStatus: '',
-      hasShopifyOrders: false
+      cardPaymentStatus: ''
     });
     setSearchQuery('');
   };

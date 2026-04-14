@@ -4,7 +4,7 @@
 
 export const providerMap = [
     {
-        id: 'shopify-customer',
+        id: 'credentials',
         name: 'Email & Password'
     }
 ];

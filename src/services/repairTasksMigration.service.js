@@ -56,7 +56,7 @@ export class RepairTasksMigrationService {
         originalSku: repairTask.sku,
         originalVendor: repairTask.vendor,
         originalTags: repairTask.tags || [],
-        originalShopifyProductId: repairTask.shopifyProductId,
+        originalProductId: repairTask.shopifyProductId || repairTask.productId,
         migratedAt: new Date()
       }
     };

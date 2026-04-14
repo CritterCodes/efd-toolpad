@@ -196,17 +196,6 @@ export default function CustomTicketFilters({
                     </Select>
                 </FormControl>
 
-                {/* Shopify Orders Checkbox */}
-                <FormControlLabel
-                    control={
-                        <Checkbox
-                            checked={filters.hasShopifyOrders}
-                            onChange={(e) => setFilters(prev => ({ ...prev, hasShopifyOrders: e.target.checked }))}
-                        />
-                    }
-                    label="Has Shopify Orders"
-                />
-
                 {/* Clear Filters Button */}
                 <Button 
                     variant="outlined" 

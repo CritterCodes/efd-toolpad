@@ -24,7 +24,6 @@ export default class TicketQueryController {
         priority: searchParams.get('priority'),
         paymentReceived: searchParams.get('paymentReceived') === 'true',
         cardPaymentStatus: searchParams.get('cardPaymentStatus'),
-        hasShopifyOrders: searchParams.get('hasShopifyOrders') === 'true',
         assignedArtisan: searchParams.get('assignedArtisan'), // Filter by assigned artisan
         dateFrom: searchParams.get('dateFrom'),
         dateTo: searchParams.get('dateTo'),

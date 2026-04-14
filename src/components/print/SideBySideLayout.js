@@ -7,10 +7,9 @@ const SideBySideLayout = ({ children }) => {
             sx={{
                 display: 'flex',
                 width: '100%',
-                height: '100vh',
+                height: '100%',
                 '@media print': {
-                    height: 'auto',
-                    minHeight: '100vh',
+                    height: '100%',
                 },
                 gap: 0,
             }}

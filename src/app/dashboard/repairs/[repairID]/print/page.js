@@ -93,16 +93,42 @@ const PrintRepairTicket = () => {
             <style jsx global>{`
                 @media print {
                     @page {
-                        size: 8in 6in landscape;
-                        margin: 0.1in;
+                        size: 7.5in 5.75in;
+                        margin: 0;
                     }
+                    /* Hide everything outside the print container */
                     body {
                         -webkit-print-color-adjust: exact;
                         print-color-adjust: exact;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                    }
+                    /* Hide sidebar, header, nav, breadcrumbs */
+                    nav, header, aside,
+                    .MuiDrawer-root,
+                    .MuiAppBar-root,
+                    .MuiBreadcrumbs-root {
+                        display: none !important;
+                    }
+                    /* Hide everything that isn't the print container */
+                    body > * {
+                        visibility: hidden;
+                    }
+                    body .print-container,
+                    body .print-container * {
+                        visibility: visible;
                     }
                     .print-container {
-                        max-width: none !important;
-                        width: 100% !important;
+                        position: absolute !important;
+                        top: 0 !important;
+                        left: 0 !important;
+                        width: 7.5in !important;
+                        height: 5.75in !important;
+                        max-width: 7.5in !important;
+                        max-height: 5.75in !important;
+                        overflow: hidden !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
                     }
                 }
             `}</style>
@@ -164,18 +190,15 @@ const SideBySideLayoutContainer = ({ repair, maxItemsPerPage }) => {
             className="print-container"
             sx={{
                 display: 'flex',
-                width: '100%',
-                maxWidth: '7.5in',
-                height: 'auto',
-                maxHeight: '5.75in',
+                width: '7.5in',
+                height: '5.75in',
                 margin: '0 auto',
-                fontSize: '0.8rem',
+                overflow: 'hidden',
                 '@media print': {
                     margin: '0',
-                    width: '100%',
-                    maxWidth: '7.5in',
-                    maxHeight: '5.75in',
-                    fontSize: '0.75rem',
+                    width: '7.5in',
+                    height: '5.75in',
+                    overflow: 'hidden',
                     pageBreakInside: 'avoid',
                 },
             }}
@@ -192,8 +215,8 @@ const SideBySideLayoutContainer = ({ repair, maxItemsPerPage }) => {
 const RepairTicketContainer = ({ repair, needsMultiplePages, maxItemsPerPage }) => {
     return (
         <Box sx={{ 
-            width: '4in', 
-            height: '6in', 
+            width: '3.75in', 
+            height: '5.75in', 
             margin: '0 auto',
             '@media print': { margin: '0' }
         }}>
@@ -206,8 +229,8 @@ const RepairTicketContainer = ({ repair, needsMultiplePages, maxItemsPerPage }) 
 const ClientReceiptContainer = ({ repair }) => {
     return (
         <Box sx={{ 
-            width: '8.5in', 
-            minHeight: '11in', 
+            width: '3.75in', 
+            minHeight: '5.75in', 
             margin: '0 auto',
             '@media print': { margin: '0' }
         }}>

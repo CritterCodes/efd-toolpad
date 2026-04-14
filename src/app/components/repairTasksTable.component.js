@@ -14,7 +14,7 @@ import AddIcon from '@mui/icons-material/Add';
 import tasksService from '@/services/tasks.service';
 
 const RepairTasksTable = ({ repairTasks, onEdit, isWholesale, selectedMetal }) => {
-    const [shopifyTasks, setShopifyTasks] = useState([]);
+    const [allTasks, setAllTasks] = useState([]);
     const [uniqueTasks, setUniqueTasks] = useState([]);
     const [taskSearch, setTaskSearch] = useState('');
     const [metalType, setMetalType] = useState(null);
@@ -31,7 +31,7 @@ const RepairTasksTable = ({ repairTasks, onEdit, isWholesale, selectedMetal }) =
                         return acc;
                     }, []);
                     setUniqueTasks(uniqueTasks);
-                    setShopifyTasks(response);
+                    setAllTasks(response);
                 } else {
                     console.error("API response is not an array:", response);
                 }
@@ -150,7 +150,7 @@ const RepairTasksTable = ({ repairTasks, onEdit, isWholesale, selectedMetal }) =
             if (selectedTask) {
                 console.log("selectedTask", selectedTask);
                 const selectedSku = buildSku(selectedTask.sku);
-                const correctTask = shopifyTasks.find((t) => t.sku === selectedSku);
+                const correctTask = allTasks.find((t) => t.sku === selectedSku);
     
                 if (correctTask) {
                     updatedTasks[index] = {

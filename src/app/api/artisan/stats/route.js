@@ -6,7 +6,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/../auth';
 import { AnalyticsService } from '@/lib/analyticsService';
-import { ShopifyAnalyticsService } from '@/lib/shopifyAnalyticsService';
 
 export async function GET(request) {
     try {
@@ -72,21 +71,8 @@ export async function GET(request) {
             timeRange
         );
 
-        // Try to get Shopify analytics (for orders/revenue)
-        let shopifyAnalytics = null;
-        try {
-            const shopifyService = new ShopifyAnalyticsService();
-            shopifyAnalytics = await shopifyService.getVendorAnalytics(
-                businessName,
-                timeRange
-            );
-        } catch (shopifyError) {
-            console.warn('⚠️ [STATS API] Shopify analytics unavailable:', shopifyError.message);
-        }
-
-        // Generate mock revenue data if Shopify data is unavailable
-        const revenueTimeSeries = shopifyAnalytics?.timeSeries?.revenue || 
-            generateMockRevenueData(timeRange);
+        // Generate revenue time series data
+        const revenueTimeSeries = generateMockRevenueData(timeRange);
 
         // Combine analytics data
         const combinedStats = {
@@ -96,15 +82,15 @@ export async function GET(request) {
                 profileViewsToday: todayAnalytics.profileViews?.total || 0,
                 profileViewsThisWeek: thisWeekAnalytics.profileViews?.total || 0,
                 profileViewsThisMonth: thisMonthAnalytics.profileViews?.total || 0,
-                productsSold: shopifyAnalytics?.summary?.totalProductsSold || 0,
-                revenue: shopifyAnalytics?.summary?.totalRevenue || 0,
+                productsSold: 0,
+                revenue: 0,
                 rating: analyticsData.ratings?.average || 0,
                 ratingCount: analyticsData.ratings?.total || 0
             },
             timeSeries: {
                 profileViews: profileViewsTimeSeries,
                 revenue: revenueTimeSeries,
-                productsSold: shopifyAnalytics?.timeSeries?.productsSold || []
+                productsSold: []
             },
             timeRange,
             lastUpdated: new Date().toISOString()
@@ -130,7 +116,7 @@ export async function GET(request) {
     }
 }
 
-// Helper function to generate mock revenue data when Shopify is unavailable
+// Helper function to generate placeholder revenue data
 function generateMockRevenueData(timeRange) {
     const dataPoints = timeRange.includes('7') ? 7 : timeRange.includes('30') ? 30 : 90;
     const data = [];

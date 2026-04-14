@@ -1,5 +1,6 @@
 import { auth } from '@/lib/auth';
 import { connectDB } from '@/lib/database';
+import { NotificationService, NOTIFICATION_TYPES } from '@/lib/notificationService';
 
 export async function POST(req, { params }) {
   try {
@@ -40,6 +41,28 @@ export async function POST(req, { params }) {
     }
 
     console.log('✅ Product declined:', productId);
+
+    // Send decline notification to artisan
+    try {
+      await NotificationService.createNotification({
+        userId: product.artisanId,
+        type: NOTIFICATION_TYPES.PRODUCT_REJECTED,
+        title: 'Product Not Approved',
+        message: `Your product "${product.title}" was not approved: ${notes}`,
+        channels: ['inApp', 'email'],
+        templateName: 'product-rejected',
+        recipientEmail: product.artisanEmail,
+        data: {
+          productTitle: product.title,
+          productId: productId,
+          reason: notes,
+          userRole: 'artisan',
+          relatedType: 'product',
+        },
+      });
+    } catch (notifError) {
+      console.error('⚠️ Failed to send decline notification:', notifError.message);
+    }
 
     // TODO: Send notification to artisan about decline reason
 

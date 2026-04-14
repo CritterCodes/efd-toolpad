@@ -70,14 +70,6 @@ export class TicketCRUDService {
         query.cardPaymentStatus = searchFilters.cardPaymentStatus;
       }
 
-      // Shopify orders filter with proper boolean handling
-      if (searchFilters.hasShopifyOrders !== undefined) {
-        query.$or = [
-          { 'shopifyOrders.0': { $exists: searchFilters.hasShopifyOrders } },
-          { shopifyOrders: { $exists: false } }
-        ];
-      }
-
       // Date range filter
       if (searchFilters.dateFrom || searchFilters.dateTo) {
         query.createdAt = {};

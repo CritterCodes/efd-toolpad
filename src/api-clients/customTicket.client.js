@@ -215,54 +215,6 @@ export class CustomTicketAPIClient {
       throw new Error(`Failed to fetch summary: ${error.message}`);
     }
   }
-
-  /**
-   * Create Shopify deposit order
-   */
-  static async createDepositOrder(ticketId, orderData) {
-    try {
-      const response = await fetch(`${this.baseURL}/${ticketId}/create-deposit-order`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(orderData),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP Error: ${response.status} - ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('CustomTicketAPIClient.createDepositOrder error:', error);
-      throw new Error(`Failed to create deposit order: ${error.message}`);
-    }
-  }
-
-  /**
-   * Create Shopify final order
-   */
-  static async createFinalOrder(ticketId, orderData) {
-    try {
-      const response = await fetch(`${this.baseURL}/${ticketId}/create-final-order`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(orderData),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP Error: ${response.status} - ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('CustomTicketAPIClient.createFinalOrder error:', error);
-      throw new Error(`Failed to create final order: ${error.message}`);
-    }
-  }
 }
 
 export default CustomTicketAPIClient;

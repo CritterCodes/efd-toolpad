@@ -1,8 +1,12 @@
 import { db } from "@/lib/database";
+import { requireRole } from "@/lib/apiAuth";
 
 // ✅ Add or update parts for specific repairs
 export const PUT = async (req) => {
     try {
+        const { session, errorResponse } = await requireRole(['admin', 'artisan']);
+        if (errorResponse) return errorResponse;
+
         const { repairID, parts } = await req.json();
 
         if (!repairID || !parts || parts.length === 0) {
@@ -30,6 +34,9 @@ export const PUT = async (req) => {
 // ✅ Add a single part to a repair (without replacing the whole array)
 export const POST = async (req) => {
     try {
+        const { session, errorResponse } = await requireRole(['admin', 'artisan']);
+        if (errorResponse) return errorResponse;
+
         const { repairID, part } = await req.json();
 
         if (!repairID || !part || !part.partName || !part.sku) {
@@ -78,6 +85,9 @@ export const POST = async (req) => {
 // ✅ Delete a part from a repair
 export const DELETE = async (req) => {
     try {
+        const { session, errorResponse } = await requireRole(['admin', 'artisan']);
+        if (errorResponse) return errorResponse;
+
         const { repairID, partSKU } = await req.json();
 
         if (!repairID || !partSKU) {
@@ -105,6 +115,9 @@ export const DELETE = async (req) => {
 // ✅ Fetch parts for a specific repair
 export const GET = async (req) => {
     try {
+        const { session, errorResponse } = await requireRole(['admin', 'wholesaler', 'artisan']);
+        if (errorResponse) return errorResponse;
+
         const { searchParams } = new URL(req.url);
         const repairID = searchParams.get("repairID");
 

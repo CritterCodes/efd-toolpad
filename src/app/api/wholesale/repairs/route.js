@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db } from '@/lib/database';
 import { auth } from "@/lib/auth";
 
 // GET /api/wholesale/repairs - Get repairs for a wholesaler
@@ -18,10 +18,24 @@ export async function GET(request) {
             return NextResponse.json({ error: 'Access denied' }, { status: 403 });
         }
 
-        const { db } = await connectToDatabase();
+        const dbInstance = await db.connect();
         
-        const repairs = await db.collection('wholesaleRepairs')
-            .find({ wholesalerId })
+        // Query unified repairs collection, filter by wholesaler
+        const query = { isWholesale: true };
+        if (session.user.role !== 'admin') {
+            query.userID = wholesalerId || session.user.id;
+        } else if (wholesalerId) {
+            query.userID = wholesalerId;
+        }
+
+        // Optional status filter
+        const status = searchParams.get('status');
+        if (status) {
+            query.status = status;
+        }
+        
+        const repairs = await dbInstance.collection('repairs')
+            .find(query)
             .sort({ createdAt: -1 })
             .toArray();
 
@@ -29,7 +43,7 @@ export async function GET(request) {
             success: true,
             repairs: repairs.map(repair => ({
                 ...repair,
-                id: repair._id.toString(),
+                id: repair._id?.toString() || repair.repairID,
                 _id: undefined
             }))
         });
@@ -69,19 +83,27 @@ export async function POST(request) {
             }
         }
 
-        const { db } = await connectToDatabase();
+        const dbInstance = await db.connect();
         
+        // Wholesaler submits → PENDING PICKUP (not yet at shop)
+        // Admin creates for wholesale account → RECEIVING (already in hand)
+        const initialStatus = session.user.role === 'admin' ? 'RECEIVING' : 'PENDING PICKUP';
+
         const newRepair = {
             ...repairData,
-            wholesalerId: repairData.wholesalerId || session.user.id,
+            repairID: `repair-${Date.now().toString(36)}`,
+            userID: repairData.wholesalerId || session.user.id,
+            isWholesale: true,
             wholesalerName: repairData.wholesalerName || session.user.name,
-            status: 'pending',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            createdBy: session.user.id
+            clientName: repairData.customerName,
+            status: initialStatus,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            createdBy: session.user.id,
+            submittedBy: session.user.email
         };
 
-        const result = await db.collection('wholesaleRepairs').insertOne(newRepair);
+        const result = await dbInstance.collection('repairs').insertOne(newRepair);
         
         return NextResponse.json({
             success: true,

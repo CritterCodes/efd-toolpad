@@ -89,12 +89,12 @@ export default class RepairsService {
     /**
      * ✅ Get repairs created by a specific user (for wholesaler view)
      */
-    static getRepairsByCreator = async (creatorEmail) => {
-        if (!creatorEmail) {
-            throw new Error("Creator email is required.");
+    static getRepairsByCreator = async (userId, userEmail) => {
+        if (!userId && !userEmail) {
+            throw new Error("User ID or email is required.");
         }
         try {
-            return await RepairsModel.findByCreator(creatorEmail);
+            return await RepairsModel.findByCreator(userId, userEmail);
         } catch (error) {
             console.error("Error in getRepairsByCreator:", error);
             throw new Error("Failed to fetch repairs by creator.");
@@ -104,12 +104,12 @@ export default class RepairsService {
     /**
      * ✅ Get repairs created by a specific user with status filtering
      */
-    static getRepairsByCreatorAndStatus = async (creatorEmail, statusFilter) => {
-        if (!creatorEmail) {
-            throw new Error("Creator email is required.");
+    static getRepairsByCreatorAndStatus = async (userId, userEmail, statusFilter) => {
+        if (!userId && !userEmail) {
+            throw new Error("User ID or email is required.");
         }
         try {
-            const repairs = await RepairsModel.findByCreator(creatorEmail);
+            const repairs = await RepairsModel.findByCreator(userId, userEmail);
             
             if (!statusFilter) {
                 return repairs;
@@ -118,11 +118,11 @@ export default class RepairsService {
             // Filter based on status categories
             if (statusFilter === 'current') {
                 return repairs.filter(repair => 
-                    !['completed', 'ready_for_pickup', 'cancelled'].includes(repair.status?.toLowerCase())
+                    !['COMPLETED', 'READY FOR PICK-UP', 'CANCELLED'].includes(repair.status)
                 );
             } else if (statusFilter === 'completed') {
                 return repairs.filter(repair => 
-                    ['completed', 'ready_for_pickup'].includes(repair.status?.toLowerCase())
+                    ['COMPLETED', 'READY FOR PICK-UP'].includes(repair.status)
                 );
             }
 

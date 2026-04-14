@@ -13,7 +13,6 @@ import {
 } from "@mui/material";
 import {
     Payment as PaymentIcon,
-    ShoppingCart as ShopifyIcon,
     LocalShipping as PickupIcon,
     Construction as ComingSoonIcon
 } from "@mui/icons-material";
@@ -73,15 +72,15 @@ const PaymentPickupPage = () => {
                 <Card>
                     <CardContent>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                            <ShopifyIcon color="primary" />
+                            <PaymentIcon color="primary" />
                             <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                                Shopify Order Creation
+                                Order Creation
                             </Typography>
                             <Chip label="Phase 1" color="primary" size="small" />
                         </Box>
                         <Typography variant="body2" color="text.secondary">
                             • Bundle completed repairs by customer<br/>
-                            • Automatically create Shopify orders with repair details<br/>
+                            • Automatically create orders with repair details<br/>
                             • Include all repair costs, taxes, and service fees<br/>
                             • Generate customer-friendly order summaries
                         </Typography>
@@ -145,7 +144,7 @@ const PaymentPickupPage = () => {
 
             <Alert severity="warning" sx={{ mt: 4 }}>
                 <Typography variant="body2">
-                    <strong>Current Workaround:</strong> Use the existing pickup status functionality and manual Shopify order creation until this feature is deployed.
+                    <strong>Current Workaround:</strong> Use the existing pickup status functionality and manual order creation until this feature is deployed.
                 </Typography>
             </Alert>
         </Box>

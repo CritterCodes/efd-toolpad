@@ -1,8 +1,12 @@
 import { db } from "@/lib/database";
+import { requireRole } from "@/lib/apiAuth";
 
 // server-side route for updating repairs
 export const PUT = async (req) => {
     try {
+        const { session, errorResponse } = await requireRole(['admin', 'artisan']);
+        if (errorResponse) return errorResponse;
+
         const { repairIDs, status } = await req.json();
 
         if (!repairIDs || repairIDs.length === 0 || !status) {

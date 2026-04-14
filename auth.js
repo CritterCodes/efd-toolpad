@@ -43,15 +43,15 @@ const providers = [
                 const user = await response.json();
                 
                 if (user) {
+                    // Check admin emails from environment config
+                    const adminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '').split(',').map(e => e.trim());
+                    const isAdmin = adminEmails.includes(user.email);
+                    
                     return {
                         userID: user.userID,
                         name: `${user.firstName} ${user.lastName}`,
                         email: user.email,
-                        
-                        // 🔥 EMERGENCY FIX: Force admin role for jacobaengel55@gmail.com
-                        role: user.email === 'jacobaengel55@gmail.com' 
-                            ? 'admin'  // Force admin role for your email
-                            : (user.role || 'admin'), // Use database role or fallback to admin
+                        role: isAdmin ? 'admin' : (user.role || 'client'),
                             
                         // Include artisan types for navigation
                         artisanTypes: user.artisanTypes || [],

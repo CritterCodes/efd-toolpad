@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; }
+    .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; }
+    .header { background-color: #1a1a2e; color: #d4af37; padding: 24px; text-align: center; }
+    .header h1 { margin: 0; font-size: 22px; }
+    .body { padding: 24px; color: #333; line-height: 1.6; }
+    .detail { background: #f9f9f9; padding: 16px; border-radius: 6px; margin: 16px 0; }
+    .detail p { margin: 4px 0; }
+    .success { background: #e8f5e9; color: #2e7d32; padding: 16px; border-radius: 6px; text-align: center; margin: 16px 0; font-weight: bold; }
+    .btn { display: inline-block; background: #d4af37; color: #1a1a2e; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 16px; }
+    .footer { padding: 16px 24px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Payment Received</h1>
+    </div>
+    <div class="body">
+      <div class="success">&#10003; Payment of ${{amount}} received</div>
+      <div class="detail">
+        <p><strong>Invoice:</strong> {{invoiceNumber}}</p>
+        <p><strong>Ticket:</strong> #{{ticketId}}</p>
+        <p><strong>Payment Progress:</strong> {{progressPercentage}}%</p>
+        {{#if remainingAmount}}
+        <p><strong>Remaining Balance:</strong> ${{remainingAmount}}</p>
+        {{/if}}
+      </div>
+      {{#if productionReady}}
+      <p><strong>Great news!</strong> Your project has reached the 50% payment threshold and production can begin.</p>
+      {{/if}}
+      {{#if ticketUrl}}
+      <a href="{{ticketUrl}}" class="btn">View Your Ticket</a>
+      {{/if}}
+    </div>
+    <div class="footer">
+      <p>Engel Fine Design &mdash; Custom Jewelry Crafted For You</p>
+      <p>Questions? Contact us at {{supportEmail}}</p>
+    </div>
+  </div>
+</body>
+</html>

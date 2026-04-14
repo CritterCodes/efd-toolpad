@@ -72,12 +72,6 @@ export const AdminSettingsProvider = ({ children }) => {
         enabled: false,
         apiKey: '',
         environment: 'sandbox'
-      },
-      shopify: {
-        enabled: false,
-        shopUrl: '',
-        accessToken: '',
-        apiVersion: '2023-10'
       }
     }
   }), []);
@@ -143,13 +137,6 @@ export const AdminSettingsProvider = ({ children }) => {
             apiUrl: data.stuller?.apiUrl || 'https://api.stuller.com',
             updateFrequency: data.stuller?.updateFrequency || 'monthly',
             hasPassword: !!data.stuller?.password
-          },
-          shopify: {
-            enabled: data.shopify?.enabled || false,
-            shopUrl: data.shopify?.shopUrl || '',
-            apiVersion: data.shopify?.apiVersion || '2025-07',
-            webhooksEnabled: data.shopify?.webhooksEnabled || false,
-            hasAccessToken: !!data.shopify?.accessToken
           }
         },
         

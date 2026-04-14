@@ -214,16 +214,21 @@ export const repairSchema = {
   // Status and workflow
   status: {
     type: 'string',
-    default: 'pending',
+    default: 'RECEIVING',
     enum: [
-      'pending',      // Just created, waiting to start
-      'in-progress',  // Work has begun
-      'waiting',      // Waiting for parts/customer approval
-      'quality-control', // In QC review
-      'completed',    // Work finished
-      'ready',        // Ready for pickup
-      'picked-up',    // Customer has picked up
-      'cancelled'     // Repair was cancelled
+      'RECEIVING',           // Just received, intake complete
+      'PENDING PICKUP',      // Wholesale: waiting for admin to pick up
+      'PICKUP REQUESTED',    // Wholesale: pickup requested
+      'pending',             // Legacy: just created
+      'in-progress',         // Work has begun
+      'waiting',             // Waiting for parts/customer approval
+      'quality-control',     // In QC review
+      'completed',           // Work finished
+      'COMPLETED',           // Work finished (uppercase variant)
+      'ready',               // Ready for pickup
+      'READY FOR PICK-UP',   // Ready for pickup (uppercase variant)
+      'picked-up',           // Customer has picked up
+      'cancelled'            // Repair was cancelled
     ],
     description: 'Current repair status'
   },
@@ -408,7 +413,7 @@ export const defaultRepairData = {
   includeDelivery: false,
   includeTax: false,
   // Status and workflow
-  status: 'pending',
+  status: 'RECEIVING',
   // Media
   picture: null,
   beforePhotos: [],

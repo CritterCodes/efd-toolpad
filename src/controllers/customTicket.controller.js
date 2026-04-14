@@ -157,40 +157,6 @@ export class CustomTicketController {
   }
 
   /**
-   * Link Shopify order to ticket
-   */
-  static async linkShopifyOrder(ticketId, orderType, orderId) {
-    try {
-      const database = await db.connect();
-      const collection = database.collection('customTickets');
-      
-      const fieldName = orderType === 'deposit' 
-        ? 'shopifyDepositOrderId' 
-        : 'shopifyFinalOrderId';
-      
-      const result = await collection.updateOne(
-        { ticketID: ticketId },
-        { 
-          $set: { 
-            [fieldName]: orderId,
-            updatedAt: new Date()
-          } 
-        }
-      );
-      
-      if (result.matchedCount === 0) {
-        throw new Error('Ticket not found');
-      }
-      
-      const updatedTicket = await collection.findOne({ ticketID: ticketId });
-      return { success: true, ticket: updatedTicket };
-    } catch (error) {
-      console.error('Controller error linking Shopify order:', error);
-      throw error;
-    }
-  }
-
-  /**
    * Delete ticket
    */
   static async deleteTicket(ticketId) {
@@ -233,25 +199,10 @@ export class CustomTicketController {
             },
             totalReimbursed: { $sum: { $ifNull: ['$amountPaidToCard', 0] } },
             totalQuoteValue: { $sum: { $ifNull: ['$quoteTotal', 0] } },
-            pendingDepositOrders: {
+            pendingInvoices: {
               $sum: {
                 $cond: [
-                  { $and: [
-                    { $eq: ['$shopifyDepositOrderId', null] },
-                    { $eq: ['$paymentReceived', true] }
-                  ]},
-                  1,
-                  0
-                ]
-              }
-            },
-            pendingFinalOrders: {
-              $sum: {
-                $cond: [
-                  { $and: [
-                    { $eq: ['$shopifyFinalOrderId', null] },
-                    { $ne: ['$shopifyDepositOrderId', null] }
-                  ]},
+                  { $eq: ['$paymentReceived', true] },
                   1,
                   0
                 ]
@@ -267,8 +218,7 @@ export class CustomTicketController {
         totalOutstanding: 0,
         totalReimbursed: 0,
         totalQuoteValue: 0,
-        pendingDepositOrders: 0,
-        pendingFinalOrders: 0
+        pendingInvoices: 0
       };
       
       return { success: true, summary };
@@ -289,12 +239,6 @@ export class CustomTicketController {
     }
     if (filters.cardPaymentStatus) {
       query.cardPaymentStatus = filters.cardPaymentStatus;
-    }
-    if (filters.hasShopifyOrders) {
-      query.$or = [
-        { shopifyDepositOrderId: { $exists: true, $ne: null } },
-        { shopifyFinalOrderId: { $exists: true, $ne: null } }
-      ];
     }
     if (filters.dateFrom || filters.dateTo) {
       query.createdAt = {};
