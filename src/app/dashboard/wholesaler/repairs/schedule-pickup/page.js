@@ -14,17 +14,6 @@ import {
 } from '@mui/icons-material';
 import { useWholesaleRepairs } from '@/hooks/wholesale/useWholesaleRepairs';
 
-function getPickupWindowStatus() {
-    const now = new Date();
-    const day = now.getDay(); // 0=Sun, 2=Tue, 4=Thu
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    const totalMinutes = hours * 60 + minutes;
-    const isPickupDay = day === 2 || day === 4;
-    const isPickupTime = totalMinutes >= 13 * 60 && totalMinutes <= 16 * 60 + 45;
-    return { isOpen: isPickupDay && isPickupTime, isPickupDay, isPickupTime };
-}
-
 export default function SchedulePickupPage() {
     const router = useRouter();
     const {
@@ -34,7 +23,6 @@ export default function SchedulePickupPage() {
     } = useWholesaleRepairs();
     const [actionLoading, setActionLoading] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-    const pickupWindow = getPickupWindowStatus();
 
     const handleAction = async (actionFn) => {
         setActionLoading(true);
@@ -66,15 +54,6 @@ export default function SchedulePickupPage() {
                 <Typography variant="h4">Schedule Pickup</Typography>
                 <Button startIcon={<RefreshIcon />} onClick={refresh} disabled={loading}>Refresh</Button>
             </Box>
-
-            <Alert severity={pickupWindow.isOpen ? 'success' : 'info'} sx={{ mb: 3 }}>
-                <strong>Pickup Window:</strong> Tuesdays &amp; Thursdays, 1:00 PM – 4:45 PM{' '}
-                {pickupWindow.isOpen
-                    ? '✓ Pickup requests are open right now.'
-                    : pickupWindow.isPickupDay
-                        ? '— Outside pickup hours today. Come back between 1:00 PM and 4:45 PM.'
-                        : '— Today is not a pickup day. Next pickup days: Tuesday or Thursday.'}
-            </Alert>
 
             {/* Stats Cards */}
             <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -110,9 +89,8 @@ export default function SchedulePickupPage() {
                         variant="contained"
                         color="error"
                         startIcon={actionLoading ? <CircularProgress size={18} color="inherit" /> : <PickupIcon />}
-                        disabled={selectedPendingCount === 0 || actionLoading || !pickupWindow.isOpen}
+                        disabled={selectedPendingCount === 0 || actionLoading}
                         onClick={() => handleAction(requestPickup)}
-                        title={!pickupWindow.isOpen ? 'Pickup requests are only available Tue/Thu 1:00 PM – 4:45 PM' : ''}
                     >
                         Request Pickup
                     </Button>

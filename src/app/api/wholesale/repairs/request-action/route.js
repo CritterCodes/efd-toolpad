@@ -25,25 +25,6 @@ export async function POST(request) {
             return NextResponse.json({ error: 'action must be "pickup" or "delivery"' }, { status: 400 });
         }
 
-        // Pickup requests only allowed Tue/Thu between 1:00pm–4:45pm
-        if (action === 'pickup') {
-            const now = new Date();
-            const day = now.getDay(); // 0=Sun, 2=Tue, 4=Thu
-            const hours = now.getHours();
-            const minutes = now.getMinutes();
-            const totalMinutes = hours * 60 + minutes;
-            const windowOpen = 13 * 60;      // 1:00 PM = 780
-            const windowClose = 16 * 60 + 45; // 4:45 PM = 1005
-            const isPickupDay = day === 2 || day === 4;
-            const isPickupTime = totalMinutes >= windowOpen && totalMinutes <= windowClose;
-
-            if (!isPickupDay || !isPickupTime) {
-                return NextResponse.json({
-                    error: 'Pickup requests are only available on Tuesdays and Thursdays between 1:00 PM and 4:45 PM.'
-                }, { status: 422 });
-            }
-        }
-
         const dbInstance = await db.connect();
         const now = new Date();
 
