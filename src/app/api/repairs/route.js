@@ -69,7 +69,7 @@ export const POST = async (request) => {
                 qcBy: formData.get("qcBy") || '',
                 qcDate: formData.get("qcDate") || null,
                 
-                // Status
+                // Status — wholesaler submissions start as PENDING PICKUP
                 status: formData.get("status") || 'RECEIVING',
                 
                 picture: imageUrl,
@@ -139,6 +139,11 @@ export const POST = async (request) => {
         // Attach creator info from authenticated session
         repairData.createdBy = session.user.userID || session.user.id;
         repairData.submittedBy = session.user.email;
+
+        // Wholesaler-created repairs start as PENDING PICKUP (not yet at shop)
+        if (session.user.role === 'wholesaler' && (!repairData.status || repairData.status === 'RECEIVING')) {
+            repairData.status = 'PENDING PICKUP';
+        }
 
         const newRepair = await RepairsController.createRepair(repairData);
 
