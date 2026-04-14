@@ -3,12 +3,18 @@ import { Box, Typography, List, ListItem } from '@mui/material';
 import Barcode from 'react-barcode';
 
 const RepairReceiptComponent = ({ repair }) => {
-    const allItems = [
+    const formalItems = [
         ...(repair.tasks || []).map(item => ({ ...item, type: 'Task' })),
         ...(repair.processes || []).map(item => ({ ...item, type: 'Process' })),
         ...(repair.materials || []).map(item => ({ ...item, type: 'Material', isStullerItem: item.isStullerItem })),
         ...(repair.customLineItems || []).map(item => ({ ...item, type: 'Custom' })),
         ...(repair.repairTasks || []).map(item => ({ ...item, type: 'Legacy Task' }))
+    ];
+
+    // Fallback for wholesale repairs that only have itemType/repairType
+    const allItems = formalItems.length > 0 ? formalItems : [
+        ...(repair.repairType ? [{ quantity: 1, title: repair.repairType, price: 0, type: 'Intake' }] : []),
+        ...(repair.specialInstructions ? [{ quantity: 1, title: repair.specialInstructions, price: 0, type: 'Note' }] : [])
     ];
 
     return (
@@ -74,9 +80,14 @@ const RepairReceiptComponent = ({ repair }) => {
                             Ring Size: {repair.currentRingSize || 'N/A'} → {repair.desiredRingSize || 'N/A'}
                         </Typography>
                     )}
-                    <Typography variant="body2" sx={{ fontSize: '0.6rem', marginBottom: '1px', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                    <Typography variant="body2" sx={{ fontSize: '0.6rem', marginBottom: '1px', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}>
                         Desc: {repair.description}
                     </Typography>
+                    {repair.smartIntakeInput && repair.smartIntakeInput !== repair.description && (
+                        <Typography variant="body2" sx={{ fontSize: '0.55rem', marginBottom: '1px', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                            Request: {repair.smartIntakeInput}
+                        </Typography>
+                    )}
                     {(repair.isRush || repair.includeDelivery) && (
                         <Typography variant="body2" sx={{ fontSize: '0.6rem', fontWeight: 'bold' }}>
                             {repair.isRush && <span style={{ color: 'red' }}>🚨 RUSH ORDER</span>}

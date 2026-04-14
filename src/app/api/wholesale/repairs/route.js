@@ -13,8 +13,8 @@ export async function GET(request) {
         const { searchParams } = new URL(request.url);
         const wholesalerId = searchParams.get('wholesaler');
 
-        // Ensure user can only access their own repairs (unless admin)
-        if (session.user.role !== 'admin' && session.user.id !== wholesalerId) {
+        // Non-admin users can only access their own repairs
+        if (session.user.role !== 'admin' && wholesalerId && session.user.id !== wholesalerId) {
             return NextResponse.json({ error: 'Access denied' }, { status: 403 });
         }
 
@@ -23,7 +23,7 @@ export async function GET(request) {
         // Query unified repairs collection, filter by wholesaler
         const query = { isWholesale: true };
         if (session.user.role !== 'admin') {
-            query.userID = wholesalerId || session.user.id;
+            query.userID = session.user.id;
         } else if (wholesalerId) {
             query.userID = wholesalerId;
         }
@@ -96,6 +96,7 @@ export async function POST(request) {
             isWholesale: true,
             wholesalerName: repairData.wholesalerName || session.user.name,
             clientName: repairData.customerName,
+            smartIntakeInput: repairData.description || '',
             status: initialStatus,
             createdAt: new Date(),
             updatedAt: new Date(),
