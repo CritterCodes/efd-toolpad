@@ -34,6 +34,19 @@ export const wholesaleRepairsClient = {
         return response.json();
     },
 
+    async receiveSingle(repairID) {
+        const response = await fetch('/api/wholesale/repairs/receive', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ repairIDs: [repairID] })
+        });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || 'Failed to receive repair');
+        }
+        return response.json();
+    },
+
     async requestAction(repairIDs, action) {
         const response = await fetch('/api/wholesale/repairs/request-action', {
             method: 'POST',
