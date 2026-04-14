@@ -35,26 +35,9 @@ export const wholesalerNavigation = {
   [USER_ROLES.WHOLESALER]: [
     SHARED_NAVIGATION.dashboard,
     {
-      segment: 'dashboard/repairs',
+      segment: 'dashboard/wholesaler/repairs',
       title: 'Repairs',
       icon: <BuildIcon />,
-      children: [
-        {
-          segment: 'new',
-          title: 'Create Repair',
-          icon: <BuildIcon />
-        },
-        {
-          segment: 'current',
-          title: 'Current Repairs',
-          icon: <ListIcon />
-        },
-        {
-          segment: 'completed',
-          title: 'Completed Repairs',
-          icon: <QualityIcon />
-        }
-      ]
     },
     {
       segment: 'dashboard/wholesaler/account-settings',
