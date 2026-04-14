@@ -23,9 +23,17 @@ export async function GET(request) {
         // Query unified repairs collection, filter by wholesaler
         const query = { isWholesale: true };
         if (session.user.role !== 'admin') {
-            query.userID = session.user.id;
+            // Match repairs where wholesaler is the owner (userID) OR the creator (createdBy)
+            query.$or = [
+                { userID: session.user.id },
+                { createdBy: session.user.id },
+                { createdBy: session.user.userID }
+            ];
         } else if (wholesalerId) {
-            query.userID = wholesalerId;
+            query.$or = [
+                { userID: wholesalerId },
+                { createdBy: wholesalerId }
+            ];
         }
 
         // Optional status filter
