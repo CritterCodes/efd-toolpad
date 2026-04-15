@@ -146,30 +146,34 @@ export async function POST(request) {
 
     const prompt = [
       'You are parsing jewelry repair intake text into structured data for form autofill.',
+      'The item could be ANY type of jewelry: ring, pendant, necklace, bracelet, chain, earring, watch, brooch, anklet, cufflinks, etc.',
       'Extract only what is explicitly present in the text and description.',
       'Return ONLY valid JSON with this exact shape:',
       '{',
       '  "metalType": "gold|silver|platinum|costume|",',
       '  "karat": "",',
       '  "goldColor": "yellow|white|rose|",',
-      '  "isRing": true,',
+      '  "isRing": false,',
       '  "currentRingSize": "",',
       '  "desiredRingSize": "",',
-      '  "taskHints": ["resize", "retip"],',
+      '  "taskHints": ["solder", "polish"],',
       '  "normalizedSummary": "",',
       '  "confidence": 0.0',
       '}',
       'Rules:',
+      '- CRITICAL: isRing must be true ONLY if the item is explicitly a ring or band. For pendants, necklaces, bracelets, chains, earrings, watches, brooches, or any non-ring item, isRing must be false.',
+      '- currentRingSize and desiredRingSize should ONLY be set if the item is a ring.',
       '- taskHints should be SHORT keywords that describe repair work.',
-      '- Examples: "resize", "size up", "size down", "resize with stones", "size with accent stones", "retip", "prong", "setting", "clean", "polish", "stone", "replace", "repair", "solder", "weld", "band", "shank"',
+      '- Ring examples: "resize", "size up", "size down", "resize with stones", "size with accent stones", "retip", "prong", "setting"',
+      '- Non-ring examples: "solder", "chain repair", "clasp repair", "restring", "clean", "polish", "stone replace", "weld", "refinish", "replating"',
       '- IMPORTANT: If the ring has accent stones or multiple stones (not just a center stone), prefer task hints like "resize with stones" or "size with stones" instead of just "resize"',
-      '- taskHints must be generic repair terms that could match task names like "Ring Sizing", "Ring Sizing with Stones", "Retip Setting", "Stone Setting", "Cleaning & Polishing"',
+      '- taskHints must be generic repair terms that could match task names like "Ring Sizing", "Ring Sizing with Stones", "Retip Setting", "Stone Setting", "Cleaning & Polishing", "Chain Repair", "Clasp Repair"',
       '- Return 1-3 task hints, NOT full task names',
       '- confidence must be between 0 and 1 (1.0 = very confident in parsing)',
       '- Use empty strings or empty arrays for unknown values.',
       '- Do not include markdown fences or extra commentary.',
       `Input text: ${inputText}`,
-      description ? `Ring description: ${description}` : ''
+      description ? `Item description: ${description}` : ''
     ].filter(Boolean).join('\n');
 
     let geminiPayload = null;

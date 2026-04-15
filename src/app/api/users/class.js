@@ -17,8 +17,8 @@ export default class User {
         status
     ) {
         // Basic validation
-        if (!firstName || !lastName || !email) {
-            throw new Error('firstName, lastName, and email are required');
+        if (!firstName || !lastName) {
+            throw new Error('firstName and lastName are required');
         }
         
         if (!role) {

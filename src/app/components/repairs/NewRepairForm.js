@@ -1739,6 +1739,14 @@ export default function NewRepairForm({
     }
   };
 
+  // Format phone number as (555) 123-4567
+  const formatPhoneNumber = (value) => {
+    const digits = value.replace(/\D/g, '').slice(0, 10);
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  };
+
   // Handle adding a new client
   const handleAddNewClient = async () => {
     setNewClientLoading(true);
@@ -1881,21 +1889,19 @@ export default function NewRepairForm({
     <Box sx={{ 
       maxWidth: 1000, 
       mx: 'auto',
-      px: { xs: 1, sm: 2 }, // Reduce padding on mobile
-      pb: { xs: 2, sm: 0 }  // Add bottom padding on mobile for scroll space
+      px: { xs: 0.5, sm: 2 },
+      pb: { xs: 10, sm: 2 }
     }}>
-      {/* Header */}
-
       {errors.submit && (
-        <Alert severity="error" sx={{ mb: 3 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
           {errors.submit}
         </Alert>
       )}
 
-      <Stack spacing={{ xs: 2, sm: 3 }}>
+      <Stack spacing={{ xs: 1.5, sm: 3 }}>
 
         {/* Client Information */}
-        <Card sx={{ borderRadius: 2, boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
+        <Card sx={{ borderRadius: { xs: 1, sm: 2 }, boxShadow: { xs: 1, sm: '0 2px 12px rgba(0,0,0,0.08)' } }}>
           <CardHeader 
             title="Client Information" 
             sx={{ 
@@ -1903,25 +1909,26 @@ export default function NewRepairForm({
               color: 'primary.contrastText',
               '& .MuiCardHeader-title': { 
                 fontWeight: 600,
-                fontSize: '1.1rem'
+                fontSize: { xs: '0.95rem', sm: '1.1rem' }
               }
             }}
           />
-          <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-            <Grid container spacing={2}>
+          <CardContent sx={{ p: { xs: 1.5, sm: 3 } }}>
+            <Grid container spacing={{ xs: 1.5, sm: 2 }}>
               {isWholesale ? (
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12}>
                 <TextField
                   fullWidth
+                  size="small"
                   label="Store"
                   value={formData.storeName || 'My Wholesale Store'}
                   InputProps={{ readOnly: true }}
-                  helperText="Your store is automatically set"
+                  helperText="Store selection controls wholesale pricing automatically"
                 />
               </Grid>
               ) : (
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
+              <Grid item xs={12}>
+                <FormControl fullWidth size="small">
                   <InputLabel>Store</InputLabel>
                   <Select
                     value={formData.storeId || 'engel-fine-design'}
@@ -1983,9 +1990,10 @@ export default function NewRepairForm({
                 </FormControl>
               </Grid>
               )}
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12}>
                 <Autocomplete
                     freeSolo
+                    size="small"
                     options={Array.isArray(availableUsers) ? availableUsers : []}
                     getOptionLabel={(option) => {
                       if (typeof option === 'string') return option;
@@ -2125,7 +2133,7 @@ export default function NewRepairForm({
                 </Box>
               </Grid>
               
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={6}>
                 <FormControl fullWidth>
                   <Stack direction="row" alignItems="center" spacing={1}>
                     <Typography>Rush Job</Typography>
@@ -2160,7 +2168,7 @@ export default function NewRepairForm({
                   )}
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={6}>
                 <FormControl fullWidth>
                   <Stack direction="row" alignItems="center" spacing={1}>
                     <Typography>Pricing Mode</Typography>
@@ -2176,7 +2184,7 @@ export default function NewRepairForm({
                 </FormControl>
               </Grid>
               
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={6}>
                 <FormControl fullWidth>
                   <Stack direction="row" alignItems="center" spacing={1}>
                     <Typography>Include Delivery</Typography>
@@ -2199,7 +2207,7 @@ export default function NewRepairForm({
                 </FormControl>
               </Grid>
               
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={6}>
                 {!formData.isWholesale ? (
                   <FormControl fullWidth>
                     <Stack direction="row" alignItems="center" spacing={1}>
@@ -2236,7 +2244,7 @@ export default function NewRepairForm({
 
         {/* Wholesaler Information Card */}
         {isWholesale && (
-          <Card sx={{ borderRadius: 2, boxShadow: '0 2px 12px rgba(0,0,0,0.08)', bgcolor: 'info.light' }}>
+          <Card sx={{ borderRadius: { xs: 1, sm: 2 }, boxShadow: { xs: 1, sm: '0 2px 12px rgba(0,0,0,0.08)' }, bgcolor: 'info.light' }}>
             <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
               <Typography variant={isMobile ? "subtitle1" : "h6"} gutterBottom color="info.dark">
                 📝 Wholesaler Repair Submission
@@ -2250,7 +2258,7 @@ export default function NewRepairForm({
         )}
 
         {/* Image Capture */}
-        <Card sx={{ borderRadius: 2, boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
+        <Card sx={{ borderRadius: { xs: 1, sm: 2 }, boxShadow: { xs: 1, sm: '0 2px 12px rgba(0,0,0,0.08)' } }}>
           <CardHeader 
             title="Item Photo"
             subheader="Take a photo with your camera or upload from file"
@@ -2259,7 +2267,7 @@ export default function NewRepairForm({
               color: 'info.contrastText',
               '& .MuiCardHeader-title': { 
                 fontWeight: 600,
-                fontSize: '1.1rem'
+                fontSize: { xs: '0.95rem', sm: '1.1rem' }
               },
               '& .MuiCardHeader-subheader': { 
                 color: 'info.contrastText',
@@ -2321,7 +2329,7 @@ export default function NewRepairForm({
         </Card>
 
         {/* Item Details */}
-        <Card sx={{ borderRadius: 2, boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
+        <Card sx={{ borderRadius: { xs: 1, sm: 2 }, boxShadow: { xs: 1, sm: '0 2px 12px rgba(0,0,0,0.08)' } }}>
           <CardHeader 
             title="Item Details" 
             sx={{ 
@@ -2329,15 +2337,16 @@ export default function NewRepairForm({
               color: 'secondary.contrastText',
               '& .MuiCardHeader-title': { 
                 fontWeight: 600,
-                fontSize: '1.1rem'
+                fontSize: { xs: '0.95rem', sm: '1.1rem' }
               }
             }}
           />
-          <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-            <Grid container spacing={2}>
+          <CardContent sx={{ p: { xs: 1.5, sm: 3 } }}>
+            <Grid container spacing={{ xs: 1.5, sm: 2 }}>
               <Grid item xs={12}>
                 <TextField
                   fullWidth
+                  size="small"
                   label="Smart Intake Input"
                   multiline
                   rows={2}
@@ -2382,9 +2391,10 @@ export default function NewRepairForm({
               <Grid item xs={12}>
                 <TextField
                   fullWidth
+                  size="small"
                   label="Description"
                   multiline
-                  rows={3}
+                  rows={2}
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   required
@@ -2393,11 +2403,12 @@ export default function NewRepairForm({
               
               {/* Promise Date - Hidden for wholesalers (admin will set it) */}
               {!isWholesale && (
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12}>
                   <TextField
                     fullWidth
                     label="Promise Date"
                     type="date"
+                    size="small"
                     value={formData.promiseDate}
                     onChange={(e) => setFormData(prev => ({ ...prev, promiseDate: e.target.value }))}
                     InputLabelProps={{ shrink: true }}
@@ -2406,15 +2417,12 @@ export default function NewRepairForm({
                 </Grid>
               )}
 
-              <Grid item xs={12} sm={6}>
-                {/* Spacer for grid alignment */}
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
+              <Grid item xs={6}>
+                <FormControl fullWidth size="small">
                   <InputLabel>Metal Type</InputLabel>
                   <Select
                     value={formData.metalType}
+                    label="Metal Type"
                     onChange={(e) => setFormData(prev => ({ 
                       ...prev, 
                       metalType: e.target.value,
@@ -2432,11 +2440,12 @@ export default function NewRepairForm({
               </Grid>
 
               {getKaratOptions().length > 0 && (
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
+                <Grid item xs={6}>
+                  <FormControl fullWidth size="small">
                     <InputLabel>Karat/Purity</InputLabel>
                     <Select
                       value={formData.karat}
+                      label="Karat/Purity"
                       onChange={(e) => setFormData(prev => ({ ...prev, karat: e.target.value }))}
                     >
                       {getKaratOptions().map(karat => (
@@ -2450,11 +2459,12 @@ export default function NewRepairForm({
               )}
 
               {formData.metalType === 'gold' && (
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
+                <Grid item xs={6}>
+                  <FormControl fullWidth size="small">
                     <InputLabel>Gold Color</InputLabel>
                     <Select
                       value={formData.goldColor}
+                      label="Gold Color"
                       onChange={(e) => setFormData(prev => ({ ...prev, goldColor: e.target.value }))}
                     >
                       {GOLD_COLORS.map((color) => (
@@ -2468,7 +2478,7 @@ export default function NewRepairForm({
               )}
 
               {/* Ring sizing toggle */}
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12}>
                 <FormControlLabel
                   control={
                     <Switch
@@ -2490,30 +2500,30 @@ export default function NewRepairForm({
               {formData.isRing && (
                 <>
                   <Grid item xs={12}>
-                    <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600, mt: 1 }}>
                       Ring Sizing
                     </Typography>
                     <Divider />
                   </Grid>
                   
-                  <Grid item xs={12} sm={6}>
+                  <Grid item xs={6}>
                     <Autocomplete
                       options={RING_SIZES}
                       value={formData.currentRingSize}
                       onChange={(e, value) => setFormData(prev => ({ ...prev, currentRingSize: value }))}
                       renderInput={(params) => (
-                        <TextField {...params} label="Current Ring Size" />
+                        <TextField {...params} label="Current Ring Size" size="small" />
                       )}
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={6}>
+                  <Grid item xs={6}>
                     <Autocomplete
                       options={RING_SIZES}
                       value={formData.desiredRingSize}
                       onChange={(e, value) => setFormData(prev => ({ ...prev, desiredRingSize: value }))}
                       renderInput={(params) => (
-                        <TextField {...params} label="Desired Ring Size" />
+                        <TextField {...params} label="Desired Ring Size" size="small" />
                       )}
                     />
                   </Grid>
@@ -2523,9 +2533,10 @@ export default function NewRepairForm({
               <Grid item xs={12}>
                 <TextField
                   fullWidth
+                  size="small"
                   label="Notes"
                   multiline
-                  rows={isMobile ? 3 : 2}
+                  rows={isMobile ? 2 : 3}
                   value={formData.notes}
                   onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                   placeholder="Customer notes, special instructions..."
@@ -2535,9 +2546,10 @@ export default function NewRepairForm({
               <Grid item xs={12}>
                 <TextField
                   fullWidth
+                  size="small"
                   label="Internal Notes"
                   multiline
-                  rows={isMobile ? 3 : 2}
+                  rows={isMobile ? 2 : 3}
                   value={formData.internalNotes}
                   onChange={(e) => setFormData(prev => ({ ...prev, internalNotes: e.target.value }))}
                   placeholder="Internal team notes, not visible to customer..."
@@ -2577,17 +2589,19 @@ export default function NewRepairForm({
       </Stack>
 
       {/* New Client Dialog */}
-      <Dialog 
-        open={showNewClientDialog} 
+      <Dialog
+        open={showNewClientDialog}
         onClose={newClientLoading ? undefined : () => setShowNewClientDialog(false)}
         maxWidth="sm"
         fullWidth
+        fullScreen={isMobile}
       >
         <DialogTitle>Add New Client</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
               fullWidth
+              size="small"
               label="First Name"
               value={newClientData.firstName}
               onChange={(e) => setNewClientData(prev => ({ ...prev, firstName: e.target.value }))}
@@ -2595,22 +2609,25 @@ export default function NewRepairForm({
             />
             <TextField
               fullWidth
-              label="Last Name" 
+              size="small"
+              label="Last Name"
               value={newClientData.lastName}
               onChange={(e) => setNewClientData(prev => ({ ...prev, lastName: e.target.value }))}
               required
             />
             <TextField
               fullWidth
+              size="small"
               label="Phone"
               type="tel"
               value={newClientData.phone}
-              onChange={(e) => setNewClientData(prev => ({ ...prev, phone: e.target.value }))}
+              onChange={(e) => setNewClientData(prev => ({ ...prev, phone: formatPhoneNumber(e.target.value) }))}
               placeholder="(555) 123-4567"
               required
             />
             <TextField
               fullWidth
+              size="small"
               label="Email"
               type="email"
               value={newClientData.email}
@@ -2638,31 +2655,37 @@ export default function NewRepairForm({
         </DialogActions>
       </Dialog>
 
-      {/* Save Button at Bottom */}
+      {/* Save Button - Sticky on mobile */}
       <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        mt: 4,
-        px: { xs: 1, sm: 0 }, // Add padding on mobile
-        pb: { xs: 2, sm: 0 }  // Extra bottom padding on mobile
+        position: { xs: 'fixed', sm: 'static' },
+        bottom: { xs: 0, sm: 'auto' },
+        left: { xs: 0, sm: 'auto' },
+        right: { xs: 0, sm: 'auto' },
+        zIndex: { xs: 1100, sm: 'auto' },
+        p: { xs: 1.5, sm: 0 },
+        mt: { xs: 0, sm: 4 },
+        bgcolor: { xs: 'background.paper', sm: 'transparent' },
+        borderTop: { xs: '1px solid', sm: 'none' },
+        borderColor: 'divider',
+        boxShadow: { xs: '0 -2px 8px rgba(0,0,0,0.1)', sm: 'none' },
+        display: 'flex',
+        justifyContent: 'center'
       }}>
         <Button 
           variant="contained" 
           onClick={handleSubmit}
           disabled={loading}
           startIcon={<SaveIcon />}
-          size={isMobile ? "medium" : "large"}
-          fullWidth={isMobile}
+          size="large"
+          fullWidth
           sx={{ 
-            minWidth: { xs: 'auto', sm: 200 },
-            maxWidth: { xs: 400, sm: 'none' }, // Limit width on mobile
-            py: { xs: 1.5, sm: 1.5 },
+            maxWidth: { xs: '100%', sm: 400 },
+            py: 1.5,
             fontSize: { xs: '1rem', sm: '1.1rem' },
-            fontWeight: 600,
-            boxShadow: { xs: 3, sm: 1 } // More prominent shadow on mobile
+            fontWeight: 700,
           }}
         >
-          {loading ? 'Saving...' : 'Save Repair'}
+          {loading ? 'Saving...' : 'SAVE REPAIR'}
         </Button>
       </Box>
     </Box>
@@ -2692,7 +2715,7 @@ function RepairItemsSection({
   const [expandedSection, setExpandedSection] = useState('tasks');
 
   return (
-    <Card sx={{ borderRadius: 2, boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
+    <Card sx={{ borderRadius: { xs: 1, sm: 2 }, boxShadow: { xs: 1, sm: '0 2px 12px rgba(0,0,0,0.08)' } }}>
       <CardHeader 
         title="Work Items & Pricing"
         subheader="Add tasks, processes, materials and custom items"
@@ -2701,7 +2724,7 @@ function RepairItemsSection({
           color: 'success.contrastText',
           '& .MuiCardHeader-title': { 
             fontWeight: 600,
-            fontSize: '1.1rem'
+            fontSize: { xs: '0.95rem', sm: '1.1rem' }
           },
           '& .MuiCardHeader-subheader': { 
             color: 'success.contrastText',
@@ -2726,7 +2749,7 @@ function RepairItemsSection({
                 options={availableTasks}
                 getOptionLabel={(option) => `${option.title}`}
                 renderInput={(params) => (
-                  <TextField {...params} label="Add Task" />
+                  <TextField {...params} label="Add Task" size="small" />
                 )}
                 onChange={(e, value) => value && addTask(value)}
               />
@@ -2764,7 +2787,7 @@ function RepairItemsSection({
                   return `${option.displayName} - $${price.toFixed(2)}`;
                 }}
                 renderInput={(params) => (
-                  <TextField {...params} label="Add Process" />
+                  <TextField {...params} label="Add Process" size="small" />
                 )}
                 renderOption={(props, option) => (
                   <Box component="li" {...props}>
@@ -2820,17 +2843,17 @@ function RepairItemsSection({
                   return `${displayName} - $${basePrice.toFixed(2)}`;
                 }}
                 renderInput={(params) => (
-                  <TextField {...params} label="Add Material" />
+                  <TextField {...params} label="Add Material" size="small" />
                 )}
                 onChange={(e, value) => value && addMaterial(value)}
               />
               
               {/* Stuller Integration Section */}
-              <Card variant="outlined" sx={{ p: 2, bgcolor: 'primary.50', borderColor: 'primary.main' }}>
-                <Typography variant="subtitle2" sx={{ mb: 2, color: 'primary.main', fontWeight: 600 }}>
+              <Card variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, bgcolor: 'primary.50', borderColor: 'primary.main' }}>
+                <Typography variant="subtitle2" sx={{ mb: 1.5, color: 'primary.main', fontWeight: 600 }}>
                   Add Stuller Gemstone/Material
                 </Typography>
-                <Stack direction="row" spacing={1} alignItems="flex-start">
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'flex-start' }}>
                   <TextField
                     label="Stuller SKU"
                     value={stullerSku}
@@ -2838,7 +2861,7 @@ function RepairItemsSection({
                     onKeyPress={(e) => e.key === 'Enter' && addStullerMaterial()}
                     placeholder="Enter Stuller item number..."
                     size="small"
-                    sx={{ flexGrow: 1 }}
+                    fullWidth
                     error={!!stullerError}
                     helperText={stullerError}
                   />
@@ -2848,13 +2871,13 @@ function RepairItemsSection({
                     disabled={!stullerSku.trim()}
                     variant="contained"
                     size="small"
-                    sx={{ minWidth: 100 }}
+                    sx={{ minWidth: 80, flexShrink: 0 }}
                   >
                     Add
                   </LoadingButton>
                 </Stack>
                 <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                  Material will be added with markup applied. No portions logic needed for gemstones.
+                  Material will be added with markup applied.
                 </Typography>
               </Card>
               
@@ -2883,10 +2906,12 @@ function RepairItemsSection({
           </AccordionSummary>
           <AccordionDetails>
             <Stack spacing={2}>
-              <Button 
+              <Button
                 startIcon={<AddIcon />}
                 onClick={addCustomLineItem}
                 variant="outlined"
+                size="small"
+                fullWidth
               >
                 Add Custom Item
               </Button>
@@ -2912,65 +2937,64 @@ function RepairItemsSection({
 // Task/Process/Material item component
 function TaskItem({ item, onQuantityChange, onPriceChange, onRemove, showPriceInput = true }) {
   return (
-    <Paper sx={{ p: 2, border: item.isStullerItem ? '1px solid #1976d2' : undefined }}>
-      <Stack direction="row" spacing={2} alignItems="center">
-        <Box sx={{ flex: 1 }}>
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <Typography variant="subtitle1">
-              {item.title || item.displayName || item.name}
-            </Typography>
-            {item.isStullerItem && (
-              <Chip 
-                label="Stuller" 
-                size="small" 
-                color="primary" 
-                variant="outlined"
-              />
+    <Paper sx={{ p: { xs: 1.5, sm: 2 }, border: item.isStullerItem ? '1px solid #1976d2' : undefined }}>
+      <Stack spacing={1}>
+        {/* Top row: title + delete */}
+        <Stack direction="row" alignItems="center" justifyContent="space-between">
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+              <Typography variant="subtitle2" noWrap>
+                {item.title || item.displayName || item.name}
+              </Typography>
+              {item.isStullerItem && (
+                <Chip label="Stuller" size="small" color="primary" variant="outlined" />
+              )}
+            </Stack>
+            {item.description && (
+              <Typography variant="caption" color="text.secondary" noWrap>
+                {item.description}
+              </Typography>
             )}
-          </Stack>
-          {item.description && (
-            <Typography variant="body2" color="text.secondary">
-              {item.description}
-            </Typography>
+            {item.isStullerItem && item.stullerData && (
+              <Typography variant="caption" color="primary" display="block">
+                SKU: {item.stullerData.itemNumber} | 
+                Base: ${item.stullerData.originalPrice} | 
+                Markup: {((item.stullerData.markup - 1) * 100).toFixed(0)}%
+              </Typography>
+            )}
+          </Box>
+          <IconButton color="error" onClick={onRemove} size="small">
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Stack>
+        {/* Bottom row: qty, price, total */}
+        <Stack direction="row" spacing={1} alignItems="center">
+          <TextField
+            type="number"
+            label="Qty"
+            value={item.quantity}
+            onChange={(e) => onQuantityChange(parseInt(e.target.value) || 1)}
+            size="small"
+            sx={{ width: 70 }}
+            inputProps={{ min: 1 }}
+          />
+          {showPriceInput && (
+            <>
+              <TextField
+                type="number"
+                label="Price"
+                value={item.price}
+                onChange={(e) => onPriceChange(parseFloat(e.target.value) || 0)}
+                size="small"
+                sx={{ width: 90 }}
+                inputProps={{ min: 0, step: 0.01 }}
+              />
+              <Typography variant="body2" sx={{ ml: 'auto', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                ${((item.price || 0) * (item.quantity || 1)).toFixed(2)}
+              </Typography>
+            </>
           )}
-          {item.isStullerItem && item.stullerData && (
-            <Typography variant="caption" color="primary">
-              SKU: {item.stullerData.itemNumber} | 
-              Base: ${item.stullerData.originalPrice} | 
-              Markup: {((item.stullerData.markup - 1) * 100).toFixed(0)}%
-            </Typography>
-          )}
-        </Box>
-        
-        <TextField
-          type="number"
-          label="Qty"
-          value={item.quantity}
-          onChange={(e) => onQuantityChange(parseInt(e.target.value) || 1)}
-          sx={{ width: 80 }}
-          inputProps={{ min: 1 }}
-        />
-        
-        {showPriceInput && (
-          <>
-            <TextField
-              type="number"
-              label="Price"
-              value={item.price}
-              onChange={(e) => onPriceChange(parseFloat(e.target.value) || 0)}
-              sx={{ width: 100 }}
-              inputProps={{ min: 0, step: 0.01 }}
-            />
-
-            <Typography variant="body2" sx={{ minWidth: 60, textAlign: 'right' }}>
-              ${((item.price || 0) * (item.quantity || 1)).toFixed(2)}
-            </Typography>
-          </>
-        )}
-        
-        <IconButton color="error" onClick={onRemove}>
-          <DeleteIcon />
-        </IconButton>
+        </Stack>
       </Stack>
     </Paper>
   );
@@ -2985,42 +3009,44 @@ function CustomLineItem({
   onRemove 
 }) {
   return (
-    <Paper sx={{ p: 2 }}>
-      <Stack spacing={2}>
-        <TextField
-          fullWidth
-          label="Description"
-          value={item.description}
-          onChange={(e) => onDescriptionChange(e.target.value)}
-          placeholder="Custom work description..."
-        />
+    <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
+      <Stack spacing={1.5}>
+        <Stack direction="row" alignItems="flex-start" spacing={1}>
+          <TextField
+            fullWidth
+            label="Description"
+            value={item.description}
+            onChange={(e) => onDescriptionChange(e.target.value)}
+            placeholder="Custom work description..."
+            size="small"
+          />
+          <IconButton color="error" onClick={onRemove} size="small">
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Stack>
         
-        <Stack direction="row" spacing={2} alignItems="center">
+        <Stack direction="row" spacing={1} alignItems="center">
           <TextField
             type="number"
-            label="Quantity"
+            label="Qty"
             value={item.quantity}
             onChange={(e) => onQuantityChange(parseInt(e.target.value) || 1)}
-            sx={{ width: 100 }}
+            size="small"
+            sx={{ width: 70 }}
             inputProps={{ min: 1 }}
           />
-          
           <TextField
             type="number"
             label="Price"
             value={item.price}
             onChange={(e) => onPriceChange(parseFloat(e.target.value) || 0)}
-            sx={{ width: 120 }}
+            size="small"
+            sx={{ width: 90 }}
             inputProps={{ min: 0, step: 0.01 }}
           />
-          
-          <Typography variant="body2" sx={{ flex: 1, textAlign: 'right' }}>
-            Total: ${((item.price || 0) * (item.quantity || 1)).toFixed(2)}
+          <Typography variant="body2" sx={{ ml: 'auto', fontWeight: 600, whiteSpace: 'nowrap' }}>
+            ${((item.price || 0) * (item.quantity || 1)).toFixed(2)}
           </Typography>
-          
-          <IconButton color="error" onClick={onRemove}>
-            <DeleteIcon />
-          </IconButton>
         </Stack>
       </Stack>
     </Paper>
@@ -3151,26 +3177,27 @@ function TotalCostCard({ formData, calculateTotalCost, adminSettings }) {
   }, [formData.tasks, formData.processes, formData.materials, formData.customLineItems, formData.isWholesale, formData.isRush, formData.includeDelivery, formData.includeTax, calculateTotalCost, adminSettings]);
 
   return (
-    <Card sx={{ 
-      borderRadius: 2, 
-      boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+    <Card sx={{
+      borderRadius: { xs: 1, sm: 2 },
+      boxShadow: { xs: 1, sm: '0 4px 20px rgba(0,0,0,0.1)' },
       border: '2px solid',
       borderColor: 'warning.main'
     }}>
-      <CardContent sx={{ p: 3 }}>
-        <Stack spacing={3}>
+      <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+        <Stack spacing={2}>
           {/* Main Total */}
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Typography variant="h5" sx={{ fontWeight: 600, color: 'text.primary' }}>
-              {formData.isWholesale ? 'Pricing Summary:' : 'Total Cost:'} {loading ? (
-                <Box component="span" sx={{ color: 'warning.main' }}>Calculating...</Box>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
+              {formData.isWholesale ? 'Pricing Summary:' : 'Total Cost:'}
+            </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 700, color: 'success.main', mt: 0.5, fontSize: { xs: '1.75rem', sm: '2.125rem' } }}>
+              {loading ? (
+                <Box component="span" sx={{ color: 'warning.main', fontSize: '0.7em' }}>Calculating...</Box>
               ) : (
-                <Box component="span" sx={{ color: 'success.main', fontSize: '1.4em' }}>
-                  ${totalCost.toFixed(2)}
-                </Box>
+                `$${totalCost.toFixed(2)}`
               )}
             </Typography>
-            <Stack direction="row" spacing={1}>
+            <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 1, gap: 0.5 }}>
               {formData.isWholesale && (
                 <Chip label="Wholesale Pricing" color="primary" variant="outlined" size="small" />
               )}
@@ -3184,7 +3211,7 @@ function TotalCostCard({ formData, calculateTotalCost, adminSettings }) {
                 <Chip label={`Tax (+${(adminSettings.taxRate * 100).toFixed(2)}%)`} color="secondary" variant="outlined" size="small" />
               )}
             </Stack>
-          </Stack>
+          </Box>
 
           {!loading && formData.isWholesale && costBreakdown.retailSubtotal > 0 && (
             <Box sx={{
