@@ -39,7 +39,7 @@ export function ProcessSelectionSection({
                   <TextField
                     fullWidth
                     size="small"
-                    label="Labor Description"
+                    label="Labor Notes (Optional)"
                     value={process.name || ''}
                     onChange={(e) => updateProcess(index, 'name', e.target.value)}
                     placeholder="e.g. Laser weld seam"
@@ -79,7 +79,7 @@ export function ProcessSelectionSection({
 
         {formData.processes.length === 0 && (
           <Alert severity="info" sx={{ py: 0.5 }}>
-            Add labor entries to specify time and skill for this task.
+            Add labor entries to specify time for this task.
           </Alert>
         )}
       </Box>

@@ -33,7 +33,7 @@ export function useTaskFormHandlers({
   const addCustomProcess = () => {
     setFormData(prev => ({
       ...prev,
-      processes: [...prev.processes, { isCustom: true, name: '', laborHours: 0, quantity: 1 }]
+      processes: [...prev.processes, { isCustom: true, laborHours: 0, quantity: 1 }]
     }));
   };
 
@@ -104,23 +104,28 @@ export function useTaskFormHandlers({
 
     try {
       const enrichedProcesses = formData.processes.map((selection) => {
+        const normalizedLaborHours = parseFloat(selection.laborHours ?? selection.baseLaborHours) || 0;
+
         if (selection.isCustom) {
           return {
             isCustom: true,
-            name: selection.name || 'Custom Labor',
-            displayName: selection.name || 'Custom Labor',
-            laborHours: parseFloat(selection.laborHours) || 0,
+            name: selection.name || '',
+            displayName: selection.name || '',
+            laborHours: normalizedLaborHours,
+            baseLaborHours: normalizedLaborHours,
             quantity: selection.quantity || 1,
+            skillLevel: selection.skillLevel || formData.service?.skillLevel || ''
           };
         }
         const process = availableProcesses.find((p) => p._id === selection.processId);
         return {
           processId: selection.processId,
           quantity: selection.quantity || 1,
-          processName: process?.displayName || process?.name || '',
-          displayName: process?.displayName || process?.name || '',
-          baseLaborHours: process?.laborHours || 0,
-          skillLevel: process?.skillLevel || ''
+          processName: selection.processName || selection.displayName || process?.displayName || process?.name || '',
+          displayName: selection.displayName || selection.processName || process?.displayName || process?.name || '',
+          laborHours: normalizedLaborHours || process?.laborHours || 0,
+          baseLaborHours: normalizedLaborHours || process?.laborHours || 0,
+          skillLevel: selection.skillLevel || process?.skillLevel || formData.service?.skillLevel || ''
         };
       });
 

@@ -55,11 +55,14 @@ export async function POST(request) {
       // Process-based structure
       processes: taskData.processes.map(process => ({
         processId: process.processId,
+        isCustom: process.isCustom === true,
         quantity: process.quantity || 1,
         processName: process.processName || process.displayName || '',
         displayName: process.displayName || process.processName || '',
-        baseLaborHours: process.baseLaborHours || 0,
-        skillLevel: process.skillLevel || ''
+        laborHours: Number(process.laborHours ?? process.baseLaborHours) || 0,
+        baseLaborHours: Number(process.baseLaborHours ?? process.laborHours) || 0,
+        skillLevel: process.skillLevel || '',
+        name: process.name || ''
       })),
       
       // Materials (optional)

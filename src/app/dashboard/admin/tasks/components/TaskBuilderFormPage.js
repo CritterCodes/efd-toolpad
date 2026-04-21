@@ -77,8 +77,18 @@ function normalizeSelections(items = [], idKey) {
 
     return {
       [idKey]: normalizedId,
+      isCustom: Boolean(item?.isCustom || !normalizedId),
       quantity: Number(item?.quantity) > 0 ? Number(item.quantity) : 1,
-      condition: item?.condition || 'new'
+      condition: item?.condition || 'new',
+      ...(idKey === 'processId'
+        ? {
+            laborHours: Number(item?.laborHours ?? item?.baseLaborHours) || 0,
+            baseLaborHours: Number(item?.baseLaborHours ?? item?.laborHours) || 0,
+            skillLevel: item?.skillLevel || '',
+            name: item?.name || item?.displayName || item?.processName || '',
+            displayName: item?.displayName || item?.processName || item?.name || ''
+          }
+        : {})
     };
   });
 }
