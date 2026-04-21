@@ -87,22 +87,6 @@ const providers = [
             password: { label: 'Password', type: 'password' }
         },
         async authorize(credentials) {
-            // TEMPORARY: Mock Admin User for Development
-            console.log("⚠️ USING MOCK ADMIN USER ⚠️");
-            return {
-                userID: 'mock-admin-id',
-                storeID: 'mock-store-id',
-                name: 'Mock Admin',
-                email: 'admin@example.com',
-                role: 'admin',
-                image: null,
-                // Mock tokens to prevent issues
-                accessToken: 'mock-access-token',
-                // refreshToken: 'mock-refresh-token', // Commented out to prevent refresh attempts
-                accessTokenExpires: Date.now() + 24 * 60 * 60 * 1000 // 24 hours
-            };
-
-            /* Original Auth Logic
             try {
                 const response = await fetch(`${baseURL}/api/auth/signin`, {
                     method: "POST",
@@ -124,7 +108,7 @@ const providers = [
                         role: user.role,
                         token: user.token,
                         image: user.image
-                    } : 
+                    } :
                     {
                         userID: user.userID,
                         storeID: user.storeID,
@@ -139,7 +123,6 @@ const providers = [
                 console.error("Login error:", error);
                 return null;
             }
-            */
         }
     })
 ];
