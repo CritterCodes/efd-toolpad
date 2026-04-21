@@ -41,7 +41,7 @@ export function calculateTaskCost(taskData, adminSettings = {}, availableProcess
     taskData.processes.forEach((processSelection, index) => {
       let quantity = parseFloat(processSelection.quantity || 1);
       let process = processSelection.process;
-      if (!process && processSelection.processId && availableProcesses.length > 0) { process = availableProcesses.find(p => p._id === processSelection.processId); }
+      if (!process && processSelection.processId && availableProcesses.length > 0) { process = availableProcesses.find(p => String(p._id) === String(processSelection.processId)); }
       process = process || processSelection;
       if (process) {
         const processCost = calculateProcessCost(process, adminSettings);
@@ -62,7 +62,7 @@ export function calculateTaskCost(taskData, adminSettings = {}, availableProcess
     taskData.materials.forEach((materialSelection, index) => {
       let quantity = parseFloat(materialSelection.quantity || 1);
       let material = materialSelection.material;
-      if (!material && materialSelection.materialId && availableMaterials.length > 0) { material = availableMaterials.find(m => m._id === materialSelection.materialId); }
+      if (!material && materialSelection.materialId && availableMaterials.length > 0) { material = availableMaterials.find(m => String(m._id) === String(materialSelection.materialId)); }
       material = material || materialSelection;
       if (material) { const matCost = calculateMaterialCost(material, quantity, adminSettings); const totalBase = matCost.baseCost * quantity; totalWeightedBaseMaterialsCost += totalBase; totalMaterialCost += matCost.totalCost; }
     });

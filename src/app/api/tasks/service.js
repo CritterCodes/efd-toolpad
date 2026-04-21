@@ -76,15 +76,46 @@ export class TasksService {
   }
 
   /**
+   * Load admin settings and active materials for live pricing computation.
+   */
+  static async loadPricingDependencies() {
+    try {
+      const { db } = await import('@/lib/database');
+      await db.connect();
+      const [adminSettings, materials] = await Promise.all([
+        db._instance.collection('adminSettings').findOne({ _id: 'repair_task_admin_settings' }),
+        db._instance.collection('materials').find({ isActive: { $ne: false } }).toArray()
+      ]);
+      return { adminSettings: adminSettings || {}, materials: materials || [] };
+    } catch {
+      return { adminSettings: {}, materials: [] };
+    }
+  }
+
+  /**
+   * Compute live pricing for a task using PricingEngine.
+   */
+  static computeTaskPricing(task, adminSettings, materials) {
+    try {
+      return pricingEngine.calculateTaskCost(task, adminSettings, [], materials);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Get all tasks with filtering and pagination
    */
   static async getTasks(filters = {}) {
     try {
       const result = await TasksModel.getTasks(filters);
-      
-      // Transform tasks data if needed
-      const transformedTasks = result.tasks.map(task => this.transformTaskForResponse(task));
-      
+      const { adminSettings, materials } = await this.loadPricingDependencies();
+
+      const transformedTasks = result.tasks.map(task => {
+        const computed = this.computeTaskPricing(task, adminSettings, materials);
+        return this.transformTaskForResponse(task, computed);
+      });
+
       return {
         success: true,
         data: transformedTasks,
@@ -111,10 +142,12 @@ export class TasksService {
       }
 
       const task = await TasksModel.getTaskById(id);
-      
+      const { adminSettings, materials } = await this.loadPricingDependencies();
+      const computed = this.computeTaskPricing(task, adminSettings, materials);
+
       return {
         success: true,
-        data: this.transformTaskForResponse(task),
+        data: this.transformTaskForResponse(task, computed),
         message: 'Task retrieved successfully'
       };
     } catch (error) {
@@ -610,25 +643,35 @@ export class TasksService {
   }
 
   /**
-   * Transform task data for API response
+   * Transform task data for API response.
+   * @param {Object} task - Raw task from DB
+   * @param {Object|null} computed - Output from pricingEngine.calculateTaskCost, or null
    */
-  static transformTaskForResponse(task) {
+  static transformTaskForResponse(task, computed = null) {
     if (!task) return null;
 
     const universalPricing = this.buildUniversalPricingMap(task);
-    const normalizedBasePrice = this.getDerivedBasePrice(task, universalPricing);
+    const storedBasePrice = this.getDerivedBasePrice(task, universalPricing);
+    const normalizedBasePrice = computed?.retailPrice || storedBasePrice;
+
+    const pricing = computed ? {
+      retailPrice: computed.retailPrice,
+      wholesalePrice: computed.wholesalePrice,
+      laborCost: computed.laborCost,
+      baseCost: computed.baseCost,
+      totalLaborHours: computed.totalLaborHours,
+      calculatedAt: computed.calculatedAt
+    } : (task.pricing || null);
 
     return {
       ...task,
       id: task._id?.toString(),
+      pricing,
       basePrice: normalizedBasePrice,
       universalPricing,
-      // Ensure all numeric fields are numbers
       price: normalizedBasePrice,
-      laborHours: typeof task.laborHours === 'number' ? task.laborHours : parseFloat(task.laborHours) || 0,
-      // Ensure boolean fields
-      isActive: Boolean(task.isActive !== false), // Default to true if not explicitly false
-      // Format dates
+      laborHours: computed?.totalLaborHours || (typeof task.laborHours === 'number' ? task.laborHours : parseFloat(task.laborHours) || 0),
+      isActive: Boolean(task.isActive !== false),
       createdAt: task.createdAt?.toISOString?.() || task.createdAt,
       updatedAt: task.updatedAt?.toISOString?.() || task.updatedAt,
       deletedAt: task.deletedAt?.toISOString?.() || task.deletedAt
