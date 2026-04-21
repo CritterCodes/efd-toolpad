@@ -216,6 +216,7 @@ export const repairSchema = {
     type: 'string',
     default: 'RECEIVING',
     enum: [
+      'lead',                // Retail chat lead — not yet at shop
       'RECEIVING',           // Just received, intake complete
       'PENDING PICKUP',      // Wholesale: waiting for admin to pick up
       'PICKUP REQUESTED',    // Wholesale: pickup requested

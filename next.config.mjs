@@ -115,6 +115,11 @@ const nextConfig = withPWA({
                 hostname: 'efd-repair-images.s3.us-east-2.amazonaws.com',
                 pathname: '/**',
             },
+            {
+                protocol: 'https',
+                hostname: 's3.crittercodes.dev',
+                pathname: '/**',
+            },
         ],
     },
     webpack: (config) => {

@@ -58,15 +58,20 @@ const ViewRepairPage = ({ params }) => {
     }, [params]);
 
     React.useEffect(() => {
+        let cancelled = false;
+
         if (repairID && session?.user) {
             const foundRepair = repairs.find(r => r.repairID === repairID);
             console.log('foundRepair', foundRepair);
-            
+
             if (foundRepair) {
+                // Reset any access denied state from a prior failed API fetch
+                setAccessDenied(false);
+
                 // Check access permissions
                 const userRole = session.user.role;
                 const userEmail = session.user.email;
-                
+
                 // Admins can see all repairs
                 // Wholesalers can only see repairs they created
                 if (userRole === 'wholesaler') {
@@ -75,7 +80,7 @@ const ViewRepairPage = ({ params }) => {
                         foundRepair.submittedBy === userEmail ||
                         foundRepair.userID === userEmail
                     );
-                    
+
                     if (!isOwner) {
                         console.log('Access denied: Wholesaler trying to view repair not created by them');
                         setAccessDenied(true);
@@ -83,17 +88,23 @@ const ViewRepairPage = ({ params }) => {
                         return;
                     }
                 }
-                
+
                 setRepair(foundRepair);
 
                 const getUser = async () => {
-                    console.log('foundRepair.userID', foundRepair.userID);
+                    // Retail leads have userID 'retail-lead' — no real user account to look up
+                    if (foundRepair.userID === 'retail-lead' || foundRepair.leadSource === 'retail-chat') {
+                        setClientInfo({
+                            name: foundRepair.clientName,
+                            email: foundRepair.leadContact || foundRepair.notes?.replace('Contact: ', '') || '',
+                            role: 'retail-lead',
+                        });
+                        return;
+                    }
                     try {
                         const user = await UsersService.getUserByQuery(foundRepair.userID);
-                        console.log('user', user);
                         setClientInfo(user);
                         if (user.role === 'wholesaler') {
-                            console.log('isWholesale', true);
                             setIsWholesale(true);
                         }
                     } catch (error) {
@@ -103,16 +114,16 @@ const ViewRepairPage = ({ params }) => {
                 getUser();
                 setLoading(false);
             } else {
-                // Repair not found in context — fetch directly from API
+                // Repair not found in context yet — fetch directly from API
                 const fetchRepairFromAPI = async () => {
                     try {
                         console.log('Repair not in context, fetching from API:', repairID);
                         const response = await fetch(`/api/repairs?repairID=${repairID}`);
+                        if (cancelled) return; // context loaded and found it — ignore this response
                         if (response.ok) {
                             const data = await response.json();
                             if (data) {
                                 setRepair(data);
-                                // Fetch client info
                                 try {
                                     const user = await UsersService.getUserByQuery(data.userID);
                                     setClientInfo(user);
@@ -123,24 +134,26 @@ const ViewRepairPage = ({ params }) => {
                                     console.error('Error fetching user:', err);
                                 }
                             } else {
-                                setAccessDenied(true);
+                                if (!cancelled) setAccessDenied(true);
                             }
                         } else if (response.status === 403 || response.status === 401) {
-                            setAccessDenied(true);
+                            if (!cancelled) setAccessDenied(true);
                         } else {
                             console.error('Failed to fetch repair:', response.status);
-                            setAccessDenied(true);
+                            if (!cancelled) setAccessDenied(true);
                         }
                     } catch (error) {
                         console.error('Error fetching repair from API:', error);
-                        setAccessDenied(true);
+                        if (!cancelled) setAccessDenied(true);
                     } finally {
-                        setLoading(false);
+                        if (!cancelled) setLoading(false);
                     }
                 };
                 fetchRepairFromAPI();
             }
         }
+
+        return () => { cancelled = true; };
     }, [repairID, repairs, session?.user]);
 
     if (loading) {
