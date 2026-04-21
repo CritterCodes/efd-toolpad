@@ -41,7 +41,7 @@ export async function POST(request) {
                         status: 'PICKUP REQUESTED',
                         deliveryMethod: 'pickup',
                         pickupRequestedAt: now,
-                        pickupRequestedBy: session.user.id,
+                        pickupRequestedBy: session.user.userID,
                         updatedAt: now
                     }
                 }

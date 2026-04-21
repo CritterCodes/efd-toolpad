@@ -45,7 +45,7 @@ export async function GET(request) {
     const requestedWholesalerId = searchParams.get('wholesalerId');
     const ownerWholesalerId = role === 'admin'
       ? (requestedWholesalerId || '')
-      : session.user.id;
+      : session.user.userID;
 
     const { db } = await connectToDatabase();
     const query = {};
@@ -94,7 +94,7 @@ export async function POST(request) {
 
     const ownerWholesalerId = role === 'admin'
       ? String(payload.wholesalerId || '').trim()
-      : session.user.id;
+      : session.user.userID;
 
     const ownerWholesalerName = role === 'admin'
       ? String(payload.wholesalerName || '').trim()
@@ -138,7 +138,7 @@ export async function POST(request) {
       status: 'verified',
       parentWholesalerId: ownerWholesalerId,
       parentWholesalerName: ownerWholesalerName,
-      createdBy: session.user.id,
+      createdBy: session.user.userID,
       createdAt: now,
       updatedAt: now
     };

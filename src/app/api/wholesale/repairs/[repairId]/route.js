@@ -24,7 +24,7 @@ export async function PUT(request, { params }) {
         }
 
         // Only allow repair owner or admin to update
-        if (session.user.role !== 'admin' && existingRepair.userID !== session.user.id) {
+        if (session.user.role !== 'admin' && existingRepair.userID !== session.user.userID) {
             return NextResponse.json({ error: 'Access denied' }, { status: 403 });
         }
 
@@ -35,7 +35,7 @@ export async function PUT(request, { params }) {
                 $set: {
                     ...updateData,
                     updatedAt: new Date(),
-                    updatedBy: session.user.id
+                    updatedBy: session.user.userID
                 }
             }
         );
@@ -83,7 +83,7 @@ export async function DELETE(request, { params }) {
         }
 
         // Only allow repair owner or admin to delete
-        if (session.user.role !== 'admin' && existingRepair.userID !== session.user.id) {
+        if (session.user.role !== 'admin' && existingRepair.userID !== session.user.userID) {
             return NextResponse.json({ error: 'Access denied' }, { status: 403 });
         }
 

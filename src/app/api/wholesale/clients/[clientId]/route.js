@@ -48,7 +48,7 @@ export async function GET(_request, { params }) {
       return NextResponse.json({ success: false, error: 'Client not found' }, { status: 404 });
     }
 
-    if (session.user.role !== 'admin' && client.parentWholesalerId !== session.user.id) {
+    if (session.user.role !== 'admin' && client.parentWholesalerId !== session.user.userID) {
       return NextResponse.json({ success: false, error: 'Access denied' }, { status: 403 });
     }
 
@@ -86,7 +86,7 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ success: false, error: 'Client not found' }, { status: 404 });
     }
 
-    if (session.user.role !== 'admin' && existing.parentWholesalerId !== session.user.id) {
+    if (session.user.role !== 'admin' && existing.parentWholesalerId !== session.user.userID) {
       return NextResponse.json({ success: false, error: 'Access denied' }, { status: 403 });
     }
 
@@ -141,7 +141,7 @@ export async function DELETE(_request, { params }) {
       return NextResponse.json({ success: false, error: 'Client not found' }, { status: 404 });
     }
 
-    if (session.user.role !== 'admin' && existing.parentWholesalerId !== session.user.id) {
+    if (session.user.role !== 'admin' && existing.parentWholesalerId !== session.user.userID) {
       return NextResponse.json({ success: false, error: 'Access denied' }, { status: 403 });
     }
 

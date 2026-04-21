@@ -35,7 +35,7 @@ export async function POST(request) {
                 $set: {
                     status: 'RECEIVING',
                     receivedAt: new Date(),
-                    receivedBy: session.user.id,
+                    receivedBy: session.user.userID,
                     updatedAt: new Date()
                 }
             }

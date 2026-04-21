@@ -14,7 +14,7 @@ export async function GET(request) {
         const wholesalerId = searchParams.get('wholesaler');
 
         // Non-admin users can only access their own repairs
-        if (session.user.role !== 'admin' && wholesalerId && session.user.id !== wholesalerId) {
+        if (session.user.role !== 'admin' && wholesalerId && session.user.userID !== wholesalerId) {
             return NextResponse.json({ error: 'Access denied' }, { status: 403 });
         }
 
@@ -25,8 +25,7 @@ export async function GET(request) {
         if (session.user.role !== 'admin') {
             // Match repairs where wholesaler is the owner (userID) OR the creator (createdBy)
             query.$or = [
-                { userID: session.user.id },
-                { createdBy: session.user.id },
+                { userID: session.user.userID },
                 { createdBy: session.user.userID }
             ];
         } else if (wholesalerId) {
@@ -100,7 +99,7 @@ export async function POST(request) {
         const newRepair = {
             ...repairData,
             repairID: `repair-${Date.now().toString(36)}`,
-            userID: repairData.wholesalerId || session.user.id,
+            userID: repairData.wholesalerId || session.user.userID,
             isWholesale: true,
             wholesalerName: repairData.wholesalerName || session.user.name,
             clientName: repairData.customerName,
@@ -108,7 +107,7 @@ export async function POST(request) {
             status: initialStatus,
             createdAt: new Date(),
             updatedAt: new Date(),
-            createdBy: session.user.id,
+            createdBy: session.user.userID,
             submittedBy: session.user.email
         };
 
