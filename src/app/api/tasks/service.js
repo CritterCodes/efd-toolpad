@@ -9,6 +9,72 @@ import { ObjectId } from 'mongodb';
 import pricingEngine from '@/services/PricingEngine';
 
 export class TasksService {
+  static toNumericPrice(value) {
+    const parsed = typeof value === 'number' ? value : parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  static buildUniversalPricingMap(task) {
+    if (task?.universalPricing && typeof task.universalPricing === 'object' && Object.keys(task.universalPricing).length > 0) {
+      return task.universalPricing;
+    }
+
+    const totalCosts = task?.pricing?.totalCosts;
+    if (!totalCosts || typeof totalCosts !== 'object') {
+      return null;
+    }
+
+    const normalizedPricing = Object.entries(totalCosts).reduce((acc, [metalKey, retailPrice]) => {
+      const normalizedRetailPrice = this.toNumericPrice(retailPrice);
+      const normalizedWholesalePrice = this.toNumericPrice(task?.pricing?.wholesaleCosts?.[metalKey]);
+
+      acc[metalKey] = {
+        retailPrice: normalizedRetailPrice,
+        wholesalePrice: normalizedWholesalePrice
+      };
+
+      return acc;
+    }, {});
+
+    return Object.keys(normalizedPricing).length > 0 ? normalizedPricing : null;
+  }
+
+  static getDerivedBasePrice(task, universalPricing = null) {
+    const directCandidates = [
+      task?.basePrice,
+      task?.pricing?.retailPrice,
+      task?.retailPrice,
+      task?.price
+    ];
+
+    for (const candidate of directCandidates) {
+      const numericCandidate = this.toNumericPrice(candidate);
+      if (numericCandidate > 0) {
+        return numericCandidate;
+      }
+    }
+
+    const universalCandidates = Object.values(universalPricing || {}).map((pricing) =>
+      this.toNumericPrice(pricing?.retailPrice ?? pricing)
+    );
+    const positiveUniversalPrices = universalCandidates.filter((price) => price > 0);
+
+    if (positiveUniversalPrices.length > 0) {
+      return Math.min(...positiveUniversalPrices);
+    }
+
+    const totalCostCandidates = Object.values(task?.pricing?.totalCosts || {}).map((price) =>
+      this.toNumericPrice(price)
+    );
+    const positiveTotalCosts = totalCostCandidates.filter((price) => price > 0);
+
+    if (positiveTotalCosts.length > 0) {
+      return Math.min(...positiveTotalCosts);
+    }
+
+    return 0;
+  }
+
   /**
    * Get all tasks with filtering and pagination
    */
@@ -548,12 +614,17 @@ export class TasksService {
    */
   static transformTaskForResponse(task) {
     if (!task) return null;
-    
+
+    const universalPricing = this.buildUniversalPricingMap(task);
+    const normalizedBasePrice = this.getDerivedBasePrice(task, universalPricing);
+
     return {
       ...task,
       id: task._id?.toString(),
+      basePrice: normalizedBasePrice,
+      universalPricing,
       // Ensure all numeric fields are numbers
-      price: typeof task.price === 'number' ? task.price : parseFloat(task.price) || 0,
+      price: normalizedBasePrice,
       laborHours: typeof task.laborHours === 'number' ? task.laborHours : parseFloat(task.laborHours) || 0,
       // Ensure boolean fields
       isActive: Boolean(task.isActive !== false), // Default to true if not explicitly false

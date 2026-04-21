@@ -20,7 +20,7 @@ export const wholesalerNavigation = {
       icon: <BuildIcon />,
       children: [
         {
-          segment: 'new',
+          segment: 'dashboard/repairs/new',
           title: 'Create Repair',
           icon: <AddIcon />
         },
