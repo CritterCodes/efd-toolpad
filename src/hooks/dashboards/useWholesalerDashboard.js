@@ -18,16 +18,16 @@ export const useWholesalerDashboard = () => {
     const [error, setError] = useState(null);
 
     const loadDashboardData = useCallback(async () => {
-        if (!session?.user?.id) return;
-        
+        if (!session?.user?.userID) return;
+
         try {
             setLoading(true);
             setError(null);
-            
+
             // Build query params
             const params = new URLSearchParams();
             if (session.user.role === 'wholesaler') {
-                params.append('clientId', session.user.id);
+                params.append('clientId', session.user.userID);
             }
             
             // Use standard API endpoints instead of dashboard-specific ones
