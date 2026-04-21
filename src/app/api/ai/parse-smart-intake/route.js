@@ -5,8 +5,7 @@ const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const DEFAULT_GEMINI_MODELS = [
   'gemini-2.0-flash',
   'gemini-2.0-flash-lite',
-  'gemini-1.5-flash-latest',
-  'gemini-1.5-flash'
+  'gemini-2.5-flash-preview-04-17'
 ];
 
 const buildCandidateModels = () => {
