@@ -73,7 +73,7 @@ const callGeminiWithFallback = async ({ apiKey, mimeType, base64Image, prompt })
     lastPayload = payload;
 
     const errorMessage = String(payload?.error?.message || '').toLowerCase();
-    const shouldTryNextModel = response.status === 404 || errorMessage.includes('not found') || errorMessage.includes('not supported');
+    const shouldTryNextModel = response.status === 404 || response.status === 429 || errorMessage.includes('not found') || errorMessage.includes('not supported') || errorMessage.includes('resource exhausted');
 
     if (!shouldTryNextModel) {
       throw new Error(payload?.error?.message || 'Gemini request failed');
