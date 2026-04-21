@@ -648,13 +648,6 @@ export default function TasksPage() {
             <CategoryIcon sx={{ mr: 1 }} />
             Manage Materials
           </MenuItem>
-          <MenuItem onClick={() => {
-            handleCloseTaskMenu();
-            router.push('/dashboard/admin/tasks/processes');
-          }}>
-            <SettingsIcon sx={{ mr: 1 }} />
-            Manage Processes
-          </MenuItem>
         </Menu>
 
         {/* View Dialog */}

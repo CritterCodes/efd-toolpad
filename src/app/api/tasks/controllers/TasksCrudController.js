@@ -82,24 +82,6 @@ export class TasksCrudController {
 
       const data = await request.json();
 
-      if (data.processes && data.processes.length > 0 && !data.pricing) {
-        try {
-          const universalPricing = await TasksService.calculateUniversalTaskPricing({
-            processes: data.processes,
-            laborCost: data.laborCost || data.service?.laborCost || 0
-          });
-
-          data.pricing = universalPricing;
-          data.universalTask = true;
-          data.supportedMetals = Object.keys(universalPricing).map(metalKey => {
-            const [metalType, karat] = metalKey.split('_');
-            return { metalType, karat };
-          });
-        } catch (pricingError) {
-          console.warn('Failed to calculate universal pricing:', pricingError.message);
-        }
-      }
-
       const task = await TasksService.createTask(data, userEmail);
 
       return NextResponse.json({
@@ -138,24 +120,6 @@ export class TasksCrudController {
           { success: false, error: 'Task ID is required for update' },
           { status: 400 }
         );
-      }
-
-      if (data.processes && data.processes.length > 0) {
-        try {
-          const universalPricing = await TasksService.calculateUniversalTaskPricing({
-            processes: data.processes,
-            laborCost: data.laborCost || data.service?.laborCost || 0
-          });
-
-          data.pricing = universalPricing;
-          data.universalTask = true;
-          data.supportedMetals = Object.keys(universalPricing).map(metalKey => {
-            const [metalType, karat] = metalKey.split('_');
-            return { metalType, karat };
-          });
-        } catch (pricingError) {
-          console.warn('Failed to recalculate universal pricing:', pricingError.message);
-        }
       }
 
       const task = await TasksService.updateTask(taskId, data, userEmail);

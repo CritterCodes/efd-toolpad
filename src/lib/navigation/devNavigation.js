@@ -27,6 +27,7 @@ import PaymentIcon from "@mui/icons-material/Payment";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import PrintIcon from "@mui/icons-material/Print";
 import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
+import LeadsIcon from "@mui/icons-material/ChatBubbleOutline";
 
 import { SHARED_NAVIGATION } from "./sharedNavigation";
 
@@ -109,6 +110,11 @@ export const devNavigation = {
       title: 'Repairs',
       icon: <BuildIcon />,
       children: [
+        {
+          segment: 'leads',
+          title: 'Leads',
+          icon: <LeadsIcon />
+        },
         {
           segment: 'receiving',
           title: 'Receiving',

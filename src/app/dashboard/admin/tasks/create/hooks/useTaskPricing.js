@@ -2,13 +2,34 @@ import { useState, useCallback, useEffect } from 'react';
 import pricingEngine from '@/services/PricingEngine';
 import { getMetalVariantsFromMaterials, parseMetalKey } from '@/utils/processes.util';
 
-export function useTaskPricing({ formData, adminSettings, availableProcesses, availableMaterials }) {
+function resolveTaskMaterials(materialSelections, availableMaterials, metalType = null, karat = null) {
+  return materialSelections.map(ms => {
+    const full = availableMaterials.find(m => m._id === ms.materialId);
+    if (!full) return { material: null, quantity: ms.quantity || 1 };
+
+    let unitCost = full.unitCost || full.cost || 0;
+    if (metalType && karat && full.stullerProducts?.length > 0) {
+      const product = full.stullerProducts.find(p => p.metalType === metalType && p.karat === karat);
+      if (product) {
+        // stullerPrice is the raw cost we pay; costPerPortion is already marked up — use raw
+        const stullerPrice = parseFloat(product.stullerPrice) || 0;
+        unitCost = stullerPrice > 0
+          ? stullerPrice / (full.portionsPerUnit || 1)
+          : (parseFloat(product.costPerPortion) || 0);
+      }
+    }
+
+    return { material: { ...full, unitCost }, quantity: ms.quantity || 1 };
+  });
+}
+
+export function useTaskPricing({ formData, adminSettings, availableProcesses, availableMaterials, availableTools = [] }) {
   const [pricePreview, setPricePreview] = useState(null);
   const [pricesByMetal, setPricesByMetal] = useState({});
 
   // Calculate metal-specific pricing
   const calculateMetalSpecificPricing = useCallback(async () => {
-    if (!adminSettings || (formData.processes.length === 0 && formData.materials.length === 0)) {
+    if (!adminSettings || (formData.processes.length === 0 && formData.materials.length === 0 && (formData.tools || []).length === 0)) {
       setPricePreview(null);
       setPricesByMetal({});
       return;
@@ -118,20 +139,21 @@ export function useTaskPricing({ formData, adminSettings, availableProcesses, av
         const taskData = {
           processes: formData.processes.map(ps => ({
             processId: ps.processId,
-            quantity: ps.quantity || 1
+            quantity: ps.quantity || 1,
+            isCustom: ps.isCustom || false,
+            laborHours: ps.laborHours,
+            name: ps.name,
           })),
-          materials: formData.materials.map(ms => ({
-            materialId: ms.materialId,
-            quantity: ms.quantity || 1
-          })),
+          materials: resolveTaskMaterials(formData.materials, availableMaterials),
+          tools: (formData.tools || []).map(ts => ({ toolId: ts.toolId, quantity: ts.quantity || 1 })),
           minimumPrice: formData.minimumPrice,
           priceOverride: formData.priceOverride,
           minimumWholesalePrice: formData.minimumWholesalePrice,
           minimumLaborPrice: formData.minimumLaborPrice,
           variantPricingAdjustments: formData.variantPricingAdjustments || {}
         };
-        
-        const pricing = pricingEngine.calculateTaskCost(taskData, adminSettings, availableProcesses, availableMaterials);
+
+        const pricing = pricingEngine.calculateTaskCost(taskData, adminSettings, availableProcesses, availableMaterials, null, availableTools);
         
         const laborCost = Math.round((pricing.laborCost || 0) * 100) / 100;
         const baseMaterialCost = Math.round(((pricing.baseCost || 0) - laborCost) * 100) / 100;
@@ -153,11 +175,19 @@ export function useTaskPricing({ formData, adminSettings, availableProcesses, av
         for (const variant of metalVariants) {
           const { metalType, karat, metalLabel } = variant;
           const metalComplexity = metalComplexityMultipliers[metalType] || 1.0;
-          const variantKey = `${metalType}_${karat}`;
+          // Normalize to lowercase + underscores — must match the contextKey the pricing engine produces
+          const variantKey = `${metalType}_${karat}`.toLowerCase().replace(/[^a-z0-9]/g, '_');
 
           const taskDataForMetal = {
-            processes: formData.processes.map(ps => ({ processId: ps.processId, quantity: ps.quantity || 1 })),
-            materials: formData.materials.map(ms => ({ materialId: ms.materialId, quantity: ms.quantity || 1 })),
+            processes: formData.processes.map(ps => ({
+              processId: ps.processId,
+              quantity: ps.quantity || 1,
+              isCustom: ps.isCustom || false,
+              laborHours: ps.laborHours,
+              name: ps.name,
+            })),
+            materials: resolveTaskMaterials(formData.materials, availableMaterials, metalType, karat),
+            tools: (formData.tools || []).map(ts => ({ toolId: ts.toolId, quantity: ts.quantity || 1 })),
             minimumPrice: formData.minimumPrice,
             priceOverride: formData.priceOverride,
             minimumWholesalePrice: formData.minimumWholesalePrice,
@@ -170,7 +200,8 @@ export function useTaskPricing({ formData, adminSettings, availableProcesses, av
             adminSettings,
             availableProcesses,
             availableMaterials,
-            { metalType, karat }
+            { metalType, karat },
+            availableTools
           );
 
           const laborCost = Math.round((pricingForMetal.laborCost || 0) * 100) / 100;
@@ -184,9 +215,15 @@ export function useTaskPricing({ formData, adminSettings, availableProcesses, av
             laborCost: laborCost,
             baseMaterialCost: baseMaterialCost,
             baseCost: Math.round((pricingForMetal.baseCost || 0) * 100) / 100,
+            calculatedRetailPrice: Math.round((pricingForMetal.calculatedRetailPrice || 0) * 100) / 100,
+            adjustedRetailPrice: Math.round((pricingForMetal.adjustedCalculatedRetailPrice || pricingForMetal.retailPriceBeforeRounding || 0) * 100) / 100,
+            retailPriceBeforeRounding: Math.round((pricingForMetal.retailPriceBeforeRounding || 0) * 100) / 100,
             retailPrice: Math.round((pricingForMetal.retailPrice || 0) * 100) / 100,
+            roundingApplied: pricingForMetal.roundingApplied || false,
             wholesalePrice: Math.round((pricingForMetal.wholesalePrice || 0) * 100) / 100,
+            wholesaleRoundingApplied: pricingForMetal.wholesaleRoundingApplied || false,
             businessMultiplier: Math.round((pricingForMetal.businessMultiplier || 1) * 100) / 100,
+            variantRetailMultiplier: pricingForMetal.variantRetailMultiplier || 1,
             metalComplexity
           };
         }
@@ -203,7 +240,7 @@ export function useTaskPricing({ formData, adminSettings, availableProcesses, av
       setPricePreview(null);
       setPricesByMetal({});
     }
-  }, [formData.processes, formData.materials, formData.minimumPrice, formData.priceOverride, formData.minimumWholesalePrice, formData.minimumLaborPrice, formData.variantPricingAdjustments, adminSettings, availableProcesses, availableMaterials]);
+  }, [formData.processes, formData.materials, formData.tools, formData.minimumPrice, formData.priceOverride, formData.minimumWholesalePrice, formData.minimumLaborPrice, formData.variantPricingAdjustments, adminSettings, availableProcesses, availableMaterials, availableTools]);
 
   // Recalculate pricing when form changes
   useEffect(() => {

@@ -7,7 +7,6 @@ import * as React from 'react';
 import { useAdminSettings } from '@/context/AdminSettingsContext';
 import processesService from '@/services/processes.service';
 import materialsService from '@/services/materials.service';
-import cascadingUpdatesService from '@/services/cascadingUpdates.service';
 import {
   DEFAULT_PROCESS_FORM,
   transformProcessForForm,
@@ -187,16 +186,6 @@ export function useProcessesManager() {
         savedProcess = await processesService.createProcess(processData);
       }
       
-      // If this was an update, trigger cascading updates
-      if (isUpdate && savedProcess.process) {
-        try {
-          const cascadingResult = await cascadingUpdatesService.updateFromProcessesChange([savedProcess.process._id]);
-          console.log('✅ Cascading updates completed:', cascadingResult);
-        } catch (cascadingError) {
-          console.error('⚠️ Cascading updates failed:', cascadingError);
-        }
-      }
-
       closeDialog();
       loadProcesses();
     } catch (error) {

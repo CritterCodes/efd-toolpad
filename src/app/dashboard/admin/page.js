@@ -12,7 +12,6 @@ import {
   Build as TasksIcon,
   Settings as SettingsIcon,
   Inventory as MaterialsIcon,
-  Engineering as ProcessesIcon,
   Add as AddIcon,
   List as ListIcon,
   Person as ArtisanIcon
@@ -54,20 +53,6 @@ export default function AdminPage() {
           label: 'Manage Materials',
           path: '/dashboard/admin/tasks/materials',
           icon: <MaterialsIcon />,
-          variant: 'contained'
-        }
-      ]
-    },
-    {
-      title: 'Processes Management',
-      description: 'Configure repair processes, labor time, and complexity',
-      icon: <ProcessesIcon sx={{ fontSize: 48 }} />,
-      color: 'info',
-      actions: [
-        {
-          label: 'Manage Processes',
-          path: '/dashboard/admin/tasks/processes',
-          icon: <ProcessesIcon />,
           variant: 'contained'
         }
       ]
@@ -186,17 +171,6 @@ export default function AdminPage() {
                 sx={{ py: 2 }}
               >
                 Add Material
-              </Button>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<ProcessesIcon />}
-                onClick={() => router.push('/dashboard/admin/tasks/processes')}
-                sx={{ py: 2 }}
-              >
-                Add Process
               </Button>
             </Grid>
             <Grid item xs={12} sm={6} md={3}>

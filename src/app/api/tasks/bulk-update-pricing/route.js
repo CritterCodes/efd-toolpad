@@ -1,9 +1,9 @@
-/**
- * Tasks Bulk Update Pricing API Route
- */
+import { NextResponse } from 'next/server';
 
-import { TasksController } from '../controller';
-
-export async function POST(request) {
-  return TasksController.bulkUpdatePricing(request);
+export async function POST() {
+  return NextResponse.json({
+    success: true,
+    updated: 0,
+    message: 'Task pricing is now computed at runtime — no bulk update needed.'
+  });
 }

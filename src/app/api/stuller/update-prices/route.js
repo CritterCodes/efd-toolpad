@@ -2,10 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from "@/lib/auth";
 import { db } from '@/lib/database';
 import Constants from '@/lib/constants';
-import pricingEngine from '@/services/PricingEngine';
-import { TasksService } from '@/app/api/tasks/service';
 import { decryptSensitiveData, isDataEncrypted } from '@/utils/encryption';
-import { updateStullerProductPricing } from '@/utils/material-pricing.util';
 
 /**
  * Fetch a price field flexibly from a Stuller product response.
@@ -48,68 +45,9 @@ function getProductLastUpdated(product, material) {
 }
 
 /**
- * After materials are updated, re-hydrate all processes with the latest
- * material costs and recalculate each process cost via PricingEngine.
- */
-async function refreshProcessPricing(adminSettings) {
-  const materialsCol = db._instance.collection(Constants.MATERIALS_COLLECTION);
-  const processesCol = db._instance.collection(Constants.PROCESSES_COLLECTION);
-
-  const [materials, processes] = await Promise.all([
-    materialsCol.find({ isActive: { $ne: false } }).toArray(),
-    processesCol.find({ isActive: { $ne: false } }).toArray(),
-  ]);
-
-  if (processes.length === 0) {
-    return 0;
-  }
-
-  const materialsById = new Map(materials.map((m) => [String(m._id), m]));
-
-  const ops = processes.map((process) => {
-    const hydratedMaterials = (process.materials || []).map((sel) => {
-      const id = sel?.materialId || sel?._id;
-      const latest = id ? materialsById.get(String(id)) : null;
-      if (!latest) return sel;
-      return {
-        ...latest,
-        ...sel,
-        _id: latest._id,
-        materialId: id,
-        quantity: parseFloat(sel?.quantity ?? latest?.quantity ?? 1) || 1,
-        portionsPerUnit: sel?.portionsPerUnit || latest?.portionsPerUnit || 1,
-        stullerProducts: latest.stullerProducts || sel.stullerProducts || [],
-      };
-    });
-
-    const updatedPricing = pricingEngine.calculateProcessCost(
-      { ...process, materials: hydratedMaterials },
-      adminSettings
-    );
-
-    return {
-      updateOne: {
-        filter: { _id: process._id },
-        update: {
-          $set: {
-            materials: hydratedMaterials,
-            pricing: updatedPricing,
-            updatedAt: new Date(),
-          },
-        },
-      },
-    };
-  });
-
-  const result = await processesCol.bulkWrite(ops);
-  return result.modifiedCount || 0;
-}
-
-/**
  * POST /api/stuller/update-prices
- * 1. Pull fresh prices from Stuller for auto-update materials
- * 2. Cascade: recalculate process costs from updated materials
- * 3. Cascade: recalculate task prices from updated processes
+ * Pull fresh stullerPrice values from Stuller API for auto-update materials.
+ * Prices are computed at runtime — no cascade to processes or tasks needed.
  */
 export async function POST(request) {
   try {
@@ -252,16 +190,12 @@ export async function POST(request) {
             continue;
           }
 
-          const normalized = updateStullerProductPricing(
-            {
-              ...product,
-              stullerPrice: newPrice,
-              markupRate: parseFloat(product.markupRate) || parseFloat(adminSettings?.pricing?.materialMarkup) || 1,
-            },
-            material.portionsPerUnit || 1
-          );
-
-          updatedProducts.push(normalized);
+          updatedProducts.push({
+            stullerItemNumber: product.stullerItemNumber || product.stuller_item_number,
+            metalType: product.metalType,
+            karat: product.karat,
+            stullerPrice: newPrice,
+          });
           materialChanged = true;
           variantsUpdated++;
 
@@ -272,14 +206,11 @@ export async function POST(request) {
           continue;
         }
 
-        const primaryProduct = updatedProducts[0] || null;
         await materialsCol.updateOne(
           { _id: material._id },
           {
             $set: {
               stullerProducts: updatedProducts,
-              unitCost: primaryProduct?.markedUpPrice || material.unitCost || 0,
-              costPerPortion: primaryProduct?.costPerPortion || material.costPerPortion || 0,
               last_price_update: now,
               updatedAt: now,
               updatedBy: 'stuller_auto_update',
@@ -340,32 +271,11 @@ export async function POST(request) {
       }
     }
 
-    // ── Step 3: Cascade → recalculate processes ──────────────────────────────
-    let processesUpdated = 0;
-    try {
-      processesUpdated = await refreshProcessPricing(adminSettings);
-    } catch (err) {
-      console.error('Process cascade failed:', err);
-      errors.push(`Process cascade error: ${err.message}`);
-    }
-
-    // ── Step 4: Cascade → recalculate tasks ──────────────────────────────────
-    let tasksUpdated = 0;
-    try {
-      const tasksResult = await TasksService.recalculateAllTaskPrices();
-      tasksUpdated = tasksResult?.data?.updated ?? tasksResult?.updated ?? 0;
-    } catch (err) {
-      console.error('Task cascade failed:', err);
-      errors.push(`Task cascade error: ${err.message}`);
-    }
-
     return NextResponse.json({
       success: true,
-      message: `Updated ${updated} materials, ${processesUpdated} processes, and ${tasksUpdated} tasks`,
+      message: `Synced ${updated} materials (${variantsUpdated} variants). Prices computed at runtime — no cascade needed.`,
       materialsUpdated: updated,
       variantsUpdated,
-      processesUpdated,
-      tasksUpdated,
       total: materials.length + legacyMaterials.length,
       errors: errors.length > 0 ? errors : undefined,
     });

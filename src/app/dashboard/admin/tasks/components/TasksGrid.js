@@ -122,49 +122,24 @@ export default function TasksGrid({
                 )}
               </Box>
 
-              {/* Pricing Display - Universal vs Legacy */}
-              {task.universalPricing ? (
-                <Box>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Multi-Metal Pricing:
+              {/* Pricing — computed at runtime per metal context */}
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                <Box display="flex" align="center" gap={0.5}>
+                  <MoneyIcon fontSize="small" color="success" />
+                  <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                    Computed at checkout
                   </Typography>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                    <Typography variant="body2" color="text.secondary">
-                      Price Range:
-                    </Typography>
-                    <Typography variant="body2" color="success.main" fontWeight="bold">
-                      ${Math.min(...Object.values(task.universalPricing).map(p => p.retailPrice || 0)).toFixed(2)} - 
-                      ${Math.max(...Object.values(task.universalPricing).map(p => p.retailPrice || 0)).toFixed(2)}
-                    </Typography>
-                  </Box>
-                  <Box display="flex" justifyContent="space-between" alignItems="center">
-                    <Typography variant="body2" color="text.secondary">
-                      Metal Options:
-                    </Typography>
-                    <Typography variant="body2" color="primary.main">
-                      {Object.keys(task.universalPricing).length} variants
-                    </Typography>
-                  </Box>
                 </Box>
-              ) : (
-                <Box display="flex" justifyContent="space-between" alignItems="center">
-                  <Box display="flex" align="center" gap={0.5}>
-                    <MoneyIcon fontSize="small" color="success" />
-                    <Typography variant="h6" color="success.main">
-                      ${(task.pricing?.retailPrice || task.basePrice)?.toFixed(2) || '0.00'}
-                    </Typography>
-                  </Box>
 
-                  {(task.pricing?.totalLaborHours || task.laborHours) && (
-                    <Box display="flex" alignItems="center" gap={0.5}>
-                      <TimeIcon fontSize="small" color="action" />
-                      <Typography variant="body2" color="text.secondary">
-                        {task.pricing?.totalLaborHours || task.laborHours}h
-                      </Typography>
-                    </Box>
-                  )}
-                </Box>
-              )}
+                {task.laborHours > 0 && (
+                  <Box display="flex" alignItems="center" gap={0.5}>
+                    <TimeIcon fontSize="small" color="action" />
+                    <Typography variant="body2" color="text.secondary">
+                      {task.laborHours}h
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
 
               {/* Service Information */}
               {task.service && (

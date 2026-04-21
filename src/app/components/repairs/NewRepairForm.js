@@ -6,7 +6,6 @@ import {
   Typography,
   Autocomplete,
   Grid,
-  Paper,
   Divider,
   FormControl,
   InputLabel,
@@ -19,15 +18,9 @@ import {
   ListItemText,
   ListItemSecondaryAction,
   Alert,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   useMediaQuery,
   useTheme,
   Stack,
-  Card,
-  CardContent,
-  CardHeader,
   Fab,
   Switch,
   FormControlLabel,
@@ -41,7 +34,6 @@ import {
   Add as AddIcon,
   AutoAwesome as AutoAwesomeIcon,
   Delete as DeleteIcon,
-  ExpandMore as ExpandMoreIcon,
   Edit as EditIcon,
   Save as SaveIcon,
   Cancel as CancelIcon,
@@ -58,6 +50,7 @@ import RepairsService from '@/services/repairs';
 import UsersService from '@/services/users';
 import wholesaleClientsAPIClient from '@/api-clients/wholesaleClients.client';
 import wholesaleAccountSettingsAPIClient from '@/api-clients/wholesaleAccountSettings.client';
+import pricingEngine from '@/services/PricingEngine';
 
 // Context
 import { useRepairs } from '@/app/context/repairs.context';
@@ -1064,6 +1057,32 @@ export default function NewRepairForm({
     loadData();
   }, [isWholesale, wholesalerStoreId, wholesalerStoreName]); // Re-run when wholesaler store info resolves
 
+  // Live price helpers — fall back to PricingEngine when stored prices are absent (post-refactor tasks/processes)
+  const computeTaskRetailPrice = (task, metalType, karat) => {
+    const stored = resolveTaskBasePrice(task, metalType, karat, '');
+    if (stored > 0) return stored;
+    try {
+      const result = pricingEngine.calculateTaskCost(
+        task, adminSettings, availableProcesses, availableMaterials,
+        metalType && karat ? { metalType, karat } : null
+      );
+      return result?.retailPrice || 0;
+    } catch { return 0; }
+  };
+
+  const computeProcessRetailPrice = (process, metalType, karat) => {
+    const stored = resolveProcessRetailPrice(process, metalType, karat, '', adminSettings);
+    if (stored > 0) return stored;
+    try {
+      const result = pricingEngine.calculateProcessCost(process, adminSettings);
+      if (result.isMetalDependent && metalType && karat) {
+        const key = `${metalType}_${karat}`.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        return result.metalPrices?.[key]?.totalCost || result.totalCost || 0;
+      }
+      return result.totalCost || 0;
+    } catch { return 0; }
+  };
+
   const buildTaskItemsFromInferred = useCallback((tasks = [], previousForm) => {
     if (!Array.isArray(tasks) || tasks.length === 0) {
       return [];
@@ -1074,7 +1093,7 @@ export default function NewRepairForm({
     const nextGoldColor = previousForm?.goldColor || '';
 
     return tasks.map((task, index) => {
-      const baseRetailPrice = resolveTaskBasePrice(task, nextMetalType, nextKarat, nextGoldColor);
+      const baseRetailPrice = computeTaskRetailPrice(task, nextMetalType, nextKarat);
       const wholesalePrice = resolveTaskWholesalePrice(task, nextMetalType, nextKarat, nextGoldColor);
       const paidPrice = previousForm.isWholesale ? (wholesalePrice > 0 ? wholesalePrice : baseRetailPrice) : baseRetailPrice;
       const retailPrice = previousForm.isWholesale
@@ -1371,7 +1390,7 @@ export default function NewRepairForm({
 
   // Add item handlers
   const addTask = (task) => {
-    const baseRetailPrice = resolveTaskBasePrice(task, formData.metalType, formData.karat, formData.goldColor);
+    const baseRetailPrice = computeTaskRetailPrice(task, formData.metalType, formData.karat);
     const wholesalePrice = resolveTaskWholesalePrice(task, formData.metalType, formData.karat, formData.goldColor);
     const price = formData.isWholesale ? (wholesalePrice > 0 ? wholesalePrice : baseRetailPrice) : baseRetailPrice;
     const retailPrice = formData.isWholesale
@@ -1381,20 +1400,6 @@ export default function NewRepairForm({
     setFormData(prev => ({
       ...prev,
       tasks: [...prev.tasks, newTask]
-    }));
-  };
-
-  const addProcess = (process) => {
-    const baseRetailPrice = resolveProcessRetailPrice(process, formData.metalType, formData.karat, formData.goldColor, adminSettings);
-    const wholesalePrice = resolveProcessWholesalePrice(process, formData.metalType, formData.karat, formData.goldColor, adminSettings);
-    const price = formData.isWholesale ? (wholesalePrice > 0 ? wholesalePrice : baseRetailPrice) : baseRetailPrice;
-    const retailPrice = formData.isWholesale
-      ? applyWholesalerRetailAdjustments(price, wholesalerPricingSettings)
-      : baseRetailPrice;
-    const newProcess = { ...process, id: Date.now(), quantity: 1, retailPrice, price };
-    setFormData(prev => ({
-      ...prev,
-      processes: [...prev.processes, newProcess]
     }));
   };
 
@@ -1430,7 +1435,7 @@ export default function NewRepairForm({
     setFormData(prev => ({
       ...prev,
       tasks: prev.tasks.map((task) => {
-        const baseRetailPrice = resolveTaskBasePrice(task, formData.metalType, formData.karat, formData.goldColor);
+        const baseRetailPrice = computeTaskRetailPrice(task, formData.metalType, formData.karat);
         const wholesalePrice = resolveTaskWholesalePrice(task, formData.metalType, formData.karat, formData.goldColor);
         const price = isWholesale ? (wholesalePrice > 0 ? wholesalePrice : baseRetailPrice) : baseRetailPrice;
         const retailPrice = isWholesale
@@ -1439,7 +1444,7 @@ export default function NewRepairForm({
         return { ...task, retailPrice, price };
       }),
       processes: prev.processes.map((process) => {
-        const baseRetailPrice = resolveProcessRetailPrice(process, formData.metalType, formData.karat, formData.goldColor, adminSettings);
+        const baseRetailPrice = computeProcessRetailPrice(process, formData.metalType, formData.karat);
         const wholesalePrice = resolveProcessWholesalePrice(process, formData.metalType, formData.karat, formData.goldColor, adminSettings);
         const price = isWholesale ? (wholesalePrice > 0 ? wholesalePrice : baseRetailPrice) : baseRetailPrice;
         const retailPrice = isWholesale
@@ -1901,20 +1906,11 @@ export default function NewRepairForm({
       <Stack spacing={{ xs: 1.5, sm: 3 }}>
 
         {/* Client Information */}
-        <Card sx={{ borderRadius: { xs: 1, sm: 2 }, boxShadow: { xs: 1, sm: '0 2px 12px rgba(0,0,0,0.08)' } }}>
-          <CardHeader 
-            title="Client Information" 
-            sx={{ 
-              bgcolor: 'primary.main', 
-              color: 'primary.contrastText',
-              '& .MuiCardHeader-title': { 
-                fontWeight: 600,
-                fontSize: { xs: '0.95rem', sm: '1.1rem' }
-              }
-            }}
-          />
-          <CardContent sx={{ p: { xs: 1.5, sm: 3 } }}>
-            <Grid container spacing={{ xs: 1.5, sm: 2 }}>
+        <Box sx={{ px: { xs: 2, sm: 0 } }}>
+          <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, display: 'block', mb: 1.5, lineHeight: 1 }}>
+            Client Information
+          </Typography>
+          <Grid container spacing={{ xs: 1.5, sm: 2 }}>
               {isWholesale ? (
               <Grid item xs={12}>
                 <TextField
@@ -2239,44 +2235,28 @@ export default function NewRepairForm({
                 )}
               </Grid>
             </Grid>
-          </CardContent>
-        </Card>
+        </Box>
 
-        {/* Wholesaler Information Card */}
+        {/* Wholesaler Information */}
         {isWholesale && (
-          <Card sx={{ borderRadius: { xs: 1, sm: 2 }, boxShadow: { xs: 1, sm: '0 2px 12px rgba(0,0,0,0.08)' }, bgcolor: 'info.light' }}>
-            <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-              <Typography variant={isMobile ? "subtitle1" : "h6"} gutterBottom color="info.dark">
-                📝 Wholesaler Repair Submission
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.875rem' } }}>
-                As a wholesaler, you can record your client&apos;s information and special instructions in the notes section below. 
-                Our admin team will review your submission and provide pricing details.
-              </Typography>
-            </CardContent>
-          </Card>
+          <Alert severity="info" sx={{ mx: { xs: 2, sm: 0 } }}>
+            <Typography variant="subtitle2" gutterBottom>📝 Wholesaler Repair Submission</Typography>
+            <Typography variant="body2">
+              As a wholesaler, you can record your client&apos;s information and special instructions in the notes section below.
+              Our admin team will review your submission and provide pricing details.
+            </Typography>
+          </Alert>
         )}
 
         {/* Image Capture */}
-        <Card sx={{ borderRadius: { xs: 1, sm: 2 }, boxShadow: { xs: 1, sm: '0 2px 12px rgba(0,0,0,0.08)' } }}>
-          <CardHeader 
-            title="Item Photo"
-            subheader="Take a photo with your camera or upload from file"
-            sx={{ 
-              bgcolor: 'info.main', 
-              color: 'info.contrastText',
-              '& .MuiCardHeader-title': { 
-                fontWeight: 600,
-                fontSize: { xs: '0.95rem', sm: '1.1rem' }
-              },
-              '& .MuiCardHeader-subheader': { 
-                color: 'info.contrastText',
-                opacity: 0.8
-              }
-            }}
-          />
-          <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-            <Stack spacing={2} alignItems="center">
+        <Box sx={{ px: { xs: 2, sm: 0 }, borderTop: '1px solid', borderColor: 'divider', pt: 2 }}>
+          <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, display: 'block', mb: 1.5, lineHeight: 1 }}>
+            Item Photo
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+            Take a photo with your camera or upload from file
+          </Typography>
+          <Stack spacing={2} alignItems="center">
               <CameraCapture
                 onCapture={(file) => {
                   setImageDescriptionError('');
@@ -2325,24 +2305,14 @@ export default function NewRepairForm({
                 </Typography>
               )}
             </Stack>
-          </CardContent>
-        </Card>
+        </Box>
 
         {/* Item Details */}
-        <Card sx={{ borderRadius: { xs: 1, sm: 2 }, boxShadow: { xs: 1, sm: '0 2px 12px rgba(0,0,0,0.08)' } }}>
-          <CardHeader 
-            title="Item Details" 
-            sx={{ 
-              bgcolor: 'secondary.main', 
-              color: 'secondary.contrastText',
-              '& .MuiCardHeader-title': { 
-                fontWeight: 600,
-                fontSize: { xs: '0.95rem', sm: '1.1rem' }
-              }
-            }}
-          />
-          <CardContent sx={{ p: { xs: 1.5, sm: 3 } }}>
-            <Grid container spacing={{ xs: 1.5, sm: 2 }}>
+        <Box sx={{ px: { xs: 2, sm: 0 }, borderTop: '1px solid', borderColor: 'divider', pt: 2 }}>
+          <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, display: 'block', mb: 1.5, lineHeight: 1 }}>
+            Item Details
+          </Typography>
+          <Grid container spacing={{ xs: 1.5, sm: 2 }}>
               <Grid item xs={12}>
                 <TextField
                   fullWidth
@@ -2500,10 +2470,9 @@ export default function NewRepairForm({
               {formData.isRing && (
                 <>
                   <Grid item xs={12}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600, mt: 1 }}>
+                    <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, lineHeight: 1 }}>
                       Ring Sizing
                     </Typography>
-                    <Divider />
                   </Grid>
                   
                   <Grid item xs={6}>
@@ -2556,8 +2525,7 @@ export default function NewRepairForm({
                 />
               </Grid>
             </Grid>
-          </CardContent>
-        </Card>
+        </Box>
 
         {/* Work Items */}
         <RepairItemsSection
@@ -2565,10 +2533,8 @@ export default function NewRepairForm({
           setFormData={setFormData}
           adminSettings={adminSettings}
           availableTasks={availableTasks}
-          availableProcesses={availableProcesses}
           availableMaterials={availableMaterials}
           addTask={addTask}
-          addProcess={addProcess}
           addMaterial={addMaterial}
           addCustomLineItem={addCustomLineItem}
           removeItem={removeItem}
@@ -2698,10 +2664,8 @@ function RepairItemsSection({
   setFormData,
   adminSettings,
   availableTasks,
-  availableProcesses,
   availableMaterials,
   addTask,
-  addProcess,
   addMaterial,
   addCustomLineItem,
   removeItem,
@@ -2712,232 +2676,125 @@ function RepairItemsSection({
   stullerError,
   addStullerMaterial
 }) {
-  const [expandedSection, setExpandedSection] = useState('tasks');
-
   return (
-    <Card sx={{ borderRadius: { xs: 1, sm: 2 }, boxShadow: { xs: 1, sm: '0 2px 12px rgba(0,0,0,0.08)' } }}>
-      <CardHeader 
-        title="Work Items & Pricing"
-        subheader="Add tasks, processes, materials and custom items"
-        sx={{ 
-          bgcolor: 'success.main', 
-          color: 'success.contrastText',
-          '& .MuiCardHeader-title': { 
-            fontWeight: 600,
-            fontSize: { xs: '0.95rem', sm: '1.1rem' }
-          },
-          '& .MuiCardHeader-subheader': { 
-            color: 'success.contrastText',
-            opacity: 0.8
-          }
-        }}
-      />
-      <CardContent sx={{ p: 0 }}>
-        {/* Tasks Section */}
-        <Accordion 
-          expanded={expandedSection === 'tasks'}
-          onChange={(e, isExpanded) => setExpandedSection(isExpanded ? 'tasks' : false)}
-        >
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography>
-              Tasks ({formData.tasks.length})
-            </Typography>
-          </AccordionSummary>
-          <AccordionDetails>
-            <Stack spacing={2}>
-              <Autocomplete
-                options={availableTasks}
-                getOptionLabel={(option) => `${option.title}`}
-                renderInput={(params) => (
-                  <TextField {...params} label="Add Task" size="small" />
-                )}
-                onChange={(e, value) => value && addTask(value)}
-              />
-              
-              {formData.tasks.map(task => (
-                <TaskItem
-                  key={task.id}
-                  item={task}
-                  onQuantityChange={(qty) => updateItem('tasks', task.id, 'quantity', qty)}
-                  onPriceChange={(price) => updateItem('tasks', task.id, 'price', price)}
-                  showPriceInput={false}
-                  onRemove={() => removeItem('tasks', task.id)}
-                />
-              ))}
-            </Stack>
-          </AccordionDetails>
-        </Accordion>
+    <Box sx={{ px: { xs: 2, sm: 0 }, borderTop: '1px solid', borderColor: 'divider', pt: 2 }}>
 
-        {/* Processes Section */}
-        <Accordion 
-          expanded={expandedSection === 'processes'}
-          onChange={(e, isExpanded) => setExpandedSection(isExpanded ? 'processes' : false)}
-        >
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography>
-              Processes ({formData.processes.length})
-            </Typography>
-          </AccordionSummary>
-          <AccordionDetails>
-            <Stack spacing={2}>
-                              <Autocomplete
-                options={availableProcesses}
-                getOptionLabel={(option) => {
-                  const price = resolveProcessRetailPrice(option, formData.metalType, formData.karat, formData.goldColor, adminSettings);
-                  return `${option.displayName} - $${price.toFixed(2)}`;
-                }}
-                renderInput={(params) => (
-                  <TextField {...params} label="Add Process" size="small" />
-                )}
-                renderOption={(props, option) => (
-                  <Box component="li" {...props}>
-                    <Box sx={{ width: '100%' }}>
-                      <Typography variant="body2" fontWeight="bold">
-                        {option.displayName}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {option.laborHours}hrs • ${(option.pricing?.totalCost || option.price || 0).toFixed(2)} • {option.skillLevel}
-                        {option.processType && ` • ${option.processType}`}
-                      </Typography>
-                      {option.description && (
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                          {option.description}
-                        </Typography>
-                      )}
-                    </Box>
-                  </Box>
-                )}
-                onChange={(e, value) => value && addProcess(value)}
-              />
-              
-              {formData.processes.map(process => (
-                <TaskItem
-                  key={process.id}
-                  item={process}
-                  onQuantityChange={(qty) => updateItem('processes', process.id, 'quantity', qty)}
-                  onPriceChange={(price) => updateItem('processes', process.id, 'price', price)}
-                  onRemove={() => removeItem('processes', process.id)}
-                />
-              ))}
-            </Stack>
-          </AccordionDetails>
-        </Accordion>
+      {/* Tasks */}
+      <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, lineHeight: 1, display: 'block', mb: 1.5 }}>
+        Tasks {formData.tasks.length > 0 && `(${formData.tasks.length})`}
+      </Typography>
+      <Stack spacing={1.5} sx={{ mb: 3 }}>
+        <Autocomplete
+          options={availableTasks}
+          getOptionLabel={(option) => `${option.title}`}
+          renderInput={(params) => (
+            <TextField {...params} label="Add Task" size="small" />
+          )}
+          onChange={(e, value) => value && addTask(value)}
+        />
+        {formData.tasks.map(task => (
+          <TaskItem
+            key={task.id}
+            item={task}
+            onQuantityChange={(qty) => updateItem('tasks', task.id, 'quantity', qty)}
+            onPriceChange={(price) => updateItem('tasks', task.id, 'price', price)}
+            showPriceInput={false}
+            onRemove={() => removeItem('tasks', task.id)}
+          />
+        ))}
+      </Stack>
 
-        {/* Materials Section */}
-        <Accordion 
-          expanded={expandedSection === 'materials'}
-          onChange={(e, isExpanded) => setExpandedSection(isExpanded ? 'materials' : false)}
-        >
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography>
-              Materials ({formData.materials.length})
-            </Typography>
-          </AccordionSummary>
-          <AccordionDetails>
-            <Stack spacing={2}>
-              <Autocomplete
-                options={availableMaterials}
-                getOptionLabel={(option) => {
-                  const displayName = option.displayName || option.name || 'Material';
-                  const basePrice = resolveMaterialRetailPrice(option, formData.metalType, formData.karat, formData.goldColor, adminSettings);
-                  return `${displayName} - $${basePrice.toFixed(2)}`;
-                }}
-                renderInput={(params) => (
-                  <TextField {...params} label="Add Material" size="small" />
-                )}
-                onChange={(e, value) => value && addMaterial(value)}
-              />
-              
-              {/* Stuller Integration Section */}
-              <Card variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, bgcolor: 'primary.50', borderColor: 'primary.main' }}>
-                <Typography variant="subtitle2" sx={{ mb: 1.5, color: 'primary.main', fontWeight: 600 }}>
-                  Add Stuller Gemstone/Material
-                </Typography>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'flex-start' }}>
-                  <TextField
-                    label="Stuller SKU"
-                    value={stullerSku}
-                    onChange={(e) => setStullerSku(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && addStullerMaterial()}
-                    placeholder="Enter Stuller item number..."
-                    size="small"
-                    fullWidth
-                    error={!!stullerError}
-                    helperText={stullerError}
-                  />
-                  <LoadingButton
-                    onClick={addStullerMaterial}
-                    loading={loadingStuller}
-                    disabled={!stullerSku.trim()}
-                    variant="contained"
-                    size="small"
-                    sx={{ minWidth: 80, flexShrink: 0 }}
-                  >
-                    Add
-                  </LoadingButton>
-                </Stack>
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                  Material will be added with markup applied.
-                </Typography>
-              </Card>
-              
-              {formData.materials.map(material => (
-                <TaskItem
-                  key={material.id}
-                  item={material}
-                  onQuantityChange={(qty) => updateItem('materials', material.id, 'quantity', qty)}
-                  onPriceChange={(price) => updateItem('materials', material.id, 'price', price)}
-                  onRemove={() => removeItem('materials', material.id)}
-                />
-              ))}
-            </Stack>
-          </AccordionDetails>
-        </Accordion>
+      {/* Materials */}
+      <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, lineHeight: 1, display: 'block', mb: 1.5, borderTop: '1px solid', borderColor: 'divider', pt: 2 }}>
+        Materials {formData.materials.length > 0 && `(${formData.materials.length})`}
+      </Typography>
+      <Stack spacing={1.5} sx={{ mb: 3 }}>
+        <Autocomplete
+          options={availableMaterials}
+          getOptionLabel={(option) => {
+            const displayName = option.displayName || option.name || 'Material';
+            const basePrice = resolveMaterialRetailPrice(option, formData.metalType, formData.karat, formData.goldColor, adminSettings);
+            return `${displayName} - $${basePrice.toFixed(2)}`;
+          }}
+          renderInput={(params) => (
+            <TextField {...params} label="Add Material" size="small" />
+          )}
+          onChange={(e, value) => value && addMaterial(value)}
+        />
 
-        {/* Custom Line Items */}
-        <Accordion 
-          expanded={expandedSection === 'custom'}
-          onChange={(e, isExpanded) => setExpandedSection(isExpanded ? 'custom' : false)}
-        >
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography>
-              Custom Items ({formData.customLineItems.length})
-            </Typography>
-          </AccordionSummary>
-          <AccordionDetails>
-            <Stack spacing={2}>
-              <Button
-                startIcon={<AddIcon />}
-                onClick={addCustomLineItem}
-                variant="outlined"
-                size="small"
-                fullWidth
-              >
-                Add Custom Item
-              </Button>
-              
-              {formData.customLineItems.map(item => (
-                <CustomLineItem
-                  key={item.id}
-                  item={item}
-                  onDescriptionChange={(desc) => updateItem('customLineItems', item.id, 'description', desc)}
-                  onQuantityChange={(qty) => updateItem('customLineItems', item.id, 'quantity', qty)}
-                  onPriceChange={(price) => updateItem('customLineItems', item.id, 'price', price)}
-                  onRemove={() => removeItem('customLineItems', item.id)}
-                />
-              ))}
-            </Stack>
-          </AccordionDetails>
-        </Accordion>
-      </CardContent>
-    </Card>
+        {/* Stuller Integration */}
+        <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'primary.main', borderRadius: 1, bgcolor: 'primary.50' }}>
+          <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 600, display: 'block', mb: 1 }}>
+            Add Stuller Gemstone/Material
+          </Typography>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'flex-start' }}>
+            <TextField
+              label="Stuller SKU"
+              value={stullerSku}
+              onChange={(e) => setStullerSku(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && addStullerMaterial()}
+              placeholder="Enter Stuller item number..."
+              size="small"
+              fullWidth
+              error={!!stullerError}
+              helperText={stullerError}
+            />
+            <LoadingButton
+              onClick={addStullerMaterial}
+              loading={loadingStuller}
+              disabled={!stullerSku.trim()}
+              variant="contained"
+              size="small"
+              sx={{ minWidth: 80, flexShrink: 0 }}
+            >
+              Add
+            </LoadingButton>
+          </Stack>
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+            Material will be added with markup applied.
+          </Typography>
+        </Box>
+
+        {formData.materials.map(material => (
+          <TaskItem
+            key={material.id}
+            item={material}
+            onQuantityChange={(qty) => updateItem('materials', material.id, 'quantity', qty)}
+            onPriceChange={(price) => updateItem('materials', material.id, 'price', price)}
+            onRemove={() => removeItem('materials', material.id)}
+          />
+        ))}
+      </Stack>
+
+      {/* Custom Items */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid', borderColor: 'divider', pt: 2, mb: 1.5 }}>
+        <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, lineHeight: 1 }}>
+          Custom Items {formData.customLineItems.length > 0 && `(${formData.customLineItems.length})`}
+        </Typography>
+        <Button startIcon={<AddIcon />} onClick={addCustomLineItem} variant="outlined" size="small">
+          Add
+        </Button>
+      </Box>
+      <Stack spacing={1.5}>
+        {formData.customLineItems.map(item => (
+          <CustomLineItem
+            key={item.id}
+            item={item}
+            onDescriptionChange={(desc) => updateItem('customLineItems', item.id, 'description', desc)}
+            onQuantityChange={(qty) => updateItem('customLineItems', item.id, 'quantity', qty)}
+            onPriceChange={(price) => updateItem('customLineItems', item.id, 'price', price)}
+            onRemove={() => removeItem('customLineItems', item.id)}
+          />
+        ))}
+      </Stack>
+    </Box>
   );
 }
 
 // Task/Process/Material item component
 function TaskItem({ item, onQuantityChange, onPriceChange, onRemove, showPriceInput = true }) {
   return (
-    <Paper sx={{ p: { xs: 1.5, sm: 2 }, border: item.isStullerItem ? '1px solid #1976d2' : undefined }}>
+    <Box sx={{ p: { xs: 1.5, sm: 2 }, border: '1px solid', borderColor: item.isStullerItem ? 'primary.main' : 'divider', borderRadius: 1 }}>
       <Stack spacing={1}>
         {/* Top row: title + delete */}
         <Stack direction="row" alignItems="center" justifyContent="space-between">
@@ -2996,20 +2853,20 @@ function TaskItem({ item, onQuantityChange, onPriceChange, onRemove, showPriceIn
           )}
         </Stack>
       </Stack>
-    </Paper>
+    </Box>
   );
 }
 
 // Custom line item component
-function CustomLineItem({ 
-  item, 
-  onDescriptionChange, 
-  onQuantityChange, 
-  onPriceChange, 
-  onRemove 
+function CustomLineItem({
+  item,
+  onDescriptionChange,
+  onQuantityChange,
+  onPriceChange,
+  onRemove
 }) {
   return (
-    <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
+    <Box sx={{ p: { xs: 1.5, sm: 2 }, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
       <Stack spacing={1.5}>
         <Stack direction="row" alignItems="flex-start" spacing={1}>
           <TextField
@@ -3049,7 +2906,7 @@ function CustomLineItem({
           </Typography>
         </Stack>
       </Stack>
-    </Paper>
+    </Box>
   );
 }
 
@@ -3177,14 +3034,8 @@ function TotalCostCard({ formData, calculateTotalCost, adminSettings }) {
   }, [formData.tasks, formData.processes, formData.materials, formData.customLineItems, formData.isWholesale, formData.isRush, formData.includeDelivery, formData.includeTax, calculateTotalCost, adminSettings]);
 
   return (
-    <Card sx={{
-      borderRadius: { xs: 1, sm: 2 },
-      boxShadow: { xs: 1, sm: '0 4px 20px rgba(0,0,0,0.1)' },
-      border: '2px solid',
-      borderColor: 'warning.main'
-    }}>
-      <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-        <Stack spacing={2}>
+    <Box sx={{ px: { xs: 2, sm: 0 }, borderTop: '2px solid', borderColor: 'warning.main', pt: 2 }}>
+      <Stack spacing={2}>
           {/* Main Total */}
           <Box>
             <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
@@ -3367,7 +3218,6 @@ function TotalCostCard({ formData, calculateTotalCost, adminSettings }) {
             </Typography>
           )}
         </Stack>
-      </CardContent>
-    </Card>
+    </Box>
   );
 };

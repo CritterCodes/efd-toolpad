@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from 'react';
 import materialsService from '@/services/materials.service';
-import cascadingUpdatesService from '@/services/cascadingUpdates.service';
 import { useAdminSettings } from '@/context/AdminSettingsContext';
 import { DEFAULT_MATERIAL_FORM } from '@/utils/materials.util';
 
@@ -56,14 +55,6 @@ export const useMaterialMutations = ({
         savedMaterial = await materialsService.updateMaterial(editingMaterial._id, submittedFormData);
       } else {
         savedMaterial = await materialsService.createMaterial(submittedFormData);
-      }
-
-      if (isUpdate && savedMaterial.material) {
-        try {
-          await cascadingUpdatesService.updateFromMaterialsChange([savedMaterial.material._id]);
-        } catch (cascadingError) {
-          console.error('⚠️ Cascading updates failed:', cascadingError);
-        }
       }
 
       setOpenDialog(false);

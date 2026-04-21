@@ -1,6 +1,5 @@
 import { db } from '@/lib/database';
 import { decryptSensitiveData, isDataEncrypted } from '@/utils/encryption';
-import { cascadeProcessAndTaskUpdates } from './cascade.service';
 
 function normalizeSku(value) {
   return String(value || '').trim();
@@ -111,13 +110,6 @@ export async function runMaterialPriceSync(adminSettings = null, options = {}) {
     return { status: 500, payload: { error: 'Stuller credentials not configured' } };
   }
 
-  const materialMarkup =
-    adminSettings?.pricing?.materialMarkup ||
-    adminSettings?.materialMarkup ||
-    dbSettings?.pricing?.materialMarkup ||
-    1.3;
-  const forceTaskRecalculation = Boolean(options?.forceTaskRecalculation);
-
   const materials = await materialsCollection.find({
     isActive: { $ne: false },
     $or: [
@@ -151,11 +143,7 @@ export async function runMaterialPriceSync(adminSettings = null, options = {}) {
       if (topLevelSku) {
         const topLevelPrice = await getPrice(topLevelSku);
         if (topLevelPrice?.price > 0) {
-          const baseUnitCost = topLevelPrice.price;
-          const markedUpUnitCost = baseUnitCost * materialMarkup;
-          setUpdates.stullerPrice = baseUnitCost;
-          setUpdates.unitCost = markedUpUnitCost;
-          setUpdates.costPerPortion = markedUpUnitCost / portionsPerUnit;
+          setUpdates.stullerPrice = topLevelPrice.price;
           setUpdates.last_price_update = now;
           setUpdates.auto_update_pricing = true;
           anyPriceUpdated = true;
@@ -178,17 +166,12 @@ export async function runMaterialPriceSync(adminSettings = null, options = {}) {
             continue;
           }
 
-          const markupRate = Number(product?.markupRate) > 0 ? Number(product.markupRate) : materialMarkup;
-          const markedUpPrice = live.price * markupRate;
-
+          // Store only raw Stuller price — markup applied at runtime
           updatedProducts.push({
-            ...product,
-            stullerPrice: live.price,
-            markedUpPrice,
-            unitCost: markedUpPrice,
-            costPerPortion: markedUpPrice / portionsPerUnit,
-            lastUpdated: now.toISOString(),
-            autoUpdatePricing: true
+            stullerItemNumber: product.stullerItemNumber || product.sku,
+            metalType: product.metalType,
+            karat: product.karat,
+            stullerPrice: live.price
           });
           anyPriceUpdated = true;
         }
@@ -223,16 +206,6 @@ export async function runMaterialPriceSync(adminSettings = null, options = {}) {
     modifiedCount = result.modifiedCount || 0;
   }
 
-  const { processesUpdated, tasksCascade } = await cascadeProcessAndTaskUpdates({
-    materialsCollection,
-    dbSettings,
-    adminSettings,
-    now,
-    failures,
-    materialSyncUpdated: modifiedCount,
-    forceTaskRecalculation
-  });
-
   const noCandidates = materials.length === 0;
   return {
     status: 200,
@@ -240,16 +213,11 @@ export async function runMaterialPriceSync(adminSettings = null, options = {}) {
       success: true,
       candidates: materials.length,
       updated: modifiedCount,
-      processesUpdated,
-      tasksUpdated: tasksCascade.updated,
-      tasksSkipped: tasksCascade.skipped,
-      tasksErrors: tasksCascade.errors,
-      taskCascadeRan: tasksCascade.ran,
       failed: failures.length,
       failures,
       message: noCandidates
         ? 'No active materials with Stuller SKUs were found to sync.'
-        : `Synced ${modifiedCount} materials, cascaded ${processesUpdated} processes, and updated ${tasksCascade.updated} tasks (${failures.length} failed).`
+        : `Synced ${modifiedCount} materials (${failures.length} failed). Prices are computed at runtime — no cascade needed.`
     }
   };
 }

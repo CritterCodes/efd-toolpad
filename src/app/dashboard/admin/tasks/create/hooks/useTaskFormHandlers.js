@@ -22,6 +22,7 @@ export function useTaskFormHandlers({
   setLoading,
   availableProcesses = [],
   availableMaterials = [],
+  availableTools = [],
   pricesByMetal = {},
   pricePreview = null,
   mode = 'create',
@@ -29,10 +30,10 @@ export function useTaskFormHandlers({
 }) {
   const router = useRouter();
 
-  const addProcess = () => {
+  const addCustomProcess = () => {
     setFormData(prev => ({
       ...prev,
-      processes: [...prev.processes, { processId: '', quantity: 1 }]
+      processes: [...prev.processes, { isCustom: true, name: '', laborHours: 0, quantity: 1 }]
     }));
   };
 
@@ -48,6 +49,28 @@ export function useTaskFormHandlers({
       const newProcesses = [...prev.processes];
       newProcesses[index] = { ...newProcesses[index], [field]: value };
       return { ...prev, processes: newProcesses };
+    });
+  };
+
+  const addTool = () => {
+    setFormData(prev => ({
+      ...prev,
+      tools: [...(prev.tools || []), { toolId: '', quantity: 1 }]
+    }));
+  };
+
+  const removeTool = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      tools: (prev.tools || []).filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateTool = (index, field, value) => {
+    setFormData(prev => {
+      const newTools = [...(prev.tools || [])];
+      newTools[index] = { ...newTools[index], [field]: value };
+      return { ...prev, tools: newTools };
     });
   };
 
@@ -81,6 +104,15 @@ export function useTaskFormHandlers({
 
     try {
       const enrichedProcesses = formData.processes.map((selection) => {
+        if (selection.isCustom) {
+          return {
+            isCustom: true,
+            name: selection.name || 'Custom Labor',
+            displayName: selection.name || 'Custom Labor',
+            laborHours: parseFloat(selection.laborHours) || 0,
+            quantity: selection.quantity || 1,
+          };
+        }
         const process = availableProcesses.find((p) => p._id === selection.processId);
         return {
           processId: selection.processId,
@@ -102,8 +134,18 @@ export function useTaskFormHandlers({
         };
       });
 
-      const hasUniversalPricing = pricesByMetal && Object.keys(pricesByMetal).length > 0;
-      const universalPricing = hasUniversalPricing ? pricesByMetal : null;
+      const enrichedTools = (formData.tools || [])
+        .filter(s => s.toolId)
+        .map((selection) => {
+          const tool = availableTools.find((t) => String(t._id) === String(selection.toolId));
+          return {
+            toolId: selection.toolId,
+            quantity: selection.quantity || 1,
+            toolName: tool?.name || '',
+            displayName: tool?.name || '',
+            costPerUse: tool?.costPerUse || 0,
+          };
+        });
 
       const taskData = {
         title: formData.title,
@@ -115,27 +157,15 @@ export function useTaskFormHandlers({
         baseKarat: formData.karat,
         processes: enrichedProcesses,
         materials: enrichedMaterials,
-        universalPricing,
-        pricing: pricePreview
-          ? {
-              retailPrice: pricePreview.retailPrice || 0,
-              wholesalePrice: pricePreview.wholesalePrice || 0,
-              baseCost: pricePreview.baseCost || 0,
-              totalProcessCost: pricePreview.totalProcessCost || 0,
-              totalMaterialCost: pricePreview.totalMaterialCost || 0,
-              totalLaborHours: pricePreview.totalLaborHours || 0,
-              businessMultiplier: pricePreview.businessMultiplier || 1,
-              calculatedAt: new Date().toISOString()
-            }
-          : null,
-        basePrice: pricePreview?.retailPrice || 0,
+        tools: enrichedTools,
         service: formData.service,
         display: formData.display,
         minimumPrice: parseFloat(formData.minimumPrice) > 0 ? parseFloat(formData.minimumPrice) : null,
         priceOverride: parseFloat(formData.priceOverride) > 0 ? parseFloat(formData.priceOverride) : null,
         minimumWholesalePrice: parseFloat(formData.minimumWholesalePrice) > 0 ? parseFloat(formData.minimumWholesalePrice) : null,
         minimumLaborPrice: parseFloat(formData.minimumLaborPrice) > 0 ? parseFloat(formData.minimumLaborPrice) : null,
-        variantPricingAdjustments: normalizeVariantPricingAdjustments(formData.variantPricingAdjustments)
+        variantPricingAdjustments: normalizeVariantPricingAdjustments(formData.variantPricingAdjustments),
+        aiMeta: formData.aiMeta || null,
       };
 
       const isEditMode = mode === 'edit' && taskId;
@@ -181,9 +211,12 @@ export function useTaskFormHandlers({
   };
 
   return {
-    addProcess,
+    addCustomProcess,
     removeProcess,
     updateProcess,
+    addTool,
+    removeTool,
+    updateTool,
     addMaterial,
     removeMaterial,
     updateMaterial,

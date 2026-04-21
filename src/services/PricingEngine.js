@@ -22,7 +22,7 @@ class PricingEngine {
   calculateMaterialCost(material, quantity = 1, adminSettings = {}) { return calculateMaterialCost(material, quantity, adminSettings); }
   applyBusinessMultiplier(baseCost, adminSettings = {}) { return applyBusinessMultiplier(baseCost, adminSettings); }
   calculateWholesalePrice(retailPrice, baseCost, adminSettings = {}) { return calculateWholesalePrice(retailPrice, baseCost, adminSettings); }
-  calculateTaskCost(taskData, adminSettings = {}, availableProcesses = [], availableMaterials = [], context = null) { return calculateTaskCost(taskData, adminSettings, availableProcesses, availableMaterials, context); }
+  calculateTaskCost(taskData, adminSettings = {}, availableProcesses = [], availableMaterials = [], context = null, availableTools = []) { return calculateTaskCost(taskData, adminSettings, availableProcesses, availableMaterials, context, availableTools); }
   calculateLaborCost(laborHours, skillLevel = DEFAULT_SKILL_LEVEL, adminSettings = {}) { return calculateLaborCost(laborHours, skillLevel, adminSettings); }
   getHourlyRateForSkill(skillLevel, adminSettings = {}) { return getHourlyRateForSkill(skillLevel, adminSettings); }
   getBusinessMultiplier(adminSettings = {}) { return getBusinessMultiplierValue(adminSettings); }

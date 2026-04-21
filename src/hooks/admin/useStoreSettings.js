@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useAdminSettings } from '@/context/AdminSettingsContext';
-import cascadingUpdatesService from '@/services/cascadingUpdates.service';
 
 export const useStoreSettings = () => {
     const { 
@@ -134,17 +133,7 @@ export const useStoreSettings = () => {
                         }
                     };
                     
-                    const cascadingResult = await cascadingUpdatesService.updateFromAdminSettings(adminSettingsForUpdate);
-                    
-                    console.log('✅ Cascading updates completed:', cascadingResult);
-                    
-                    const updateMessage = `Settings saved successfully! Updated ${cascadingResult.materialsUpdated || 0} materials, ${cascadingResult.processesUpdated || 0} processes, and ${cascadingResult.tasksUpdated || 0} tasks.`;
-                    setSuccess(updateMessage);
-                    
-                } catch (cascadingError) {
-                    console.error('⚠️ Cascading updates failed:', cascadingError);
-                    setSuccess('Settings saved successfully, but some dependent objects may need manual updates.');
-                }
+                    setSuccess('Settings saved successfully! Prices are computed live — no cascade needed.');
                 
                 setShowSecurityDialog(false);
                 setSecurityCodeInput('');

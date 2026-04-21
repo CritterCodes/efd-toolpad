@@ -190,11 +190,12 @@ export const getUniqueValues = (processes, field) => {
  */
 export const getMetalVariantsFromMaterials = (materials, availableMaterials) => {
   const metalVariants = new Map(); // Use Map to store full variant objects
-  
+
   materials.forEach(material => {
     // Find the full material data
-    const fullMaterial = availableMaterials.find(m => 
-      m.sku === material.materialSku || m._id === material.materialId
+    const fullMaterial = availableMaterials.find(m =>
+      (material.materialSku && m.sku === material.materialSku) ||
+      (material.materialId && m._id === material.materialId)
     );
     
     if (!fullMaterial) return;
@@ -234,11 +235,12 @@ export const getMetalVariantsFromMaterials = (materials, availableMaterials) => 
  */
 export const getMetalTypesFromMaterials = (materials, availableMaterials) => {
   const metalTypes = new Set();
-  
+
   materials.forEach(material => {
     // Find the full material data
-    const fullMaterial = availableMaterials.find(m => 
-      m.sku === material.materialSku || m._id === material.materialId
+    const fullMaterial = availableMaterials.find(m =>
+      (material.materialSku && m.sku === material.materialSku) ||
+      (material.materialId && m._id === material.materialId)
     );
     
     if (!fullMaterial) return;

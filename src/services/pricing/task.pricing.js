@@ -29,7 +29,7 @@ function getVariantRetailMultiplier(taskData, contextKey) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 }
 
-export function calculateTaskCost(taskData, adminSettings = {}, availableProcesses = [], availableMaterials = [], context = null) {
+export function calculateTaskCost(taskData, adminSettings = {}, availableProcesses = [], availableMaterials = [], context = null, availableTools = []) {
   if (!taskData || typeof taskData !== 'object') throw new TypeError(ERROR_MESSAGES.TASK_DATA_MUST_BE_OBJECT);
   if (!Array.isArray(availableProcesses)) throw new TypeError(ERROR_MESSAGES.AVAILABLE_PROCESSES_MUST_BE_ARRAY);
   if (!Array.isArray(availableMaterials)) throw new TypeError(ERROR_MESSAGES.AVAILABLE_MATERIALS_MUST_BE_ARRAY);
@@ -67,12 +67,25 @@ export function calculateTaskCost(taskData, adminSettings = {}, availableProcess
       if (material) { const matCost = calculateMaterialCost(material, quantity, adminSettings); const totalBase = matCost.baseCost * quantity; totalWeightedBaseMaterialsCost += totalBase; totalMaterialCost += matCost.totalCost; }
     });
   }
+  let totalToolDepreciationCost = 0;
+  if (taskData.tools && Array.isArray(taskData.tools)) {
+    taskData.tools.forEach((toolSelection) => {
+      const quantity = parseFloat(toolSelection.quantity || 1);
+      let tool = null;
+      if (toolSelection.toolId && availableTools.length > 0) {
+        tool = availableTools.find(t => String(t._id) === String(toolSelection.toolId));
+      }
+      const costPerUse = parseFloat(tool?.costPerUse ?? toolSelection.costPerUse ?? 0);
+      totalToolDepreciationCost += costPerUse * quantity;
+    });
+  }
   const businessMultiplier = getBusinessMultiplierValue(adminSettings);
   const materialMarkup = enforceMinimumMaterialMarkup(settings.materialMarkup);
   const calculatedLaborCost = Math.round(totalWeightedLaborCost * 100) / 100;
   const minimumLaborPrice = normalizePositiveNumber(taskData.minimumLaborPrice);
   const laborCost = Math.max(calculatedLaborCost, minimumLaborPrice);
-  const baseCost = totalWeightedBaseMaterialsCost + laborCost;
+  const toolDepreciationCost = Math.round(totalToolDepreciationCost * 100) / 100;
+  const baseCost = totalWeightedBaseMaterialsCost + laborCost + toolDepreciationCost;
   const term1 = baseCost * businessMultiplier;
   const term2 = totalWeightedBaseMaterialsCost * (materialMarkup - 1);
   const calculatedRetailPrice = Math.round((term1 + term2) * 100) / 100;
@@ -102,6 +115,7 @@ export function calculateTaskCost(taskData, adminSettings = {}, availableProcess
     totalProcessCost: Math.round(totalProcessCost * 100) / 100,
     totalMaterialCost: Math.round(totalMaterialCost * 100) / 100,
     totalProcessMaterialCost: Math.round(totalProcessMaterialCost * 100) / 100,
+    toolDepreciationCost,
     baseCost: Math.round(baseCost * 100) / 100,
     calculatedLaborCost,
     laborCost: Math.round(laborCost * 100) / 100,

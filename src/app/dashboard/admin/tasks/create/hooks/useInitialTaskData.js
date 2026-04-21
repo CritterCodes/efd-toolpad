@@ -3,11 +3,13 @@ import { useState, useEffect } from 'react';
 export function useInitialTaskData() {
   const [availableProcesses, setAvailableProcesses] = useState([]);
   const [availableMaterials, setAvailableMaterials] = useState([]);
+  const [availableTools, setAvailableTools] = useState([]);
   const [adminSettings, setAdminSettings] = useState(null);
   const [dataLoadErrors, setDataLoadErrors] = useState({
     processes: false,
     materials: false,
-    settings: false
+    settings: false,
+    tools: false
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -15,7 +17,7 @@ export function useInitialTaskData() {
   const loadInitialData = async () => {
     try {
       const timestamp = new Date().getTime();
-      const [processesRes, materialsRes, settingsRes] = await Promise.all([
+      const [processesRes, materialsRes, settingsRes, toolsRes] = await Promise.all([
         fetch(`/api/processes?_t=${timestamp}`, {
           method: 'GET',
           cache: 'no-store',
@@ -29,6 +31,12 @@ export function useInitialTaskData() {
           headers: { 'Content-Type': 'application/json' }
         }),
         fetch(`/api/admin/settings?_t=${timestamp}`, {
+          method: 'GET',
+          cache: 'no-store',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
+        }),
+        fetch(`/api/tools-machinery?_t=${timestamp}`, {
           method: 'GET',
           cache: 'no-store',
           credentials: 'include',
@@ -72,10 +80,12 @@ export function useInitialTaskData() {
         const cleanMaterials = (materialsData.materials || []).map(material => ({
           _id: material._id,
           name: material.name,
+          displayName: material.displayName || material.name,
           type: material.type || material.category,
           stullerProducts: material.stullerProducts || [],
           portionsPerUnit: material.portionsPerUnit || 1,
-          cost: material.cost || 0
+          stullerPrice: material.stullerPrice || 0,
+          isMetalDependent: material.isMetalDependent || false
         }));
         setAvailableMaterials(cleanMaterials);
       } else {
@@ -92,6 +102,16 @@ export function useInitialTaskData() {
         setDataLoadErrors(prev => ({ ...prev, settings: true }));
       }
 
+      if (toolsRes.ok) {
+        const toolsData = await toolsRes.json();
+        const toolsArray = toolsData.tools || toolsData || [];
+        const activeTools = (Array.isArray(toolsArray) ? toolsArray : []).filter(t => t.isActive !== false);
+        setAvailableTools(activeTools);
+      } else {
+        console.warn('Failed to load tools-machinery, continuing anyway');
+        setDataLoadErrors(prev => ({ ...prev, tools: true }));
+      }
+
     } catch (error) {
       console.error(' Error loading initial data:', error);
       const errorMessage = typeof error === 'string' ? error : (error.message || 'Failed to load essential data.');
@@ -106,6 +126,7 @@ export function useInitialTaskData() {
   return {
     availableProcesses,
     availableMaterials,
+    availableTools,
     adminSettings,
     dataLoadErrors,
     loading,

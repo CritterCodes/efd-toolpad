@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import {
   Box,
-  Paper,
   Grid,
   Typography,
   Button,
@@ -23,11 +22,13 @@ import { useTaskPricing } from '@/app/dashboard/admin/tasks/create/hooks/useTask
 import { useTaskFormHandlers } from '@/app/dashboard/admin/tasks/create/hooks/useTaskFormHandlers';
 import { BasicInformationSection } from '@/app/dashboard/admin/tasks/create/components/BasicInformationSection';
 import { ProcessSelectionSection } from '@/app/dashboard/admin/tasks/create/components/ProcessSelectionSection';
+import { ToolsSelectionSection } from '@/app/dashboard/admin/tasks/create/components/ToolsSelectionSection';
 import MaterialsSelectionSection from '@/app/dashboard/admin/tasks/create/components/MaterialsSelectionSection';
 import { ServiceSettingsSection } from '@/app/dashboard/admin/tasks/create/components/ServiceSettingsSection';
 import { DisplaySettingsSection } from '@/app/dashboard/admin/tasks/create/components/DisplaySettingsSection';
 import { PriceControlsSection } from '@/app/dashboard/admin/tasks/create/components/PriceControlsSection';
 import { MetalSpecificPricePreview } from '@/app/dashboard/admin/tasks/create/components/MetalSpecificPricePreview';
+import { AiMetaSection } from '@/app/dashboard/admin/tasks/create/components/AiMetaSection';
 
 const DEFAULT_TASK_FORM = {
   title: '',
@@ -37,6 +38,7 @@ const DEFAULT_TASK_FORM = {
   metalType: 'yellow_gold',
   karat: '14k',
   processes: [],
+  tools: [],
   materials: [],
   service: {
     estimatedDays: 3,
@@ -55,7 +57,14 @@ const DEFAULT_TASK_FORM = {
   priceOverride: '',
   minimumWholesalePrice: '',
   minimumLaborPrice: '',
-  variantPricingAdjustments: {}
+  variantPricingAdjustments: {},
+  aiMeta: {
+    whenToUse: '',
+    symptoms: [],
+    requiredInfo: [],
+    neverUseWhen: '',
+    pairsWith: [],
+  }
 };
 
 function normalizeSelections(items = [], idKey) {
@@ -83,6 +92,7 @@ export default function TaskBuilderFormPage({ mode = 'create', taskId = null }) 
   const {
     availableProcesses,
     availableMaterials,
+    availableTools,
     adminSettings,
     dataLoadErrors,
     loading,
@@ -96,13 +106,17 @@ export default function TaskBuilderFormPage({ mode = 'create', taskId = null }) 
     formData,
     adminSettings,
     availableProcesses,
-    availableMaterials
+    availableMaterials,
+    availableTools
   });
 
   const {
-    addProcess,
+    addCustomProcess,
     removeProcess,
     updateProcess,
+    addTool,
+    removeTool,
+    updateTool,
     addMaterial,
     removeMaterial,
     updateMaterial,
@@ -115,15 +129,12 @@ export default function TaskBuilderFormPage({ mode = 'create', taskId = null }) 
     setLoading,
     availableProcesses,
     availableMaterials,
+    availableTools,
     pricesByMetal,
     pricePreview,
     mode,
     taskId
   });
-
-  useEffect(() => {
-    loadInitialData();
-  }, [loadInitialData]);
 
   useEffect(() => {
     const loadTaskForEdit = async () => {
@@ -150,6 +161,7 @@ export default function TaskBuilderFormPage({ mode = 'create', taskId = null }) 
           metalType: task.baseMetal || task.metalType || prev.metalType,
           karat: task.baseKarat || task.karat || prev.karat,
           processes: normalizeSelections(task.processes, 'processId'),
+          tools: normalizeSelections(task.tools || [], 'toolId'),
           materials: normalizeSelections(task.materials, 'materialId'),
           service: {
             ...prev.service,
@@ -164,7 +176,8 @@ export default function TaskBuilderFormPage({ mode = 'create', taskId = null }) 
           priceOverride: task.priceOverride?.toString() || '',
           minimumWholesalePrice: task.minimumWholesalePrice?.toString() || '',
           minimumLaborPrice: task.minimumLaborPrice?.toString() || '',
-          variantPricingAdjustments: task.variantPricingAdjustments || {}
+          variantPricingAdjustments: task.variantPricingAdjustments || {},
+          aiMeta: task.aiMeta || prev.aiMeta
         }));
       } catch (loadError) {
         setError(loadError.message || 'Unable to load task for editing');
@@ -195,78 +208,86 @@ export default function TaskBuilderFormPage({ mode = 'create', taskId = null }) 
   return (
     <PageContainer title={pageTitle}>
       <Box sx={{ maxWidth: 1200, mx: 'auto', pb: 3 }}>
-        <Button
-          variant="text"
-          startIcon={<ArrowBackIcon />}
-          onClick={() => router.push('/dashboard/admin/tasks')}
-          sx={{ mb: 2 }}
-        >
-          Back to Tasks
-        </Button>
+        <Box sx={{ px: { xs: 1, sm: 0 }, mb: 2 }}>
+          <Button
+            variant="text"
+            startIcon={<ArrowBackIcon />}
+            onClick={() => router.push('/dashboard/admin/tasks')}
+          >
+            Back to Tasks
+          </Button>
+        </Box>
 
-        <Paper elevation={2} sx={{ p: 3 }}>
+        <Box sx={{ px: { xs: 1, sm: 0 } }}>
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
           {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
-
           {(dataLoadErrors.processes || dataLoadErrors.materials || dataLoadErrors.settings) && (
             <Alert severity="warning" sx={{ mb: 2 }}>
               Some supporting data failed to load. You can continue, but pricing or selectors may be incomplete.
             </Alert>
           )}
+        </Box>
 
-          <form onSubmit={handleSubmit}>
-            <Grid container spacing={3}>
-              <BasicInformationSection formData={formData} setFormData={setFormData} categories={TASK_CATEGORIES} />
+        <form onSubmit={handleSubmit}>
+          <Grid container spacing={{ xs: 1, sm: 2, md: 3 }}>
+            <BasicInformationSection formData={formData} setFormData={setFormData} categories={TASK_CATEGORIES} />
 
-              <ProcessSelectionSection
-                formData={formData}
-                availableProcesses={availableProcesses}
-                addProcess={addProcess}
-                updateProcess={updateProcess}
-                removeProcess={removeProcess}
-              />
+            <ProcessSelectionSection
+              formData={formData}
+              addCustomProcess={addCustomProcess}
+              updateProcess={updateProcess}
+              removeProcess={removeProcess}
+            />
 
-              <MaterialsSelectionSection
-                formData={formData}
-                availableMaterials={availableMaterials}
-                addMaterial={addMaterial}
-                updateMaterial={updateMaterial}
-                removeMaterial={removeMaterial}
-              />
+            <ToolsSelectionSection
+              formData={formData}
+              availableTools={availableTools}
+              addTool={addTool}
+              updateTool={updateTool}
+              removeTool={removeTool}
+            />
 
-              <MetalSpecificPricePreview
-                pricesByMetal={pricesByMetal}
-                formData={formData}
-                setFormData={setFormData}
-              />
+            <MaterialsSelectionSection
+              formData={formData}
+              availableMaterials={availableMaterials}
+              addMaterial={addMaterial}
+              updateMaterial={updateMaterial}
+              removeMaterial={removeMaterial}
+            />
 
-              <PriceControlsSection
-                formData={formData}
-                setFormData={setFormData}
-                pricePreview={pricePreview}
-              />
+            <MetalSpecificPricePreview
+              pricesByMetal={pricesByMetal}
+              formData={formData}
+              setFormData={setFormData}
+            />
 
-              <ServiceSettingsSection formData={formData} setFormData={setFormData} />
-              <DisplaySettingsSection formData={formData} setFormData={setFormData} />
+            <PriceControlsSection
+              formData={formData}
+              setFormData={setFormData}
+              pricePreview={pricePreview}
+            />
 
-              <Grid item xs={12}>
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-                  <Button variant="outlined" onClick={() => router.push('/dashboard/admin/tasks')}>
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    startIcon={<SaveIcon />}
-                    disabled={loading}
-                  >
-                    {loading ? 'Saving...' : mode === 'edit' ? 'Update Task' : 'Create Task'}
-                  </Button>
-                </Box>
-              </Grid>
+            <ServiceSettingsSection formData={formData} setFormData={setFormData} />
+            <DisplaySettingsSection formData={formData} setFormData={setFormData} />
+            <AiMetaSection formData={formData} setFormData={setFormData} />
+
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, px: { xs: 1, sm: 0 } }}>
+                <Button variant="outlined" onClick={() => router.push('/dashboard/admin/tasks')}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  startIcon={<SaveIcon />}
+                  disabled={loading}
+                >
+                  {loading ? 'Saving...' : mode === 'edit' ? 'Update Task' : 'Create Task'}
+                </Button>
+              </Box>
             </Grid>
-          </form>
-        </Paper>
+          </Grid>
+        </form>
       </Box>
     </PageContainer>
   );

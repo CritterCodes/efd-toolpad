@@ -5,7 +5,6 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import materialsService from '@/services/materials.service';
-import cascadingUpdatesService from '@/services/cascadingUpdates.service';
 import {
   DEFAULT_MATERIAL_FORM,
   transformMaterialForForm,
@@ -170,16 +169,6 @@ export const useMaterialsManager = () => {
         savedMaterial = await materialsService.createMaterial(submittedFormData);
       }
       
-      // Trigger cascading updates for material changes
-      if (isUpdate && savedMaterial.material) {
-        try {
-          await cascadingUpdatesService.updateFromMaterialsChange([savedMaterial.material._id]);
-        } catch (cascadingError) {
-          console.error('⚠️ Cascading updates failed:', cascadingError);
-          // Don't fail the operation, just log the error
-        }
-      }
-
       // Reset form and reload materials
       setOpenDialog(false);
       setEditingMaterial(null);

@@ -1,8 +1,6 @@
 'use client';
 import React from 'react';
 import Grid from '@mui/material/Grid';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import Alert from '@mui/material/Alert';
@@ -42,17 +40,18 @@ export function PriceControlsSection({ formData, setFormData, pricePreview }) {
 
   return (
     <Grid item xs={12}>
-      <Card sx={{ border: '2px solid', borderColor: 'warning.light', borderRadius: 2 }}>
-        <CardContent>
+      <Box sx={{ px: { xs: 2, sm: 0 }, borderTop: '1px solid', borderColor: 'divider', pt: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-            <PriceChangeIcon color="warning" />
-            <Typography variant="h6">Price Controls</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+            <PriceChangeIcon color="warning" fontSize="small" />
+            <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, lineHeight: 1 }}>
+              Price Controls
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
               Override the calculated price when it doesn&apos;t match what you actually charge.
             </Typography>
           </Box>
 
-          <Grid container spacing={3}>
+          <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
@@ -239,8 +238,7 @@ export function PriceControlsSection({ formData, setFormData, pricePreview }) {
               <strong>${roundedEffectivePrice.toFixed(2)}</strong> (fully calculated).
             </Alert>
           )}
-        </CardContent>
-      </Card>
+      </Box>
     </Grid>
   );
 }

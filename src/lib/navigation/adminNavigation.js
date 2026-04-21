@@ -28,6 +28,7 @@ import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import PrintIcon from "@mui/icons-material/Print";
 import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
 import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
+import LeadsIcon from "@mui/icons-material/ChatBubbleOutline";
 
 import { SHARED_NAVIGATION } from "./sharedNavigation";
 
@@ -111,6 +112,11 @@ export const adminNavigation = {
       icon: <BuildIcon />,
       children: [
         {
+          segment: 'leads',
+          title: 'Leads',
+          icon: <LeadsIcon />
+        },
+        {
           segment: 'pending-wholesale',
           title: 'Wholesale Pickup',
           icon: <NotificationsActiveIcon />
@@ -172,11 +178,11 @@ export const adminNavigation = {
           title: 'Materials',
           icon: <InventoryIcon />
         },
-        {
-          segment: 'processes',
-          title: 'Processes',
-          icon: <SettingsIcon />
-        }
+        // {
+        //   segment: 'processes',
+        //   title: 'Processes',
+        //   icon: <SettingsIcon />
+        // }
       ]
     },
     {

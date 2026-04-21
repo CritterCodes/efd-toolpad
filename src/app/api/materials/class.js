@@ -40,41 +40,12 @@ export default class Material {
         this.karat = '';
         this.portionsPerUnit = 1;
         this.portionType = '';
-        this.costPerPortion = 0;
-        
+
         // Multi-variant system fields
         this.stullerProducts = []; // Array of Stuller product variants
         // Note: isMetalDependent will be set by the service layer - don't default here
-        
-        // Initialize pricing structure - will be calculated later
-        this.pricing = null;
     }
     
-    /**
-     * Calculate pricing with admin settings
-     */
-    calculatePricing(adminSettings) {
-        const settings = adminSettings || {};
-        const pricing = settings.pricing || {};
-        const materialMarkup = pricing.materialMarkup || 1.3;
-        
-        // Base price is the raw unit cost divided by portions per unit
-        const basePrice = this.portionsPerUnit > 0 ? this.unitCost / this.portionsPerUnit : this.unitCost;
-        const finalPrice = basePrice * materialMarkup;
-        
-        this.pricing = {
-            basePrice: Math.round(basePrice * 1000) / 1000, // Round to 3 decimal places
-            materialMarkup: materialMarkup,
-            finalPrice: Math.round(finalPrice * 1000) / 1000,
-            calculatedAt: new Date()
-        };
-        
-        // Also set the legacy costPerPortion field for backwards compatibility
-        this.costPerPortion = this.pricing.finalPrice;
-        
-        return this.pricing;
-    }
-
     /**
      * Determine material type from name and category for better SKU generation
      */
@@ -148,8 +119,7 @@ export default class Material {
         const allowedFields = [
             'displayName', 'category', 'unitCost', 'unitType', 'compatibleMetals',
             'supplier', 'description', 'isActive', 'stuller_item_number',
-            'auto_update_pricing', 'karat', 'portionsPerUnit', 'portionType', 'costPerPortion', 'pricing',
-            // New multi-variant fields
+            'auto_update_pricing', 'karat', 'portionsPerUnit', 'portionType',
             'stullerProducts', 'isMetalDependent'
         ];
         
@@ -193,17 +163,10 @@ export default class Material {
             karat: this.karat,
             portionsPerUnit: this.portionsPerUnit,
             portionType: this.portionType,
-            costPerPortion: this.costPerPortion,
-            // Multi-variant system fields
             stullerProducts: this.stullerProducts,
             isMetalDependent: this.isMetalDependent
         };
-        
-        // Include pricing structure if it exists
-        if (this.pricing) {
-            obj.pricing = this.pricing;
-        }
-        
+
         return obj;
     }
 }

@@ -1,20 +1,19 @@
 import React from 'react';
 import {
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Typography,
   Grid,
+  Typography,
   Box,
   Button,
+  Card,
+  CardContent,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
   TextField,
-  IconButton
+  IconButton,
+  Alert
 } from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 
@@ -27,16 +26,22 @@ export default function MaterialsSelectionSection({
 }) {
   return (
     <Grid item xs={12}>
-      <Accordion defaultExpanded>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6">Required Materials</Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-          {formData.materials.map((material, index) => (
-            <Box key={index} sx={{ mb: 2, p: 2, border: '1px solid #eee', borderRadius: 1 }}>
-              <Grid container spacing={2} alignItems="center">
+      <Box sx={{ px: { xs: 2, sm: 0 }, borderTop: '1px solid', borderColor: 'divider', pt: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+          <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, lineHeight: 1 }}>
+            🪨 Materials
+          </Typography>
+          <Button startIcon={<AddIcon />} onClick={addMaterial} variant="outlined" size="small">
+            Add Material
+          </Button>
+        </Box>
+
+        {formData.materials.map((material, index) => (
+          <Card key={index} sx={{ mb: 1.5, borderLeft: '3px solid', borderLeftColor: 'info.main' }} elevation={0} variant="outlined">
+            <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+              <Grid container spacing={1.5} alignItems="center">
                 <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
+                  <FormControl fullWidth size="small">
                     <InputLabel>Material</InputLabel>
                     <Select
                       value={material.materialId}
@@ -45,24 +50,25 @@ export default function MaterialsSelectionSection({
                     >
                       {availableMaterials.map((m) => (
                         <MenuItem key={m._id} value={m._id}>
-                          {m.name || m.title}
+                          {m.displayName || m.name}
                         </MenuItem>
                       ))}
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid item xs={12} sm={2}>
+                <Grid item xs={5} sm={2}>
                   <TextField
                     fullWidth
-                    label="Quantity"
+                    size="small"
+                    label="Qty"
                     type="number"
                     value={material.quantity}
                     onChange={(e) => updateMaterial(index, 'quantity', parseFloat(e.target.value))}
                     inputProps={{ min: 0, step: 0.1 }}
                   />
                 </Grid>
-                <Grid item xs={12} sm={3}>
-                  <FormControl fullWidth>
+                <Grid item xs={5} sm={3}>
+                  <FormControl fullWidth size="small">
                     <InputLabel>Condition</InputLabel>
                     <Select
                       value={material.condition}
@@ -74,24 +80,22 @@ export default function MaterialsSelectionSection({
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid item xs={12} sm={1}>
-                  <IconButton color="error" onClick={() => removeMaterial(index)}>
-                    <DeleteIcon />
+                <Grid item xs={2} sm={1} sx={{ display: 'flex', justifyContent: 'center' }}>
+                  <IconButton color="error" size="small" onClick={() => removeMaterial(index)}>
+                    <DeleteIcon fontSize="small" />
                   </IconButton>
                 </Grid>
               </Grid>
-            </Box>
-          ))}
-          <Button
-            startIcon={<AddIcon />}
-            onClick={addMaterial}
-            variant="outlined"
-            sx={{ mt: 1 }}
-          >
-            Add Material
-          </Button>
-        </AccordionDetails>
-      </Accordion>
+            </CardContent>
+          </Card>
+        ))}
+
+        {formData.materials.length === 0 && (
+          <Alert severity="info" sx={{ py: 0.5 }}>
+            Add materials needed for this task.
+          </Alert>
+        )}
+      </Box>
     </Grid>
   );
 }

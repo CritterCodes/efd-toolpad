@@ -70,10 +70,7 @@ export async function POST(request) {
         displayName: material.displayName || material.materialName || ''
       })) || [],
       
-      // Universal pricing data
-      universalPricing: taskData.universalPricing || null,
-      pricing: taskData.pricing || null,
-      basePrice: Number(taskData.basePrice) || 0,
+      // Pricing overrides (raw config only — no calculated snapshots)
       minimumPrice: Number(taskData.minimumPrice) || 0,
       priceOverride: Number(taskData.priceOverride) || 0,
       minimumWholesalePrice: Number(taskData.minimumWholesalePrice) || 0,

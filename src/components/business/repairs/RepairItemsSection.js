@@ -3,18 +3,15 @@ import { Card, CardContent, CardHeader } from '@mui/material';
 import { useRepairItemsSection } from '@/hooks/repairs/useRepairItemsSection';
 
 import RepairTasksAccordion from './RepairTasksAccordion';
-import RepairProcessesAccordion from './RepairProcessesAccordion';
 import RepairMaterialsAccordion from './RepairMaterialsAccordion';
 import RepairCustomItemsAccordion from './RepairCustomItemsAccordion';
 
 export default function RepairItemsSection({
   formData,
-  setFormData, // Note: not used inside this component anymore, but kept for interface consistency
+  setFormData,
   availableTasks,
-  availableProcesses,
   availableMaterials,
   addTask,
-  addProcess,
   addMaterial,
   addCustomLineItem,
   removeItem,
@@ -30,7 +27,6 @@ export default function RepairItemsSection({
     expandedSection,
     handleExpand,
     compatibleTasks,
-    compatibleProcesses,
     compatibleMaterials,
     getPriceDisplay,
     metalType,
@@ -38,7 +34,6 @@ export default function RepairItemsSection({
   } = useRepairItemsSection({
     formData,
     availableTasks,
-    availableProcesses,
     availableMaterials,
     adminSettings
   });
@@ -47,7 +42,7 @@ export default function RepairItemsSection({
     <Card sx={{ borderRadius: 2, boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
       <CardHeader 
         title="Work Items & Pricing"
-        subheader="Add tasks, processes, materials and custom items"
+        subheader="Add tasks, materials and custom items"
         sx={{ 
           bgcolor: 'success.main', 
           color: 'success.contrastText',
@@ -72,20 +67,6 @@ export default function RepairItemsSection({
           karat={karat}
           getPriceDisplay={getPriceDisplay}
           addTask={addTask}
-          updateItem={updateItem}
-          removeItem={removeItem}
-        />
-
-        {/* Processes Section */}
-        <RepairProcessesAccordion
-          expanded={expandedSection === 'processes'}
-          onExpand={handleExpand('processes')}
-          processes={formData?.processes || []}
-          compatibleProcesses={compatibleProcesses}
-          metalType={metalType}
-          karat={karat}
-          getPriceDisplay={getPriceDisplay}
-          addProcess={addProcess}
           updateItem={updateItem}
           removeItem={removeItem}
         />

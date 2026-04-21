@@ -2,32 +2,18 @@
 import React from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
 import Alert from '@mui/material/Alert';
 import Paper from '@mui/material/Paper';
 import Grid from '@mui/material/Grid';
 import TextField from '@mui/material/TextField';
 import CalculateIcon from '@mui/icons-material/Calculate';
-export function MetalSpecificPricePreview({ 
-  pricesByMetal, 
+export function MetalSpecificPricePreview({
+  pricesByMetal,
   formData,
   setFormData
 }) {
   if (!pricesByMetal || Object.keys(pricesByMetal).length === 0) {
-    return (
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            <CalculateIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-            Price Preview by Metal Type
-          </Typography>
-          <Alert severity="info">
-            Select processes to see pricing preview for each metal type
-          </Alert>
-        </CardContent>
-      </Card>
-    );
+    return null;
   }
 
   const metalEntries = Object.entries(pricesByMetal);
@@ -45,12 +31,14 @@ export function MetalSpecificPricePreview({
   };
 
   return (
-    <Card sx={{ mb: 3 }}>
-      <CardContent>
-        <Typography variant="h6" gutterBottom>
-          <CalculateIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-          Price Preview by Metal Type
-        </Typography>
+    <Grid item xs={12}>
+      <Box sx={{ px: { xs: 2, sm: 0 }, borderTop: '1px solid', borderColor: 'divider', pt: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+          <CalculateIcon fontSize="small" color="action" />
+          <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, lineHeight: 1 }}>
+            Price Preview
+          </Typography>
+        </Box>
 
         {hasMultipleMetals ? (
           <>
@@ -61,10 +49,10 @@ export function MetalSpecificPricePreview({
             <Grid container spacing={2}>
               {metalEntries.map(([metalKey, pricing]) => (
                 <Grid item xs={12} md={6} lg={4} key={metalKey}>
-                  <Paper 
-                    elevation={2} 
-                    sx={{ 
-                      p: 2, 
+                  <Paper
+                    elevation={2}
+                    sx={{
+                      p: 2,
                       border: '2px solid',
                       borderColor: 'primary.light',
                       borderRadius: 2
@@ -73,7 +61,7 @@ export function MetalSpecificPricePreview({
                     <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
                       {pricing.metalLabel || metalKey}
                     </Typography>
-                    
+
                     <Typography variant="body2" color="text.secondary">
                       Labor: <strong>{pricing.totalLaborHours || 0}h</strong>
                     </Typography>
@@ -82,9 +70,6 @@ export function MetalSpecificPricePreview({
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Material Cost: <strong>${pricing.baseMaterialCost || 0}</strong>
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Task Markup: <strong>{pricing.variantRetailMultiplier || 1}x</strong>
                     </Typography>
 
                     <TextField
@@ -96,20 +81,42 @@ export function MetalSpecificPricePreview({
                       onChange={(e) => updateVariantMarkup(metalKey, e.target.value)}
                       inputProps={{ min: 0.1, step: 0.05 }}
                       sx={{ mt: 1.5 }}
-                      helperText="1.00 = no change, 1.20 = 20% increase"
+                      helperText="1.00 = no change · 1.20 = +20%"
                     />
-                    
-                    <Box sx={{ 
-                      mt: 1, 
-                      pt: 1, 
-                      borderTop: '1px solid', 
-                      borderColor: 'divider' 
-                    }}>
-                      <Typography variant="h6" color="success.main">
+
+                    <Box sx={{ mt: 1.5, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+                      {/* Show calculation chain when multiplier is active */}
+                      {pricing.variantRetailMultiplier && pricing.variantRetailMultiplier !== 1 && (
+                        <Box sx={{ mb: 0.5 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            Base calc: ${pricing.calculatedRetailPrice || 0}
+                            {' × '}{pricing.variantRetailMultiplier}x = ${pricing.adjustedRetailPrice || 0}
+                          </Typography>
+                        </Box>
+                      )}
+
+                      {/* Pre-round price if rounding changed the value */}
+                      {pricing.roundingApplied && pricing.retailPriceBeforeRounding !== pricing.retailPrice && (
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          Before rounding: ${pricing.retailPriceBeforeRounding} → rounded to nearest $5
+                        </Typography>
+                      )}
+
+                      <Typography variant="h6" color="success.main" sx={{ mt: 0.5 }}>
                         Retail: <strong>${pricing.retailPrice || 0}</strong>
+                        {pricing.roundingApplied && (
+                          <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+                            (rounded)
+                          </Typography>
+                        )}
                       </Typography>
                       <Typography variant="body2" color="info.main">
                         Wholesale: <strong>${pricing.wholesalePrice || 0}</strong>
+                        {pricing.wholesaleRoundingApplied && (
+                          <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+                            (rounded)
+                          </Typography>
+                        )}
                       </Typography>
                     </Box>
                   </Paper>
@@ -194,8 +201,8 @@ export function MetalSpecificPricePreview({
             }
           </Typography>
         </Alert>
-      </CardContent>
-    </Card>
+      </Box>
+    </Grid>
   );
 }
 
