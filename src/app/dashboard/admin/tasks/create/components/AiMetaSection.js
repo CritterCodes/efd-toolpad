@@ -35,6 +35,7 @@ export function AiMetaSection({ formData, setFormData }) {
   const [open, setOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError]     = useState('');
+  const [cooldownSecs, setCooldownSecs] = useState(0);
   const [symptomInput, setSymptomInput]   = useState('');
   const [pairsWithInput, setPairsWithInput] = useState('');
 
@@ -78,6 +79,16 @@ export function AiMetaSection({ formData, setFormData }) {
   };
 
   // --- Auto-generate ---
+  const startCooldown = (secs = 3) => {
+    setCooldownSecs(secs);
+    const interval = setInterval(() => {
+      setCooldownSecs((prev) => {
+        if (prev <= 1) { clearInterval(interval); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
   const handleGenerate = async () => {
     setGenError('');
     if (!formData.title) {
@@ -102,6 +113,7 @@ export function AiMetaSection({ formData, setFormData }) {
       setGenError(err.message || 'Generation failed.');
     } finally {
       setGenerating(false);
+      startCooldown(3);
     }
   };
 
@@ -137,9 +149,9 @@ export function AiMetaSection({ formData, setFormData }) {
                   size="small"
                   startIcon={generating ? <CircularProgress size={14} /> : <AutoAwesomeIcon />}
                   onClick={handleGenerate}
-                  disabled={generating}
+                  disabled={generating || cooldownSecs > 0}
                 >
-                  {generating ? 'Generating...' : 'Auto-fill with AI'}
+                  {generating ? 'Generating...' : cooldownSecs > 0 ? `Wait ${cooldownSecs}s…` : 'Auto-fill with AI'}
                 </Button>
                 <Typography variant="caption" color="text.secondary">
                   Uses the task title &amp; description to generate these fields automatically

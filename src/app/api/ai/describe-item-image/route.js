@@ -11,7 +11,7 @@ const extractGeminiText = (payload = {}) => {
   return parts.map((part) => String(part?.text || '').trim()).filter(Boolean).join('\n').trim();
 };
 
-const callGemini = async ({ apiKey, mimeType, base64Image, prompt }, retryOn429 = true) => {
+const callGemini = async ({ apiKey, mimeType, base64Image, prompt }) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 9000);
   let response;
@@ -33,9 +33,8 @@ const callGemini = async ({ apiKey, mimeType, base64Image, prompt }, retryOn429 
   }
   const payload = await response.json();
   if (response.ok) return payload;
-  if (response.status === 429 && retryOn429) {
-    await new Promise(r => setTimeout(r, 1500));
-    return callGemini({ apiKey, mimeType, base64Image, prompt }, false);
+  if (response.status === 429) {
+    throw Object.assign(new Error('AI is temporarily rate limited. Please wait a moment and try again.'), { status: 429 });
   }
   throw new Error(payload?.error?.message || 'Gemini request failed');
 };
@@ -106,7 +105,7 @@ export async function POST(request) {
       console.error('Gemini image describe error:', geminiError.message);
       return NextResponse.json(
         { success: false, error: geminiError.message || 'Gemini request failed.' },
-        { status: 502 }
+        { status: geminiError.status === 429 ? 429 : 502 }
       );
     }
 

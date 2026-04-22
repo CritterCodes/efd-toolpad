@@ -1178,51 +1178,6 @@ export default function NewRepairForm({
     });
   }, [availableTasks, applySmartIntakeResults]);
 
-  // Helper: Calculate word-based similarity score with compound phrase matching
-  const calculateTaskMatchScore = useCallback((taskObj, hints) => {
-    if (!Array.isArray(hints) || hints.length === 0) return 0;
-
-    const taskTitle = String(taskObj?.title || taskObj?.displayName || taskObj?.name || '').toLowerCase();
-    const taskDesc = String(taskObj?.description || '').toLowerCase();
-    const taskText = [taskTitle, taskDesc].join(' ');
-    const taskWords = new Set(taskText.split(/\s+/));
-
-    let totalScore = 0;
-    for (const hint of hints) {
-      const hintLower = String(hint || '').toLowerCase();
-      const hintWords = hintLower.split(/\s+/);
-      
-      // Check for phrase-level match first (e.g., "resize with stones" as a phrase)
-      let phraseScore = 0;
-      if (hintWords.length > 1) {
-        // Check if multiple hint words appear in task text in sequence
-        const phrasesInTask = taskText.includes(hintLower);
-        if (phrasesInTask) {
-          phraseScore = 1.0; // Perfect match for compound phrase
-        }
-      }
-      
-      // If no phrase match, score individual words
-      let wordScore = 0;
-      if (phraseScore === 0) {
-        const matchCount = hintWords.filter((word) => {
-          // Exact word match or substring match of 4+ chars
-          return taskWords.has(word) || Array.from(taskWords).some((tword) => {
-            const minLen = Math.min(word.length, tword.length);
-            return minLen >= 4 && (tword.includes(word) || word.includes(tword));
-          });
-        }).length;
-        
-        wordScore = hintWords.length > 0 ? matchCount / hintWords.length : 0;
-      }
-      
-      const hintScore = Math.max(phraseScore, wordScore);
-      totalScore += hintScore;
-    }
-
-    return hints.length > 0 ? totalScore / hints.length : 0;
-  }, []);
-
   const handleAnalyzeSmartIntake = useCallback(async () => {
     const parsingText = String(formData.smartIntakeInput || '').trim();
     if (!parsingText) {
@@ -1234,14 +1189,22 @@ export default function NewRepairForm({
     setSmartIntakeError('');
 
     try {
+      const strippedTasks = availableTasks.map((t) => ({
+        id: String(t._id || ''),
+        title: t.title || t.displayName || t.name || '',
+        description: t.description || '',
+        symptoms: t.aiMeta?.symptoms || [],
+        whenToUse: t.aiMeta?.whenToUse || '',
+        neverUseWhen: t.aiMeta?.neverUseWhen || '',
+      })).filter((t) => t.id);
+
       const response = await fetch('/api/ai/parse-smart-intake', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           inputText: parsingText,
-          description: String(formData.description || '').trim()
+          description: String(formData.description || '').trim(),
+          tasks: strippedTasks
         })
       });
 
@@ -1251,28 +1214,19 @@ export default function NewRepairForm({
       }
 
       const parsed = payload?.data?.parsed || {};
-      const aiTaskHints = Array.isArray(parsed.taskHints) ? parsed.taskHints : [];
-      
-      // Match AI hints to available tasks with scoring
+      const matchedTaskIds = Array.isArray(parsed.matchedTaskIds) ? parsed.matchedTaskIds : [];
+
       let aiMatchedTasks = [];
-      if (aiTaskHints.length > 0) {
-        aiMatchedTasks = availableTasks
-          .map((task) => ({
-            task,
-            score: calculateTaskMatchScore(task, aiTaskHints)
-          }))
-          .filter((item) => item.score > 0)
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 2)
-          .map((item) => item.task);
+      if (matchedTaskIds.length > 0) {
+        aiMatchedTasks = matchedTaskIds
+          .map((id) => availableTasks.find((t) => String(t._id) === id))
+          .filter(Boolean);
       }
-      
-      // If AI hints didn't produce matches, fall back to rule-based parser
+
       if (aiMatchedTasks.length === 0) {
         aiMatchedTasks = inferTasksFromDescription(parsingText, availableTasks);
       }
 
-      // Disambiguate conflicting sizing tasks using parsed ring sizes or input text
       aiMatchedTasks = disambiguateSizingTasks(
         aiMatchedTasks, parsingText,
         parsed.currentRingSize || '', parsed.desiredRingSize || ''
@@ -1294,7 +1248,7 @@ export default function NewRepairForm({
     } finally {
       setAnalyzingSmartIntake(false);
     }
-  }, [formData.smartIntakeInput, availableTasks, applySmartIntakeResults, runRuleBasedSmartIntake, calculateTaskMatchScore]);
+  }, [formData.smartIntakeInput, formData.description, availableTasks, applySmartIntakeResults, runRuleBasedSmartIntake]);
 
   // Sync wholesale status from props and recalculate prices
   const prevWholesaleProp = useRef(isWholesale);

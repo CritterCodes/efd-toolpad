@@ -23,7 +23,7 @@ const extractFirstJsonObject = (raw = '') => {
   try { return JSON.parse(candidate.slice(firstBrace, lastBrace + 1)); } catch { return null; }
 };
 
-const callGemini = async ({ apiKey, prompt }, retryOn429 = true) => {
+const callGemini = async ({ apiKey, prompt }) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 9000);
   let response;
@@ -35,7 +35,7 @@ const callGemini = async ({ apiKey, prompt }, retryOn429 = true) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.2, topP: 0.9, maxOutputTokens: 500 }
+          generationConfig: { temperature: 0.2, topP: 0.9, maxOutputTokens: 500, responseMimeType: 'application/json' }
         }),
         signal: controller.signal
       }
@@ -45,9 +45,8 @@ const callGemini = async ({ apiKey, prompt }, retryOn429 = true) => {
   }
   const payload = await response.json();
   if (response.ok) return payload;
-  if (response.status === 429 && retryOn429) {
-    await new Promise(r => setTimeout(r, 1500));
-    return callGemini({ apiKey, prompt }, false);
+  if (response.status === 429) {
+    throw Object.assign(new Error('AI is temporarily rate limited. Please wait a moment and try again.'), { status: 429 });
   }
   throw new Error(payload?.error?.message || 'Gemini request failed');
 };
@@ -132,6 +131,9 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error('POST /api/ai/build-process error:', error);
+    if (error.status === 429) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 429 });
+    }
     return NextResponse.json({ success: false, error: 'Failed to build process.' }, { status: 500 });
   }
 }

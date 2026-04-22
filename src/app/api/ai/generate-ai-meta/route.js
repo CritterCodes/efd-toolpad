@@ -22,10 +22,12 @@ const extractFirstJsonObject = (raw = '') => {
   try { return JSON.parse(candidate.slice(firstBrace, lastBrace + 1)); } catch { return null; }
 };
 
-const callGemini = async ({ apiKey, prompt }, retryOn429 = true) => {
+const callGemini = async ({ apiKey, prompt }) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 9000);
   let response;
+  const startTime = Date.now();
+  console.log('[generate-ai-meta] calling Gemini model:', GEMINI_MODEL);
   try {
     response = await fetch(
       `${GEMINI_API_BASE}/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
@@ -34,7 +36,7 @@ const callGemini = async ({ apiKey, prompt }, retryOn429 = true) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.3, topP: 0.9, maxOutputTokens: 800 }
+          generationConfig: { temperature: 0.3, topP: 0.9, maxOutputTokens: 800, responseMimeType: 'application/json' }
         }),
         signal: controller.signal
       }
@@ -42,11 +44,17 @@ const callGemini = async ({ apiKey, prompt }, retryOn429 = true) => {
   } finally {
     clearTimeout(timeout);
   }
+  const elapsed = Date.now() - startTime;
+  console.log(`[generate-ai-meta] Gemini response: status=${response.status} elapsed=${elapsed}ms`);
   const payload = await response.json();
-  if (response.ok) return payload;
-  if (response.status === 429 && retryOn429) {
-    await new Promise(r => setTimeout(r, 1500));
-    return callGemini({ apiKey, prompt }, false);
+  if (response.ok) {
+    const finishReason = payload?.candidates?.[0]?.finishReason;
+    console.log('[generate-ai-meta] Gemini ok — finishReason:', finishReason);
+    return payload;
+  }
+  console.error('[generate-ai-meta] Gemini error payload:', JSON.stringify(payload));
+  if (response.status === 429) {
+    throw Object.assign(new Error('AI is temporarily rate limited. Please wait a moment and try again.'), { status: 429 });
   }
   throw new Error(payload?.error?.message || 'Gemini request failed');
 };
@@ -60,6 +68,7 @@ export async function POST(request) {
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
+      console.error('[generate-ai-meta] GEMINI_API_KEY is not set');
       return NextResponse.json({ success: false, error: 'GEMINI_API_KEY not configured.' }, { status: 500 });
     }
 
@@ -67,6 +76,8 @@ export async function POST(request) {
     const title = String(body?.title || '').trim();
     const description = String(body?.description || '').trim();
     const category = String(body?.category || '').trim();
+
+    console.log('[generate-ai-meta] request — title:', title, '| category:', category, '| hasDescription:', !!description);
 
     if (!title) {
       return NextResponse.json({ success: false, error: 'title is required.' }, { status: 400 });
@@ -100,12 +111,16 @@ export async function POST(request) {
 
     const payload = await callGemini({ apiKey, prompt });
     const rawText = extractGeminiText(payload);
+    console.log('[generate-ai-meta] rawText length:', rawText.length, '| preview:', rawText.slice(0, 120));
+
     const parsed = extractFirstJsonObject(rawText);
 
     if (!parsed) {
-      console.error('generate-ai-meta: unparseable response from', model, ':', rawText?.slice(0, 300));
+      console.error('[generate-ai-meta] JSON parse failed — full rawText:', rawText);
       return NextResponse.json({ success: false, error: 'AI returned invalid JSON output.' }, { status: 422 });
     }
+
+    console.log('[generate-ai-meta] parsed keys:', Object.keys(parsed));
 
     const str = (v) => String(v || '').trim();
     const arr = (v) => Array.isArray(v) ? v.map(str).filter(Boolean) : [];
@@ -118,9 +133,13 @@ export async function POST(request) {
       pairsWith: arr(parsed.pairsWith),
     };
 
+    console.log('[generate-ai-meta] success — symptoms:', aiMeta.symptoms.length, '| requiredInfo:', aiMeta.requiredInfo);
     return NextResponse.json({ success: true, data: { aiMeta, model: GEMINI_MODEL } });
   } catch (error) {
-    console.error('POST /api/ai/generate-ai-meta error:', error);
+    console.error('[generate-ai-meta] caught error — name:', error.name, '| message:', error.message, '| status:', error.status);
+    if (error.status === 429) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 429 });
+    }
     return NextResponse.json({ success: false, error: 'Failed to generate AI metadata.' }, { status: 500 });
   }
 }

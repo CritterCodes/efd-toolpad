@@ -7,31 +7,18 @@ const GEMINI_MODEL = 'gemini-2.0-flash';
 const extractGeminiText = (payload = {}) => {
   const parts = payload?.candidates?.[0]?.content?.parts;
   if (!Array.isArray(parts)) return '';
-
-  return parts
-    .map((part) => String(part?.text || '').trim())
-    .filter(Boolean)
-    .join('\n')
-    .trim();
+  return parts.map((part) => String(part?.text || '').trim()).filter(Boolean).join('\n').trim();
 };
 
 const extractFirstJsonObject = (raw = '') => {
   const text = String(raw || '').trim();
   if (!text) return null;
-
   const fencedMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
   const candidate = fencedMatch ? fencedMatch[1] : text;
-
   const firstBrace = candidate.indexOf('{');
   const lastBrace = candidate.lastIndexOf('}');
   if (firstBrace < 0 || lastBrace <= firstBrace) return null;
-
-  const jsonSlice = candidate.slice(firstBrace, lastBrace + 1);
-  try {
-    return JSON.parse(jsonSlice);
-  } catch {
-    return null;
-  }
+  try { return JSON.parse(candidate.slice(firstBrace, lastBrace + 1)); } catch { return null; }
 };
 
 const normalizeParsedPayload = (payload = {}) => {
@@ -40,7 +27,6 @@ const normalizeParsedPayload = (payload = {}) => {
     const normalized = normalizeString(value).toLowerCase();
     return allowed.includes(normalized) ? normalized : '';
   };
-
   const toBool = (value) => {
     if (typeof value === 'boolean') return value;
     const normalized = normalizeString(value).toLowerCase();
@@ -48,12 +34,13 @@ const normalizeParsedPayload = (payload = {}) => {
     if (['false', 'no', '0'].includes(normalized)) return false;
     return null;
   };
-
   const taskHints = Array.isArray(payload.taskHints)
     ? payload.taskHints.map((item) => normalizeString(item)).filter(Boolean).slice(0, 5)
     : [];
-
   const confidence = Math.min(1, Math.max(0, Number(payload.confidence || 0)));
+  const matchedTaskIds = Array.isArray(payload.matchedTaskIds)
+    ? payload.matchedTaskIds.map(s => String(s || '').trim()).filter(Boolean).slice(0, 5)
+    : [];
 
   return {
     metalType: normalizeEnum(payload.metalType, ['gold', 'silver', 'platinum', 'costume']),
@@ -64,11 +51,12 @@ const normalizeParsedPayload = (payload = {}) => {
     desiredRingSize: normalizeString(payload.desiredRingSize),
     taskHints,
     normalizedSummary: normalizeString(payload.normalizedSummary),
-    confidence
+    confidence,
+    matchedTaskIds
   };
 };
 
-const callGemini = async ({ apiKey, prompt }, retryOn429 = true) => {
+const callGemini = async ({ apiKey, prompt }) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 9000);
   let response;
@@ -80,7 +68,7 @@ const callGemini = async ({ apiKey, prompt }, retryOn429 = true) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.1, topP: 0.9, maxOutputTokens: 260 }
+          generationConfig: { temperature: 0.1, topP: 0.9, maxOutputTokens: 400, responseMimeType: 'application/json' }
         }),
         signal: controller.signal
       }
@@ -90,9 +78,8 @@ const callGemini = async ({ apiKey, prompt }, retryOn429 = true) => {
   }
   const payload = await response.json();
   if (response.ok) return payload;
-  if (response.status === 429 && retryOn429) {
-    await new Promise(r => setTimeout(r, 1500));
-    return callGemini({ apiKey, prompt }, false);
+  if (response.status === 429) {
+    throw Object.assign(new Error('AI is temporarily rate limited. Please wait a moment and try again.'), { status: 429 });
   }
   throw new Error(payload?.error?.message || 'Gemini request failed');
 };
@@ -112,13 +99,20 @@ export async function POST(request) {
     const body = await request.json();
     const inputText = String(body?.inputText || '').trim();
     const description = String(body?.description || '').trim();
+    const tasks = Array.isArray(body?.tasks) ? body.tasks : [];
 
     if (!inputText) {
       return NextResponse.json({ success: false, error: 'inputText is required.' }, { status: 400 });
     }
 
-    // Combine intake input with description for richer context
-    const fullContext = [inputText, description].filter(Boolean).join('\n');
+    const taskListText = tasks.length > 0
+      ? tasks.map(t =>
+          `- id:${t.id} | title:"${t.title}" | description:"${t.description}"` +
+          (t.symptoms?.length ? ` | symptoms:${JSON.stringify(t.symptoms)}` : '') +
+          (t.whenToUse ? ` | whenToUse:"${t.whenToUse}"` : '') +
+          (t.neverUseWhen ? ` | neverUseWhen:"${t.neverUseWhen}"` : '')
+        ).join('\n')
+      : '';
 
     const prompt = [
       'You are parsing jewelry repair intake text into structured data for form autofill.',
@@ -134,8 +128,18 @@ export async function POST(request) {
       '  "desiredRingSize": "",',
       '  "taskHints": ["solder", "polish"],',
       '  "normalizedSummary": "",',
-      '  "confidence": 0.0',
+      '  "confidence": 0.0,',
+      '  "matchedTaskIds": []',
       '}',
+      ...(taskListText ? [
+        '',
+        'You are also given a list of available repair tasks. Identify which tasks (by id) best match the repair described (up to 3 tasks maximum).',
+        'Use the symptoms, whenToUse, and neverUseWhen fields to decide. Return their ids in "matchedTaskIds". If no task clearly matches, return an empty array.',
+        '',
+        'Available tasks:',
+        taskListText,
+      ] : []),
+      '',
       'Rules:',
       '- CRITICAL: isRing must be true ONLY if the item is explicitly a ring or band. For pendants, necklaces, bracelets, chains, earrings, watches, brooches, or any non-ring item, isRing must be false.',
       '- currentRingSize and desiredRingSize should ONLY be set if the item is a ring.',
@@ -160,7 +164,7 @@ export async function POST(request) {
       console.error('Gemini smart intake parse error:', geminiError.message);
       return NextResponse.json(
         { success: false, error: geminiError.message || 'Gemini request failed.' },
-        { status: 502 }
+        { status: geminiError.status === 429 ? 429 : 502 }
       );
     }
 
