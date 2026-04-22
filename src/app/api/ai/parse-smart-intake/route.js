@@ -2,18 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
-const DEFAULT_GEMINI_MODELS = [
-  'gemini-2.0-flash',
-  'gemini-2.0-flash-lite'
-];
-
-const buildCandidateModels = () => {
-  const configuredModel = String(process.env.GEMINI_MODEL || '').trim();
-  if (!configuredModel) return DEFAULT_GEMINI_MODELS;
-
-  const deduped = [configuredModel, ...DEFAULT_GEMINI_MODELS].filter(Boolean);
-  return [...new Set(deduped)];
-};
+const GEMINI_MODEL = 'gemini-2.0-flash';
 
 const extractGeminiText = (payload = {}) => {
   const parts = payload?.candidates?.[0]?.content?.parts;
@@ -79,44 +68,33 @@ const normalizeParsedPayload = (payload = {}) => {
   };
 };
 
-const callGeminiWithFallback = async ({ apiKey, prompt }) => {
-  const models = buildCandidateModels();
-  let lastPayload = null;
-
-  for (const model of models) {
-    const response = await fetch(
-      `${GEMINI_API_BASE}/models/${model}:generateContent?key=${apiKey}`,
+const callGemini = async ({ apiKey, prompt }, retryOn429 = true) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 9000);
+  let response;
+  try {
+    response = await fetch(
+      `${GEMINI_API_BASE}/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.1,
-            topP: 0.9,
-            maxOutputTokens: 260
-          }
-        })
+          generationConfig: { temperature: 0.1, topP: 0.9, maxOutputTokens: 260 }
+        }),
+        signal: controller.signal
       }
     );
-
-    const payload = await response.json();
-    if (response.ok) {
-      return { model, payload };
-    }
-
-    lastPayload = payload;
-    const errorMessage = String(payload?.error?.message || '').toLowerCase();
-    const shouldTryNextModel = response.status === 404 || response.status === 429 || errorMessage.includes('not found') || errorMessage.includes('not supported') || errorMessage.includes('resource exhausted');
-
-    if (!shouldTryNextModel) {
-      throw new Error(payload?.error?.message || 'Gemini request failed');
-    }
+  } finally {
+    clearTimeout(timeout);
   }
-
-  throw new Error(lastPayload?.error?.message || 'No compatible Gemini model found for generateContent');
+  const payload = await response.json();
+  if (response.ok) return payload;
+  if (response.status === 429 && retryOn429) {
+    await new Promise(r => setTimeout(r, 1500));
+    return callGemini({ apiKey, prompt }, false);
+  }
+  throw new Error(payload?.error?.message || 'Gemini request failed');
 };
 
 export async function POST(request) {
@@ -175,12 +153,9 @@ export async function POST(request) {
     ].filter(Boolean).join('\n');
 
     let geminiPayload = null;
-    let selectedModel = '';
 
     try {
-      const geminiResult = await callGeminiWithFallback({ apiKey: geminiApiKey, prompt });
-      geminiPayload = geminiResult.payload;
-      selectedModel = geminiResult.model;
+      geminiPayload = await callGemini({ apiKey: geminiApiKey, prompt });
     } catch (geminiError) {
       console.error('Gemini smart intake parse error:', geminiError.message);
       return NextResponse.json(
@@ -202,7 +177,7 @@ export async function POST(request) {
       success: true,
       data: {
         parsed: normalizeParsedPayload(parsed),
-        model: selectedModel
+        model: GEMINI_MODEL
       }
     });
   } catch (error) {

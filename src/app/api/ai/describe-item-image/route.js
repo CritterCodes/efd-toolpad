@@ -3,82 +3,41 @@ import { auth } from '@/lib/auth';
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
-const DEFAULT_GEMINI_MODELS = [
-  'gemini-2.0-flash',
-  'gemini-2.0-flash-lite'
-];
+const GEMINI_MODEL = 'gemini-2.0-flash';
 
 const extractGeminiText = (payload = {}) => {
   const parts = payload?.candidates?.[0]?.content?.parts;
   if (!Array.isArray(parts)) return '';
-
-  return parts
-    .map((part) => String(part?.text || '').trim())
-    .filter(Boolean)
-    .join('\n')
-    .trim();
+  return parts.map((part) => String(part?.text || '').trim()).filter(Boolean).join('\n').trim();
 };
 
-const buildCandidateModels = () => {
-  const configuredModel = String(process.env.GEMINI_MODEL || '').trim();
-  if (!configuredModel) return DEFAULT_GEMINI_MODELS;
-
-  const deduped = [configuredModel, ...DEFAULT_GEMINI_MODELS].filter(Boolean);
-  return [...new Set(deduped)];
-};
-
-const callGeminiWithFallback = async ({ apiKey, mimeType, base64Image, prompt }) => {
-  const models = buildCandidateModels();
-  let lastPayload = null;
-
-  for (const model of models) {
-    const response = await fetch(
-      `${GEMINI_API_BASE}/models/${model}:generateContent?key=${apiKey}`,
+const callGemini = async ({ apiKey, mimeType, base64Image, prompt }, retryOn429 = true) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 9000);
+  let response;
+  try {
+    response = await fetch(
+      `${GEMINI_API_BASE}/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                { text: prompt },
-                {
-                  inlineData: {
-                    mimeType,
-                    data: base64Image
-                  }
-                }
-              ]
-            }
-          ],
-          generationConfig: {
-            temperature: 0.2,
-            topP: 0.9,
-            maxOutputTokens: 220
-          }
-        })
+          contents: [{ role: 'user', parts: [{ text: prompt }, { inlineData: { mimeType, data: base64Image } }] }],
+          generationConfig: { temperature: 0.2, topP: 0.9, maxOutputTokens: 220 }
+        }),
+        signal: controller.signal
       }
     );
-
-    const payload = await response.json();
-    if (response.ok) {
-      return { model, payload };
-    }
-
-    lastPayload = payload;
-
-    const errorMessage = String(payload?.error?.message || '').toLowerCase();
-    const shouldTryNextModel = response.status === 404 || response.status === 429 || errorMessage.includes('not found') || errorMessage.includes('not supported') || errorMessage.includes('resource exhausted');
-
-    if (!shouldTryNextModel) {
-      throw new Error(payload?.error?.message || 'Gemini request failed');
-    }
+  } finally {
+    clearTimeout(timeout);
   }
-
-  throw new Error(lastPayload?.error?.message || 'No compatible Gemini model found for generateContent');
+  const payload = await response.json();
+  if (response.ok) return payload;
+  if (response.status === 429 && retryOn429) {
+    await new Promise(r => setTimeout(r, 1500));
+    return callGemini({ apiKey, mimeType, base64Image, prompt }, false);
+  }
+  throw new Error(payload?.error?.message || 'Gemini request failed');
 };
 
 export async function POST(request) {
@@ -134,17 +93,15 @@ export async function POST(request) {
     ].join(' ');
 
     let geminiPayload = null;
-    let selectedModel = '';
+    const selectedModel = GEMINI_MODEL;
 
     try {
-      const geminiResult = await callGeminiWithFallback({
+      geminiPayload = await callGemini({
         apiKey: geminiApiKey,
         mimeType: image.type,
         base64Image,
         prompt
       });
-      geminiPayload = geminiResult.payload;
-      selectedModel = geminiResult.model;
     } catch (geminiError) {
       console.error('Gemini image describe error:', geminiError.message);
       return NextResponse.json(

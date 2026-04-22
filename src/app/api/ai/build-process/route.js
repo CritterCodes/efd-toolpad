@@ -2,16 +2,10 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
-const DEFAULT_GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-2.0-flash-lite'];
+const GEMINI_MODEL = 'gemini-2.0-flash';
 
 const PROCESS_CATEGORIES = ['sizing', 'stone_setting', 'repair', 'restoration', 'cleaning', 'engraving', 'manufacturing', 'custom_work', 'rhodium_plating', 'soldering'];
 const SKILL_LEVELS = ['basic', 'standard', 'advanced', 'expert'];
-
-const buildCandidateModels = () => {
-  const configured = String(process.env.GEMINI_MODEL || '').trim();
-  if (!configured) return DEFAULT_GEMINI_MODELS;
-  return [...new Set([configured, ...DEFAULT_GEMINI_MODELS])];
-};
 
 const extractGeminiText = (payload = {}) => {
   const parts = payload?.candidates?.[0]?.content?.parts;
@@ -29,40 +23,33 @@ const extractFirstJsonObject = (raw = '') => {
   try { return JSON.parse(candidate.slice(firstBrace, lastBrace + 1)); } catch { return null; }
 };
 
-const callGeminiWithFallback = async ({ apiKey, prompt }) => {
-  const models = buildCandidateModels();
-  let lastPayload = null;
-  for (const model of models) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    let response;
-    try {
-      response = await fetch(
-        `${GEMINI_API_BASE}/models/${model}:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.2, topP: 0.9, maxOutputTokens: 500 }
-          }),
-          signal: controller.signal
-        }
-      );
-    } catch (err) {
-      clearTimeout(timeout);
-      if (err.name === 'AbortError') continue;
-      throw err;
-    }
+const callGemini = async ({ apiKey, prompt }, retryOn429 = true) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 9000);
+  let response;
+  try {
+    response = await fetch(
+      `${GEMINI_API_BASE}/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.2, topP: 0.9, maxOutputTokens: 500 }
+        }),
+        signal: controller.signal
+      }
+    );
+  } finally {
     clearTimeout(timeout);
-    const payload = await response.json();
-    if (response.ok) return { model, payload };
-    lastPayload = payload;
-    const errMsg = String(payload?.error?.message || '').toLowerCase();
-    const retryable = response.status === 404 || response.status === 429 || errMsg.includes('not found') || errMsg.includes('not supported') || errMsg.includes('resource exhausted');
-    if (!retryable) throw new Error(payload?.error?.message || 'Gemini request failed');
   }
-  throw new Error(lastPayload?.error?.message || 'No compatible Gemini model found');
+  const payload = await response.json();
+  if (response.ok) return payload;
+  if (response.status === 429 && retryOn429) {
+    await new Promise(r => setTimeout(r, 1500));
+    return callGemini({ apiKey, prompt }, false);
+  }
+  throw new Error(payload?.error?.message || 'Gemini request failed');
 };
 
 const normalizeProcessPayload = (raw = {}) => {
@@ -131,7 +118,7 @@ export async function POST(request) {
       `Process to build: ${description}`
     ].join('\n');
 
-    const { model, payload } = await callGeminiWithFallback({ apiKey, prompt });
+    const payload = await callGemini({ apiKey, prompt });
     const rawText = extractGeminiText(payload);
     const parsed = extractFirstJsonObject(rawText);
 
@@ -141,7 +128,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      data: { process: normalizeProcessPayload(parsed), model }
+      data: { process: normalizeProcessPayload(parsed), model: GEMINI_MODEL }
     });
   } catch (error) {
     console.error('POST /api/ai/build-process error:', error);
