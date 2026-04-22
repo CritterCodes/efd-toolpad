@@ -32,22 +32,33 @@ const callGeminiWithFallback = async ({ apiKey, prompt }) => {
   const models = buildCandidateModels();
   let lastPayload = null;
   for (const model of models) {
-    const response = await fetch(
-      `${GEMINI_API_BASE}/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.2, topP: 0.9, maxOutputTokens: 600 }
-        })
-      }
-    );
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    let response;
+    try {
+      response = await fetch(
+        `${GEMINI_API_BASE}/models/${model}:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.2, topP: 0.9, maxOutputTokens: 600 }
+          }),
+          signal: controller.signal
+        }
+      );
+    } catch (err) {
+      clearTimeout(timeout);
+      if (err.name === 'AbortError') continue;
+      throw err;
+    }
+    clearTimeout(timeout);
     const payload = await response.json();
     if (response.ok) return { model, payload };
     lastPayload = payload;
     const errMsg = String(payload?.error?.message || '').toLowerCase();
-    const retryable = response.status === 404 || errMsg.includes('not found') || errMsg.includes('not supported');
+    const retryable = response.status === 404 || response.status === 429 || errMsg.includes('not found') || errMsg.includes('not supported') || errMsg.includes('resource exhausted');
     if (!retryable) throw new Error(payload?.error?.message || 'Gemini request failed');
   }
   throw new Error(lastPayload?.error?.message || 'No compatible Gemini model found');
