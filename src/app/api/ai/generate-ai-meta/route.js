@@ -116,7 +116,8 @@ export async function POST(request) {
     const parsed = extractFirstJsonObject(rawText);
 
     if (!parsed) {
-      return NextResponse.json({ success: false, error: 'AI returned invalid JSON output.' }, { status: 502 });
+      console.error('generate-ai-meta: unparseable response from', model, ':', rawText?.slice(0, 300));
+      return NextResponse.json({ success: false, error: 'AI returned invalid JSON output.' }, { status: 422 });
     }
 
     const str = (v) => String(v || '').trim();
