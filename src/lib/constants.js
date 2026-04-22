@@ -12,6 +12,7 @@ const Constants = {
     ADMIN_SETTINGS_AUDIT_COLLECTION: 'adminSettingsAudit',
     
     // Additional Collections
+    TOOLS_MACHINERY_COLLECTION: 'toolsMachinery',
     COLLECTORS_COLLECTION: 'collectors',
     CONTACT_REQUESTS_COLLECTION: 'contactRequests',
     CUSTOM_TICKETS_COLLECTION: 'customTickets',

@@ -33,7 +33,7 @@ const callGeminiWithFallback = async ({ apiKey, prompt }) => {
   let lastPayload = null;
   for (const model of models) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const timeout = setTimeout(() => controller.abort(), 5000);
     let response;
     try {
       response = await fetch(
