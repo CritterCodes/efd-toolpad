@@ -56,6 +56,18 @@ const normalizeParsedPayload = (payload = {}) => {
   };
 };
 
+const prefilterTasks = (inputText, tasks, limit = 15) => {
+  const words = inputText.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+  if (!words.length) return tasks.slice(0, limit);
+  const scored = tasks.map(t => {
+    const haystack = [t.title, ...(t.symptoms || []), t.whenToUse || ''].join(' ').toLowerCase();
+    const score = words.filter(w => haystack.includes(w)).length;
+    return { task: t, score };
+  });
+  const matched = scored.filter(s => s.score > 0).sort((a, b) => b.score - a.score).slice(0, limit).map(s => s.task);
+  return matched.length > 0 ? matched : tasks.slice(0, limit);
+};
+
 const callGemini = async ({ apiKey, prompt }) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20000);
@@ -106,15 +118,16 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: 'inputText is required.' }, { status: 400 });
     }
 
-    const taskListText = tasks.length > 0
-      ? tasks.slice(0, 40).map(t =>
+    const relevantTasks = tasks.length > 0 ? prefilterTasks(inputText, tasks) : [];
+    const taskListText = relevantTasks.length > 0
+      ? relevantTasks.map(t =>
           `- id:${t.id} | title:"${t.title}"` +
           (t.symptoms?.length ? ` | symptoms:${JSON.stringify(t.symptoms)}` : '') +
           (t.whenToUse ? ` | whenToUse:"${t.whenToUse}"` : '') +
           (t.neverUseWhen ? ` | neverUseWhen:"${t.neverUseWhen}"` : '')
         ).join('\n')
       : '';
-    console.log('[parse-smart-intake] tasks:', tasks.length, 'promptChars:', inputText.length + taskListText.length);
+    console.log('[parse-smart-intake] tasks total:', tasks.length, 'after prefilter:', relevantTasks.length);
 
     const prompt = [
       'You are parsing jewelry repair intake text into structured data for form autofill.',
