@@ -58,7 +58,7 @@ const normalizeParsedPayload = (payload = {}) => {
 
 const callGemini = async ({ apiKey, prompt }) => {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 9000);
+  const timeout = setTimeout(() => controller.abort(), 20000);
   let response;
   try {
     response = await fetch(
@@ -68,7 +68,7 @@ const callGemini = async ({ apiKey, prompt }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.1, topP: 0.9, maxOutputTokens: 400, responseMimeType: 'application/json' }
+          generationConfig: { temperature: 0.1, topP: 0.9, maxOutputTokens: 1024, responseMimeType: 'application/json' }
         }),
         signal: controller.signal
       }
@@ -78,6 +78,7 @@ const callGemini = async ({ apiKey, prompt }) => {
   }
   const payload = await response.json();
   if (response.ok) return payload;
+  console.error('[parse-smart-intake] Gemini error status:', response.status, 'body:', JSON.stringify(payload));
   if (response.status === 429) {
     throw Object.assign(new Error('AI is temporarily rate limited. Please wait a moment and try again.'), { status: 429 });
   }
@@ -106,13 +107,14 @@ export async function POST(request) {
     }
 
     const taskListText = tasks.length > 0
-      ? tasks.map(t =>
-          `- id:${t.id} | title:"${t.title}" | description:"${t.description}"` +
+      ? tasks.slice(0, 40).map(t =>
+          `- id:${t.id} | title:"${t.title}"` +
           (t.symptoms?.length ? ` | symptoms:${JSON.stringify(t.symptoms)}` : '') +
           (t.whenToUse ? ` | whenToUse:"${t.whenToUse}"` : '') +
           (t.neverUseWhen ? ` | neverUseWhen:"${t.neverUseWhen}"` : '')
         ).join('\n')
       : '';
+    console.log('[parse-smart-intake] tasks:', tasks.length, 'promptChars:', inputText.length + taskListText.length);
 
     const prompt = [
       'You are parsing jewelry repair intake text into structured data for form autofill.',

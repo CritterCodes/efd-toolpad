@@ -23,7 +23,7 @@ const callGemini = async ({ apiKey, mimeType, base64Image, prompt }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: prompt }, { inlineData: { mimeType, data: base64Image } }] }],
-          generationConfig: { temperature: 0.2, topP: 0.9, maxOutputTokens: 220 }
+          generationConfig: { temperature: 0.2, topP: 0.9, maxOutputTokens: 512 }
         }),
         signal: controller.signal
       }
