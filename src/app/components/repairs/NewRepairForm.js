@@ -799,7 +799,7 @@ export default function NewRepairForm({
     lastName: '',
     email: '',
     phone: '',
-    role: 'client' // Default role
+    role: 'customer' // Default role
   });
   const [newClientLoading, setNewClientLoading] = useState(false);
   const [wholesalerPricingSettings, setWholesalerPricingSettings] = useState(DEFAULT_WHOLESALER_PRICING_SETTINGS);
@@ -1736,7 +1736,7 @@ export default function NewRepairForm({
         createdClientResponse = await UsersService.createUser({
           ...clientToCreate,
           name: `${newClientData.firstName.trim()} ${newClientData.lastName.trim()}`,
-          role: newClientData.role || 'client',
+          role: newClientData.role || 'customer',
           status: 'unverified'
         });
       }
@@ -1779,7 +1779,7 @@ export default function NewRepairForm({
         lastName: '',
         email: '',
         phone: '',
-        role: 'client'
+        role: 'customer'
       });
       setShowNewClientDialog(false);
 

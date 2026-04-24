@@ -9,6 +9,7 @@ import ArtisanDashboardContent from '@/components/dashboards/ArtisanDashboard';
 import WholesalerDashboardContent from '@/components/dashboards/WholesalerDashboard';
 // Import the original dashboard for staff/admin/dev roles
 import AdminDashboardContent from './AdminDashboardContent';
+import AffiliateDashboardContent from './affiliate/page';
 import { logoutIfWrongRole } from '@/lib/auth-utils';
 
 export default function DashboardPage() {
@@ -90,7 +91,10 @@ export default function DashboardPage() {
                 
             case USER_ROLES.ARTISAN:
                 return <ArtisanDashboardContent />;
-                
+
+            case USER_ROLES.AFFILIATE:
+                return <AffiliateDashboardContent />;
+
             case USER_ROLES.STAFF:
             case USER_ROLES.DEV:
             case USER_ROLES.ADMIN:

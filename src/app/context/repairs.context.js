@@ -39,11 +39,18 @@ export const RepairsProvider = ({ children }) => {
             return;
         }
 
+        const rolesWithoutRepairs = ['affiliate', 'artisan-applicant', 'client', 'customer'];
+        if (rolesWithoutRepairs.includes(session.user.role)) {
+            setRepairs([]);
+            setLoading(false);
+            return;
+        }
+
         console.log("🔄 Starting repairs fetch for role:", session.user.role);
         setLoading(true);
         try {
             let data;
-            
+
             // Role-based data fetching
             if (session.user.role === 'wholesaler') {
                 console.log("🔄 Fetching repairs for wholesaler via /api/repairs/my-repairs");

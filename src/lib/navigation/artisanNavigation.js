@@ -3,6 +3,7 @@ import { USER_ROLES } from '../unifiedUserService';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import PersonIcon from '@mui/icons-material/Person';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
+import LinkIcon from '@mui/icons-material/Link';
 import { SHARED_NAVIGATION } from './sharedNavigation';
 
 export const artisanNavigation = {
@@ -17,6 +18,11 @@ export const artisanNavigation = {
       segment: 'dashboard/gallery',
       title: 'Gallery Management',
       icon: <PhotoLibraryIcon />
+    },
+    {
+      segment: 'dashboard/artisan/affiliate',
+      title: 'Affiliate',
+      icon: <LinkIcon />
     }
   ]
 };

@@ -189,18 +189,18 @@ export default function NotificationBell() {
             </Typography>
           </Box>
         ) : (
-          <>
+          <Box>
             <Box sx={{ px: 2, py: 1 }}>
               <Typography variant="subtitle2" fontWeight="bold">New</Typography>
             </Box>
             <List sx={{ p: 0 }}>
               {displayNotifications.map((notification) => (
-                <ListItem 
-                  key={notification._id} 
-                  button 
+                <ListItem
+                  key={notification._id}
+                  button
                   onClick={() => handleNotificationClick(notification)}
                   alignItems="flex-start"
-                  sx={{ 
+                  sx={{
                     bgcolor: notification.read ? 'transparent' : 'action.hover',
                     '&:hover': { bgcolor: 'action.selected' },
                     cursor: 'pointer'
@@ -216,20 +216,20 @@ export default function NotificationBell() {
                       </Typography>
                     }
                     secondary={
-                      <>
+                      <Box component="span">
                         <Typography variant="body2" color="text.primary" component="span" display="block">
                           {notification.message}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
                           {notification.createdAt ? formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true }) : ''}
                         </Typography>
-                      </>
+                      </Box>
                     }
                   />
                 </ListItem>
               ))}
             </List>
-          </>
+          </Box>
         )}
       </Menu>
     </>

@@ -4,6 +4,7 @@ export const USER_ROLES = {
   WHOLESALER: 'wholesaler',
   ARTISAN_APPLICANT: 'artisan-applicant',
   ARTISAN: 'artisan',
+  AFFILIATE: 'affiliate',
   STAFF: 'staff',
   DEV: 'dev',
   ADMIN: 'admin'
@@ -64,6 +65,16 @@ export const ROLE_PERMISSIONS = {
     orderManagement: true,
     repairManagement: true,
     inventoryManagement: true,
+    analyticsView: true
+  },
+  [USER_ROLES.AFFILIATE]: {
+    efdShop: true,
+    efdAdmin: true,
+    adminSettings: false,
+    userManagement: false,
+    orderManagement: false,
+    repairManagement: false,
+    inventoryManagement: false,
     analyticsView: true
   },
   [USER_ROLES.STAFF]: {

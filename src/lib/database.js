@@ -139,6 +139,22 @@ class Database {
         return this._instance.collection(Constants.INVENTORY_COLLECTION);
     }
 
+    // Affiliate Collections
+    async dbAffiliates() {
+        await this.connect();
+        return this._instance.collection(Constants.AFFILIATES_COLLECTION);
+    }
+
+    async dbAffiliateCampaigns() {
+        await this.connect();
+        return this._instance.collection(Constants.AFFILIATE_CAMPAIGNS_COLLECTION);
+    }
+
+    async dbAffiliateReferralEvents() {
+        await this.connect();
+        return this._instance.collection(Constants.AFFILIATE_REFERRAL_EVENTS_COLLECTION);
+    }
+
     // Legacy alias for backward compatibility
     async dbRepairTasks() {
         await this.connect();

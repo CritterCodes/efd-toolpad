@@ -7,6 +7,7 @@ import { generateArtisanNavigation } from './navigation/artisanNavigation';
 import { wholesalerNavigation } from './navigation/wholesalerNavigation';
 import { artisanApplicantNavigation } from './navigation/artisanApplicantNavigation';
 import { artisanNavigationConfig } from './navigation/artisanNavigationConfig';
+import { affiliateNavigation } from './navigation/affiliateNavigation';
 import { staffNavigation } from './navigation/staffNavigation';
 import { devNavigation } from './navigation/devNavigation';
 import { adminNavigation } from './navigation/adminNavigation';
@@ -15,6 +16,7 @@ export const ROLE_NAVIGATION = {
   ...wholesalerNavigation,
   ...artisanApplicantNavigation,
   ...artisanNavigationConfig,
+  ...affiliateNavigation,
   ...staffNavigation,
   ...devNavigation,
   ...adminNavigation
@@ -84,6 +86,7 @@ export function getAvailableRolesForSwitching(currentUserRole) {
     USER_ROLES.WHOLESALER,
     USER_ROLES.ARTISAN_APPLICANT,
     USER_ROLES.ARTISAN,
+    USER_ROLES.AFFILIATE,
     USER_ROLES.STAFF,
     USER_ROLES.DEV,
     USER_ROLES.ADMIN

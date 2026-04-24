@@ -28,6 +28,7 @@ import PaymentIcon from "@mui/icons-material/Payment";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import PrintIcon from "@mui/icons-material/Print";
 import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
+import LinkIcon from "@mui/icons-material/Link";
 
 import { SHARED_NAVIGATION } from "./sharedNavigation";
 
@@ -43,6 +44,11 @@ export const artisanNavigationConfig = {
       segment: 'dashboard/gallery',
       title: 'Gallery Management',
       icon: <PhotoLibraryIcon />
+    },
+    {
+      segment: 'dashboard/artisan/affiliate',
+      title: 'Affiliate',
+      icon: <LinkIcon />
     }
   ]
 };

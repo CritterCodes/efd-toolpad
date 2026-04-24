@@ -23,7 +23,7 @@ export default function NewClientForm({ open, onClose, onClientCreated }) {
         lastName: '',
         email: '',
         phone: '',
-        role: 'client', // ✅ Default role set to 'client'
+        role: 'customer',
         business: '',
         image: ''
     });
@@ -146,7 +146,7 @@ export default function NewClientForm({ open, onClose, onClientCreated }) {
                         required
                         margin="dense"
                     >
-                        <MenuItem value="client">Client</MenuItem>
+                        <MenuItem value="customer">Customer</MenuItem>
                         <MenuItem value="wholesaler">Wholesaler</MenuItem>
                         <MenuItem value="admin">Admin</MenuItem>
                     </TextField>

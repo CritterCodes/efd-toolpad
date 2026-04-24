@@ -18,6 +18,11 @@ const Constants = {
     CUSTOM_TICKETS_COLLECTION: 'customTickets',
     INVENTORY_COLLECTION: 'inventory',
     
+    // Affiliate Collections
+    AFFILIATES_COLLECTION: 'affiliates',
+    AFFILIATE_CAMPAIGNS_COLLECTION: 'affiliateCampaigns',
+    AFFILIATE_REFERRAL_EVENTS_COLLECTION: 'affiliateReferralEvents',
+
     // Legacy/Compatibility (to be phased out)
     REPAIRTASKS_COLLECTION: 'repairTasks', // Use TASKS_COLLECTION instead
     

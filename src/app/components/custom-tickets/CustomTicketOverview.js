@@ -16,6 +16,7 @@ import {
 import PersonIcon from '@mui/icons-material/Person';
 import EmailIcon from '@mui/icons-material/Email';
 import PhoneIcon from '@mui/icons-material/Phone';
+import LinkIcon from '@mui/icons-material/Link';
 
 export function CustomTicketOverview({ ticket }) {
   if (!ticket) return null;
@@ -260,6 +261,52 @@ export function CustomTicketOverview({ ticket }) {
               )}
             </Grid>
           </Grid>
+
+          {/* Affiliate Attribution */}
+          {ticket.affiliate && (
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <LinkIcon fontSize="small" />
+                Affiliate Attribution
+              </Typography>
+              <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" color="text.secondary">Affiliate:</Typography>
+                  <Typography variant="body2" fontWeight="medium">{ticket.affiliate.affiliateCode}</Typography>
+                </Box>
+                {ticket.affiliate.campaignCode && (
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2" color="text.secondary">Campaign:</Typography>
+                    <Typography variant="body2" fontWeight="medium">{ticket.affiliate.campaignCode}</Typography>
+                  </Box>
+                )}
+                {ticket.affiliate.attachedAt && (
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2" color="text.secondary">Attributed:</Typography>
+                    <Typography variant="body2">{formatDate(ticket.affiliate.attachedAt)}</Typography>
+                  </Box>
+                )}
+                {ticket.affiliate.commissionStatus && (
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2" color="text.secondary">Commission:</Typography>
+                    <Chip label={ticket.affiliate.commissionStatus} size="small" variant="outlined" />
+                  </Box>
+                )}
+              </Box>
+            </Grid>
+          )}
+
+          {/* Manual Referral (no tracked affiliate) */}
+          {!ticket.affiliate && ticket.manualReferral && (
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                How They Heard
+              </Typography>
+              <Typography variant="body2" sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                {ticket.manualReferral}
+              </Typography>
+            </Grid>
+          )}
 
           {/* Properties & Status Indicators */}
           <Grid item xs={12}>

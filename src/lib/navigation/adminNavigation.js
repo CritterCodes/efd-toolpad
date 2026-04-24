@@ -29,6 +29,7 @@ import PrintIcon from "@mui/icons-material/Print";
 import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
 import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 import LeadsIcon from "@mui/icons-material/ChatBubbleOutline";
+import LinkIcon from "@mui/icons-material/Link";
 
 import { SHARED_NAVIGATION } from "./sharedNavigation";
 
@@ -184,6 +185,11 @@ export const adminNavigation = {
         //   icon: <SettingsIcon />
         // }
       ]
+    },
+    {
+      segment: 'dashboard/admin/affiliates',
+      title: 'Affiliates',
+      icon: <LinkIcon />
     },
     {
       segment: 'dashboard/analytics',

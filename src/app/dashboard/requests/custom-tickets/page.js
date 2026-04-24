@@ -47,15 +47,15 @@ export default function ArtisanCustomTicketsPage() {
     try {
       setLoading(true);
       
-      if (!session?.user?.id) {
+      if (!session?.user?.userID) {
         console.log('❌ No session found:', session);
         setError('User session not found');
         setLoading(false);
         return;
       }
 
-      const url = `/api/custom-tickets/artisan?artisanUserId=${session.user.id}`;
-      console.log('🚀 Fetching tickets for user:', session.user.id);
+      const url = `/api/custom-tickets/artisan?artisanUserId=${session.user.userID}`;
+      console.log('🚀 Fetching tickets for user:', session.user.userID);
       console.log('🔗 API URL:', url);
       
       // Add timeout to prevent infinite loading
@@ -126,8 +126,8 @@ export default function ArtisanCustomTicketsPage() {
     console.log('🔄 useEffect triggered with session status:', {
       sessionStatus,
       hasSession: !!session,
-      hasUserId: !!session?.user?.id,
-      userId: session?.user?.id,
+      hasUserId: !!session?.user?.userID,
+      userId: session?.user?.userID,
       role: session?.user?.role
     });
     
@@ -144,8 +144,13 @@ export default function ArtisanCustomTicketsPage() {
       return;
     }
     
-    if (session?.user?.id) {
-      console.log('🚀 Calling fetchArtisanTickets for user:', session.user.id);
+    // Admins are redirected in the other useEffect — don't show an error while that fires
+    if (session?.user?.role === 'admin' || session?.user?.role === 'staff') {
+      return;
+    }
+
+    if (session?.user?.userID) {
+      console.log('🚀 Calling fetchArtisanTickets for user:', session.user.userID);
       fetchArtisanTickets();
     } else {
       console.log('⚠️ No user ID found in session');
@@ -305,7 +310,7 @@ export default function ArtisanCustomTicketsPage() {
           </Typography>
           <Typography variant="caption" color="text.secondary">
             Session Status: {sessionStatus} | 
-            User ID: {session?.user?.id || 'none'} | 
+            User ID: {session?.user?.userID || 'none'} | 
             Role: {session?.user?.role || 'none'}
           </Typography>
         </Box>
