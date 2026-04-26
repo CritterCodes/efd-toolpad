@@ -7,7 +7,6 @@ import {
   CircularProgress, Checkbox, FormControlLabel, Stack
 } from '@mui/material';
 import { AutoAwesome as AutoAwesomeIcon, ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material';
-import { PageContainer } from '@toolpad/core/PageContainer';
 import { useInitialTaskData } from '../create/hooks/useInitialTaskData';
 import { useTaskFormHandlers } from '../create/hooks/useTaskFormHandlers';
 import { TASK_CATEGORIES } from '../edit/components/TaskConstants';
@@ -95,8 +94,8 @@ export default function AiTaskBuilderPage() {
   };
 
   return (
-    <PageContainer title="AI Task Builder">
-      <Box sx={{ maxWidth: 960, mx: 'auto', pb: 4 }}>
+    <Box sx={{ pb: 10 }}>
+      <Box sx={{ maxWidth: 960, mx: 'auto' }}>
         <Button startIcon={<ArrowBackIcon />} onClick={() => router.push('/dashboard/admin/tasks')} variant="text" sx={{ mb: 2 }}>
           Back to Tasks
         </Button>
@@ -235,6 +234,7 @@ export default function AiTaskBuilderPage() {
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </PageContainer>
+    </Box>
   );
 }
+

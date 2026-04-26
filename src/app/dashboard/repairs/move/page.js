@@ -1,35 +1,31 @@
 "use client";
 import React, { useEffect } from "react";
-import { 
-    Box, 
-    Typography, 
-    Button, 
-    Snackbar, 
-    Breadcrumbs, 
-    Link 
+import {
+    Box,
+    Typography,
+    Button,
+    Alert,
+    Snackbar
 } from "@mui/material";
+import { MoveUp as MoveIcon } from "@mui/icons-material";
 import { useRepairs } from "@/app/context/repairs.context";
 import { useRouter } from "next/navigation";
 import { useSession } from 'next-auth/react';
 
-// Custom hook
 import { useMoveRepairs } from "./hooks/useMoveRepairs";
-
-// Components
 import StatusSelector from "./components/StatusSelector";
 import AssignedPersonField from "./components/AssignedPersonField";
 import RepairInput from "./components/RepairInput";
 import RepairList from "./components/RepairList";
 import MoveSummary from "./components/MoveSummary";
-
-// Utils
 import { moveRepairsToStatus, updateRepairWithMetadata } from "./utils/repairUtils";
+import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 
 const MoveRepairsPage = () => {
     const { data: session, status: authStatus } = useSession();
     const { repairs, setRepairs } = useRepairs();
     const router = useRouter();
-    
+
     const {
         location,
         repairIDs,
@@ -54,62 +50,45 @@ const MoveRepairsPage = () => {
         }
     }, [authStatus, session, router]);
 
-    useEffect(() => {
-        console.log("Repairs in context:", repairs);
-    }, [repairs]);
-
     if (authStatus === 'loading' || !session?.user || session.user.role !== 'admin') return null;
 
     const handleLocationSelect = (event, value) => {
-        console.log("Selected Location:", value);
         setLocation(value);
     };
 
     const handleRepairSubmit = () => {
         const inputRepairID = currentRepairID.trim();
-        const matchingRepair = repairs.find((r) => 
+        const matchingRepair = repairs.find((r) =>
             r.repairID?.toLowerCase() === inputRepairID.toLowerCase()
         );
-        console.log("Scanned Repair ID:", inputRepairID);
-        console.log("Matching Repair:", matchingRepair);
 
         if (matchingRepair) {
             if (addRepairID(matchingRepair.repairID)) {
-                showSnackbar(`✅ Repair ${inputRepairID} added.`, "success");
+                showSnackbar(`Repair ${inputRepairID} added.`, "success");
             } else {
-                showSnackbar(`⚠️ Repair ${inputRepairID} is already added.`, "warning");
+                showSnackbar(`Repair ${inputRepairID} is already added.`, "warning");
             }
         } else {
-            showSnackbar(`❌ Repair ${inputRepairID} not found.`, "error");
+            showSnackbar(`Repair ${inputRepairID} not found.`, "error");
         }
 
         setCurrentRepairID("");
     };
 
     const handleMoveRepairs = async () => {
-        console.log("Initiating Move Repairs Process...");
-        console.log("Location:", location);
-        console.log("Repair IDs to Move:", repairIDs);
-
         if (!location) {
-            showSnackbar("❌ Please select a location.", "error");
+            showSnackbar("Please select a destination status.", "error");
             return;
         }
-
         if (repairIDs.length === 0) {
-            showSnackbar("❌ No repairs selected.", "error");
+            showSnackbar("No repairs selected.", "error");
             return;
         }
 
         try {
-            console.log("Payload for Move Repairs - Repair IDs:", repairIDs, "Status:", location);
-
-            const response = await moveRepairsToStatus(repairIDs, location, assignedPerson);
-            console.log("API Response:", response);
-
+            await moveRepairsToStatus(repairIDs, location, assignedPerson);
             const currentDateTime = new Date().toISOString();
 
-            // Update local state with enhanced tracking
             setRepairs((prevRepairs) =>
                 prevRepairs.map((repair) =>
                     repairIDs.includes(repair.repairID)
@@ -118,119 +97,117 @@ const MoveRepairsPage = () => {
                 )
             );
 
-            showSnackbar(`✅ Moved ${repairIDs.length} repairs to ${location}.`, "success");
+            showSnackbar(`Moved ${repairIDs.length} repair${repairIDs.length !== 1 ? 's' : ''} to ${location}.`, "success");
             clearForm();
         } catch (error) {
-            console.error("Error Moving Repairs:", error);
-            showSnackbar(`❌ Error updating repairs: ${error.message}`, "error");
+            showSnackbar(`Error updating repairs: ${error.message}`, "error");
         }
     };
 
     return (
-        <Box sx={{ padding: "20px" }}>
-            {/* Breadcrumbs */}
-            <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
-                <Link
-                    underline="hover"
-                    color="inherit"
-                    onClick={() => router.push("/dashboard")}
-                    sx={{ cursor: "pointer" }}
-                >
-                    Dashboard
-                </Link>
-                <Link
-                    underline="hover"
-                    color="inherit"
-                    onClick={() => router.push("/dashboard/repairs")}
-                    sx={{ cursor: "pointer" }}
-                >
-                    Repairs
-                </Link>
-                <Typography color="text.primary">Move Repairs</Typography>
-            </Breadcrumbs>
+        <Box sx={{ pb: 10, position: 'relative' }}>
+            <Box
+                sx={{
+                    backgroundColor: { xs: 'transparent', sm: REPAIRS_UI.bgPanel },
+                    border: { xs: 'none', sm: `1px solid ${REPAIRS_UI.border}` },
+                    borderRadius: { xs: 0, sm: 3 },
+                    boxShadow: { xs: 'none', sm: REPAIRS_UI.shadow },
+                    p: { xs: 0.5, sm: 2.5, md: 3 },
+                    mb: 3
+                }}
+            >
+                <Box sx={{ maxWidth: 920 }}>
+                    <Typography
+                        sx={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 1,
+                            px: 1.25,
+                            py: 0.5,
+                            mb: 1.5,
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            letterSpacing: '0.08em',
+                            color: REPAIRS_UI.textPrimary,
+                            backgroundColor: REPAIRS_UI.bgCard,
+                            border: `1px solid ${REPAIRS_UI.border}`,
+                            borderRadius: 2,
+                            textTransform: 'uppercase'
+                        }}
+                    >
+                        <MoveIcon sx={{ fontSize: 16, color: REPAIRS_UI.accent }} />
+                        Status transition
+                    </Typography>
 
-            <Typography variant="h4" sx={{ mb: 2 }}>
-                Move Repairs
-            </Typography>
-
-            {/* Status Selector */}
-            <StatusSelector
-                value={location}
-                onChange={handleLocationSelect}
-                sx={{ mb: 3 }}
-            />
-
-            {/* Assigned Person Field */}
-            <AssignedPersonField
-                status={location}
-                value={assignedPerson}
-                onChange={setAssignedPerson}
-                sx={{ mb: 3 }}
-            />
-
-            {/* Repair Input */}
-            <RepairInput
-                value={currentRepairID}
-                onChange={setCurrentRepairID}
-                onSubmit={handleRepairSubmit}
-                sx={{ mb: 3 }}
-            />
-
-            {/* List of Scanned Repairs */}
-            <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" sx={{ mb: 2 }}>
-                    Repairs to Move ({repairIDs.length})
-                </Typography>
-                <RepairList
-                    repairIDs={repairIDs}
-                    repairs={repairs}
-                    onRemoveRepair={removeRepairID}
-                />
+                    <Typography sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 1 }}>
+                        Move Repairs
+                    </Typography>
+                    <Typography sx={{ color: REPAIRS_UI.textSecondary, lineHeight: 1.6 }}>
+                        Scan or enter repair IDs, select the destination status, and confirm to move them in bulk.
+                    </Typography>
+                </Box>
             </Box>
 
-            {/* Move Summary */}
-            <MoveSummary repairCount={repairIDs.length} status={location} />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <StatusSelector value={location} onChange={handleLocationSelect} />
+                <AssignedPersonField status={location} value={assignedPerson} onChange={setAssignedPerson} />
+                <RepairInput value={currentRepairID} onChange={setCurrentRepairID} onSubmit={handleRepairSubmit} />
 
-            {/* Move Button */}
-            <Button
-                variant="contained"
-                color="success"
-                fullWidth
-                size="large"
-                onClick={handleMoveRepairs}
-                disabled={!location || repairIDs.length === 0}
-                sx={{ mt: 2, py: 1.5 }}
-            >
-                {!location && repairIDs.length === 0 
-                    ? "Select Status & Add Repairs"
-                    : !location 
-                    ? "Select Destination Status"
-                    : repairIDs.length === 0
-                    ? "Add Repairs to Move"
-                    : `Move ${repairIDs.length} Repair${repairIDs.length !== 1 ? 's' : ''} to ${location}`
-                }
-            </Button>
+                <Box>
+                    <Typography variant="overline" sx={{ color: REPAIRS_UI.textSecondary, fontWeight: 700, display: 'block', mb: 1.5, letterSpacing: '0.08em' }}>
+                        Repairs to Move ({repairIDs.length})
+                    </Typography>
+                    <RepairList repairIDs={repairIDs} repairs={repairs} onRemoveRepair={removeRepairID} />
+                </Box>
 
-            {/* Snackbar Notifications */}
+                <MoveSummary repairCount={repairIDs.length} status={location} />
+
+                <Button
+                    variant="outlined"
+                    fullWidth
+                    size="large"
+                    onClick={handleMoveRepairs}
+                    disabled={!location || repairIDs.length === 0}
+                    sx={{
+                        py: 1.5,
+                        fontWeight: 700,
+                        fontSize: '1rem',
+                        color: REPAIRS_UI.accent,
+                        borderColor: REPAIRS_UI.accent,
+                        backgroundColor: REPAIRS_UI.bgCard,
+                        '&:hover': { backgroundColor: REPAIRS_UI.bgTertiary },
+                        '&.Mui-disabled': { color: REPAIRS_UI.textMuted, borderColor: REPAIRS_UI.border }
+                    }}
+                >
+                    {!location && repairIDs.length === 0
+                        ? "Select Status & Add Repairs"
+                        : !location
+                        ? "Select Destination Status"
+                        : repairIDs.length === 0
+                        ? "Add Repairs to Move"
+                        : `Move ${repairIDs.length} Repair${repairIDs.length !== 1 ? 's' : ''} to ${location}`
+                    }
+                </Button>
+            </Box>
+
             <Snackbar
                 open={snackbarOpen}
                 autoHideDuration={5000}
                 onClose={closeSnackbar}
-                message={snackbarMessage}
                 anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-                ContentProps={{
-                    sx: {
-                        backgroundColor:
-                            snackbarSeverity === "success"
-                                ? "green"
-                                : snackbarSeverity === "error"
-                                ? "red"
-                                : "orange",
-                        color: "white",
-                        fontWeight: "bold",
-                    },
-                }}
-            />
+            >
+                <Alert
+                    onClose={closeSnackbar}
+                    severity={snackbarSeverity}
+                    sx={{
+                        backgroundColor: REPAIRS_UI.bgCard,
+                        color: REPAIRS_UI.textPrimary,
+                        border: `1px solid ${REPAIRS_UI.border}`
+                    }}
+                >
+                    {snackbarMessage}
+                </Alert>
+            </Snackbar>
         </Box>
     );
 };

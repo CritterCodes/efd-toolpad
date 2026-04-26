@@ -13,7 +13,7 @@ export default function ProcessTaskCalculations({ pricePreview }) {
   }
 
   return (
-    <Card sx={{ bgcolor: 'primary.50', borderLeft: 4, borderColor: 'primary.main' }}>
+    <Card sx={{ bgcolor: 'action.hover', borderLeft: 4, borderColor: 'primary.main' }}>
       <CardContent>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <CalculateIcon sx={{ mr: 1, color: 'primary.main' }} />

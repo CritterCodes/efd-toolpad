@@ -95,7 +95,7 @@ export default function CustomTicketCommunications({
 
       {/* Communication Summary */}
       {ticket.communications?.length === 0 && (
-        <Box sx={{ mt: 3, p: 3, bgcolor: 'grey.50', borderRadius: 2, textAlign: 'center' }}>
+        <Box sx={{ mt: 3, p: 3, bgcolor: 'action.hover', borderRadius: 2, textAlign: 'center' }}>
           <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
             📞 No communications yet
           </Typography>

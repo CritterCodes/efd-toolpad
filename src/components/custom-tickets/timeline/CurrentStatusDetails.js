@@ -7,7 +7,7 @@ import {
 
 export function CurrentStatusDetails({ clientDisplay, statusInfo }) {
   return (
-    <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+    <Box sx={{ mt: 3, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
       <Typography variant="body2" color="text.secondary" gutterBottom>
         Current Status
       </Typography>

@@ -5,6 +5,31 @@ import MaterialModel from "./model";
 import { db } from '@/lib/database';
 
 export default class MaterialService {
+    static sanitizeStullerProducts = (stullerProducts = [], defaultPortionsPerUnit = 1) => {
+        if (!Array.isArray(stullerProducts)) return [];
+
+        return stullerProducts.map((product) => ({
+            id: product.id,
+            stullerItemNumber: product.stullerItemNumber || '',
+            stullerProductId: product.stullerProductId || null,
+            metalType: product.metalType || null,
+            karat: product.karat || null,
+            qualityCode: product.qualityCode || null,
+            qualityDisplay: product.qualityDisplay || null,
+            unitOfSale: product.unitOfSale || null,
+            weight: Number(product.weight) || 0,
+            weightUnitOfMeasure: product.weightUnitOfMeasure || null,
+            gramWeight: Number(product.gramWeight) || 0,
+            stullerPrice: Number(product.stullerPrice) || 0,
+            unitCost: Number(product.unitCost) || Number(product.stullerPrice) || 0,
+            sku: product.sku || '',
+            description: product.description || 'Stuller Product',
+            dimensions: product.dimensions || '',
+            portionsPerUnit: Math.max(1, parseInt(product.portionsPerUnit, 10) || parseInt(defaultPortionsPerUnit, 10) || 1),
+            addedAt: product.addedAt || new Date().toISOString(),
+            autoUpdatePricing: product.autoUpdatePricing !== false
+        }));
+    };
     
     /**
      * Get admin settings for pricing calculations
@@ -43,7 +68,10 @@ export default class MaterialService {
                 portionType: materialData.portionType || '',
                 
                 // Multi-variant structure
-                stullerProducts: materialData.stullerProducts || [],
+                stullerProducts: MaterialService.sanitizeStullerProducts(
+                    materialData.stullerProducts || [],
+                    materialData.portionsPerUnit || 1
+                ),
                 
                 // Metadata
                 createdAt: new Date(),
@@ -143,6 +171,12 @@ export default class MaterialService {
             materialInstance.isMetalDependent = existingMaterial.hasOwnProperty('isMetalDependent') ? existingMaterial.isMetalDependent : true;
 
             // Update with new data (this will handle isMetalDependent in the update method)
+            if (updateData.hasOwnProperty('stullerProducts')) {
+                updateData.stullerProducts = MaterialService.sanitizeStullerProducts(
+                    updateData.stullerProducts || [],
+                    updateData.portionsPerUnit || materialInstance.portionsPerUnit || 1
+                );
+            }
             materialInstance.update(updateData);
             
             // Recalculate pricing if cost-related fields changed

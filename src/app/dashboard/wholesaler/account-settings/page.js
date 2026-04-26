@@ -14,7 +14,6 @@ import {
   TextField,
   Typography
 } from '@mui/material';
-import { PageContainer } from '@toolpad/core/PageContainer';
 import wholesaleAccountSettingsAPIClient from '@/api-clients/wholesaleAccountSettings.client';
 import BusinessBrandingCard from './components/BusinessBrandingCard';
 
@@ -210,16 +209,18 @@ export default function WholesalerAccountSettingsPage() {
 
   if (loading) {
     return (
-      <PageContainer title="Account Settings">
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="320px">
-          <CircularProgress />
-        </Box>
-      </PageContainer>
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="320px">
+        <CircularProgress />
+      </Box>
     );
   }
 
   return (
-    <PageContainer title="Account Settings">
+    <Box sx={{ pb: 10 }}>
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h5" fontWeight={600} sx={{ color: '#D1D5DB' }}>Account Settings</Typography>
+        <Typography variant="body2" sx={{ color: '#9CA3AF', mt: 0.5 }}>Manage pricing controls and business profile for your wholesale account.</Typography>
+      </Box>
       <Stack spacing={3}>
         {error && <Alert severity="error">{error}</Alert>}
 
@@ -286,6 +287,7 @@ export default function WholesalerAccountSettingsPage() {
           {saveMessage}
         </Alert>
       </Snackbar>
-    </PageContainer>
+    </Box>
   );
 }
+

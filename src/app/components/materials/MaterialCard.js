@@ -22,85 +22,99 @@ import {
 import {
   formatPrice,
   hasPortions,
-  calculatePortionPrice,
   getMetalLabel
 } from '@/utils/materials.util';
-import { 
-  getPriceRange, 
-  getCostPerPortion, 
-  getPricePerPortion 
-} from '@/utils/material-pricing.util';
+import { getPriceRange } from '@/utils/material-pricing.util';
 
-export default function MaterialCard({ 
-  material, 
-  onEdit, 
-  onDelete,
-  metalOptions = [] 
+export default function MaterialCard({
+  material,
+  onEdit,
+  onDelete
 }) {
-  const handleEdit = () => {
-    onEdit(material);
-  };
+  const handleEdit = () => onEdit(material);
+  const handleDelete = () => onDelete(material);
 
-  const handleDelete = () => {
-    onDelete(material);
-  };
-
-  // Helper functions for multi-variant materials
-  const getVariantCount = () => {
-    return material.stullerProducts?.length || 0;
-  };
-
-  const isMetalDependent = () => {
-    return material.isMetalDependent !== false;
-  };
+  const getVariantCount = () => material.stullerProducts?.length || 0;
+  const isMetalDependent = () => material.isMetalDependent !== false;
 
   const getPriceDisplay = () => {
-    // For non-metal dependent materials, show unit price from Stuller products or unitCost
     if (!isMetalDependent()) {
-      if (material.stullerProducts && material.stullerProducts.length > 0) {
-        // For non-metal-dependent, show the actual stullerPrice (unit cost), not portion cost
+      if (material.stullerProducts?.length) {
         const unitCosts = material.stullerProducts
-          .map(p => parseFloat(p.stullerPrice) || 0)
-          .filter(price => price > 0);
-          
+          .map((product) => parseFloat(product.stullerPrice) || 0)
+          .filter((price) => price > 0);
+
         if (unitCosts.length > 0) {
           const min = Math.min(...unitCosts);
           const max = Math.max(...unitCosts);
           return min === max ? formatPrice(min) : `${formatPrice(min)} - ${formatPrice(max)}`;
         }
       }
+
       return material.unitCost ? formatPrice(material.unitCost) : 'No price set';
     }
 
-    // For metal dependent materials, show ONLY unit cost range (stullerPrice)
-    if (!material.stullerProducts || material.stullerProducts.length === 0) {
+    if (!material.stullerProducts?.length) {
       return material.unitCost ? formatPrice(material.unitCost) : 'No price';
     }
 
-    // Get unit cost range (stullerPrice - what we pay Stuller for the full unit)
     const unitCosts = material.stullerProducts
-      .map(p => parseFloat(p.stullerPrice) || 0)
-      .filter(price => price > 0);
-    
+      .map((product) => parseFloat(product.stullerPrice) || 0)
+      .filter((price) => price > 0);
+
     if (unitCosts.length === 0) {
       return 'No pricing data';
     }
 
-    const unitMin = Math.min(...unitCosts);
-    const unitMax = Math.max(...unitCosts);
-    
-    // Show ONLY unit cost range in main display
-    return unitMin === unitMax ? 
-      formatPrice(unitMin) :
-      `${formatPrice(unitMin)} - ${formatPrice(unitMax)}`;
+    const min = Math.min(...unitCosts);
+    const max = Math.max(...unitCosts);
+    return min === max ? formatPrice(min) : `${formatPrice(min)} - ${formatPrice(max)}`;
+  };
+
+  const getPortionDisplay = () => {
+    const portionRange = getPriceRange(material, true);
+    if (!portionRange || portionRange.max <= 0) {
+      return 'No portion pricing';
+    }
+
+    const portionType = material.portionType || 'portion';
+    if (portionRange.single !== null && portionRange.single !== undefined) {
+      return `${formatPrice(portionRange.single)} cost per ${portionType}`;
+    }
+
+    return `${formatPrice(portionRange.min)}-${formatPrice(portionRange.max)} cost per ${portionType}`;
+  };
+
+  const getPortionSummary = () => {
+    const portionType = material.portionType || 'portions';
+
+    if (!material.stullerProducts?.length) {
+      return `${material.portionsPerUnit} ${portionType} per unit`;
+    }
+
+    const uniquePortions = [...new Set(
+      material.stullerProducts
+        .map((product) => Number(product.portionsPerUnit || material.portionsPerUnit || 1))
+        .filter((value) => Number.isFinite(value) && value > 0)
+    )];
+
+    if (uniquePortions.length === 0) {
+      return `${material.portionsPerUnit} ${portionType} per unit`;
+    }
+
+    if (uniquePortions.length === 1) {
+      return `${uniquePortions[0]} ${portionType} per unit`;
+    }
+
+    return `${Math.min(...uniquePortions)}-${Math.max(...uniquePortions)} ${portionType} per unit`;
   };
 
   const getMetalKaratCombinations = () => {
-    if (!material.stullerProducts || material.stullerProducts.length === 0) {
+    if (!material.stullerProducts?.length) {
       return [];
     }
 
-    return material.stullerProducts.map(product => ({
+    return material.stullerProducts.map((product) => ({
       metal: product.metalType ? getMetalLabel(product.metalType) : 'N/A',
       karat: product.karat || 'N/A'
     }));
@@ -118,7 +132,6 @@ export default function MaterialCard({
       }}
     >
       <CardContent sx={{ flexGrow: 1, p: 2 }}>
-        {/* Header with name and status */}
         <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
           <Typography variant="h6" component="h2" sx={{ flexGrow: 1, mr: 1, lineHeight: 1.2 }}>
             {material.displayName}
@@ -130,7 +143,6 @@ export default function MaterialCard({
           />
         </Box>
 
-        {/* Primary info chips */}
         <Box display="flex" gap={0.5} flexWrap="wrap" mb={1.5}>
           <Chip
             label={material.category}
@@ -147,7 +159,7 @@ export default function MaterialCard({
               color="secondary"
               sx={{ fontWeight: 'medium', fontSize: '0.75rem' }}
             />
-          ) : getVariantCount() > 0 && (
+          ) : getVariantCount() > 0 ? (
             <Chip
               label={`${getVariantCount()} variant${getVariantCount() > 1 ? 's' : ''}`}
               variant="filled"
@@ -155,10 +167,9 @@ export default function MaterialCard({
               color="primary"
               sx={{ fontWeight: 'medium', fontSize: '0.75rem' }}
             />
-          )}
+          ) : null}
         </Box>
 
-        {/* Price section */}
         <Box mb={1.5}>
           <Box display="flex" alignItems="baseline" gap={1} mb={0.5}>
             <Typography variant="h5" color="success.main" fontWeight="medium">
@@ -168,61 +179,20 @@ export default function MaterialCard({
               per {material.unitType}
             </Typography>
           </Box>
-          
-          {/* Portion pricing info - show for all materials that have portions */}
+
           {hasPortions(material) && (
             <Typography variant="caption" color="text.secondary" display="block">
-              {!isMetalDependent() ? 
-                // Non-metal dependent: check for stullerProducts first, then fall back to unitCost
-                (() => {
-                  if (material.stullerProducts && material.stullerProducts.length > 0) {
-                    const portionCosts = material.stullerProducts
-                      .map(p => parseFloat(p.costPerPortion) || 0)
-                      .filter(price => price > 0);
-                    
-                    if (portionCosts.length > 0) {
-                      const min = Math.min(...portionCosts);
-                      const max = Math.max(...portionCosts);
-                      const portionType = material.portionType || 'portion';
-                      return min === max ? 
-                        `${formatPrice(min)} cost per ${portionType}` :
-                        `${formatPrice(min)}-${formatPrice(max)} cost per ${portionType}`;
-                    }
-                  }
-                  // Fall back to calculating from unitCost
-                  return material.unitCost ? `${formatPrice(calculatePortionPrice(material.unitCost, material.portionsPerUnit))} per ${material.portionType || 'portion'}` : 'No price set';
-                })() :
-                // Metal dependent: show portion cost range from stullerProducts
-                (() => {
-                  if (material.stullerProducts && material.stullerProducts.length > 0) {
-                    const portionCosts = material.stullerProducts
-                      .map(p => parseFloat(p.costPerPortion) || 0)
-                      .filter(price => price > 0);
-                    
-                    if (portionCosts.length > 0) {
-                      const min = Math.min(...portionCosts);
-                      const max = Math.max(...portionCosts);
-                      const portionType = material.portionType || 'piece';
-                      return min === max ? 
-                        `${formatPrice(min)} cost per ${portionType}` :
-                        `${formatPrice(min)}-${formatPrice(max)} cost per ${portionType}`;
-                    }
-                  }
-                  return 'No portion pricing';
-                })()
-              }
-              • {material.portionsPerUnit} {material.portionType || 'portions'} per unit
+              {getPortionDisplay()} • {getPortionSummary()}
             </Typography>
           )}
         </Box>
 
-        {/* Metal/Karat combinations for multi-variant materials */}
         {isMetalDependent() && getVariantCount() > 0 && (
           <Box mb={1}>
             <Box display="flex" gap={0.5} flexWrap="wrap">
               {getMetalKaratCombinations().slice(0, 3).map((combo, index) => (
                 <Chip
-                  key={index}
+                  key={`${combo.metal}-${combo.karat}-${index}`}
                   label={`${combo.metal} ${combo.karat}`}
                   size="small"
                   variant="outlined"
@@ -242,7 +212,6 @@ export default function MaterialCard({
           </Box>
         )}
 
-        {/* Universal material indicator */}
         {!isMetalDependent() && (
           <Box mb={1}>
             <Chip
@@ -255,8 +224,7 @@ export default function MaterialCard({
           </Box>
         )}
 
-        {/* Legacy compatible metals - only show if no stullerProducts and metal dependent */}
-        {isMetalDependent() && getVariantCount() === 0 && material.compatibleMetals && material.compatibleMetals.length > 0 && (
+        {isMetalDependent() && getVariantCount() === 0 && material.compatibleMetals?.length > 0 && (
           <Box mb={1}>
             <Box display="flex" gap={0.5} flexWrap="wrap">
               {material.compatibleMetals.slice(0, 3).map((metal) => (
@@ -281,7 +249,6 @@ export default function MaterialCard({
           </Box>
         )}
 
-        {/* Supplier info - enhanced for multi-variant */}
         {material.supplier && (
           <Typography variant="caption" color="text.secondary" display="block">
             <BusinessIcon fontSize="inherit" sx={{ mr: 0.5, verticalAlign: 'middle' }} />
@@ -298,19 +265,10 @@ export default function MaterialCard({
       </CardContent>
 
       <CardActions>
-        <IconButton
-          size="small"
-          onClick={handleEdit}
-          aria-label={`Edit ${material.displayName}`}
-        >
+        <IconButton size="small" onClick={handleEdit} aria-label={`Edit ${material.displayName}`}>
           <EditIcon />
         </IconButton>
-        <IconButton
-          size="small"
-          color="error"
-          onClick={handleDelete}
-          aria-label={`Delete ${material.displayName}`}
-        >
+        <IconButton size="small" color="error" onClick={handleDelete} aria-label={`Delete ${material.displayName}`}>
           <DeleteIcon />
         </IconButton>
       </CardActions>

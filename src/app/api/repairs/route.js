@@ -76,7 +76,6 @@ export const POST = async (request) => {
                 
                 // Parse JSON arrays
                 tasks: formData.get("tasks") ? JSON.parse(formData.get("tasks")) : [],
-                processes: formData.get("processes") ? JSON.parse(formData.get("processes")) : [],
                 materials: formData.get("materials") ? JSON.parse(formData.get("materials")) : [],
                 customLineItems: formData.get("customLineItems") ? JSON.parse(formData.get("customLineItems")) : [],
                 
@@ -91,45 +90,46 @@ export const POST = async (request) => {
         } else {
             // Handle JSON data (new form)
             const jsonData = await request.json();
+            const { processes, ...safeJsonData } = jsonData;
             
             // Handle base64 image data if provided
-            if (jsonData.picture && typeof jsonData.picture === 'object' && jsonData.picture.data) {
+            if (safeJsonData.picture && typeof safeJsonData.picture === 'object' && safeJsonData.picture.data) {
                 // Convert base64 to file and upload
-                const buffer = Buffer.from(jsonData.picture.data, 'base64');
-                const file = new File([buffer], jsonData.picture.name || 'repair-image.jpg', {
-                    type: jsonData.picture.type || 'image/jpeg'
+                const buffer = Buffer.from(safeJsonData.picture.data, 'base64');
+                const file = new File([buffer], safeJsonData.picture.name || 'repair-image.jpg', {
+                    type: safeJsonData.picture.type || 'image/jpeg'
                 });
-                imageUrl = await uploadRepairImage(file, jsonData.userID || 'unknown');
+                imageUrl = await uploadRepairImage(file, safeJsonData.userID || 'unknown');
             }
             
             repairData = {
-                ...jsonData,
-                picture: imageUrl || jsonData.picture,
+                ...safeJsonData,
+                picture: imageUrl || safeJsonData.picture,
                 
                 // Pricing breakdown fields
-                totalCost: parseFloat(jsonData.totalCost) || 0,
-                subtotal: parseFloat(jsonData.subtotal) || 0,
-                deliveryFee: parseFloat(jsonData.deliveryFee) || 0,
-                taxAmount: parseFloat(jsonData.taxAmount) || 0,
-                rushFee: parseFloat(jsonData.rushFee) || 0,
-                taxRate: parseFloat(jsonData.taxRate) || 0,
-                includeDelivery: !!jsonData.includeDelivery,
-                includeTax: !!jsonData.includeTax,
+                totalCost: parseFloat(safeJsonData.totalCost) || 0,
+                subtotal: parseFloat(safeJsonData.subtotal) || 0,
+                deliveryFee: parseFloat(safeJsonData.deliveryFee) || 0,
+                taxAmount: parseFloat(safeJsonData.taxAmount) || 0,
+                rushFee: parseFloat(safeJsonData.rushFee) || 0,
+                taxRate: parseFloat(safeJsonData.taxRate) || 0,
+                includeDelivery: !!safeJsonData.includeDelivery,
+                includeTax: !!safeJsonData.includeTax,
                 
                 // Business name for wholesale clients
-                businessName: jsonData.businessName || '',
+                businessName: safeJsonData.businessName || '',
                 
                 // Workflow tracking fields
-                assignedJeweler: jsonData.assignedJeweler || '',
-                partsOrderedBy: jsonData.partsOrderedBy || '',
-                partsOrderedDate: jsonData.partsOrderedDate || null,
-                completedBy: jsonData.completedBy || '',
-                qcBy: jsonData.qcBy || '',
-                qcDate: jsonData.qcDate || null,
+                assignedJeweler: safeJsonData.assignedJeweler || '',
+                partsOrderedBy: safeJsonData.partsOrderedBy || '',
+                partsOrderedDate: safeJsonData.partsOrderedDate || null,
+                completedBy: safeJsonData.completedBy || '',
+                qcBy: safeJsonData.qcBy || '',
+                qcDate: safeJsonData.qcDate || null,
                 
                 // Handle legacy metalType format for backward compatibility
-                ...(jsonData.metalType && jsonData.karat && {
-                    metalType: `${jsonData.metalType} - ${jsonData.karat}`
+                ...(safeJsonData.metalType && safeJsonData.karat && {
+                    metalType: `${safeJsonData.metalType} - ${safeJsonData.karat}`
                 })
             };
         }

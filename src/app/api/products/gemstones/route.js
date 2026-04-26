@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { auth } from "@/lib/auth";
+import { auth } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
+import { getUserArtisanTypes, canManageGemstones } from '@/lib/productPermissions';
 
 export async function GET() {
   try {
@@ -9,63 +10,41 @@ export async function GET() {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-        const { db } = await connectToDatabase();
-        
-        // Check if user is admin or staff - they can see ALL gemstones
-        const isAdmin = session.user.role === 'admin' || session.user.role === 'staff';
-        
-        let gemstones;
-        if (isAdmin) {
-          // Admins see all gemstones
-          console.log(`GET /api/products/gemstones - Admin user ${session.user.email} requesting all gemstones`);
-          gemstones = await db.collection('products').find({ 
-              productType: 'gemstone'
-          }).toArray();
-        } else {
-          // Regular users only see their own gemstones
-          const userIdentifier = session.user.userID || session.user.email;
-          gemstones = await db.collection('products').find({ 
-              productType: 'gemstone',
-              $or: [
-                  { userId: userIdentifier },
-                  { userId: session.user.email },
-                  { userId: session.user.userID }
-              ]
-          }).toArray();
-        }
-        
-        // Migrate gemstones that don't have productId yet
-        for (let gemstone of gemstones) {
-            if (!gemstone.productId) {
-                const productId = `gem_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
-                await db.collection('products').updateOne(
-                    { _id: gemstone._id },
-                    { $set: { productId: productId } }
-                );
-                gemstone.productId = productId;
-                console.log(`Migrated gemstone ${gemstone._id} to productId: ${productId}`);
-            }
-        }
-        
-        if (isAdmin) {
-          console.log(`GET /api/products/gemstones - Admin user ${session.user.email} viewing all gemstones`);
-        } else {
-          const userIdentifier = session.user.userID || session.user.email;
-          console.log(`GET /api/products/gemstones - Searching for user: ${userIdentifier} (email: ${session.user.email}, userID: ${session.user.userID})`);
-        }
-        console.log(`GET /api/products/gemstones - Found ${gemstones.length} gemstones`);
+    const { db } = await connectToDatabase();
+    const isAdmin = ['admin', 'staff', 'dev'].includes(session.user.role);
 
-        return NextResponse.json({ 
-            success: true, 
-            gemstones: gemstones || []
-        });
-    } catch (error) {
-        console.error('GET /api/products/gemstones error:', error);
-        return NextResponse.json(
-            { error: 'Failed to fetch gemstones' },
-            { status: 500 }
-        );
+    let gemstones;
+    if (isAdmin) {
+      gemstones = await db.collection('products').find({ productType: 'gemstone' }).toArray();
+    } else {
+      const userIdentifier = session.user.userID || session.user.email;
+      gemstones = await db.collection('products').find({
+        productType: 'gemstone',
+        $or: [
+          { userId: userIdentifier },
+          { userId: session.user.email },
+          { userId: session.user.userID },
+        ],
+      }).toArray();
     }
+
+    // Migrate gemstones that don't have productId yet
+    for (const gemstone of gemstones) {
+      if (!gemstone.productId) {
+        const productId = `gem_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+        await db.collection('products').updateOne(
+          { _id: gemstone._id },
+          { $set: { productId } }
+        );
+        gemstone.productId = productId;
+      }
+    }
+
+    return NextResponse.json({ success: true, gemstones: gemstones || [] });
+  } catch (error) {
+    console.error('GET /api/products/gemstones error:', error);
+    return NextResponse.json({ error: 'Failed to fetch gemstones' }, { status: 500 });
+  }
 }
 
 export async function POST(request) {
@@ -76,181 +55,183 @@ export async function POST(request) {
     }
 
     const data = await request.json();
-    console.log('POST /api/products/gemstones - Received data:', data);
 
-    // Generate unique productId
-    const generateProductId = () => {
-        const timestamp = Date.now().toString(36);
-        const randomStr = Math.random().toString(36).substring(2, 8);
-        return `gem_${timestamp}_${randomStr}`;
-    };
-
-    // Extract form fields and restructure for new schema
-    const { 
-        title, 
-        description,
-        internalNotes,
-        species, 
-        subspecies, 
-        carat, 
-        dimensions, 
-        cut, 
-        cutStyle, 
-        treatment, 
-        color, 
-        clarity,
-        locale, 
-        naturalSynthetic, 
-        price, // Legacy field name
-        retailPrice,
-        acquisitionPrice,
-        acquisitionDate,
-        supplier,
-        certification,
-        tags,
-        customMounting, // Legacy field, will be ignored
-        userId, 
-        vendor, 
-        notes  // Legacy field, will move to internalNotes
+    const {
+      title,
+      description,
+      internalNotes,
+      species,
+      subspecies,
+      carat,
+      dimensions,
+      cut,
+      cutStyle,
+      treatment,
+      color,
+      clarity,
+      locale,
+      naturalSynthetic,
+      price,
+      retailPrice,
+      compareAtPrice,
+      acquisitionPrice,
+      acquisitionDate,
+      supplier,
+      certification,
+      tags,
+      userId,
+      vendor,
+      notes,
     } = data;
 
-    // Validate required fields
     if (!title || !species) {
-        return NextResponse.json(
-            { error: 'Title and species are required' },
-            { status: 400 }
-        );
+      return NextResponse.json({ error: 'Title and species are required' }, { status: 400 });
     }
 
     const { db } = await connectToDatabase();
-    
-    // Get user data for proper userId and vendor assignment
+
     const actualUserId = userId || session.user.userID || session.user.email;
     let actualVendor = vendor || session.user.businessName || session.user.name;
-    
-    // If we don't have businessName in session, try to get it from user profile
-    if (!session.user.businessName && session.user.email) {
-        try {
-            const userProfile = await db.collection('users').findOne({ 
-                email: session.user.email 
-            });
-            if (userProfile?.artisanApplication?.businessName) {
-                actualVendor = userProfile.artisanApplication.businessName;
-            }
-        } catch (error) {
-            console.error('Error fetching user profile for business name:', error);
+    let artisanType = null;
+
+    // Fetch user profile for businessName and artisanType
+    if (session.user.email) {
+      try {
+        const userProfile = await db.collection('users').findOne({ email: session.user.email });
+        if (userProfile?.artisanApplication?.businessName && !actualVendor) {
+          actualVendor = userProfile.artisanApplication.businessName;
         }
+        artisanType = userProfile?.artisanApplication?.artisanType || null;
+
+        // Artisan permission check — only gem-cutters (and admin/staff/dev) may create gemstone listings
+        const artisanTypes = getUserArtisanTypes(userProfile);
+        if (!canManageGemstones(session.user.role, artisanTypes)) {
+          return NextResponse.json(
+            { error: 'Only gem-cutters and admins can create gemstone listings' },
+            { status: 403 }
+          );
+        }
+      } catch (err) {
+        console.error('Error fetching user profile:', err);
+      }
     }
-    
-    console.log(`Creating gemstone for user: ${actualUserId}, vendor: ${actualVendor}`);
-    
-    // Generate unique productId for this gemstone
-    const productId = generateProductId();
-    
-    // Create new hierarchical product document
+
+    const timestamp = Date.now().toString(36);
+    const randomStr = Math.random().toString(36).substring(2, 8);
+    const productId = `gem_${timestamp}_${randomStr}`;
+    const now = new Date();
+    const canonicalRetailPrice = Number(retailPrice || price) || 0;
+
     const gemstone = {
-        // === UNIVERSAL PRODUCT FIELDS ===
-        productId: productId, // Our custom product ID
-        productType: 'gemstone',
-        
-        // General Product Info
-        title: title || '',
-        description: description || '',
-        internalNotes: internalNotes || notes || '', // Use internalNotes or fallback to legacy notes
-        
-        // Ownership & Business
+      productId,
+      productType: 'gemstone',
+      listingType: 'gemstone',
+
+      title: title || '',
+      description: description || '',
+      internalNotes: internalNotes || notes || '',
+
+      // V2 seller
+      seller: {
         userId: actualUserId,
-        vendor: actualVendor,
-        
-        // Status & Visibility
-        status: 'draft', // New gemstones start as draft
-        isPublic: false,
+        displayName: actualVendor || '',
+        artisanType,
+      },
+
+      // V2 pricing
+      pricing: {
+        retailPrice: canonicalRetailPrice,
+        compareAtPrice: Number(compareAtPrice) || null,
+        costBasis: Number(acquisitionPrice) || null,
+        currency: 'USD',
+      },
+
+      // V2 publishing
+      publishing: {
+        visible: false,
         featured: false,
-        
-        // Universal Media & Tags
-        images: [],
-        tags: Array.isArray(tags) ? tags : [],
-        
-        // === GEMSTONE-SPECIFIC DATA ===
-        gemstone: {
-            // Physical Properties
-            species: species || '',
-            subspecies: subspecies || '',
-            carat: Number(carat) || 0,
-            dimensions: {
-                length: Number(dimensions?.length) || 0,
-                width: Number(dimensions?.width) || 0,
-                height: Number(dimensions?.height) || 0
-            },
-            
-            // Cutting & Treatment
-            cut: Array.isArray(cut) ? cut : [],
-            cutStyle: Array.isArray(cutStyle) ? cutStyle : [],
-            treatment: Array.isArray(treatment) ? treatment : [],
-            
-            // Quality & Characteristics
-            color: Array.isArray(color) ? color : [],
-            clarity: clarity || '',
-            locale: locale || '',
-            naturalSynthetic: naturalSynthetic || 'natural',
-            
-            // Certification
-            certification: {
-                lab: certification?.lab || '',
-                number: certification?.number || '',
-                url: certification?.url || '',
-                verified: certification?.verified || false
-            },
-            
-            // 3D Model for CAD Designers
-            obj3DFile: {
-                url: '',
-                filename: '',
-                fileSize: 0,
-                uploadedAt: null,
-                downloadCount: 0
-            },
-            
-            // Business Data
-            acquisitionDate: acquisitionDate ? new Date(acquisitionDate) : null,
-            acquisitionPrice: Number(acquisitionPrice) || null,
-            supplier: supplier || '',
-            retailPrice: Number(retailPrice || price) || 0, // Use retailPrice or fallback to legacy price
-            
-            // Work Pipeline Status
-            designCoverage: {
-                hasBasicBasket: false,
-                hasBasicRing: false,
-                customDesignCount: 0,
-                lastDesignAdded: null,
-                priorityLevel: 'critical' // New stones need designs
-            }
+        publishedAt: null,
+      },
+
+      // V2 references
+      references: {
+        gemstoneIds: [],
+        designId: null,
+        cadRequestId: null,
+      },
+
+      // V2 inventory
+      inventory: {
+        available: true,
+        reserved: false,
+        usedInProductId: null,
+      },
+
+      // Stripe (set when synced to Stripe)
+      stripeProductId: null,
+      stripePriceId: null,
+
+      // Legacy fields (kept for backward compat with existing admin UI)
+      userId: actualUserId,
+      vendor: actualVendor || '',
+      status: 'draft',
+      isPublic: false,
+      featured: false,
+      images: [],
+      tags: Array.isArray(tags) ? tags : [],
+
+      gemstone: {
+        species: species || '',
+        subspecies: subspecies || '',
+        carat: Number(carat) || 0,
+        dimensions: {
+          length: Number(dimensions?.length) || 0,
+          width: Number(dimensions?.width) || 0,
+          height: Number(dimensions?.height) || 0,
         },
-        
-        // === RELATIONSHIPS ===
-        availableDesigns: [],
-        relatedProducts: [],
-        
-        // Timestamps
-        createdAt: new Date(),
-        updatedAt: new Date()
+        cut: Array.isArray(cut) ? cut : [],
+        cutStyle: Array.isArray(cutStyle) ? cutStyle : [],
+        treatment: Array.isArray(treatment) ? treatment : [],
+        color: Array.isArray(color) ? color : [],
+        clarity: clarity || '',
+        locale: locale || '',
+        naturalSynthetic: naturalSynthetic || 'natural',
+        certification: {
+          lab: certification?.lab || '',
+          number: certification?.number || '',
+          url: certification?.url || '',
+          verified: certification?.verified || false,
+        },
+        obj3DFile: { url: '', filename: '', fileSize: 0, uploadedAt: null, downloadCount: 0 },
+        acquisitionDate: acquisitionDate ? new Date(acquisitionDate) : null,
+        acquisitionPrice: Number(acquisitionPrice) || null,
+        supplier: supplier || '',
+        retailPrice: canonicalRetailPrice,
+        designCoverage: {
+          hasBasicBasket: false,
+          hasBasicRing: false,
+          customDesignCount: 0,
+          lastDesignAdded: null,
+          priorityLevel: 'critical',
+        },
+      },
+
+      availableDesigns: [],
+      relatedProducts: [],
+      createdAt: now,
+      updatedAt: now,
     };
 
-    console.log('POST /api/products/gemstones - Saving gemstone:', gemstone);
-
     const result = await db.collection('products').insertOne(gemstone);
-    
-    return NextResponse.json({ 
-        success: true, 
-        gemstone: { ...gemstone, _id: result.insertedId },
-        productId: productId // Return the custom productId for easy reference
+
+    return NextResponse.json({
+      success: true,
+      gemstone: { ...gemstone, _id: result.insertedId },
+      productId,
     });
   } catch (error) {
     console.error('POST /api/products/gemstones error:', error);
-    return NextResponse.json(
-        { error: 'Failed to create gemstone', details: error.message },
-        { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create gemstone', details: error.message }, { status: 500 });
   }
 }
 
@@ -262,17 +243,14 @@ export async function PUT(request) {
     }
 
     const data = await request.json();
-    console.log('PUT /api/products/gemstones - Received data:', data);
 
-    // Handle both flat (legacy) and hierarchical (new) data structures
+    // Support both flat (legacy) and hierarchical (new) data structures
     let title, description, tags, images, isPublic, status, gemstoneData, productId;
-    
+
     if (data.gemstone) {
-      // New hierarchical structure
       ({ productId, title, description, tags = [], images = [], isPublic = true, status = 'active' } = data);
       gemstoneData = data.gemstone;
     } else {
-      // Legacy flat structure - map to new structure
       productId = data.productId;
       title = data.title;
       description = data.description || '';
@@ -280,8 +258,6 @@ export async function PUT(request) {
       images = data.images || [];
       isPublic = data.isPublic !== undefined ? data.isPublic : true;
       status = data.status || 'active';
-      
-      // Map legacy fields to gemstone object
       gemstoneData = {
         species: data.species,
         subspecies: data.subspecies || '',
@@ -298,33 +274,38 @@ export async function PUT(request) {
         vendor: data.vendor || session.user.businessName || session.user.slug || session.user.name,
         internalNotes: data.notes || data.internalNotes || '',
         certification: data.certification || {},
-        designCoverage: data.designCoverage || 'full'
+        designCoverage: data.designCoverage || 'full',
       };
     }
 
-    // Validate required fields
     if (!productId || !title || !gemstoneData.species) {
-        return NextResponse.json(
-            { error: 'ProductId, title and species are required' },
-            { status: 400 }
-        );
+      return NextResponse.json({ error: 'ProductId, title and species are required' }, { status: 400 });
     }
 
     const { db } = await connectToDatabase();
-    
-    // Create hierarchical update document
+
+    // Permission check for write ops
+    if (!['admin', 'staff', 'dev'].includes(session.user.role)) {
+      const userProfile = await db.collection('users').findOne({ email: session.user.email });
+      const artisanTypes = getUserArtisanTypes(userProfile);
+      if (!canManageGemstones(session.user.role, artisanTypes)) {
+        return NextResponse.json({ error: 'Only gem-cutters and admins can edit gemstone listings' }, { status: 403 });
+      }
+    }
+
+    const canonicalRetailPrice = Number(gemstoneData.retailPrice) || 0;
+
     const updateData = {
-      // Universal product fields
       productType: 'gemstone',
       title,
       description: description || '',
-      userId: data.userId || session.user.id,
+      userId: data.userId || session.user.userID || session.user.id,
       status,
       isPublic,
       images,
       tags,
-      
-      // Gemstone-specific data in nested object
+      'pricing.retailPrice': canonicalRetailPrice,
+      'pricing.currency': 'USD',
       gemstone: {
         species: gemstoneData.species,
         subspecies: gemstoneData.subspecies || '',
@@ -336,46 +317,31 @@ export async function PUT(request) {
         color: Array.isArray(gemstoneData.color) ? gemstoneData.color : [],
         locale: gemstoneData.locale || '',
         naturalSynthetic: gemstoneData.naturalSynthetic || 'natural',
-        retailPrice: Number(gemstoneData.retailPrice) || 0,
+        retailPrice: canonicalRetailPrice,
         customMounting: Boolean(gemstoneData.customMounting),
         vendor: gemstoneData.vendor || session.user.businessName || session.user.slug || session.user.name,
         internalNotes: gemstoneData.internalNotes || '',
         certification: gemstoneData.certification || {},
-        designCoverage: gemstoneData.designCoverage || 'full'
+        designCoverage: gemstoneData.designCoverage || 'full',
       },
-      
-      // Relationship arrays (preserve existing if not provided)
       ...(data.availableDesigns !== undefined && { availableDesigns: data.availableDesigns }),
       ...(data.relatedProducts !== undefined && { relatedProducts: data.relatedProducts }),
-      
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
-    console.log('PUT /api/products/gemstones - Updating gemstone:', productId, updateData);
-
-    // Update by productId, not MongoDB _id
     const result = await db.collection('products').updateOne(
-        { productId: productId },
-        { $set: updateData }
+      { productId },
+      { $set: updateData }
     );
 
     if (result.matchedCount === 0) {
-        return NextResponse.json(
-            { error: 'Gemstone not found' },
-            { status: 404 }
-        );
+      return NextResponse.json({ error: 'Gemstone not found' }, { status: 404 });
     }
-    
-    return NextResponse.json({ 
-        success: true, 
-        gemstone: { ...updateData, productId }
-    });
+
+    return NextResponse.json({ success: true, gemstone: { ...updateData, productId } });
   } catch (error) {
     console.error('PUT /api/products/gemstones error:', error);
-    return NextResponse.json(
-        { error: 'Failed to update gemstone', details: error.message },
-        { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to update gemstone', details: error.message }, { status: 500 });
   }
 }
 
@@ -390,37 +356,29 @@ export async function DELETE(request) {
     const id = searchParams.get('id');
 
     if (!id) {
-        return NextResponse.json(
-            { error: 'Gemstone ID is required' },
-            { status: 400 }
-        );
+      return NextResponse.json({ error: 'Gemstone ID is required' }, { status: 400 });
     }
 
     const { db } = await connectToDatabase();
-    
-    console.log('DELETE /api/products/gemstones - Deleting gemstone:', id);
 
-    // Delete by productId, not MongoDB _id
-    const result = await db.collection('products').deleteOne(
-        { productId: id }
-    );
+    // Permission check
+    if (!['admin', 'staff', 'dev'].includes(session.user.role)) {
+      const userProfile = await db.collection('users').findOne({ email: session.user.email });
+      const artisanTypes = getUserArtisanTypes(userProfile);
+      if (!canManageGemstones(session.user.role, artisanTypes)) {
+        return NextResponse.json({ error: 'Only gem-cutters and admins can delete gemstone listings' }, { status: 403 });
+      }
+    }
+
+    const result = await db.collection('products').deleteOne({ productId: id });
 
     if (result.deletedCount === 0) {
-        return NextResponse.json(
-            { error: 'Gemstone not found' },
-            { status: 404 }
-        );
+      return NextResponse.json({ error: 'Gemstone not found' }, { status: 404 });
     }
-    
-    return NextResponse.json({ 
-        success: true, 
-        message: 'Gemstone deleted successfully'
-    });
+
+    return NextResponse.json({ success: true, message: 'Gemstone deleted successfully' });
   } catch (error) {
     console.error('DELETE /api/products/gemstones error:', error);
-    return NextResponse.json(
-        { error: 'Failed to delete gemstone', details: error.message },
-        { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to delete gemstone', details: error.message }, { status: 500 });
   }
 }

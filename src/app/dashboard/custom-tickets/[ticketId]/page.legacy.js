@@ -26,7 +26,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Avatar from '@mui/material/Avatar';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageContainer } from '@/components/PageContainer';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
 import MessageIcon from '@mui/icons-material/Message';

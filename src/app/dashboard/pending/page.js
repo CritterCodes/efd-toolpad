@@ -137,7 +137,7 @@ export default function PendingApprovalPage() {
         </Box>
       </Paper>
 
-      <Paper elevation={1} sx={{ p: 3, bgcolor: 'grey.50' }}>
+      <Paper elevation={1} sx={{ p: 3, bgcolor: 'action.hover' }}>
         <Typography variant="h6" gutterBottom>
           Approval Timeline
         </Typography>

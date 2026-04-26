@@ -61,7 +61,7 @@ export default function LaborRateSummary({ localSettings, calculateLaborRate }) 
                 <Typography variant="subtitle2" gutterBottom>
                     All Skill Level Final Rates:
                 </Typography>
-                <Paper sx={{ p: 2, bgcolor: 'success.50' }}>
+                <Paper sx={{ p: 2, bgcolor: 'action.hover' }}>
                     <Grid container spacing={1}>
                         <Grid item xs={6} sm={3}>
                             <Typography variant="body2" color="text.secondary">

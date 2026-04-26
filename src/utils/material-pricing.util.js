@@ -10,7 +10,7 @@
  * Uses stullerPrice (what we pay) / portionsPerUnit.
  */
 export const getCostPerPortion = (material, metalType, karat) => {
-  const portionsPerUnit = material.portionsPerUnit || 1;
+  const defaultPortionsPerUnit = Number(material.portionsPerUnit) || 1;
 
   if (material.stullerProducts && material.stullerProducts.length > 0) {
     const product = material.stullerProducts.find(
@@ -18,14 +18,15 @@ export const getCostPerPortion = (material, metalType, karat) => {
     );
     if (product) {
       const stullerPrice = parseFloat(product.stullerPrice) || 0;
-      return stullerPrice / portionsPerUnit;
+      const productPortionsPerUnit = Number(product.portionsPerUnit) || defaultPortionsPerUnit;
+      return productPortionsPerUnit > 0 ? stullerPrice / productPortionsPerUnit : 0;
     }
     return 0;
   }
 
   // Non-metal-dependent material — use top-level stullerPrice or unitCost (raw)
   const rawCost = parseFloat(material.stullerPrice) || parseFloat(material.unitCost) || 0;
-  return rawCost / portionsPerUnit;
+  return rawCost / defaultPortionsPerUnit;
 };
 
 /**
@@ -43,7 +44,7 @@ export const getPricePerPortion = (material, metalType, karat, adminSettings = {
  */
 export const getPriceRange = (material, showCost = false, adminSettings = {}) => {
   if (!material.stullerProducts || material.stullerProducts.length === 0) {
-    const portionsPerUnit = material.portionsPerUnit || 1;
+    const portionsPerUnit = Number(material.portionsPerUnit) || 1;
     const raw = (parseFloat(material.stullerPrice) || parseFloat(material.unitCost) || 0) / portionsPerUnit;
     const markup = adminSettings?.pricing?.materialMarkup || adminSettings?.materialMarkup || 1;
     const price = showCost ? raw : raw * markup;

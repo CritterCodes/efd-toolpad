@@ -195,7 +195,7 @@ export function CustomTicketOverview({ ticket }) {
                   <Typography variant="body2" color="text.secondary" gutterBottom>
                     Description:
                   </Typography>
-                  <Typography variant="body2" sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, whiteSpace: 'pre-wrap' }}>
+                  <Typography variant="body2" sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1, whiteSpace: 'pre-wrap' }}>
                     {ticket.description}
                   </Typography>
                 </Box>
@@ -223,7 +223,7 @@ export function CustomTicketOverview({ ticket }) {
             <Grid container spacing={2}>
               {ticket.quoteTotal && (
                 <Grid item xs={6} sm={4}>
-                  <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+                  <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
                     <Typography variant="body2" color="text.secondary">
                       Quote Total
                     </Typography>
@@ -236,7 +236,7 @@ export function CustomTicketOverview({ ticket }) {
 
               {ticket.amountOwedToCard !== undefined && (
                 <Grid item xs={6} sm={4}>
-                  <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+                  <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
                     <Typography variant="body2" color="text.secondary">
                       Owed to Card
                     </Typography>
@@ -249,7 +249,7 @@ export function CustomTicketOverview({ ticket }) {
 
               {ticket.requestDetails?.timeline && (
                 <Grid item xs={6} sm={4}>
-                  <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+                  <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
                     <Typography variant="body2" color="text.secondary">
                       Timeline
                     </Typography>
@@ -269,7 +269,7 @@ export function CustomTicketOverview({ ticket }) {
                 <LinkIcon fontSize="small" />
                 Affiliate Attribution
               </Typography>
-              <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Typography variant="body2" color="text.secondary">Affiliate:</Typography>
                   <Typography variant="body2" fontWeight="medium">{ticket.affiliate.affiliateCode}</Typography>
@@ -302,7 +302,7 @@ export function CustomTicketOverview({ ticket }) {
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                 How They Heard
               </Typography>
-              <Typography variant="body2" sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+              <Typography variant="body2" sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
                 {ticket.manualReferral}
               </Typography>
             </Grid>

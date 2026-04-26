@@ -16,7 +16,6 @@ import {
   CircularProgress,
   Typography
 } from '@mui/material';
-import { PageContainer } from '@toolpad/core/PageContainer';
 
 // Constitutional imports - hooks and components
 import {
@@ -121,38 +120,38 @@ export default function CustomTicketDetailPage() {
   // Loading state
   if (loading) {
     return (
-      <PageContainer>
+      <Box sx={{ pb: 10 }}>
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
           <CircularProgress />
         </Box>
-      </PageContainer>
+      </Box>
     );
   }
 
   // Error state
   if (error) {
     return (
-      <PageContainer>
+      <Box sx={{ pb: 10 }}>
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
-      </PageContainer>
+      </Box>
     );
   }
 
   // No ticket found
   if (!ticket) {
     return (
-      <PageContainer>
+      <Box sx={{ pb: 10 }}>
         <Alert severity="warning">
           Ticket not found
         </Alert>
-      </PageContainer>
+      </Box>
     );
   }
 
   return (
-    <PageContainer>
+    <Box sx={{ pb: 10 }}>
       {/* Constitutional Header Component */}
       <CustomTicketHeader
         ticket={ticket}
@@ -247,6 +246,6 @@ export default function CustomTicketDetailPage() {
           saving={saving}
         />
       </TabPanel>
-    </PageContainer>
+    </Box>
   );
 }

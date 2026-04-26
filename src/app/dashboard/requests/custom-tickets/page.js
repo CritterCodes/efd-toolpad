@@ -25,7 +25,6 @@ import {
   CheckCircle,
   PriorityHigh
 } from '@mui/icons-material';
-import { PageContainer } from '@toolpad/core/PageContainer';
 import { useSession } from 'next-auth/react';
 
 export default function ArtisanCustomTicketsPage() {
@@ -290,17 +289,15 @@ export default function ArtisanCustomTicketsPage() {
 
   if (loading) {
     return (
-      <PageContainer title="My Custom Tickets">
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight={300}>
-          <CircularProgress />
-        </Box>
-      </PageContainer>
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight={300}>
+        <CircularProgress />
+      </Box>
     );
   }
 
   if (error) {
     return (
-      <PageContainer title="My Custom Tickets">
+      <Box sx={{ pb: 10 }}>
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
@@ -309,17 +306,18 @@ export default function ArtisanCustomTicketsPage() {
             Debug Info:
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Session Status: {sessionStatus} | 
-            User ID: {session?.user?.userID || 'none'} | 
+            Session Status: {sessionStatus} |
+            User ID: {session?.user?.userID || 'none'} |
             Role: {session?.user?.role || 'none'}
           </Typography>
         </Box>
-      </PageContainer>
+      </Box>
     );
   }
 
   return (
-    <PageContainer title="My Custom Tickets">
+    <Box sx={{ pb: 10 }}>
+      <Typography variant="h5" fontWeight={600} sx={{ color: '#D1D5DB', mb: 3 }}>My Custom Tickets</Typography>
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
           <Tab 
@@ -355,13 +353,13 @@ export default function ArtisanCustomTicketsPage() {
       {tabValue === 2 && renderTicketsList(allTickets)}
       
       {/* Summary */}
-      <Box mt={4} p={2} bgcolor="grey.50" borderRadius={1}>
+      <Box mt={4} p={2} bgcolor="action.hover" borderRadius={1}>
         <Typography variant="body2" color="text.secondary">
-          Total assigned tickets: {allTickets.length} | 
-          Active: {activeTickets.length} | 
+          Total assigned tickets: {allTickets.length} |
+          Active: {activeTickets.length} |
           Completed: {completedTickets.length}
         </Typography>
       </Box>
-    </PageContainer>
+    </Box>
   );
 }

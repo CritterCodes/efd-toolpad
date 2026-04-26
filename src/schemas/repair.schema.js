@@ -1,6 +1,6 @@
 /**
  * Repair Schema - Updated for v2 with comprehensive fields
- * Accommodates modern repair workflow with tasks, processes, materials, and custom line items
+ * Accommodates modern repair workflow with tasks, materials, and custom line items
  */
 
 export const repairSchema = {
@@ -100,25 +100,6 @@ export const repairSchema = {
       }
     },
     description: 'Predefined tasks/services to be performed'
-  },
-
-  processes: {
-    type: 'array',
-    default: [],
-    items: {
-      type: 'object',
-      properties: {
-        id: { type: 'string', required: true },
-        processId: { type: 'string', description: 'Reference to processes collection' },
-        displayName: { type: 'string', required: true },
-        description: { type: 'string' },
-        quantity: { type: 'number', default: 1, min: 1 },
-        price: { type: 'number', default: 0, min: 0 },
-        laborHours: { type: 'number', default: 0 },
-        skillLevel: { type: 'string', enum: ['basic', 'standard', 'advanced', 'expert'] }
-      }
-    },
-    description: 'Individual processes to be performed'
   },
 
   materials: {
@@ -371,16 +352,13 @@ export const calculateTotalCost = (repair, isWholesale = false) => {
   const tasksCost = (repair.tasks || []).reduce((sum, item) => 
     sum + (parseFloat(item.price || 0) * (item.quantity || 1)), 0);
     
-  const processesCost = (repair.processes || []).reduce((sum, item) => 
-    sum + (parseFloat(item.price || 0) * (item.quantity || 1)), 0);
-    
   const materialsCost = (repair.materials || []).reduce((sum, item) => 
     sum + (parseFloat(item.price || 0) * (item.quantity || 1)), 0);
     
   const customCost = (repair.customLineItems || []).reduce((sum, item) => 
     sum + (parseFloat(item.price || 0) * (item.quantity || 1)), 0);
   
-  const subtotal = tasksCost + processesCost + materialsCost + customCost;
+  const subtotal = tasksCost + materialsCost + customCost;
   return isWholesale ? subtotal * 0.5 : subtotal;
 };
 
@@ -400,7 +378,6 @@ export const defaultRepairData = {
   notes: '',
   internalNotes: '',
   tasks: [],
-  processes: [],
   materials: [],
   customLineItems: [],
   // Detailed pricing

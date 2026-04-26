@@ -33,6 +33,10 @@ export const useMaterialMutations = ({
         karat: stullerInfo.karat,
         compatibleMetals: stullerInfo.compatibleMetals,
         stuller_item_number: itemNumber,
+        lastFetchedStullerProduct: materialsService.buildStullerProductData(data, {
+          auto_update_pricing: true,
+          portionsPerUnit: prev.portionsPerUnit
+        }),
         auto_update_pricing: true,
         last_price_update: new Date().toISOString()
       }));

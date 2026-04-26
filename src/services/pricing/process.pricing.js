@@ -4,7 +4,7 @@ import { getMaterialBaseRawCost } from './material.pricing.js';
 import { calculateLaborCost, getHourlyRateForSkill } from './labor.pricing.js';
 import { calculateBusinessMultiplier, enforceMinimumBusinessMultiplier } from '@/constants/pricing.constants.mjs';
 
-export function calculateProcessCost(process, adminSettings = {}) {
+export function calculateProcessCost(process, adminSettings = {}, availableMaterials = []) {
   if (!process || typeof process !== 'object') throw new TypeError(ERROR_MESSAGES.PROCESS_MUST_BE_OBJECT);
   const settings = getNormalizedSettings(adminSettings);
   const laborHours = parseFloat(process.laborHours) || 0;
@@ -13,15 +13,22 @@ export function calculateProcessCost(process, adminSettings = {}) {
   const hourlyRate = getHourlyRateForSkill(skillLevel, adminSettings);
   const laborCost = laborHours * hourlyRate;
   const materialMarkup = enforceMinimumMaterialMarkup(settings.materialMarkup);
-  const materials = Array.isArray(process.materials) ? process.materials : [];
+  const rawMaterials = Array.isArray(process.materials) ? process.materials : [];
+  // Resolve materialId refs to full material objects when available
+  const materials = rawMaterials.map(m => {
+    if (m.materialId && !m.stullerProducts && availableMaterials.length > 0) {
+      const full = availableMaterials.find(am => String(am._id) === String(m.materialId));
+      return full ? { ...full, quantity: m.quantity ?? 1 } : m;
+    }
+    return m;
+  });
   const isMetalDependent = materials.some(m => m.isMetalDependent);
-  if (isMetalDependent) return _calculateMetalDependentProcessCost(process, settings, laborCost, hourlyRate, skillLevel, laborHours, materialMarkup);
+  if (isMetalDependent) return _calculateMetalDependentProcessCost(process, settings, laborCost, hourlyRate, skillLevel, laborHours, materialMarkup, materials);
   let baseMaterialsCost = 0; let oldMarkedUpMaterialsCost = 0;
   materials.forEach(material => {
     const quantity = parseFloat(material.quantity) || 1;
     let cost = getMaterialBaseRawCost(material);
-    if (material.costPerPortion) { cost = material.costPerPortion; }
-    else if (material.unit === 'portion' && material.portionsPerUnit > 1) {
+    if (material.unit === 'portion' && material.portionsPerUnit > 1) {
        if (!material.estimatedCost) { const rawUnit = material.unitCost || 0; cost = rawUnit / material.portionsPerUnit; }
     }
     baseMaterialsCost += cost * quantity; oldMarkedUpMaterialsCost += (cost * materialMarkup) * quantity;
@@ -34,10 +41,10 @@ export function calculateProcessCost(process, adminSettings = {}) {
   return { laborCost: Math.round(laborCost * 100) / 100, baseMaterialsCost: Math.round(baseMaterialsCost * 100) / 100, materialsCost: Math.round(oldMarkedUpMaterialsCost * 100) / 100, materialMarkup: materialMarkup, weightedLaborCost: weightedLaborCost, weightedBaseMaterialsCost: weightedBaseMaterialsCost, metalComplexityMultiplier: metalComplexityMultiplier, totalCost: Math.round(retailPrice * 100) / 100, retailPrice: Math.round(retailPrice * 100) / 100, hourlyRate: Math.round(hourlyRate * 100) / 100, skillMultiplier: getSkillLevelMultiplier(skillLevel), laborHours: laborHours, calculatedAt: new Date().toISOString(), isMetalDependent: false };
 }
 
-function _calculateMetalDependentProcessCost(process, settings, laborCost, hourlyRate, skillLevel, laborHours, materialMarkup) {
+function _calculateMetalDependentProcessCost(process, settings, laborCost, hourlyRate, skillLevel, laborHours, materialMarkup, materials = []) {
   const bizMul = calculateBusinessMultiplier({ administrativeFee: settings.administrativeFee, businessFee: settings.businessFee, consumablesFee: settings.consumablesFee });
   const enforcedBizMul = enforceMinimumBusinessMultiplier(bizMul);
-  const metalPrices = {}; const materials = process.materials || [];
+  const metalPrices = {};
   const foundVariants = new Set(); const variantMap = new Map();
   materials.forEach(material => {
     if (material.isMetalDependent && Array.isArray(material.stullerProducts)) {
@@ -65,8 +72,8 @@ function _calculateMetalDependentProcessCost(process, settings, laborCost, hourl
       let cost = 0; let unitPrice = 0;
       if (product) {
         let rawCost = getMaterialBaseRawCost(null, product);
-        let basePrice = product.costPerPortion;
-        if (basePrice === undefined) { const portions = m.portionsPerUnit || 1; basePrice = (rawCost > 0 ? rawCost : (product.unitCost || 0)) / portions; }
+        const portions = Number(product.portionsPerUnit) > 0 ? Number(product.portionsPerUnit) : (m.portionsPerUnit || 1);
+        let basePrice = (rawCost > 0 ? rawCost : (product.unitCost || 0)) / portions;
         const markedUp = basePrice; const quantity = parseFloat(m.quantity) || 1;
         cost = markedUp * quantity; unitPrice = markedUp;
       }
@@ -79,9 +86,8 @@ function _calculateMetalDependentProcessCost(process, settings, laborCost, hourl
       const product = (m.stullerProducts || []).find(p => p.metalType === variant.metalType && p.karat === variant.karat);
        if (product) {
         let rawCost = getMaterialBaseRawCost(null, product);
-        let basePrice = product.costPerPortion;
-        if (basePrice === undefined && rawCost > 0) { const portions = m.portionsPerUnit || 1; basePrice = rawCost / portions; }
-        else if (basePrice === undefined) { basePrice = 0; }
+        const portions = Number(product.portionsPerUnit) > 0 ? Number(product.portionsPerUnit) : (m.portionsPerUnit || 1);
+        let basePrice = rawCost > 0 ? rawCost / portions : 0;
         const quantity = parseFloat(m.quantity) || 1; variantBaseMaterialsCost += basePrice * quantity;
       }
     });

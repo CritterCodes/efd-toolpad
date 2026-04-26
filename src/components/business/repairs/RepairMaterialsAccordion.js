@@ -95,7 +95,7 @@ export default function RepairMaterialsAccordion({
           )}
           
           {/* Stuller Integration Section */}
-          <Card variant="outlined" sx={{ p: 2, bgcolor: 'primary.50', borderColor: 'primary.main' }}>
+          <Card variant="outlined" sx={{ p: 2, bgcolor: 'action.hover', borderColor: 'divider' }}>
             <Typography variant="subtitle2" sx={{ mb: 2, color: 'primary.main', fontWeight: 600 }}>
               Add Stuller Gemstone/Material
             </Typography>

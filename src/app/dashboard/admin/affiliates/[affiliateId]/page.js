@@ -1,11 +1,13 @@
 "use client";
 import React, { useState, useEffect, use } from 'react';
 import {
-  Box, Typography, Breadcrumbs, Link, CircularProgress, Alert, Card, CardContent,
-  Grid, Chip, Table, TableHead, TableRow, TableCell, TableBody, Paper, TableContainer,
+  Box, Typography, CircularProgress, Alert, Grid,
+  Chip, Table, TableHead, TableRow, TableCell, TableBody,
   Select, MenuItem, FormControl, InputLabel, Button
 } from '@mui/material';
+import { Link as LinkIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
+import { REPAIRS_UI as UI } from '@/app/dashboard/repairs/components/repairsUi';
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 const BASE_URL = process.env.NEXT_PUBLIC_SHOP_URL || 'https://engelfinedesign.com';
@@ -56,71 +58,132 @@ export default function AdminAffiliateDetailPage({ params }) {
     setStatusUpdating(false);
   };
 
-  if (loading) return <CircularProgress sx={{ m: 4 }} />;
+  if (loading) return <CircularProgress sx={{ m: 4, color: UI.accent }} />;
   if (error) return <Alert severity="error" sx={{ m: 3 }}>{error}</Alert>;
 
-  return (
-    <Box sx={{ p: 3 }}>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link underline="hover" color="inherit" onClick={() => router.push('/dashboard')} sx={{ cursor: 'pointer' }}>Dashboard</Link>
-        <Link underline="hover" color="inherit" onClick={() => router.push('/dashboard/admin')} sx={{ cursor: 'pointer' }}>Admin</Link>
-        <Link underline="hover" color="inherit" onClick={() => router.push('/dashboard/admin/affiliates')} sx={{ cursor: 'pointer' }}>Affiliates</Link>
-        <Typography color="text.primary">{affiliate.name || affiliate.code}</Typography>
-      </Breadcrumbs>
+  const statItems = [
+    ['Code', affiliate.code],
+    ['Email', affiliate.email || '—'],
+    ['Commission', `${Math.round((affiliate.commissionRate || 0) * 100)}%`],
+    ['Promoted', fmtDate(affiliate.promotedAt)],
+    ['Clicks', metrics?.clicks ?? '—'],
+    ['Custom Requests', metrics?.requests ?? '—'],
+    ['Referred Clients', metrics?.referredClientsCount ?? '—'],
+  ];
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" fontWeight={600}>{affiliate.name || affiliate.code}</Typography>
-        <FormControl size="small" sx={{ minWidth: 140 }}>
-          <InputLabel>Status</InputLabel>
-          <Select label="Status" value={affiliate.status} onChange={(e) => handleStatusChange(e.target.value)} disabled={statusUpdating}>
-            {['active', 'paused', 'disabled'].map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-          </Select>
-        </FormControl>
+  return (
+    <Box sx={{ pb: 10 }}>
+      {/* Header */}
+      <Box
+        sx={{
+          backgroundColor: { xs: 'transparent', sm: UI.bgPanel },
+          border: { xs: 'none', sm: `1px solid ${UI.border}` },
+          borderRadius: { xs: 0, sm: 3 },
+          boxShadow: { xs: 'none', sm: UI.shadow },
+          p: { xs: 0.5, sm: 2.5, md: 3 },
+          mb: 3,
+        }}
+      >
+        <Box sx={{ mb: 2 }}>
+          <Typography
+            sx={{
+              display: 'inline-flex', alignItems: 'center', gap: 1,
+              px: 1.25, py: 0.5, mb: 1.5,
+              fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em',
+              color: UI.textPrimary, backgroundColor: UI.bgCard,
+              border: `1px solid ${UI.border}`, borderRadius: 2, textTransform: 'uppercase',
+            }}
+          >
+            <LinkIcon sx={{ fontSize: 16, color: UI.accent }} />
+            Admin / Affiliates
+          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
+            <Typography sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: UI.textHeader }}>
+              {affiliate.name || affiliate.code}
+            </Typography>
+            <FormControl size="small" sx={{ minWidth: 140 }}>
+              <InputLabel>Status</InputLabel>
+              <Select
+                label="Status"
+                value={affiliate.status}
+                onChange={(e) => handleStatusChange(e.target.value)}
+                disabled={statusUpdating}
+              >
+                {['active', 'paused', 'disabled'].map((s) => (
+                  <MenuItem key={s} value={s}>{s}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+        </Box>
+        <Button
+          size="small"
+          variant="outlined"
+          onClick={() => router.push('/dashboard/admin/affiliates')}
+          sx={{ color: UI.textPrimary, borderColor: UI.border, backgroundColor: UI.bgCard }}
+        >
+          Back to Affiliates
+        </Button>
       </Box>
 
-      <Grid container spacing={3} mb={4}>
-        {[
-          ['Code', affiliate.code],
-          ['Email', affiliate.email || '—'],
-          ['Commission', `${Math.round((affiliate.commissionRate || 0) * 100)}%`],
-          ['Promoted', fmtDate(affiliate.promotedAt)],
-          ['Clicks', metrics?.clicks ?? '—'],
-          ['Custom Requests', metrics?.requests ?? '—'],
-          ['Referred Clients', metrics?.referredClientsCount ?? '—'],
-        ].map(([label, value]) => (
+      {/* Stat grid */}
+      <Grid container spacing={2} sx={{ mb: 4 }}>
+        {statItems.map(([label, value]) => (
           <Grid item xs={6} sm={4} md={3} key={label}>
-            <Card variant="outlined">
-              <CardContent sx={{ pb: '12px !important' }}>
-                <Typography variant="caption" color="text.secondary">{label}</Typography>
-                <Typography variant="h6" fontWeight={600}>{value}</Typography>
-              </CardContent>
-            </Card>
+            <Box
+              sx={{
+                p: 2,
+                border: `1px solid ${UI.border}`,
+                borderRadius: 2,
+                backgroundColor: UI.bgCard,
+              }}
+            >
+              <Typography variant="caption" sx={{ color: UI.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: '0.7rem' }}>
+                {label}
+              </Typography>
+              <Typography variant="h6" fontWeight={600} sx={{ color: UI.textHeader, fontFamily: label === 'Code' ? 'monospace' : 'inherit' }}>
+                {value}
+              </Typography>
+            </Box>
           </Grid>
         ))}
       </Grid>
 
-      <Typography variant="h6" fontWeight={600} mb={2}>Campaigns</Typography>
+      {/* Campaigns */}
+      <Typography variant="h6" fontWeight={600} sx={{ color: UI.textHeader, mb: 2 }}>Campaigns</Typography>
       {campaigns.length === 0 ? (
-        <Alert severity="info">No campaigns yet.</Alert>
+        <Box sx={{ p: 3, border: `1px solid ${UI.border}`, borderRadius: 2, backgroundColor: UI.bgCard }}>
+          <Typography sx={{ color: UI.textSecondary }}>No campaigns yet.</Typography>
+        </Box>
       ) : (
-        <TableContainer component={Paper}>
+        <Box sx={{ border: `1px solid ${UI.border}`, borderRadius: 2, overflow: 'hidden' }}>
           <Table size="small">
             <TableHead>
-              <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Code</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Referral Link</TableCell>
+              <TableRow sx={{ backgroundColor: UI.bgTertiary }}>
+                {['Name', 'Code', 'Status', 'Referral Link'].map((h) => (
+                  <TableCell key={h} sx={{ color: UI.textMuted, fontWeight: 700, fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase', borderBottom: `1px solid ${UI.border}` }}>
+                    {h}
+                  </TableCell>
+                ))}
               </TableRow>
             </TableHead>
             <TableBody>
               {campaigns.map((c) => (
-                <TableRow key={c.campaignId}>
-                  <TableCell>{c.name}</TableCell>
-                  <TableCell><code>{c.code}</code></TableCell>
-                  <TableCell><Chip label={c.status} size="small" color={c.status === 'active' ? 'success' : 'default'} /></TableCell>
+                <TableRow
+                  key={c.campaignId}
+                  sx={{
+                    backgroundColor: UI.bgCard,
+                    '&:not(:last-child) td': { borderBottom: `1px solid ${UI.border}` },
+                    '&:last-child td': { borderBottom: 'none' },
+                  }}
+                >
+                  <TableCell sx={{ color: UI.textPrimary }}>{c.name}</TableCell>
+                  <TableCell sx={{ color: UI.textSecondary, fontFamily: 'monospace' }}>{c.code}</TableCell>
                   <TableCell>
-                    <Typography variant="caption" sx={{ wordBreak: 'break-all' }}>
+                    <Chip label={c.status} size="small" color={c.status === 'active' ? 'success' : 'default'} />
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="caption" sx={{ wordBreak: 'break-all', fontFamily: 'monospace', color: UI.textSecondary }}>
                       {`${BASE_URL}/r/${affiliate.code}/${c.code}`}
                     </Typography>
                   </TableCell>
@@ -128,7 +191,7 @@ export default function AdminAffiliateDetailPage({ params }) {
               ))}
             </TableBody>
           </Table>
-        </TableContainer>
+        </Box>
       )}
     </Box>
   );

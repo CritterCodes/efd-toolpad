@@ -12,8 +12,10 @@ import {
   Button,
   Box,
   Tabs,
-  Tab
+  Tab,
+  useMediaQuery
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import MaterialFormSimple from './MaterialFormSimple';
 import StullerProductsManager from './StullerProductsManager';
 import { processFormDataForSubmission } from '../../../utils/materials.util';
@@ -42,6 +44,8 @@ export default function MaterialDialog({
   loadingStuller,
   editingMaterial
 }) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [tabValue, setTabValue] = useState(0);
 
   useEffect(() => {
@@ -73,10 +77,11 @@ export default function MaterialDialog({
     <Dialog
       open={open}
       onClose={onClose}
+      fullScreen={isMobile}
       maxWidth="md"
       fullWidth
       PaperProps={{
-        sx: { minHeight: '600px' }
+        sx: { minHeight: isMobile ? '100%' : '600px' }
       }}
     >
       <DialogTitle>
@@ -89,6 +94,7 @@ export default function MaterialDialog({
             value={tabValue}
             onChange={(e, newValue) => setTabValue(newValue)}
             aria-label="material tabs"
+            variant={isMobile ? 'fullWidth' : 'standard'}
           >
             <Tab label="General Info" />
             <Tab label="Stuller Products" />

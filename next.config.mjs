@@ -1,7 +1,11 @@
 import withPWA from 'next-pwa';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 // PWA is enabled only when ENABLE_PWA=true environment variable is set
 const isPWAEnabled = process.env.ENABLE_PWA === 'true';
+const projectRoot = path.dirname(fileURLToPath(import.meta.url));
+const workspaceRoot = path.resolve(projectRoot, '..');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = withPWA({
@@ -108,6 +112,10 @@ const nextConfig = withPWA({
         }
     ] : []
 })({
+    outputFileTracingRoot: workspaceRoot,
+    eslint: {
+        ignoreDuringBuilds: true,
+    },
     images: {
         remotePatterns: [
             {

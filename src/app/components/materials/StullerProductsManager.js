@@ -7,8 +7,6 @@ import React, { useState } from 'react';
 import {
   Box,
   Typography,
-  Card,
-  CardContent,
   Button,
   IconButton,
   Table,
@@ -24,22 +22,25 @@ import {
   DialogContent,
   DialogActions,
   Chip,
-  Alert
+  Alert,
+  useMediaQuery
 } from '@mui/material';
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
   Search as SearchIcon
 } from '@mui/icons-material';
+import { useTheme } from '@mui/material/styles';
 
 export default function StullerProductsManager({
   stullerProducts = [],
   onProductsChange,
   onFetchStullerData,
   loadingStuller = false,
-  formData = {}, // This contains portionsPerUnit for cost calculation
-  setFormData // Function to update formData
+  formData = {}
 }) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [stullerItemNumber, setStullerItemNumber] = useState('');
   const [processingFetch, setProcessingFetch] = useState(false);
@@ -66,23 +67,13 @@ export default function StullerProductsManager({
   // Watch for formData changes and create product entry
   React.useEffect(() => {
     if (pendingItemNumber && formData.stuller_item_number === pendingItemNumber && !processingFetch) {
-      // Create product entry using the fresh formData
-      const stullerPrice = formData.unitCost || 0;
-      
+      const fetchedProduct = formData.lastFetchedStullerProduct;
+
       const newProduct = {
-        id: Date.now().toString(),
-        stullerItemNumber: pendingItemNumber,
-        // Use the exact metal type from compatibleMetals array, or null if not metal-based
-        metalType: formData.compatibleMetals?.[0] || null, 
-        karat: formData.karat || null,
-        // Store only RAW pricing information. Markups are now applied dynamically by PricingEngine.
-        stullerPrice: stullerPrice,
-        unitCost: stullerPrice, // unitCost is now synonymous with stullerPrice (Raw Cost)
-        sku: formData.sku || '',
-        description: formData.description || formData.displayName || 'Stuller Product',
-        weight: 0,
-        dimensions: '',
-        addedAt: new Date().toISOString(),
+        ...(fetchedProduct || {}),
+        id: fetchedProduct?.id || Date.now().toString(),
+        stullerItemNumber: fetchedProduct?.stullerItemNumber || pendingItemNumber,
+        portionsPerUnit: Number(fetchedProduct?.portionsPerUnit || formData.portionsPerUnit || 1),
         autoUpdatePricing: formData.auto_update_pricing !== false
       };
 
@@ -95,7 +86,7 @@ export default function StullerProductsManager({
       setStullerItemNumber('');
       setAddDialogOpen(false);
     }
-  }, [formData, pendingItemNumber, stullerProducts, onProductsChange, processingFetch, adminSettings?.pricing?.materialMarkup]);
+  }, [formData, pendingItemNumber, stullerProducts, onProductsChange, processingFetch]);
 
   const handleFetchStuller = async () => {
     if (!stullerItemNumber.trim() || processingFetch) return;
@@ -122,6 +113,16 @@ export default function StullerProductsManager({
     onProductsChange(updatedProducts);
   };
 
+  const handleUpdateProductPortions = (productId, nextValue) => {
+    const parsedValue = Math.max(1, parseInt(nextValue, 10) || 1);
+    const updatedProducts = stullerProducts.map((product) => (
+      product.id === productId
+        ? { ...product, portionsPerUnit: parsedValue }
+        : product
+    ));
+    onProductsChange(updatedProducts);
+  };
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -129,19 +130,26 @@ export default function StullerProductsManager({
     }).format(amount);
   };
 
-  const calculateCostPerPortion = (unitCost) => {
-    const portionsPerUnit = formData.portionsPerUnit || 1;
-    return unitCost / portionsPerUnit;
+  const getProductPortionsPerUnit = (product) => {
+    return Number(product?.portionsPerUnit || formData.portionsPerUnit || 1);
   };
 
-  const calculateStullerCostPerPortion = (stullerPrice) => {
-    const portionsPerUnit = formData.portionsPerUnit || 1;
-    return stullerPrice / portionsPerUnit;
+  const calculateRawCostPerPortion = (product) => {
+    const portionsPerUnit = getProductPortionsPerUnit(product);
+    const unitCost = Number(product?.stullerPrice || product?.unitCost || 0);
+    return portionsPerUnit > 0 ? unitCost / portionsPerUnit : 0;
   };
 
-  const calculateMarkedUpCostPerPortion = (markedUpPrice) => {
-    const portionsPerUnit = formData.portionsPerUnit || 1;
-    return markedUpPrice / portionsPerUnit;
+  const calculateDisplayMarkedUpUnitPrice = (product) => {
+    const stullerPrice = Number(product?.stullerPrice || 0);
+    const materialMarkup = Number(adminSettings?.pricing?.materialMarkup || 1);
+    return stullerPrice * materialMarkup;
+  };
+
+  const calculateDisplayMarkedUpCostPerPortion = (product) => {
+    const portionsPerUnit = getProductPortionsPerUnit(product);
+    const markedUpUnitPrice = calculateDisplayMarkedUpUnitPrice(product);
+    return portionsPerUnit > 0 ? markedUpUnitPrice / portionsPerUnit : 0;
   };
 
   const getMetalTypeColor = (metalType) => {
@@ -208,10 +216,76 @@ export default function StullerProductsManager({
         </Alert>
       )}
 
+      <Alert severity="info" sx={{ mb: 2 }}>
+        Store raw Stuller inputs only. Portion counts are physical conversion inputs per product; per-portion prices are computed at runtime.
+      </Alert>
+
       {stullerProducts.length === 0 ? (
         <Alert severity="info">
           No Stuller products added yet. Click &quot;Add Stuller Product&quot; to fetch products from Stuller and add them to this material.
         </Alert>
+      ) : isMobile ? (
+        <Box display="flex" flexDirection="column" gap={2}>
+          {stullerProducts.map((product) => (
+            <Paper key={product.id} variant="outlined" sx={{ p: 2 }}>
+              <Box display="flex" justifyContent="space-between" alignItems="flex-start" gap={2}>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="subtitle2" sx={{ wordBreak: 'break-word' }}>
+                    {product.stullerItemNumber}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    {product.description || 'Stuller Product'}
+                  </Typography>
+                </Box>
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={() => handleDeleteProduct(product.id)}
+                  title="Remove Product"
+                >
+                  <DeleteIcon />
+                </IconButton>
+              </Box>
+
+              <Box display="flex" flexWrap="wrap" gap={1} mt={1.5}>
+                <Chip
+                  label={formatMetalTypeDisplay(product.metalType)}
+                  size="small"
+                  color={product.metalType ? getMetalTypeColor(product.metalType) : 'default'}
+                  variant={product.metalType ? 'filled' : 'outlined'}
+                />
+                {product.karat ? <Chip label={product.karat} size="small" variant="outlined" /> : null}
+                {product.unitOfSale ? <Chip label={product.unitOfSale} size="small" variant="outlined" /> : null}
+              </Box>
+
+              <Box display="grid" gridTemplateColumns="1fr 1fr" gap={1.5} mt={2}>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Stuller Price</Typography>
+                  <Typography variant="body2">{formatCurrency(product.stullerPrice || 0)}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Portions / Unit</Typography>
+                  <TextField
+                    size="small"
+                    type="number"
+                    value={getProductPortionsPerUnit(product)}
+                    onChange={(event) => handleUpdateProductPortions(product.id, event.target.value)}
+                    inputProps={{ min: 1, step: 1 }}
+                    sx={{ mt: 0.5 }}
+                  />
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Raw Cost / Portion</Typography>
+                  <Typography variant="body2">{formatCurrency(calculateRawCostPerPortion(product))}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Display Markup / Portion</Typography>
+                  <Typography variant="body2">{formatCurrency(calculateDisplayMarkedUpCostPerPortion(product))}</Typography>
+                </Box>
+              </Box>
+            </Paper>
+          ))}
+        </Box>
       ) : (
         <TableContainer component={Paper}>
           <Table>
@@ -221,6 +295,7 @@ export default function StullerProductsManager({
                 <TableCell>Metal Type</TableCell>
                 <TableCell>Karat</TableCell>
                 <TableCell>Stuller Price</TableCell>
+                <TableCell>Portions / Unit</TableCell>
                 <TableCell>Marked-up Price</TableCell>
                 <TableCell>Raw Cost/Portion</TableCell>
                 <TableCell>Final Cost/Portion</TableCell>
@@ -257,16 +332,25 @@ export default function StullerProductsManager({
                     )}
                   </TableCell>
                   <TableCell>{formatCurrency(product.stullerPrice || 0)}</TableCell>
+                  <TableCell sx={{ minWidth: 132 }}>
+                    <TextField
+                      size="small"
+                      type="number"
+                      value={getProductPortionsPerUnit(product)}
+                      onChange={(event) => handleUpdateProductPortions(product.id, event.target.value)}
+                      inputProps={{ min: 1, step: 1 }}
+                    />
+                  </TableCell>
                   <TableCell>
-                    <strong>{formatCurrency(product.markedUpPrice || 0)}</strong>
+                    <strong>{formatCurrency(calculateDisplayMarkedUpUnitPrice(product))}</strong>
                     <br />
                     <Typography variant="caption" color="textSecondary">
-                      ({product.markupRate || 1.5}x markup)
+                      ({adminSettings?.pricing?.materialMarkup || 1}x display markup)
                     </Typography>
                   </TableCell>
-                  <TableCell>{formatCurrency(calculateStullerCostPerPortion(product.stullerPrice || 0))}</TableCell>
+                  <TableCell>{formatCurrency(calculateRawCostPerPortion(product))}</TableCell>
                   <TableCell>
-                    <strong>{formatCurrency(calculateMarkedUpCostPerPortion(product.markedUpPrice || 0))}</strong>
+                    <strong>{formatCurrency(calculateDisplayMarkedUpCostPerPortion(product))}</strong>
                   </TableCell>
                   <TableCell>
                     <IconButton
@@ -286,7 +370,13 @@ export default function StullerProductsManager({
       )}
 
       {/* Add Product Dialog */}
-      <Dialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)}>
+      <Dialog
+        open={addDialogOpen}
+        onClose={() => setAddDialogOpen(false)}
+        fullScreen={isMobile}
+        fullWidth
+        maxWidth="sm"
+      >
         <DialogTitle>Add Stuller Product</DialogTitle>
         <DialogContent>
           <Typography variant="body2" sx={{ mb: 2 }}>

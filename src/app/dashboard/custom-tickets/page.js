@@ -9,7 +9,6 @@
 import React, { useState } from 'react';
 import { Box, Typography, Button, Pagination } from '@mui/material';
 import { Add } from '@mui/icons-material';
-import { PageContainer } from '@toolpad/core/PageContainer';
 import { useSession } from 'next-auth/react';
 
 // Constitutional imports - hooks and components
@@ -77,28 +76,26 @@ export default function CustomTicketsPage() {
   };
 
   return (
-    <PageContainer title={isAdmin ? "Custom Tickets Management" : "My Custom Tickets"}>
-      <Box sx={{ maxWidth: 1200, mx: 'auto', p: 3 }}>
-        
-        {/* Header */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-          <Box>
-            <Typography variant="h4" component="h1" gutterBottom>
-              {isAdmin ? 'Custom Tickets Management' : 'My Custom Tickets'}
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              {isAdmin ? 'View and manage all custom jewelry requests from all customers' : 'Manage custom jewelry requests assigned to you'}
-            </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={handleNewTicket}
-            size="large"
-          >
-            New Custom Ticket
-          </Button>
+    <Box sx={{ pb: 10 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3, gap: 2 }}>
+        <Box>
+          <Typography variant="h5" fontWeight={600} sx={{ color: '#D1D5DB' }}>
+            {isAdmin ? 'Custom Tickets' : 'My Custom Tickets'}
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#9CA3AF', mt: 0.5 }}>
+            {isAdmin ? 'View and manage all custom jewelry requests from all customers.' : 'Manage custom jewelry requests assigned to you.'}
+          </Typography>
         </Box>
+        <Button
+          variant="outlined"
+          startIcon={<Add />}
+          onClick={handleNewTicket}
+          sx={{ color: '#D4AF37', borderColor: '#D4AF37', flexShrink: 0 }}
+        >
+          New Ticket
+        </Button>
+      </Box>
+      <Box sx={{ maxWidth: 1200 }}>
 
         {/* Summary Section */}
         {summary && (
@@ -161,6 +158,6 @@ export default function CustomTicketsPage() {
           onSuccess={handleTicketCreated}
         />
       </Box>
-    </PageContainer>
+    </Box>
   );
 }

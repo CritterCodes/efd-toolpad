@@ -100,8 +100,8 @@ export default function CustomTicketQuote({ ticket, onUpdateFinancials }) {
           <QuoteSummary analytics={analytics} formData={formData} />
         </Paper>
 
-        <Paper sx={{ p: 4, borderRadius: 2, bgcolor: 'primary.50' }}>
-          <Typography variant="h6" color="primary" gutterBottom>
+        <Paper sx={{ p: 4, borderRadius: 2, bgcolor: 'action.hover' }}>
+          <Typography variant="h6" color="text.primary" gutterBottom>
             Financial Analytics
           </Typography>
           <AnalyticsSummary analytics={analytics} />

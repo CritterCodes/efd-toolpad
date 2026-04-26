@@ -8,7 +8,7 @@ export default function ProcessMatchCard({ process, quantity = 1, confidence = 0
   const confColor = confidence >= 80 ? 'success' : confidence >= 55 ? 'warning' : 'default';
 
   return (
-    <Card variant="outlined" sx={{ borderColor: 'success.300', bgcolor: 'success.50' }}>
+    <Card variant="outlined" sx={{ borderColor: 'success.300', bgcolor: 'action.hover' }}>
       <CardContent sx={{ py: '10px !important', px: '14px !important' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1 }}>

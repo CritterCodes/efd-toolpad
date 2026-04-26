@@ -94,7 +94,7 @@ const MessageInput = ({
         {/* Attached link preview */}
         {attachedLink && (
           <Box sx={{ 
-            mb: 2, p: 1.5, bgcolor: 'primary.light', borderRadius: 1, 
+            mb: 2, p: 1.5, bgcolor: 'action.hover', borderRadius: 1, 
             display: 'flex', alignItems: 'center', justifyContent: 'space-between'
           }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>

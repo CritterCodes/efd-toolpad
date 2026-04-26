@@ -13,9 +13,10 @@ function resolveTaskMaterials(materialSelections, availableMaterials, metalType 
       if (product) {
         // stullerPrice is the raw cost we pay; costPerPortion is already marked up — use raw
         const stullerPrice = parseFloat(product.stullerPrice) || 0;
+        const portionsPerUnit = Number(product.portionsPerUnit) || Number(full.portionsPerUnit) || 1;
         unitCost = stullerPrice > 0
-          ? stullerPrice / (full.portionsPerUnit || 1)
-          : (parseFloat(product.costPerPortion) || 0);
+          ? stullerPrice / portionsPerUnit
+          : ((parseFloat(product.unitCost) || 0) / portionsPerUnit);
       }
     }
 

@@ -40,7 +40,7 @@ export const ToolsSection = ({
       </Box>
 
       {toolLines.map((line) => (
-        <Box key={line.id} sx={{ mb: 2, p: 2, border: '1px solid #e0e0e0', borderRadius: 1, bgcolor: 'grey.50' }}>
+        <Box key={line.id} sx={{ mb: 2, p: 2, border: '1px solid #e0e0e0', borderRadius: 1, bgcolor: 'action.hover' }}>
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} md={6}>
               <Autocomplete
@@ -71,7 +71,7 @@ export const ToolsSection = ({
           </Grid>
 
           {line.tool && (
-            <Box sx={{ mt: 1, p: 1, bgcolor: 'primary.50', borderRadius: 1 }}>
+            <Box sx={{ mt: 1, p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
               <Typography variant="caption" color="primary.main">
                 Cost per use: ${Number(line.tool.costPerUse || 0).toFixed(2)}
               </Typography>
@@ -87,7 +87,7 @@ export const ToolsSection = ({
           </Typography>
           <List dense>
             {formData.tools.map((tool, index) => (
-              <ListItem key={index} divider sx={{ bgcolor: 'info.50' }}>
+              <ListItem key={index} divider sx={{ bgcolor: 'action.hover' }}>
                 <ListItemText
                   primary={`${tool.toolName} (${tool.useCount} uses)`}
                   secondary={`$${Number(tool.costPerUse || 0).toFixed(2)} per use, estimated tooling cost: $${Number(tool.estimatedCost || 0).toFixed(2)}`}

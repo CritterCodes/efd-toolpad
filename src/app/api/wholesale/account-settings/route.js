@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
 import { uploadFileToS3 } from '@/utils/s3.util';
+import { ObjectId } from 'mongodb';
 import {
   buildBusinessProfileUpdateFields,
   buildUserLookupQuery,
@@ -11,7 +12,19 @@ import {
   validateLogoFile
 } from './wholesaleAccountSettings.helpers';
 
-export async function GET() {
+function buildAccountLookupQuery(accountId) {
+  const normalized = String(accountId || '').trim();
+  if (!normalized) return null;
+
+  const orConditions = [{ userID: normalized }, { email: normalized }];
+  if (ObjectId.isValid(normalized)) {
+    orConditions.push({ _id: new ObjectId(normalized) });
+  }
+
+  return { $or: orConditions };
+}
+
+export async function GET(request) {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -22,7 +35,11 @@ export async function GET() {
       return NextResponse.json({ success: false, error: 'Access denied' }, { status: 403 });
     }
 
-    const userQuery = buildUserLookupQuery(session.user);
+    const { searchParams } = new URL(request.url);
+    const requestedAccountId = searchParams.get('accountId');
+    const userQuery = session.user.role === 'admin' && requestedAccountId
+      ? buildAccountLookupQuery(requestedAccountId)
+      : buildUserLookupQuery(session.user);
     if (!userQuery) {
       return NextResponse.json({ success: false, error: 'Could not identify user account' }, { status: 400 });
     }

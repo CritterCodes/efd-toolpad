@@ -128,7 +128,7 @@ export default function CADRequestTracker({ status = 'pending', designer = null 
                     </Typography>
 
                     {designer && (
-                        <Paper sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                        <Paper sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
                             <Typography variant="caption" color="text.secondary">
                                 Assigned Designer
                             </Typography>
@@ -231,7 +231,7 @@ export default function CADRequestTracker({ status = 'pending', designer = null 
                                     sx={{
                                         height: '100%',
                                         width: `${((currentStageIndex + 1) / CAD_WORKFLOW_STAGES.length) * 100}%`,
-                                        bgcolor: 'primary.main',
+                                        bgcolor: '#D4AF37',
                                         transition: 'width 0.3s ease'
                                     }}
                                 />
@@ -246,15 +246,15 @@ export default function CADRequestTracker({ status = 'pending', designer = null 
                         sx={{
                             mt: 2,
                             p: 2,
-                            bgcolor: 'success.light',
-                            border: `2px solid ${theme.palette.success.main}`,
+                            bgcolor: 'action.hover',
+                            border: '1px solid #2A2F38',
                             borderRadius: 1
                         }}
                     >
-                        <Typography variant="subtitle2" sx={{ color: 'success.dark', fontWeight: 600 }}>
+                        <Typography variant="subtitle2" sx={{ color: '#4ADE80', fontWeight: 600 }}>
                             ✨ Design Complete!
                         </Typography>
-                        <Typography variant="body2" color="success.dark" sx={{ mt: 0.5 }}>
+                        <Typography variant="body2" sx={{ color: '#9CA3AF', mt: 0.5 }}>
                             This design is ready to be used as a product option on the shop.
                         </Typography>
                     </Paper>

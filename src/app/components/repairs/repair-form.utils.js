@@ -65,12 +65,11 @@ export const validateForm = (formData) => {
   
   // At least one work item required
   const hasWorkItems = (formData.tasks?.length > 0) || 
-                      (formData.processes?.length > 0) || 
                       (formData.materials?.length > 0) || 
                       (formData.customLineItems?.length > 0);
   
   if (!hasWorkItems) {
-    errors.workItems = 'At least one task, process, material, or custom item is required';
+    errors.workItems = 'At least one task, material, or custom item is required';
   }
   
   return {
@@ -161,7 +160,6 @@ export const createInitialFormState = (clientInfo = null, initialData = null) =>
     
     // Repair items
     tasks: initialData?.tasks || [],
-    processes: initialData?.processes || [],
     materials: initialData?.materials || [],
     customLineItems: initialData?.customLineItems || [],
     
@@ -177,7 +175,6 @@ export const createInitialFormState = (clientInfo = null, initialData = null) =>
 export const getAriaLabel = (section, count) => {
   const labels = {
     tasks: `Tasks section with ${count} items`,
-    processes: `Processes section with ${count} items`, 
     materials: `Materials section with ${count} items`,
     custom: `Custom items section with ${count} items`
   };

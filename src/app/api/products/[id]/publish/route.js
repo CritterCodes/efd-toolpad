@@ -3,10 +3,11 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import { NotificationService, NOTIFICATION_TYPES } from '@/lib/notificationService';
+import { getUserArtisanTypes, canPublishProduct } from '@/lib/productPermissions';
 
 /**
  * POST /api/products/:id/publish
- * Admin publishes a product to the shop
+ * Admins, jewelers (own jewelry), and gem-cutters (own gemstones) can publish.
  */
 export async function POST(request, { params }) {
   try {
@@ -15,30 +16,39 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    // Only admins can publish
-    if (!['admin', 'superadmin'].includes(session.user.role)) {
-      return NextResponse.json({ error: 'Only admins can publish products' }, { status: 403 });
-    }
-
     const { id } = params;
-    if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ error: 'Invalid product ID' }, { status: 400 });
-    }
-
     const { db } = await connectToDatabase();
     const body = await request.json().catch(() => ({}));
 
-    // Find product
-    const product = await db.collection('products').findOne({
-      _id: new ObjectId(id)
-    });
+    // Find product by _id or productId
+    let product = null;
+    if (ObjectId.isValid(id)) {
+      product = await db.collection('products').findOne({ _id: new ObjectId(id) });
+    }
+    if (!product) {
+      product = await db.collection('products').findOne({ productId: id });
+    }
 
     if (!product) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
 
-    // Can only publish approved or admin-created products
-    if (!['approved', 'published'].includes(product.status) && product.status !== 'draft') {
+    // Resolve artisan types for the requesting user
+    let artisanTypes = [];
+    if (!['admin', 'superadmin', 'dev', 'staff'].includes(session.user.role)) {
+      const userProfile = await db.collection('users').findOne({ email: session.user.email });
+      artisanTypes = getUserArtisanTypes(userProfile);
+    }
+
+    const userId = session.user.userID || session.user.id;
+    if (!canPublishProduct(session.user.role, artisanTypes, product, userId)) {
+      return NextResponse.json(
+        { error: 'You do not have permission to publish this product' },
+        { status: 403 }
+      );
+    }
+
+    if (!['approved', 'published', 'draft'].includes(product.status)) {
       return NextResponse.json(
         { error: `Cannot publish product with status: ${product.status}` },
         { status: 400 }
@@ -46,33 +56,36 @@ export async function POST(request, { params }) {
     }
 
     const now = new Date();
+    const searchCriteria = product._id ? { _id: product._id } : { productId: id };
 
-    // Update product
     const result = await db.collection('products').findOneAndUpdate(
-      { _id: new ObjectId(id) },
+      searchCriteria,
       {
         $set: {
           status: 'published',
+          isPublic: true,
+          'publishing.visible': true,
+          'publishing.publishedAt': now,
           publishedAt: now,
-          updatedAt: now
+          updatedAt: now,
         },
         $push: {
           statusHistory: {
             status: 'published',
             timestamp: now,
-            changedBy: session.user.userID || session.user.id,
+            changedBy: userId,
             reason: 'Product published to shop',
-            notes: body.notes || ''
-          }
-        }
+            notes: body.notes || '',
+          },
+        },
       },
       { returnDocument: 'after' }
     );
 
-    // Send published notification to artisan
+    // Notify artisan (non-blocking)
     try {
       await NotificationService.createNotification({
-        userId: product.artisanId,
+        userId: product.artisanId || product.userId,
         type: NOTIFICATION_TYPES.PRODUCT_PUBLISHED,
         title: 'Product Published',
         message: `Your product "${product.title}" is now live on the shop!`,
@@ -84,21 +97,21 @@ export async function POST(request, { params }) {
           productId: product._id.toString(),
           userRole: 'artisan',
           relatedType: 'product',
-          actionUrl: `/dashboard/products/gemstones/${product._id}`,
+          actionUrl: `/dashboard/products/${product.productType}s/${product._id}`,
           actionLabel: 'View Product',
         },
       });
     } catch (notifError) {
-      console.error('⚠️ Failed to send publish notification:', notifError.message);
+      console.error('Failed to send publish notification:', notifError.message);
     }
 
     return NextResponse.json({
       success: true,
-      product: result.value,
-      message: 'Product published to shop successfully'
+      product: result,
+      message: 'Product published to shop successfully',
     });
   } catch (error) {
-    console.error('❌ Error publishing product:', error);
+    console.error('Error publishing product:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -4,16 +4,16 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
-    Box, Typography, Button, Paper, Chip, Card, CardContent,
-    CardActionArea, Grid, CircularProgress, Alert
+    Box, Typography, Button, Chip, CircularProgress, Alert, Grid
 } from '@mui/material';
 import {
     LocalShipping as ShippingIcon,
     Refresh as RefreshIcon,
     NotificationsActive as UrgentIcon,
-    Store as StoreIcon
+    Store as StoreIcon,
 } from '@mui/icons-material';
 import { wholesaleRepairsClient } from '@/api-clients/wholesaleRepairs.client';
+import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 
 export default function PendingWholesalePage() {
     const { data: session } = useSession();
@@ -31,7 +31,7 @@ export default function PendingWholesalePage() {
                 wholesaleRepairsClient.fetchRepairs({ status: 'PICKUP REQUESTED' }),
             ]);
             setRepairs([...(pickupData.repairs || []), ...(pendingData.repairs || [])]);
-        } catch (err) {
+        } catch {
             setError('Failed to load pending repairs');
         } finally {
             setLoading(false);
@@ -39,14 +39,12 @@ export default function PendingWholesalePage() {
     }, []);
 
     useEffect(() => { loadRepairs(); }, [loadRepairs]);
-
     useEffect(() => {
         if (session && session.user?.role !== 'admin') router.replace('/dashboard');
     }, [session, router]);
 
     if (!session || session.user?.role !== 'admin') return null;
 
-    // Group by store (createdBy for main-form repairs, or userID for wholesale-form)
     const storeGroups = repairs.reduce((acc, repair) => {
         const key = repair.createdBy || repair.userID || 'unknown';
         if (!acc[key]) {
@@ -69,87 +67,174 @@ export default function PendingWholesalePage() {
     const totalPending = repairs.filter(r => r.status === 'PENDING PICKUP').length;
 
     return (
-        <Box sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Box>
-                    <Typography variant="h4">Wholesale Pickup</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                        {stores.length} store(s) with {repairs.length} repair(s) awaiting pickup
+        <Box sx={{ pb: 10, position: 'relative' }}>
+            <Box
+                sx={{
+                    backgroundColor: { xs: 'transparent', sm: REPAIRS_UI.bgPanel },
+                    border: { xs: 'none', sm: `1px solid ${REPAIRS_UI.border}` },
+                    borderRadius: { xs: 0, sm: 3 },
+                    boxShadow: { xs: 'none', sm: REPAIRS_UI.shadow },
+                    p: { xs: 0.5, sm: 2.5, md: 3 },
+                    mb: 3
+                }}
+            >
+                <Box sx={{ maxWidth: 920, mb: 2 }}>
+                    <Typography
+                        sx={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 1,
+                            px: 1.25,
+                            py: 0.5,
+                            mb: 1.5,
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            letterSpacing: '0.08em',
+                            color: REPAIRS_UI.textPrimary,
+                            backgroundColor: REPAIRS_UI.bgCard,
+                            border: `1px solid ${REPAIRS_UI.border}`,
+                            borderRadius: 2,
+                            textTransform: 'uppercase'
+                        }}
+                    >
+                        <ShippingIcon sx={{ fontSize: 16, color: REPAIRS_UI.accent }} />
+                        Wholesale logistics
+                    </Typography>
+
+                    <Typography sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 1 }}>
+                        Wholesale Pickup
+                    </Typography>
+                    <Typography sx={{ color: REPAIRS_UI.textSecondary, lineHeight: 1.6 }}>
+                        {stores.length} store{stores.length !== 1 ? 's' : ''} with {repairs.length} repair{repairs.length !== 1 ? 's' : ''} awaiting pickup.
                     </Typography>
                 </Box>
-                <Button startIcon={<RefreshIcon />} onClick={loadRepairs} disabled={loading}>Refresh</Button>
+
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
+                    <Button
+                        variant="outlined"
+                        startIcon={<RefreshIcon />}
+                        onClick={loadRepairs}
+                        disabled={loading}
+                        sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border, backgroundColor: REPAIRS_UI.bgCard }}
+                    >
+                        Refresh
+                    </Button>
+                    {totalPickupRequests > 0 && (
+                        <Chip
+                            icon={<UrgentIcon sx={{ color: '#EF4444 !important' }} />}
+                            label={`${totalPickupRequests} pickup requested`}
+                            sx={{ backgroundColor: REPAIRS_UI.bgCard, color: '#EF4444', border: `1px solid #EF4444`, fontWeight: 600 }}
+                        />
+                    )}
+                    {totalPending > 0 && (
+                        <Chip
+                            icon={<ShippingIcon sx={{ color: '#F59E0B !important' }} />}
+                            label={`${totalPending} awaiting drop-off`}
+                            sx={{ backgroundColor: REPAIRS_UI.bgCard, color: '#F59E0B', border: `1px solid #F59E0B`, fontWeight: 600 }}
+                        />
+                    )}
+                </Box>
             </Box>
 
-            {/* Summary chips */}
-            <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
-                {totalPickupRequests > 0 && (
-                    <Chip icon={<UrgentIcon />} label={`${totalPickupRequests} pickup requested`} color="error" />
-                )}
-                {totalPending > 0 && (
-                    <Chip icon={<ShippingIcon />} label={`${totalPending} awaiting drop-off`} color="warning" />
-                )}
-            </Box>
-
-            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+            {error && (
+                <Alert severity="error" sx={{ mb: 2, backgroundColor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }}>
+                    {error}
+                </Alert>
+            )}
 
             {loading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+                    <CircularProgress sx={{ color: REPAIRS_UI.accent }} />
+                </Box>
             ) : stores.length === 0 ? (
-                <Paper sx={{ p: 6, textAlign: 'center' }}>
-                    <ShippingIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
-                    <Typography variant="h6" color="text.secondary">No pending pickups</Typography>
-                    <Typography variant="body2" color="text.secondary">
+                <Box
+                    sx={{
+                        backgroundColor: REPAIRS_UI.bgPanel,
+                        border: `1px solid ${REPAIRS_UI.border}`,
+                        borderRadius: 3,
+                        px: 3,
+                        py: 6,
+                        textAlign: 'center'
+                    }}
+                >
+                    <ShippingIcon sx={{ fontSize: 48, color: REPAIRS_UI.textMuted, mb: 2 }} />
+                    <Typography variant="h6" sx={{ color: REPAIRS_UI.textHeader, mb: 1 }}>
+                        No pending pickups
+                    </Typography>
+                    <Typography sx={{ color: REPAIRS_UI.textSecondary }}>
                         Stores will appear here when they have repairs awaiting pickup.
                     </Typography>
-                </Paper>
+                </Box>
             ) : (
                 <Grid container spacing={2}>
-                    {stores.map(store => (
-                        <Grid item xs={12} sm={6} md={4} key={store.storeID}>
-                            <Card
-                                sx={{
-                                    border: store.pickupRequested > 0 ? '2px solid' : '1px solid',
-                                    borderColor: store.pickupRequested > 0 ? 'error.main' : 'divider',
-                                }}
-                            >
-                                <CardActionArea
-                                    onClick={() => router.push(
-                                        `/dashboard/repairs/pending-wholesale/${encodeURIComponent(store.storeID)}`
-                                    )}
+                    {stores.map(store => {
+                        const hasUrgent = store.pickupRequested > 0;
+                        return (
+                            <Grid item xs={12} sm={6} md={4} key={store.storeID}>
+                                <Box
+                                    onClick={() => router.push(`/dashboard/repairs/pending-wholesale/${encodeURIComponent(store.storeID)}`)}
+                                    sx={{
+                                        backgroundColor: REPAIRS_UI.bgPanel,
+                                        border: `1px solid ${hasUrgent ? '#EF4444' : REPAIRS_UI.border}`,
+                                        borderRadius: 3,
+                                        boxShadow: REPAIRS_UI.shadow,
+                                        p: 2.5,
+                                        cursor: 'pointer',
+                                        transition: 'border-color 0.15s',
+                                        '&:hover': {
+                                            borderColor: hasUrgent ? '#EF4444' : REPAIRS_UI.accent,
+                                            backgroundColor: REPAIRS_UI.bgCard
+                                        }
+                                    }}
                                 >
-                                    <CardContent>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                            <StoreIcon color={store.pickupRequested > 0 ? 'error' : 'action'} />
-                                            <Typography variant="h6" noWrap>{store.storeName}</Typography>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                                        <Box
+                                            sx={{
+                                                width: 36,
+                                                height: 36,
+                                                borderRadius: 2,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                border: `1px solid ${REPAIRS_UI.border}`,
+                                                backgroundColor: REPAIRS_UI.bgCard
+                                            }}
+                                        >
+                                            <StoreIcon sx={{ fontSize: 18, color: hasUrgent ? '#EF4444' : REPAIRS_UI.accent }} />
                                         </Box>
-                                        <Typography variant="h3" sx={{
-                                            fontWeight: 700,
-                                            color: store.pickupRequested > 0 ? 'error.main' : 'primary.main',
-                                            mb: 1
-                                        }}>
-                                            {store.repairs.length}
+                                        <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader, flex: 1 }} noWrap>
+                                            {store.storeName}
                                         </Typography>
-                                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                                            repair(s) to receive
-                                        </Typography>
-                                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                                            {store.pickupRequested > 0 && (
-                                                <Chip
-                                                    icon={<UrgentIcon />}
-                                                    label={`${store.pickupRequested} pickup`}
-                                                    color="error"
-                                                    size="small"
-                                                />
-                                            )}
-                                            {store.pending > 0 && (
-                                                <Chip label={`${store.pending} drop-off`} color="warning" size="small" />
-                                            )}
-                                        </Box>
-                                    </CardContent>
-                                </CardActionArea>
-                            </Card>
-                        </Grid>
-                    ))}
+                                    </Box>
+
+                                    <Typography sx={{ fontSize: '2.5rem', fontWeight: 700, lineHeight: 1.1, color: hasUrgent ? '#EF4444' : REPAIRS_UI.textHeader, mb: 0.5 }}>
+                                        {store.repairs.length}
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, mb: 1.5 }}>
+                                        repair{store.repairs.length !== 1 ? 's' : ''} to receive
+                                    </Typography>
+
+                                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                        {store.pickupRequested > 0 && (
+                                            <Chip
+                                                icon={<UrgentIcon sx={{ fontSize: 12 }} />}
+                                                label={`${store.pickupRequested} pickup`}
+                                                size="small"
+                                                sx={{ backgroundColor: REPAIRS_UI.bgCard, color: '#EF4444', border: '1px solid #EF4444', fontSize: '0.7rem', '& .MuiChip-icon': { color: '#EF4444' } }}
+                                            />
+                                        )}
+                                        {store.pending > 0 && (
+                                            <Chip
+                                                label={`${store.pending} drop-off`}
+                                                size="small"
+                                                sx={{ backgroundColor: REPAIRS_UI.bgCard, color: '#F59E0B', border: '1px solid #F59E0B', fontSize: '0.7rem' }}
+                                            />
+                                        )}
+                                    </Box>
+                                </Box>
+                            </Grid>
+                        );
+                    })}
                 </Grid>
             )}
         </Box>

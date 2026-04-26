@@ -180,7 +180,7 @@ export function CustomTicketStatusTimeline({
                   </MenuItem>
                   
                   {/* Group statuses by current phase first */}
-                  <ListSubheader sx={{ bgcolor: 'primary.light', color: 'primary.contrastText' }}>
+                  <ListSubheader sx={{ bgcolor: '#1F232A', color: '#9CA3AF' }}>
                     Current Phase: {CustomTicketStatusManager.getPhaseName(CustomTicketStatusManager.getWorkflowStage(currentStatus))}
                   </ListSubheader>
                   {nextStatuses
@@ -213,7 +213,7 @@ export function CustomTicketStatusTimeline({
                     })}
 
                   {/* General Actions */}
-                  <ListSubheader sx={{ bgcolor: 'warning.light', color: 'warning.contrastText' }}>
+                  <ListSubheader sx={{ bgcolor: '#1F232A', color: '#9CA3AF' }}>
                     General Actions
                   </ListSubheader>
                   {nextStatuses
@@ -281,7 +281,7 @@ export function CustomTicketStatusTimeline({
                           return acc;
                         }, {})
                     ).map(([phase, statuses]) => [
-                      <ListSubheader key={phase} sx={{ bgcolor: 'success.light', color: 'success.contrastText' }}>
+                      <ListSubheader key={phase} sx={{ bgcolor: '#1F232A', color: '#9CA3AF' }}>
                         Move to: {CustomTicketStatusManager.getPhaseName(phase)}
                       </ListSubheader>,
                       ...statuses.map(status => {
@@ -364,7 +364,7 @@ export function CustomTicketStatusTimeline({
         </Stepper>
 
         {/* Current Status Details */}
-        <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+        <Box sx={{ mt: 3, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
           <Typography variant="body2" color="text.secondary" gutterBottom>
             Current Status
           </Typography>

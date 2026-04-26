@@ -29,7 +29,7 @@ import {
   Build as BuildIcon,
   Security as SecurityIcon
 } from '@mui/icons-material';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageContainer } from '@/components/PageContainer';
 import { useRouter, useParams } from 'next/navigation';
 import { SKILL_LEVEL } from '@/constants/pricing.constants.mjs';
 
@@ -65,7 +65,7 @@ import {
   Build as BuildIcon,
   Security as SecurityIcon
 } from '@mui/icons-material';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageContainer } from '@/components/PageContainer';
 import { useRouter, useParams } from 'next/navigation';
 import { SKILL_LEVEL } from '@/constants/pricing.constants.mjs';
 
@@ -333,3 +333,4 @@ export function useRepairTaskCreator() {
     
 return { isEdit, loading, saving, error, setError, success, setSuccess, formData, setFormData, calculatedPrice, handleInputChange, handleArrayChange, handleSubmit, handleCancel};
 }
+

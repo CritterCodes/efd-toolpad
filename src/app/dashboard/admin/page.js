@@ -3,21 +3,25 @@
 import * as React from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import CardActions from '@mui/material/CardActions';
 import Button from '@mui/material/Button';
 import Grid from '@mui/material/Grid';
+import Chip from '@mui/material/Chip';
 import {
   Build as TasksIcon,
   Settings as SettingsIcon,
   Inventory as MaterialsIcon,
   Add as AddIcon,
   List as ListIcon,
-  Person as ArtisanIcon
+  Person as ArtisanIcon,
+  ArrowForward as ArrowIcon
 } from '@mui/icons-material';
-import { PageContainer } from '@toolpad/core/PageContainer';
 import { useRouter } from 'next/navigation';
+
+const C = {
+  bgPanel: '#15181D', bgCard: '#171A1F', bgTertiary: '#1F232A',
+  border: '#2A2F38', textHeader: '#D1D5DB', textSecondary: '#9CA3AF',
+  textMuted: '#6B7280', accent: '#D4AF37', shadow: '0 8px 24px rgba(0,0,0,0.45)',
+};
 
 export default function AdminPage() {
   const router = useRouter();
@@ -25,168 +29,150 @@ export default function AdminPage() {
   const adminSections = [
     {
       title: 'Task Management',
-      description: 'Manage all tasks including repair work, laser engraving, and 3D design',
-      icon: <TasksIcon sx={{ fontSize: 48 }} />,
-      color: 'primary',
+      description: 'Manage repair tasks, laser engraving, and 3D design',
+      icon: <TasksIcon />,
       actions: [
-        {
-          label: 'View All Tasks',
-          path: '/dashboard/admin/tasks',
-          icon: <ListIcon />,
-          variant: 'contained'
-        },
-        {
-          label: 'Create Task',
-          path: '/dashboard/admin/tasks/create',
-          icon: <AddIcon />,
-          variant: 'outlined'
-        }
+        { label: 'View All Tasks', path: '/dashboard/admin/tasks', icon: <ListIcon fontSize="small" />, primary: true },
+        { label: 'Create Task', path: '/dashboard/admin/tasks/create', icon: <AddIcon fontSize="small" /> },
       ]
     },
     {
-      title: 'Materials Management', 
+      title: 'Materials Management',
       description: 'Manage repair materials, supplies, and inventory',
-      icon: <MaterialsIcon sx={{ fontSize: 48 }} />,
-      color: 'secondary',
+      icon: <MaterialsIcon />,
       actions: [
-        {
-          label: 'Manage Materials',
-          path: '/dashboard/admin/tasks/materials',
-          icon: <MaterialsIcon />,
-          variant: 'contained'
-        }
+        { label: 'Manage Materials', path: '/dashboard/admin/tasks/materials', icon: <MaterialsIcon fontSize="small" />, primary: true },
       ]
     },
     {
       title: 'Artisan Management',
       description: 'Review and manage artisan partnership applications',
-      icon: <ArtisanIcon sx={{ fontSize: 48 }} />,
-      color: 'success',
+      icon: <ArtisanIcon />,
       actions: [
-        {
-          label: 'Manage Applications',
-          path: '/dashboard/admin/artisans',
-          icon: <ArtisanIcon />,
-          variant: 'contained'
-        }
+        { label: 'Manage Applications', path: '/dashboard/admin/artisans', icon: <ArtisanIcon fontSize="small" />, primary: true },
       ]
     },
     {
       title: 'System Settings',
       description: 'Configure pricing, business settings, and system preferences',
-      icon: <SettingsIcon sx={{ fontSize: 48 }} />,
-      color: 'warning',
+      icon: <SettingsIcon />,
       actions: [
-        {
-          label: 'System Settings',
-          path: '/dashboard/admin/settings',
-          icon: <SettingsIcon />,
-          variant: 'contained'
-        }
+        { label: 'System Settings', path: '/dashboard/admin/settings', icon: <SettingsIcon fontSize="small" />, primary: true },
       ]
     }
   ];
 
   return (
-    <PageContainer title="Admin Dashboard">
-      <Box sx={{ pb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
+    <Box sx={{ pb: 10 }}>
+      {/* Header */}
+      <Box
+        sx={{
+          backgroundColor: C.bgPanel,
+          border: `1px solid ${C.border}`,
+          borderRadius: 3,
+          boxShadow: C.shadow,
+          p: { xs: 2, sm: 3 },
+          mb: 3,
+        }}
+      >
+        <Chip
+          label="Admin workspace"
+          sx={{ mb: 1.5, borderRadius: 2, backgroundColor: C.bgCard, color: C.textHeader, border: `1px solid ${C.border}`, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em' }}
+        />
+        <Typography sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: C.textHeader, mb: 0.5 }}>
           Admin Dashboard
         </Typography>
-        <Typography color="text.secondary" paragraph>
-          Manage your business operations, tasks, and system settings
+        <Typography sx={{ color: C.textSecondary }}>
+          Manage tasks, materials, artisans, and system settings.
         </Typography>
+      </Box>
 
-        <Grid container spacing={3}>
-          {adminSections.map((section) => (
-            <Grid item xs={12} sm={6} md={6} key={section.title}>
-              <Card 
-                sx={{ 
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  borderTop: 3,
-                  borderTopColor: `${section.color}.main`
-                }}
-              >
-                <CardContent sx={{ flexGrow: 1 }}>
-                  <Box display="flex" alignItems="center" gap={2} mb={2}>
-                    <Box color={`${section.color}.main`}>
-                      {section.icon}
-                    </Box>
-                    <Typography variant="h5" component="h2">
-                      {section.title}
-                    </Typography>
-                  </Box>
-                  
-                  <Typography color="text.secondary" paragraph>
-                    {section.description}
-                  </Typography>
-                </CardContent>
-
-                <CardActions sx={{ p: 2, pt: 0 }}>
-                  <Box display="flex" gap={1} flexWrap="wrap">
-                    {section.actions.map((action) => (
-                      <Button
-                        key={action.label}
-                        variant={action.variant}
-                        color={section.color}
-                        startIcon={action.icon}
-                        onClick={() => router.push(action.path)}
-                        size="small"
-                      >
-                        {action.label}
-                      </Button>
-                    ))}
-                  </Box>
-                </CardActions>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-
-        {/* Quick Stats */}
-        <Box mt={4}>
-          <Typography variant="h5" gutterBottom>
-            Quick Actions
-          </Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6} md={3}>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<AddIcon />}
-                onClick={() => router.push('/dashboard/admin/tasks/create')}
-                sx={{ py: 2 }}
-              >
-                Create New Task
-              </Button>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<MaterialsIcon />}
-                onClick={() => router.push('/dashboard/admin/tasks/materials')}
-                sx={{ py: 2 }}
-              >
-                Add Material
-              </Button>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<SettingsIcon />}
-                onClick={() => router.push('/dashboard/admin/settings')}
-                sx={{ py: 2 }}
-              >
-                Settings
-              </Button>
-            </Grid>
+      {/* Section cards */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        {adminSections.map((section) => (
+          <Grid item xs={12} sm={6} key={section.title}>
+            <Box
+              sx={{
+                backgroundColor: C.bgCard,
+                border: `1px solid ${C.border}`,
+                borderRadius: 2,
+                p: 2.5,
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1.5,
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Box
+                  sx={{
+                    width: 40, height: 40, borderRadius: 2, display: 'grid', placeItems: 'center',
+                    backgroundColor: C.bgTertiary, color: C.accent, border: `1px solid ${C.border}`, flexShrink: 0,
+                  }}
+                >
+                  {section.icon}
+                </Box>
+                <Box>
+                  <Typography sx={{ fontWeight: 600, color: C.textHeader, fontSize: 15 }}>{section.title}</Typography>
+                  <Typography variant="body2" sx={{ color: C.textSecondary, fontSize: 13 }}>{section.description}</Typography>
+                </Box>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 'auto' }}>
+                {section.actions.map((action) => (
+                  <Button
+                    key={action.label}
+                    variant="outlined"
+                    size="small"
+                    startIcon={action.icon}
+                    onClick={() => router.push(action.path)}
+                    sx={{
+                      color: action.primary ? C.accent : C.textSecondary,
+                      borderColor: action.primary ? C.accent : C.border,
+                      fontSize: 12,
+                      textTransform: 'none',
+                    }}
+                  >
+                    {action.label}
+                  </Button>
+                ))}
+              </Box>
+            </Box>
           </Grid>
+        ))}
+      </Grid>
+
+      {/* Quick actions */}
+      <Box
+        sx={{
+          backgroundColor: C.bgCard,
+          border: `1px solid ${C.border}`,
+          borderRadius: 2,
+          p: 2.5,
+        }}
+      >
+        <Typography sx={{ color: C.textMuted, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', mb: 1.5 }}>
+          Quick actions
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+          {[
+            { label: 'Create New Task', path: '/dashboard/admin/tasks/create', icon: <AddIcon fontSize="small" /> },
+            { label: 'Add Material', path: '/dashboard/admin/tasks/materials', icon: <MaterialsIcon fontSize="small" /> },
+            { label: 'Settings', path: '/dashboard/admin/settings', icon: <SettingsIcon fontSize="small" /> },
+          ].map((action) => (
+            <Button
+              key={action.label}
+              variant="outlined"
+              size="small"
+              startIcon={action.icon}
+              endIcon={<ArrowIcon fontSize="small" />}
+              onClick={() => router.push(action.path)}
+              sx={{ color: C.textSecondary, borderColor: C.border, fontSize: 12, textTransform: 'none' }}
+            >
+              {action.label}
+            </Button>
+          ))}
         </Box>
       </Box>
-    </PageContainer>
+    </Box>
   );
 }

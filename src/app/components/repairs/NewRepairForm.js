@@ -44,7 +44,6 @@ import { LoadingButton } from '@mui/lab';
 
 // Services
 import tasksService from '@/services/tasks.service';
-import processesService from '@/services/processes.service';
 import materialsService from '@/services/materials.service';
 import RepairsService from '@/services/repairs';
 import UsersService from '@/services/users';
@@ -83,6 +82,141 @@ const RING_SIZES = [
 
 // Item categories that might have sizes
 const SIZEABLE_CATEGORIES = ['ring', 'band', 'wedding-ring', 'engagement-ring'];
+
+const UI = {
+  bgPrimary: '#0F1115',
+  bgPanel: '#15181D',
+  bgCard: '#171A1F',
+  bgTertiary: '#1F232A',
+  border: '#2A2F38',
+  textPrimary: '#E6E8EB',
+  textHeader: '#D1D5DB',
+  textSecondary: '#9CA3AF',
+  textMuted: '#6B7280',
+  accent: '#D4AF37',
+  shadow: '0 8px 24px rgba(0,0,0,0.45)'
+};
+
+const sectionCardSx = {
+  px: { xs: 0, sm: 2.5, md: 3 },
+  py: { xs: 2, sm: 2.5 },
+  backgroundColor: { xs: 'transparent', sm: UI.bgPanel },
+  border: { xs: 'none', sm: '1px solid' },
+  borderColor: UI.border,
+  borderRadius: { xs: 0, sm: 3 },
+  boxShadow: { xs: 'none', sm: UI.shadow },
+  borderTop: { xs: '1px solid', sm: 'none' }
+};
+
+const sectionLabelSx = {
+  color: UI.textSecondary,
+  fontWeight: 700,
+  display: 'block',
+  mb: 1.25,
+  lineHeight: 1,
+  letterSpacing: '0.08em'
+};
+
+const neutralChipSx = {
+  backgroundColor: UI.bgTertiary,
+  color: UI.textPrimary,
+  border: '1px solid',
+  borderColor: UI.border
+};
+
+const autocompleteSlotProps = {
+  paper: {
+    sx: {
+      mt: 0.5,
+      backgroundColor: UI.bgCard,
+      color: UI.textPrimary,
+      border: '1px solid',
+      borderColor: UI.border,
+      boxShadow: UI.shadow,
+      backgroundImage: 'none'
+    }
+  },
+  listbox: {
+    sx: {
+      py: 0.5,
+      '& .MuiAutocomplete-option': {
+        alignItems: 'flex-start',
+        borderBottom: '1px solid',
+        borderColor: UI.border,
+        px: 1.5,
+        py: 1.25,
+        '&:last-of-type': {
+          borderBottom: 'none'
+        },
+        '&[aria-selected="true"]': {
+          backgroundColor: UI.bgTertiary
+        },
+        '&.Mui-focused, &.Mui-focusVisible': {
+          backgroundColor: UI.bgPanel
+        }
+      }
+    }
+  },
+  popper: {
+    sx: {
+      '& .MuiAutocomplete-noOptions': {
+        color: UI.textSecondary,
+        backgroundColor: UI.bgCard
+      }
+    }
+  }
+};
+
+const selectMenuProps = {
+  PaperProps: {
+    sx: {
+      mt: 0.5,
+      backgroundColor: UI.bgCard,
+      color: UI.textPrimary,
+      border: '1px solid',
+      borderColor: UI.border,
+      boxShadow: UI.shadow,
+      backgroundImage: 'none',
+      '& .MuiMenuItem-root': {
+        fontSize: '0.95rem',
+        borderBottom: '1px solid',
+        borderColor: UI.border,
+        '&:last-of-type': {
+          borderBottom: 'none'
+        },
+        '&.Mui-selected': {
+          backgroundColor: UI.bgTertiary
+        },
+        '&.Mui-focusVisible, &:hover': {
+          backgroundColor: UI.bgPanel
+        }
+      }
+    }
+  },
+  MenuListProps: {
+    sx: {
+      py: 0.5
+    }
+  }
+};
+
+function FormSection({ title, subtitle, children, sx }) {
+  return (
+    <Box sx={{ ...sectionCardSx, ...sx }}>
+      <Box sx={{ mb: 2, px: { xs: 0.5, sm: 0 } }}>
+        <Typography variant="overline" sx={sectionLabelSx}>
+          {title}
+        </Typography>
+        {subtitle ? (
+          <Typography variant="body2" sx={{ color: UI.textSecondary }}>
+            {subtitle}
+          </Typography>
+        ) : null}
+      </Box>
+      <Box sx={{ px: { xs: 0.5, sm: 0 } }}>{children}</Box>
+    </Box>
+  );
+}
 
 const TASK_INFERENCE_RULES = [
   { regex: /size\s*down|sizing\s*down/, keywords: ['size down'] },
@@ -143,6 +277,135 @@ const extractRingSizesFromDescription = (description = '') => {
   }
 
   return { currentRingSize: '', desiredRingSize: '' };
+};
+
+const normalizeIsoPromiseDate = (value = '') => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return '';
+
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const buildLocalDate = (year, monthIndex, day) => new Date(year, monthIndex, day, 12, 0, 0, 0);
+
+const formatLocalDateIso = (date) => {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const addDays = (date, days) => {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+};
+
+const parsePromiseDateFromDescription = (description = '', referenceDate = new Date()) => {
+  const text = String(description || '').trim();
+  const lower = text.toLowerCase();
+  if (!lower) return '';
+
+  const isoMatch = lower.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+  if (isoMatch) return isoMatch[1];
+
+  const slashMatch = lower.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/);
+  if (slashMatch) {
+    const month = Number(slashMatch[1]) - 1;
+    const day = Number(slashMatch[2]);
+    let year = Number(slashMatch[3] || referenceDate.getFullYear());
+    if (year < 100) year += 2000;
+    const parsed = buildLocalDate(year, month, day);
+    return formatLocalDateIso(parsed);
+  }
+
+  const monthNameMatch = lower.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})(?:st|nd|rd|th)?(?:,\s*(\d{4}))?\b/);
+  if (monthNameMatch) {
+    const monthIndex = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'].indexOf(monthNameMatch[1]);
+    const day = Number(monthNameMatch[2]);
+    const year = Number(monthNameMatch[3] || referenceDate.getFullYear());
+    return formatLocalDateIso(buildLocalDate(year, monthIndex, day));
+  }
+
+  if (/\bdue\s+today\b|\btoday\b/.test(lower)) {
+    return formatLocalDateIso(referenceDate);
+  }
+
+  if (/\bdue\s+tomorrow\b|\btomorrow\b/.test(lower)) {
+    return formatLocalDateIso(addDays(referenceDate, 1));
+  }
+
+  const weekdayMatch = lower.match(/\b(?:due|by|on|for)?\s*(next|this)?\s*(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/);
+  if (weekdayMatch) {
+    const weekdayMap = {
+      sunday: 0,
+      monday: 1,
+      tuesday: 2,
+      wednesday: 3,
+      thursday: 4,
+      friday: 5,
+      saturday: 6
+    };
+    const modifier = weekdayMatch[1] || '';
+    const targetDay = weekdayMap[weekdayMatch[2]];
+    const currentDay = referenceDate.getDay();
+    let delta = (targetDay - currentDay + 7) % 7;
+
+    if (modifier === 'next') {
+      delta = delta === 0 ? 7 : delta;
+    } else if (!modifier) {
+      delta = delta === 0 ? 0 : delta;
+    }
+
+    return formatLocalDateIso(addDays(referenceDate, delta));
+  }
+
+  return '';
+};
+
+const getRingSizeDelta = (currentRingSize = '', desiredRingSize = '') => {
+  const current = Number(currentRingSize);
+  const desired = Number(desiredRingSize);
+  if (!Number.isFinite(current) || !Number.isFinite(desired)) return 0;
+  return Math.round((desired - current) * 100) / 100;
+};
+
+const getAdditionalSizingMaterialQuantity = (currentRingSize = '', desiredRingSize = '') => {
+  const delta = getRingSizeDelta(currentRingSize, desiredRingSize);
+  if (delta <= 1) return 0;
+  return Math.round((delta - 1) * 2) / 2;
+};
+
+const inferMaterialHintsFromSmartIntake = ({
+  inputText = '',
+  isRing = false,
+  currentRingSize = '',
+  desiredRingSize = ''
+} = {}) => {
+  const normalizedText = String(inputText || '').toLowerCase();
+  const extraSizingMaterialQty = getAdditionalSizingMaterialQuantity(currentRingSize, desiredRingSize);
+
+  if (!isRing || extraSizingMaterialQty <= 0) {
+    return [];
+  }
+
+  if (!/(size\s*up|sizing\s*up|resize|re-?size|sizing)/.test(normalizedText)) {
+    return [];
+  }
+
+  return [{
+    type: 'sizing_material',
+    quantity: extraSizingMaterialQty,
+    reason: `Ring is sizing up beyond the first included size (${currentRingSize} to ${desiredRingSize}).`
+  }];
 };
 
 // Disambiguate conflicting sizing tasks (Size Up vs Size Down) based on ring sizes or input text
@@ -577,13 +840,9 @@ const applyWholesalerRetailAdjustments = (paidPrice = 0, wholesalerPricingSettin
     toNumber(wholesalerPricingSettings?.retailMarkupMultiplier, DEFAULT_WHOLESALER_PRICING_SETTINGS.retailMarkupMultiplier),
     0.5
   );
-  const taxRate = Math.min(
-    Math.max(toNumber(wholesalerPricingSettings?.taxRate, DEFAULT_WHOLESALER_PRICING_SETTINGS.taxRate), 0),
-    0.25
-  );
 
-  const markedUpPrice = basePaidPrice * markupMultiplier;
-  return Math.round(markedUpPrice * (1 + taxRate) * 100) / 100;
+  // Retail line prices must stay pre-tax. Tax is applied at the receipt/total level.
+  return Math.round(basePaidPrice * markupMultiplier * 100) / 100;
 };
 
 const resolveMaterialRawPortionBaseCost = (material = {}, metalType = '', karat = '', goldColor = '') => {
@@ -622,37 +881,8 @@ const resolveMaterialRetailPrice = (material = {}, metalType = '', karat = '', g
   return resolveMaterialBasePrice(material, metalType, karat, goldColor);
 };
 
-const resolveProcessRetailPrice = (process = {}, metalType = '', karat = '', goldColor = '', adminSettings = {}) => {
-  const pricing = process?.pricing || {};
-  const baseMaterialsCost = toNumber(
-    pricing?.weightedBaseMaterialsCost ?? pricing?.baseMaterialsCost ?? pricing?.materialsCost
-  );
-  const laborCost = toNumber(
-    pricing?.weightedLaborCost ?? pricing?.laborCost
-  );
 
-  if (baseMaterialsCost > 0 || laborCost > 0) {
-    return calculateRetailFromBaseCosts(baseMaterialsCost, laborCost, adminSettings);
-  }
-
-  if (pricing?.metalPrices && typeof pricing.metalPrices === 'object') {
-    const metalEntries = Object.entries(pricing.metalPrices).map(([key, variant]) => {
-      const variantBaseMaterials = toNumber(variant?.weightedBaseMaterialsCost ?? variant?.baseMaterialsCost ?? variant?.materialsCost);
-      const variantLabor = toNumber(variant?.weightedLaborCost ?? variant?.laborCost);
-      return {
-        key,
-        price: calculateRetailFromBaseCosts(variantBaseMaterials, variantLabor, adminSettings)
-      };
-    });
-
-    const variantRetail = pickBestContextualPrice(metalEntries, metalType, karat, goldColor);
-    if (variantRetail > 0) return variantRetail;
-  }
-
-  return toNumber(pricing?.totalCost ?? process?.basePrice ?? process?.price);
-};
-
-// Wholesale price resolvers — use stored wholesalePrice on tasks; baseCost × wholesaleMarkup for processes/materials
+// Wholesale price resolvers use stored wholesalePrice on tasks; baseCost × wholesaleMarkup for materials
 const getUniversalVariantWholesalePrice = (pricingMap = {}, metalType = '', karat = '', goldColor = '') => {
   if (!pricingMap || typeof pricingMap !== 'object') return 0;
   const normalizedMetal = String(metalType || '').trim().toLowerCase();
@@ -677,21 +907,6 @@ const getUniversalVariantWholesalePrice = (pricingMap = {}, metalType = '', kara
   return pickBestContextualPrice(variantEntries, metalType, karat, goldColor);
 };
 
-const resolveTaskWholesalePrice = (task = {}, metalType = '', karat = '', goldColor = '') => {
-  const universalWholesale = getUniversalVariantWholesalePrice(task.universalPricing, metalType, karat, goldColor);
-  if (universalWholesale > 0) return universalWholesale;
-  const candidates = [
-    task.wholesalePrice,
-    task.pricing?.wholesalePrice,
-    task.pricing?.universal?.wholesalePrice,
-  ];
-  for (const candidate of candidates) {
-    const numeric = toNumber(candidate);
-    if (numeric > 0) return numeric;
-  }
-  return 0;
-};
-
 const resolveMaterialWholesalePrice = (material = {}, metalType = '', karat = '', goldColor = '', adminSettings = {}) => {
   const rawBaseCost = resolveMaterialRawPortionBaseCost(material, metalType, karat, goldColor);
   if (rawBaseCost > 0) {
@@ -701,32 +916,12 @@ const resolveMaterialWholesalePrice = (material = {}, metalType = '', karat = ''
   return 0;
 };
 
-const resolveProcessWholesalePrice = (process = {}, metalType = '', karat = '', goldColor = '', adminSettings = {}) => {
-  const pricing = process?.pricing || {};
-  const baseMaterialsCost = toNumber(
-    pricing?.weightedBaseMaterialsCost ?? pricing?.baseMaterialsCost ?? pricing?.materialsCost
-  );
-  const laborCost = toNumber(pricing?.weightedLaborCost ?? pricing?.laborCost);
-  if (baseMaterialsCost > 0 || laborCost > 0) {
-    const { wholesaleMarkup } = normalizePricingSettings(adminSettings);
-    return Math.round((baseMaterialsCost + laborCost) * wholesaleMarkup * 100) / 100;
-  }
-  if (pricing?.metalPrices && typeof pricing.metalPrices === 'object') {
-    const { wholesaleMarkup } = normalizePricingSettings(adminSettings);
-    const metalEntries = Object.entries(pricing.metalPrices).map(([key, variant]) => {
-      const variantBase = toNumber(variant?.weightedBaseMaterialsCost ?? variant?.baseMaterialsCost ?? variant?.materialsCost);
-      const variantLabor = toNumber(variant?.weightedLaborCost ?? variant?.laborCost);
-      return { key, price: Math.round((variantBase + variantLabor) * wholesaleMarkup * 100) / 100 };
-    });
-    const variantWholesale = pickBestContextualPrice(metalEntries, metalType, karat, goldColor);
-    if (variantWholesale > 0) return variantWholesale;
-  }
-  return 0;
-};
 
 export default function NewRepairForm({ 
   onSubmit, 
   initialData = null,
+  submitMode = 'create',
+  repairID = null,
   clientInfo = null,
   isWholesale = false,
   onWholesaleChange = null,
@@ -767,7 +962,6 @@ export default function NewRepairForm({
     
     // Repair items
     tasks: [],
-    processes: [],
     materials: [],
     customLineItems: [],
     
@@ -806,7 +1000,6 @@ export default function NewRepairForm({
   
   // Data lists
   const [availableTasks, setAvailableTasks] = useState([]);
-  const [availableProcesses, setAvailableProcesses] = useState([]);
   const [availableMaterials, setAvailableMaterials] = useState([]);
   const [availableUsers, setAvailableUsers] = useState([]);
   const adminUsersRef = useRef([]); // Store admin client list for restoring after wholesale switch
@@ -830,6 +1023,7 @@ export default function NewRepairForm({
   const [stullerSku, setStullerSku] = useState('');
   const [loadingStuller, setLoadingStuller] = useState(false);
   const [stullerError, setStullerError] = useState('');
+  const [picturePreviewUrl, setPicturePreviewUrl] = useState('');
 
   // Admin settings for pricing display
   const [adminSettings, setAdminSettings] = useState({
@@ -883,7 +1077,7 @@ export default function NewRepairForm({
       }
 
       try {
-        const settings = await wholesaleAccountSettingsAPIClient.fetchSettings();
+        const settings = await wholesaleAccountSettingsAPIClient.fetchSettings(wholesalerStoreId);
         setWholesalerPricingSettings(normalizeWholesalerPricingSettings(settings || {}));
         
         // Use business name from account settings as the store name
@@ -905,14 +1099,74 @@ export default function NewRepairForm({
     };
 
     loadWholesalerAccountSettings();
-  }, [isWholesale]);
+  }, [isWholesale, wholesalerStoreId]);
   
   // Load initial data
   useEffect(() => {
     if (initialData) {
-      setFormData(prev => ({ ...prev, ...initialData }));
+      const { processes, ...safeInitialData } = initialData;
+      const normalizedMetalType = String(safeInitialData.metalType || '').toLowerCase();
+      const inferredMetalType =
+        normalizedMetalType.includes('gold') ? 'gold' :
+        normalizedMetalType.includes('silver') ? 'silver' :
+        normalizedMetalType.includes('platinum') ? 'platinum' :
+        safeInitialData.metalType || '';
+      const inferredKarat =
+        safeInitialData.karat ||
+        (normalizedMetalType.match(/\b(10k|14k|18k|22k|925|950|999)\b/) || [])[1] ||
+        '';
+      const inferredGoldColor =
+        safeInitialData.goldColor ||
+        (String(safeInitialData.baseMetal || '').includes('yellow') ? 'yellow' :
+          String(safeInitialData.baseMetal || '').includes('white') ? 'white' :
+          String(safeInitialData.baseMetal || '').includes('rose') ? 'rose' :
+          safeInitialData.tasks?.find((task) => String(task?.baseMetal || '').includes('yellow')) ? 'yellow' :
+          safeInitialData.tasks?.find((task) => String(task?.baseMetal || '').includes('white')) ? 'white' :
+          safeInitialData.tasks?.find((task) => String(task?.baseMetal || '').includes('rose')) ? 'rose' :
+          safeInitialData.materials?.flatMap((material) => material?.stullerProducts || []).find((product) => String(product?.metalType || '').includes('yellow')) ? 'yellow' :
+          safeInitialData.materials?.flatMap((material) => material?.stullerProducts || []).find((product) => String(product?.metalType || '').includes('white')) ? 'white' :
+          safeInitialData.materials?.flatMap((material) => material?.stullerProducts || []).find((product) => String(product?.metalType || '').includes('rose')) ? 'rose' :
+          '');
+      const inferredStoreId =
+        safeInitialData.storeId ||
+        (safeInitialData.isWholesale ? (safeInitialData.submittedBy || safeInitialData.createdBy || 'my-wholesale-store') : 'engel-fine-design');
+      const inferredStoreName =
+        safeInitialData.storeName ||
+        safeInitialData.businessName ||
+        (safeInitialData.isWholesale ? 'Wholesale Store' : 'Engel Fine Design');
+
+      setFormData(prev => ({
+        ...prev,
+        ...safeInitialData,
+        metalType: inferredMetalType,
+        karat: inferredKarat,
+        goldColor: inferredMetalType === 'gold' ? inferredGoldColor : '',
+        storeId: inferredStoreId,
+        storeName: inferredStoreName
+      }));
     }
   }, [initialData]);
+
+  useEffect(() => {
+    if (!formData.picture) {
+      setPicturePreviewUrl('');
+      return undefined;
+    }
+
+    if (typeof formData.picture === 'string') {
+      setPicturePreviewUrl(formData.picture);
+      return undefined;
+    }
+
+    if (formData.picture instanceof Blob) {
+      const objectUrl = URL.createObjectURL(formData.picture);
+      setPicturePreviewUrl(objectUrl);
+      return () => URL.revokeObjectURL(objectUrl);
+    }
+
+    setPicturePreviewUrl('');
+    return undefined;
+  }, [formData.picture]);
 
   // Handle client info and set wholesale status
   useEffect(() => {
@@ -920,7 +1174,7 @@ export default function NewRepairForm({
       const clientName = clientInfo.name || `${clientInfo.firstName || ''} ${clientInfo.lastName || ''}`.trim();
       const isClientWholesale = !!formData.isWholesale;
       
-      console.log('🔍 Client info detected:', { 
+      console.log('Ã°Å¸â€Â Client info detected:', { 
         clientName, 
         role: clientInfo.role, 
         isWholesale: isClientWholesale,
@@ -935,7 +1189,7 @@ export default function NewRepairForm({
       }));
 
       // Trigger price recalculation if wholesale status changed
-      console.log('💰 Client wholesale status detected:', isClientWholesale);
+      console.log('Ã°Å¸â€™Â° Client wholesale status detected:', isClientWholesale);
       // Use a timeout to avoid dependency loop
       setTimeout(() => {
         recalculateAllItemPrices(isClientWholesale);
@@ -947,21 +1201,19 @@ export default function NewRepairForm({
   useEffect(() => {
     const loadData = async () => {
       try {
-        console.log('🔄 Loading repair form data...');
+        console.log('Ã°Å¸â€â€ž Loading repair form data...');
         
         // For wholesalers, load their clients and item catalogs
         if (isWholesale) {
-          console.log('👤 Wholesale mode: Loading wholesaler clients and item catalogs...');
-          const [users, tasks, processes, materials] = await Promise.all([
+          console.log('Ã°Å¸â€˜Â¤ Wholesale mode: Loading wholesaler clients and item catalogs...');
+          const [users, tasks, materials] = await Promise.all([
             wholesaleClientsAPIClient.fetchMyClients(),
             tasksService.getTasks(),
-            processesService.getProcesses(),
             materialsService.getMaterials()
           ]);
           const usersData = users?.data || [];
           setAvailableUsers(usersData);
           setAvailableTasks(tasks?.data || tasks || []);
-          setAvailableProcesses(processes?.data || processes || []);
           setAvailableMaterials(materials?.data || materials || []);
           const resolvedStoreId = wholesalerStoreId || 'my-wholesale-store';
           const resolvedStoreName = wholesalerBusinessNameRef.current || wholesalerStoreName || 'My Wholesale Store';
@@ -981,12 +1233,11 @@ export default function NewRepairForm({
             // Don't overwrite storeName if account settings already set it
             storeName: wholesalerBusinessNameRef.current || prev.storeName || resolvedStoreName
           }));
-          console.log('✅ Wholesale clients and item catalogs loaded');
+          console.log('Ã¢Å“â€¦ Wholesale clients and item catalogs loaded');
         } else {
-          console.log('🔧 Admin mode: Loading all data...');
-          const [tasks, processes, materials, users, wholesalers] = await Promise.all([
+          console.log('Ã°Å¸â€Â§ Admin mode: Loading all data...');
+          const [tasks, materials, users, wholesalers] = await Promise.all([
             tasksService.getTasks(),
-            processesService.getProcesses(),
             materialsService.getMaterials(),
             UsersService.getAllUsers(),
             fetch('/api/users?role=wholesaler').then((res) => res.ok ? res.json() : { data: [] }),
@@ -994,13 +1245,11 @@ export default function NewRepairForm({
             // fetch('/api/rush-jobs?action=canCreate').then(res => res.json())
           ]);
           
-          console.log('📋 Tasks loaded:', tasks);
-          console.log('⚙️ Processes loaded:', processes);
-          console.log('📦 Materials loaded:', materials);
-          console.log('👥 Users loaded:', users);
+          console.log('Ã°Å¸â€œâ€¹ Tasks loaded:', tasks);
+          console.log('Ã°Å¸â€œÂ¦ Materials loaded:', materials);
+          console.log('Ã°Å¸â€˜Â¥ Users loaded:', users);
           
           setAvailableTasks(tasks.data || tasks || []);
-          setAvailableProcesses(processes.data || processes || []);
           setAvailableMaterials(materials.data || materials || []);
           
           const usersData = users?.users || users?.data || users || [];
@@ -1034,7 +1283,7 @@ export default function NewRepairForm({
               isWholesale: false
             };
           });
-          console.log('✅ Admin data loading completed');
+          console.log('Ã¢Å“â€¦ Admin data loading completed');
         }
         
         // Rush job functionality (same for both modes)
@@ -1044,7 +1293,7 @@ export default function NewRepairForm({
           maxRushJobs: 10
         });
       } catch (error) {
-        console.error('❌ Error loading data:', error);
+        console.error('Ã¢ÂÅ’ Error loading data:', error);
         console.error('Error details:', error.message, error.stack);
         setRushJobInfo({
           canCreate: true,
@@ -1056,31 +1305,57 @@ export default function NewRepairForm({
     
     loadData();
   }, [isWholesale, wholesalerStoreId, wholesalerStoreName]); // Re-run when wholesaler store info resolves
-
-  // Live price helpers — fall back to PricingEngine when stored prices are absent (post-refactor tasks/processes)
-  const computeTaskRetailPrice = (task, metalType, karat) => {
-    const stored = resolveTaskBasePrice(task, metalType, karat, '');
-    if (stored > 0) return stored;
+  // Live price helpers use PricingEngine directly so repair pricing stays calculated from current cost inputs.
+  const computeTaskPricing = (task, metalType, karat, goldColor = '') => {
     try {
-      const result = pricingEngine.calculateTaskCost(
-        task, adminSettings, availableProcesses, availableMaterials,
-        metalType && karat ? { metalType, karat } : null
+      return pricingEngine.calculateTaskCost(
+        task,
+        adminSettings,
+        [],
+        availableMaterials,
+        metalType && karat ? { metalType, karat, goldColor } : null
       );
-      return result?.retailPrice || 0;
-    } catch { return 0; }
+    } catch {
+      return null;
+    }
   };
 
-  const computeProcessRetailPrice = (process, metalType, karat) => {
-    const stored = resolveProcessRetailPrice(process, metalType, karat, '', adminSettings);
-    if (stored > 0) return stored;
-    try {
-      const result = pricingEngine.calculateProcessCost(process, adminSettings);
-      if (result.isMetalDependent && metalType && karat) {
-        const key = `${metalType}_${karat}`.toLowerCase().replace(/[^a-z0-9]/g, '_');
-        return result.metalPrices?.[key]?.totalCost || result.totalCost || 0;
-      }
-      return result.totalCost || 0;
-    } catch { return 0; }
+  const computeTaskRetailPrice = (task, metalType, karat, goldColor = '') => {
+    const livePricing = computeTaskPricing(task, metalType, karat, goldColor);
+    if (livePricing?.retailPrice > 0) return livePricing.retailPrice;
+    const pricingRetail = toNumber(task?.pricing?.retailPrice);
+    if (pricingRetail > 0) return pricingRetail;
+
+    const stored = resolveTaskBasePrice(task, metalType, karat, '');
+    return stored > 0 ? stored : 0;
+  };
+
+  const computeTaskWholesalePrice = (task, metalType, karat, goldColor = '') => {
+    const livePricing = computeTaskPricing(task, metalType, karat, goldColor);
+    if (livePricing?.wholesalePrice > 0) return livePricing.wholesalePrice;
+
+    const pricing = task?.pricing || {};
+    const fallbackBaseCost = toNumber(
+      pricing.baseCost ??
+      (
+        toNumber(pricing.laborCost) +
+        toNumber(
+          pricing.totalMaterialCost ??
+          pricing.totalMaterialsCost ??
+          pricing.totalProcessMaterialCost ??
+          pricing.markedUpMaterialCost ??
+          pricing.materialsCost
+        ) +
+        toNumber(pricing.toolDepreciationCost)
+      )
+    );
+    if (fallbackBaseCost > 0) {
+      const { wholesaleMarkup } = normalizePricingSettings(adminSettings);
+      return Math.round(fallbackBaseCost * wholesaleMarkup * 100) / 100;
+    }
+
+    const universalWholesale = getUniversalVariantWholesalePrice(task.universalPricing, metalType, karat, goldColor);
+    return universalWholesale > 0 ? universalWholesale : 0;
   };
 
   const buildTaskItemsFromInferred = useCallback((tasks = [], previousForm) => {
@@ -1093,8 +1368,9 @@ export default function NewRepairForm({
     const nextGoldColor = previousForm?.goldColor || '';
 
     return tasks.map((task, index) => {
-      const baseRetailPrice = computeTaskRetailPrice(task, nextMetalType, nextKarat);
-      const wholesalePrice = resolveTaskWholesalePrice(task, nextMetalType, nextKarat, nextGoldColor);
+      const livePricing = computeTaskPricing(task, nextMetalType, nextKarat, nextGoldColor);
+      const baseRetailPrice = livePricing?.retailPrice || computeTaskRetailPrice(task, nextMetalType, nextKarat, nextGoldColor);
+      const wholesalePrice = livePricing?.wholesalePrice || computeTaskWholesalePrice(task, nextMetalType, nextKarat, nextGoldColor);
       const paidPrice = previousForm.isWholesale ? (wholesalePrice > 0 ? wholesalePrice : baseRetailPrice) : baseRetailPrice;
       const retailPrice = previousForm.isWholesale
         ? applyWholesalerRetailAdjustments(paidPrice, wholesalerPricingSettings)
@@ -1104,11 +1380,102 @@ export default function NewRepairForm({
         ...task,
         id: Date.now() + index,
         quantity: 1,
+        pricing: livePricing ? { ...(task.pricing || {}), ...livePricing, liveCalculated: true } : task.pricing,
         retailPrice,
         price: paidPrice
       };
     });
   }, [wholesalerPricingSettings]);
+
+  const buildMaterialItemsFromInferred = useCallback((materialHints = [], previousForm) => {
+    if (!Array.isArray(materialHints) || materialHints.length === 0 || !Array.isArray(availableMaterials) || availableMaterials.length === 0) {
+      return [];
+    }
+
+    const nextMetalType = previousForm?.metalType || '';
+    const nextKarat = previousForm?.karat || '';
+    const nextGoldColor = previousForm?.goldColor || '';
+
+    const scoreMaterialForHint = (material, hintType) => {
+      const searchText = [
+        material?.name,
+        material?.displayName,
+        material?.description,
+        material?.category,
+        material?.metalType,
+        material?.karat,
+        material?.sku,
+        ...(Array.isArray(material?.stullerProducts)
+          ? material.stullerProducts.flatMap((product) => [
+              product?.description,
+              product?.metalType,
+              product?.karat,
+              product?.itemNumber
+            ])
+          : [])
+      ].filter(Boolean).join(' ').toLowerCase();
+
+      let score = 0;
+
+      if (hintType === 'sizing_material') {
+        if (String(material?.category || '').toLowerCase() === 'sizing_material') score += 100;
+        if (searchText.includes('sizing stock')) score += 60;
+        if (searchText.includes('sizing')) score += 25;
+        if (searchText.includes('stock')) score += 10;
+      }
+
+      const context = keyMatchesContext(searchText, nextMetalType, nextKarat, nextGoldColor);
+      if (context.hasMetal) score += 20;
+      if (context.hasKarat) score += 10;
+      if (context.hasExactContext) score += 25;
+
+      return score;
+    };
+
+    return materialHints.map((hint, index) => {
+      const normalizedHintType = String(hint?.type || '').trim().toLowerCase();
+      const quantity = Math.max(Number(hint?.quantity || 0), 0);
+      if (!normalizedHintType || quantity <= 0) return null;
+
+      const matchedMaterial = [...availableMaterials]
+        .map((material) => ({ material, score: scoreMaterialForHint(material, normalizedHintType) }))
+        .filter((entry) => entry.score > 0)
+        .sort((a, b) => b.score - a.score)[0]?.material;
+
+      if (!matchedMaterial) return null;
+
+      const baseRetailPrice = resolveMaterialRetailPrice(
+        matchedMaterial,
+        nextMetalType,
+        nextKarat,
+        nextGoldColor,
+        adminSettings
+      );
+      const wholesalePrice = resolveMaterialWholesalePrice(
+        matchedMaterial,
+        nextMetalType,
+        nextKarat,
+        nextGoldColor,
+        adminSettings
+      );
+      const paidPrice = previousForm.isWholesale
+        ? (wholesalePrice > 0 ? wholesalePrice : baseRetailPrice)
+        : baseRetailPrice;
+      const retailPrice = previousForm.isWholesale
+        ? applyWholesalerRetailAdjustments(paidPrice, wholesalerPricingSettings)
+        : baseRetailPrice;
+
+      return {
+        ...matchedMaterial,
+        id: Date.now() + index,
+        quantity,
+        retailPrice,
+        price: paidPrice,
+        _smartIntakeHintType: normalizedHintType,
+        _smartIntakeReason: hint?.reason || ''
+      };
+    }).filter(Boolean);
+  }, [adminSettings, availableMaterials, wholesalerPricingSettings]);
 
   const applySmartIntakeResults = useCallback((results = {}) => {
     setFormData((prev) => {
@@ -1141,6 +1508,13 @@ export default function NewRepairForm({
         updates.desiredRingSize = normalizeRingSizeValue(results.desiredRingSize);
       }
 
+      if (results.promiseDate && !String(prev.promiseDate || '').trim()) {
+        const normalizedPromiseDate = normalizeIsoPromiseDate(results.promiseDate);
+        if (normalizedPromiseDate) {
+          updates.promiseDate = normalizedPromiseDate;
+        }
+      }
+
       if (Array.isArray(results.inferredTasks) && results.inferredTasks.length > 0 && (!prev.tasks || prev.tasks.length === 0)) {
         const inferredTaskItems = buildTaskItemsFromInferred(results.inferredTasks, {
           ...prev,
@@ -1151,9 +1525,44 @@ export default function NewRepairForm({
         }
       }
 
+      if (Array.isArray(results.materialHints) && results.materialHints.length > 0) {
+        const inferredMaterialItems = buildMaterialItemsFromInferred(results.materialHints, {
+          ...prev,
+          ...updates
+        });
+
+        if (inferredMaterialItems.length > 0) {
+          const mergedMaterials = [...(prev.materials || [])];
+
+          inferredMaterialItems.forEach((item) => {
+            const matchIndex = mergedMaterials.findIndex((existing) => {
+              const sameId = existing?._id && item?._id && String(existing._id) === String(item._id);
+              const sameName = String(existing?.name || existing?.displayName || '').trim().toLowerCase()
+                === String(item?.name || item?.displayName || '').trim().toLowerCase();
+              return sameId || sameName;
+            });
+
+            if (matchIndex >= 0) {
+              const existing = mergedMaterials[matchIndex];
+              mergedMaterials[matchIndex] = {
+                ...existing,
+                quantity: Math.max(Number(existing.quantity || 0), Number(item.quantity || 0)),
+                _smartIntakeHintType: existing._smartIntakeHintType || item._smartIntakeHintType,
+                _smartIntakeReason: existing._smartIntakeReason || item._smartIntakeReason
+              };
+              return;
+            }
+
+            mergedMaterials.push(item);
+          });
+
+          updates.materials = mergedMaterials;
+        }
+      }
+
       return Object.keys(updates).length > 0 ? { ...prev, ...updates } : prev;
     });
-  }, [buildTaskItemsFromInferred]);
+  }, [buildMaterialItemsFromInferred, buildTaskItemsFromInferred]);
 
   const runRuleBasedSmartIntake = useCallback((inputText = '') => {
     const parsingText = String(inputText || '').trim();
@@ -1165,6 +1574,13 @@ export default function NewRepairForm({
     const detectedRingSizes = extractRingSizesFromDescription(parsingText);
     const inferredTasks = inferTasksFromDescription(parsingText, availableTasks);
     const isRingCategory = SIZEABLE_CATEGORIES.some((cat) => parsingText.toLowerCase().includes(cat) || parsingText.toLowerCase().includes('ring'));
+    const promiseDate = parsePromiseDateFromDescription(parsingText);
+    const materialHints = inferMaterialHintsFromSmartIntake({
+      inputText: parsingText,
+      isRing: isRingCategory,
+      currentRingSize: detectedRingSizes.currentRingSize,
+      desiredRingSize: detectedRingSizes.desiredRingSize
+    });
 
     applySmartIntakeResults({
       inputText: parsingText,
@@ -1174,6 +1590,8 @@ export default function NewRepairForm({
       goldColor: detectedMetalContext.goldColor || '',
       currentRingSize: detectedRingSizes.currentRingSize,
       desiredRingSize: detectedRingSizes.desiredRingSize,
+      promiseDate,
+      materialHints,
       inferredTasks
     });
   }, [availableTasks, applySmartIntakeResults]);
@@ -1240,6 +1658,15 @@ export default function NewRepairForm({
         goldColor: parsed.goldColor || '',
         currentRingSize: parsed.currentRingSize || '',
         desiredRingSize: parsed.desiredRingSize || '',
+        promiseDate: parsed.promiseDate || parsePromiseDateFromDescription(parsingText),
+        materialHints: Array.isArray(parsed.materialHints) && parsed.materialHints.length > 0
+          ? parsed.materialHints
+          : inferMaterialHintsFromSmartIntake({
+              inputText: parsingText,
+              isRing: typeof parsed.isRing === 'boolean' ? parsed.isRing : false,
+              currentRingSize: parsed.currentRingSize || '',
+              desiredRingSize: parsed.desiredRingSize || ''
+            }),
         inferredTasks: aiMatchedTasks
       });
     } catch (error) {
@@ -1255,7 +1682,7 @@ export default function NewRepairForm({
   useEffect(() => {
     // Only update if the prop actually changed, not the form state
     if (prevWholesaleProp.current !== isWholesale) {
-      console.log('💰 Wholesale status changed from prop:', prevWholesaleProp.current, '->', isWholesale);
+      console.log('Ã°Å¸â€™Â° Wholesale status changed from prop:', prevWholesaleProp.current, '->', isWholesale);
       prevWholesaleProp.current = isWholesale;
       setFormData(prev => ({
         ...prev,
@@ -1276,21 +1703,18 @@ export default function NewRepairForm({
 
   // Calculate total cost with admin settings
   const calculateTotalCost = useCallback(async () => {
-    console.log('🧮 CALCULATETOTALCOST START');
+    console.log('Ã°Å¸Â§Â® CALCULATETOTALCOST START');
     const tasksCost = formData.tasks.reduce((sum, item) => 
       sum + (parseFloat(item.price ?? resolveTaskBasePrice(item, formData.metalType, formData.karat, formData.goldColor)) * (item.quantity || 1)), 0);
-    const processesCost = formData.processes.reduce((sum, item) => 
-      sum + (parseFloat(item.price || item.pricing?.totalCost || 0) * (item.quantity || 1)), 0);
     const materialsCost = formData.materials.reduce((sum, item) => 
       sum + (parseFloat(item.price || item.unitCost || item.costPerPortion || 0) * (item.quantity || 1)), 0);
     const customCost = formData.customLineItems.reduce((sum, item) => 
       sum + (parseFloat(item.price || 0) * (item.quantity || 1)), 0);
     
-    let subtotal = tasksCost + processesCost + materialsCost + customCost;
+    let subtotal = tasksCost + materialsCost + customCost;
     
-    console.log('📊 CALCULATETOTALCOST - Individual Costs:', {
+    console.log('Ã°Å¸â€œÅ  CALCULATETOTALCOST - Individual Costs:', {
       tasksCost,
-      processesCost,
       materialsCost,
       customCost,
       subtotal,
@@ -1340,17 +1764,25 @@ export default function NewRepairForm({
     }
     
     return subtotal;
-  }, [formData.tasks, formData.processes, formData.materials, formData.customLineItems, formData.isWholesale, formData.isRush, formData.includeDelivery, formData.includeTax, formData.metalType, formData.karat, formData.goldColor]);
+  }, [formData.tasks, formData.materials, formData.customLineItems, formData.isWholesale, formData.isRush, formData.includeDelivery, formData.includeTax, formData.metalType, formData.karat, formData.goldColor]);
 
   // Add item handlers
   const addTask = (task) => {
-    const baseRetailPrice = computeTaskRetailPrice(task, formData.metalType, formData.karat);
-    const wholesalePrice = resolveTaskWholesalePrice(task, formData.metalType, formData.karat, formData.goldColor);
+    const livePricing = computeTaskPricing(task, formData.metalType, formData.karat, formData.goldColor);
+    const baseRetailPrice = livePricing?.retailPrice || computeTaskRetailPrice(task, formData.metalType, formData.karat, formData.goldColor);
+    const wholesalePrice = livePricing?.wholesalePrice || computeTaskWholesalePrice(task, formData.metalType, formData.karat, formData.goldColor);
     const price = formData.isWholesale ? (wholesalePrice > 0 ? wholesalePrice : baseRetailPrice) : baseRetailPrice;
     const retailPrice = formData.isWholesale
       ? applyWholesalerRetailAdjustments(price, wholesalerPricingSettings)
       : baseRetailPrice;
-    const newTask = { ...task, id: Date.now(), quantity: 1, retailPrice, price };
+    const newTask = {
+      ...task,
+      id: Date.now(),
+      quantity: 1,
+      pricing: livePricing ? { ...(task.pricing || {}), ...livePricing, liveCalculated: true } : task.pricing,
+      retailPrice,
+      price
+    };
     setFormData(prev => ({
       ...prev,
       tasks: [...prev.tasks, newTask]
@@ -1389,22 +1821,19 @@ export default function NewRepairForm({
     setFormData(prev => ({
       ...prev,
       tasks: prev.tasks.map((task) => {
-        const baseRetailPrice = computeTaskRetailPrice(task, formData.metalType, formData.karat);
-        const wholesalePrice = resolveTaskWholesalePrice(task, formData.metalType, formData.karat, formData.goldColor);
+        const livePricing = computeTaskPricing(task, formData.metalType, formData.karat, formData.goldColor);
+        const baseRetailPrice = livePricing?.retailPrice || computeTaskRetailPrice(task, formData.metalType, formData.karat, formData.goldColor);
+        const wholesalePrice = livePricing?.wholesalePrice || computeTaskWholesalePrice(task, formData.metalType, formData.karat, formData.goldColor);
         const price = isWholesale ? (wholesalePrice > 0 ? wholesalePrice : baseRetailPrice) : baseRetailPrice;
         const retailPrice = isWholesale
           ? applyWholesalerRetailAdjustments(price, wholesalerPricingSettings)
           : baseRetailPrice;
-        return { ...task, retailPrice, price };
-      }),
-      processes: prev.processes.map((process) => {
-        const baseRetailPrice = computeProcessRetailPrice(process, formData.metalType, formData.karat);
-        const wholesalePrice = resolveProcessWholesalePrice(process, formData.metalType, formData.karat, formData.goldColor, adminSettings);
-        const price = isWholesale ? (wholesalePrice > 0 ? wholesalePrice : baseRetailPrice) : baseRetailPrice;
-        const retailPrice = isWholesale
-          ? applyWholesalerRetailAdjustments(price, wholesalerPricingSettings)
-          : baseRetailPrice;
-        return { ...process, retailPrice, price };
+        return {
+          ...task,
+          pricing: livePricing ? { ...(task.pricing || {}), ...livePricing, liveCalculated: true } : task.pricing,
+          retailPrice,
+          price
+        };
       }),
       materials: prev.materials.map((material) => {
         const baseRetailPrice = resolveMaterialRetailPrice(material, formData.metalType, formData.karat, formData.goldColor, adminSettings);
@@ -1425,7 +1854,7 @@ export default function NewRepairForm({
   }, [formData.metalType, formData.karat, formData.goldColor]);
 
   useEffect(() => {
-    if (formData.isWholesale && (formData.tasks.length > 0 || formData.processes.length > 0 || formData.materials.length > 0)) {
+    if (formData.isWholesale && (formData.tasks.length > 0 || formData.materials.length > 0)) {
       recalculateAllItemPrices(true);
     }
   }, [wholesalerPricingSettings]);
@@ -1573,7 +2002,6 @@ export default function NewRepairForm({
       let totalCost = 0;
       let subtotal = 0;
       let tasksCost = 0;
-      let processesCost = 0;
       let materialsCost = 0;
       let customCost = 0;
       
@@ -1584,18 +2012,16 @@ export default function NewRepairForm({
         // Calculate pricing breakdown properly
         tasksCost = formData.tasks.reduce((sum, item) => 
           sum + (parseFloat(item.price ?? resolveTaskBasePrice(item, formData.metalType, formData.karat, formData.goldColor)) * (item.quantity || 1)), 0);
-        processesCost = formData.processes.reduce((sum, item) => 
-          sum + (parseFloat(item.price || item.pricing?.totalCost || 0) * (item.quantity || 1)), 0);
         materialsCost = formData.materials.reduce((sum, item) => 
           sum + (parseFloat(item.price || item.unitCost || item.costPerPortion || 0) * (item.quantity || 1)), 0);
         customCost = formData.customLineItems.reduce((sum, item) => 
           sum + (parseFloat(item.price || 0) * (item.quantity || 1)), 0);
         
         // Base subtotal (individual item prices are already wholesale-discounted if applicable)
-        subtotal = tasksCost + processesCost + materialsCost + customCost;
+        subtotal = tasksCost + materialsCost + customCost;
       } else {
         // For wholesalers, pricing will be determined by admin later
-        console.log('👤 Wholesaler submission: Pricing to be determined by admin');
+        console.log('Ã°Å¸â€˜Â¤ Wholesaler submission: Pricing to be determined by admin');
         totalCost = 0;
         subtotal = 0;
       }
@@ -1616,10 +2042,10 @@ export default function NewRepairForm({
         taxableAmount * (adminSettings.taxRate || 0.0875) : 0;
 
       // Add comprehensive logging
-      console.log('🔍 PRICING BREAKDOWN DEBUG:');
-      console.log('📊 Base Costs (individual prices already wholesale-adjusted):', { tasksCost, processesCost, materialsCost, customCost, subtotal });
-      console.log('💰 Calculated Values:', { subtotal, rushFee, deliveryFee, taxAmount, totalCost });
-      console.log('⚙️ Settings:', { 
+      console.log('Ã°Å¸â€Â PRICING BREAKDOWN DEBUG:');
+      console.log('Ã°Å¸â€œÅ  Base Costs (individual prices already wholesale-adjusted):', { tasksCost, materialsCost, customCost, subtotal });
+      console.log('Ã°Å¸â€™Â° Calculated Values:', { subtotal, rushFee, deliveryFee, taxAmount, totalCost });
+      console.log('Ã¢Å¡â„¢Ã¯Â¸Â Settings:', { 
         isWholesale: formData.isWholesale,
         isRush: formData.isRush, 
         includeDelivery: formData.includeDelivery,
@@ -1628,8 +2054,9 @@ export default function NewRepairForm({
         rushMultiplier: adminSettings.rushMultiplier 
       });
       
+      const { processes, ...sanitizedFormData } = formData;
       const submissionData = {
-        ...formData,
+        ...sanitizedFormData,
         // For wholesalers, set a placeholder promise date if none provided (admin will update it)
         promiseDate: formData.isWholesale && !formData.promiseDate 
           ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 7 days from now
@@ -1650,13 +2077,13 @@ export default function NewRepairForm({
         storeId: formData.storeId || 'engel-fine-design',
         storeName: formData.storeName || 'Engel Fine Design',
         
-        createdAt: new Date().toISOString(),
+        createdAt: initialData?.createdAt || new Date().toISOString(),
         status: 'RECEIVING' // Use legacy status for compatibility
       };
 
       // Add comprehensive logging for submission
-      console.log('📤 SUBMISSION DATA DEBUG:');
-      console.log('🔢 Pricing Fields in Submission:', {
+      console.log('Ã°Å¸â€œÂ¤ SUBMISSION DATA DEBUG:');
+      console.log('Ã°Å¸â€Â¢ Pricing Fields in Submission:', {
         totalCost: submissionData.totalCost,
         subtotal: submissionData.subtotal,
         rushFee: submissionData.rushFee,
@@ -1664,24 +2091,27 @@ export default function NewRepairForm({
         taxAmount: submissionData.taxAmount,
         taxRate: submissionData.taxRate
       });
-      console.log('🎛️ Flags in Submission:', {
+      console.log('Ã°Å¸Å½â€ºÃ¯Â¸Â Flags in Submission:', {
         isWholesale: submissionData.isWholesale,
         includeDelivery: submissionData.includeDelivery,
         includeTax: submissionData.includeTax,
         isRush: submissionData.isRush
       });
-      console.log('📋 Full Submission Object:', submissionData);
+      console.log('Ã°Å¸â€œâ€¹ Full Submission Object:', submissionData);
 
-      // Submit the repair
-      const result = await RepairsService.createRepair(submissionData);
+      const result = submitMode === 'edit' && repairID
+        ? await RepairsService.updateRepair(repairID, submissionData)
+        : await RepairsService.createRepair(submissionData);
       
-      // ✅ Add the new repair to the repairs context immediately
-      if (result && (result.repairID || result.newRepair?.repairID)) {
-        const repairToAdd = result.newRepair || result;
-        console.log('📝 Adding new repair to context:', repairToAdd.repairID);
-        addRepair(repairToAdd);
-      } else {
-        console.warn('⚠️  Could not add repair to context - no repairID found in result:', result);
+      if (submitMode !== 'edit') {
+        // Add the new repair to the repairs context immediately
+        if (result && (result.repairID || result.newRepair?.repairID)) {
+          const repairToAdd = result.newRepair || result;
+          console.log('Adding new repair to context:', repairToAdd.repairID);
+          addRepair(repairToAdd);
+        } else {
+          console.warn('Could not add repair to context - no repairID found in result:', result);
+        }
       }
       
       onSubmit(result);
@@ -1710,7 +2140,7 @@ export default function NewRepairForm({
   const handleAddNewClient = async () => {
     setNewClientLoading(true);
     try {
-      console.log('🔄 Creating new client:', newClientData);
+      console.log('Ã°Å¸â€â€ž Creating new client:', newClientData);
       
       const clientToCreate = {
         firstName: newClientData.firstName.trim(),
@@ -1719,7 +2149,7 @@ export default function NewRepairForm({
         phoneNumber: newClientData.phone.trim() || ''
       };
 
-      console.log('📤 Sending client creation request:', clientToCreate);
+      console.log('Ã°Å¸â€œÂ¤ Sending client creation request:', clientToCreate);
 
       // Determine if we're creating for a wholesale store
       const isCreatingForWholesale = formData.isWholesale;
@@ -1743,12 +2173,12 @@ export default function NewRepairForm({
 
       const createdClient = createdClientResponse?.data || createdClientResponse.user || createdClientResponse;
       
-      console.log('✅ Created client response:', createdClientResponse);
-      console.log('✅ Created client data:', createdClient);
+      console.log('Ã¢Å“â€¦ Created client response:', createdClientResponse);
+      console.log('Ã¢Å“â€¦ Created client data:', createdClient);
       
       // Check if client is wholesale
       const isWholesaleClient = !!formData.isWholesale;
-      console.log('💰 New client wholesale status:', isWholesaleClient);
+      console.log('Ã°Å¸â€™Â° New client wholesale status:', isWholesaleClient);
       
       // Add to available users list
       setAvailableUsers(prev => [...prev, createdClient]);
@@ -1783,10 +2213,10 @@ export default function NewRepairForm({
       });
       setShowNewClientDialog(false);
 
-      console.log('🎉 New client created and selected successfully');
+      console.log('Ã°Å¸Å½â€° New client created and selected successfully');
       
     } catch (error) {
-      console.error('❌ Error creating new client:', error);
+      console.error('Ã¢ÂÅ’ Error creating new client:', error);
       alert('Failed to create new client: ' + (error.message || 'Unknown error'));
     } finally {
       setNewClientLoading(false);
@@ -1848,11 +2278,11 @@ export default function NewRepairForm({
     <Box sx={{ 
       maxWidth: 1000, 
       mx: 'auto',
-      px: { xs: 0.5, sm: 2 },
+      px: 0,
       pb: { xs: 10, sm: 2 }
     }}>
       {errors.submit && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2, backgroundColor: UI.bgPanel, border: '1px solid', borderColor: UI.border, color: UI.textPrimary }}>
           {errors.submit}
         </Alert>
       )}
@@ -1860,10 +2290,7 @@ export default function NewRepairForm({
       <Stack spacing={{ xs: 1.5, sm: 3 }}>
 
         {/* Client Information */}
-        <Box sx={{ px: { xs: 2, sm: 0 } }}>
-          <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, display: 'block', mb: 1.5, lineHeight: 1 }}>
-            Client Information
-          </Typography>
+        <FormSection title="Client Information">
           <Grid container spacing={{ xs: 1.5, sm: 2 }}>
               {isWholesale ? (
               <Grid item xs={12}>
@@ -1881,6 +2308,7 @@ export default function NewRepairForm({
                 <FormControl fullWidth size="small">
                   <InputLabel>Store</InputLabel>
                   <Select
+                    MenuProps={selectMenuProps}
                     value={formData.storeId || 'engel-fine-design'}
                     label="Store"
                     onChange={(e) => {
@@ -1903,7 +2331,7 @@ export default function NewRepairForm({
                         setAvailableUsers([]); // Clear immediately to avoid showing stale admin clients
                         wholesaleClientsAPIClient.fetchClientsByWholesaler(nextStoreId)
                           .then((res) => {
-                            console.log('📋 Wholesale clients fetched for store:', nextStoreId, res);
+                            console.log('Ã°Å¸â€œâ€¹ Wholesale clients fetched for store:', nextStoreId, res);
                             setAvailableUsers(res?.data || []);
                           })
                           .catch((err) => {
@@ -1926,9 +2354,9 @@ export default function NewRepairForm({
                     {(availableStores || []).map((store) => (
                       <MenuItem key={store.id} value={store.id}>
                         <Stack direction="row" alignItems="center" spacing={1}>
-                          <Typography variant="body2">{store.name}</Typography>
+                          <Typography variant="body2" sx={{ color: UI.textPrimary }}>{store.name}</Typography>
                           {store.isWholesale && (
-                            <Chip label="Wholesale" size="small" color="primary" variant="outlined" />
+                              <Chip label="Wholesale" size="small" variant="outlined" sx={neutralChipSx} />
                           )}
                         </Stack>
                       </MenuItem>
@@ -1942,9 +2370,11 @@ export default function NewRepairForm({
               )}
               <Grid item xs={12}>
                 <Autocomplete
+                    disablePortal
                     freeSolo
                     size="small"
                     options={Array.isArray(availableUsers) ? availableUsers : []}
+                    slotProps={autocompleteSlotProps}
                     getOptionLabel={(option) => {
                       if (typeof option === 'string') return option;
                       if (option && typeof option === 'object') {
@@ -1987,13 +2417,13 @@ export default function NewRepairForm({
                         : null
                     }
                     onChange={(event, newValue) => {
-                      console.log('🎯 Autocomplete change:', newValue);
+                      console.log('Ã°Å¸Å½Â¯ Autocomplete change:', newValue);
                       if (newValue && typeof newValue === 'object') {
                         const clientName = newValue.name || `${newValue.firstName || ''} ${newValue.lastName || ''}`.trim() || newValue.email || '';
                         const userID = newValue._id || newValue.id || newValue.userID || newValue.clientID || '';
                         const isClientWholesale = !!formData.isWholesale;
                         
-                        console.log('👤 Selected client:', { clientName, userID, role: newValue.role, isWholesale: isClientWholesale });
+                        console.log('Ã°Å¸â€˜Â¤ Selected client:', { clientName, userID, role: newValue.role, isWholesale: isClientWholesale });
                         
                         setFormData(prev => ({ 
                           ...prev, 
@@ -2001,9 +2431,9 @@ export default function NewRepairForm({
                           userID
                         }));
 
-                        console.log('💰 Pricing mode from selected store:', isClientWholesale);
+                        console.log('Ã°Å¸â€™Â° Pricing mode from selected store:', isClientWholesale);
                       } else if (typeof newValue === 'string') {
-                        console.log('📝 String value entered:', newValue);
+                        console.log('Ã°Å¸â€œÂ String value entered:', newValue);
                         setFormData(prev => ({ 
                           ...prev, 
                           clientName: newValue,
@@ -2025,26 +2455,26 @@ export default function NewRepairForm({
                       <Box component="li" {...props} key={option._id || option.id || option.userID || option.clientID || option}>
                         <Stack sx={{ width: '100%' }}>
                           <Stack direction="row" alignItems="center" spacing={1}>
-                            <Typography variant="body2">
+                            <Typography variant="body2" sx={{ color: UI.textPrimary }}>
                               {option.name || `${option.firstName || ''} ${option.lastName || ''}`.trim()}
                             </Typography>
                             {option.role === 'wholesaler' && (
                               <Chip 
                                 label="Wholesale" 
                                 size="small" 
-                                color="primary" 
                                 variant="outlined"
+                                sx={neutralChipSx}
                               />
                             )}
                           </Stack>
                           {option.email && (
-                            <Typography variant="caption" color="text.secondary">
-                              📧 {option.email}
+                            <Typography variant="caption" sx={{ color: UI.textSecondary }}>
+                              Email: {option.email}
                             </Typography>
                           )}
                           {(option.phone || option.phoneNumber) && (
-                            <Typography variant="caption" color="text.secondary">
-                              📞 {option.phone || option.phoneNumber}
+                            <Typography variant="caption" sx={{ color: UI.textSecondary }}>
+                              Phone: {option.phone || option.phoneNumber}
                             </Typography>
                           )}
                         </Stack>
@@ -2060,6 +2490,7 @@ export default function NewRepairForm({
                           size="small"
                           startIcon={<AddIcon />}
                           onClick={() => setShowNewClientDialog(true)}
+                          sx={{ borderColor: UI.border, color: UI.textPrimary, backgroundColor: UI.bgCard }}
                         >
                           Add New Client
                         </Button>
@@ -2076,10 +2507,10 @@ export default function NewRepairForm({
                     size="small"
                     startIcon={<AddIcon />}
                     onClick={() => setShowNewClientDialog(true)}
-                    sx={{ color: 'primary.main' }}
-                  >
-                    Add New Client
-                  </Button>
+                      sx={{ color: UI.accent }}
+                    >
+                      Add New Client
+                    </Button>
                 </Box>
               </Grid>
               
@@ -2094,10 +2525,10 @@ export default function NewRepairForm({
                     />
                     {formData.isRush && (
                       <Chip 
-                        label={`×${adminSettings.rushMultiplier}`}
-                        color="warning" 
+                        label={`x${adminSettings.rushMultiplier}`}
                         size="small"
                         variant="filled"
+                        sx={neutralChipSx}
                       />
                     )}
                   </Stack>
@@ -2123,12 +2554,12 @@ export default function NewRepairForm({
                   <Stack direction="row" alignItems="center" spacing={1}>
                     <Typography>Pricing Mode</Typography>
                     {formData.isWholesale ? (
-                      <Chip label="Wholesale" color="primary" size="small" variant="filled" />
+                      <Chip label="Wholesale" size="small" variant="filled" sx={neutralChipSx} />
                     ) : (
-                      <Chip label="Retail" color="default" size="small" variant="outlined" />
+                      <Chip label="Retail" size="small" variant="outlined" sx={neutralChipSx} />
                     )}
                   </Stack>
-                  <Typography variant="caption" color="primary">
+                  <Typography variant="caption" sx={{ color: UI.accent }}>
                     Set automatically from selected store
                   </Typography>
                 </FormControl>
@@ -2145,9 +2576,9 @@ export default function NewRepairForm({
                     {formData.includeDelivery && (
                       <Chip 
                         label={`+$${adminSettings.deliveryFee.toFixed(2)}`}
-                        color="info" 
                         size="small"
                         variant="filled"
+                        sx={neutralChipSx}
                       />
                     )}
                   </Stack>
@@ -2169,9 +2600,9 @@ export default function NewRepairForm({
                       {formData.includeTax && (
                         <Chip 
                           label={`+${(adminSettings.taxRate * 100).toFixed(2)}%`}
-                          color="secondary" 
                           size="small"
                           variant="filled"
+                          sx={neutralChipSx}
                         />
                       )}
                     </Stack>
@@ -2189,12 +2620,27 @@ export default function NewRepairForm({
                 )}
               </Grid>
             </Grid>
-        </Box>
+        </FormSection>
 
         {/* Wholesaler Information */}
         {isWholesale && (
-          <Alert severity="info" sx={{ mx: { xs: 2, sm: 0 } }}>
-            <Typography variant="subtitle2" gutterBottom>📝 Wholesaler Repair Submission</Typography>
+          <Alert
+            severity="info"
+            sx={{
+              mx: { xs: 2, sm: 0 },
+              backgroundColor: UI.bgPanel,
+              border: '1px solid',
+              borderColor: UI.border,
+              color: UI.textPrimary,
+              boxShadow: UI.shadow,
+              '& .MuiAlert-icon': {
+                color: UI.accent
+              }
+            }}
+          >
+            <Typography variant="subtitle2" gutterBottom sx={{ color: UI.textPrimary, fontWeight: 600 }}>
+              Wholesaler Repair Submission
+            </Typography>
             <Typography variant="body2">
               As a wholesaler, you can record your client&apos;s information and special instructions in the notes section below.
               Our admin team will review your submission and provide pricing details.
@@ -2203,69 +2649,63 @@ export default function NewRepairForm({
         )}
 
         {/* Image Capture */}
-        <Box sx={{ px: { xs: 2, sm: 0 }, borderTop: '1px solid', borderColor: 'divider', pt: 2 }}>
-          <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, display: 'block', mb: 1.5, lineHeight: 1 }}>
-            Item Photo
-          </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
-            Take a photo with your camera or upload from file
-          </Typography>
+        <FormSection
+          title="Item Photo"
+          subtitle="Take a photo with your camera or upload from file"
+        >
           <Stack spacing={2} alignItems="center">
-              <CameraCapture
-                onCapture={(file) => {
-                  setImageDescriptionError('');
-                  setFormData(prev => ({ ...prev, picture: file }));
-                  handleGenerateDescriptionFromImage(file);
-                }}
-              />
-              {formData.picture && (
-                <Box sx={{ width: '100%', textAlign: 'center' }}>
-                  <Box sx={{ mb: 1 }}>
-                    <img
-                      src={URL.createObjectURL(formData.picture)}
-                      alt="Captured item"
-                      style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 8, objectFit: 'contain' }}
-                    />
-                  </Box>
-                  <Stack direction="row" justifyContent="center" alignItems="center" spacing={1}>
-                    <Chip 
-                      label={formData.picture.name} 
-                      color="success"
-                      onDelete={() => setFormData(prev => ({ ...prev, picture: null }))}
-                      deleteIcon={<DeleteIcon />}
-                      sx={{ maxWidth: 250 }}
-                    />
-                  </Stack>
+            <CameraCapture
+              onCapture={(file) => {
+                setImageDescriptionError('');
+                setFormData(prev => ({ ...prev, picture: file }));
+                handleGenerateDescriptionFromImage(file);
+              }}
+            />
+            {formData.picture && (
+              <Box sx={{ width: '100%', textAlign: 'center' }}>
+                <Box sx={{ mb: 1 }}>
+                  <img
+                    src={picturePreviewUrl}
+                    alt="Captured item"
+                    style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 8, objectFit: 'contain', border: `1px solid ${UI.border}`, background: UI.bgCard }}
+                  />
                 </Box>
-              )}
-              <LoadingButton
-                variant="outlined"
-                onClick={() => handleGenerateDescriptionFromImage()}
-                loading={generatingImageDescription}
-                loadingPosition="start"
-                startIcon={<AutoAwesomeIcon />}
-                disabled={!formData.picture}
-              >
-                Regenerate Description with Gemini
-              </LoadingButton>
-              {imageDescriptionError && (
-                <Alert severity="error" sx={{ width: '100%', textAlign: 'left' }}>
-                  {imageDescriptionError}
-                </Alert>
-              )}
-              {!formData.picture && (
-                <Typography variant="body2" color="text.secondary">
-                  No photo selected
-                </Typography>
-              )}
-            </Stack>
-        </Box>
+                <Stack direction="row" justifyContent="center" alignItems="center" spacing={1}>
+                  <Chip
+                    label={typeof formData.picture === 'string' ? 'Existing photo' : (formData.picture.name || 'Captured photo')}
+                    onDelete={() => setFormData(prev => ({ ...prev, picture: null }))}
+                    deleteIcon={<DeleteIcon />}
+                    sx={{ ...neutralChipSx, maxWidth: 250 }}
+                  />
+                </Stack>
+              </Box>
+            )}
+            <LoadingButton
+              variant="outlined"
+              onClick={() => handleGenerateDescriptionFromImage()}
+              loading={generatingImageDescription}
+              loadingPosition="start"
+              startIcon={<AutoAwesomeIcon />}
+              disabled={!formData.picture}
+              sx={{ borderColor: UI.border, color: UI.textPrimary, backgroundColor: UI.bgCard }}
+            >
+              Regenerate Description with Gemini
+            </LoadingButton>
+            {imageDescriptionError && (
+              <Alert severity="error" sx={{ width: '100%', textAlign: 'left', backgroundColor: UI.bgCard, border: '1px solid', borderColor: UI.border }}>
+                {imageDescriptionError}
+              </Alert>
+            )}
+            {!formData.picture && (
+              <Typography variant="body2" color="text.secondary">
+                No photo selected
+              </Typography>
+            )}
+          </Stack>
+        </FormSection>
 
         {/* Item Details */}
-        <Box sx={{ px: { xs: 2, sm: 0 }, borderTop: '1px solid', borderColor: 'divider', pt: 2 }}>
-          <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, display: 'block', mb: 1.5, lineHeight: 1 }}>
-            Item Details
-          </Typography>
+        <FormSection title="Item Details">
           <Grid container spacing={{ xs: 1.5, sm: 2 }}>
               <Grid item xs={12}>
                 <TextField
@@ -2298,6 +2738,7 @@ export default function NewRepairForm({
                     onClick={handleAnalyzeSmartIntake}
                     startIcon={<AutoAwesomeIcon />}
                     loadingPosition="start"
+                    sx={{ borderColor: UI.border, color: UI.textPrimary, backgroundColor: UI.bgCard }}
                   >
                     Analyze Smart Intake
                   </LoadingButton>
@@ -2306,7 +2747,7 @@ export default function NewRepairForm({
                   </Typography>
                 </Stack>
                 {smartIntakeError ? (
-                  <Alert severity="warning" sx={{ mt: 1.5 }}>
+                  <Alert severity="warning" sx={{ mt: 1.5, backgroundColor: UI.bgCard, border: '1px solid', borderColor: UI.border }}>
                     {smartIntakeError}
                   </Alert>
                 ) : null}
@@ -2325,7 +2766,6 @@ export default function NewRepairForm({
                 />
               </Grid>
               
-              {/* Promise Date - Hidden for wholesalers (admin will set it) */}
               {!isWholesale && (
                 <Grid item xs={12}>
                   <TextField
@@ -2345,13 +2785,14 @@ export default function NewRepairForm({
                 <FormControl fullWidth size="small">
                   <InputLabel>Metal Type</InputLabel>
                   <Select
+                    MenuProps={selectMenuProps}
                     value={formData.metalType}
                     label="Metal Type"
                     onChange={(e) => setFormData(prev => ({ 
                       ...prev, 
                       metalType: e.target.value,
                       goldColor: '',
-                      karat: '' // Reset karat when metal changes
+                      karat: ''
                     }))}
                   >
                     {METAL_TYPES.map(metal => (
@@ -2368,6 +2809,7 @@ export default function NewRepairForm({
                   <FormControl fullWidth size="small">
                     <InputLabel>Karat/Purity</InputLabel>
                     <Select
+                      MenuProps={selectMenuProps}
                       value={formData.karat}
                       label="Karat/Purity"
                       onChange={(e) => setFormData(prev => ({ ...prev, karat: e.target.value }))}
@@ -2387,6 +2829,7 @@ export default function NewRepairForm({
                   <FormControl fullWidth size="small">
                     <InputLabel>Gold Color</InputLabel>
                     <Select
+                      MenuProps={selectMenuProps}
                       value={formData.goldColor}
                       label="Gold Color"
                       onChange={(e) => setFormData(prev => ({ ...prev, goldColor: e.target.value }))}
@@ -2401,7 +2844,6 @@ export default function NewRepairForm({
                 </Grid>
               )}
 
-              {/* Ring sizing toggle */}
               <Grid item xs={12}>
                 <FormControlLabel
                   control={
@@ -2410,7 +2852,6 @@ export default function NewRepairForm({
                       onChange={(e) => setFormData(prev => ({ 
                         ...prev, 
                         isRing: e.target.checked,
-                        // Clear ring size fields when toggling off
                         currentRingSize: e.target.checked ? prev.currentRingSize : '',
                         desiredRingSize: e.target.checked ? prev.desiredRingSize : ''
                       }))}
@@ -2420,17 +2861,18 @@ export default function NewRepairForm({
                 />
               </Grid>
 
-              {/* Ring sizing section */}
               {formData.isRing && (
                 <>
                   <Grid item xs={12}>
-                    <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, lineHeight: 1 }}>
+                    <Typography variant="overline" sx={sectionLabelSx}>
                       Ring Sizing
                     </Typography>
                   </Grid>
                   
                   <Grid item xs={6}>
                     <Autocomplete
+                      disablePortal
+                      slotProps={autocompleteSlotProps}
                       options={RING_SIZES}
                       value={formData.currentRingSize}
                       onChange={(e, value) => setFormData(prev => ({ ...prev, currentRingSize: value }))}
@@ -2442,6 +2884,8 @@ export default function NewRepairForm({
 
                   <Grid item xs={6}>
                     <Autocomplete
+                      disablePortal
+                      slotProps={autocompleteSlotProps}
                       options={RING_SIZES}
                       value={formData.desiredRingSize}
                       onChange={(e, value) => setFormData(prev => ({ ...prev, desiredRingSize: value }))}
@@ -2479,7 +2923,7 @@ export default function NewRepairForm({
                 />
               </Grid>
             </Grid>
-        </Box>
+        </FormSection>
 
         {/* Work Items */}
         <RepairItemsSection
@@ -2501,10 +2945,11 @@ export default function NewRepairForm({
         />
 
         {/* Total Cost & Pricing Breakdown */}
-        <TotalCostCard 
+        <TotalCostCard
           formData={formData}
           calculateTotalCost={calculateTotalCost}
           adminSettings={adminSettings}
+          viewerIsWholesaler={isWholesale}
         />
       </Stack>
 
@@ -2515,9 +2960,20 @@ export default function NewRepairForm({
         maxWidth="sm"
         fullWidth
         fullScreen={isMobile}
+        PaperProps={{
+          sx: {
+            backgroundColor: UI.bgPanel,
+            border: '1px solid',
+            borderColor: UI.border,
+            boxShadow: UI.shadow,
+            color: UI.textPrimary
+          }
+        }}
       >
-        <DialogTitle>Add New Client</DialogTitle>
-        <DialogContent>
+        <DialogTitle sx={{ color: UI.textPrimary, borderBottom: '1px solid', borderColor: UI.border }}>
+          Add New Client
+        </DialogTitle>
+        <DialogContent sx={{ pt: 2.5 }}>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
               fullWidth
@@ -2557,18 +3013,20 @@ export default function NewRepairForm({
 
           </Stack>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ px: 3, pb: 2.5, borderTop: '1px solid', borderColor: UI.border }}>
           <Button 
             onClick={() => setShowNewClientDialog(false)}
             disabled={newClientLoading}
+            sx={{ color: UI.textSecondary }}
           >
             Cancel
           </Button>
           <LoadingButton 
             onClick={handleAddNewClient}
             loading={newClientLoading}
-            variant="contained"
+            variant="outlined"
             disabled={!newClientData.firstName.trim() || !newClientData.lastName.trim() || !newClientData.phone.trim()}
+            sx={{ borderColor: UI.border, color: UI.textPrimary, backgroundColor: UI.bgCard }}
           >
             {newClientLoading ? 'Creating...' : 'Add Client'}
           </LoadingButton>
@@ -2584,15 +3042,15 @@ export default function NewRepairForm({
         zIndex: { xs: 1100, sm: 'auto' },
         p: { xs: 1.5, sm: 0 },
         mt: { xs: 0, sm: 4 },
-        bgcolor: { xs: 'background.paper', sm: 'transparent' },
+        bgcolor: { xs: UI.bgPanel, sm: 'transparent' },
         borderTop: { xs: '1px solid', sm: 'none' },
-        borderColor: 'divider',
-        boxShadow: { xs: '0 -2px 8px rgba(0,0,0,0.1)', sm: 'none' },
+        borderColor: UI.border,
+        boxShadow: { xs: UI.shadow, sm: 'none' },
         display: 'flex',
         justifyContent: 'center'
       }}>
         <Button 
-          variant="contained" 
+          variant="outlined" 
           onClick={handleSubmit}
           disabled={loading}
           startIcon={<SaveIcon />}
@@ -2603,6 +3061,9 @@ export default function NewRepairForm({
             py: 1.5,
             fontSize: { xs: '1rem', sm: '1.1rem' },
             fontWeight: 700,
+            borderColor: UI.border,
+            color: UI.textPrimary,
+            backgroundColor: UI.bgCard,
           }}
         >
           {loading ? 'Saving...' : 'SAVE REPAIR'}
@@ -2631,14 +3092,14 @@ function RepairItemsSection({
   addStullerMaterial
 }) {
   return (
-    <Box sx={{ px: { xs: 2, sm: 0 }, borderTop: '1px solid', borderColor: 'divider', pt: 2 }}>
-
-      {/* Tasks */}
-      <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, lineHeight: 1, display: 'block', mb: 1.5 }}>
+    <FormSection title="Work Items" subtitle="Tasks, materials, and custom charges for this repair">
+      <Typography variant="overline" sx={sectionLabelSx}>
         Tasks {formData.tasks.length > 0 && `(${formData.tasks.length})`}
       </Typography>
       <Stack spacing={1.5} sx={{ mb: 3 }}>
         <Autocomplete
+          disablePortal
+          slotProps={autocompleteSlotProps}
           options={availableTasks}
           getOptionLabel={(option) => `${option.title}`}
           renderInput={(params) => (
@@ -2658,12 +3119,21 @@ function RepairItemsSection({
         ))}
       </Stack>
 
-      {/* Materials */}
-      <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, lineHeight: 1, display: 'block', mb: 1.5, borderTop: '1px solid', borderColor: 'divider', pt: 2 }}>
+      <Typography
+        variant="overline"
+        sx={{
+          ...sectionLabelSx,
+          borderTop: '1px solid',
+          borderColor: UI.border,
+          pt: 2.5
+        }}
+      >
         Materials {formData.materials.length > 0 && `(${formData.materials.length})`}
       </Typography>
       <Stack spacing={1.5} sx={{ mb: 3 }}>
         <Autocomplete
+          disablePortal
+          slotProps={autocompleteSlotProps}
           options={availableMaterials}
           getOptionLabel={(option) => {
             const displayName = option.displayName || option.name || 'Material';
@@ -2676,9 +3146,17 @@ function RepairItemsSection({
           onChange={(e, value) => value && addMaterial(value)}
         />
 
-        {/* Stuller Integration */}
-        <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'primary.main', borderRadius: 1, bgcolor: 'primary.50' }}>
-          <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 600, display: 'block', mb: 1 }}>
+        <Box
+          sx={{
+            p: 2,
+            border: '1px solid',
+            borderColor: UI.border,
+            borderRadius: 2,
+            backgroundColor: UI.bgPanel,
+            boxShadow: UI.shadow
+          }}
+        >
+          <Typography variant="caption" sx={{ color: UI.textSecondary, fontWeight: 600, display: 'block', mb: 1 }}>
             Add Stuller Gemstone/Material
           </Typography>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'flex-start' }}>
@@ -2697,9 +3175,15 @@ function RepairItemsSection({
               onClick={addStullerMaterial}
               loading={loadingStuller}
               disabled={!stullerSku.trim()}
-              variant="contained"
+              variant="outlined"
               size="small"
-              sx={{ minWidth: 80, flexShrink: 0 }}
+              sx={{
+                minWidth: 80,
+                flexShrink: 0,
+                borderColor: UI.border,
+                color: UI.textPrimary,
+                backgroundColor: UI.bgCard
+              }}
             >
               Add
             </LoadingButton>
@@ -2720,12 +3204,17 @@ function RepairItemsSection({
         ))}
       </Stack>
 
-      {/* Custom Items */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid', borderColor: 'divider', pt: 2, mb: 1.5 }}>
-        <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, lineHeight: 1 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid', borderColor: UI.border, pt: 2.5, mb: 1.5 }}>
+        <Typography variant="overline" sx={sectionLabelSx}>
           Custom Items {formData.customLineItems.length > 0 && `(${formData.customLineItems.length})`}
         </Typography>
-        <Button startIcon={<AddIcon />} onClick={addCustomLineItem} variant="outlined" size="small">
+        <Button
+          startIcon={<AddIcon />}
+          onClick={addCustomLineItem}
+          variant="outlined"
+          size="small"
+          sx={{ borderColor: UI.border, color: UI.textPrimary }}
+        >
           Add
         </Button>
       </Box>
@@ -2741,24 +3230,35 @@ function RepairItemsSection({
           />
         ))}
       </Stack>
-    </Box>
+    </FormSection>
   );
 }
 
 // Task/Process/Material item component
 function TaskItem({ item, onQuantityChange, onPriceChange, onRemove, showPriceInput = true }) {
+  const unitPrice = toNumber(item.price);
+  const lineTotal = unitPrice * (item.quantity || 1);
+
   return (
-    <Box sx={{ p: { xs: 1.5, sm: 2 }, border: '1px solid', borderColor: item.isStullerItem ? 'primary.main' : 'divider', borderRadius: 1 }}>
+    <Box
+      sx={{
+        p: { xs: 1.5, sm: 2 },
+        border: '1px solid',
+        borderColor: UI.border,
+        borderRadius: 2,
+        backgroundColor: UI.bgCard,
+        boxShadow: UI.shadow
+      }}
+    >
       <Stack spacing={1}>
-        {/* Top row: title + delete */}
         <Stack direction="row" alignItems="center" justifyContent="space-between">
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
-              <Typography variant="subtitle2" noWrap>
+              <Typography variant="subtitle2" noWrap sx={{ color: UI.textPrimary, fontWeight: 600 }}>
                 {item.title || item.displayName || item.name}
               </Typography>
               {item.isStullerItem && (
-                <Chip label="Stuller" size="small" color="primary" variant="outlined" />
+                <Chip label="Stuller" size="small" variant="outlined" sx={neutralChipSx} />
               )}
             </Stack>
             {item.description && (
@@ -2767,29 +3267,26 @@ function TaskItem({ item, onQuantityChange, onPriceChange, onRemove, showPriceIn
               </Typography>
             )}
             {item.isStullerItem && item.stullerData && (
-              <Typography variant="caption" color="primary" display="block">
-                SKU: {item.stullerData.itemNumber} | 
-                Base: ${item.stullerData.originalPrice} | 
-                Markup: {((item.stullerData.markup - 1) * 100).toFixed(0)}%
+              <Typography variant="caption" sx={{ color: UI.accent }} display="block">
+                SKU: {item.stullerData.itemNumber} | Base: ${item.stullerData.originalPrice} | Markup: {((item.stullerData.markup - 1) * 100).toFixed(0)}%
               </Typography>
             )}
           </Box>
-          <IconButton color="error" onClick={onRemove} size="small">
+          <IconButton onClick={onRemove} size="small" sx={{ color: UI.textSecondary }}>
             <DeleteIcon fontSize="small" />
           </IconButton>
         </Stack>
-        {/* Bottom row: qty, price, total */}
         <Stack direction="row" spacing={1} alignItems="center">
           <TextField
             type="number"
             label="Qty"
             value={item.quantity}
-            onChange={(e) => onQuantityChange(parseInt(e.target.value) || 1)}
+            onChange={(e) => onQuantityChange(parseInt(e.target.value, 10) || 1)}
             size="small"
             sx={{ width: 70 }}
             inputProps={{ min: 1 }}
           />
-          {showPriceInput && (
+          {showPriceInput ? (
             <>
               <TextField
                 type="number"
@@ -2800,8 +3297,22 @@ function TaskItem({ item, onQuantityChange, onPriceChange, onRemove, showPriceIn
                 sx={{ width: 90 }}
                 inputProps={{ min: 0, step: 0.01 }}
               />
-              <Typography variant="body2" sx={{ ml: 'auto', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                ${((item.price || 0) * (item.quantity || 1)).toFixed(2)}
+              <Typography variant="body2" sx={{ ml: 'auto', fontWeight: 700, whiteSpace: 'nowrap', color: UI.textHeader }}>
+                ${lineTotal.toFixed(2)}
+              </Typography>
+            </>
+          ) : (
+            <>
+              <Box sx={{ minWidth: 88 }}>
+                <Typography variant="caption" sx={{ color: UI.textMuted, display: 'block', lineHeight: 1.2 }}>
+                  Price
+                </Typography>
+                <Typography variant="body2" sx={{ color: UI.textPrimary, fontWeight: 600 }}>
+                  ${unitPrice.toFixed(2)}
+                </Typography>
+              </Box>
+              <Typography variant="body2" sx={{ ml: 'auto', fontWeight: 700, whiteSpace: 'nowrap', color: UI.textHeader }}>
+                ${lineTotal.toFixed(2)}
               </Typography>
             </>
           )}
@@ -2820,7 +3331,16 @@ function CustomLineItem({
   onRemove
 }) {
   return (
-    <Box sx={{ p: { xs: 1.5, sm: 2 }, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+    <Box
+      sx={{
+        p: { xs: 1.5, sm: 2 },
+        border: '1px solid',
+        borderColor: UI.border,
+        borderRadius: 2,
+        backgroundColor: UI.bgCard,
+        boxShadow: UI.shadow
+      }}
+    >
       <Stack spacing={1.5}>
         <Stack direction="row" alignItems="flex-start" spacing={1}>
           <TextField
@@ -2831,17 +3351,16 @@ function CustomLineItem({
             placeholder="Custom work description..."
             size="small"
           />
-          <IconButton color="error" onClick={onRemove} size="small">
+          <IconButton onClick={onRemove} size="small" sx={{ color: UI.textSecondary }}>
             <DeleteIcon fontSize="small" />
           </IconButton>
         </Stack>
-        
         <Stack direction="row" spacing={1} alignItems="center">
           <TextField
             type="number"
             label="Qty"
             value={item.quantity}
-            onChange={(e) => onQuantityChange(parseInt(e.target.value) || 1)}
+            onChange={(e) => onQuantityChange(parseInt(e.target.value, 10) || 1)}
             size="small"
             sx={{ width: 70 }}
             inputProps={{ min: 1 }}
@@ -2855,7 +3374,7 @@ function CustomLineItem({
             sx={{ width: 90 }}
             inputProps={{ min: 0, step: 0.01 }}
           />
-          <Typography variant="body2" sx={{ ml: 'auto', fontWeight: 600, whiteSpace: 'nowrap' }}>
+          <Typography variant="body2" sx={{ ml: 'auto', fontWeight: 700, whiteSpace: 'nowrap', color: UI.textHeader }}>
             ${((item.price || 0) * (item.quantity || 1)).toFixed(2)}
           </Typography>
         </Stack>
@@ -2865,15 +3384,24 @@ function CustomLineItem({
 }
 
 // Total cost card with rush job information
-function TotalCostCard({ formData, calculateTotalCost, adminSettings }) {
+function TotalCostCard({ formData, calculateTotalCost, adminSettings, viewerIsWholesaler = false }) {
   const [totalCost, setTotalCost] = React.useState(0);
   const [costBreakdown, setCostBreakdown] = React.useState({
     subtotal: 0,
     retailSubtotal: 0,
+    laborHours: 0,
+    laborCost: 0,
+    averageLaborRate: 0,
+    materialsBaseCost: 0,
+    wholesalerMarkupAmount: 0,
+    wholesalerMarkupPercent: 0,
+    retailerMarkupAmount: 0,
+    customCost: 0,
     wholesaleDiscount: 0,
     rushFee: 0,
     deliveryFee: 0,
     taxAmount: 0,
+    suggestedRetailModifiers: 0,
     final: 0,
     retailFinal: 0
   });
@@ -2883,93 +3411,118 @@ function TotalCostCard({ formData, calculateTotalCost, adminSettings }) {
     const updateTotal = async () => {
       setLoading(true);
       try {
-        // Calculate detailed breakdown
-        const tasksCost = formData.tasks.reduce((sum, item) => 
+        const taskLaborHours = formData.tasks.reduce((sum, item) =>
+          sum + (toNumber(item.laborHours ?? item.pricing?.totalLaborHours ?? item.pricing?.baseLaborHours) * (item.quantity || 1)), 0);
+        const totalLaborHours = taskLaborHours;
+
+        const taskLaborCost = formData.tasks.reduce((sum, item) =>
+          sum + (toNumber(item.pricing?.laborCost ?? item.pricing?.weightedLaborCost) * (item.quantity || 1)), 0);
+        const totalLaborCost = taskLaborCost;
+
+        const taskMaterialsBaseCost = formData.tasks.reduce((sum, item) => {
+          const pricing = item.pricing || {};
+          const derivedBaseMaterials = Math.max(
+            toNumber(pricing.baseCost) - toNumber(pricing.laborCost) - toNumber(pricing.toolDepreciationCost),
+            0
+          );
+          const rawTaskMaterials = toNumber(
+            pricing.baseMaterialsCost ??
+            pricing.weightedBaseMaterialsCost ??
+            pricing.totalProcessMaterialCost ??
+            pricing.baseMaterialCost ??
+            derivedBaseMaterials
+          );
+
+          return sum + (rawTaskMaterials * (item.quantity || 1));
+        }, 0);
+        const materialLineBaseCost = formData.materials.reduce((sum, item) =>
+          sum + (resolveMaterialRawPortionBaseCost(item, formData.metalType, formData.karat, formData.goldColor) * (item.quantity || 1)), 0);
+        const materialsBaseCost = taskMaterialsBaseCost + materialLineBaseCost;
+
+        const tasksCost = formData.tasks.reduce((sum, item) =>
           sum + (parseFloat(item.price ?? resolveTaskBasePrice(item, formData.metalType, formData.karat, formData.goldColor)) * (item.quantity || 1)), 0);
-        const processesCost = formData.processes.reduce((sum, item) => 
-          sum + (parseFloat(item.price || item.pricing?.totalCost || 0) * (item.quantity || 1)), 0);
-        const materialsCost = formData.materials.reduce((sum, item) => 
+        const materialsCost = formData.materials.reduce((sum, item) =>
           sum + (parseFloat(item.price || item.unitCost || item.costPerPortion || 0) * (item.quantity || 1)), 0);
-        const customCost = formData.customLineItems.reduce((sum, item) => 
+        const customCost = formData.customLineItems.reduce((sum, item) =>
           sum + (parseFloat(item.price || 0) * (item.quantity || 1)), 0);
-        
-        let originalSubtotal = tasksCost + processesCost + materialsCost + customCost;
+
+        const originalSubtotal = tasksCost + materialsCost + customCost;
         const retailSubtotal = [
           ...formData.tasks.map(t => toNumber(t.retailPrice ?? t.price) * (t.quantity || 1)),
-          ...formData.processes.map(p => toNumber(p.retailPrice ?? p.price) * (p.quantity || 1)),
           ...formData.materials.map(m => toNumber(m.retailPrice ?? m.price) * (m.quantity || 1)),
           ...formData.customLineItems.map(c => toNumber(c.price) * (c.quantity || 1))
         ].reduce((sum, v) => sum + v, 0);
-        
-        console.log('🔍 TOTALCOSTCARD DEBUG:');
-        console.log('📊 Individual Item Prices (already discounted if wholesale):', {
-          tasksCost,
-          processesCost,
-          materialsCost,
-          customCost,
-          originalSubtotal
-        });
-        console.log('🎛️ Form Flags:', {
-          isWholesale: formData.isWholesale,
-          isRush: formData.isRush,
-          includeDelivery: formData.includeDelivery,
-          includeTax: formData.includeTax
-        });
-        
-        // Sample individual item logging
-        if (formData.tasks.length > 0) {
-          console.log('🔍 Sample Task Item:', formData.tasks[0]);
-        }
-        
+
         let currentTotal = originalSubtotal;
         let wholesaleDiscount = 0;
+        let wholesalerMarkupAmount = 0;
+        let wholesalerMarkupPercent = 0;
+        let retailerMarkupAmount = 0;
         let rushFee = 0;
         let deliveryFee = 0;
         let taxAmount = 0;
+        let suggestedRetailModifiers = 0;
 
-        // Items are already priced at wholesale; compute the display discount from stored retailPrice
         if (formData.isWholesale) {
+          const costOfGoods = totalLaborCost + materialsBaseCost + customCost;
           wholesaleDiscount = Math.max(Math.round((retailSubtotal - originalSubtotal) * 100) / 100, 0);
+          wholesalerMarkupAmount = Math.max(
+            Math.round((originalSubtotal - costOfGoods) * 100) / 100,
+            0
+          );
+          wholesalerMarkupPercent = costOfGoods > 0
+            ? Math.round((wholesalerMarkupAmount / costOfGoods) * 1000) / 10
+            : 0;
+          retailerMarkupAmount = Math.max(
+            Math.round((retailSubtotal - originalSubtotal) * 100) / 100,
+            0
+          );
         }
 
-        // Build a parallel retail total to show wholesalers what to charge their customer.
         let retailCurrentTotal = retailSubtotal;
         if (formData.isRush) {
-          retailCurrentTotal = retailCurrentTotal * adminSettings.rushMultiplier;
+          retailCurrentTotal *= adminSettings.rushMultiplier;
         }
         if (formData.includeDelivery) {
-          retailCurrentTotal = retailCurrentTotal + adminSettings.deliveryFee;
+          retailCurrentTotal += adminSettings.deliveryFee;
         }
         if (formData.includeTax) {
-          retailCurrentTotal = retailCurrentTotal + (retailCurrentTotal * adminSettings.taxRate);
+          retailCurrentTotal += retailCurrentTotal * adminSettings.taxRate;
         }
+        suggestedRetailModifiers = Math.max(Math.round((retailCurrentTotal - retailSubtotal) * 100) / 100, 0);
 
-        // Apply rush job markup if applicable
         if (formData.isRush) {
           const beforeRush = currentTotal;
-          currentTotal = currentTotal * adminSettings.rushMultiplier;
+          currentTotal *= adminSettings.rushMultiplier;
           rushFee = currentTotal - beforeRush;
         }
 
-        // Add delivery fee if applicable (not subject to wholesale discount)
         if (formData.includeDelivery) {
           deliveryFee = adminSettings.deliveryFee;
-          currentTotal = currentTotal + deliveryFee;
+          currentTotal += deliveryFee;
         }
 
-        // Add tax if applicable (wholesale clients don't pay taxes)
         if (formData.includeTax && !formData.isWholesale) {
           taxAmount = currentTotal * adminSettings.taxRate;
-          currentTotal = currentTotal + taxAmount;
+          currentTotal += taxAmount;
         }
 
         setCostBreakdown({
           subtotal: originalSubtotal,
           retailSubtotal,
+          laborHours: totalLaborHours,
+          laborCost: totalLaborCost,
+          averageLaborRate: totalLaborHours > 0 ? (totalLaborCost / totalLaborHours) : 0,
+          materialsBaseCost,
+          wholesalerMarkupAmount,
+          wholesalerMarkupPercent,
+          retailerMarkupAmount,
+          customCost,
           wholesaleDiscount,
           rushFee,
           deliveryFee,
           taxAmount,
+          suggestedRetailModifiers,
           final: currentTotal,
           retailFinal: retailCurrentTotal
         });
@@ -2985,193 +3538,269 @@ function TotalCostCard({ formData, calculateTotalCost, adminSettings }) {
     };
 
     updateTotal();
-  }, [formData.tasks, formData.processes, formData.materials, formData.customLineItems, formData.isWholesale, formData.isRush, formData.includeDelivery, formData.includeTax, calculateTotalCost, adminSettings]);
+  }, [formData.tasks, formData.materials, formData.customLineItems, formData.isWholesale, formData.isRush, formData.includeDelivery, formData.includeTax, calculateTotalCost, adminSettings]);
 
   return (
-    <Box sx={{ px: { xs: 2, sm: 0 }, borderTop: '2px solid', borderColor: 'warning.main', pt: 2 }}>
+    <FormSection title={formData.isWholesale ? 'Pricing Summary' : 'Total Cost'} subtitle="Review the final pricing before saving the repair">
       <Stack spacing={2}>
-          {/* Main Total */}
-          <Box>
-            <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
-              {formData.isWholesale ? 'Pricing Summary:' : 'Total Cost:'}
-            </Typography>
-            <Typography variant="h4" sx={{ fontWeight: 700, color: 'success.main', mt: 0.5, fontSize: { xs: '1.75rem', sm: '2.125rem' } }}>
-              {loading ? (
-                <Box component="span" sx={{ color: 'warning.main', fontSize: '0.7em' }}>Calculating...</Box>
-              ) : (
-                `$${totalCost.toFixed(2)}`
-              )}
-            </Typography>
-            <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 1, gap: 0.5 }}>
-              {formData.isWholesale && (
-                <Chip label="Wholesale Pricing" color="primary" variant="outlined" size="small" />
-              )}
-              {formData.isRush && (
-                <Chip label={`Rush (×${adminSettings.rushMultiplier})`} color="warning" variant="outlined" size="small" />
-              )}
-              {formData.includeDelivery && (
-                <Chip label={`Delivery (+$${adminSettings.deliveryFee.toFixed(2)})`} color="info" variant="outlined" size="small" />
-              )}
-              {formData.includeTax && !formData.isWholesale && (
-                <Chip label={`Tax (+${(adminSettings.taxRate * 100).toFixed(2)}%)`} color="secondary" variant="outlined" size="small" />
-              )}
-            </Stack>
-          </Box>
+        <Box>
+          <Typography
+            variant="h4"
+            sx={{
+              fontWeight: 700,
+              color: UI.textHeader,
+              mt: 0.5,
+              fontSize: { xs: '1.75rem', sm: '2.125rem' }
+            }}
+          >
+            {loading ? (
+              <Box component="span" sx={{ color: UI.textSecondary, fontSize: '0.7em' }}>Calculating...</Box>
+            ) : (
+              `$${totalCost.toFixed(2)}`
+            )}
+          </Typography>
+          <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 1, gap: 0.5 }}>
+            {formData.isWholesale && (
+              <Chip label="Wholesale Pricing" variant="outlined" size="small" sx={neutralChipSx} />
+            )}
+            {formData.isRush && (
+              <Chip label={`Rush (${adminSettings.rushMultiplier}x)`} variant="outlined" size="small" sx={neutralChipSx} />
+            )}
+            {formData.includeDelivery && (
+              <Chip label={`Delivery (+$${adminSettings.deliveryFee.toFixed(2)})`} variant="outlined" size="small" sx={neutralChipSx} />
+            )}
+            {formData.includeTax && !formData.isWholesale && (
+              <Chip label={`Tax (+${(adminSettings.taxRate * 100).toFixed(2)}%)`} variant="outlined" size="small" sx={neutralChipSx} />
+            )}
+          </Stack>
+        </Box>
 
-          {!loading && formData.isWholesale && costBreakdown.retailSubtotal > 0 && (
-            <Box sx={{
-              p: 2,
-              backgroundColor: 'primary.50',
-              borderRadius: 1,
-              border: '1px solid',
-              borderColor: 'primary.200'
-            }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                Wholesaler Pricing
-              </Typography>
-              <Stack spacing={0.75}>
+        {!loading && formData.isWholesale && costBreakdown.retailSubtotal > 0 && (
+          <Box sx={{ p: 2, backgroundColor: UI.bgCard, borderRadius: 2, border: '1px solid', borderColor: UI.border }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: UI.textPrimary }}>
+              Wholesaler Pricing
+            </Typography>
+            <Stack spacing={0.75}>
+              {/* What EFD invoices the wholesaler */}
+              <Stack direction="row" justifyContent="space-between">
+                <Typography variant="body2" color="text.secondary">{viewerIsWholesaler ? 'What you pay:' : 'What they pay you:'}</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: UI.textPrimary }}>
+                  ${costBreakdown.final.toFixed(2)}
+                </Typography>
+              </Stack>
+              <Divider sx={{ borderColor: UI.border, my: 0.25 }} />
+              {/* Suggested retail breakdown for the wholesaler's reference */}
+              <Stack direction="row" justifyContent="space-between">
+                <Typography variant="body2" color="text.secondary">Suggested retail (pre-tax):</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600, color: UI.accent }}>
+                  ${costBreakdown.retailSubtotal.toFixed(2)}
+                </Typography>
+              </Stack>
+              {costBreakdown.suggestedRetailModifiers > 0 && (
                 <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="body2" color="text.secondary">Price you are paying:</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: 'success.main' }}>
-                    ${costBreakdown.final.toFixed(2)}
+                  <Typography variant="body2" color="text.secondary">
+                    {formData.includeTax && !formData.isRush && !formData.includeDelivery && adminSettings?.taxRate > 0
+                      ? `+ Tax (${Math.round(adminSettings.taxRate * 1000) / 10}%):`
+                      : '+ Tax & fees:'}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: UI.accent }}>
+                    +${costBreakdown.suggestedRetailModifiers.toFixed(2)}
                   </Typography>
                 </Stack>
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="body2" color="text.secondary">Price you are charging:</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: 'primary.main' }}>
+              )}
+              {costBreakdown.retailFinal > costBreakdown.retailSubtotal && (
+                <Stack direction="row" justifyContent="space-between" sx={{ pt: 0.25 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: UI.textPrimary }}>Suggested total to customer:</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: UI.accent }}>
                     ${costBreakdown.retailFinal.toFixed(2)}
                   </Typography>
                 </Stack>
+              )}
+            </Stack>
+          </Box>
+        )}
+
+        {!loading && formData.isWholesale && costBreakdown.subtotal > 0 && (
+          <Box sx={{ p: 2, backgroundColor: UI.bgCard, borderRadius: 2, border: '1px solid', borderColor: UI.border }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, color: UI.textPrimary }}>
+              Wholesale Breakdown
+            </Typography>
+            <Stack spacing={1}>
+              <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                <Typography variant="body2" color="text.secondary">
+                  Labor
+                  {costBreakdown.laborHours > 0 && (
+                    <Box component="span" sx={{ display: 'block', color: UI.textMuted, fontSize: '0.85em', mt: 0.25 }}>
+                      {costBreakdown.laborHours.toFixed(2)} hrs @ ${costBreakdown.averageLaborRate.toFixed(2)}/hr
+                    </Box>
+                  )}
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500, color: UI.textPrimary }}>
+                  ${costBreakdown.laborCost.toFixed(2)}
+                </Typography>
               </Stack>
-            </Box>
-          )}
-          
-          {/* Detailed Cost Breakdown */}
-          {!loading && !formData.isWholesale && costBreakdown.subtotal > 0 && (
-            <Box sx={{ 
-              p: 2, 
-              backgroundColor: 'grey.50', 
-              borderRadius: 1,
-              border: '1px solid',
-              borderColor: 'grey.200'
-            }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, color: 'text.primary' }}>
-                Cost Breakdown:
-              </Typography>
-              <Stack spacing={1}>
+
+              <Stack direction="row" justifyContent="space-between">
+                <Typography variant="body2" color="text.secondary">
+                  Material Cost
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500, color: UI.textPrimary }}>
+                  ${costBreakdown.materialsBaseCost.toFixed(2)}
+                </Typography>
+              </Stack>
+
+              {costBreakdown.customCost > 0 && (
                 <Stack direction="row" justifyContent="space-between">
                   <Typography variant="body2" color="text.secondary">
-                    {formData.isWholesale ? 'Services & Materials (Wholesale):' : 'Services & Materials:'}
+                    Additional Custom Charges
                   </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    ${costBreakdown.subtotal.toFixed(2)}
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: UI.textPrimary }}>
+                    ${costBreakdown.customCost.toFixed(2)}
                   </Typography>
                 </Stack>
+              )}
 
-                {formData.isWholesale && (
-                  <Stack direction="row" justifyContent="space-between" sx={{ color: 'primary.main' }}>
-                    <Typography variant="body2">Services & Materials (Retail):</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      ${costBreakdown.retailSubtotal.toFixed(2)}
-                    </Typography>
-                  </Stack>
-                )}
-                
-                {formData.isWholesale && costBreakdown.wholesaleDiscount > 0 && (
-                  <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ color: 'primary.main' }}>
-                    <Stack direction="row" alignItems="center" spacing={0.5}>
-                      <Typography variant="body2">Wholesale Discount ({adminSettings.pricing?.wholesaleMarkup ? `${((adminSettings.pricing.wholesaleMarkup - 1) * 100).toFixed(0)}% over base` : 'configured rate'}):</Typography>
-                      <Tooltip
-                        title={
-                          <Box sx={{ p: 0.5 }}>
-                            <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>Wholesale Pricing</Typography>
-                            <Typography variant="caption" display="block">• Wholesale total reflects the direct charge to your account</Typography>
-                            <Typography variant="caption" display="block">• Suggested retail reflects your saved account markup and tax settings</Typography>
-                            <Typography variant="caption" display="block" sx={{ mt: 0.5, color: 'grey.300' }}>Set one markup and tax rate from Account Settings.</Typography>
-                          </Box>
-                        }
-                        arrow
-                        placement="top"
-                      >
-                        <InfoOutlinedIcon sx={{ fontSize: 14, cursor: 'help' }} />
-                      </Tooltip>
-                    </Stack>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      -${costBreakdown.wholesaleDiscount.toFixed(2)}
-                    </Typography>
-                  </Stack>
-                )}
-                
-                {formData.isRush && costBreakdown.rushFee > 0 && (
-                  <Stack direction="row" justifyContent="space-between" sx={{ color: 'warning.main' }}>
-                    <Typography variant="body2">Rush Job Fee (×{adminSettings.rushMultiplier}):</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      +${costBreakdown.rushFee.toFixed(2)}
-                    </Typography>
-                  </Stack>
-                )}
-                
-                {formData.includeDelivery && (
-                  <Stack direction="row" justifyContent="space-between" sx={{ color: 'info.main' }}>
-                    <Typography variant="body2">Delivery Fee:</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      +${costBreakdown.deliveryFee.toFixed(2)}
-                    </Typography>
-                  </Stack>
-                )}
-                
-                {formData.includeTax && !formData.isWholesale && costBreakdown.taxAmount > 0 && (
-                  <Stack direction="row" justifyContent="space-between" sx={{ color: 'secondary.main' }}>
-                    <Typography variant="body2">Tax ({(adminSettings.taxRate * 100).toFixed(2)}%):</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      +${costBreakdown.taxAmount.toFixed(2)}
-                    </Typography>
-                  </Stack>
-                )}
-                
-                {formData.isWholesale && (
-                  <Stack direction="row" justifyContent="space-between" sx={{ color: 'success.main' }}>
-                    <Typography variant="body2">Tax (Wholesale Exempt):</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      $0.00
-                    </Typography>
-                  </Stack>
-                )}
-                
-                <Divider sx={{ my: 1 }} />
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="body1" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                    Final Total:
-                  </Typography>
-                  <Typography variant="body1" sx={{ fontWeight: 600, color: 'success.main', fontSize: '1.1em' }}>
-                    ${costBreakdown.final.toFixed(2)}
+              <Stack direction="row" justifyContent="space-between" sx={{ color: UI.accent }}>
+                <Typography variant="body2">
+                  Wholesaler Markup {costBreakdown.wholesalerMarkupPercent > 0 ? `(${costBreakdown.wholesalerMarkupPercent.toFixed(1)}% on COG)` : ''}
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  +${costBreakdown.wholesalerMarkupAmount.toFixed(2)}
+                </Typography>
+              </Stack>
+
+              <Divider sx={{ my: 0.5, borderColor: UI.border }} />
+              <Stack direction="row" justifyContent="space-between">
+                <Typography variant="body2" sx={{ fontWeight: 600, color: UI.textPrimary }}>
+                  Wholesale Subtotal
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: UI.textHeader }}>
+                  ${costBreakdown.subtotal.toFixed(2)}
+                </Typography>
+              </Stack>
+            </Stack>
+          </Box>
+        )}
+
+        {!loading && costBreakdown.subtotal > 0 && (
+          <Box sx={{ p: 2, backgroundColor: UI.bgCard, borderRadius: 2, border: '1px solid', borderColor: UI.border }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, color: UI.textPrimary }}>
+              Cost Breakdown
+            </Typography>
+            <Stack spacing={1}>
+              <Stack direction="row" justifyContent="space-between">
+                <Typography variant="body2" color="text.secondary">
+                  {formData.isWholesale ? 'Services & Materials (Wholesale):' : 'Services & Materials:'}
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500, color: UI.textPrimary }}>
+                  ${costBreakdown.subtotal.toFixed(2)}
+                </Typography>
+              </Stack>
+
+              {formData.isWholesale && (
+                <Stack direction="row" justifyContent="space-between" sx={{ color: UI.accent }}>
+                  <Typography variant="body2">Services & Materials (Retail):</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    ${costBreakdown.retailSubtotal.toFixed(2)}
                   </Typography>
                 </Stack>
+              )}
+
+              {formData.isWholesale && costBreakdown.wholesaleDiscount > 0 && (
+                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ color: UI.accent }}>
+                  <Stack direction="row" alignItems="center" spacing={0.5}>
+                    <Typography variant="body2">Wholesale Discount ({adminSettings.pricing?.wholesaleMarkup ? `${((adminSettings.pricing.wholesaleMarkup - 1) * 100).toFixed(0)}% over base` : 'configured rate'}):</Typography>
+                    <Tooltip
+                      title={
+                        <Box sx={{ p: 0.5 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>Wholesale Pricing</Typography>
+                          <Typography variant="caption" display="block">Wholesale total reflects the direct charge to your account.</Typography>
+                          <Typography variant="caption" display="block">Suggested retail reflects your saved account markup and tax settings.</Typography>
+                          <Typography variant="caption" display="block" sx={{ mt: 0.5, color: UI.textMuted }}>Set one markup and tax rate from Account Settings.</Typography>
+                        </Box>
+                      }
+                      arrow
+                      placement="top"
+                    >
+                      <InfoOutlinedIcon sx={{ fontSize: 14, cursor: 'help' }} />
+                    </Tooltip>
+                  </Stack>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    -${costBreakdown.wholesaleDiscount.toFixed(2)}
+                  </Typography>
+                </Stack>
+              )}
+
+              {formData.isRush && costBreakdown.rushFee > 0 && (
+                <Stack direction="row" justifyContent="space-between" sx={{ color: UI.accent }}>
+                  <Typography variant="body2">Rush Job Fee ({adminSettings.rushMultiplier}x):</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    +${costBreakdown.rushFee.toFixed(2)}
+                  </Typography>
+                </Stack>
+              )}
+
+              {formData.includeDelivery && (
+                <Stack direction="row" justifyContent="space-between" sx={{ color: UI.accent }}>
+                  <Typography variant="body2">Delivery Fee:</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    +${costBreakdown.deliveryFee.toFixed(2)}
+                  </Typography>
+                </Stack>
+              )}
+
+              {formData.includeTax && !formData.isWholesale && costBreakdown.taxAmount > 0 && (
+                <Stack direction="row" justifyContent="space-between" sx={{ color: UI.accent }}>
+                  <Typography variant="body2">Tax ({(adminSettings.taxRate * 100).toFixed(2)}%):</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    +${costBreakdown.taxAmount.toFixed(2)}
+                  </Typography>
+                </Stack>
+              )}
+
+              {formData.isWholesale && (
+                <Stack direction="row" justifyContent="space-between" sx={{ color: UI.textSecondary }}>
+                  <Typography variant="body2">Tax (Wholesale Exempt):</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    $0.00
+                  </Typography>
+                </Stack>
+              )}
+
+              <Divider sx={{ my: 1, borderColor: UI.border }} />
+              <Stack direction="row" justifyContent="space-between">
+                <Typography variant="body1" sx={{ fontWeight: 600, color: UI.textPrimary }}>
+                  Final Total:
+                </Typography>
+                <Typography variant="body1" sx={{ fontWeight: 700, color: UI.textHeader, fontSize: '1.1em' }}>
+                  ${costBreakdown.final.toFixed(2)}
+                </Typography>
               </Stack>
-            </Box>
-          )}
-          
-          {!formData.isWholesale && (formData.isRush || formData.includeDelivery || (formData.includeTax && !formData.isWholesale)) && (
-            <Typography variant="body2" color="text.secondary">
-              {[
-                formData.isRush && 'rush job markup', 
-                formData.includeDelivery && 'delivery fee',
-                (formData.includeTax && !formData.isWholesale) && 'tax'
-              ].filter(Boolean).length > 1 
-                ? `Price includes: ${[
-                    formData.isRush && 'rush job markup', 
-                    formData.includeDelivery && 'delivery fee',
-                    (formData.includeTax && !formData.isWholesale) && 'tax'
-                  ].filter(Boolean).join(', ')}`
-                : formData.isRush 
-                ? 'Price includes rush job markup'
-                : formData.includeDelivery
-                ? 'Price includes delivery fee'
-                : 'Price includes tax'
-              }
-            </Typography>
-          )}
-        </Stack>
-    </Box>
+            </Stack>
+          </Box>
+        )}
+
+        {!formData.isWholesale && (formData.isRush || formData.includeDelivery || (formData.includeTax && !formData.isWholesale)) && (
+          <Typography variant="body2" color="text.secondary">
+            {[
+              formData.isRush && 'rush job markup',
+              formData.includeDelivery && 'delivery fee',
+              (formData.includeTax && !formData.isWholesale) && 'tax'
+            ].filter(Boolean).length > 1
+              ? `Price includes: ${[
+                  formData.isRush && 'rush job markup',
+                  formData.includeDelivery && 'delivery fee',
+                  (formData.includeTax && !formData.isWholesale) && 'tax'
+                ].filter(Boolean).join(', ')}`
+              : formData.isRush
+              ? 'Price includes rush job markup'
+              : formData.includeDelivery
+              ? 'Price includes delivery fee'
+              : 'Price includes tax'
+            }
+          </Typography>
+        )}
+      </Stack>
+    </FormSection>
   );
-};
+}

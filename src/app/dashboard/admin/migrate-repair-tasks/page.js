@@ -20,7 +20,6 @@ import {
   DialogActions,
   TextField
 } from '@mui/material';
-import { PageContainer } from '@toolpad/core/PageContainer';
 
 export default function RepairTasksMigrationPage() {
   const [status, setStatus] = React.useState(null);
@@ -269,7 +268,11 @@ export default function RepairTasksMigrationPage() {
   );
 
   return (
-    <PageContainer title="RepairTasks Migration">
+    <Box sx={{ pb: 10 }}>
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h5" fontWeight={600} sx={{ color: '#D1D5DB' }}>Repair Tasks Migration</Typography>
+        <Typography variant="body2" sx={{ color: '#9CA3AF', mt: 0.5 }}>Migrate legacy repair task data.</Typography>
+      </Box>
       <Box sx={{ pb: 4 }}>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -387,6 +390,7 @@ export default function RepairTasksMigrationPage() {
           </DialogActions>
         </Dialog>
       </Box>
-    </PageContainer>
+    </Box>
   );
 }
+

@@ -20,8 +20,6 @@ import {
 import { 
   Add as AddIcon
 } from '@mui/icons-material';
-import { PageContainer } from '@toolpad/core/PageContainer';
-
 export default function MaterialsPage() {
   // Use the custom hook for all state management
   const {
@@ -86,17 +84,14 @@ export default function MaterialsPage() {
   // Show loading state
   if (loading) {
     return (
-      <PageContainer title="Materials Management">
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-          <CircularProgress />
-        </Box>
-      </PageContainer>
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <CircularProgress />
+      </Box>
     );
   }
 
   return (
-    <PageContainer title="Materials Management">
-      <Box sx={{ pb: 8 }}>
+    <Box sx={{ pb: 10 }}>
         {/* Error Display */}
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -185,7 +180,7 @@ export default function MaterialsPage() {
           onConfirm={handleDelete}
           material={deleteDialog.material}
         />
-      </Box>
-    </PageContainer>
+    </Box>
   );
 }
+

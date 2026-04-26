@@ -1,23 +1,16 @@
 import React from 'react';
 import {
   Grid,
-  Typography,
   TextField,
   FormControlLabel,
-  Checkbox,
-  Box
+  Checkbox
 } from '@mui/material';
+import { TaskFormSection } from './taskBuilderUi';
 
 export function ServiceSettingsSection({ formData, setFormData }) {
-  const update = (field) => (e) =>
-    setFormData(prev => ({ ...prev, service: { ...prev.service, [field]: e.target.value } }));
-
   return (
     <Grid item xs={12}>
-      <Box sx={{ px: { xs: 2, sm: 0 }, borderTop: '1px solid', borderColor: 'divider', pt: 2 }}>
-        <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, display: 'block', mb: 1.5, lineHeight: 1 }}>
-          Service Settings
-        </Typography>
+      <TaskFormSection title="Service Settings" subtitle="Set timing, rush handling, and operational flags.">
         <Grid container spacing={2}>
           <Grid item xs={6} sm={4} md={3}>
             <TextField
@@ -26,7 +19,7 @@ export function ServiceSettingsSection({ formData, setFormData }) {
               label="Est. Days"
               type="number"
               value={formData.service.estimatedDays}
-              onChange={(e) => setFormData(prev => ({ ...prev, service: { ...prev.service, estimatedDays: parseInt(e.target.value) || 0 } }))}
+              onChange={(e) => setFormData(prev => ({ ...prev, service: { ...prev.service, estimatedDays: parseInt(e.target.value, 10) || 0 } }))}
               inputProps={{ min: 1, max: 30 }}
             />
           </Grid>
@@ -37,7 +30,7 @@ export function ServiceSettingsSection({ formData, setFormData }) {
               label="Rush Days"
               type="number"
               value={formData.service.rushDays}
-              onChange={(e) => setFormData(prev => ({ ...prev, service: { ...prev.service, rushDays: parseInt(e.target.value) || 0 } }))}
+              onChange={(e) => setFormData(prev => ({ ...prev, service: { ...prev.service, rushDays: parseInt(e.target.value, 10) || 0 } }))}
               inputProps={{ min: 1, max: 10 }}
             />
           </Grid>
@@ -54,42 +47,24 @@ export function ServiceSettingsSection({ formData, setFormData }) {
           </Grid>
           <Grid item xs={6} sm={4} md={3}>
             <FormControlLabel
-              control={
-                <Checkbox
-                  size="small"
-                  checked={formData.service.requiresApproval}
-                  onChange={(e) => setFormData(prev => ({ ...prev, service: { ...prev.service, requiresApproval: e.target.checked } }))}
-                />
-              }
+              control={<Checkbox size="small" checked={formData.service.requiresApproval} onChange={(e) => setFormData(prev => ({ ...prev, service: { ...prev.service, requiresApproval: e.target.checked } }))} />}
               label="Requires Approval"
             />
           </Grid>
           <Grid item xs={6} sm={4} md={3}>
             <FormControlLabel
-              control={
-                <Checkbox
-                  size="small"
-                  checked={formData.service.requiresInspection}
-                  onChange={(e) => setFormData(prev => ({ ...prev, service: { ...prev.service, requiresInspection: e.target.checked } }))}
-                />
-              }
+              control={<Checkbox size="small" checked={formData.service.requiresInspection} onChange={(e) => setFormData(prev => ({ ...prev, service: { ...prev.service, requiresInspection: e.target.checked } }))} />}
               label="Requires Inspection"
             />
           </Grid>
           <Grid item xs={6} sm={4} md={3}>
             <FormControlLabel
-              control={
-                <Checkbox
-                  size="small"
-                  checked={formData.service.canBeBundled}
-                  onChange={(e) => setFormData(prev => ({ ...prev, service: { ...prev.service, canBeBundled: e.target.checked } }))}
-                />
-              }
+              control={<Checkbox size="small" checked={formData.service.canBeBundled} onChange={(e) => setFormData(prev => ({ ...prev, service: { ...prev.service, canBeBundled: e.target.checked } }))} />}
               label="Can Be Bundled"
             />
           </Grid>
         </Grid>
-      </Box>
+      </TaskFormSection>
     </Grid>
   );
 }

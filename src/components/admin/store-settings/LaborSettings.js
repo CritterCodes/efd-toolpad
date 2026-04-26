@@ -44,7 +44,7 @@ export default function LaborSettings({ localSettings, handleSettingChange }) {
                     
                     {/* Skill Level Preview */}
                     <Grid item xs={12}>
-                        <Paper sx={{ p: 2, bgcolor: 'grey.50' }}>
+                        <Paper sx={{ p: 2, bgcolor: 'action.hover' }}>
                             <Typography variant="subtitle2" gutterBottom>
                                 Skill Level Wages (Before Fees):
                             </Typography>

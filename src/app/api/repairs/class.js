@@ -39,7 +39,6 @@ export default class Repair {
         
         // Work items
         this.tasks = data.tasks || [];
-        this.processes = data.processes || [];
         this.materials = data.materials || [];
         this.customLineItems = data.customLineItems || [];
         
@@ -98,7 +97,7 @@ export default class Repair {
         this.updatedAt = new Date();
         
         // Recalculate total cost if work items were updated
-        if (updateData.tasks || updateData.processes || updateData.materials || updateData.customLineItems) {
+        if (updateData.tasks || updateData.materials || updateData.customLineItems) {
             this.totalCost = calculateTotalCost(this, this.isWholesale);
         }
         
@@ -151,7 +150,6 @@ export default class Repair {
             notes: this.notes,
             internalNotes: this.internalNotes,
             tasks: this.tasks,
-            processes: this.processes,
             materials: this.materials,
             customLineItems: this.customLineItems,
             // Detailed pricing

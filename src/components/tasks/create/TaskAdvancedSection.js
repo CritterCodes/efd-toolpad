@@ -29,7 +29,7 @@ import {
   Build as BuildIcon,
   Security as SecurityIcon
 } from '@mui/icons-material';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageContainer } from '@/components/PageContainer';
 import { useRouter, useParams } from 'next/navigation';
 import { SKILL_LEVEL } from '@/constants/pricing.constants.mjs';
 
@@ -102,11 +102,11 @@ export default function TaskAdvancedSection({ formData, handleInputChange }) {
                     />
                   </Grid>
                   <Grid item xs={12}>
-                    <Box sx={{ p: 2, bgcolor: 'primary.50', borderRadius: 1, border: 1, borderColor: 'primary.200' }}>
+                    <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1, border: 1, borderColor: 'divider' }}>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
                         Estimated Base Price:
                       </Typography>
-                      <Typography variant="h5" color="primary.main" fontWeight="bold">
+                      <Typography variant="h5" sx={{ color: '#D4AF37' }} fontWeight="bold">
                         ${calculatedPrice.toFixed(2)}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
@@ -264,3 +264,4 @@ export default function TaskAdvancedSection({ formData, handleInputChange }) {
         </Grid>
     );
 }
+
