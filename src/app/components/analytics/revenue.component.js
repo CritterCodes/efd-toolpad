@@ -14,10 +14,7 @@ import Divider from '@mui/material/Divider';
 export default function RevenueAnalytics({ repairs = [] }) {
     const validRepairs = Array.isArray(repairs) ? repairs : [];
 
-    // ✅ Calculate revenue-related metrics
-    console.log(validRepairs);
-    
-    const totalRevenue = validRepairs.reduce((sum, repair) => sum + (parseInt(repair.totalCost) || 0), 0);
+    const totalRevenue = validRepairs.reduce((sum, repair) => sum + (parseFloat(repair.totalCost) || 0), 0);
     const averageRepairCost = validRepairs.length 
         ? (totalRevenue / validRepairs.length).toFixed(2)
         : "N/A";

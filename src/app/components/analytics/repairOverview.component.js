@@ -14,7 +14,7 @@ export default function RepairOverviewAnalytics({ repairs = [] }) {
 
     const totalRepairs = validRepairs.length;
     const completedRepairs = validRepairs.filter(repair => repair.status === 'COMPLETED').length;
-    const pendingRepairs = validRepairs.filter(repair => !repair.status === 'COMPLETED').length;
+    const pendingRepairs = validRepairs.filter(repair => repair.status !== 'COMPLETED').length;
 
     const completedWithDates = validRepairs.filter(
         (repair) => repair.status === 'COMPLETED' && repair.completedAt && repair.createdAt
