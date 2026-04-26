@@ -1,31 +1,12 @@
 import "./globals.css";
-import { AppProvider } from "@toolpad/core/AppProvider";
 import { SessionProvider } from "next-auth/react";
 import { RepairsProvider } from "./context/repairs.context";
 import { AdminSettingsProvider } from "@/context/AdminSettingsContext";
 import { auth } from "@/lib/auth";
-import { signIn, signOut } from "next-auth/react";
-import { getNavigationForRole, canAccessAdmin } from "@/lib/roleBasedNavigation";
 import RoleAwareNavigationProvider from "@/components/RoleAwareNavigationProvider";
-import { UnifiedUserService, USER_ROLES } from "@/lib/unifiedUserService";
-import Image from 'next/image';
-import { redirect } from 'next/navigation';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
 
 export const dynamic = 'force-dynamic';
-
-const BRANDING = {
-    logo: <Image 
-        src='/logos/[efd]LogoBlack.png' 
-        alt="[efd] Logo" 
-        width={150} 
-        height={75} 
-        style={{ width: 'auto', height: 'auto' }}
-    />,
-    title: 'Admin CRM',
-};
-
-const AUTHENTICATION = { signIn, signOut };
 
 // PWA Metadata
 export const metadata = {
@@ -63,7 +44,7 @@ export const metadata = {
 };
 
 export const viewport = {
-    themeColor: '#1976d2',
+    themeColor: '#0D0D0D',
     width: 'device-width',
     initialScale: 1,
     maximumScale: 1,
@@ -104,20 +85,13 @@ export default async function RootLayout({ children }) {
     }
     */
 
-    // 🎯 ROLE-BASED NAVIGATION - Now handled by RoleAwareNavigationProvider
-    const userNavigation = getNavigationForRole(session.user.role, session.user.artisanTypes); // Fallback for SSR
-
     return (
         <html lang="en" suppressHydrationWarning>
             <body>
                 <SessionProvider session={session}>
                     <AdminSettingsProvider>
                         <RepairsProvider>
-                            <RoleAwareNavigationProvider
-                                session={session}
-                                branding={BRANDING}
-                                authentication={AUTHENTICATION}
-                            >
+                            <RoleAwareNavigationProvider>
                                 {children}
                                 <PWAInstallPrompt />
                             </RoleAwareNavigationProvider>

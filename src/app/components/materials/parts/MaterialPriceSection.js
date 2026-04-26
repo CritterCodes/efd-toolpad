@@ -1,78 +1,78 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
-import { formatPrice, hasPortions, calculatePortionPrice } from '@/utils/materials.util';
+import { formatPrice, hasPortions } from '@/utils/materials.util';
+import { getPriceRange } from '@/utils/material-pricing.util';
 
 export default function MaterialPriceSection({ material, isMetalDependent }) {
   const getPriceDisplay = () => {
     if (!isMetalDependent) {
-      if (material.stullerProducts && material.stullerProducts.length > 0) {
+      if (material.stullerProducts?.length) {
         const unitCosts = material.stullerProducts
-          .map(p => parseFloat(p.stullerPrice) || 0)
-          .filter(price => price > 0);
-          
+          .map((product) => parseFloat(product.stullerPrice) || 0)
+          .filter((price) => price > 0);
+
         if (unitCosts.length > 0) {
           const min = Math.min(...unitCosts);
           const max = Math.max(...unitCosts);
           return min === max ? formatPrice(min) : `${formatPrice(min)} - ${formatPrice(max)}`;
         }
       }
+
       return material.unitCost ? formatPrice(material.unitCost) : 'No price set';
     }
 
-    if (!material.stullerProducts || material.stullerProducts.length === 0) {
+    if (!material.stullerProducts?.length) {
       return material.unitCost ? formatPrice(material.unitCost) : 'No price';
     }
 
     const unitCosts = material.stullerProducts
-      .map(p => parseFloat(p.stullerPrice) || 0)
-      .filter(price => price > 0);
-    
+      .map((product) => parseFloat(product.stullerPrice) || 0)
+      .filter((price) => price > 0);
+
     if (unitCosts.length === 0) {
       return 'No pricing data';
     }
 
-    const unitMin = Math.min(...unitCosts);
-    const unitMax = Math.max(...unitCosts);
-    
-    return unitMin === unitMax ? 
-      formatPrice(unitMin) :
-      `${formatPrice(unitMin)} - ${formatPrice(unitMax)}`;
+    const min = Math.min(...unitCosts);
+    const max = Math.max(...unitCosts);
+    return min === max ? formatPrice(min) : `${formatPrice(min)} - ${formatPrice(max)}`;
   };
 
   const getPortionDisplay = () => {
-    if (!isMetalDependent) {
-      if (material.stullerProducts && material.stullerProducts.length > 0) {
-        const portionCosts = material.stullerProducts
-          .map(p => parseFloat(p.costPerPortion) || 0)
-          .filter(price => price > 0);
-        
-        if (portionCosts.length > 0) {
-          const min = Math.min(...portionCosts);
-          const max = Math.max(...portionCosts);
-          const portionType = material.portionType || 'portion';
-          return min === max ? 
-            `${formatPrice(min)} cost per ${portionType}` :
-            `${formatPrice(min)}-${formatPrice(max)} cost per ${portionType}`;
-        }
-      }
-      return material.unitCost ? `${formatPrice(calculatePortionPrice(material.unitCost, material.portionsPerUnit))} per ${material.portionType || 'portion'}` : 'No price set';
-    } else {
-      if (material.stullerProducts && material.stullerProducts.length > 0) {
-        const portionCosts = material.stullerProducts
-          .map(p => parseFloat(p.costPerPortion) || 0)
-          .filter(price => price > 0);
-        
-        if (portionCosts.length > 0) {
-          const min = Math.min(...portionCosts);
-          const max = Math.max(...portionCosts);
-          const portionType = material.portionType || 'piece';
-          return min === max ? 
-            `${formatPrice(min)} cost per ${portionType}` :
-            `${formatPrice(min)}-${formatPrice(max)} cost per ${portionType}`;
-        }
-      }
+    const portionRange = getPriceRange(material, true);
+    if (!portionRange || portionRange.max <= 0) {
       return 'No portion pricing';
     }
+
+    const portionType = material.portionType || 'portion';
+    if (portionRange.single !== null && portionRange.single !== undefined) {
+      return `${formatPrice(portionRange.single)} cost per ${portionType}`;
+    }
+
+    return `${formatPrice(portionRange.min)}-${formatPrice(portionRange.max)} cost per ${portionType}`;
+  };
+
+  const getPortionSummary = () => {
+    const portionType = material.portionType || 'portions';
+    if (!material.stullerProducts?.length) {
+      return `${material.portionsPerUnit} ${portionType} per unit`;
+    }
+
+    const uniquePortions = [...new Set(
+      material.stullerProducts
+        .map((product) => Number(product.portionsPerUnit || material.portionsPerUnit || 1))
+        .filter((value) => Number.isFinite(value) && value > 0)
+    )];
+
+    if (uniquePortions.length === 0) {
+      return `${material.portionsPerUnit} ${portionType} per unit`;
+    }
+
+    if (uniquePortions.length === 1) {
+      return `${uniquePortions[0]} ${portionType} per unit`;
+    }
+
+    return `${Math.min(...uniquePortions)}-${Math.max(...uniquePortions)} ${portionType} per unit`;
   };
 
   return (
@@ -85,10 +85,10 @@ export default function MaterialPriceSection({ material, isMetalDependent }) {
           per {material.unitType}
         </Typography>
       </Box>
-      
+
       {hasPortions(material) && (
         <Typography variant="caption" color="text.secondary" display="block">
-          {getPortionDisplay()} • {material.portionsPerUnit} {material.portionType || 'portions'} per unit
+          {getPortionDisplay()} • {getPortionSummary()}
         </Typography>
       )}
     </Box>

@@ -11,7 +11,7 @@ import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageContainer } from '@/components/PageContainer';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import CustomTicketFilters from '@/app/components/custom-tickets/filters.component';
@@ -601,3 +601,4 @@ export default function CustomTicketsPage() {
 CustomTicketsPage.propTypes = {
   pathname: PropTypes.string,
 };
+

@@ -1,22 +1,18 @@
 import React from 'react';
 import {
   Grid,
-  Typography,
   TextField,
   FormControl,
   InputLabel,
   Select,
-  MenuItem,
-  Box
+  MenuItem
 } from '@mui/material';
+import { TaskFormSection, taskSelectMenuProps } from './taskBuilderUi';
 
 export function BasicInformationSection({ formData, setFormData, categories }) {
   return (
     <Grid item xs={12}>
-      <Box sx={{ px: { xs: 2, sm: 0 } }}>
-        <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, display: 'block', mb: 1.5, lineHeight: 1 }}>
-          Basic Information
-        </Typography>
+      <TaskFormSection title="Basic Information" subtitle="Name, category, and description for the task.">
         <Grid container spacing={2}>
           <Grid item xs={12} md={8}>
             <TextField
@@ -32,6 +28,7 @@ export function BasicInformationSection({ formData, setFormData, categories }) {
             <FormControl fullWidth required>
               <InputLabel>Category</InputLabel>
               <Select
+                MenuProps={taskSelectMenuProps}
                 value={formData.category}
                 onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
                 label="Category"
@@ -56,7 +53,7 @@ export function BasicInformationSection({ formData, setFormData, categories }) {
             />
           </Grid>
         </Grid>
-      </Box>
+      </TaskFormSection>
     </Grid>
   );
 }

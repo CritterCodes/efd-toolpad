@@ -9,7 +9,6 @@ import {
   ArrowBack as ArrowBackIcon,
   Save as SaveIcon
 } from '@mui/icons-material';
-import { PageContainer } from '@toolpad/core/PageContainer';
 import { DEFAULT_PROCESS_FORM } from '@/constants/processes.constants';
 import { ProcessForm } from '@/app/components/processes/ProcessForm';
 import AiProcessInputPanel from './components/AiProcessInputPanel';
@@ -102,7 +101,7 @@ export default function AiProcessBuilderPage() {
   }, [formData, router]);
 
   return (
-    <PageContainer title="AI Process Builder">
+    <Box sx={{ pb: 10 }}>
       <Box sx={{ maxWidth: 900, mx: 'auto', pb: 4 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
           <Button startIcon={<ArrowBackIcon />} onClick={() => router.push('/dashboard/admin/tasks/processes')} variant="text">
@@ -182,6 +181,7 @@ export default function AiProcessBuilderPage() {
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </PageContainer>
+    </Box>
   );
 }
+

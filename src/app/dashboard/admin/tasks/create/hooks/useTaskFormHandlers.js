@@ -77,7 +77,7 @@ export function useTaskFormHandlers({
   const addMaterial = () => {
     setFormData(prev => ({
       ...prev,
-      materials: [...prev.materials, { materialId: '', quantity: 1 }]
+      materials: [...prev.materials, { materialId: '', quantity: 1, condition: 'new', materialName: '', displayName: '' }]
     }));
   };
 
@@ -91,7 +91,17 @@ export function useTaskFormHandlers({
   const updateMaterial = (index, field, value) => {
     setFormData(prev => {
       const newMaterials = [...prev.materials];
-      newMaterials[index] = { ...newMaterials[index], [field]: value };
+      if (field === 'materialId') {
+        const found = availableMaterials.find(m => String(m._id) === String(value));
+        newMaterials[index] = {
+          ...newMaterials[index],
+          materialId: value,
+          materialName: found?.displayName || found?.name || '',
+          displayName: found?.displayName || found?.name || '',
+        };
+      } else {
+        newMaterials[index] = { ...newMaterials[index], [field]: value };
+      }
       return { ...prev, materials: newMaterials };
     });
   };
@@ -129,15 +139,18 @@ export function useTaskFormHandlers({
         };
       });
 
-      const enrichedMaterials = formData.materials.map((selection) => {
-        const material = availableMaterials.find((m) => m._id === selection.materialId);
-        return {
-          materialId: selection.materialId,
-          quantity: selection.quantity || 1,
-          materialName: material?.displayName || material?.name || '',
-          displayName: material?.displayName || material?.name || ''
-        };
-      });
+      const enrichedMaterials = formData.materials
+        .filter(s => s.materialId)
+        .map((selection) => {
+          const found = availableMaterials.find((m) => String(m._id) === String(selection.materialId));
+          return {
+            materialId: selection.materialId,
+            quantity: selection.quantity || 1,
+            condition: selection.condition || 'new',
+            materialName: found?.displayName || found?.name || selection.materialName || '',
+            displayName: found?.displayName || found?.name || selection.displayName || '',
+          };
+        });
 
       const enrichedTools = (formData.tools || [])
         .filter(s => s.toolId)

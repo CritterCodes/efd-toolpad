@@ -1,13 +1,13 @@
 import React from 'react';
 import {
     Grid,
-    Card,
-    CardContent,
+    Box,
     Typography,
     Button
 } from '@mui/material';
 import { Add as AddIcon, Build as RepairIcon, Visibility as ViewIcon } from '@mui/icons-material';
 import RepairCard from '@/components/business/repairs/RepairCard';
+import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 
 const CurrentRepairsList = ({
     repairs,
@@ -17,48 +17,57 @@ const CurrentRepairsList = ({
 }) => {
     if (repairs.length === 0) {
         return (
-            <Card>
-                <CardContent sx={{ textAlign: 'center', py: 4 }}>
-                    <RepairIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-                    <Typography variant="h6" color="text.secondary" gutterBottom>
-                        {currentRepairsCount === 0 ? 'No active repairs found' : 'No repairs match your search'}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        {currentRepairsCount === 0
-                            ? 'All your repairs are completed or you haven\'t submitted any yet'
-                            : 'Try adjusting your search criteria or filters'
-                        }
-                    </Typography>
-                    {currentRepairsCount === 0 && (
-                        <Button
-                            variant="contained"
-                            startIcon={<AddIcon />}
-                            onClick={handleCreateRepair}
-                        >
-                            Create New Repair
-                        </Button>
-                    )}
-                </CardContent>
-            </Card>
+            <Box
+                sx={{
+                    backgroundColor: REPAIRS_UI.bgPanel,
+                    border: `1px solid ${REPAIRS_UI.border}`,
+                    borderRadius: 3,
+                    boxShadow: REPAIRS_UI.shadow,
+                    px: 3,
+                    py: 5,
+                    textAlign: 'center'
+                }}
+            >
+                <RepairIcon sx={{ fontSize: 48, color: REPAIRS_UI.textMuted, mb: 2 }} />
+                <Typography variant="h6" sx={{ color: REPAIRS_UI.textHeader, mb: 1 }}>
+                    {currentRepairsCount === 0 ? 'No active repairs found' : 'No repairs match the current filters'}
+                </Typography>
+                <Typography sx={{ color: REPAIRS_UI.textSecondary, mb: 2.5 }}>
+                    {currentRepairsCount === 0
+                        ? 'There are no active repairs in the system right now.'
+                        : 'Adjust the search or filter settings and try again.'}
+                </Typography>
+                {currentRepairsCount === 0 && (
+                    <Button
+                        variant="outlined"
+                        startIcon={<AddIcon />}
+                        onClick={handleCreateRepair}
+                        sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border, backgroundColor: REPAIRS_UI.bgCard }}
+                    >
+                        Create Repair
+                    </Button>
+                )}
+            </Box>
         );
     }
 
     return (
         <Grid container spacing={2}>
             {repairs.map((repair) => (
-                <Grid item xs={12} sm={6} lg={4} key={repair._id || repair.repairID}>
+                <Grid item xs={12} sm={6} xl={4} key={repair._id || repair.repairID}>
                     <RepairCard
                         repair={repair}
-                        actions={
+                        actions={(
                             <Button
                                 variant="outlined"
                                 size="small"
                                 startIcon={<ViewIcon />}
                                 onClick={() => handleViewRepair(repair.repairID || repair._id)}
+                                sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border, backgroundColor: REPAIRS_UI.bgPanel }}
                             >
                                 View Details
                             </Button>
-                        }
+                        )}
                     />
                 </Grid>
             ))}

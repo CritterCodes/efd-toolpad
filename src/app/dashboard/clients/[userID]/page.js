@@ -2,7 +2,7 @@
 import React, { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-    Box, Typography, Button, Breadcrumbs, Link, Snackbar,
+    Box, Typography, Button, Snackbar,
     Dialog, DialogTitle, DialogContent, DialogActions, TextField, Alert
 } from '@mui/material';
 import { useSession } from 'next-auth/react';
@@ -149,18 +149,7 @@ const ViewUserPage = ({ params }) => {
     console.log("🔧 Filtered Repairs for User:", userRepairs);
 
     return (
-        <Box sx={{ padding: { xs: '10px', sm: '20px' } }}>
-            {/* Breadcrumbs */}
-            <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
-                <Link underline="hover" color="inherit" onClick={() => router.push('/dashboard')} sx={{ cursor: 'pointer' }}>
-                    Dashboard
-                </Link>
-                <Link underline="hover" color="inherit" onClick={() => router.push('/dashboard/clients')} sx={{ cursor: 'pointer' }}>
-                    Clients
-                </Link>
-                <Typography color="text.primary">User Profile</Typography>
-            </Breadcrumbs>
-
+        <Box sx={{ pb: 10 }}>
             {/* User Header with Tabs Integrated */}
             <UserHeader
                 onSave={handleSaveChanges}
@@ -202,31 +191,20 @@ const ViewUserPage = ({ params }) => {
                 open={snackbarOpen}
                 autoHideDuration={6000}
                 onClose={() => setSnackbarOpen(false)}
-                message={snackbarMessage}
                 anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-                ContentProps={{
-                    sx: {
-                        backgroundColor: snackbarSeverity === "success"
-                            ? "green"
-                            : snackbarSeverity === "error"
-                                ? "red"
-                                : "orange",
-                        color: "white",
-                        fontWeight: "bold"
+            >
+                <Alert
+                    onClose={() => setSnackbarOpen(false)}
+                    severity={snackbarSeverity}
+                    action={
+                        hasChanges && snackbarSeverity === "warning" ? (
+                            <Button color="inherit" size="small" onClick={handleSaveChanges}>Save Now</Button>
+                        ) : undefined
                     }
-                }}
-                action={
-                    hasChanges && snackbarSeverity === "warning" ? (
-                        <Button color="inherit" size="small" onClick={handleSaveChanges}>
-                            Save Now
-                        </Button>
-                    ) : (
-                        <Button color="inherit" size="small" onClick={() => setSnackbarOpen(false)}>
-                            Close
-                        </Button>
-                    )
-                }
-            />
+                >
+                    {snackbarMessage}
+                </Alert>
+            </Snackbar>
 
             {/* New Repair Stepper */}
             <NewRepairStepper

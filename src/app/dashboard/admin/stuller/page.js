@@ -19,7 +19,6 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import { LoadingButton } from '@mui/lab';
-import { PageContainer } from '@toolpad/core/PageContainer';
 
 export default function StullerSettingsPage() {
   const [loading, setLoading] = React.useState(false);
@@ -193,7 +192,11 @@ export default function StullerSettingsPage() {
   }, [loadStullerSettings, loadStullerMaterials]);
 
   return (
-    <PageContainer title="Stuller Integration Settings">
+    <Box sx={{ pb: 10 }}>
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h5" fontWeight={600} sx={{ color: '#D1D5DB' }}>Stuller Integration</Typography>
+        <Typography variant="body2" sx={{ color: '#9CA3AF', mt: 0.5 }}>Configure Stuller API credentials and material sync settings.</Typography>
+      </Box>
       <Stack spacing={3}>
         {error && <Alert severity="error">{error}</Alert>}
         {success && <Alert severity="success">{success}</Alert>}
@@ -384,6 +387,7 @@ STULLER_API_KEY=your_api_key_here`}
           </CardContent>
         </Card>
       </Stack>
-    </PageContainer>
+    </Box>
   );
 }
+

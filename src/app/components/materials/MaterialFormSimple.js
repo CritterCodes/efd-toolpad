@@ -119,6 +119,7 @@ export default function MaterialFormSimple({ formData, setFormData }) {
             value={formData.portionsPerUnit || 1}
             onChange={handleChange('portionsPerUnit')}
             inputProps={{ min: 1, step: 1 }}
+            helperText="Default physical conversion. Individual Stuller products can override this."
           />
         </Grid>
 

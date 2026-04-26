@@ -659,6 +659,10 @@ export class TasksService {
       wholesalePrice: computed.wholesalePrice,
       laborCost: computed.laborCost,
       baseCost: computed.baseCost,
+      baseMaterialsCost: computed.baseMaterialsCost,
+      totalMaterialCost: computed.totalMaterialCost,
+      totalProcessMaterialCost: computed.totalProcessMaterialCost,
+      toolDepreciationCost: computed.toolDepreciationCost,
       totalLaborHours: computed.totalLaborHours,
       calculatedAt: computed.calculatedAt
     } : (task.pricing || null);

@@ -5,13 +5,12 @@
 
 /**
  * Calculate subtotal from all work items
- * @param {Object} repair - The repair object containing tasks, processes, materials, etc.
+ * @param {Object} repair - The repair object containing tasks, materials, etc.
  * @returns {number} The calculated subtotal
  */
 export const calculateSubtotal = (repair) => {
     const allItems = [
         ...(repair.tasks || []),
-        ...(repair.processes || []),
         ...(repair.materials || []),
         ...(repair.customLineItems || []),
         ...(repair.repairTasks || [])
@@ -118,7 +117,6 @@ export const calculateRepairTotal = (repair) => {
 export const calculateItemCount = (repair) => {
     const allItems = [
         ...(repair.tasks || []),
-        ...(repair.processes || []),
         ...(repair.materials || []),
         ...(repair.customLineItems || []),
         ...(repair.repairTasks || [])
@@ -148,7 +146,6 @@ export const formatCurrency = (amount) => {
 export const getAllWorkItems = (repair) => {
     return [
         ...(repair.tasks || []).map(item => ({ ...item, type: 'Task' })),
-        ...(repair.processes || []).map(item => ({ ...item, type: 'Process' })),
         ...(repair.materials || []).map(item => ({ ...item, type: 'Material', isStullerItem: item.isStullerItem })),
         ...(repair.customLineItems || []).map(item => ({ ...item, type: 'Custom' })),
         ...(repair.repairTasks || []).map(item => ({ ...item, type: 'Legacy Task' }))

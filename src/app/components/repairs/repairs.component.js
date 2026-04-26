@@ -6,7 +6,7 @@ import Typography from '@mui/material/Typography';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Pagination from '@mui/material/Pagination';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageContainer } from '@/components/PageContainer';
 import NewRepairStepper from './newRepairStepper.component';
 import Image from 'next/image';
 import RepairFilters from './filters.component';
@@ -171,3 +171,4 @@ export default function RepairsPage() {
 RepairsPage.propTypes = {
     pathname: PropTypes.string,
 };
+

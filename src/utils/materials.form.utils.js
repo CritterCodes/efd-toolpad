@@ -35,13 +35,16 @@ export const validateMaterialForm = (formData) => {
  * @returns {Object} Processed data ready for API
  */
 export const prepareFormDataForSubmission = (formData) => {
-  return {
+  const processed = {
     ...formData,
     unitCost: parseFloat(formData.unitCost) || 0,
     portionsPerUnit: parseInt(formData.portionsPerUnit) || 1,
-    costPerPortion: parseFloat(formData.costPerPortion) || 0,
     isActive: formData.isActive !== false
   };
+
+  delete processed.costPerPortion;
+  delete processed.lastFetchedStullerProduct;
+  return processed;
 };
 
 /**
@@ -82,6 +85,7 @@ export const processFormDataForSubmission = (formData) => {
   // With autocomplete, custom values are stored directly in unitType and portionType
   // No special processing needed - just clean up any empty strings
   const processedData = { ...formData };
+	delete processedData.lastFetchedStullerProduct;
   
   // Ensure we have valid values
   if (!processedData.unitType?.trim()) {

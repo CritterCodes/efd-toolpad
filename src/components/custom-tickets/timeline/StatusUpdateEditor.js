@@ -43,7 +43,7 @@ export function StatusUpdateEditor({
             </MenuItem>
             
             {/* Group statuses by current phase first */}
-            <ListSubheader sx={{ bgcolor: 'primary.light', color: 'primary.contrastText' }}>
+            <ListSubheader sx={{ bgcolor: '#1F232A', color: '#9CA3AF' }}>
               Current Phase: {CustomTicketStatusManager.getPhaseName(CustomTicketStatusManager.getWorkflowStage(currentStatus))}
             </ListSubheader>
             {nextStatuses
@@ -75,7 +75,7 @@ export function StatusUpdateEditor({
               })}
 
             {/* General Actions */}
-            <ListSubheader sx={{ bgcolor: 'warning.light', color: 'warning.contrastText' }}>
+            <ListSubheader sx={{ bgcolor: '#1F232A', color: '#9CA3AF' }}>
               General Actions
             </ListSubheader>
             {nextStatuses
@@ -138,7 +138,7 @@ export function StatusUpdateEditor({
                     return acc;
                   }, {})
               ).map(([phase, statuses]) => [
-                <ListSubheader key={phase} sx={{ bgcolor: 'success.light', color: 'success.contrastText' }}>
+                <ListSubheader key={phase} sx={{ bgcolor: '#1F232A', color: '#9CA3AF' }}>
                   Move to: {CustomTicketStatusManager.getPhaseName(phase)}
                 </ListSubheader>,
                 ...statuses.map(status => {

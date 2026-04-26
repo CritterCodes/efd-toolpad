@@ -1,10 +1,10 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import {
-  Box, Typography, Grid, Card, CardContent, Breadcrumbs, Link,
+  Box, Typography, Grid, Card, CardContent,
   CircularProgress, Alert, TextField, Button, InputAdornment
 } from '@mui/material';
-import { BarChart as BarChartIcon, CheckCircle as CheckIcon, People as PeopleIcon, Edit as EditIcon, Save as SaveIcon } from '@mui/icons-material';
+import { BarChart as BarChartIcon, CheckCircle as CheckIcon, People as PeopleIcon, Edit as EditIcon, Save as SaveIcon, Link2 as AffiliateIcon } from '@mui/icons-material';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
@@ -76,13 +76,10 @@ export default function AffiliateDashboardPage() {
   ];
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link underline="hover" color="inherit" onClick={() => router.push('/dashboard')} sx={{ cursor: 'pointer' }}>Dashboard</Link>
-        <Typography color="text.primary">Affiliate</Typography>
-      </Breadcrumbs>
-
-      <Typography variant="h5" fontWeight={600} mb={3}>Affiliate Dashboard</Typography>
+    <Box sx={{ pb: 10 }}>
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h5" fontWeight={600}>Affiliate Dashboard</Typography>
+      </Box>
 
       {loading && <CircularProgress />}
       {error && <Alert severity="error">{error}</Alert>}

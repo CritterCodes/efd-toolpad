@@ -2,21 +2,20 @@
 
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { 
+import {
     Alert,
     AlertTitle,
     Box,
     CircularProgress,
-    Container,
     Tabs,
-    Tab
+    Tab,
+    Typography
 } from '@mui/material';
 import { 
     Store as StoreIcon,
     Extension as IntegrationIcon,
     PhoneIphone as PWAIcon
 } from '@mui/icons-material';
-import { PageContainer } from '@toolpad/core/PageContainer';
 import StoreSettingsTab from '@/components/admin/StoreSettingsTab';
 import IntegrationsTab from '@/components/admin/IntegrationsTab';
 import PWASettingsTab from '@/components/admin/PWASettingsTab';
@@ -50,30 +49,29 @@ export default function AdminSettingsPage() {
 
     if (status === 'loading') {
         return (
-            <PageContainer title="Admin Settings">
-                <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-                    <CircularProgress />
-                </Box>
-            </PageContainer>
+            <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+                <CircularProgress />
+            </Box>
         );
     }
 
     if (!session?.user?.email?.includes('@')) {
         return (
-            <PageContainer title="Admin Settings">
-                <Alert severity="error">
-                    <AlertTitle>Access Denied</AlertTitle>
-                    You don&apos;t have permission to access admin settings.
-                </Alert>
-            </PageContainer>
+            <Alert severity="error">
+                <AlertTitle>Access Denied</AlertTitle>
+                You don&apos;t have permission to access admin settings.
+            </Alert>
         );
     }
 
     return (
-        <PageContainer title="Admin Settings">
-            <Container maxWidth="lg">
-                <Box sx={{ width: '100%' }}>
-                    <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Box sx={{ pb: 10 }}>
+            <Box sx={{ mb: 3 }}>
+                <Typography variant="h5" fontWeight={600} sx={{ color: '#D1D5DB' }}>Admin Settings</Typography>
+                <Typography variant="body2" sx={{ color: '#9CA3AF', mt: 0.5 }}>Configure store pricing, integrations, and system settings.</Typography>
+            </Box>
+            <Box sx={{ width: '100%' }}>
+                <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                         <Tabs 
                             value={tabValue} 
                             onChange={handleTabChange} 
@@ -114,7 +112,7 @@ export default function AdminSettingsPage() {
                         <PWASettingsTab />
                     </TabPanel>
                 </Box>
-            </Container>
-        </PageContainer>
+            </Box>
     );
 }
+

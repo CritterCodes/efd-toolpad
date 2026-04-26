@@ -29,7 +29,7 @@ import {
   Build as BuildIcon,
   Security as SecurityIcon
 } from '@mui/icons-material';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageContainer } from '@/components/PageContainer';
 import { useRouter, useParams } from 'next/navigation';
 import { SKILL_LEVEL } from '@/constants/pricing.constants.mjs';
 
@@ -51,3 +51,4 @@ export default function TaskPricingSection({ formData, handleInputChange, calcul
         </Grid>
     );
 }
+

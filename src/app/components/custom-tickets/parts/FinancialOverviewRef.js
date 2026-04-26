@@ -23,7 +23,7 @@ export const FinancialOverviewRef = ({ ticket }) => {
             <Grid container spacing={2}>
               {ticket.quoteTotal && (
                 <Grid item xs={6} sm={4}>
-                  <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+                  <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
                     <Typography variant="body2" color="text.secondary">
                       Quote Total
                     </Typography>
@@ -36,7 +36,7 @@ export const FinancialOverviewRef = ({ ticket }) => {
 
               {ticket.amountOwedToCard !== undefined && (
                 <Grid item xs={6} sm={4}>
-                  <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+                  <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
                     <Typography variant="body2" color="text.secondary">
                       Owed to Card
                     </Typography>
@@ -49,7 +49,7 @@ export const FinancialOverviewRef = ({ ticket }) => {
 
               {ticket.requestDetails?.timeline && (
                 <Grid item xs={6} sm={4}>
-                  <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+                  <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
                     <Typography variant="body2" color="text.secondary">
                       Timeline
                     </Typography>

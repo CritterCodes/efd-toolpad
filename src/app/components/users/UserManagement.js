@@ -1,10 +1,8 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { 
-  Box, 
-  Pagination, 
-  Breadcrumbs, 
-  Link, 
+import {
+  Box,
+  Pagination,
   Typography,
   Card,
   CardContent,
@@ -19,7 +17,8 @@ import {
   MenuItem,
   Chip,
   IconButton,
-  Tooltip
+  Tooltip,
+  CircularProgress
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -37,13 +36,40 @@ import {
   Group as ClientIcon
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
+import { REPAIRS_UI as UI } from '@/app/dashboard/repairs/components/repairsUi';
 
-const UserManagement = ({ 
-  userRole, 
-  title, 
-  description, 
+const getUserIcon = (role) => {
+  switch (role) {
+    case 'admin': return <AdminIcon sx={{ fontSize: 20, color: '#EF4444' }} />;
+    case 'developer': return <DeveloperIcon sx={{ fontSize: 20, color: '#3B82F6' }} />;
+    case 'wholesaler': return <WholesalerIcon sx={{ fontSize: 20, color: '#F59E0B' }} />;
+    case 'artisan': return <ArtisanIcon sx={{ fontSize: 20, color: '#8B5CF6' }} />;
+    case 'client': return <ClientIcon sx={{ fontSize: 20, color: UI.accent }} />;
+    default: return <PersonIcon sx={{ fontSize: 20, color: UI.textSecondary }} />;
+  }
+};
+
+const getStatusStyle = (status) => {
+  switch (status?.toLowerCase()) {
+    case 'active':
+    case 'verified':
+      return { color: '#10B981', borderColor: '#10B981' };
+    case 'pending':
+      return { color: '#F59E0B', borderColor: '#F59E0B' };
+    case 'inactive':
+    case 'suspended':
+      return { color: '#EF4444', borderColor: '#EF4444' };
+    default:
+      return { color: UI.textSecondary, borderColor: UI.border };
+  }
+};
+
+const UserManagement = ({
+  userRole,
+  title,
+  description,
   createButtonText = "Add User",
-  showCreateButton = true 
+  showCreateButton = true
 }) => {
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
@@ -59,12 +85,9 @@ const UserManagement = ({
       setLoading(true);
       const response = await fetch(`/api/users?role=${userRole}`);
       const data = await response.json();
-      
       if (response.ok) {
         setUsers(data.users || []);
         setFilteredUsers(data.users || []);
-      } else {
-        console.error("Failed to fetch users:", data.error);
       }
     } catch (error) {
       console.error("Failed to fetch users:", error);
@@ -74,255 +97,243 @@ const UserManagement = ({
   }, [userRole]);
 
   useEffect(() => {
-    if (userRole) {
-      fetchUsers();
-    }
+    if (userRole) fetchUsers();
   }, [userRole, fetchUsers]);
 
   const handleSearch = (event) => {
     const query = event.target.value.toLowerCase();
     setSearchQuery(query);
-    const filtered = users.filter((user) =>
-      user.firstName?.toLowerCase().includes(query) ||
-      user.lastName?.toLowerCase().includes(query) ||
-      user.email?.toLowerCase().includes(query) ||
-      user.business?.toLowerCase().includes(query)
-    );
-    setFilteredUsers(filtered);
+    setFilteredUsers(users.filter((u) =>
+      u.firstName?.toLowerCase().includes(query) ||
+      u.lastName?.toLowerCase().includes(query) ||
+      u.email?.toLowerCase().includes(query) ||
+      u.business?.toLowerCase().includes(query)
+    ));
     setPage(1);
   };
 
   const handleSort = (order) => {
     setSortOrder(order);
-    const sorted = [...filteredUsers].sort((a, b) => {
-      const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
-      const nameB = `${b.firstName} ${b.lastName}`.toLowerCase();
-      return order === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
-    });
-    setFilteredUsers(sorted);
+    setFilteredUsers(prev =>
+      [...prev].sort((a, b) => {
+        const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
+        const nameB = `${b.firstName} ${b.lastName}`.toLowerCase();
+        return order === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+      })
+    );
   };
 
-  const handlePageChange = (event, newPage) => {
-    setPage(newPage);
-  };
-
-  const getUserIcon = (role) => {
-    switch (role) {
-      case 'admin':
-        return <AdminIcon color="error" />;
-      case 'developer':
-        return <DeveloperIcon color="info" />;
-      case 'wholesaler':
-        return <WholesalerIcon color="warning" />;
-      case 'artisan':
-        return <ArtisanIcon color="secondary" />;
-      case 'client':
-        return <ClientIcon color="primary" />;
-      default:
-        return <PersonIcon />;
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'active':
-      case 'verified':
-        return 'success';
-      case 'pending':
-        return 'warning';
-      case 'inactive':
-      case 'suspended':
-        return 'error';
-      default:
-        return 'default';
-    }
-  };
-
-  const paginatedUsers = filteredUsers.slice(
-    (page - 1) * rowsPerPage,
-    page * rowsPerPage
-  );
-
+  const paginatedUsers = filteredUsers.slice((page - 1) * rowsPerPage, page * rowsPerPage);
   const totalPages = Math.ceil(filteredUsers.length / rowsPerPage);
 
   return (
-    <Box sx={{ p: 3 }}>
-      {/* Header */}
-      <Box sx={{ mb: 4 }}>
-        <Breadcrumbs sx={{ mb: 2 }}>
-          <Link href="/dashboard" color="inherit">
-            Dashboard
-          </Link>
-          <Typography color="text.primary">{title}</Typography>
-        </Breadcrumbs>
-        
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-          <Box>
-            <Typography variant="h4" gutterBottom>
-              {title}
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              {description}
-            </Typography>
-          </Box>
-          
+    <Box sx={{ pb: 10, position: 'relative' }}>
+      <Box
+        sx={{
+          backgroundColor: { xs: 'transparent', sm: UI.bgPanel },
+          border: { xs: 'none', sm: `1px solid ${UI.border}` },
+          borderRadius: { xs: 0, sm: 3 },
+          boxShadow: { xs: 'none', sm: UI.shadow },
+          p: { xs: 0.5, sm: 2.5, md: 3 },
+          mb: 3
+        }}
+      >
+        <Box sx={{ maxWidth: 920, mb: 2 }}>
+          <Typography
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 1,
+              px: 1.25,
+              py: 0.5,
+              mb: 1.5,
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              color: UI.textPrimary,
+              backgroundColor: UI.bgCard,
+              border: `1px solid ${UI.border}`,
+              borderRadius: 2,
+              textTransform: 'uppercase'
+            }}
+          >
+            {getUserIcon(userRole)}
+            {title}
+          </Typography>
+
+          <Typography sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: UI.textHeader, mb: 1 }}>
+            {title}
+          </Typography>
+          <Typography sx={{ color: UI.textSecondary, lineHeight: 1.6 }}>
+            {description}
+          </Typography>
+        </Box>
+
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
           {showCreateButton && (
             <Button
-              variant="contained"
+              variant="outlined"
               startIcon={<AddIcon />}
-              onClick={() => {/* TODO: Implement create user modal */}}
+              onClick={() => {}}
+              sx={{ color: UI.textPrimary, borderColor: UI.border, backgroundColor: UI.bgCard }}
             >
               {createButtonText}
             </Button>
           )}
+          <TextField
+            placeholder={`Search ${title.toLowerCase()}...`}
+            size="small"
+            value={searchQuery}
+            onChange={handleSearch}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ fontSize: 18, color: UI.textMuted }} />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ minWidth: 240 }}
+          />
+          <FormControl size="small" sx={{ minWidth: 100 }}>
+            <InputLabel>Sort</InputLabel>
+            <Select value={sortOrder} label="Sort" onChange={(e) => handleSort(e.target.value)}>
+              <MenuItem value="asc">A–Z</MenuItem>
+              <MenuItem value="desc">Z–A</MenuItem>
+            </Select>
+          </FormControl>
+          <Typography variant="body2" sx={{ color: UI.textMuted, ml: 'auto' }}>
+            {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'}
+          </Typography>
         </Box>
       </Box>
 
-      {/* Search and Filter Controls */}
-      <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
-        <TextField
-          placeholder={`Search ${title.toLowerCase()}...`}
-          value={searchQuery}
-          onChange={handleSearch}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon />
-              </InputAdornment>
-            ),
-          }}
-          sx={{ minWidth: 300 }}
-        />
-        
-        <FormControl sx={{ minWidth: 120 }}>
-          <InputLabel>Sort</InputLabel>
-          <Select
-            value={sortOrder}
-            label="Sort"
-            onChange={(e) => handleSort(e.target.value)}
-          >
-            <MenuItem value="asc">A-Z</MenuItem>
-            <MenuItem value="desc">Z-A</MenuItem>
-          </Select>
-        </FormControl>
-
-        <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
-          {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'} found
-        </Typography>
-      </Box>
-
-      {/* Users Grid */}
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <Typography>Loading {title.toLowerCase()}...</Typography>
+          <CircularProgress sx={{ color: UI.accent }} />
         </Box>
       ) : paginatedUsers.length === 0 ? (
-        <Card sx={{ textAlign: 'center', py: 8 }}>
-          <CardContent>
-            {getUserIcon(userRole)}
-            <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
-              No {title.toLowerCase()} found
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {searchQuery ? 'Try adjusting your search criteria' : `No ${title.toLowerCase()} have been added yet`}
-            </Typography>
-          </CardContent>
-        </Card>
+        <Box
+          sx={{
+            backgroundColor: UI.bgPanel,
+            border: `1px solid ${UI.border}`,
+            borderRadius: 3,
+            py: 6,
+            textAlign: 'center'
+          }}
+        >
+          {getUserIcon(userRole)}
+          <Typography variant="h6" sx={{ mt: 2, mb: 1, color: UI.textHeader }}>
+            No {title.toLowerCase()} found
+          </Typography>
+          <Typography sx={{ color: UI.textSecondary }}>
+            {searchQuery ? 'Try adjusting your search criteria' : `No ${title.toLowerCase()} have been added yet`}
+          </Typography>
+        </Box>
       ) : (
-        <Grid container spacing={3}>
-          {paginatedUsers.map((user) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={user.userID || user._id}>
-              <Card 
-                sx={{ 
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  transition: 'all 0.2s',
-                  '&:hover': {
-                    transform: 'translateY(-2px)',
-                    boxShadow: 4
-                  }
-                }}
-              >
-                <CardContent sx={{ flexGrow: 1 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <Avatar sx={{ mr: 2, bgcolor: 'primary.main' }}>
+        <Grid container spacing={2}>
+          {paginatedUsers.map((user) => {
+            const statusStyle = getStatusStyle(user.status);
+            return (
+              <Grid item xs={12} sm={6} md={4} lg={3} key={user.userID || user._id}>
+                <Box
+                  sx={{
+                    backgroundColor: UI.bgPanel,
+                    border: `1px solid ${UI.border}`,
+                    borderRadius: 3,
+                    boxShadow: UI.shadow,
+                    p: 2,
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 1.5,
+                    transition: 'border-color 0.15s',
+                    '&:hover': { borderColor: UI.accent }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Avatar
+                      sx={{
+                        width: 40,
+                        height: 40,
+                        backgroundColor: UI.bgCard,
+                        border: `1px solid ${UI.border}`
+                      }}
+                    >
                       {getUserIcon(user.role)}
                     </Avatar>
-                    <Box sx={{ flexGrow: 1 }}>
-                      <Typography variant="h6" noWrap>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography sx={{ fontWeight: 600, color: UI.textHeader, fontSize: '0.9rem' }} noWrap>
                         {user.firstName} {user.lastName}
                       </Typography>
-                      <Chip 
-                        label={user.status || 'Active'} 
-                        size="small" 
-                        color={getStatusColor(user.status)}
+                      <Chip
+                        label={user.status || 'Active'}
+                        size="small"
+                        sx={{
+                          height: 18,
+                          fontSize: '0.65rem',
+                          fontWeight: 700,
+                          backgroundColor: UI.bgCard,
+                          border: `1px solid ${statusStyle.borderColor}`,
+                          color: statusStyle.color
+                        }}
                       />
                     </Box>
                   </Box>
 
-                  <Box sx={{ mb: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <EmailIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
-                      <Typography variant="body2" noWrap>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                      <EmailIcon sx={{ fontSize: 13, color: UI.textMuted }} />
+                      <Typography variant="body2" sx={{ color: UI.textSecondary, fontSize: '0.82rem' }} noWrap>
                         {user.email}
                       </Typography>
                     </Box>
-                    
                     {user.phoneNumber && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                        <PhoneIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
-                        <Typography variant="body2" noWrap>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                        <PhoneIcon sx={{ fontSize: 13, color: UI.textMuted }} />
+                        <Typography variant="body2" sx={{ color: UI.textSecondary, fontSize: '0.82rem' }} noWrap>
                           {user.phoneNumber}
                         </Typography>
                       </Box>
                     )}
-                    
                     {user.business && (
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <BusinessIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
-                        <Typography variant="body2" noWrap>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                        <BusinessIcon sx={{ fontSize: 13, color: UI.textMuted }} />
+                        <Typography variant="body2" sx={{ color: UI.textSecondary, fontSize: '0.82rem' }} noWrap>
                           {user.business}
                         </Typography>
                       </Box>
                     )}
                   </Box>
 
-                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5, mt: 'auto' }}>
                     <Tooltip title="Edit User">
-                      <IconButton 
-                        size="small"
-                        onClick={() => {/* TODO: Implement edit */}}
-                      >
-                        <EditIcon fontSize="small" />
+                      <IconButton size="small" onClick={() => {}} sx={{ color: UI.textMuted, '&:hover': { color: UI.textPrimary } }}>
+                        <EditIcon sx={{ fontSize: 16 }} />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Delete User">
-                      <IconButton 
-                        size="small" 
-                        color="error"
-                        onClick={() => {/* TODO: Implement delete */}}
-                      >
-                        <DeleteIcon fontSize="small" />
+                      <IconButton size="small" onClick={() => {}} sx={{ color: UI.textMuted, '&:hover': { color: '#EF4444' } }}>
+                        <DeleteIcon sx={{ fontSize: 16 }} />
                       </IconButton>
                     </Tooltip>
                   </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
+                </Box>
+              </Grid>
+            );
+          })}
         </Grid>
       )}
 
-      {/* Pagination */}
       {totalPages > 1 && (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
           <Pagination
             count={totalPages}
             page={page}
-            onChange={handlePageChange}
-            color="primary"
-            size="large"
+            onChange={(e, value) => setPage(value)}
+            sx={{
+              '& .MuiPaginationItem-root': { color: UI.textPrimary, borderColor: UI.border },
+              '& .Mui-selected': { backgroundColor: `${UI.bgCard} !important`, borderColor: `${UI.accent} !important` }
+            }}
           />
         </Box>
       )}

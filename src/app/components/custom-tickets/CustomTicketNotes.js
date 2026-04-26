@@ -81,7 +81,7 @@ export function CustomTicketNotes({
               textAlign: 'center', 
               py: 4, 
               color: 'text.secondary',
-              bgcolor: 'grey.50',
+              bgcolor: 'action.hover',
               borderRadius: 1
             }}>
               <Typography variant="body2">

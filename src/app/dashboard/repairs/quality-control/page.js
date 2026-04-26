@@ -1,22 +1,19 @@
 "use client";
 import React, { useState } from 'react';
-import { 
-    Box, 
-    Typography, 
-    Button, 
+import {
+    Box,
+    Typography,
+    Button,
     Grid,
     Alert,
-    Breadcrumbs, 
-    Link,
     Snackbar
 } from '@mui/material';
-import {
-    VerifiedUser as QcIcon,
-} from '@mui/icons-material';
+import { VerifiedUser as QcIcon, Add as AddIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useRepairs } from '@/app/context/repairs.context';
 import RepairCard from '@/components/business/repairs/RepairCard';
+import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 
 export default function QualityControlPage() {
     const { data: session, status: authStatus } = useSession();
@@ -29,83 +26,117 @@ export default function QualityControlPage() {
         router.push('/dashboard');
         return null;
     }
-    
+
     const qcRepairs = repairs?.filter(repair => repair.status === 'QUALITY CONTROL') || [];
-    
-    const handleSnackbarClose = () => {
-        setSnackbar(prev => ({ ...prev, open: false }));
-    };
-    
+
     return (
-        <Box sx={{ p: 3 }}>
-            {/* Header */}
-            <Box sx={{ mb: 3 }}>
-                <Breadcrumbs sx={{ mb: 2 }}>
-                    <Link 
-                        color="inherit" 
-                        href="/dashboard/repairs"
-                        sx={{ textDecoration: 'none' }}
+        <Box sx={{ pb: 10, position: 'relative' }}>
+            <Box
+                sx={{
+                    backgroundColor: { xs: 'transparent', sm: REPAIRS_UI.bgPanel },
+                    border: { xs: 'none', sm: `1px solid ${REPAIRS_UI.border}` },
+                    borderRadius: { xs: 0, sm: 3 },
+                    boxShadow: { xs: 'none', sm: REPAIRS_UI.shadow },
+                    p: { xs: 0.5, sm: 2.5, md: 3 },
+                    mb: 3
+                }}
+            >
+                <Box sx={{ maxWidth: 920 }}>
+                    <Typography
+                        sx={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 1,
+                            px: 1.25,
+                            py: 0.5,
+                            mb: 1.5,
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            letterSpacing: '0.08em',
+                            color: REPAIRS_UI.textPrimary,
+                            backgroundColor: REPAIRS_UI.bgCard,
+                            border: `1px solid ${REPAIRS_UI.border}`,
+                            borderRadius: 2,
+                            textTransform: 'uppercase'
+                        }}
                     >
-                        Repairs
-                    </Link>
-                    <Typography color="textPrimary">Quality Control</Typography>
-                </Breadcrumbs>
-                
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                    <QcIcon color="primary" sx={{ fontSize: 30 }} />
-                    <Typography variant="h4" component="h1" fontWeight="bold">
+                        <QcIcon sx={{ fontSize: 16, color: REPAIRS_UI.accent }} />
+                        QC queue
+                    </Typography>
+
+                    <Typography sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 1 }}>
                         Quality Control
                     </Typography>
+                    <Typography sx={{ color: REPAIRS_UI.textSecondary, lineHeight: 1.6, mb: 2.5 }}>
+                        Review completed repairs, document quality, and approve for customer pickup.
+                    </Typography>
                 </Box>
-                
-                <Typography variant="body1" color="textSecondary" sx={{ mb: 2 }}>
-                    Review completed repairs, document quality, and approve for customer pickup
-                </Typography>
-                
-                {qcRepairs.length === 0 && (
-                    <Alert severity="info" sx={{ mb: 3 }}>
-                        No repairs currently in quality control.
-                    </Alert>
-                )}
+
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+                    <Button
+                        variant="outlined"
+                        startIcon={<AddIcon />}
+                        onClick={() => router.push('/dashboard/repairs/new')}
+                        sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border, backgroundColor: REPAIRS_UI.bgCard }}
+                    >
+                        New Repair
+                    </Button>
+                </Box>
             </Box>
 
-            {/* QC Queue */}
-            <Grid container spacing={3}>
-                {qcRepairs.map((repair) => (
-                    <Grid item xs={12} md={6} lg={4} key={repair._id || repair.repairID}>
-                        <RepairCard
-                            repair={repair}
-                            actions={
-                                <Button
-                                    variant="contained"
-                                    color="primary"
-                                    startIcon={<QcIcon />}
-                                    fullWidth
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        router.push(`/dashboard/repairs/quality-control/${repair._id}`);
-                                    }}
-                                >
-                                    Start QC Review
-                                </Button>
-                            }
-                        />
-                    </Grid>
-                ))}
-            </Grid>
-            
-            {/* Snackbar for notifications */}
+            {qcRepairs.length === 0 ? (
+                <Box
+                    sx={{
+                        backgroundColor: REPAIRS_UI.bgPanel,
+                        border: `1px solid ${REPAIRS_UI.border}`,
+                        borderRadius: 3,
+                        boxShadow: REPAIRS_UI.shadow,
+                        px: 3,
+                        py: 5,
+                        textAlign: 'center'
+                    }}
+                >
+                    <QcIcon sx={{ fontSize: 48, color: REPAIRS_UI.textMuted, mb: 2 }} />
+                    <Typography variant="h6" sx={{ color: REPAIRS_UI.textHeader, mb: 1 }}>
+                        QC queue is clear
+                    </Typography>
+                    <Typography sx={{ color: REPAIRS_UI.textSecondary }}>
+                        No repairs are currently waiting for quality control.
+                    </Typography>
+                </Box>
+            ) : (
+                <Grid container spacing={2}>
+                    {qcRepairs.map((repair) => (
+                        <Grid item xs={12} sm={6} xl={4} key={repair._id || repair.repairID}>
+                            <RepairCard
+                                repair={repair}
+                                actions={
+                                    <Button
+                                        variant="outlined"
+                                        startIcon={<QcIcon />}
+                                        fullWidth
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            router.push(`/dashboard/repairs/quality-control/${repair._id}`);
+                                        }}
+                                        sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border, backgroundColor: REPAIRS_UI.bgPanel }}
+                                    >
+                                        Start QC Review
+                                    </Button>
+                                }
+                            />
+                        </Grid>
+                    ))}
+                </Grid>
+            )}
+
             <Snackbar
                 open={snackbar.open}
                 autoHideDuration={6000}
-                onClose={handleSnackbarClose}
+                onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             >
-                <Alert 
-                    onClose={handleSnackbarClose} 
-                    severity={snackbar.severity}
-                    sx={{ width: '100%' }}
-                >
+                <Alert onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} severity={snackbar.severity} sx={{ width: '100%' }}>
                     {snackbar.message}
                 </Alert>
             </Snackbar>

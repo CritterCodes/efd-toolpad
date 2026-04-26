@@ -49,7 +49,7 @@ export default function SampleProjectExamples({ sampleProject, calculateLaborRat
                 <Typography variant="subtitle2" gutterBottom>
                     All Skill Levels (2 hours + materials):
                 </Typography>
-                <Paper sx={{ p: 2, bgcolor: 'info.50' }}>
+                <Paper sx={{ p: 2, bgcolor: 'action.hover' }}>
                     <Grid container spacing={1}>
                         <Grid item xs={6} sm={3}>
                             <Typography variant="body2" color="text.secondary">

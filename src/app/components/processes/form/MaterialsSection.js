@@ -47,7 +47,7 @@ export const MaterialsSection = ({
       {materialLines.map((line) => (
         <Box 
           key={line.id} 
-          sx={{ mb: 2, p: 2, border: '1px solid #e0e0e0', borderRadius: 1, bgcolor: 'grey.50' }}
+          sx={{ mb: 2, p: 2, border: '1px solid #e0e0e0', borderRadius: 1, bgcolor: 'action.hover' }}
         >
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} md={6}>
@@ -93,7 +93,7 @@ export const MaterialsSection = ({
           </Grid>
           
           {line.material && (
-            <Box sx={{ mt: 1, p: 1, bgcolor: 'primary.50', borderRadius: 1 }}>
+            <Box sx={{ mt: 1, p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
               <Typography variant="caption" color="primary.main">
                 {!line.material.isMetalDependent ? 
                   '✓ Universal material - works with all metal types' : 
@@ -113,7 +113,7 @@ export const MaterialsSection = ({
           </Typography>
           <List dense>
             {formData.materials.map((material, index) => (
-              <ListItem key={index} divider sx={{ bgcolor: 'success.50' }}>
+              <ListItem key={index} divider sx={{ bgcolor: 'action.hover' }}>
                 <ListItemText
                   primary={`${material.materialName} (${material.materialSku})`}
                   secondary={

@@ -64,7 +64,7 @@ export default function AiTaskInputPanel({ availableProcesses = [], onApplySugge
 
   return (
     <Box sx={{ mb: 3 }}>
-      <Card variant="outlined" sx={{ borderColor: 'primary.light', bgcolor: 'primary.50' }}>
+      <Card variant="outlined" sx={{ borderColor: 'primary.light', bgcolor: 'action.hover' }}>
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
             <AutoAwesomeIcon fontSize="small" color="primary" />
@@ -160,7 +160,7 @@ export default function AiTaskInputPanel({ availableProcesses = [], onApplySugge
                 </Typography>
                 <Stack spacing={0.5}>
                   {suggestions.matchedProcesses.map((mp, i) => (
-                    <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 0.75, bgcolor: 'success.50', borderRadius: 1, border: '1px solid', borderColor: 'success.200' }}>
+                    <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 0.75, bgcolor: 'action.hover', borderRadius: 1, border: '1px solid', borderColor: 'success.200' }}>
                       <Box>
                         <Typography variant="body2" fontWeight="medium">{mp.processName}</Typography>
                         {mp.reason && <Typography variant="caption" color="text.secondary">{mp.reason}</Typography>}

@@ -1,31 +1,22 @@
 'use client';
 
 import React from 'react';
-import {
-    Box,
-    Typography,
-    Button,
-    Breadcrumbs,
-    Link,
-    useTheme,
-    useMediaQuery
-} from '@mui/material';
+import { Box, Typography, Button, CircularProgress } from '@mui/material';
 import { Add as AddIcon, CheckCircle as CompletedIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 
 import { useCompletedRepairs } from '@/hooks/repairs/useCompletedRepairs';
-import { 
+import {
     StatsCards,
     CompletedRepairsFilters,
     CompletedRepairsGrid,
     CompletedRepairsTable,
-    EmptyState 
+    EmptyState
 } from './components';
+import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 
 const CompletedRepairsPage = () => {
     const router = useRouter();
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
     const {
         repairs,
@@ -48,59 +39,65 @@ const CompletedRepairsPage = () => {
 
     if (loading) {
         return (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                <Typography>Loading completed repairs...</Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 320 }}>
+                <CircularProgress sx={{ color: REPAIRS_UI.accent }} />
             </Box>
         );
     }
 
     return (
-        <Box sx={{ p: isMobile ? 2 : 3 }}>
-            <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
-                <Link
-                    underline="hover"
-                    color="inherit"
-                    onClick={() => router.push('/dashboard')}
-                    sx={{ cursor: 'pointer' }}
-                >
-                    Dashboard
-                </Link>
-                <Link
-                    underline="hover"
-                    color="inherit"
-                    onClick={() => router.push('/dashboard/repairs')}
-                    sx={{ cursor: 'pointer' }}
-                >
-                    Repairs
-                </Link>
-                <Typography color="text.primary">Completed Repairs</Typography>
-            </Breadcrumbs>
+        <Box sx={{ pb: 10, position: 'relative' }}>
+            <Box
+                sx={{
+                    backgroundColor: { xs: 'transparent', sm: REPAIRS_UI.bgPanel },
+                    border: { xs: 'none', sm: `1px solid ${REPAIRS_UI.border}` },
+                    borderRadius: { xs: 0, sm: 3 },
+                    boxShadow: { xs: 'none', sm: REPAIRS_UI.shadow },
+                    p: { xs: 0.5, sm: 2.5, md: 3 },
+                    mb: 3
+                }}
+            >
+                <Box sx={{ maxWidth: 920, mb: 2 }}>
+                    <Typography
+                        sx={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 1,
+                            px: 1.25,
+                            py: 0.5,
+                            mb: 1.5,
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            letterSpacing: '0.08em',
+                            color: REPAIRS_UI.textPrimary,
+                            backgroundColor: REPAIRS_UI.bgCard,
+                            border: `1px solid ${REPAIRS_UI.border}`,
+                            borderRadius: 2,
+                            textTransform: 'uppercase'
+                        }}
+                    >
+                        <CompletedIcon sx={{ fontSize: 16, color: REPAIRS_UI.accent }} />
+                        Archive
+                    </Typography>
 
-            <Box sx={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                mb: 3,
-                flexDirection: isMobile ? 'column' : 'row',
-                gap: isMobile ? 2 : 0
-            }}>
-                <Box>
-                    <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <CompletedIcon />
+                    <Typography sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 1 }}>
                         Completed Repairs
                     </Typography>
-                    <Typography variant="body1" color="text.secondary">
-                        View your completed and picked up repairs
+                    <Typography sx={{ color: REPAIRS_UI.textSecondary, lineHeight: 1.6 }}>
+                        View completed and picked up repairs.
                     </Typography>
                 </Box>
-                <Button
-                    variant="contained"
-                    startIcon={<AddIcon />}
-                    onClick={handleCreateRepair}
-                    size={isMobile ? "medium" : "large"}
-                >
-                    Create New Repair
-                </Button>
+
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+                    <Button
+                        variant="outlined"
+                        startIcon={<AddIcon />}
+                        onClick={handleCreateRepair}
+                        sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border, backgroundColor: REPAIRS_UI.bgCard }}
+                    >
+                        Create New Repair
+                    </Button>
+                </Box>
             </Box>
 
             <StatsCards completedRepairs={allCompletedRepairs} />
@@ -114,7 +111,7 @@ const CompletedRepairsPage = () => {
                 setSortOption={setSortOption}
                 viewMode={viewMode}
                 setViewMode={setViewMode}
-                isMobile={isMobile}
+                isMobile={false}
             />
 
             {repairs.length === 0 ? (
@@ -130,7 +127,7 @@ const CompletedRepairsPage = () => {
             ) : (
                 <CompletedRepairsTable
                     repairs={repairs}
-                    isMobile={isMobile}
+                    isMobile={false}
                     expandedRows={expandedRows}
                     toggleRowExpansion={toggleRowExpansion}
                     handleViewRepair={handleViewRepair}

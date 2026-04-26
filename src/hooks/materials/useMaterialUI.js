@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { DEFAULT_MATERIAL_FORM, transformMaterialForForm } from '@/utils/materials.util';
-import materialsService from '@/services/materials.service';
 
 export const useMaterialUI = () => {
   const [openDialog, setOpenDialog] = useState(false);
@@ -35,17 +34,6 @@ export const useMaterialUI = () => {
     setFormData(transformMaterialForForm(material));
     setOpenDialog(true);
   }, []);
-
-  useEffect(() => {
-    const costPerPortion = materialsService.calculateCostPerPortion(
-      formData.unitCost,
-      formData.portionsPerUnit
-    );
-
-    if (parseFloat(costPerPortion) !== parseFloat(formData.costPerPortion)) {
-      setFormData(prev => ({ ...prev, costPerPortion: parseFloat(costPerPortion) }));
-    }
-  }, [formData.unitCost, formData.portionsPerUnit, formData.costPerPortion]);
 
   return {
     openDialog, setOpenDialog,

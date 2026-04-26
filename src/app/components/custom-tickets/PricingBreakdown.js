@@ -82,30 +82,30 @@ export function PricingBreakdown({ totals }) {
       {/* Summary Cards */}
       <Grid container spacing={2}>
         <Grid item xs={6} sm={3}>
-          <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+          <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
             <Typography variant="body2" color="text.secondary">Materials</Typography>
             <Typography variant="h6">{formatCurrency(totals.materials)}</Typography>
           </Box>
         </Grid>
         
         <Grid item xs={6} sm={3}>
-          <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+          <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
             <Typography variant="body2" color="text.secondary">Labor</Typography>
             <Typography variant="h6">{formatCurrency(totals.labor)}</Typography>
           </Box>
         </Grid>
         
         <Grid item xs={6} sm={3}>
-          <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+          <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
             <Typography variant="body2" color="text.secondary">Markup (40%)</Typography>
             <Typography variant="h6" color="success.main">{formatCurrency(totals.markup)}</Typography>
           </Box>
         </Grid>
         
         <Grid item xs={6} sm={3}>
-          <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'primary.main', color: 'white', borderRadius: 1 }}>
-            <Typography variant="body2">Total Quote</Typography>
-            <Typography variant="h5" fontWeight="bold">{formatCurrency(totals.total)}</Typography>
+          <Box sx={{ textAlign: 'center', p: 1, bgcolor: '#D4AF37', borderRadius: 1 }}>
+            <Typography variant="body2" sx={{ color: '#0F1115' }}>Total Quote</Typography>
+            <Typography variant="h5" fontWeight="bold" sx={{ color: '#0F1115' }}>{formatCurrency(totals.total)}</Typography>
           </Box>
         </Grid>
       </Grid>

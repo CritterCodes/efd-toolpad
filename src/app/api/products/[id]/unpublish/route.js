@@ -81,7 +81,9 @@ export async function POST(request, { params }) {
     const updateData = {
       $set: {
         status: targetStatus,
-        updatedAt: now
+        isPublic: false,
+        'publishing.visible': false,
+        updatedAt: now,
       },
       $push: {
         statusHistory: {

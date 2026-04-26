@@ -20,7 +20,7 @@ export function CustomTicketImagesGrid({ images, onOpenImageModal }) {
         textAlign: 'center', 
         py: 4, 
         color: 'text.secondary',
-        bgcolor: 'grey.50',
+        bgcolor: 'action.hover',
         borderRadius: 1
       }}>
         <ImageIcon sx={{ fontSize: 48, mb: 1, opacity: 0.5 }} />

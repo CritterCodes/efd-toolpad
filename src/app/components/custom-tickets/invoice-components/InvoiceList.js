@@ -85,7 +85,7 @@ export default function InvoiceList({
     <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
       <Table>
         <TableHead>
-          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+          <TableRow sx={{ backgroundColor: 'action.hover' }}>
             <TableCell>Invoice #</TableCell>
             <TableCell>Type</TableCell>
             <TableCell>Amount</TableCell>

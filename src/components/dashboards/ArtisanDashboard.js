@@ -8,40 +8,17 @@
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { 
-    Card, 
-    CardContent, 
-    Typography, 
-    Box, 
-    Grid, 
+import {
+    Typography,
+    Box,
     Button,
-    Alert,
     LinearProgress,
-    List,
-    ListItem,
-    ListItemText,
-    ListItemIcon,
-    ListItemAvatar,
-    Avatar,
     Chip
 } from '@mui/material';
-import { 
-    AttachMoney as MoneyIcon,
-    Star as StarIcon,
-    Visibility as VisibilityIcon,
-    TrendingUp as TrendingUpIcon,
-    ShoppingBag as ShoppingBagIcon,
+import {
     Edit as EditIcon,
-    Person as PersonIcon,
-    LocationOn as LocationIcon,
-    CalendarToday as CalendarIcon,
-    Event as EventIcon,
     Storefront as StorefrontIcon,
-    Business as BusinessIcon,
-    Analytics as AnalyticsIcon,
-    Message as MessageIcon,
-    CheckCircle as CheckCircleIcon,
-    Notifications as NotificationsIcon
+    ShoppingBag as ShoppingBagIcon,
 } from '@mui/icons-material';
 import AnalyticsCarousel from '@/components/analytics/AnalyticsCarousel';
 
@@ -118,104 +95,95 @@ export default function ArtisanDashboardContent() {
 
     if (loading) {
         return (
-            <Box sx={{ p: { xs: 2, sm: 3 } }}>
-                <Typography variant={{ xs: 'h5', sm: 'h4' }}>Loading dashboard...</Typography>
-                <LinearProgress sx={{ mt: 2 }} />
+            <Box sx={{ p: 3 }}>
+                <Typography sx={{ color: '#D1D5DB', mb: 2 }}>Loading dashboard...</Typography>
+                <LinearProgress sx={{ backgroundColor: '#1F232A', '& .MuiLinearProgress-bar': { backgroundColor: '#D4AF37' } }} />
             </Box>
         );
     }
 
-    // Tab content renderer
+    const C = {
+        bgPanel: '#15181D', bgCard: '#171A1F', bgTertiary: '#1F232A',
+        border: '#2A2F38', textHeader: '#D1D5DB', textSecondary: '#9CA3AF', textMuted: '#6B7280',
+        accent: '#D4AF37', shadow: '0 8px 24px rgba(0,0,0,0.45)',
+    };
+
     const renderOverviewContent = () => {
         return (
-            <Box sx={{ p: { xs: 2, sm: 3 } }}>
-                {/* Overview Content Only */}
-                        <Box sx={{ 
-                            mb: 4, 
-                            display: 'flex', 
-                            flexDirection: { xs: 'column', sm: 'row' },
-                            justifyContent: 'space-between', 
-                            alignItems: { xs: 'flex-start', sm: 'flex-start' },
-                            gap: { xs: 2, sm: 0 }
-                        }}>
-                            <Box>
-                                <Typography variant={{ xs: 'h5', sm: 'h4' }} gutterBottom>
-                                    Welcome back, {session?.user?.name?.split(' ')[0] || 'Artisan'}!
-                                </Typography>
-                                <Typography 
-                                    variant="body2" 
-                                    color="text.secondary"
-                                    sx={{ display: { xs: 'none', sm: 'block' } }}
-                                >
-                                    Manage your artisan profile and track your shop performance
-                                </Typography>
-                            </Box>
-                            <Button
-                                variant="contained"
-                                startIcon={<EditIcon />}
-                                onClick={() => router.push('/dashboard/profile')}
-                                size="small"
-                                fullWidth={{ xs: true, sm: false }}
-                            >
-                                Edit Profile
-                            </Button>
+            <Box sx={{ pb: 10 }}>
+                {/* Header panel */}
+                <Box
+                    sx={{
+                        backgroundColor: { xs: 'transparent', sm: C.bgPanel },
+                        border: { xs: 'none', sm: `1px solid ${C.border}` },
+                        borderRadius: { xs: 0, sm: 3 },
+                        boxShadow: { xs: 'none', sm: C.shadow },
+                        p: { xs: 0.5, sm: 2.5, md: 3 },
+                        mb: 3,
+                    }}
+                >
+                    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'flex-start' }, gap: 2 }}>
+                        <Box>
+                            <Chip
+                                label="Artisan workspace"
+                                sx={{ mb: 1.5, borderRadius: 2, backgroundColor: C.bgCard, color: C.textHeader, border: `1px solid ${C.border}`, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em' }}
+                            />
+                            <Typography sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: C.textHeader, mb: 0.5 }}>
+                                Welcome back, {session?.user?.name?.split(' ')[0] || 'Artisan'}
+                            </Typography>
+                            <Typography sx={{ color: C.textSecondary, lineHeight: 1.6, display: { xs: 'none', sm: 'block' } }}>
+                                Manage your artisan profile and track your shop performance.
+                            </Typography>
                         </Box>
-
-                        {/* Quick Actions Bar */}
-                        <Card sx={{ mb: 3 }}>
-                            <CardContent sx={{ py: { xs: 1.5, sm: 2 } }}>
-                                <Box sx={{ 
-                                    display: 'flex', 
-                                    flexDirection: { xs: 'column', sm: 'row' },
-                                    alignItems: { xs: 'stretch', sm: 'center' }, 
-                                    gap: { xs: 2, sm: 3 }
-                                }}>
-                                    <Typography 
-                                        variant="h6" 
-                                        sx={{ 
-                                            fontWeight: 'bold', 
-                                            color: 'primary.main',
-                                            textAlign: { xs: 'center', sm: 'left' },
-                                            minWidth: { xs: 'auto', sm: 'fit-content' }
-                                        }}
-                                    >
-                                        Quick Actions
-                                    </Typography>
-                                    
-                                    <Box sx={{ 
-                                        display: 'flex', 
-                                        flexDirection: { xs: 'column', sm: 'row' },
-                                        gap: { xs: 1.5, sm: 2 }, 
-                                        flex: 1 
-                                    }}>
-                                        <Button
-                                            variant="contained"
-                                            startIcon={<StorefrontIcon />}
-                                            onClick={() => window.open(`https://shop.engelfinedesign.com/vendors/crystal-canyon-arts`, '_blank')}
-                                            sx={{ flex: 1, px: { xs: 2, sm: 3 } }}
-                                            size="small"
-                                        >
-                                            View Your Shop Profile
-                                        </Button>
-                                        
-                                        <Button
-                                            variant="outlined"
-                                            startIcon={<ShoppingBagIcon />}
-                                            onClick={() => window.open('https://shop.engelfinedesign.com/dashboard/orders', '_blank')}
-                                            sx={{ flex: 1, px: { xs: 2, sm: 3 } }}
-                                            size="small"
-                                        >
-                                            Manage Orders
-                                        </Button>
-                                    </Box>
-                                </Box>
-                            </CardContent>
-                        </Card>
-
-                        {/* Interactive Analytics Carousel */}
-                        <AnalyticsCarousel />
+                        <Button
+                            variant="outlined"
+                            startIcon={<EditIcon />}
+                            onClick={() => router.push('/dashboard/profile')}
+                            size="small"
+                            sx={{ color: C.textHeader, borderColor: C.border, backgroundColor: C.bgCard, flexShrink: 0 }}
+                        >
+                            Edit Profile
+                        </Button>
                     </Box>
-                );
+                </Box>
+
+                {/* Quick Actions */}
+                <Box
+                    sx={{
+                        display: 'flex',
+                        flexDirection: { xs: 'column', sm: 'row' },
+                        gap: 1.5,
+                        mb: 3,
+                        p: 2,
+                        border: `1px solid ${C.border}`,
+                        borderRadius: 2,
+                        backgroundColor: C.bgCard,
+                    }}
+                >
+                    <Button
+                        variant="outlined"
+                        startIcon={<StorefrontIcon />}
+                        onClick={() => window.open('https://shop.engelfinedesign.com/vendors/crystal-canyon-arts', '_blank')}
+                        fullWidth
+                        sx={{ color: C.accent, borderColor: C.accent, backgroundColor: 'transparent' }}
+                    >
+                        View Shop Profile
+                    </Button>
+                    <Button
+                        variant="outlined"
+                        startIcon={<ShoppingBagIcon />}
+                        onClick={() => window.open('https://shop.engelfinedesign.com/dashboard/orders', '_blank')}
+                        fullWidth
+                        sx={{ color: C.textHeader, borderColor: C.border }}
+                    >
+                        Manage Orders
+                    </Button>
+                </Box>
+
+                {/* Analytics Carousel */}
+                <AnalyticsCarousel />
+            </Box>
+        );
     };
 
     return (

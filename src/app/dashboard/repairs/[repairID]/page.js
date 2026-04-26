@@ -6,11 +6,9 @@ import Image from 'next/image';
 import { useRepairs } from '@/app/context/repairs.context';
 import { 
     Box, 
-    Snackbar, 
-    Typography, 
-    Button, 
-    Breadcrumbs, 
-    Link,
+    Snackbar,
+    Typography,
+    Button,
     Card,
     CardContent,
     Grid,
@@ -245,18 +243,7 @@ const ViewRepairPage = ({ params }) => {
     };
 
     return (
-        <Box sx={{ padding: { xs: '10px', sm: '20px' } }}>
-            <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2, fontSize: { xs: '0.8rem', sm: '1rem' } }}>
-                <Link underline="hover" color="inherit" onClick={() => router.push('/dashboard')} sx={{ cursor: 'pointer' }}>
-                    Dashboard
-                </Link>
-                <Link underline="hover" color="inherit" onClick={() => router.push(
-                    session?.user?.role === 'wholesaler' ? '/dashboard/repairs/my-repairs' : '/dashboard/repairs/all'
-                )} sx={{ cursor: 'pointer' }}>
-                    {session?.user?.role === 'wholesaler' ? 'My Repairs' : 'Repairs'}
-                </Link>
-                <Typography color="text.primary">View Repair</Typography>
-            </Breadcrumbs>
+        <Box sx={{ pb: 10 }}>
 
             {/* Header Section */}
             <Card sx={{ mb: 3 }}>
@@ -468,26 +455,12 @@ const ViewRepairPage = ({ params }) => {
                 open={snackbarOpen}
                 autoHideDuration={6000}
                 onClose={() => setSnackbarOpen(false)}
-                message={snackbarMessage}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-                ContentProps={{
-                    sx: {
-                        backgroundColor:
-                            snackbarSeverity === 'success'
-                                ? 'green'
-                                : snackbarSeverity === 'error'
-                                    ? 'red'
-                                    : 'orange',
-                        color: 'white',
-                        fontWeight: 'bold'
-                    }
-                }}
-                action={
-                    <Button color="inherit" size="small" onClick={() => setSnackbarOpen(false)}>
-                        Close
-                    </Button>
-                }
-            />
+            >
+                <Alert onClose={() => setSnackbarOpen(false)} severity={snackbarSeverity}>
+                    {snackbarMessage}
+                </Alert>
+            </Snackbar>
         </Box>
     );
 };

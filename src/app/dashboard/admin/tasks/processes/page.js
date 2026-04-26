@@ -20,8 +20,6 @@ import {
 import { 
   Add as AddIcon
 } from '@mui/icons-material';
-import { PageContainer } from '@toolpad/core/PageContainer';
-
 export default function ProcessesPage() {
   // Use the custom hook for all state management
   const {
@@ -91,17 +89,14 @@ export default function ProcessesPage() {
   // Show loading state
   if (loading) {
     return (
-      <PageContainer title="Processes Management">
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-          <CircularProgress />
-        </Box>
-      </PageContainer>
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <CircularProgress />
+      </Box>
     );
   }
 
   return (
-    <PageContainer title="Processes Management">
-      <Box sx={{ pb: 8 }}>
+    <Box sx={{ pb: 8 }}>
         {/* Error Display */}
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -196,6 +191,6 @@ export default function ProcessesPage() {
           process={deleteDialog.process}
         />
       </Box>
-    </PageContainer>
   );
 }
+

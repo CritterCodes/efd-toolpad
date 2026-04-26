@@ -145,6 +145,10 @@ export const useMaterialsManager = () => {
         karat: stullerInfo.karat,
         compatibleMetals: stullerInfo.compatibleMetals,
         stuller_item_number: itemNumber,
+        lastFetchedStullerProduct: materialsService.buildStullerProductData(data, {
+          auto_update_pricing: true,
+          portionsPerUnit: prev.portionsPerUnit
+        }),
         auto_update_pricing: true,
         last_price_update: new Date().toISOString()
       }));
@@ -265,18 +269,6 @@ export const useMaterialsManager = () => {
                           sortOrder !== 'asc';
   
   const isFiltered = hasActiveFilters || selectedTab !== 'all';
-
-  // Auto-calculate cost per portion
-  useEffect(() => {
-    const costPerPortion = materialsService.calculateCostPerPortion(
-      formData.unitCost, 
-      formData.portionsPerUnit
-    );
-    
-    if (parseFloat(costPerPortion) !== parseFloat(formData.costPerPortion)) {
-      setFormData(prev => ({ ...prev, costPerPortion: parseFloat(costPerPortion) }));
-    }
-  }, [formData.unitCost, formData.portionsPerUnit, formData.costPerPortion]);
 
   // Load materials on mount
   useEffect(() => {

@@ -26,7 +26,7 @@ export const DescriptionRef = ({ ticket }) => {
                   <Typography variant="body2" color="text.secondary" gutterBottom>
                     Description:
                   </Typography>
-                  <Typography variant="body2" sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, whiteSpace: 'pre-wrap' }}>
+                  <Typography variant="body2" sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1, whiteSpace: 'pre-wrap' }}>
                     {ticket.description}
                   </Typography>
                 </Box>

@@ -139,7 +139,7 @@ const QualityControlDetailPage = () => {
     }
 
     return (
-        <Box sx={{ padding: '20px', position: 'relative' }}>
+        <Box sx={{ pb: 10, position: 'relative' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, gap: 2, flexWrap: 'wrap' }}>
                 <Box>
                     <Typography variant="h4" fontWeight="bold">

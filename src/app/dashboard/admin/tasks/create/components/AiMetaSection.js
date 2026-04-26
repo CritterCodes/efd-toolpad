@@ -19,71 +19,54 @@ import {
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import { TaskFormSection, TASK_UI } from './taskBuilderUi';
 
 const REQUIRED_INFO_OPTIONS = [
-  { key: 'metalType',       label: 'Metal Type' },
-  { key: 'karat',           label: 'Karat' },
+  { key: 'metalType', label: 'Metal Type' },
+  { key: 'karat', label: 'Karat' },
   { key: 'currentRingSize', label: 'Current Ring Size' },
   { key: 'desiredRingSize', label: 'Desired Ring Size' },
-  { key: 'stoneCount',      label: 'Stone Count' },
-  { key: 'stoneType',       label: 'Stone Type' },
-  { key: 'chainLength',     label: 'Chain Length' },
-  { key: 'engraving',       label: 'Engraving Text' },
+  { key: 'stoneCount', label: 'Stone Count' },
+  { key: 'stoneType', label: 'Stone Type' },
+  { key: 'chainLength', label: 'Chain Length' },
+  { key: 'engraving', label: 'Engraving Text' },
 ];
 
 export function AiMetaSection({ formData, setFormData }) {
   const [open, setOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [genError, setGenError]     = useState('');
+  const [genError, setGenError] = useState('');
   const [cooldownSecs, setCooldownSecs] = useState(0);
-  const [symptomInput, setSymptomInput]   = useState('');
+  const [symptomInput, setSymptomInput] = useState('');
   const [pairsWithInput, setPairsWithInput] = useState('');
 
   const aiMeta = formData.aiMeta || {};
+  const setAiMeta = (patch) => setFormData((prev) => ({ ...prev, aiMeta: { ...prev.aiMeta, ...patch } }));
 
-  const setAiMeta = (patch) =>
-    setFormData((prev) => ({
-      ...prev,
-      aiMeta: { ...prev.aiMeta, ...patch },
-    }));
-
-  // --- Symptoms tag input ---
-  const addSymptom = () => {
-    const val = symptomInput.trim();
-    if (!val) return;
-    const existing = aiMeta.symptoms || [];
-    if (!existing.includes(val)) setAiMeta({ symptoms: [...existing, val] });
-    setSymptomInput('');
+  const addTag = (key, value, setter) => {
+    const next = value.trim();
+    if (!next) return;
+    const existing = aiMeta[key] || [];
+    if (!existing.includes(next)) setAiMeta({ [key]: [...existing, next] });
+    setter('');
   };
-  const removeSymptom = (s) =>
-    setAiMeta({ symptoms: (aiMeta.symptoms || []).filter((x) => x !== s) });
 
-  // --- Pairs-with tag input ---
-  const addPairsWith = () => {
-    const val = pairsWithInput.trim();
-    if (!val) return;
-    const existing = aiMeta.pairsWith || [];
-    if (!existing.includes(val)) setAiMeta({ pairsWith: [...existing, val] });
-    setPairsWithInput('');
-  };
-  const removePairsWith = (s) =>
-    setAiMeta({ pairsWith: (aiMeta.pairsWith || []).filter((x) => x !== s) });
+  const removeTag = (key, value) => setAiMeta({ [key]: (aiMeta[key] || []).filter((x) => x !== value) });
 
-  // --- requiredInfo checkboxes ---
   const toggleRequiredInfo = (key) => {
     const current = aiMeta.requiredInfo || [];
-    const updated = current.includes(key)
-      ? current.filter((k) => k !== key)
-      : [...current, key];
+    const updated = current.includes(key) ? current.filter((k) => k !== key) : [...current, key];
     setAiMeta({ requiredInfo: updated });
   };
 
-  // --- Auto-generate ---
   const startCooldown = (secs = 3) => {
     setCooldownSecs(secs);
     const interval = setInterval(() => {
       setCooldownSecs((prev) => {
-        if (prev <= 1) { clearInterval(interval); return 0; }
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
         return prev - 1;
       });
     }, 1000);
@@ -119,29 +102,28 @@ export function AiMetaSection({ formData, setFormData }) {
 
   return (
     <Grid item xs={12}>
-      <Box sx={{ px: { xs: 2, sm: 0 }, borderTop: '1px solid', borderColor: 'divider', pt: 2 }}>
+      <TaskFormSection title="AI Context" subtitle="Tune how the assistant recommends and qualifies this task.">
         <Box
           sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: open ? 2 : 0, cursor: 'pointer' }}
-          onClick={() => setOpen(o => !o)}
+          onClick={() => setOpen((value) => !value)}
         >
           <Box>
-            <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, lineHeight: 1 }}>
-              ✨ AI Context
+            <Typography variant="body2" sx={{ color: TASK_UI.textPrimary, fontWeight: 700 }}>
+              Assistant Guidance
             </Typography>
             {!open && (
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2, mt: 0.25 }}>
-                Tap to configure chatbot suggestions
+              <Typography variant="caption" sx={{ color: TASK_UI.textSecondary }}>
+                Expand to configure recommendation prompts and required intake data.
               </Typography>
             )}
           </Box>
-          <IconButton size="small">
+          <IconButton size="small" sx={{ color: TASK_UI.textSecondary }}>
             {open ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
           </IconButton>
         </Box>
+
         <Collapse in={open}>
           <Grid container spacing={2}>
-
-            {/* Auto-generate button */}
             <Grid item xs={12}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Button
@@ -150,17 +132,17 @@ export function AiMetaSection({ formData, setFormData }) {
                   startIcon={generating ? <CircularProgress size={14} /> : <AutoAwesomeIcon />}
                   onClick={handleGenerate}
                   disabled={generating || cooldownSecs > 0}
+                  sx={{ borderColor: TASK_UI.border, color: TASK_UI.textPrimary, backgroundColor: TASK_UI.bgCard }}
                 >
-                  {generating ? 'Generating...' : cooldownSecs > 0 ? `Wait ${cooldownSecs}s…` : 'Auto-fill with AI'}
+                  {generating ? 'Generating...' : cooldownSecs > 0 ? `Wait ${cooldownSecs}s...` : 'Auto-fill with AI'}
                 </Button>
-                <Typography variant="caption" color="text.secondary">
-                  Uses the task title &amp; description to generate these fields automatically
+                <Typography variant="caption" sx={{ color: TASK_UI.textSecondary }}>
+                  Uses the task title and description to generate recommendation guidance.
                 </Typography>
               </Box>
               {genError && <Alert severity="error" sx={{ mt: 1 }}>{genError}</Alert>}
             </Grid>
 
-            {/* When to use */}
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -169,63 +151,47 @@ export function AiMetaSection({ formData, setFormData }) {
                 onChange={(e) => setAiMeta({ whenToUse: e.target.value })}
                 multiline
                 rows={3}
-                placeholder="Describe exactly what a customer says or describes that should trigger this task. E.g. 'Customer says ring is too tight or too loose, wants to go up or down a size, or mentions the ring doesn't fit anymore.'"
-                helperText="The AI reads this to decide whether to suggest this task based on the customer's description."
+                placeholder="Describe the customer request or condition that should trigger this task."
+                helperText="The assistant reads this to decide when to suggest the task."
               />
             </Grid>
 
-            {/* Symptoms / trigger phrases */}
             <Grid item xs={12}>
               <Typography variant="subtitle2" gutterBottom>
-                Customer Phrases (Symptoms)
+                Customer Phrases
               </Typography>
-              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-                Short phrases a customer might actually say that indicate this task
+              <Typography variant="caption" sx={{ color: TASK_UI.textSecondary, display: 'block', mb: 1 }}>
+                Short phrases a customer might actually use.
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-                <TextField
-                  size="small"
-                  value={symptomInput}
-                  onChange={(e) => setSymptomInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSymptom(); } }}
-                  placeholder="e.g. too tight, needs to be bigger..."
-                  sx={{ flex: 1 }}
-                />
-                <Button variant="outlined" size="small" onClick={addSymptom}>Add</Button>
+                <TextField size="small" value={symptomInput} onChange={(e) => setSymptomInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag('symptoms', symptomInput, setSymptomInput); } }} placeholder="e.g. too tight, needs to be bigger..." sx={{ flex: 1 }} />
+                <Button variant="outlined" size="small" onClick={() => addTag('symptoms', symptomInput, setSymptomInput)} sx={{ borderColor: TASK_UI.border, color: TASK_UI.textPrimary, backgroundColor: TASK_UI.bgCard }}>Add</Button>
               </Box>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                {(aiMeta.symptoms || []).map((s) => (
-                  <Chip key={s} label={s} size="small" onDelete={() => removeSymptom(s)} />
+                {(aiMeta.symptoms || []).map((item) => (
+                  <Chip key={item} label={item} size="small" variant="outlined" onDelete={() => removeTag('symptoms', item)} />
                 ))}
               </Box>
             </Grid>
 
-            {/* Required info */}
             <Grid item xs={12}>
               <Typography variant="subtitle2" gutterBottom>
                 Required Information Before Quoting
               </Typography>
-              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-                The chatbot will ask for these before showing a price estimate
+              <Typography variant="caption" sx={{ color: TASK_UI.textSecondary, display: 'block', mb: 1 }}>
+                The assistant will ask for these values before showing a quote.
               </Typography>
               <FormGroup row>
                 {REQUIRED_INFO_OPTIONS.map(({ key, label }) => (
                   <FormControlLabel
                     key={key}
-                    control={
-                      <Checkbox
-                        size="small"
-                        checked={(aiMeta.requiredInfo || []).includes(key)}
-                        onChange={() => toggleRequiredInfo(key)}
-                      />
-                    }
+                    control={<Checkbox size="small" checked={(aiMeta.requiredInfo || []).includes(key)} onChange={() => toggleRequiredInfo(key)} />}
                     label={label}
                   />
                 ))}
               </FormGroup>
             </Grid>
 
-            {/* Never use when */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -234,38 +200,28 @@ export function AiMetaSection({ formData, setFormData }) {
                 onChange={(e) => setAiMeta({ neverUseWhen: e.target.value })}
                 multiline
                 rows={2}
-                placeholder="E.g. Customer is asking about a bracelet or necklace — sizing only applies to rings."
-                helperText="Conditions where this task looks relevant but shouldn't be applied."
+                placeholder="Conditions where this task looks relevant but should not be used."
+                helperText="Used to prevent false-positive recommendations."
               />
             </Grid>
 
-            {/* Pairs with */}
             <Grid item xs={12} md={6}>
-              <Typography variant="subtitle2" gutterBottom>Commonly Paired With</Typography>
+              <Typography variant="subtitle2" gutterBottom>
+                Commonly Paired With
+              </Typography>
               <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-                <TextField
-                  size="small"
-                  value={pairsWithInput}
-                  onChange={(e) => setPairsWithInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addPairsWith(); } }}
-                  placeholder="Task title..."
-                  sx={{ flex: 1 }}
-                />
-                <Button variant="outlined" size="small" onClick={addPairsWith}>Add</Button>
+                <TextField size="small" value={pairsWithInput} onChange={(e) => setPairsWithInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag('pairsWith', pairsWithInput, setPairsWithInput); } }} placeholder="Task title..." sx={{ flex: 1 }} />
+                <Button variant="outlined" size="small" onClick={() => addTag('pairsWith', pairsWithInput, setPairsWithInput)} sx={{ borderColor: TASK_UI.border, color: TASK_UI.textPrimary, backgroundColor: TASK_UI.bgCard }}>Add</Button>
               </Box>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                {(aiMeta.pairsWith || []).map((s) => (
-                  <Chip key={s} label={s} size="small" onDelete={() => removePairsWith(s)} />
+                {(aiMeta.pairsWith || []).map((item) => (
+                  <Chip key={item} label={item} size="small" variant="outlined" onDelete={() => removeTag('pairsWith', item)} />
                 ))}
               </Box>
-              <Typography variant="caption" color="text.secondary">
-                Tasks often done together — AI can suggest these proactively.
-              </Typography>
             </Grid>
-
           </Grid>
         </Collapse>
-      </Box>
+      </TaskFormSection>
     </Grid>
   );
 }

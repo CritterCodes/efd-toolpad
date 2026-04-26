@@ -254,6 +254,7 @@ export default class StullerItemService {
         id: productData.Id,
         productType: productData.ProductType,
         unitOfSale: productData.UnitOfSale,
+        qualityCatalogValue: productData.QualityCatalogValue,
         isOnPriceList: productData.IsOnPriceList,
         ringSizable: productData.RingSizable,
         readyToWear: productData.ReadyToWear,

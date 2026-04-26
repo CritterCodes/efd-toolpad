@@ -33,7 +33,6 @@ export const validateRepairData = (repair, userRole = null) => {
         // Validate work items exist for admin/staff roles
         const hasWorkItems = (
             (repair.tasks && repair.tasks.length > 0) ||
-            (repair.processes && repair.processes.length > 0) ||
             (repair.materials && repair.materials.length > 0) ||
             (repair.customLineItems && repair.customLineItems.length > 0) ||
             (repair.repairTasks && repair.repairTasks.length > 0)
@@ -62,7 +61,6 @@ export const normalizeRepairData = (repair) => {
             clientName: '',
             description: '',
             tasks: [],
-            processes: [],
             materials: [],
             customLineItems: [],
             repairTasks: []
@@ -72,7 +70,6 @@ export const normalizeRepairData = (repair) => {
     return {
         ...repair,
         tasks: repair.tasks || [],
-        processes: repair.processes || [],
         materials: repair.materials || [],
         customLineItems: repair.customLineItems || [],
         repairTasks: repair.repairTasks || []
@@ -88,11 +85,10 @@ export const getRepairSummary = (repair) => {
     const normalized = normalizeRepairData(repair);
     
     const taskCount = normalized.tasks.length;
-    const processCount = normalized.processes.length;
     const materialCount = normalized.materials.length;
     const customCount = normalized.customLineItems.length;
     const legacyTaskCount = normalized.repairTasks.length;
-    const totalItems = taskCount + processCount + materialCount + customCount + legacyTaskCount;
+    const totalItems = taskCount + materialCount + customCount + legacyTaskCount;
 
     return {
         repairID: normalized.repairID,
@@ -101,7 +97,6 @@ export const getRepairSummary = (repair) => {
         totalItems,
         breakdown: {
             tasks: taskCount,
-            processes: processCount,
             materials: materialCount,
             customLineItems: customCount,
             legacyTasks: legacyTaskCount
@@ -142,7 +137,6 @@ export const getWorkItemTypes = (repair) => {
     const types = [];
 
     if (normalized.tasks.length > 0) types.push('Tasks');
-    if (normalized.processes.length > 0) types.push('Processes');
     if (normalized.materials.length > 0) types.push('Materials');
     if (normalized.customLineItems.length > 0) types.push('Custom Items');
     if (normalized.repairTasks.length > 0) types.push('Legacy Tasks');

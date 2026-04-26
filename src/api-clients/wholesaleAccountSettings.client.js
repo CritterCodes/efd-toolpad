@@ -1,8 +1,9 @@
 const API_BASE = '/api/wholesale/account-settings';
 
 class WholesaleAccountSettingsAPIClient {
-  async fetchSettings() {
-    const response = await fetch(API_BASE, {
+  async fetchSettings(accountId = null) {
+    const search = accountId ? `?accountId=${encodeURIComponent(accountId)}` : '';
+    const response = await fetch(`${API_BASE}${search}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' }
     });
