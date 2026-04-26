@@ -54,7 +54,8 @@
     "stl-loader": "^1.0.0",
     "three": "^0.181.1",
     "uuid": "^13.0.0",
-    "winston": "^3.17.0"
+    "winston": "^3.17.0",
+    "@mui/lab": "^6.0.1-beta.36"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
