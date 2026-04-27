@@ -88,38 +88,52 @@ const prefilterTasks = (inputText, tasks, limit = 15) => {
   return matched.length > 0 ? matched : tasks.slice(0, limit);
 };
 
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
 const callGemini = async ({ apiKey, prompt }) => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20000);
-  let response;
-  try {
-    response = await fetch(
-      `${GEMINI_API_BASE}/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.1,
-            topP: 0.9,
-            maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
-            responseMimeType: 'application/json'
-          }
-        }),
-        signal: controller.signal
-      }
-    );
-  } finally {
-    clearTimeout(timeout);
+  const MAX_RETRIES = 3;
+  const BASE_DELAY_MS = 2000;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+    let response;
+    try {
+      response = await fetch(
+        `${GEMINI_API_BASE}/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.1,
+              topP: 0.9,
+              maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
+              responseMimeType: 'application/json'
+            }
+          }),
+          signal: controller.signal
+        }
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
+    const payload = await response.json();
+    if (response.ok) return payload;
+    console.error('[parse-smart-intake] Gemini error status:', response.status, 'body:', JSON.stringify(payload));
+    if (response.status === 429 && attempt < MAX_RETRIES) {
+      const retryAfter = parseInt(response.headers.get('Retry-After') || '0', 10);
+      const delay = retryAfter > 0 ? retryAfter * 1000 : BASE_DELAY_MS * Math.pow(2, attempt);
+      console.log(`[parse-smart-intake] rate limited — retrying in ${delay}ms (retryAfter header: ${retryAfter})`);
+      await sleep(delay);
+      continue;
+    }
+    if (response.status === 429) {
+      throw Object.assign(new Error('AI is temporarily rate limited. Please wait a moment and try again.'), { status: 429 });
+    }
+    throw new Error(payload?.error?.message || 'Gemini request failed');
   }
-  const payload = await response.json();
-  if (response.ok) return payload;
-  console.error('[parse-smart-intake] Gemini error status:', response.status, 'body:', JSON.stringify(payload));
-  if (response.status === 429) {
-    throw Object.assign(new Error('AI is temporarily rate limited. Please wait a moment and try again.'), { status: 429 });
-  }
-  throw new Error(payload?.error?.message || 'Gemini request failed');
 };
 
 export async function POST(request) {
