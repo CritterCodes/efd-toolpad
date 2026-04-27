@@ -1,22 +1,36 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
     Box,
     Typography,
     Button,
-    CircularProgress
+    CircularProgress,
+    Slide,
+    Paper,
+    IconButton,
+    Tooltip,
 } from '@mui/material';
-import { Add as AddIcon, AccessTime as ClockIcon } from '@mui/icons-material';
+import {
+    Add as AddIcon,
+    AccessTime as ClockIcon,
+    MoveUp as MoveIcon,
+    CheckBox as CheckBoxIcon,
+    CheckBoxOutlineBlank as CheckBoxBlankIcon,
+    Close as CloseIcon,
+} from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useCurrentRepairs } from '@/hooks/repairs/useCurrentRepairs';
 import RepairsStatsCards from './components/RepairsStatsCards';
 import FiltersBar from './components/FiltersBar';
 import CurrentRepairsList from './components/CurrentRepairsList';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import BulkMoveDialog from '@/components/repairs/BulkMoveDialog';
 
 const CurrentRepairsPage = () => {
     const router = useRouter();
+    const [selected, setSelected] = useState(new Set());
+    const [moveDialogOpen, setMoveDialogOpen] = useState(false);
 
     const {
         repairs,
@@ -29,7 +43,8 @@ const CurrentRepairsPage = () => {
         statusFilter,
         setStatusFilter,
         sortOption,
-        setSortOption
+        setSortOption,
+        refetch,
     } = useCurrentRepairs();
 
     const handleViewRepair = (repairId) => {
@@ -40,6 +55,22 @@ const CurrentRepairsPage = () => {
         router.push('/dashboard/repairs/new');
     };
 
+    const toggleSelect = (id) => {
+        setSelected((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+    const selectAll = () => setSelected(new Set(repairs.map((r) => r.repairID || r._id)));
+    const clearSelection = () => setSelected(new Set());
+    const handleMoveSuccess = () => {
+        clearSelection();
+        if (typeof refetch === 'function') refetch();
+    };
+    const allSelected = repairs.length > 0 && repairs.every((r) => selected.has(r.repairID || r._id));
+
     if (loading) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 320 }}>
@@ -49,7 +80,7 @@ const CurrentRepairsPage = () => {
     }
 
     return (
-        <Box sx={{ pb: 10 }}>
+        <Box sx={{ pb: 10, position: 'relative' }}>
             <Box
                 sx={{
                     backgroundColor: { xs: 'transparent', sm: REPAIRS_UI.bgPanel },
@@ -114,6 +145,18 @@ const CurrentRepairsPage = () => {
                 setStatusFilter={setStatusFilter}
                 sortOption={sortOption}
                 setSortOption={setSortOption}
+                selectAllButton={repairs.length > 0 ? (
+                    <Tooltip title={allSelected ? 'Deselect all' : 'Select all visible'}>
+                        <Button
+                            size="small"
+                            startIcon={allSelected ? <CheckBoxIcon /> : <CheckBoxBlankIcon />}
+                            onClick={allSelected ? clearSelection : selectAll}
+                            sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.75rem' }}
+                        >
+                            {allSelected ? 'Deselect all' : `Select all (${repairs.length})`}
+                        </Button>
+                    </Tooltip>
+                ) : null}
             />
 
             <CurrentRepairsList
@@ -121,6 +164,62 @@ const CurrentRepairsPage = () => {
                 handleCreateRepair={handleCreateRepair}
                 handleViewRepair={handleViewRepair}
                 currentRepairsCount={currentRepairsCount}
+                selected={selected}
+                onToggleSelect={toggleSelect}
+            />
+
+            {/* Floating selection action bar */}
+            <Slide direction="up" in={selected.size > 0} mountOnEnter unmountOnExit>
+                <Paper
+                    elevation={8}
+                    sx={{
+                        position: 'fixed',
+                        bottom: 24,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        zIndex: 1300,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 2,
+                        px: 3,
+                        py: 1.5,
+                        backgroundColor: REPAIRS_UI.bgPanel,
+                        border: `1px solid ${REPAIRS_UI.border}`,
+                        borderRadius: 3,
+                        minWidth: 320,
+                    }}
+                >
+                    <Typography sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.875rem', flex: 1 }}>
+                        <Box component="span" sx={{ fontWeight: 700, color: REPAIRS_UI.accent }}>{selected.size}</Box>
+                        {' '}repair{selected.size !== 1 ? 's' : ''} selected
+                    </Typography>
+                    <Button
+                        variant="contained"
+                        size="small"
+                        startIcon={<MoveIcon />}
+                        onClick={() => setMoveDialogOpen(true)}
+                        sx={{
+                            backgroundColor: REPAIRS_UI.accent,
+                            color: '#0D0F12',
+                            fontWeight: 700,
+                            '&:hover': { backgroundColor: '#c9a227' },
+                        }}
+                    >
+                        Move Selected
+                    </Button>
+                    <Tooltip title="Clear selection">
+                        <IconButton size="small" onClick={clearSelection} sx={{ color: REPAIRS_UI.textSecondary }}>
+                            <CloseIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                </Paper>
+            </Slide>
+
+            <BulkMoveDialog
+                open={moveDialogOpen}
+                onClose={() => setMoveDialogOpen(false)}
+                repairIDs={Array.from(selected)}
+                onSuccess={handleMoveSuccess}
             />
         </Box>
     );

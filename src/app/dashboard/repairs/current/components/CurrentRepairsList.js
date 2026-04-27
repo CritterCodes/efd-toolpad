@@ -3,7 +3,8 @@ import {
     Grid,
     Box,
     Typography,
-    Button
+    Button,
+    Checkbox
 } from '@mui/material';
 import { Add as AddIcon, Build as RepairIcon, Visibility as ViewIcon } from '@mui/icons-material';
 import RepairCard from '@/components/business/repairs/RepairCard';
@@ -13,7 +14,9 @@ const CurrentRepairsList = ({
     repairs,
     handleCreateRepair,
     handleViewRepair,
-    currentRepairsCount
+    currentRepairsCount,
+    selected,
+    onToggleSelect,
 }) => {
     if (repairs.length === 0) {
         return (
@@ -53,24 +56,54 @@ const CurrentRepairsList = ({
 
     return (
         <Grid container spacing={2}>
-            {repairs.map((repair) => (
-                <Grid item xs={12} sm={6} xl={4} key={repair._id || repair.repairID}>
-                    <RepairCard
-                        repair={repair}
-                        actions={(
-                            <Button
-                                variant="outlined"
-                                size="small"
-                                startIcon={<ViewIcon />}
-                                onClick={() => handleViewRepair(repair.repairID || repair._id)}
-                                sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border, backgroundColor: REPAIRS_UI.bgPanel }}
+            {repairs.map((repair) => {
+                const id = repair.repairID || repair._id;
+                const isSelected = selected?.has(id);
+                return (
+                    <Grid item xs={12} sm={6} xl={4} key={repair._id || repair.repairID}>
+                        <Box sx={{ position: 'relative' }}>
+                            {onToggleSelect && (
+                                <Box sx={{ position: 'absolute', top: 8, left: 8, zIndex: 2 }}>
+                                    <Checkbox
+                                        checked={!!isSelected}
+                                        onChange={() => onToggleSelect(id)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        sx={{
+                                            color: REPAIRS_UI.border,
+                                            '&.Mui-checked': { color: REPAIRS_UI.accent },
+                                            backgroundColor: `${REPAIRS_UI.bgPanel}cc`,
+                                            borderRadius: 1,
+                                            p: 0.5,
+                                        }}
+                                    />
+                                </Box>
+                            )}
+                            <Box
+                                sx={{
+                                    borderRadius: 3,
+                                    outline: isSelected ? `2px solid ${REPAIRS_UI.accent}` : '2px solid transparent',
+                                    transition: 'outline 0.15s ease',
+                                }}
                             >
-                                View Details
-                            </Button>
-                        )}
-                    />
-                </Grid>
-            ))}
+                                <RepairCard
+                                    repair={repair}
+                                    actions={(
+                                        <Button
+                                            variant="outlined"
+                                            size="small"
+                                            startIcon={<ViewIcon />}
+                                            onClick={() => handleViewRepair(repair.repairID || repair._id)}
+                                            sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border, backgroundColor: REPAIRS_UI.bgPanel }}
+                                        >
+                                            View Details
+                                        </Button>
+                                    )}
+                                />
+                            </Box>
+                        </Box>
+                    </Grid>
+                );
+            })}
         </Grid>
     );
 };

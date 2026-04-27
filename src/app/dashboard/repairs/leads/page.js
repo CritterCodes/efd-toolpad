@@ -13,6 +13,11 @@ import {
     Divider,
     Snackbar,
     CircularProgress,
+    Checkbox,
+    Slide,
+    Paper,
+    IconButton,
+    Tooltip,
 } from '@mui/material';
 import {
     Search as SearchIcon,
@@ -25,11 +30,16 @@ import {
     Today as TodayIcon,
     Image as ImageIcon,
     AutoAwesome as AiIcon,
+    MoveUp as MoveIcon,
+    CheckBox as CheckBoxIcon,
+    CheckBoxOutlineBlank as CheckBoxBlankIcon,
+    Close as CloseIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useRepairs } from '@/app/context/repairs.context';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import BulkMoveDialog from '@/components/repairs/BulkMoveDialog';
 
 const formatDate = (d) => {
     if (!d) return 'Unknown';
@@ -38,11 +48,39 @@ const formatDate = (d) => {
 
 const isEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || ''));
 
-const LeadCard = ({ lead, onConvert, converting }) => {
+const LeadCard = ({ lead, onConvert, converting, isSelected, onToggleSelect }) => {
     const contact = lead.leadContact || lead.notes?.replace('Contact: ', '') || '';
     const contactIsEmail = isEmail(contact);
 
     return (
+        <Box sx={{ position: 'relative' }}>
+            <Box
+                sx={{
+                    position: 'absolute',
+                    top: 8, left: 8,
+                    zIndex: 2,
+                }}
+            >
+                <Checkbox
+                    checked={!!isSelected}
+                    onChange={() => onToggleSelect?.(lead.repairID)}
+                    onClick={(e) => e.stopPropagation()}
+                    sx={{
+                        color: REPAIRS_UI.border,
+                        '&.Mui-checked': { color: REPAIRS_UI.accent },
+                        backgroundColor: `${REPAIRS_UI.bgPanel}cc`,
+                        borderRadius: 1,
+                        p: 0.5,
+                    }}
+                />
+            </Box>
+            <Box
+                sx={{
+                    borderRadius: 3,
+                    outline: isSelected ? `2px solid ${REPAIRS_UI.accent}` : '2px solid transparent',
+                    transition: 'outline 0.15s ease',
+                }}
+            >
         <Box
             sx={{
                 backgroundColor: REPAIRS_UI.bgPanel,
@@ -187,6 +225,8 @@ const LeadCard = ({ lead, onConvert, converting }) => {
                 </Stack>
             </Box>
         </Box>
+            </Box>
+        </Box>
     );
 };
 
@@ -199,11 +239,13 @@ const statCards = [
 
 export default function LeadsPage() {
     const { data: session, status: authStatus } = useSession();
-    const { repairs, updateRepair } = useRepairs();
+    const { repairs, updateRepair, fetchRepairs } = useRepairs();
     const router = useRouter();
     const [searchQuery, setSearchQuery] = useState('');
     const [converting, setConverting] = useState(null);
     const [snackbar, setSnackbar] = useState({ open: false, message: '' });
+    const [selected, setSelected] = useState(new Set());
+    const [moveDialogOpen, setMoveDialogOpen] = useState(false);
 
     if (authStatus === 'loading') return null;
     if (!session?.user || session.user.role !== 'admin') {
@@ -224,6 +266,22 @@ export default function LeadsPage() {
             r.notes?.toLowerCase().includes(q)
         );
     });
+
+    const toggleSelect = (repairID) => {
+        setSelected((prev) => {
+            const next = new Set(prev);
+            if (next.has(repairID)) next.delete(repairID);
+            else next.add(repairID);
+            return next;
+        });
+    };
+    const selectAll = () => setSelected(new Set(filteredLeads.map((r) => r.repairID)));
+    const clearSelection = () => setSelected(new Set());
+    const handleMoveSuccess = () => {
+        clearSelection();
+        if (typeof fetchRepairs === 'function') fetchRepairs();
+    };
+    const allFilteredSelected = filteredLeads.length > 0 && filteredLeads.every((r) => selected.has(r.repairID));
 
     const handleConvert = async (repairID) => {
         setConverting(repairID);
@@ -338,9 +396,23 @@ export default function LeadsPage() {
                     mb: 3
                 }}
             >
-                <Typography variant="overline" sx={{ color: REPAIRS_UI.textSecondary, fontWeight: 700, display: 'block', mb: 1.5, letterSpacing: '0.08em' }}>
-                    Search
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+                    <Typography variant="overline" sx={{ color: REPAIRS_UI.textSecondary, fontWeight: 700, letterSpacing: '0.08em', flex: 1 }}>
+                        Search
+                    </Typography>
+                    {filteredLeads.length > 0 && (
+                        <Tooltip title={allFilteredSelected ? 'Deselect all' : 'Select all visible'}>
+                            <Button
+                                size="small"
+                                startIcon={allFilteredSelected ? <CheckBoxIcon /> : <CheckBoxBlankIcon />}
+                                onClick={allFilteredSelected ? clearSelection : selectAll}
+                                sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.75rem' }}
+                            >
+                                {allFilteredSelected ? 'Deselect all' : `Select all (${filteredLeads.length})`}
+                            </Button>
+                        </Tooltip>
+                    )}
+                </Box>
                 <TextField
                     fullWidth
                     placeholder="Search by name, contact, description..."
@@ -383,11 +455,71 @@ export default function LeadsPage() {
                 <Grid container spacing={2}>
                     {filteredLeads.map((lead) => (
                         <Grid item xs={12} sm={6} md={4} lg={3} key={lead.repairID}>
-                            <LeadCard lead={lead} onConvert={handleConvert} converting={converting} />
+                            <LeadCard
+                                lead={lead}
+                                onConvert={handleConvert}
+                                converting={converting}
+                                isSelected={selected.has(lead.repairID)}
+                                onToggleSelect={toggleSelect}
+                            />
                         </Grid>
                     ))}
                 </Grid>
             )}
+
+            {/* Floating selection action bar */}
+            <Slide direction="up" in={selected.size > 0} mountOnEnter unmountOnExit>
+                <Paper
+                    elevation={8}
+                    sx={{
+                        position: 'fixed',
+                        bottom: 24,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        zIndex: 1300,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 2,
+                        px: 3,
+                        py: 1.5,
+                        backgroundColor: REPAIRS_UI.bgPanel,
+                        border: `1px solid ${REPAIRS_UI.border}`,
+                        borderRadius: 3,
+                        minWidth: 320,
+                    }}
+                >
+                    <Typography sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.875rem', flex: 1 }}>
+                        <Box component="span" sx={{ fontWeight: 700, color: REPAIRS_UI.accent }}>{selected.size}</Box>
+                        {' '}lead{selected.size !== 1 ? 's' : ''} selected
+                    </Typography>
+                    <Button
+                        variant="contained"
+                        size="small"
+                        startIcon={<MoveIcon />}
+                        onClick={() => setMoveDialogOpen(true)}
+                        sx={{
+                            backgroundColor: REPAIRS_UI.accent,
+                            color: '#0D0F12',
+                            fontWeight: 700,
+                            '&:hover': { backgroundColor: '#c9a227' },
+                        }}
+                    >
+                        Move Selected
+                    </Button>
+                    <Tooltip title="Clear selection">
+                        <IconButton size="small" onClick={clearSelection} sx={{ color: REPAIRS_UI.textSecondary }}>
+                            <CloseIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                </Paper>
+            </Slide>
+
+            <BulkMoveDialog
+                open={moveDialogOpen}
+                onClose={() => setMoveDialogOpen(false)}
+                repairIDs={Array.from(selected)}
+                onSuccess={handleMoveSuccess}
+            />
 
             <Snackbar
                 open={snackbar.open}

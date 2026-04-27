@@ -12,16 +12,25 @@ import {
   Tabs,
   Tab,
   Badge,
-  CircularProgress
+  CircularProgress,
+  Checkbox,
+  Slide,
+  Paper,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Person as PersonIcon,
-  Email as EmailIcon,
-  CalendarToday as CalendarIcon
+  CalendarToday as CalendarIcon,
+  MoveUp as MoveIcon,
+  CheckBox as CheckBoxIcon,
+  CheckBoxOutlineBlank as CheckBoxBlankIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import BulkMoveDialog from '@/components/repairs/BulkMoveDialog';
 
 const STATUS_COLORS = {
     'RECEIVING': REPAIRS_UI.accent,
@@ -37,10 +46,35 @@ const STATUS_COLORS = {
 
 const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 
-function RepairCard({ repair, onView }) {
+function RepairCard({ repair, onView, isSelected, onToggleSelect }) {
     const statusColor = STATUS_COLORS[repair.status] || REPAIRS_UI.textMuted;
+    const id = repair.repairID || repair._id;
 
     return (
+        <Box sx={{ position: 'relative' }}>
+            {onToggleSelect && (
+                <Box sx={{ position: 'absolute', top: 8, left: 8, zIndex: 2 }}>
+                    <Checkbox
+                        checked={!!isSelected}
+                        onChange={() => onToggleSelect(id)}
+                        onClick={(e) => e.stopPropagation()}
+                        sx={{
+                            color: REPAIRS_UI.border,
+                            '&.Mui-checked': { color: REPAIRS_UI.accent },
+                            backgroundColor: `${REPAIRS_UI.bgPanel}cc`,
+                            borderRadius: 1,
+                            p: 0.5,
+                        }}
+                    />
+                </Box>
+            )}
+            <Box
+                sx={{
+                    borderRadius: 3,
+                    outline: isSelected ? `2px solid ${REPAIRS_UI.accent}` : '2px solid transparent',
+                    transition: 'outline 0.15s ease',
+                }}
+            >
         <Box
             sx={{
                 backgroundColor: REPAIRS_UI.bgPanel,
@@ -116,6 +150,8 @@ function RepairCard({ repair, onView }) {
             >
                 View Details
             </Button>
+        </Box>
+            </Box>
         </Box>
     );
 }

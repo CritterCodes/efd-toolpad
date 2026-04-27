@@ -15,7 +15,8 @@ import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components
 const FiltersBar = ({
     searchQuery, setSearchQuery,
     statusFilter, setStatusFilter,
-    sortOption, setSortOption
+    sortOption, setSortOption,
+    selectAllButton,
 }) => {
     return (
         <Box
@@ -28,9 +29,12 @@ const FiltersBar = ({
                 mb: 3
             }}
         >
-            <Typography variant="overline" sx={{ color: REPAIRS_UI.textSecondary, fontWeight: 700, display: 'block', mb: 1.5, letterSpacing: '0.08em' }}>
-                Filters
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+                <Typography variant="overline" sx={{ color: REPAIRS_UI.textSecondary, fontWeight: 700, letterSpacing: '0.08em', flex: 1 }}>
+                    Filters
+                </Typography>
+                {selectAllButton}
+            </Box>
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1.5fr) repeat(2, minmax(0, 1fr))' }, gap: 1.5 }}>
                 <TextField

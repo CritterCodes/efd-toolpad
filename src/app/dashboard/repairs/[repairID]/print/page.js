@@ -96,28 +96,27 @@ const PrintRepairTicket = () => {
                         size: 7.5in 5.75in;
                         margin: 0;
                     }
-                    /* Hide everything outside the print container */
-                    body {
+                    /* Clamp document to exactly one page so no blank second page appears */
+                    html, body {
+                        width: 7.5in !important;
+                        height: 5.75in !important;
+                        max-height: 5.75in !important;
+                        overflow: hidden !important;
+                        background: white !important;
                         -webkit-print-color-adjust: exact;
                         print-color-adjust: exact;
                         margin: 0 !important;
                         padding: 0 !important;
                     }
-                    /* Hide sidebar, header, nav, breadcrumbs */
-                    nav, header, aside,
-                    .MuiDrawer-root,
-                    .MuiAppBar-root,
-                    .MuiBreadcrumbs-root {
-                        display: none !important;
-                    }
-                    /* Hide everything that isn't the print container */
-                    body > * {
+                    /* Hide every element, then reveal only print-container */
+                    body * {
                         visibility: hidden;
                     }
-                    body .print-container,
-                    body .print-container * {
-                        visibility: visible;
+                    .print-container,
+                    .print-container * {
+                        visibility: visible !important;
                     }
+                    /* Force black text and white bg inside print area */
                     .print-container {
                         position: absolute !important;
                         top: 0 !important;
@@ -129,6 +128,12 @@ const PrintRepairTicket = () => {
                         overflow: hidden !important;
                         margin: 0 !important;
                         padding: 0 !important;
+                        background: white !important;
+                        color: #000 !important;
+                    }
+                    .print-container * {
+                        color: #000 !important;
+                        background-color: transparent !important;
                     }
                 }
             `}</style>
