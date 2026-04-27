@@ -3,7 +3,7 @@ import { auth } from '@/lib/auth';
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
-const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_MODEL = 'gemini-2.5-flash-preview-04-17';
 
 const extractGeminiText = (payload = {}) => {
   const parts = payload?.candidates?.[0]?.content?.parts;

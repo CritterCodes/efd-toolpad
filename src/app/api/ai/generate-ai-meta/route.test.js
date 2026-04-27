@@ -39,6 +39,13 @@ const make429 = (retryAfterSecs = 0) => ({
   headers: { get: (k) => (k === 'Retry-After' && retryAfterSecs ? String(retryAfterSecs) : null) },
 })
 
+const makeError = (status, message) => ({
+  ok: false,
+  status,
+  json: async () => ({ error: { code: status, message } }),
+  headers: { get: () => null },
+})
+
 const mockReq = (body) => ({ json: async () => body })
 
 describe('POST /api/ai/generate-ai-meta', () => {
@@ -51,6 +58,8 @@ describe('POST /api/ai/generate-ai-meta', () => {
   afterEach(() => {
     vi.useRealTimers()
   })
+
+  // ── Auth & validation ──────────────────────────────────────────────────────
 
   it('returns 401 when unauthenticated', async () => {
     auth.mockResolvedValue(null)
@@ -71,7 +80,9 @@ describe('POST /api/ai/generate-ai-meta', () => {
     expect(res._status).toBe(500)
   })
 
-  it('returns AI metadata on success', async () => {
+  // ── Happy path ─────────────────────────────────────────────────────────────
+
+  it('returns AI metadata on first attempt when Gemini responds normally', async () => {
     global.fetch = vi.fn().mockResolvedValueOnce(makeSuccess(VALID_AI_META_JSON))
     const res = await POST(mockReq({ title: 'Check & Tighten < 20 stones', category: 'stone_setting' }))
     expect(res._status).toBe(200)
@@ -88,38 +99,88 @@ describe('POST /api/ai/generate-ai-meta', () => {
     expect(res._data.success).toBe(false)
   })
 
-  it('retries once on 429 then succeeds', async () => {
+  // ── 429 rate limit handling (the actual production issue) ──────────────────
+
+  it('silently retries a 429 and returns success — user never sees the error', async () => {
     vi.useFakeTimers()
     global.fetch = vi.fn()
-      .mockResolvedValueOnce(make429())
-      .mockResolvedValueOnce(makeSuccess(VALID_AI_META_JSON))
+      .mockResolvedValueOnce(make429())       // first attempt: rate limited
+      .mockResolvedValueOnce(makeSuccess(VALID_AI_META_JSON)) // retry: success
 
     const promise = POST(mockReq({ title: 'Ring Sizing' }))
     await vi.advanceTimersByTimeAsync(3000)
     const res = await promise
 
     expect(global.fetch).toHaveBeenCalledTimes(2)
+    expect(res._status).toBe(200)           // user sees success, not 429
+    expect(res._data.success).toBe(true)
+  })
+
+  it('survives two consecutive 429s and recovers on third attempt', async () => {
+    vi.useFakeTimers()
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce(make429())       // attempt 1: rate limited
+      .mockResolvedValueOnce(make429())       // attempt 2: still rate limited
+      .mockResolvedValueOnce(makeSuccess(VALID_AI_META_JSON)) // attempt 3: success
+
+    const promise = POST(mockReq({ title: 'Ring Sizing' }))
+    await vi.advanceTimersByTimeAsync(8000)   // past 2s + 4s delay
+    const res = await promise
+
+    expect(global.fetch).toHaveBeenCalledTimes(3)
     expect(res._status).toBe(200)
     expect(res._data.success).toBe(true)
   })
 
-  it('returns 429 after exhausting all retries', async () => {
+  it('uses exponential backoff: delays are 2s → 4s → 8s', async () => {
+    const recordedDelays = []
+    vi.spyOn(global, 'setTimeout').mockImplementation((fn, ms) => {
+      if (ms < 20000) recordedDelays.push(ms) // exclude the AbortController timeout
+      fn()
+      return 0
+    })
+
+    global.fetch = vi.fn().mockResolvedValue(make429())
+    await POST(mockReq({ title: 'Ring Sizing' }))
+
+    expect(recordedDelays).toEqual([2000, 4000, 8000])
+    vi.restoreAllMocks()
+  })
+
+  it('surfaces rate-limit error to caller only after all 4 attempts fail', async () => {
     vi.useFakeTimers()
     global.fetch = vi.fn().mockResolvedValue(make429())
 
     const promise = POST(mockReq({ title: 'Ring Sizing' }))
-    await vi.advanceTimersByTimeAsync(15000)
+    await vi.advanceTimersByTimeAsync(15000)  // past 2s + 4s + 8s
     const res = await promise
 
-    expect(global.fetch).toHaveBeenCalledTimes(4)
+    expect(global.fetch).toHaveBeenCalledTimes(4) // 1 initial + 3 retries
     expect(res._status).toBe(429)
     expect(res._data.success).toBe(false)
+    expect(res._data.error).toMatch(/rate limited/i)
   })
 
-  it('respects Retry-After header delay', async () => {
+  it('does not retry on non-429 errors (e.g. 500)', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce(makeError(500, 'Internal Server Error'))
+    const res = await POST(mockReq({ title: 'Ring Sizing' }))
+    expect(global.fetch).toHaveBeenCalledTimes(1) // no retry
+    expect(res._status).toBe(500)
+  })
+
+  it('does not retry on 404 model-not-found (the gemini-2.0-flash deprecation error)', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce(
+      makeError(404, 'This model models/gemini-2.0-flash is no longer available to new users.')
+    )
+    const res = await POST(mockReq({ title: 'Ring Sizing' }))
+    expect(global.fetch).toHaveBeenCalledTimes(1) // no retry — wrong model, not rate limit
+    expect(res._status).toBe(500)
+  })
+
+  it('uses Retry-After header value instead of backoff when provided', async () => {
     vi.useFakeTimers()
     global.fetch = vi.fn()
-      .mockResolvedValueOnce(make429(3))
+      .mockResolvedValueOnce(make429(3))      // server says wait 3 seconds
       .mockResolvedValueOnce(makeSuccess(VALID_AI_META_JSON))
 
     const promise = POST(mockReq({ title: 'Ring Sizing' }))

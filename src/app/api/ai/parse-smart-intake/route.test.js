@@ -46,6 +46,13 @@ const make429 = (retryAfterSecs = 0) => ({
   headers: { get: (k) => (k === 'Retry-After' && retryAfterSecs ? String(retryAfterSecs) : null) },
 })
 
+const makeError = (status, message) => ({
+  ok: false,
+  status,
+  json: async () => ({ error: { code: status, message } }),
+  headers: { get: () => null },
+})
+
 const mockReq = (body) => ({ json: async () => body })
 
 describe('POST /api/ai/parse-smart-intake', () => {
@@ -58,6 +65,8 @@ describe('POST /api/ai/parse-smart-intake', () => {
   afterEach(() => {
     vi.useRealTimers()
   })
+
+  // ── Auth & validation ──────────────────────────────────────────────────────
 
   it('returns 401 when unauthenticated', async () => {
     auth.mockResolvedValue(null)
@@ -78,7 +87,9 @@ describe('POST /api/ai/parse-smart-intake', () => {
     expect(res._status).toBe(500)
   })
 
-  it('returns parsed data on success', async () => {
+  // ── Happy path ─────────────────────────────────────────────────────────────
+
+  it('returns parsed data on first attempt when Gemini responds normally', async () => {
     global.fetch = vi.fn().mockResolvedValueOnce(makeSuccess(VALID_PARSED_JSON))
     const res = await POST(mockReq({ inputText: 'resize my yellow gold ring from 7 to 8', tasks: [] }))
     expect(res._status).toBe(200)
@@ -96,22 +107,55 @@ describe('POST /api/ai/parse-smart-intake', () => {
     expect(res._data.data.parsed.metalType).toBe('')
   })
 
-  it('retries once on 429 then succeeds', async () => {
+  // ── 429 rate limit handling (the actual production issue) ──────────────────
+
+  it('silently retries a 429 and returns success — user never sees the error', async () => {
     vi.useFakeTimers()
     global.fetch = vi.fn()
-      .mockResolvedValueOnce(make429())
-      .mockResolvedValueOnce(makeSuccess(VALID_PARSED_JSON))
+      .mockResolvedValueOnce(make429())       // first attempt: rate limited
+      .mockResolvedValueOnce(makeSuccess(VALID_PARSED_JSON)) // retry: success
 
     const promise = POST(mockReq({ inputText: 'resize my ring' }))
     await vi.advanceTimersByTimeAsync(3000)
     const res = await promise
 
     expect(global.fetch).toHaveBeenCalledTimes(2)
+    expect(res._status).toBe(200)           // user sees success, not 429
+    expect(res._data.success).toBe(true)
+  })
+
+  it('survives two consecutive 429s and recovers on third attempt', async () => {
+    vi.useFakeTimers()
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce(make429())       // attempt 1: rate limited
+      .mockResolvedValueOnce(make429())       // attempt 2: still rate limited
+      .mockResolvedValueOnce(makeSuccess(VALID_PARSED_JSON)) // attempt 3: success
+
+    const promise = POST(mockReq({ inputText: 'resize my ring' }))
+    await vi.advanceTimersByTimeAsync(8000)
+    const res = await promise
+
+    expect(global.fetch).toHaveBeenCalledTimes(3)
     expect(res._status).toBe(200)
     expect(res._data.success).toBe(true)
   })
 
-  it('returns 429 after exhausting all retries', async () => {
+  it('uses exponential backoff: delays are 2s → 4s → 8s', async () => {
+    const recordedDelays = []
+    vi.spyOn(global, 'setTimeout').mockImplementation((fn, ms) => {
+      if (ms < 20000) recordedDelays.push(ms)
+      fn()
+      return 0
+    })
+
+    global.fetch = vi.fn().mockResolvedValue(make429())
+    await POST(mockReq({ inputText: 'resize my ring' }))
+
+    expect(recordedDelays).toEqual([2000, 4000, 8000])
+    vi.restoreAllMocks()
+  })
+
+  it('surfaces rate-limit error to caller only after all 4 attempts fail', async () => {
     vi.useFakeTimers()
     global.fetch = vi.fn().mockResolvedValue(make429())
 
@@ -122,9 +166,17 @@ describe('POST /api/ai/parse-smart-intake', () => {
     expect(global.fetch).toHaveBeenCalledTimes(4)
     expect(res._status).toBe(429)
     expect(res._data.success).toBe(false)
+    expect(res._data.error).toMatch(/rate limited/i)
   })
 
-  it('respects Retry-After header delay', async () => {
+  it('does not retry on non-429 errors (e.g. 500)', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce(makeError(500, 'Internal Server Error'))
+    const res = await POST(mockReq({ inputText: 'resize my ring' }))
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+    expect(res._status).toBe(502)
+  })
+
+  it('uses Retry-After header value instead of backoff when provided', async () => {
     vi.useFakeTimers()
     global.fetch = vi.fn()
       .mockResolvedValueOnce(make429(3))
