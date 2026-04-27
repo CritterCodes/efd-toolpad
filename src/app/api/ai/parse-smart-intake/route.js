@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
-const GEMINI_MODEL = 'gemini-2.5-flash-preview-04-17';
+const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_MAX_OUTPUT_TOKENS = Number(process.env.GEMINI_SMART_INTAKE_MAX_OUTPUT_TOKENS || 8000);
 
 const extractGeminiText = (payload = {}) => {
