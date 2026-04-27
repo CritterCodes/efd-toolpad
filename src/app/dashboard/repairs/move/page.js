@@ -9,7 +9,7 @@ import {
 } from "@mui/material";
 import { MoveUp as MoveIcon } from "@mui/icons-material";
 import { useRepairs } from "@/app/context/repairs.context";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from 'next-auth/react';
 
 import { useMoveRepairs } from "./hooks/useMoveRepairs";
@@ -18,6 +18,7 @@ import AssignedPersonField from "./components/AssignedPersonField";
 import RepairInput from "./components/RepairInput";
 import RepairList from "./components/RepairList";
 import MoveSummary from "./components/MoveSummary";
+import { REPAIR_STATUSES } from "./constants";
 import { moveRepairsToStatus, updateRepairWithMetadata } from "./utils/repairUtils";
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 
@@ -25,6 +26,8 @@ const MoveRepairsPage = () => {
     const { data: session, status: authStatus } = useSession();
     const { repairs, setRepairs } = useRepairs();
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const isScanMode = searchParams.get('mode') === 'scan';
 
     const {
         location,
@@ -45,12 +48,39 @@ const MoveRepairsPage = () => {
     } = useMoveRepairs();
 
     useEffect(() => {
-        if (authStatus !== 'loading' && (!session?.user || session.user.role !== 'admin')) {
+        const isAdmin = session?.user?.role === 'admin';
+        const isOnsiteRepairOps = session?.user?.employment?.isOnsite === true
+            && session?.user?.staffCapabilities?.repairOps === true;
+
+        if (authStatus !== 'loading' && (!session?.user || (!isAdmin && !isOnsiteRepairOps))) {
             router.push('/dashboard');
         }
     }, [authStatus, session, router]);
 
-    if (authStatus === 'loading' || !session?.user || session.user.role !== 'admin') return null;
+    const isAdmin = session?.user?.role === 'admin';
+    const isOnsiteRepairOps = session?.user?.employment?.isOnsite === true
+        && session?.user?.staffCapabilities?.repairOps === true;
+
+    if (authStatus === 'loading' || !session?.user || (!isAdmin && !isOnsiteRepairOps)) return null;
+
+    const selectedRepairs = repairIDs
+        .map((repairID) => repairs.find((repair) => repair.repairID === repairID))
+        .filter(Boolean);
+    const hasSelectedRepairs = selectedRepairs.length > 0;
+    const allSelectedInQc = hasSelectedRepairs && selectedRepairs.every((repair) => repair.status === 'QC' || repair.benchStatus === 'QC');
+    const canCompleteFromQc = isAdmin || session?.user?.staffCapabilities?.qualityControl === true;
+    const genericStatusOptions = REPAIR_STATUSES.filter((status) => !['QC', 'COMPLETED'].includes(status));
+    const availableStatuses = allSelectedInQc
+        ? (canCompleteFromQc
+            ? ['COMPLETED', 'READY FOR PICKUP', 'DELIVERY BATCHED']
+            : [])
+        : [...genericStatusOptions, 'QC'];
+
+    useEffect(() => {
+        if (location && !availableStatuses.includes(location)) {
+            setLocation(null);
+        }
+    }, [availableStatuses, location, setLocation]);
 
     const handleLocationSelect = (event, value) => {
         setLocation(value);
@@ -86,8 +116,42 @@ const MoveRepairsPage = () => {
         }
 
         try {
-            await moveRepairsToStatus(repairIDs, location, assignedPerson);
             const currentDateTime = new Date().toISOString();
+
+            if (location === 'QC') {
+                await Promise.all(
+                    repairIDs.map((repairID) =>
+                        fetch(`/api/repairs/${encodeURIComponent(repairID)}/move-to-qc`, { method: 'POST' }).then(async (res) => {
+                            if (!res.ok) {
+                                const data = await res.json().catch(() => ({}));
+                                throw new Error(data.error || `Failed to move ${repairID} to QC`);
+                            }
+                            return res.json();
+                        })
+                    )
+                );
+            } else if (['COMPLETED', 'READY FOR PICKUP', 'DELIVERY BATCHED'].includes(location)) {
+                await Promise.all(
+                    repairIDs.map((repairID) =>
+                        fetch(`/api/repairs/${encodeURIComponent(repairID)}/complete-from-qc`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                readyForPickup: location === 'READY FOR PICKUP',
+                                deliveryBatched: location === 'DELIVERY BATCHED',
+                            }),
+                        }).then(async (res) => {
+                            if (!res.ok) {
+                                const data = await res.json().catch(() => ({}));
+                                throw new Error(data.error || `Failed to complete ${repairID}`);
+                            }
+                            return res.json();
+                        })
+                    )
+                );
+            } else {
+                await moveRepairsToStatus(repairIDs, location, assignedPerson, isAdmin ? 'admin' : null);
+            }
 
             setRepairs((prevRepairs) =>
                 prevRepairs.map((repair) =>
@@ -136,20 +200,28 @@ const MoveRepairsPage = () => {
                         }}
                     >
                         <MoveIcon sx={{ fontSize: 16, color: REPAIRS_UI.accent }} />
-                        Status transition
+                        {isScanMode ? 'Scan & move' : 'Status transition'}
                     </Typography>
 
                     <Typography sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 1 }}>
-                        Move Repairs
+                        {isScanMode ? 'Scan Ticket' : 'Move Repairs'}
                     </Typography>
                     <Typography sx={{ color: REPAIRS_UI.textSecondary, lineHeight: 1.6 }}>
-                        Scan or enter repair IDs, select the destination status, and confirm to move them in bulk.
+                        {isScanMode
+                            ? 'Use your scanner or type a repair ID, choose the destination, and move repairs from the bench in one place.'
+                            : 'Scan or enter repair IDs, select the destination status, and confirm to move them in bulk.'}
                     </Typography>
                 </Box>
             </Box>
 
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <StatusSelector value={location} onChange={handleLocationSelect} />
+                {/* Available statuses depend on the current selected repairs and capability context. */}
+                <StatusSelector value={location} onChange={handleLocationSelect} options={availableStatuses} />
+                {allSelectedInQc && !canCompleteFromQc && (
+                    <Alert severity="warning">
+                        Only QC-capable users can move repairs out of QC.
+                    </Alert>
+                )}
                 <AssignedPersonField status={location} value={assignedPerson} onChange={setAssignedPerson} />
                 <RepairInput value={currentRepairID} onChange={setCurrentRepairID} onSubmit={handleRepairSubmit} />
 

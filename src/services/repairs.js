@@ -146,9 +146,9 @@ class RepairsService {
      * @param {string} status - The new status for the repairs
      * @returns {Promise<Object>} - Confirmation message
      */
-    static moveRepairStatus = async (repairIDs, status) => {
+    static moveRepairStatus = async (repairIDs, status, metadata = {}, actorMode = null) => {
         try {
-            const response = await axiosInstance.put('/repairs/move', { repairIDs, status });
+            const response = await axiosInstance.put('/repairs/move', { repairIDs, status, metadata, actorMode });
             return response.data;
         } catch (error) {
             throw error;

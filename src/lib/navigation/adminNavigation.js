@@ -13,7 +13,6 @@ import ListIcon from "@mui/icons-material/List";
 import ReceivingIcon from "@mui/icons-material/Inbox";
 import MoveUpIcon from "@mui/icons-material/DriveFileMove";
 import PickupIcon from "@mui/icons-material/LocalShipping";
-import QualityIcon from "@mui/icons-material/VerifiedUser";
 import PartsIcon from "@mui/icons-material/Category";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import PersonIcon from "@mui/icons-material/Person";
@@ -138,9 +137,9 @@ export const adminNavigation = {
           icon: <ListIcon />
         },
         {
-          segment: 'quality-control',
-          title: 'Quality Control',
-          icon: <QualityIcon />
+          segment: 'labor-review',
+          title: 'Labor Review',
+          icon: <ReceiptIcon />
         },
         {
           segment: 'pick-up',

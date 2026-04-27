@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { uploadRepairImage } from "@/utils/s3.util"; 
 import RepairsController from "../controller";
-import { requireRole } from "@/lib/apiAuth";
+import { requireRepairOps } from "@/lib/apiAuth";
 
 /**
  * POST Route for Quality Control updates including status, notes, checklist, and image uploads
  */
 export const POST = async (req) => {
     try {
-        const { session, errorResponse } = await requireRole(['admin', 'artisan']);
+        const { errorResponse } = await requireRepairOps('qualityControl');
         if (errorResponse) return errorResponse;
 
         console.log("📩 Incoming Quality Control Update POST request received.");

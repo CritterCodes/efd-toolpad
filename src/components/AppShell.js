@@ -337,7 +337,12 @@ export default function AppShell({ children }) {
 
     const computeNav = () => {
       const role = getEffectiveRole(session.user.role);
-      setNavigation(getNavigationForRole(role, session.user.artisanTypes));
+      setNavigation(getNavigationForRole(
+        role,
+        session.user.artisanTypes,
+        session.user.staffCapabilities,
+        session.user.employment
+      ));
     };
 
     computeNav();
@@ -351,7 +356,7 @@ export default function AppShell({ children }) {
       window.removeEventListener('roleViewChanged', handleRoleChange);
       window.removeEventListener('storage', handleStorage);
     };
-  }, [session?.user?.role, session?.user?.artisanTypes]);
+  }, [session?.user?.role, session?.user?.artisanTypes, session?.user?.staffCapabilities, session?.user?.employment]);
 
   const user = session?.user;
   const displayName = user?.firstName

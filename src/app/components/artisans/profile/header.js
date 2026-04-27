@@ -52,6 +52,7 @@ const ArtisanHeader = ({ onSave, hasChanges, artisan, activeTab, setActiveTab })
             <Tabs value={activeTab} onChange={handleTabChange}>
                 <Tab label="Artisan Details" />
                 <Tab label="Vendor Profile" />
+                <Tab label="Staff / Repair Ops" />
             </Tabs>
 
             {/* Actions Section */}

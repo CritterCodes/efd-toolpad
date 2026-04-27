@@ -26,7 +26,6 @@ const WorkCard = ({
     isSelected = false,
     onToggleSelect,
     onAssignJeweler,
-    onStartWork,
     onViewDetails
 }) => {
     const [menuAnchor, setMenuAnchor] = useState(null);
@@ -243,9 +242,6 @@ const WorkCard = ({
             <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={handleMenuClose}>
                 <MenuItem onClick={() => { onAssignJeweler(repair.repairID); handleMenuClose(); }}>
                     Assign Jeweler
-                </MenuItem>
-                <MenuItem onClick={() => { onStartWork(repair.repairID); handleMenuClose(); }}>
-                    Start Work
                 </MenuItem>
                 <MenuItem onClick={() => { onViewDetails(repair.repairID); handleMenuClose(); }}>
                     View Details

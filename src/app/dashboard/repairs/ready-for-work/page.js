@@ -16,7 +16,7 @@ import { useReadyForWork } from './hooks/useReadyForWork';
 import WorkFilters from './components/WorkFilters';
 import WorkGrid from './components/WorkGrid';
 import AssignJewelerModal from './components/AssignJewelerModal';
-import { assignJewelerToRepairs, startWorkOnRepair, updateRepairAssignment } from './utils/workUtils';
+import { assignJewelerToRepairs, updateRepairAssignment } from './utils/workUtils';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 
 const ReadyForWorkPage = () => {
@@ -52,12 +52,22 @@ const ReadyForWorkPage = () => {
     } = useReadyForWork();
 
     useEffect(() => {
-        if (authStatus !== 'loading' && (!session?.user || session.user.role !== 'admin')) {
+        const isAdmin = session?.user?.role === 'admin';
+        const isOnsiteBench = session?.user?.employment?.isOnsite === true
+            && session?.user?.staffCapabilities?.repairOps === true
+            && session?.user?.staffCapabilities?.benchWork === true;
+
+        if (authStatus !== 'loading' && (!session?.user || (!isAdmin && !isOnsiteBench))) {
             router.push('/dashboard');
         }
     }, [authStatus, session, router]);
 
-    if (authStatus === 'loading' || !session?.user || session.user.role !== 'admin') return null;
+    const isAdmin = session?.user?.role === 'admin';
+    const isOnsiteBench = session?.user?.employment?.isOnsite === true
+        && session?.user?.staffCapabilities?.repairOps === true
+        && session?.user?.staffCapabilities?.benchWork === true;
+
+    if (authStatus === 'loading' || !session?.user || (!isAdmin && !isOnsiteBench)) return null;
 
     const filteredRepairs = getFilteredAndSortedRepairs(repairs);
 
@@ -94,24 +104,6 @@ const ReadyForWorkPage = () => {
             }
         } catch (error) {
             showSnackbar(`Error assigning jeweler: ${error.message}`, 'error');
-        }
-    };
-
-    const handleStartWork = async (repairID) => {
-        try {
-            const repair = repairs.find(r => r.repairID === repairID);
-            const jewelerName = repair?.assignedJeweler || 'System User';
-            await startWorkOnRepair(repairID, jewelerName);
-            setRepairs(prevRepairs =>
-                prevRepairs.map(r =>
-                    r.repairID === repairID
-                        ? { ...r, status: 'IN PROGRESS', startedAt: new Date().toISOString(), startedBy: jewelerName }
-                        : r
-                )
-            );
-            showSnackbar(`Started work on repair ${repairID}`, 'success');
-        } catch {
-            showSnackbar('Error starting work on repair', 'error');
         }
     };
 
@@ -188,7 +180,6 @@ const ReadyForWorkPage = () => {
                 selectedRepairs={selectedRepairs}
                 onToggleSelect={toggleRepairSelection}
                 onAssignJeweler={handleAssignJeweler}
-                onStartWork={handleStartWork}
                 onViewDetails={handleViewDetails}
                 emptyMessage={
                     priorityFilter === 'all'

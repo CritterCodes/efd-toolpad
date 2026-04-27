@@ -97,21 +97,23 @@ export default class AuthService {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 email: user.email,
-                
+
                 // 🔥 EMERGENCY FIX: Force admin role for jacobaengel55@gmail.com
-                role: user.email === 'jacobaengel55@gmail.com' 
+                role: user.email === 'jacobaengel55@gmail.com'
                     ? 'admin'
                     : (user.role || 'admin'),
-                
+
                 artisanTypes: (() => {
                     const artisanType = user.artisanApplication?.artisanType;
                     if (!artisanType) return [];
                     if (Array.isArray(artisanType)) return artisanType;
                     return typeof artisanType === 'string' ? artisanType.split(',').map(t => t.trim()) : [];
                 })(),
-                    
+
                 image: user.image,
                 mustChangePassword: user.mustChangePassword || false,
+                staffCapabilities: user.staffCapabilities || null,
+                employment: user.employment || null,
             };
 
         } catch (error) {

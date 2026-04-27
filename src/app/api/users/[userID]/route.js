@@ -6,7 +6,7 @@ import UserService from '../service.js';
 
 export async function GET(request, { params }) {
   try {
-    const { userID } = params;
+    const { userID } = await params;
     
     if (!userID) {
       return NextResponse.json(
@@ -40,9 +40,9 @@ export async function GET(request, { params }) {
 
 export async function PUT(request, { params }) {
   try {
-    const { userID } = params;
+    const { userID } = await params;
     const updateData = await request.json();
-    
+
     if (!userID) {
       return NextResponse.json(
         { success: false, error: 'User ID is required' },
@@ -52,11 +52,11 @@ export async function PUT(request, { params }) {
 
     // Remove fields that shouldn't be updated directly
     const { _id, userID: userId, createdAt, ...safeUpdateData } = updateData;
-    
+
     // Add updatedAt timestamp
     safeUpdateData.updatedAt = new Date();
 
-    const updatedUser = await UserService.updateUser(userID, safeUpdateData);
+    const updatedUser = await UserService.updateUserById(userID, safeUpdateData);
     
     if (!updatedUser) {
       return NextResponse.json(
@@ -82,7 +82,7 @@ export async function PUT(request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
-    const { userID } = params;
+    const { userID } = await params;
     
     if (!userID) {
       return NextResponse.json(

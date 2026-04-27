@@ -130,6 +130,7 @@ const RepairTicketComponent = ({ repair }) => {
           <Box sx={{ marginTop: '4px', display: 'flex', justifyContent: 'space-between', fontSize: '0.5rem', fontWeight: 'bold', color: INK }}>
             <span>PO______</span>
             <span>COMP______</span>
+            <span>C&amp;P______</span>
             <span>QC______</span>
           </Box>
         </Box>
@@ -147,14 +148,20 @@ const RepairTicketComponent = ({ repair }) => {
               padding: '1px 0',
               display: 'flex',
               justifyContent: 'space-between',
-              alignItems: 'center',
+              alignItems: 'flex-start',
+              gap: 1,
               color: INK
             }}
           >
-            <Typography sx={{ fontSize: '0.55rem', flex: 1, color: INK }}>
-              {getItemQuantity(item)}x {item.title || item.displayName || item.name || item.description}
-            </Typography>
-            <Typography sx={{ fontSize: '0.55rem', fontWeight: 500, color: INK }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+              <Typography sx={{ fontSize: '0.55rem', color: INK }}>
+                {getItemQuantity(item)}x {item.title || item.displayName || item.name || item.description}
+              </Typography>
+              <Typography sx={{ fontSize: '0.47rem', color: MUTED }}>
+                Bench ____  C&amp;P ____
+              </Typography>
+            </Box>
+            <Typography sx={{ fontSize: '0.55rem', fontWeight: 500, color: INK, whiteSpace: 'nowrap' }}>
               {getItemQuantity(item) > 1
                 ? `${getItemQuantity(item)} x $${getItemDisplayPrice(item).toFixed(2)} = $${getItemLineTotal(item).toFixed(2)}`
                 : `$${getItemLineTotal(item).toFixed(2)}`}

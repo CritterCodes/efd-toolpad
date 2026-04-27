@@ -14,13 +14,18 @@ export default function RepairStatusAnalytics({ repairs = [] }) {
     const validRepairs = Array.isArray(repairs) ? repairs : [];
 
     const statuses = [
-        "RECEIVED",
+        "RECEIVING",
+        "NEEDS QUOTE",
+        "COMMUNICATION REQUIRED",
         "NEEDS PARTS",
         "PARTS ORDERED",
         "READY FOR WORK",
-        "IN THE OVEN",
-        "QUALITY CONTROL",
-        "READY FOR PICKUP"
+        "IN PROGRESS",
+        "QC",
+        "COMPLETED",
+        "READY FOR PICKUP",
+        "DELIVERY BATCHED",
+        "PAID_CLOSED"
     ];
 
     const statusCounts = statuses.map(status => ({

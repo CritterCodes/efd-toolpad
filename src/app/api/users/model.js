@@ -173,7 +173,7 @@ export default class UserModel {
      * @param {Object} updateData - The data to update
      * @returns {Object|null} - Updated user data or null if not found
      */
-    static async updateUser(userId, updateData) {
+    static async updateUserById(userId, updateData) {
         try {
             const { ObjectId } = require('mongodb');
             const dbInstance = await db.connect();

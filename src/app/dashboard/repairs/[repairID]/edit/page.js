@@ -22,7 +22,7 @@ const COLORS = {
 export default function EditRepairPage() {
   const params = useParams();
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const repairID = params?.repairID;
@@ -31,6 +31,20 @@ export default function EditRepairPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+
+    const isAdmin = session?.user?.role === 'admin';
+    const isWholesaler = session?.user?.role === 'wholesaler';
+    const isOnsiteRepairOps = session?.user?.role === 'artisan'
+      && session?.user?.employment?.isOnsite === true
+      && session?.user?.staffCapabilities?.repairOps === true;
+
+    if (!isAdmin && !isWholesaler && !isOnsiteRepairOps) {
+      router.push('/dashboard');
+    }
+  }, [router, session, status]);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,7 +101,7 @@ export default function EditRepairPage() {
     router.push(repairID ? `/dashboard/repairs/${repairID}` : '/dashboard/repairs');
   };
 
-  if (loading) {
+  if (status === 'loading' || loading) {
     return (
       <Box sx={{ minHeight: 360, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Stack spacing={2} alignItems="center">

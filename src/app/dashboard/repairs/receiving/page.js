@@ -45,7 +45,12 @@ const ReceivingPage = () => {
         );
     }
 
-    if (!session?.user || session.user.role !== 'admin') {
+    const isAdmin = session?.user?.role === 'admin';
+    const isOnsiteReceiving = session?.user?.staffCapabilities?.repairOps === true
+        && session?.user?.staffCapabilities?.receiving === true
+        && session?.user?.employment?.isOnsite === true;
+
+    if (!session?.user || (!isAdmin && !isOnsiteReceiving)) {
         router.push('/dashboard');
         return null;
     }

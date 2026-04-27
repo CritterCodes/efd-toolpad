@@ -6,6 +6,7 @@ import ArtisanHeader from '@/app/components/artisans/profile/header';
 import ArtisanDetailsForm from '@/app/components/artisans/profile/details';
 import ArtisanVendorProfile from '@/app/components/artisans/profile/vendorProfile';
 import ArtisanImage from '@/app/components/artisans/profile/image';
+import ArtisanStaffCapabilities from '@/app/components/artisans/profile/staffCapabilities';
 
 const ViewArtisanPage = ({ params }) => {
     const resolvedParams = use(params);
@@ -161,6 +162,13 @@ const ViewArtisanPage = ({ params }) => {
 
                 {activeTab === 1 && (
                     <ArtisanVendorProfile
+                        artisan={updatedArtisan}
+                        onFieldChange={handleEditChange}
+                    />
+                )}
+
+                {activeTab === 2 && (
+                    <ArtisanStaffCapabilities
                         artisan={updatedArtisan}
                         onFieldChange={handleEditChange}
                     />

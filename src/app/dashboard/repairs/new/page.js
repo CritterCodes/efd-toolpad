@@ -21,13 +21,27 @@ const COLORS = {
 
 const NewRepairPage = () => {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const [isWholesaler, setIsWholesaler] = useState(false);
   const [wholesalerStoreId, setWholesalerStoreId] = useState(null);
   const [wholesalerStoreName, setWholesalerStoreName] = useState(null);
+
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+
+    const isAdmin = session?.user?.role === 'admin';
+    const isWholesaler = session?.user?.role === 'wholesaler';
+    const isOnsiteRepairOps = session?.user?.role === 'artisan'
+      && session?.user?.employment?.isOnsite === true
+      && session?.user?.staffCapabilities?.repairOps === true;
+
+    if (!isAdmin && !isWholesaler && !isOnsiteRepairOps) {
+      router.push('/dashboard');
+    }
+  }, [router, session, status]);
 
   // Set up wholesaler as the store (not the client)
   useEffect(() => {
@@ -41,6 +55,8 @@ const NewRepairPage = () => {
       }
     }
   }, [session]);
+
+  if (status === 'loading') return null;
 
   const showToast = (message, severity = 'success') => {
     setNotification({ open: true, message, severity });

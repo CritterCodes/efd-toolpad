@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import RepairsController from "../controller";
-import { requireRole } from "@/lib/apiAuth";
+import { requireRepairsAccess } from "@/lib/apiAuth";
 
 /**
  * GET Route - Fetch a single repair by ID
  */
 export const GET = async (req, { params }) => {
     try {
-        const { session, errorResponse } = await requireRole(['admin', 'wholesaler', 'artisan']);
+        const { session, errorResponse } = await requireRepairsAccess();
         if (errorResponse) return errorResponse;
 
         const { repairID } = params;
@@ -36,7 +36,7 @@ export const GET = async (req, { params }) => {
  */
 export const PUT = async (req, { params }) => {
     try {
-        const { session, errorResponse } = await requireRole(['admin', 'wholesaler', 'artisan']);
+        const { session, errorResponse } = await requireRepairsAccess();
         if (errorResponse) return errorResponse;
 
         const { repairID } = params;

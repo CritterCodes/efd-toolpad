@@ -13,19 +13,8 @@ export const createStatusMetadata = (status, assignedPerson, currentDateTime) =>
                 partsOrderedDate: currentDateTime,
                 partsOrderedBy: assignedPerson || "System User"
             };
-        case "IN PROGRESS":
-            return {
-                ...baseMetadata,
-                assignedJeweler: assignedPerson || "Unassigned",
-                assignedTo: assignedPerson || "Unassigned"
-            };
-        case "QUALITY CONTROL":
-            return {
-                ...baseMetadata,
-                qcDate: currentDateTime,
-                qcBy: assignedPerson || "System User"
-            };
-        case "COMPLETED":
+        case "READY FOR PICKUP":
+        case "DELIVERY BATCHED":
             return {
                 ...baseMetadata,
                 completedAt: currentDateTime,
@@ -50,19 +39,8 @@ export const updateRepairWithMetadata = (repair, status, assignedPerson, current
                 partsOrderedDate: currentDateTime,
                 partsOrderedBy: assignedPerson || "System User"
             };
-        case "IN PROGRESS":
-            return {
-                ...baseUpdate,
-                assignedJeweler: assignedPerson || "Unassigned",
-                assignedTo: assignedPerson || "Unassigned"
-            };
-        case "QUALITY CONTROL":
-            return {
-                ...baseUpdate,
-                qcDate: currentDateTime,
-                qcBy: assignedPerson || "System User"
-            };
-        case "COMPLETED":
+        case "READY FOR PICKUP":
+        case "DELIVERY BATCHED":
             return {
                 ...baseUpdate,
                 completedAt: currentDateTime,
@@ -73,15 +51,9 @@ export const updateRepairWithMetadata = (repair, status, assignedPerson, current
     }
 };
 
-export const moveRepairsToStatus = async (repairIDs, status, assignedPerson) => {
+export const moveRepairsToStatus = async (repairIDs, status, assignedPerson, actorMode = null) => {
     const currentDateTime = new Date().toISOString();
     const metadata = createStatusMetadata(status, assignedPerson, currentDateTime);
-    
-    const updatePayload = {
-        repairIDs,
-        status,
-        metadata
-    };
 
-    return await RepairsService.moveRepairStatus(repairIDs, status, metadata);
+    return await RepairsService.moveRepairStatus(repairIDs, status, metadata, actorMode);
 };

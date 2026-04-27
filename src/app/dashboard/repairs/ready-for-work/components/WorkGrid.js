@@ -8,7 +8,6 @@ const WorkGrid = ({
     selectedRepairs = new Set(),
     onToggleSelect,
     onAssignJeweler,
-    onStartWork,
     onViewDetails,
     emptyMessage = "No repairs ready for work"
 }) => {
@@ -86,7 +85,6 @@ const WorkGrid = ({
                             isSelected={selectedRepairs.has(repair.repairID)}
                             onToggleSelect={onToggleSelect}
                             onAssignJeweler={onAssignJeweler}
-                            onStartWork={onStartWork}
                             onViewDetails={onViewDetails}
                         />
                     </Grid>

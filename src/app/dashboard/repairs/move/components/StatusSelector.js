@@ -2,10 +2,10 @@ import React from 'react';
 import { TextField, Autocomplete, Box, Typography } from '@mui/material';
 import { REPAIR_STATUSES, STATUS_DESCRIPTIONS } from '../constants';
 
-const StatusSelector = ({ value, onChange, sx = {} }) => {
+const StatusSelector = ({ value, onChange, options = REPAIR_STATUSES, sx = {} }) => {
     return (
         <Autocomplete
-            options={REPAIR_STATUSES}
+            options={options}
             value={value}
             onChange={onChange}
             getOptionLabel={(option) => option}

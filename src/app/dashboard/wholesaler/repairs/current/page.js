@@ -16,10 +16,12 @@ const STATUS_COLORS = {
     'PARTS ORDERED': 'secondary',
     'READY FOR WORK': 'default',
     'IN PROGRESS': 'primary',
+    'QC': 'primary',
+    'QC': 'primary',
     'QUALITY CONTROL': 'primary',
 };
 
-const ACTIVE_STATUSES = ['RECEIVING', 'NEEDS PARTS', 'PARTS ORDERED', 'READY FOR WORK', 'IN PROGRESS', 'QUALITY CONTROL'];
+const ACTIVE_STATUSES = ['RECEIVING', 'NEEDS PARTS', 'PARTS ORDERED', 'READY FOR WORK', 'IN PROGRESS', 'QC', 'QUALITY CONTROL'];
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 

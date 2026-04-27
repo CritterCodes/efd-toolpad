@@ -50,12 +50,22 @@ const PartsPage = () => {
     } = usePartsManagement();
 
     useEffect(() => {
-        if (authStatus !== 'loading' && (!session?.user || session.user.role !== 'admin')) {
+        const isAdmin = session?.user?.role === 'admin';
+        const isOnsiteParts = session?.user?.employment?.isOnsite === true
+            && session?.user?.staffCapabilities?.repairOps === true
+            && session?.user?.staffCapabilities?.parts === true;
+
+        if (authStatus !== 'loading' && (!session?.user || (!isAdmin && !isOnsiteParts))) {
             router.push('/dashboard');
         }
     }, [authStatus, session, router]);
 
-    if (authStatus === 'loading' || !session?.user || session.user.role !== 'admin') return null;
+    const isAdmin = session?.user?.role === 'admin';
+    const isOnsiteParts = session?.user?.employment?.isOnsite === true
+        && session?.user?.staffCapabilities?.repairOps === true
+        && session?.user?.staffCapabilities?.parts === true;
+
+    if (authStatus === 'loading' || !session?.user || (!isAdmin && !isOnsiteParts)) return null;
 
     const filteredRepairs = filterRepairsByStatus(repairs, activeTab, searchQuery);
 

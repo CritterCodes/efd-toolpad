@@ -62,8 +62,8 @@ const FiltersBar = ({
                         <MenuItem value="PARTS ORDERED">Parts Ordered</MenuItem>
                         <MenuItem value="READY FOR WORK">Ready for Work</MenuItem>
                         <MenuItem value="IN PROGRESS">In Progress</MenuItem>
-                        <MenuItem value="QUALITY CONTROL">Quality Control</MenuItem>
-                        <MenuItem value="READY FOR PICK-UP">Ready for Pickup</MenuItem>
+                        <MenuItem value="QC">QC</MenuItem>
+                        <MenuItem value="READY FOR PICKUP">Ready for Pickup</MenuItem>
                     </Select>
                 </FormControl>
 

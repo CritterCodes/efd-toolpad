@@ -134,15 +134,15 @@ export default class UserService {
     }
 
     /**
-     * ✅ Update a user by ID
-     * @param {String} userId - The ID of the user to update
+     * ✅ Update a user by MongoDB _id
+     * @param {String} userId - The MongoDB _id of the user to update
      * @param {Object} updateData - The data to update
      * @returns {Object|null} - Updated user data or null if not found
      */
-    static async updateUser(userId, updateData) {
+    static async updateUserById(userId, updateData) {
         try {
             console.log(`🔄 Updating user with ID: ${userId}`);
-            const updatedUser = await UserModel.updateUser(userId, updateData);
+            const updatedUser = await UserModel.updateUserById(userId, updateData);
             if (updatedUser) {
                 console.log("✅ User updated successfully:", updatedUser._id);
             } else {
@@ -150,7 +150,7 @@ export default class UserService {
             }
             return updatedUser;
         } catch (error) {
-            console.error("Error in UserService.updateUser:", error);
+            console.error("Error in UserService.updateUserById:", error);
             throw new Error("Failed to update user.");
         }
     }

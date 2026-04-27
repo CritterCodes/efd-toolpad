@@ -118,11 +118,11 @@ export default class RepairsService {
             // Filter based on status categories
             if (statusFilter === 'current') {
                 return repairs.filter(repair => 
-                    !['COMPLETED', 'READY FOR PICK-UP', 'CANCELLED'].includes(repair.status)
+                    !['COMPLETED', 'READY FOR PICKUP', 'DELIVERY BATCHED', 'PAID_CLOSED', 'READY FOR PICK-UP', 'CANCELLED', 'cancelled'].includes(repair.status)
                 );
             } else if (statusFilter === 'completed') {
                 return repairs.filter(repair => 
-                    ['COMPLETED', 'READY FOR PICK-UP'].includes(repair.status)
+                    ['COMPLETED', 'READY FOR PICKUP', 'DELIVERY BATCHED', 'PAID_CLOSED', 'READY FOR PICK-UP'].includes(repair.status)
                 );
             }
 

@@ -77,8 +77,8 @@ export function useWholesaleRepairs() {
         pending: repairs.filter(r => r.status === 'PENDING PICKUP').length,
         pickupRequested: repairs.filter(r => r.status === 'PICKUP REQUESTED').length,
         receiving: repairs.filter(r => r.status === 'RECEIVING').length,
-        inProgress: repairs.filter(r => !['PENDING PICKUP', 'PICKUP REQUESTED', 'RECEIVING', 'COMPLETED', 'READY FOR PICK-UP'].includes(r.status)).length,
-        completed: repairs.filter(r => r.status === 'COMPLETED' || r.status === 'READY FOR PICK-UP').length,
+        inProgress: repairs.filter(r => !['PENDING PICKUP', 'PICKUP REQUESTED', 'RECEIVING', 'COMPLETED', 'READY FOR PICKUP', 'DELIVERY BATCHED', 'PAID_CLOSED', 'READY FOR PICK-UP'].includes(r.status)).length,
+        completed: repairs.filter(r => ['COMPLETED', 'READY FOR PICKUP', 'DELIVERY BATCHED', 'PAID_CLOSED', 'READY FOR PICK-UP'].includes(r.status)).length,
     };
 
     return {

@@ -199,16 +199,27 @@ export const repairSchema = {
     enum: [
       'lead',                // Retail chat lead — not yet at shop
       'RECEIVING',           // Just received, intake complete
+      'NEEDS QUOTE',
+      'COMMUNICATION REQUIRED',
+      'NEEDS PARTS',
+      'PARTS ORDERED',
+      'READY FOR WORK',
+      'IN PROGRESS',
       'PENDING PICKUP',      // Wholesale: waiting for admin to pick up
       'PICKUP REQUESTED',    // Wholesale: pickup requested
       'pending',             // Legacy: just created
       'in-progress',         // Work has begun
       'waiting',             // Waiting for parts/customer approval
+      'QC',
       'quality-control',     // In QC review
+      'QUALITY CONTROL',
       'completed',           // Work finished
       'COMPLETED',           // Work finished (uppercase variant)
       'ready',               // Ready for pickup
       'READY FOR PICK-UP',   // Ready for pickup (uppercase variant)
+      'READY FOR PICKUP',
+      'DELIVERY BATCHED',
+      'PAID_CLOSED',
       'picked-up',           // Customer has picked up
       'cancelled'            // Repair was cancelled
     ],
@@ -262,6 +273,31 @@ export const repairSchema = {
     items: { type: 'string' },
     description: 'Photos after repair completion'
   },
+  closeoutStatus: {
+    type: 'string',
+    default: 'pending',
+    enum: ['pending', 'in_review', 'batched', 'paid'],
+    description: 'Closeout stage after physical completion'
+  },
+  closeoutBy: {
+    type: 'string',
+    default: '',
+    description: 'User who most recently updated closeout data'
+  },
+  closeoutAt: {
+    type: 'date',
+    description: 'Timestamp of latest closeout update'
+  },
+  closeoutNotes: {
+    type: 'string',
+    default: '',
+    description: 'Internal notes for payment, pickup, and closeout handling'
+  },
+  invoiceID: {
+    type: 'string',
+    default: '',
+    description: 'Repair invoice identifier once batched'
+  },
 
   // Audit fields
   createdAt: {
@@ -291,6 +327,32 @@ export const repairSchema = {
   completedBy: {
     type: 'string',
     description: 'UserID of the person who completed the repair'
+  },
+
+  // Bench workflow fields
+  benchStatus: {
+    type: 'string',
+    default: 'UNCLAIMED',
+    enum: ['UNCLAIMED', 'IN_PROGRESS', 'WAITING_PARTS', 'QC'],
+    description: 'Internal bench sub-status for shop-floor jeweler workflow'
+  },
+  requiresLaborReview: {
+    type: 'boolean',
+    default: false,
+    description: 'True when more than one jeweler has touched the repair — triggers admin labor review'
+  },
+  receivedBy: {
+    type: 'string',
+    default: '',
+    description: 'UserID of the staff member who formally received the item at intake'
+  },
+  receivedAt: {
+    type: 'date',
+    description: 'Timestamp when the item was received at intake'
+  },
+  claimedAt: {
+    type: 'date',
+    description: 'Timestamp when the repair was claimed to a bench'
   },
 
   // Legacy support
@@ -396,6 +458,11 @@ export const defaultRepairData = {
   picture: null,
   beforePhotos: [],
   afterPhotos: [],
+  closeoutStatus: 'pending',
+  closeoutBy: '',
+  closeoutAt: null,
+  closeoutNotes: '',
+  invoiceID: '',
   // Team assignments
   assignedTo: '',
   completedBy: '',
@@ -405,6 +472,12 @@ export const defaultRepairData = {
   partsOrderedDate: null,
   qcBy: '',
   qcDate: null,
+  // Bench workflow
+  benchStatus: 'UNCLAIMED',
+  requiresLaborReview: false,
+  receivedBy: '',
+  receivedAt: null,
+  claimedAt: null,
   // Legacy support
   repairTasks: []
 };

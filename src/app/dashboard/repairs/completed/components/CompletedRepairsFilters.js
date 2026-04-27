@@ -61,7 +61,9 @@ export const CompletedRepairsFilters = ({
                             >
                                 <MenuItem value="all">All Completed</MenuItem>
                                 <MenuItem value="COMPLETED">Completed</MenuItem>
-                                <MenuItem value="READY FOR PICK-UP">Ready for Pick-Up</MenuItem>
+                                <MenuItem value="READY FOR PICKUP">Ready for Pickup</MenuItem>
+                                <MenuItem value="DELIVERY BATCHED">Delivery Batched</MenuItem>
+                                <MenuItem value="PAID_CLOSED">Paid / Closed</MenuItem>
                             </Select>
                         </FormControl>
                     </Grid>

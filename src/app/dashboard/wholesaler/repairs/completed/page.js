@@ -23,7 +23,7 @@ export default function CompletedRepairsPage() {
     const { repairs, loading, error, refresh } = useWholesaleRepairs();
 
     const completedRepairs = repairs.filter(r =>
-        r.status === 'COMPLETED' || r.status === 'READY FOR PICK-UP'
+        ['COMPLETED', 'READY FOR PICKUP', 'DELIVERY BATCHED', 'PAID_CLOSED', 'READY FOR PICK-UP'].includes(r.status)
     );
 
     return (
@@ -57,7 +57,7 @@ export default function CompletedRepairsPage() {
                             Completed Repairs
                         </Typography>
                         <Typography sx={{ color: UI.textSecondary, lineHeight: 1.6 }}>
-                            {completedRepairs.length} repair{completedRepairs.length !== 1 ? 's' : ''} completed or ready for pick-up.
+                            {completedRepairs.length} repair{completedRepairs.length !== 1 ? 's' : ''} completed or awaiting final pickup/delivery closeout.
                         </Typography>
                     </Box>
                     <Button

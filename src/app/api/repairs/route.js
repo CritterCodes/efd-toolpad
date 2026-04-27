@@ -2,11 +2,11 @@
 import { NextResponse } from "next/server";
 import { uploadRepairImage } from "@/utils/s3.util"; 
 import RepairsController from "./controller";
-import { requireRole, isAdmin } from "@/lib/apiAuth";
+import { requireRepairsAccess } from "@/lib/apiAuth";
 
 export const POST = async (request) => {
     try {
-        const { session, errorResponse } = await requireRole(['admin', 'wholesaler', 'artisan']);
+        const { session, errorResponse } = await requireRepairsAccess();
         if (errorResponse) return errorResponse;
 
         console.log("📩 Incoming POST request received.");
@@ -168,7 +168,7 @@ export const POST = async (request) => {
  */
 export const GET = async (req) => {
     try {
-        const { session, errorResponse } = await requireRole(['admin', 'wholesaler', 'artisan']);
+        const { session, errorResponse } = await requireRepairsAccess();
         if (errorResponse) return errorResponse;
 
         const { searchParams } = new URL(req.url);
@@ -191,7 +191,7 @@ export const GET = async (req) => {
  */
 export const PUT = async (req) => {
     try {
-        const { session, errorResponse } = await requireRole(['admin', 'wholesaler', 'artisan']);
+        const { session, errorResponse } = await requireRepairsAccess();
         if (errorResponse) return errorResponse;
 
         const { searchParams } = new URL(req.url);

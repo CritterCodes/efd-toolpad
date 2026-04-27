@@ -26,8 +26,12 @@ import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 const STATUS_COLORS = {
     'RECEIVING': REPAIRS_UI.accent,
     'IN PROGRESS': '#F59E0B',
+    'READY FOR PICKUP': '#10B981',
     'READY FOR PICK-UP': '#10B981',
+    'DELIVERY BATCHED': '#64748B',
+    'PAID_CLOSED': '#64748B',
     'COMPLETED': '#10B981',
+    'QC': '#8B5CF6',
     'QUALITY CONTROL': '#8B5CF6'
 };
 
@@ -154,13 +158,13 @@ export default function MyRepairsPage() {
   };
 
   const getFilteredRepairs = () => {
-    if (activeTab === 1) return repairs.filter(r => !['COMPLETED', 'READY FOR PICK-UP', 'CANCELLED'].includes(r.status));
-    if (activeTab === 2) return repairs.filter(r => ['COMPLETED', 'READY FOR PICK-UP'].includes(r.status));
+    if (activeTab === 1) return repairs.filter(r => !['COMPLETED', 'READY FOR PICKUP', 'DELIVERY BATCHED', 'PAID_CLOSED', 'READY FOR PICK-UP', 'CANCELLED', 'cancelled'].includes(r.status));
+    if (activeTab === 2) return repairs.filter(r => ['COMPLETED', 'READY FOR PICKUP', 'DELIVERY BATCHED', 'PAID_CLOSED', 'READY FOR PICK-UP'].includes(r.status));
     return repairs;
   };
 
-  const currentCount = repairs.filter(r => !['COMPLETED', 'READY FOR PICK-UP', 'CANCELLED'].includes(r.status)).length;
-  const completedCount = repairs.filter(r => ['COMPLETED', 'READY FOR PICK-UP'].includes(r.status)).length;
+  const currentCount = repairs.filter(r => !['COMPLETED', 'READY FOR PICKUP', 'DELIVERY BATCHED', 'PAID_CLOSED', 'READY FOR PICK-UP', 'CANCELLED', 'cancelled'].includes(r.status)).length;
+  const completedCount = repairs.filter(r => ['COMPLETED', 'READY FOR PICKUP', 'DELIVERY BATCHED', 'PAID_CLOSED', 'READY FOR PICK-UP'].includes(r.status)).length;
 
   if (loading) {
     return (

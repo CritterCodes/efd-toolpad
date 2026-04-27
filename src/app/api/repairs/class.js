@@ -65,6 +65,11 @@ export default class Repair {
         this.picture = data.picture;
         this.beforePhotos = data.beforePhotos || [];
         this.afterPhotos = data.afterPhotos || [];
+        this.closeoutStatus = data.closeoutStatus || 'pending';
+        this.closeoutBy = data.closeoutBy || '';
+        this.closeoutAt = data.closeoutAt || null;
+        this.closeoutNotes = data.closeoutNotes || '';
+        this.invoiceID = data.invoiceID || '';
         
         // Audit fields
         this.createdAt = data.createdAt || new Date();
@@ -82,6 +87,11 @@ export default class Repair {
         this.partsOrderedDate = data.partsOrderedDate || null;
         this.qcBy = data.qcBy || '';
         this.qcDate = data.qcDate || null;
+        this.benchStatus = data.benchStatus || 'UNCLAIMED';
+        this.requiresLaborReview = data.requiresLaborReview || false;
+        this.receivedBy = data.receivedBy || '';
+        this.receivedAt = data.receivedAt || null;
+        this.claimedAt = data.claimedAt || null;
     }
     
     /**
@@ -123,7 +133,7 @@ export default class Repair {
      * Mark repair as picked up
      */
     markPickedUp() {
-        this.status = 'READY FOR PICK-UP';
+        this.status = 'READY FOR PICKUP';
         this.pickedUpAt = new Date();
         this.updatedAt = new Date();
     }
@@ -169,6 +179,11 @@ export default class Repair {
             picture: this.picture,
             beforePhotos: this.beforePhotos,
             afterPhotos: this.afterPhotos,
+            closeoutStatus: this.closeoutStatus,
+            closeoutBy: this.closeoutBy,
+            closeoutAt: this.closeoutAt,
+            closeoutNotes: this.closeoutNotes,
+            invoiceID: this.invoiceID,
             // Audit fields
             createdAt: this.createdAt,
             updatedAt: this.updatedAt,
@@ -183,6 +198,11 @@ export default class Repair {
             partsOrderedDate: this.partsOrderedDate,
             qcBy: this.qcBy,
             qcDate: this.qcDate,
+            benchStatus: this.benchStatus,
+            requiresLaborReview: this.requiresLaborReview,
+            receivedBy: this.receivedBy,
+            receivedAt: this.receivedAt,
+            claimedAt: this.claimedAt,
             // Legacy support
             repairTasks: this.repairTasks,
             parts: this.parts

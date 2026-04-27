@@ -232,7 +232,7 @@ function PriorityNotice({ children }) {
 }
 
 function getStatusTone(status) {
-  if (status === 'READY FOR PICK-UP' || status === 'COMPLETED') {
+  if (['READY FOR PICKUP', 'READY FOR PICK-UP', 'DELIVERY BATCHED', 'PAID_CLOSED', 'COMPLETED'].includes(status)) {
     return { color: COLORS.textPrimary, bg: COLORS.bgSecondary, borderLeft: `2px solid ${COLORS.accent}` };
   }
 
@@ -264,8 +264,8 @@ export default function AdminDashboardContent() {
 
     const pendingReceipts = repairs.filter((r) => r.status === 'RECEIVING');
     const pendingWholesale = repairs.filter((r) => r.status === 'PENDING PICKUP' || r.status === 'PICKUP REQUESTED');
-    const completed = repairs.filter((r) => r.status === 'COMPLETED' || r.status === 'READY FOR PICK-UP');
-    const qcRequired = repairs.filter((r) => r.status === 'QUALITY CONTROL');
+    const completed = repairs.filter((r) => ['COMPLETED', 'READY FOR PICKUP', 'DELIVERY BATCHED', 'PAID_CLOSED', 'READY FOR PICK-UP'].includes(r.status));
+    const qcRequired = repairs.filter((r) => r.status === 'QC' || r.status === 'QUALITY CONTROL' || r.status === 'quality-control');
     const rushJobs = repairs.filter((r) => r.rushJob === true || r.priority === 'rush');
 
     const monthlyRevenue = completed
@@ -322,9 +322,9 @@ export default function AdminDashboardContent() {
     {
       label: 'Quality control',
       value: dashboardMetrics.qcRequired.length,
-      detail: 'Repairs blocked on final inspection',
+      detail: 'Repairs currently sitting in the QC location',
       icon: <CheckCircleIcon fontSize="small" />,
-      href: '/dashboard/repairs/quality-control',
+      href: '/dashboard/repairs/move?mode=scan',
     },
     {
       label: 'Wholesale coordination',

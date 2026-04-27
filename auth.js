@@ -107,7 +107,9 @@ const providers = [
                         email: user.email,
                         role: user.role,
                         token: user.token,
-                        image: user.image
+                        image: user.image,
+                        staffCapabilities: user.staffCapabilities,
+                        employment: user.employment
                     } :
                     {
                         userID: user.userID,
@@ -116,7 +118,9 @@ const providers = [
                         email: user.email,
                         role: user.role,
                         token: user.token,
-                        image: user.image
+                        image: user.image,
+                        staffCapabilities: user.staffCapabilities,
+                        employment: user.employment
                     };
                 }
             } catch (error) {
@@ -153,6 +157,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 token.name = user.name;
                 token.role = user.role;
                 token.image = user.image;
+                token.staffCapabilities = user.staffCapabilities || null;
+                token.employment = user.employment || null;
                 console.log("JWT callback - New token created");
                 return token;
             }
@@ -186,6 +192,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             session.user.storeID = token.storeID;
             session.user.role = token.role;
             session.user.image = token.image;
+            session.user.staffCapabilities = token.staffCapabilities || null;
+            session.user.employment = token.employment || null;
             return session;
         },
         

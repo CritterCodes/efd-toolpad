@@ -27,7 +27,7 @@ export const useCurrentRepairs = () => {
 
     // Filter current repairs (not completed/picked up)
     const currentRepairs = repairs.filter(repair => 
-        !['COMPLETED', 'READY FOR PICK-UP', 'CANCELLED'].includes(repair.status)
+        !['COMPLETED', 'READY FOR PICKUP', 'DELIVERY BATCHED', 'PAID_CLOSED', 'READY FOR PICK-UP', 'CANCELLED', 'cancelled'].includes(repair.status)
     );
 
     // Apply search and filters
@@ -79,7 +79,7 @@ export const useCurrentRepairs = () => {
         repairs: sortedRepairs,
         currentRepairsCount: currentRepairs.length,
         inProgressCount: currentRepairs.filter(r => r.status === 'IN PROGRESS').length,
-        readyForPickupCount: currentRepairs.filter(r => r.status === 'READY FOR PICK-UP').length,
+        readyForPickupCount: repairs.filter(r => ['READY FOR PICKUP', 'READY FOR PICK-UP'].includes(r.status)).length,
         loading,
         searchQuery,
         setSearchQuery,

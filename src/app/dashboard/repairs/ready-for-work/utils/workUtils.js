@@ -1,5 +1,3 @@
-import RepairsService from "@/services/repairs";
-
 export const assignJewelerToRepairs = async (repairIDs, jewelerName) => {
     const metadata = {
         assignedAt: new Date().toISOString(),
@@ -34,15 +32,6 @@ export const assignJewelerToRepairs = async (repairIDs, jewelerName) => {
     });
 
     return await Promise.all(promises);
-};
-
-export const startWorkOnRepair = async (repairID, jewelerName) => {
-    const metadata = {
-        startedAt: new Date().toISOString(),
-        startedBy: jewelerName || "System User"
-    };
-
-    return await RepairsService.moveRepairStatus([repairID], "IN PROGRESS", metadata);
 };
 
 export const updateRepairAssignment = (repair, jewelerName) => {

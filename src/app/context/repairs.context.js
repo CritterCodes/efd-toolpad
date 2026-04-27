@@ -40,7 +40,11 @@ export const RepairsProvider = ({ children }) => {
         }
 
         const rolesWithoutRepairs = ['affiliate', 'artisan-applicant', 'client', 'customer'];
-        if (rolesWithoutRepairs.includes(session.user.role)) {
+        const isOnsiteRepairOps = session.user.role === 'artisan'
+            && session.user.employment?.isOnsite === true
+            && session.user.staffCapabilities?.repairOps === true;
+
+        if (rolesWithoutRepairs.includes(session.user.role) || (session.user.role === 'artisan' && !isOnsiteRepairOps)) {
             setRepairs([]);
             setLoading(false);
             return;
@@ -64,14 +68,14 @@ export const RepairsProvider = ({ children }) => {
                     throw new Error('Failed to fetch user repairs');
                 }
             } else {
-                console.log("🔄 Fetching all repairs for admin via /api/repairs");
-                // Admins and other roles see all repairs - use fetch to ensure session cookies are sent
+                console.log("🔄 Fetching repairs via /api/repairs");
+                // Admins and onsite repair ops artisans see the shared repair dataset
                 const response = await fetch('/api/repairs', {
                     credentials: 'include' // Ensure cookies are included
                 });
                 if (response.ok) {
                     data = await response.json();
-                    console.log("✅ Admin repairs fetched:", data?.length || 0, "repairs");
+                    console.log("✅ Repairs fetched:", data?.length || 0, "repairs");
                 } else {
                     throw new Error('Failed to fetch all repairs');
                 }

@@ -2,8 +2,18 @@ import React from 'react';
 import { Box, TextField, MenuItem, Grid } from '@mui/material';
 
 const statuses = [
-    "RECEIVING", "NEEDS PARTS", "PARTS ORDERED", "READY FOR WORK", 
-    "IN THE OVEN", "QUALITY CONTROL", "READY FOR PICK-UP", "COMPLETED"
+    "RECEIVING",
+    "NEEDS QUOTE",
+    "COMMUNICATION REQUIRED",
+    "NEEDS PARTS",
+    "PARTS ORDERED",
+    "READY FOR WORK",
+    "IN PROGRESS",
+    "QC",
+    "COMPLETED",
+    "READY FOR PICKUP",
+    "DELIVERY BATCHED",
+    "PAID_CLOSED"
 ];
 
 const metalTypes = [

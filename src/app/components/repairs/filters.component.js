@@ -10,14 +10,17 @@ import FormControl from '@mui/material/FormControl';
 import Button from '@mui/material/Button';
 
 const statusOptions = [
-    "NEEDS PICKUP",
     "RECEIVING",
+    "NEEDS QUOTE",
+    "COMMUNICATION REQUIRED",
     "NEEDS PARTS",
     "PARTS ORDERED",
     "READY FOR WORK",
     "IN PROGRESS",
-    "QUALITY CONTROL",
-    "READY FOR PICK-UP",
+    "QC",
+    "READY FOR PICKUP",
+    "DELIVERY BATCHED",
+    "PAID_CLOSED",
     "COMPLETED"
 ];
 

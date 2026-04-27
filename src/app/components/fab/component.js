@@ -3,7 +3,6 @@ import React from 'react';
 import { SpeedDial, SpeedDialIcon, SpeedDialAction, Box } from '@mui/material';
 import NoteAddIcon from '@mui/icons-material/NoteAdd';
 import MoveUpIcon from '@mui/icons-material/MoveUp';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import PersonIcon from '@mui/icons-material/Person';
 import { useRouter } from 'next/navigation';
@@ -11,7 +10,7 @@ import { useSession } from 'next-auth/react';
 
 /**
  * Role-dependent Floating Action Button (FAB)
- * - Admin: New Repair, Move Repair, Quality Control
+ * - Admin: New Repair, Move Repair
  * - Wholesaler: New Repair
  * - Artisan: Gallery, Profile  
  * - Customer: No FAB (returns null)
@@ -37,11 +36,6 @@ const FloatingActionButton = () => {
                         icon: <MoveUpIcon />,
                         name: 'Move Repair',
                         onClick: () => router.push('/dashboard/repairs/move')
-                    },
-                    {
-                        icon: <CheckCircleIcon />,
-                        name: 'Quality Control',
-                        onClick: () => router.push('/dashboard/repairs/quality-control')
                     }
                 ];
                 

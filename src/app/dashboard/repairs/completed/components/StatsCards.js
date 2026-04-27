@@ -32,10 +32,10 @@ export const StatsCards = ({ completedRepairs }) => {
                 <Card>
                     <CardContent>
                         <Typography variant="h4" color="primary.main" sx={{ fontWeight: 'bold' }}>
-                            {completedRepairs.filter(r => r.status === 'READY FOR PICK-UP').length}
+                            {completedRepairs.filter(r => ['READY FOR PICKUP', 'READY FOR PICK-UP'].includes(r.status)).length}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
-                            Ready for Pick-Up
+                            Ready for Pickup
                         </Typography>
                     </CardContent>
                 </Card>
