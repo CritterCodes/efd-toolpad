@@ -173,12 +173,12 @@ const RepairTicketComponent = ({ repair }) => {
             <Box sx={{ textAlign: 'center', marginTop: '4px' }}>
                 <Barcode
                     value={repair.repairID}
-                    width={0.6}
-                    height={12}
+                    width={1.5}
+                    height={40}
                     displayValue={true}
                     font={'monospace'}
                     format={'CODE39'}
-                    fontSize={6}
+                    fontSize={9}
                 />
             </Box>
         </Box>
