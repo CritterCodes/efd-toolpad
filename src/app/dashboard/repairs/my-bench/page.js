@@ -267,7 +267,7 @@ export default function MyBenchPage() {
 
   const userID = session?.user?.userID;
   const caps = session?.user?.staffCapabilities || {};
-  const isAdmin = session?.user?.role === 'admin';
+  const isAdmin = ['admin', 'dev'].includes(session?.user?.role);
   const isOnsiteRepairOps = session?.user?.employment?.isOnsite === true && caps.repairOps === true;
 
   if (!isAdmin && !isOnsiteRepairOps) {

@@ -149,6 +149,11 @@ export const devNavigation = {
           segment: 'bulk-print',
           title: 'Bulk Print',
           icon: <PrintIcon />
+        },
+        {
+          segment: 'my-bench',
+          title: 'My Bench',
+          icon: <BuildIcon />
         }
       ]
     },

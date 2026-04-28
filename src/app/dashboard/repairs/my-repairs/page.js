@@ -164,6 +164,8 @@ export default function MyRepairsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState(0);
+  const [selected, setSelected] = useState(new Set());
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false);
 
   useEffect(() => {
     if (session?.user) fetchMyRepairs();
@@ -189,9 +191,20 @@ export default function MyRepairsPage() {
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
+    setSelected(new Set());
     const statusFilters = [null, 'current', 'completed'];
     fetchMyRepairs(statusFilters[newValue]);
   };
+
+  const toggleSelect = (id) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelected(new Set());
 
   const getFilteredRepairs = () => {
     if (activeTab === 1) return repairs.filter(r => !['COMPLETED', 'READY FOR PICKUP', 'DELIVERY BATCHED', 'PAID_CLOSED', 'READY FOR PICK-UP', 'CANCELLED', 'cancelled'].includes(r.status));
@@ -323,13 +336,75 @@ export default function MyRepairsPage() {
             </Box>
         ) : (
             <Grid container spacing={2}>
-                {filtered.map((repair) => (
-                    <Grid item xs={12} sm={6} md={4} key={repair._id}>
-                        <RepairCard repair={repair} onView={(id) => router.push(`/dashboard/repairs/${id}`)} />
-                    </Grid>
-                ))}
+                {filtered.map((repair) => {
+                    const id = repair.repairID || repair._id;
+                    return (
+                        <Grid item xs={12} sm={6} md={4} key={repair._id}>
+                            <RepairCard
+                                repair={repair}
+                                onView={(viewId) => router.push(`/dashboard/repairs/${viewId}`)}
+                                isSelected={selected.has(id)}
+                                onToggleSelect={toggleSelect}
+                            />
+                        </Grid>
+                    );
+                })}
             </Grid>
         )}
+
+        {/* Floating selection action bar */}
+        <Slide direction="up" in={selected.size > 0} mountOnEnter unmountOnExit>
+            <Paper
+                elevation={8}
+                sx={{
+                    position: 'fixed',
+                    bottom: 24,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    zIndex: 1300,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 2,
+                    px: 3,
+                    py: 1.5,
+                    backgroundColor: REPAIRS_UI.bgPanel,
+                    border: `1px solid ${REPAIRS_UI.border}`,
+                    borderRadius: 3,
+                    minWidth: 320,
+                }}
+            >
+                <Typography sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.875rem', flex: 1 }}>
+                    <Box component="span" sx={{ fontWeight: 700, color: REPAIRS_UI.accent }}>{selected.size}</Box>
+                    {' '}repair{selected.size !== 1 ? 's' : ''} selected
+                </Typography>
+                <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<MoveIcon />}
+                    onClick={() => setMoveDialogOpen(true)}
+                    sx={{
+                        backgroundColor: REPAIRS_UI.accent,
+                        color: '#0D0F12',
+                        fontWeight: 700,
+                        '&:hover': { backgroundColor: '#c9a227' },
+                    }}
+                >
+                    Move Selected
+                </Button>
+                <Tooltip title="Clear selection">
+                    <IconButton size="small" onClick={clearSelection} sx={{ color: REPAIRS_UI.textSecondary }}>
+                        <CloseIcon fontSize="small" />
+                    </IconButton>
+                </Tooltip>
+            </Paper>
+        </Slide>
+
+        <BulkMoveDialog
+            open={moveDialogOpen}
+            onClose={() => setMoveDialogOpen(false)}
+            repairIDs={Array.from(selected)}
+            onSuccess={() => { clearSelection(); fetchMyRepairs(); }}
+        />
     </Box>
   );
 }

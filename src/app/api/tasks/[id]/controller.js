@@ -1,3 +1,30 @@
+  /**
+   * POST /api/tasks/[id]/duplicate - Duplicate a task as inactive
+   */
+  static async duplicateTask(request, { params }) {
+    try {
+      const session = await auth();
+      const userEmail = session?.user?.email;
+      const { id } = params;
+      if (!id) {
+        return NextResponse.json(
+          { success: false, error: 'Task ID is required', data: null },
+          { status: 400 }
+        );
+      }
+      const result = await IndividualTaskService.duplicateTask(id, userEmail);
+      if (!result.success) {
+        return NextResponse.json(result, { status: 400 });
+      }
+      return NextResponse.json(result);
+    } catch (error) {
+      console.error('Controller error duplicating task:', error);
+      return NextResponse.json(
+        { success: false, error: 'Internal server error', data: null },
+        { status: 500 }
+      );
+    }
+  }
 /**
  * Individual Task Controller
  * HTTP request handlers for individual task operations (GET, PUT, DELETE by ID)

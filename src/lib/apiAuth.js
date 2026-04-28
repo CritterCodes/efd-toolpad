@@ -52,7 +52,7 @@ export async function requireRole(allowedRoles = []) {
  * Check if the current user is an admin
  */
 export function isAdmin(session) {
-    return session?.user?.role === 'admin';
+    return ['admin', 'dev'].includes(session?.user?.role);
 }
 
 /**
@@ -85,13 +85,13 @@ export function isOnsiteRepairOps(session) {
  * Check if the user has a specific staff capability (admin always passes)
  */
 export function hasStaffCapability(session, capability) {
-    if (session?.user?.role === 'admin') return true;
+    if (['admin', 'dev'].includes(session?.user?.role)) return true;
     return isOnsiteRepairOps(session)
         && session?.user?.staffCapabilities?.[capability] === true;
 }
 
 export function hasAnyStaffCapability(session, capabilities = []) {
-    if (session?.user?.role === 'admin') return true;
+    if (['admin', 'dev'].includes(session?.user?.role)) return true;
     if (!isOnsiteRepairOps(session)) return false;
     return capabilities.some((capability) => session?.user?.staffCapabilities?.[capability] === true);
 }
@@ -104,7 +104,7 @@ export async function requireRepairOps(requiredCapability = null) {
     const { session, errorResponse } = await requireAuth();
     if (errorResponse) return { session: null, errorResponse };
 
-    if (session.user.role === 'admin') return { session, errorResponse: null };
+    if (['admin', 'dev'].includes(session.user.role)) return { session, errorResponse: null };
 
     if (!isOnsiteRepairOps(session)) {
         return {
@@ -133,7 +133,7 @@ export async function requireRepairOpsAny(requiredCapabilities = []) {
     const { session, errorResponse } = await requireAuth();
     if (errorResponse) return { session: null, errorResponse };
 
-    if (session.user.role === 'admin') return { session, errorResponse: null };
+    if (['admin', 'dev'].includes(session.user.role)) return { session, errorResponse: null };
 
     if (!isOnsiteRepairOps(session)) {
         return {
