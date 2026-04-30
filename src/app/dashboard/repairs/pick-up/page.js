@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
@@ -99,7 +99,6 @@ function RepairCloseoutCard({
 }) {
   const [photoFile, setPhotoFile] = useState(null);
   const [inputKey, setInputKey] = useState(0);
-  const fileInputRef = useRef(null);
   const afterPhotoCount = Array.isArray(repair.afterPhotos) ? repair.afterPhotos.length : 0;
   const blockedForReview = repair.requiresLaborReview === true;
   const batchReady = isReadyForInvoice(repair);
@@ -168,24 +167,27 @@ function RepairCloseoutCard({
 
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ xs: "stretch", sm: "center" }}>
             <input
-              ref={fileInputRef}
               key={inputKey}
+              id={`after-photo-${repair.repairID}`}
               type="file"
               accept="image/*"
+              capture="environment"
               style={{ display: "none" }}
               onChange={(event) => {
                 const file = event.target.files?.[0];
                 if (file) setPhotoFile(file);
               }}
             />
-            <Button
-              variant="outlined"
-              startIcon={<PhotoCameraIcon />}
-              onClick={() => fileInputRef.current?.click()}
-              sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
-            >
-              Take After Photo
-            </Button>
+            <label htmlFor={`after-photo-${repair.repairID}`}>
+              <Button
+                variant="outlined"
+                startIcon={<PhotoCameraIcon />}
+                component="span"
+                sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
+              >
+                Take After Photo
+              </Button>
+            </label>
             <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: "0.8rem", flex: 1 }}>
               {photoFile ? `Ready: ${photoFile.name}` : "No photo taken yet"}
             </Typography>
