@@ -81,13 +81,33 @@ const PrintRepairTicket = () => {
         };
     }, []);
 
+    const waitForPrintImages = async () => {
+        const images = Array.from(document.querySelectorAll('.print-container img'));
+        if (images.length === 0) return;
+
+        await Promise.race([
+            Promise.all(images.map((image) => {
+                if (image.complete && image.naturalWidth > 0) return Promise.resolve();
+                if (typeof image.decode === 'function') {
+                    return image.decode().catch(() => {});
+                }
+                return new Promise((resolve) => {
+                    image.addEventListener('load', resolve, { once: true });
+                    image.addEventListener('error', resolve, { once: true });
+                });
+            })),
+            new Promise((resolve) => setTimeout(resolve, 1200)),
+        ]);
+    };
+
     const handlePrint = (mode) => {
         document.documentElement.classList.add('efd-printing');
         setPrintMode(mode);
         setShowControls(false);
 
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
+        requestAnimationFrame(async () => {
+            requestAnimationFrame(async () => {
+                await waitForPrintImages();
                 window.print();
             });
         });

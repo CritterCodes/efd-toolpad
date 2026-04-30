@@ -1,6 +1,5 @@
 import React from 'react';
 import { Box, Typography, List, ListItem } from '@mui/material';
-import Barcode from 'react-barcode';
 
 const PAPER = '#ffffff';
 const INK = '#111111';
@@ -10,9 +9,7 @@ const ACCENT = '#d32f2f';
 const SLIP_WIDTH = '3.6in';
 const SLIP_HEIGHT = '5.5in';
 const IMAGE_SIZE = 96;
-const BARCODE_WIDTH = 0.9;
-const BARCODE_HEIGHT = 24;
-const BARCODE_FONT_SIZE = 5;
+const REPAIR_QR_SIZE = 64;
 
 const getTicketItems = (repair) => {
   const formalItems = [
@@ -34,6 +31,7 @@ const getTicketItems = (repair) => {
 const getItemDisplayPrice = (item) => Number(item?.price || 0);
 const getItemQuantity = (item) => Math.max(Number(item?.quantity) || 1, 1);
 const getItemLineTotal = (item) => getItemDisplayPrice(item) * getItemQuantity(item);
+const getRepairQrSrc = (repairID) => `https://api.qrserver.com/v1/create-qr-code/?size=${REPAIR_QR_SIZE}x${REPAIR_QR_SIZE}&margin=1&data=${encodeURIComponent(repairID || '')}`;
 
 const RepairTicketComponent = ({ repair }) => {
   const allItems = getTicketItems(repair);
@@ -210,28 +208,19 @@ const RepairTicketComponent = ({ repair }) => {
       <Box
         sx={{
           textAlign: 'center',
-          marginTop: '1px',
-          height: 34,
+          marginTop: '2px',
+          height: REPAIR_QR_SIZE,
           overflow: 'hidden',
           flexShrink: 0,
-          '& svg': {
-            maxWidth: '100%',
-            height: '34px !important',
+          '& img': {
+            width: REPAIR_QR_SIZE,
+            height: REPAIR_QR_SIZE,
             display: 'block',
             margin: '0 auto'
           }
         }}
       >
-        <Barcode
-          value={repair.repairID}
-          width={BARCODE_WIDTH}
-          height={BARCODE_HEIGHT}
-          displayValue={false}
-          font={'monospace'}
-          format={'CODE39'}
-          fontSize={BARCODE_FONT_SIZE}
-          margin={0}
-        />
+        <img src={getRepairQrSrc(repair.repairID)} alt={`Repair QR ${repair.repairID}`} />
       </Box>
     </Box>
   );

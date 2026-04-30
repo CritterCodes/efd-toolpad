@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Typography, List, ListItem } from '@mui/material';
-import Barcode from 'react-barcode';
 
 const PAPER = '#ffffff';
 const INK = '#111111';
@@ -10,9 +9,7 @@ const ACCENT = '#d32f2f';
 const SLIP_WIDTH = '3.6in';
 const SLIP_HEIGHT = '5.5in';
 const IMAGE_SIZE = 96;
-const BARCODE_WIDTH = 0.62;
-const BARCODE_HEIGHT = 11;
-const BARCODE_FONT_SIZE = 5;
+const REPAIR_QR_SIZE = 54;
 const REVIEW_QR_SIZE = 82;
 const REVIEW_URL = 'https://g.page/r/CbpAai4DElTQEBE/review';
 
@@ -53,6 +50,7 @@ const isEngelFineDesignRepair = (repair) => {
   return storeId === 'engel-fine-design' || storeName === 'engel fine design';
 };
 const getWholesaleAccountKey = (repair) => repair?.storeId || repair?.submittedBy || repair?.createdBy || null;
+const getRepairQrSrc = (repairID) => `https://api.qrserver.com/v1/create-qr-code/?size=${REPAIR_QR_SIZE}x${REPAIR_QR_SIZE}&margin=1&data=${encodeURIComponent(repairID || '')}`;
 
 const RepairReceiptComponent = ({ repair, fullPage = false }) => {
   const allItems = getReceiptItems(repair);
@@ -341,28 +339,19 @@ const RepairReceiptComponent = ({ repair, fullPage = false }) => {
         <Box
           sx={{
             textAlign: 'center',
-            marginTop: '1px',
-            height: 18,
+            marginTop: '2px',
+            height: REPAIR_QR_SIZE,
             overflow: 'hidden',
             flexShrink: 0,
-            '& svg': {
-              maxWidth: '100%',
-              height: '18px !important',
+            '& img': {
+              width: REPAIR_QR_SIZE,
+              height: REPAIR_QR_SIZE,
               display: 'block',
               margin: '0 auto'
             }
           }}
         >
-          <Barcode
-            value={repair.repairID}
-            width={BARCODE_WIDTH}
-            height={BARCODE_HEIGHT}
-            displayValue={false}
-            font={'monospace'}
-            format={'CODE39'}
-            fontSize={BARCODE_FONT_SIZE}
-            margin={0}
-          />
+          <img src={getRepairQrSrc(repair.repairID)} alt={`Repair QR ${repair.repairID}`} />
         </Box>
       )}
     </Box>

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Typography, Grid, Button, Chip, CircularProgress, Tabs, Tab,
-  Card, CardContent, CardActions, Divider, Alert, TextField,
+  Card, CardContent, CardActions, Divider, Alert, TextField, MenuItem,
 } from '@mui/material';
 import {
   Work as WorkIcon,
@@ -31,7 +31,14 @@ const BENCH_STATUS_COLOR = {
   QC: '#00C49F',
 };
 
-function RepairBenchCard({ repair, currentUserID, onRefresh }) {
+function getJewelerLabel(jeweler) {
+  return [jeweler.firstName, jeweler.lastName].filter(Boolean).join(' ').trim()
+    || jeweler.name
+    || jeweler.email
+    || jeweler.userID;
+}
+
+function RepairBenchCard({ repair, currentUserID, isAdmin, jewelers, onRefresh }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -45,6 +52,31 @@ function RepairBenchCard({ repair, currentUserID, onRefresh }) {
         const data = await res.json();
         throw new Error(data.error || 'Action failed');
       }
+      onRefresh();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const assignJeweler = async (userID) => {
+    if (userID === repair.assignedTo) return;
+    if (!userID) {
+      await doAction('unclaim');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/repairs/${encodeURIComponent(repair.repairID)}/assign-bench`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userID }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Unable to assign repair');
       onRefresh();
     } catch (e) {
       setError(e.message);
@@ -113,6 +145,36 @@ function RepairBenchCard({ repair, currentUserID, onRefresh }) {
           View
         </Button>
 
+        {isAdmin && (
+          <TextField
+            select
+            size="small"
+            label="Assign Jeweler"
+            value={repair.assignedTo || ''}
+            disabled={loading || jewelers.length === 0}
+            onChange={(event) => assignJeweler(event.target.value)}
+            sx={{
+              minWidth: 170,
+              '& .MuiOutlinedInput-root': {
+                bgcolor: REPAIRS_UI.bgCard,
+                color: REPAIRS_UI.textPrimary,
+                fontSize: '0.75rem',
+              },
+              '& .MuiInputLabel-root': { color: REPAIRS_UI.textMuted, fontSize: '0.75rem' },
+              '& .MuiSelect-icon': { color: REPAIRS_UI.textSecondary },
+            }}
+          >
+            <MenuItem value="">
+              Unassigned
+            </MenuItem>
+            {jewelers.map((jeweler) => (
+              <MenuItem key={jeweler.userID} value={jeweler.userID}>
+                {getJewelerLabel(jeweler)}
+              </MenuItem>
+            ))}
+          </TextField>
+        )}
+
         {!isMine && repair.benchStatus !== 'IN_PROGRESS' && (
           <Button
             size="small"
@@ -175,6 +237,8 @@ export default function MyBenchPage() {
   const [scanSuccess, setScanSuccess] = useState('');
   const [queuedClaimIDs, setQueuedClaimIDs] = useState([]);
   const [claimScannerOpen, setClaimScannerOpen] = useState(false);
+  const [jewelers, setJewelers] = useState([]);
+  const [bulkQcLoading, setBulkQcLoading] = useState(false);
 
   const fetchRepairs = useCallback(async () => {
     setLoading(true);
@@ -189,9 +253,24 @@ export default function MyBenchPage() {
     }
   }, []);
 
+  const fetchJewelers = useCallback(async () => {
+    try {
+      const res = await fetch('/api/repairs/bench-jewelers');
+      if (res.ok) {
+        const data = await res.json();
+        setJewelers(Array.isArray(data) ? data : []);
+      }
+    } catch {
+      setJewelers([]);
+    }
+  }, []);
+
   useEffect(() => {
-    if (status === 'authenticated') fetchRepairs();
-  }, [status, fetchRepairs]);
+    if (status === 'authenticated') {
+      fetchRepairs();
+      fetchJewelers();
+    }
+  }, [status, fetchRepairs, fetchJewelers]);
 
   const queueClaimID = (repairID) => {
     const cleanRepairID = String(repairID || '').trim();
@@ -267,6 +346,52 @@ export default function MyBenchPage() {
     }
   };
 
+  const handleMoveMyBenchToQc = async () => {
+    const mineReadyForQc = repairs.filter(
+      repair => repair.assignedTo === userID && repair.benchStatus === 'IN_PROGRESS'
+    );
+
+    if (mineReadyForQc.length === 0) return;
+
+    setBulkQcLoading(true);
+    setScanError('');
+    setScanSuccess('');
+
+    try {
+      const results = [];
+
+      for (const repair of mineReadyForQc) {
+        const repairID = repair.repairID;
+        const res = await fetch(`/api/repairs/${encodeURIComponent(repairID)}/move-to-qc`, { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          results.push({ repairID, ok: false, error: data.error || 'Unable to move repair to QC' });
+          continue;
+        }
+
+        results.push({ repairID, ok: true });
+      }
+
+      await fetchRepairs();
+
+      const moved = results.filter(result => result.ok);
+      const failed = results.filter(result => !result.ok);
+
+      if (failed.length > 0) {
+        setScanError(failed.map(result => `${result.repairID}: ${result.error}`).join(' | '));
+      }
+
+      if (moved.length > 0) {
+        setScanSuccess(`Moved ${moved.length} repair${moved.length !== 1 ? 's' : ''} to QC.`);
+      }
+    } catch (error) {
+      setScanError(error.message);
+    } finally {
+      setBulkQcLoading(false);
+    }
+  };
+
   if (status === 'loading') {
     return <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}><CircularProgress sx={{ color: REPAIRS_UI.accent }} /></Box>;
   }
@@ -290,6 +415,7 @@ export default function MyBenchPage() {
 
   const activeKey = TABS[tab].key;
   const shown = byTab[activeKey] || [];
+  const mineReadyForQcCount = byTab.mine.filter(r => r.benchStatus === 'IN_PROGRESS').length;
 
   return (
     <Box sx={{ pb: 8 }}>
@@ -315,6 +441,16 @@ export default function MyBenchPage() {
               sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
             >
               Scan Ticket
+            </Button>
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={<QCIcon />}
+              onClick={handleMoveMyBenchToQc}
+              disabled={bulkQcLoading || mineReadyForQcCount === 0}
+              sx={{ bgcolor: '#00C49F', color: '#000', '&:hover': { bgcolor: '#00a985' } }}
+            >
+              {bulkQcLoading ? 'Moving...' : `Move My Bench to QC (${mineReadyForQcCount})`}
             </Button>
             <Button
               size="small"
@@ -461,7 +597,13 @@ export default function MyBenchPage() {
         <Grid container spacing={2}>
           {shown.map(repair => (
             <Grid item xs={12} sm={6} xl={4} key={repair.repairID}>
-              <RepairBenchCard repair={repair} currentUserID={userID} onRefresh={fetchRepairs} />
+              <RepairBenchCard
+                repair={repair}
+                currentUserID={userID}
+                isAdmin={isAdmin}
+                jewelers={jewelers}
+                onRefresh={fetchRepairs}
+              />
             </Grid>
           ))}
         </Grid>

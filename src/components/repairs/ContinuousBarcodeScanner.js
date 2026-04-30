@@ -21,7 +21,8 @@ import {
 } from '@mui/icons-material';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 
-const SCAN_COOLDOWN_MS = 1400;
+const SCAN_COOLDOWN_MS = 900;
+const CLEAR_FRAMES_REQUIRED = 8;
 const BARCODE_FORMATS = ['code_39', 'code_128', 'qr_code'];
 
 function cleanScanValue(value) {
@@ -48,6 +49,8 @@ export default function ContinuousBarcodeScanner({
   const frameRef = useRef(null);
   const onScanRef = useRef(onScan);
   const lastScanRef = useRef({ value: '', at: 0 });
+  const lockedScanRef = useRef('');
+  const clearFramesRef = useRef(0);
   const [cameraError, setCameraError] = useState('');
   const [lastScan, setLastScan] = useState('');
   const [manualValue, setManualValue] = useState('');
@@ -81,11 +84,13 @@ export default function ContinuousBarcodeScanner({
       const value = cleanScanValue(rawValue);
       if (!value) return;
 
-      const now = Date.now();
-      if (lastScanRef.current.value === value && now - lastScanRef.current.at < SCAN_COOLDOWN_MS) {
-        return;
-      }
+      clearFramesRef.current = 0;
+      if (lockedScanRef.current === value) return;
 
+      const now = Date.now();
+      if (now - lastScanRef.current.at < SCAN_COOLDOWN_MS) return;
+
+      lockedScanRef.current = value;
       lastScanRef.current = { value, at: now };
       setLastScan(value);
       onScanRef.current?.(value);
@@ -104,6 +109,12 @@ export default function ContinuousBarcodeScanner({
           const barcodes = await detectorRef.current.detect(video);
           if (barcodes?.length > 0) {
             handleDetectedValue(barcodes[0].rawValue);
+          } else if (lockedScanRef.current) {
+            clearFramesRef.current += 1;
+            if (clearFramesRef.current >= CLEAR_FRAMES_REQUIRED) {
+              lockedScanRef.current = '';
+              clearFramesRef.current = 0;
+            }
           }
         } catch {
           // Camera frames can fail transiently while focus/exposure settles.
@@ -116,6 +127,8 @@ export default function ContinuousBarcodeScanner({
     const startCamera = async () => {
       setCameraError('');
       setLastScan('');
+      lockedScanRef.current = '';
+      clearFramesRef.current = 0;
 
       if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
         setScannerSupported(false);
