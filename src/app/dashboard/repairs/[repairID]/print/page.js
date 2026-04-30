@@ -10,9 +10,9 @@ import SideBySideLayout from '@/components/print/SideBySideLayout';
 import { calculateRepairTotal, getAllWorkItems } from '@/services/pricingCalculation.service';
 import { getRepairSummary, validateRepairData } from '@/services/repairDataStructure.service';
 
-const SLIP_WIDTH = '3.8in';
-const SLIP_HEIGHT = '5.8in';
-const CUT_SHEET_WIDTH = '7.6in';
+const SLIP_WIDTH = '3.7in';
+const SLIP_HEIGHT = '5.7in';
+const CUT_SHEET_WIDTH = '7.4in';
 const CUT_SHEET_HEIGHT = SLIP_HEIGHT;
 
 const PrintRepairTicket = () => {
@@ -45,6 +45,8 @@ const PrintRepairTicket = () => {
     const totalItems = repairSummary ? repairSummary.totalItems : 0;
     const maxItemsPerTicketPage = 8;
     const needsMultipleTicketPages = totalItems > maxItemsPerTicketPage;
+    const printPageWidth = printMode === 'both' ? CUT_SHEET_WIDTH : SLIP_WIDTH;
+    const printPageHeight = SLIP_HEIGHT;
 
     useEffect(() => {
         if (repair && validation.isValid) {
@@ -88,7 +90,8 @@ const PrintRepairTicket = () => {
             <style jsx global>{`
                 @media print {
                     @page {
-                        size: ${printMode === 'both' ? CUT_SHEET_WIDTH : SLIP_WIDTH} ${SLIP_HEIGHT};
+                        size: ${printMode === 'both' ? 'landscape' : 'portrait'};
+                        size: ${printPageWidth} ${printPageHeight};
                         margin: 0;
                     }
                     .print-mode-ticket,
@@ -100,11 +103,19 @@ const PrintRepairTicket = () => {
                         --print-page-width: ${CUT_SHEET_WIDTH};
                         --print-page-height: ${CUT_SHEET_HEIGHT};
                     }
+                    html,
                     body {
+                        width: ${printPageWidth} !important;
+                        height: ${printPageHeight} !important;
                         margin: 0 !important;
                         padding: 0 !important;
+                        overflow: hidden !important;
                         background: #fff !important;
                         color: #111 !important;
+                    }
+                    html *,
+                    body * {
+                        box-sizing: border-box !important;
                     }
                     nav, header, aside,
                     .MuiDrawer-root,
@@ -114,6 +125,22 @@ const PrintRepairTicket = () => {
                     }
                     body > * {
                         visibility: hidden;
+                        height: ${printPageHeight} !important;
+                        min-height: 0 !important;
+                        max-height: ${printPageHeight} !important;
+                        overflow: hidden !important;
+                    }
+                    .print-mode-ticket,
+                    .print-mode-receipt,
+                    .print-mode-both {
+                        display: block !important;
+                        width: ${printPageWidth} !important;
+                        height: ${printPageHeight} !important;
+                        min-height: 0 !important;
+                        max-height: ${printPageHeight} !important;
+                        overflow: hidden !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
                     }
                     body .print-container,
                     body .print-container * {
