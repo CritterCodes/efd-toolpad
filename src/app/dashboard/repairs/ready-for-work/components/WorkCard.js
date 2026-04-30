@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import Image from 'next/image';
 import {
     Card,
     CardContent,
@@ -19,6 +18,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 import { WORK_TYPES, COMPLEXITY_LEVELS } from '../constants';
+import RepairThumbnail from '@/app/dashboard/repairs/components/RepairThumbnail';
 
 const WorkCard = ({
     repair,
@@ -119,26 +119,7 @@ const WorkCard = ({
                         />
                     )}
 
-                    {/* Repair Image */}
-                    {repair.picture && (
-                        <Box
-                            sx={{
-                                width: 60,
-                                height: 60,
-                                borderRadius: 1,
-                                overflow: 'hidden',
-                                position: 'relative',
-                                flexShrink: 0
-                            }}
-                        >
-                            <Image
-                                src={repair.picture}
-                                alt="Repair Item"
-                                fill
-                                style={{ objectFit: 'cover' }}
-                            />
-                        </Box>
-                    )}
+                    <RepairThumbnail repair={repair} size={66} />
 
                     <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                         {/* Header Row */}

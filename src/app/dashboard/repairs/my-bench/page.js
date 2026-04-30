@@ -15,6 +15,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import RepairThumbnail from '@/app/dashboard/repairs/components/RepairThumbnail';
 import ContinuousBarcodeScanner from '@/components/repairs/ContinuousBarcodeScanner';
 
 const TABS = [
@@ -111,24 +112,29 @@ function RepairBenchCard({ repair, currentUserID, isAdmin, jewelers, onRefresh }
           </Box>
         </Box>
 
-        <Typography variant="subtitle2" sx={{ color: REPAIRS_UI.textHeader, fontWeight: 600, mb: 0.5 }}>
-          {repair.clientName || repair.businessName}
-        </Typography>
-        <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, mb: 1, fontSize: '0.8rem' }}>
-          {repair.description?.slice(0, 100)}{repair.description?.length > 100 ? '…' : ''}
-        </Typography>
+        <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start' }}>
+          <RepairThumbnail repair={repair} size={82} />
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography variant="subtitle2" sx={{ color: REPAIRS_UI.textHeader, fontWeight: 600, mb: 0.5 }}>
+              {repair.clientName || repair.businessName}
+            </Typography>
+            <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, mb: 1, fontSize: '0.8rem' }}>
+              {repair.description?.slice(0, 100)}{repair.description?.length > 100 ? '...' : ''}
+            </Typography>
 
-        {repair.assignedJeweler && (
-          <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
-            Assigned to: {repair.assignedJeweler}
-          </Typography>
-        )}
+            {repair.assignedJeweler && (
+              <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
+                Assigned to: {repair.assignedJeweler}
+              </Typography>
+            )}
 
-        {repair.promiseDate && (
-          <Typography variant="caption" sx={{ display: 'block', color: REPAIRS_UI.accent }}>
-            Due: {new Date(repair.promiseDate).toLocaleDateString()}
-          </Typography>
-        )}
+            {repair.promiseDate && (
+              <Typography variant="caption" sx={{ display: 'block', color: REPAIRS_UI.accent }}>
+                Due: {new Date(repair.promiseDate).toLocaleDateString()}
+              </Typography>
+            )}
+          </Box>
+        </Box>
 
         {error && <Alert severity="error" sx={{ mt: 1, py: 0 }}>{error}</Alert>}
       </CardContent>

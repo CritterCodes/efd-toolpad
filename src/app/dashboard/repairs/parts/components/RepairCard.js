@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import Image from 'next/image';
 import {
     Paper,
     Box,
@@ -17,6 +16,7 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import EditIcon from '@mui/icons-material/Edit';
 import AddIcon from '@mui/icons-material/Add';
 import { mergeMaterialsWithPending } from '../utils/partsUtils';
+import RepairThumbnail from '@/app/dashboard/repairs/components/RepairThumbnail';
 
 const RepairCard = ({ 
     repair, 
@@ -67,27 +67,7 @@ const RepairCard = ({
             }}
         >
             <Box sx={{ display: 'flex', gap: 2 }}>
-                {repair.picture && (
-                    <Box
-                        sx={{
-                            flex: 1,
-                            maxWidth: '150px',
-                            height: '150px',
-                            borderRadius: '12px',
-                            overflow: 'hidden',
-                            position: 'relative',
-                        }}
-                    >
-                        <Image
-                            src={repair.picture}
-                            alt="Repair Image"
-                            fill
-                            style={{
-                                objectFit: 'cover'
-                            }}
-                        />
-                    </Box>
-                )}
+                <RepairThumbnail repair={repair} size={140} sx={{ borderRadius: '12px' }} />
 
                 <Box sx={{ flex: 2 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>

@@ -1,14 +1,15 @@
 import React from 'react';
-import { 
-    Box, 
-    Typography, 
-    List, 
-    ListItem, 
-    ListItemText, 
-    IconButton, 
-    Chip 
+import {
+    Box,
+    Typography,
+    List,
+    ListItem,
+    ListItemText,
+    IconButton,
+    Chip
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
+import RepairThumbnail from '@/app/dashboard/repairs/components/RepairThumbnail';
 
 const RepairListItem = ({ repair, repairID, onRemove }) => {
     return (
@@ -25,32 +26,35 @@ const RepairListItem = ({ repair, repairID, onRemove }) => {
                 </IconButton>
             }
         >
-            <ListItemText 
-                primary={`Repair ID: ${repairID}`}
-                secondary={repair ? (
-                    <Box>
-                        <Typography variant="body2" color="text.secondary">
-                            Client: {repair.clientName} | Current Status: {repair.status}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                            {repair.description}
-                        </Typography>
-                        {repair.isRush && (
-                            <Chip 
-                                label="RUSH" 
-                                color="error" 
-                                size="small" 
-                                sx={{ ml: 1, fontSize: '0.6rem', height: '16px' }} 
-                            />
-                        )}
-                        {repair.promiseDate && (
-                            <Typography variant="caption" display="block" color="text.secondary">
-                                Due: {new Date(repair.promiseDate).toLocaleDateString()}
+            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start', pr: 5, width: '100%' }}>
+                {repair && <RepairThumbnail repair={repair} size={58} />}
+                <ListItemText
+                    primary={`Repair ID: ${repairID}`}
+                    secondary={repair ? (
+                        <Box>
+                            <Typography variant="body2" color="text.secondary">
+                                Client: {repair.clientName} | Current Status: {repair.status}
                             </Typography>
-                        )}
-                    </Box>
-                ) : 'Repair details not found'}
-            />
+                            <Typography variant="caption" color="text.secondary">
+                                {repair.description}
+                            </Typography>
+                            {repair.isRush && (
+                                <Chip
+                                    label="RUSH"
+                                    color="error"
+                                    size="small"
+                                    sx={{ ml: 1, fontSize: '0.6rem', height: '16px' }}
+                                />
+                            )}
+                            {repair.promiseDate && (
+                                <Typography variant="caption" display="block" color="text.secondary">
+                                    Due: {new Date(repair.promiseDate).toLocaleDateString()}
+                                </Typography>
+                            )}
+                        </Box>
+                    ) : 'Repair details not found'}
+                />
+            </Box>
         </ListItem>
     );
 };

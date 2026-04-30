@@ -12,10 +12,11 @@ import {
   useMediaQuery
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
+import RepairThumbnail from '@/app/dashboard/repairs/components/RepairThumbnail';
 
-export default function MyRepairsList({ 
-  filteredRepairs, 
-  activeTab 
+export default function MyRepairsList({
+  filteredRepairs,
+  activeTab
 }) {
   const router = useRouter();
   const theme = useTheme();
@@ -38,16 +39,16 @@ export default function MyRepairsList({
 
   if (filteredRepairs.length === 0) {
     return (
-      <Box sx={{ 
-        textAlign: 'center', 
+      <Box sx={{
+        textAlign: 'center',
         py: isMobile ? 4 : 8,
         px: isMobile ? 2 : 0
       }}>
-        <Typography 
-          variant={isMobile ? "h6" : "h5"} 
-          color="text.secondary" 
+        <Typography
+          variant={isMobile ? "h6" : "h5"}
+          color="text.secondary"
           gutterBottom
-          sx={{ 
+          sx={{
             fontSize: isMobile ? '1.25rem' : '1.5rem'
           }}
         >
@@ -55,10 +56,10 @@ export default function MyRepairsList({
           {activeTab === 1 && 'No current repairs'}
           {activeTab === 2 && 'No completed repairs yet'}
         </Typography>
-        <Typography 
-          variant="body2" 
-          color="text.secondary" 
-          sx={{ 
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{
             mb: 3,
             fontSize: isMobile ? '0.875rem' : '1rem',
             maxWidth: isMobile ? '300px' : '400px',
@@ -90,9 +91,9 @@ export default function MyRepairsList({
     <Grid container spacing={2}>
       {filteredRepairs.map((repair) => (
         <Grid item xs={12} sm={6} md={4} key={repair._id}>
-          <Card 
+          <Card
             elevation={2}
-            sx={{ 
+            sx={{
               height: '100%',
               transition: 'all 0.2s ease-in-out',
               '&:hover': {
@@ -101,72 +102,77 @@ export default function MyRepairsList({
               }
             }}
           >
-            <CardContent sx={{ 
+            <CardContent sx={{
               p: isMobile ? 1.5 : 2,
               '&:last-child': { pb: isMobile ? 1.5 : 2 }
             }}>
-              <Box sx={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
+              <Box sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
                 alignItems: 'flex-start',
                 mb: 1,
                 flexDirection: isMobile ? 'column' : 'row',
                 gap: isMobile ? 1 : 0
               }}>
-                <Typography 
-                  variant={isMobile ? "body1" : "h6"} 
+                <Typography
+                  variant={isMobile ? "body1" : "h6"}
                   component="h3"
-                  sx={{ 
+                  sx={{
                     fontWeight: 'bold',
                     fontSize: isMobile ? '1rem' : '1.25rem'
                   }}
                 >
                   Repair #{repair.repairNumber}
                 </Typography>
-                <Chip 
-                  label={repair.status} 
+                <Chip
+                  label={repair.status}
                   color={getStatusColor(repair.status)}
                   size={isMobile ? "small" : "medium"}
-                  sx={{ 
+                  sx={{
                     fontWeight: 'bold',
                     alignSelf: isMobile ? 'flex-start' : 'center'
                   }}
                 />
               </Box>
-              
-              <Typography 
-                variant="body2" 
-                color="text.secondary" 
+
+              <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start', mb: 1 }}>
+                <RepairThumbnail repair={repair} size={isMobile ? 64 : 76} />
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    gutterBottom
+                    sx={{
+                      fontSize: isMobile ? '0.875rem' : '1rem',
+                      fontWeight: 'medium'
+                    }}
+                  >
+                    <strong>Client:</strong> {repair.clientFirstName} {repair.clientLastName}
+                  </Typography>
+
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    gutterBottom
+                    sx={{
+                      fontSize: isMobile ? '0.875rem' : '1rem',
+                      display: '-webkit-box',
+                      WebkitLineClamp: isMobile ? 2 : 3,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}
+                  >
+                    <strong>Item:</strong> {repair.repairDescription || repair.description || 'No description'}
+                  </Typography>
+                </Box>
+              </Box>
+
+              <Typography
+                variant="body2"
+                color="text.secondary"
                 gutterBottom
-                sx={{ 
-                  fontSize: isMobile ? '0.875rem' : '1rem',
-                  fontWeight: 'medium'
-                }}
-              >
-                <strong>Client:</strong> {repair.clientFirstName} {repair.clientLastName}
-              </Typography>
-              
-              <Typography 
-                variant="body2" 
-                color="text.secondary" 
-                gutterBottom
-                sx={{ 
-                  fontSize: isMobile ? '0.875rem' : '1rem',
-                  display: '-webkit-box',
-                  WebkitLineClamp: isMobile ? 2 : 3,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis'
-                }}
-              >
-                <strong>Item:</strong> {repair.repairDescription || 'No description'}
-              </Typography>
-              
-              <Typography 
-                variant="body2" 
-                color="text.secondary" 
-                gutterBottom
-                sx={{ 
+                sx={{
                   fontSize: isMobile ? '0.875rem' : '1rem'
                 }}
               >
@@ -174,11 +180,11 @@ export default function MyRepairsList({
               </Typography>
 
               {repair.dueDate && (
-                <Typography 
-                  variant="body2" 
-                  color="text.secondary" 
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
                   gutterBottom
-                  sx={{ 
+                  sx={{
                     fontSize: isMobile ? '0.875rem' : '1rem'
                   }}
                 >
@@ -186,9 +192,9 @@ export default function MyRepairsList({
                 </Typography>
               )}
 
-              <Box sx={{ 
-                mt: 2, 
-                display: 'flex', 
+              <Box sx={{
+                mt: 2,
+                display: 'flex',
                 gap: 1,
                 justifyContent: 'flex-end'
               }}>

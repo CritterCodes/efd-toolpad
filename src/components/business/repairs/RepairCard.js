@@ -1,5 +1,4 @@
 import React from 'react';
-import Image from 'next/image';
 import {
     Card,
     CardContent,
@@ -9,6 +8,7 @@ import {
     Stack
 } from '@mui/material';
 import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
+import RepairThumbnail from '@/app/dashboard/repairs/components/RepairThumbnail';
 
 const REPAIR_UI = {
     bgCard: '#171A1F',
@@ -85,16 +85,18 @@ const RepairCard = ({ repair, onClick, actions, sx = {} }) => {
             }}
             onClick={onClick}
         >
-            {repair.picture && (
-                <Box sx={{ position: 'relative', width: '100%', height: 160, overflow: 'hidden', borderBottom: `1px solid ${REPAIR_UI.border}` }}>
-                    <Image
-                        src={repair.picture}
-                        alt="Repair Item"
-                        fill
-                        style={{ objectFit: 'cover' }}
-                    />
-                </Box>
-            )}
+            <RepairThumbnail
+                repair={repair}
+                size="100%"
+                aspectRatio="16 / 9"
+                sx={{
+                    borderRadius: 0,
+                    borderTop: 0,
+                    borderLeft: 0,
+                    borderRight: 0,
+                    borderColor: REPAIR_UI.border,
+                }}
+            />
 
             <CardContent sx={{ p: 2.25 }}>
                 {/* Header: Repair ID + Status + Rush */}

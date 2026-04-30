@@ -28,8 +28,11 @@ import {
 import {
   Payment as PaymentIcon,
   PhotoCamera as PhotoCameraIcon,
+  QrCodeScanner as ScanIcon,
 } from "@mui/icons-material";
 import { REPAIRS_UI } from "@/app/dashboard/repairs/components/repairsUi";
+import RepairThumbnail from "@/app/dashboard/repairs/components/RepairThumbnail";
+import ContinuousBarcodeScanner from "@/components/repairs/ContinuousBarcodeScanner";
 
 const currency = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -47,6 +50,11 @@ function formatDate(value) {
 
 function getRepairDisplayTotal(repair) {
   return parseFloat(repair.totalCost || 0);
+}
+
+function isReadyForInvoice(repair) {
+  const afterPhotoCount = Array.isArray(repair.afterPhotos) ? repair.afterPhotos.length : 0;
+  return afterPhotoCount > 0 && repair.requiresLaborReview !== true;
 }
 
 function canAccessCloseout(session) {
@@ -69,11 +77,12 @@ function RepairCloseoutCard({
   uploadState,
   onUpload,
   onEditRepair,
+  highlighted,
 }) {
   const [files, setFiles] = useState([]);
   const afterPhotoCount = Array.isArray(repair.afterPhotos) ? repair.afterPhotos.length : 0;
   const blockedForReview = repair.requiresLaborReview === true;
-  const batchReady = afterPhotoCount > 0 && !blockedForReview;
+  const batchReady = isReadyForInvoice(repair);
 
   const handleUploadClick = () => {
     if (!files.length) return;
@@ -82,20 +91,29 @@ function RepairCloseoutCard({
   };
 
   return (
-    <Card sx={{ backgroundColor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, boxShadow: REPAIRS_UI.shadow }}>
+    <Card
+      sx={{
+        backgroundColor: REPAIRS_UI.bgPanel,
+        border: `1px solid ${highlighted ? REPAIRS_UI.accent : REPAIRS_UI.border}`,
+        boxShadow: highlighted ? `0 0 0 2px ${REPAIRS_UI.accent}33` : REPAIRS_UI.shadow,
+      }}
+    >
       <CardContent>
         <Stack spacing={1.5}>
           <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "flex-start" }}>
-            <Box>
-              <Typography sx={{ fontWeight: 700, color: REPAIRS_UI.textHeader }}>
-                {repair.clientName || repair.businessName || repair.repairID}
-              </Typography>
-              <Typography sx={{ color: REPAIRS_UI.textMuted, fontFamily: "monospace", fontSize: "0.8rem" }}>
-                {repair.repairID}
-              </Typography>
+            <Box sx={{ display: "flex", gap: 1.5, minWidth: 0, flex: 1 }}>
+              <RepairThumbnail repair={repair} size={76} />
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontWeight: 700, color: REPAIRS_UI.textHeader }}>
+                  {repair.clientName || repair.businessName || repair.repairID}
+                </Typography>
+                <Typography sx={{ color: REPAIRS_UI.textMuted, fontFamily: "monospace", fontSize: "0.8rem" }}>
+                  {repair.repairID}
+                </Typography>
+              </Box>
             </Box>
             <Stack direction="row" spacing={1} alignItems="center">
-              <Checkbox checked={isSelected} onChange={() => onToggleSelect(repair.repairID)} disabled={!batchReady} />
+              <Checkbox checked={isSelected} onChange={() => onToggleSelect(repair.repairID)} />
               <Chip label={repair.isWholesale ? "Wholesale" : "Retail"} size="small" />
             </Stack>
           </Box>
@@ -314,6 +332,10 @@ export default function PaymentPickupPage() {
   const [closeoutNotes, setCloseoutNotes] = useState({});
   const [uploadingRepairID, setUploadingRepairID] = useState("");
   const [submittingInvoice, setSubmittingInvoice] = useState(false);
+  const [legacyClosing, setLegacyClosing] = useState(false);
+  const [closeoutSearch, setCloseoutSearch] = useState("");
+  const [closeoutScannerOpen, setCloseoutScannerOpen] = useState(false);
+  const [highlightedRepairID, setHighlightedRepairID] = useState("");
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "info" });
 
   const showMessage = useCallback((message, severity = "info") => {
@@ -366,6 +388,26 @@ export default function PaymentPickupPage() {
     () => invoices.filter((invoice) => invoice.status === "paid"),
     [invoices]
   );
+  const selectedRepairs = useMemo(
+    () => closeoutRepairs.filter((repair) => selectedRepairIDs.includes(repair.repairID)),
+    [closeoutRepairs, selectedRepairIDs]
+  );
+  const selectedReadyRepairs = useMemo(
+    () => selectedRepairs.filter(isReadyForInvoice),
+    [selectedRepairs]
+  );
+  const hasSelectedNotReadyForInvoice = selectedRepairs.length > selectedReadyRepairs.length;
+  const visibleCloseoutRepairs = useMemo(() => {
+    const search = closeoutSearch.trim().toLowerCase();
+    if (!search) return closeoutRepairs;
+
+    return closeoutRepairs.filter((repair) => [
+      repair.repairID,
+      repair.clientName,
+      repair.businessName,
+      repair.description,
+    ].some((value) => String(value || "").toLowerCase().includes(search)));
+  }, [closeoutRepairs, closeoutSearch]);
 
   const toggleRepairSelection = (repairID) => {
     setSelectedRepairIDs((prev) =>
@@ -375,6 +417,26 @@ export default function PaymentPickupPage() {
 
   const handleCloseoutNoteChange = (repairID, value) => {
     setCloseoutNotes((prev) => ({ ...prev, [repairID]: value }));
+  };
+
+  const handleCloseoutScan = (repairID) => {
+    const cleanRepairID = String(repairID || "").trim();
+    if (!cleanRepairID) return;
+
+    const repair = closeoutRepairs.find((item) => item.repairID === cleanRepairID);
+    if (!repair) {
+      showMessage(`${cleanRepairID} is not currently waiting in Payment & Pickup.`, "warning");
+      setCloseoutSearch(cleanRepairID);
+      setHighlightedRepairID("");
+      return;
+    }
+
+    setCloseoutSearch(cleanRepairID);
+    setHighlightedRepairID(cleanRepairID);
+    setSelectedRepairIDs((prev) => (
+      prev.includes(cleanRepairID) ? prev : [...prev, cleanRepairID]
+    ));
+    showMessage(`Selected ${cleanRepairID}.`, "success");
   };
 
   const handleUploadCloseout = async (repairID, files, noteValue) => {
@@ -408,6 +470,10 @@ export default function PaymentPickupPage() {
         showMessage("Select at least one completed repair to batch.", "warning");
         return;
       }
+      if (hasSelectedNotReadyForInvoice) {
+        showMessage("Only repairs with after photos and no pending labor review can be batched into an invoice.", "warning");
+        return;
+      }
       setSubmittingInvoice(true);
       const response = await fetch("/api/repair-invoices", {
         method: "POST",
@@ -435,6 +501,49 @@ export default function PaymentPickupPage() {
       showMessage(error.message, "error");
     } finally {
       setSubmittingInvoice(false);
+    }
+  };
+
+  const handleLegacyCloseSelected = async () => {
+    try {
+      if (selectedRepairIDs.length === 0) {
+        showMessage("Select at least one legacy repair to close.", "warning");
+        return;
+      }
+
+      const confirmed = window.confirm(
+        `Mark ${selectedRepairIDs.length} selected repair${selectedRepairIDs.length !== 1 ? "s" : ""} as paid and delivered?\n\nThis will remove them from Payment & Pickup without creating invoices or deleting records.`
+      );
+      if (!confirmed) return;
+
+      setLegacyClosing(true);
+      const response = await fetch("/api/repairs/closeout/legacy-close", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          repairIDs: selectedRepairIDs,
+          note: batchNotes || "Legacy cleanup from Payment & Pickup",
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to close selected repairs.");
+      }
+
+      setSelectedRepairIDs([]);
+      setBatchNotes("");
+      await loadData();
+
+      const failed = Array.isArray(data.failed) ? data.failed : [];
+      if (failed.length > 0) {
+        showMessage(`Closed ${data.closed || 0}; ${failed.length} failed. ${failed.map((item) => `${item.repairID}: ${item.error}`).join(" | ")}`, "warning");
+      } else {
+        showMessage(`Legacy closed ${data.closed || selectedRepairIDs.length} repair${(data.closed || selectedRepairIDs.length) !== 1 ? "s" : ""}.`, "success");
+      }
+    } catch (error) {
+      showMessage(error.message, "error");
+    } finally {
+      setLegacyClosing(false);
     }
   };
 
@@ -587,6 +696,48 @@ export default function PaymentPickupPage() {
           <Alert severity="info" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
             Use the repair editor for missed tasks, materials, and custom charges before batching. After photo is mandatory.
           </Alert>
+          <Alert severity="warning" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
+            For old repairs that were already paid and delivered outside this invoice workflow, select the cards and use Grace Close Selected. This keeps an audit note and removes them from this queue.
+          </Alert>
+
+          <Card sx={{ backgroundColor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, boxShadow: REPAIRS_UI.shadow }}>
+            <CardContent>
+              <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ xs: "stretch", md: "center" }}>
+                <TextField
+                  label="Find Repair"
+                  placeholder="Scan or search repair ID, customer, or description"
+                  value={closeoutSearch}
+                  onChange={(event) => {
+                    setCloseoutSearch(event.target.value);
+                    setHighlightedRepairID("");
+                  }}
+                  autoComplete="off"
+                  size="small"
+                  sx={{ flex: 1 }}
+                />
+                <Button
+                  variant="outlined"
+                  startIcon={<ScanIcon />}
+                  onClick={() => setCloseoutScannerOpen(true)}
+                  sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
+                >
+                  Camera Scan
+                </Button>
+                <Button
+                  variant="outlined"
+                  disabled={!closeoutSearch && !highlightedRepairID}
+                  onClick={() => {
+                    setCloseoutSearch("");
+                    setHighlightedRepairID("");
+                  }}
+                  sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
+                >
+                  Clear
+                </Button>
+                <Chip label={`${visibleCloseoutRepairs.length} shown`} />
+              </Stack>
+            </CardContent>
+          </Card>
 
           <Card sx={{ backgroundColor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, boxShadow: REPAIRS_UI.shadow }}>
             <CardContent>
@@ -608,7 +759,20 @@ export default function PaymentPickupPage() {
                   <Button variant="contained" disabled={selectedRepairIDs.length === 0 || submittingInvoice} onClick={handleCreateInvoice} sx={{ backgroundColor: REPAIRS_UI.accent, color: "#111" }}>
                     {submittingInvoice ? "Creating Invoice..." : "Create Invoice Batch"}
                   </Button>
+                  <Button
+                    variant="outlined"
+                    disabled={selectedRepairIDs.length === 0 || legacyClosing}
+                    onClick={handleLegacyCloseSelected}
+                    sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
+                  >
+                    {legacyClosing ? "Closing..." : `Grace Close Selected (${selectedRepairIDs.length})`}
+                  </Button>
                 </Stack>
+                {hasSelectedNotReadyForInvoice && (
+                  <Alert severity="info" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
+                    {selectedReadyRepairs.length} selected repair{selectedReadyRepairs.length !== 1 ? "s are" : " is"} invoice-ready. Non-ready selections can still be grace closed.
+                  </Alert>
+                )}
               </Stack>
             </CardContent>
           </Card>
@@ -619,7 +783,7 @@ export default function PaymentPickupPage() {
             </Alert>
           ) : (
             <Grid container spacing={2}>
-              {closeoutRepairs.map((repair) => (
+              {visibleCloseoutRepairs.map((repair) => (
                 <Grid item xs={12} lg={6} key={repair.repairID}>
                   <RepairCloseoutCard
                     repair={repair}
@@ -630,6 +794,7 @@ export default function PaymentPickupPage() {
                     uploadState={{ loading: uploadingRepairID === repair.repairID }}
                     onUpload={handleUploadCloseout}
                     onEditRepair={(repairID) => router.push(`/dashboard/repairs/${repairID}/edit`)}
+                    highlighted={highlightedRepairID === repair.repairID}
                   />
                 </Grid>
               ))}
@@ -689,6 +854,20 @@ export default function PaymentPickupPage() {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      <ContinuousBarcodeScanner
+        open={closeoutScannerOpen}
+        title="Scan Closeout Repairs"
+        queuedCount={selectedRepairIDs.length}
+        actionLabel="Done"
+        onScan={handleCloseoutScan}
+        onClose={() => setCloseoutScannerOpen(false)}
+        onAction={() => setCloseoutScannerOpen(false)}
+      >
+        <Alert severity="info" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
+          Scan each repair ticket while the camera stays open. Matching repairs are selected and the latest scan is highlighted when you return to the list.
+        </Alert>
+      </ContinuousBarcodeScanner>
     </Box>
   );
 }
