@@ -1,56 +1,3 @@
-  /**
-   * Duplicate a task by ID, creating an inactive copy
-   */
-  static async duplicateTask(id, userEmail = null) {
-    try {
-      if (!id || typeof id !== 'string') {
-        throw new Error('Valid task ID is required');
-      }
-      // Get the original task
-      const originalTask = await TasksModel.getTaskById(id);
-      if (!originalTask) {
-        throw new Error('Original task not found');
-      }
-      // Remove unique fields and set as inactive
-      const {
-        _id, id: _id2, createdAt, updatedAt, deletedAt, archivedAt, deletedBy, ...rest
-      } = originalTask;
-      // Add a suffix to the title to indicate duplication
-      const newTitle = `${rest.title || 'Untitled'} (Copy)`;
-      // Ensure the new title is unique
-      let finalTitle = newTitle;
-      let counter = 2;
-      while (await TasksModel.taskTitleExists(finalTitle)) {
-        finalTitle = `${newTitle} ${counter}`;
-        counter++;
-      }
-      const duplicatedTask = {
-        ...rest,
-        title: finalTitle,
-        isActive: false,
-        createdBy: userEmail,
-        updatedBy: userEmail,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        deletedAt: null,
-        archivedAt: null,
-        deletedBy: null
-      };
-      const newTask = await TasksModel.createTask(duplicatedTask);
-      return {
-        success: true,
-        data: this.transformTaskForResponse(newTask),
-        message: 'Task duplicated successfully'
-      };
-    } catch (error) {
-      console.error('Individual task service error duplicating task:', error);
-      return {
-        success: false,
-        error: error.message,
-        data: null
-      };
-    }
-  }
 /**
  * Individual Task Service
  * Business logic layer for individual task operations
@@ -261,5 +208,68 @@ export class IndividualTaskService {
       updatedAt: task.updatedAt?.toISOString?.() || task.updatedAt,
       deletedAt: task.deletedAt?.toISOString?.() || task.deletedAt
     };
+  }
+
+  /**
+   * Duplicate a task by ID, creating an inactive copy
+   */
+  static async duplicateTask(id, userEmail = null) {
+    try {
+      if (!id || typeof id !== 'string') {
+        throw new Error('Valid task ID is required');
+      }
+
+      const originalTask = await TasksModel.getTaskById(id);
+
+      if (!originalTask) {
+        throw new Error('Original task not found');
+      }
+
+      const {
+        _id,
+        id: _id2,
+        createdAt,
+        updatedAt,
+        deletedAt,
+        archivedAt,
+        deletedBy,
+        ...rest
+      } = originalTask;
+      const newTitle = `${rest.title || 'Untitled'} (Copy)`;
+      let finalTitle = newTitle;
+      let counter = 2;
+
+      while (await TasksModel.taskTitleExists(finalTitle)) {
+        finalTitle = `${newTitle} ${counter}`;
+        counter++;
+      }
+
+      const duplicatedTask = {
+        ...rest,
+        title: finalTitle,
+        isActive: false,
+        createdBy: userEmail,
+        updatedBy: userEmail,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+        archivedAt: null,
+        deletedBy: null
+      };
+      const newTask = await TasksModel.createTask(duplicatedTask);
+
+      return {
+        success: true,
+        data: this.transformTaskForResponse(newTask),
+        message: 'Task duplicated successfully'
+      };
+    } catch (error) {
+      console.error('Individual task service error duplicating task:', error);
+      return {
+        success: false,
+        error: error.message,
+        data: null
+      };
+    }
   }
 }

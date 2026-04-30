@@ -13,7 +13,9 @@ import {
   Add as AddIcon,
   List as ListIcon,
   Person as ArtisanIcon,
-  ArrowForward as ArrowIcon
+  ArrowForward as ArrowIcon,
+  Work as BenchIcon,
+  QrCodeScanner as ScanIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 
@@ -34,6 +36,15 @@ export default function AdminPage() {
       actions: [
         { label: 'View All Tasks', path: '/dashboard/admin/tasks', icon: <ListIcon fontSize="small" />, primary: true },
         { label: 'Create Task', path: '/dashboard/admin/tasks/create', icon: <AddIcon fontSize="small" /> },
+      ]
+    },
+    {
+      title: 'Repair Tools',
+      description: 'Open bench work, scan tickets, and move repairs through the shop',
+      icon: <BenchIcon />,
+      actions: [
+        { label: 'My Bench', path: '/dashboard/repairs/my-bench', icon: <BenchIcon fontSize="small" />, primary: true },
+        { label: 'Scan Tickets', path: '/dashboard/repairs/move?mode=scan', icon: <ScanIcon fontSize="small" /> },
       ]
     },
     {
@@ -156,6 +167,8 @@ export default function AdminPage() {
         <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
           {[
             { label: 'Create New Task', path: '/dashboard/admin/tasks/create', icon: <AddIcon fontSize="small" /> },
+            { label: 'My Bench', path: '/dashboard/repairs/my-bench', icon: <BenchIcon fontSize="small" /> },
+            { label: 'Scan Tickets', path: '/dashboard/repairs/move?mode=scan', icon: <ScanIcon fontSize="small" /> },
             { label: 'Add Material', path: '/dashboard/admin/tasks/materials', icon: <MaterialsIcon fontSize="small" /> },
             { label: 'Settings', path: '/dashboard/admin/settings', icon: <SettingsIcon fontSize="small" /> },
           ].map((action) => (

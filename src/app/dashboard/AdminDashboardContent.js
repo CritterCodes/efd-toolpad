@@ -14,8 +14,10 @@ import {
   Button,
   Chip,
   Divider,
+  InputAdornment,
   LinearProgress,
   Stack,
+  TextField,
   Typography,
 } from '@mui/material';
 import {
@@ -25,9 +27,12 @@ import {
   CheckCircle as CheckCircleIcon,
   Inventory2 as Inventory2Icon,
   MonetizationOn as MonetizationOnIcon,
+  QrCodeScanner as QrCodeScannerIcon,
+  Search as SearchIcon,
   Settings as SettingsIcon,
   Storefront as StorefrontIcon,
   TrendingUp as TrendingUpIcon,
+  Work as WorkIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useRepairs } from '@/app/context/repairs.context';
@@ -239,6 +244,222 @@ function getStatusTone(status) {
   return { color: COLORS.textSecondary, bg: COLORS.bgSecondary, borderLeft: `2px solid ${COLORS.border}` };
 }
 
+function getRepairSearchText(repair) {
+  return [
+    repair.repairID,
+    repair.clientName,
+    repair.customerName,
+    repair.businessName,
+    repair.description,
+    repair.repairType,
+    repair.status,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
+function getRepairDisplayName(repair) {
+  return repair.clientName || repair.customerName || repair.businessName || 'Unknown customer';
+}
+
+function RepairLookupPanel({ repairs, onNavigate }) {
+  const [query, setQuery] = React.useState('');
+  const [error, setError] = React.useState('');
+
+  const trimmedQuery = query.trim();
+  const matches = React.useMemo(() => {
+    if (!trimmedQuery) return [];
+
+    const normalized = trimmedQuery.toLowerCase();
+    return repairs
+      .filter((repair) => getRepairSearchText(repair).includes(normalized))
+      .slice(0, 6);
+  }, [repairs, trimmedQuery]);
+
+  const openRepair = (repairID) => {
+    if (!repairID) return;
+    onNavigate(`/dashboard/repairs/${encodeURIComponent(repairID)}`);
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    setError('');
+
+    if (!trimmedQuery) return;
+
+    const exactMatch = repairs.find((repair) => String(repair.repairID || '').toLowerCase() === trimmedQuery.toLowerCase());
+    const target = exactMatch || matches[0];
+
+    if (target?.repairID) {
+      openRepair(target.repairID);
+      return;
+    }
+
+    setError(`No repair found for "${trimmedQuery}".`);
+  };
+
+  return (
+    <Surface>
+      <Stack spacing={2.5}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+          <Box>
+            <Typography sx={{ color: COLORS.textMuted, fontSize: 12, fontWeight: 600, mb: 0.75 }}>
+              Repair lookup
+            </Typography>
+            <Typography sx={{ fontSize: 28, fontWeight: 600, color: COLORS.textHeader }}>Scan or search repairs</Typography>
+          </Box>
+          <Button
+            startIcon={<WorkIcon />}
+            onClick={() => onNavigate('/dashboard/repairs/my-bench')}
+            sx={{
+              color: COLORS.accent,
+              borderColor: COLORS.border,
+              textTransform: 'none',
+              fontWeight: 600,
+            }}
+            variant="outlined"
+          >
+            My Bench
+          </Button>
+        </Box>
+
+        <Box
+          component="form"
+          onSubmit={handleSubmit}
+          sx={{
+            display: 'flex',
+            gap: 1,
+            alignItems: 'stretch',
+            flexWrap: { xs: 'wrap', md: 'nowrap' },
+          }}
+        >
+          <TextField
+            fullWidth
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              if (error) setError('');
+            }}
+            placeholder="Scan a repair ticket barcode or search name, repair ID, business, status"
+            autoComplete="off"
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <QrCodeScannerIcon sx={{ color: COLORS.accent }} />
+                </InputAdornment>
+              ),
+              endAdornment: (
+                <InputAdornment position="end">
+                  <SearchIcon sx={{ color: COLORS.textMuted }} />
+                </InputAdornment>
+              ),
+            }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                backgroundColor: COLORS.bgSecondary,
+                color: COLORS.textPrimary,
+                borderRadius: 2,
+                '& fieldset': { borderColor: COLORS.border },
+                '&:hover fieldset': { borderColor: COLORS.accent },
+                '&.Mui-focused fieldset': { borderColor: COLORS.accent },
+              },
+              '& input::placeholder': {
+                color: COLORS.textMuted,
+                opacity: 1,
+              },
+            }}
+          />
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={!trimmedQuery}
+            startIcon={<SearchIcon />}
+            sx={{
+              bgcolor: COLORS.accent,
+              color: '#000',
+              px: 2.5,
+              minWidth: { xs: '100%', md: 120 },
+              textTransform: 'none',
+              fontWeight: 700,
+              '&:hover': { bgcolor: '#c9a227' },
+              '&.Mui-disabled': {
+                bgcolor: COLORS.bgTertiary,
+                color: COLORS.textMuted,
+              },
+            }}
+          >
+            Search
+          </Button>
+        </Box>
+
+        {error && (
+          <Alert severity="warning" sx={{ backgroundColor: COLORS.bgSecondary, color: COLORS.textPrimary, border: `1px solid ${COLORS.border}` }}>
+            {error}
+          </Alert>
+        )}
+
+        {trimmedQuery && matches.length > 0 && (
+          <Stack divider={<Divider sx={{ borderColor: COLORS.border }} />}>
+            {matches.map((repair) => {
+              const tone = getStatusTone(repair.status);
+              return (
+                <Box
+                  key={repair.repairID}
+                  sx={{
+                    py: 1.5,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 2,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ color: COLORS.textHeader, fontWeight: 600 }}>
+                      {getRepairDisplayName(repair)}
+                    </Typography>
+                    <Typography sx={{ color: COLORS.textSecondary, fontSize: 14 }}>
+                      {repair.repairID} · {repair.repairType || repair.description || 'Repair'}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+                    <Chip
+                      label={repair.status || 'No status'}
+                      size="small"
+                      sx={{
+                        color: tone.color,
+                        backgroundColor: tone.bg,
+                        border: `1px solid ${COLORS.border}`,
+                        borderLeft: tone.borderLeft,
+                        borderRadius: 2,
+                      }}
+                    />
+                    <Button
+                      endIcon={<ArrowForwardIcon />}
+                      onClick={() => openRepair(repair.repairID)}
+                      sx={{
+                        color: COLORS.accent,
+                        minWidth: 0,
+                        p: 0,
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        '&:hover': { backgroundColor: 'transparent', opacity: 0.9 },
+                      }}
+                    >
+                      Open
+                    </Button>
+                  </Box>
+                </Box>
+              );
+            })}
+          </Stack>
+        )}
+      </Stack>
+    </Surface>
+  );
+}
+
 export default function AdminDashboardContent() {
   const { data: session } = useSession();
   const router = useRouter();
@@ -341,6 +562,12 @@ export default function AdminDashboardContent() {
       subtitle: 'See every repair in the workflow',
       icon: <BuildIcon fontSize="small" />,
       href: '/dashboard/repairs',
+    },
+    {
+      title: 'My Bench',
+      subtitle: 'Claim work and manage active bench repairs',
+      icon: <WorkIcon fontSize="small" />,
+      href: '/dashboard/repairs/my-bench',
     },
     {
       title: 'Task builder',
@@ -452,6 +679,8 @@ export default function AdminDashboardContent() {
 
         <QueuePanel items={operationalQueues} onNavigate={(href) => router.push(href)} />
       </Box>
+
+      <RepairLookupPanel repairs={repairs || []} onNavigate={(href) => router.push(href)} />
 
       <Box
         sx={{
