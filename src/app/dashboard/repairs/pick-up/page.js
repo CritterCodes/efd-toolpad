@@ -11,11 +11,16 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   FormControl,
   FormControlLabel,
   FormLabel,
   Grid,
+  IconButton,
   Radio,
   RadioGroup,
   Snackbar,
@@ -26,6 +31,7 @@ import {
   Typography,
 } from "@mui/material";
 import {
+  Close as CloseIcon,
   Payment as PaymentIcon,
   PhotoCamera as PhotoCameraIcon,
   QrCodeScanner as ScanIcon,
@@ -92,6 +98,7 @@ function RepairCloseoutCard({
   highlighted,
 }) {
   const [photoFile, setPhotoFile] = useState(null);
+  const [inputKey, setInputKey] = useState(0);
   const afterPhotoCount = Array.isArray(repair.afterPhotos) ? repair.afterPhotos.length : 0;
   const blockedForReview = repair.requiresLaborReview === true;
   const batchReady = isReadyForInvoice(repair);
@@ -100,6 +107,7 @@ function RepairCloseoutCard({
     if (!photoFile) return;
     onSavePhoto(repair.repairID, photoFile, noteValue);
     setPhotoFile(null);
+    setInputKey((k) => k + 1);
   };
 
   return (
@@ -166,11 +174,15 @@ function RepairCloseoutCard({
             >
               Take After Photo
               <input
-                hidden
+                key={inputKey}
                 type="file"
                 accept="image/*"
                 capture="environment"
-                onChange={(event) => setPhotoFile(event.target.files?.[0] || null)}
+                style={{ display: "none" }}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) setPhotoFile(file);
+                }}
               />
             </Button>
             <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: "0.8rem", flex: 1 }}>
@@ -353,7 +365,7 @@ export default function PaymentPickupPage() {
   const [legacyClosing, setLegacyClosing] = useState(false);
   const [closeoutSearch, setCloseoutSearch] = useState("");
   const [closeoutScannerOpen, setCloseoutScannerOpen] = useState(false);
-  const [highlightedRepairID, setHighlightedRepairID] = useState("");
+  const [scannedRepairID, setScannedRepairID] = useState("");
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "info" });
 
   const showMessage = useCallback((message, severity = "info") => {
@@ -415,6 +427,11 @@ export default function PaymentPickupPage() {
     [selectedRepairs]
   );
   const hasSelectedNotReadyForInvoice = selectedRepairs.length > selectedReadyRepairs.length;
+  const scannedRepair = useMemo(
+    () => closeoutRepairs.find((r) => r.repairID === scannedRepairID) || null,
+    [closeoutRepairs, scannedRepairID]
+  );
+
   const visibleCloseoutRepairs = useMemo(() => {
     const search = closeoutSearch.trim().toLowerCase();
     if (!search) return closeoutRepairs;
@@ -440,21 +457,13 @@ export default function PaymentPickupPage() {
   const handleCloseoutScan = (repairID) => {
     const cleanRepairID = String(repairID || "").trim();
     if (!cleanRepairID) return;
-
     const repair = closeoutRepairs.find((item) => item.repairID === cleanRepairID);
     if (!repair) {
-      showMessage(`${cleanRepairID} is not currently waiting in Payment & Pickup.`, "warning");
-      setCloseoutSearch(cleanRepairID);
-      setHighlightedRepairID("");
+      showMessage(`${cleanRepairID} is not in the Payment & Pickup queue.`, "warning");
       return;
     }
-
-    setCloseoutSearch(cleanRepairID);
-    setHighlightedRepairID(cleanRepairID);
-    setSelectedRepairIDs((prev) => (
-      prev.includes(cleanRepairID) ? prev : [...prev, cleanRepairID]
-    ));
-    showMessage(`Selected ${cleanRepairID}.`, "success");
+    setCloseoutScannerOpen(false);
+    setScannedRepairID(cleanRepairID);
   };
 
   const handleSaveCloseoutPhoto = async (repairID, photoFile, noteValue) => {
@@ -736,10 +745,7 @@ export default function PaymentPickupPage() {
                   label="Find Repair"
                   placeholder="Scan or search repair ID, customer, or description"
                   value={closeoutSearch}
-                  onChange={(event) => {
-                    setCloseoutSearch(event.target.value);
-                    setHighlightedRepairID("");
-                  }}
+                  onChange={(event) => setCloseoutSearch(event.target.value)}
                   autoComplete="off"
                   size="small"
                   sx={{ flex: 1 }}
@@ -754,11 +760,8 @@ export default function PaymentPickupPage() {
                 </Button>
                 <Button
                   variant="outlined"
-                  disabled={!closeoutSearch && !highlightedRepairID}
-                  onClick={() => {
-                    setCloseoutSearch("");
-                    setHighlightedRepairID("");
-                  }}
+                  disabled={!closeoutSearch}
+                  onClick={() => setCloseoutSearch("")}
                   sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
                 >
                   Clear
@@ -823,7 +826,7 @@ export default function PaymentPickupPage() {
                     photoState={{ loading: savingPhotoRepairID === repair.repairID }}
                     onSavePhoto={handleSaveCloseoutPhoto}
                     onEditRepair={(repairID) => router.push(`/dashboard/repairs/${repairID}/edit`)}
-                    highlighted={highlightedRepairID === repair.repairID}
+                    highlighted={false}
                   />
                 </Grid>
               ))}
@@ -884,17 +887,69 @@ export default function PaymentPickupPage() {
         </Alert>
       </Snackbar>
 
+      <Dialog
+        open={Boolean(scannedRepairID)}
+        onClose={() => setScannedRepairID("")}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", pb: 1 }}>
+          <Typography sx={{ fontWeight: 700, color: REPAIRS_UI.textHeader }}>
+            {scannedRepair ? (scannedRepair.clientName || scannedRepair.businessName || scannedRepair.repairID) : scannedRepairID}
+          </Typography>
+          <IconButton onClick={() => setScannedRepairID("")} size="small">
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ p: 0 }}>
+          {scannedRepair ? (
+            <RepairCloseoutCard
+              repair={scannedRepair}
+              isSelected={selectedRepairIDs.includes(scannedRepair.repairID)}
+              onToggleSelect={toggleRepairSelection}
+              noteValue={closeoutNotes[scannedRepair.repairID] || ""}
+              onNoteChange={handleCloseoutNoteChange}
+              photoState={{ loading: savingPhotoRepairID === scannedRepair.repairID }}
+              onSavePhoto={handleSaveCloseoutPhoto}
+              onEditRepair={(repairID) => router.push(`/dashboard/repairs/${repairID}/edit`)}
+              highlighted={false}
+            />
+          ) : (
+            <Box sx={{ p: 2 }}>
+              <Alert severity="warning">
+                {scannedRepairID} is no longer in the Payment & Pickup queue.
+              </Alert>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 2, pb: 2, gap: 1 }}>
+          <Button onClick={() => setScannedRepairID("")} sx={{ color: REPAIRS_UI.textSecondary }}>
+            Done
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<ScanIcon />}
+            onClick={() => {
+              setScannedRepairID("");
+              setCloseoutScannerOpen(true);
+            }}
+            sx={{ backgroundColor: REPAIRS_UI.accent, color: "#111" }}
+          >
+            Scan Next Repair
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <ContinuousBarcodeScanner
         open={closeoutScannerOpen}
-        title="Scan Closeout Repairs"
-        queuedCount={selectedRepairIDs.length}
-        actionLabel="Done"
+        title="Scan Repair"
+        actionLabel="Close"
         onScan={handleCloseoutScan}
         onClose={() => setCloseoutScannerOpen(false)}
         onAction={() => setCloseoutScannerOpen(false)}
       >
         <Alert severity="info" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
-          Scan each repair ticket while the camera stays open. Matching repairs are selected and the latest scan is highlighted when you return to the list.
+          Scan a repair ticket barcode to open its closeout dialog. When done, scan the next repair.
         </Alert>
       </ContinuousBarcodeScanner>
     </Box>
