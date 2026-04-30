@@ -7,7 +7,7 @@ import {
     Alert,
     Snackbar
 } from "@mui/material";
-import { MoveUp as MoveIcon } from "@mui/icons-material";
+import { MoveUp as MoveIcon, QrCodeScanner as ScanIcon } from "@mui/icons-material";
 import { useRepairs } from "@/app/context/repairs.context";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from 'next-auth/react';
@@ -21,6 +21,7 @@ import MoveSummary from "./components/MoveSummary";
 import { REPAIR_STATUSES } from "./constants";
 import { moveRepairsToStatus, updateRepairWithMetadata } from "./utils/repairUtils";
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import ContinuousBarcodeScanner from '@/components/repairs/ContinuousBarcodeScanner';
 
 const MoveRepairsPage = () => {
     const { data: session, status: authStatus } = useSession();
@@ -28,6 +29,7 @@ const MoveRepairsPage = () => {
     const router = useRouter();
     const searchParams = useSearchParams();
     const isScanMode = searchParams.get('mode') === 'scan';
+    const [cameraScannerOpen, setCameraScannerOpen] = React.useState(false);
 
     const {
         location,
@@ -86,21 +88,27 @@ const MoveRepairsPage = () => {
         setLocation(value);
     };
 
-    const handleRepairSubmit = () => {
-        const inputRepairID = currentRepairID.trim();
+    const queueRepairID = (inputRepairID) => {
+        const cleanRepairID = String(inputRepairID || '').trim();
+        if (!cleanRepairID) return;
+
         const matchingRepair = repairs.find((r) =>
-            r.repairID?.toLowerCase() === inputRepairID.toLowerCase()
+            r.repairID?.toLowerCase() === cleanRepairID.toLowerCase()
         );
 
         if (matchingRepair) {
             if (addRepairID(matchingRepair.repairID)) {
-                showSnackbar(`Repair ${inputRepairID} added.`, "success");
+                showSnackbar(`Repair ${matchingRepair.repairID} added.`, "success");
             } else {
-                showSnackbar(`Repair ${inputRepairID} is already added.`, "warning");
+                showSnackbar(`Repair ${matchingRepair.repairID} is already added.`, "warning");
             }
         } else {
-            showSnackbar(`Repair ${inputRepairID} not found.`, "error");
+            showSnackbar(`Repair ${cleanRepairID} not found.`, "error");
         }
+    };
+
+    const handleRepairSubmit = () => {
+        queueRepairID(currentRepairID);
 
         setCurrentRepairID("");
     };
@@ -223,7 +231,24 @@ const MoveRepairsPage = () => {
                     </Alert>
                 )}
                 <AssignedPersonField status={location} value={assignedPerson} onChange={setAssignedPerson} />
-                <RepairInput value={currentRepairID} onChange={setCurrentRepairID} onSubmit={handleRepairSubmit} />
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                    <Box sx={{ flex: '1 1 320px' }}>
+                        <RepairInput value={currentRepairID} onChange={setCurrentRepairID} onSubmit={handleRepairSubmit} />
+                    </Box>
+                    <Button
+                        variant="outlined"
+                        startIcon={<ScanIcon />}
+                        onClick={() => setCameraScannerOpen(true)}
+                        sx={{
+                            color: REPAIRS_UI.textPrimary,
+                            borderColor: REPAIRS_UI.border,
+                            minHeight: 56,
+                            flex: { xs: '1 1 100%', sm: '0 0 auto' }
+                        }}
+                    >
+                        Camera Scan
+                    </Button>
+                </Box>
 
                 <Box>
                     <Typography variant="overline" sx={{ color: REPAIRS_UI.textSecondary, fontWeight: 700, display: 'block', mb: 1.5, letterSpacing: '0.08em' }}>
@@ -280,6 +305,26 @@ const MoveRepairsPage = () => {
                     {snackbarMessage}
                 </Alert>
             </Snackbar>
+
+            <ContinuousBarcodeScanner
+                open={cameraScannerOpen}
+                title="Scan Repairs to Move"
+                queuedCount={repairIDs.length}
+                actionLabel={
+                    !location
+                        ? 'Select destination first'
+                        : repairIDs.length === 0
+                        ? 'Scan repairs to move'
+                        : `Move ${repairIDs.length} to ${location}`
+                }
+                actionDisabled={!location || repairIDs.length === 0}
+                onClose={() => setCameraScannerOpen(false)}
+                onScan={queueRepairID}
+                onAction={handleMoveRepairs}
+            >
+                <MoveSummary repairCount={repairIDs.length} status={location} />
+                <RepairList repairIDs={repairIDs} repairs={repairs} onRemoveRepair={removeRepairID} />
+            </ContinuousBarcodeScanner>
         </Box>
     );
 };

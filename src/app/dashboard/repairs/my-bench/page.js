@@ -15,6 +15,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import ContinuousBarcodeScanner from '@/components/repairs/ContinuousBarcodeScanner';
 
 const TABS = [
   { label: 'My Bench', key: 'mine' },
@@ -173,6 +174,7 @@ export default function MyBenchPage() {
   const [scanError, setScanError] = useState('');
   const [scanSuccess, setScanSuccess] = useState('');
   const [queuedClaimIDs, setQueuedClaimIDs] = useState([]);
+  const [claimScannerOpen, setClaimScannerOpen] = useState(false);
 
   const fetchRepairs = useCallback(async () => {
     setLoading(true);
@@ -191,23 +193,27 @@ export default function MyBenchPage() {
     if (status === 'authenticated') fetchRepairs();
   }, [status, fetchRepairs]);
 
-  const handleQueueScan = (event) => {
-    event?.preventDefault?.();
-    const repairID = scanValue.trim();
-    if (!repairID) return;
+  const queueClaimID = (repairID) => {
+    const cleanRepairID = String(repairID || '').trim();
+    if (!cleanRepairID) return;
 
     setScanError('');
     setScanSuccess('');
 
-    if (queuedClaimIDs.includes(repairID)) {
-      setScanError(`${repairID} is already queued.`);
+    if (queuedClaimIDs.includes(cleanRepairID)) {
+      setScanError(`${cleanRepairID} is already queued.`);
       setScanValue('');
       return;
     }
 
-    setQueuedClaimIDs(prev => [...prev, repairID]);
-    setScanSuccess(`Queued ${repairID}`);
+    setQueuedClaimIDs(prev => [...prev, cleanRepairID]);
+    setScanSuccess(`Queued ${cleanRepairID}`);
     setScanValue('');
+  };
+
+  const handleQueueScan = (event) => {
+    event?.preventDefault?.();
+    queueClaimID(scanValue);
   };
 
   const handleRemoveQueuedClaim = (repairID) => {
@@ -375,6 +381,16 @@ export default function MyBenchPage() {
           </Button>
           <Button
             type="button"
+            variant="outlined"
+            startIcon={<ScanIcon />}
+            disabled={scanLoading}
+            sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
+            onClick={() => setClaimScannerOpen(true)}
+          >
+            Camera Scan
+          </Button>
+          <Button
+            type="button"
             variant="contained"
             disabled={scanLoading || queuedClaimIDs.length === 0}
             sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}
@@ -450,6 +466,44 @@ export default function MyBenchPage() {
           ))}
         </Grid>
       )}
+
+      <ContinuousBarcodeScanner
+        open={claimScannerOpen}
+        title="Scan Repairs to Claim"
+        queuedCount={queuedClaimIDs.length}
+        actionLabel={scanLoading ? 'Claiming...' : `Claim ${queuedClaimIDs.length} Queued`}
+        actionDisabled={scanLoading || queuedClaimIDs.length === 0}
+        onClose={() => setClaimScannerOpen(false)}
+        onScan={queueClaimID}
+        onAction={handleClaimQueuedRepairs}
+      >
+        {queuedClaimIDs.length > 0 ? (
+          <Box>
+            <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 1 }}>
+              Queued to claim ({queuedClaimIDs.length})
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {queuedClaimIDs.map((repairID) => (
+                <Chip
+                  key={repairID}
+                  label={repairID}
+                  onDelete={() => handleRemoveQueuedClaim(repairID)}
+                  deleteIcon={<CloseIcon />}
+                  sx={{
+                    bgcolor: REPAIRS_UI.bgCard,
+                    color: REPAIRS_UI.textPrimary,
+                    border: `1px solid ${REPAIRS_UI.border}`,
+                  }}
+                />
+              ))}
+            </Box>
+          </Box>
+        ) : (
+          <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
+            Scanned repairs will appear here. The camera stays open until you close it.
+          </Typography>
+        )}
+      </ContinuousBarcodeScanner>
     </Box>
   );
 }
