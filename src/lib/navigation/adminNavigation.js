@@ -127,16 +127,6 @@ export const adminNavigation = {
           icon: <ReceivingIcon />
         },
         {
-          segment: 'parts',
-          title: 'Parts',
-          icon: <PartsIcon />
-        },
-        {
-          segment: 'ready-for-work',
-          title: 'Ready for Work',
-          icon: <ListIcon />
-        },
-        {
           segment: 'labor-review',
           title: 'Labor Review',
           icon: <ReceiptIcon />

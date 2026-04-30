@@ -35,8 +35,6 @@ function buildRepairOpsNav(caps = {}) {
   const children = [
     { segment: 'receiving', title: 'Receiving', icon: <InboxIcon /> },
     { segment: 'my-bench', title: 'My Bench', icon: <WorkIcon /> },
-    { segment: 'ready-for-work', title: 'Ready for Work', icon: <HandymanIcon /> },
-    { segment: 'parts', title: 'Parts', icon: <CategoryIcon /> },
   ];
 
   children.push({ segment: 'completed', title: 'Completed', icon: <CheckCircleIcon /> });

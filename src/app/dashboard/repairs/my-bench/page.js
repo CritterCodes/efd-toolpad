@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Typography, Grid, Button, Chip, CircularProgress, Tabs, Tab,
-  Card, CardContent, CardActions, Divider, Alert, TextField, MenuItem,
+  Card, CardContent, CardActions, Divider, Alert, TextField, MenuItem, Checkbox,
+  Dialog, DialogTitle, DialogContent, DialogActions, Stack,
 } from '@mui/material';
 import {
   Work as WorkIcon,
@@ -21,7 +22,7 @@ import ContinuousBarcodeScanner from '@/components/repairs/ContinuousBarcodeScan
 const TABS = [
   { label: 'My Bench', key: 'mine' },
   { label: 'Unclaimed', key: 'unclaimed' },
-  { label: 'Waiting Parts', key: 'waiting_parts' },
+  { label: 'Needs Parts', key: 'waiting_parts' },
   { label: 'QC', key: 'qc' },
 ];
 
@@ -32,6 +33,74 @@ const BENCH_STATUS_COLOR = {
   QC: '#00C49F',
 };
 
+const DEFAULT_PARTS_FORM = {
+  source: 'stuller',
+  stullerSku: '',
+  name: '',
+  description: '',
+  quantity: '1',
+  price: '',
+};
+
+function toNumber(value, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizePricingSettings(adminSettings = {}) {
+  const pricing = adminSettings?.pricing && typeof adminSettings.pricing === 'object'
+    ? adminSettings.pricing
+    : adminSettings;
+  const administrativeFee = toNumber(pricing?.administrativeFee ?? 0.10);
+  const businessFee = toNumber(pricing?.businessFee ?? 0.15);
+  const consumablesFee = toNumber(pricing?.consumablesFee ?? 0.05);
+  const materialMarkup = Math.max(toNumber(pricing?.materialMarkup ?? 1.0), 1);
+  const businessMultiplier = Math.max(1 + administrativeFee + businessFee + consumablesFee, 1);
+
+  return { materialMarkup, businessMultiplier };
+}
+
+function calculateRetailFromBaseCosts(baseMaterialsCost = 0, laborCost = 0, adminSettings = {}) {
+  const safeMaterials = Math.max(toNumber(baseMaterialsCost), 0);
+  const safeLabor = Math.max(toNumber(laborCost), 0);
+  const { materialMarkup, businessMultiplier } = normalizePricingSettings(adminSettings);
+  const retail = ((safeMaterials + safeLabor) * businessMultiplier) + (safeMaterials * (materialMarkup - 1));
+  return Math.round(retail * 100) / 100;
+}
+
+function buildStullerMaterial(stullerResponse, stullerSku, adminSettings = {}) {
+  const data = stullerResponse?.data || stullerResponse || {};
+  const basePrice = toNumber(data.price || data.showcasePrice, 0);
+  const retailPrice = calculateRetailFromBaseCosts(basePrice, 0, adminSettings);
+  const name = data.description || `Stuller ${stullerSku}`;
+
+  return {
+    id: Date.now(),
+    name,
+    displayName: name,
+    description: `${data.longDescription || data.description || name} (Stuller: ${stullerSku})`,
+    quantity: 1,
+    price: retailPrice,
+    retailPrice,
+    unitCost: basePrice,
+    stullerPrice: basePrice,
+    baseCostPerPortion: basePrice,
+    category: 'stuller_material',
+    supplier: 'Stuller',
+    stuller_item_number: stullerSku,
+    isStullerItem: true,
+    stullerData: {
+      originalPrice: basePrice,
+      itemNumber: stullerSku,
+      materialMarkup: normalizePricingSettings(adminSettings).materialMarkup,
+      businessMultiplier: normalizePricingSettings(adminSettings).businessMultiplier,
+      weight: data.weight,
+      dimensions: data.dimensions,
+      metal: data.metal,
+    },
+  };
+}
+
 function getJewelerLabel(jeweler) {
   return [jeweler.firstName, jeweler.lastName].filter(Boolean).join(' ').trim()
     || jeweler.name
@@ -39,7 +108,17 @@ function getJewelerLabel(jeweler) {
     || jeweler.userID;
 }
 
-function RepairBenchCard({ repair, currentUserID, isAdmin, jewelers, onRefresh }) {
+function RepairBenchCard({
+  repair,
+  currentUserID,
+  isAdmin,
+  jewelers,
+  onRefresh,
+  selectable = false,
+  isSelected = false,
+  onToggleSelect,
+  onOpenPartsDialog,
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -89,12 +168,32 @@ function RepairBenchCard({ repair, currentUserID, isAdmin, jewelers, onRefresh }
   const isMine = repair.assignedTo === currentUserID;
 
   return (
-    <Card sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2 }}>
+    <Card
+      sx={{
+        bgcolor: REPAIRS_UI.bgPanel,
+        border: `1px solid ${isSelected ? REPAIRS_UI.accent : REPAIRS_UI.border}`,
+        borderRadius: 2,
+        boxShadow: isSelected ? `0 0 0 2px ${REPAIRS_UI.accent}33` : 'none',
+      }}
+    >
       <CardContent sx={{ pb: 1 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-          <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, fontFamily: 'monospace' }}>
-            {repair.repairID}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            {selectable && (
+              <Checkbox
+                checked={isSelected}
+                onChange={() => onToggleSelect?.(repair.repairID)}
+                sx={{
+                  color: REPAIRS_UI.border,
+                  '&.Mui-checked': { color: REPAIRS_UI.accent },
+                  p: 0,
+                }}
+              />
+            )}
+            <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, fontFamily: 'monospace' }}>
+              {repair.repairID}
+            </Typography>
+          </Box>
           <Box sx={{ display: 'flex', gap: 0.5 }}>
             {repair.isRush && (
               <Chip label="RUSH" size="small" sx={{ bgcolor: '#FF4444', color: '#fff', fontSize: '0.65rem', height: 20 }} />
@@ -209,10 +308,10 @@ function RepairBenchCard({ repair, currentUserID, isAdmin, jewelers, onRefresh }
               variant="outlined"
               startIcon={<PartsIcon sx={{ fontSize: 14 }} />}
               disabled={loading}
-              onClick={() => doAction('mark-waiting-parts')}
+              onClick={() => onOpenPartsDialog?.(repair)}
               sx={{ color: REPAIRS_UI.textSecondary, borderColor: REPAIRS_UI.border, fontSize: '0.75rem' }}
             >
-              Waiting Parts
+              Needs Parts
             </Button>
             <Button
               size="small"
@@ -223,6 +322,32 @@ function RepairBenchCard({ repair, currentUserID, isAdmin, jewelers, onRefresh }
               sx={{ color: '#00C49F', borderColor: '#00C49F', fontSize: '0.75rem' }}
             >
               Move to QC
+            </Button>
+          </>
+        )}
+
+        {repair.benchStatus === 'WAITING_PARTS' && (
+          <>
+            {repair.status !== 'PARTS ORDERED' && (
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<PartsIcon sx={{ fontSize: 14 }} />}
+                disabled={loading}
+                onClick={() => doAction('mark-parts-ordered')}
+                sx={{ color: REPAIRS_UI.textSecondary, borderColor: REPAIRS_UI.border, fontSize: '0.75rem' }}
+              >
+                Mark Parts Ordered
+              </Button>
+            )}
+            <Button
+              size="small"
+              variant="contained"
+              disabled={loading}
+              onClick={() => doAction('parts-ready-for-work')}
+              sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', fontSize: '0.75rem', '&:hover': { bgcolor: '#c9a227' } }}
+            >
+              Move Back to Bench
             </Button>
           </>
         )}
@@ -245,6 +370,12 @@ export default function MyBenchPage() {
   const [claimScannerOpen, setClaimScannerOpen] = useState(false);
   const [jewelers, setJewelers] = useState([]);
   const [bulkQcLoading, setBulkQcLoading] = useState(false);
+  const [selectedQcIDs, setSelectedQcIDs] = useState([]);
+  const [bulkCompleteLoading, setBulkCompleteLoading] = useState(false);
+  const [partsDialogRepair, setPartsDialogRepair] = useState(null);
+  const [partsForm, setPartsForm] = useState(DEFAULT_PARTS_FORM);
+  const [partsLoading, setPartsLoading] = useState(false);
+  const [partsError, setPartsError] = useState('');
 
   const fetchRepairs = useCallback(async () => {
     setLoading(true);
@@ -398,6 +529,159 @@ export default function MyBenchPage() {
     }
   };
 
+  const handleToggleQcSelection = (repairID) => {
+    setSelectedQcIDs(prev => (
+      prev.includes(repairID)
+        ? prev.filter(id => id !== repairID)
+        : [...prev, repairID]
+    ));
+  };
+
+  const handleSetShownQcSelection = (repairIDs, checked) => {
+    setSelectedQcIDs(prev => {
+      if (checked) {
+        return Array.from(new Set([...prev, ...repairIDs]));
+      }
+      return prev.filter(id => !repairIDs.includes(id));
+    });
+  };
+
+  const handleCompleteSelectedQc = async () => {
+    const qcRepairIDs = repairs
+      .filter(repair => selectedQcIDs.includes(repair.repairID) && (repair.benchStatus === 'QC' || repair.status === 'QC'))
+      .map(repair => repair.repairID);
+
+    if (qcRepairIDs.length === 0) return;
+
+    setBulkCompleteLoading(true);
+    setScanError('');
+    setScanSuccess('');
+
+    try {
+      const results = [];
+
+      for (const repairID of qcRepairIDs) {
+        const res = await fetch(`/api/repairs/${encodeURIComponent(repairID)}/complete-from-qc`, { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          results.push({ repairID, ok: false, error: data.error || 'Unable to complete repair from QC' });
+          continue;
+        }
+
+        results.push({ repairID, ok: true });
+      }
+
+      const completed = results.filter(result => result.ok).map(result => result.repairID);
+      const failed = results.filter(result => !result.ok);
+
+      if (completed.length > 0) {
+        setSelectedQcIDs(prev => prev.filter(id => !completed.includes(id)));
+      }
+
+      await fetchRepairs();
+
+      if (failed.length > 0) {
+        setScanError(failed.map(result => `${result.repairID}: ${result.error}`).join(' | '));
+      }
+
+      if (completed.length > 0) {
+        setScanSuccess(`Completed ${completed.length} QC repair${completed.length !== 1 ? 's' : ''} and moved ${completed.length !== 1 ? 'them' : 'it'} to labor review.`);
+      }
+    } catch (error) {
+      setScanError(error.message);
+    } finally {
+      setBulkCompleteLoading(false);
+    }
+  };
+
+  const openPartsDialog = (repair) => {
+    setPartsDialogRepair(repair);
+    setPartsForm(DEFAULT_PARTS_FORM);
+    setPartsError('');
+  };
+
+  const closePartsDialog = () => {
+    if (partsLoading) return;
+    setPartsDialogRepair(null);
+    setPartsForm(DEFAULT_PARTS_FORM);
+    setPartsError('');
+  };
+
+  const handlePartsFormChange = (field, value) => {
+    setPartsForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleMoveToNeedsParts = async () => {
+    if (!partsDialogRepair) return;
+
+    setPartsLoading(true);
+    setPartsError('');
+    setScanError('');
+    setScanSuccess('');
+
+    try {
+      let material;
+
+      if (partsForm.source === 'stuller') {
+        const cleanSku = partsForm.stullerSku.trim();
+        if (!cleanSku) throw new Error('Enter a Stuller part number.');
+
+        const [stullerRes, settingsRes] = await Promise.all([
+          fetch('/api/stuller/item', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ itemNumber: cleanSku }),
+          }),
+          fetch('/api/admin/settings'),
+        ]);
+
+        const stullerData = await stullerRes.json().catch(() => ({}));
+        if (!stullerRes.ok) throw new Error(stullerData.error || 'Failed to fetch Stuller item.');
+
+        const adminSettings = settingsRes.ok ? await settingsRes.json().catch(() => ({})) : {};
+        material = buildStullerMaterial(stullerData, cleanSku, adminSettings);
+      } else {
+        const name = partsForm.name.trim();
+        const quantity = Math.max(toNumber(partsForm.quantity, 1), 0);
+        const price = Math.max(toNumber(partsForm.price, 0), 0);
+        if (!name) throw new Error('Enter a material name.');
+        if (quantity <= 0) throw new Error('Quantity must be greater than zero.');
+
+        material = {
+          id: Date.now(),
+          name,
+          displayName: name,
+          description: partsForm.description.trim() || name,
+          quantity,
+          price,
+          retailPrice: price,
+          unitCost: price,
+          category: 'manual_material',
+          supplier: 'Manual',
+          isStullerItem: false,
+        };
+      }
+
+      const res = await fetch(`/api/repairs/${encodeURIComponent(partsDialogRepair.repairID)}/mark-waiting-parts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ material }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Unable to move repair to needs parts.');
+
+      await fetchRepairs();
+      setScanSuccess(`Added material and moved ${partsDialogRepair.repairID} to Needs Parts.`);
+      setPartsDialogRepair(null);
+      setPartsForm(DEFAULT_PARTS_FORM);
+    } catch (error) {
+      setPartsError(error.message);
+    } finally {
+      setPartsLoading(false);
+    }
+  };
+
   if (status === 'loading') {
     return <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}><CircularProgress sx={{ color: REPAIRS_UI.accent }} /></Box>;
   }
@@ -406,6 +690,7 @@ export default function MyBenchPage() {
   const caps = session?.user?.staffCapabilities || {};
   const isAdmin = ['admin', 'dev'].includes(session?.user?.role);
   const isOnsiteRepairOps = session?.user?.employment?.isOnsite === true && caps.repairOps === true;
+  const canCompleteQc = isAdmin || caps.qualityControl === true;
 
   if (!isAdmin && !isOnsiteRepairOps) {
     router.push('/dashboard');
@@ -422,6 +707,8 @@ export default function MyBenchPage() {
   const activeKey = TABS[tab].key;
   const shown = byTab[activeKey] || [];
   const mineReadyForQcCount = byTab.mine.filter(r => r.benchStatus === 'IN_PROGRESS').length;
+  const shownQcIDs = activeKey === 'qc' ? shown.map(repair => repair.repairID) : [];
+  const selectedShownQcIDs = shownQcIDs.filter(repairID => selectedQcIDs.includes(repairID));
 
   return (
     <Box sx={{ pb: 8 }}>
@@ -587,6 +874,53 @@ export default function MyBenchPage() {
         ))}
       </Tabs>
 
+      {activeKey === 'qc' && shown.length > 0 && (
+        <Box
+          sx={{
+            bgcolor: REPAIRS_UI.bgPanel,
+            border: `1px solid ${REPAIRS_UI.border}`,
+            borderRadius: 2,
+            p: 1.5,
+            mb: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 1.5,
+            flexWrap: 'wrap',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Checkbox
+              checked={selectedShownQcIDs.length === shownQcIDs.length && shownQcIDs.length > 0}
+              indeterminate={selectedShownQcIDs.length > 0 && selectedShownQcIDs.length < shownQcIDs.length}
+              onChange={(event) => handleSetShownQcSelection(shownQcIDs, event.target.checked)}
+              sx={{
+                color: REPAIRS_UI.border,
+                '&.Mui-checked': { color: REPAIRS_UI.accent },
+                '&.MuiCheckbox-indeterminate': { color: REPAIRS_UI.accent },
+              }}
+            />
+            <Box>
+              <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 600 }}>
+                QC Selection
+              </Typography>
+              <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
+                {selectedShownQcIDs.length} selected on this tab
+              </Typography>
+            </Box>
+          </Box>
+          <Button
+            variant="contained"
+            startIcon={<QCIcon />}
+            disabled={!canCompleteQc || bulkCompleteLoading || selectedShownQcIDs.length === 0}
+            onClick={handleCompleteSelectedQc}
+            sx={{ bgcolor: '#00C49F', color: '#000', '&:hover': { bgcolor: '#00a985' } }}
+          >
+            {bulkCompleteLoading ? 'Completing...' : `Complete to Labor Review (${selectedShownQcIDs.length})`}
+          </Button>
+        </Box>
+      )}
+
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <CircularProgress sx={{ color: REPAIRS_UI.accent }} />
@@ -609,6 +943,10 @@ export default function MyBenchPage() {
                 isAdmin={isAdmin}
                 jewelers={jewelers}
                 onRefresh={fetchRepairs}
+                selectable={activeKey === 'qc'}
+                isSelected={selectedQcIDs.includes(repair.repairID)}
+                onToggleSelect={handleToggleQcSelection}
+                onOpenPartsDialog={openPartsDialog}
               />
             </Grid>
           ))}
@@ -652,6 +990,94 @@ export default function MyBenchPage() {
           </Typography>
         )}
       </ContinuousBarcodeScanner>
+
+      <Dialog open={!!partsDialogRepair} onClose={closePartsDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Move to Needs Parts</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
+              Add the part or material that needs to be ordered before moving this repair.
+            </Typography>
+            {partsDialogRepair && (
+              <Alert severity="info">
+                {partsDialogRepair.repairID} - {partsDialogRepair.clientName || partsDialogRepair.businessName}
+              </Alert>
+            )}
+            {partsError && <Alert severity="error">{partsError}</Alert>}
+            <TextField
+              select
+              label="Material Source"
+              value={partsForm.source}
+              onChange={(event) => handlePartsFormChange('source', event.target.value)}
+              fullWidth
+            >
+              <MenuItem value="stuller">Stuller part number</MenuItem>
+              <MenuItem value="manual">Manual material</MenuItem>
+            </TextField>
+
+            {partsForm.source === 'stuller' ? (
+              <TextField
+                label="Stuller Part Number"
+                value={partsForm.stullerSku}
+                onChange={(event) => handlePartsFormChange('stullerSku', event.target.value)}
+                autoFocus
+                fullWidth
+              />
+            ) : (
+              <>
+                <TextField
+                  label="Material Name"
+                  value={partsForm.name}
+                  onChange={(event) => handlePartsFormChange('name', event.target.value)}
+                  autoFocus
+                  fullWidth
+                />
+                <TextField
+                  label="Description"
+                  value={partsForm.description}
+                  onChange={(event) => handlePartsFormChange('description', event.target.value)}
+                  fullWidth
+                  multiline
+                  minRows={2}
+                />
+                <Grid container spacing={1.5}>
+                  <Grid item xs={6}>
+                    <TextField
+                      label="Quantity"
+                      type="number"
+                      value={partsForm.quantity}
+                      onChange={(event) => handlePartsFormChange('quantity', event.target.value)}
+                      inputProps={{ min: 0, step: 0.25 }}
+                      fullWidth
+                    />
+                  </Grid>
+                  <Grid item xs={6}>
+                    <TextField
+                      label="Line Price"
+                      type="number"
+                      value={partsForm.price}
+                      onChange={(event) => handlePartsFormChange('price', event.target.value)}
+                      inputProps={{ min: 0, step: 0.01 }}
+                      fullWidth
+                    />
+                  </Grid>
+                </Grid>
+              </>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closePartsDialog} disabled={partsLoading}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleMoveToNeedsParts}
+            disabled={partsLoading}
+            sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}
+          >
+            {partsLoading ? 'Moving...' : 'Add Material & Move'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

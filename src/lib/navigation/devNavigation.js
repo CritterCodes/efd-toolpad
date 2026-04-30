@@ -121,16 +121,6 @@ export const devNavigation = {
           icon: <ReceivingIcon />
         },
         {
-          segment: 'parts',
-          title: 'Parts',
-          icon: <PartsIcon />
-        },
-        {
-          segment: 'ready-for-work',
-          title: 'Ready for Work',
-          icon: <ListIcon />
-        },
-        {
           segment: 'quality-control',
           title: 'Quality Control',
           icon: <QualityIcon />
