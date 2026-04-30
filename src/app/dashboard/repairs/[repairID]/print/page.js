@@ -143,11 +143,20 @@ const PrintRepairTicket = () => {
                     .MuiBreadcrumbs-root {
                         display: none !important;
                     }
-                    body > * {
+                    body * {
+                        visibility: hidden !important;
+                    }
+                    body > :not(.print-root):not(:has(.print-root)) {
                         display: none !important;
                     }
-                    body > .print-root {
+                    body > :has(.print-root) {
                         display: block !important;
+                        height: ${printPageHeight} !important;
+                        min-height: 0 !important;
+                        max-height: ${printPageHeight} !important;
+                        overflow: hidden !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
                     }
                     .print-root,
                     .print-mode-ticket,
@@ -155,7 +164,9 @@ const PrintRepairTicket = () => {
                     .print-mode-both {
                         display: block !important;
                         visibility: visible !important;
-                        position: static !important;
+                        position: fixed !important;
+                        top: 0 !important;
+                        left: 0 !important;
                         width: ${printPageWidth} !important;
                         height: ${printPageHeight} !important;
                         min-height: 0 !important;
@@ -164,6 +175,7 @@ const PrintRepairTicket = () => {
                         margin: 0 !important;
                         padding: 0 !important;
                     }
+                    .print-root,
                     .print-root * {
                         visibility: visible !important;
                     }
