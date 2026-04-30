@@ -988,6 +988,7 @@ export default function NewRepairForm({
 
   // Ref to track business name resolved from account settings (avoids race condition)
   const wholesalerBusinessNameRef = useRef(null);
+  const pricingContextRef = useRef(null);
   const [newClientData, setNewClientData] = useState({
     firstName: '',
     lastName: '',
@@ -1134,6 +1135,7 @@ export default function NewRepairForm({
         safeInitialData.storeName ||
         safeInitialData.businessName ||
         (safeInitialData.isWholesale ? 'Wholesale Store' : 'Engel Fine Design');
+      pricingContextRef.current = `${inferredMetalType}|${inferredKarat}|${inferredMetalType === 'gold' ? inferredGoldColor : ''}`;
 
       setFormData(prev => ({
         ...prev,
@@ -1848,12 +1850,24 @@ export default function NewRepairForm({
   };
 
   useEffect(() => {
+    const pricingContext = `${formData.metalType || ''}|${formData.karat || ''}|${formData.goldColor || ''}`;
+    if (pricingContextRef.current === null) {
+      pricingContextRef.current = pricingContext;
+      return;
+    }
+
+    if (pricingContextRef.current === pricingContext) {
+      return;
+    }
+
+    pricingContextRef.current = pricingContext;
     if (formData.tasks.length > 0) {
       recalculateAllItemPrices(formData.isWholesale);
     }
   }, [formData.metalType, formData.karat, formData.goldColor]);
 
   useEffect(() => {
+    if (submitMode === 'edit') return;
     if (formData.isWholesale && (formData.tasks.length > 0 || formData.materials.length > 0)) {
       recalculateAllItemPrices(true);
     }
