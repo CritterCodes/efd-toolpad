@@ -86,20 +86,20 @@ function RepairCloseoutCard({
   onToggleSelect,
   noteValue,
   onNoteChange,
-  uploadState,
-  onUpload,
+  photoState,
+  onSavePhoto,
   onEditRepair,
   highlighted,
 }) {
-  const [files, setFiles] = useState([]);
+  const [photoFile, setPhotoFile] = useState(null);
   const afterPhotoCount = Array.isArray(repair.afterPhotos) ? repair.afterPhotos.length : 0;
   const blockedForReview = repair.requiresLaborReview === true;
   const batchReady = isReadyForInvoice(repair);
 
-  const handleUploadClick = () => {
-    if (!files.length) return;
-    onUpload(repair.repairID, files, noteValue);
-    setFiles([]);
+  const handleSavePhotoClick = () => {
+    if (!photoFile) return;
+    onSavePhoto(repair.repairID, photoFile, noteValue);
+    setPhotoFile(null);
   };
 
   return (
@@ -170,19 +170,19 @@ function RepairCloseoutCard({
                 type="file"
                 accept="image/*"
                 capture="environment"
-                onChange={(event) => setFiles(Array.from(event.target.files || []))}
+                onChange={(event) => setPhotoFile(event.target.files?.[0] || null)}
               />
             </Button>
             <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: "0.8rem", flex: 1 }}>
-              {files.length > 0 ? `${files.length} file${files.length > 1 ? "s" : ""} queued` : "No new files selected"}
+              {photoFile ? "Photo ready to save" : "No photo taken yet"}
             </Typography>
             <Button
               variant="contained"
-              onClick={handleUploadClick}
-              disabled={files.length === 0 || uploadState.loading}
+              onClick={handleSavePhotoClick}
+              disabled={!photoFile || photoState.loading}
               sx={{ backgroundColor: REPAIRS_UI.accent, color: "#111" }}
             >
-              {uploadState.loading ? "Uploading..." : "Save Closeout"}
+              {photoState.loading ? "Saving..." : "Save Photo"}
             </Button>
           </Stack>
 
@@ -348,7 +348,7 @@ export default function PaymentPickupPage() {
   const [deliveryFee, setDeliveryFee] = useState(5);
   const [batchNotes, setBatchNotes] = useState("");
   const [closeoutNotes, setCloseoutNotes] = useState({});
-  const [uploadingRepairID, setUploadingRepairID] = useState("");
+  const [savingPhotoRepairID, setSavingPhotoRepairID] = useState("");
   const [submittingInvoice, setSubmittingInvoice] = useState(false);
   const [legacyClosing, setLegacyClosing] = useState(false);
   const [closeoutSearch, setCloseoutSearch] = useState("");
@@ -457,11 +457,11 @@ export default function PaymentPickupPage() {
     showMessage(`Selected ${cleanRepairID}.`, "success");
   };
 
-  const handleUploadCloseout = async (repairID, files, noteValue) => {
+  const handleSaveCloseoutPhoto = async (repairID, photoFile, noteValue) => {
     try {
-      setUploadingRepairID(repairID);
+      setSavingPhotoRepairID(repairID);
       const formData = new FormData();
-      files.forEach((file) => formData.append("afterPhotos", file));
+      formData.append("afterPhotos", photoFile);
       formData.append("closeoutNotes", noteValue || "");
 
       const response = await fetch(`/api/repairs/${repairID}/closeout`, {
@@ -489,7 +489,7 @@ export default function PaymentPickupPage() {
     } catch (error) {
       showMessage(error.message, "error");
     } finally {
-      setUploadingRepairID("");
+      setSavingPhotoRepairID("");
     }
   };
 
@@ -820,8 +820,8 @@ export default function PaymentPickupPage() {
                     onToggleSelect={toggleRepairSelection}
                     noteValue={closeoutNotes[repair.repairID] || ""}
                     onNoteChange={handleCloseoutNoteChange}
-                    uploadState={{ loading: uploadingRepairID === repair.repairID }}
-                    onUpload={handleUploadCloseout}
+                    photoState={{ loading: savingPhotoRepairID === repair.repairID }}
+                    onSavePhoto={handleSaveCloseoutPhoto}
                     onEditRepair={(repairID) => router.push(`/dashboard/repairs/${repairID}/edit`)}
                     highlighted={highlightedRepairID === repair.repairID}
                   />
