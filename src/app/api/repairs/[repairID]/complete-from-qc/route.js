@@ -15,7 +15,9 @@ export const POST = async (req, { params }) => {
 
     const updated = await RepairsModel.updateById(repairID, {
       status: nextStatus,
-      benchStatus: 'UNCLAIMED',
+      benchStatus: null,
+      assignedTo: '',
+      assignedJeweler: '',
       qcBy: session.user.name,
       qcDate: new Date(),
       completedBy: session.user.name,

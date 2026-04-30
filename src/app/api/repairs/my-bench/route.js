@@ -4,6 +4,7 @@ import { requireRepairOps, isAdmin } from '@/lib/apiAuth';
 
 const READY_FOR_WORK_STATUSES = ['READY FOR WORK', 'ready', 'ready-for-work'];
 const BENCH_STATUSES = ['UNCLAIMED', 'IN_PROGRESS', 'WAITING_PARTS', 'QC'];
+const ASSIGNED_BENCH_STATUSES = ['IN_PROGRESS', 'WAITING_PARTS', 'QC'];
 
 function normalizeBenchRepair(repair) {
   if (repair.benchStatus) return repair;
@@ -34,7 +35,8 @@ export const GET = async (req) => {
     if (isAdmin(session)) {
       query = {
         $or: [
-          { benchStatus: { $in: BENCH_STATUSES } },
+          { benchStatus: 'UNCLAIMED', status: { $in: READY_FOR_WORK_STATUSES } },
+          { benchStatus: { $in: ASSIGNED_BENCH_STATUSES } },
           { status: { $in: READY_FOR_WORK_STATUSES } },
           { status: 'QC' },
         ],
@@ -43,7 +45,7 @@ export const GET = async (req) => {
       const userID = session.user.userID;
       query = {
         $or: [
-          { assignedTo: userID },
+          { assignedTo: userID, benchStatus: { $in: ASSIGNED_BENCH_STATUSES } },
           { benchStatus: 'UNCLAIMED', status: { $in: READY_FOR_WORK_STATUSES } },
           { assignedTo: { $in: ['', null] }, status: { $in: READY_FOR_WORK_STATUSES } },
           { benchStatus: 'WAITING_PARTS' },

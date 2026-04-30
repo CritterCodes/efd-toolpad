@@ -586,7 +586,7 @@ export default function MyBenchPage() {
       }
 
       if (completed.length > 0) {
-        setScanSuccess(`Completed ${completed.length} QC repair${completed.length !== 1 ? 's' : ''} and moved ${completed.length !== 1 ? 'them' : 'it'} to labor review.`);
+        setScanSuccess(`Approved ${completed.length} QC repair${completed.length !== 1 ? 's' : ''} and moved ${completed.length !== 1 ? 'them' : 'it'} to Payment & Pickup.`);
       }
     } catch (error) {
       setScanError(error.message);
@@ -916,7 +916,7 @@ export default function MyBenchPage() {
             onClick={handleCompleteSelectedQc}
             sx={{ bgcolor: '#00C49F', color: '#000', '&:hover': { bgcolor: '#00a985' } }}
           >
-            {bulkCompleteLoading ? 'Completing...' : `Complete to Labor Review (${selectedShownQcIDs.length})`}
+            {bulkCompleteLoading ? 'Approving...' : `Approve to Payment & Pickup (${selectedShownQcIDs.length})`}
           </Button>
         </Box>
       )}
