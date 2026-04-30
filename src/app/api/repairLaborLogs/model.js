@@ -97,6 +97,78 @@ export default class RepairLaborLogsModel {
     ]).toArray();
   }
 
+  static async weeklyBreakdown({ weekStart, userID } = {}) {
+    if (!weekStart || !userID) {
+      throw new Error('weekStart and userID are required for a labor breakdown.');
+    }
+
+    const dbInstance = await db.connect();
+    const start = new Date(weekStart);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 7);
+
+    const logs = await dbInstance.collection(this.COLLECTION).aggregate([
+      {
+        $match: {
+          requiresAdminReview: false,
+          primaryJewelerUserID: userID,
+          weekStart: { $gte: start, $lt: end },
+        },
+      },
+      {
+        $lookup: {
+          from: 'repairs',
+          localField: 'repairID',
+          foreignField: 'repairID',
+          as: 'repair',
+        },
+      },
+      { $unwind: { path: '$repair', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: 0,
+          logID: 1,
+          repairID: 1,
+          primaryJewelerUserID: 1,
+          primaryJewelerName: 1,
+          creditedLaborHours: 1,
+          laborRateSnapshot: 1,
+          creditedValue: 1,
+          sourceAction: 1,
+          notes: 1,
+          weekStart: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          repair: {
+            repairID: '$repair.repairID',
+            clientName: '$repair.clientName',
+            businessName: '$repair.businessName',
+            description: '$repair.description',
+            status: '$repair.status',
+            picture: '$repair.picture',
+            tasks: '$repair.tasks',
+            processes: '$repair.processes',
+            materials: '$repair.materials',
+            customLineItems: '$repair.customLineItems',
+          },
+        },
+      },
+      { $sort: { createdAt: -1 } },
+    ]).toArray();
+
+    const repairIDs = new Set(logs.map((log) => log.repairID).filter(Boolean));
+    return {
+      userID,
+      userName: logs[0]?.primaryJewelerName || '',
+      weekStart: start,
+      repairsWorked: repairIDs.size,
+      entries: logs.length,
+      laborHours: logs.reduce((sum, log) => sum + Number(log.creditedLaborHours || 0), 0),
+      laborPay: logs.reduce((sum, log) => sum + Number(log.creditedValue || 0), 0),
+      logs,
+    };
+  }
+
   static async updateById(logID, updateData) {
     const dbInstance = await db.connect();
     await dbInstance.collection(this.COLLECTION).updateOne(

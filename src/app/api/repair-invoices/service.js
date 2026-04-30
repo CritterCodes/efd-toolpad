@@ -26,13 +26,22 @@ function getRepairAccountContext(repair) {
 }
 
 function getRepairChargeSummary(repair) {
-  const total = parseFloat(repair.totalCost || 0);
+  const lineItemSubtotal = [
+    ...(repair.tasks || []),
+    ...(repair.materials || []),
+    ...(repair.customLineItems || []),
+  ].reduce((sum, item) => sum + (parseFloat(item.price || 0) * (parseFloat(item.quantity || 1) || 1)), 0);
+  const storedSubtotal = parseFloat(repair.subtotal || 0);
+  const rushFee = parseFloat(repair.rushFee || 0);
   const taxAmount = parseFloat(repair.taxAmount || 0);
   const repairDeliveryFee = parseFloat(repair.deliveryFee || 0);
-  const inferredPreDelivery = total - repairDeliveryFee;
-  const subtotal = parseFloat(repair.subtotal || 0) > 0
-    ? parseFloat(repair.subtotal || 0) + parseFloat(repair.rushFee || 0)
-    : Math.max(inferredPreDelivery - taxAmount, 0);
+  const subtotal = storedSubtotal > 0
+    ? storedSubtotal + rushFee
+    : lineItemSubtotal + rushFee;
+  const calculatedTotal = subtotal + taxAmount + repairDeliveryFee;
+  const total = parseFloat(repair.totalCost || 0) > 0
+    ? parseFloat(repair.totalCost || 0)
+    : calculatedTotal;
 
   return {
     subtotal,
@@ -40,6 +49,77 @@ function getRepairChargeSummary(repair) {
     totalWithoutDelivery: Math.max(total - repairDeliveryFee, 0),
     existingDeliveryFee: repairDeliveryFee,
   };
+}
+
+function buildRepairSnapshot(repair) {
+  const summary = getRepairChargeSummary(repair);
+  return {
+    repairID: repair.repairID,
+    customerName: repair.clientName || repair.businessName || '',
+    status: repair.status,
+    subtotal: summary.subtotal,
+    taxAmount: summary.taxAmount,
+    total: summary.totalWithoutDelivery,
+  };
+}
+
+async function findAppendableInvoice(context, deliveryMethod) {
+  const dbInstance = await db.connect();
+  return await dbInstance.collection(RepairInvoicesModel.COLLECTION)
+    .findOne(
+      {
+        accountType: context.accountType,
+        accountID: context.accountID,
+        deliveryMethod,
+        status: { $in: ['draft', 'open'] },
+        paymentStatus: { $ne: 'paid' },
+      },
+      { projection: { _id: 0 }, sort: { createdAt: -1 } }
+    );
+}
+
+async function appendRepairsToInvoice(invoice, repairs, repairSnapshots, createdBy = '') {
+  const existingRepairIDs = Array.isArray(invoice.repairIDs) ? invoice.repairIDs : [];
+  const nextRepairIDs = [...new Set([...existingRepairIDs, ...repairs.map((repair) => repair.repairID)])];
+  const existingSnapshots = Array.isArray(invoice.repairSnapshots) ? invoice.repairSnapshots : [];
+  const nextSnapshots = [
+    ...existingSnapshots.filter((snapshot) => !repairSnapshots.some((repair) => repair.repairID === snapshot.repairID)),
+    ...repairSnapshots,
+  ];
+
+  const subtotal = nextSnapshots.reduce((sum, item) => sum + parseFloat(item.subtotal || 0), 0);
+  const taxAmount = nextSnapshots.reduce((sum, item) => sum + parseFloat(item.taxAmount || 0), 0);
+  const deliveryFee = parseFloat(invoice.deliveryFee || 0);
+  const total = subtotal + taxAmount + deliveryFee;
+  const amountPaid = parseFloat(invoice.amountPaid || 0);
+  const remainingBalance = Math.max(total - amountPaid, 0);
+
+  const updatedInvoice = await RepairInvoicesModel.updateByInvoiceID(invoice.invoiceID, {
+    repairIDs: nextRepairIDs,
+    repairSnapshots: nextSnapshots,
+    subtotal,
+    taxAmount,
+    total,
+    amountPaid,
+    remainingBalance,
+    paymentStatus: amountPaid > 0 ? 'partial' : 'unpaid',
+  });
+
+  const nextRepairStatus = invoice.deliveryMethod === 'delivery' ? 'DELIVERY BATCHED' : 'READY FOR PICKUP';
+  await Promise.all(
+    repairs.map((repair) =>
+      RepairsModel.updateById(repair.repairID, {
+        invoiceID: invoice.invoiceID,
+        closeoutStatus: 'batched',
+        closeoutBy: createdBy,
+        closeoutAt: new Date(),
+        status: nextRepairStatus,
+        updatedAt: new Date(),
+      })
+    )
+  );
+
+  return updatedInvoice;
 }
 
 async function ensureRepairsCanBatch(repairs) {
@@ -108,21 +188,18 @@ export async function createRepairInvoice({
   deliveryFee = null,
   closeoutNotes = '',
   createdBy = '',
+  appendToOpen = true,
 }) {
   const repairs = await Promise.all(repairIDs.map((repairID) => RepairsModel.findById(repairID)));
   const context = await ensureRepairsCanBatch(repairs);
+  const repairSnapshots = repairs.map(buildRepairSnapshot);
 
-  const repairSnapshots = repairs.map((repair) => {
-    const summary = getRepairChargeSummary(repair);
-    return {
-      repairID: repair.repairID,
-      customerName: repair.clientName || repair.businessName || '',
-      status: repair.status,
-      subtotal: summary.subtotal,
-      taxAmount: summary.taxAmount,
-      total: summary.totalWithoutDelivery,
-    };
-  });
+  if (appendToOpen) {
+    const appendableInvoice = await findAppendableInvoice(context, deliveryMethod);
+    if (appendableInvoice) {
+      return await appendRepairsToInvoice(appendableInvoice, repairs, repairSnapshots, createdBy);
+    }
+  }
 
   const subtotal = repairSnapshots.reduce((sum, item) => sum + item.subtotal, 0);
   const taxAmount = repairSnapshots.reduce((sum, item) => sum + item.taxAmount, 0);

@@ -49,7 +49,19 @@ function formatDate(value) {
 }
 
 function getRepairDisplayTotal(repair) {
-  return parseFloat(repair.totalCost || 0);
+  const storedTotal = parseFloat(repair.totalCost || 0);
+  if (storedTotal > 0) return storedTotal;
+
+  const lineItemSubtotal = [
+    ...(repair.tasks || []),
+    ...(repair.materials || []),
+    ...(repair.customLineItems || []),
+  ].reduce((sum, item) => sum + (parseFloat(item.price || 0) * (parseFloat(item.quantity || 1) || 1)), 0);
+  const subtotal = parseFloat(repair.subtotal || 0) > 0
+    ? parseFloat(repair.subtotal || 0) + parseFloat(repair.rushFee || 0)
+    : lineItemSubtotal + parseFloat(repair.rushFee || 0);
+
+  return subtotal + parseFloat(repair.taxAmount || 0) + parseFloat(repair.deliveryFee || 0);
 }
 
 function isReadyForInvoice(repair) {
@@ -152,8 +164,14 @@ function RepairCloseoutCard({
               component="label"
               sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
             >
-              Choose After Photos
-              <input hidden multiple type="file" accept="image/*" onChange={(event) => setFiles(Array.from(event.target.files || []))} />
+              Take After Photo
+              <input
+                hidden
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={(event) => setFiles(Array.from(event.target.files || []))}
+              />
             </Button>
             <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: "0.8rem", flex: 1 }}>
               {files.length > 0 ? `${files.length} file${files.length > 1 ? "s" : ""} queued` : "No new files selected"}
@@ -455,8 +473,19 @@ export default function PaymentPickupPage() {
         throw new Error(data.error || "Failed to save closeout.");
       }
 
-      setCloseoutRepairs((prev) => prev.map((repair) => (repair.repairID === repairID ? data : repair)));
-      showMessage(`Saved closeout data for ${repairID}.`, "success");
+      if (data.autoInvoiceError) {
+        setCloseoutRepairs((prev) => prev.map((repair) => (repair.repairID === repairID ? data : repair)));
+        showMessage(`Saved photos for ${repairID}, but invoice was not created: ${data.autoInvoiceError}`, "warning");
+        return;
+      }
+
+      await loadData();
+      showMessage(
+        data.autoInvoice?.invoiceID
+          ? `Saved photos and added ${repairID} to invoice ${data.autoInvoice.invoiceID}.`
+          : `Saved closeout data for ${repairID}.`,
+        "success"
+      );
     } catch (error) {
       showMessage(error.message, "error");
     } finally {

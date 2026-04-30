@@ -6,15 +6,42 @@ import {
   Button,
   Card,
   CardContent,
+  Chip,
   CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Divider,
   Grid,
+  IconButton,
+  Stack,
   TextField,
   Typography,
 } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+
+function formatMoney(value) {
+  return `$${Number(value || 0).toFixed(2)}`;
+}
+
+function getWorkItemLabels(repair = {}) {
+  return [
+    ...(repair.tasks || []).map((item) => item.name || item.description),
+    ...(repair.processes || []).map((item) => item.name || item.description),
+    ...(repair.materials || []).map((item) => item.name || item.description || item.itemNumber),
+    ...(repair.customLineItems || []).map((item) => item.description),
+  ].filter(Boolean);
+}
+
+function formatSourceAction(action = '') {
+  return action
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
 
 function ReviewCard({ log, onApprove, loading }) {
   const [hours, setHours] = useState(log.creditedLaborHours || 0);
@@ -70,6 +97,9 @@ export default function LaborReviewPage() {
   const [loading, setLoading] = useState(true);
   const [savingLogID, setSavingLogID] = useState('');
   const [error, setError] = useState('');
+  const [selectedBreakdown, setSelectedBreakdown] = useState(null);
+  const [breakdownLoading, setBreakdownLoading] = useState(false);
+  const [breakdownError, setBreakdownError] = useState('');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -135,6 +165,34 @@ export default function LaborReviewPage() {
     }
   };
 
+  const openBreakdown = async (entry) => {
+    setSelectedBreakdown({ ...entry, logs: [] });
+    setBreakdownLoading(true);
+    setBreakdownError('');
+    try {
+      const params = new URLSearchParams({
+        detail: 'true',
+        weekStart: new Date(entry.weekStart).toISOString(),
+        userID: entry.userID,
+      });
+      const res = await fetch(`/api/repairs/labor-report?${params.toString()}`);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to load payout breakdown.');
+      }
+      setSelectedBreakdown(data);
+    } catch (e) {
+      setBreakdownError(e.message);
+    } finally {
+      setBreakdownLoading(false);
+    }
+  };
+
+  const closeBreakdown = () => {
+    setSelectedBreakdown(null);
+    setBreakdownError('');
+  };
+
   if (status === 'loading' || (status === 'authenticated' && session?.user?.role !== 'admin')) {
     return null;
   }
@@ -188,7 +246,29 @@ export default function LaborReviewPage() {
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
             {(currentWeek.length ? currentWeek : weekly).map((entry) => (
               <Grid item xs={12} md={6} lg={4} key={`${entry.userID}-${entry.weekStart}`}>
-                <Card sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 3 }}>
+                <Card
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openBreakdown(entry)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      openBreakdown(entry);
+                    }
+                  }}
+                  sx={{
+                    bgcolor: REPAIRS_UI.bgPanel,
+                    border: `1px solid ${REPAIRS_UI.border}`,
+                    borderRadius: 3,
+                    cursor: 'pointer',
+                    transition: 'border-color 120ms ease, transform 120ms ease',
+                    '&:hover, &:focus-visible': {
+                      borderColor: REPAIRS_UI.accent,
+                      transform: 'translateY(-1px)',
+                      outline: 'none',
+                    },
+                  }}
+                >
                   <CardContent>
                     <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 600 }}>{entry.userName}</Typography>
                     <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
@@ -201,7 +281,10 @@ export default function LaborReviewPage() {
                       Repairs: {entry.repairsWorked || 0}
                     </Typography>
                     <Typography sx={{ color: REPAIRS_UI.textPrimary }}>
-                      Pay Snapshot: ${Number(entry.laborPay || 0).toFixed(2)}
+                      Pay Snapshot: {formatMoney(entry.laborPay)}
+                    </Typography>
+                    <Typography variant="caption" sx={{ display: 'block', color: REPAIRS_UI.textMuted, mt: 1.5 }}>
+                      Click for breakdown
                     </Typography>
                   </CardContent>
                 </Card>
@@ -210,6 +293,150 @@ export default function LaborReviewPage() {
           </Grid>
         </>
       )}
+
+      <Dialog
+        open={Boolean(selectedBreakdown)}
+        onClose={closeBreakdown}
+        fullWidth
+        maxWidth="md"
+        PaperProps={{
+          sx: {
+            bgcolor: REPAIRS_UI.bgPanel,
+            color: REPAIRS_UI.textPrimary,
+            border: `1px solid ${REPAIRS_UI.border}`,
+            borderRadius: 3,
+          },
+        }}
+      >
+        <DialogTitle sx={{ pr: 7 }}>
+          <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 700 }}>
+            {selectedBreakdown?.userName || 'Jeweler'} Payout Breakdown
+          </Typography>
+          {selectedBreakdown?.weekStart && (
+            <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
+              Week of {new Date(selectedBreakdown.weekStart).toLocaleDateString()}
+            </Typography>
+          )}
+          <IconButton
+            aria-label="Close breakdown"
+            onClick={closeBreakdown}
+            sx={{ position: 'absolute', right: 12, top: 12, color: REPAIRS_UI.textSecondary }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers sx={{ borderColor: REPAIRS_UI.border }}>
+          {selectedBreakdown && (
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 2 }}>
+              <Chip
+                label={`Hours ${Number(selectedBreakdown.laborHours || 0).toFixed(2)}`}
+                sx={{ bgcolor: 'rgba(225, 179, 42, 0.14)', color: REPAIRS_UI.textHeader }}
+              />
+              <Chip
+                label={`Repairs ${selectedBreakdown.repairsWorked || 0}`}
+                sx={{ bgcolor: 'rgba(225, 179, 42, 0.14)', color: REPAIRS_UI.textHeader }}
+              />
+              <Chip
+                label={`Pay ${formatMoney(selectedBreakdown.laborPay)}`}
+                sx={{ bgcolor: 'rgba(225, 179, 42, 0.14)', color: REPAIRS_UI.textHeader }}
+              />
+            </Stack>
+          )}
+
+          {breakdownError && <Alert severity="error" sx={{ mb: 2 }}>{breakdownError}</Alert>}
+
+          {breakdownLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
+              <CircularProgress sx={{ color: REPAIRS_UI.accent }} />
+            </Box>
+          ) : selectedBreakdown?.logs?.length ? (
+            <Stack spacing={1.5}>
+              {selectedBreakdown.logs.map((log) => {
+                const workItems = getWorkItemLabels(log.repair);
+                return (
+                  <Box
+                    key={log.logID}
+                    sx={{
+                      border: `1px solid ${REPAIRS_UI.border}`,
+                      borderRadius: 2,
+                      p: 1.5,
+                      bgcolor: REPAIRS_UI.bgPage,
+                    }}
+                  >
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', sm: 'flex-start' }}>
+                      {log.repair?.picture && (
+                        <Box
+                          component="img"
+                          src={log.repair.picture}
+                          alt=""
+                          sx={{
+                            width: { xs: '100%', sm: 92 },
+                            height: 92,
+                            objectFit: 'cover',
+                            borderRadius: 1,
+                            border: `1px solid ${REPAIRS_UI.border}`,
+                            flexShrink: 0,
+                          }}
+                        />
+                      )}
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between">
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 700 }}>
+                              {log.repair?.clientName || log.repair?.businessName || 'Repair'} · {log.repairID}
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
+                              {log.repair?.description || 'No repair description saved.'}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ textAlign: { xs: 'left', sm: 'right' }, flexShrink: 0 }}>
+                            <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 700 }}>
+                              {formatMoney(log.creditedValue)}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>
+                              {Number(log.creditedLaborHours || 0).toFixed(2)}h @ {formatMoney(log.laborRateSnapshot)}/hr
+                            </Typography>
+                          </Box>
+                        </Stack>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+                          <Chip size="small" label={formatSourceAction(log.sourceAction || 'Labor Credit')} />
+                          {log.repair?.status && <Chip size="small" label={log.repair.status} />}
+                          {log.createdAt && (
+                            <Chip size="small" label={new Date(log.createdAt).toLocaleString()} />
+                          )}
+                        </Stack>
+                        {workItems.length > 0 && (
+                          <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, mt: 1 }}>
+                            Work: {workItems.slice(0, 5).join(', ')}
+                            {workItems.length > 5 ? ` +${workItems.length - 5} more` : ''}
+                          </Typography>
+                        )}
+                        {log.notes && (
+                          <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, mt: 0.5 }}>
+                            Notes: {log.notes}
+                          </Typography>
+                        )}
+                        <Divider sx={{ borderColor: REPAIRS_UI.border, my: 1 }} />
+                        <Button
+                          size="small"
+                          onClick={() => router.push(`/dashboard/repairs/${log.repairID}`)}
+                          sx={{ color: REPAIRS_UI.accent, px: 0 }}
+                        >
+                          Open Repair
+                        </Button>
+                      </Box>
+                    </Stack>
+                  </Box>
+                );
+              })}
+            </Stack>
+          ) : (
+            <Typography sx={{ color: REPAIRS_UI.textSecondary }}>
+              No labor credits were found for this payout.
+            </Typography>
+          )}
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 }
