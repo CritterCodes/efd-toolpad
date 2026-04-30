@@ -97,17 +97,16 @@ function RepairCloseoutCard({
   onEditRepair,
   highlighted,
 }) {
-  const [photoFile, setPhotoFile] = useState(null);
   const [inputKey, setInputKey] = useState(0);
   const afterPhotoCount = Array.isArray(repair.afterPhotos) ? repair.afterPhotos.length : 0;
   const blockedForReview = repair.requiresLaborReview === true;
   const batchReady = isReadyForInvoice(repair);
 
-  const handleSavePhotoClick = () => {
-    if (!photoFile) return;
-    onSavePhoto(repair.repairID, photoFile, noteValue);
-    setPhotoFile(null);
+  const handlePhotoTaken = (event) => {
+    const file = event.target.files?.[0];
     setInputKey((k) => k + 1);
+    if (!file) return;
+    onSavePhoto(repair.repairID, file, noteValue);
   };
 
   return (
@@ -172,33 +171,29 @@ function RepairCloseoutCard({
               type="file"
               accept="image/*"
               capture="environment"
-              style={{ display: "none" }}
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) setPhotoFile(file);
+              style={{
+                position: "absolute",
+                width: 1,
+                height: 1,
+                opacity: 0,
+                pointerEvents: "none",
               }}
+              onChange={handlePhotoTaken}
             />
             <label htmlFor={`after-photo-${repair.repairID}`}>
               <Button
                 variant="outlined"
                 startIcon={<PhotoCameraIcon />}
                 component="span"
+                disabled={photoState.loading}
                 sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
               >
-                Take After Photo
+                {photoState.loading ? "Saving..." : "Take After Photo"}
               </Button>
             </label>
             <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: "0.8rem", flex: 1 }}>
-              {photoFile ? `Ready: ${photoFile.name}` : "No photo taken yet"}
+              Photo saves automatically after you approve it in the camera.
             </Typography>
-            <Button
-              variant="contained"
-              onClick={handleSavePhotoClick}
-              disabled={!photoFile || photoState.loading}
-              sx={{ backgroundColor: REPAIRS_UI.accent, color: "#111" }}
-            >
-              {photoState.loading ? "Saving..." : "Save Photo"}
-            </Button>
           </Stack>
 
           <TextField
