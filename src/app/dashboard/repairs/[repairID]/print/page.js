@@ -111,7 +111,7 @@ const PrintRepairTicket = () => {
             <style jsx global>{`
                 @media print {
                     @page {
-                        size: ${printMode === 'both' ? 'letter landscape' : 'letter portrait'};
+                        size: letter portrait;
                         margin: 0;
                     }
                     .print-mode-ticket,
@@ -144,7 +144,10 @@ const PrintRepairTicket = () => {
                         display: none !important;
                     }
                     body > * {
-                        visibility: hidden;
+                        display: none !important;
+                    }
+                    body > .print-root {
+                        display: block !important;
                     }
                     .print-root,
                     .print-mode-ticket,
@@ -152,9 +155,7 @@ const PrintRepairTicket = () => {
                     .print-mode-both {
                         display: block !important;
                         visibility: visible !important;
-                        position: absolute !important;
-                        top: 0 !important;
-                        left: 0 !important;
+                        position: static !important;
                         width: ${printPageWidth} !important;
                         height: ${printPageHeight} !important;
                         min-height: 0 !important;
@@ -166,14 +167,16 @@ const PrintRepairTicket = () => {
                     .print-root * {
                         visibility: visible !important;
                     }
+                    .print-root > :not(.print-container) {
+                        display: none !important;
+                    }
                     body .print-container,
                     body .print-container * {
                         visibility: visible;
                     }
                     .print-container {
-                        position: absolute !important;
-                        top: 0 !important;
-                        left: 0 !important;
+                        display: block !important;
+                        position: static !important;
                         width: var(--print-page-width) !important;
                         height: var(--print-page-height) !important;
                         max-width: var(--print-page-width) !important;
