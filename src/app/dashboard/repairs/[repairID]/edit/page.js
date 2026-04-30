@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Alert, Box, Button, Chip, CircularProgress, Snackbar, Stack, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { ArrowBack } from '@mui/icons-material';
@@ -22,10 +22,18 @@ const COLORS = {
 export default function EditRepairPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session, status } = useSession();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const repairID = params?.repairID;
+  const returnTo = searchParams.get('returnTo') || '';
+  const getReturnPath = (nextRepairID = repairID) => {
+    if (returnTo === 'closeout' && nextRepairID) {
+      return `/dashboard/repairs/pick-up?closeoutRepairID=${encodeURIComponent(nextRepairID)}`;
+    }
+    return nextRepairID ? `/dashboard/repairs/${nextRepairID}` : '/dashboard/repairs';
+  };
 
   const [repair, setRepair] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -94,11 +102,11 @@ export default function EditRepairPage() {
   const handleSubmit = async (result) => {
     setNotification({ open: true, message: 'Repair updated successfully.', severity: 'success' });
     const nextRepairID = result?.repairID || result?.repair?.repairID || repairID;
-    router.push(`/dashboard/repairs/${nextRepairID}`);
+    router.push(getReturnPath(nextRepairID));
   };
 
   const handleCancel = () => {
-    router.push(repairID ? `/dashboard/repairs/${repairID}` : '/dashboard/repairs');
+    router.push(getReturnPath());
   };
 
   if (status === 'loading' || loading) {
@@ -182,7 +190,7 @@ export default function EditRepairPage() {
                   },
                 }}
               >
-                Back to Repair
+                {returnTo === 'closeout' ? 'Back to Closeout' : 'Back to Repair'}
               </Button>
             </Stack>
           </Stack>

@@ -1,6 +1,6 @@
 "use client";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   Alert,
@@ -93,11 +93,12 @@ function RepairCloseoutCard({
   noteValue,
   onNoteChange,
   photoState,
-  onSavePhoto,
+  onConfirmCloseout,
   onEditRepair,
   highlighted,
 }) {
   const [inputKey, setInputKey] = useState(0);
+  const [pendingPhoto, setPendingPhoto] = useState(null);
   const afterPhotoCount = Array.isArray(repair.afterPhotos) ? repair.afterPhotos.length : 0;
   const blockedForReview = repair.requiresLaborReview === true;
   const batchReady = isReadyForInvoice(repair);
@@ -106,7 +107,15 @@ function RepairCloseoutCard({
     const file = event.target.files?.[0];
     setInputKey((k) => k + 1);
     if (!file) return;
-    onSavePhoto(repair.repairID, file, noteValue);
+    setPendingPhoto(file);
+  };
+
+  const handleConfirmCloseout = async () => {
+    if (!pendingPhoto || blockedForReview || photoState.loading) return;
+    const saved = await onConfirmCloseout(repair.repairID, pendingPhoto, noteValue);
+    if (saved) {
+      setPendingPhoto(null);
+    }
   };
 
   return (
@@ -160,7 +169,7 @@ function RepairCloseoutCard({
 
           {!blockedForReview && afterPhotoCount === 0 && (
             <Alert severity="info" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
-              At least one after photo is required before this repair can be batched.
+              Take an after photo, add any closeout notes, then confirm to move this repair to an invoice.
             </Alert>
           )}
 
@@ -188,11 +197,11 @@ function RepairCloseoutCard({
                 disabled={photoState.loading}
                 sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
               >
-                {photoState.loading ? "Saving..." : "Take After Photo"}
+                {pendingPhoto ? "Retake After Photo" : "Take After Photo"}
               </Button>
             </label>
             <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: "0.8rem", flex: 1 }}>
-              Photo saves automatically after you approve it in the camera.
+              {pendingPhoto ? "Photo ready. Add notes, then confirm." : "Use the device camera, then confirm when closeout is ready."}
             </Typography>
           </Stack>
 
@@ -213,8 +222,16 @@ function RepairCloseoutCard({
             >
               Edit Repair for Missed Tasks / Materials
             </Button>
+            <Button
+              variant="contained"
+              disabled={!pendingPhoto || blockedForReview || photoState.loading}
+              onClick={handleConfirmCloseout}
+              sx={{ backgroundColor: REPAIRS_UI.accent, color: "#111" }}
+            >
+              {photoState.loading ? "Saving..." : "Confirm / Move to Invoice"}
+            </Button>
             <Chip
-              label={batchReady ? "Ready to batch" : "Needs closeout work"}
+              label={batchReady ? "Already invoice-ready" : pendingPhoto ? "Ready to confirm" : "Needs closeout work"}
               color={batchReady ? "success" : "default"}
               variant={batchReady ? "filled" : "outlined"}
             />
@@ -349,6 +366,9 @@ function InvoiceCard({
 export default function PaymentPickupPage() {
   const { data: session, status: authStatus } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnCloseoutRepairID = searchParams.get("closeoutRepairID") || "";
+  const handledReturnRef = useRef("");
   const [tab, setTab] = useState(0);
   const [closeoutRepairs, setCloseoutRepairs] = useState([]);
   const [invoices, setInvoices] = useState([]);
@@ -430,6 +450,17 @@ export default function PaymentPickupPage() {
     [closeoutRepairs, scannedRepairID]
   );
 
+  useEffect(() => {
+    if (!returnCloseoutRepairID || loading || handledReturnRef.current === returnCloseoutRepairID) return;
+    const repair = closeoutRepairs.find((item) => item.repairID === returnCloseoutRepairID);
+    if (!repair) return;
+
+    handledReturnRef.current = returnCloseoutRepairID;
+    setTab(0);
+    setCloseoutSearch(returnCloseoutRepairID);
+    setScannedRepairID(returnCloseoutRepairID);
+  }, [closeoutRepairs, loading, returnCloseoutRepairID]);
+
   const visibleCloseoutRepairs = useMemo(() => {
     const search = closeoutSearch.trim().toLowerCase();
     if (!search) return closeoutRepairs;
@@ -483,7 +514,7 @@ export default function PaymentPickupPage() {
       if (data.autoInvoiceError) {
         setCloseoutRepairs((prev) => prev.map((repair) => (repair.repairID === repairID ? data : repair)));
         showMessage(`Saved photos for ${repairID}, but invoice was not created: ${data.autoInvoiceError}`, "warning");
-        return;
+        return true;
       }
 
       await loadData();
@@ -493,8 +524,11 @@ export default function PaymentPickupPage() {
           : `Saved closeout data for ${repairID}.`,
         "success"
       );
+      setScannedRepairID("");
+      return true;
     } catch (error) {
       showMessage(error.message, "error");
+      return false;
     } finally {
       setSavingPhotoRepairID("");
     }
@@ -822,8 +856,8 @@ export default function PaymentPickupPage() {
                     noteValue={closeoutNotes[repair.repairID] || ""}
                     onNoteChange={handleCloseoutNoteChange}
                     photoState={{ loading: savingPhotoRepairID === repair.repairID }}
-                    onSavePhoto={handleSaveCloseoutPhoto}
-                    onEditRepair={(repairID) => router.push(`/dashboard/repairs/${repairID}/edit`)}
+                    onConfirmCloseout={handleSaveCloseoutPhoto}
+                    onEditRepair={(repairID) => router.push(`/dashboard/repairs/${repairID}/edit?returnTo=closeout`)}
                     highlighted={false}
                   />
                 </Grid>
@@ -908,8 +942,8 @@ export default function PaymentPickupPage() {
               noteValue={closeoutNotes[scannedRepair.repairID] || ""}
               onNoteChange={handleCloseoutNoteChange}
               photoState={{ loading: savingPhotoRepairID === scannedRepair.repairID }}
-              onSavePhoto={handleSaveCloseoutPhoto}
-              onEditRepair={(repairID) => router.push(`/dashboard/repairs/${repairID}/edit`)}
+              onConfirmCloseout={handleSaveCloseoutPhoto}
+              onEditRepair={(repairID) => router.push(`/dashboard/repairs/${repairID}/edit?returnTo=closeout`)}
               highlighted={false}
             />
           ) : (
