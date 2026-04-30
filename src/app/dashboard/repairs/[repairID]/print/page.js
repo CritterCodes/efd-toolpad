@@ -59,17 +59,38 @@ const PrintRepairTicket = () => {
         }
     }, [repair, validation, repairSummary, pricingData, totalItems, needsMultipleTicketPages]);
 
+    useEffect(() => {
+        const restorePrintControls = () => {
+            document.documentElement.classList.remove('efd-printing');
+            setShowControls(true);
+            setPrintMode('both');
+        };
+
+        const printMedia = window.matchMedia?.('print');
+        const handlePrintMediaChange = (event) => {
+            if (!event.matches) restorePrintControls();
+        };
+
+        window.addEventListener('afterprint', restorePrintControls);
+        printMedia?.addEventListener?.('change', handlePrintMediaChange);
+
+        return () => {
+            window.removeEventListener('afterprint', restorePrintControls);
+            printMedia?.removeEventListener?.('change', handlePrintMediaChange);
+            document.documentElement.classList.remove('efd-printing');
+        };
+    }, []);
+
     const handlePrint = (mode) => {
+        document.documentElement.classList.add('efd-printing');
         setPrintMode(mode);
         setShowControls(false);
 
-        setTimeout(() => {
-            window.print();
-            setTimeout(() => {
-                setShowControls(true);
-                setPrintMode('both');
-            }, 1000);
-        }, 100);
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                window.print();
+            });
+        });
     };
 
     if (!repair || !validation.isValid) {
@@ -86,12 +107,11 @@ const PrintRepairTicket = () => {
     }
 
     return (
-        <Box className={`print-mode-${printMode}`}>
+        <Box className={`print-root print-mode-${printMode}`}>
             <style jsx global>{`
                 @media print {
                     @page {
-                        size: ${printMode === 'both' ? 'landscape' : 'portrait'};
-                        size: ${printPageWidth} ${printPageHeight};
+                        size: ${printMode === 'both' ? 'letter landscape' : 'letter portrait'};
                         margin: 0;
                     }
                     .print-mode-ticket,
@@ -125,15 +145,16 @@ const PrintRepairTicket = () => {
                     }
                     body > * {
                         visibility: hidden;
-                        height: ${printPageHeight} !important;
-                        min-height: 0 !important;
-                        max-height: ${printPageHeight} !important;
-                        overflow: hidden !important;
                     }
+                    .print-root,
                     .print-mode-ticket,
                     .print-mode-receipt,
                     .print-mode-both {
                         display: block !important;
+                        visibility: visible !important;
+                        position: absolute !important;
+                        top: 0 !important;
+                        left: 0 !important;
                         width: ${printPageWidth} !important;
                         height: ${printPageHeight} !important;
                         min-height: 0 !important;
@@ -141,6 +162,9 @@ const PrintRepairTicket = () => {
                         overflow: hidden !important;
                         margin: 0 !important;
                         padding: 0 !important;
+                    }
+                    .print-root * {
+                        visibility: visible !important;
                     }
                     body .print-container,
                     body .print-container * {
