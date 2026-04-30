@@ -932,7 +932,7 @@ export default function NewRepairForm({
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   // Repairs context for updating the repairs list
-  const { addRepair } = useRepairs();
+  const { addRepair, updateRepair } = useRepairs();
   
   // Form state
   const [formData, setFormData] = useState({
@@ -2057,7 +2057,7 @@ export default function NewRepairForm({
         rushMultiplier: adminSettings.rushMultiplier 
       });
       
-      const { processes, ...sanitizedFormData } = formData;
+      const sanitizedFormData = formData;
       const submissionData = {
         ...sanitizedFormData,
         // For wholesalers, set a placeholder promise date if none provided (admin will update it)
@@ -2081,7 +2081,9 @@ export default function NewRepairForm({
         storeName: formData.storeName || 'Engel Fine Design',
         
         createdAt: initialData?.createdAt || new Date().toISOString(),
-        status: 'RECEIVING' // Use legacy status for compatibility
+        status: submitMode === 'edit'
+          ? (formData.status || initialData?.status || 'RECEIVING')
+          : 'RECEIVING' // Use legacy status for compatibility
       };
 
       // Add comprehensive logging for submission
@@ -2106,7 +2108,16 @@ export default function NewRepairForm({
         ? await RepairsService.updateRepair(repairID, submissionData)
         : await RepairsService.createRepair(submissionData);
       
-      if (submitMode !== 'edit') {
+      if (submitMode === 'edit') {
+        const repairToUpdate = result?.repair || result?.newRepair || result;
+        if (repairToUpdate?.repairID) {
+          console.log('Updating repair in context:', repairToUpdate.repairID);
+          updateRepair(repairToUpdate.repairID, repairToUpdate);
+        } else if (repairID) {
+          console.warn('Update response did not include a repairID; merging submitted data into context:', result);
+          updateRepair(repairID, submissionData);
+        }
+      } else {
         // Add the new repair to the repairs context immediately
         if (result && (result.repairID || result.newRepair?.repairID)) {
           const repairToAdd = result.newRepair || result;

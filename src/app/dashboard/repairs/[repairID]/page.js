@@ -154,6 +154,63 @@ const ViewRepairPage = ({ params }) => {
         return () => { cancelled = true; };
     }, [repairID, repairs, session?.user]);
 
+    React.useEffect(() => {
+        let cancelled = false;
+
+        const fetchFreshRepair = async () => {
+            if (!repairID || !session?.user) return;
+
+            try {
+                const response = await fetch(`/api/repairs?repairID=${encodeURIComponent(repairID)}`);
+                if (cancelled) return;
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (!data) return;
+
+                    setAccessDenied(false);
+                    setRepair(data);
+                    setRepairs((prevRepairs) => {
+                        const exists = prevRepairs.some((item) => item.repairID === data.repairID);
+                        if (!exists) return [data, ...prevRepairs];
+                        return prevRepairs.map((item) => item.repairID === data.repairID ? data : item);
+                    });
+
+                    if (data.userID === 'retail-lead' || data.leadSource === 'retail-chat') {
+                        setClientInfo({
+                            name: data.clientName,
+                            email: data.leadContact || data.notes?.replace('Contact: ', '') || '',
+                            role: 'retail-lead',
+                        });
+                        setIsWholesale(false);
+                    } else {
+                        try {
+                            const user = await UsersService.getUserByQuery(data.userID);
+                            if (!cancelled) {
+                                setClientInfo(user);
+                                setIsWholesale(user.role === 'wholesaler');
+                            }
+                        } catch (error) {
+                            console.error('Error fetching user:', error);
+                        }
+                    }
+                } else if (response.status === 403 || response.status === 401) {
+                    setAccessDenied(true);
+                } else {
+                    console.error('Failed to refresh repair:', response.status);
+                }
+            } catch (error) {
+                console.error('Error refreshing repair from API:', error);
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        };
+
+        fetchFreshRepair();
+
+        return () => { cancelled = true; };
+    }, [repairID, session?.user, setRepairs]);
+
     if (loading) {
         return <Typography>Loading repair data...</Typography>;
     }

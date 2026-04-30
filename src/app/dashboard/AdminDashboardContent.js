@@ -36,6 +36,7 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useRepairs } from '@/app/context/repairs.context';
+import ContinuousBarcodeScanner from '@/components/repairs/ContinuousBarcodeScanner';
 
 const COLORS = {
   bgPrimary: '#0F1115',
@@ -266,6 +267,7 @@ function getRepairDisplayName(repair) {
 function RepairLookupPanel({ repairs, onNavigate }) {
   const [query, setQuery] = React.useState('');
   const [error, setError] = React.useState('');
+  const [cameraScannerOpen, setCameraScannerOpen] = React.useState(false);
 
   const trimmedQuery = query.trim();
   const matches = React.useMemo(() => {
@@ -282,21 +284,40 @@ function RepairLookupPanel({ repairs, onNavigate }) {
     onNavigate(`/dashboard/repairs/${encodeURIComponent(repairID)}`);
   };
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
+  const findRepair = (value) => {
+    const normalizedValue = String(value || '').trim().toLowerCase();
+    if (!normalizedValue) return null;
+
+    const exactMatch = repairs.find((repair) => String(repair.repairID || '').toLowerCase() === normalizedValue);
+    if (exactMatch) return exactMatch;
+
+    return repairs.find((repair) => getRepairSearchText(repair).includes(normalizedValue)) || null;
+  };
+
+  const handleLookup = (value) => {
     setError('');
 
-    if (!trimmedQuery) return;
+    const normalizedValue = String(value || '').trim();
+    if (!normalizedValue) return;
 
-    const exactMatch = repairs.find((repair) => String(repair.repairID || '').toLowerCase() === trimmedQuery.toLowerCase());
-    const target = exactMatch || matches[0];
+    const target = findRepair(normalizedValue);
 
     if (target?.repairID) {
       openRepair(target.repairID);
       return;
     }
 
-    setError(`No repair found for "${trimmedQuery}".`);
+    setError(`No repair found for "${normalizedValue}".`);
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    handleLookup(trimmedQuery);
+  };
+
+  const handleCameraScan = (value) => {
+    setQuery(value);
+    handleLookup(value);
   };
 
   return (
@@ -391,6 +412,23 @@ function RepairLookupPanel({ repairs, onNavigate }) {
           >
             Search
           </Button>
+          <Button
+            type="button"
+            variant="outlined"
+            startIcon={<QrCodeScannerIcon />}
+            onClick={() => setCameraScannerOpen(true)}
+            sx={{
+              color: COLORS.textPrimary,
+              borderColor: COLORS.border,
+              px: 2.5,
+              minWidth: { xs: '100%', md: 140 },
+              textTransform: 'none',
+              fontWeight: 700,
+              '&:hover': { borderColor: COLORS.accent, backgroundColor: COLORS.bgTertiary },
+            }}
+          >
+            Camera Scan
+          </Button>
         </Box>
 
         {error && (
@@ -455,6 +493,20 @@ function RepairLookupPanel({ repairs, onNavigate }) {
             })}
           </Stack>
         )}
+
+        <ContinuousBarcodeScanner
+          open={cameraScannerOpen}
+          title="Scan Repair Ticket"
+          queuedCount={0}
+          actionLabel="Close Scanner"
+          onClose={() => setCameraScannerOpen(false)}
+          onScan={handleCameraScan}
+          onAction={() => setCameraScannerOpen(false)}
+        >
+          <Typography variant="body2" sx={{ color: COLORS.textSecondary }}>
+            Scan a repair ticket QR code or barcode to open the matching repair.
+          </Typography>
+        </ContinuousBarcodeScanner>
       </Stack>
     </Surface>
   );

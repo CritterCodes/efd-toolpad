@@ -17,13 +17,52 @@ const CUT_SHEET_HEIGHT = SLIP_HEIGHT;
 
 const PrintRepairTicket = () => {
     const { data: session } = useSession();
-    const { repairs } = useRepairs();
+    const { repairs, setRepairs } = useRepairs();
     const params = useParams();
     const repairID = params.repairID;
     const [printMode, setPrintMode] = useState('both'); // 'ticket', 'receipt', or 'both'
     const [showControls, setShowControls] = useState(true);
+    const [apiRepair, setApiRepair] = useState(null);
+    const [repairLoading, setRepairLoading] = useState(true);
 
-    const repair = repairs.find((r) => r.repairID === repairID);
+    const contextRepair = repairs.find((r) => r.repairID === repairID);
+    const repair = apiRepair || contextRepair;
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const fetchRepair = async () => {
+            if (!repairID) return;
+
+            setRepairLoading(true);
+            try {
+                const response = await fetch(`/api/repairs?repairID=${encodeURIComponent(repairID)}`);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch repair ${repairID}: ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (cancelled || !data) return;
+
+                setApiRepair(data);
+                setRepairs((prevRepairs) => {
+                    const exists = prevRepairs.some((item) => item.repairID === data.repairID);
+                    if (!exists) return [data, ...prevRepairs];
+                    return prevRepairs.map((item) => item.repairID === data.repairID ? data : item);
+                });
+            } catch (error) {
+                console.error('Error fetching fresh repair for print:', error);
+            } finally {
+                if (!cancelled) setRepairLoading(false);
+            }
+        };
+
+        fetchRepair();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [repairID, setRepairs]);
 
     const validation = useMemo(() => {
         const userRole = session?.user?.role;
@@ -112,6 +151,10 @@ const PrintRepairTicket = () => {
             });
         });
     };
+
+    if (repairLoading && !repair) {
+        return <Typography>Loading repair data...</Typography>;
+    }
 
     if (!repair || !validation.isValid) {
         return (

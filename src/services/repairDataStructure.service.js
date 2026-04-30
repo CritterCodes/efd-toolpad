@@ -25,23 +25,7 @@ export const validateRepairData = (repair, userRole = null) => {
         errors.push('Client name is required');
     }
 
-    // Only validate work items for non-wholesaler roles
-    // Wholesalers submit repairs without work items - these are added by staff later
-    const isWholesaler = userRole === 'wholesaler';
-    
-    if (!isWholesaler) {
-        // Validate work items exist for admin/staff roles
-        const hasWorkItems = (
-            (repair.tasks && repair.tasks.length > 0) ||
-            (repair.materials && repair.materials.length > 0) ||
-            (repair.customLineItems && repair.customLineItems.length > 0) ||
-            (repair.repairTasks && repair.repairTasks.length > 0)
-        );
-
-        if (!hasWorkItems) {
-            errors.push('At least one work item is required');
-        }
-    }
+    // Work items are optional. Print layouts render a placeholder line when none exist.
 
     return {
         isValid: errors.length === 0,
