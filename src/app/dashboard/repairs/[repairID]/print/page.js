@@ -10,10 +10,11 @@ import SideBySideLayout from '@/components/print/SideBySideLayout';
 import { calculateRepairTotal, getAllWorkItems } from '@/services/pricingCalculation.service';
 import { getRepairSummary, validateRepairData } from '@/services/repairDataStructure.service';
 
-const SLIP_WIDTH = '3.7in';
-const SLIP_HEIGHT = '5.7in';
-const CUT_SHEET_WIDTH = '7.4in';
+const SLIP_WIDTH = '3.6in';
+const SLIP_HEIGHT = '5.5in';
+const CUT_SHEET_WIDTH = '7.2in';
 const CUT_SHEET_HEIGHT = SLIP_HEIGHT;
+const PRINT_INSET = '0.12in';
 
 const PrintRepairTicket = () => {
     const { data: session } = useSession();
@@ -165,8 +166,8 @@ const PrintRepairTicket = () => {
                         display: block !important;
                         visibility: visible !important;
                         position: fixed !important;
-                        top: 0 !important;
-                        left: 0 !important;
+                        top: ${PRINT_INSET} !important;
+                        left: ${PRINT_INSET} !important;
                         width: ${printPageWidth} !important;
                         height: ${printPageHeight} !important;
                         min-height: 0 !important;
