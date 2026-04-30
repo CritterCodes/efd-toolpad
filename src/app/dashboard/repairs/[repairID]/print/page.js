@@ -1,6 +1,6 @@
 "use client";
-import React, { useEffect, useState, useMemo } from 'react';
-import { Box, Typography, Button, ButtonGroup } from '@mui/material';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Box, Typography, Button, ButtonGroup, useMediaQuery, useTheme } from '@mui/material';
 import { useSession } from 'next-auth/react';
 import { useRepairs } from '@/app/context/repairs.context';
 import { useParams } from 'next/navigation';
@@ -14,17 +14,15 @@ const PrintRepairTicket = () => {
     const { data: session } = useSession();
     const { repairs } = useRepairs();
     const params = useParams();
+    const theme = useTheme();
+    const isSmallViewport = useMediaQuery(theme.breakpoints.down('md'));
     const repairID = params.repairID;
     const [printMode, setPrintMode] = useState('both'); // 'ticket', 'receipt', or 'both'
     const [showControls, setShowControls] = useState(true);
+    const [isMobilePrintClient, setIsMobilePrintClient] = useState(false);
 
-    console.log("Params from URL:", params);
-    console.log("Repairs from Context:", repairs);
-    console.log("Repair ID to Search:", repairID);
+    const repair = repairs.find((r) => r.repairID === repairID);
 
-    const repair = repairs.find(r => r.repairID === repairID);
-
-    // Memoize computations to avoid changing dependencies
     const validation = useMemo(() => {
         const userRole = session?.user?.role;
         return repair ? validateRepairData(repair, userRole) : { isValid: false, errors: ['Repair not found'] };
@@ -42,31 +40,35 @@ const PrintRepairTicket = () => {
         return repair ? calculateRepairTotal(repair) : null;
     }, [repair]);
 
-    // Calculate total items to determine if we need multiple pages for ticket
     const totalItems = repairSummary ? repairSummary.totalItems : 0;
-
-    const maxItemsPerTicketPage = 8; // Conservative estimate for 4x6" page
+    const maxItemsPerTicketPage = 8;
     const needsMultipleTicketPages = totalItems > maxItemsPerTicketPage;
 
     useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const ua = window.navigator.userAgent || '';
+        const touchCapable = window.matchMedia ? window.matchMedia('(pointer: coarse)').matches : false;
+        const isMobileUserAgent = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+        setIsMobilePrintClient(Boolean(isSmallViewport || touchCapable || isMobileUserAgent));
+    }, [isSmallViewport]);
+
+    useEffect(() => {
         if (repair && validation.isValid) {
-            console.log("Repair Found:", repair);
-            console.log("Repair Summary:", repairSummary);
-            console.log("Pricing Data:", pricingData);
+            console.log('Repair Found:', repair);
+            console.log('Repair Summary:', repairSummary);
+            console.log('Pricing Data:', pricingData);
             console.log(`Total items: ${totalItems}, needs multiple pages: ${needsMultipleTicketPages}`);
         } else {
-            console.warn("Repair validation failed:", validation.errors);
+            console.warn('Repair validation failed:', validation.errors);
         }
     }, [repair, validation, repairSummary, pricingData, totalItems, needsMultipleTicketPages]);
 
     const handlePrint = (mode) => {
         setPrintMode(mode);
         setShowControls(false);
-        
-        // Small delay to ensure state updates before printing
+
         setTimeout(() => {
             window.print();
-            // Reset after printing
             setTimeout(() => {
                 setShowControls(true);
                 setPrintMode('both');
@@ -89,34 +91,31 @@ const PrintRepairTicket = () => {
 
     return (
         <Box>
-            {/* Print-specific styles */}
             <style jsx global>{`
                 @media print {
                     @page {
                         size: 7.5in 5.75in;
                         margin: 0;
                     }
-                    /* Clamp document to exactly one page so no blank second page appears */
-                    html, body {
-                        width: 7.5in !important;
-                        height: 5.75in !important;
-                        max-height: 5.75in !important;
-                        overflow: hidden !important;
-                        background: white !important;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
+                    body {
                         margin: 0 !important;
                         padding: 0 !important;
+                        background: #fff !important;
+                        color: #111 !important;
                     }
-                    /* Hide every element, then reveal only print-container */
-                    body * {
+                    nav, header, aside,
+                    .MuiDrawer-root,
+                    .MuiAppBar-root,
+                    .MuiBreadcrumbs-root {
+                        display: none !important;
+                    }
+                    body > * {
                         visibility: hidden;
                     }
-                    .print-container,
-                    .print-container * {
-                        visibility: visible !important;
+                    body .print-container,
+                    body .print-container * {
+                        visibility: visible;
                     }
-                    /* Force black text and white bg inside print area */
                     .print-container {
                         position: absolute !important;
                         top: 0 !important;
@@ -128,29 +127,43 @@ const PrintRepairTicket = () => {
                         overflow: hidden !important;
                         margin: 0 !important;
                         padding: 0 !important;
-                        background: white !important;
-                        color: #000 !important;
+                        background: #fff !important;
+                        color: #111 !important;
                     }
-                    .print-container * {
-                        color: #000 !important;
-                        background-color: transparent !important;
+                    .print-container.mobile-separate {
+                        position: static !important;
+                        width: 100% !important;
+                        height: auto !important;
+                        max-width: none !important;
+                        max-height: none !important;
+                        overflow: visible !important;
+                    }
+                    .mobile-print-page {
+                        width: 3.75in !important;
+                        min-height: 5.75in !important;
+                        margin: 0 auto !important;
+                        page-break-after: always !important;
+                        break-after: page !important;
+                    }
+                    .mobile-print-page.receipt-page {
+                        width: 8in !important;
+                        min-height: 10.5in !important;
+                    }
+                    .mobile-print-page:last-child {
+                        page-break-after: auto !important;
+                        break-after: auto !important;
                     }
                 }
             `}</style>
 
-            {/* Print Controls - Hidden during print */}
             {showControls && (
-                <Box sx={{ 
-                    padding: '20px', 
-                    textAlign: 'center', 
-                    '@media print': { display: 'none' } 
-                }}>
+                <Box sx={{ padding: '20px', textAlign: 'center', '@media print': { display: 'none' } }}>
                     <Typography variant="h6" sx={{ marginBottom: '16px' }}>
                         Print Options for Repair {repair.repairID}
                     </Typography>
                     <ButtonGroup variant="contained" sx={{ marginBottom: '16px' }}>
                         <Button onClick={() => handlePrint('both')} variant={printMode === 'both' ? 'contained' : 'outlined'}>
-                            Print Both (Cut Page)
+                            {isMobilePrintClient ? 'Print Both' : 'Print Both (Cut Page)'}
                         </Button>
                         <Button onClick={() => handlePrint('ticket')}>
                             Repair Ticket Only
@@ -160,25 +173,26 @@ const PrintRepairTicket = () => {
                         </Button>
                     </ButtonGroup>
                     <Typography variant="body2" sx={{ marginBottom: '8px', color: '#666' }}>
-                        📄 Default: Both documents on one page - cut in half after printing
+                        {isMobilePrintClient
+                            ? 'Mobile print uses separate ticket and receipt pages for better browser compatibility.'
+                            : 'Default: Both documents on one page - cut in half after printing'}
                     </Typography>
                     {needsMultipleTicketPages && printMode === 'ticket' && (
                         <Typography variant="body2" color="warning.main">
-                            ⚠️ Repair ticket will span multiple 4x6&quot; pages ({Math.ceil(totalItems / maxItemsPerTicketPage)} pages)
+                            Repair ticket will span multiple 4x6" pages ({Math.ceil(totalItems / maxItemsPerTicketPage)} pages)
                         </Typography>
                     )}
                 </Box>
             )}
 
-            {/* Render based on print mode */}
             {printMode === 'both' ? (
-                <SideBySideLayoutContainer repair={repair} maxItemsPerPage={maxItemsPerTicketPage} />
+                <SideBySideLayoutContainer repair={repair} separatePages={isMobilePrintClient} />
             ) : (
                 <>
                     {printMode === 'ticket' && (
-                        <RepairTicketContainer repair={repair} needsMultiplePages={needsMultipleTicketPages} maxItemsPerPage={maxItemsPerTicketPage} />
+                        <RepairTicketContainer repair={repair} />
                     )}
-                    
+
                     {printMode === 'receipt' && (
                         <ClientReceiptContainer repair={repair} />
                     )}
@@ -188,8 +202,32 @@ const PrintRepairTicket = () => {
     );
 };
 
-// Side-by-Side Layout Wrapper - Uses modular components
-const SideBySideLayoutContainer = ({ repair, maxItemsPerPage }) => {
+const SideBySideLayoutContainer = ({ repair, separatePages = false }) => {
+    if (separatePages) {
+        return (
+            <Box
+                className="print-container mobile-separate"
+                sx={{
+                    width: '100%',
+                    maxWidth: '3.75in',
+                    margin: '0 auto',
+                    '@media print': {
+                        width: '100% !important',
+                        maxWidth: 'none !important',
+                        margin: '0 !important'
+                    },
+                }}
+            >
+                <Box className="mobile-print-page">
+                    <RepairTicketComponent repair={repair} />
+                </Box>
+                <Box className="mobile-print-page receipt-page">
+                    <RepairReceiptComponent repair={repair} fullPage />
+                </Box>
+            </Box>
+        );
+    }
+
     return (
         <Box
             className="print-container"
@@ -216,30 +254,18 @@ const SideBySideLayoutContainer = ({ repair, maxItemsPerPage }) => {
     );
 };
 
-// Repair Ticket Container (4x6" for jeweler) - Uses modular component
-const RepairTicketContainer = ({ repair, needsMultiplePages, maxItemsPerPage }) => {
+const RepairTicketContainer = ({ repair }) => {
     return (
-        <Box sx={{ 
-            width: '3.75in', 
-            height: '5.75in', 
-            margin: '0 auto',
-            '@media print': { margin: '0' }
-        }}>
+        <Box sx={{ width: '3.75in', height: '5.75in', margin: '0 auto', '@media print': { margin: '0' } }}>
             <RepairTicketComponent repair={repair} />
         </Box>
     );
 };
 
-// Client Receipt Container (8.5x11" full page) - Uses modular component  
 const ClientReceiptContainer = ({ repair }) => {
     return (
-        <Box sx={{ 
-            width: '3.75in', 
-            minHeight: '5.75in', 
-            margin: '0 auto',
-            '@media print': { margin: '0' }
-        }}>
-            <RepairReceiptComponent repair={repair} />
+        <Box sx={{ width: '8in', minHeight: '10.5in', margin: '0 auto', '@media print': { margin: '0' } }}>
+            <RepairReceiptComponent repair={repair} fullPage />
         </Box>
     );
 };

@@ -1,183 +1,352 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Typography, List, ListItem } from '@mui/material';
 import Barcode from 'react-barcode';
 
-const RepairReceiptComponent = ({ repair }) => {
-    const formalItems = [
-        ...(repair.tasks || []).map(item => ({ ...item, type: 'Task' })),
-        ...(repair.processes || []).map(item => ({ ...item, type: 'Process' })),
-        ...(repair.materials || []).map(item => ({ ...item, type: 'Material', isStullerItem: item.isStullerItem })),
-        ...(repair.customLineItems || []).map(item => ({ ...item, type: 'Custom' })),
-        ...(repair.repairTasks || []).map(item => ({ ...item, type: 'Legacy Task' }))
-    ];
+const PAPER = '#ffffff';
+const INK = '#111111';
+const MUTED = '#4b5563';
+const BORDER = '#000000';
+const ACCENT = '#d32f2f';
+const IMAGE_SIZE = 108;
+const BARCODE_WIDTH = 0.85;
+const BARCODE_HEIGHT = 16;
+const BARCODE_FONT_SIZE = 7;
+const REVIEW_URL = 'https://g.page/r/CbpAai4DElTQEBE/review';
 
-    // Fallback for wholesale repairs that only have itemType/repairType
-    const allItems = formalItems.length > 0 ? formalItems : [
+const toNumber = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const getReceiptItems = (repair) => {
+  const formalItems = [
+    ...(repair.tasks || []).map((item) => ({ ...item, type: 'Task' })),
+    ...(repair.processes || []).map((item) => ({ ...item, type: 'Process' })),
+    ...(repair.materials || []).map((item) => ({ ...item, type: 'Material', isStullerItem: item.isStullerItem })),
+    ...(repair.customLineItems || []).map((item) => ({ ...item, type: 'Custom' })),
+    ...(repair.repairTasks || []).map((item) => ({ ...item, type: 'Legacy Task' }))
+  ];
+
+  return formalItems.length > 0
+    ? formalItems
+    : [
         ...(repair.repairType ? [{ quantity: 1, title: repair.repairType, price: 0, type: 'Intake' }] : []),
         ...(repair.specialInstructions ? [{ quantity: 1, title: repair.specialInstructions, price: 0, type: 'Note' }] : [])
-    ];
+      ];
+};
 
-    return (
-        <Box
-            sx={{
-                width: '3.75in',
-                height: '5.75in',
-                maxWidth: '3.75in',
-                maxHeight: '5.75in',
-                padding: '6px',
-                border: '1px solid #000',
-                borderLeft: '0.5px dashed #000',
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-                boxSizing: 'border-box',
-                '@media print': {
-                    width: '3.75in',
-                    height: '5.75in',
-                    maxWidth: '3.75in',
-                    maxHeight: '5.75in',
-                    padding: '6px',
-                    overflow: 'hidden',
-                },
-            }}
-        >
-            {/* Header */}
-            <Box sx={{ display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
-                <img src="/logos/[efd]LogoBlack.png" alt="Logo" style={{ width: '40px', height: '20px', marginRight: '6px' }} />
-                <Typography variant="h6" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#d32f2f' }}>
-                    REPAIR RECEIPT
-                </Typography>
-            </Box>
+const getReceiptLinePrice = (item, isWholesale) => {
+  if (isWholesale) {
+    return toNumber(item?.retailPrice ?? item?.finalSalePrice ?? item?.price);
+  }
 
-            {/* Customer Info */}
-            <Box sx={{ display: 'flex'}}>
-                <Box sx={{ flex: 1, textAlign: 'center' }}>
-                    {repair.picture && (
-                        <img
-                            src={repair.picture}
-                            alt="Repair"
-                            style={{
-                                width: '90px',
-                                height: '90px',
-                                objectFit: 'cover',
-                                borderRadius: '3px'
-                            }}
-                        />
-                    )}
-                </Box>
-                <Box sx={{ flex: 2, paddingLeft: '6px' }}>
-                    <Typography variant="body2" sx={{ fontSize: '0.65rem', fontWeight: 'bold', marginBottom: '1px' }}>
-                        {repair.clientName}
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontSize: '0.6rem', marginBottom: '1px' }}>
-                        Received: {repair.createdAt ? new Date(repair.createdAt).toLocaleDateString() : 'N/A'} | Due: {repair.promiseDate || 'N/A'}
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontSize: '0.6rem', marginBottom: '1px' }}>
-                        Metal: {repair.metalType || 'N/A'} {repair.karat}
-                    </Typography>
-                    {repair.isRing && (repair.currentRingSize || repair.desiredRingSize) && (
-                        <Typography variant="body2" sx={{ fontSize: '0.6rem', marginBottom: '1px' }}>
-                            Ring Size: {repair.currentRingSize || 'N/A'} → {repair.desiredRingSize || 'N/A'}
-                        </Typography>
-                    )}
-                    <Typography variant="body2" sx={{ fontSize: '0.6rem', marginBottom: '1px', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}>
-                        Desc: {repair.description}
-                    </Typography>
-                    {repair.smartIntakeInput && repair.smartIntakeInput !== repair.description && (
-                        <Typography variant="body2" sx={{ fontSize: '0.55rem', marginBottom: '1px', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                            Request: {repair.smartIntakeInput}
-                        </Typography>
-                    )}
-                    {(repair.isRush || repair.includeDelivery) && (
-                        <Typography variant="body2" sx={{ fontSize: '0.6rem', fontWeight: 'bold' }}>
-                            {repair.isRush && <span style={{ color: 'red' }}>🚨 RUSH ORDER</span>}
-                            {repair.isRush && repair.includeDelivery && <span> | </span>}
-                            {repair.includeDelivery && <span style={{ color: 'blue' }}>🔷 DELIVERY INCLUDED</span>}
-                        </Typography>
-                    )}
-                </Box>
-            </Box>
-            {/* Work Items */}
-            <Typography variant="subtitle2" sx={{ fontSize: '0.65rem', fontWeight: 'bold', marginBottom: '4px' }}>
-                Work Items:
-            </Typography>
+  return toNumber(item?.price ?? item?.retailPrice ?? item?.finalSalePrice);
+};
+const getItemQuantity = (item) => Math.max(toNumber(item?.quantity) || 1, 1);
+const getReceiptLineTotal = (item, isWholesale) => getReceiptLinePrice(item, isWholesale) * getItemQuantity(item);
+const isEngelFineDesignRepair = (repair) => {
+  const storeId = String(repair?.storeId || '').trim().toLowerCase();
+  const storeName = String(repair?.storeName || repair?.businessName || '').trim().toLowerCase();
+  return storeId === 'engel-fine-design' || storeName === 'engel fine design';
+};
+const getWholesaleAccountKey = (repair) => repair?.storeId || repair?.submittedBy || repair?.createdBy || null;
 
-            <List dense disablePadding sx={{ flex: 1 }}>
-                {allItems.map((item, index) => (
-                    <ListItem
-                        key={`receipt-item-${index}`}
-                        sx={{
-                            padding: '1px 0',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center'
-                        }}
-                    >
-                        <Typography variant="body2" sx={{ fontSize: '0.6rem', flex: 1 }}>
-                            {item.quantity}x {item.title || item.displayName || item.name || item.description}
-                        </Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.6rem', fontWeight: 500 }}>
-                            ${parseFloat(item.price || 0).toFixed(2)}
-                        </Typography>
-                    </ListItem>
-                ))}
-            </List>
+const RepairReceiptComponent = ({ repair, fullPage = false }) => {
+  const allItems = getReceiptItems(repair);
+  const isWholesale = Boolean(repair?.isWholesale);
+  const showReviewQr = !isWholesale && isEngelFineDesignRepair(repair);
+  const reviewQrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=88x88&data=${encodeURIComponent(REVIEW_URL)}`;
+  const [wholesaleBranding, setWholesaleBranding] = useState({ ticketLogoUrl: '', businessName: '' });
+  const wholesaleAccountKey = useMemo(() => getWholesaleAccountKey(repair), [repair]);
+  const displayedSubtotal = allItems.reduce(
+    (sum, item) => sum + getReceiptLineTotal(item, isWholesale),
+    0
+  );
+  const rushFee = toNumber(repair?.rushFee);
+  const deliveryFee = toNumber(repair?.deliveryFee);
+  const taxRate = toNumber(repair?.taxRate);
+  const taxableBase = displayedSubtotal + rushFee + deliveryFee;
+  const taxAmount = isWholesale
+    ? Math.round(taxableBase * taxRate * 100) / 100
+    : (repair?.includeTax ? toNumber(repair?.taxAmount) : 0);
+  const displayedTotal = displayedSubtotal + rushFee + deliveryFee + taxAmount;
 
-            {/* Important notice instead of workflow */}
-            <Box sx={{ textAlign: 'center', marginTop: '6px', padding: '4px', backgroundColor: '#f9f9f9', borderRadius: '4px' }}>
-                <Typography variant="body2" sx={{ fontSize: '0.5rem', lineHeight: 1.3 }}>
-                    <strong>Important:</strong> This is an item receipt, not a payment receipt.
-                    Payment is due at pickup. Items not claimed within 90 days may be subject to storage fees.
-                </Typography>
+  useEffect(() => {
+    let cancelled = false;
 
-                <Typography variant="body2" sx={{ fontSize: '0.55rem', color: '#666' }}>
-                    Thank you for trusting us with your jewelry
-                </Typography>
-            </Box>
-            {/* Pricing */}
-            <Box sx={{ marginTop: 'auto' }}>
-                <Typography sx={{ fontSize: '0.6rem', display: 'flex', justifyContent: 'space-between', marginBottom: '1px' }}>
-                    <span>Subtotal:</span>
-                    <span>${(repair.subtotal || 0).toFixed(2)}</span>
-                </Typography>
-                <Typography sx={{ fontSize: '0.6rem', display: 'flex', justifyContent: 'space-between', marginBottom: '1px' }}>
-                    <span>Rush Fee:</span>
-                    <span>${(repair.rushFee || 0).toFixed(2)}</span>
-                </Typography>
-                <Typography sx={{ fontSize: '0.6rem', display: 'flex', justifyContent: 'space-between', marginBottom: '1px' }}>
-                    <span>Delivery Fee:</span>
-                    <span>${(repair.deliveryFee || 0).toFixed(2)}</span>
-                </Typography>
-                <Typography sx={{ fontSize: '0.6rem', display: 'flex', justifyContent: 'space-between', marginBottom: '1px' }}>
-                    <span>Tax {repair.isWholesale ? '(Wholesale Exempt)' : ''}:</span>
-                    <span>${(repair.taxAmount || 0).toFixed(2)}</span>
-                </Typography>
-                {repair.isWholesale && (
-                    <Typography sx={{ fontSize: '0.65rem', color: 'green', fontWeight: 'bold', marginBottom: '4px' }}>
-                        Wholesale Client (50% off, Tax Exempt)
-                    </Typography>
-                )}
-                <Typography sx={{ fontSize: '0.65rem', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
-                    <span>Total:</span>
-                    <span>${(repair.totalCost || 0).toFixed(2)}</span>
-                </Typography>
-            </Box>
+    const loadWholesaleBranding = async () => {
+      if (!isWholesale || !wholesaleAccountKey) {
+        setWholesaleBranding({ ticketLogoUrl: '', businessName: '' });
+        return;
+      }
 
+      try {
+        const response = await fetch(`/api/wholesale/account-settings?accountId=${encodeURIComponent(wholesaleAccountKey)}`);
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || !payload?.success) {
+          throw new Error(payload?.error || 'Failed to load wholesale branding');
+        }
 
-            {/* Barcode */}
-            <Box sx={{ textAlign: 'center', marginTop: '4px' }}>
-                <Barcode
-                    value={repair.repairID}
-                    width={0.6}
-                    height={12}
-                    displayValue={true}
-                    font={'monospace'}
-                    format={'CODE39'}
-                    fontSize={6}
-                />
-            </Box>
+        if (!cancelled) {
+          setWholesaleBranding({
+            ticketLogoUrl: payload?.data?.ticketLogoUrl || '',
+            businessName: payload?.data?.businessProfile?.businessName || repair?.storeName || repair?.businessName || ''
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          setWholesaleBranding({
+            ticketLogoUrl: '',
+            businessName: repair?.storeName || repair?.businessName || ''
+          });
+        }
+      }
+    };
+
+    loadWholesaleBranding();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isWholesale, wholesaleAccountKey, repair?.storeName, repair?.businessName]);
+
+  return (
+    <Box
+      sx={{
+        width: fullPage ? '8in' : '3.75in',
+        minHeight: fullPage ? '10.5in' : '5.75in',
+        height: fullPage ? 'auto' : '5.75in',
+        maxWidth: fullPage ? '8in' : '3.75in',
+        maxHeight: fullPage ? 'none' : '5.75in',
+        padding: fullPage ? '12px' : '6px',
+        border: `1px solid ${BORDER}`,
+        borderLeft: `0.5px dashed ${BORDER}`,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        boxSizing: 'border-box',
+        backgroundColor: PAPER,
+        color: INK,
+        '@media print': {
+          width: fullPage ? '8in' : '3.75in',
+          minHeight: fullPage ? '10.5in' : '5.75in',
+          height: fullPage ? 'auto' : '5.75in',
+          maxWidth: fullPage ? '8in' : '3.75in',
+          maxHeight: fullPage ? 'none' : '5.75in',
+          padding: fullPage ? '12px' : '6px',
+          overflow: fullPage ? 'visible' : 'hidden',
+          backgroundColor: `${PAPER} !important`,
+          color: `${INK} !important`
+        }
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+          {!isWholesale && (
+            <img src="/logos/[efd]LogoBlack.png" alt="Logo" style={{ width: '40px', height: '20px', marginRight: '6px' }} />
+          )}
+          {isWholesale && wholesaleBranding.ticketLogoUrl && (
+            <img
+              src={wholesaleBranding.ticketLogoUrl}
+              alt="Store logo"
+              style={{ width: '44px', height: '24px', marginRight: '6px', objectFit: 'contain' }}
+            />
+          )}
+          <Typography variant="h6" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: ACCENT }}>
+            REPAIR RECEIPT
+          </Typography>
         </Box>
-    );
+        {isWholesale && wholesaleBranding.businessName && (
+          <Typography
+            sx={{
+              fontSize: '0.55rem',
+              fontWeight: 'bold',
+              textAlign: 'right',
+              maxWidth: '1.5in',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              color: INK
+            }}
+          >
+            {wholesaleBranding.businessName}
+          </Typography>
+        )}
+      </Box>
+
+      <Box sx={{ display: 'flex' }}>
+        <Box sx={{ flex: 1, textAlign: 'center' }}>
+          {repair.picture && (
+            <img
+              src={repair.picture}
+              alt="Repair"
+              style={{
+                width: `${IMAGE_SIZE}px`,
+                height: `${IMAGE_SIZE}px`,
+                objectFit: 'cover',
+                borderRadius: '3px'
+              }}
+            />
+          )}
+        </Box>
+        <Box sx={{ flex: 2, paddingLeft: '6px' }}>
+          <Typography variant="body2" sx={{ fontSize: '0.65rem', fontWeight: 'bold', marginBottom: '1px', color: INK }}>
+            {repair.clientName}
+          </Typography>
+          <Typography variant="body2" sx={{ fontSize: '0.6rem', marginBottom: '1px', color: INK }}>
+            Received: {repair.createdAt ? new Date(repair.createdAt).toLocaleDateString() : 'N/A'} | Due: {repair.promiseDate || 'N/A'}
+          </Typography>
+          <Typography variant="body2" sx={{ fontSize: '0.6rem', marginBottom: '1px', color: INK }}>
+            Metal: {repair.metalType || 'N/A'} {repair.karat}
+          </Typography>
+          {repair.isRing && (repair.currentRingSize || repair.desiredRingSize) && (
+            <Typography variant="body2" sx={{ fontSize: '0.6rem', marginBottom: '1px', color: INK }}>
+              Ring Size: {repair.currentRingSize || 'N/A'} -&gt; {repair.desiredRingSize || 'N/A'}
+            </Typography>
+          )}
+          <Typography
+            variant="body2"
+            sx={{
+              fontSize: '0.6rem',
+              marginBottom: '1px',
+              color: INK,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              display: '-webkit-box',
+              WebkitLineClamp: 4,
+              WebkitBoxOrient: 'vertical'
+            }}
+          >
+            Desc: {repair.description}
+          </Typography>
+          {repair.smartIntakeInput && repair.smartIntakeInput !== repair.description && (
+            <Typography
+              variant="body2"
+              sx={{
+                fontSize: '0.55rem',
+                marginBottom: '1px',
+                fontStyle: 'italic',
+                color: MUTED,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical'
+              }}
+            >
+              Request: {repair.smartIntakeInput}
+            </Typography>
+          )}
+          {(repair.isRush || repair.includeDelivery) && (
+            <Typography variant="body2" sx={{ fontSize: '0.6rem', fontWeight: 'bold', color: INK }}>
+              {repair.isRush && <span>RUSH ORDER</span>}
+              {repair.isRush && repair.includeDelivery && <span> | </span>}
+              {repair.includeDelivery && <span>DELIVERY INCLUDED</span>}
+            </Typography>
+          )}
+        </Box>
+      </Box>
+
+      <Typography variant="subtitle2" sx={{ fontSize: '0.65rem', fontWeight: 'bold', marginBottom: '4px', color: MUTED }}>
+        Work Items:
+      </Typography>
+
+      <List dense disablePadding sx={{ flex: 1 }}>
+        {allItems.map((item, index) => (
+          <ListItem
+            key={`receipt-item-${index}`}
+            sx={{
+              padding: '1px 0',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}
+          >
+            <Typography variant="body2" sx={{ fontSize: '0.6rem', flex: 1, color: INK }}>
+              {getItemQuantity(item)}x {item.title || item.displayName || item.name || item.description}
+            </Typography>
+            <Typography variant="body2" sx={{ fontSize: '0.6rem', fontWeight: 500, color: INK }}>
+              {getItemQuantity(item) > 1
+                ? `${getItemQuantity(item)} x $${getReceiptLinePrice(item, isWholesale).toFixed(2)} = $${getReceiptLineTotal(item, isWholesale).toFixed(2)}`
+                : `$${getReceiptLineTotal(item, isWholesale).toFixed(2)}`}
+            </Typography>
+          </ListItem>
+        ))}
+      </List>
+
+      <Box sx={{ marginTop: 'auto' }}>
+        <Typography sx={{ fontSize: '0.6rem', display: 'flex', justifyContent: 'space-between', marginBottom: '1px', color: INK }}>
+          <span>Subtotal:</span>
+          <span>${displayedSubtotal.toFixed(2)}</span>
+        </Typography>
+        <Typography sx={{ fontSize: '0.6rem', display: 'flex', justifyContent: 'space-between', marginBottom: '1px', color: INK }}>
+          <span>Rush Fee:</span>
+          <span>${rushFee.toFixed(2)}</span>
+        </Typography>
+        <Typography sx={{ fontSize: '0.6rem', display: 'flex', justifyContent: 'space-between', marginBottom: '1px', color: INK }}>
+          <span>Tax:</span>
+          <span>${taxAmount.toFixed(2)}</span>
+        </Typography>
+        <Typography sx={{ fontSize: '0.65rem', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', color: INK }}>
+          <span>Total:</span>
+          <span>${displayedTotal.toFixed(2)}</span>
+        </Typography>
+      </Box>
+
+      <Box
+        sx={{
+          mt: 1,
+          px: 1,
+          py: 0.75,
+          border: `0.5px solid ${BORDER}`,
+          borderRadius: '4px',
+          display: 'flex',
+          alignItems: showReviewQr ? 'center' : 'flex-start',
+          justifyContent: 'space-between',
+          gap: 1,
+          backgroundColor: PAPER,
+        }}
+      >
+        <Box sx={{ flex: 1, textAlign: showReviewQr ? 'left' : 'center' }}>
+          <Typography variant="body2" sx={{ fontSize: '0.5rem', lineHeight: 1.3, color: INK }}>
+            <strong>Important:</strong> This is an item receipt, not a payment receipt. Payment is due at pickup. Items not claimed within 90 days may be subject to storage fees.
+          </Typography>
+          {showReviewQr && (
+            <Typography sx={{ fontSize: '0.5rem', color: MUTED, lineHeight: 1.3, mt: 0.5 }}>
+              Leave us a review by scanning the QR code.
+            </Typography>
+          )}
+          {!showReviewQr && (
+            <Typography variant="body2" sx={{ fontSize: '0.55rem', color: MUTED }}>
+              Thank you for trusting us with your jewelry
+            </Typography>
+          )}
+        </Box>
+        {showReviewQr && (
+          <img
+            src={reviewQrSrc}
+            alt="Leave a review QR code"
+            style={{ width: 88, height: 88, display: 'block', border: '1px solid #d1d5db', flexShrink: 0 }}
+          />
+        )}
+      </Box>
+
+      {!showReviewQr && (
+        <Box sx={{ textAlign: 'center', marginTop: '4px' }}>
+          <Barcode
+            value={repair.repairID}
+            width={BARCODE_WIDTH}
+            height={BARCODE_HEIGHT}
+            displayValue={true}
+            font={'monospace'}
+            format={'CODE39'}
+            fontSize={BARCODE_FONT_SIZE}
+            margin={2}
+          />
+        </Box>
+      )}
+    </Box>
+  );
 };
 
 export default RepairReceiptComponent;
