@@ -7,11 +7,11 @@ const INK = '#111111';
 const MUTED = '#4b5563';
 const BORDER = '#000000';
 const ACCENT = '#d32f2f';
-const SLIP_WIDTH = '2.9in';
-const SLIP_HEIGHT = '3.9in';
-const IMAGE_SIZE = 74;
-const BARCODE_WIDTH = 0.62;
-const BARCODE_HEIGHT = 11;
+const SLIP_WIDTH = '3.8in';
+const SLIP_HEIGHT = '5.8in';
+const IMAGE_SIZE = 96;
+const BARCODE_WIDTH = 0.9;
+const BARCODE_HEIGHT = 24;
 const BARCODE_FONT_SIZE = 5;
 
 const getTicketItems = (repair) => {
@@ -211,12 +211,12 @@ const RepairTicketComponent = ({ repair }) => {
         sx={{
           textAlign: 'center',
           marginTop: '1px',
-          height: 18,
+          height: 34,
           overflow: 'hidden',
           flexShrink: 0,
           '& svg': {
             maxWidth: '100%',
-            height: '18px !important',
+            height: '34px !important',
             display: 'block',
             margin: '0 auto'
           }

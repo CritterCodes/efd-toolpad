@@ -10,9 +10,9 @@ import SideBySideLayout from '@/components/print/SideBySideLayout';
 import { calculateRepairTotal, getAllWorkItems } from '@/services/pricingCalculation.service';
 import { getRepairSummary, validateRepairData } from '@/services/repairDataStructure.service';
 
-const SLIP_WIDTH = '2.9in';
-const SLIP_HEIGHT = '3.9in';
-const CUT_SHEET_WIDTH = '5.8in';
+const SLIP_WIDTH = '3.8in';
+const SLIP_HEIGHT = '5.8in';
+const CUT_SHEET_WIDTH = '7.6in';
 const CUT_SHEET_HEIGHT = SLIP_HEIGHT;
 
 const PrintRepairTicket = () => {
@@ -88,17 +88,17 @@ const PrintRepairTicket = () => {
             <style jsx global>{`
                 @media print {
                     @page {
-                        size: 5.8in 3.9in;
+                        size: ${printMode === 'both' ? CUT_SHEET_WIDTH : SLIP_WIDTH} ${SLIP_HEIGHT};
                         margin: 0;
                     }
                     .print-mode-ticket,
                     .print-mode-receipt {
-                        --print-page-width: 2.9in;
-                        --print-page-height: 3.9in;
+                        --print-page-width: ${SLIP_WIDTH};
+                        --print-page-height: ${SLIP_HEIGHT};
                     }
                     .print-mode-both {
-                        --print-page-width: 5.8in;
-                        --print-page-height: 3.9in;
+                        --print-page-width: ${CUT_SHEET_WIDTH};
+                        --print-page-height: ${CUT_SHEET_HEIGHT};
                     }
                     body {
                         margin: 0 !important;

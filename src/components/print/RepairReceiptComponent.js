@@ -7,13 +7,13 @@ const INK = '#111111';
 const MUTED = '#4b5563';
 const BORDER = '#000000';
 const ACCENT = '#d32f2f';
-const SLIP_WIDTH = '2.9in';
-const SLIP_HEIGHT = '3.9in';
-const IMAGE_SIZE = 74;
+const SLIP_WIDTH = '3.8in';
+const SLIP_HEIGHT = '5.8in';
+const IMAGE_SIZE = 96;
 const BARCODE_WIDTH = 0.62;
 const BARCODE_HEIGHT = 11;
 const BARCODE_FONT_SIZE = 5;
-const REVIEW_QR_SIZE = 62;
+const REVIEW_QR_SIZE = 82;
 const REVIEW_URL = 'https://g.page/r/CbpAai4DElTQEBE/review';
 
 const toNumber = (value) => {
