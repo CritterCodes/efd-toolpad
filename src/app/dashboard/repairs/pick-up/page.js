@@ -99,15 +99,33 @@ function RepairCloseoutCard({
 }) {
   const [inputKey, setInputKey] = useState(0);
   const [pendingPhoto, setPendingPhoto] = useState(null);
+  const [pendingPhotoPreview, setPendingPhotoPreview] = useState("");
+  const fileInputRef = useRef(null);
   const afterPhotoCount = Array.isArray(repair.afterPhotos) ? repair.afterPhotos.length : 0;
   const blockedForReview = repair.requiresLaborReview === true;
   const batchReady = isReadyForInvoice(repair);
+
+  useEffect(() => {
+    return () => {
+      if (pendingPhotoPreview) URL.revokeObjectURL(pendingPhotoPreview);
+    };
+  }, [pendingPhotoPreview]);
 
   const handlePhotoTaken = (event) => {
     const file = event.target.files?.[0];
     setInputKey((k) => k + 1);
     if (!file) return;
+    setPendingPhotoPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
     setPendingPhoto(file);
+  };
+
+  const openCamera = () => {
+    if (!fileInputRef.current) return;
+    fileInputRef.current.value = "";
+    fileInputRef.current.click();
   };
 
   const handleConfirmCloseout = async () => {
@@ -115,6 +133,10 @@ function RepairCloseoutCard({
     const saved = await onConfirmCloseout(repair.repairID, pendingPhoto, noteValue);
     if (saved) {
       setPendingPhoto(null);
+      setPendingPhotoPreview((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return "";
+      });
     }
   };
 
@@ -176,6 +198,7 @@ function RepairCloseoutCard({
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ xs: "stretch", sm: "center" }}>
             <input
               key={inputKey}
+              ref={fileInputRef}
               id={`after-photo-${repair.repairID}`}
               type="file"
               accept="image/*"
@@ -188,22 +211,48 @@ function RepairCloseoutCard({
                 pointerEvents: "none",
               }}
               onChange={handlePhotoTaken}
+              onInput={handlePhotoTaken}
             />
-            <label htmlFor={`after-photo-${repair.repairID}`}>
-              <Button
-                variant="outlined"
-                startIcon={<PhotoCameraIcon />}
-                component="span"
-                disabled={photoState.loading}
-                sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
-              >
-                {pendingPhoto ? "Retake After Photo" : "Take After Photo"}
-              </Button>
-            </label>
+            <Button
+              variant="outlined"
+              startIcon={<PhotoCameraIcon />}
+              disabled={photoState.loading}
+              onClick={openCamera}
+              sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
+            >
+              {pendingPhoto ? "Retake After Photo" : "Take After Photo"}
+            </Button>
             <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: "0.8rem", flex: 1 }}>
               {pendingPhoto ? "Photo ready. Add notes, then confirm." : "Use the device camera, then confirm when closeout is ready."}
             </Typography>
           </Stack>
+
+          {pendingPhoto && (
+            <Alert severity="success" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
+              <Stack direction="row" spacing={1.5} alignItems="center">
+                {pendingPhotoPreview && (
+                  <Box
+                    component="img"
+                    src={pendingPhotoPreview}
+                    alt="Captured after photo preview"
+                    sx={{
+                      width: 72,
+                      height: 72,
+                      borderRadius: 1,
+                      objectFit: "cover",
+                      border: `1px solid ${REPAIRS_UI.border}`,
+                    }}
+                  />
+                )}
+                <Box>
+                  <Typography sx={{ fontWeight: 700 }}>After photo captured</Typography>
+                  <Typography variant="caption" sx={{ display: "block" }}>
+                    {pendingPhoto.name || "Camera photo"} · {Math.max(1, Math.round((pendingPhoto.size || 0) / 1024))} KB
+                  </Typography>
+                </Box>
+              </Stack>
+            </Alert>
+          )}
 
           <TextField
             label="Closeout Notes"
