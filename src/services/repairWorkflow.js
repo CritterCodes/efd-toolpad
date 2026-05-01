@@ -256,6 +256,8 @@ export function deriveBenchQueue(repair = {}) {
     case REPAIR_STATUS.QC:
       return BENCH_QUEUE.QC;
     default: {
+      if (normalizedStatus) return null;
+
       const fallbackBenchStatus = normalizeBenchStatus(repair.benchStatus);
       if (!fallbackBenchStatus) return null;
 

@@ -32,6 +32,11 @@ describe('repairWorkflow', () => {
     expect(deriveCompatibilityBenchStatus({ status: 'COMMUNICATION REQUIRED' })).toBe(LEGACY_BENCH_STATUS.COMMUNICATIONS);
   });
 
+  it('does not let stale benchStatus leak closed repairs back onto the bench', () => {
+    expect(deriveBenchQueue({ status: 'PAID_CLOSED', benchStatus: 'UNCLAIMED' })).toBeNull();
+    expect(deriveBenchQueue({ status: 'READY FOR PICKUP', benchStatus: 'IN_PROGRESS' })).toBeNull();
+  });
+
   it('builds canonical move updates with compatibility benchStatus', () => {
     const update = buildMoveStatusUpdate('ready-for-work', {}, { assignedTo: '' });
     expect(update.status).toBe(REPAIR_STATUS.READY_FOR_WORK);
