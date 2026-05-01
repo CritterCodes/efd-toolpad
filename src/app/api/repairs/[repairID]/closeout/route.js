@@ -3,6 +3,7 @@ import RepairsModel from '../../model';
 import { uploadRepairImage } from '@/utils/s3.util';
 import { requireRepairOpsAny, requireRole } from '@/lib/apiAuth';
 import { createRepairInvoice } from '@/app/api/repair-invoices/service';
+import { syncLaborLogAfterRepairChange } from '@/services/repairLaborReviewSync';
 
 async function requireCloseoutAccess() {
   const adminResult = await requireRole(['admin']);
@@ -79,6 +80,8 @@ export const POST = async (req, { params }) => {
       closeoutAt: new Date(),
       updatedAt: new Date(),
     });
+
+    await syncLaborLogAfterRepairChange({ existingRepair: repair, updateData: closeoutUpdate });
 
     let autoInvoice = null;
     let autoInvoiceError = '';

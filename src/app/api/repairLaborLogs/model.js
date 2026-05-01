@@ -46,6 +46,16 @@ export default class RepairLaborLogsModel {
       .toArray();
   }
 
+  static async findLatestByRepair(repairID) {
+    const dbInstance = await db.connect();
+    return await dbInstance.collection(this.COLLECTION)
+      .find({ repairID })
+      .project({ _id: 0 })
+      .sort({ createdAt: -1 })
+      .limit(1)
+      .next();
+  }
+
   static async findByLogID(logID) {
     const dbInstance = await db.connect();
     return await dbInstance.collection(this.COLLECTION)

@@ -1,5 +1,6 @@
 import RepairsModel from "./model";
 import Repair from "./class";
+import { syncLaborLogAfterRepairChange } from '@/services/repairLaborReviewSync';
 
 export default class RepairsService {
     /**
@@ -55,9 +56,11 @@ export default class RepairsService {
                 throw new Error("Update data cannot be empty.");
             }
 
-            // ✅ Ensure the update is properly passed to the model
+            const existingRepair = await RepairsModel.findById(repairID);
             const updatedRepair = await RepairsModel.updateById(repairID, updateData);
             if (!updatedRepair) throw new Error("Failed to retrieve updated repair.");
+
+            await syncLaborLogAfterRepairChange({ existingRepair, updateData });
 
             return updatedRepair;
         } catch (error) {
