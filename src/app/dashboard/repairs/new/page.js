@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Box, Button, Typography, Alert, Snackbar, Stack, Chip, useMediaQuery, useTheme } from '@mui/material';
 import { ArrowBack } from '@mui/icons-material';
@@ -21,6 +21,7 @@ const COLORS = {
 
 const NewRepairPage = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session, status } = useSession();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -29,32 +30,45 @@ const NewRepairPage = () => {
   const [wholesalerStoreId, setWholesalerStoreId] = useState(null);
   const [wholesalerStoreName, setWholesalerStoreName] = useState(null);
 
+  const scannedWholesaleStoreId = searchParams.get('wholesaleStoreId');
+  const scannedWholesaleStoreName = searchParams.get('wholesaleStoreName');
+
   useEffect(() => {
     if (status !== 'authenticated') return;
 
     const isAdmin = session?.user?.role === 'admin';
-    const isWholesaler = session?.user?.role === 'wholesaler';
+    const isWholesalerRole = session?.user?.role === 'wholesaler';
     const isOnsiteRepairOps = session?.user?.role === 'artisan'
       && session?.user?.employment?.isOnsite === true
       && session?.user?.staffCapabilities?.repairOps === true;
 
-    if (!isAdmin && !isWholesaler && !isOnsiteRepairOps) {
+    if (!isAdmin && !isWholesalerRole && !isOnsiteRepairOps) {
       router.push('/dashboard');
     }
   }, [router, session, status]);
 
-  // Set up wholesaler as the store (not the client)
   useEffect(() => {
-    if (session?.user) {
-      const userRole = session.user.role;
-      if (userRole === 'wholesaler') {
-        setIsWholesaler(true);
-        // Wholesaler IS the store — they pick a client from their client list
-        setWholesalerStoreId(session.user.id || session.user.userID || session.user.email);
-        setWholesalerStoreName(session.user.name || session.user.email);
-      }
+    if (!session?.user) return;
+
+    const userRole = session.user.role;
+    if (userRole === 'wholesaler') {
+      setIsWholesaler(true);
+      setWholesalerStoreId(session.user.userID || session.user.id || session.user.email);
+      setWholesalerStoreName(session.user.name || session.user.email);
+      return;
     }
-  }, [session]);
+
+    if (scannedWholesaleStoreId) {
+      setIsWholesaler(true);
+      setWholesalerStoreId(scannedWholesaleStoreId);
+      setWholesalerStoreName(scannedWholesaleStoreName || scannedWholesaleStoreId);
+      return;
+    }
+
+    setIsWholesaler(false);
+    setWholesalerStoreId(null);
+    setWholesalerStoreName(null);
+  }, [scannedWholesaleStoreId, scannedWholesaleStoreName, session]);
 
   if (status === 'loading') return null;
 
@@ -64,25 +78,22 @@ const NewRepairPage = () => {
 
   const handleSubmit = async (result) => {
     try {
-      // ✅ Repair is already created by RepairsService.createRepair()
-      // Just handle the successful result - no need for another API call
-      console.log('✅ Final Repair Data:', result);
-      console.log('✅ Repair created successfully:', result);
+      console.log('Final repair data:', result);
+      console.log('Repair created successfully:', result);
       showToast?.('Repair created successfully!', 'success');
-      
-      // Get the repair ID from the response - check multiple possible response formats
-      const repairId = result.newRepair?.repairID || 
-                      result.repair?.repairID || 
-                      result.repairID || 
-                      result.newRepair?._id ||
-                      result._id;
-      console.log('📋 Redirecting to print page for repair ID:', repairId);
-      
-      // Navigate to print ticket page
+
+      const repairId = result.newRepair?.repairID
+        || result.repair?.repairID
+        || result.repairID
+        || result.newRepair?._id
+        || result._id;
+
+      console.log('Redirecting to print page for repair ID:', repairId);
+
       if (repairId) {
         router.push(`/dashboard/repairs/${repairId}/print`);
       } else {
-        console.error('❌ No repair ID found in response:', result);
+        console.error('No repair ID found in response:', result);
         showToast?.('Repair created but redirect failed - check console', 'warning');
         router.push('/dashboard/repairs/receiving');
       }
@@ -93,7 +104,7 @@ const NewRepairPage = () => {
   };
 
   const handleCancel = () => {
-    if (isWholesaler) {
+    if (session?.user?.role === 'wholesaler' && isWholesaler) {
       router.push('/dashboard/repairs/my-repairs');
     } else {
       router.push('/dashboard/repairs/receiving');
@@ -132,6 +143,11 @@ const NewRepairPage = () => {
                 <Typography sx={{ color: COLORS.textSecondary, maxWidth: 720, lineHeight: 1.6 }}>
                   Intake client details, capture item information, assign services and pricing, then generate the repair ticket.
                 </Typography>
+                {scannedWholesaleStoreId && session?.user?.role !== 'wholesaler' && (
+                  <Typography sx={{ color: COLORS.accent, mt: 1, fontWeight: 600 }}>
+                    Store preset: {wholesalerStoreName || scannedWholesaleStoreId}
+                  </Typography>
+                )}
               </Box>
               <Button
                 startIcon={<ArrowBack />}
@@ -277,4 +293,3 @@ const NewRepairPage = () => {
 };
 
 export default NewRepairPage;
-

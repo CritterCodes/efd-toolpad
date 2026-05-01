@@ -21,7 +21,6 @@ import WholesaleIntakeSlipComponent, {
 } from '@/components/print/WholesaleIntakeSlipComponent';
 
 const SLIPS_PER_PAGE = 4;
-const SHEET_GAP = '0.12in';
 
 export default function PrintWholesaleIntakeSlipsPage() {
   const params = useParams();
@@ -81,6 +80,21 @@ export default function PrintWholesaleIntakeSlipsPage() {
       || wholesaler.business
       || '';
   }, [wholesaler]);
+
+  const wholesaleStoreId = useMemo(() => {
+    if (!wholesaler) return '';
+    return wholesaler.userID || wholesaler.id || '';
+  }, [wholesaler]);
+
+  const qrValue = useMemo(() => {
+    if (typeof window === 'undefined' || !wholesaleStoreId) return '';
+    const target = new URL('/dashboard/repairs/new', window.location.origin);
+    target.searchParams.set('wholesaleStoreId', wholesaleStoreId);
+    if (wholesalerName) {
+      target.searchParams.set('wholesaleStoreName', wholesalerName);
+    }
+    return target.toString();
+  }, [wholesaleStoreId, wholesalerName]);
 
   const handlePrint = () => {
     window.print();
@@ -144,8 +158,8 @@ export default function PrintWholesaleIntakeSlipsPage() {
             width: 8.5in !important;
             height: 11in !important;
             margin: 0 !important;
-            padding: 0.18in !important;
-            gap: ${SHEET_GAP} !important;
+            padding: 0 !important;
+            gap: 0 !important;
             align-content: start !important;
             overflow: hidden !important;
           }
@@ -187,9 +201,9 @@ export default function PrintWholesaleIntakeSlipsPage() {
           gridTemplateRows: `repeat(2, ${WHOLESALE_SLIP_HEIGHT})`,
           justifyContent: 'center',
           alignContent: 'start',
-          gap: SHEET_GAP,
+          gap: 0,
           backgroundColor: '#fff',
-          p: { xs: 0, sm: '0.18in' },
+          p: 0,
           overflow: 'hidden',
           boxSizing: 'border-box',
         }}
@@ -198,6 +212,11 @@ export default function PrintWholesaleIntakeSlipsPage() {
           <WholesaleIntakeSlipComponent
             key={index}
             wholesalerName={wholesalerName}
+            qrValue={qrValue}
+            borderTop={index < 2}
+            borderRight={index % 2 === 1}
+            borderBottom={index >= 2}
+            borderLeft={index % 2 === 0}
           />
         ))}
       </Box>
