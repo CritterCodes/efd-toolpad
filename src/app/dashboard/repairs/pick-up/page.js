@@ -400,17 +400,43 @@ function RepairCloseoutCard({
 
 function InvoiceCard({
   invoice,
+  mergeTargets = [],
   onFinalize,
   onCashPay,
   onCreateStripe,
   onSyncStripe,
   onCreateTerminal,
   onSyncTerminal,
+  onUpdateDelivery,
+  onSetCashDiscount,
+  onSplitInvoice,
+  onMergeInvoice,
+  onRemoveRepairs,
 }) {
   const [cashAmount, setCashAmount] = useState(invoice.remainingBalance || 0);
   const [cashNotes, setCashNotes] = useState("");
+  const [selectedRepairIDs, setSelectedRepairIDs] = useState([]);
+  const [targetInvoiceID, setTargetInvoiceID] = useState("");
+  const [deliveryFeeInput, setDeliveryFeeInput] = useState(invoice.deliveryFee || 5);
   const pendingStripe = (invoice.payments || []).find((payment) => payment.type === "stripe" && payment.status === "pending");
   const pendingTerminal = (invoice.payments || []).find((payment) => payment.type === "terminal" && payment.status === "pending");
+  const canEditInvoice = invoice.paymentStatus !== "paid" && ["draft", "open"].includes(invoice.status);
+  const splitDisabled = selectedRepairIDs.length === 0 || selectedRepairIDs.length >= (invoice.repairIDs || []).length;
+
+  useEffect(() => {
+    setCashAmount(invoice.remainingBalance || 0);
+    setDeliveryFeeInput(invoice.deliveryFee || 5);
+  }, [invoice.deliveryFee, invoice.remainingBalance]);
+
+  useEffect(() => {
+    setSelectedRepairIDs((prev) => prev.filter((repairID) => (invoice.repairIDs || []).includes(repairID)));
+  }, [invoice.repairIDs]);
+
+  const toggleInvoiceRepair = (repairID) => {
+    setSelectedRepairIDs((prev) =>
+      prev.includes(repairID) ? prev.filter((id) => id !== repairID) : [...prev, repairID]
+    );
+  };
 
   return (
     <Card sx={{ backgroundColor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, boxShadow: REPAIRS_UI.shadow }}>
@@ -433,6 +459,9 @@ function InvoiceCard({
             <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Tax</Typography><Typography>{formatCurrency(invoice.taxAmount)}</Typography></Grid>
             <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Delivery</Typography><Typography>{formatCurrency(invoice.deliveryFee)}</Typography></Grid>
             <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Remaining</Typography><Typography sx={{ fontWeight: 700 }}>{formatCurrency(invoice.remainingBalance)}</Typography></Grid>
+            {parseFloat(invoice.cashDiscountAmount || 0) > 0 && (
+              <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Cash Discount</Typography><Typography>{formatCurrency(invoice.cashDiscountAmount)}</Typography></Grid>
+            )}
           </Grid>
 
           <Divider />
@@ -441,13 +470,101 @@ function InvoiceCard({
             <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 0.75 }}>Repairs in invoice</Typography>
             <Stack spacing={0.75}>
               {(invoice.repairSnapshots || []).map((repair) => (
-                <Box key={repair.repairID} sx={{ display: "flex", justifyContent: "space-between", gap: 2, color: REPAIRS_UI.textSecondary, fontSize: "0.9rem" }}>
-                  <Typography sx={{ fontFamily: "monospace" }}>{repair.repairID}</Typography>
+                <Box key={repair.repairID} sx={{ display: "flex", justifyContent: "space-between", gap: 2, color: REPAIRS_UI.textSecondary, fontSize: "0.9rem", alignItems: "center" }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+                    {canEditInvoice && (
+                      <Checkbox
+                        size="small"
+                        checked={selectedRepairIDs.includes(repair.repairID)}
+                        onChange={() => toggleInvoiceRepair(repair.repairID)}
+                        sx={{ p: 0.25 }}
+                      />
+                    )}
+                    <Typography sx={{ fontFamily: "monospace" }}>{repair.repairID}</Typography>
+                  </Box>
                   <Typography>{formatCurrency(repair.total)}</Typography>
                 </Box>
               ))}
             </Stack>
           </Box>
+
+          {canEditInvoice && (
+            <>
+              <Divider />
+              <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader }}>Invoice Tools</Typography>
+              <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ xs: "stretch", md: "center" }}>
+                <Button
+                  variant="outlined"
+                  disabled={splitDisabled}
+                  onClick={() => onSplitInvoice(invoice.invoiceID, selectedRepairIDs)}
+                  sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
+                >
+                  Split Selected
+                </Button>
+                <Button
+                  variant="outlined"
+                  disabled={selectedRepairIDs.length === 0}
+                  onClick={() => onRemoveRepairs(invoice.invoiceID, selectedRepairIDs)}
+                  sx={{ color: "#FCA5A5", borderColor: REPAIRS_UI.border }}
+                >
+                  Remove to Closeout
+                </Button>
+                <TextField
+                  label="Merge Into Invoice ID"
+                  value={targetInvoiceID}
+                  onChange={(event) => setTargetInvoiceID(event.target.value)}
+                  placeholder={mergeTargets[0]?.invoiceID || "rinv-..."}
+                  size="small"
+                  sx={{ minWidth: 220 }}
+                />
+                <Button
+                  variant="outlined"
+                  disabled={!targetInvoiceID.trim()}
+                  onClick={() => onMergeInvoice(invoice.invoiceID, targetInvoiceID.trim())}
+                  sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
+                >
+                  Merge
+                </Button>
+              </Stack>
+              {mergeTargets.length > 0 && (
+                <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
+                  Same-account merge targets: {mergeTargets.map((target) => target.invoiceID).join(", ")}
+                </Typography>
+              )}
+
+              <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ xs: "stretch", md: "center" }}>
+                <TextField
+                  label="Delivery Fee"
+                  type="number"
+                  size="small"
+                  value={deliveryFeeInput}
+                  onChange={(event) => setDeliveryFeeInput(event.target.value)}
+                  sx={{ maxWidth: 160 }}
+                />
+                <Button
+                  variant={invoice.deliveryMethod === "delivery" ? "contained" : "outlined"}
+                  onClick={() => onUpdateDelivery(invoice.invoiceID, "delivery", deliveryFeeInput || 5)}
+                  sx={{ backgroundColor: invoice.deliveryMethod === "delivery" ? REPAIRS_UI.accent : undefined, color: invoice.deliveryMethod === "delivery" ? "#111" : REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
+                >
+                  Mark Delivery
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => onUpdateDelivery(invoice.invoiceID, "pickup", 0)}
+                  sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
+                >
+                  Mark Pickup
+                </Button>
+                <Button
+                  variant={invoice.cashDiscountApplied ? "contained" : "outlined"}
+                  onClick={() => onSetCashDiscount(invoice.invoiceID, !invoice.cashDiscountApplied)}
+                  sx={{ backgroundColor: invoice.cashDiscountApplied ? REPAIRS_UI.accent : undefined, color: invoice.cashDiscountApplied ? "#111" : REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
+                >
+                  {invoice.cashDiscountApplied ? "Remove Cash Discount" : "Cash Discount"}
+                </Button>
+              </Stack>
+            </>
+          )}
 
           {invoice.closeoutNotes && (
             <Alert severity="info" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>{invoice.closeoutNotes}</Alert>
@@ -862,6 +979,72 @@ export default function PaymentPickupPage() {
     }
   };
 
+  const handleUpdateDelivery = async (invoiceID, deliveryMethod, deliveryFeeValue) => {
+    try {
+      await postInvoiceAction(
+        `/api/repair-invoices/${invoiceID}/delivery`,
+        {
+          deliveryMethod,
+          deliveryFee: parseFloat(deliveryFeeValue || 0),
+        },
+        deliveryMethod === "delivery"
+          ? `Marked ${invoiceID} for delivery.`
+          : `Marked ${invoiceID} for pickup.`
+      );
+    } catch (error) {
+      showMessage(error.message, "error");
+    }
+  };
+
+  const handleSetCashDiscount = async (invoiceID, enabled) => {
+    try {
+      await postInvoiceAction(
+        `/api/repair-invoices/${invoiceID}/cash-discount`,
+        { enabled },
+        enabled ? `Applied cash discount to ${invoiceID}.` : `Removed cash discount from ${invoiceID}.`
+      );
+    } catch (error) {
+      showMessage(error.message, "error");
+    }
+  };
+
+  const handleSplitInvoice = async (invoiceID, repairIDs) => {
+    try {
+      await postInvoiceAction(
+        `/api/repair-invoices/${invoiceID}/split`,
+        { repairIDs },
+        `Split ${repairIDs.length} repair${repairIDs.length !== 1 ? "s" : ""} from ${invoiceID}.`
+      );
+    } catch (error) {
+      showMessage(error.message, "error");
+    }
+  };
+
+  const handleMergeInvoice = async (invoiceID, targetInvoiceID) => {
+    try {
+      await postInvoiceAction(
+        `/api/repair-invoices/${invoiceID}/merge`,
+        { targetInvoiceID },
+        `Merged ${invoiceID} into ${targetInvoiceID}.`
+      );
+    } catch (error) {
+      showMessage(error.message, "error");
+    }
+  };
+
+  const handleRemoveRepairsFromInvoice = async (invoiceID, repairIDs) => {
+    try {
+      await postInvoiceAction(
+        `/api/repair-invoices/${invoiceID}/remove-repairs`,
+        { repairIDs },
+        `Moved ${repairIDs.length} repair${repairIDs.length !== 1 ? "s" : ""} back to closeout.`
+      );
+      setTab(0);
+    } catch (error) {
+      showMessage(error.message, "error");
+    }
+  };
+
   if (authStatus === "loading" || loading) {
     return (
       <Box sx={{ minHeight: 300, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1049,12 +1232,23 @@ export default function PaymentPickupPage() {
               <InvoiceCard
                 key={invoice.invoiceID}
                 invoice={invoice}
+                mergeTargets={draftOrOpenInvoices.filter((target) =>
+                  target.invoiceID !== invoice.invoiceID
+                  && target.accountType === invoice.accountType
+                  && target.accountID === invoice.accountID
+                  && target.paymentStatus !== "paid"
+                )}
                 onFinalize={handleFinalizeInvoice}
                 onCashPay={handleCashPayment}
                 onCreateStripe={handleCreateStripe}
                 onSyncStripe={handleSyncStripe}
                 onCreateTerminal={handleCreateTerminal}
                 onSyncTerminal={handleSyncTerminal}
+                onUpdateDelivery={handleUpdateDelivery}
+                onSetCashDiscount={handleSetCashDiscount}
+                onSplitInvoice={handleSplitInvoice}
+                onMergeInvoice={handleMergeInvoice}
+                onRemoveRepairs={handleRemoveRepairsFromInvoice}
               />
             ))
           )}
@@ -1072,12 +1266,18 @@ export default function PaymentPickupPage() {
               <InvoiceCard
                 key={invoice.invoiceID}
                 invoice={invoice}
+                mergeTargets={[]}
                 onFinalize={handleFinalizeInvoice}
                 onCashPay={handleCashPayment}
                 onCreateStripe={handleCreateStripe}
                 onSyncStripe={handleSyncStripe}
                 onCreateTerminal={handleCreateTerminal}
                 onSyncTerminal={handleSyncTerminal}
+                onUpdateDelivery={handleUpdateDelivery}
+                onSetCashDiscount={handleSetCashDiscount}
+                onSplitInvoice={handleSplitInvoice}
+                onMergeInvoice={handleMergeInvoice}
+                onRemoveRepairs={handleRemoveRepairsFromInvoice}
               />
             ))
           )}

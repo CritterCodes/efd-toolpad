@@ -91,6 +91,29 @@ function buildRepairSnapshot(repair) {
   };
 }
 
+function calculateInvoiceTotals(repairSnapshots = [], deliveryFee = 0, cashDiscountAmount = 0, amountPaid = 0) {
+  const subtotal = repairSnapshots.reduce((sum, item) => sum + parseFloat(item.subtotal || 0), 0);
+  const taxAmount = repairSnapshots.reduce((sum, item) => sum + parseFloat(item.taxAmount || 0), 0);
+  const grossTotal = subtotal + taxAmount + parseFloat(deliveryFee || 0);
+  const normalizedDiscount = Math.max(0, Math.min(parseFloat(cashDiscountAmount || 0), grossTotal));
+  const total = Math.max(grossTotal - normalizedDiscount, 0);
+  const normalizedAmountPaid = parseFloat(amountPaid || 0);
+
+  return {
+    subtotal,
+    taxAmount,
+    cashDiscountAmount: normalizedDiscount,
+    total,
+    amountPaid: normalizedAmountPaid,
+    ...computePaymentStatus(total, normalizedAmountPaid),
+  };
+}
+
+function getCashDiscountAmount(grossTotal) {
+  const roundedTotal = Math.floor(parseFloat(grossTotal || 0) / 5) * 5;
+  return Math.max(parseFloat(grossTotal || 0) - roundedTotal, 0);
+}
+
 async function findAppendableInvoice(context, deliveryMethod) {
   const dbInstance = await db.connect();
   return await dbInstance.collection(RepairInvoicesModel.COLLECTION)
@@ -115,22 +138,19 @@ async function appendRepairsToInvoice(invoice, repairs, repairSnapshots, created
     ...repairSnapshots,
   ];
 
-  const subtotal = nextSnapshots.reduce((sum, item) => sum + parseFloat(item.subtotal || 0), 0);
-  const taxAmount = nextSnapshots.reduce((sum, item) => sum + parseFloat(item.taxAmount || 0), 0);
   const deliveryFee = parseFloat(invoice.deliveryFee || 0);
-  const total = subtotal + taxAmount + deliveryFee;
-  const amountPaid = parseFloat(invoice.amountPaid || 0);
-  const remainingBalance = Math.max(total - amountPaid, 0);
+  const totals = calculateInvoiceTotals(
+    nextSnapshots,
+    deliveryFee,
+    invoice.cashDiscountApplied ? parseFloat(invoice.cashDiscountAmount || 0) : 0,
+    invoice.amountPaid
+  );
 
   const updatedInvoice = await RepairInvoicesModel.updateByInvoiceID(invoice.invoiceID, {
     repairIDs: nextRepairIDs,
     repairSnapshots: nextSnapshots,
-    subtotal,
-    taxAmount,
-    total,
-    amountPaid,
-    remainingBalance,
-    paymentStatus: amountPaid > 0 ? 'partial' : 'unpaid',
+    ...totals,
+    cashDiscountApplied: invoice.cashDiscountApplied === true,
   });
 
   const nextRepairStatus = invoice.deliveryMethod === 'delivery' ? 'DELIVERY BATCHED' : 'READY FOR PICKUP';
@@ -229,12 +249,10 @@ export async function createRepairInvoice({
     }
   }
 
-  const subtotal = repairSnapshots.reduce((sum, item) => sum + item.subtotal, 0);
-  const taxAmount = repairSnapshots.reduce((sum, item) => sum + item.taxAmount, 0);
   const normalizedDeliveryFee = deliveryMethod === 'delivery'
     ? (deliveryFee ?? repairs.find((repair) => parseFloat(repair.deliveryFee || 0) > 0)?.deliveryFee ?? DEFAULT_DELIVERY_FEE)
     : 0;
-  const total = subtotal + taxAmount + parseFloat(normalizedDeliveryFee || 0);
+  const totals = calculateInvoiceTotals(repairSnapshots, normalizedDeliveryFee);
 
   const invoice = await RepairInvoicesModel.create({
     ...context,
@@ -243,12 +261,7 @@ export async function createRepairInvoice({
     status: 'draft',
     deliveryMethod,
     deliveryFee: parseFloat(normalizedDeliveryFee || 0),
-    subtotal,
-    taxAmount,
-    total,
-    amountPaid: 0,
-    remainingBalance: total,
-    paymentStatus: 'unpaid',
+    ...totals,
     closeoutNotes,
     createdBy,
   });
@@ -296,4 +309,232 @@ export async function syncPaidRepairs(invoice) {
   );
 
   return invoice;
+}
+
+export async function updateInvoiceDelivery(invoiceID, { deliveryMethod = 'pickup', deliveryFee = DEFAULT_DELIVERY_FEE } = {}) {
+  const invoice = await RepairInvoicesModel.findByInvoiceID(invoiceID);
+  if (invoice.paymentStatus === 'paid') throw new Error('Paid invoices cannot be changed.');
+
+  const nextDeliveryMethod = deliveryMethod === 'delivery' ? 'delivery' : 'pickup';
+  const nextDeliveryFee = nextDeliveryMethod === 'delivery' ? parseFloat(deliveryFee || DEFAULT_DELIVERY_FEE) : 0;
+  const grossTotal = (invoice.repairSnapshots || []).reduce((sum, item) => sum + parseFloat(item.subtotal || 0) + parseFloat(item.taxAmount || 0), 0) + nextDeliveryFee;
+  const discount = invoice.cashDiscountApplied ? getCashDiscountAmount(grossTotal) : 0;
+  const totals = calculateInvoiceTotals(invoice.repairSnapshots || [], nextDeliveryFee, discount, invoice.amountPaid);
+
+  const updated = await RepairInvoicesModel.updateByInvoiceID(invoiceID, {
+    deliveryMethod: nextDeliveryMethod,
+    deliveryFee: nextDeliveryFee,
+    cashDiscountAmount: discount,
+    ...totals,
+  });
+
+  const nextRepairStatus = nextDeliveryMethod === 'delivery' ? 'DELIVERY BATCHED' : 'READY FOR PICKUP';
+  await Promise.all(
+    (invoice.repairIDs || []).map((repairID) =>
+      RepairsModel.updateById(repairID, {
+        status: nextRepairStatus,
+        updatedAt: new Date(),
+      })
+    )
+  );
+
+  return updated;
+}
+
+export async function setInvoiceCashDiscount(invoiceID, enabled = true) {
+  const invoice = await RepairInvoicesModel.findByInvoiceID(invoiceID);
+  if (invoice.paymentStatus === 'paid') throw new Error('Paid invoices cannot be changed.');
+
+  const grossTotal = (invoice.repairSnapshots || []).reduce((sum, item) => sum + parseFloat(item.subtotal || 0) + parseFloat(item.taxAmount || 0), 0)
+    + parseFloat(invoice.deliveryFee || 0);
+  const discount = enabled ? getCashDiscountAmount(grossTotal) : 0;
+  const totals = calculateInvoiceTotals(invoice.repairSnapshots || [], invoice.deliveryFee || 0, discount, invoice.amountPaid);
+
+  return await RepairInvoicesModel.updateByInvoiceID(invoiceID, {
+    cashDiscountApplied: Boolean(enabled),
+    ...totals,
+  });
+}
+
+export async function splitInvoice(invoiceID, repairIDs = []) {
+  const invoice = await RepairInvoicesModel.findByInvoiceID(invoiceID);
+  if (invoice.paymentStatus === 'paid') throw new Error('Paid invoices cannot be split.');
+  if (parseFloat(invoice.amountPaid || 0) > 0) throw new Error('Partially paid invoices cannot be split.');
+
+  const selected = [...new Set((repairIDs || []).filter(Boolean))];
+  const currentIDs = Array.isArray(invoice.repairIDs) ? invoice.repairIDs : [];
+  if (selected.length === 0) throw new Error('Select at least one repair to split.');
+  if (selected.length >= currentIDs.length) throw new Error('Leave at least one repair on the original invoice.');
+  if (selected.some((repairID) => !currentIDs.includes(repairID))) {
+    throw new Error('Selected repairs must belong to this invoice.');
+  }
+
+  const movingSnapshots = (invoice.repairSnapshots || []).filter((snapshot) => selected.includes(snapshot.repairID));
+  const remainingSnapshots = (invoice.repairSnapshots || []).filter((snapshot) => !selected.includes(snapshot.repairID));
+  const remainingIDs = currentIDs.filter((repairID) => !selected.includes(repairID));
+
+  const remainingGross = remainingSnapshots.reduce((sum, item) => sum + parseFloat(item.subtotal || 0) + parseFloat(item.taxAmount || 0), 0)
+    + parseFloat(invoice.deliveryFee || 0);
+  const remainingDiscount = invoice.cashDiscountApplied ? getCashDiscountAmount(remainingGross) : 0;
+  const remainingTotals = calculateInvoiceTotals(remainingSnapshots, invoice.deliveryFee || 0, remainingDiscount, invoice.amountPaid);
+
+  const updatedOriginal = await RepairInvoicesModel.updateByInvoiceID(invoice.invoiceID, {
+    repairIDs: remainingIDs,
+    repairSnapshots: remainingSnapshots,
+    cashDiscountAmount: remainingDiscount,
+    ...remainingTotals,
+  });
+
+  const newGross = movingSnapshots.reduce((sum, item) => sum + parseFloat(item.subtotal || 0) + parseFloat(item.taxAmount || 0), 0);
+  const newDiscount = invoice.cashDiscountApplied ? getCashDiscountAmount(newGross) : 0;
+  const newTotals = calculateInvoiceTotals(movingSnapshots, 0, newDiscount, 0);
+  const newInvoice = await RepairInvoicesModel.create({
+    accountType: invoice.accountType,
+    accountID: invoice.accountID,
+    storeId: invoice.storeId || '',
+    clientID: invoice.clientID || '',
+    customerName: invoice.customerName || '',
+    repairIDs: selected,
+    repairSnapshots: movingSnapshots,
+    status: 'draft',
+    deliveryMethod: 'pickup',
+    deliveryFee: 0,
+    cashDiscountApplied: invoice.cashDiscountApplied === true,
+    ...newTotals,
+    closeoutNotes: invoice.closeoutNotes || '',
+    createdBy: invoice.createdBy || '',
+  });
+
+  await Promise.all(
+    selected.map((repairID) =>
+      RepairsModel.updateById(repairID, {
+        invoiceID: newInvoice.invoiceID,
+        status: 'READY FOR PICKUP',
+        updatedAt: new Date(),
+      })
+    )
+  );
+
+  return { original: updatedOriginal, invoice: newInvoice };
+}
+
+export async function mergeInvoices(sourceInvoiceID, targetInvoiceID) {
+  if (!targetInvoiceID || sourceInvoiceID === targetInvoiceID) {
+    throw new Error('Choose a different target invoice.');
+  }
+
+  const source = await RepairInvoicesModel.findByInvoiceID(sourceInvoiceID);
+  const target = await RepairInvoicesModel.findByInvoiceID(targetInvoiceID);
+  if (source.paymentStatus === 'paid' || target.paymentStatus === 'paid') {
+    throw new Error('Paid invoices cannot be merged.');
+  }
+  if (parseFloat(source.amountPaid || 0) > 0 || parseFloat(target.amountPaid || 0) > 0) {
+    throw new Error('Partially paid invoices cannot be merged.');
+  }
+  if (source.accountType !== target.accountType || source.accountID !== target.accountID) {
+    throw new Error('Invoices must belong to the same billing account to merge.');
+  }
+
+  const repairIDs = [...new Set([...(target.repairIDs || []), ...(source.repairIDs || [])])];
+  const repairSnapshots = [
+    ...(target.repairSnapshots || []),
+    ...(source.repairSnapshots || []).filter((snapshot) => !(target.repairIDs || []).includes(snapshot.repairID)),
+  ];
+  const grossTotal = repairSnapshots.reduce((sum, item) => sum + parseFloat(item.subtotal || 0) + parseFloat(item.taxAmount || 0), 0)
+    + parseFloat(target.deliveryFee || 0);
+  const discount = target.cashDiscountApplied ? getCashDiscountAmount(grossTotal) : 0;
+  const totals = calculateInvoiceTotals(repairSnapshots, target.deliveryFee || 0, discount, target.amountPaid);
+
+  const updatedTarget = await RepairInvoicesModel.updateByInvoiceID(target.invoiceID, {
+    repairIDs,
+    repairSnapshots,
+    cashDiscountAmount: discount,
+    ...totals,
+  });
+
+  await RepairInvoicesModel.updateByInvoiceID(source.invoiceID, {
+    status: 'void',
+    mergedIntoInvoiceID: target.invoiceID,
+    repairIDs: [],
+    repairSnapshots: [],
+    subtotal: 0,
+    taxAmount: 0,
+    deliveryFee: 0,
+    cashDiscountAmount: 0,
+    total: 0,
+    remainingBalance: 0,
+  });
+
+  const nextRepairStatus = target.deliveryMethod === 'delivery' ? 'DELIVERY BATCHED' : 'READY FOR PICKUP';
+  await Promise.all(
+    (source.repairIDs || []).map((repairID) =>
+      RepairsModel.updateById(repairID, {
+        invoiceID: target.invoiceID,
+        status: nextRepairStatus,
+        updatedAt: new Date(),
+      })
+    )
+  );
+
+  return updatedTarget;
+}
+
+export async function removeRepairsFromInvoice(invoiceID, repairIDs = []) {
+  const invoice = await RepairInvoicesModel.findByInvoiceID(invoiceID);
+  if (invoice.paymentStatus === 'paid') throw new Error('Paid invoices cannot be changed.');
+  if (parseFloat(invoice.amountPaid || 0) > 0) throw new Error('Partially paid invoices cannot be changed.');
+
+  const selected = [...new Set((repairIDs || []).filter(Boolean))];
+  const currentIDs = Array.isArray(invoice.repairIDs) ? invoice.repairIDs : [];
+  if (selected.length === 0) throw new Error('Select at least one repair to remove.');
+  if (selected.some((repairID) => !currentIDs.includes(repairID))) {
+    throw new Error('Selected repairs must belong to this invoice.');
+  }
+
+  const remainingIDs = currentIDs.filter((repairID) => !selected.includes(repairID));
+  const remainingSnapshots = (invoice.repairSnapshots || []).filter((snapshot) => !selected.includes(snapshot.repairID));
+
+  let updatedInvoice;
+  if (remainingIDs.length === 0) {
+    updatedInvoice = await RepairInvoicesModel.updateByInvoiceID(invoice.invoiceID, {
+      status: 'void',
+      repairIDs: [],
+      repairSnapshots: [],
+      subtotal: 0,
+      taxAmount: 0,
+      deliveryFee: 0,
+      cashDiscountApplied: false,
+      cashDiscountAmount: 0,
+      total: 0,
+      amountPaid: 0,
+      remainingBalance: 0,
+      paymentStatus: 'unpaid',
+      voidReason: 'All repairs removed back to closeout',
+    });
+  } else {
+    const grossTotal = remainingSnapshots.reduce((sum, item) => sum + parseFloat(item.subtotal || 0) + parseFloat(item.taxAmount || 0), 0)
+      + parseFloat(invoice.deliveryFee || 0);
+    const discount = invoice.cashDiscountApplied ? getCashDiscountAmount(grossTotal) : 0;
+    const totals = calculateInvoiceTotals(remainingSnapshots, invoice.deliveryFee || 0, discount, 0);
+
+    updatedInvoice = await RepairInvoicesModel.updateByInvoiceID(invoice.invoiceID, {
+      repairIDs: remainingIDs,
+      repairSnapshots: remainingSnapshots,
+      cashDiscountAmount: discount,
+      ...totals,
+    });
+  }
+
+  await Promise.all(
+    selected.map((repairID) =>
+      RepairsModel.updateById(repairID, {
+        invoiceID: '',
+        status: 'COMPLETED',
+        closeoutStatus: 'in_review',
+        updatedAt: new Date(),
+      })
+    )
+  );
+
+  return updatedInvoice;
 }

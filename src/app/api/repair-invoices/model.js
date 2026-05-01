@@ -19,6 +19,8 @@ export default class RepairInvoicesModel {
       status: data.status || 'draft',
       deliveryMethod: data.deliveryMethod || 'pickup',
       deliveryFee: data.deliveryFee ?? 0,
+      cashDiscountAmount: data.cashDiscountAmount ?? 0,
+      cashDiscountApplied: data.cashDiscountApplied ?? false,
       subtotal: data.subtotal ?? 0,
       taxAmount: data.taxAmount ?? 0,
       total: data.total ?? 0,
