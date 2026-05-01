@@ -15,8 +15,10 @@ import {
 import {
   Email as EmailIcon,
   Phone as PhoneIcon,
+  Print as PrintIcon,
   Storefront as StoreIcon,
 } from '@mui/icons-material';
+import Link from 'next/link';
 
 function formatDate(date) {
   if (!date) return 'N/A';
@@ -149,6 +151,13 @@ export default function WholesalerDetailDialog({ open, onClose, wholesaler }) {
       </DialogContent>
       <DialogActions sx={{ px: 3, py: 2, justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
         <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+          <Button
+            component={Link}
+            href={`/dashboard/users/wholesalers/${encodeURIComponent(wholesaler.id || wholesaler.userID)}/print-intake-slips`}
+            startIcon={<PrintIcon />}
+          >
+            Print Intake Slips
+          </Button>
           {email && (
             <Button startIcon={<EmailIcon />} href={`mailto:${email}`}>
               Email
