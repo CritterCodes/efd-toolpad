@@ -1,5 +1,5 @@
 // /api/admin/wholesale/[applicationId]/reject/route.js
-import { updateWholesaleApplicationStatus, getWholesaleApplicationById } from '../../../../../../lib/wholesaleService.js';
+import { updateWholesaleApplicationStatus, getWholesaleApplicationById } from '@/lib/wholesaleService.js';
 import { requireRole } from '@/lib/apiAuth';
 
 export async function POST(request, { params }) {

@@ -3,7 +3,7 @@ import {
   getWholesaleApplicationById,
   mergeWholesaleApplicationIntoAccount,
   updateWholesaleApplicationStatus,
-} from '../../../../../../lib/wholesaleService.js';
+} from '@/lib/wholesaleService.js';
 import { requireRole } from '@/lib/apiAuth';
 
 export async function POST(request, { params }) {

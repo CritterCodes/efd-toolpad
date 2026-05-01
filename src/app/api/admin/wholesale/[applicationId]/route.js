@@ -1,5 +1,5 @@
 import { requireRole } from '@/lib/apiAuth';
-import { getWholesaleApplicationById } from '../../../../../../lib/wholesaleService.js';
+import { getWholesaleApplicationById } from '@/lib/wholesaleService.js';
 
 export async function GET(request, { params }) {
   try {
