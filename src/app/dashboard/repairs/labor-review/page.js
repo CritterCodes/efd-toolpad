@@ -43,6 +43,22 @@ function getRepairChargeTotal(repair = {}) {
   return Number(repair.totalCost || 0) > 0 ? Number(repair.totalCost || 0) : computedTotal;
 }
 
+function getRepairSuggestedLaborHours(repair = {}) {
+  const taskHours = (repair.tasks || []).reduce((sum, item) => {
+    const quantity = Math.max(Number(item?.quantity) || 1, 1);
+    const hours = Number(item?.pricing?.totalLaborHours ?? item?.laborHours) || 0;
+    return sum + (hours * quantity);
+  }, 0);
+
+  const customHours = (repair.customLineItems || []).reduce((sum, item) => {
+    const quantity = Math.max(Number(item?.quantity) || 1, 1);
+    const hours = Number(item?.laborHours) || 0;
+    return sum + (hours * quantity);
+  }, 0);
+
+  return Math.round((taskHours + customHours) * 100) / 100;
+}
+
 function getWorkItemLabels(repair = {}) {
   return [
     ...(repair.tasks || []).map((item) => item.name || item.description),
@@ -59,7 +75,9 @@ function formatSourceAction(action = '') {
 }
 
 function ReviewCard({ log, onApprove, loading, onOpenRepair }) {
-  const [hours, setHours] = useState(log.creditedLaborHours || 0);
+  const suggestedHours = getRepairSuggestedLaborHours(log.repair);
+  const initialHours = Number(log.creditedLaborHours || 0) > 0 ? Number(log.creditedLaborHours || 0) : suggestedHours;
+  const [hours, setHours] = useState(initialHours);
   const [notes, setNotes] = useState(log.notes || '');
   const workItems = getWorkItemLabels(log.repair);
   const repairChargeTotal = getRepairChargeTotal(log.repair);
@@ -131,6 +149,7 @@ function ReviewCard({ log, onApprove, loading, onOpenRepair }) {
             value={hours}
             onChange={(e) => setHours(e.target.value)}
             inputProps={{ min: 0, step: 0.25 }}
+            helperText={suggestedHours > 0 ? `Suggested ${suggestedHours.toFixed(2)}h from current ticket` : ''}
           />
           <TextField
             label="Notes"
