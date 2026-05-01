@@ -4,6 +4,9 @@ import RepairInvoicesModel from '@/app/api/repair-invoices/model';
 import { computePaymentStatus, syncPaidRepairs } from '@/app/api/repair-invoices/service';
 import { createStripePaymentIntent, fetchStripePaymentIntent } from '@/app/api/repair-invoices/stripe';
 
+const STRIPE_CARD_FEE_RATE = 0.029;
+const STRIPE_CARD_FIXED_FEE = 0.30;
+
 async function requireCloseoutAccess() {
   const adminResult = await requireRole(['admin']);
   if (!adminResult.errorResponse) return adminResult;
@@ -18,6 +21,24 @@ function serializePaymentIntent(intent) {
     clientSecret: intent.client_secret || '',
     amountReceived: (intent.amount_received || 0) / 100,
     latestCharge: intent.latest_charge || '',
+  };
+}
+
+function getCardPaymentAmount(baseAmount) {
+  const amount = parseFloat(baseAmount || 0);
+  if (!(amount > 0)) {
+    return {
+      baseAmount: 0,
+      processingFee: 0,
+      cardTotal: 0,
+    };
+  }
+
+  const cardTotal = Math.ceil(((amount + STRIPE_CARD_FIXED_FEE) / (1 - STRIPE_CARD_FEE_RATE)) * 100) / 100;
+  return {
+    baseAmount: amount,
+    processingFee: Math.max(cardTotal - amount, 0),
+    cardTotal,
   };
 }
 
@@ -70,7 +91,10 @@ export const POST = async (req, { params }) => {
       }, { status: 200 });
     }
 
-    const requestedAmount = parseFloat(body.amount || invoice.remainingBalance || 0);
+    const cardSummary = body.applyCardFee === true
+      ? getCardPaymentAmount(invoice.remainingBalance)
+      : { baseAmount: parseFloat(body.amount || invoice.remainingBalance || 0), processingFee: 0, cardTotal: parseFloat(body.amount || invoice.remainingBalance || 0) };
+    const requestedAmount = cardSummary.cardTotal;
     const amountInCents = Math.round(requestedAmount * 100);
     if (!(amountInCents > 0)) {
       return NextResponse.json({ error: 'Stripe payment amount must be greater than 0.' }, { status: 400 });
@@ -81,6 +105,8 @@ export const POST = async (req, { params }) => {
       metadata: {
         invoiceID: invoice.invoiceID,
         accountType: invoice.accountType,
+        baseAmount: cardSummary.baseAmount,
+        processingFee: cardSummary.processingFee,
       },
       cardPresent: false,
     });
@@ -89,6 +115,8 @@ export const POST = async (req, { params }) => {
     payments.push({
       type: 'stripe',
       amount: requestedAmount,
+      baseAmount: cardSummary.baseAmount,
+      processingFee: cardSummary.processingFee,
       status: 'pending',
       paymentIntentId: intent.id,
       clientSecret: intent.client_secret,

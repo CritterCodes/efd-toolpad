@@ -49,6 +49,10 @@ const currency = new Intl.NumberFormat("en-US", {
 const CLOSEOUT_ACTIVE_REPAIR_KEY = "paymentPickupActiveRepairID";
 const CLOSEOUT_PHOTO_DB = "efd-closeout-photos";
 const CLOSEOUT_PHOTO_STORE = "pendingPhotos";
+const STRIPE_CARD_FEE_RATE = 0.029;
+const STRIPE_CARD_FIXED_FEE = 0.30;
+const EFD_LOGO_SRC = "/logos/%5Befd%5DLogoBlack.png";
+const ZELLE_QR_SRC = "/logos/zelle-qr.png";
 
 function getSessionValue(key) {
   if (typeof window === "undefined") return "";
@@ -141,6 +145,24 @@ function getCashDiscountSummary(invoice) {
   };
 }
 
+function getCardPaymentSummary(invoice) {
+  const remainingBalance = parseFloat(invoice.remainingBalance || 0);
+  if (!(remainingBalance > 0)) {
+    return {
+      baseTotal: 0,
+      processingFee: 0,
+      cardTotal: 0,
+    };
+  }
+
+  const cardTotal = Math.ceil(((remainingBalance + STRIPE_CARD_FIXED_FEE) / (1 - STRIPE_CARD_FEE_RATE)) * 100) / 100;
+  return {
+    baseTotal: remainingBalance,
+    processingFee: Math.max(cardTotal - remainingBalance, 0),
+    cardTotal,
+  };
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -152,6 +174,7 @@ function escapeHtml(value) {
 
 function buildInvoicePrintHtml(invoice) {
   const cashSummary = getCashDiscountSummary(invoice);
+  const cardSummary = getCardPaymentSummary(invoice);
   const repairRows = (invoice.repairSnapshots || []).map((repair) => `
     <tr>
       <td>
@@ -182,11 +205,14 @@ function buildInvoicePrintHtml(invoice) {
       * { box-sizing: border-box; }
       body { margin: 0; font-family: Arial, sans-serif; color: #111827; font-size: 12px; }
       .header { display: flex; justify-content: space-between; gap: 24px; border-bottom: 2px solid #111827; padding-bottom: 12px; margin-bottom: 18px; }
+      .brand-row { display: flex; align-items: flex-start; gap: 12px; }
+      .logo { width: 70px; height: auto; object-fit: contain; }
       .brand { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+      .contact { line-height: 1.35; margin-top: 4px; color: #374151; }
       .title { font-size: 18px; font-weight: 700; text-align: right; }
       .muted { color: #6B7280; font-size: 11px; margin-top: 3px; }
       .mono { font-family: "Courier New", monospace; }
-      .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+      .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
       .box { border: 1px solid #D1D5DB; padding: 10px; min-height: 54px; }
       .label { color: #6B7280; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
       .value { font-size: 13px; font-weight: 700; }
@@ -199,17 +225,26 @@ function buildInvoicePrintHtml(invoice) {
       .totals-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #E5E7EB; }
       .grand { font-size: 16px; font-weight: 800; border-bottom: 2px solid #111827; }
       .section { margin-top: 20px; }
+      .payment-options { display: grid; grid-template-columns: 1fr 160px; gap: 18px; align-items: start; margin-top: 22px; border: 1px solid #D1D5DB; padding: 12px; break-inside: avoid; }
+      .zelle-qr { width: 150px; height: 150px; object-fit: contain; border: 1px solid #D1D5DB; padding: 6px; }
       .notes { border: 1px solid #D1D5DB; padding: 10px; min-height: 44px; white-space: pre-wrap; }
       @media print { .no-print { display: none; } }
     </style>
   </head>
   <body>
     <div class="header">
-      <div>
-        <div class="brand">Engel Fine Design</div>
-        <div class="muted">Repair Invoice</div>
+      <div class="brand-row">
+        <img class="logo" src="${EFD_LOGO_SRC}" alt="Engel Fine Design logo" />
+        <div>
+          <div class="brand">Engel Fine Design</div>
+          <div class="contact">
+            115 N 10th St #A107, Fort Smith, AR 72901<br />
+            (479) 546-6740
+          </div>
+        </div>
       </div>
       <div class="title">
+        Repair Invoice<br />
         ${escapeHtml(invoice.invoiceID)}
         <div class="muted">${escapeHtml(new Date().toLocaleDateString())}</div>
       </div>
@@ -217,7 +252,6 @@ function buildInvoicePrintHtml(invoice) {
 
     <div class="grid">
       <div class="box"><div class="label">Customer</div><div class="value">${escapeHtml(invoice.customerName || invoice.accountID)}</div></div>
-      <div class="box"><div class="label">Status</div><div class="value">${escapeHtml(invoice.status)}</div></div>
       <div class="box"><div class="label">Payment</div><div class="value">${escapeHtml(invoice.paymentStatus)}</div></div>
       <div class="box"><div class="label">Fulfillment</div><div class="value">${invoice.deliveryMethod === "delivery" ? "Delivery" : "Pickup"}</div></div>
     </div>
@@ -236,7 +270,21 @@ function buildInvoicePrintHtml(invoice) {
       <div class="totals-row"><span>Delivery</span><span>${formatCurrency(invoice.deliveryFee)}</span></div>
       <div class="totals-row"><span>Cash Discount</span><span>-${formatCurrency(cashSummary.cashDiscountAmount)}</span></div>
       <div class="totals-row grand"><span>Cash Total</span><span>${formatCurrency(cashSummary.cashTotal)}</span></div>
-      <div class="totals-row"><span>Card/Invoice Total</span><span>${formatCurrency(invoice.remainingBalance)}</span></div>
+      <div class="totals-row"><span>Card Processing Fee</span><span>${formatCurrency(cardSummary.processingFee)}</span></div>
+      <div class="totals-row grand"><span>Card Total</span><span>${formatCurrency(cardSummary.cardTotal)}</span></div>
+    </div>
+
+    <div class="payment-options">
+      <div>
+        <div class="label">Payment Options</div>
+        <div><strong>Zelle:</strong> Scan the QR code and include invoice ${escapeHtml(invoice.invoiceID)} in the memo.</div>
+        <div class="muted">Cash/check total: ${formatCurrency(cashSummary.cashTotal)}</div>
+        <div class="muted">Card total includes Stripe processing fee: ${formatCurrency(cardSummary.cardTotal)}</div>
+      </div>
+      <div>
+        <img class="zelle-qr" src="${ZELLE_QR_SRC}" alt="Zelle payment QR" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+        <div class="muted" style="display:none;">Zelle QR not configured.</div>
+      </div>
     </div>
 
     ${paymentRows ? `
@@ -563,6 +611,7 @@ function InvoiceCard({
   const [targetInvoiceID, setTargetInvoiceID] = useState("");
   const [deliveryFeeInput, setDeliveryFeeInput] = useState(invoice.deliveryFee || 5);
   const cashDiscountSummary = useMemo(() => getCashDiscountSummary(invoice), [invoice]);
+  const cardPaymentSummary = useMemo(() => getCardPaymentSummary(invoice), [invoice]);
   const pendingStripe = (invoice.payments || []).find((payment) => payment.type === "stripe" && payment.status === "pending");
   const pendingTerminal = (invoice.payments || []).find((payment) => payment.type === "terminal" && payment.status === "pending");
   const canEditInvoice = invoice.paymentStatus !== "paid" && ["draft", "open"].includes(invoice.status);
@@ -614,6 +663,8 @@ function InvoiceCard({
             <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Remaining</Typography><Typography sx={{ fontWeight: 700 }}>{formatCurrency(invoice.remainingBalance)}</Typography></Grid>
             <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Cash Discount</Typography><Typography>{formatCurrency(cashDiscountSummary.cashDiscountAmount)}</Typography></Grid>
             <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Cash Total</Typography><Typography sx={{ fontWeight: 700 }}>{formatCurrency(cashDiscountSummary.cashTotal)}</Typography></Grid>
+            <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Card Fee</Typography><Typography>{formatCurrency(cardPaymentSummary.processingFee)}</Typography></Grid>
+            <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Card Total</Typography><Typography sx={{ fontWeight: 700 }}>{formatCurrency(cardPaymentSummary.cardTotal)}</Typography></Grid>
           </Grid>
 
           <Divider />
@@ -732,16 +783,16 @@ function InvoiceCard({
               </Stack>
 
               <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
-                <Button variant="outlined" onClick={() => onCreateStripe(invoice.invoiceID)} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>
-                  Create Stripe Payment Intent
+                <Button variant="outlined" onClick={() => onCreateStripe(invoice.invoiceID, cardPaymentSummary.cardTotal)} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>
+                  Create Stripe Intent ({formatCurrency(cardPaymentSummary.cardTotal)})
                 </Button>
                 {pendingStripe && (
                   <Button variant="outlined" onClick={() => onSyncStripe(invoice.invoiceID, pendingStripe.paymentIntentId)} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>
                     Refresh Stripe Status
                   </Button>
                 )}
-                <Button variant="outlined" onClick={() => onCreateTerminal(invoice.invoiceID)} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>
-                  Create Terminal Intent
+                <Button variant="outlined" onClick={() => onCreateTerminal(invoice.invoiceID, cardPaymentSummary.cardTotal)} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>
+                  Create Terminal Intent ({formatCurrency(cardPaymentSummary.cardTotal)})
                 </Button>
                 {pendingTerminal && (
                   <Button variant="outlined" onClick={() => onSyncTerminal(invoice.invoiceID, pendingTerminal.paymentIntentId)} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>
@@ -1071,11 +1122,11 @@ export default function PaymentPickupPage() {
     }
   };
 
-  const handleCreateStripe = async (invoiceID) => {
+  const handleCreateStripe = async (invoiceID, amount) => {
     try {
       const data = await postInvoiceAction(
         `/api/repair-invoices/${invoiceID}/payments/stripe`,
-        {},
+        { amount: parseFloat(amount || 0), applyCardFee: true },
         `Created Stripe payment intent for ${invoiceID}.`
       );
       if (data?.paymentIntent?.clientSecret) {
@@ -1098,11 +1149,11 @@ export default function PaymentPickupPage() {
     }
   };
 
-  const handleCreateTerminal = async (invoiceID) => {
+  const handleCreateTerminal = async (invoiceID, amount) => {
     try {
       await postInvoiceAction(
         `/api/repair-invoices/${invoiceID}/payments/terminal`,
-        {},
+        { amount: parseFloat(amount || 0), applyCardFee: true },
         `Created Stripe Terminal intent for ${invoiceID}.`
       );
     } catch (error) {
