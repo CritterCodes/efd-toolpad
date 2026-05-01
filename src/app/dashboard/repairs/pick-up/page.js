@@ -51,7 +51,7 @@ const CLOSEOUT_PHOTO_DB = "efd-closeout-photos";
 const CLOSEOUT_PHOTO_STORE = "pendingPhotos";
 const CARD_SURCHARGE_RATE = 0.03;
 const EFD_LOGO_SRC = "/logos/%5Befd%5DLogoBlack.png";
-const ZELLE_QR_SRC = "/logos/zelle-qr.png";
+const ZELLE_QR_SRC = "/logos/zelle-qr.jpg";
 
 function getSessionValue(key) {
   if (typeof window === "undefined") return "";
@@ -171,9 +171,16 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+function getPrintAssetSrc(src) {
+  if (typeof window === "undefined") return src;
+  return new URL(src, window.location.origin).href;
+}
+
 function buildInvoicePrintHtml(invoice) {
   const cashSummary = getCashDiscountSummary(invoice);
   const cardSummary = getCardPaymentSummary(invoice);
+  const logoSrc = getPrintAssetSrc(EFD_LOGO_SRC);
+  const zelleQrSrc = getPrintAssetSrc(ZELLE_QR_SRC);
   const repairRows = (invoice.repairSnapshots || []).map((repair) => `
     <tr>
       <td>
@@ -200,32 +207,33 @@ function buildInvoicePrintHtml(invoice) {
     <meta charset="utf-8" />
     <title>${escapeHtml(invoice.invoiceID)} Invoice</title>
     <style>
-      @page { size: letter; margin: 0.45in; }
+      @page { size: letter; margin: 0.35in; }
       * { box-sizing: border-box; }
-      body { margin: 0; font-family: Arial, sans-serif; color: #111827; font-size: 12px; }
-      .header { display: flex; justify-content: space-between; gap: 24px; border-bottom: 2px solid #111827; padding-bottom: 12px; margin-bottom: 18px; }
+      body { margin: 0; font-family: Arial, sans-serif; color: #111827; font-size: 11px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .header { display: flex; justify-content: space-between; gap: 24px; border-bottom: 2px solid #111827; padding-bottom: 10px; margin-bottom: 14px; }
       .brand-row { display: flex; align-items: flex-start; gap: 12px; }
-      .logo { width: 70px; height: auto; object-fit: contain; }
+      .logo { width: 62px; height: auto; object-fit: contain; }
       .brand { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
       .contact { line-height: 1.35; margin-top: 4px; color: #374151; }
       .title { font-size: 18px; font-weight: 700; text-align: right; }
       .muted { color: #6B7280; font-size: 11px; margin-top: 3px; }
       .mono { font-family: "Courier New", monospace; }
-      .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
-      .box { border: 1px solid #D1D5DB; padding: 10px; min-height: 54px; }
+      .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+      .box { border: 1px solid #D1D5DB; padding: 8px; min-height: 48px; }
       .label { color: #6B7280; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
       .value { font-size: 13px; font-weight: 700; }
       table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-      th { text-align: left; color: #374151; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid #9CA3AF; padding: 8px 6px; }
-      td { border-bottom: 1px solid #E5E7EB; padding: 8px 6px; vertical-align: top; }
+      th { text-align: left; color: #374151; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid #9CA3AF; padding: 7px 6px; }
+      td { border-bottom: 1px solid #E5E7EB; padding: 7px 6px; vertical-align: top; }
       .money { text-align: right; white-space: nowrap; }
       .strong { font-weight: 700; }
-      .totals { width: 280px; margin-left: auto; margin-top: 18px; }
+      .totals { width: 280px; margin-left: auto; margin-top: 14px; }
       .totals-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #E5E7EB; }
       .grand { font-size: 16px; font-weight: 800; border-bottom: 2px solid #111827; }
-      .section { margin-top: 20px; }
-      .payment-options { display: grid; grid-template-columns: 1fr 160px; gap: 18px; align-items: start; margin-top: 22px; border: 1px solid #D1D5DB; padding: 12px; break-inside: avoid; }
-      .zelle-qr { width: 150px; height: 150px; object-fit: contain; border: 1px solid #D1D5DB; padding: 6px; }
+      .section { margin-top: 16px; }
+      .payment-options { display: grid; grid-template-columns: 1fr 1.35in; gap: 16px; align-items: center; margin-top: 16px; border: 1px solid #D1D5DB; padding: 10px; break-inside: avoid; }
+      .qr-wrap { display: flex; justify-content: flex-end; }
+      .zelle-qr { width: 1.35in; height: 1.35in; object-fit: contain; border: 1px solid #D1D5DB; padding: 4px; display: block; }
       .notes { border: 1px solid #D1D5DB; padding: 10px; min-height: 44px; white-space: pre-wrap; }
       @media print { .no-print { display: none; } }
     </style>
@@ -233,7 +241,7 @@ function buildInvoicePrintHtml(invoice) {
   <body>
     <div class="header">
       <div class="brand-row">
-        <img class="logo" src="${EFD_LOGO_SRC}" alt="Engel Fine Design logo" />
+        <img class="logo" src="${logoSrc}" alt="Engel Fine Design logo" />
         <div>
           <div class="brand">Engel Fine Design</div>
           <div class="contact">
@@ -280,8 +288,8 @@ function buildInvoicePrintHtml(invoice) {
         <div class="muted">Cash/check total: ${formatCurrency(cashSummary.cashTotal)}</div>
         <div class="muted">Card total includes Stripe processing fee: ${formatCurrency(cardSummary.cardTotal)}</div>
       </div>
-      <div>
-        <img class="zelle-qr" src="${ZELLE_QR_SRC}" alt="Zelle payment QR" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+      <div class="qr-wrap">
+        <img class="zelle-qr" src="${zelleQrSrc}" alt="Zelle payment QR" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
         <div class="muted" style="display:none;">Zelle QR not configured.</div>
       </div>
     </div>
@@ -311,9 +319,27 @@ function printInvoice(invoice) {
   printWindow.document.write(buildInvoicePrintHtml(invoice));
   printWindow.document.close();
   printWindow.focus();
-  setTimeout(() => {
-    printWindow.print();
-  }, 250);
+
+  const printAfterAssetsLoad = () => {
+    const images = Array.from(printWindow.document.images);
+    const imagePromises = images.map((image) => {
+      if (image.complete) return Promise.resolve();
+      return new Promise((resolve) => {
+        image.onload = resolve;
+        image.onerror = resolve;
+      });
+    });
+
+    Promise.all(imagePromises).then(() => {
+      printWindow.print();
+    });
+  };
+
+  if (printWindow.document.readyState === "complete") {
+    printAfterAssetsLoad();
+  } else {
+    printWindow.onload = printAfterAssetsLoad;
+  }
 }
 
 function formatDate(value) {
