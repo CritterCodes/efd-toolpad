@@ -15,9 +15,13 @@ import {
   ArrowBack as BackIcon,
   Print as PrintIcon,
 } from '@mui/icons-material';
-import WholesaleIntakeSlipComponent from '@/components/print/WholesaleIntakeSlipComponent';
+import WholesaleIntakeSlipComponent, {
+  WHOLESALE_SLIP_HEIGHT,
+  WHOLESALE_SLIP_WIDTH,
+} from '@/components/print/WholesaleIntakeSlipComponent';
 
 const SLIPS_PER_PAGE = 4;
+const SHEET_GAP = '0.12in';
 
 export default function PrintWholesaleIntakeSlipsPage() {
   const params = useParams();
@@ -104,16 +108,46 @@ export default function PrintWholesaleIntakeSlipsPage() {
         @media print {
           @page {
             size: letter portrait;
-            margin: 0.35in;
+            margin: 0;
           }
+          html,
           body {
+            width: 8.5in !important;
+            height: 11in !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            background: #fff !important;
+          }
+          body * {
+            visibility: hidden !important;
+            box-sizing: border-box !important;
+          }
+          .wholesale-intake-print-page,
+          .wholesale-intake-print-page * {
+            visibility: visible !important;
+          }
+          .wholesale-intake-print-page {
+            position: fixed !important;
+            inset: 0 !important;
+            width: 8.5in !important;
+            height: 11in !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
             background: #fff !important;
           }
           .no-print {
             display: none !important;
           }
           .intake-sheet {
-            gap: 0.15in !important;
+            width: 8.5in !important;
+            height: 11in !important;
+            margin: 0 !important;
+            padding: 0.18in !important;
+            gap: ${SHEET_GAP} !important;
+            align-content: start !important;
+            overflow: hidden !important;
           }
         }
       `}</style>
@@ -146,14 +180,18 @@ export default function PrintWholesaleIntakeSlipsPage() {
         className="intake-sheet"
         sx={{
           width: '8.5in',
-          minHeight: '11in',
+          height: '11in',
           margin: '0 auto',
           display: 'grid',
-          gridTemplateColumns: 'repeat(2, 3.6in)',
+          gridTemplateColumns: `repeat(2, ${WHOLESALE_SLIP_WIDTH})`,
+          gridTemplateRows: `repeat(2, ${WHOLESALE_SLIP_HEIGHT})`,
           justifyContent: 'center',
-          gap: '0.18in',
+          alignContent: 'start',
+          gap: SHEET_GAP,
           backgroundColor: '#fff',
           p: { xs: 0, sm: '0.18in' },
+          overflow: 'hidden',
+          boxSizing: 'border-box',
         }}
       >
         {Array.from({ length: SLIPS_PER_PAGE }).map((_, index) => (

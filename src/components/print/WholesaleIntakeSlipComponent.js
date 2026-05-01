@@ -2,6 +2,8 @@ import React from 'react';
 import { Box, Typography } from '@mui/material';
 
 const FIELD_LINE = '________________________________';
+export const WHOLESALE_SLIP_WIDTH = '3.55in';
+export const WHOLESALE_SLIP_HEIGHT = '5.2in';
 
 function FieldRow({ label, value, minHeight = '0.42in' }) {
   return (
@@ -21,27 +23,28 @@ export default function WholesaleIntakeSlipComponent({ wholesalerName }) {
     <Box
       className="print-slip"
       sx={{
-        width: '3.6in',
-        height: '5.5in',
+        width: WHOLESALE_SLIP_WIDTH,
+        height: WHOLESALE_SLIP_HEIGHT,
         border: '1px solid #111',
         color: '#111',
         backgroundColor: '#fff',
-        p: '0.18in',
+        p: '0.16in',
         display: 'flex',
         flexDirection: 'column',
-        gap: '0.14in',
+        gap: '0.12in',
+        boxSizing: 'border-box',
       }}
     >
-      <Box sx={{ borderBottom: '1px solid #111', pb: '0.12in' }}>
+      <Box sx={{ borderBottom: '1px solid #111', pb: '0.1in' }}>
         <Typography sx={{ fontSize: '8pt', letterSpacing: 0.4, textTransform: 'uppercase' }}>
           Engel Fine Design
         </Typography>
-        <Typography sx={{ fontSize: '14pt', fontWeight: 700, lineHeight: 1.15 }}>
+        <Typography sx={{ fontSize: '13pt', fontWeight: 700, lineHeight: 1.15 }}>
           Wholesale Repair Intake
         </Typography>
       </Box>
 
-      <FieldRow label="Store name" value={wholesalerName} minHeight="0.48in" />
+      <FieldRow label="Store name" value={wholesalerName} minHeight="0.44in" />
       <FieldRow label="Client name" />
       <FieldRow label="Client number" />
 
@@ -49,16 +52,16 @@ export default function WholesaleIntakeSlipComponent({ wholesalerName }) {
         <Typography sx={{ fontSize: '9pt', fontWeight: 700, mb: '0.06in' }}>
           Metal type, color, karat
         </Typography>
-        <Typography sx={{ fontSize: '9pt', borderBottom: '1px solid #111', minHeight: '0.34in' }}>
+        <Typography sx={{ fontSize: '9pt', borderBottom: '1px solid #111', minHeight: '0.3in' }}>
           {' '}
         </Typography>
       </Box>
 
-      <Box sx={{ flex: 1, pt: '0.04in' }}>
+      <Box sx={{ flex: 1, pt: '0.03in' }}>
         <Typography sx={{ fontSize: '9pt', fontWeight: 700, mb: '0.06in' }}>
           Work order request
         </Typography>
-        <Box sx={{ display: 'grid', gap: '0.16in' }}>
+        <Box sx={{ display: 'grid', gap: '0.13in' }}>
           {[FIELD_LINE, FIELD_LINE, FIELD_LINE, FIELD_LINE, FIELD_LINE].map((line, index) => (
             <Typography key={index} sx={{ fontSize: '9pt', lineHeight: 1, letterSpacing: 0.3 }}>
               {line}
