@@ -914,7 +914,19 @@ export default function PaymentPickupPage() {
         </Typography>
       </Box>
 
-      <Tabs value={tab} onChange={(event, value) => setTab(value)} sx={{ mb: 3 }}>
+      <Tabs
+        value={tab}
+        onChange={(event, value) => setTab(value)}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
+        sx={{
+          mb: 3,
+          maxWidth: "100%",
+          "& .MuiTabs-scroller": { overflowX: "auto !important" },
+          "& .MuiTab-root": { flexShrink: 0, textTransform: "none" },
+        }}
+      >
         <Tab label={`Completed / Needs Closeout (${closeoutRepairs.length})`} />
         <Tab label={`Draft / Open Invoices (${draftOrOpenInvoices.length})`} />
         <Tab label={`Paid / Closed (${paidInvoices.length})`} />

@@ -867,7 +867,17 @@ export default function MyBenchPage() {
       <Tabs
         value={tab}
         onChange={(_, v) => setTab(v)}
-        sx={{ mb: 2, '& .MuiTab-root': { color: REPAIRS_UI.textSecondary, textTransform: 'none' }, '& .Mui-selected': { color: REPAIRS_UI.accent }, '& .MuiTabs-indicator': { bgcolor: REPAIRS_UI.accent } }}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
+        sx={{
+          mb: 2,
+          maxWidth: '100%',
+          '& .MuiTabs-scroller': { overflowX: 'auto !important' },
+          '& .MuiTab-root': { color: REPAIRS_UI.textSecondary, textTransform: 'none', flexShrink: 0 },
+          '& .Mui-selected': { color: REPAIRS_UI.accent },
+          '& .MuiTabs-indicator': { bgcolor: REPAIRS_UI.accent },
+        }}
       >
         {TABS.map(({ label, key }, i) => (
           <Tab key={key} label={`${label} (${byTab[key]?.length ?? 0})`} />
