@@ -45,6 +45,82 @@ const currency = new Intl.NumberFormat("en-US", {
   currency: "USD",
 });
 
+const CLOSEOUT_ACTIVE_REPAIR_KEY = "paymentPickupActiveRepairID";
+const CLOSEOUT_PHOTO_DB = "efd-closeout-photos";
+const CLOSEOUT_PHOTO_STORE = "pendingPhotos";
+
+function getSessionValue(key) {
+  if (typeof window === "undefined") return "";
+  return window.sessionStorage.getItem(key) || "";
+}
+
+function setSessionValue(key, value) {
+  if (typeof window === "undefined") return;
+  if (value) {
+    window.sessionStorage.setItem(key, value);
+  } else {
+    window.sessionStorage.removeItem(key);
+  }
+}
+
+function openCloseoutPhotoDB() {
+  return new Promise((resolve, reject) => {
+    const indexedDBRef = globalThis.indexedDB;
+    if (!indexedDBRef) {
+      reject(new Error("IndexedDB is not available."));
+      return;
+    }
+
+    const request = indexedDBRef.open(CLOSEOUT_PHOTO_DB, 1);
+    request.onupgradeneeded = () => {
+      request.result.createObjectStore(CLOSEOUT_PHOTO_STORE, { keyPath: "repairID" });
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("Unable to open photo storage."));
+  });
+}
+
+async function savePendingCloseoutPhoto(repairID, file) {
+  const db = await openCloseoutPhotoDB();
+  await new Promise((resolve, reject) => {
+    const transaction = db.transaction(CLOSEOUT_PHOTO_STORE, "readwrite");
+    transaction.objectStore(CLOSEOUT_PHOTO_STORE).put({
+      repairID,
+      file,
+      name: file.name || "after-photo.jpg",
+      size: file.size || 0,
+      type: file.type || "image/jpeg",
+      updatedAt: Date.now(),
+    });
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(transaction.error || new Error("Unable to save pending photo."));
+  });
+  db.close();
+}
+
+async function loadPendingCloseoutPhoto(repairID) {
+  const db = await openCloseoutPhotoDB();
+  const record = await new Promise((resolve, reject) => {
+    const transaction = db.transaction(CLOSEOUT_PHOTO_STORE, "readonly");
+    const request = transaction.objectStore(CLOSEOUT_PHOTO_STORE).get(repairID);
+    request.onsuccess = () => resolve(request.result || null);
+    request.onerror = () => reject(request.error || new Error("Unable to load pending photo."));
+  });
+  db.close();
+  return record;
+}
+
+async function clearPendingCloseoutPhoto(repairID) {
+  const db = await openCloseoutPhotoDB();
+  await new Promise((resolve, reject) => {
+    const transaction = db.transaction(CLOSEOUT_PHOTO_STORE, "readwrite");
+    transaction.objectStore(CLOSEOUT_PHOTO_STORE).delete(repairID);
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(transaction.error || new Error("Unable to clear pending photo."));
+  });
+  db.close();
+}
+
 function formatCurrency(amount) {
   return currency.format(parseFloat(amount || 0));
 }
@@ -111,6 +187,31 @@ function RepairCloseoutCard({
     };
   }, [pendingPhotoPreview]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const restorePendingPhoto = async () => {
+      try {
+        const record = await loadPendingCloseoutPhoto(repair.repairID);
+        if (cancelled || !record?.file) return;
+
+        setPendingPhoto(record.file);
+        setPendingPhotoPreview((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return URL.createObjectURL(record.file);
+        });
+      } catch (error) {
+        console.warn("Unable to restore pending closeout photo:", error);
+      }
+    };
+
+    restorePendingPhoto();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [repair.repairID]);
+
   const handlePhotoTaken = (event) => {
     const file = event.target.files?.[0];
     setInputKey((k) => k + 1);
@@ -120,6 +221,9 @@ function RepairCloseoutCard({
       return URL.createObjectURL(file);
     });
     setPendingPhoto(file);
+    savePendingCloseoutPhoto(repair.repairID, file).catch((error) => {
+      console.warn("Unable to persist pending closeout photo:", error);
+    });
   };
 
   const openCamera = () => {
@@ -132,6 +236,9 @@ function RepairCloseoutCard({
     if (!pendingPhoto || blockedForReview || photoState.loading) return;
     const saved = await onConfirmCloseout(repair.repairID, pendingPhoto, noteValue);
     if (saved) {
+      clearPendingCloseoutPhoto(repair.repairID).catch((error) => {
+        console.warn("Unable to clear pending closeout photo:", error);
+      });
       setPendingPhoto(null);
       setPendingPhotoPreview((prev) => {
         if (prev) URL.revokeObjectURL(prev);
@@ -500,14 +607,15 @@ export default function PaymentPickupPage() {
   );
 
   useEffect(() => {
-    if (!returnCloseoutRepairID || loading || handledReturnRef.current === returnCloseoutRepairID) return;
-    const repair = closeoutRepairs.find((item) => item.repairID === returnCloseoutRepairID);
+    const activeRepairID = returnCloseoutRepairID || getSessionValue(CLOSEOUT_ACTIVE_REPAIR_KEY);
+    if (!activeRepairID || loading || handledReturnRef.current === activeRepairID) return;
+    const repair = closeoutRepairs.find((item) => item.repairID === activeRepairID);
     if (!repair) return;
 
-    handledReturnRef.current = returnCloseoutRepairID;
+    handledReturnRef.current = activeRepairID;
     setTab(0);
-    setCloseoutSearch(returnCloseoutRepairID);
-    setScannedRepairID(returnCloseoutRepairID);
+    setCloseoutSearch(activeRepairID);
+    setScannedRepairID(activeRepairID);
   }, [closeoutRepairs, loading, returnCloseoutRepairID]);
 
   const visibleCloseoutRepairs = useMemo(() => {
@@ -541,6 +649,7 @@ export default function PaymentPickupPage() {
       return;
     }
     setCloseoutScannerOpen(false);
+    setSessionValue(CLOSEOUT_ACTIVE_REPAIR_KEY, cleanRepairID);
     setScannedRepairID(cleanRepairID);
   };
 
@@ -573,6 +682,7 @@ export default function PaymentPickupPage() {
           : `Saved closeout data for ${repairID}.`,
         "success"
       );
+      setSessionValue(CLOSEOUT_ACTIVE_REPAIR_KEY, "");
       setScannedRepairID("");
       return true;
     } catch (error) {
@@ -970,7 +1080,10 @@ export default function PaymentPickupPage() {
 
       <Dialog
         open={Boolean(scannedRepairID)}
-        onClose={() => setScannedRepairID("")}
+        onClose={() => {
+          setSessionValue(CLOSEOUT_ACTIVE_REPAIR_KEY, "");
+          setScannedRepairID("");
+        }}
         maxWidth="sm"
         fullWidth
       >
@@ -978,7 +1091,13 @@ export default function PaymentPickupPage() {
           <Typography sx={{ fontWeight: 700, color: REPAIRS_UI.textHeader }}>
             {scannedRepair ? (scannedRepair.clientName || scannedRepair.businessName || scannedRepair.repairID) : scannedRepairID}
           </Typography>
-          <IconButton onClick={() => setScannedRepairID("")} size="small">
+          <IconButton
+            onClick={() => {
+              setSessionValue(CLOSEOUT_ACTIVE_REPAIR_KEY, "");
+              setScannedRepairID("");
+            }}
+            size="small"
+          >
             <CloseIcon />
           </IconButton>
         </DialogTitle>
@@ -1004,13 +1123,20 @@ export default function PaymentPickupPage() {
           )}
         </DialogContent>
         <DialogActions sx={{ px: 2, pb: 2, gap: 1 }}>
-          <Button onClick={() => setScannedRepairID("")} sx={{ color: REPAIRS_UI.textSecondary }}>
+          <Button
+            onClick={() => {
+              setSessionValue(CLOSEOUT_ACTIVE_REPAIR_KEY, "");
+              setScannedRepairID("");
+            }}
+            sx={{ color: REPAIRS_UI.textSecondary }}
+          >
             Done
           </Button>
           <Button
             variant="contained"
             startIcon={<ScanIcon />}
             onClick={() => {
+              setSessionValue(CLOSEOUT_ACTIVE_REPAIR_KEY, "");
               setScannedRepairID("");
               setCloseoutScannerOpen(true);
             }}
