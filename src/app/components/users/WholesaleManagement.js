@@ -17,6 +17,7 @@ import WholesalersTable from './wholesale/WholesalersTable';
 import ReconciliationList from './wholesale/ReconciliationList';
 import ActionDialog from './wholesale/ActionDialog';
 import DetailDialog from './wholesale/DetailDialog';
+import WholesalerDetailDialog from './wholesale/WholesalerDetailDialog';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -28,7 +29,7 @@ function TabPanel({ children, value, index, ...other }) {
       {...other}
     >
       {value === index && (
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: { xs: 2, sm: 3 } }}>
           {children}
         </Box>
       )}
@@ -50,12 +51,12 @@ export default function WholesaleManagement() {
   } = useWholesaleManagement();
 
   const [tabValue, setTabValue] = useState(0);
-  
-  // Dialog States
   const [selectedApplication, setSelectedApplication] = useState(null);
+  const [selectedWholesaler, setSelectedWholesaler] = useState(null);
   const [actionDialogOpen, setActionDialogOpen] = useState(false);
   const [actionType, setActionType] = useState('');
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [wholesalerDetailOpen, setWholesalerDetailOpen] = useState(false);
 
   const openActionDialog = (application, action) => {
     setSelectedApplication(application);
@@ -66,6 +67,11 @@ export default function WholesaleManagement() {
   const openDetailDialog = (application) => {
     setSelectedApplication(application);
     setDetailDialogOpen(true);
+  };
+
+  const openWholesalerDetailDialog = (wholesaler) => {
+    setSelectedWholesaler(wholesaler);
+    setWholesalerDetailOpen(true);
   };
 
   const confirmAction = async (applicationId, reviewNotes) => {
@@ -85,8 +91,12 @@ export default function WholesaleManagement() {
     );
   }
 
+  const reconciliationCount = (reconciliation?.legacyWholesalers?.length || 0)
+    + (reconciliation?.safeMatches?.length || 0)
+    + (reconciliation?.ambiguousMatches?.length || 0);
+
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
       <Typography variant="h4" gutterBottom>
         Wholesale Management
       </Typography>
@@ -100,30 +110,32 @@ export default function WholesaleManagement() {
         </Alert>
       )}
 
-      {/* Statistics Cards */}
       <StatsCards stats={stats} />
 
-      {/* Tabs */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
+        <Tabs
+          value={tabValue}
+          onChange={(e, newValue) => setTabValue(newValue)}
+          variant="scrollable"
+          allowScrollButtonsMobile
+          scrollButtons="auto"
+        >
           <Tab label={`Applications (${applications.length})`} />
-          <Tab label={`Active Wholesalers (${wholesalers.length})`} />
-          <Tab label={`Reconciliation (${(reconciliation?.legacyWholesalers?.length || 0) + (reconciliation?.safeMatches?.length || 0) + (reconciliation?.ambiguousMatches?.length || 0)})`} />
+          <Tab label={`Accounts (${wholesalers.length})`} />
+          <Tab label={`Reconciliation (${reconciliationCount})`} />
         </Tabs>
       </Box>
 
-      {/* Applications Tab */}
       <TabPanel value={tabValue} index={0}>
-        <ApplicationsList 
-          applications={applications} 
+        <ApplicationsList
+          applications={applications}
           onOpenDetail={openDetailDialog}
           onOpenAction={openActionDialog}
         />
       </TabPanel>
 
-      {/* Active Wholesalers Tab */}
       <TabPanel value={tabValue} index={1}>
-        <WholesalersTable wholesalers={wholesalers} />
+        <WholesalersTable wholesalers={wholesalers} onOpenDetail={openWholesalerDetailDialog} />
       </TabPanel>
 
       <TabPanel value={tabValue} index={2}>
@@ -134,8 +146,7 @@ export default function WholesaleManagement() {
         />
       </TabPanel>
 
-      {/* Action Dialog */}
-      <ActionDialog 
+      <ActionDialog
         open={actionDialogOpen}
         onClose={() => setActionDialogOpen(false)}
         application={selectedApplication}
@@ -144,11 +155,16 @@ export default function WholesaleManagement() {
         loading={loading}
       />
 
-      {/* Detail Dialog */}
-      <DetailDialog 
+      <DetailDialog
         open={detailDialogOpen}
         onClose={() => setDetailDialogOpen(false)}
         application={selectedApplication}
+      />
+
+      <WholesalerDetailDialog
+        open={wholesalerDetailOpen}
+        onClose={() => setWholesalerDetailOpen(false)}
+        wholesaler={selectedWholesaler}
       />
     </Box>
   );

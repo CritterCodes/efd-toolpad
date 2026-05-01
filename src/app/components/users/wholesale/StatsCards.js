@@ -16,7 +16,7 @@ export default function StatsCards({ stats }) {
   return (
     <Grid container spacing={2} sx={{ mb: 3 }}>
       {cards.map((card) => (
-        <Grid item xs={12} sm={6} md={2} key={card.label}>
+        <Grid item xs={6} md={2} key={card.label}>
           <Card>
             <CardContent>
               <Typography variant="h6" component="div" color={card.color}>
