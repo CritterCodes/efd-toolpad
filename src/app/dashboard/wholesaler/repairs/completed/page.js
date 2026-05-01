@@ -20,15 +20,10 @@ const TH = ({ children }) => (
 
 export default function CompletedRepairsPage() {
     const router = useRouter();
-    const { repairs, loading, error, refresh } = useWholesaleRepairs();
-
-    const completedRepairs = repairs.filter(r =>
-        ['COMPLETED', 'READY FOR PICKUP', 'DELIVERY BATCHED', 'PAID_CLOSED', 'READY FOR PICK-UP'].includes(r.status)
-    );
+    const { completedRepairs, loading, error, refresh } = useWholesaleRepairs();
 
     return (
         <Box sx={{ pb: 10 }}>
-            {/* Header */}
             <Box
                 sx={{
                     backgroundColor: { xs: 'transparent', sm: UI.bgPanel },
@@ -57,7 +52,7 @@ export default function CompletedRepairsPage() {
                             Completed Repairs
                         </Typography>
                         <Typography sx={{ color: UI.textSecondary, lineHeight: 1.6 }}>
-                            {completedRepairs.length} repair{completedRepairs.length !== 1 ? 's' : ''} completed or awaiting final pickup/delivery closeout.
+                            {completedRepairs.length} repair{completedRepairs.length !== 1 ? 's' : ''} completed or awaiting final pickup or delivery closeout.
                         </Typography>
                     </Box>
                     <Button
@@ -96,37 +91,40 @@ export default function CompletedRepairsPage() {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {completedRepairs.map(repair => (
-                                <TableRow
-                                    key={repair.repairID}
-                                    sx={{
-                                        backgroundColor: UI.bgCard,
-                                        '&:hover': { backgroundColor: UI.bgTertiary },
-                                        '&:not(:last-child) td': { borderBottom: `1px solid ${UI.border}` },
-                                        '&:last-child td': { borderBottom: 'none' },
-                                    }}
-                                >
-                                    <TableCell
-                                        sx={{ fontFamily: 'monospace', fontSize: '0.85rem', cursor: 'pointer', color: UI.accent }}
-                                        onClick={() => router.push(`/dashboard/repairs/${repair.repairID}`)}
+                            {completedRepairs.map((repair) => {
+                                const displayStatus = repair.normalizedStatus || repair.status;
+                                return (
+                                    <TableRow
+                                        key={repair.repairID}
+                                        sx={{
+                                            backgroundColor: UI.bgCard,
+                                            '&:hover': { backgroundColor: UI.bgTertiary },
+                                            '&:not(:last-child) td': { borderBottom: `1px solid ${UI.border}` },
+                                            '&:last-child td': { borderBottom: 'none' },
+                                        }}
                                     >
-                                        {repair.repairID}
-                                    </TableCell>
-                                    <TableCell sx={{ color: UI.textPrimary }}>{repair.clientName || repair.customerName}</TableCell>
-                                    <TableCell sx={{ color: UI.textSecondary }}>{repair.itemType}</TableCell>
-                                    <TableCell sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: UI.textSecondary }}>
-                                        {repair.description}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Chip
-                                            label={repair.status}
-                                            color={repair.status === 'COMPLETED' ? 'success' : 'info'}
-                                            size="small"
-                                        />
-                                    </TableCell>
-                                    <TableCell sx={{ color: UI.textSecondary }}>{fmtDate(repair.createdAt)}</TableCell>
-                                </TableRow>
-                            ))}
+                                        <TableCell
+                                            sx={{ fontFamily: 'monospace', fontSize: '0.85rem', cursor: 'pointer', color: UI.accent }}
+                                            onClick={() => router.push(`/dashboard/repairs/${repair.repairID}`)}
+                                        >
+                                            {repair.repairID}
+                                        </TableCell>
+                                        <TableCell sx={{ color: UI.textPrimary }}>{repair.clientName || repair.customerName}</TableCell>
+                                        <TableCell sx={{ color: UI.textSecondary }}>{repair.itemType}</TableCell>
+                                        <TableCell sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: UI.textSecondary }}>
+                                            {repair.description}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Chip
+                                                label={displayStatus}
+                                                color={displayStatus === 'COMPLETED' ? 'success' : 'info'}
+                                                size="small"
+                                            />
+                                        </TableCell>
+                                        <TableCell sx={{ color: UI.textSecondary }}>{fmtDate(repair.createdAt)}</TableCell>
+                                    </TableRow>
+                                );
+                            })}
                         </TableBody>
                     </Table>
                 </Box>

@@ -14,6 +14,7 @@ import {
 } from '@mui/icons-material';
 import { wholesaleRepairsClient } from '@/api-clients/wholesaleRepairs.client';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import { normalizeRepairWorkflow, REPAIR_STATUS } from '@/services/repairWorkflow';
 
 export default function PendingWholesalePage() {
     const { data: session } = useSession();
@@ -27,10 +28,10 @@ export default function PendingWholesalePage() {
             setLoading(true);
             setError(null);
             const [pendingData, pickupData] = await Promise.all([
-                wholesaleRepairsClient.fetchRepairs({ status: 'PENDING PICKUP' }),
-                wholesaleRepairsClient.fetchRepairs({ status: 'PICKUP REQUESTED' }),
+                wholesaleRepairsClient.fetchRepairs({ status: REPAIR_STATUS.PENDING_PICKUP }),
+                wholesaleRepairsClient.fetchRepairs({ status: REPAIR_STATUS.PICKUP_REQUESTED }),
             ]);
-            setRepairs([...(pickupData.repairs || []), ...(pendingData.repairs || [])]);
+            setRepairs([...(pickupData.repairs || []), ...(pendingData.repairs || [])].map(normalizeRepairWorkflow));
         } catch {
             setError('Failed to load pending repairs');
         } finally {
@@ -40,10 +41,22 @@ export default function PendingWholesalePage() {
 
     useEffect(() => { loadRepairs(); }, [loadRepairs]);
     useEffect(() => {
-        if (session && session.user?.role !== 'admin') router.replace('/dashboard');
+        const isAdmin = ['admin', 'dev'].includes(session?.user?.role);
+        const canReceiveWholesale = session?.user?.role === 'artisan'
+            && session?.user?.employment?.isOnsite === true
+            && session?.user?.staffCapabilities?.repairOps === true
+            && session?.user?.staffCapabilities?.receiving === true;
+
+        if (session && !isAdmin && !canReceiveWholesale) router.replace('/dashboard');
     }, [session, router]);
 
-    if (!session || session.user?.role !== 'admin') return null;
+    const isAdmin = ['admin', 'dev'].includes(session?.user?.role);
+    const canReceiveWholesale = session?.user?.role === 'artisan'
+        && session?.user?.employment?.isOnsite === true
+        && session?.user?.staffCapabilities?.repairOps === true
+        && session?.user?.staffCapabilities?.receiving === true;
+
+    if (!session || (!isAdmin && !canReceiveWholesale)) return null;
 
     const storeGroups = repairs.reduce((acc, repair) => {
         const key = repair.createdBy || repair.userID || 'unknown';
@@ -57,14 +70,14 @@ export default function PendingWholesalePage() {
             };
         }
         acc[key].repairs.push(repair);
-        if (repair.status === 'PICKUP REQUESTED') acc[key].pickupRequested++;
+        if (repair.normalizedStatus === REPAIR_STATUS.PICKUP_REQUESTED) acc[key].pickupRequested++;
         else acc[key].pending++;
         return acc;
     }, {});
     const stores = Object.values(storeGroups).sort((a, b) => b.pickupRequested - a.pickupRequested);
 
-    const totalPickupRequests = repairs.filter(r => r.status === 'PICKUP REQUESTED').length;
-    const totalPending = repairs.filter(r => r.status === 'PENDING PICKUP').length;
+    const totalPickupRequests = repairs.filter(r => r.normalizedStatus === REPAIR_STATUS.PICKUP_REQUESTED).length;
+    const totalPending = repairs.filter(r => r.normalizedStatus === REPAIR_STATUS.PENDING_PICKUP).length;
 
     return (
         <Box sx={{ pb: 10, position: 'relative' }}>

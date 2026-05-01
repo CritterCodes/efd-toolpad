@@ -1,18 +1,13 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/database';
-import { auth } from '@/lib/auth';
+import { requireRepairOps } from '@/lib/apiAuth';
+import { REPAIR_STATUS } from '@/services/repairWorkflow';
 
 // POST /api/wholesale/repairs/receive - Batch receive wholesale repairs
 export async function POST(request) {
     try {
-        const session = await auth();
-        if (!session?.user) {
-            return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-        }
-
-        if (session.user.role !== 'admin') {
-            return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-        }
+        const { session, errorResponse } = await requireRepairOps('receiving');
+        if (errorResponse) return errorResponse;
 
         const { repairIDs } = await request.json();
 
@@ -29,11 +24,11 @@ export async function POST(request) {
             {
                 repairID: { $in: repairIDs },
                 isWholesale: true,
-                status: { $in: ['PENDING PICKUP', 'PICKUP REQUESTED'] }
+                status: { $in: [REPAIR_STATUS.PENDING_PICKUP, REPAIR_STATUS.PICKUP_REQUESTED] }
             },
             {
                 $set: {
-                    status: 'RECEIVING',
+                    status: REPAIR_STATUS.RECEIVING,
                     receivedAt: new Date(),
                     receivedBy: session.user.userID,
                     updatedAt: new Date()

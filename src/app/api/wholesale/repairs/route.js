@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/database';
 import { auth } from "@/lib/auth";
+import { normalizeRepairStatus, normalizeRepairWorkflow } from '@/services/repairWorkflow';
 
 // GET /api/wholesale/repairs - Get repairs for a wholesaler
 export async function GET(request) {
@@ -38,7 +39,11 @@ export async function GET(request) {
         // Optional status filter
         const status = searchParams.get('status');
         if (status) {
-            query.status = status;
+            const normalizedStatus = normalizeRepairStatus(status);
+            if (!normalizedStatus) {
+                return NextResponse.json({ error: 'Invalid status filter' }, { status: 400 });
+            }
+            query.status = normalizedStatus;
         }
         
         const repairs = await dbInstance.collection('repairs')
@@ -49,7 +54,7 @@ export async function GET(request) {
         return NextResponse.json({ 
             success: true,
             repairs: repairs.map(repair => ({
-                ...repair,
+                ...normalizeRepairWorkflow(repair),
                 id: repair._id?.toString() || repair.repairID,
                 _id: undefined
             }))

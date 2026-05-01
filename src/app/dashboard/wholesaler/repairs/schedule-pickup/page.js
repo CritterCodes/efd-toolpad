@@ -15,6 +15,7 @@ import {
 } from '@mui/icons-material';
 import { useWholesaleRepairs } from '@/hooks/wholesale/useWholesaleRepairs';
 import { REPAIRS_UI as UI } from '@/app/dashboard/repairs/components/repairsUi';
+import { REPAIR_STATUS } from '@/services/repairWorkflow';
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 
@@ -27,7 +28,7 @@ const TH = ({ children, padding }) => (
 export default function SchedulePickupPage() {
     const router = useRouter();
     const {
-        repairs, pendingRepairs, loading, error, stats,
+        pendingRepairs, pickupRequestedRepairs, loading, error, stats,
         selected, toggleSelect, selectAllPending,
         requestPickup, scheduleDelivery, refresh
     } = useWholesaleRepairs();
@@ -46,8 +47,7 @@ export default function SchedulePickupPage() {
         }
     };
 
-    const pickupRequested = repairs.filter(r => r.status === 'PICKUP REQUESTED');
-    const schedulableRepairs = [...pendingRepairs, ...pickupRequested];
+    const schedulableRepairs = [...pickupRequestedRepairs, ...pendingRepairs];
 
     const selectedPendingCount = selected.filter(id =>
         pendingRepairs.some(r => r.repairID === id)
@@ -159,7 +159,7 @@ export default function SchedulePickupPage() {
                 </Box>
             )}
 
-            {pendingRepairs.length === 0 && pickupRequested.length === 0 && !loading && (
+            {pendingRepairs.length === 0 && pickupRequestedRepairs.length === 0 && !loading && (
                 <Box sx={{ p: 4, textAlign: 'center', border: `1px solid ${UI.border}`, borderRadius: 2, backgroundColor: UI.bgCard, mb: 2 }}>
                     <Typography sx={{ color: UI.textSecondary }}>
                         No pending repairs to schedule. All repairs have been picked up or delivered.
@@ -199,7 +199,7 @@ export default function SchedulePickupPage() {
                                     }}
                                 >
                                     <TableCell padding="checkbox" sx={{ borderBottom: 'none' }}>
-                                        {repair.status === 'PENDING PICKUP' && (
+                                        {repair.normalizedStatus === REPAIR_STATUS.PENDING_PICKUP && (
                                             <Checkbox
                                                 checked={selected.includes(repair.repairID)}
                                                 onChange={() => toggleSelect(repair.repairID)}
@@ -220,8 +220,8 @@ export default function SchedulePickupPage() {
                                     </TableCell>
                                     <TableCell>
                                         <Chip
-                                            label={repair.status}
-                                            color={repair.status === 'PICKUP REQUESTED' ? 'error' : 'warning'}
+                                            label={repair.normalizedStatus || repair.status}
+                                            color={(repair.normalizedStatus || repair.status) === REPAIR_STATUS.PICKUP_REQUESTED ? 'error' : 'warning'}
                                             size="small"
                                         />
                                     </TableCell>

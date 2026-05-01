@@ -9,19 +9,18 @@ import {
 import { Refresh as RefreshIcon, Build as BuildIcon } from '@mui/icons-material';
 import { useWholesaleRepairs } from '@/hooks/wholesale/useWholesaleRepairs';
 import { REPAIRS_UI as UI } from '@/app/dashboard/repairs/components/repairsUi';
+import { STATUS_DESCRIPTIONS } from '@/services/repairWorkflow';
 
 const STATUS_COLORS = {
     'RECEIVING': 'info',
+    'NEEDS QUOTE': 'warning',
+    'COMMUNICATION REQUIRED': 'secondary',
     'NEEDS PARTS': 'secondary',
     'PARTS ORDERED': 'secondary',
     'READY FOR WORK': 'default',
     'IN PROGRESS': 'primary',
     'QC': 'primary',
-    'QC': 'primary',
-    'QUALITY CONTROL': 'primary',
 };
-
-const ACTIVE_STATUSES = ['RECEIVING', 'NEEDS PARTS', 'PARTS ORDERED', 'READY FOR WORK', 'IN PROGRESS', 'QC', 'QUALITY CONTROL'];
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 
@@ -33,19 +32,16 @@ const TH = ({ children }) => (
 
 export default function CurrentRepairsPage() {
     const router = useRouter();
-    const { repairs, loading, error, stats, refresh } = useWholesaleRepairs();
-
-    const currentRepairs = repairs.filter(r => ACTIVE_STATUSES.includes(r.status));
+    const { activeRepairs, loading, error, stats, refresh } = useWholesaleRepairs();
 
     const statItems = [
         { label: 'Received', value: stats.receiving },
         { label: 'In Progress', value: stats.inProgress },
-        { label: 'Total Active', value: currentRepairs.length },
+        { label: 'Total Active', value: activeRepairs.length },
     ];
 
     return (
         <Box sx={{ pb: 10 }}>
-            {/* Header */}
             <Box
                 sx={{
                     backgroundColor: { xs: 'transparent', sm: UI.bgPanel },
@@ -88,7 +84,6 @@ export default function CurrentRepairsPage() {
                     </Button>
                 </Box>
 
-                {/* Stat chips */}
                 <Grid container spacing={2}>
                     {statItems.map(({ label, value }) => (
                         <Grid item xs={4} sm="auto" key={label}>
@@ -107,7 +102,7 @@ export default function CurrentRepairsPage() {
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                     <CircularProgress sx={{ color: UI.accent }} />
                 </Box>
-            ) : currentRepairs.length === 0 ? (
+            ) : activeRepairs.length === 0 ? (
                 <Box sx={{ p: 4, textAlign: 'center', border: `1px solid ${UI.border}`, borderRadius: 2, backgroundColor: UI.bgCard }}>
                     <Typography sx={{ color: UI.textSecondary }}>No active repairs at this time.</Typography>
                 </Box>
@@ -126,34 +121,42 @@ export default function CurrentRepairsPage() {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {currentRepairs.map(repair => (
-                                <TableRow
-                                    key={repair.repairID}
-                                    sx={{
-                                        backgroundColor: UI.bgCard,
-                                        '&:hover': { backgroundColor: UI.bgTertiary },
-                                        '&:not(:last-child) td': { borderBottom: `1px solid ${UI.border}` },
-                                        '&:last-child td': { borderBottom: 'none' },
-                                    }}
-                                >
-                                    <TableCell
-                                        sx={{ fontFamily: 'monospace', fontSize: '0.85rem', cursor: 'pointer', color: UI.accent }}
-                                        onClick={() => router.push(`/dashboard/repairs/${repair.repairID}`)}
+                            {activeRepairs.map((repair) => {
+                                const displayStatus = repair.normalizedStatus || repair.status;
+                                return (
+                                    <TableRow
+                                        key={repair.repairID}
+                                        sx={{
+                                            backgroundColor: UI.bgCard,
+                                            '&:hover': { backgroundColor: UI.bgTertiary },
+                                            '&:not(:last-child) td': { borderBottom: `1px solid ${UI.border}` },
+                                            '&:last-child td': { borderBottom: 'none' },
+                                        }}
                                     >
-                                        {repair.repairID}
-                                    </TableCell>
-                                    <TableCell sx={{ color: UI.textPrimary }}>{repair.clientName || repair.customerName}</TableCell>
-                                    <TableCell sx={{ color: UI.textSecondary }}>{repair.itemType}</TableCell>
-                                    <TableCell sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: UI.textSecondary }}>
-                                        {repair.description}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Chip label={repair.status} color={STATUS_COLORS[repair.status] || 'default'} size="small" />
-                                    </TableCell>
-                                    <TableCell sx={{ color: UI.textSecondary }}>{fmtDate(repair.createdAt)}</TableCell>
-                                    <TableCell sx={{ color: UI.textSecondary }}>{repair.promiseDate || '—'}</TableCell>
-                                </TableRow>
-                            ))}
+                                        <TableCell
+                                            sx={{ fontFamily: 'monospace', fontSize: '0.85rem', cursor: 'pointer', color: UI.accent }}
+                                            onClick={() => router.push(`/dashboard/repairs/${repair.repairID}`)}
+                                        >
+                                            {repair.repairID}
+                                        </TableCell>
+                                        <TableCell sx={{ color: UI.textPrimary }}>{repair.clientName || repair.customerName}</TableCell>
+                                        <TableCell sx={{ color: UI.textSecondary }}>{repair.itemType}</TableCell>
+                                        <TableCell sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: UI.textSecondary }}>
+                                            {repair.description}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Chip
+                                                label={displayStatus}
+                                                color={STATUS_COLORS[displayStatus] || 'default'}
+                                                size="small"
+                                                title={STATUS_DESCRIPTIONS[displayStatus] || displayStatus}
+                                            />
+                                        </TableCell>
+                                        <TableCell sx={{ color: UI.textSecondary }}>{fmtDate(repair.createdAt)}</TableCell>
+                                        <TableCell sx={{ color: UI.textSecondary }}>{repair.promiseDate ? fmtDate(repair.promiseDate) : '—'}</TableCell>
+                                    </TableRow>
+                                );
+                            })}
                         </TableBody>
                     </Table>
                 </Box>

@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { wholesaleRepairsClient } from '@/api-clients/wholesaleRepairs.client';
+import { normalizeRepairWorkflow, REPAIR_STATUS } from '@/services/repairWorkflow';
 
 export function usePendingWholesale() {
     const [repairs, setRepairs] = useState([]);
@@ -12,10 +13,10 @@ export function usePendingWholesale() {
             setLoading(true);
             setError(null);
             const [pendingData, pickupData] = await Promise.all([
-                wholesaleRepairsClient.fetchRepairs({ status: 'PENDING PICKUP' }),
-                wholesaleRepairsClient.fetchRepairs({ status: 'PICKUP REQUESTED' }),
+                wholesaleRepairsClient.fetchRepairs({ status: REPAIR_STATUS.PENDING_PICKUP }),
+                wholesaleRepairsClient.fetchRepairs({ status: REPAIR_STATUS.PICKUP_REQUESTED }),
             ]);
-            const all = [...(pickupData.repairs || []), ...(pendingData.repairs || [])];
+            const all = [...(pickupData.repairs || []), ...(pendingData.repairs || [])].map(normalizeRepairWorkflow);
             setRepairs(all);
             setSelected([]);
         } catch (err) {

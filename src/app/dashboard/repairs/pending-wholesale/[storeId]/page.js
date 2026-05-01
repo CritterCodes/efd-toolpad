@@ -17,6 +17,7 @@ import {
     Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { wholesaleRepairsClient } from '@/api-clients/wholesaleRepairs.client';
+import { normalizeRepairWorkflow, REPAIR_STATUS } from '@/services/repairWorkflow';
 
 export default function StorePickupDetailPage() {
     const { data: session } = useSession();
@@ -39,10 +40,10 @@ export default function StorePickupDetailPage() {
         try {
             setLoading(true);
             const [pendingData, pickupData] = await Promise.all([
-                wholesaleRepairsClient.fetchRepairs({ status: 'PENDING PICKUP' }),
-                wholesaleRepairsClient.fetchRepairs({ status: 'PICKUP REQUESTED' }),
+                wholesaleRepairsClient.fetchRepairs({ status: REPAIR_STATUS.PENDING_PICKUP }),
+                wholesaleRepairsClient.fetchRepairs({ status: REPAIR_STATUS.PICKUP_REQUESTED }),
             ]);
-            const allRepairs = [...(pickupData.repairs || []), ...(pendingData.repairs || [])];
+            const allRepairs = [...(pickupData.repairs || []), ...(pendingData.repairs || [])].map(normalizeRepairWorkflow);
             const storeRepairs = allRepairs.filter(
                 r => (r.createdBy || r.userID) === decodedStoreId
             );
@@ -60,7 +61,13 @@ export default function StorePickupDetailPage() {
     useEffect(() => { loadRepairs(); }, [loadRepairs]);
 
     useEffect(() => {
-        if (session && session.user?.role !== 'admin') router.replace('/dashboard');
+        const isAdmin = ['admin', 'dev'].includes(session?.user?.role);
+        const canReceiveWholesale = session?.user?.role === 'artisan'
+            && session?.user?.employment?.isOnsite === true
+            && session?.user?.staffCapabilities?.repairOps === true
+            && session?.user?.staffCapabilities?.receiving === true;
+
+        if (session && !isAdmin && !canReceiveWholesale) router.replace('/dashboard');
     }, [session, router]);
 
     // Auto-focus scanner input when not loading
@@ -121,7 +128,13 @@ export default function StorePickupDetailPage() {
         }
     };
 
-    if (!session || session.user?.role !== 'admin') return null;
+    const isAdmin = ['admin', 'dev'].includes(session?.user?.role);
+    const canReceiveWholesale = session?.user?.role === 'artisan'
+        && session?.user?.employment?.isOnsite === true
+        && session?.user?.staffCapabilities?.repairOps === true
+        && session?.user?.staffCapabilities?.receiving === true;
+
+    if (!session || (!isAdmin && !canReceiveWholesale)) return null;
 
     const unreceivedCount = repairs.filter(r => !receivedIds.has(r.repairID)).length;
     const allReceived = repairs.length > 0 && unreceivedCount === 0;
@@ -232,8 +245,8 @@ export default function StorePickupDetailPage() {
                                                 <Chip icon={<ReceivedIcon />} label="Received" color="success" size="small" />
                                             ) : (
                                                 <Chip
-                                                    label={repair.status}
-                                                    color={repair.status === 'PICKUP REQUESTED' ? 'error' : 'warning'}
+                                                    label={repair.normalizedStatus || repair.status}
+                                                    color={(repair.normalizedStatus || repair.status) === REPAIR_STATUS.PICKUP_REQUESTED ? 'error' : 'warning'}
                                                     size="small"
                                                 />
                                             )}

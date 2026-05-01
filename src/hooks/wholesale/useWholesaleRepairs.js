@@ -1,5 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
 import { wholesaleRepairsClient } from '@/api-clients/wholesaleRepairs.client';
+import {
+    isWholesaleActiveRepair,
+    isWholesaleCompletedRepair,
+    isWholesaleIntakeRepair,
+    normalizeRepairWorkflow,
+    REPAIR_STATUS,
+} from '@/services/repairWorkflow';
 
 export function useWholesaleRepairs() {
     const [repairs, setRepairs] = useState([]);
@@ -17,7 +24,7 @@ export function useWholesaleRepairs() {
                 params.status = filter;
             }
             const data = await wholesaleRepairsClient.fetchRepairs(params);
-            setRepairs(data.repairs || []);
+            setRepairs((data.repairs || []).map(normalizeRepairWorkflow));
             setSelected([]);
         } catch (err) {
             console.error('Failed to load wholesale repairs:', err);
@@ -47,7 +54,7 @@ export function useWholesaleRepairs() {
 
     const selectAllPending = useCallback(() => {
         const pendingIDs = repairs
-            .filter(r => r.status === 'PENDING PICKUP')
+            .filter(isWholesaleIntakeRepair)
             .map(r => r.repairID);
         if (pendingIDs.every(id => selected.includes(id))) {
             setSelected(prev => prev.filter(id => !pendingIDs.includes(id)));
@@ -70,20 +77,26 @@ export function useWholesaleRepairs() {
         return result;
     }, [selected, loadRepairs]);
 
-    const pendingRepairs = repairs.filter(r => r.status === 'PENDING PICKUP');
+    const pendingRepairs = repairs.filter(r => r.normalizedStatus === REPAIR_STATUS.PENDING_PICKUP);
+    const pickupRequestedRepairs = repairs.filter(r => r.normalizedStatus === REPAIR_STATUS.PICKUP_REQUESTED);
+    const activeRepairs = repairs.filter(isWholesaleActiveRepair);
+    const completedRepairs = repairs.filter(isWholesaleCompletedRepair);
 
     const stats = {
         total: repairs.length,
-        pending: repairs.filter(r => r.status === 'PENDING PICKUP').length,
-        pickupRequested: repairs.filter(r => r.status === 'PICKUP REQUESTED').length,
-        receiving: repairs.filter(r => r.status === 'RECEIVING').length,
-        inProgress: repairs.filter(r => !['PENDING PICKUP', 'PICKUP REQUESTED', 'RECEIVING', 'COMPLETED', 'READY FOR PICKUP', 'DELIVERY BATCHED', 'PAID_CLOSED', 'READY FOR PICK-UP'].includes(r.status)).length,
-        completed: repairs.filter(r => ['COMPLETED', 'READY FOR PICKUP', 'DELIVERY BATCHED', 'PAID_CLOSED', 'READY FOR PICK-UP'].includes(r.status)).length,
+        pending: pendingRepairs.length,
+        pickupRequested: pickupRequestedRepairs.length,
+        receiving: repairs.filter(r => r.normalizedStatus === REPAIR_STATUS.RECEIVING).length,
+        inProgress: activeRepairs.filter(r => r.normalizedStatus !== REPAIR_STATUS.RECEIVING).length,
+        completed: completedRepairs.length,
     };
 
     return {
         repairs,
         pendingRepairs,
+        pickupRequestedRepairs,
+        activeRepairs,
+        completedRepairs,
         loading,
         error,
         filter,

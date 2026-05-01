@@ -75,6 +75,29 @@ export const QC_COMPLETION_STATUSES = [
   REPAIR_STATUS.DELIVERY_BATCHED,
 ];
 
+export const WHOLESALE_INTAKE_STATUSES = [
+  REPAIR_STATUS.PENDING_PICKUP,
+  REPAIR_STATUS.PICKUP_REQUESTED,
+];
+
+export const WHOLESALE_ACTIVE_STATUSES = [
+  REPAIR_STATUS.RECEIVING,
+  REPAIR_STATUS.NEEDS_QUOTE,
+  REPAIR_STATUS.COMMUNICATION_REQUIRED,
+  REPAIR_STATUS.NEEDS_PARTS,
+  REPAIR_STATUS.PARTS_ORDERED,
+  REPAIR_STATUS.READY_FOR_WORK,
+  REPAIR_STATUS.IN_PROGRESS,
+  REPAIR_STATUS.QC,
+];
+
+export const WHOLESALE_COMPLETED_STATUSES = [
+  REPAIR_STATUS.COMPLETED,
+  REPAIR_STATUS.READY_FOR_PICKUP,
+  REPAIR_STATUS.DELIVERY_BATCHED,
+  REPAIR_STATUS.PAID_CLOSED,
+];
+
 export const STATUS_DESCRIPTIONS = {
   [REPAIR_STATUS.RECEIVING]: 'Initial intake - item just received',
   [REPAIR_STATUS.NEEDS_QUOTE]: 'Waiting on quote review before work can proceed',
@@ -291,6 +314,21 @@ export function normalizeRepairWorkflow(repair = {}) {
     benchQueue: projection.benchQueue,
     benchStatus: projection.benchStatus,
   };
+}
+
+export function isWholesaleIntakeRepair(repair = {}) {
+  const normalizedStatus = normalizeRepairStatus(repair.status);
+  return WHOLESALE_INTAKE_STATUSES.includes(normalizedStatus);
+}
+
+export function isWholesaleActiveRepair(repair = {}) {
+  const normalizedStatus = normalizeRepairStatus(repair.status);
+  return WHOLESALE_ACTIVE_STATUSES.includes(normalizedStatus);
+}
+
+export function isWholesaleCompletedRepair(repair = {}) {
+  const normalizedStatus = normalizeRepairStatus(repair.status);
+  return WHOLESALE_COMPLETED_STATUSES.includes(normalizedStatus);
 }
 
 export function isRepairVisibleInBench(repair, { userID = '', isAdmin = false } = {}) {
