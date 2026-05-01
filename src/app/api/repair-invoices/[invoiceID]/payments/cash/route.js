@@ -22,6 +22,13 @@ export const POST = async (req, { params }) => {
     }
 
     const invoice = await RepairInvoicesModel.findByInvoiceID(params.invoiceID);
+    const grossTotal = parseFloat(invoice.subtotal || 0)
+      + parseFloat(invoice.taxAmount || 0)
+      + parseFloat(invoice.deliveryFee || 0);
+    const cashDiscountAmount = body.applyCashDiscount === true
+      ? Math.max(grossTotal - (Math.floor(grossTotal / 5) * 5), 0)
+      : parseFloat(invoice.cashDiscountAmount || 0);
+    const invoiceTotal = Math.max(grossTotal - cashDiscountAmount, 0);
     const payments = Array.isArray(invoice.payments) ? [...invoice.payments] : [];
     payments.push({
       type: 'cash',
@@ -33,10 +40,13 @@ export const POST = async (req, { params }) => {
     });
 
     const amountPaid = payments.reduce((sum, payment) => sum + parseFloat(payment.amount || 0), 0);
-    const { paymentStatus, remainingBalance } = computePaymentStatus(invoice.total, amountPaid);
+    const { paymentStatus, remainingBalance } = computePaymentStatus(invoiceTotal, amountPaid);
 
     let updated = await RepairInvoicesModel.updateByInvoiceID(invoice.invoiceID, {
       payments,
+      cashDiscountApplied: body.applyCashDiscount === true || invoice.cashDiscountApplied === true,
+      cashDiscountAmount,
+      total: invoiceTotal,
       amountPaid,
       paymentStatus,
       remainingBalance,

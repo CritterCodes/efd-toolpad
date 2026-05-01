@@ -25,6 +25,7 @@ import {
   RadioGroup,
   Snackbar,
   Stack,
+  Switch,
   Tab,
   Tabs,
   TextField,
@@ -123,6 +124,149 @@ async function clearPendingCloseoutPhoto(repairID) {
 
 function formatCurrency(amount) {
   return currency.format(parseFloat(amount || 0));
+}
+
+function getCashDiscountSummary(invoice) {
+  const grossTotal = parseFloat(invoice.subtotal || 0)
+    + parseFloat(invoice.taxAmount || 0)
+    + parseFloat(invoice.deliveryFee || 0);
+  const roundedCashTotal = Math.floor(grossTotal / 5) * 5;
+  const cashDiscountAmount = Math.max(grossTotal - roundedCashTotal, 0);
+  const amountPaid = parseFloat(invoice.amountPaid || 0);
+
+  return {
+    grossTotal,
+    cashDiscountAmount,
+    cashTotal: Math.max(roundedCashTotal - amountPaid, 0),
+  };
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function buildInvoicePrintHtml(invoice) {
+  const cashSummary = getCashDiscountSummary(invoice);
+  const repairRows = (invoice.repairSnapshots || []).map((repair) => `
+    <tr>
+      <td>
+        <div class="mono">${escapeHtml(repair.repairID)}</div>
+        <div class="muted">${escapeHtml(repair.customerName || "")}</div>
+      </td>
+      <td class="money">${formatCurrency(repair.subtotal)}</td>
+      <td class="money">${formatCurrency(repair.taxAmount)}</td>
+      <td class="money strong">${formatCurrency(repair.total)}</td>
+    </tr>
+  `).join("");
+  const paymentRows = (invoice.payments || []).map((payment) => `
+    <tr>
+      <td>${escapeHtml(String(payment.type || "").toUpperCase())}</td>
+      <td>${escapeHtml(payment.status || "")}</td>
+      <td class="money">${formatCurrency(payment.amount)}</td>
+      <td>${escapeHtml(formatDate(payment.receivedAt || payment.createdAt || payment.syncedAt))}</td>
+    </tr>
+  `).join("");
+
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>${escapeHtml(invoice.invoiceID)} Invoice</title>
+    <style>
+      @page { size: letter; margin: 0.45in; }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: Arial, sans-serif; color: #111827; font-size: 12px; }
+      .header { display: flex; justify-content: space-between; gap: 24px; border-bottom: 2px solid #111827; padding-bottom: 12px; margin-bottom: 18px; }
+      .brand { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+      .title { font-size: 18px; font-weight: 700; text-align: right; }
+      .muted { color: #6B7280; font-size: 11px; margin-top: 3px; }
+      .mono { font-family: "Courier New", monospace; }
+      .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+      .box { border: 1px solid #D1D5DB; padding: 10px; min-height: 54px; }
+      .label { color: #6B7280; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+      .value { font-size: 13px; font-weight: 700; }
+      table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+      th { text-align: left; color: #374151; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid #9CA3AF; padding: 8px 6px; }
+      td { border-bottom: 1px solid #E5E7EB; padding: 8px 6px; vertical-align: top; }
+      .money { text-align: right; white-space: nowrap; }
+      .strong { font-weight: 700; }
+      .totals { width: 280px; margin-left: auto; margin-top: 18px; }
+      .totals-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #E5E7EB; }
+      .grand { font-size: 16px; font-weight: 800; border-bottom: 2px solid #111827; }
+      .section { margin-top: 20px; }
+      .notes { border: 1px solid #D1D5DB; padding: 10px; min-height: 44px; white-space: pre-wrap; }
+      @media print { .no-print { display: none; } }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div>
+        <div class="brand">Engel Fine Design</div>
+        <div class="muted">Repair Invoice</div>
+      </div>
+      <div class="title">
+        ${escapeHtml(invoice.invoiceID)}
+        <div class="muted">${escapeHtml(new Date().toLocaleDateString())}</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="box"><div class="label">Customer</div><div class="value">${escapeHtml(invoice.customerName || invoice.accountID)}</div></div>
+      <div class="box"><div class="label">Status</div><div class="value">${escapeHtml(invoice.status)}</div></div>
+      <div class="box"><div class="label">Payment</div><div class="value">${escapeHtml(invoice.paymentStatus)}</div></div>
+      <div class="box"><div class="label">Fulfillment</div><div class="value">${invoice.deliveryMethod === "delivery" ? "Delivery" : "Pickup"}</div></div>
+    </div>
+
+    <div class="section">
+      <div class="label">Repairs</div>
+      <table>
+        <thead><tr><th>Repair</th><th class="money">Subtotal</th><th class="money">Tax</th><th class="money">Total</th></tr></thead>
+        <tbody>${repairRows || '<tr><td colspan="4">No repairs on invoice.</td></tr>'}</tbody>
+      </table>
+    </div>
+
+    <div class="totals">
+      <div class="totals-row"><span>Subtotal</span><span>${formatCurrency(invoice.subtotal)}</span></div>
+      <div class="totals-row"><span>Tax</span><span>${formatCurrency(invoice.taxAmount)}</span></div>
+      <div class="totals-row"><span>Delivery</span><span>${formatCurrency(invoice.deliveryFee)}</span></div>
+      <div class="totals-row"><span>Cash Discount</span><span>-${formatCurrency(cashSummary.cashDiscountAmount)}</span></div>
+      <div class="totals-row grand"><span>Cash Total</span><span>${formatCurrency(cashSummary.cashTotal)}</span></div>
+      <div class="totals-row"><span>Card/Invoice Total</span><span>${formatCurrency(invoice.remainingBalance)}</span></div>
+    </div>
+
+    ${paymentRows ? `
+      <div class="section">
+        <div class="label">Payments</div>
+        <table>
+          <thead><tr><th>Type</th><th>Status</th><th class="money">Amount</th><th>Date</th></tr></thead>
+          <tbody>${paymentRows}</tbody>
+        </table>
+      </div>` : ""}
+
+    ${invoice.closeoutNotes ? `
+      <div class="section">
+        <div class="label">Notes</div>
+        <div class="notes">${escapeHtml(invoice.closeoutNotes)}</div>
+      </div>` : ""}
+  </body>
+</html>`;
+}
+
+function printInvoice(invoice) {
+  const printWindow = window.open("", "_blank", "width=900,height=700");
+  if (!printWindow) return;
+  printWindow.document.open();
+  printWindow.document.write(buildInvoicePrintHtml(invoice));
+  printWindow.document.close();
+  printWindow.focus();
+  setTimeout(() => {
+    printWindow.print();
+  }, 250);
 }
 
 function formatDate(value) {
@@ -418,15 +562,16 @@ function InvoiceCard({
   const [selectedRepairIDs, setSelectedRepairIDs] = useState([]);
   const [targetInvoiceID, setTargetInvoiceID] = useState("");
   const [deliveryFeeInput, setDeliveryFeeInput] = useState(invoice.deliveryFee || 5);
+  const cashDiscountSummary = useMemo(() => getCashDiscountSummary(invoice), [invoice]);
   const pendingStripe = (invoice.payments || []).find((payment) => payment.type === "stripe" && payment.status === "pending");
   const pendingTerminal = (invoice.payments || []).find((payment) => payment.type === "terminal" && payment.status === "pending");
   const canEditInvoice = invoice.paymentStatus !== "paid" && ["draft", "open"].includes(invoice.status);
   const splitDisabled = selectedRepairIDs.length === 0 || selectedRepairIDs.length >= (invoice.repairIDs || []).length;
 
   useEffect(() => {
-    setCashAmount(invoice.remainingBalance || 0);
+    setCashAmount(cashDiscountSummary.cashTotal || invoice.remainingBalance || 0);
     setDeliveryFeeInput(invoice.deliveryFee || 5);
-  }, [invoice.deliveryFee, invoice.remainingBalance]);
+  }, [cashDiscountSummary.cashTotal, invoice.deliveryFee, invoice.remainingBalance]);
 
   useEffect(() => {
     setSelectedRepairIDs((prev) => prev.filter((repairID) => (invoice.repairIDs || []).includes(repairID)));
@@ -451,6 +596,14 @@ function InvoiceCard({
               <Chip label={invoice.status} size="small" />
               <Chip label={`Payment: ${invoice.paymentStatus}`} size="small" color={invoice.paymentStatus === "paid" ? "success" : invoice.paymentStatus === "partial" ? "warning" : "default"} />
               <Chip label={invoice.deliveryMethod === "delivery" ? "Delivery" : "Pickup"} size="small" />
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => printInvoice(invoice)}
+                sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border, textTransform: "none" }}
+              >
+                Print Invoice
+              </Button>
             </Stack>
           </Box>
 
@@ -459,9 +612,8 @@ function InvoiceCard({
             <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Tax</Typography><Typography>{formatCurrency(invoice.taxAmount)}</Typography></Grid>
             <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Delivery</Typography><Typography>{formatCurrency(invoice.deliveryFee)}</Typography></Grid>
             <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Remaining</Typography><Typography sx={{ fontWeight: 700 }}>{formatCurrency(invoice.remainingBalance)}</Typography></Grid>
-            {parseFloat(invoice.cashDiscountAmount || 0) > 0 && (
-              <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Cash Discount</Typography><Typography>{formatCurrency(invoice.cashDiscountAmount)}</Typography></Grid>
-            )}
+            <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Cash Discount</Typography><Typography>{formatCurrency(cashDiscountSummary.cashDiscountAmount)}</Typography></Grid>
+            <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Cash Total</Typography><Typography sx={{ fontWeight: 700 }}>{formatCurrency(cashDiscountSummary.cashTotal)}</Typography></Grid>
           </Grid>
 
           <Divider />
@@ -533,35 +685,26 @@ function InvoiceCard({
               )}
 
               <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ xs: "stretch", md: "center" }}>
-                <TextField
-                  label="Delivery Fee"
-                  type="number"
-                  size="small"
-                  value={deliveryFeeInput}
-                  onChange={(event) => setDeliveryFeeInput(event.target.value)}
-                  sx={{ maxWidth: 160 }}
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={invoice.deliveryMethod === "delivery"}
+                      onChange={(event) => onUpdateDelivery(invoice.invoiceID, event.target.checked ? "delivery" : "pickup", deliveryFeeInput || 5)}
+                    />
+                  }
+                  label="Delivery"
                 />
-                <Button
-                  variant={invoice.deliveryMethod === "delivery" ? "contained" : "outlined"}
-                  onClick={() => onUpdateDelivery(invoice.invoiceID, "delivery", deliveryFeeInput || 5)}
-                  sx={{ backgroundColor: invoice.deliveryMethod === "delivery" ? REPAIRS_UI.accent : undefined, color: invoice.deliveryMethod === "delivery" ? "#111" : REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
-                >
-                  Mark Delivery
-                </Button>
-                <Button
-                  variant="outlined"
-                  onClick={() => onUpdateDelivery(invoice.invoiceID, "pickup", 0)}
-                  sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
-                >
-                  Mark Pickup
-                </Button>
-                <Button
-                  variant={invoice.cashDiscountApplied ? "contained" : "outlined"}
-                  onClick={() => onSetCashDiscount(invoice.invoiceID, !invoice.cashDiscountApplied)}
-                  sx={{ backgroundColor: invoice.cashDiscountApplied ? REPAIRS_UI.accent : undefined, color: invoice.cashDiscountApplied ? "#111" : REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
-                >
-                  {invoice.cashDiscountApplied ? "Remove Cash Discount" : "Cash Discount"}
-                </Button>
+                {invoice.deliveryMethod === "delivery" && (
+                  <TextField
+                    label="Delivery Fee"
+                    type="number"
+                    size="small"
+                    value={deliveryFeeInput}
+                    onChange={(event) => setDeliveryFeeInput(event.target.value)}
+                    onBlur={() => onUpdateDelivery(invoice.invoiceID, "delivery", deliveryFeeInput || 5)}
+                    sx={{ maxWidth: 160 }}
+                  />
+                )}
               </Stack>
             </>
           )}
@@ -583,7 +726,7 @@ function InvoiceCard({
               <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
                 <TextField label="Cash Amount" type="number" value={cashAmount} onChange={(event) => setCashAmount(event.target.value)} sx={{ minWidth: 140 }} />
                 <TextField label="Cash Notes" value={cashNotes} onChange={(event) => setCashNotes(event.target.value)} sx={{ flex: 1 }} />
-                <Button variant="contained" onClick={() => onCashPay(invoice.invoiceID, cashAmount, cashNotes)} sx={{ backgroundColor: REPAIRS_UI.accent, color: "#111" }}>
+                <Button variant="contained" onClick={() => onCashPay(invoice.invoiceID, cashAmount, cashNotes, true)} sx={{ backgroundColor: REPAIRS_UI.accent, color: "#111" }}>
                   Record Cash
                 </Button>
               </Stack>
@@ -916,11 +1059,11 @@ export default function PaymentPickupPage() {
     }
   };
 
-  const handleCashPayment = async (invoiceID, amount, notes) => {
+  const handleCashPayment = async (invoiceID, amount, notes, applyCashDiscount = false) => {
     try {
       await postInvoiceAction(
         `/api/repair-invoices/${invoiceID}/payments/cash`,
-        { amount: parseFloat(amount || 0), notes },
+        { amount: parseFloat(amount || 0), notes, applyCashDiscount },
         `Recorded cash payment on ${invoiceID}.`
       );
     } catch (error) {
