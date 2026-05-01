@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import RepairsModel from '../../model';
 import { requireRepairOps } from '@/lib/apiAuth';
+import { buildMarkWaitingPartsUpdate } from '@/services/repairWorkflow';
 
 function toNumber(value, fallback = 0) {
   const parsed = Number(value);
@@ -64,15 +65,15 @@ export const POST = async (req, { params }) => {
     const materials = [...(Array.isArray(repair.materials) ? repair.materials : []), material];
     const totals = calculateRepairTotals(repair, materials);
 
-    const updated = await RepairsModel.updateById(repairID, {
-      status: 'NEEDS PARTS',
-      benchStatus: 'WAITING_PARTS',
+    const now = new Date();
+    const updated = await RepairsModel.updateById(repairID, buildMarkWaitingPartsUpdate({
+      repair,
       materials,
-      ...totals,
-      partsOrderedBy: session.user.name,
-      partsOrderedDate: body.partsOrderedDate ? new Date(body.partsOrderedDate) : new Date(),
-      updatedAt: new Date(),
-    });
+      totals,
+      userName: session.user.name,
+      partsOrderedDate: body.partsOrderedDate ? new Date(body.partsOrderedDate) : now,
+      now,
+    }));
 
     return NextResponse.json(updated, { status: 200 });
   } catch (error) {

@@ -333,8 +333,8 @@ export const repairSchema = {
   benchStatus: {
     type: 'string',
     default: 'UNCLAIMED',
-    enum: ['UNCLAIMED', 'IN_PROGRESS', 'WAITING_PARTS', 'QC'],
-    description: 'Internal bench sub-status for shop-floor jeweler workflow'
+    enum: ['UNCLAIMED', 'IN_PROGRESS', 'COMMUNICATIONS', 'WAITING_PARTS', 'QC'],
+    description: 'Compatibility-only bench projection derived from canonical repair status'
   },
   requiresLaborReview: {
     type: 'boolean',

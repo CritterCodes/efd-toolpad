@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import RepairsModel from '../../model';
 import { requireRepairOps, isAdmin } from '@/lib/apiAuth';
+import { buildUnclaimRepairUpdate } from '@/services/repairWorkflow';
 
 export const POST = async (req, { params }) => {
   try {
@@ -16,14 +17,7 @@ export const POST = async (req, { params }) => {
       return NextResponse.json({ error: 'You can only unclaim repairs assigned to you.' }, { status: 403 });
     }
 
-    const updated = await RepairsModel.updateById(repairID, {
-      assignedTo: '',
-      assignedJeweler: '',
-      claimedAt: null,
-      status: 'READY FOR WORK',
-      benchStatus: 'UNCLAIMED',
-      updatedAt: new Date(),
-    });
+    const updated = await RepairsModel.updateById(repairID, buildUnclaimRepairUpdate({ now: new Date() }));
 
     return NextResponse.json(updated, { status: 200 });
   } catch (error) {

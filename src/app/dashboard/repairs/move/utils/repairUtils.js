@@ -1,4 +1,5 @@
 import RepairsService from "@/services/repairs";
+import { buildMoveStatusUpdate, normalizeRepairWorkflow } from "@/services/repairWorkflow";
 
 export const createStatusMetadata = (status, assignedPerson, currentDateTime) => {
     const baseMetadata = {
@@ -26,29 +27,13 @@ export const createStatusMetadata = (status, assignedPerson, currentDateTime) =>
 };
 
 export const updateRepairWithMetadata = (repair, status, assignedPerson, currentDateTime) => {
-    const baseUpdate = {
+    const movedRepair = {
         ...repair,
-        status,
-        updatedAt: currentDateTime
+        ...buildMoveStatusUpdate(status, createStatusMetadata(status, assignedPerson, currentDateTime), repair),
+        updatedAt: currentDateTime,
     };
 
-    switch (status) {
-        case "PARTS ORDERED":
-            return {
-                ...baseUpdate,
-                partsOrderedDate: currentDateTime,
-                partsOrderedBy: assignedPerson || "System User"
-            };
-        case "READY FOR PICKUP":
-        case "DELIVERY BATCHED":
-            return {
-                ...baseUpdate,
-                completedAt: currentDateTime,
-                completedBy: assignedPerson || "System User"
-            };
-        default:
-            return baseUpdate;
-    }
+    return normalizeRepairWorkflow(movedRepair);
 };
 
 export const moveRepairsToStatus = async (repairIDs, status, assignedPerson, actorMode = null) => {

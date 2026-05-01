@@ -3,6 +3,7 @@ import RepairsModel from '../../model';
 import RepairLaborLogsModel from '@/app/api/repairLaborLogs/model';
 import { requireRepairOps } from '@/lib/apiAuth';
 import { calculateRepairLaborHours, getLaborRateSnapshot } from '@/app/api/repairLaborLogs/utils';
+import { buildMoveToQcUpdate } from '@/services/repairWorkflow';
 
 export async function moveRepairToQc(session, repairID) {
   if (!repairID) return NextResponse.json({ error: 'Repair ID is required.' }, { status: 400 });
@@ -24,13 +25,10 @@ export async function moveRepairToQc(session, repairID) {
     requiresAdminReview: requiresReview,
   });
 
-  return await RepairsModel.updateById(repairID, {
-    status: 'QC',
-    benchStatus: 'QC',
-    completedBy: session.user.name,
-    completedAt: new Date(),
-    updatedAt: new Date(),
-  });
+  return await RepairsModel.updateById(repairID, buildMoveToQcUpdate({
+    userName: session.user.name,
+    now: new Date(),
+  }));
 }
 
 export const POST = async (req, { params }) => {

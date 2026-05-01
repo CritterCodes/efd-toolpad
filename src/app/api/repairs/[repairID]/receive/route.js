@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import RepairsModel from '../../model';
 import { requireRepairOps } from '@/lib/apiAuth';
+import { buildReceiveRepairUpdate } from '@/services/repairWorkflow';
 
 export const POST = async (req, { params }) => {
   try {
@@ -12,14 +13,11 @@ export const POST = async (req, { params }) => {
 
     const body = await req.json().catch(() => ({}));
 
-    const updated = await RepairsModel.updateById(repairID, {
-      receivedBy: session.user.userID,
-      receivedAt: new Date(),
-      status: 'READY FOR WORK',
-      benchStatus: 'UNCLAIMED',
+    const updated = await RepairsModel.updateById(repairID, buildReceiveRepairUpdate({
+      userID: session.user.userID,
       internalNotes: body.internalNotes !== undefined ? body.internalNotes : undefined,
-      updatedAt: new Date(),
-    });
+      now: new Date(),
+    }));
 
     return NextResponse.json(updated, { status: 200 });
   } catch (error) {

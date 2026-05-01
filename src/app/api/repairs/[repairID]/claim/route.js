@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import RepairsModel from '../../model';
 import { requireRepairOps } from '@/lib/apiAuth';
+import { buildClaimRepairUpdate } from '@/services/repairWorkflow';
 
 export const POST = async (req, { params }) => {
   try {
@@ -16,16 +17,12 @@ export const POST = async (req, { params }) => {
     const callerID = session.user.userID;
     const isSharedWork = previousJeweler && previousJeweler !== callerID;
 
-    const updateData = {
-      assignedTo: callerID,
-      assignedJeweler: session.user.name,
-      claimedAt: new Date(),
-      status: 'IN PROGRESS',
-      benchStatus: 'IN_PROGRESS',
-      updatedAt: new Date(),
-    };
-
-    if (isSharedWork) updateData.requiresLaborReview = true;
+    const updateData = buildClaimRepairUpdate({
+      repair,
+      userID: callerID,
+      userName: session.user.name,
+      now: new Date(),
+    });
 
     const updated = await RepairsModel.updateById(repairID, updateData);
     return NextResponse.json(updated, { status: 200 });

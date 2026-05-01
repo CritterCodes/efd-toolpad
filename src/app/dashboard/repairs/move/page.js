@@ -22,6 +22,7 @@ import { REPAIR_STATUSES } from "./constants";
 import { moveRepairsToStatus, updateRepairWithMetadata } from "./utils/repairUtils";
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import ContinuousBarcodeScanner from '@/components/repairs/ContinuousBarcodeScanner';
+import { BENCH_QUEUE, QC_COMPLETION_STATUSES, REPAIR_STATUS, normalizeRepairWorkflow } from '@/services/repairWorkflow';
 
 const MoveRepairsPage = () => {
     const { data: session, status: authStatus } = useSession();
@@ -59,30 +60,32 @@ const MoveRepairsPage = () => {
         }
     }, [authStatus, session, router]);
 
+    const selectedRepairs = repairIDs
+        .map((repairID) => repairs.find((repair) => repair.repairID === repairID))
+        .filter(Boolean)
+        .map(normalizeRepairWorkflow);
     const isAdmin = session?.user?.role === 'admin';
     const isOnsiteRepairOps = session?.user?.employment?.isOnsite === true
         && session?.user?.staffCapabilities?.repairOps === true;
-
-    if (authStatus === 'loading' || !session?.user || (!isAdmin && !isOnsiteRepairOps)) return null;
-
-    const selectedRepairs = repairIDs
-        .map((repairID) => repairs.find((repair) => repair.repairID === repairID))
-        .filter(Boolean);
     const hasSelectedRepairs = selectedRepairs.length > 0;
-    const allSelectedInQc = hasSelectedRepairs && selectedRepairs.every((repair) => repair.status === 'QC' || repair.benchStatus === 'QC');
+    const allSelectedInQc = hasSelectedRepairs && selectedRepairs.every((repair) => repair.benchQueue === BENCH_QUEUE.QC);
     const canCompleteFromQc = isAdmin || session?.user?.staffCapabilities?.qualityControl === true;
-    const genericStatusOptions = REPAIR_STATUSES.filter((status) => !['QC', 'COMPLETED'].includes(status));
-    const availableStatuses = allSelectedInQc
-        ? (canCompleteFromQc
-            ? ['COMPLETED', 'READY FOR PICKUP', 'DELIVERY BATCHED']
-            : [])
-        : [...genericStatusOptions, 'QC'];
+    const availableStatuses = React.useMemo(() => {
+        const genericStatusOptions = REPAIR_STATUSES.filter((status) => ![REPAIR_STATUS.QC, REPAIR_STATUS.COMPLETED].includes(status));
+        return allSelectedInQc
+            ? (canCompleteFromQc
+                ? QC_COMPLETION_STATUSES
+                : [])
+            : [...genericStatusOptions, REPAIR_STATUS.QC];
+    }, [allSelectedInQc, canCompleteFromQc]);
 
     useEffect(() => {
         if (location && !availableStatuses.includes(location)) {
             setLocation(null);
         }
     }, [availableStatuses, location, setLocation]);
+
+    if (authStatus === 'loading' || !session?.user || (!isAdmin && !isOnsiteRepairOps)) return null;
 
     const handleLocationSelect = (event, value) => {
         setLocation(value);
@@ -126,7 +129,7 @@ const MoveRepairsPage = () => {
         try {
             const currentDateTime = new Date().toISOString();
 
-            if (location === 'QC') {
+            if (location === REPAIR_STATUS.QC) {
                 await Promise.all(
                     repairIDs.map((repairID) =>
                         fetch(`/api/repairs/${encodeURIComponent(repairID)}/move-to-qc`, { method: 'POST' }).then(async (res) => {
@@ -138,15 +141,15 @@ const MoveRepairsPage = () => {
                         })
                     )
                 );
-            } else if (['COMPLETED', 'READY FOR PICKUP', 'DELIVERY BATCHED'].includes(location)) {
+            } else if (QC_COMPLETION_STATUSES.includes(location)) {
                 await Promise.all(
                     repairIDs.map((repairID) =>
                         fetch(`/api/repairs/${encodeURIComponent(repairID)}/complete-from-qc`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                                readyForPickup: location === 'READY FOR PICKUP',
-                                deliveryBatched: location === 'DELIVERY BATCHED',
+                                readyForPickup: location === REPAIR_STATUS.READY_FOR_PICKUP,
+                                deliveryBatched: location === REPAIR_STATUS.DELIVERY_BATCHED,
                             }),
                         }).then(async (res) => {
                             if (!res.ok) {

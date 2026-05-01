@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import RepairsModel from '../../model';
 import { requireRepairOps, isAdmin } from '@/lib/apiAuth';
+import { buildHandoffRepairUpdate } from '@/services/repairWorkflow';
 
 export const POST = async (req, { params }) => {
   try {
@@ -22,15 +23,11 @@ export const POST = async (req, { params }) => {
       return NextResponse.json({ error: 'You can only hand off repairs assigned to you.' }, { status: 403 });
     }
 
-    const updated = await RepairsModel.updateById(repairID, {
-      assignedTo: targetUserID,
-      assignedJeweler: targetUserName,
-      claimedAt: new Date(),
-      status: 'IN PROGRESS',
-      benchStatus: 'IN_PROGRESS',
-      requiresLaborReview: true,
-      updatedAt: new Date(),
-    });
+    const updated = await RepairsModel.updateById(repairID, buildHandoffRepairUpdate({
+      targetUserID,
+      targetUserName,
+      now: new Date(),
+    }));
 
     return NextResponse.json(updated, { status: 200 });
   } catch (error) {

@@ -19,14 +19,12 @@ import { useSession } from 'next-auth/react';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import RepairThumbnail from '@/app/dashboard/repairs/components/RepairThumbnail';
 import ContinuousBarcodeScanner from '@/components/repairs/ContinuousBarcodeScanner';
-
-const TABS = [
-  { label: 'My Bench', key: 'mine' },
-  { label: 'Unclaimed', key: 'unclaimed' },
-  { label: 'Communications', key: 'communications' },
-  { label: 'Needs Parts', key: 'waiting_parts' },
-  { label: 'QC', key: 'qc' },
-];
+import {
+  BENCH_QUEUE,
+  BENCH_TABS,
+  isRepairInBenchTab,
+  normalizeRepairWorkflow,
+} from '@/services/repairWorkflow';
 
 const BENCH_STATUS_COLOR = {
   IN_PROGRESS: '#0088FE',
@@ -283,7 +281,7 @@ function RepairBenchCard({
           </TextField>
         )}
 
-        {!isMine && repair.benchStatus !== 'IN_PROGRESS' && (
+        {!isMine && repair.benchQueue === BENCH_QUEUE.UNCLAIMED && (
           <Button
             size="small"
             variant="contained"
@@ -295,7 +293,7 @@ function RepairBenchCard({
           </Button>
         )}
 
-        {isMine && repair.benchStatus === 'IN_PROGRESS' && (
+        {isMine && repair.benchQueue === BENCH_QUEUE.IN_PROGRESS && (
           <>
             <Button
               size="small"
@@ -329,9 +327,9 @@ function RepairBenchCard({
           </>
         )}
 
-        {repair.benchStatus === 'WAITING_PARTS' && (
+        {repair.benchQueue === BENCH_QUEUE.WAITING_PARTS && (
           <>
-            {repair.status !== 'PARTS ORDERED' && (
+            {repair.normalizedStatus !== 'PARTS ORDERED' && (
               <Button
                 size="small"
                 variant="outlined"
@@ -355,7 +353,7 @@ function RepairBenchCard({
           </>
         )}
 
-        {repair.benchStatus === 'COMMUNICATIONS' && (
+        {repair.benchQueue === BENCH_QUEUE.COMMUNICATIONS && (
           <Button
             size="small"
             variant="outlined"
@@ -398,7 +396,7 @@ export default function MyBenchPage() {
       const res = await fetch('/api/repairs/my-bench');
       if (res.ok) {
         const data = await res.json();
-        setRepairs(Array.isArray(data) ? data : []);
+        setRepairs(Array.isArray(data) ? data.map(normalizeRepairWorkflow) : []);
       }
     } finally {
       setLoading(false);
@@ -500,7 +498,7 @@ export default function MyBenchPage() {
 
   const handleMoveMyBenchToQc = async () => {
     const mineReadyForQc = repairs.filter(
-      repair => repair.assignedTo === userID && repair.benchStatus === 'IN_PROGRESS'
+      repair => repair.assignedTo === userID && repair.benchQueue === BENCH_QUEUE.IN_PROGRESS
     );
 
     if (mineReadyForQc.length === 0) return;
@@ -563,7 +561,7 @@ export default function MyBenchPage() {
 
   const handleCompleteSelectedQc = async () => {
     const qcRepairIDs = repairs
-      .filter(repair => selectedQcIDs.includes(repair.repairID) && (repair.benchStatus === 'QC' || repair.status === 'QC'))
+      .filter(repair => selectedQcIDs.includes(repair.repairID) && repair.benchQueue === BENCH_QUEUE.QC)
       .map(repair => repair.repairID);
 
     if (qcRepairIDs.length === 0) return;
@@ -712,18 +710,14 @@ export default function MyBenchPage() {
     return null;
   }
 
-  const byTab = {
-    mine: repairs.filter(r => r.assignedTo === userID),
-    unclaimed: repairs.filter(r => r.benchStatus === 'UNCLAIMED'),
-    communications: repairs.filter(r => r.benchStatus === 'COMMUNICATIONS' || r.status === 'COMMUNICATION REQUIRED'),
-    waiting_parts: repairs.filter(r => r.benchStatus === 'WAITING_PARTS'),
-    qc: repairs.filter(r => r.benchStatus === 'QC' || r.status === 'QC'),
-  };
+  const byTab = Object.fromEntries(
+    BENCH_TABS.map(({ key }) => [key, repairs.filter((repair) => isRepairInBenchTab(repair, key, userID))])
+  );
 
-  const activeKey = TABS[tab].key;
+  const activeKey = BENCH_TABS[tab].key;
   const shown = byTab[activeKey] || [];
-  const mineReadyForQcCount = byTab.mine.filter(r => r.benchStatus === 'IN_PROGRESS').length;
-  const shownQcIDs = activeKey === 'qc' ? shown.map(repair => repair.repairID) : [];
+  const mineReadyForQcCount = byTab[BENCH_QUEUE.MINE].filter(r => r.benchQueue === BENCH_QUEUE.IN_PROGRESS).length;
+  const shownQcIDs = activeKey === BENCH_QUEUE.QC ? shown.map(repair => repair.repairID) : [];
   const selectedShownQcIDs = shownQcIDs.filter(repairID => selectedQcIDs.includes(repairID));
 
   return (
@@ -775,7 +769,7 @@ export default function MyBenchPage() {
         </Box>
 
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 2 }}>
-          {TABS.map(({ label, key }) => (
+          {BENCH_TABS.map(({ label, key }) => (
             <Box key={key} sx={{ textAlign: 'center' }}>
               <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: REPAIRS_UI.textHeader, lineHeight: 1 }}>
                 {byTab[key]?.length ?? 0}
@@ -895,12 +889,12 @@ export default function MyBenchPage() {
           '& .MuiTabs-indicator': { bgcolor: REPAIRS_UI.accent },
         }}
       >
-        {TABS.map(({ label, key }, i) => (
+        {BENCH_TABS.map(({ label, key }) => (
           <Tab key={key} label={`${label} (${byTab[key]?.length ?? 0})`} />
         ))}
       </Tabs>
 
-      {activeKey === 'qc' && shown.length > 0 && (
+      {activeKey === BENCH_QUEUE.QC && shown.length > 0 && (
         <Box
           sx={{
             bgcolor: REPAIRS_UI.bgPanel,
@@ -953,7 +947,7 @@ export default function MyBenchPage() {
         </Box>
       ) : shown.length === 0 ? (
         <Box sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 3, py: 6, textAlign: 'center' }}>
-          {activeKey === 'communications' ? (
+          {activeKey === BENCH_QUEUE.COMMUNICATIONS ? (
             <CommunicationsIcon sx={{ fontSize: 48, color: REPAIRS_UI.textMuted, mb: 1.5 }} />
           ) : (
             <WorkIcon sx={{ fontSize: 48, color: REPAIRS_UI.textMuted, mb: 1.5 }} />
@@ -962,7 +956,7 @@ export default function MyBenchPage() {
           <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, mt: 0.5 }}>
             {tab === 0
               ? 'You have no repairs claimed to your bench.'
-              : activeKey === 'communications'
+              : activeKey === BENCH_QUEUE.COMMUNICATIONS
                 ? 'No repairs currently require communication.'
                 : 'No repairs in this category.'}
           </Typography>
@@ -977,7 +971,7 @@ export default function MyBenchPage() {
                 isAdmin={isAdmin}
                 jewelers={jewelers}
                 onRefresh={fetchRepairs}
-                selectable={activeKey === 'qc'}
+                selectable={activeKey === BENCH_QUEUE.QC}
                 isSelected={selectedQcIDs.includes(repair.repairID)}
                 onToggleSelect={handleToggleQcSelection}
                 onOpenPartsDialog={openPartsDialog}
