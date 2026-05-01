@@ -5,14 +5,42 @@ import RepairLaborLogsModel from '@/app/api/repairLaborLogs/model';
 
 const DEFAULT_DELIVERY_FEE = 5;
 
+function normalizeAccountKey(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function isUsableStoreId(storeId, repair) {
+  const value = String(storeId || '').trim();
+  if (!value) return false;
+
+  const lower = value.toLowerCase();
+  const submittedBy = String(repair.submittedBy || '').trim().toLowerCase();
+  const createdBy = String(repair.createdBy || '').trim().toLowerCase();
+
+  return lower !== submittedBy && lower !== createdBy;
+}
+
 function getRepairAccountContext(repair) {
   if (repair.isWholesale) {
+    const businessName = repair.businessName || repair.storeName || '';
+    const businessKey = normalizeAccountKey(businessName);
+    const validStoreId = isUsableStoreId(repair.storeId, repair) ? String(repair.storeId).trim() : '';
+    const accountID = businessKey
+      ? `wholesale-business:${businessKey}`
+      : validStoreId
+        ? `wholesale-store:${validStoreId}`
+        : `wholesale-client:${repair.userID || repair.clientName || repair.repairID}`;
+
     return {
       accountType: 'wholesale',
-      accountID: repair.storeId || repair.submittedBy || repair.createdBy || repair.businessName || '',
-      storeId: repair.storeId || repair.submittedBy || repair.createdBy || '',
+      accountID,
+      storeId: validStoreId,
       clientID: repair.userID || '',
-      customerName: repair.businessName || repair.storeName || repair.clientName || '',
+      customerName: businessName || repair.clientName || '',
     };
   }
 
@@ -57,7 +85,7 @@ function buildRepairSnapshot(repair) {
     repairID: repair.repairID,
     customerName: repair.clientName || repair.businessName || '',
     status: repair.status,
-    subtotal: summary.subtotal,
+    subtotal: Math.max(summary.totalWithoutDelivery - summary.taxAmount, 0),
     taxAmount: summary.taxAmount,
     total: summary.totalWithoutDelivery,
   };
