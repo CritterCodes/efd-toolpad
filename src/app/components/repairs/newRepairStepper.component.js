@@ -72,11 +72,10 @@ export default function NewRepairStepper({ open, onClose, onSubmit, userID = nul
                 : formData.metalType.type;
             formDataToSend.append('metalType', metalTypeString);
     
-            // ✅ Apply 50% discount for wholesalers
             const isWholesale = formData.isWholesale; // Assume `isWholesale` is part of `formData`
             const discountedRepairTasks = formData.repairTasks.map((task) => ({
                 ...task,
-                price: isWholesale ? (parseFloat(task.price || 0) / 2).toFixed(2) : task.price,
+                price: parseFloat(task.price || 0).toFixed(2),
             }));
     
             formDataToSend.append('repairTasks', JSON.stringify(discountedRepairTasks));

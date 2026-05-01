@@ -264,7 +264,7 @@ class PricingEngine {
     switch (wholesaleConfig.type) {
       case WHOLESALE_FORMULA_TYPE.PERCENTAGE_OF_RETAIL:
         // Simple percentage of retail
-        wholesalePrice = parsedRetailPrice * (wholesaleConfig.percentage || 0.5);
+        wholesalePrice = parsedRetailPrice * (wholesaleConfig.percentage || 1.0);
         break;
         
       case WHOLESALE_FORMULA_TYPE.BUSINESS_MULTIPLIER_ADJUSTMENT:

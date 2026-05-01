@@ -48,16 +48,11 @@ export const calculateDeliveryFee = (repair) => {
 };
 
 /**
- * Calculate wholesale discount
- * @param {number} subtotal - The subtotal amount
- * @param {Object} repair - The repair object
- * @returns {number} The wholesale discount amount (positive number)
+ * Legacy wholesale discount field is deprecated.
+ * Wholesale repairs should use their explicit line-item pricing with no automatic percentage discount.
+ * @returns {number} Always returns 0
  */
-export const calculateWholesaleDiscount = (subtotal, repair) => {
-    if (repair.isWholesale) {
-        const discountPercent = parseFloat(repair.wholesaleDiscountPercent || 50);
-        return (subtotal * discountPercent) / 100;
-    }
+export const calculateWholesaleDiscount = () => {
     return 0;
 };
 

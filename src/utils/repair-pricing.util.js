@@ -94,6 +94,10 @@ export const getMetalSpecificPrice = (
 	if (item.universalPricing && typeof item.universalPricing === 'object') {
 		const match = keys.find((key) => item.universalPricing[key]);
 		const pricing = match ? item.universalPricing[match] : null;
+		const wholesalePrice =
+			pricing && typeof pricing === 'object'
+				? Number(pricing.wholesalePrice ?? 0)
+				: 0;
 		const base =
 			pricing && typeof pricing === 'object'
 				? Number(pricing.retailPrice ?? pricing.totalCost ?? 0)
@@ -101,20 +105,22 @@ export const getMetalSpecificPrice = (
 
 		if (base > 0) {
 			const retailPrice = withBusinessMultiplier(base, adminSettings);
-			return isWholesale ? retailPrice * 0.5 : retailPrice;
+			return isWholesale && wholesalePrice > 0 ? wholesalePrice : retailPrice;
 		}
 	}
 
 	const totalCost = item?.pricing?.totalCost;
 	if (typeof totalCost === 'number') {
 		const retailPrice = withBusinessMultiplier(totalCost, adminSettings);
-		return isWholesale ? retailPrice * 0.5 : retailPrice;
+		const wholesalePrice = Number(item?.pricing?.wholesalePrice ?? item?.wholesalePrice ?? 0);
+		return isWholesale && wholesalePrice > 0 ? wholesalePrice : retailPrice;
 	}
 	if (totalCost && typeof totalCost === 'object') {
 		const match = keys.find((key) => totalCost[key] != null);
 		if (match) {
 			const retailPrice = withBusinessMultiplier(totalCost[match], adminSettings);
-			return isWholesale ? retailPrice * 0.5 : retailPrice;
+			const wholesalePrice = Number(item?.pricing?.wholesalePrice ?? item?.wholesalePrice ?? 0);
+			return isWholesale && wholesalePrice > 0 ? wholesalePrice : retailPrice;
 		}
 	}
 
@@ -128,7 +134,8 @@ export const getMetalSpecificPrice = (
 		if (matchedProduct) {
 			const base = Number(matchedProduct.pricePerPortion ?? matchedProduct.markedUpPrice ?? 0);
 			const retailPrice = withBusinessMultiplier(base, adminSettings);
-			return isWholesale ? retailPrice * 0.5 : retailPrice;
+			const wholesalePrice = Number(matchedProduct.wholesalePrice ?? item?.wholesalePrice ?? 0);
+			return isWholesale && wholesalePrice > 0 ? wholesalePrice : retailPrice;
 		}
 	}
 

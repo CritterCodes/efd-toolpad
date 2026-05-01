@@ -3760,13 +3760,13 @@ function TotalCostCard({ formData, calculateTotalCost, adminSettings, viewerIsWh
               {formData.isWholesale && costBreakdown.wholesaleDiscount > 0 && (
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ color: UI.accent }}>
                   <Stack direction="row" alignItems="center" spacing={0.5}>
-                    <Typography variant="body2">Wholesale Discount ({adminSettings.pricing?.wholesaleMarkup ? `${((adminSettings.pricing.wholesaleMarkup - 1) * 100).toFixed(0)}% over base` : 'configured rate'}):</Typography>
+                    <Typography variant="body2">Difference from suggested retail:</Typography>
                     <Tooltip
                       title={
                         <Box sx={{ p: 0.5 }}>
                           <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>Wholesale Pricing</Typography>
-                          <Typography variant="caption" display="block">Wholesale total reflects the direct charge to your account.</Typography>
-                          <Typography variant="caption" display="block">Suggested retail reflects your saved account markup and tax settings.</Typography>
+                            <Typography variant="caption" display="block">Wholesale total reflects the direct charge for this repair.</Typography>
+                            <Typography variant="caption" display="block">Suggested retail reflects the store&apos;s configured markup and tax settings.</Typography>
                           <Typography variant="caption" display="block" sx={{ mt: 0.5, color: UI.textMuted }}>Set one markup and tax rate from Account Settings.</Typography>
                         </Box>
                       }

@@ -140,7 +140,7 @@ export const repairSchema = {
   isWholesale: {
     type: 'boolean',
     default: false,
-    description: 'Whether wholesale pricing applies (50% discount)'
+    description: 'Whether wholesale pricing rules apply'
   },
   totalCost: {
     type: 'number',
@@ -421,7 +421,7 @@ export const calculateTotalCost = (repair, isWholesale = false) => {
     sum + (parseFloat(item.price || 0) * (item.quantity || 1)), 0);
   
   const subtotal = tasksCost + materialsCost + customCost;
-  return isWholesale ? subtotal * 0.5 : subtotal;
+  return subtotal;
 };
 
 // Default repair object

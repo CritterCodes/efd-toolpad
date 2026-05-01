@@ -31,6 +31,26 @@ import {
 import RepairsService from '@/services/repairs';
 import UsersService from '@/services/users';
 
+const calculateDisplayedRepairTotal = (repairRecord) => {
+    if (!repairRecord) return 0;
+
+    const lineItemsTotal = [
+        ...(repairRecord.tasks || []),
+        ...(repairRecord.processes || []),
+        ...(repairRecord.materials || []),
+        ...(repairRecord.customLineItems || []),
+        ...(repairRecord.repairTasks || []),
+    ].reduce((sum, item) => sum + ((parseFloat(item.price || 0) || 0) * (item.quantity || 1)), 0);
+
+    const rushFee = parseFloat(repairRecord.rushFee || repairRecord.rushJobFee || 0) || 0;
+    const deliveryFee = parseFloat(repairRecord.deliveryFee || 0) || 0;
+    const taxAmount = parseFloat(repairRecord.taxAmount || 0) || 0;
+    const computedTotal = lineItemsTotal + rushFee + deliveryFee + taxAmount;
+    const storedTotal = parseFloat(repairRecord.totalPrice || repairRecord.totalCost || 0) || 0;
+
+    return computedTotal > 0 ? computedTotal : storedTotal;
+};
+
 const ViewRepairPage = ({ params }) => {
     const { repairs, setRepairs, removeRepair } = useRepairs();
     const { data: session } = useSession();
@@ -286,8 +306,7 @@ const ViewRepairPage = ({ params }) => {
         ...(repair.repairTasks || []).map(item => ({ ...item, type: 'Legacy Task', category: 'Legacy' }))
     ];
 
-    const totalCost = allWorkItems.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0) + 
-                     (repair.rushJobFee ? parseFloat(repair.rushJobFee) : 0);
+    const totalCost = calculateDisplayedRepairTotal(repair);
 
     const getStatusColor = (status) => {
         switch (status?.toLowerCase()) {
@@ -500,7 +519,7 @@ const ViewRepairPage = ({ params }) => {
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <Typography variant="h6">Total:</Typography>
                                 <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-                                    ${repair.totalPrice || repair.totalCost || totalCost.toFixed(2)}
+                                    ${totalCost.toFixed(2)}
                                 </Typography>
                             </Box>
                         </CardContent>

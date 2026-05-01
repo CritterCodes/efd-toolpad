@@ -95,7 +95,7 @@ export const WHOLESALE_FORMULA_TYPE = {
  */
 export const DEFAULT_WHOLESALE_CONFIG = {
   type: WHOLESALE_FORMULA_TYPE.FORMULA_BASED,
-  percentage: 0.5,  // 50% of retail (if using percentage)
+  percentage: 1.0,  // No automatic discount when using percentage mode
   adjustment: 0.75,  // 75% of business multiplier (if using adjustment)
   minimumMultiplier: 1.5  // Minimum 1.5x for wholesale
 };

@@ -28,7 +28,7 @@ The new repair process system has been completely redesigned to provide a modern
 - **Image Capture**: Camera integration for item documentation
 
 ### ✅ **Advanced Pricing**
-- **Wholesale Support**: Automatic 50% discount for wholesale customers
+- **Wholesale Support**: Explicit wholesale pricing without any automatic 50% discount
 - **Real-time Calculation**: Live pricing updates as items are added/modified
 - **Item-level Pricing**: Individual price and quantity control
 
@@ -231,7 +231,7 @@ const customRepair = {
 - [ ] Form validation (required fields, date validation, ring sizing)
 - [ ] Image capture and upload
 - [ ] Work item addition/removal/modification
-- [ ] Price calculations (including wholesale)
+- [ ] Price calculations (including wholesale pricing)
 - [ ] Mobile navigation and usability
 
 ### Accessibility Testing
