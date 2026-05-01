@@ -8,6 +8,7 @@ import {
   Grid,
   Typography,
   Box,
+  Chip,
 } from '@mui/material';
 import { Description as DocumentIcon } from '@mui/icons-material';
 
@@ -73,6 +74,11 @@ export default function DetailDialog({ open, onClose, application }) {
             <Typography variant="body2" gutterBottom>
               <strong>Status:</strong> {application.status}
             </Typography>
+            {application.source && (
+              <Typography variant="body2" gutterBottom>
+                <strong>Source:</strong> {application.source}
+              </Typography>
+            )}
             <Typography variant="body2" gutterBottom>
               <strong>Submitted:</strong> {formatDate(application.submittedAt)}
             </Typography>
@@ -85,6 +91,25 @@ export default function DetailDialog({ open, onClose, application }) {
               <Typography variant="body2" gutterBottom>
                 <strong>Review Notes:</strong> {application.reviewNotes}
               </Typography>
+            )}
+            {application.reconciliationState && (
+              <Box sx={{ mt: 1.5 }}>
+                <Typography variant="body2" gutterBottom>
+                  <strong>Reconciliation:</strong> {application.reconciliationState.status}
+                </Typography>
+                {application.reconciliationState.candidates?.length > 0 && (
+                  <Box sx={{ mt: 1 }}>
+                    {application.reconciliationState.candidates.map((candidate) => (
+                      <Chip
+                        key={candidate.id}
+                        label={candidate.businessName || candidate.email || candidate.userID}
+                        size="small"
+                        sx={{ mr: 0.75, mb: 0.75 }}
+                      />
+                    ))}
+                  </Box>
+                )}
+              </Box>
             )}
           </Grid>
           

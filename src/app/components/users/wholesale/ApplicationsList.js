@@ -7,6 +7,7 @@ import {
   Box,
   Avatar,
   Chip,
+  Alert,
   IconButton,
   Tooltip,
 } from '@mui/material';
@@ -59,12 +60,30 @@ export default function ApplicationsList({ applications, onOpenDetail, onOpenAct
               <Chip 
                 label={application.status || 'unknown'} 
                 color={
+                  application.status === 'merged' ? 'info' :
                   application.status === 'approved' ? 'success' :
                   application.status === 'rejected' ? 'error' : 'warning'
                 }
                 size="small"
                 sx={{ mb: 1 }}
               />
+              {application.reconciliationState?.status === 'safe_match' && (
+                <Chip label="1 legacy match" color="info" size="small" sx={{ mb: 1, ml: 1 }} />
+              )}
+              {application.reconciliationState?.status === 'ambiguous' && (
+                <Chip label={`${application.reconciliationState.candidateCount} possible matches`} color="error" size="small" sx={{ mb: 1, ml: 1 }} />
+              )}
+
+              {application.status === 'pending' && application.reconciliationState?.status === 'safe_match' && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  Approving this applicant will merge it into the existing wholesale account with the same email.
+                </Alert>
+              )}
+              {application.status === 'pending' && application.reconciliationState?.status === 'ambiguous' && (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  Approval is blocked until the reconciliation queue resolves which active wholesale account this belongs to.
+                </Alert>
+              )}
 
               <Typography variant="body2" gutterBottom>
                 <strong>Contact:</strong> {application.contactFirstName} {application.contactLastName}
@@ -92,6 +111,7 @@ export default function ApplicationsList({ applications, onOpenDetail, onOpenAct
                       <IconButton 
                         size="small" 
                         color="success"
+                        disabled={application.reconciliationState?.status === 'ambiguous'}
                         onClick={() => onOpenAction(application, 'approve')}
                       >
                         <ApproveIcon />

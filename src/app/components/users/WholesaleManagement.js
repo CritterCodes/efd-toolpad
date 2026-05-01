@@ -14,6 +14,7 @@ import { useWholesaleManagement } from '@/hooks/users/useWholesaleManagement';
 import StatsCards from './wholesale/StatsCards';
 import ApplicationsList from './wholesale/ApplicationsList';
 import WholesalersTable from './wholesale/WholesalersTable';
+import ReconciliationList from './wholesale/ReconciliationList';
 import ActionDialog from './wholesale/ActionDialog';
 import DetailDialog from './wholesale/DetailDialog';
 
@@ -39,11 +40,13 @@ export default function WholesaleManagement() {
   const {
     wholesalers,
     applications,
+    reconciliation,
     stats,
     loading,
     error,
     handleApprove,
     handleReject,
+    handleReconciliationAction,
   } = useWholesaleManagement();
 
   const [tabValue, setTabValue] = useState(0);
@@ -105,6 +108,7 @@ export default function WholesaleManagement() {
         <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
           <Tab label={`Applications (${applications.length})`} />
           <Tab label={`Active Wholesalers (${wholesalers.length})`} />
+          <Tab label={`Reconciliation (${(reconciliation?.legacyWholesalers?.length || 0) + (reconciliation?.safeMatches?.length || 0) + (reconciliation?.ambiguousMatches?.length || 0)})`} />
         </Tabs>
       </Box>
 
@@ -120,6 +124,14 @@ export default function WholesaleManagement() {
       {/* Active Wholesalers Tab */}
       <TabPanel value={tabValue} index={1}>
         <WholesalersTable wholesalers={wholesalers} />
+      </TabPanel>
+
+      <TabPanel value={tabValue} index={2}>
+        <ReconciliationList
+          reconciliation={reconciliation}
+          loading={loading}
+          onAction={handleReconciliationAction}
+        />
       </TabPanel>
 
       {/* Action Dialog */}

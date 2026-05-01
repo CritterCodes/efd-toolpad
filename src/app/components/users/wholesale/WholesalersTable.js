@@ -3,6 +3,7 @@ import {
   Typography,
   Box,
   Avatar,
+  Chip,
   IconButton,
   Tooltip,
   Paper,
@@ -26,6 +27,18 @@ function formatDate(date) {
     month: 'short',
     day: 'numeric'
   });
+}
+
+function getProfileChip(wholesaler) {
+  if (wholesaler.reconciliationState === 'legacy_missing_profile') {
+    return <Chip label="Legacy repair needed" color="warning" size="small" />;
+  }
+
+  if (wholesaler.reconciliationState === 'reconciled') {
+    return <Chip label="Reconciled" color="success" size="small" />;
+  }
+
+  return <Chip label="Canonical profile" color="info" size="small" variant="outlined" />;
 }
 
 export default function WholesalersTable({ wholesalers }) {
@@ -60,20 +73,25 @@ export default function WholesalersTable({ wholesalers }) {
                   {wholesaler.firstName} {wholesaler.lastName}
                 </Box>
               </TableCell>
-              <TableCell>{wholesaler.email}</TableCell>
+              <TableCell>{wholesaler.wholesaleApplication?.contactEmail || wholesaler.email}</TableCell>
               <TableCell>
-                {wholesaler.businessName || 'N/A'}
+                <Box>
+                  <Typography variant="body2">{wholesaler.businessName || wholesaler.business || 'N/A'}</Typography>
+                  <Box sx={{ mt: 0.75 }}>
+                    {getProfileChip(wholesaler)}
+                  </Box>
+                </Box>
               </TableCell>
               <TableCell>{formatDate(wholesaler.createdAt)}</TableCell>
               <TableCell align="center">
                 <Tooltip title="Contact">
-                  <IconButton size="small" href={`mailto:${wholesaler.email}`}>
+                  <IconButton size="small" href={`mailto:${wholesaler.wholesaleApplication?.contactEmail || wholesaler.email}`}>
                     <EmailIcon />
                   </IconButton>
                 </Tooltip>
-                {wholesaler.contactPhone && (
+                {(wholesaler.wholesaleApplication?.contactPhone || wholesaler.contactPhone) && (
                   <Tooltip title="Call">
-                    <IconButton size="small" href={`tel:${wholesaler.contactPhone}`}>
+                    <IconButton size="small" href={`tel:${wholesaler.wholesaleApplication?.contactPhone || wholesaler.contactPhone}`}>
                       <PhoneIcon />
                     </IconButton>
                   </Tooltip>

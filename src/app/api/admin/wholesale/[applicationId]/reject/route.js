@@ -1,19 +1,11 @@
 // /api/admin/wholesale/[applicationId]/reject/route.js
 import { updateWholesaleApplicationStatus, getWholesaleApplicationById } from '../../../../../../lib/wholesaleService.js';
-import { auth } from "@/lib/auth";
+import { requireRole } from '@/lib/apiAuth';
 
 export async function POST(request, { params }) {
   try {
-    const session = await auth();
-    
-    if (!session || !session.user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Only admins can reject wholesale applications
-    if (session.user.role !== 'admin') {
-      return Response.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const { session, errorResponse } = await requireRole(['admin', 'dev']);
+    if (errorResponse) return errorResponse;
 
     const { applicationId } = params;
     const body = await request.json();

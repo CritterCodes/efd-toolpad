@@ -17,6 +17,8 @@
     "lint": "next lint",
     "audit:repair-workflow": "node scripts/audit-repair-workflow.mjs",
     "backfill:repair-workflow": "node scripts/backfill-repair-workflow.mjs",
+    "audit:wholesale-reconciliation": "node scripts/audit-wholesale-reconciliation.mjs",
+    "backfill:wholesale-reconciliation": "node scripts/backfill-wholesale-reconciliation.mjs",
     "migrate:quote-structure": "node scripts/migrate-quote-structure.js",
     "cleanup:quote-duplicates": "node scripts/cleanup-quote-duplicates.js",
     "cleanup:deprecated-quote-fields": "node scripts/cleanup-deprecated-quote-fields.js"

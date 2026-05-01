@@ -1,14 +1,36 @@
 // /api/admin/wholesale/route.js
-import { getAllWholesaleApplications, getWholesaleApplicationStats } from '../../../../lib/wholesaleService.js';
+import { requireRole } from '@/lib/apiAuth';
+import {
+  getActiveWholesalers,
+  getAllWholesaleApplications,
+  getWholesaleApplicationStats,
+  getWholesaleReconciliationReport,
+} from '../../../../lib/wholesaleService.js';
 
 export async function GET(request) {
   try {
+    const { errorResponse } = await requireRole(['admin', 'dev']);
+    if (errorResponse) return errorResponse;
+
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
 
     if (action === 'stats') {
       const stats = await getWholesaleApplicationStats();
       return Response.json(stats);
+    }
+
+    if (action === 'wholesalers') {
+      const wholesalers = await getActiveWholesalers();
+      return Response.json({
+        success: true,
+        data: wholesalers,
+      });
+    }
+
+    if (action === 'reconciliation') {
+      const report = await getWholesaleReconciliationReport();
+      return Response.json(report);
     }
 
     // Default: get all applications

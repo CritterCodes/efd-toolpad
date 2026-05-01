@@ -1,19 +1,15 @@
 // /api/admin/wholesale/[applicationId]/approve/route.js
-import { updateWholesaleApplicationStatus, getWholesaleApplicationById } from '../../../../../../lib/wholesaleService.js';
-import { auth } from "@/lib/auth";
+import {
+  getWholesaleApplicationById,
+  mergeWholesaleApplicationIntoAccount,
+  updateWholesaleApplicationStatus,
+} from '../../../../../../lib/wholesaleService.js';
+import { requireRole } from '@/lib/apiAuth';
 
 export async function POST(request, { params }) {
   try {
-    const session = await auth();
-    
-    if (!session || !session.user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Only admins can approve wholesale applications
-    if (session.user.role !== 'admin') {
-      return Response.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const { session, errorResponse } = await requireRole(['admin', 'dev']);
+    if (errorResponse) return errorResponse;
 
     const { applicationId } = params;
     const body = await request.json();
@@ -29,11 +25,39 @@ export async function POST(request, { params }) {
       return Response.json({ error: 'Application is not pending' }, { status: 400 });
     }
 
-    // Update application status
+    const reviewedBy = session.user.userID || session.user.email;
+
+    if (application.reconciliationState?.status === 'ambiguous') {
+      return Response.json(
+        {
+          error: 'Application matches multiple active wholesale accounts. Resolve it in the reconciliation queue first.',
+          reconciliationRequired: true,
+          candidates: application.reconciliationState.candidates || [],
+        },
+        { status: 409 }
+      );
+    }
+
+    if (application.reconciliationState?.status === 'safe_match' && application.reconciliationState.candidates?.length === 1) {
+      const mergeResult = await mergeWholesaleApplicationIntoAccount({
+        applicationId,
+        targetUserId: application.reconciliationState.candidates[0].id,
+        reviewedBy,
+        reviewNotes,
+      });
+
+      return Response.json({
+        success: true,
+        merged: true,
+        message: 'Application merged into existing wholesale account.',
+        result: mergeResult,
+      });
+    }
+
     const success = await updateWholesaleApplicationStatus(
       applicationId,
       'approved',
-      session.user.userID || session.user.email,
+      reviewedBy,
       reviewNotes
     );
 
@@ -47,6 +71,7 @@ export async function POST(request, { params }) {
 
     return Response.json({
       success: true,
+      merged: false,
       message: 'Application approved successfully'
     });
 

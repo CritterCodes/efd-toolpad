@@ -4,6 +4,7 @@ import { wholesaleClient } from '@/api-clients/wholesale.client';
 export const useWholesaleManagement = () => {
   const [wholesalers, setWholesalers] = useState([]);
   const [applications, setApplications] = useState([]);
+  const [reconciliation, setReconciliation] = useState({ stats: {}, legacyWholesalers: [], safeMatches: [], ambiguousMatches: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
@@ -13,9 +14,12 @@ export const useWholesaleManagement = () => {
     try {
       setLoading(true);
       
-      const wholesalersData = await wholesaleClient.getWholesalers();
-      const applicationsData = await wholesaleClient.getAllApplications();
-      const statsData = await wholesaleClient.getStats();
+      const [wholesalersData, applicationsData, statsData, reconciliationData] = await Promise.all([
+        wholesaleClient.getWholesalers(),
+        wholesaleClient.getAllApplications(),
+        wholesaleClient.getStats(),
+        wholesaleClient.getReconciliation(),
+      ]);
       
       if (wholesalersData.success) {
         setWholesalers(wholesalersData.data || []);
@@ -23,6 +27,7 @@ export const useWholesaleManagement = () => {
       
       setApplications(applicationsData || []);
       setStats(statsData || { total: 0, pending: 0, approved: 0, rejected: 0 });
+      setReconciliation(reconciliationData || { stats: {}, legacyWholesalers: [], safeMatches: [], ambiguousMatches: [] });
       setError(null);
     } catch (error) {
       console.error('Error loading wholesale data:', error);
@@ -62,14 +67,30 @@ export const useWholesaleManagement = () => {
     }
   };
 
+  const handleReconciliationAction = async (payload) => {
+    try {
+      setLoading(true);
+      await wholesaleClient.reconcile(payload);
+      await loadData();
+    } catch (error) {
+      console.error('Error reconciling wholesale data:', error);
+      setError(error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     wholesalers,
     applications,
+    reconciliation,
     stats,
     loading,
     error,
     handleApprove,
     handleReject,
+    handleReconciliationAction,
     refreshData: loadData
   };
 };
