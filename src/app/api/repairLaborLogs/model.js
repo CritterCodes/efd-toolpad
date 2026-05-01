@@ -28,7 +28,7 @@ export default class RepairLaborLogsModel {
       requiresAdminReview: data.requiresAdminReview ?? false,
       adminReviewedBy: '',
       adminReviewedAt: null,
-      notes: '',
+      notes: data.notes || '',
       weekStart: getMondayOfWeek(now),
       createdAt: now,
       updatedAt: now,

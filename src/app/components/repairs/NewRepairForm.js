@@ -1813,7 +1813,8 @@ export default function NewRepairForm({
       id: Date.now(),
       description: '',
       quantity: 1,
-      price: 0
+      price: 0,
+      laborHours: 0
     };
     setFormData(prev => ({
       ...prev,
@@ -3265,6 +3266,7 @@ function RepairItemsSection({
             onDescriptionChange={(desc) => updateItem('customLineItems', item.id, 'description', desc)}
             onQuantityChange={(qty) => updateItem('customLineItems', item.id, 'quantity', qty)}
             onPriceChange={(price) => updateItem('customLineItems', item.id, 'price', price)}
+            onLaborHoursChange={(hours) => updateItem('customLineItems', item.id, 'laborHours', hours)}
             onRemove={() => removeItem('customLineItems', item.id)}
           />
         ))}
@@ -3367,6 +3369,7 @@ function CustomLineItem({
   onDescriptionChange,
   onQuantityChange,
   onPriceChange,
+  onLaborHoursChange,
   onRemove
 }) {
   return (
@@ -3403,6 +3406,15 @@ function CustomLineItem({
             size="small"
             sx={{ width: 70 }}
             inputProps={{ min: 1 }}
+          />
+          <TextField
+            type="number"
+            label="Labor Hrs"
+            value={item.laborHours ?? 0}
+            onChange={(e) => onLaborHoursChange(parseFloat(e.target.value) || 0)}
+            size="small"
+            sx={{ width: 110 }}
+            inputProps={{ min: 0, step: 0.1 }}
           />
           <TextField
             type="number"

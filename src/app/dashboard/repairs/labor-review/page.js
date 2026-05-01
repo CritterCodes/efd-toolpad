@@ -28,6 +28,21 @@ function formatMoney(value) {
   return `$${Number(value || 0).toFixed(2)}`;
 }
 
+function getRepairChargeTotal(repair = {}) {
+  const taskTotal = (repair.tasks || []).reduce((sum, item) => (
+    sum + ((Number(item?.price ?? item?.retailPrice) || 0) * (Math.max(Number(item?.quantity) || 1, 1)))
+  ), 0);
+  const materialTotal = (repair.materials || []).reduce((sum, item) => (
+    sum + ((Number(item?.price ?? item?.unitCost ?? item?.costPerPortion) || 0) * (Math.max(Number(item?.quantity) || 1, 1)))
+  ), 0);
+  const customTotal = (repair.customLineItems || []).reduce((sum, item) => (
+    sum + ((Number(item?.price) || 0) * (Math.max(Number(item?.quantity) || 1, 1)))
+  ), 0);
+
+  const computedTotal = taskTotal + materialTotal + customTotal;
+  return Number(repair.totalCost || 0) > 0 ? Number(repair.totalCost || 0) : computedTotal;
+}
+
 function getWorkItemLabels(repair = {}) {
   return [
     ...(repair.tasks || []).map((item) => item.name || item.description),
@@ -353,6 +368,8 @@ export default function LaborReviewPage() {
             <Stack spacing={1.5}>
               {selectedBreakdown.logs.map((log) => {
                 const workItems = getWorkItemLabels(log.repair);
+                const repairChargeTotal = getRepairChargeTotal(log.repair);
+                const exceedsTicketValue = repairChargeTotal > 0 && Number(log.creditedValue || 0) > repairChargeTotal;
                 return (
                   <Box
                     key={log.logID}
@@ -396,11 +413,15 @@ export default function LaborReviewPage() {
                             <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>
                               {Number(log.creditedLaborHours || 0).toFixed(2)}h @ {formatMoney(log.laborRateSnapshot)}/hr
                             </Typography>
+                            <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary, display: 'block' }}>
+                              Ticket {formatMoney(repairChargeTotal)}
+                            </Typography>
                           </Box>
                         </Stack>
                         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
                           <Chip size="small" label={formatSourceAction(log.sourceAction || 'Labor Credit')} />
                           {log.repair?.status && <Chip size="small" label={log.repair.status} />}
+                          {exceedsTicketValue && <Chip size="small" color="warning" label="Pay exceeds ticket" />}
                           {log.createdAt && (
                             <Chip size="small" label={new Date(log.createdAt).toLocaleString()} />
                           )}

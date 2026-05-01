@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import RepairLaborLogsModel from '@/app/api/repairLaborLogs/model';
 import { requireRole } from '@/lib/apiAuth';
+import { getLaborRateSnapshotForUser } from '@/app/api/repairLaborLogs/utils';
 
 export const GET = async () => {
   try {
@@ -28,7 +29,10 @@ export const POST = async (req) => {
     if (!existing) return NextResponse.json({ error: 'Labor log not found.' }, { status: 404 });
 
     const hours = parseFloat(creditedLaborHours) || 0;
-    const rate = Number(existing.laborRateSnapshot) || 0;
+    const rate = Number(existing.laborRateSnapshot) || await getLaborRateSnapshotForUser({
+      userID: existing.primaryJewelerUserID,
+      session,
+    });
 
     const updated = await RepairLaborLogsModel.updateById(logID, {
       creditedLaborHours: hours,
