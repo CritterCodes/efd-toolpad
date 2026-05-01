@@ -58,9 +58,12 @@ function formatSourceAction(action = '') {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function ReviewCard({ log, onApprove, loading }) {
+function ReviewCard({ log, onApprove, loading, onOpenRepair }) {
   const [hours, setHours] = useState(log.creditedLaborHours || 0);
   const [notes, setNotes] = useState(log.notes || '');
+  const workItems = getWorkItemLabels(log.repair);
+  const repairChargeTotal = getRepairChargeTotal(log.repair);
+  const exceedsTicketValue = repairChargeTotal > 0 && ((Number(hours || 0) * Number(log.laborRateSnapshot || 0)) > repairChargeTotal);
 
   return (
     <Card sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 3 }}>
@@ -71,9 +74,55 @@ function ReviewCard({ log, onApprove, loading }) {
         <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 600, mt: 0.5 }}>
           {log.primaryJewelerName}
         </Typography>
-        <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, mb: 2 }}>
-          Repair {log.repairID}
-        </Typography>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', sm: 'flex-start' }} sx={{ mt: 1.5, mb: 2 }}>
+          {log.repair?.picture && (
+            <Box
+              component="img"
+              src={log.repair.picture}
+              alt=""
+              sx={{
+                width: { xs: '100%', sm: 88 },
+                height: 88,
+                objectFit: 'cover',
+                borderRadius: 1,
+                border: `1px solid ${REPAIRS_UI.border}`,
+                flexShrink: 0,
+              }}
+            />
+          )}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1}>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 700 }}>
+                  {log.repair?.clientName || log.repair?.businessName || 'Repair'} · {log.repairID}
+                </Typography>
+                <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
+                  {log.repair?.description || 'No repair description saved.'}
+                </Typography>
+              </Box>
+              <Box sx={{ textAlign: { xs: 'left', sm: 'right' }, flexShrink: 0 }}>
+                <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 700 }}>
+                  Ticket {formatMoney(repairChargeTotal)}
+                </Typography>
+                <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary, display: 'block' }}>
+                  {Number(log.laborRateSnapshot || 0).toFixed(2)}/hr snapshot
+                </Typography>
+              </Box>
+            </Stack>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+              <Chip size="small" label={formatSourceAction(log.sourceAction || 'Labor Credit')} />
+              {log.repair?.status && <Chip size="small" label={log.repair.status} />}
+              {exceedsTicketValue && <Chip size="small" color="warning" label="Pay exceeds ticket" />}
+              {log.createdAt && <Chip size="small" label={new Date(log.createdAt).toLocaleString()} />}
+            </Stack>
+            {workItems.length > 0 && (
+              <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, mt: 1 }}>
+                Work: {workItems.slice(0, 5).join(', ')}
+                {workItems.length > 5 ? ` +${workItems.length - 5} more` : ''}
+              </Typography>
+            )}
+          </Box>
+        </Stack>
         <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 1.5 }}>
           <TextField
             label="Credited Hours"
@@ -98,6 +147,13 @@ function ReviewCard({ log, onApprove, loading }) {
           sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}
         >
           Finalize Review
+        </Button>
+        <Button
+          size="small"
+          onClick={() => onOpenRepair(log.repairID)}
+          sx={{ color: REPAIRS_UI.accent, ml: 1, px: 0 }}
+        >
+          Open Repair
         </Button>
       </CardContent>
     </Card>
@@ -250,7 +306,12 @@ export default function LaborReviewPage() {
               </Grid>
             ) : pending.map((log) => (
               <Grid item xs={12} md={6} key={log.logID}>
-                <ReviewCard log={log} loading={savingLogID === log.logID} onApprove={finalizeReview} />
+                <ReviewCard
+                  log={log}
+                  loading={savingLogID === log.logID}
+                  onApprove={finalizeReview}
+                  onOpenRepair={(repairID) => router.push(`/dashboard/repairs/${repairID}`)}
+                />
               </Grid>
             ))}
           </Grid>

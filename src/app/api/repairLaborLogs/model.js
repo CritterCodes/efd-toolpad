@@ -64,11 +64,58 @@ export default class RepairLaborLogsModel {
 
   static async findPendingReview() {
     const dbInstance = await db.connect();
-    return await dbInstance.collection(this.COLLECTION)
-      .find({ requiresAdminReview: true, adminReviewedAt: null })
-      .project({ _id: 0 })
-      .sort({ createdAt: -1 })
-      .toArray();
+    return await dbInstance.collection(this.COLLECTION).aggregate([
+      {
+        $match: {
+          requiresAdminReview: true,
+          adminReviewedAt: null,
+        },
+      },
+      {
+        $lookup: {
+          from: 'repairs',
+          localField: 'repairID',
+          foreignField: 'repairID',
+          as: 'repair',
+        },
+      },
+      { $unwind: { path: '$repair', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: 0,
+          logID: 1,
+          repairID: 1,
+          primaryJewelerUserID: 1,
+          primaryJewelerName: 1,
+          creditedLaborHours: 1,
+          laborRateSnapshot: 1,
+          creditedValue: 1,
+          sourceAction: 1,
+          requiresAdminReview: 1,
+          adminReviewedBy: 1,
+          adminReviewedAt: 1,
+          notes: 1,
+          weekStart: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          repair: {
+            repairID: '$repair.repairID',
+            clientName: '$repair.clientName',
+            businessName: '$repair.businessName',
+            description: '$repair.description',
+            status: '$repair.status',
+            picture: '$repair.picture',
+            tasks: '$repair.tasks',
+            processes: '$repair.processes',
+            materials: '$repair.materials',
+            customLineItems: '$repair.customLineItems',
+            totalCost: '$repair.totalCost',
+            subtotal: '$repair.subtotal',
+          },
+        },
+      },
+      { $sort: { createdAt: -1 } },
+    ]).toArray();
   }
 
   /** Weekly payroll aggregation for all jewelers or a specific one */
