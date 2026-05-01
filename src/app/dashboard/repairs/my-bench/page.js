@@ -11,6 +11,7 @@ import {
   QrCodeScanner as ScanIcon,
   VerifiedUser as QCIcon,
   Category as PartsIcon,
+  Forum as CommunicationsIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
@@ -22,6 +23,7 @@ import ContinuousBarcodeScanner from '@/components/repairs/ContinuousBarcodeScan
 const TABS = [
   { label: 'My Bench', key: 'mine' },
   { label: 'Unclaimed', key: 'unclaimed' },
+  { label: 'Communications', key: 'communications' },
   { label: 'Needs Parts', key: 'waiting_parts' },
   { label: 'QC', key: 'qc' },
 ];
@@ -29,6 +31,7 @@ const TABS = [
 const BENCH_STATUS_COLOR = {
   IN_PROGRESS: '#0088FE',
   UNCLAIMED: REPAIRS_UI.textMuted,
+  COMMUNICATIONS: '#A855F7',
   WAITING_PARTS: '#FF8042',
   QC: '#00C49F',
 };
@@ -350,6 +353,18 @@ function RepairBenchCard({
               Move Back to Bench
             </Button>
           </>
+        )}
+
+        {repair.benchStatus === 'COMMUNICATIONS' && (
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<CommunicationsIcon sx={{ fontSize: 14 }} />}
+            onClick={() => router.push(`/dashboard/repairs/${repair.repairID}`)}
+            sx={{ color: '#A855F7', borderColor: '#A855F7', fontSize: '0.75rem' }}
+          >
+            Open Communication
+          </Button>
         )}
       </CardActions>
     </Card>
@@ -700,6 +715,7 @@ export default function MyBenchPage() {
   const byTab = {
     mine: repairs.filter(r => r.assignedTo === userID),
     unclaimed: repairs.filter(r => r.benchStatus === 'UNCLAIMED'),
+    communications: repairs.filter(r => r.benchStatus === 'COMMUNICATIONS' || r.status === 'COMMUNICATION REQUIRED'),
     waiting_parts: repairs.filter(r => r.benchStatus === 'WAITING_PARTS'),
     qc: repairs.filter(r => r.benchStatus === 'QC' || r.status === 'QC'),
   };
@@ -937,10 +953,18 @@ export default function MyBenchPage() {
         </Box>
       ) : shown.length === 0 ? (
         <Box sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 3, py: 6, textAlign: 'center' }}>
-          <WorkIcon sx={{ fontSize: 48, color: REPAIRS_UI.textMuted, mb: 1.5 }} />
+          {activeKey === 'communications' ? (
+            <CommunicationsIcon sx={{ fontSize: 48, color: REPAIRS_UI.textMuted, mb: 1.5 }} />
+          ) : (
+            <WorkIcon sx={{ fontSize: 48, color: REPAIRS_UI.textMuted, mb: 1.5 }} />
+          )}
           <Typography sx={{ color: REPAIRS_UI.textHeader }}>Nothing here</Typography>
           <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, mt: 0.5 }}>
-            {tab === 0 ? 'You have no repairs claimed to your bench.' : 'No repairs in this category.'}
+            {tab === 0
+              ? 'You have no repairs claimed to your bench.'
+              : activeKey === 'communications'
+                ? 'No repairs currently require communication.'
+                : 'No repairs in this category.'}
           </Typography>
         </Box>
       ) : (

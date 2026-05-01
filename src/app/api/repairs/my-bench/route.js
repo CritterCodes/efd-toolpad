@@ -3,11 +3,19 @@ import { db } from '@/lib/database';
 import { requireRepairOps, isAdmin } from '@/lib/apiAuth';
 
 const READY_FOR_WORK_STATUSES = ['READY FOR WORK', 'ready', 'ready-for-work'];
-const BENCH_STATUSES = ['UNCLAIMED', 'IN_PROGRESS', 'WAITING_PARTS', 'QC'];
+const COMMUNICATION_STATUSES = ['COMMUNICATION REQUIRED'];
+const BENCH_STATUSES = ['UNCLAIMED', 'IN_PROGRESS', 'WAITING_PARTS', 'QC', 'COMMUNICATIONS'];
 const ASSIGNED_BENCH_STATUSES = ['IN_PROGRESS', 'WAITING_PARTS', 'QC'];
 
 function normalizeBenchRepair(repair) {
   if (repair.benchStatus) return repair;
+
+  if (COMMUNICATION_STATUSES.includes(repair.status)) {
+    return {
+      ...repair,
+      benchStatus: 'COMMUNICATIONS',
+    };
+  }
 
   if (READY_FOR_WORK_STATUSES.includes(repair.status)) {
     return {
@@ -22,7 +30,7 @@ function normalizeBenchRepair(repair) {
 /**
  * GET /api/repairs/my-bench
  * Returns repairs relevant to the bench: assigned to the caller, unclaimed ready-for-work,
- * waiting-parts, and QC. Admins see all bench-status repairs.
+ * waiting-parts, communications, and QC. Admins see all bench-status repairs.
  */
 export const GET = async (req) => {
   try {
@@ -38,6 +46,7 @@ export const GET = async (req) => {
           { benchStatus: 'UNCLAIMED', status: { $in: READY_FOR_WORK_STATUSES } },
           { benchStatus: { $in: ASSIGNED_BENCH_STATUSES } },
           { status: { $in: READY_FOR_WORK_STATUSES } },
+          { status: { $in: COMMUNICATION_STATUSES } },
           { status: 'QC' },
         ],
       };
@@ -49,6 +58,7 @@ export const GET = async (req) => {
           { benchStatus: 'UNCLAIMED', status: { $in: READY_FOR_WORK_STATUSES } },
           { assignedTo: { $in: ['', null] }, status: { $in: READY_FOR_WORK_STATUSES } },
           { benchStatus: 'WAITING_PARTS' },
+          { status: { $in: COMMUNICATION_STATUSES } },
           { benchStatus: 'QC' },
           { status: 'QC' },
         ],
