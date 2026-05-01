@@ -4,8 +4,7 @@ import RepairInvoicesModel from '@/app/api/repair-invoices/model';
 import { computePaymentStatus, syncPaidRepairs } from '@/app/api/repair-invoices/service';
 import { createStripePaymentIntent, fetchStripePaymentIntent } from '@/app/api/repair-invoices/stripe';
 
-const STRIPE_CARD_FEE_RATE = 0.029;
-const STRIPE_CARD_FIXED_FEE = 0.30;
+const CARD_SURCHARGE_RATE = 0.03;
 
 async function requireCloseoutAccess() {
   const adminResult = await requireRole(['admin']);
@@ -34,11 +33,11 @@ function getCardPaymentAmount(baseAmount) {
     };
   }
 
-  const cardTotal = Math.ceil(((amount + STRIPE_CARD_FIXED_FEE) / (1 - STRIPE_CARD_FEE_RATE)) * 100) / 100;
+  const processingFee = Math.round((amount * CARD_SURCHARGE_RATE) * 100) / 100;
   return {
     baseAmount: amount,
-    processingFee: Math.max(cardTotal - amount, 0),
-    cardTotal,
+    processingFee,
+    cardTotal: amount + processingFee,
   };
 }
 

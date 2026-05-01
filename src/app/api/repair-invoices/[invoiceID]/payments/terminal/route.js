@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { requireRepairOpsAny, requireRole } from '@/lib/apiAuth';
 import RepairInvoicesModel from '@/app/api/repair-invoices/model';
 import { computePaymentStatus, syncPaidRepairs } from '@/app/api/repair-invoices/service';
 import { createStripePaymentIntent, fetchStripePaymentIntent } from '@/app/api/repair-invoices/stripe';
 
-const STRIPE_CARD_FEE_RATE = 0.029;
-const STRIPE_CARD_FIXED_FEE = 0.30;
+const CARD_SURCHARGE_RATE = 0.03;
 
 async function requireCloseoutAccess() {
   const adminResult = await requireRole(['admin']);
@@ -18,6 +18,7 @@ function serializePaymentIntent(intent) {
   return {
     id: intent.id,
     status: intent.status,
+    clientSecret: intent.client_secret || '',
     amountReceived: (intent.amount_received || 0) / 100,
     latestCharge: intent.latest_charge || '',
   };
@@ -33,11 +34,11 @@ function getCardPaymentAmount(baseAmount) {
     };
   }
 
-  const cardTotal = Math.ceil(((amount + STRIPE_CARD_FIXED_FEE) / (1 - STRIPE_CARD_FEE_RATE)) * 100) / 100;
+  const processingFee = Math.round((amount * CARD_SURCHARGE_RATE) * 100) / 100;
   return {
     baseAmount: amount,
-    processingFee: Math.max(cardTotal - amount, 0),
-    cardTotal,
+    processingFee,
+    cardTotal: amount + processingFee,
   };
 }
 
@@ -99,6 +100,36 @@ export const POST = async (req, { params }) => {
       return NextResponse.json({ error: 'Terminal payment amount must be greater than 0.' }, { status: 400 });
     }
 
+    const payments = Array.isArray(invoice.payments) ? [...invoice.payments] : [];
+    const existingPendingPayment = payments.find((payment) =>
+      payment.type === 'terminal'
+      && payment.status === 'pending'
+      && payment.paymentIntentId
+    );
+
+    if (existingPendingPayment) {
+      const intent = await fetchStripePaymentIntent(existingPendingPayment.paymentIntentId);
+      const terminalSessionToken = existingPendingPayment.terminalSessionToken || crypto.randomUUID();
+      const paymentIndex = payments.findIndex((payment) => payment.paymentIntentId === existingPendingPayment.paymentIntentId);
+
+      if (!payments[paymentIndex].terminalSessionToken || !payments[paymentIndex].clientSecret) {
+        payments[paymentIndex] = {
+          ...payments[paymentIndex],
+          clientSecret: payments[paymentIndex].clientSecret || intent.client_secret || '',
+          terminalSessionToken,
+          syncedAt: new Date(),
+        };
+
+        await RepairInvoicesModel.updateByInvoiceID(invoice.invoiceID, { payments });
+      }
+
+      return NextResponse.json({
+        invoice,
+        paymentIntent: serializePaymentIntent(intent),
+        terminalSessionToken,
+      }, { status: 200 });
+    }
+
     const intent = await createStripePaymentIntent({
       amountInCents,
       metadata: {
@@ -111,7 +142,7 @@ export const POST = async (req, { params }) => {
       cardPresent: true,
     });
 
-    const payments = Array.isArray(invoice.payments) ? [...invoice.payments] : [];
+    const terminalSessionToken = crypto.randomUUID();
     payments.push({
       type: 'terminal',
       amount: requestedAmount,
@@ -119,6 +150,8 @@ export const POST = async (req, { params }) => {
       processingFee: cardSummary.processingFee,
       status: 'pending',
       paymentIntentId: intent.id,
+      clientSecret: intent.client_secret,
+      terminalSessionToken,
       createdAt: new Date(),
       createdBy: session.user.name || session.user.email || '',
     });
@@ -132,6 +165,7 @@ export const POST = async (req, { params }) => {
     return NextResponse.json({
       invoice: updated,
       paymentIntent: serializePaymentIntent(intent),
+      terminalSessionToken,
     }, { status: 200 });
   } catch (error) {
     console.error('Error handling terminal invoice payment:', error.message);

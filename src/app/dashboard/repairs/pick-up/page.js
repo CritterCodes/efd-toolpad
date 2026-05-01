@@ -49,8 +49,7 @@ const currency = new Intl.NumberFormat("en-US", {
 const CLOSEOUT_ACTIVE_REPAIR_KEY = "paymentPickupActiveRepairID";
 const CLOSEOUT_PHOTO_DB = "efd-closeout-photos";
 const CLOSEOUT_PHOTO_STORE = "pendingPhotos";
-const STRIPE_CARD_FEE_RATE = 0.029;
-const STRIPE_CARD_FIXED_FEE = 0.30;
+const CARD_SURCHARGE_RATE = 0.03;
 const EFD_LOGO_SRC = "/logos/%5Befd%5DLogoBlack.png";
 const ZELLE_QR_SRC = "/logos/zelle-qr.png";
 
@@ -155,11 +154,11 @@ function getCardPaymentSummary(invoice) {
     };
   }
 
-  const cardTotal = Math.ceil(((remainingBalance + STRIPE_CARD_FIXED_FEE) / (1 - STRIPE_CARD_FEE_RATE)) * 100) / 100;
+  const processingFee = Math.round((remainingBalance * CARD_SURCHARGE_RATE) * 100) / 100;
   return {
     baseTotal: remainingBalance,
-    processingFee: Math.max(cardTotal - remainingBalance, 0),
-    cardTotal,
+    processingFee,
+    cardTotal: remainingBalance + processingFee,
   };
 }
 
@@ -599,6 +598,7 @@ function InvoiceCard({
   onSyncStripe,
   onCreateTerminal,
   onSyncTerminal,
+  collectingTerminalInvoiceID,
   onUpdateDelivery,
   onSetCashDiscount,
   onSplitInvoice,
@@ -791,8 +791,15 @@ function InvoiceCard({
                     Refresh Stripe Status
                   </Button>
                 )}
-                <Button variant="outlined" onClick={() => onCreateTerminal(invoice.invoiceID, cardPaymentSummary.cardTotal)} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>
-                  Create Terminal Intent ({formatCurrency(cardPaymentSummary.cardTotal)})
+                <Button
+                  variant="contained"
+                  disabled={collectingTerminalInvoiceID === invoice.invoiceID}
+                  onClick={() => onCreateTerminal(invoice.invoiceID, cardPaymentSummary.cardTotal)}
+                  sx={{ backgroundColor: REPAIRS_UI.accent, color: "#111" }}
+                >
+                  {collectingTerminalInvoiceID === invoice.invoiceID
+                    ? "Preparing Terminal..."
+                    : `Collect Card (${formatCurrency(cardPaymentSummary.cardTotal)})`}
                 </Button>
                 {pendingTerminal && (
                   <Button variant="outlined" onClick={() => onSyncTerminal(invoice.invoiceID, pendingTerminal.paymentIntentId)} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>
@@ -848,6 +855,7 @@ export default function PaymentPickupPage() {
   const [savingPhotoRepairID, setSavingPhotoRepairID] = useState("");
   const [submittingInvoice, setSubmittingInvoice] = useState(false);
   const [legacyClosing, setLegacyClosing] = useState(false);
+  const [collectingTerminalInvoiceID, setCollectingTerminalInvoiceID] = useState("");
   const [closeoutSearch, setCloseoutSearch] = useState("");
   const [closeoutScannerOpen, setCloseoutScannerOpen] = useState(false);
   const [scannedRepairID, setScannedRepairID] = useState("");
@@ -1151,13 +1159,28 @@ export default function PaymentPickupPage() {
 
   const handleCreateTerminal = async (invoiceID, amount) => {
     try {
-      await postInvoiceAction(
+      setCollectingTerminalInvoiceID(invoiceID);
+      const data = await postInvoiceAction(
         `/api/repair-invoices/${invoiceID}/payments/terminal`,
         { amount: parseFloat(amount || 0), applyCardFee: true },
-        `Created Stripe Terminal intent for ${invoiceID}.`
+        `Opening terminal for ${invoiceID}.`
       );
+      const paymentIntentId = data?.paymentIntent?.id || data?.invoice?.stripeTerminalPaymentIntentId || "";
+      const terminalSessionToken = data?.terminalSessionToken || "";
+      if (!paymentIntentId || !terminalSessionToken) {
+        throw new Error("Terminal session was created, but the app link could not be prepared.");
+      }
+
+      const terminalUrl = new URL("efd-terminal://collect");
+      terminalUrl.searchParams.set("invoiceID", invoiceID);
+      terminalUrl.searchParams.set("paymentIntentId", paymentIntentId);
+      terminalUrl.searchParams.set("token", terminalSessionToken);
+      terminalUrl.searchParams.set("adminUrl", window.location.origin);
+      window.location.href = terminalUrl.toString();
     } catch (error) {
       showMessage(error.message, "error");
+    } finally {
+      setCollectingTerminalInvoiceID("");
     }
   };
 
@@ -1438,6 +1461,7 @@ export default function PaymentPickupPage() {
                 onSyncStripe={handleSyncStripe}
                 onCreateTerminal={handleCreateTerminal}
                 onSyncTerminal={handleSyncTerminal}
+                collectingTerminalInvoiceID={collectingTerminalInvoiceID}
                 onUpdateDelivery={handleUpdateDelivery}
                 onSetCashDiscount={handleSetCashDiscount}
                 onSplitInvoice={handleSplitInvoice}
@@ -1467,6 +1491,7 @@ export default function PaymentPickupPage() {
                 onSyncStripe={handleSyncStripe}
                 onCreateTerminal={handleCreateTerminal}
                 onSyncTerminal={handleSyncTerminal}
+                collectingTerminalInvoiceID={collectingTerminalInvoiceID}
                 onUpdateDelivery={handleUpdateDelivery}
                 onSetCashDiscount={handleSetCashDiscount}
                 onSplitInvoice={handleSplitInvoice}

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRepairOpsAny, requireRole } from '@/lib/apiAuth';
+import RepairInvoicesModel from '@/app/api/repair-invoices/model';
 import { createTerminalConnectionToken } from '@/app/api/repair-invoices/stripe';
 
 async function requireTerminalAccess() {
@@ -9,10 +10,28 @@ async function requireTerminalAccess() {
   return await requireRepairOpsAny(['qualityControl', 'closeoutBilling']);
 }
 
-export const POST = async () => {
+export const POST = async (req) => {
   try {
-    const { errorResponse } = await requireTerminalAccess();
-    if (errorResponse) return errorResponse;
+    const body = await req?.json?.().catch(() => ({})) || {};
+    const invoiceID = body.invoiceID || '';
+    const paymentIntentId = body.paymentIntentId || '';
+    const sessionToken = body.token || '';
+
+    if (invoiceID && paymentIntentId && sessionToken) {
+      const invoice = await RepairInvoicesModel.findByInvoiceID(invoiceID);
+      const terminalPayment = (invoice.payments || []).find((payment) =>
+        payment.type === 'terminal'
+        && payment.paymentIntentId === paymentIntentId
+        && payment.terminalSessionToken === sessionToken
+      );
+
+      if (!terminalPayment) {
+        return NextResponse.json({ error: 'Terminal session not found.' }, { status: 404 });
+      }
+    } else {
+      const { errorResponse } = await requireTerminalAccess();
+      if (errorResponse) return errorResponse;
+    }
 
     const token = await createTerminalConnectionToken();
     return NextResponse.json({ secret: token.secret }, { status: 200 });
