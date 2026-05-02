@@ -13,8 +13,12 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControl,
   Divider,
   Grid,
+  InputLabel,
+  MenuItem,
+  Select,
   IconButton,
   Stack,
   Tab,
@@ -100,6 +104,7 @@ function QueueCard({ candidate, onOpen }) {
           Week of {new Date(candidate.weekStart).toLocaleDateString()}
         </Typography>
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1.5 }}>
+          {candidate.isOwnerOperator && <Chip label="Owner / Operator" size="small" color="secondary" />}
           <Chip label={`Hours ${Number(candidate.laborHours || 0).toFixed(2)}`} size="small" />
           <Chip label={`Repairs ${candidate.repairsWorked || 0}`} size="small" />
           <Chip label={`Pay ${formatMoney(candidate.laborPay)}`} size="small" />
@@ -145,6 +150,7 @@ function HistoryCard({ batch, onOpen }) {
           <Chip label={batch.status} size="small" color={statusColor} />
         </Stack>
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1.5 }}>
+          {batch.isOwnerOperator && <Chip label="Owner / Operator" size="small" color="secondary" />}
           <Chip label={`Hours ${Number(batch.laborHours || 0).toFixed(2)}`} size="small" />
           <Chip label={`Repairs ${batch.repairsWorked || 0}`} size="small" />
           <Chip label={`Pay ${formatMoney(batch.laborPay)}`} size="small" />
@@ -159,6 +165,55 @@ function HistoryCard({ batch, onOpen }) {
   );
 }
 
+function OwnerDrawCard({ draw, onOpen }) {
+  return (
+    <Card
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(draw)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen(draw);
+        }
+      }}
+      sx={{
+        bgcolor: REPAIRS_UI.bgPanel,
+        border: `1px solid ${REPAIRS_UI.border}`,
+        borderRadius: 3,
+        cursor: 'pointer',
+      }}
+    >
+      <CardContent>
+        <Stack direction="row" justifyContent="space-between" spacing={1}>
+          <Box>
+            <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 700 }}>
+              {draw.userName}
+            </Typography>
+            <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
+              {new Date(draw.drawDate).toLocaleDateString()}
+            </Typography>
+          </Box>
+          <Chip
+            label={draw.status}
+            size="small"
+            color={draw.status === 'void' ? 'default' : 'secondary'}
+          />
+        </Stack>
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1.5 }}>
+          <Chip label={formatMoney(draw.amount)} size="small" />
+          {draw.paymentMethod && <Chip label={draw.paymentMethod} size="small" />}
+        </Stack>
+        {draw.notes && (
+          <Typography variant="caption" sx={{ display: 'block', color: REPAIRS_UI.textMuted, mt: 1.5 }}>
+            {draw.notes}
+          </Typography>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function RepairPayrollPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -166,6 +221,9 @@ export default function RepairPayrollPage() {
   const [loading, setLoading] = useState(true);
   const [queue, setQueue] = useState([]);
   const [history, setHistory] = useState([]);
+  const [ownerDraws, setOwnerDraws] = useState([]);
+  const [ownerOperators, setOwnerOperators] = useState([]);
+  const [ownerDrawSummary, setOwnerDrawSummary] = useState({ amount: 0, count: 0 });
   const [diagnostics, setDiagnostics] = useState(null);
   const [error, setError] = useState('');
   const [selectedMode, setSelectedMode] = useState('');
@@ -176,6 +234,9 @@ export default function RepairPayrollPage() {
   const [paymentMethod, setPaymentMethod] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
   const [paidAt, setPaidAt] = useState(() => new Date().toISOString().slice(0, 16));
+  const [ownerDrawUserID, setOwnerDrawUserID] = useState('');
+  const [ownerDrawAmount, setOwnerDrawAmount] = useState('');
+  const [ownerDrawDate, setOwnerDrawDate] = useState(() => new Date().toISOString().slice(0, 16));
 
   const currentWeekStart = useMemo(() => getMondayOfWeek(new Date()).toISOString(), []);
 
@@ -183,25 +244,31 @@ export default function RepairPayrollPage() {
     setLoading(true);
     setError('');
     try {
-      const [queueRes, historyRes, diagnosticsRes] = await Promise.all([
+      const [queueRes, historyRes, diagnosticsRes, ownerDrawsRes] = await Promise.all([
         fetch('/api/repairs/payroll'),
         fetch('/api/repairs/payroll?history=true'),
         fetch(`/api/repairs/payroll/diagnostics?weekStart=${encodeURIComponent(currentWeekStart)}`),
+        fetch('/api/repairs/payroll/owner-draws'),
       ]);
 
-      const [queueData, historyData, diagnosticsData] = await Promise.all([
+      const [queueData, historyData, diagnosticsData, ownerDrawsData] = await Promise.all([
         queueRes.json(),
         historyRes.json(),
         diagnosticsRes.json(),
+        ownerDrawsRes.json(),
       ]);
 
       if (!queueRes.ok) throw new Error(queueData.error || 'Failed to load payroll queue.');
       if (!historyRes.ok) throw new Error(historyData.error || 'Failed to load payroll history.');
       if (!diagnosticsRes.ok) throw new Error(diagnosticsData.error || 'Failed to load payroll diagnostics.');
+      if (!ownerDrawsRes.ok) throw new Error(ownerDrawsData.error || 'Failed to load owner draws.');
 
       setQueue(Array.isArray(queueData) ? queueData : []);
       setHistory(Array.isArray(historyData) ? historyData : []);
       setDiagnostics(diagnosticsData || null);
+      setOwnerDraws(Array.isArray(ownerDrawsData?.draws) ? ownerDrawsData.draws : []);
+      setOwnerOperators(Array.isArray(ownerDrawsData?.ownerOperators) ? ownerDrawsData.ownerOperators : []);
+      setOwnerDrawSummary(ownerDrawsData?.summary || { amount: 0, count: 0 });
     } catch (e) {
       setError(e.message);
     } finally {
@@ -218,6 +285,12 @@ export default function RepairPayrollPage() {
       fetchData();
     }
   }, [fetchData, router, session?.user?.role, status]);
+
+  useEffect(() => {
+    if (!ownerDrawUserID && ownerOperators.length > 0) {
+      setOwnerDrawUserID(ownerOperators[0].userID);
+    }
+  }, [ownerDrawUserID, ownerOperators]);
 
   const openCandidate = async (candidate) => {
     setSelectedMode('candidate');
@@ -261,12 +334,31 @@ export default function RepairPayrollPage() {
     }
   };
 
+  const openOwnerDraw = (draw = null) => {
+    setSelectedMode('owner_draw');
+    setSelectedDetail(draw);
+    setDialogLoading(false);
+    setNotes(draw?.notes || '');
+    setPaymentMethod(draw?.paymentMethod || '');
+    setPaymentReference(draw?.paymentReference || '');
+    setOwnerDrawAmount(draw?.amount != null ? String(draw.amount) : '');
+    setOwnerDrawDate(
+      draw?.drawDate
+        ? new Date(draw.drawDate).toISOString().slice(0, 16)
+        : new Date().toISOString().slice(0, 16)
+    );
+    setOwnerDrawUserID(draw?.userID || ownerOperators[0]?.userID || '');
+  };
+
   const closeDialog = () => {
     setSelectedMode('');
     setSelectedDetail(null);
     setNotes('');
     setPaymentMethod('');
     setPaymentReference('');
+    setOwnerDrawAmount('');
+    setOwnerDrawDate(new Date().toISOString().slice(0, 16));
+    setOwnerDrawUserID(ownerOperators[0]?.userID || '');
   };
 
   const performAction = async (fn) => {
@@ -316,6 +408,60 @@ export default function RepairPayrollPage() {
     }
   });
 
+  const saveOwnerDraw = async () => performAction(async () => {
+    const isEditing = Boolean(selectedDetail?.drawID);
+    const endpoint = isEditing
+      ? `/api/repairs/payroll/owner-draws/${selectedDetail.drawID}`
+      : '/api/repairs/payroll/owner-draws';
+    const method = isEditing ? 'PATCH' : 'POST';
+    const payload = {
+      userID: ownerDrawUserID,
+      amount: Number(ownerDrawAmount || 0),
+      drawDate: ownerDrawDate,
+      paymentMethod,
+      paymentReference,
+      notes,
+    };
+
+    const res = await fetch(endpoint, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to save owner draw.');
+    closeDialog();
+  });
+
+  const voidOwnerDraw = async () => performAction(async () => {
+    const res = await fetch(`/api/repairs/payroll/owner-draws/${selectedDetail.drawID}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status: 'void',
+        notes,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to void owner draw.');
+    closeDialog();
+  });
+
+  const toggleOwnerOperator = async () => performAction(async () => {
+    const res = await fetch('/api/repairs/payroll/owner-operators', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userID: selectedDetail.userID,
+        isOwnerOperator: !selectedDetail.isOwnerOperator,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to update owner/operator flag.');
+    setSelectedDetail((prev) => prev ? { ...prev, isOwnerOperator: data.isOwnerOperator } : prev);
+    await fetchData();
+  });
+
   if (status === 'loading' || (status === 'authenticated' && !['admin', 'dev'].includes(session?.user?.role))) {
     return null;
   }
@@ -326,6 +472,12 @@ export default function RepairPayrollPage() {
       ))?.count || 0
     : 0;
   const hasNoLogs = diagnostics && currentWeekLogCount === 0;
+  const ownerLaborPaid = history
+    .filter((batch) => batch.isOwnerOperator && batch.status === 'paid')
+    .reduce((sum, batch) => sum + Number(batch.laborPay || 0), 0);
+  const ownerLaborUnpaid = history
+    .filter((batch) => batch.isOwnerOperator && batch.status !== 'paid' && batch.status !== 'void')
+    .reduce((sum, batch) => sum + Number(batch.laborPay || 0), 0);
 
   return (
     <Box sx={{ pb: 8 }}>
@@ -393,10 +545,53 @@ export default function RepairPayrollPage() {
         </Card>
       )}
 
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={4}>
+          <Card sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 3 }}>
+            <CardContent>
+              <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
+                Owner Labor Paid
+              </Typography>
+              <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 700, fontSize: 28, mt: 0.5 }}>
+                {formatMoney(ownerLaborPaid)}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <Card sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 3 }}>
+            <CardContent>
+              <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
+                Owner Labor Unpaid
+              </Typography>
+              <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 700, fontSize: 28, mt: 0.5 }}>
+                {formatMoney(ownerLaborUnpaid)}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <Card sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 3 }}>
+            <CardContent>
+              <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
+                Owner Draws Recorded
+              </Typography>
+              <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 700, fontSize: 28, mt: 0.5 }}>
+                {formatMoney(ownerDrawSummary.amount)}
+              </Typography>
+              <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
+                {ownerDrawSummary.count || 0} draw{ownerDrawSummary.count === 1 ? '' : 's'}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
       <Box sx={{ borderBottom: `1px solid ${REPAIRS_UI.border}`, mb: 2 }}>
         <Tabs value={tab} onChange={(_e, next) => setTab(next)} textColor="inherit" indicatorColor="secondary">
           <Tab value="queue" label="Payroll Queue" />
           <Tab value="history" label="Payroll History" />
+          <Tab value="owner_draws" label="Owner Draws" />
         </Tabs>
       </Box>
 
@@ -420,7 +615,7 @@ export default function RepairPayrollPage() {
             </Grid>
           ))}
         </Grid>
-      ) : (
+      ) : tab === 'history' ? (
         <Grid container spacing={2}>
           {history.length === 0 ? (
             <Grid item xs={12}>
@@ -436,6 +631,40 @@ export default function RepairPayrollPage() {
             </Grid>
           ))}
         </Grid>
+      ) : (
+        <Box>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+            <Button
+              variant="contained"
+              onClick={() => openOwnerDraw(null)}
+              sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}
+            >
+              Record Owner Draw
+            </Button>
+          </Box>
+
+          {ownerOperators.length === 0 && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              No users are marked as owner / operator yet. Enable that flag from the artisan details compensation profile before recording draws.
+            </Alert>
+          )}
+
+          <Grid container spacing={2}>
+            {ownerDraws.length === 0 ? (
+              <Grid item xs={12}>
+                <Card sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 3 }}>
+                  <CardContent>
+                    <Typography sx={{ color: REPAIRS_UI.textSecondary }}>No owner draws have been recorded yet.</Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ) : ownerDraws.map((draw) => (
+              <Grid item xs={12} md={6} lg={4} key={draw.drawID}>
+                <OwnerDrawCard draw={draw} onOpen={openOwnerDraw} />
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
       )}
 
       <Dialog
@@ -454,21 +683,102 @@ export default function RepairPayrollPage() {
       >
         <DialogTitle sx={{ pr: 7 }}>
           <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 700 }}>
-            {selectedMode === 'candidate' ? 'Payroll Candidate' : 'Payroll Batch'}
+            {selectedMode === 'candidate'
+              ? 'Payroll Candidate'
+              : selectedMode === 'owner_draw'
+                ? 'Owner Draw'
+                : 'Payroll Batch'}
           </Typography>
           <IconButton onClick={closeDialog} sx={{ position: 'absolute', right: 12, top: 12, color: REPAIRS_UI.textSecondary }}>
             <CloseIcon />
           </IconButton>
         </DialogTitle>
         <DialogContent dividers sx={{ borderColor: REPAIRS_UI.border }}>
-          {dialogLoading || !selectedDetail ? (
+          {dialogLoading || (selectedMode !== 'owner_draw' && !selectedDetail) ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
               <CircularProgress sx={{ color: REPAIRS_UI.accent }} />
             </Box>
+          ) : selectedMode === 'owner_draw' ? (
+            <Stack spacing={2}>
+              <Grid container spacing={1.5}>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Owner / Operator</InputLabel>
+                    <Select
+                      value={ownerDrawUserID}
+                      label="Owner / Operator"
+                      onChange={(e) => setOwnerDrawUserID(e.target.value)}
+                    >
+                      {ownerOperators.map((user) => (
+                        <MenuItem key={user.userID} value={user.userID}>{user.userName}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Amount"
+                    size="small"
+                    type="number"
+                    fullWidth
+                    value={ownerDrawAmount}
+                    onChange={(e) => setOwnerDrawAmount(e.target.value)}
+                    inputProps={{ min: 0, step: 0.01 }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    label="Draw Date"
+                    size="small"
+                    type="datetime-local"
+                    fullWidth
+                    value={ownerDrawDate}
+                    onChange={(e) => setOwnerDrawDate(e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    label="Payment Method"
+                    size="small"
+                    fullWidth
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    placeholder="Cash, Zelle, Check"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    label="Reference"
+                    size="small"
+                    fullWidth
+                    value={paymentReference}
+                    onChange={(e) => setPaymentReference(e.target.value)}
+                  />
+                </Grid>
+              </Grid>
+
+              <TextField
+                label="Notes"
+                size="small"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                multiline
+                minRows={3}
+              />
+
+              {selectedDetail?.status && (
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Chip label={selectedDetail.userName || 'Owner / Operator'} />
+                  <Chip label={selectedDetail.status} />
+                </Stack>
+              )}
+            </Stack>
           ) : (
             <>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 2 }}>
                 <Chip label={selectedDetail.userName || 'Jeweler'} />
+                {selectedDetail.isOwnerOperator && <Chip label="Owner / Operator" color="secondary" />}
                 <Chip label={`Week of ${new Date(selectedDetail.weekStart).toLocaleDateString()}`} />
                 <Chip label={`Hours ${Number(selectedDetail.laborHours || 0).toFixed(2)}`} />
                 <Chip label={`Pay ${formatMoney(selectedDetail.laborPay)}`} />
@@ -590,6 +900,32 @@ export default function RepairPayrollPage() {
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={closeDialog} disabled={actionLoading}>Close</Button>
+          {selectedMode !== 'owner_draw' && selectedDetail?.userID && (
+            <Button onClick={toggleOwnerOperator} disabled={actionLoading} color="inherit">
+              {actionLoading
+                ? 'Saving...'
+                : selectedDetail.isOwnerOperator
+                  ? 'Remove Owner / Operator'
+                  : 'Mark Owner / Operator'}
+            </Button>
+          )}
+          {selectedMode === 'owner_draw' && (
+            <>
+              {selectedDetail?.drawID && selectedDetail?.status !== 'void' && (
+                <Button onClick={voidOwnerDraw} disabled={actionLoading} color="inherit">
+                  {actionLoading ? 'Saving...' : 'Void Draw'}
+                </Button>
+              )}
+              <Button
+                variant="contained"
+                onClick={saveOwnerDraw}
+                disabled={actionLoading || ownerOperators.length === 0}
+                sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}
+              >
+                {actionLoading ? 'Saving...' : selectedDetail?.drawID ? 'Save Draw' : 'Record Draw'}
+              </Button>
+            </>
+          )}
           {selectedMode === 'candidate' && selectedDetail && (
             <Button
               variant="contained"

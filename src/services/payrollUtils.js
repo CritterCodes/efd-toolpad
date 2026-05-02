@@ -11,6 +11,11 @@ export const PAYROLL_LOG_STATUS = {
   PAID: 'paid',
 };
 
+export const OWNER_DRAW_STATUS = {
+  RECORDED: 'recorded',
+  VOID: 'void',
+};
+
 export function getMondayOfWeek(value = new Date()) {
   const date = new Date(value);
   const day = date.getDay();
@@ -61,4 +66,19 @@ export function buildPayrollBatchTotals(logs = []) {
 
 export function canVoidPayrollBatch(status) {
   return status === PAYROLL_BATCH_STATUS.DRAFT || status === PAYROLL_BATCH_STATUS.FINALIZED;
+}
+
+export function buildOwnerDrawTotals(draws = []) {
+  return draws.reduce((acc, draw) => {
+    if (draw?.status === OWNER_DRAW_STATUS.VOID) {
+      return acc;
+    }
+
+    acc.amount += Number(draw?.amount || 0);
+    acc.count += 1;
+    return acc;
+  }, {
+    amount: 0,
+    count: 0,
+  });
 }

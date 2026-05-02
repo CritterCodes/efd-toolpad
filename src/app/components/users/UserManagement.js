@@ -18,7 +18,14 @@ import {
   Chip,
   IconButton,
   Tooltip,
-  CircularProgress
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControlLabel,
+  Switch,
+  Alert
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -77,6 +84,10 @@ const UserManagement = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOrder, setSortOrder] = useState('asc');
   const [page, setPage] = useState(1);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [dialogError, setDialogError] = useState('');
   const rowsPerPage = 12;
   const router = useRouter();
 
@@ -125,6 +136,77 @@ const UserManagement = ({
 
   const paginatedUsers = filteredUsers.slice((page - 1) * rowsPerPage, page * rowsPerPage);
   const totalPages = Math.ceil(filteredUsers.length / rowsPerPage);
+
+  const openCompensationDialog = (user) => {
+    setSelectedUser({
+      ...user,
+      compensationProfile: user.compensationProfile || {},
+    });
+    setDialogError('');
+    setDialogOpen(true);
+  };
+
+  const closeCompensationDialog = () => {
+    setDialogOpen(false);
+    setSelectedUser(null);
+    setDialogError('');
+  };
+
+  const updateSelectedUser = (field, value) => {
+    setSelectedUser((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const updateCompensationProfile = (field, value) => {
+    setSelectedUser((prev) => ({
+      ...prev,
+      compensationProfile: {
+        ...(prev?.compensationProfile || {}),
+        [field]: value,
+      },
+    }));
+  };
+
+  const saveCompensationProfile = async () => {
+    if (!selectedUser?._id) return;
+
+    setSaving(true);
+    setDialogError('');
+    try {
+      const response = await fetch(`/api/users/${selectedUser._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          compensationProfile: selectedUser.compensationProfile || {},
+          employment: selectedUser.employment || {},
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to update compensation profile.');
+      }
+
+      const nextUsers = users.map((user) => (
+        user._id === selectedUser._id
+          ? { ...user, compensationProfile: selectedUser.compensationProfile, employment: selectedUser.employment }
+          : user
+      ));
+      setUsers(nextUsers);
+      setFilteredUsers(nextUsers.filter((u) =>
+        u.firstName?.toLowerCase().includes(searchQuery) ||
+        u.lastName?.toLowerCase().includes(searchQuery) ||
+        u.email?.toLowerCase().includes(searchQuery) ||
+        u.business?.toLowerCase().includes(searchQuery)
+      ));
+      closeCompensationDialog();
+    } catch (error) {
+      setDialogError(error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <Box sx={{ pb: 10, position: 'relative' }}>
@@ -277,6 +359,14 @@ const UserManagement = ({
                           color: statusStyle.color
                         }}
                       />
+                      {user.compensationProfile?.isOwnerOperator && (
+                        <Chip
+                          label="Owner / Operator"
+                          size="small"
+                          color="secondary"
+                          sx={{ ml: 0.75, height: 18, fontSize: '0.65rem', fontWeight: 700 }}
+                        />
+                      )}
                     </Box>
                   </Box>
 
@@ -306,8 +396,8 @@ const UserManagement = ({
                   </Box>
 
                   <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5, mt: 'auto' }}>
-                    <Tooltip title="Edit User">
-                      <IconButton size="small" onClick={() => {}} sx={{ color: UI.textMuted, '&:hover': { color: UI.textPrimary } }}>
+                    <Tooltip title="Compensation Profile">
+                      <IconButton size="small" onClick={() => openCompensationDialog(user)} sx={{ color: UI.textMuted, '&:hover': { color: UI.textPrimary } }}>
                         <EditIcon sx={{ fontSize: 16 }} />
                       </IconButton>
                     </Tooltip>
@@ -337,6 +427,97 @@ const UserManagement = ({
           />
         </Box>
       )}
+
+      <Dialog
+        open={dialogOpen}
+        onClose={closeCompensationDialog}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{
+          sx: {
+            bgcolor: UI.bgPanel,
+            color: UI.textPrimary,
+            border: `1px solid ${UI.border}`,
+            borderRadius: 3,
+          },
+        }}
+      >
+        <DialogTitle sx={{ color: UI.textHeader, fontWeight: 700 }}>
+          Compensation Profile
+        </DialogTitle>
+        <DialogContent dividers sx={{ borderColor: UI.border }}>
+          {dialogError && <Alert severity="error" sx={{ mb: 2 }}>{dialogError}</Alert>}
+          {selectedUser && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box>
+                <Typography sx={{ color: UI.textHeader, fontWeight: 700 }}>
+                  {selectedUser.firstName} {selectedUser.lastName}
+                </Typography>
+                <Typography variant="body2" sx={{ color: UI.textSecondary }}>
+                  {selectedUser.email} · {selectedUser.role}
+                </Typography>
+              </Box>
+
+              <FormControlLabel
+                control={(
+                  <Switch
+                    checked={selectedUser.compensationProfile?.isOwnerOperator === true}
+                    onChange={(e) => updateCompensationProfile('isOwnerOperator', e.target.checked)}
+                    color="primary"
+                  />
+                )}
+                label={(
+                  <Box>
+                    <Typography fontWeight={600}>Owner / operator</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Includes this user in labor payroll while keeping owner draws separate from repair pay.
+                    </Typography>
+                  </Box>
+                )}
+              />
+
+              <FormControl fullWidth size="small">
+                <InputLabel>Pay Type</InputLabel>
+                <Select
+                  value={selectedUser.employment?.payType || 'hourly'}
+                  label="Pay Type"
+                  onChange={(e) => updateSelectedUser('employment', {
+                    ...(selectedUser.employment || {}),
+                    payType: e.target.value,
+                  })}
+                >
+                  <MenuItem value="hourly">Hourly</MenuItem>
+                  <MenuItem value="salary">Salary</MenuItem>
+                  <MenuItem value="commission">Commission</MenuItem>
+                </Select>
+              </FormControl>
+
+              <TextField
+                size="small"
+                label="Hourly Rate ($)"
+                type="number"
+                value={selectedUser.employment?.hourlyRate ?? ''}
+                onChange={(e) => updateSelectedUser('employment', {
+                  ...(selectedUser.employment || {}),
+                  hourlyRate: parseFloat(e.target.value) || 0,
+                })}
+                inputProps={{ min: 0, step: 0.5 }}
+              />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={closeCompensationDialog} disabled={saving}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={saveCompensationProfile}
+            disabled={saving || !selectedUser}
+            sx={{ bgcolor: UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}
+          >
+            {saving ? 'Saving...' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

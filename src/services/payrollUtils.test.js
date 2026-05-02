@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  OWNER_DRAW_STATUS,
   PAYROLL_BATCH_STATUS,
   PAYROLL_LOG_STATUS,
   buildPayrollBatchTotals,
+  buildOwnerDrawTotals,
   canVoidPayrollBatch,
   getMondayOfWeek,
   getWeekEndFromStart,
@@ -49,5 +51,18 @@ describe('payrollUtils', () => {
     expect(canVoidPayrollBatch(PAYROLL_BATCH_STATUS.FINALIZED)).toBe(true);
     expect(canVoidPayrollBatch(PAYROLL_BATCH_STATUS.PAID)).toBe(false);
     expect(canVoidPayrollBatch(PAYROLL_BATCH_STATUS.VOID)).toBe(false);
+  });
+
+  it('builds owner draw totals without counting voided entries', () => {
+    const totals = buildOwnerDrawTotals([
+      { amount: 120, status: OWNER_DRAW_STATUS.RECORDED },
+      { amount: 55.5, status: OWNER_DRAW_STATUS.RECORDED },
+      { amount: 40, status: OWNER_DRAW_STATUS.VOID },
+    ]);
+
+    expect(totals).toEqual({
+      amount: 175.5,
+      count: 2,
+    });
   });
 });

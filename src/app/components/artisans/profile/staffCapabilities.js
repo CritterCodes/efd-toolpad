@@ -7,19 +7,21 @@ import {
 } from '@mui/material';
 import HandymanIcon from '@mui/icons-material/Handyman';
 import WorkIcon from '@mui/icons-material/Work';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 
 const CAPABILITIES = [
-  { key: 'repairOps',      label: 'Repair Ops',       description: 'Core access to the jeweler repair workflow' },
-  { key: 'receiving',      label: 'Receiving',         description: 'Can receive repairs at intake and move to Ready for Work' },
-  { key: 'benchWork',      label: 'Bench Work',        description: 'Can claim repairs, perform bench work, and move jobs into QC' },
-  { key: 'parts',          label: 'Parts',             description: 'Can manage needs-parts and parts-ordered workflow' },
-  { key: 'qualityControl', label: 'Quality Control',   description: 'Can review jobs in QC and mark them completed or return them to bench work' },
+  { key: 'repairOps', label: 'Repair Ops', description: 'Core access to the jeweler repair workflow' },
+  { key: 'receiving', label: 'Receiving', description: 'Can receive repairs at intake and move to Ready for Work' },
+  { key: 'benchWork', label: 'Bench Work', description: 'Can claim repairs, perform bench work, and move jobs into QC' },
+  { key: 'parts', label: 'Parts', description: 'Can manage needs-parts and parts-ordered workflow' },
+  { key: 'qualityControl', label: 'Quality Control', description: 'Can review jobs in QC and mark them completed or return them to bench work' },
   { key: 'closeoutBilling', label: 'Closeout & Billing', description: 'Can handle after photos, invoice batching, and payment & pickup closeout' },
 ];
 
 export default function ArtisanStaffCapabilities({ artisan, onFieldChange }) {
   const employment = artisan?.employment || {};
   const caps = artisan?.staffCapabilities || {};
+  const compensationProfile = artisan?.compensationProfile || {};
 
   const isOnsite = employment.isOnsite === true;
 
@@ -29,6 +31,10 @@ export default function ArtisanStaffCapabilities({ artisan, onFieldChange }) {
 
   const setCap = (key, value) => {
     onFieldChange('staffCapabilities', { ...caps, [key]: value });
+  };
+
+  const setCompensation = (field, value) => {
+    onFieldChange('compensationProfile', { ...compensationProfile, [field]: value });
   };
 
   const setOnsite = (value) => {
@@ -51,25 +57,24 @@ export default function ArtisanStaffCapabilities({ artisan, onFieldChange }) {
         </Box>
       </Box>
 
-      {/* On-site toggle */}
       <Card variant="outlined" sx={{ mb: 3 }}>
         <CardContent>
           <FormControlLabel
-            control={
+            control={(
               <Switch
                 checked={isOnsite}
                 onChange={(e) => setOnsite(e.target.checked)}
                 color="primary"
               />
-            }
-            label={
+            )}
+            label={(
               <Box>
                 <Typography fontWeight={600}>On-site staff member</Typography>
                 <Typography variant="caption" color="text.secondary">
                   Enables the jeweler repair workflow for this artisan
                 </Typography>
               </Box>
-            }
+            )}
           />
 
           {isOnsite && (
@@ -115,7 +120,33 @@ export default function ArtisanStaffCapabilities({ artisan, onFieldChange }) {
         </CardContent>
       </Card>
 
-      {/* Capability toggles — only shown when onsite */}
+      <Card variant="outlined" sx={{ mb: 3 }}>
+        <CardContent>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <AccountBalanceWalletIcon fontSize="small" color="action" />
+            <Typography variant="subtitle2" fontWeight={600}>Compensation Profile</Typography>
+          </Box>
+
+          <FormControlLabel
+            control={(
+              <Switch
+                checked={compensationProfile.isOwnerOperator === true}
+                onChange={(e) => setCompensation('isOwnerOperator', e.target.checked)}
+                color="primary"
+              />
+            )}
+            label={(
+              <Box>
+                <Typography fontWeight={600}>Owner / operator</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Keeps this user in labor payroll, but tracks owner draws separately from repair pay.
+                </Typography>
+              </Box>
+            )}
+          />
+        </CardContent>
+      </Card>
+
       {isOnsite && (
         <>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
@@ -152,7 +183,7 @@ export default function ArtisanStaffCapabilities({ artisan, onFieldChange }) {
 
           <Divider sx={{ my: 2 }} />
           <Typography variant="caption" color="text.secondary">
-            Changes take effect on the jeweler's next login. Save changes at the top of the page to persist.
+            Changes take effect on the jeweler&apos;s next login. Save changes at the top of the page to persist.
           </Typography>
         </>
       )}

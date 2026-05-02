@@ -1,5 +1,6 @@
 import RepairLaborLogsModel from '@/app/api/repairLaborLogs/model';
 import RepairPayrollBatchesModel from '@/app/api/repairPayrollBatches/model';
+import { db } from '@/lib/database';
 import {
   PAYROLL_BATCH_STATUS,
   canVoidPayrollBatch,
@@ -30,6 +31,38 @@ function buildBatchFilter({ status, userID, weekStart, weekEnd } = {}) {
   return filter;
 }
 
+async function getUserCompensationMap(userIDs = []) {
+  const ids = [...new Set((userIDs || []).filter(Boolean))];
+  if (ids.length === 0) {
+    return new Map();
+  }
+
+  const dbInstance = await db.connect();
+  const users = await dbInstance.collection('users').find({
+    userID: { $in: ids },
+  }).project({
+    _id: 0,
+    userID: 1,
+    firstName: 1,
+    lastName: 1,
+    email: 1,
+    role: 1,
+    compensationProfile: 1,
+  }).toArray();
+
+  return new Map(users.map((user) => [user.userID, user]));
+}
+
+function applyCompensationMeta(entity, user) {
+  const profile = user?.compensationProfile || {};
+  return {
+    ...entity,
+    isOwnerOperator: profile.isOwnerOperator === true,
+    compensationProfile: profile,
+    displayUserName: entity.userName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email || entity.userID,
+  };
+}
+
 async function enrichBatch(batch) {
   const breakdown = await RepairLaborLogsModel.weeklyBreakdown({
     weekStart: batch.weekStart,
@@ -45,23 +78,31 @@ async function enrichBatch(batch) {
 }
 
 export async function listPayrollCandidates({ weekStart, weekEnd, userID } = {}) {
-  return await RepairLaborLogsModel.listPayrollCandidates({ weekStart, weekEnd, userID });
+  const candidates = await RepairLaborLogsModel.listPayrollCandidates({ weekStart, weekEnd, userID });
+  const userMap = await getUserCompensationMap(candidates.map((candidate) => candidate.userID));
+  return candidates.map((candidate) => applyCompensationMeta(candidate, userMap.get(candidate.userID)));
 }
 
 export async function getPayrollCandidateDetail({ weekStart, userID }) {
-  return await RepairLaborLogsModel.payrollCandidateBreakdown({
+  const detail = await RepairLaborLogsModel.payrollCandidateBreakdown({
     weekStart: normalizeWeekStart(weekStart),
     userID,
   });
+  const userMap = await getUserCompensationMap([detail.userID]);
+  return applyCompensationMeta(detail, userMap.get(detail.userID));
 }
 
 export async function listPayrollHistory({ status, userID, weekStart, weekEnd } = {}) {
-  return await RepairPayrollBatchesModel.list(buildBatchFilter({ status, userID, weekStart, weekEnd }));
+  const batches = await RepairPayrollBatchesModel.list(buildBatchFilter({ status, userID, weekStart, weekEnd }));
+  const userMap = await getUserCompensationMap(batches.map((batch) => batch.userID));
+  return batches.map((batch) => applyCompensationMeta(batch, userMap.get(batch.userID)));
 }
 
 export async function getPayrollBatchDetail(batchID) {
   const batch = await RepairPayrollBatchesModel.findByBatchID(batchID);
-  return await enrichBatch(batch);
+  const enriched = await enrichBatch(batch);
+  const userMap = await getUserCompensationMap([enriched.userID]);
+  return applyCompensationMeta(enriched, userMap.get(enriched.userID));
 }
 
 export async function createPayrollBatch({ weekStart, userID, createdBy, notes = '' }) {
