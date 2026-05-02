@@ -731,3 +731,60 @@ export function buildWholesalePerformanceReport({ repairs = [], invoices = [], w
 
   return { summary, rows };
 }
+
+export function buildPayrollReport({ payrollBatches = [], usersById = new Map(), window }) {
+  const rows = payrollBatches
+    .filter((batch) => {
+      const anchorDate = batch.paidAt || batch.weekEnd || batch.weekStart || batch.createdAt;
+      return isDateInWindow(anchorDate, window);
+    })
+    .map((batch) => {
+      const user = usersById.get(batch.userID) || {};
+      return {
+        batchID: batch.batchID,
+        userID: batch.userID,
+        userName: batch.userName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || batch.userID || 'Unknown user',
+        isOwnerOperator: user.compensationProfile?.isOwnerOperator === true,
+        weekStart: batch.weekStart,
+        weekEnd: batch.weekEnd,
+        status: batch.status || 'draft',
+        laborHours: Number(Number(batch.laborHours || 0).toFixed(2)),
+        laborPay: roundMoney(batch.laborPay || 0),
+        repairsWorked: Number(batch.repairsWorked || 0),
+        entryCount: Number(batch.entryCount || 0),
+        paidAt: batch.paidAt || null,
+        paymentMethod: batch.paymentMethod || '',
+        paymentReference: batch.paymentReference || '',
+        notes: batch.notes || '',
+      };
+    })
+    .sort((a, b) => {
+      const aDate = new Date(a.weekStart || 0).getTime();
+      const bDate = new Date(b.weekStart || 0).getTime();
+      return bDate - aDate;
+    });
+
+  const summary = rows.reduce((acc, row) => {
+    acc.batchCount += 1;
+    acc.totalHours = Number((acc.totalHours + row.laborHours).toFixed(2));
+    acc.totalPay = roundMoney(acc.totalPay + row.laborPay);
+    if (row.status === 'paid') {
+      acc.paidCount += 1;
+      acc.paidTotal = roundMoney(acc.paidTotal + row.laborPay);
+    } else {
+      acc.unpaidCount += 1;
+      acc.unpaidTotal = roundMoney(acc.unpaidTotal + row.laborPay);
+    }
+    return acc;
+  }, {
+    batchCount: 0,
+    totalHours: 0,
+    totalPay: 0,
+    paidCount: 0,
+    unpaidCount: 0,
+    paidTotal: 0,
+    unpaidTotal: 0,
+  });
+
+  return { summary, rows };
+}

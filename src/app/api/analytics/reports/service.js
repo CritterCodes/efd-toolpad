@@ -7,6 +7,7 @@ import {
   buildCashCollectedReport,
   buildCloseoutBottlenecksReport,
   buildJewelerPerformanceReport,
+  buildPayrollReport,
   buildWholesalePerformanceReport,
   getAnalyticsDateWindow,
 } from '@/services/repairAnalytics';
@@ -79,6 +80,11 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
     closeoutBottlenecks: buildCloseoutBottlenecksReport(repairs, invoicesById, pendingReviewLogs),
     jewelerPerformance: buildJewelerPerformanceReport({
       logs: laborLogs,
+      payrollBatches,
+      usersById,
+      window,
+    }),
+    payroll: buildPayrollReport({
       payrollBatches,
       usersById,
       window,
