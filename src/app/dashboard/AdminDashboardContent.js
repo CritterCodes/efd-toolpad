@@ -516,6 +516,36 @@ export default function AdminDashboardContent() {
   const { data: session } = useSession();
   const router = useRouter();
   const { repairs, loading } = useRepairs();
+  const [analyticsSnapshot, setAnalyticsSnapshot] = React.useState(null);
+  const [reportSnapshot, setReportSnapshot] = React.useState(null);
+
+  React.useEffect(() => {
+    let active = true;
+
+    const loadSnapshots = async () => {
+      try {
+        const [analyticsResponse, reportsResponse] = await Promise.all([
+          fetch('/api/analytics/summary?dateRange=last_month&includeLegacy=false'),
+          fetch('/api/analytics/reports?dateRange=last_week'),
+        ]);
+        const [analyticsData, reportsData] = await Promise.all([
+          analyticsResponse.json(),
+          reportsResponse.json(),
+        ]);
+        if (!analyticsResponse.ok) throw new Error(analyticsData.error || 'Failed to load dashboard analytics.');
+        if (!reportsResponse.ok) throw new Error(reportsData.error || 'Failed to load dashboard reports.');
+        if (active) {
+          setAnalyticsSnapshot(analyticsData);
+          setReportSnapshot(reportsData);
+        }
+      } catch (error) {
+        console.error('Failed to load admin dashboard analytics snapshot:', error);
+      }
+    };
+
+    loadSnapshots();
+    return () => { active = false; };
+  }, []);
 
   const dashboardMetrics = React.useMemo(() => {
     if (!repairs || loading) {
@@ -527,26 +557,14 @@ export default function AdminDashboardContent() {
         qcRequired: [],
         rushJobs: [],
         averageValue: 0,
-        monthlyRevenue: 0,
       };
     }
-
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
 
     const pendingReceipts = repairs.filter((r) => r.status === 'RECEIVING');
     const pendingWholesale = repairs.filter((r) => r.status === 'PENDING PICKUP' || r.status === 'PICKUP REQUESTED');
     const completed = repairs.filter((r) => ['COMPLETED', 'READY FOR PICKUP', 'DELIVERY BATCHED', 'PAID_CLOSED', 'READY FOR PICK-UP'].includes(r.status));
     const qcRequired = repairs.filter((r) => r.status === 'QC' || r.status === 'QUALITY CONTROL' || r.status === 'quality-control');
     const rushJobs = repairs.filter((r) => r.rushJob === true || r.priority === 'rush');
-
-    const monthlyRevenue = completed
-      .filter((r) => {
-        const completedDate = new Date(r.completedDate || r.updatedAt);
-        return completedDate.getMonth() === currentMonth && completedDate.getFullYear() === currentYear;
-      })
-      .reduce((sum, r) => sum + (parseFloat(r.totalCost) || 0), 0);
 
     const averageValue = completed.length > 0
       ? completed.reduce((sum, r) => sum + (parseFloat(r.totalCost) || 0), 0) / completed.length
@@ -560,7 +578,6 @@ export default function AdminDashboardContent() {
       qcRequired,
       rushJobs,
       averageValue,
-      monthlyRevenue,
     };
   }, [repairs, loading]);
 
@@ -583,6 +600,16 @@ export default function AdminDashboardContent() {
   const completionRate = dashboardMetrics.totalRepairs > 0
     ? Math.round((dashboardMetrics.completed.length / dashboardMetrics.totalRepairs) * 100)
     : 0;
+
+  const dashboardFinance = {
+    lastMonthRevenue: analyticsSnapshot?.revenue?.totalRevenue || 0,
+    lastMonthGoLiveRepairs: analyticsSnapshot?.repairOverview?.goLiveRepairCount || 0,
+    lastWeekCashCollected: reportSnapshot?.cashCollected?.summary?.totalCollected || 0,
+    outstandingReceivables: reportSnapshot?.accountsReceivable?.summary?.outstandingBalance || 0,
+    closeoutBottlenecks:
+      (reportSnapshot?.closeoutBottlenecks?.summary?.completedUninvoicedCount || 0)
+      + (reportSnapshot?.closeoutBottlenecks?.summary?.readyForPickupUnpaidCount || 0),
+  };
 
   const operationalQueues = [
     {
@@ -714,15 +741,15 @@ export default function AdminDashboardContent() {
                 progress={completionRate}
               />
               <MetricCard
-                label="Monthly revenue"
-                value={formatCurrency(dashboardMetrics.monthlyRevenue)}
-                subtext="Completed repair revenue this month"
+                label="Last month revenue"
+                value={formatCurrency(dashboardFinance.lastMonthRevenue)}
+                subtext={`${dashboardFinance.lastMonthGoLiveRepairs} go-live repair(s) invoiced`}
                 icon={<MonetizationOnIcon fontSize="small" />}
               />
               <MetricCard
-                label="Average ticket"
-                value={formatCurrency(dashboardMetrics.averageValue)}
-                subtext="Average completed repair value"
+                label="Last week cash"
+                value={formatCurrency(dashboardFinance.lastWeekCashCollected)}
+                subtext={`${formatCurrency(dashboardFinance.outstandingReceivables)} still sitting in receivables`}
                 icon={<TrendingUpIcon fontSize="small" />}
               />
             </Box>
@@ -733,6 +760,63 @@ export default function AdminDashboardContent() {
       </Box>
 
       <RepairLookupPanel repairs={repairs || []} onNavigate={(href) => router.push(href)} />
+
+      <Surface>
+        <Stack spacing={2}>
+          <Box>
+            <Typography sx={{ color: COLORS.textMuted, fontSize: 12, fontWeight: 600, mb: 0.75 }}>
+              Analytics at a glance
+            </Typography>
+            <Typography sx={{ fontSize: 28, fontWeight: 600, color: COLORS.textHeader }}>Business health</Typography>
+          </Box>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: 'repeat(4, minmax(0, 1fr))' },
+              gap: 2,
+            }}
+          >
+            <MetricCard
+              label="Accounts receivable"
+              value={formatCurrency(dashboardFinance.outstandingReceivables)}
+              subtext="Open invoice balances that still need collection"
+              icon={<MonetizationOnIcon fontSize="small" />}
+            />
+            <MetricCard
+              label="Closeout bottlenecks"
+              value={dashboardFinance.closeoutBottlenecks}
+              subtext="Completed jobs still waiting on invoice or payment"
+              icon={<AssignmentIcon fontSize="small" />}
+            />
+            <MetricCard
+              label="Average ticket"
+              value={formatCurrency(dashboardMetrics.averageValue)}
+              subtext="Average completed repair value in current data"
+              icon={<TrendingUpIcon fontSize="small" />}
+            />
+            <MetricCard
+              label="Go-live repairs"
+              value={dashboardFinance.lastMonthGoLiveRepairs}
+              subtext="Repairs entered in the clean system last month"
+              icon={<BuildIcon fontSize="small" />}
+            />
+          </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              endIcon={<ArrowForwardIcon />}
+              onClick={() => router.push('/dashboard/analytics/reports')}
+              sx={{
+                color: COLORS.accent,
+                textTransform: 'none',
+                fontWeight: 600,
+                '&:hover': { backgroundColor: 'transparent', opacity: 0.9 },
+              }}
+            >
+              Open analytics reports
+            </Button>
+          </Box>
+        </Stack>
+      </Surface>
 
       <Box
         sx={{

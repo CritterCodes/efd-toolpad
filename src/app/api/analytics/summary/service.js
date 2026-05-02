@@ -17,7 +17,7 @@ import {
   isDateInWindow,
 } from '@/services/repairAnalytics';
 
-async function getAdminSettingsDocument() {
+export async function getAdminSettingsDocument() {
   const dbInstance = db._instance || await db.connect();
   const settings = await dbInstance.collection('adminSettings').findOne({
     _id: 'repair_task_admin_settings',
@@ -35,7 +35,7 @@ async function getAdminSettingsDocument() {
   };
 }
 
-export async function getAnalyticsSummary({ dateRange = '30d', includeLegacy = false } = {}) {
+export async function getAnalyticsSummary({ dateRange = 'last_month', includeLegacy = false } = {}) {
   const dbInstance = db._instance || await db.connect();
   const settings = await getAdminSettingsDocument();
   const baseline = getAnalyticsBaselineSettings(settings);

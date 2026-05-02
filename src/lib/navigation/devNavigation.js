@@ -177,7 +177,19 @@ export const devNavigation = {
     {
       segment: 'dashboard/analytics',
       title: 'Analytics',
-      icon: <BarChartIcon />
+      icon: <BarChartIcon />,
+      children: [
+        {
+          segment: '',
+          title: 'Dash',
+          icon: <BarChartIcon />
+        },
+        {
+          segment: 'reports',
+          title: 'Reports',
+          icon: <ReceiptIcon />
+        }
+      ]
     },
     {
       segment: 'dashboard/admin/settings',

@@ -6,6 +6,35 @@ import { usePathname } from 'next/navigation';
 import { getDashboardSections } from '@/constants/roles';
 import styles from './RoleBasedNavigation.module.css';
 
+function NavigationItem({ section, pathname, depth = 0 }) {
+  const isActive = pathname === section.url || pathname.startsWith(section.url + '/');
+  const hasChildren = Array.isArray(section.children) && section.children.length > 0;
+
+  return (
+    <li className={isActive ? styles.active : ''}>
+      <Link
+        href={section.url}
+        className={styles.link}
+        style={{ paddingLeft: `${1.5 + depth * 1.25}rem` }}
+      >
+        <span className={styles.icon}>{section.icon}</span>
+        <span className={styles.label}>{section.label}</span>
+        {section.badge && (
+          <span className={styles.badge} data-badge-type={section.badge} />
+        )}
+      </Link>
+
+      {hasChildren && (
+        <ul className={styles.submenu}>
+          {section.children.map((child) => (
+            <NavigationItem key={child.id} section={child} pathname={pathname} depth={depth + 1} />
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
+
 export default function RoleBasedNavigation() {
   const sessionState = useSession() || {};
   const { data: session = null } = sessionState;
@@ -15,12 +44,7 @@ export default function RoleBasedNavigation() {
     return null;
   }
 
-  const userRole = session.user.role;
-  const sections = getDashboardSections(userRole);
-
-  const isActive = (url) => {
-    return pathname === url || pathname.startsWith(url + '/');
-  };
+  const sections = getDashboardSections(session.user.role);
 
   return (
     <nav className={styles.navigation}>
@@ -31,21 +55,10 @@ export default function RoleBasedNavigation() {
 
       <ul className={styles.menu}>
         {sections.map((section) => (
-          <li key={section.id} className={isActive(section.url) ? styles.active : ''}>
-            <Link href={section.url} className={styles.link}>
-              <span className={styles.icon}>{section.icon}</span>
-              <span className={styles.label}>{section.label}</span>
-              {section.badge && (
-                <span className={styles.badge} data-badge-type={section.badge}>
-                  {/* Badge count will be injected by parent */}
-                </span>
-              )}
-            </Link>
-          </li>
+          <NavigationItem key={section.id} section={section} pathname={pathname} />
         ))}
       </ul>
 
-      {/* Artisan Types Display (if applicable) */}
       {session.user.artisanTypes && session.user.artisanTypes.length > 0 && (
         <div className={styles.artisanTypesSection}>
           <h3>Specializations</h3>

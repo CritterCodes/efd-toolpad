@@ -100,6 +100,11 @@ export const adminNavigation = {
           icon: <StorefrontIcon />
         },
         {
+          segment: '/dashboard/admin/artisans',
+          title: 'Artisan Applications',
+          icon: <AssignmentIcon />
+        },
+        {
           segment: 'artisans',
           title: 'Artisans',
           icon: <HandymanIcon />
@@ -193,7 +198,19 @@ export const adminNavigation = {
     {
       segment: 'dashboard/analytics',
       title: 'Analytics',
-      icon: <BarChartIcon />
+      icon: <BarChartIcon />,
+      children: [
+        {
+          segment: '',
+          title: 'Dash',
+          icon: <BarChartIcon />
+        },
+        {
+          segment: 'reports',
+          title: 'Reports',
+          icon: <ReceiptIcon />
+        }
+      ]
     },
     {
       segment: 'dashboard/admin/settings',

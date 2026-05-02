@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildAccountsReceivableReport,
+  buildCashCollectedReport,
   buildInvoiceRevenueSummary,
   buildLaborSummary,
   filterOperationalRepairs,
@@ -64,6 +66,73 @@ describe('repairAnalytics', () => {
       totalPay: 87.5,
       entryCount: 2,
       reviewedCount: 1,
+    });
+  });
+
+  it('builds last month and last week date windows correctly', () => {
+    const lastMonth = getAnalyticsDateWindow('last_month', new Date('2026-05-20T12:00:00.000Z'));
+    expect(lastMonth.startDate.getFullYear()).toBe(2026);
+    expect(lastMonth.startDate.getMonth()).toBe(3);
+    expect(lastMonth.startDate.getDate()).toBe(1);
+    expect(lastMonth.endDate.getFullYear()).toBe(2026);
+    expect(lastMonth.endDate.getMonth()).toBe(3);
+    expect(lastMonth.endDate.getDate()).toBe(30);
+
+    const lastWeek = getAnalyticsDateWindow('last_week', new Date('2026-05-20T12:00:00.000Z'));
+    expect(lastWeek.startDate.getFullYear()).toBe(2026);
+    expect(lastWeek.startDate.getMonth()).toBe(4);
+    expect(lastWeek.startDate.getDate()).toBe(11);
+    expect(lastWeek.endDate.getFullYear()).toBe(2026);
+    expect(lastWeek.endDate.getMonth()).toBe(4);
+    expect(lastWeek.endDate.getDate()).toBe(17);
+  });
+
+  it('builds cash collected and receivables reports from invoices', () => {
+    const repairsById = new Map([
+      ['repair-legacy', { repairID: 'repair-legacy', analyticsOrigin: 'legacy', createdAt: '2026-04-20T12:00:00.000Z' }],
+      ['repair-go-live', { repairID: 'repair-go-live', analyticsOrigin: 'go_live', createdAt: '2026-05-10T12:00:00.000Z' }],
+    ]);
+    const invoices = [
+      {
+        invoiceID: 'rinv-1',
+        customerName: 'Legacy Store',
+        accountType: 'wholesale',
+        total: 50,
+        amountPaid: 50,
+        remainingBalance: 0,
+        createdAt: '2026-05-15T12:00:00.000Z',
+        repairIDs: ['repair-legacy'],
+        repairSnapshots: [{ repairID: 'repair-legacy', total: 50, taxAmount: 0 }],
+        payments: [{ type: 'cash', amount: 50, receivedAt: '2026-05-16T12:00:00.000Z', status: 'completed' }],
+      },
+      {
+        invoiceID: 'rinv-2',
+        customerName: 'Go Live Client',
+        accountType: 'retail',
+        total: 80,
+        amountPaid: 20,
+        remainingBalance: 60,
+        createdAt: '2026-05-12T12:00:00.000Z',
+        repairIDs: ['repair-go-live'],
+        repairSnapshots: [{ repairID: 'repair-go-live', total: 80, taxAmount: 0 }],
+        payments: [{ type: 'cash', amount: 20, receivedAt: '2026-05-13T12:00:00.000Z', status: 'completed' }],
+        paymentStatus: 'partial',
+      },
+    ];
+
+    const cash = buildCashCollectedReport(
+      invoices,
+      getAnalyticsDateWindow('last_week', new Date('2026-05-20T12:00:00.000Z')),
+      repairsById
+    );
+    const ar = buildAccountsReceivableReport(invoices, new Date('2026-05-20T12:00:00.000Z'));
+
+    expect(cash.summary.totalCollected).toBe(70);
+    expect(cash.summary.legacyCarryoverCollected).toBe(50);
+    expect(ar.summary.outstandingBalance).toBe(60);
+    expect(ar.rows[0]).toMatchObject({
+      invoiceID: 'rinv-2',
+      remainingBalance: 60,
     });
   });
 });

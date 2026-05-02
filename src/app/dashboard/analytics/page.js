@@ -2,8 +2,12 @@
 
 import * as React from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
 import CircularProgress from '@mui/material/CircularProgress';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Grid from '@mui/material/Grid';
@@ -19,58 +23,74 @@ import UpcomingDeadlinesAnalytics from '@/app/components/analytics/upcoming.comp
 import RevenueTrendAnalytics from '@/app/components/analytics/revenueTrend.component';
 import SalesTaxReport from '@/app/components/analytics/salesTax.component';
 import { useRepairs } from '@/app/context/repairs.context';
+import { ANALYTICS_DATE_RANGE_OPTIONS } from '@/services/repairAnalytics';
 
-const DATE_RANGES = [
-  { label: '7 Days', value: '7d' },
-  { label: '30 Days', value: '30d' },
-  { label: '90 Days', value: '90d' },
-  { label: '1 Year', value: '1yr' },
-  { label: 'All Time', value: 'all' },
-];
+function formatMoney(value) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(Number(value || 0));
+}
 
-export default function AnalyticsPage() {
+function HighlightCard({ title, value, note }) {
+  return (
+    <Card sx={{ height: '100%' }}>
+      <CardContent>
+        <Typography variant="body2" color="text.secondary">{title}</Typography>
+        <Typography variant="h4" fontWeight={700} sx={{ mt: 1 }}>{value}</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{note}</Typography>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function AnalyticsDashPage() {
+  const router = useRouter();
   const { repairs, loading: repairsLoading } = useRepairs();
-  const [dateRange, setDateRange] = useState('30d');
+  const [dateRange, setDateRange] = useState('last_month');
   const [includeLegacy, setIncludeLegacy] = useState(false);
   const [analytics, setAnalytics] = useState(null);
+  const [reports, setReports] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let active = true;
 
-    const loadAnalytics = async () => {
+    const load = async () => {
       setLoading(true);
       setError('');
       try {
-        const params = new URLSearchParams({
+        const summaryParams = new URLSearchParams({
           dateRange,
           includeLegacy: includeLegacy ? 'true' : 'false',
         });
-        const response = await fetch(`/api/analytics/summary?${params.toString()}`);
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to load analytics summary.');
-        }
+        const reportParams = new URLSearchParams({ dateRange });
+        const [summaryResponse, reportsResponse] = await Promise.all([
+          fetch(`/api/analytics/summary?${summaryParams.toString()}`),
+          fetch(`/api/analytics/reports?${reportParams.toString()}`),
+        ]);
+        const [summaryData, reportsData] = await Promise.all([
+          summaryResponse.json(),
+          reportsResponse.json(),
+        ]);
+
+        if (!summaryResponse.ok) throw new Error(summaryData.error || 'Failed to load analytics summary.');
+        if (!reportsResponse.ok) throw new Error(reportsData.error || 'Failed to load analytics reports.');
 
         if (active) {
-          setAnalytics(data);
+          setAnalytics(summaryData);
+          setReports(reportsData);
         }
       } catch (err) {
-        if (active) {
-          setError(err.message);
-        }
+        if (active) setError(err.message);
       } finally {
-        if (active) {
-          setLoading(false);
-        }
+        if (active) setLoading(false);
       }
     };
 
-    loadAnalytics();
-    return () => {
-      active = false;
-    };
+    load();
+    return () => { active = false; };
   }, [dateRange, includeLegacy]);
 
   const upcomingRepairs = useMemo(() => Array.isArray(repairs) ? repairs : [], [repairs]);
@@ -84,38 +104,71 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <Box sx={{ padding: 4 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+    <Box sx={{ p: 4 }}>
+      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2} sx={{ mb: 3 }}>
         <Box>
-          <Typography variant="h4" fontWeight="bold">Analytics Dashboard</Typography>
+          <Typography variant="h4" fontWeight="bold">Analytics Dash</Typography>
           <Typography variant="body2" color="text.secondary">
-            Revenue is invoice-timed. Operational repair KPIs default to go-live repairs.
+            Go-live-aware operations, invoice-timed revenue, and post-baseline labor.
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
           <FormControlLabel
             control={<Switch checked={includeLegacy} onChange={(event) => setIncludeLegacy(event.target.checked)} />}
             label="Include Legacy"
           />
-          {DATE_RANGES.map((range) => (
-            <Chip
-              key={range.value}
-              label={range.label}
-              onClick={() => setDateRange(range.value)}
-              color={dateRange === range.value ? 'primary' : 'default'}
-              variant={dateRange === range.value ? 'filled' : 'outlined'}
-              sx={{ cursor: 'pointer' }}
-            />
-          ))}
+          <Button variant="outlined" onClick={() => router.push('/dashboard/analytics/reports')}>
+            Open Reports
+          </Button>
         </Stack>
-      </Box>
+      </Stack>
+
+      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
+        {ANALYTICS_DATE_RANGE_OPTIONS.map((range) => (
+          <Chip
+            key={range.value}
+            label={range.label}
+            onClick={() => setDateRange(range.value)}
+            color={dateRange === range.value ? 'primary' : 'default'}
+            variant={dateRange === range.value ? 'filled' : 'outlined'}
+            sx={{ cursor: 'pointer' }}
+          />
+        ))}
+      </Stack>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {analytics?.baseline?.note && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          {analytics.baseline.note}
-        </Alert>
-      )}
+      {analytics?.baseline?.note && <Alert severity="info" sx={{ mb: 2 }}>{analytics.baseline.note}</Alert>}
+
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        <Grid item xs={12} sm={6} lg={3}>
+          <HighlightCard
+            title="Cash Collected"
+            value={formatMoney(reports?.cashCollected?.summary?.totalCollected)}
+            note={`${reports?.cashCollected?.summary?.paymentCount || 0} payment(s) in period`}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} lg={3}>
+          <HighlightCard
+            title="Accounts Receivable"
+            value={formatMoney(reports?.accountsReceivable?.summary?.outstandingBalance)}
+            note={`${reports?.accountsReceivable?.summary?.overdueCount || 0} overdue invoice(s)`}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} lg={3}>
+          <HighlightCard
+            title="Closeout Bottlenecks"
+            value={String(reports?.closeoutBottlenecks?.summary?.completedUninvoicedCount || 0)}
+            note={`${reports?.closeoutBottlenecks?.summary?.readyForPickupUnpaidCount || 0} pickup/delivery jobs still unpaid`}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} lg={3}>
+          <HighlightCard
+            title="Labor This Period"
+            value={formatMoney(analytics?.labor?.totalPay)}
+            note={`${analytics?.labor?.label || 'Post-baseline only'} · ${Number(analytics?.labor?.totalHours || 0).toFixed(2)}h`}
+          />
+        </Grid>
+      </Grid>
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={4}>

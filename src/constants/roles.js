@@ -102,7 +102,16 @@ export const DASHBOARD_SECTIONS = {
     { id: 'drops', label: 'Drop Orchestration', icon: '🎯', url: '/dashboard/admin/drops' },
     { id: 'artisans', label: 'Artisan Management', icon: '👥', url: '/dashboard/admin/artisans' },
     { id: 'notifications', label: 'Notifications', icon: '🔔', url: '/dashboard/admin/notifications', badge: 'count' },
-    { id: 'analytics', label: 'Analytics', icon: '📈', url: '/dashboard/admin/analytics' }
+    {
+      id: 'analytics',
+      label: 'Analytics',
+      icon: '📈',
+      url: '/dashboard/analytics',
+      children: [
+        { id: 'analytics-dash', label: 'Dash', icon: '•', url: '/dashboard/analytics' },
+        { id: 'analytics-reports', label: 'Reports', icon: '•', url: '/dashboard/analytics/reports' }
+      ]
+    }
   ],
   [USER_ROLES.SENIOR_ARTISAN]: [
     { id: 'overview', label: 'Dashboard', icon: '📊', url: '/dashboard/artisan/overview' },
