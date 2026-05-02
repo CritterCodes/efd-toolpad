@@ -12,14 +12,16 @@ import {
  * GET /api/repairs/my-bench
  * Returns repairs relevant to the bench. Status is canonical; benchStatus is compatibility-only.
  */
-export const GET = async () => {
+export const GET = async (req) => {
   try {
     const { session, errorResponse } = await requireRepairOps();
     if (errorResponse) return errorResponse;
 
     const dbInstance = await db.connect();
-    const userID = session.user.userID;
     const adminMode = isAdmin(session);
+    const { searchParams } = new URL(req.url);
+    const benchUserID = searchParams.get('userID');
+    const userID = adminMode && benchUserID ? benchUserID : session.user.userID;
 
     const repairs = await dbInstance.collection('repairs')
       .find({
