@@ -69,7 +69,23 @@ describe('repairAnalytics', () => {
     });
   });
 
-  it('builds last month and last week date windows correctly', () => {
+  it('builds current and previous period date windows correctly', () => {
+    const thisMonth = getAnalyticsDateWindow('this_month', new Date('2026-05-20T12:00:00.000Z'));
+    expect(thisMonth.startDate.getFullYear()).toBe(2026);
+    expect(thisMonth.startDate.getMonth()).toBe(4);
+    expect(thisMonth.startDate.getDate()).toBe(1);
+    expect(thisMonth.endDate.getFullYear()).toBe(2026);
+    expect(thisMonth.endDate.getMonth()).toBe(4);
+    expect(thisMonth.endDate.getDate()).toBe(20);
+
+    const thisWeek = getAnalyticsDateWindow('this_week', new Date('2026-05-20T12:00:00.000Z'));
+    expect(thisWeek.startDate.getFullYear()).toBe(2026);
+    expect(thisWeek.startDate.getMonth()).toBe(4);
+    expect(thisWeek.startDate.getDate()).toBe(18);
+    expect(thisWeek.endDate.getFullYear()).toBe(2026);
+    expect(thisWeek.endDate.getMonth()).toBe(4);
+    expect(thisWeek.endDate.getDate()).toBe(20);
+
     const lastMonth = getAnalyticsDateWindow('last_month', new Date('2026-05-20T12:00:00.000Z'));
     expect(lastMonth.startDate.getFullYear()).toBe(2026);
     expect(lastMonth.startDate.getMonth()).toBe(3);

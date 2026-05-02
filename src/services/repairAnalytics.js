@@ -1,6 +1,11 @@
 import { resolveRepairAnalyticsOrigin, ANALYTICS_ORIGIN } from '@/services/analyticsBaseline';
 
 export const ANALYTICS_DATE_RANGES = {
+  today: 'today',
+  this_week: 'this_week',
+  this_month: 'this_month',
+  this_quarter: 'this_quarter',
+  this_year: 'this_year',
   yesterday: 'yesterday',
   last_week: 'last_week',
   last_month: 'last_month',
@@ -14,6 +19,11 @@ export const ANALYTICS_DATE_RANGES = {
 };
 
 export const ANALYTICS_DATE_RANGE_OPTIONS = [
+  { label: 'Today', value: ANALYTICS_DATE_RANGES.today },
+  { label: 'This Week', value: ANALYTICS_DATE_RANGES.this_week },
+  { label: 'This Month', value: ANALYTICS_DATE_RANGES.this_month },
+  { label: 'This Quarter', value: ANALYTICS_DATE_RANGES.this_quarter },
+  { label: 'This Year', value: ANALYTICS_DATE_RANGES.this_year },
   { label: 'Yesterday', value: ANALYTICS_DATE_RANGES.yesterday },
   { label: 'Last Week', value: ANALYTICS_DATE_RANGES.last_week },
   { label: 'Last Month', value: ANALYTICS_DATE_RANGES.last_month },
@@ -129,11 +139,21 @@ function formatMonthLabel(value) {
   return new Intl.DateTimeFormat('en-US', { month: 'short', year: '2-digit' }).format(new Date(value));
 }
 
-export function getAnalyticsDateWindow(dateRange = ANALYTICS_DATE_RANGES.last_month, now = new Date()) {
+export function getAnalyticsDateWindow(dateRange = ANALYTICS_DATE_RANGES.this_month, now = new Date()) {
   const todayStart = startOfDay(now);
   const todayEnd = endOfDay(now);
 
   switch (dateRange) {
+    case ANALYTICS_DATE_RANGES.today:
+      return { key: dateRange, startDate: todayStart, endDate: todayEnd };
+    case ANALYTICS_DATE_RANGES.this_week:
+      return { key: dateRange, startDate: startOfWeek(todayStart), endDate: todayEnd };
+    case ANALYTICS_DATE_RANGES.this_month:
+      return { key: dateRange, startDate: startOfMonth(todayStart), endDate: todayEnd };
+    case ANALYTICS_DATE_RANGES.this_quarter:
+      return { key: dateRange, startDate: startOfQuarter(todayStart), endDate: todayEnd };
+    case ANALYTICS_DATE_RANGES.this_year:
+      return { key: dateRange, startDate: startOfYear(todayStart), endDate: todayEnd };
     case ANALYTICS_DATE_RANGES.yesterday: {
       const yesterday = new Date(todayStart);
       yesterday.setDate(yesterday.getDate() - 1);

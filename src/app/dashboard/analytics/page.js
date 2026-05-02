@@ -47,7 +47,7 @@ function HighlightCard({ title, value, note }) {
 export default function AnalyticsDashPage() {
   const router = useRouter();
   const { repairs, loading: repairsLoading } = useRepairs();
-  const [dateRange, setDateRange] = useState('last_month');
+  const [dateRange, setDateRange] = useState('this_month');
   const [includeLegacy, setIncludeLegacy] = useState(false);
   const [analytics, setAnalytics] = useState(null);
   const [reports, setReports] = useState(null);

@@ -43,7 +43,7 @@ function SectionCard({ title, subtitle, children }) {
 }
 
 export default function AnalyticsReportsPage() {
-  const [dateRange, setDateRange] = useState('last_month');
+  const [dateRange, setDateRange] = useState('this_month');
   const [reports, setReports] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
