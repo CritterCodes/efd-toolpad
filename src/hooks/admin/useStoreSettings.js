@@ -21,7 +21,8 @@ export const useStoreSettings = () => {
         consumablesFee: 0.08,
         rushMultiplier: 1.5,
         deliveryFee: 25.0,
-        taxRate: 0.0875
+        taxRate: 0.0875,
+        federalTaxReserveRate: 0.30
     });
 
     const [saving, setSaving] = useState(false);
@@ -48,7 +49,12 @@ export const useStoreSettings = () => {
                 consumablesFee: adminSettings.consumablesFee || 0.08,
                 rushMultiplier: adminSettings.rushMultiplier || 1.5,
                 deliveryFee: adminSettings.deliveryFee || 25.0,
-                taxRate: adminSettings.taxRate || 0.0875
+                taxRate: adminSettings.taxRate || 0.0875,
+                federalTaxReserveRate: Number(
+                    adminSettings.federalTaxReserveRate
+                    ?? adminSettings.analytics?.federalTaxReserveRate
+                    ?? 0.30
+                ),
             });
         }
     }, [adminSettings]);
@@ -56,8 +62,17 @@ export const useStoreSettings = () => {
     useEffect(() => {
         if (!adminSettings) return;
 
+        const currentSettings = {
+            ...adminSettings,
+            federalTaxReserveRate: Number(
+                adminSettings.federalTaxReserveRate
+                ?? adminSettings.analytics?.federalTaxReserveRate
+                ?? 0.30
+            ),
+        };
+
         const changed = Object.keys(localSettings).some(
-            (key) => parseFloat(localSettings[key]) !== parseFloat(adminSettings[key])
+            (key) => parseFloat(localSettings[key]) !== parseFloat(currentSettings[key])
         );
         setHasChanges(changed);
     }, [localSettings, adminSettings]);
@@ -69,7 +84,8 @@ export const useStoreSettings = () => {
                 field === 'administrativeFee' ||
                 field === 'businessFee' ||
                 field === 'consumablesFee' ||
-                field === 'taxRate'
+                field === 'taxRate' ||
+                field === 'federalTaxReserveRate'
             ) {
                 setLocalSettings((prev) => ({
                     ...prev,

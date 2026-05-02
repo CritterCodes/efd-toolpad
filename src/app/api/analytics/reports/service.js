@@ -1,11 +1,15 @@
 import { db } from '@/lib/database';
 import RepairPayrollBatchesModel from '@/app/api/repairPayrollBatches/model';
 import RepairLaborLogsModel from '@/app/api/repairLaborLogs/model';
+import OwnerDrawsModel from '@/app/api/ownerDraws/model';
+import BusinessExpensesModel from '@/app/api/businessExpenses/model';
 import { getAnalyticsBaselineSettings } from '@/services/analyticsBaseline';
 import {
   buildAccountsReceivableReport,
   buildCashCollectedReport,
   buildCloseoutBottlenecksPeriodReport,
+  buildExpenseReport,
+  buildFederalTaxReserveReport,
   buildJewelerPerformanceReport,
   buildLaborSettlementReport,
   buildPayrollReport,
@@ -51,13 +55,15 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
   const baseline = getAnalyticsBaselineSettings(settings);
   const window = getAnalyticsDateWindow(dateRange);
 
-  const [repairs, invoices, laborLogs, payrollBatches, pendingReviewLogs] = await Promise.all([
+  const [repairs, invoices, laborLogs, payrollBatches, ownerDraws, expenses, pendingReviewLogs] = await Promise.all([
     dbInstance.collection('repairs').find({}).project({ _id: 0 }).toArray(),
     dbInstance.collection('repairInvoices').find({}).project({ _id: 0 }).toArray(),
     dbInstance.collection('repairLaborLogs').find({
       weekStart: { $gte: baseline.laborAnalyticsStartDate },
     }).project({ _id: 0 }).toArray(),
     RepairPayrollBatchesModel.list({}),
+    OwnerDrawsModel.list({}),
+    BusinessExpensesModel.list({}),
     getPendingReviewLogs(),
   ]);
 
@@ -72,7 +78,9 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
     baseline: {
       repairAnalyticsStartDate: baseline.repairAnalyticsStartDate,
       laborAnalyticsStartDate: baseline.laborAnalyticsStartDate,
+      federalTaxReserveRate: baseline.federalTaxReserveRate,
       note: baseline.note,
+      taxReserveNote: baseline.taxReserveNote,
     },
     filters: {
       dateRange,
@@ -98,6 +106,16 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
       usersById,
       window,
     }),
+    federalTaxReserve: buildFederalTaxReserveReport({
+      invoices,
+      payrollBatches,
+      ownerDraws,
+      expenses,
+      usersById,
+      window,
+      federalTaxReserveRate: baseline.federalTaxReserveRate,
+    }),
+    expenses: buildExpenseReport(expenses, window),
     payroll: buildPayrollReport({
       payrollBatches,
       usersById,

@@ -146,6 +146,13 @@ export default class SettingsManagerService {
       if (taxRate && (taxRate < 0 || taxRate > 0.5)) throw Object.assign(new Error('Tax rate must be between 0 and 50%'), { status: 400 });
     }
 
+    if (analytics && analytics.federalTaxReserveRate != null) {
+      const reserveRate = Number(analytics.federalTaxReserveRate);
+      if (Number.isNaN(reserveRate) || reserveRate < 0 || reserveRate > 1) {
+        throw Object.assign(new Error('Federal tax reserve rate must be between 0 and 100%'), { status: 400 });
+      }
+    }
+
     const mergedPricing = pricing ? {
       ...adminSettings.pricing,
       ...pricing,
@@ -165,10 +172,15 @@ export default class SettingsManagerService {
       pricing: mergedPricing,
       financial: financial || adminSettings.financial,
       business: business || adminSettings.business,
-      analytics: analytics
+        analytics: analytics
         ? {
             ...buildAnalyticsBaselineSettingsUpdate(adminSettings),
             ...analytics,
+            federalTaxReserveRate: Number(
+              analytics.federalTaxReserveRate
+                ?? adminSettings.analytics?.federalTaxReserveRate
+                ?? buildAnalyticsBaselineSettingsUpdate(adminSettings).federalTaxReserveRate
+            ),
           }
         : buildAnalyticsBaselineSettingsUpdate(adminSettings),
       updatedAt: new Date(),

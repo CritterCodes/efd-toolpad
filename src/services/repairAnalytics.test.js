@@ -3,6 +3,8 @@ import {
   buildAccountsReceivableReport,
   buildCashCollectedReport,
   buildCloseoutBottlenecksPeriodReport,
+  buildExpenseReport,
+  buildFederalTaxReserveReport,
   buildInvoiceRevenueSummary,
   buildJewelerPerformanceReport,
   buildLaborSettlementReport,
@@ -267,6 +269,90 @@ describe('repairAnalytics', () => {
       unpaidBalance: 20,
       pendingPickup: 1,
       activeRepairs: 1,
+    });
+  });
+
+  it('builds federal tax reserve totals from payments, contractor payroll, and owner draws', () => {
+    const window = getAnalyticsDateWindow('this_month', new Date('2026-05-20T12:00:00.000Z'));
+    const report = buildFederalTaxReserveReport({
+      invoices: [
+        {
+          invoiceID: 'rinv-1',
+          customerName: 'Client A',
+          accountType: 'retail',
+          total: 110,
+          taxAmount: 10,
+          payments: [
+            { type: 'cash', amount: 55, receivedAt: '2026-05-10T12:00:00.000Z', status: 'completed' },
+          ],
+        },
+        {
+          invoiceID: 'rinv-2',
+          customerName: 'Store B',
+          accountType: 'wholesale',
+          total: 200,
+          taxAmount: 0,
+          payments: [
+            { type: 'zelle', amount: 100, receivedAt: '2026-05-11T12:00:00.000Z', status: 'completed' },
+          ],
+        },
+      ],
+      payrollBatches: [
+        { batchID: 'pay-1', userID: 'user-1', userName: 'Contractor One', laborPay: 40, laborHours: 1, paidAt: '2026-05-12T12:00:00.000Z', paymentMethod: 'zelle' },
+        { batchID: 'pay-2', userID: 'user-owner', userName: 'Owner', laborPay: 30, laborHours: 0.5, paidAt: '2026-05-13T12:00:00.000Z', paymentMethod: 'cash' },
+      ],
+      ownerDraws: [
+        { drawID: 'od-1', userID: 'user-owner', userName: 'Owner', amount: 25, drawDate: '2026-05-14T12:00:00.000Z', paymentMethod: 'cash', status: 'recorded' },
+      ],
+      expenses: [
+        { expenseID: 'exp-1', vendor: 'Rent', category: 'Rent', amount: 20, expenseDate: '2026-05-15T12:00:00.000Z', paidAt: '2026-05-15T12:00:00.000Z', paymentMethod: 'bank_transfer', status: 'paid', isDeductible: true },
+        { expenseID: 'exp-2', vendor: 'Parking', category: 'Travel / Vehicle', amount: 5, expenseDate: '2026-05-16T12:00:00.000Z', paymentMethod: 'cash', status: 'planned', isDeductible: false },
+      ],
+      usersById: new Map([
+        ['user-1', { userID: 'user-1', compensationProfile: { isOwnerOperator: false } }],
+        ['user-owner', { userID: 'user-owner', compensationProfile: { isOwnerOperator: true } }],
+      ]),
+      window,
+      federalTaxReserveRate: 0.30,
+    });
+
+    expect(report.summary).toMatchObject({
+      cashCollected: 155,
+      salesTaxHeld: 5,
+      contractorPayrollPaid: 40,
+      ownerOperatorPayrollPaid: 30,
+      trackedExpenses: 20,
+      deductibleExpenses: 20,
+      nonDeductibleExpenses: 0,
+      unpaidTrackedExpenses: 5,
+      ownerDraws: 25,
+      estimatedTaxableProfit: 95,
+      recommendedFederalReserve: 28.5,
+      spendableCash: 61.5,
+      cashAfterOwnerDraws: 36.5,
+    });
+  });
+
+  it('builds expense report totals and category breakdowns', () => {
+    const window = getAnalyticsDateWindow('this_month', new Date('2026-05-20T12:00:00.000Z'));
+    const report = buildExpenseReport([
+      { expenseID: 'exp-1', expenseDate: '2026-05-02T12:00:00.000Z', paidAt: '2026-05-02T12:00:00.000Z', vendor: 'Adobe', category: 'Software', amount: 50, paymentMethod: 'credit_card', status: 'paid', isDeductible: true },
+      { expenseID: 'exp-2', expenseDate: '2026-05-03T12:00:00.000Z', vendor: 'Post Office', category: 'Shipping', amount: 15, paymentMethod: 'cash', status: 'planned', isDeductible: true },
+      { expenseID: 'exp-3', expenseDate: '2026-05-04T12:00:00.000Z', paidAt: '2026-05-04T12:00:00.000Z', vendor: 'Parking', category: 'Travel / Vehicle', amount: 8, paymentMethod: 'cash', status: 'paid', isDeductible: false },
+      { expenseID: 'exp-old', expenseDate: '2026-04-03T12:00:00.000Z', vendor: 'Old', category: 'Software', amount: 999, paymentMethod: 'cash', isDeductible: true },
+    ], window);
+
+    expect(report.summary).toMatchObject({
+      total: 73,
+      paid: 58,
+      planned: 15,
+      deductible: 65,
+      nonDeductible: 8,
+      count: 3,
+    });
+    expect(report.categories[0]).toMatchObject({
+      category: 'Software',
+      total: 50,
     });
   });
 });

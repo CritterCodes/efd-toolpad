@@ -142,6 +142,20 @@ export default function PricingMultiplierConfig({ localSettings, handleSettingCh
                                     helperText="Tax rate applied to taxable items"
                                 />
                             </Grid>
+                            <Grid item xs={12}>
+                                <TextField
+                                    fullWidth
+                                    label="Federal Tax Reserve Rate"
+                                    type="number"
+                                    value={(localSettings.federalTaxReserveRate * 100).toFixed(1)}
+                                    onChange={(e) => handleSettingChange('federalTaxReserveRate', e.target.value)}
+                                    InputProps={{
+                                        endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                                        inputProps: { min: 0, max: 100, step: 0.1 }
+                                    }}
+                                    helperText="Conservative reserve percentage used by the Federal Tax Reserve report"
+                                />
+                            </Grid>
                         </Grid>
                     </CardContent>
                 </Card>

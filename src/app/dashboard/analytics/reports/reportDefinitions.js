@@ -36,6 +36,18 @@ export const REPORT_DEFINITIONS = [
     source: 'reports',
   },
   {
+    slug: 'federal-tax-reserve',
+    title: 'Federal Tax Reserve Report',
+    description: 'Estimated tax reserve and spendable cash using tracked collections, payroll, and owner draws.',
+    source: 'reports',
+  },
+  {
+    slug: 'expenses',
+    title: 'Expense Report',
+    description: 'Tracked business expenses by category, vendor, deductibility, and payment method.',
+    source: 'reports',
+  },
+  {
     slug: 'wholesale-performance',
     title: 'Wholesale Performance Report',
     description: 'Store-level revenue, unpaid balances, active repairs, and pickup workload.',

@@ -5,9 +5,12 @@ export const ANALYTICS_ORIGIN = {
 
 export const DEFAULT_REPAIR_ANALYTICS_START_DATE = '2026-05-01T00:00:00.000Z';
 export const DEFAULT_LABOR_ANALYTICS_START_DATE = '2026-05-04T00:00:00.000Z';
+export const DEFAULT_FEDERAL_TAX_RESERVE_RATE = 0.30;
 
 export const ANALYTICS_BASELINE_NOTE =
   'Revenue counts invoices from May 1, 2026 forward, including legacy carryover. Labor analytics default to the first full payroll week after go-live.';
+export const FEDERAL_TAX_RESERVE_NOTE =
+  'Federal tax reserve is an estimate for cash discipline and reserve planning. Only recorded business expenses are included.';
 
 function atStartOfDay(value) {
   const date = new Date(value);
@@ -61,7 +64,9 @@ export function getAnalyticsBaselineSettings(settings = {}) {
   return {
     repairAnalyticsStartDate,
     laborAnalyticsStartDate,
+    federalTaxReserveRate: Number(analytics.federalTaxReserveRate ?? DEFAULT_FEDERAL_TAX_RESERVE_RATE),
     note: analytics.note || ANALYTICS_BASELINE_NOTE,
+    taxReserveNote: analytics.taxReserveNote || FEDERAL_TAX_RESERVE_NOTE,
   };
 }
 
@@ -71,6 +76,8 @@ export function buildAnalyticsBaselineSettingsUpdate(existingSettings = {}) {
     ...existingSettings.analytics,
     repairAnalyticsStartDate: current.repairAnalyticsStartDate,
     laborAnalyticsStartDate: current.laborAnalyticsStartDate,
+    federalTaxReserveRate: current.federalTaxReserveRate,
     note: current.note,
+    taxReserveNote: current.taxReserveNote,
   };
 }

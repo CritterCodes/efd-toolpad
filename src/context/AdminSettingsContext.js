@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, useMemo, useCallback } 
 import { useSession } from 'next-auth/react';
 import {
   ANALYTICS_BASELINE_NOTE,
+  DEFAULT_FEDERAL_TAX_RESERVE_RATE,
   DEFAULT_LABOR_ANALYTICS_START_DATE,
   DEFAULT_REPAIR_ANALYTICS_START_DATE,
 } from '@/services/analyticsBaseline';
@@ -43,6 +44,7 @@ export const AdminSettingsProvider = ({ children }) => {
     wholesaleMarkup: 1.5,
     minimumTaskRetailPrice: 0,
     minimumTaskWholesalePrice: 0,
+    federalTaxReserveRate: DEFAULT_FEDERAL_TAX_RESERVE_RATE,
     
     // Fee structure (as percentages of base wage)
     administrativeFee: 0.10,  // 10% of base wage
@@ -82,6 +84,7 @@ export const AdminSettingsProvider = ({ children }) => {
     analytics: {
       repairAnalyticsStartDate: DEFAULT_REPAIR_ANALYTICS_START_DATE,
       laborAnalyticsStartDate: DEFAULT_LABOR_ANALYTICS_START_DATE,
+      federalTaxReserveRate: DEFAULT_FEDERAL_TAX_RESERVE_RATE,
       note: ANALYTICS_BASELINE_NOTE,
     }
   }), []);
@@ -126,6 +129,9 @@ export const AdminSettingsProvider = ({ children }) => {
         rushMultiplier: data.pricing?.rushMultiplier || 1.5,
         deliveryFee: data.pricing?.deliveryFee || 0,
         taxRate: data.pricing?.taxRate || 0,
+        federalTaxReserveRate: Number(
+          data.analytics?.federalTaxReserveRate ?? defaultSettings.federalTaxReserveRate
+        ),
         
         // Metal complexity multipliers (use defaults if not in API response)
         metalComplexityMultipliers: data.metalComplexityMultipliers || defaultSettings.metalComplexityMultipliers,
@@ -152,6 +158,9 @@ export const AdminSettingsProvider = ({ children }) => {
         analytics: {
           repairAnalyticsStartDate: data.analytics?.repairAnalyticsStartDate || defaultSettings.analytics.repairAnalyticsStartDate,
           laborAnalyticsStartDate: data.analytics?.laborAnalyticsStartDate || defaultSettings.analytics.laborAnalyticsStartDate,
+          federalTaxReserveRate: Number(
+            data.analytics?.federalTaxReserveRate ?? defaultSettings.analytics.federalTaxReserveRate
+          ),
           note: data.analytics?.note || defaultSettings.analytics.note,
         },
         
@@ -203,6 +212,15 @@ export const AdminSettingsProvider = ({ children }) => {
           workingDaysPerWeek: newSettings.store.workingDaysPerWeek || adminSettings?.store?.workingDaysPerWeek || 5,
           maxRushJobs: newSettings.store.maxRushJobs || adminSettings?.store?.maxRushJobs || 5
         } : adminSettings?.store,
+        analytics: {
+          ...adminSettings?.analytics,
+          federalTaxReserveRate: Number(
+            newSettings.federalTaxReserveRate
+              ?? adminSettings?.federalTaxReserveRate
+              ?? adminSettings?.analytics?.federalTaxReserveRate
+              ?? defaultSettings.analytics.federalTaxReserveRate
+          ),
+        },
         // Note: We'll need a security code for updates - this should be handled by the component
         securityCode: newSettings.securityCode
       };

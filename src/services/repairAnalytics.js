@@ -1,4 +1,5 @@
 import { resolveRepairAnalyticsOrigin, ANALYTICS_ORIGIN } from '@/services/analyticsBaseline';
+import { BUSINESS_EXPENSE_STATUS } from '@/services/businessExpenses';
 
 export const ANALYTICS_DATE_RANGES = {
   today: 'today',
@@ -120,6 +121,14 @@ function getInvoiceOutstanding(invoice = {}) {
 
 function getPaymentTimestamp(payment = {}) {
   return payment.receivedAt || payment.createdAt || payment.syncedAt || null;
+}
+
+function isOwnerOperatorUser(user = {}) {
+  return user?.compensationProfile?.isOwnerOperator === true;
+}
+
+function getExpenseCashTimestamp(expense = {}) {
+  return expense.paidAt || expense.expenseDate || null;
 }
 
 function getPaymentAccountName(invoice = {}) {
@@ -525,6 +534,220 @@ export function buildCashCollectedReport(invoices = [], window, repairsById = ne
       byMethod: Array.from(byMethod.entries()).map(([method, amount]) => ({ method, amount })),
     },
     rows: payments.sort((a, b) => new Date(b.receivedAt) - new Date(a.receivedAt)),
+  };
+}
+
+export function buildFederalTaxReserveReport({
+  invoices = [],
+  payrollBatches = [],
+  ownerDraws = [],
+  expenses = [],
+  usersById = new Map(),
+  window,
+  federalTaxReserveRate = 0.30,
+} = {}) {
+  const payments = [];
+  const payrollRows = [];
+  const ownerDrawRows = [];
+  const expenseRows = [];
+
+  for (const invoice of invoices) {
+    const invoiceTotal = Number(invoice.total || 0);
+    const invoiceTaxAmount = Number(invoice.taxAmount || 0);
+
+    for (const payment of invoice.payments || []) {
+      const timestamp = getPaymentTimestamp(payment);
+      if (!timestamp || !isDateInWindow(timestamp, window)) continue;
+      if (payment.status && payment.status !== 'completed') continue;
+
+      const amount = roundMoney(payment.amount || 0);
+      const taxHeld = invoiceTotal > 0
+        ? roundMoney(Math.min(amount / invoiceTotal, 1) * invoiceTaxAmount)
+        : 0;
+
+      payments.push({
+        id: `${invoice.invoiceID}-${timestamp}-${amount}`,
+        receivedAt: timestamp,
+        invoiceID: invoice.invoiceID,
+        accountName: getPaymentAccountName(invoice),
+        accountType: invoice.accountType || 'retail',
+        method: payment.type || 'other',
+        amount,
+        taxHeld,
+        receivedBy: payment.receivedBy || payment.createdBy || '',
+      });
+    }
+  }
+
+  for (const batch of payrollBatches) {
+    if (!batch?.paidAt || !isDateInWindow(batch.paidAt, window)) continue;
+
+    const user = usersById.get(batch.userID) || {};
+    payrollRows.push({
+      id: batch.batchID,
+      batchID: batch.batchID,
+      paidAt: batch.paidAt,
+      userID: batch.userID,
+      userName: batch.userName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || batch.userID || 'Unknown user',
+      isOwnerOperator: isOwnerOperatorUser(user),
+      laborHours: Number(Number(batch.laborHours || 0).toFixed(2)),
+      laborPay: roundMoney(batch.laborPay || 0),
+      paymentMethod: batch.paymentMethod || '',
+      paymentReference: batch.paymentReference || '',
+      status: batch.status || '',
+    });
+  }
+
+  for (const draw of ownerDraws) {
+    if (draw?.status === 'void') continue;
+    if (!draw?.drawDate || !isDateInWindow(draw.drawDate, window)) continue;
+
+    ownerDrawRows.push({
+      id: draw.drawID,
+      drawID: draw.drawID,
+      drawDate: draw.drawDate,
+      userID: draw.userID || '',
+      userName: draw.userName || draw.userID || 'Unknown owner',
+      amount: roundMoney(draw.amount || 0),
+      paymentMethod: draw.paymentMethod || '',
+      paymentReference: draw.paymentReference || '',
+      notes: draw.notes || '',
+      status: draw.status || '',
+    });
+  }
+
+  for (const expense of expenses) {
+    if (!expense?.expenseDate || !isDateInWindow(expense.expenseDate, window)) continue;
+
+    expenseRows.push({
+      id: expense.expenseID,
+      expenseID: expense.expenseID,
+      expenseDate: expense.expenseDate,
+      paidAt: expense.paidAt || null,
+      vendor: expense.vendor || '',
+      category: expense.category || 'Miscellaneous',
+      amount: roundMoney(expense.amount || 0),
+      paymentMethod: expense.paymentMethod || '',
+      status: expense.status || BUSINESS_EXPENSE_STATUS.PAID,
+      isDeductible: expense.isDeductible !== false,
+      notes: expense.notes || '',
+    });
+  }
+
+  const cashCollected = sumMoney(payments.map((payment) => payment.amount));
+  const salesTaxHeld = sumMoney(payments.map((payment) => payment.taxHeld));
+  const contractorPayrollPaid = sumMoney(
+    payrollRows.filter((row) => !row.isOwnerOperator).map((row) => row.laborPay)
+  );
+  const ownerOperatorPayrollPaid = sumMoney(
+    payrollRows.filter((row) => row.isOwnerOperator).map((row) => row.laborPay)
+  );
+  const paidExpenseRows = expenseRows.filter((row) => (
+    row.status === BUSINESS_EXPENSE_STATUS.PAID && isDateInWindow(getExpenseCashTimestamp(row), window)
+  ));
+  const trackedExpenses = sumMoney(paidExpenseRows.map((row) => row.amount));
+  const deductibleExpenses = sumMoney(paidExpenseRows.filter((row) => row.isDeductible).map((row) => row.amount));
+  const nonDeductibleExpenses = sumMoney(paidExpenseRows.filter((row) => !row.isDeductible).map((row) => row.amount));
+  const unpaidTrackedExpenses = sumMoney(
+    expenseRows.filter((row) => row.status !== BUSINESS_EXPENSE_STATUS.PAID).map((row) => row.amount)
+  );
+  const ownerDrawsTotal = sumMoney(ownerDrawRows.map((row) => row.amount));
+  const estimatedTaxableProfit = roundMoney(cashCollected - contractorPayrollPaid - deductibleExpenses);
+  const recommendedFederalReserve = estimatedTaxableProfit > 0
+    ? roundMoney(estimatedTaxableProfit * Number(federalTaxReserveRate || 0))
+    : 0;
+  const spendableCash = roundMoney(
+    cashCollected - salesTaxHeld - contractorPayrollPaid - trackedExpenses - recommendedFederalReserve
+  );
+  const cashAfterOwnerDraws = roundMoney(spendableCash - ownerDrawsTotal);
+
+  return {
+    summary: {
+      cashCollected,
+      salesTaxHeld,
+      contractorPayrollPaid,
+      ownerOperatorPayrollPaid,
+      trackedExpenses,
+      deductibleExpenses,
+      nonDeductibleExpenses,
+      unpaidTrackedExpenses,
+      ownerDraws: ownerDrawsTotal,
+      estimatedTaxableProfit,
+      reserveRate: Number(federalTaxReserveRate || 0),
+      recommendedFederalReserve,
+      spendableCash,
+      cashAfterOwnerDraws,
+      paymentCount: payments.length,
+      contractorBatchCount: payrollRows.filter((row) => !row.isOwnerOperator).length,
+      ownerOperatorBatchCount: payrollRows.filter((row) => row.isOwnerOperator).length,
+      ownerDrawCount: ownerDrawRows.length,
+      expenseCount: expenseRows.length,
+    },
+    payments: payments.sort((a, b) => new Date(b.receivedAt) - new Date(a.receivedAt)),
+    payrollRows: payrollRows.sort((a, b) => new Date(b.paidAt) - new Date(a.paidAt)),
+    expenseRows: expenseRows.sort((a, b) => new Date(b.expenseDate) - new Date(a.expenseDate)),
+    ownerDrawRows: ownerDrawRows.sort((a, b) => new Date(b.drawDate) - new Date(a.drawDate)),
+  };
+}
+
+export function buildExpenseReport(expenses = [], window) {
+  const rows = expenses
+    .filter((expense) => expense?.expenseDate && isDateInWindow(expense.expenseDate, window))
+    .map((expense) => ({
+      expenseID: expense.expenseID,
+      expenseDate: expense.expenseDate,
+      paidAt: expense.paidAt || null,
+      vendor: expense.vendor || '',
+      category: expense.category || 'Miscellaneous',
+      amount: roundMoney(expense.amount || 0),
+      paymentMethod: expense.paymentMethod || '',
+      notes: expense.notes || '',
+      status: expense.status || BUSINESS_EXPENSE_STATUS.PAID,
+      isDeductible: expense.isDeductible !== false,
+    }))
+    .sort((a, b) => new Date(b.expenseDate) - new Date(a.expenseDate));
+
+  const byCategory = new Map();
+  rows.forEach((row) => {
+    const bucket = byCategory.get(row.category) || {
+      category: row.category,
+      total: 0,
+      paid: 0,
+      planned: 0,
+      deductible: 0,
+      nonDeductible: 0,
+      count: 0,
+    };
+    bucket.total = roundMoney(bucket.total + row.amount);
+    if (row.status === BUSINESS_EXPENSE_STATUS.PAID) bucket.paid = roundMoney(bucket.paid + row.amount);
+    else bucket.planned = roundMoney(bucket.planned + row.amount);
+    if (row.isDeductible) bucket.deductible = roundMoney(bucket.deductible + row.amount);
+    else bucket.nonDeductible = roundMoney(bucket.nonDeductible + row.amount);
+    bucket.count += 1;
+    byCategory.set(row.category, bucket);
+  });
+
+  const summary = rows.reduce((acc, row) => {
+    acc.total = roundMoney(acc.total + row.amount);
+    if (row.status === BUSINESS_EXPENSE_STATUS.PAID) acc.paid = roundMoney(acc.paid + row.amount);
+    else acc.planned = roundMoney(acc.planned + row.amount);
+    if (row.isDeductible) acc.deductible = roundMoney(acc.deductible + row.amount);
+    else acc.nonDeductible = roundMoney(acc.nonDeductible + row.amount);
+    acc.count += 1;
+    return acc;
+  }, {
+    total: 0,
+    paid: 0,
+    planned: 0,
+    deductible: 0,
+    nonDeductible: 0,
+    count: 0,
+  });
+
+  return {
+    summary,
+    rows,
+    categories: Array.from(byCategory.values()).sort((a, b) => b.total - a.total),
   };
 }
 
