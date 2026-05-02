@@ -17,6 +17,7 @@
     "lint": "next lint",
     "audit:repair-workflow": "node scripts/audit-repair-workflow.mjs",
     "backfill:repair-workflow": "node scripts/backfill-repair-workflow.mjs",
+    "backfill:repair-analytics-baseline": "node scripts/backfill-repair-analytics-baseline.mjs",
     "audit:repair-payroll": "node scripts/audit-repair-payroll.mjs",
     "audit:wholesale-reconciliation": "node scripts/audit-wholesale-reconciliation.mjs",
     "backfill:wholesale-reconciliation": "node scripts/backfill-wholesale-reconciliation.mjs",

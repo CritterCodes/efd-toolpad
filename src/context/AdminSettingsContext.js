@@ -2,6 +2,11 @@
 
 import { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
+import {
+  ANALYTICS_BASELINE_NOTE,
+  DEFAULT_LABOR_ANALYTICS_START_DATE,
+  DEFAULT_REPAIR_ANALYTICS_START_DATE,
+} from '@/services/analyticsBaseline';
 
 const AdminSettingsContext = createContext();
 
@@ -73,6 +78,11 @@ export const AdminSettingsProvider = ({ children }) => {
         apiKey: '',
         environment: 'sandbox'
       }
+    },
+    analytics: {
+      repairAnalyticsStartDate: DEFAULT_REPAIR_ANALYTICS_START_DATE,
+      laborAnalyticsStartDate: DEFAULT_LABOR_ANALYTICS_START_DATE,
+      note: ANALYTICS_BASELINE_NOTE,
     }
   }), []);
 
@@ -138,6 +148,11 @@ export const AdminSettingsProvider = ({ children }) => {
             updateFrequency: data.stuller?.updateFrequency || 'monthly',
             hasPassword: !!data.stuller?.password
           }
+        },
+        analytics: {
+          repairAnalyticsStartDate: data.analytics?.repairAnalyticsStartDate || defaultSettings.analytics.repairAnalyticsStartDate,
+          laborAnalyticsStartDate: data.analytics?.laborAnalyticsStartDate || defaultSettings.analytics.laborAnalyticsStartDate,
+          note: data.analytics?.note || defaultSettings.analytics.note,
         },
         
         // Security and metadata (read-only)

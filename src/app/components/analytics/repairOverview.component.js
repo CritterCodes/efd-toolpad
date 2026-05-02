@@ -9,31 +9,12 @@ import Divider from '@mui/material/Divider';
 /**
  * Cleaned Up Repair Overview Analytics Component (Same Size as Other Cards)
  */
-export default function RepairOverviewAnalytics({ repairs = [] }) {
-    const validRepairs = Array.isArray(repairs) ? repairs : [];
-
-    const totalRepairs = validRepairs.length;
-    const completedRepairs = validRepairs.filter(repair => repair.status === 'COMPLETED').length;
-    const pendingRepairs = validRepairs.filter(repair => repair.status !== 'COMPLETED').length;
-
-    const completedWithDates = validRepairs.filter(
-        (repair) => repair.status === 'COMPLETED' && repair.completedAt && repair.createdAt
-    );
-    const averageCompletionTime = completedWithDates.length
-        ? (
-            completedWithDates.reduce((sum, repair) => {
-                const createdAt = new Date(repair.createdAt);
-                const completedAt = new Date(repair.completedAt);
-                return sum + (completedAt - createdAt) / (1000 * 60 * 60 * 24);
-            }, 0) / completedWithDates.length
-        ).toFixed(1)
-        : "N/A";
-
+export default function RepairOverviewAnalytics({ summary = {} }) {
     const data = [
-        { label: "Total Repairs", value: totalRepairs },
-        { label: "Completed Repairs", value: completedRepairs },
-        { label: "Pending Repairs", value: pendingRepairs },
-        { label: "Avg Completion Time (days)", value: averageCompletionTime },
+        { label: "Go-Live Repairs", value: summary.goLiveRepairCount ?? summary.totalRepairs ?? 0 },
+        { label: "Completed Repairs", value: summary.completedRepairs ?? 0 },
+        { label: "Pending Repairs", value: summary.pendingRepairs ?? 0 },
+        { label: "Avg Completion Time (days)", value: summary.averageCompletionDays ?? "N/A" },
     ];
 
     return (
@@ -75,5 +56,5 @@ export default function RepairOverviewAnalytics({ repairs = [] }) {
 }
 
 RepairOverviewAnalytics.propTypes = {
-    repairs: PropTypes.array
+    summary: PropTypes.object
 };

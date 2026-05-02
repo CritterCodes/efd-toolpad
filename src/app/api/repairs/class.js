@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { defaultRepairData, calculateTotalCost } from '@/schemas/repair.schema';
+import { buildRepairAnalyticsFields } from '@/services/analyticsBaseline';
 
 export default class Repair {
     constructor(repairData) {
@@ -76,6 +77,9 @@ export default class Repair {
         this.updatedAt = new Date();
         this.completedAt = data.completedAt;
         this.pickedUpAt = data.pickedUpAt;
+        const analyticsFields = buildRepairAnalyticsFields(data, new Date());
+        this.analyticsOrigin = analyticsFields.analyticsOrigin;
+        this.analyticsOriginAssignedAt = analyticsFields.analyticsOriginAssignedAt;
         
         // Team assignments
         this.assignedTo = data.assignedTo || '';
@@ -189,6 +193,8 @@ export default class Repair {
             updatedAt: this.updatedAt,
             completedAt: this.completedAt,
             pickedUpAt: this.pickedUpAt,
+            analyticsOrigin: this.analyticsOrigin,
+            analyticsOriginAssignedAt: this.analyticsOriginAssignedAt,
             // Team assignments
             assignedTo: this.assignedTo,
             completedBy: this.completedBy,

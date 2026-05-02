@@ -12,36 +12,13 @@ import TableRow from '@mui/material/TableRow';
 import TableCell from '@mui/material/TableCell';
 import Button from '@mui/material/Button';
 import DownloadIcon from '@mui/icons-material/Download';
-import { format } from 'date-fns';
-
-function buildMonthlyTaxData(repairs) {
-  const months = {};
-  repairs.forEach(r => {
-    if (!r.createdAt) return;
-    const key = format(new Date(r.createdAt), 'MMM yyyy');
-    const ts = new Date(r.createdAt).getTime();
-    if (!months[key]) months[key] = { month: key, _ts: ts, taxable: 0, taxCollected: 0, nonTaxable: 0, revenue: 0 };
-    months[key].revenue += parseFloat(r.totalCost) || 0;
-    const tax = parseFloat(r.taxAmount) || 0;
-    months[key].taxCollected += tax;
-    if (r.includeTax && tax > 0) months[key].taxable++;
-    else months[key].nonTaxable++;
-  });
-  return Object.values(months)
-    .sort((a, b) => a._ts - b._ts)
-    .map(({ _ts, ...rest }) => ({
-      ...rest,
-      taxCollected: Math.round(rest.taxCollected * 100) / 100,
-      revenue: Math.round(rest.revenue * 100) / 100,
-    }));
-}
 
 function exportCSV(tableData, totals) {
   const header = 'Month,Taxable Repairs,Tax Collected,Non-Taxable Repairs,Total Revenue';
-  const rows = tableData.map(r =>
-    `${r.month},${r.taxable},$${r.taxCollected.toFixed(2)},${r.nonTaxable},$${r.revenue.toFixed(2)}`
+  const rows = tableData.map((row) =>
+    `${row.month},${row.taxable},$${Number(row.taxCollected || 0).toFixed(2)},${row.nonTaxable},$${Number(row.revenue || 0).toFixed(2)}`
   );
-  rows.push(`TOTAL,${totals.taxable},$${totals.taxCollected.toFixed(2)},${totals.nonTaxable},$${totals.revenue.toFixed(2)}`);
+  rows.push(`TOTAL,${totals.taxable},$${Number(totals.taxCollected || 0).toFixed(2)},${totals.nonTaxable},$${Number(totals.revenue || 0).toFixed(2)}`);
   const blob = new Blob([[header, ...rows].join('\n')], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -51,19 +28,9 @@ function exportCSV(tableData, totals) {
   URL.revokeObjectURL(url);
 }
 
-export default function SalesTaxReport({ repairs = [] }) {
-  const validRepairs = Array.isArray(repairs) ? repairs : [];
-  const tableData = buildMonthlyTaxData(validRepairs);
-
-  const totals = tableData.reduce(
-    (acc, r) => ({
-      taxable: acc.taxable + r.taxable,
-      taxCollected: acc.taxCollected + r.taxCollected,
-      nonTaxable: acc.nonTaxable + r.nonTaxable,
-      revenue: acc.revenue + r.revenue,
-    }),
-    { taxable: 0, taxCollected: 0, nonTaxable: 0, revenue: 0 }
-  );
+export default function SalesTaxReport({ summary = {} }) {
+  const tableData = Array.isArray(summary.rows) ? summary.rows : [];
+  const totals = summary.totals || { taxable: 0, taxCollected: 0, nonTaxable: 0, revenue: 0 };
 
   return (
     <Card sx={{ borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', padding: 3 }}>
@@ -94,21 +61,21 @@ export default function SalesTaxReport({ repairs = [] }) {
             </TableRow>
           </TableHead>
           <TableBody>
-            {tableData.map(row => (
+            {tableData.map((row) => (
               <TableRow key={row.month} hover>
                 <TableCell>{row.month}</TableCell>
                 <TableCell align="right">{row.taxable}</TableCell>
-                <TableCell align="right">${row.taxCollected.toFixed(2)}</TableCell>
+                <TableCell align="right">${Number(row.taxCollected || 0).toFixed(2)}</TableCell>
                 <TableCell align="right">{row.nonTaxable}</TableCell>
-                <TableCell align="right">${row.revenue.toFixed(2)}</TableCell>
+                <TableCell align="right">${Number(row.revenue || 0).toFixed(2)}</TableCell>
               </TableRow>
             ))}
             <TableRow sx={{ backgroundColor: 'action.hover' }}>
               <TableCell><strong>Total</strong></TableCell>
               <TableCell align="right"><strong>{totals.taxable}</strong></TableCell>
-              <TableCell align="right"><strong>${totals.taxCollected.toFixed(2)}</strong></TableCell>
+              <TableCell align="right"><strong>${Number(totals.taxCollected || 0).toFixed(2)}</strong></TableCell>
               <TableCell align="right"><strong>{totals.nonTaxable}</strong></TableCell>
-              <TableCell align="right"><strong>${totals.revenue.toFixed(2)}</strong></TableCell>
+              <TableCell align="right"><strong>${Number(totals.revenue || 0).toFixed(2)}</strong></TableCell>
             </TableRow>
           </TableBody>
         </Table>
@@ -118,5 +85,5 @@ export default function SalesTaxReport({ repairs = [] }) {
 }
 
 SalesTaxReport.propTypes = {
-  repairs: PropTypes.array,
+  summary: PropTypes.object,
 };

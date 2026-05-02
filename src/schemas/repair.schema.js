@@ -318,6 +318,16 @@ export const repairSchema = {
     type: 'date',
     description: 'When the item was picked up by customer'
   },
+  analyticsOrigin: {
+    type: 'string',
+    default: 'go_live',
+    enum: ['legacy', 'go_live'],
+    description: 'Analytics cohort used to separate legacy reference repairs from go-live repairs'
+  },
+  analyticsOriginAssignedAt: {
+    type: 'date',
+    description: 'Timestamp when the analytics cohort was assigned'
+  },
 
   // Team assignments
   assignedTo: {
@@ -463,6 +473,8 @@ export const defaultRepairData = {
   closeoutAt: null,
   closeoutNotes: '',
   invoiceID: '',
+  analyticsOrigin: 'go_live',
+  analyticsOriginAssignedAt: null,
   // Team assignments
   assignedTo: '',
   completedBy: '',

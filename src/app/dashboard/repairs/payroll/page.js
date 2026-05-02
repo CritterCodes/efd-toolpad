@@ -33,6 +33,10 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { REPAIRS_UI } from '../components/repairsUi';
+import {
+  ANALYTICS_BASELINE_NOTE,
+  DEFAULT_LABOR_ANALYTICS_START_DATE,
+} from '@/services/analyticsBaseline';
 
 function formatMoney(value) {
   return `$${Number(value || 0).toFixed(2)}`;
@@ -496,6 +500,9 @@ export default function RepairPayrollPage() {
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      <Alert severity="info" sx={{ mb: 2 }}>
+        {ANALYTICS_BASELINE_NOTE} Labor analytics start on {new Date(DEFAULT_LABOR_ANALYTICS_START_DATE).toLocaleDateString()}.
+      </Alert>
       {hasNoLogs && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           No repair labor logs exist for the current week in the live ledger. Payroll can be correct and still empty until send-to-QC is generating labor logs in production.

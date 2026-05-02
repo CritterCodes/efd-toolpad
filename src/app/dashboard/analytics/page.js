@@ -1,11 +1,16 @@
 "use client";
+
 import * as React from 'react';
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import Grid from '@mui/material/Grid';
+import Stack from '@mui/material/Stack';
+import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
-import Stack from '@mui/material/Stack';
 import RepairOverviewAnalytics from '@/app/components/analytics/repairOverview.component';
 import RepairStatusAnalytics from '@/app/components/analytics/status.component';
 import CustomerInsightsAnalytics from '@/app/components/analytics/clientInsights.component';
@@ -16,36 +21,83 @@ import SalesTaxReport from '@/app/components/analytics/salesTax.component';
 import { useRepairs } from '@/app/context/repairs.context';
 
 const DATE_RANGES = [
-  { label: '7 Days', value: '7d', days: 7 },
-  { label: '30 Days', value: '30d', days: 30 },
-  { label: '90 Days', value: '90d', days: 90 },
-  { label: '1 Year', value: '1yr', days: 365 },
-  { label: 'All Time', value: 'all', days: Infinity },
+  { label: '7 Days', value: '7d' },
+  { label: '30 Days', value: '30d' },
+  { label: '90 Days', value: '90d' },
+  { label: '1 Year', value: '1yr' },
+  { label: 'All Time', value: 'all' },
 ];
 
 export default function AnalyticsPage() {
-  const { repairs, loading } = useRepairs();
+  const { repairs, loading: repairsLoading } = useRepairs();
   const [dateRange, setDateRange] = useState('30d');
+  const [includeLegacy, setIncludeLegacy] = useState(false);
+  const [analytics, setAnalytics] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const filteredRepairs = useMemo(() => {
-    if (!Array.isArray(repairs)) return [];
-    const selected = DATE_RANGES.find(r => r.value === dateRange);
-    if (!selected || selected.days === Infinity) return repairs;
-    const cutoff = Date.now() - selected.days * 24 * 60 * 60 * 1000;
-    return repairs.filter(r => r.createdAt && new Date(r.createdAt).getTime() >= cutoff);
-  }, [repairs, dateRange]);
+  useEffect(() => {
+    let active = true;
 
-  if (loading) {
-    return <Typography sx={{ p: 4 }}>Loading analytics data...</Typography>;
+    const loadAnalytics = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const params = new URLSearchParams({
+          dateRange,
+          includeLegacy: includeLegacy ? 'true' : 'false',
+        });
+        const response = await fetch(`/api/analytics/summary?${params.toString()}`);
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to load analytics summary.');
+        }
+
+        if (active) {
+          setAnalytics(data);
+        }
+      } catch (err) {
+        if (active) {
+          setError(err.message);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadAnalytics();
+    return () => {
+      active = false;
+    };
+  }, [dateRange, includeLegacy]);
+
+  const upcomingRepairs = useMemo(() => Array.isArray(repairs) ? repairs : [], [repairs]);
+
+  if (loading || repairsLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}>
+        <CircularProgress />
+      </Box>
+    );
   }
 
   return (
     <Box sx={{ padding: 4 }}>
-      {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Typography variant="h4" fontWeight="bold">Analytics Dashboard</Typography>
-        <Stack direction="row" spacing={1} flexWrap="wrap">
-          {DATE_RANGES.map(range => (
+        <Box>
+          <Typography variant="h4" fontWeight="bold">Analytics Dashboard</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Revenue is invoice-timed. Operational repair KPIs default to go-live repairs.
+          </Typography>
+        </Box>
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+          <FormControlLabel
+            control={<Switch checked={includeLegacy} onChange={(event) => setIncludeLegacy(event.target.checked)} />}
+            label="Include Legacy"
+          />
+          {DATE_RANGES.map((range) => (
             <Chip
               key={range.value}
               label={range.label}
@@ -58,34 +110,37 @@ export default function AnalyticsPage() {
         </Stack>
       </Box>
 
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {analytics?.baseline?.note && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {analytics.baseline.note}
+        </Alert>
+      )}
+
       <Grid container spacing={3}>
-        {/* Row 1: Summary cards */}
         <Grid item xs={12} md={4}>
-          <RepairOverviewAnalytics repairs={filteredRepairs} />
+          <RepairOverviewAnalytics summary={analytics?.repairOverview} />
         </Grid>
         <Grid item xs={12} md={4}>
-          <RevenueAnalytics repairs={filteredRepairs} />
+          <RevenueAnalytics summary={analytics?.revenue} labor={analytics?.labor} />
         </Grid>
         <Grid item xs={12} md={4}>
-          <CustomerInsightsAnalytics repairs={filteredRepairs} />
+          <CustomerInsightsAnalytics summary={analytics?.customerInsights} />
         </Grid>
 
-        {/* Row 2: Revenue trend chart + Status pie */}
         <Grid item xs={12} md={8}>
-          <RevenueTrendAnalytics repairs={filteredRepairs} />
+          <RevenueTrendAnalytics data={analytics?.revenueTrend} />
         </Grid>
         <Grid item xs={12} md={4}>
-          <RepairStatusAnalytics repairs={filteredRepairs} />
+          <RepairStatusAnalytics data={analytics?.statusBreakdown} />
         </Grid>
 
-        {/* Row 3: Sales Tax Report (full width) */}
         <Grid item xs={12}>
-          <SalesTaxReport repairs={filteredRepairs} />
+          <SalesTaxReport summary={analytics?.salesTax} />
         </Grid>
 
-        {/* Row 4: Upcoming deadlines (uses all repairs, not filtered — show real upcoming) */}
         <Grid item xs={12} md={6}>
-          <UpcomingDeadlinesAnalytics repairs={repairs} />
+          <UpcomingDeadlinesAnalytics repairs={upcomingRepairs} />
         </Grid>
       </Grid>
     </Box>

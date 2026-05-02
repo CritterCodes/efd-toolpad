@@ -5,6 +5,7 @@ import {
 } from '@/utils/encryption';
 import PriceRecalculationService from './priceRecalculation.service.js';
 import { DEFAULT_TASK_MINIMUM_RETAIL, DEFAULT_TASK_MINIMUM_WHOLESALE } from '@/constants/pricing.constants.mjs';
+import { buildAnalyticsBaselineSettingsUpdate } from '@/services/analyticsBaseline';
 
 export default class SettingsManagerService {
   /**
@@ -25,6 +26,7 @@ export default class SettingsManagerService {
       pricing: settings.pricing,
       financial: settings.financial,
       business: settings.business,
+      analytics: buildAnalyticsBaselineSettingsUpdate(settings),
       version: settings.version,
       updatedAt: settings.updatedAt,
       // Add labor rates structure for process calculations
@@ -75,7 +77,7 @@ export default class SettingsManagerService {
    * Update admin settings and recalculate all repair task prices
    */
   static async updateSettings(body, userEmail, ipAddress) {
-    const { pricing, financial, securityCode, business } = body;
+    const { pricing, financial, securityCode, business, analytics } = body;
 
     if (!securityCode) {
       throw Object.assign(new Error('Security code required'), { status: 400 });
@@ -163,6 +165,12 @@ export default class SettingsManagerService {
       pricing: mergedPricing,
       financial: financial || adminSettings.financial,
       business: business || adminSettings.business,
+      analytics: analytics
+        ? {
+            ...buildAnalyticsBaselineSettingsUpdate(adminSettings),
+            ...analytics,
+          }
+        : buildAnalyticsBaselineSettingsUpdate(adminSettings),
       updatedAt: new Date(),
       lastModifiedBy: userEmail
     };
@@ -182,7 +190,8 @@ export default class SettingsManagerService {
       action: 'settings_update',
       changes: {
         pricing: pricing || null,
-        business: business || null
+        business: business || null,
+        analytics: analytics || null,
       },
       recalculationResult,
       ipAddress: ipAddress || 'unknown'
@@ -196,6 +205,7 @@ export default class SettingsManagerService {
         pricing: updatedSettings.pricing,
         financial: updatedSettings.financial,
         business: updatedSettings.business,
+        analytics: updatedSettings.analytics,
         updatedAt: updatedSettings.updatedAt
       }
     };
