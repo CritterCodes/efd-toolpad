@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   buildAccountsReceivableReport,
   buildCashCollectedReport,
+  buildCloseoutBottlenecksPeriodReport,
   buildInvoiceRevenueSummary,
   buildJewelerPerformanceReport,
+  buildLaborSettlementReport,
   buildLaborSummary,
+  buildWholesalePerformanceReport,
   filterOperationalRepairs,
   getAnalyticsDateWindow,
 } from './repairAnalytics';
@@ -48,6 +51,8 @@ describe('repairAnalytics', () => {
     expect(summary.revenue.totalRevenue).toBe(60);
     expect(summary.revenue.legacyCarryoverRevenue).toBe(20);
     expect(summary.revenue.goLiveRevenue).toBe(40);
+    expect(summary.revenue.taxableRevenue).toBe(0);
+    expect(summary.revenue.nonTaxableRevenue).toBe(60);
     expect(summary.revenueTrend[0]).toMatchObject({
       retail: 40,
       wholesale: 20,
@@ -135,6 +140,21 @@ describe('repairAnalytics', () => {
         payments: [{ type: 'cash', amount: 20, receivedAt: '2026-05-13T12:00:00.000Z', status: 'completed' }],
         paymentStatus: 'partial',
       },
+      {
+        invoiceID: 'rinv-3',
+        customerName: 'Mixed Invoice',
+        accountType: 'wholesale',
+        total: 100,
+        amountPaid: 100,
+        remainingBalance: 0,
+        createdAt: '2026-05-14T12:00:00.000Z',
+        repairIDs: ['repair-legacy', 'repair-go-live'],
+        repairSnapshots: [
+          { repairID: 'repair-legacy', total: 25, taxAmount: 0 },
+          { repairID: 'repair-go-live', total: 75, taxAmount: 0 },
+        ],
+        payments: [{ type: 'cash', amount: 100, receivedAt: '2026-05-14T12:00:00.000Z', status: 'completed' }],
+      },
     ];
 
     const cash = buildCashCollectedReport(
@@ -142,10 +162,15 @@ describe('repairAnalytics', () => {
       getAnalyticsDateWindow('last_week', new Date('2026-05-20T12:00:00.000Z')),
       repairsById
     );
-    const ar = buildAccountsReceivableReport(invoices, new Date('2026-05-20T12:00:00.000Z'));
+    const ar = buildAccountsReceivableReport(
+      invoices,
+      new Date('2026-05-20T12:00:00.000Z'),
+      getAnalyticsDateWindow('last_week', new Date('2026-05-20T12:00:00.000Z'))
+    );
 
-    expect(cash.summary.totalCollected).toBe(70);
-    expect(cash.summary.legacyCarryoverCollected).toBe(50);
+    expect(cash.summary.totalCollected).toBe(170);
+    expect(cash.summary.legacyCarryoverCollected).toBe(75);
+    expect(cash.summary.goLiveCollected).toBe(95);
     expect(ar.summary.outstandingBalance).toBe(60);
     expect(ar.rows[0]).toMatchObject({
       invoiceID: 'rinv-2',
@@ -180,6 +205,68 @@ describe('repairAnalytics', () => {
       laborHours: 1.5,
       laborPay: 75,
       repairsWorked: 1,
+    });
+  });
+
+  it('scopes closeout, payroll settlement, and wholesale reports to the selected period', () => {
+    const window = getAnalyticsDateWindow('today', new Date('2026-05-02T12:00:00.000Z'));
+
+    const closeout = buildCloseoutBottlenecksPeriodReport({
+      repairs: [
+        { repairID: 'repair-today', status: 'COMPLETED', completedAt: '2026-05-02T13:00:00.000Z', totalCost: 40 },
+        { repairID: 'repair-old', status: 'COMPLETED', completedAt: '2026-04-20T13:00:00.000Z', totalCost: 60 },
+        { repairID: 'pickup-today', status: 'READY FOR PICKUP', updatedAt: '2026-05-02T13:00:00.000Z', invoiceID: 'rinv-p1' },
+        { repairID: 'pickup-old', status: 'READY FOR PICKUP', updatedAt: '2026-04-20T13:00:00.000Z', invoiceID: 'rinv-p2' },
+      ],
+      invoicesById: new Map([
+        ['rinv-p1', { invoiceID: 'rinv-p1', total: 40, amountPaid: 0, remainingBalance: 40, createdAt: '2026-05-02T13:00:00.000Z' }],
+        ['rinv-p2', { invoiceID: 'rinv-p2', total: 50, amountPaid: 0, remainingBalance: 50, createdAt: '2026-04-20T13:00:00.000Z' }],
+      ]),
+      pendingReviewLogs: [
+        { logID: 'log-today', repairID: 'repair-today', primaryJewelerName: 'Jacob', creditedValue: 25, createdAt: '2026-05-02T13:00:00.000Z', repair: {} },
+        { logID: 'log-old', repairID: 'repair-old', primaryJewelerName: 'Jacob', creditedValue: 30, createdAt: '2026-04-20T13:00:00.000Z', repair: {} },
+      ],
+      window,
+    });
+
+    expect(closeout.summary).toMatchObject({
+      completedUninvoicedCount: 1,
+      readyForPickupUnpaidCount: 1,
+      laborReviewBlockedCount: 1,
+    });
+
+    const laborSettlement = buildLaborSettlementReport({
+      payrollBatches: [
+        { userID: 'user-1', userName: 'Jacob', laborHours: 1.5, laborPay: 75, paidAt: '2026-05-02T13:00:00.000Z', paymentMethod: 'cash' },
+        { userID: 'user-1', userName: 'Jacob', laborHours: 2, laborPay: 100, paidAt: '2026-04-20T13:00:00.000Z', paymentMethod: 'zelle' },
+      ],
+      usersById: new Map(),
+      window,
+    });
+
+    expect(laborSettlement.summary).toMatchObject({
+      totalPaidHours: 1.5,
+      totalPaidAmount: 75,
+      paidBatchCount: 1,
+    });
+
+    const wholesale = buildWholesalePerformanceReport({
+      repairs: [
+        { repairID: 'w-today', isWholesale: true, businessName: 'Store A', createdAt: '2026-05-02T13:00:00.000Z', status: 'PENDING PICKUP' },
+        { repairID: 'w-old', isWholesale: true, businessName: 'Store A', createdAt: '2026-04-20T13:00:00.000Z', status: 'PENDING PICKUP' },
+      ],
+      invoices: [
+        { invoiceID: 'w-inv-today', accountType: 'wholesale', customerName: 'Store A', total: 100, remainingBalance: 20, createdAt: '2026-05-02T13:00:00.000Z' },
+        { invoiceID: 'w-inv-old', accountType: 'wholesale', customerName: 'Store A', total: 200, remainingBalance: 30, createdAt: '2026-04-20T13:00:00.000Z' },
+      ],
+      window,
+    });
+
+    expect(wholesale.summary).toMatchObject({
+      revenue: 100,
+      unpaidBalance: 20,
+      pendingPickup: 1,
+      activeRepairs: 1,
     });
   });
 });

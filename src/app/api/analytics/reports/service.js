@@ -5,8 +5,9 @@ import { getAnalyticsBaselineSettings } from '@/services/analyticsBaseline';
 import {
   buildAccountsReceivableReport,
   buildCashCollectedReport,
-  buildCloseoutBottlenecksReport,
+  buildCloseoutBottlenecksPeriodReport,
   buildJewelerPerformanceReport,
+  buildLaborSettlementReport,
   buildPayrollReport,
   buildWholesalePerformanceReport,
   getAnalyticsDateWindow,
@@ -79,10 +80,20 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
       endDate: window.endDate,
     },
     cashCollected: buildCashCollectedReport(invoices, window, repairsById),
-    accountsReceivable: buildAccountsReceivableReport(invoices, window.endDate || new Date()),
-    closeoutBottlenecks: buildCloseoutBottlenecksReport(repairs, invoicesById, pendingReviewLogs),
+    accountsReceivable: buildAccountsReceivableReport(invoices, window.endDate || new Date(), window),
+    closeoutBottlenecks: buildCloseoutBottlenecksPeriodReport({
+      repairs,
+      invoicesById,
+      pendingReviewLogs,
+      window,
+    }),
     jewelerPerformance: buildJewelerPerformanceReport({
       logs: laborLogs,
+      payrollBatches: laborAnalyticsPayrollBatches,
+      usersById,
+      window,
+    }),
+    laborSettlement: buildLaborSettlementReport({
       payrollBatches: laborAnalyticsPayrollBatches,
       usersById,
       window,

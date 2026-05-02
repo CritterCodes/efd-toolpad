@@ -110,6 +110,10 @@ function roundMoney(value) {
   return Math.round(Number(value || 0) * 100) / 100;
 }
 
+function sumMoney(values = []) {
+  return roundMoney(values.reduce((sum, value) => sum + Number(value || 0), 0));
+}
+
 function getInvoiceOutstanding(invoice = {}) {
   return roundMoney(Number(invoice.remainingBalance ?? Math.max(Number(invoice.total || 0) - Number(invoice.amountPaid || 0), 0)));
 }
@@ -337,6 +341,10 @@ export function buildInvoiceRevenueSummary(invoices = [], repairsById = new Map(
   let legacyCarryoverRevenue = 0;
   let goLiveRevenue = 0;
   let collectedRevenue = 0;
+  let taxableRevenue = 0;
+  let nonTaxableRevenue = 0;
+  let taxableEntryCount = 0;
+  let nonTaxableEntryCount = 0;
 
   for (const invoice of invoices) {
     const monthKey = formatMonthKey(invoice.createdAt);
@@ -377,9 +385,13 @@ export function buildInvoiceRevenueSummary(invoices = [], repairsById = new Map(
       }
 
       if (entry.taxAmount > 0) {
-        taxBucket.taxable += 1;
+        taxBucket.taxable += entry.apportionedTotal;
+        taxableRevenue += entry.apportionedTotal;
+        taxableEntryCount += 1;
       } else {
-        taxBucket.nonTaxable += 1;
+        taxBucket.nonTaxable += entry.apportionedTotal;
+        nonTaxableRevenue += entry.apportionedTotal;
+        nonTaxableEntryCount += 1;
       }
     }
 
@@ -399,6 +411,10 @@ export function buildInvoiceRevenueSummary(invoices = [], repairsById = new Map(
       legacyCarryoverRevenue: roundMoney(legacyCarryoverRevenue),
       goLiveRevenue: roundMoney(goLiveRevenue),
       collectedRevenue: roundMoney(collectedRevenue),
+      taxableRevenue: roundMoney(taxableRevenue),
+      nonTaxableRevenue: roundMoney(nonTaxableRevenue),
+      taxableEntryCount,
+      nonTaxableEntryCount,
       invoiceCount: invoices.length,
       averageInvoiceTotal: invoices.length ? roundMoney(totalRevenue / invoices.length) : 0,
       highestInvoiceTotal: invoices.length
@@ -431,9 +447,9 @@ export function buildInvoiceRevenueSummary(invoices = [], repairsById = new Map(
 
 export function buildSalesTaxTotals(rows = []) {
   return rows.reduce((totals, row) => ({
-    taxable: totals.taxable + Number(row.taxable || 0),
+    taxable: roundMoney(totals.taxable + Number(row.taxable || 0)),
     taxCollected: roundMoney(totals.taxCollected + Number(row.taxCollected || 0)),
-    nonTaxable: totals.nonTaxable + Number(row.nonTaxable || 0),
+    nonTaxable: roundMoney(totals.nonTaxable + Number(row.nonTaxable || 0)),
     revenue: roundMoney(totals.revenue + Number(row.revenue || 0)),
   }), {
     taxable: 0,
@@ -461,6 +477,14 @@ export function buildCashCollectedReport(invoices = [], window, repairsById = ne
   const byMethod = new Map();
 
   for (const invoice of invoices) {
+    const allocatedEntries = normalizeShareEntries(invoice, repairsById);
+    const legacyShare = allocatedEntries
+      .filter((entry) => entry.origin === ANALYTICS_ORIGIN.LEGACY)
+      .reduce((sum, entry) => sum + Number(entry.share || 0), 0);
+    const goLiveShare = allocatedEntries
+      .filter((entry) => entry.origin === ANALYTICS_ORIGIN.GO_LIVE)
+      .reduce((sum, entry) => sum + Number(entry.share || 0), 0);
+
     for (const payment of invoice.payments || []) {
       const timestamp = getPaymentTimestamp(payment);
       if (!timestamp || !isDateInWindow(timestamp, window)) continue;
@@ -468,8 +492,8 @@ export function buildCashCollectedReport(invoices = [], window, repairsById = ne
 
       const amount = Number(payment.amount || 0);
       const method = payment.type || 'other';
-      const allocatedEntries = normalizeShareEntries(invoice, repairsById);
-      const hasLegacy = allocatedEntries.some((entry) => entry.origin === ANALYTICS_ORIGIN.LEGACY);
+      const legacyAmount = roundMoney(amount * legacyShare);
+      const goLiveAmount = roundMoney(amount * goLiveShare);
 
       payments.push({
         invoiceID: invoice.invoiceID,
@@ -479,7 +503,8 @@ export function buildCashCollectedReport(invoices = [], window, repairsById = ne
         amount: roundMoney(amount),
         receivedAt: timestamp,
         receivedBy: payment.receivedBy || payment.createdBy || '',
-        legacyCarryover: hasLegacy,
+        legacyCarryoverAmount: legacyAmount,
+        goLiveAmount,
       });
 
       byMethod.set(method, roundMoney((byMethod.get(method) || 0) + amount));
@@ -487,15 +512,15 @@ export function buildCashCollectedReport(invoices = [], window, repairsById = ne
   }
 
   const totalCollected = roundMoney(payments.reduce((sum, payment) => sum + payment.amount, 0));
-  const legacyCarryoverCollected = roundMoney(
-    payments.filter((payment) => payment.legacyCarryover).reduce((sum, payment) => sum + payment.amount, 0)
-  );
+  const legacyCarryoverCollected = sumMoney(payments.map((payment) => payment.legacyCarryoverAmount));
+  const goLiveCollected = sumMoney(payments.map((payment) => payment.goLiveAmount));
 
   return {
     summary: {
       totalCollected,
       paymentCount: payments.length,
       legacyCarryoverCollected,
+      goLiveCollected,
       averagePayment: payments.length ? roundMoney(totalCollected / payments.length) : 0,
       byMethod: Array.from(byMethod.entries()).map(([method, amount]) => ({ method, amount })),
     },
@@ -503,8 +528,9 @@ export function buildCashCollectedReport(invoices = [], window, repairsById = ne
   };
 }
 
-export function buildAccountsReceivableReport(invoices = [], referenceDate = new Date()) {
+export function buildAccountsReceivableReport(invoices = [], referenceDate = new Date(), window = null) {
   const rows = invoices
+    .filter((invoice) => isDateInWindow(invoice.createdAt, window))
     .filter((invoice) => getInvoiceOutstanding(invoice) > 0)
     .map((invoice) => {
       const outstanding = getInvoiceOutstanding(invoice);
@@ -583,6 +609,65 @@ export function buildCloseoutBottlenecksReport(repairs = [], invoicesById = new 
     createdAt: log.createdAt,
     notes: log.notes || '',
   }));
+
+  return {
+    summary: {
+      completedUninvoicedCount: completedUninvoiced.length,
+      readyForPickupUnpaidCount: readyForPickupUnpaid.length,
+      laborReviewBlockedCount: laborReviewBlocked.length,
+    },
+    completedUninvoiced,
+    readyForPickupUnpaid,
+    laborReviewBlocked,
+  };
+}
+
+export function buildCloseoutBottlenecksPeriodReport({
+  repairs = [],
+  invoicesById = new Map(),
+  pendingReviewLogs = [],
+  window,
+}) {
+  const completedUninvoiced = repairs
+    .filter((repair) => repair.status === 'COMPLETED' && !repair.invoiceID)
+    .map((repair) => ({
+      repairID: repair.repairID,
+      clientName: repair.clientName || repair.businessName || 'Unknown client',
+      status: repair.status,
+      completedAt: repair.completedAt || repair.updatedAt || repair.createdAt,
+      totalCost: roundMoney(repair.totalCost || 0),
+    }))
+    .filter((repair) => isDateInWindow(repair.completedAt, window))
+    .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
+
+  const readyForPickupUnpaid = repairs
+    .filter((repair) => ['READY FOR PICKUP', 'READY FOR PICK-UP', 'DELIVERY BATCHED'].includes(repair.status))
+    .map((repair) => {
+      const invoice = repair.invoiceID ? invoicesById.get(repair.invoiceID) : null;
+      const anchorDate = invoice?.createdAt || invoice?.updatedAt || repair.updatedAt || repair.completedAt || repair.createdAt;
+      return {
+        repairID: repair.repairID,
+        clientName: repair.clientName || repair.businessName || 'Unknown client',
+        status: repair.status,
+        invoiceID: repair.invoiceID || '',
+        remainingBalance: roundMoney(invoice ? getInvoiceOutstanding(invoice) : 0),
+        anchorDate,
+      };
+    })
+    .filter((repair) => repair.remainingBalance > 0 && isDateInWindow(repair.anchorDate, window))
+    .sort((a, b) => b.remainingBalance - a.remainingBalance);
+
+  const laborReviewBlocked = (pendingReviewLogs || [])
+    .map((log) => ({
+      logID: log.logID,
+      repairID: log.repairID,
+      jeweler: log.primaryJewelerName || 'Unknown jeweler',
+      clientName: log.repair?.clientName || log.repair?.businessName || 'Unknown client',
+      creditedValue: roundMoney(log.creditedValue || 0),
+      createdAt: log.createdAt || log.updatedAt || log.weekStart,
+      notes: log.notes || '',
+    }))
+    .filter((log) => isDateInWindow(log.createdAt, window));
 
   return {
     summary: {
@@ -677,10 +762,60 @@ export function buildJewelerPerformanceReport({ logs = [], payrollBatches = [], 
   return { summary, rows };
 }
 
+export function buildLaborSettlementReport({ payrollBatches = [], usersById = new Map(), window }) {
+  const paidBatches = payrollBatches.filter((batch) => batch.paidAt && isDateInWindow(batch.paidAt, window));
+  const byJeweler = new Map();
+
+  for (const batch of paidBatches) {
+    const userID = batch.userID || 'unassigned';
+    const user = usersById.get(userID) || {};
+    if (!byJeweler.has(userID)) {
+      byJeweler.set(userID, {
+        userID,
+        userName: batch.userName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || userID,
+        isOwnerOperator: user.compensationProfile?.isOwnerOperator === true,
+        paidHours: 0,
+        paidAmount: 0,
+        paidBatchCount: 0,
+        paymentMethods: new Set(),
+      });
+    }
+
+    const row = byJeweler.get(userID);
+    row.paidHours += Number(batch.laborHours || 0);
+    row.paidAmount += Number(batch.laborPay || 0);
+    row.paidBatchCount += 1;
+    if (batch.paymentMethod) row.paymentMethods.add(batch.paymentMethod);
+  }
+
+  const rows = Array.from(byJeweler.values())
+    .map((row) => ({
+      ...row,
+      paidHours: Number(row.paidHours.toFixed(2)),
+      paidAmount: roundMoney(row.paidAmount),
+      paymentMethods: Array.from(row.paymentMethods),
+    }))
+    .sort((a, b) => b.paidAmount - a.paidAmount);
+
+  const summary = rows.reduce((acc, row) => ({
+    totalPaidHours: Number((acc.totalPaidHours + row.paidHours).toFixed(2)),
+    totalPaidAmount: roundMoney(acc.totalPaidAmount + row.paidAmount),
+    paidBatchCount: acc.paidBatchCount + row.paidBatchCount,
+    jewelers: acc.jewelers + 1,
+  }), {
+    totalPaidHours: 0,
+    totalPaidAmount: 0,
+    paidBatchCount: 0,
+    jewelers: 0,
+  });
+
+  return { summary, rows };
+}
+
 export function buildWholesalePerformanceReport({ repairs = [], invoices = [], window }) {
   const rowsByStore = new Map();
 
-  for (const repair of repairs.filter((repair) => repair.isWholesale)) {
+  for (const repair of repairs.filter((repair) => repair.isWholesale && isDateInWindow(repair.createdAt || repair.updatedAt, window))) {
     const key = repair.storeId || repair.businessName || repair.userID || repair.repairID;
     if (!rowsByStore.has(key)) {
       rowsByStore.set(key, {

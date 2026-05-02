@@ -131,8 +131,8 @@ function buildReportConfig(reportSlug, summary, reports) {
     case 'sales-tax':
       return {
         summaryCards: [
-          { label: 'Taxable Sales', value: String(summary?.salesTax?.totals?.taxable || 0) },
-          { label: 'Non-Taxable Sales', value: String(summary?.salesTax?.totals?.nonTaxable || 0) },
+          { label: 'Taxable Revenue', value: formatMoney(summary?.salesTax?.totals?.taxable) },
+          { label: 'Non-Taxable Revenue', value: formatMoney(summary?.salesTax?.totals?.nonTaxable) },
           { label: 'Tax Collected', value: formatMoney(summary?.salesTax?.totals?.taxCollected) },
           { label: 'Revenue', value: formatMoney(summary?.salesTax?.totals?.revenue) },
         ],
@@ -189,14 +189,14 @@ function buildReportConfig(reportSlug, summary, reports) {
     case 'labor':
       return {
         summaryCards: [
-          { label: 'Labor Hours', value: Number(reports?.jewelerPerformance?.summary?.totalHours || 0).toFixed(2) },
-          { label: 'Labor Pay', value: formatMoney(reports?.jewelerPerformance?.summary?.totalPay) },
-          { label: 'Payroll Paid', value: formatMoney(reports?.jewelerPerformance?.summary?.payrollPaid) },
+          { label: 'Earned Hours', value: Number(reports?.jewelerPerformance?.summary?.totalHours || 0).toFixed(2) },
+          { label: 'Earned Labor Pay', value: formatMoney(reports?.jewelerPerformance?.summary?.totalPay) },
+          { label: 'Repairs Worked', value: String(reports?.jewelerPerformance?.rows?.reduce((sum, row) => sum + Number(row.repairsWorked || 0), 0) || 0) },
           { label: 'Pending Review', value: String(reports?.jewelerPerformance?.summary?.pendingReviewCount || 0) },
         ],
         sections: [
           {
-            title: 'Jeweler Labor Detail',
+            title: 'Earned Labor Detail',
             rows: reports?.jewelerPerformance?.rows || [],
             columns: [
               { label: 'Jeweler', render: (row) => row.isOwnerOperator ? `${row.userName} (Owner/Operator)` : row.userName },
@@ -213,7 +213,25 @@ function buildReportConfig(reportSlug, summary, reports) {
               { label: 'Labor Pay', value: (row) => row.laborPay },
               { label: 'Repairs Worked', value: 'repairsWorked' },
               { label: 'Pending Review Count', value: 'pendingReviewCount' },
-              { label: 'Paid Through Payroll', value: (row) => row.paidThroughPayroll },
+            ],
+          },
+          {
+            title: 'Payroll Settled in Period',
+            rows: reports?.laborSettlement?.rows || [],
+            columns: [
+              { label: 'Jeweler', render: (row) => row.isOwnerOperator ? `${row.userName} (Owner/Operator)` : row.userName },
+              { label: 'Paid Hours', render: (row) => row.paidHours.toFixed(2), align: 'right' },
+              { label: 'Paid Amount', render: (row) => formatMoney(row.paidAmount), align: 'right' },
+              { label: 'Paid Batches', value: 'paidBatchCount', align: 'right' },
+              { label: 'Methods', render: (row) => row.paymentMethods.join(', ') || 'N/A' },
+            ],
+            exportColumns: [
+              { label: 'Jeweler', value: (row) => row.userName },
+              { label: 'Owner Operator', value: (row) => row.isOwnerOperator ? 'Yes' : 'No' },
+              { label: 'Paid Hours', value: (row) => row.paidHours },
+              { label: 'Paid Amount', value: (row) => row.paidAmount },
+              { label: 'Paid Batches', value: 'paidBatchCount' },
+              { label: 'Payment Methods', value: (row) => row.paymentMethods.join(', ') },
             ],
           },
         ],
@@ -296,7 +314,7 @@ function buildReportConfig(reportSlug, summary, reports) {
           { label: 'Cash Collected', value: formatMoney(reports?.cashCollected?.summary?.totalCollected) },
           { label: 'Payments', value: String(reports?.cashCollected?.summary?.paymentCount || 0) },
           { label: 'Legacy Carryover', value: formatMoney(reports?.cashCollected?.summary?.legacyCarryoverCollected) },
-          { label: 'Average Payment', value: formatMoney(reports?.cashCollected?.summary?.averagePayment) },
+          { label: 'Go-Live Collected', value: formatMoney(reports?.cashCollected?.summary?.goLiveCollected) },
         ],
         sections: [
           {
@@ -307,6 +325,7 @@ function buildReportConfig(reportSlug, summary, reports) {
               { label: 'Invoice', value: 'invoiceID' },
               { label: 'Account', value: 'accountName' },
               { label: 'Method', value: 'method' },
+              { label: 'Legacy Share', render: (row) => formatMoney(row.legacyCarryoverAmount), align: 'right' },
               { label: 'Amount', render: (row) => formatMoney(row.amount), align: 'right' },
             ],
             exportColumns: [
@@ -316,7 +335,8 @@ function buildReportConfig(reportSlug, summary, reports) {
               { label: 'Account Type', value: 'accountType' },
               { label: 'Method', value: 'method' },
               { label: 'Amount', value: (row) => row.amount },
-              { label: 'Legacy Carryover', value: (row) => row.legacyCarryover ? 'Yes' : 'No' },
+              { label: 'Legacy Carryover Amount', value: (row) => row.legacyCarryoverAmount },
+              { label: 'Go-Live Amount', value: (row) => row.goLiveAmount },
             ],
           },
         ],
