@@ -24,11 +24,11 @@ import RingIcon from "@mui/icons-material/FiberSmartRecord";
 import SupportAgentIcon from "@mui/icons-material/SupportAgent";
 import BusinessIcon from "@mui/icons-material/Business";
 import DesignServicesIcon from "@mui/icons-material/DesignServices";
-import PaymentIcon from "@mui/icons-material/Payment";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import PrintIcon from "@mui/icons-material/Print";
 import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
 import LinkIcon from "@mui/icons-material/Link";
+import PaymentIcon from "@mui/icons-material/Payment";
 
 import { SHARED_NAVIGATION } from "./sharedNavigation";
 
@@ -49,6 +49,11 @@ export const artisanNavigationConfig = {
       segment: 'dashboard/artisan/affiliate',
       title: 'Affiliate',
       icon: <LinkIcon />
+    },
+    {
+      segment: 'dashboard/artisan/payroll',
+      title: 'Payroll',
+      icon: <PaymentIcon />
     }
   ]
 };

@@ -10,6 +10,7 @@ import WorkIcon from '@mui/icons-material/Work';
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import CategoryIcon from '@mui/icons-material/Category';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import PaymentIcon from '@mui/icons-material/Payment';
 import { SHARED_NAVIGATION } from './sharedNavigation';
 
 const BASE_ARTISAN_NAV = [
@@ -28,6 +29,11 @@ const BASE_ARTISAN_NAV = [
     segment: 'dashboard/artisan/affiliate',
     title: 'Affiliate',
     icon: <LinkIcon />,
+  },
+  {
+    segment: 'dashboard/artisan/payroll',
+    title: 'Payroll',
+    icon: <PaymentIcon />,
   },
 ];
 

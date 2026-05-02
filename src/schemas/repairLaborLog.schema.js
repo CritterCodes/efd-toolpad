@@ -69,6 +69,21 @@ export const repairLaborLogSchema = {
     type: 'date',
     description: 'Monday of the ISO week this credit falls in (set at creation for fast aggregation)'
   },
+  payrollBatchID: {
+    type: 'string',
+    default: '',
+    description: 'Linked payroll batch once this labor credit is included in a weekly payout'
+  },
+  payrollStatus: {
+    type: 'string',
+    enum: ['unbatched', 'batched', 'paid'],
+    default: 'unbatched',
+    description: 'Settlement state for weekly payroll batching'
+  },
+  payrolledAt: {
+    type: 'date',
+    description: 'Timestamp when this log was marked paid through payroll'
+  },
   createdAt: {
     type: 'date',
     default: () => new Date(),

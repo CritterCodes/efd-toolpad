@@ -132,6 +132,11 @@ export const adminNavigation = {
           icon: <ReceiptIcon />
         },
         {
+          segment: 'payroll',
+          title: 'Payroll',
+          icon: <PaymentIcon />
+        },
+        {
           segment: 'pick-up',
           title: 'Payment & Pickup',
           icon: <PickupIcon />
