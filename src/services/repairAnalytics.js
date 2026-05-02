@@ -452,6 +452,10 @@ export function buildLaborSummary(logs = []) {
   };
 }
 
+function getLaborLogAnalyticsTimestamp(log = {}) {
+  return log.createdAt || log.adminReviewedAt || log.updatedAt || log.weekStart || null;
+}
+
 export function buildCashCollectedReport(invoices = [], window, repairsById = new Map()) {
   const payments = [];
   const byMethod = new Map();
@@ -593,7 +597,7 @@ export function buildCloseoutBottlenecksReport(repairs = [], invoicesById = new 
 }
 
 export function buildJewelerPerformanceReport({ logs = [], payrollBatches = [], usersById = new Map(), window }) {
-  const filteredLogs = logs.filter((log) => isDateInWindow(log.weekStart || log.createdAt, window));
+  const filteredLogs = logs.filter((log) => isDateInWindow(getLaborLogAnalyticsTimestamp(log), window));
   const paidBatches = payrollBatches.filter((batch) => batch.paidAt && isDateInWindow(batch.paidAt, window));
   const byJeweler = new Map();
 

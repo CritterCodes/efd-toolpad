@@ -63,6 +63,9 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
   const repairsById = new Map(repairs.map((repair) => [repair.repairID, repair]));
   const invoicesById = new Map(invoices.map((invoice) => [invoice.invoiceID, invoice]));
   const usersById = await getUsersMapFromLogsAndBatches(laborLogs, payrollBatches);
+  const laborAnalyticsPayrollBatches = payrollBatches.filter((batch) => (
+    batch?.weekStart && new Date(batch.weekStart) >= new Date(baseline.laborAnalyticsStartDate)
+  ));
 
   return {
     baseline: {
@@ -80,7 +83,7 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
     closeoutBottlenecks: buildCloseoutBottlenecksReport(repairs, invoicesById, pendingReviewLogs),
     jewelerPerformance: buildJewelerPerformanceReport({
       logs: laborLogs,
-      payrollBatches,
+      payrollBatches: laborAnalyticsPayrollBatches,
       usersById,
       window,
     }),

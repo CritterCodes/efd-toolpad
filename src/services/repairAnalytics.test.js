@@ -3,6 +3,7 @@ import {
   buildAccountsReceivableReport,
   buildCashCollectedReport,
   buildInvoiceRevenueSummary,
+  buildJewelerPerformanceReport,
   buildLaborSummary,
   filterOperationalRepairs,
   getAnalyticsDateWindow,
@@ -149,6 +150,36 @@ describe('repairAnalytics', () => {
     expect(ar.rows[0]).toMatchObject({
       invoiceID: 'rinv-2',
       remainingBalance: 60,
+    });
+  });
+
+  it('anchors jeweler performance to labor log creation time, not week start', () => {
+    const window = getAnalyticsDateWindow('today', new Date('2026-05-02T12:00:00.000Z'));
+    const report = buildJewelerPerformanceReport({
+      logs: [
+        {
+          primaryJewelerUserID: 'user-1',
+          primaryJewelerName: 'Vernon',
+          repairID: 'repair-1',
+          creditedLaborHours: 1.5,
+          creditedValue: 75,
+          createdAt: '2026-05-02T15:00:00.000Z',
+          weekStart: '2026-04-27T00:00:00.000Z',
+          requiresAdminReview: false,
+        },
+      ],
+      payrollBatches: [],
+      usersById: new Map(),
+      window,
+    });
+
+    expect(report.summary.totalHours).toBe(1.5);
+    expect(report.summary.totalPay).toBe(75);
+    expect(report.rows[0]).toMatchObject({
+      userName: 'Vernon',
+      laborHours: 1.5,
+      laborPay: 75,
+      repairsWorked: 1,
     });
   });
 });

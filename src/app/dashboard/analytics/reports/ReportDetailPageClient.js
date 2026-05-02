@@ -45,10 +45,20 @@ function formatDate(value, withTime = false) {
   });
 }
 
+function formatDateBoundary(value) {
+  if (!value) return 'N/A';
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(value));
+}
+
 function formatPeriod(filters = {}) {
   if (!filters.startDate && !filters.endDate) return 'All time';
-  const start = formatDate(filters.startDate);
-  const end = formatDate(filters.endDate);
+  const start = formatDateBoundary(filters.startDate);
+  const end = formatDateBoundary(filters.endDate);
   return `${start} - ${end}`;
 }
 

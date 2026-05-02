@@ -52,7 +52,9 @@ export async function getAnalyticsSummary({ dateRange = 'last_month', includeLeg
   const repairsById = new Map(repairs.map((repair) => [repair.repairID, repair]));
   const operationalRepairs = filterOperationalRepairs(repairs, { includeLegacy, window });
   const filteredInvoices = invoices.filter((invoice) => isDateInWindow(invoice.createdAt, window));
-  const filteredLaborLogs = laborLogs.filter((log) => isDateInWindow(log.weekStart, window));
+  const filteredLaborLogs = laborLogs.filter((log) => (
+    isDateInWindow(log.createdAt || log.adminReviewedAt || log.updatedAt || log.weekStart, window)
+  ));
 
   const repairOverview = buildRepairOverview(operationalRepairs);
   const customerInsights = buildCustomerInsights(operationalRepairs);
