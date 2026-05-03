@@ -247,17 +247,20 @@ export default function StullerSettingsPage() {
     }
   };
 
-  const syncInvoices = async () => {
+  const syncInvoices = async ({ recentDays = null, syncAll = false } = {}) => {
     try {
       setSyncingInvoices(true);
       clearMessages();
 
+      const hasManualIdentifiers = Boolean(invoicePoInput.trim() || invoiceNumberInput.trim());
       const response = await fetch('/api/stuller/invoices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           purchaseOrderNumbers: invoicePoInput,
           invoiceNumbers: invoiceNumberInput,
+          recentDays: hasManualIdentifiers ? null : recentDays,
+          syncAll: hasManualIdentifiers ? false : syncAll,
         }),
       });
       const result = await response.json();
@@ -266,7 +269,13 @@ export default function StullerSettingsPage() {
       }
 
       await loadInvoices();
-      setSuccess(`Synced ${result.syncedCount || 0} Stuller invoice${result.syncedCount === 1 ? '' : 's'}.`);
+      let message = `Synced ${result.syncedCount || 0} Stuller invoice${result.syncedCount === 1 ? '' : 's'}.`;
+      if (!hasManualIdentifiers && result.sourceMode === 'recent' && result.recentDays) {
+        message = `Synced ${result.syncedCount || 0} Stuller invoice${result.syncedCount === 1 ? '' : 's'} from the last ${result.recentDays} days.`;
+      } else if (!hasManualIdentifiers && result.sourceMode === 'all') {
+        message = `Synced ${result.syncedCount || 0} Stuller invoice${result.syncedCount === 1 ? '' : 's'} from the full account history currently returned by Stuller.`;
+      }
+      setSuccess(message);
     } catch (syncError) {
       console.error('Error syncing Stuller invoices:', syncError);
       setError(syncError.message);
@@ -428,7 +437,7 @@ export default function StullerSettingsPage() {
           <CardContent>
             <Typography variant="h6" gutterBottom>Invoice Sync</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Sync Stuller invoices by PO, invoice number, or both. This is the source used to create scheduled material expenses.
+              Sync Stuller invoices by PO, invoice number, or pull recent/full account invoices directly. This is the source used to create scheduled material expenses.
             </Typography>
             <Grid container spacing={2}>
               <Grid item xs={12} md={6}>
@@ -456,8 +465,17 @@ export default function StullerSettingsPage() {
             </Grid>
           </CardContent>
           <CardActions>
-            <LoadingButton variant="contained" loading={syncingInvoices} onClick={syncInvoices} disabled={!settings.enabled}>
-              Sync Invoices
+            <LoadingButton variant="contained" loading={syncingInvoices} onClick={() => syncInvoices()} disabled={!settings.enabled}>
+              Sync Targeted
+            </LoadingButton>
+            <LoadingButton variant="outlined" loading={syncingInvoices} onClick={() => syncInvoices({ recentDays: 30 })} disabled={!settings.enabled}>
+              Sync Last 30 Days
+            </LoadingButton>
+            <LoadingButton variant="outlined" loading={syncingInvoices} onClick={() => syncInvoices({ recentDays: 90 })} disabled={!settings.enabled}>
+              Sync Last 90 Days
+            </LoadingButton>
+            <LoadingButton variant="outlined" loading={syncingInvoices} onClick={() => syncInvoices({ syncAll: true })} disabled={!settings.enabled}>
+              Sync All
             </LoadingButton>
           </CardActions>
         </Card>

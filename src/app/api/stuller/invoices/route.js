@@ -32,6 +32,8 @@ export const POST = async (req) => {
     const result = await syncStullerInvoices({
       purchaseOrderNumbers: body.purchaseOrderNumbers || body.purchaseOrderNumber || [],
       invoiceNumbers: body.invoiceNumbers || body.invoiceNumber || [],
+      recentDays: body.recentDays ?? null,
+      syncAll: body.syncAll === true,
     });
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
