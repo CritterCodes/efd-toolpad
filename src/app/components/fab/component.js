@@ -5,7 +5,7 @@ import NoteAddIcon from '@mui/icons-material/NoteAdd';
 import MoveUpIcon from '@mui/icons-material/MoveUp';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import PersonIcon from '@mui/icons-material/Person';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 
 /**
@@ -17,6 +17,7 @@ import { useSession } from 'next-auth/react';
  */
 const FloatingActionButton = () => {
     const router = useRouter();
+    const pathname = usePathname();
     const { data: session } = useSession();
     
     // Get user role
@@ -69,6 +70,10 @@ const FloatingActionButton = () => {
     };
     
     const actions = getActionsForRole(userRole);
+
+    if (pathname?.startsWith('/dashboard/finance')) {
+        return null;
+    }
     
     // Don't render FAB if no actions available
     if (actions.length === 0) {

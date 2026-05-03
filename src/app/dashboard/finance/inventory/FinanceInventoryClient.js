@@ -90,6 +90,95 @@ function SummaryCard({ label, value, note, color = 'inherit' }) {
   );
 }
 
+function renderDataValue(value) {
+  return value === null || value === undefined || value === '' ? 'N/A' : value;
+}
+
+function getInventoryItemLabel(item, fallback = 'Inventory item') {
+  return item?.name || item?.category || item?.inventoryItemID || fallback;
+}
+
+function FinanceDataTable({ columns, rows, getKey, emptyMessage = 'No rows yet.' }) {
+  const actionColumns = columns.filter((column) => column.label === 'Actions');
+  const dataColumns = columns.filter((column) => column.label !== 'Actions');
+
+  return (
+    <>
+      <Stack spacing={1.25} sx={{ display: { xs: 'flex', md: 'none' } }}>
+        {rows.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">{emptyMessage}</Typography>
+        ) : rows.map((row, index) => (
+          <Box
+            key={getKey?.(row, index) || index}
+            sx={{
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 1,
+              p: 1.5,
+              bgcolor: 'background.default',
+            }}
+          >
+            <Stack spacing={1}>
+              {actionColumns.length > 0 ? (
+                <Stack direction="row" justifyContent="flex-end" spacing={1}>
+                  {actionColumns.map((column) => (
+                    <Box key={column.label}>
+                      {renderDataValue(column.render(row, index))}
+                    </Box>
+                  ))}
+                </Stack>
+              ) : null}
+              {dataColumns.map((column) => (
+                <Stack
+                  key={column.label}
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="flex-start"
+                  spacing={2}
+                >
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ textTransform: 'uppercase', letterSpacing: 0, flex: '0 0 40%' }}
+                  >
+                    {column.label}
+                  </Typography>
+                  <Box sx={{ flex: 1, minWidth: 0, textAlign: 'right', overflowWrap: 'anywhere' }}>
+                    {renderDataValue(column.render(row, index))}
+                  </Box>
+                </Stack>
+              ))}
+            </Stack>
+          </Box>
+        ))}
+      </Stack>
+
+      <Box sx={{ display: { xs: 'none', md: 'block' }, overflowX: 'auto' }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              {columns.map((column) => (
+                <TableCell key={column.label} align={column.align || 'left'}>{column.label}</TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {rows.map((row, index) => (
+              <TableRow key={getKey?.(row, index) || index}>
+                {columns.map((column) => (
+                  <TableCell key={column.label} align={column.align || 'left'}>
+                    {renderDataValue(column.render(row, index))}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Box>
+    </>
+  );
+}
+
 function getDefaultItemForm() {
   return {
     name: '',
@@ -536,23 +625,15 @@ export default function FinanceInventoryClient() {
           <Card variant="outlined">
             <CardContent>
               <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>Inventory Items</Typography>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Actions</TableCell>
-                    <TableCell>Name</TableCell>
-                    <TableCell>Category</TableCell>
-                    <TableCell>On Hand</TableCell>
-                    <TableCell>Reorder Point</TableCell>
-                    <TableCell>Preferred Vendor</TableCell>
-                    <TableCell>Location</TableCell>
-                    <TableCell>Last Cost</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {inventoryItems.map((item) => (
-                    <TableRow key={item.inventoryItemID}>
-                      <TableCell>
+              <FinanceDataTable
+                rows={inventoryItems}
+                getKey={(item, index) => item.inventoryItemID || `${item.name || 'inventory'}-${index}`}
+                emptyMessage="No inventory items yet."
+                columns={[
+                  {
+                    label: 'Actions',
+                    render: (item) => (
+                      <Stack direction="row" justifyContent={{ xs: 'flex-end', md: 'flex-start' }}>
                         <IconButton size="small" onClick={() => {
                           setEditingItemID(item.inventoryItemID);
                           setItemForm({
@@ -574,18 +655,18 @@ export default function FinanceInventoryClient() {
                         }}>
                           <EditIcon fontSize="small" />
                         </IconButton>
-                      </TableCell>
-                      <TableCell>{item.name}</TableCell>
-                      <TableCell>{item.category}</TableCell>
-                      <TableCell>{formatQuantity(item.onHand)} {item.unitOfMeasure}</TableCell>
-                      <TableCell>{formatQuantity(item.reorderPoint)}</TableCell>
-                      <TableCell>{item.preferredVendor || 'N/A'}</TableCell>
-                      <TableCell>{item.location || 'N/A'}</TableCell>
-                      <TableCell>{formatMoney(item.lastVendorCost)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </Stack>
+                    ),
+                  },
+                  { label: 'Name', render: (item) => getInventoryItemLabel(item) },
+                  { label: 'Category', render: (item) => item.category },
+                  { label: 'On Hand', render: (item) => `${formatQuantity(item.onHand)} ${item.unitOfMeasure || ''}`.trim() },
+                  { label: 'Reorder Point', render: (item) => formatQuantity(item.reorderPoint) },
+                  { label: 'Preferred Vendor', render: (item) => item.preferredVendor || 'N/A' },
+                  { label: 'Location', render: (item) => item.location || 'N/A' },
+                  { label: 'Last Cost', render: (item) => formatMoney(item.lastVendorCost), align: 'right' },
+                ]}
+              />
             </CardContent>
           </Card>
         </Stack>
@@ -609,82 +690,102 @@ export default function FinanceInventoryClient() {
                     </Button>
                   </Stack>
 
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Use</TableCell>
-                        <TableCell>Item #</TableCell>
-                        <TableCell>Description</TableCell>
-                        <TableCell>Qty</TableCell>
-                        <TableCell>Existing Item</TableCell>
-                        <TableCell>New Item Name</TableCell>
-                        <TableCell>Unit Cost</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {stullerInvoice.items?.map((invoiceItem, index) => {
-                        const line = stullerLineState[index];
-                        if (!line) return null;
-                        return (
-                          <TableRow key={`${stullerInvoice.stullerInvoiceID}-${line.sourceLineReference}`}>
-                            <TableCell>
-                              <Checkbox
-                                checked={line.selected}
-                                onChange={(e) => setStullerLineState((prev) => prev.map((entry, entryIndex) => entryIndex === index ? { ...entry, selected: e.target.checked } : entry))}
-                              />
-                            </TableCell>
-                            <TableCell>{invoiceItem.itemNumber || 'N/A'}</TableCell>
-                            <TableCell>{invoiceItem.itemDescription || 'N/A'}</TableCell>
-                            <TableCell>
-                              <TextField
-                                size="small"
-                                type="number"
-                                value={line.quantityReceived}
-                                onChange={(e) => setStullerLineState((prev) => prev.map((entry, entryIndex) => entryIndex === index ? { ...entry, quantityReceived: e.target.value } : entry))}
-                                inputProps={{ min: 0, step: 0.001 }}
-                                sx={{ width: 100 }}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <TextField
-                                select
-                                size="small"
-                                value={line.inventoryItemID}
-                                onChange={(e) => setStullerLineState((prev) => prev.map((entry, entryIndex) => entryIndex === index ? { ...entry, inventoryItemID: e.target.value } : entry))}
-                                sx={{ minWidth: 220 }}
-                              >
-                                <MenuItem value="">Create new item</MenuItem>
-                                {inventoryItems.map((item) => (
-                                  <MenuItem key={item.inventoryItemID} value={item.inventoryItemID}>
-                                    {item.name}
-                                  </MenuItem>
-                                ))}
-                              </TextField>
-                            </TableCell>
-                            <TableCell>
-                              <TextField
-                                size="small"
-                                value={line.createItemName}
-                                disabled={Boolean(line.inventoryItemID)}
-                                onChange={(e) => setStullerLineState((prev) => prev.map((entry, entryIndex) => entryIndex === index ? { ...entry, createItemName: e.target.value } : entry))}
-                                sx={{ minWidth: 220 }}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <TextField
-                                size="small"
-                                type="number"
-                                value={line.unitCost}
-                                onChange={(e) => setStullerLineState((prev) => prev.map((entry, entryIndex) => entryIndex === index ? { ...entry, unitCost: e.target.value } : entry))}
-                                inputProps={{ min: 0, step: 0.01 }}
-                                sx={{ width: 120 }}
-                              />
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                  <FinanceDataTable
+                    rows={stullerInvoice.items || []}
+                    getKey={(invoiceItem, index) => `${stullerInvoice.stullerInvoiceID}-${invoiceItem.lineNumber || invoiceItem.itemNumber || index}`}
+                    emptyMessage="No Stuller invoice lines to receive."
+                    columns={[
+                      {
+                        label: 'Use',
+                        render: (_invoiceItem, index) => {
+                          const line = stullerLineState[index];
+                          if (!line) return null;
+                          return (
+                            <Checkbox
+                              checked={line.selected}
+                              onChange={(e) => setStullerLineState((prev) => prev.map((entry, entryIndex) => entryIndex === index ? { ...entry, selected: e.target.checked } : entry))}
+                            />
+                          );
+                        },
+                      },
+                      { label: 'Item #', render: (invoiceItem) => invoiceItem.itemNumber || 'N/A' },
+                      { label: 'Description', render: (invoiceItem) => invoiceItem.itemDescription || 'N/A' },
+                      {
+                        label: 'Qty',
+                        render: (_invoiceItem, index) => {
+                          const line = stullerLineState[index];
+                          if (!line) return null;
+                          return (
+                            <TextField
+                              size="small"
+                              type="number"
+                              value={line.quantityReceived}
+                              onChange={(e) => setStullerLineState((prev) => prev.map((entry, entryIndex) => entryIndex === index ? { ...entry, quantityReceived: e.target.value } : entry))}
+                              inputProps={{ min: 0, step: 0.001 }}
+                              sx={{ width: { xs: 140, md: 100 } }}
+                            />
+                          );
+                        },
+                      },
+                      {
+                        label: 'Existing Item',
+                        render: (_invoiceItem, index) => {
+                          const line = stullerLineState[index];
+                          if (!line) return null;
+                          return (
+                            <TextField
+                              select
+                              size="small"
+                              value={line.inventoryItemID}
+                              onChange={(e) => setStullerLineState((prev) => prev.map((entry, entryIndex) => entryIndex === index ? { ...entry, inventoryItemID: e.target.value } : entry))}
+                              sx={{ minWidth: { xs: 160, md: 220 } }}
+                            >
+                              <MenuItem value="">Create new item</MenuItem>
+                              {inventoryItems.map((item) => (
+                                <MenuItem key={item.inventoryItemID} value={item.inventoryItemID}>
+                                  {item.name}
+                                </MenuItem>
+                              ))}
+                            </TextField>
+                          );
+                        },
+                      },
+                      {
+                        label: 'New Item Name',
+                        render: (_invoiceItem, index) => {
+                          const line = stullerLineState[index];
+                          if (!line) return null;
+                          return (
+                            <TextField
+                              size="small"
+                              value={line.createItemName}
+                              disabled={Boolean(line.inventoryItemID)}
+                              onChange={(e) => setStullerLineState((prev) => prev.map((entry, entryIndex) => entryIndex === index ? { ...entry, createItemName: e.target.value } : entry))}
+                              sx={{ minWidth: { xs: 160, md: 220 } }}
+                            />
+                          );
+                        },
+                      },
+                      {
+                        label: 'Unit Cost',
+                        render: (_invoiceItem, index) => {
+                          const line = stullerLineState[index];
+                          if (!line) return null;
+                          return (
+                            <TextField
+                              size="small"
+                              type="number"
+                              value={line.unitCost}
+                              onChange={(e) => setStullerLineState((prev) => prev.map((entry, entryIndex) => entryIndex === index ? { ...entry, unitCost: e.target.value } : entry))}
+                              inputProps={{ min: 0, step: 0.01 }}
+                              sx={{ width: { xs: 140, md: 120 } }}
+                            />
+                          );
+                        },
+                        align: 'right',
+                      },
+                    ]}
+                  />
                 </Stack>
               </CardContent>
             </Card>
@@ -751,33 +852,25 @@ export default function FinanceInventoryClient() {
           <Card variant="outlined">
             <CardContent>
               <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>Recent Transactions</Typography>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Date</TableCell>
-                    <TableCell>Item</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Source</TableCell>
-                    <TableCell>Reference</TableCell>
-                    <TableCell align="right">Quantity</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {transactions.slice(0, 12).map((tx) => {
-                    const item = inventoryItems.find((entry) => entry.inventoryItemID === tx.inventoryItemID);
-                    return (
-                      <TableRow key={tx.transactionID}>
-                        <TableCell>{formatDate(tx.effectiveDate, true)}</TableCell>
-                        <TableCell>{item?.name || tx.inventoryItemID}</TableCell>
-                        <TableCell>{tx.transactionType}</TableCell>
-                        <TableCell>{tx.sourceType}</TableCell>
-                        <TableCell>{tx.sourceReferenceID || 'N/A'}</TableCell>
-                        <TableCell align="right">{formatQuantity(tx.quantityDelta)}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              <FinanceDataTable
+                rows={transactions.slice(0, 12)}
+                getKey={(tx, index) => tx.transactionID || `${tx.inventoryItemID || 'tx'}-${index}`}
+                emptyMessage="No recent transactions yet."
+                columns={[
+                  { label: 'Date', render: (tx) => formatDate(tx.effectiveDate, true) },
+                  {
+                    label: 'Item',
+                    render: (tx) => {
+                      const item = inventoryItems.find((entry) => entry.inventoryItemID === tx.inventoryItemID);
+                      return getInventoryItemLabel(item, tx.inventoryItemID);
+                    },
+                  },
+                  { label: 'Type', render: (tx) => tx.transactionType },
+                  { label: 'Source', render: (tx) => tx.sourceType },
+                  { label: 'Reference', render: (tx) => tx.sourceReferenceID || 'N/A' },
+                  { label: 'Quantity', render: (tx) => formatQuantity(tx.quantityDelta), align: 'right' },
+                ]}
+              />
             </CardContent>
           </Card>
         </Stack>
@@ -831,31 +924,24 @@ export default function FinanceInventoryClient() {
           <Card variant="outlined">
             <CardContent>
               <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>Recent Usage</Typography>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Date</TableCell>
-                    <TableCell>Item</TableCell>
-                    <TableCell>Repair ID</TableCell>
-                    <TableCell>Notes</TableCell>
-                    <TableCell align="right">Quantity</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {transactions.filter((tx) => tx.transactionType === INVENTORY_TRANSACTION_TYPES.CONSUME).slice(0, 12).map((tx) => {
-                    const item = inventoryItems.find((entry) => entry.inventoryItemID === tx.inventoryItemID);
-                    return (
-                      <TableRow key={tx.transactionID}>
-                        <TableCell>{formatDate(tx.effectiveDate, true)}</TableCell>
-                        <TableCell>{item?.name || tx.inventoryItemID}</TableCell>
-                        <TableCell>{tx.sourceReferenceID || 'N/A'}</TableCell>
-                        <TableCell>{tx.notes || 'N/A'}</TableCell>
-                        <TableCell align="right">{formatQuantity(Math.abs(tx.quantityDelta))}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              <FinanceDataTable
+                rows={transactions.filter((tx) => tx.transactionType === INVENTORY_TRANSACTION_TYPES.CONSUME).slice(0, 12)}
+                getKey={(tx, index) => tx.transactionID || `${tx.inventoryItemID || 'usage'}-${index}`}
+                emptyMessage="No recent usage yet."
+                columns={[
+                  { label: 'Date', render: (tx) => formatDate(tx.effectiveDate, true) },
+                  {
+                    label: 'Item',
+                    render: (tx) => {
+                      const item = inventoryItems.find((entry) => entry.inventoryItemID === tx.inventoryItemID);
+                      return getInventoryItemLabel(item, tx.inventoryItemID);
+                    },
+                  },
+                  { label: 'Repair ID', render: (tx) => tx.sourceReferenceID || 'N/A' },
+                  { label: 'Notes', render: (tx) => tx.notes || 'N/A' },
+                  { label: 'Quantity', render: (tx) => formatQuantity(Math.abs(tx.quantityDelta)), align: 'right' },
+                ]}
+              />
             </CardContent>
           </Card>
         </Stack>
@@ -876,61 +962,43 @@ export default function FinanceInventoryClient() {
                   Generate Suggestions
                 </Button>
               </Stack>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Item</TableCell>
-                    <TableCell>On Hand</TableCell>
-                    <TableCell>Reorder Point</TableCell>
-                    <TableCell>Suggested Qty</TableCell>
-                    <TableCell>Vendor</TableCell>
-                    <TableCell>Reason</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {lowStock.map((item) => (
-                    <TableRow key={item.inventoryItemID}>
-                      <TableCell>{item.name}</TableCell>
-                      <TableCell>{formatQuantity(item.onHand)}</TableCell>
-                      <TableCell>{formatQuantity(item.reorderPoint)}</TableCell>
-                      <TableCell>{formatQuantity(item.suggestedQty)}</TableCell>
-                      <TableCell>{item.preferredVendor || 'N/A'}</TableCell>
-                      <TableCell>{item.lowStockReason}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <FinanceDataTable
+                rows={lowStock}
+                getKey={(item, index) => item.inventoryItemID || `${item.name || 'low-stock'}-${index}`}
+                emptyMessage="No low stock items."
+                columns={[
+                  { label: 'Item', render: (item) => getInventoryItemLabel(item) },
+                  { label: 'On Hand', render: (item) => formatQuantity(item.onHand), align: 'right' },
+                  { label: 'Reorder Point', render: (item) => formatQuantity(item.reorderPoint), align: 'right' },
+                  { label: 'Suggested Qty', render: (item) => formatQuantity(item.suggestedQty), align: 'right' },
+                  { label: 'Vendor', render: (item) => item.preferredVendor || 'N/A' },
+                  { label: 'Reason', render: (item) => item.lowStockReason },
+                ]}
+              />
             </CardContent>
           </Card>
 
           <Card variant="outlined">
             <CardContent>
               <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>Open Reorder Suggestions</Typography>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Created</TableCell>
-                    <TableCell>Item</TableCell>
-                    <TableCell>Suggested Qty</TableCell>
-                    <TableCell>Vendor Snapshot</TableCell>
-                    <TableCell>Status</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {suggestions.map((suggestion) => {
-                    const item = inventoryItems.find((entry) => entry.inventoryItemID === suggestion.inventoryItemID);
-                    return (
-                      <TableRow key={suggestion.suggestionID}>
-                        <TableCell>{formatDate(suggestion.createdAt, true)}</TableCell>
-                        <TableCell>{item?.name || suggestion.inventoryItemID}</TableCell>
-                        <TableCell>{formatQuantity(suggestion.suggestedQty)}</TableCell>
-                        <TableCell>{suggestion.vendorSnapshot?.preferredVendor || 'N/A'} {suggestion.vendorSnapshot?.vendorSku ? `(${suggestion.vendorSnapshot.vendorSku})` : ''}</TableCell>
-                        <TableCell>{suggestion.status}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              <FinanceDataTable
+                rows={suggestions}
+                getKey={(suggestion, index) => suggestion.suggestionID || `${suggestion.inventoryItemID || 'suggestion'}-${index}`}
+                emptyMessage="No open reorder suggestions."
+                columns={[
+                  { label: 'Created', render: (suggestion) => formatDate(suggestion.createdAt, true) },
+                  {
+                    label: 'Item',
+                    render: (suggestion) => {
+                      const item = inventoryItems.find((entry) => entry.inventoryItemID === suggestion.inventoryItemID);
+                      return getInventoryItemLabel(item, suggestion.inventoryItemID);
+                    },
+                  },
+                  { label: 'Suggested Qty', render: (suggestion) => formatQuantity(suggestion.suggestedQty), align: 'right' },
+                  { label: 'Vendor Snapshot', render: (suggestion) => `${suggestion.vendorSnapshot?.preferredVendor || 'N/A'} ${suggestion.vendorSnapshot?.vendorSku ? `(${suggestion.vendorSnapshot.vendorSku})` : ''}`.trim() },
+                  { label: 'Status', render: (suggestion) => suggestion.status },
+                ]}
+              />
             </CardContent>
           </Card>
         </Stack>

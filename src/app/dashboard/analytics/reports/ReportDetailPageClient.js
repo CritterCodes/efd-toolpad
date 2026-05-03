@@ -125,32 +125,84 @@ function SummaryCard({ label, value, note }) {
   );
 }
 
+function getReportCellValue(column, row) {
+  if (typeof column.render === 'function') return column.render(row);
+  if (typeof column.value === 'function') return column.value(row);
+  return row[column.value];
+}
+
+function renderReportCellValue(value) {
+  return value === null || value === undefined || value === '' ? 'N/A' : value;
+}
+
 function ReportTable({ columns, rows }) {
   return (
-    <Table size="small">
-      <TableHead>
-        <TableRow>
-          {columns.map((column) => (
-            <TableCell key={column.label} align={column.align || 'left'}>
-              {column.label}
-            </TableCell>
-          ))}
-        </TableRow>
-      </TableHead>
-      <TableBody>
-        {rows.map((row, index) => (
-          <TableRow key={row.id || row.invoiceID || row.repairID || row.batchID || row.userID || row.storeKey || index}>
-            {columns.map((column) => (
-              <TableCell key={column.label} align={column.align || 'left'}>
-                {typeof column.render === 'function'
-                  ? column.render(row)
-                  : (typeof column.value === 'function' ? column.value(row) : row[column.value])}
-              </TableCell>
-            ))}
-          </TableRow>
+    <>
+      <Stack spacing={1.25} sx={{ display: { xs: 'flex', md: 'none' } }}>
+        {rows.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">No rows for this period.</Typography>
+        ) : rows.map((row, index) => (
+          <Box
+            key={row.id || row.invoiceID || row.repairID || row.batchID || row.userID || row.storeKey || index}
+            sx={{
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 1,
+              p: 1.5,
+              bgcolor: 'background.default',
+            }}
+          >
+            <Stack spacing={1}>
+              {columns.map((column) => (
+                <Stack
+                  key={column.label}
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="flex-start"
+                  spacing={2}
+                >
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ textTransform: 'uppercase', letterSpacing: 0, flex: '0 0 42%' }}
+                  >
+                    {column.label}
+                  </Typography>
+                  <Box sx={{ flex: 1, minWidth: 0, textAlign: 'right', overflowWrap: 'anywhere' }}>
+                    {renderReportCellValue(getReportCellValue(column, row))}
+                  </Box>
+                </Stack>
+              ))}
+            </Stack>
+          </Box>
         ))}
-      </TableBody>
-    </Table>
+      </Stack>
+
+      <Box sx={{ display: { xs: 'none', md: 'block' }, overflowX: 'auto' }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              {columns.map((column) => (
+                <TableCell key={column.label} align={column.align || 'left'}>
+                  {column.label}
+                </TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {rows.map((row, index) => (
+              <TableRow key={row.id || row.invoiceID || row.repairID || row.batchID || row.userID || row.storeKey || index}>
+                {columns.map((column) => (
+                  <TableCell key={column.label} align={column.align || 'left'}>
+                    {getReportCellValue(column, row)}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Box>
+    </>
   );
 }
 

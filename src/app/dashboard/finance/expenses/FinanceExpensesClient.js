@@ -89,6 +89,91 @@ function SummaryCard({ label, value, note }) {
   );
 }
 
+function renderDataValue(value) {
+  return value === null || value === undefined || value === '' ? 'N/A' : value;
+}
+
+function FinanceDataTable({ columns, rows, getKey, emptyMessage = 'No rows yet.' }) {
+  const actionColumns = columns.filter((column) => column.label === 'Actions');
+  const dataColumns = columns.filter((column) => column.label !== 'Actions');
+
+  return (
+    <>
+      <Stack spacing={1.25} sx={{ display: { xs: 'flex', md: 'none' } }}>
+        {rows.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">{emptyMessage}</Typography>
+        ) : rows.map((row, index) => (
+          <Box
+            key={getKey?.(row, index) || index}
+            sx={{
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 1,
+              p: 1.5,
+              bgcolor: 'background.default',
+            }}
+          >
+            <Stack spacing={1}>
+              {actionColumns.length > 0 ? (
+                <Stack direction="row" justifyContent="flex-end" spacing={1}>
+                  {actionColumns.map((column) => (
+                    <Box key={column.label}>
+                      {renderDataValue(column.render(row, index))}
+                    </Box>
+                  ))}
+                </Stack>
+              ) : null}
+              {dataColumns.map((column) => (
+                <Stack
+                  key={column.label}
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="flex-start"
+                  spacing={2}
+                >
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ textTransform: 'uppercase', letterSpacing: 0, flex: '0 0 40%' }}
+                  >
+                    {column.label}
+                  </Typography>
+                  <Box sx={{ flex: 1, minWidth: 0, textAlign: 'right', overflowWrap: 'anywhere' }}>
+                    {renderDataValue(column.render(row, index))}
+                  </Box>
+                </Stack>
+              ))}
+            </Stack>
+          </Box>
+        ))}
+      </Stack>
+
+      <Box sx={{ display: { xs: 'none', md: 'block' }, overflowX: 'auto' }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              {columns.map((column) => (
+                <TableCell key={column.label} align={column.align || 'left'}>{column.label}</TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {rows.map((row, index) => (
+              <TableRow key={getKey?.(row, index) || index}>
+                {columns.map((column) => (
+                  <TableCell key={column.label} align={column.align || 'left'}>
+                    {renderDataValue(column.render(row, index))}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Box>
+    </>
+  );
+}
+
 function defaultExpenseForm() {
   return {
     expenseDate: formatDateInput(new Date()),
@@ -448,23 +533,15 @@ export default function FinanceExpensesClient() {
           <Card variant="outlined">
             <CardContent>
               <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>Expense Detail</Typography>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Actions</TableCell>
-                    <TableCell>Expense Date</TableCell>
-                    <TableCell>Vendor</TableCell>
-                    <TableCell>Category</TableCell>
-                    <TableCell>Source</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Deductible</TableCell>
-                    <TableCell align="right">Amount</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {(expenseReport?.rows || []).map((row) => (
-                    <TableRow key={row.expenseID}>
-                      <TableCell>
+              <FinanceDataTable
+                rows={expenseReport?.rows || []}
+                getKey={(row) => row.expenseID}
+                emptyMessage="No expenses in this period."
+                columns={[
+                  {
+                    label: 'Actions',
+                    render: (row) => (
+                      <Stack direction="row" justifyContent={{ xs: 'flex-end', md: 'flex-start' }}>
                         <IconButton size="small" onClick={() => {
                           setEditingExpenseID(row.expenseID);
                           setExpenseForm({
@@ -484,18 +561,18 @@ export default function FinanceExpensesClient() {
                         <IconButton size="small" color="error" onClick={() => handleDeleteExpense(row.expenseID)}>
                           <DeleteIcon fontSize="small" />
                         </IconButton>
-                      </TableCell>
-                      <TableCell>{formatDate(row.expenseDate, true)}</TableCell>
-                      <TableCell>{row.vendor}</TableCell>
-                      <TableCell>{row.category}</TableCell>
-                      <TableCell>{row.sourceType}</TableCell>
-                      <TableCell>{row.status}</TableCell>
-                      <TableCell>{row.isDeductible ? 'Yes' : 'No'}</TableCell>
-                      <TableCell align="right">{formatMoney(row.amount)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </Stack>
+                    ),
+                  },
+                  { label: 'Expense Date', render: (row) => formatDate(row.expenseDate, true) },
+                  { label: 'Vendor', render: (row) => row.vendor },
+                  { label: 'Category', render: (row) => row.category },
+                  { label: 'Source', render: (row) => row.sourceType },
+                  { label: 'Status', render: (row) => row.status },
+                  { label: 'Deductible', render: (row) => (row.isDeductible ? 'Yes' : 'No') },
+                  { label: 'Amount', render: (row) => formatMoney(row.amount), align: 'right' },
+                ]}
+              />
             </CardContent>
           </Card>
         </Stack>
@@ -586,22 +663,15 @@ export default function FinanceExpensesClient() {
           <Card variant="outlined">
             <CardContent>
               <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>Recurring Templates</Typography>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Actions</TableCell>
-                    <TableCell>Vendor</TableCell>
-                    <TableCell>Amount</TableCell>
-                    <TableCell>Frequency</TableCell>
-                    <TableCell>Next Occurrence</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Active</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {recurringExpenses.map((row) => (
-                    <TableRow key={row.recurringExpenseID}>
-                      <TableCell>
+              <FinanceDataTable
+                rows={recurringExpenses}
+                getKey={(row) => row.recurringExpenseID}
+                emptyMessage="No recurring templates yet."
+                columns={[
+                  {
+                    label: 'Actions',
+                    render: (row) => (
+                      <Stack direction="row" justifyContent={{ xs: 'flex-end', md: 'flex-start' }}>
                         <IconButton size="small" onClick={() => {
                           setEditingRecurringID(row.recurringExpenseID);
                           setRecurringForm({
@@ -625,17 +695,17 @@ export default function FinanceExpensesClient() {
                         <IconButton size="small" color="error" onClick={() => handleDeleteRecurring(row.recurringExpenseID)}>
                           <DeleteIcon fontSize="small" />
                         </IconButton>
-                      </TableCell>
-                      <TableCell>{row.vendor}</TableCell>
-                      <TableCell>{formatMoney(row.amount)}</TableCell>
-                      <TableCell>{row.frequency}</TableCell>
-                      <TableCell>{formatDate(row.nextOccurrenceDate)}</TableCell>
-                      <TableCell>{row.statusDefault}</TableCell>
-                      <TableCell>{row.active === false ? 'No' : 'Yes'}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </Stack>
+                    ),
+                  },
+                  { label: 'Vendor', render: (row) => row.vendor },
+                  { label: 'Amount', render: (row) => formatMoney(row.amount), align: 'right' },
+                  { label: 'Frequency', render: (row) => row.frequency },
+                  { label: 'Next Occurrence', render: (row) => formatDate(row.nextOccurrenceDate) },
+                  { label: 'Status', render: (row) => row.statusDefault },
+                  { label: 'Active', render: (row) => (row.active === false ? 'No' : 'Yes') },
+                ]}
+              />
             </CardContent>
           </Card>
         </Stack>
