@@ -23,6 +23,7 @@ import RingIcon from "@mui/icons-material/FiberSmartRecord";
 import BusinessIcon from "@mui/icons-material/Business";
 import DesignServicesIcon from "@mui/icons-material/DesignServices";
 import PaymentIcon from "@mui/icons-material/Payment";
+import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import PrintIcon from "@mui/icons-material/Print";
 import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
@@ -194,6 +195,33 @@ export const adminNavigation = {
       segment: 'dashboard/admin/affiliates',
       title: 'Affiliates',
       icon: <LinkIcon />
+    },
+    {
+      segment: 'dashboard/finance',
+      title: 'Finance',
+      icon: <AccountBalanceWalletIcon />,
+      children: [
+        {
+          segment: '',
+          title: 'Overview',
+          icon: <AccountBalanceWalletIcon />
+        },
+        {
+          segment: 'expenses',
+          title: 'Expenses',
+          icon: <ReceiptIcon />
+        },
+        {
+          segment: 'owner-draws',
+          title: 'Owner Draws',
+          icon: <PaymentIcon />
+        },
+        {
+          segment: 'tax-reserve',
+          title: 'Tax Reserve',
+          icon: <BarChartIcon />
+        }
+      ]
     },
     {
       segment: 'dashboard/analytics',
