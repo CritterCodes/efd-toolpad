@@ -31,6 +31,7 @@ import PaymentIcon from '@mui/icons-material/Payment';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { REPAIRS_UI } from '../components/repairsUi';
 import {
@@ -218,10 +219,16 @@ function OwnerDrawCard({ draw, onOpen }) {
   );
 }
 
-export default function RepairPayrollPage() {
+export default function RepairPayrollPage({ initialTab = 'queue' }) {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [tab, setTab] = useState('queue');
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams?.get('tab');
+  const [tab, setTab] = useState(
+    requestedTab === 'owner_draws' || requestedTab === 'history' || requestedTab === 'queue'
+      ? requestedTab
+      : initialTab
+  );
   const [loading, setLoading] = useState(true);
   const [queue, setQueue] = useState([]);
   const [history, setHistory] = useState([]);
@@ -243,6 +250,14 @@ export default function RepairPayrollPage() {
   const [ownerDrawDate, setOwnerDrawDate] = useState(() => new Date().toISOString().slice(0, 16));
 
   const currentWeekStart = useMemo(() => getMondayOfWeek(new Date()).toISOString(), []);
+
+  useEffect(() => {
+    if (requestedTab === 'owner_draws' || requestedTab === 'history' || requestedTab === 'queue') {
+      setTab(requestedTab);
+      return;
+    }
+    setTab(initialTab);
+  }, [initialTab, requestedTab]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);

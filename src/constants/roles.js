@@ -103,6 +103,18 @@ export const DASHBOARD_SECTIONS = {
     { id: 'artisans', label: 'Artisan Management', icon: '👥', url: '/dashboard/admin/artisans' },
     { id: 'notifications', label: 'Notifications', icon: '🔔', url: '/dashboard/admin/notifications', badge: 'count' },
     {
+      id: 'finance',
+      label: 'Finance',
+      icon: '💵',
+      url: '/dashboard/finance',
+      children: [
+        { id: 'finance-overview', label: 'Overview', icon: '•', url: '/dashboard/finance' },
+        { id: 'finance-expenses', label: 'Expenses', icon: '•', url: '/dashboard/finance/expenses' },
+        { id: 'finance-owner-draws', label: 'Owner Draws', icon: '•', url: '/dashboard/finance/owner-draws' },
+        { id: 'finance-tax-reserve', label: 'Tax Reserve', icon: '•', url: '/dashboard/finance/tax-reserve' }
+      ]
+    },
+    {
       id: 'analytics',
       label: 'Analytics',
       icon: '📈',

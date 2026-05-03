@@ -482,6 +482,9 @@ function buildReportConfig(reportSlug, summary, reports, actions = {}) {
       };
     case 'expenses':
       return {
+        infoAlerts: actions.managementMode ? [] : [
+          'Expense entry lives in Finance > Expenses. This report is read-only inside Analytics.',
+        ],
         summaryCards: [
           { label: 'Tracked Expenses', value: formatMoney(reports?.expenses?.summary?.total) },
           { label: 'Paid Expenses', value: formatMoney(reports?.expenses?.summary?.paid) },
@@ -517,7 +520,7 @@ function buildReportConfig(reportSlug, summary, reports, actions = {}) {
             title: 'Expense Detail',
             rows: reports?.expenses?.rows || [],
             columns: [
-              {
+              ...(actions.handleEditExpense && actions.handleDeleteExpense ? [{
                 label: 'Actions',
                 render: (row) => (
                   <>
@@ -529,7 +532,7 @@ function buildReportConfig(reportSlug, summary, reports, actions = {}) {
                     </IconButton>
                   </>
                 ),
-              },
+              }] : []),
               { label: 'Expense Date', render: (row) => formatDate(row.expenseDate, true) },
               { label: 'Paid At', render: (row) => formatDate(row.paidAt, true) },
               { label: 'Vendor', value: 'vendor' },
@@ -645,7 +648,13 @@ function buildReportConfig(reportSlug, summary, reports, actions = {}) {
   }
 }
 
-export default function ReportDetailPageClient({ reportSlug }) {
+export default function ReportDetailPageClient({
+  reportSlug,
+  backHref = '/dashboard/analytics/reports',
+  backLabel = 'Back to Reports',
+  managementMode = false,
+  extraActions = null,
+}) {
   const router = useRouter();
   const reportDefinition = getReportDefinition(reportSlug);
   const [dateRange, setDateRange] = React.useState('this_month');
@@ -782,10 +791,13 @@ export default function ReportDetailPageClient({ reportSlug }) {
 
   const reportConfig = React.useMemo(
     () => buildReportConfig(reportSlug, summary, reports, {
-      handleEditExpense,
-      handleDeleteExpense,
+      managementMode,
+      ...(managementMode ? {
+        handleEditExpense,
+        handleDeleteExpense,
+      } : {}),
     }),
-    [reportSlug, summary, reports, handleEditExpense, handleDeleteExpense]
+    [reportSlug, summary, reports, managementMode, handleEditExpense, handleDeleteExpense]
   );
 
   if (!reportDefinition) {
@@ -810,10 +822,10 @@ export default function ReportDetailPageClient({ reportSlug }) {
         <Box>
           <Button
             startIcon={<ArrowBackIcon />}
-            onClick={() => router.push('/dashboard/analytics/reports')}
+            onClick={() => router.push(backHref)}
             sx={{ mb: 1.5 }}
           >
-            Back to Reports
+            {backLabel}
           </Button>
           <Typography variant="h4" fontWeight="bold">{reportDefinition.title}</Typography>
           <Typography variant="body2" color="text.secondary">
@@ -822,6 +834,7 @@ export default function ReportDetailPageClient({ reportSlug }) {
         </Box>
 
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="flex-start">
+          {extraActions}
           <Button
             variant="outlined"
             startIcon={<PrintIcon />}
@@ -861,7 +874,7 @@ export default function ReportDetailPageClient({ reportSlug }) {
         <Alert severity="warning" sx={{ mb: 2 }} key={message}>{message}</Alert>
       ))}
 
-      {reportSlug === 'expenses' && (
+      {reportSlug === 'expenses' && managementMode && (
         <Card variant="outlined" sx={{ mb: 3 }}>
           <CardContent>
             <Stack spacing={2}>
@@ -1015,7 +1028,7 @@ export default function ReportDetailPageClient({ reportSlug }) {
             <CardContent>
               <Typography variant="h6" fontWeight={700}>{section.title}</Typography>
               <Divider sx={{ my: 2 }} />
-              {reportSlug === 'expenses' && section.title === 'Expense Detail' && (
+              {reportSlug === 'expenses' && managementMode && section.title === 'Expense Detail' && (
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                   Click an entry to edit or remove it.
                 </Typography>
