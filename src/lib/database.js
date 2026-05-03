@@ -139,6 +139,16 @@ class Database {
         return this._instance.collection(Constants.INVENTORY_COLLECTION);
     }
 
+    async dbInventoryTransactions() {
+        await this.connect();
+        return this._instance.collection(Constants.INVENTORY_TRANSACTIONS_COLLECTION);
+    }
+
+    async dbInventoryReorderSuggestions() {
+        await this.connect();
+        return this._instance.collection(Constants.INVENTORY_REORDER_SUGGESTIONS_COLLECTION);
+    }
+
     // Affiliate Collections
     async dbAffiliates() {
         await this.connect();

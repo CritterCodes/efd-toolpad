@@ -212,6 +212,11 @@ export const adminNavigation = {
           icon: <ReceiptIcon />
         },
         {
+          segment: 'inventory',
+          title: 'Inventory',
+          icon: <InventoryIcon />
+        },
+        {
           segment: '/dashboard/admin/stuller',
           title: 'Stuller',
           icon: <InventoryIcon />

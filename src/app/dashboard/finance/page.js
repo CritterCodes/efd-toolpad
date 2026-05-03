@@ -12,6 +12,11 @@ import Typography from '@mui/material/Typography';
 
 const FINANCE_SURFACES = [
   {
+    title: 'Inventory',
+    description: 'Track physical stock, receive materials, record repair consumption, and watch low-stock suggestions.',
+    href: '/dashboard/finance/inventory',
+  },
+  {
     title: 'Expenses',
     description: 'Record paid and planned business expenses and keep the tax reserve math honest.',
     href: '/dashboard/finance/expenses',

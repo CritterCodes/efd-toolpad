@@ -17,6 +17,8 @@ const Constants = {
     CONTACT_REQUESTS_COLLECTION: 'contactRequests',
     CUSTOM_TICKETS_COLLECTION: 'customTickets',
     INVENTORY_COLLECTION: 'inventory',
+    INVENTORY_TRANSACTIONS_COLLECTION: 'inventoryTransactions',
+    INVENTORY_REORDER_SUGGESTIONS_COLLECTION: 'inventoryReorderSuggestions',
     
     // Affiliate Collections
     AFFILIATES_COLLECTION: 'affiliates',

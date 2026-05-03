@@ -29,6 +29,7 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import Link from 'next/link';
 import { LoadingButton } from '@mui/lab';
 
 function formatMoney(value) {
@@ -590,6 +591,14 @@ export default function StullerSettingsPage() {
                         >
                           Create Expense
                         </LoadingButton>
+                        <Button
+                          component={Link}
+                          href={`/dashboard/finance/inventory?stullerInvoiceId=${encodeURIComponent(invoice.stullerInvoiceID)}`}
+                          variant="text"
+                          size="small"
+                        >
+                          Receive to Inventory
+                        </Button>
                         </Stack>
                       </TableCell>
                     </TableRow>
@@ -731,13 +740,22 @@ export default function StullerSettingsPage() {
         </DialogContent>
         <DialogActions>
           {selectedInvoice ? (
-            <LoadingButton
-              variant="outlined"
-              loading={creatingExpenseId === selectedInvoice.stullerInvoiceID}
-              onClick={() => createExpenseFromInvoice(selectedInvoice.stullerInvoiceID)}
-            >
-              Create Expense
-            </LoadingButton>
+            <Stack direction="row" spacing={1}>
+              <LoadingButton
+                variant="outlined"
+                loading={creatingExpenseId === selectedInvoice.stullerInvoiceID}
+                onClick={() => createExpenseFromInvoice(selectedInvoice.stullerInvoiceID)}
+              >
+                Create Expense
+              </LoadingButton>
+              <Button
+                component={Link}
+                href={`/dashboard/finance/inventory?stullerInvoiceId=${encodeURIComponent(selectedInvoice.stullerInvoiceID)}`}
+                variant="contained"
+              >
+                Receive to Inventory
+              </Button>
+            </Stack>
           ) : null}
           <Button onClick={() => setSelectedInvoice(null)}>Close</Button>
         </DialogActions>
