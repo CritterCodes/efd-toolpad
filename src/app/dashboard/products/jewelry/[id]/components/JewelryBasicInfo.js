@@ -6,7 +6,7 @@ import {
 
 export default function JewelryBasicInfo({ formData, handleInputChange }) {
     return (
-        <Paper sx={{ mb: 3, p: 3 }}>
+        <Paper sx={{ mb: 3, p: { xs: 2, sm: 3 } }}>
             <Typography variant="h6" gutterBottom>Product Details</Typography>
             <Grid container spacing={2}>
                 <Grid item xs={12}>
@@ -50,7 +50,7 @@ export default function JewelryBasicInfo({ formData, handleInputChange }) {
                                 placeholder="e.g. 6.5"
                             />
                         </Grid>
-                        <Grid item xs={12} sm={8} sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Grid item xs={12} sm={8} sx={{ display: 'flex', alignItems: 'center', minHeight: { sm: 56 } }}>
                             <FormControlLabel
                                 control={<Switch checked={formData.canBeSized} onChange={(e) => handleInputChange('canBeSized', e.target.checked)} />}
                                 label="Can be sized?"

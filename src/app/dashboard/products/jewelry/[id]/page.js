@@ -37,32 +37,50 @@ export default function JewelryEditorPage() {
     }
 
     return (
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: { xs: 1.5, sm: 2, md: 3 }, maxWidth: '100%', overflowX: 'hidden' }}>
             {/* Header */}
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                <IconButton onClick={() => router.push('/dashboard/products/jewelry')} sx={{ mr: 2 }}>
+            <Box
+                sx={{
+                    display: 'flex',
+                    alignItems: { xs: 'flex-start', sm: 'center' },
+                    flexDirection: { xs: 'column', sm: 'row' },
+                    gap: { xs: 2, sm: 0 },
+                    mb: 3,
+                }}
+            >
+                <IconButton
+                    onClick={() => router.push('/dashboard/products/jewelry')}
+                    sx={{ mr: { sm: 2 }, alignSelf: { xs: 'flex-start', sm: 'center' } }}
+                    aria-label="Back to jewelry products"
+                >
                     <ArrowBackIcon />
                 </IconButton>
-                <Box sx={{ flexGrow: 1 }}>
-                    <Typography variant="h4">
+                <Box sx={{ flexGrow: 1, minWidth: 0, width: { xs: '100%', sm: 'auto' } }}>
+                    <Typography variant="h4" sx={{ fontSize: { xs: '1.75rem', sm: '2.125rem' }, overflowWrap: 'anywhere' }}>
                         {isNew ? 'New Jewelry' : formData.title || 'Edit Jewelry'}
                     </Typography>
-                    <Breadcrumbs aria-label="breadcrumb">
+                    <Breadcrumbs aria-label="breadcrumb" sx={{ '& .MuiBreadcrumbs-ol': { flexWrap: 'wrap' } }}>
                         <Link color="inherit" href="/dashboard">Dashboard</Link>
                         <Link color="inherit" href="/dashboard/products/jewelry">Jewelry</Link>
                         <Typography color="text.primary">{isNew ? 'New' : 'Edit'}</Typography>
                     </Breadcrumbs>
                 </Box>
-                <Stack direction="row" spacing={2}>
+                <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1.5}
+                    sx={{ width: { xs: '100%', sm: 'auto' } }}
+                >
                     <Button
                         variant="outlined" startIcon={<DraftsIcon />}
                         onClick={() => handleSave('draft')} disabled={saving}
+                        fullWidth
                     >
                         Save Draft
                     </Button>
                     <Button
                         variant="contained" startIcon={<PublishIcon />}
                         onClick={() => handleSave('active')} disabled={saving}
+                        fullWidth
                     >
                         Publish
                     </Button>

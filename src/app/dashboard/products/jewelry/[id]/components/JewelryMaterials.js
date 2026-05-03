@@ -37,7 +37,7 @@ const MetalList = ({ metals, onChange }) => {
         <Box sx={{ mb: 3 }}>
             <Typography variant="subtitle1" gutterBottom>Metals Used</Typography>
             <Grid container spacing={2} sx={{ mb: 2 }}>
-                <Grid item xs={6}>
+                <Grid item xs={12} sm={6}>
                     <FormControl fullWidth size="small">
                         <InputLabel>Metal Type</InputLabel>
                         <Select
@@ -50,7 +50,7 @@ const MetalList = ({ metals, onChange }) => {
                         </Select>
                     </FormControl>
                 </Grid>
-                <Grid item xs={4}>
+                <Grid item xs={12} sm={4}>
                     {selectedMetalType?.karatOptions?.length > 0 ? (
                         <FormControl fullWidth size="small">
                             <InputLabel>Purity</InputLabel>
@@ -72,14 +72,34 @@ const MetalList = ({ metals, onChange }) => {
                         />
                     )}
                 </Grid>
-                <Grid item xs={2}>
-                    <Button variant="contained" onClick={handleAdd} fullWidth disabled={!newMetal.type}>Add</Button>
+                <Grid item xs={12} sm={2}>
+                    <Button
+                        variant="contained"
+                        onClick={handleAdd}
+                        fullWidth
+                        disabled={!newMetal.type}
+                        sx={{ minHeight: 40 }}
+                    >
+                        Add
+                    </Button>
                 </Grid>
             </Grid>
             <List dense>
                 {metals.map((metal, index) => (
-                    <ListItem key={index} sx={{ bgcolor: 'background.paper', mb: 1, borderRadius: 1, border: '1px solid #eee' }}>
-                        <ListItemText primary={`${metal.purity || ''} ${METAL_TYPES.find(m => m.value === metal.type)?.label || metal.type}`} />
+                    <ListItem
+                        key={index}
+                        sx={{
+                            bgcolor: 'background.paper',
+                            mb: 1,
+                            borderRadius: 1,
+                            border: '1px solid #eee',
+                            pr: 7,
+                        }}
+                    >
+                        <ListItemText
+                            primary={`${metal.purity || ''} ${METAL_TYPES.find(m => m.value === metal.type)?.label || metal.type}`}
+                            primaryTypographyProps={{ sx: { overflowWrap: 'anywhere' } }}
+                        />
                         <ListItemSecondaryAction>
                             <IconButton edge="end" size="small" onClick={() => onChange(metals.filter((_, i) => i !== index))}>
                                 <DeleteIcon />
@@ -106,26 +126,40 @@ const StoneList = ({ title, stones, onChange }) => {
         <Box sx={{ mb: 3 }}>
             <Typography variant="subtitle1" gutterBottom>{title}</Typography>
             <Grid container spacing={2} sx={{ mb: 2 }}>
-                <Grid item xs={3}>
+                <Grid item xs={12} sm={6} md={3}>
                     <TextField label="Type" size="small" fullWidth value={newStone.type} onChange={(e) => setNewStone({ ...newStone, type: e.target.value })} placeholder="e.g. Diamond" />
                 </Grid>
-                <Grid item xs={2}>
+                <Grid item xs={6} sm={3} md={2}>
                     <TextField label="Count" size="small" fullWidth type="number" value={newStone.count} onChange={(e) => setNewStone({ ...newStone, count: e.target.value })} />
                 </Grid>
-                <Grid item xs={3}>
+                <Grid item xs={6} sm={3} md={3}>
                     <TextField label="Size (mm)" size="small" fullWidth value={newStone.size} onChange={(e) => setNewStone({ ...newStone, size: e.target.value })} />
                 </Grid>
-                <Grid item xs={2}>
+                <Grid item xs={12} sm={6} md={2}>
                     <TextField label="Weight (ct)" size="small" fullWidth value={newStone.weight} onChange={(e) => setNewStone({ ...newStone, weight: e.target.value })} />
                 </Grid>
-                <Grid item xs={2}>
-                    <Button variant="contained" onClick={handleAdd} fullWidth>Add</Button>
+                <Grid item xs={12} sm={6} md={2}>
+                    <Button variant="contained" onClick={handleAdd} fullWidth sx={{ minHeight: 40 }}>Add</Button>
                 </Grid>
             </Grid>
             <List dense>
                 {stones.map((stone, index) => (
-                    <ListItem key={index} sx={{ bgcolor: 'background.paper', mb: 1, borderRadius: 1, border: '1px solid #eee' }}>
-                        <ListItemText primary={stone.type} secondary={`${stone.count} pcs | ${stone.size} | ${stone.weight} ct`} />
+                    <ListItem
+                        key={index}
+                        sx={{
+                            bgcolor: 'background.paper',
+                            mb: 1,
+                            borderRadius: 1,
+                            border: '1px solid #eee',
+                            pr: 7,
+                        }}
+                    >
+                        <ListItemText
+                            primary={stone.type}
+                            secondary={`${stone.count} pcs | ${stone.size} | ${stone.weight} ct`}
+                            primaryTypographyProps={{ sx: { overflowWrap: 'anywhere' } }}
+                            secondaryTypographyProps={{ sx: { overflowWrap: 'anywhere' } }}
+                        />
                         <ListItemSecondaryAction>
                             <IconButton edge="end" size="small" onClick={() => onChange(stones.filter((_, i) => i !== index))}>
                                 <DeleteIcon />
@@ -140,7 +174,7 @@ const StoneList = ({ title, stones, onChange }) => {
 
 export default function JewelryMaterials({ formData, handleInputChange, availableGemstones }) {
     return (
-        <Paper sx={{ mb: 3, p: 3 }}>
+        <Paper sx={{ mb: 3, p: { xs: 2, sm: 3 } }}>
             <Typography variant="h6" gutterBottom>Materials & Stones</Typography>
             <MetalList metals={formData.metals} onChange={(val) => handleInputChange('metals', val)} />
             <Divider sx={{ my: 3 }} />

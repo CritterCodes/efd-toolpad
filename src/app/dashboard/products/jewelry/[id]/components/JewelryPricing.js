@@ -36,7 +36,7 @@ export default function JewelryPricing({ stlFile, pricingData, onChange, metalPr
 
     return (
         <Card variant="outlined" sx={{ mb: 3, border: '1px solid #90caf9' }}>
-            <CardContent>
+            <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                     <PriceIcon color="primary" />
                     <Typography variant="h6">Dynamic Pricing (COG)</Typography>
@@ -71,7 +71,14 @@ export default function JewelryPricing({ stlFile, pricingData, onChange, metalPr
 
                     <Grid item xs={12}>
                         <Typography variant="subtitle2" gutterBottom>Select Available Metals:</Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+                        <Box
+                            sx={{
+                                display: 'grid',
+                                gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' },
+                                gap: { xs: 1, sm: 2 },
+                                mb: 2,
+                            }}
+                        >
                             {getAllMetalOptions().map((metalOption) => (
                                 <FormControlLabel
                                     key={metalOption.key}
@@ -102,12 +109,12 @@ export default function JewelryPricing({ stlFile, pricingData, onChange, metalPr
                                                 <Typography variant="subtitle2" color="primary" gutterBottom>{metalMeta.label}</Typography>
                                                 <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 0.5, fontSize: '0.8rem' }}>
                                                     <Typography color="text.secondary">Weight:</Typography>
-                                                    <Typography>{mWeight.toFixed(2)}g</Typography>
+                                                    <Typography sx={{ textAlign: 'right' }}>{mWeight.toFixed(2)}g</Typography>
                                                     <Typography color="text.secondary">Metal Cost:</Typography>
-                                                    <Typography>${mCost.toFixed(2)}</Typography>
+                                                    <Typography sx={{ textAlign: 'right' }}>${mCost.toFixed(2)}</Typography>
                                                     <Divider sx={{ gridColumn: '1/-1', my: 0.5 }} />
                                                     <Typography fontWeight="bold">Total COG:</Typography>
-                                                    <Typography fontWeight="bold">${totalCost.toFixed(2)}</Typography>
+                                                    <Typography fontWeight="bold" sx={{ textAlign: 'right' }}>${totalCost.toFixed(2)}</Typography>
                                                 </Box>
                                             </Card>
                                         </Grid>

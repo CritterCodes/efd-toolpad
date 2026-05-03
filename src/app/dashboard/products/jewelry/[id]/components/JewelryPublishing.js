@@ -7,7 +7,7 @@ import { Save as SaveIcon } from '@mui/icons-material';
 export default function JewelryPublishing({ formData, handleInputChange, handleSave, saving }) {
     return (
         <Card sx={{ mb: 3 }}>
-            <CardContent>
+            <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
                 <Typography variant="h6" gutterBottom>Publishing</Typography>
                 <FormControl fullWidth sx={{ mb: 2 }}>
                     <InputLabel>Classification</InputLabel>
