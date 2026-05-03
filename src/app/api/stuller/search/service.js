@@ -1,5 +1,5 @@
-import { db } from '@/lib/database';
-import { decryptSensitiveData, isDataEncrypted } from '@/utils/encryption';
+import { stullerRequest } from '@/services/stuller/stullerClient';
+import { normalizeStullerProductResponse } from '@/services/stuller/stullerMappers';
 
 export default class StullerSearchService {
   static normalizeSearchItem(item = {}) {
@@ -80,60 +80,20 @@ export default class StullerSearchService {
       throw err;
     }
 
-    // Get Stuller credentials from admin settings
-    await db.connect();
-    const adminSettings = await db._instance
-      .collection('adminSettings')
-      .findOne({ _id: 'repair_task_admin_settings' });
+    const data = await stullerRequest('/v2/products', {
+      method: 'GET',
+      query: { search: query.trim(), pageSize: 25 },
+    });
+    const rawItems = Array.isArray(data?.products || data?.items || data)
+      ? (data?.products || data?.items || data)
+      : [];
 
-    const stullerConfig = adminSettings?.stuller;
+    const normalized = rawItems
+      .map((item) => normalizeStullerProductResponse(item))
+      .filter(Boolean)
+      .map((item) => StullerSearchService.normalizeSearchItem(item));
 
-    // If Stuller is not configured, return mock results for dev
-    if (!stullerConfig?.enabled || !stullerConfig?.username || !stullerConfig?.password) {
-      return StullerSearchService.getMockResults(query);
-    }
-
-    let decryptedPassword = stullerConfig.password;
-    if (isDataEncrypted(stullerConfig.password)) {
-      try {
-        decryptedPassword = decryptSensitiveData(stullerConfig.password);
-      } catch (error) {
-        console.error('Failed to decrypt Stuller password:', error);
-        return StullerSearchService.getMockResults(query);
-      }
-    }
-
-    const stullerApiUrl = stullerConfig.apiUrl || 'https://api.stuller.com';
-    const credentials = Buffer.from(`${stullerConfig.username}:${decryptedPassword}`).toString('base64');
-    const encodedQuery = encodeURIComponent(query.trim());
-
-    try {
-      const response = await fetch(
-        `${stullerApiUrl}/v2/products?search=${encodedQuery}&pageSize=25`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Basic ${credentials}`,
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      if (!response.ok) {
-        console.warn(`Stuller search failed (${response.status}), falling back to mock`);
-        return StullerSearchService.getMockResults(query);
-      }
-
-      const data = await response.json();
-      const items = Array.isArray(data?.products || data?.items || data) ? (data?.products || data?.items || data) : [];
-
-      const normalized = items.map(item => StullerSearchService.normalizeSearchItem(item));
-      return StullerSearchService.groupByProductFamily(normalized);
-    } catch (error) {
-      console.error('Stuller API search error:', error);
-      return StullerSearchService.getMockResults(query);
-    }
+    return StullerSearchService.groupByProductFamily(normalized);
   }
 
   static getMockResults(query = '') {

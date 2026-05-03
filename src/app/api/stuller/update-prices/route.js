@@ -2,38 +2,20 @@ import { NextResponse } from 'next/server';
 import { auth } from "@/lib/auth";
 import { db } from '@/lib/database';
 import Constants from '@/lib/constants';
-import { decryptSensitiveData, isDataEncrypted } from '@/utils/encryption';
+import { normalizeStullerProductResponse } from '@/services/stuller/stullerMappers';
+import { stullerRequest } from '@/services/stuller/stullerClient';
 
 /**
  * Fetch a price field flexibly from a Stuller product response.
  */
 function getFetchedPrice(stullerData) {
   return parseFloat(
+    stullerData?.Price?.Value ??
     stullerData?.pricing?.retail ??
     stullerData?.price ??
     stullerData?.data?.pricing?.retail ??
     0
   ) || 0;
-}
-
-function getStullerProduct(stullerPayload) {
-  if (Array.isArray(stullerPayload)) {
-    return stullerPayload[0] || null;
-  }
-
-  if (Array.isArray(stullerPayload?.products)) {
-    return stullerPayload.products[0] || null;
-  }
-
-  if (Array.isArray(stullerPayload?.Products)) {
-    return stullerPayload.Products[0] || null;
-  }
-
-  if (Array.isArray(stullerPayload?.items)) {
-    return stullerPayload.items[0] || null;
-  }
-
-  return stullerPayload || null;
 }
 
 function getItemNumber(product, material) {
@@ -72,28 +54,6 @@ export async function POST(request) {
       });
     }
 
-    const { username, password, apiUrl } = adminSettings.stuller;
-
-    if (!username || !password) {
-      return NextResponse.json(
-        { error: 'Stuller credentials not configured' },
-        { status: 500 }
-      );
-    }
-
-    let decryptedPassword = password;
-    if (isDataEncrypted(password)) {
-      try {
-        decryptedPassword = decryptSensitiveData(password);
-      } catch (err) {
-        console.error('Failed to decrypt Stuller password:', err);
-        return NextResponse.json(
-          { error: 'Failed to decrypt credentials' },
-          { status: 500 }
-        );
-      }
-    }
-
     const materialsCol = db._instance.collection(Constants.MATERIALS_COLLECTION);
     const legacyMaterialsCol = db._instance.collection('repairMaterials');
 
@@ -121,15 +81,6 @@ export async function POST(request) {
         updated: 0,
       });
     }
-
-    const stullerApiUrl = apiUrl || 'https://api.stuller.com';
-    const authHeader = `Basic ${Buffer.from(`${username}:${decryptedPassword}`).toString('base64')}`;
-    const fetchHeaders = {
-      Authorization: authHeader,
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      'User-Agent': 'EFD-CRM/1.0',
-    };
 
     let updated = 0;
     let variantsUpdated = 0;
@@ -170,20 +121,11 @@ export async function POST(request) {
             continue;
           }
 
-          const encodedSku = encodeURIComponent(itemNumber);
-          const res = await fetch(
-            `${stullerApiUrl}/v2/products?SKU=${encodedSku}`,
-            { method: 'GET', headers: fetchHeaders }
-          );
-
-          if (!res.ok) {
-            errors.push(`Failed to fetch ${itemNumber}: ${res.status}`);
-            updatedProducts.push(product);
-            continue;
-          }
-
-          const stullerPayload = await res.json();
-          const stullerData = getStullerProduct(stullerPayload);
+          const stullerPayload = await stullerRequest('/v2/products', {
+            method: 'GET',
+            query: { SKU: itemNumber },
+          });
+          const stullerData = normalizeStullerProductResponse(stullerPayload);
           const newPrice = getFetchedPrice(stullerData);
           if (!newPrice) {
             updatedProducts.push(product);
@@ -234,19 +176,11 @@ export async function POST(request) {
 
         if (!force && hoursSince < 24) continue;
 
-        const encodedSku = encodeURIComponent(material.stuller_item_number);
-        const res = await fetch(
-          `${stullerApiUrl}/v2/products?SKU=${encodedSku}`,
-          { method: 'GET', headers: fetchHeaders }
-        );
-
-        if (!res.ok) {
-          errors.push(`Failed to fetch legacy ${material.stuller_item_number}: ${res.status}`);
-          continue;
-        }
-
-        const stullerPayload = await res.json();
-        const stullerData = getStullerProduct(stullerPayload);
+        const stullerPayload = await stullerRequest('/v2/products', {
+          method: 'GET',
+          query: { SKU: material.stuller_item_number },
+        });
+        const stullerData = normalizeStullerProductResponse(stullerPayload);
         const newPrice = getFetchedPrice(stullerData);
 
         if (!newPrice) continue;

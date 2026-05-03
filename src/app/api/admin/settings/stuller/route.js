@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from "@/lib/auth";
 import { db } from '@/lib/database';
+import { testStullerConnectionWithConfig } from '@/services/stuller/stullerClient';
 import { 
   encryptSensitiveData, 
   decryptSensitiveData, 
@@ -191,43 +192,17 @@ export async function PUT(request) {
       }
     }
 
-    // Test connection to Stuller API
-    // Based on typical Stuller API patterns, they usually use Basic Auth
-    const testUrl = `${apiUrl || 'https://api.stuller.com'}/api/products`;
-    
     try {
-      const response = await fetch(testUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Basic ${Buffer.from(`${username}:${testPassword}`).toString('base64')}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'User-Agent': 'EFD-CRM/1.0'
-        }
+      await testStullerConnectionWithConfig({
+        username,
+        password: testPassword,
+        apiUrl: apiUrl || 'https://api.stuller.com',
       });
 
-      if (response.ok) {
-        return NextResponse.json({
-          success: true,
-          message: 'Stuller API connection successful'
-        });
-      } else if (response.status === 401) {
-        return NextResponse.json({
-          success: false,
-          error: 'Invalid Stuller credentials'
-        });
-      } else if (response.status === 404) {
-        // 404 might be OK if the test endpoint doesn't exist but auth worked
-        return NextResponse.json({
-          success: true,
-          message: 'Stuller API connection successful (credentials valid)'
-        });
-      } else {
-        return NextResponse.json({
-          success: false,
-          error: `Stuller API error: ${response.status} ${response.statusText}`
-        });
-      }
+      return NextResponse.json({
+        success: true,
+        message: 'Stuller API connection successful'
+      });
     } catch (fetchError) {
       return NextResponse.json({
         success: false,

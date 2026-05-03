@@ -30,6 +30,8 @@ export default class BusinessExpensesModel {
       isDeductible: data.isDeductible !== false,
       sourceType: data.sourceType || RECURRING_EXPENSE_SOURCE_TYPE.MANUAL,
       sourceRecurringExpenseID: data.sourceRecurringExpenseID || '',
+      sourceReferenceType: data.sourceReferenceType || '',
+      sourceReferenceID: data.sourceReferenceID || '',
       generatedAt: data.generatedAt ? new Date(data.generatedAt) : null,
       createdBy: data.createdBy || '',
       createdAt: now,
@@ -79,6 +81,8 @@ export default class BusinessExpensesModel {
                 : null),
           sourceType: updateData.sourceType ?? undefined,
           sourceRecurringExpenseID: updateData.sourceRecurringExpenseID ?? undefined,
+          sourceReferenceType: updateData.sourceReferenceType ?? undefined,
+          sourceReferenceID: updateData.sourceReferenceID ?? undefined,
           generatedAt: updateData.generatedAt ? new Date(updateData.generatedAt) : updateData.generatedAt,
           updatedAt: new Date(),
         },
@@ -108,6 +112,17 @@ export default class BusinessExpensesModel {
         sourceType: RECURRING_EXPENSE_SOURCE_TYPE.RECURRING,
         sourceRecurringExpenseID,
         expenseDate: new Date(expenseDate),
+      },
+      { projection: { _id: 0 } }
+    );
+  }
+
+  static async findBySourceReference(sourceReferenceType, sourceReferenceID) {
+    const dbInstance = await db.connect();
+    return await dbInstance.collection(this.COLLECTION).findOne(
+      {
+        sourceReferenceType,
+        sourceReferenceID,
       },
       { projection: { _id: 0 } }
     );
