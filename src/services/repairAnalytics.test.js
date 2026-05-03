@@ -306,7 +306,11 @@ describe('repairAnalytics', () => {
       ],
       expenses: [
         { expenseID: 'exp-1', vendor: 'Rent', category: 'Rent', amount: 20, expenseDate: '2026-05-15T12:00:00.000Z', paidAt: '2026-05-15T12:00:00.000Z', paymentMethod: 'bank_transfer', status: 'paid', isDeductible: true },
-        { expenseID: 'exp-2', vendor: 'Parking', category: 'Travel / Vehicle', amount: 5, expenseDate: '2026-05-16T12:00:00.000Z', paymentMethod: 'cash', status: 'planned', isDeductible: false },
+        { expenseID: 'exp-2', vendor: 'Shopify', category: 'Software', amount: 12, expenseDate: '2026-05-16T12:00:00.000Z', paymentMethod: 'bank_transfer', status: 'scheduled', isDeductible: true, sourceType: 'recurring' },
+        { expenseID: 'exp-3', vendor: 'Parking', category: 'Travel / Vehicle', amount: 5, expenseDate: '2026-05-17T12:00:00.000Z', paymentMethod: 'cash', status: 'planned', isDeductible: false },
+      ],
+      recurringExpenses: [
+        { recurringExpenseID: 'rexp-1', nextOccurrenceDate: '2026-05-16T12:00:00.000Z', active: true },
       ],
       usersById: new Map([
         ['user-1', { userID: 'user-1', compensationProfile: { isOwnerOperator: false } }],
@@ -324,12 +328,16 @@ describe('repairAnalytics', () => {
       trackedExpenses: 20,
       deductibleExpenses: 20,
       nonDeductibleExpenses: 0,
-      unpaidTrackedExpenses: 5,
+      scheduledCommittedExpenses: 12,
+      plannedExpenses: 5,
       ownerDraws: 25,
       estimatedTaxableProfit: 95,
       recommendedFederalReserve: 28.5,
       spendableCash: 61.5,
+      safeToSpendAfterScheduled: 49.5,
       cashAfterOwnerDraws: 36.5,
+      recurringTemplateCount: 1,
+      recurringScheduledDueSoon: 1,
     });
   });
 
@@ -337,18 +345,27 @@ describe('repairAnalytics', () => {
     const window = getAnalyticsDateWindow('this_month', new Date('2026-05-20T12:00:00.000Z'));
     const report = buildExpenseReport([
       { expenseID: 'exp-1', expenseDate: '2026-05-02T12:00:00.000Z', paidAt: '2026-05-02T12:00:00.000Z', vendor: 'Adobe', category: 'Software', amount: 50, paymentMethod: 'credit_card', status: 'paid', isDeductible: true },
-      { expenseID: 'exp-2', expenseDate: '2026-05-03T12:00:00.000Z', vendor: 'Post Office', category: 'Shipping', amount: 15, paymentMethod: 'cash', status: 'planned', isDeductible: true },
-      { expenseID: 'exp-3', expenseDate: '2026-05-04T12:00:00.000Z', paidAt: '2026-05-04T12:00:00.000Z', vendor: 'Parking', category: 'Travel / Vehicle', amount: 8, paymentMethod: 'cash', status: 'paid', isDeductible: false },
+      { expenseID: 'exp-2', expenseDate: '2026-05-03T12:00:00.000Z', vendor: 'Insurance', category: 'Insurance', amount: 20, paymentMethod: 'bank_transfer', status: 'scheduled', isDeductible: true, sourceType: 'recurring' },
+      { expenseID: 'exp-3', expenseDate: '2026-05-04T12:00:00.000Z', vendor: 'Post Office', category: 'Shipping', amount: 15, paymentMethod: 'cash', status: 'planned', isDeductible: true },
+      { expenseID: 'exp-4', expenseDate: '2026-05-05T12:00:00.000Z', paidAt: '2026-05-05T12:00:00.000Z', vendor: 'Parking', category: 'Travel / Vehicle', amount: 8, paymentMethod: 'cash', status: 'paid', isDeductible: false },
       { expenseID: 'exp-old', expenseDate: '2026-04-03T12:00:00.000Z', vendor: 'Old', category: 'Software', amount: 999, paymentMethod: 'cash', isDeductible: true },
-    ], window);
+    ], window, [
+      { recurringExpenseID: 'rexp-1', active: true },
+      { recurringExpenseID: 'rexp-2', active: false },
+    ]);
 
     expect(report.summary).toMatchObject({
-      total: 73,
+      total: 93,
       paid: 58,
+      scheduled: 20,
       planned: 15,
-      deductible: 65,
+      deductible: 85,
       nonDeductible: 8,
-      count: 3,
+      count: 4,
+      recurring: 1,
+      manual: 3,
+      recurringTemplateCount: 2,
+      activeRecurringTemplateCount: 1,
     });
     expect(report.categories[0]).toMatchObject({
       category: 'Software',

@@ -26,6 +26,7 @@ export const BUSINESS_EXPENSE_PAYMENT_METHODS = [
 
 export const BUSINESS_EXPENSE_STATUS = {
   PAID: 'paid',
+  SCHEDULED: 'scheduled',
   PLANNED: 'planned',
 };
 
@@ -34,7 +35,11 @@ export function normalizeBusinessExpenseCategory(category = '') {
 }
 
 export function normalizeBusinessExpenseStatus(status = '') {
-  return status === BUSINESS_EXPENSE_STATUS.PLANNED
-    ? BUSINESS_EXPENSE_STATUS.PLANNED
-    : BUSINESS_EXPENSE_STATUS.PAID;
+  if (status === BUSINESS_EXPENSE_STATUS.SCHEDULED) {
+    return BUSINESS_EXPENSE_STATUS.SCHEDULED;
+  }
+  if (status === BUSINESS_EXPENSE_STATUS.PLANNED) {
+    return BUSINESS_EXPENSE_STATUS.PLANNED;
+  }
+  return BUSINESS_EXPENSE_STATUS.PAID;
 }

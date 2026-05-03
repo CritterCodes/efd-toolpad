@@ -1,14 +1,7 @@
 "use client";
 
-import ReportDetailPageClient from '@/app/dashboard/analytics/reports/ReportDetailPageClient';
+import FinanceExpensesClient from './FinanceExpensesClient';
 
 export default function FinanceExpensesPage() {
-  return (
-    <ReportDetailPageClient
-      reportSlug="expenses"
-      backHref="/dashboard/finance"
-      backLabel="Back to Finance"
-      managementMode
-    />
-  );
+  return <FinanceExpensesClient />;
 }

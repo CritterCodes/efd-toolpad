@@ -5,6 +5,7 @@ import {
   normalizeBusinessExpenseCategory,
   normalizeBusinessExpenseStatus,
 } from '@/services/businessExpenses';
+import { RECURRING_EXPENSE_SOURCE_TYPE } from '@/services/recurringBusinessExpenses';
 
 export default class BusinessExpensesModel {
   static COLLECTION = 'businessExpenses';
@@ -27,6 +28,9 @@ export default class BusinessExpensesModel {
             : null),
       notes: data.notes || '',
       isDeductible: data.isDeductible !== false,
+      sourceType: data.sourceType || RECURRING_EXPENSE_SOURCE_TYPE.MANUAL,
+      sourceRecurringExpenseID: data.sourceRecurringExpenseID || '',
+      generatedAt: data.generatedAt ? new Date(data.generatedAt) : null,
       createdBy: data.createdBy || '',
       createdAt: now,
       updatedAt: now,
@@ -73,6 +77,9 @@ export default class BusinessExpensesModel {
             : (normalizeBusinessExpenseStatus(updateData.status) === BUSINESS_EXPENSE_STATUS.PAID
                 ? (updateData.expenseDate ? new Date(updateData.expenseDate) : undefined)
                 : null),
+          sourceType: updateData.sourceType ?? undefined,
+          sourceRecurringExpenseID: updateData.sourceRecurringExpenseID ?? undefined,
+          generatedAt: updateData.generatedAt ? new Date(updateData.generatedAt) : updateData.generatedAt,
           updatedAt: new Date(),
         },
       }
@@ -92,5 +99,17 @@ export default class BusinessExpensesModel {
     if (result.deletedCount === 0) {
       throw new Error('Business expense not found.');
     }
+  }
+
+  static async findRecurringOccurrence(sourceRecurringExpenseID, expenseDate) {
+    const dbInstance = await db.connect();
+    return await dbInstance.collection(this.COLLECTION).findOne(
+      {
+        sourceType: RECURRING_EXPENSE_SOURCE_TYPE.RECURRING,
+        sourceRecurringExpenseID,
+        expenseDate: new Date(expenseDate),
+      },
+      { projection: { _id: 0 } }
+    );
   }
 }

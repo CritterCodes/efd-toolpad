@@ -3,6 +3,7 @@ import RepairPayrollBatchesModel from '@/app/api/repairPayrollBatches/model';
 import RepairLaborLogsModel from '@/app/api/repairLaborLogs/model';
 import OwnerDrawsModel from '@/app/api/ownerDraws/model';
 import BusinessExpensesModel from '@/app/api/businessExpenses/model';
+import RecurringBusinessExpensesModel from '@/app/api/recurringBusinessExpenses/model';
 import { getAnalyticsBaselineSettings } from '@/services/analyticsBaseline';
 import {
   buildAccountsReceivableReport,
@@ -55,7 +56,7 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
   const baseline = getAnalyticsBaselineSettings(settings);
   const window = getAnalyticsDateWindow(dateRange);
 
-  const [repairs, invoices, laborLogs, payrollBatches, ownerDraws, expenses, pendingReviewLogs] = await Promise.all([
+  const [repairs, invoices, laborLogs, payrollBatches, ownerDraws, expenses, recurringExpenses, pendingReviewLogs] = await Promise.all([
     dbInstance.collection('repairs').find({}).project({ _id: 0 }).toArray(),
     dbInstance.collection('repairInvoices').find({}).project({ _id: 0 }).toArray(),
     dbInstance.collection('repairLaborLogs').find({
@@ -64,6 +65,7 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
     RepairPayrollBatchesModel.list({}),
     OwnerDrawsModel.list({}),
     BusinessExpensesModel.list({}),
+    RecurringBusinessExpensesModel.list({}),
     getPendingReviewLogs(),
   ]);
 
@@ -111,11 +113,12 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
       payrollBatches,
       ownerDraws,
       expenses,
+      recurringExpenses,
       usersById,
       window,
       federalTaxReserveRate: baseline.federalTaxReserveRate,
     }),
-    expenses: buildExpenseReport(expenses, window),
+    expenses: buildExpenseReport(expenses, window, recurringExpenses),
     payroll: buildPayrollReport({
       payrollBatches,
       usersById,

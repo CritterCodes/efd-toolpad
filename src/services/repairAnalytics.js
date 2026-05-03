@@ -1,5 +1,6 @@
 import { resolveRepairAnalyticsOrigin, ANALYTICS_ORIGIN } from '@/services/analyticsBaseline';
 import { BUSINESS_EXPENSE_STATUS } from '@/services/businessExpenses';
+import { RECURRING_EXPENSE_SOURCE_TYPE } from '@/services/recurringBusinessExpenses';
 
 export const ANALYTICS_DATE_RANGES = {
   today: 'today',
@@ -542,6 +543,7 @@ export function buildFederalTaxReserveReport({
   payrollBatches = [],
   ownerDraws = [],
   expenses = [],
+  recurringExpenses = [],
   usersById = new Map(),
   window,
   federalTaxReserveRate = 0.30,
@@ -630,6 +632,8 @@ export function buildFederalTaxReserveReport({
       paymentMethod: expense.paymentMethod || '',
       status: expense.status || BUSINESS_EXPENSE_STATUS.PAID,
       isDeductible: expense.isDeductible !== false,
+      sourceType: expense.sourceType || RECURRING_EXPENSE_SOURCE_TYPE.MANUAL,
+      sourceRecurringExpenseID: expense.sourceRecurringExpenseID || '',
       notes: expense.notes || '',
     });
   }
@@ -645,12 +649,13 @@ export function buildFederalTaxReserveReport({
   const paidExpenseRows = expenseRows.filter((row) => (
     row.status === BUSINESS_EXPENSE_STATUS.PAID && isDateInWindow(getExpenseCashTimestamp(row), window)
   ));
+  const scheduledExpenseRows = expenseRows.filter((row) => row.status === BUSINESS_EXPENSE_STATUS.SCHEDULED);
+  const plannedExpenseRows = expenseRows.filter((row) => row.status === BUSINESS_EXPENSE_STATUS.PLANNED);
   const trackedExpenses = sumMoney(paidExpenseRows.map((row) => row.amount));
   const deductibleExpenses = sumMoney(paidExpenseRows.filter((row) => row.isDeductible).map((row) => row.amount));
   const nonDeductibleExpenses = sumMoney(paidExpenseRows.filter((row) => !row.isDeductible).map((row) => row.amount));
-  const unpaidTrackedExpenses = sumMoney(
-    expenseRows.filter((row) => row.status !== BUSINESS_EXPENSE_STATUS.PAID).map((row) => row.amount)
-  );
+  const scheduledCommittedExpenses = sumMoney(scheduledExpenseRows.map((row) => row.amount));
+  const plannedExpenses = sumMoney(plannedExpenseRows.map((row) => row.amount));
   const ownerDrawsTotal = sumMoney(ownerDrawRows.map((row) => row.amount));
   const estimatedTaxableProfit = roundMoney(cashCollected - contractorPayrollPaid - deductibleExpenses);
   const recommendedFederalReserve = estimatedTaxableProfit > 0
@@ -660,6 +665,15 @@ export function buildFederalTaxReserveReport({
     cashCollected - salesTaxHeld - contractorPayrollPaid - trackedExpenses - recommendedFederalReserve
   );
   const cashAfterOwnerDraws = roundMoney(spendableCash - ownerDrawsTotal);
+  const safeToSpendAfterScheduled = roundMoney(spendableCash - scheduledCommittedExpenses);
+  const recurringScheduledDueSoon = recurringExpenses.filter((expense) => (
+    expense.active !== false
+    && expense.nextOccurrenceDate
+    && isDateInWindow(expense.nextOccurrenceDate, {
+      startDate: window?.startDate,
+      endDate: window?.endDate,
+    })
+  )).length;
 
   return {
     summary: {
@@ -670,18 +684,22 @@ export function buildFederalTaxReserveReport({
       trackedExpenses,
       deductibleExpenses,
       nonDeductibleExpenses,
-      unpaidTrackedExpenses,
+      scheduledCommittedExpenses,
+      plannedExpenses,
       ownerDraws: ownerDrawsTotal,
       estimatedTaxableProfit,
       reserveRate: Number(federalTaxReserveRate || 0),
       recommendedFederalReserve,
       spendableCash,
+      safeToSpendAfterScheduled,
       cashAfterOwnerDraws,
       paymentCount: payments.length,
       contractorBatchCount: payrollRows.filter((row) => !row.isOwnerOperator).length,
       ownerOperatorBatchCount: payrollRows.filter((row) => row.isOwnerOperator).length,
       ownerDrawCount: ownerDrawRows.length,
       expenseCount: expenseRows.length,
+      recurringTemplateCount: recurringExpenses.length,
+      recurringScheduledDueSoon,
     },
     payments: payments.sort((a, b) => new Date(b.receivedAt) - new Date(a.receivedAt)),
     payrollRows: payrollRows.sort((a, b) => new Date(b.paidAt) - new Date(a.paidAt)),
@@ -690,7 +708,7 @@ export function buildFederalTaxReserveReport({
   };
 }
 
-export function buildExpenseReport(expenses = [], window) {
+export function buildExpenseReport(expenses = [], window, recurringExpenses = []) {
   const rows = expenses
     .filter((expense) => expense?.expenseDate && isDateInWindow(expense.expenseDate, window))
     .map((expense) => ({
@@ -704,6 +722,8 @@ export function buildExpenseReport(expenses = [], window) {
       notes: expense.notes || '',
       status: expense.status || BUSINESS_EXPENSE_STATUS.PAID,
       isDeductible: expense.isDeductible !== false,
+      sourceType: expense.sourceType || RECURRING_EXPENSE_SOURCE_TYPE.MANUAL,
+      sourceRecurringExpenseID: expense.sourceRecurringExpenseID || '',
     }))
     .sort((a, b) => new Date(b.expenseDate) - new Date(a.expenseDate));
 
@@ -713,16 +733,22 @@ export function buildExpenseReport(expenses = [], window) {
       category: row.category,
       total: 0,
       paid: 0,
+      scheduled: 0,
       planned: 0,
       deductible: 0,
       nonDeductible: 0,
+      recurring: 0,
+      manual: 0,
       count: 0,
     };
     bucket.total = roundMoney(bucket.total + row.amount);
     if (row.status === BUSINESS_EXPENSE_STATUS.PAID) bucket.paid = roundMoney(bucket.paid + row.amount);
+    else if (row.status === BUSINESS_EXPENSE_STATUS.SCHEDULED) bucket.scheduled = roundMoney(bucket.scheduled + row.amount);
     else bucket.planned = roundMoney(bucket.planned + row.amount);
     if (row.isDeductible) bucket.deductible = roundMoney(bucket.deductible + row.amount);
     else bucket.nonDeductible = roundMoney(bucket.nonDeductible + row.amount);
+    if (row.sourceType === RECURRING_EXPENSE_SOURCE_TYPE.RECURRING) bucket.recurring += 1;
+    else bucket.manual += 1;
     bucket.count += 1;
     byCategory.set(row.category, bucket);
   });
@@ -730,22 +756,32 @@ export function buildExpenseReport(expenses = [], window) {
   const summary = rows.reduce((acc, row) => {
     acc.total = roundMoney(acc.total + row.amount);
     if (row.status === BUSINESS_EXPENSE_STATUS.PAID) acc.paid = roundMoney(acc.paid + row.amount);
+    else if (row.status === BUSINESS_EXPENSE_STATUS.SCHEDULED) acc.scheduled = roundMoney(acc.scheduled + row.amount);
     else acc.planned = roundMoney(acc.planned + row.amount);
     if (row.isDeductible) acc.deductible = roundMoney(acc.deductible + row.amount);
     else acc.nonDeductible = roundMoney(acc.nonDeductible + row.amount);
+    if (row.sourceType === RECURRING_EXPENSE_SOURCE_TYPE.RECURRING) acc.recurring += 1;
+    else acc.manual += 1;
     acc.count += 1;
     return acc;
   }, {
     total: 0,
     paid: 0,
+    scheduled: 0,
     planned: 0,
     deductible: 0,
     nonDeductible: 0,
+    recurring: 0,
+    manual: 0,
     count: 0,
   });
 
   return {
-    summary,
+    summary: {
+      ...summary,
+      recurringTemplateCount: recurringExpenses.length,
+      activeRecurringTemplateCount: recurringExpenses.filter((expense) => expense.active !== false).length,
+    },
     rows,
     categories: Array.from(byCategory.values()).sort((a, b) => b.total - a.total),
   };
