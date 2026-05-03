@@ -9,6 +9,10 @@ import CardActions from '@mui/material/CardActions';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
 import FormControl from '@mui/material/FormControl';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Grid from '@mui/material/Grid';
@@ -17,6 +21,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
+import Divider from '@mui/material/Divider';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -51,6 +56,8 @@ export default function StullerSettingsPage() {
   const [materials, setMaterials] = React.useState([]);
   const [orders, setOrders] = React.useState([]);
   const [invoices, setInvoices] = React.useState([]);
+  const [selectedInvoice, setSelectedInvoice] = React.useState(null);
+  const [loadingInvoiceDetail, setLoadingInvoiceDetail] = React.useState(false);
 
   const [settings, setSettings] = React.useState({
     enabled: false,
@@ -306,6 +313,26 @@ export default function StullerSettingsPage() {
     }
   };
 
+  const openInvoiceDetails = async (invoiceId) => {
+    try {
+      setLoadingInvoiceDetail(true);
+      clearMessages();
+
+      const response = await fetch(`/api/stuller/invoices/${invoiceId}`);
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to load Stuller invoice details');
+      }
+
+      setSelectedInvoice(result.invoice || null);
+    } catch (detailError) {
+      console.error('Error loading Stuller invoice detail:', detailError);
+      setError(detailError.message);
+    } finally {
+      setLoadingInvoiceDetail(false);
+    }
+  };
+
   return (
     <Box sx={{ pb: 10 }}>
       <Box sx={{ mb: 3 }}>
@@ -546,6 +573,15 @@ export default function StullerSettingsPage() {
                       <TableCell>{formatMoney(invoice.total)}</TableCell>
                       <TableCell>{invoice.trackingNumber || 'N/A'}</TableCell>
                       <TableCell align="right">
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          <Button
+                            variant="text"
+                            size="small"
+                            onClick={() => openInvoiceDetails(invoice.stullerInvoiceID)}
+                            disabled={loadingInvoiceDetail}
+                          >
+                            View Details
+                          </Button>
                         <LoadingButton
                           variant="outlined"
                           size="small"
@@ -554,6 +590,7 @@ export default function StullerSettingsPage() {
                         >
                           Create Expense
                         </LoadingButton>
+                        </Stack>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -589,6 +626,122 @@ export default function StullerSettingsPage() {
           </CardContent>
         </Card>
       </Stack>
+
+      <Dialog
+        open={Boolean(selectedInvoice)}
+        onClose={() => setSelectedInvoice(null)}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle>
+          {selectedInvoice
+            ? `Stuller Invoice ${selectedInvoice.invoiceNumber || selectedInvoice.stullerInvoiceID}`
+            : 'Stuller Invoice'}
+        </DialogTitle>
+        <DialogContent dividers>
+          {!selectedInvoice ? null : (
+            <Stack spacing={3}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="caption" color="text.secondary">Invoice Number</Typography>
+                  <Typography variant="body1">{selectedInvoice.invoiceNumber || 'N/A'}</Typography>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="caption" color="text.secondary">Order Number</Typography>
+                  <Typography variant="body1">{selectedInvoice.orderNumber || 'N/A'}</Typography>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="caption" color="text.secondary">Purchase Order</Typography>
+                  <Typography variant="body1">{selectedInvoice.purchaseOrderNumber?.trim() || 'N/A'}</Typography>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="caption" color="text.secondary">Status</Typography>
+                  <Box sx={{ mt: 0.5 }}>
+                    <Chip size="small" label={selectedInvoice.status || 'Unknown'} />
+                  </Box>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="caption" color="text.secondary">Invoice Date</Typography>
+                  <Typography variant="body1">{formatDate(selectedInvoice.invoiceDate)}</Typography>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="caption" color="text.secondary">Tracking</Typography>
+                  <Typography variant="body1">{selectedInvoice.trackingNumber || 'N/A'}</Typography>
+                </Grid>
+              </Grid>
+
+              <Divider />
+
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Typography variant="caption" color="text.secondary">Subtotal</Typography>
+                  <Typography variant="h6">{formatMoney(selectedInvoice.subtotal)}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Typography variant="caption" color="text.secondary">Shipping</Typography>
+                  <Typography variant="h6">{formatMoney(selectedInvoice.shipping)}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Typography variant="caption" color="text.secondary">Tax</Typography>
+                  <Typography variant="h6">{formatMoney(selectedInvoice.tax)}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Typography variant="caption" color="text.secondary">Total</Typography>
+                  <Typography variant="h6">{formatMoney(selectedInvoice.total)}</Typography>
+                </Grid>
+              </Grid>
+
+              <Divider />
+
+              <Box>
+                <Typography variant="h6" gutterBottom>Line Items</Typography>
+                {!Array.isArray(selectedInvoice.items) || selectedInvoice.items.length === 0 ? (
+                  <Typography color="text.secondary">No invoice line items were returned for this Stuller invoice.</Typography>
+                ) : (
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Line</TableCell>
+                        <TableCell>Item #</TableCell>
+                        <TableCell>Description</TableCell>
+                        <TableCell>Qty</TableCell>
+                        <TableCell>Backordered</TableCell>
+                        <TableCell>Unit Price</TableCell>
+                        <TableCell>Total</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {selectedInvoice.items.map((item, index) => (
+                        <TableRow key={`${selectedInvoice.stullerInvoiceID}-${item.lineNumber || index}`}>
+                          <TableCell>{item.lineNumber || index + 1}</TableCell>
+                          <TableCell>{item.itemNumber || 'N/A'}</TableCell>
+                          <TableCell>{item.itemDescription || item.customerNotes || 'N/A'}</TableCell>
+                          <TableCell>{item.shipQuantity ?? 0}</TableCell>
+                          <TableCell>{item.backOrderedQuantity ?? 0}</TableCell>
+                          <TableCell>{formatMoney(item.unitPrice)}</TableCell>
+                          <TableCell>{formatMoney(item.lineTotal)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </Box>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          {selectedInvoice ? (
+            <LoadingButton
+              variant="outlined"
+              loading={creatingExpenseId === selectedInvoice.stullerInvoiceID}
+              onClick={() => createExpenseFromInvoice(selectedInvoice.stullerInvoiceID)}
+            >
+              Create Expense
+            </LoadingButton>
+          ) : null}
+          <Button onClick={() => setSelectedInvoice(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
