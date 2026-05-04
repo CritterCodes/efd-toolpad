@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  Alert,
   Box,
   Button,
   Chip,
@@ -10,12 +11,15 @@ import {
   Divider,
   Grid,
   Stack,
+  TextField,
   Typography,
 } from '@mui/material';
 import {
+  Edit as EditIcon,
   Email as EmailIcon,
   Phone as PhoneIcon,
   Print as PrintIcon,
+  Save as SaveIcon,
   Storefront as StoreIcon,
 } from '@mui/icons-material';
 import Link from 'next/link';
@@ -52,7 +56,50 @@ function DetailRow({ label, value }) {
   );
 }
 
-export default function WholesalerDetailDialog({ open, onClose, wholesaler }) {
+const PROFILE_FIELDS = [
+  { name: 'businessName', label: 'Business Name', section: 'business' },
+  { name: 'businessAddress', label: 'Address', section: 'business' },
+  { name: 'businessCity', label: 'City', section: 'business' },
+  { name: 'businessState', label: 'State', section: 'business' },
+  { name: 'businessZip', label: 'Zip', section: 'business' },
+  { name: 'businessCountry', label: 'Country', section: 'business' },
+  { name: 'contactFirstName', label: 'First Name', section: 'contact' },
+  { name: 'contactLastName', label: 'Last Name', section: 'contact' },
+  { name: 'contactTitle', label: 'Title', section: 'contact' },
+  { name: 'contactEmail', label: 'Email', section: 'contact', type: 'email' },
+  { name: 'contactPhone', label: 'Phone', section: 'contact' },
+];
+
+function buildProfileForm(wholesaler = {}) {
+  const profile = wholesaler.wholesaleApplication || {};
+  return {
+    businessName: profile.businessName || wholesaler.businessName || wholesaler.business || '',
+    businessAddress: profile.businessAddress || '',
+    businessCity: profile.businessCity || '',
+    businessState: profile.businessState || '',
+    businessZip: profile.businessZip || '',
+    businessCountry: profile.businessCountry || 'United States',
+    contactFirstName: profile.contactFirstName || wholesaler.firstName || '',
+    contactLastName: profile.contactLastName || wholesaler.lastName || '',
+    contactTitle: profile.contactTitle || '',
+    contactEmail: profile.contactEmail || wholesaler.email || '',
+    contactPhone: profile.contactPhone || wholesaler.contactPhone || wholesaler.phoneNumber || '',
+  };
+}
+
+export default function WholesalerDetailDialog({ open, onClose, wholesaler, onSave, loading = false }) {
+  const [editing, setEditing] = useState(false);
+  const [formData, setFormData] = useState({});
+  const [saveError, setSaveError] = useState('');
+
+  useEffect(() => {
+    if (wholesaler) {
+      setFormData(buildProfileForm(wholesaler));
+      setSaveError('');
+      setEditing(false);
+    }
+  }, [wholesaler, open]);
+
   if (!wholesaler) return null;
 
   const profile = wholesaler.wholesaleApplication || {};
@@ -63,6 +110,31 @@ export default function WholesalerDetailDialog({ open, onClose, wholesaler }) {
     .filter(Boolean)
     .join(' ')
     .trim();
+  const handleFieldChange = (field) => (event) => {
+    setFormData((current) => ({ ...current, [field]: event.target.value }));
+  };
+
+  const handleSave = async () => {
+    setSaveError('');
+    try {
+      await onSave?.(wholesaler.id || wholesaler.userID, { wholesaleApplication: formData });
+      setEditing(false);
+    } catch (error) {
+      setSaveError(error.message || 'Failed to update wholesaler');
+    }
+  };
+
+  const renderField = (field) => (
+    <TextField
+      key={field.name}
+      label={field.label}
+      type={field.type || 'text'}
+      value={formData[field.name] || ''}
+      onChange={handleFieldChange(field.name)}
+      size="small"
+      fullWidth
+    />
+  );
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -81,6 +153,8 @@ export default function WholesalerDetailDialog({ open, onClose, wholesaler }) {
       </DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2.5}>
+          {saveError && <Alert severity="error">{saveError}</Alert>}
+
           <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
             <Chip label={profileState.label} color={profileState.color} size="small" />
             <Chip label={`Role: ${wholesaler.role || 'N/A'}`} size="small" variant="outlined" />
@@ -92,22 +166,38 @@ export default function WholesalerDetailDialog({ open, onClose, wholesaler }) {
               <Typography variant="subtitle1" gutterBottom>
                 Contact
               </Typography>
-              <DetailRow label="Name" value={displayName} />
-              <DetailRow label="Email" value={email} />
-              <DetailRow label="Phone" value={phone} />
-              <DetailRow label="Title" value={profile.contactTitle} />
+              {editing ? (
+                <Stack spacing={1.5}>
+                  {PROFILE_FIELDS.filter((field) => field.section === 'contact').map(renderField)}
+                </Stack>
+              ) : (
+                <>
+                  <DetailRow label="Name" value={displayName} />
+                  <DetailRow label="Email" value={email} />
+                  <DetailRow label="Phone" value={phone} />
+                  <DetailRow label="Title" value={profile.contactTitle} />
+                </>
+              )}
             </Grid>
             <Grid item xs={12} md={6}>
               <Typography variant="subtitle1" gutterBottom>
                 Business
               </Typography>
-              <DetailRow label="Business Name" value={profile.businessName || wholesaler.businessName || wholesaler.business} />
-              <DetailRow label="Address" value={profile.businessAddress} />
-              <DetailRow
-                label="City / State / Zip"
-                value={[profile.businessCity, profile.businessState, profile.businessZip].filter(Boolean).join(', ')}
-              />
-              <DetailRow label="Country" value={profile.businessCountry} />
+              {editing ? (
+                <Stack spacing={1.5}>
+                  {PROFILE_FIELDS.filter((field) => field.section === 'business').map(renderField)}
+                </Stack>
+              ) : (
+                <>
+                  <DetailRow label="Business Name" value={profile.businessName || wholesaler.businessName || wholesaler.business} />
+                  <DetailRow label="Address" value={profile.businessAddress} />
+                  <DetailRow
+                    label="City / State / Zip"
+                    value={[profile.businessCity, profile.businessState, profile.businessZip].filter(Boolean).join(', ')}
+                  />
+                  <DetailRow label="Country" value={profile.businessCountry} />
+                </>
+              )}
             </Grid>
           </Grid>
 
@@ -169,9 +259,31 @@ export default function WholesalerDetailDialog({ open, onClose, wholesaler }) {
             </Button>
           )}
         </Stack>
-        <Button onClick={onClose} variant="contained">
-          Close
-        </Button>
+        <Stack direction="row" spacing={1}>
+          {editing ? (
+            <>
+              <Button onClick={() => {
+                setFormData(buildProfileForm(wholesaler));
+                setSaveError('');
+                setEditing(false);
+              }} disabled={loading}>
+                Cancel
+              </Button>
+              <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />} disabled={loading}>
+                Save
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button onClick={() => setEditing(true)} startIcon={<EditIcon />}>
+                Edit
+              </Button>
+              <Button onClick={onClose} variant="contained">
+                Close
+              </Button>
+            </>
+          )}
+        </Stack>
       </DialogActions>
     </Dialog>
   );

@@ -50,6 +50,19 @@ export const wholesaleClient = {
     return response.json();
   },
 
+  updateWholesaler: async (wholesalerId, payload) => {
+    const response = await fetch(`/api/admin/wholesale/accounts/${encodeURIComponent(wholesalerId)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || 'Failed to update wholesaler');
+    }
+    return response.json();
+  },
+
   reconcile: async (payload) => {
     const response = await fetch('/api/admin/wholesale/reconciliation', {
       method: 'POST',

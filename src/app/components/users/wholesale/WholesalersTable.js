@@ -22,7 +22,7 @@ import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import {
   Email as EmailIcon,
-  Visibility as ViewIcon,
+  Edit as EditIcon,
   Phone as PhoneIcon,
   Storefront as StoreIcon,
 } from '@mui/icons-material';
@@ -98,8 +98,8 @@ export default function WholesalersTable({ wholesalers, onOpenDetail }) {
                 </Box>
 
                 <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                  <Button size="small" variant="contained" startIcon={<ViewIcon />} onClick={() => onOpenDetail?.(wholesaler)}>
-                    View
+                  <Button size="small" variant="contained" startIcon={<EditIcon />} onClick={() => onOpenDetail?.(wholesaler)}>
+                    View / Edit
                   </Button>
                   <Button size="small" variant="outlined" startIcon={<EmailIcon />} href={`mailto:${wholesaler.wholesaleApplication?.contactEmail || wholesaler.email}`}>
                     Email
@@ -152,9 +152,9 @@ export default function WholesalersTable({ wholesalers, onOpenDetail }) {
               </TableCell>
               <TableCell>{formatDate(wholesaler.createdAt)}</TableCell>
               <TableCell align="center">
-                <Tooltip title="View Details">
+                <Tooltip title="View or edit details">
                   <IconButton size="small" onClick={() => onOpenDetail?.(wholesaler)}>
-                    <ViewIcon />
+                    <EditIcon />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Email">

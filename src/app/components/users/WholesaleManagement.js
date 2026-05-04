@@ -47,6 +47,7 @@ export default function WholesaleManagement() {
     error,
     handleApprove,
     handleReject,
+    handleUpdateWholesaler,
     handleReconciliationAction,
   } = useWholesaleManagement();
 
@@ -83,7 +84,14 @@ export default function WholesaleManagement() {
     setActionDialogOpen(false);
   };
 
-  if (loading && applications.length === 0) {
+  const updateWholesaler = async (wholesalerId, payload) => {
+    const updatedWholesaler = await handleUpdateWholesaler(wholesalerId, payload);
+    if (updatedWholesaler) {
+      setSelectedWholesaler(updatedWholesaler);
+    }
+  };
+
+  if (loading && applications.length === 0 && wholesalers.length === 0) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
         <CircularProgress />
@@ -165,6 +173,8 @@ export default function WholesaleManagement() {
         open={wholesalerDetailOpen}
         onClose={() => setWholesalerDetailOpen(false)}
         wholesaler={selectedWholesaler}
+        onSave={updateWholesaler}
+        loading={loading}
       />
     </Box>
   );

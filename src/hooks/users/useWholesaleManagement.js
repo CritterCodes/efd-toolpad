@@ -81,6 +81,22 @@ export const useWholesaleManagement = () => {
     }
   };
 
+  const handleUpdateWholesaler = async (wholesalerId, payload) => {
+    try {
+      setLoading(true);
+      const result = await wholesaleClient.updateWholesaler(wholesalerId, payload);
+      await loadData();
+      setError(null);
+      return result?.data;
+    } catch (error) {
+      console.error('Error updating wholesaler:', error);
+      setError(error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     wholesalers,
     applications,
@@ -90,6 +106,7 @@ export const useWholesaleManagement = () => {
     error,
     handleApprove,
     handleReject,
+    handleUpdateWholesaler,
     handleReconciliationAction,
     refreshData: loadData
   };
