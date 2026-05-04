@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { defaultRepairData, calculateTotalCost } from '@/schemas/repair.schema';
 import { buildRepairAnalyticsFields } from '@/services/analyticsBaseline';
+import { REPAIR_STATUS } from '@/services/repairWorkflow';
 
 export default class Repair {
     constructor(repairData) {
@@ -60,7 +61,7 @@ export default class Repair {
         this.businessName = data.businessName || '';
         
         // Status and workflow
-        this.status = data.status || 'RECEIVING';
+        this.status = data.status || REPAIR_STATUS.READY_FOR_WORK;
         
         // Media
         this.picture = data.picture;

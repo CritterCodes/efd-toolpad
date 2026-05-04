@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/database';
 import { requireRepairOps } from '@/lib/apiAuth';
-import { REPAIR_STATUS } from '@/services/repairWorkflow';
+import { LEGACY_BENCH_STATUS, REPAIR_STATUS } from '@/services/repairWorkflow';
 
 // POST /api/wholesale/repairs/receive - Batch receive wholesale repairs
 export async function POST(request) {
@@ -28,7 +28,8 @@ export async function POST(request) {
             },
             {
                 $set: {
-                    status: REPAIR_STATUS.RECEIVING,
+                    status: REPAIR_STATUS.READY_FOR_WORK,
+                    benchStatus: LEGACY_BENCH_STATUS.UNCLAIMED,
                     receivedAt: new Date(),
                     receivedBy: session.user.userID,
                     updatedAt: new Date()
@@ -39,7 +40,7 @@ export async function POST(request) {
         return NextResponse.json({
             success: true,
             received: result.modifiedCount,
-            message: `${result.modifiedCount} repair(s) marked as received`
+            message: `${result.modifiedCount} repair(s) moved to ready for work`
         });
 
     } catch (error) {

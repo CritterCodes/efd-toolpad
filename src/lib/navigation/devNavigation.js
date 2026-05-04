@@ -10,23 +10,13 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import ReceiptIcon from "@mui/icons-material/Receipt";
 import HandymanIcon from "@mui/icons-material/Handyman";
 import ListIcon from "@mui/icons-material/List";
-import ReceivingIcon from "@mui/icons-material/Inbox";
-import MoveUpIcon from "@mui/icons-material/DriveFileMove";
 import PickupIcon from "@mui/icons-material/LocalShipping";
-import QualityIcon from "@mui/icons-material/VerifiedUser";
-import PartsIcon from "@mui/icons-material/Category";
 import StorefrontIcon from "@mui/icons-material/Storefront";
-import PersonIcon from "@mui/icons-material/Person";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import HistoryIcon from "@mui/icons-material/History";
 import DiamondIcon from "@mui/icons-material/AutoAwesome";
 import RingIcon from "@mui/icons-material/FiberSmartRecord";
-import BusinessIcon from "@mui/icons-material/Business";
 import DesignServicesIcon from "@mui/icons-material/DesignServices";
 import PaymentIcon from "@mui/icons-material/Payment";
-import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
-import PrintIcon from "@mui/icons-material/Print";
-import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
+import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 import LeadsIcon from "@mui/icons-material/ChatBubbleOutline";
 
 import { SHARED_NAVIGATION } from "./sharedNavigation";
@@ -34,6 +24,7 @@ import { SHARED_NAVIGATION } from "./sharedNavigation";
 export const devNavigation = {
   [USER_ROLES.DEV]: [
     SHARED_NAVIGATION.dashboard,
+    { kind: 'header', title: 'Commerce' },
     {
       segment: 'dashboard/products',
       title: 'Products',
@@ -57,6 +48,11 @@ export const devNavigation = {
       ]
     },
     {
+      segment: 'dashboard/clients',
+      title: 'Clients',
+      icon: <PeopleIcon />
+    },
+    {
       segment: 'dashboard/requests',
       title: 'Requests',
       icon: <AssignmentIcon />,
@@ -73,11 +69,28 @@ export const devNavigation = {
         }
       ]
     },
+    { kind: 'header', title: 'Repair Work' },
     {
-      segment: 'dashboard/clients',
-      title: 'Clients',
-      icon: <PeopleIcon />
+      segment: 'dashboard/repairs/my-bench',
+      title: 'My Bench',
+      icon: <BuildIcon />
     },
+    {
+      segment: 'dashboard/repairs/pick-up',
+      title: 'Payment & Pickup',
+      icon: <PickupIcon />
+    },
+    {
+      segment: 'dashboard/repairs/leads',
+      title: 'Leads',
+      icon: <LeadsIcon />
+    },
+    {
+      segment: 'dashboard/repairs/pending-wholesale',
+      title: 'Wholesale Pickup',
+      icon: <NotificationsActiveIcon />
+    },
+    { kind: 'header', title: 'Administration' },
     {
       segment: 'dashboard/users',
       title: 'User Management',
@@ -107,43 +120,18 @@ export const devNavigation = {
     },
     {
       segment: 'dashboard/repairs',
-      title: 'Repairs',
-      icon: <BuildIcon />,
+      title: 'Repair Admin',
+      icon: <ReceiptIcon />,
       children: [
         {
-          segment: 'leads',
-          title: 'Leads',
-          icon: <LeadsIcon />
+          segment: 'labor-review',
+          title: 'Labor Review',
+          icon: <ReceiptIcon />
         },
         {
-          segment: 'receiving',
-          title: 'Receiving',
-          icon: <ReceivingIcon />
-        },
-        {
-          segment: 'quality-control',
-          title: 'Quality Control',
-          icon: <QualityIcon />
-        },
-        {
-          segment: 'pick-up',
-          title: 'Payment & Pickup',
-          icon: <PickupIcon />
-        },
-        {
-          segment: 'move',
-          title: 'Move',
-          icon: <MoveUpIcon />
-        },
-        {
-          segment: 'bulk-print',
-          title: 'Bulk Print',
-          icon: <PrintIcon />
-        },
-        {
-          segment: 'my-bench',
-          title: 'My Bench',
-          icon: <BuildIcon />
+          segment: 'payroll',
+          title: 'Payroll',
+          icon: <PaymentIcon />
         }
       ]
     },
@@ -191,6 +179,7 @@ export const devNavigation = {
         }
       ]
     },
+    { kind: 'header', title: 'System' },
     {
       segment: 'dashboard/admin/settings',
       title: 'Admin Settings',

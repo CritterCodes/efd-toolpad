@@ -195,7 +195,7 @@ export const repairSchema = {
   // Status and workflow
   status: {
     type: 'string',
-    default: 'RECEIVING',
+    default: 'READY FOR WORK',
     enum: [
       'lead',                // Retail chat lead — not yet at shop
       'RECEIVING',           // Just received, intake complete
@@ -463,7 +463,7 @@ export const defaultRepairData = {
   includeDelivery: false,
   includeTax: false,
   // Status and workflow
-  status: 'RECEIVING',
+  status: 'READY FOR WORK',
   // Media
   picture: null,
   beforePhotos: [],

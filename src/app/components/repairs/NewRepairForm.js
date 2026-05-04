@@ -2108,8 +2108,8 @@ export default function NewRepairForm({
         
         createdAt: initialData?.createdAt || new Date().toISOString(),
         status: submitMode === 'edit'
-          ? (formData.status || initialData?.status || 'RECEIVING')
-          : 'RECEIVING' // Use legacy status for compatibility
+          ? (formData.status || initialData?.status || 'READY FOR WORK')
+          : 'READY FOR WORK'
       };
 
       // Add comprehensive logging for submission

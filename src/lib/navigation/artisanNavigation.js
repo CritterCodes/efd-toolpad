@@ -5,11 +5,10 @@ import PersonIcon from '@mui/icons-material/Person';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import LinkIcon from '@mui/icons-material/Link';
 import HandymanIcon from '@mui/icons-material/Handyman';
-import InboxIcon from '@mui/icons-material/Inbox';
 import WorkIcon from '@mui/icons-material/Work';
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
-import CategoryIcon from '@mui/icons-material/Category';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
+import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import PaymentIcon from '@mui/icons-material/Payment';
 import { SHARED_NAVIGATION } from './sharedNavigation';
 
@@ -39,13 +38,15 @@ const BASE_ARTISAN_NAV = [
 
 function buildRepairOpsNav(caps = {}) {
   const children = [
-    { segment: 'receiving', title: 'Receiving', icon: <InboxIcon /> },
     { segment: 'my-bench', title: 'My Bench', icon: <WorkIcon /> },
   ];
 
-  children.push({ segment: 'completed', title: 'Completed', icon: <CheckCircleIcon /> });
+  if (caps.receiving === true) {
+    children.push({ segment: 'pending-wholesale', title: 'Wholesale Pickup', icon: <NotificationsActiveIcon /> });
+  }
+
   if (caps.closeoutBilling === true) {
-    children.push({ segment: 'pick-up', title: 'Payment & Pickup', icon: <CheckCircleIcon /> });
+    children.push({ segment: 'pick-up', title: 'Payment & Pickup', icon: <LocalShippingIcon /> });
   }
 
   return {

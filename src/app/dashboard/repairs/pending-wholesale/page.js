@@ -224,7 +224,7 @@ export default function PendingWholesalePage() {
                                         {store.repairs.length}
                                     </Typography>
                                     <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, mb: 1.5 }}>
-                                        repair{store.repairs.length !== 1 ? 's' : ''} to receive
+                                        repair{store.repairs.length !== 1 ? 's' : ''} to move to ready for work
                                     </Typography>
 
                                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>

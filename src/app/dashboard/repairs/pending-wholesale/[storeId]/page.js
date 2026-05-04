@@ -97,9 +97,9 @@ export default function StorePickupDetailPage() {
         try {
             await wholesaleRepairsClient.receiveSingle(scannedId);
             setReceivedIds(prev => new Set([...prev, scannedId]));
-            setSnackbar({ open: true, message: `Received: ${scannedId}`, severity: 'success' });
+            setSnackbar({ open: true, message: `Ready for work: ${scannedId}`, severity: 'success' });
         } catch {
-            setScanError(`Failed to receive "${scannedId}"`);
+            setScanError(`Failed to move "${scannedId}" to ready for work`);
         } finally {
             setReceiving(false);
             scanInputRef.current?.focus();
@@ -117,11 +117,11 @@ export default function StorePickupDetailPage() {
             setReceivedIds(prev => new Set([...prev, ...ids]));
             setSnackbar({
                 open: true,
-                message: `Received all ${ids.length} repair(s)`,
+                message: `Moved all ${ids.length} repair(s) to ready for work`,
                 severity: 'success'
             });
         } catch {
-            setSnackbar({ open: true, message: 'Failed to receive all', severity: 'error' });
+            setSnackbar({ open: true, message: 'Failed to move all repairs to ready for work', severity: 'error' });
         } finally {
             setReceivingAll(false);
             scanInputRef.current?.focus();
@@ -156,7 +156,7 @@ export default function StorePickupDetailPage() {
                 <Box sx={{ flexGrow: 1 }}>
                     <Typography variant="h4">{storeName || 'Store Pickup'}</Typography>
                     <Typography variant="body2" color="text.secondary">
-                        {receivedIds.size} of {repairs.length} received
+                        {receivedIds.size} of {repairs.length} ready for work
                     </Typography>
                 </Box>
                 <Button startIcon={<RefreshIcon />} onClick={loadRepairs} disabled={loading}>Refresh</Button>
@@ -167,7 +167,7 @@ export default function StorePickupDetailPage() {
                     onClick={handleReceiveAll}
                     disabled={allReceived || receivingAll || loading}
                 >
-                    Receive All ({unreceivedCount})
+                    Move All ({unreceivedCount})
                 </Button>
             </Box>
 
@@ -176,7 +176,7 @@ export default function StorePickupDetailPage() {
                 {allReceived ? (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, justifyContent: 'center', py: 2 }}>
                         <ReceivedIcon color="success" sx={{ fontSize: 40 }} />
-                        <Typography variant="h5" color="success.main">All repairs received!</Typography>
+                        <Typography variant="h5" color="success.main">All repairs ready for work!</Typography>
                     </Box>
                 ) : (
                     <>
@@ -242,7 +242,7 @@ export default function StorePickupDetailPage() {
                                     >
                                         <TableCell>
                                             {isReceived ? (
-                                                <Chip icon={<ReceivedIcon />} label="Received" color="success" size="small" />
+                                                <Chip icon={<ReceivedIcon />} label="Ready for Work" color="success" size="small" />
                                             ) : (
                                                 <Chip
                                                     label={repair.normalizedStatus || repair.status}

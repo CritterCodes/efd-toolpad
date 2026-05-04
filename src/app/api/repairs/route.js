@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { uploadRepairImage } from "@/utils/s3.util";
 import RepairsController from "./controller";
 import { requireRepairsAccess, requireRole } from "@/lib/apiAuth";
+import { REPAIR_STATUS } from "@/services/repairWorkflow";
 
 export const POST = async (request) => {
   try {
@@ -52,7 +53,7 @@ export const POST = async (request) => {
         completedBy: formData.get("completedBy") || "",
         qcBy: formData.get("qcBy") || "",
         qcDate: formData.get("qcDate") || null,
-        status: formData.get("status") || "RECEIVING",
+        status: formData.get("status") || REPAIR_STATUS.READY_FOR_WORK,
         picture: imageUrl,
         tasks: formData.get("tasks") ? JSON.parse(formData.get("tasks")) : [],
         materials: formData.get("materials") ? JSON.parse(formData.get("materials")) : [],
@@ -101,8 +102,11 @@ export const POST = async (request) => {
     repairData.createdBy = session.user.userID || session.user.id;
     repairData.submittedBy = session.user.email;
 
-    if (session.user.role === "wholesaler" && (!repairData.status || repairData.status === "RECEIVING")) {
-      repairData.status = "PENDING PICKUP";
+    if (
+      session.user.role === "wholesaler"
+      && (!repairData.status || [REPAIR_STATUS.RECEIVING, REPAIR_STATUS.READY_FOR_WORK].includes(repairData.status))
+    ) {
+      repairData.status = REPAIR_STATUS.PENDING_PICKUP;
     }
 
     const newRepair = await RepairsController.createRepair(repairData);

@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/database';
 import { auth } from "@/lib/auth";
-import { normalizeRepairStatus, normalizeRepairWorkflow } from '@/services/repairWorkflow';
+import {
+    LEGACY_BENCH_STATUS,
+    REPAIR_STATUS,
+    normalizeRepairStatus,
+    normalizeRepairWorkflow,
+} from '@/services/repairWorkflow';
 
 // GET /api/wholesale/repairs - Get repairs for a wholesaler
 export async function GET(request) {
@@ -97,9 +102,11 @@ export async function POST(request) {
 
         const dbInstance = await db.connect();
         
-        // Wholesaler submits → PENDING PICKUP (not yet at shop)
-        // Admin creates for wholesale account → RECEIVING (already in hand)
-        const initialStatus = session.user.role === 'admin' ? 'RECEIVING' : 'PENDING PICKUP';
+        // Wholesaler submits -> PENDING PICKUP (not yet at shop)
+        // Admin creates for wholesale account -> READY FOR WORK (already in hand)
+        const initialStatus = session.user.role === 'admin'
+            ? REPAIR_STATUS.READY_FOR_WORK
+            : REPAIR_STATUS.PENDING_PICKUP;
 
         const newRepair = {
             ...repairData,
@@ -110,6 +117,7 @@ export async function POST(request) {
             clientName: repairData.customerName,
             smartIntakeInput: repairData.description || '',
             status: initialStatus,
+            benchStatus: initialStatus === REPAIR_STATUS.READY_FOR_WORK ? LEGACY_BENCH_STATUS.UNCLAIMED : null,
             createdAt: new Date(),
             updatedAt: new Date(),
             createdBy: session.user.userID,

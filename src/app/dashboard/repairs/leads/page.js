@@ -289,11 +289,11 @@ export default function LeadsPage() {
             const res = await fetch(`/api/repairs?repairID=${repairID}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: 'RECEIVING' }),
+                body: JSON.stringify({ status: 'READY FOR WORK' }),
             });
             if (!res.ok) throw new Error('Update failed');
-            updateRepair(repairID, { status: 'RECEIVING' });
-            setSnackbar({ open: true, message: 'Lead converted to Receiving' });
+            updateRepair(repairID, { status: 'READY FOR WORK' });
+            setSnackbar({ open: true, message: 'Lead converted to Ready for Work' });
         } catch {
             setSnackbar({ open: true, message: 'Failed to convert lead. Try again.' });
         } finally {
@@ -340,7 +340,7 @@ export default function LeadsPage() {
                         Repair Leads
                     </Typography>
                     <Typography sx={{ color: REPAIRS_UI.textSecondary, lineHeight: 1.6, mb: 2.5 }}>
-                        Inquiries submitted via the GEMINI chat on the shop site. Accept a lead to move it into Receiving.
+                        Inquiries submitted via the GEMINI chat on the shop site. Accept a lead to move it into Ready for Work.
                     </Typography>
                 </Box>
             </Box>
