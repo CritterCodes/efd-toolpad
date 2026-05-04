@@ -4,7 +4,6 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import PersonIcon from '@mui/icons-material/Person';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import LinkIcon from '@mui/icons-material/Link';
-import HandymanIcon from '@mui/icons-material/Handyman';
 import WorkIcon from '@mui/icons-material/Work';
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
@@ -14,14 +13,15 @@ import { SHARED_NAVIGATION } from './sharedNavigation';
 
 const BASE_ARTISAN_NAV = [
   SHARED_NAVIGATION.dashboard,
+  { kind: 'header', title: 'Studio' },
   {
     segment: 'dashboard/profile',
-    title: 'Profile Management',
+    title: 'Profile',
     icon: <PersonIcon />,
   },
   {
     segment: 'dashboard/gallery',
-    title: 'Gallery Management',
+    title: 'Gallery',
     icon: <PhotoLibraryIcon />,
   },
   {
@@ -29,6 +29,7 @@ const BASE_ARTISAN_NAV = [
     title: 'Affiliate',
     icon: <LinkIcon />,
   },
+  { kind: 'header', title: 'Finance' },
   {
     segment: 'dashboard/artisan/payroll',
     title: 'Payroll',
@@ -36,25 +37,35 @@ const BASE_ARTISAN_NAV = [
   },
 ];
 
-function buildRepairOpsNav(caps = {}) {
-  const children = [
-    { segment: 'my-bench', title: 'My Bench', icon: <WorkIcon /> },
+function buildRepairOpsNavItems(caps = {}) {
+  const items = [
+    { kind: 'header', title: 'Repair Work' },
+    { segment: 'dashboard/repairs/my-bench', title: 'My Bench', icon: <WorkIcon /> },
   ];
 
   if (caps.receiving === true) {
-    children.push({ segment: 'pending-wholesale', title: 'Wholesale Pickup', icon: <NotificationsActiveIcon /> });
+    items.push({
+      segment: 'dashboard/repairs/pending-wholesale',
+      title: 'Wholesale Pickup',
+      icon: <NotificationsActiveIcon />,
+    });
   }
 
   if (caps.closeoutBilling === true) {
-    children.push({ segment: 'pick-up', title: 'Payment & Pickup', icon: <LocalShippingIcon /> });
+    items.push({
+      segment: 'dashboard/repairs/pick-up',
+      title: 'Payment & Pickup',
+      icon: <LocalShippingIcon />,
+    });
   }
 
-  return {
-    segment: 'dashboard/repairs',
-    title: 'Repairs',
-    icon: <HandymanIcon />,
-    children,
-  };
+  items.push({
+    segment: '/dashboard/repairs/move?mode=scan',
+    title: 'Scan Ticket',
+    icon: <QrCodeScannerIcon />,
+  });
+
+  return items;
 }
 
 export const artisanNavigation = {
@@ -69,12 +80,7 @@ export function generateArtisanNavigation(artisanTypes = [], staffCapabilities =
     staffCapabilities?.repairOps === true;
 
   if (isOnsiteRepairOps) {
-    base.push(buildRepairOpsNav(staffCapabilities));
-    base.push({
-      segment: '/dashboard/repairs/move?mode=scan',
-      title: 'Scan Ticket',
-      icon: <QrCodeScannerIcon />,
-    });
+    base.push(...buildRepairOpsNavItems(staffCapabilities));
   }
 
   return base;
