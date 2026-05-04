@@ -21,6 +21,8 @@
     "audit:repair-payroll": "node scripts/audit-repair-payroll.mjs",
     "audit:wholesale-reconciliation": "node scripts/audit-wholesale-reconciliation.mjs",
     "backfill:wholesale-reconciliation": "node scripts/backfill-wholesale-reconciliation.mjs",
+    "wholesale:import-worker": "node scripts/run-wholesale-import-worker.mjs --watch",
+    "wholesale:import-worker:once": "node scripts/run-wholesale-import-worker.mjs --once",
     "migrate:quote-structure": "node scripts/migrate-quote-structure.js",
     "cleanup:quote-duplicates": "node scripts/cleanup-quote-duplicates.js",
     "cleanup:deprecated-quote-fields": "node scripts/cleanup-deprecated-quote-fields.js"

@@ -1544,7 +1544,7 @@ export default function WholesaleAcquisitionPage() {
       setSnackbar({
         open: true,
         severity: 'info',
-        message: 'Import started. You can leave this page and come back to check progress.',
+        message: 'Import queued. Run the wholesale import worker to process it and keep this page open for progress.',
       });
     } catch (err) {
       setSnackbar({ open: true, message: err.message, severity: 'error' });

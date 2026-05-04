@@ -35,11 +35,13 @@ export async function POST(request) {
       discoverEmails: body.discoverEmails !== false,
     };
     const job = await createWholesaleImportJob(options, actor);
-    setTimeout(() => {
-      runWholesaleImportJob(job.id, actor).catch((error) => {
-        console.error('Wholesale import job failed:', error);
-      });
-    }, 0);
+    if (process.env.WHOLESALE_IMPORT_RUN_IN_API === 'true') {
+      setTimeout(() => {
+        runWholesaleImportJob(job.id, actor).catch((error) => {
+          console.error('Wholesale import job failed:', error);
+        });
+      }, 0);
+    }
 
     return Response.json({ success: true, data: job }, { status: 202 });
   } catch (error) {

@@ -1535,6 +1535,28 @@ export async function getLatestWholesaleImportJob() {
   return job ? serializeJob(job) : null;
 }
 
+export async function claimNextQueuedWholesaleImportJob(workerId = 'wholesale-import-worker') {
+  const jobs = await getImportJobsCollection();
+  const now = new Date();
+  const result = await jobs.findOneAndUpdate(
+    { type: 'google_places_import', status: 'queued' },
+    {
+      $set: {
+        status: 'running',
+        phase: 'claimed',
+        workerId,
+        claimedAt: now,
+        updatedAt: now,
+      },
+    },
+    {
+      sort: { createdAt: 1 },
+      returnDocument: 'after',
+    },
+  );
+  return result ? serializeJob(result) : null;
+}
+
 export async function cancelWholesaleImportJob(jobId, actor) {
   const jobs = await getImportJobsCollection();
   const now = new Date();
