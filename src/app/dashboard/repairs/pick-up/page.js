@@ -365,7 +365,7 @@ function getRepairDisplayTotal(repair) {
 
 function isReadyForInvoice(repair) {
   const afterPhotoCount = Array.isArray(repair.afterPhotos) ? repair.afterPhotos.length : 0;
-  return afterPhotoCount > 0 && repair.requiresLaborReview !== true;
+  return afterPhotoCount > 0;
 }
 
 function canAccessCloseout(session) {
@@ -395,7 +395,7 @@ function RepairCloseoutCard({
   const [pendingPhotoPreview, setPendingPhotoPreview] = useState("");
   const fileInputRef = useRef(null);
   const afterPhotoCount = Array.isArray(repair.afterPhotos) ? repair.afterPhotos.length : 0;
-  const blockedForReview = repair.requiresLaborReview === true;
+  const flaggedForReview = repair.requiresLaborReview === true;
   const batchReady = isReadyForInvoice(repair);
 
   useEffect(() => {
@@ -450,7 +450,7 @@ function RepairCloseoutCard({
   };
 
   const handleConfirmCloseout = async () => {
-    if (!pendingPhoto || blockedForReview || photoState.loading) return;
+    if (!pendingPhoto || photoState.loading) return;
     const saved = await onConfirmCloseout(repair.repairID, pendingPhoto, noteValue);
     if (saved) {
       clearPendingCloseoutPhoto(repair.repairID).catch((error) => {
@@ -507,13 +507,13 @@ function RepairCloseoutCard({
             </Grid>
           </Grid>
 
-          {blockedForReview && (
+          {flaggedForReview && (
             <Alert severity="warning" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
-              Labor review is still pending. Resolve it before batching this repair into an invoice.
+              Labor review is flagged for weekly review. This repair can still be batched into an invoice now.
             </Alert>
           )}
 
-          {!blockedForReview && afterPhotoCount === 0 && (
+          {afterPhotoCount === 0 && (
             <Alert severity="info" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
               Take an after photo, add any closeout notes, then confirm to move this repair to an invoice.
             </Alert>
@@ -597,7 +597,7 @@ function RepairCloseoutCard({
             </Button>
             <Button
               variant="contained"
-              disabled={!pendingPhoto || blockedForReview || photoState.loading}
+              disabled={!pendingPhoto || photoState.loading}
               onClick={handleConfirmCloseout}
               sx={{ backgroundColor: REPAIRS_UI.accent, color: "#111" }}
             >

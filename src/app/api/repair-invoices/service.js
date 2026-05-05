@@ -1,7 +1,6 @@
 import { db } from '@/lib/database';
 import RepairsModel from '@/app/api/repairs/model';
 import RepairInvoicesModel from './model';
-import RepairLaborLogsModel from '@/app/api/repairLaborLogs/model';
 
 const DEFAULT_DELIVERY_FEE = 5;
 
@@ -193,22 +192,6 @@ async function ensureRepairsCanBatch(repairs) {
     ) {
       throw new Error('All repairs in a batch invoice must belong to the same billing account.');
     }
-  }
-
-  const pendingReviews = await Promise.all(
-    repairs
-      .filter((repair) => repair.requiresLaborReview === true)
-      .map(async (repair) => {
-        const logs = await RepairLaborLogsModel.findByRepair(repair.repairID);
-        return logs.some((log) => log.requiresAdminReview === true && !log.adminReviewedAt)
-          ? repair.repairID
-          : null;
-      })
-  );
-
-  const blockedRepairs = pendingReviews.filter(Boolean);
-  if (blockedRepairs.length > 0) {
-    throw new Error(`Resolve labor review before invoicing: ${blockedRepairs.join(', ')}`);
   }
 
   return baseContext;
