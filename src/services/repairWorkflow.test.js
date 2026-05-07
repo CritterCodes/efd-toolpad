@@ -3,6 +3,7 @@ import {
   BENCH_QUEUE,
   LEGACY_BENCH_STATUS,
   REPAIR_STATUS,
+  buildCommunicationCompleteUpdate,
   buildCompleteFromQcUpdate,
   buildMoveStatusUpdate,
   deriveBenchQueue,
@@ -48,5 +49,16 @@ describe('repairWorkflow', () => {
     expect(update.status).toBe(REPAIR_STATUS.READY_FOR_PICKUP);
     expect(update.benchStatus).toBeNull();
     expect(() => buildCompleteFromQcUpdate({ nextStatus: 'NEEDS PARTS', userName: 'QC User' })).toThrow();
+  });
+
+  it('returns communication repairs to the right bench queue', () => {
+    expect(buildCommunicationCompleteUpdate({ repair: { assignedTo: 'j1' } })).toMatchObject({
+      status: REPAIR_STATUS.IN_PROGRESS,
+      benchStatus: LEGACY_BENCH_STATUS.IN_PROGRESS,
+    });
+    expect(buildCommunicationCompleteUpdate({ repair: {} })).toMatchObject({
+      status: REPAIR_STATUS.READY_FOR_WORK,
+      benchStatus: LEGACY_BENCH_STATUS.UNCLAIMED,
+    });
   });
 });
