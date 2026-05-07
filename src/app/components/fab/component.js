@@ -5,6 +5,7 @@ import NoteAddIcon from '@mui/icons-material/NoteAdd';
 import MoveUpIcon from '@mui/icons-material/MoveUp';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import PersonIcon from '@mui/icons-material/Person';
+import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 
@@ -37,6 +38,16 @@ const FloatingActionButton = () => {
                         icon: <MoveUpIcon />,
                         name: 'Move Repair',
                         onClick: () => router.push('/dashboard/repairs/move')
+                    },
+                    {
+                        icon: <QrCodeScannerIcon />,
+                        name: 'Scan Invoice',
+                        onClick: () => router.push('/dashboard/repairs/pick-up?scanInvoice=1')
+                    },
+                    {
+                        icon: <QrCodeScannerIcon />,
+                        name: 'Scan Repair',
+                        onClick: () => router.push('/dashboard?scanRepair=1')
                     }
                 ];
                 
