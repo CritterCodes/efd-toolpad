@@ -21,6 +21,7 @@ import {
   FormLabel,
   Grid,
   IconButton,
+  Pagination,
   Radio,
   RadioGroup,
   Snackbar,
@@ -53,6 +54,7 @@ const CARD_SURCHARGE_RATE = 0.03;
 const EFD_LOGO_SRC = "/logos/%5Befd%5DLogoBlack.png";
 const ZELLE_QR_SRC = "/logos/zelle-qr.jpg";
 const INVOICE_QR_SIZE = 96;
+const INVOICES_PER_PAGE = 12;
 
 function getSessionValue(key) {
   if (typeof window === "undefined") return "";
@@ -1014,6 +1016,7 @@ export default function PaymentPickupPage() {
   const [closeoutScannerOpen, setCloseoutScannerOpen] = useState(false);
   const [invoiceSearch, setInvoiceSearch] = useState("");
   const [invoiceScannerOpen, setInvoiceScannerOpen] = useState(false);
+  const [invoicePage, setInvoicePage] = useState(1);
   const [scannedRepairID, setScannedRepairID] = useState("");
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "info" });
 
@@ -1142,6 +1145,20 @@ export default function PaymentPickupPage() {
   const visiblePaidInvoices = useMemo(() => filterInvoices(paidInvoices), [paidInvoices, filterInvoices]);
   const activeInvoiceList = tab === 1 ? visibleDraftInvoices : tab === 2 ? visibleOpenInvoices : visiblePaidInvoices;
   const activeInvoiceSummary = useMemo(() => summarizeInvoices(activeInvoiceList), [activeInvoiceList]);
+  const activeInvoiceTotalPages = Math.max(1, Math.ceil(activeInvoiceList.length / INVOICES_PER_PAGE));
+  const activeInvoicePage = Math.min(invoicePage, activeInvoiceTotalPages);
+  const paginatedInvoiceList = useMemo(() => {
+    const start = (activeInvoicePage - 1) * INVOICES_PER_PAGE;
+    return activeInvoiceList.slice(start, start + INVOICES_PER_PAGE);
+  }, [activeInvoiceList, activeInvoicePage]);
+  const invoicePageStart = activeInvoiceList.length === 0
+    ? 0
+    : ((activeInvoicePage - 1) * INVOICES_PER_PAGE) + 1;
+  const invoicePageEnd = Math.min(activeInvoicePage * INVOICES_PER_PAGE, activeInvoiceList.length);
+
+  useEffect(() => {
+    setInvoicePage(1);
+  }, [invoiceSearch, tab]);
 
   const handleInvoiceScan = (value) => {
     const invoiceID = normalizeScannedInvoiceID(value);
@@ -1652,6 +1669,28 @@ export default function PaymentPickupPage() {
                   </Box>
                 ))}
               </Box>
+
+              {activeInvoiceList.length > INVOICES_PER_PAGE && (
+                <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ xs: "stretch", md: "center" }} justifyContent="space-between">
+                  <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
+                    Showing {invoicePageStart}-{invoicePageEnd} of {activeInvoiceList.length}
+                  </Typography>
+                  <Pagination
+                    page={activeInvoicePage}
+                    count={activeInvoiceTotalPages}
+                    onChange={(event, value) => setInvoicePage(value)}
+                    color="primary"
+                    size="small"
+                    sx={{
+                      alignSelf: { xs: "center", md: "auto" },
+                      "& .MuiPaginationItem-root": {
+                        color: REPAIRS_UI.textPrimary,
+                        borderColor: REPAIRS_UI.border,
+                      },
+                    }}
+                  />
+                </Stack>
+              )}
             </Stack>
           </CardContent>
         </Card>
@@ -1770,7 +1809,7 @@ export default function PaymentPickupPage() {
               No draft repair invoices.
             </Alert>
           ) : (
-            visibleDraftInvoices.map((invoice) => (
+            paginatedInvoiceList.map((invoice) => (
               <InvoiceCard
                 key={invoice.invoiceID}
                 invoice={invoice}
@@ -1806,7 +1845,7 @@ export default function PaymentPickupPage() {
               No open repair invoices.
             </Alert>
           ) : (
-            visibleOpenInvoices.map((invoice) => (
+            paginatedInvoiceList.map((invoice) => (
               <InvoiceCard
                 key={invoice.invoiceID}
                 invoice={invoice}
@@ -1842,7 +1881,7 @@ export default function PaymentPickupPage() {
               No paid repair invoices yet.
             </Alert>
           ) : (
-            visiblePaidInvoices.map((invoice) => (
+            paginatedInvoiceList.map((invoice) => (
               <InvoiceCard
                 key={invoice.invoiceID}
                 invoice={invoice}
