@@ -664,6 +664,7 @@ function InvoiceCard({
   onCashPay,
   onCreateStripe,
   onSyncStripe,
+  onCardCollected,
   onCreateTerminal,
   onSyncTerminal,
   collectingTerminalInvoiceID,
@@ -853,6 +854,13 @@ function InvoiceCard({
               <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
                 <Button variant="outlined" onClick={() => onCreateStripe(invoice.invoiceID, cardPaymentSummary.cardTotal)} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>
                   Create Stripe Intent ({formatCurrency(cardPaymentSummary.cardTotal)})
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => onCardCollected(invoice.invoiceID, cardPaymentSummary)}
+                  sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
+                >
+                  Credit Card Payment Collected ({formatCurrency(cardPaymentSummary.cardTotal)})
                 </Button>
                 {pendingStripe && (
                   <Button variant="outlined" onClick={() => onSyncStripe(invoice.invoiceID, pendingStripe.paymentIntentId)} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>
@@ -1292,6 +1300,22 @@ export default function PaymentPickupPage() {
     }
   };
 
+  const handleCardCollected = async (invoiceID, cardSummary) => {
+    try {
+      await postInvoiceAction(
+        `/api/repair-invoices/${invoiceID}/payments/card-collected`,
+        {
+          amount: parseFloat(cardSummary?.cardTotal || 0),
+          baseAmount: parseFloat(cardSummary?.baseTotal || 0),
+          processingFee: parseFloat(cardSummary?.processingFee || 0),
+        },
+        `Recorded credit card payment on ${invoiceID}.`
+      );
+    } catch (error) {
+      showMessage(error.message, "error");
+    }
+  };
+
   const handleCreateTerminal = async (invoiceID, amount) => {
     try {
       setCollectingTerminalInvoiceID(invoiceID);
@@ -1631,6 +1655,7 @@ export default function PaymentPickupPage() {
                 onCashPay={handleCashPayment}
                 onCreateStripe={handleCreateStripe}
                 onSyncStripe={handleSyncStripe}
+                onCardCollected={handleCardCollected}
                 onCreateTerminal={handleCreateTerminal}
                 onSyncTerminal={handleSyncTerminal}
                 collectingTerminalInvoiceID={collectingTerminalInvoiceID}
@@ -1665,6 +1690,7 @@ export default function PaymentPickupPage() {
                 onCashPay={handleCashPayment}
                 onCreateStripe={handleCreateStripe}
                 onSyncStripe={handleSyncStripe}
+                onCardCollected={handleCardCollected}
                 onCreateTerminal={handleCreateTerminal}
                 onSyncTerminal={handleSyncTerminal}
                 collectingTerminalInvoiceID={collectingTerminalInvoiceID}
@@ -1695,6 +1721,7 @@ export default function PaymentPickupPage() {
                 onCashPay={handleCashPayment}
                 onCreateStripe={handleCreateStripe}
                 onSyncStripe={handleSyncStripe}
+                onCardCollected={handleCardCollected}
                 onCreateTerminal={handleCreateTerminal}
                 onSyncTerminal={handleSyncTerminal}
                 collectingTerminalInvoiceID={collectingTerminalInvoiceID}
