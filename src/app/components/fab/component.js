@@ -6,6 +6,7 @@ import MoveUpIcon from '@mui/icons-material/MoveUp';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import PersonIcon from '@mui/icons-material/Person';
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
+import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 
@@ -20,6 +21,10 @@ const FloatingActionButton = () => {
     const router = useRouter();
     const pathname = usePathname();
     const { data: session } = useSession();
+    const shopUrl = process.env.NEXT_PUBLIC_SHOP_URL || 'http://localhost:3000';
+    const openSalesCheckout = () => {
+        window.location.href = `${shopUrl}/admin/checkout`;
+    };
     
     // Get user role
     const userRole = session?.user?.role;
@@ -29,6 +34,11 @@ const FloatingActionButton = () => {
         switch (role) {
             case 'admin':
                 return [
+                    {
+                        icon: <PointOfSaleIcon />,
+                        name: 'Sales Checkout',
+                        onClick: openSalesCheckout
+                    },
                     {
                         icon: <NoteAddIcon />,
                         name: 'New Repair',
@@ -62,6 +72,11 @@ const FloatingActionButton = () => {
                 
             case 'artisan':
                 return [
+                    {
+                        icon: <PointOfSaleIcon />,
+                        name: 'Sales Checkout',
+                        onClick: openSalesCheckout
+                    },
                     {
                         icon: <PhotoLibraryIcon />,
                         name: 'Gallery',
