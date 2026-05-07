@@ -180,6 +180,42 @@ function getFullInvoiceCardSummary(invoice) {
   };
 }
 
+function summarizeInvoices(invoiceList = []) {
+  return invoiceList.reduce((summary, invoice) => {
+    const payments = Array.isArray(invoice.payments) ? invoice.payments : [];
+    const completedPayments = payments.filter((payment) => payment.status === "completed");
+
+    summary.count += 1;
+    summary.total += parseFloat(invoice.total || 0);
+    summary.remaining += parseFloat(invoice.remainingBalance || 0);
+    summary.collected += parseFloat(invoice.amountPaid || 0);
+    summary.repairs += Array.isArray(invoice.repairIDs) ? invoice.repairIDs.length : 0;
+    summary.completedPayments += completedPayments.length;
+
+    for (const payment of completedPayments) {
+      const amount = parseFloat(payment.amount || 0);
+      const method = payment.type || "other";
+      if (method === "cash") summary.cash += amount;
+      else if (["credit_card", "stripe", "terminal"].includes(method)) summary.card += amount;
+      else if (method === "zelle") summary.zelle += amount;
+      else summary.other += amount;
+    }
+
+    return summary;
+  }, {
+    count: 0,
+    total: 0,
+    remaining: 0,
+    collected: 0,
+    repairs: 0,
+    completedPayments: 0,
+    cash: 0,
+    card: 0,
+    zelle: 0,
+    other: 0,
+  });
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -1104,6 +1140,8 @@ export default function PaymentPickupPage() {
   const visibleDraftInvoices = useMemo(() => filterInvoices(draftInvoices), [draftInvoices, filterInvoices]);
   const visibleOpenInvoices = useMemo(() => filterInvoices(openInvoices), [openInvoices, filterInvoices]);
   const visiblePaidInvoices = useMemo(() => filterInvoices(paidInvoices), [paidInvoices, filterInvoices]);
+  const activeInvoiceList = tab === 1 ? visibleDraftInvoices : tab === 2 ? visibleOpenInvoices : visiblePaidInvoices;
+  const activeInvoiceSummary = useMemo(() => summarizeInvoices(activeInvoiceList), [activeInvoiceList]);
 
   const handleInvoiceScan = (value) => {
     const invoiceID = normalizeScannedInvoiceID(value);
@@ -1547,35 +1585,73 @@ export default function PaymentPickupPage() {
       {tab > 0 && (
         <Card sx={{ backgroundColor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, boxShadow: REPAIRS_UI.shadow, mb: 2 }}>
           <CardContent>
-            <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ xs: "stretch", md: "center" }}>
-              <TextField
-                label="Find Invoice"
-                placeholder="Scan or search invoice ID, repair ID, customer, or account"
-                value={invoiceSearch}
-                onChange={(event) => setInvoiceSearch(event.target.value)}
-                autoComplete="off"
-                size="small"
-                sx={{ flex: 1 }}
-              />
-              <Button
-                variant="outlined"
-                startIcon={<ScanIcon />}
-                onClick={() => setInvoiceScannerOpen(true)}
-                sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
+            <Stack spacing={1.5}>
+              <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ xs: "stretch", md: "center" }}>
+                <TextField
+                  label="Find Invoice"
+                  placeholder="Scan or search invoice ID, repair ID, customer, or account"
+                  value={invoiceSearch}
+                  onChange={(event) => setInvoiceSearch(event.target.value)}
+                  autoComplete="off"
+                  size="small"
+                  sx={{ flex: 1 }}
+                />
+                <Button
+                  variant="outlined"
+                  startIcon={<ScanIcon />}
+                  onClick={() => setInvoiceScannerOpen(true)}
+                  sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
+                >
+                  Scan to Search
+                </Button>
+                <Button
+                  variant="outlined"
+                  disabled={!invoiceSearch}
+                  onClick={() => setInvoiceSearch("")}
+                  sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
+                >
+                  Clear
+                </Button>
+                <Chip label={`${activeInvoiceSummary.count} shown`} />
+              </Stack>
+
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))" },
+                  gap: 1,
+                }}
               >
-                Scan Invoice
-              </Button>
-              <Button
-                variant="outlined"
-                disabled={!invoiceSearch}
-                onClick={() => setInvoiceSearch("")}
-                sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
-              >
-                Clear
-              </Button>
-              <Chip
-                label={`${tab === 1 ? visibleDraftInvoices.length : tab === 2 ? visibleOpenInvoices.length : visiblePaidInvoices.length} shown`}
-              />
+                {[
+                  ["Invoice Total", formatCurrency(activeInvoiceSummary.total)],
+                  ["Collected", formatCurrency(activeInvoiceSummary.collected)],
+                  ["Remaining", formatCurrency(activeInvoiceSummary.remaining)],
+                  ["Repairs", activeInvoiceSummary.repairs],
+                  ["Cash", formatCurrency(activeInvoiceSummary.cash)],
+                  ["Card", formatCurrency(activeInvoiceSummary.card)],
+                  ["Zelle", formatCurrency(activeInvoiceSummary.zelle)],
+                  ["Payments", activeInvoiceSummary.completedPayments],
+                ].map(([label, value]) => (
+                  <Box
+                    key={label}
+                    sx={{
+                      border: `1px solid ${REPAIRS_UI.border}`,
+                      backgroundColor: REPAIRS_UI.bgCard,
+                      borderRadius: 2,
+                      px: 1.25,
+                      py: 1,
+                      minWidth: 0,
+                    }}
+                  >
+                    <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>
+                      {label}
+                    </Typography>
+                    <Typography sx={{ color: REPAIRS_UI.textPrimary, fontWeight: 700, overflowWrap: "anywhere" }}>
+                      {value}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
             </Stack>
           </CardContent>
         </Card>
