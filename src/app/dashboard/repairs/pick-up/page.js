@@ -21,6 +21,7 @@ import {
   FormLabel,
   Grid,
   IconButton,
+  Pagination,
   Radio,
   RadioGroup,
   Snackbar,
@@ -52,6 +53,8 @@ const CLOSEOUT_PHOTO_STORE = "pendingPhotos";
 const CARD_SURCHARGE_RATE = 0.03;
 const EFD_LOGO_SRC = "/logos/%5Befd%5DLogoBlack.png";
 const ZELLE_QR_SRC = "/logos/zelle-qr.jpg";
+const INVOICE_QR_SIZE = 96;
+const INVOICES_PER_PAGE = 12;
 
 function getSessionValue(key) {
   if (typeof window === "undefined") return "";
@@ -162,6 +165,59 @@ function getCardPaymentSummary(invoice) {
   };
 }
 
+function getInvoiceGrossTotal(invoice) {
+  return parseFloat(invoice.subtotal || 0)
+    + parseFloat(invoice.taxAmount || 0)
+    + parseFloat(invoice.deliveryFee || 0);
+}
+
+function getFullInvoiceCardSummary(invoice) {
+  const baseTotal = getInvoiceGrossTotal(invoice);
+  const processingFee = Math.round((baseTotal * CARD_SURCHARGE_RATE) * 100) / 100;
+
+  return {
+    baseTotal,
+    processingFee,
+    cardTotal: baseTotal + processingFee,
+  };
+}
+
+function summarizeInvoices(invoiceList = []) {
+  return invoiceList.reduce((summary, invoice) => {
+    const payments = Array.isArray(invoice.payments) ? invoice.payments : [];
+    const completedPayments = payments.filter((payment) => payment.status === "completed");
+
+    summary.count += 1;
+    summary.total += parseFloat(invoice.total || 0);
+    summary.remaining += parseFloat(invoice.remainingBalance || 0);
+    summary.collected += parseFloat(invoice.amountPaid || 0);
+    summary.repairs += Array.isArray(invoice.repairIDs) ? invoice.repairIDs.length : 0;
+    summary.completedPayments += completedPayments.length;
+
+    for (const payment of completedPayments) {
+      const amount = parseFloat(payment.amount || 0);
+      const method = payment.type || "other";
+      if (method === "cash") summary.cash += amount;
+      else if (["credit_card", "stripe", "terminal"].includes(method)) summary.card += amount;
+      else if (method === "zelle") summary.zelle += amount;
+      else summary.other += amount;
+    }
+
+    return summary;
+  }, {
+    count: 0,
+    total: 0,
+    remaining: 0,
+    collected: 0,
+    repairs: 0,
+    completedPayments: 0,
+    cash: 0,
+    card: 0,
+    zelle: 0,
+    other: 0,
+  });
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -176,11 +232,34 @@ function getPrintAssetSrc(src) {
   return new URL(src, window.location.origin).href;
 }
 
+function getInvoiceQrSrc(invoiceID) {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${INVOICE_QR_SIZE}x${INVOICE_QR_SIZE}&margin=1&data=${encodeURIComponent(`invoice:${invoiceID || ""}`)}`;
+}
+
+function normalizeScannedInvoiceID(value) {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) return "";
+
+  try {
+    const parsedUrl = new URL(rawValue);
+    return parsedUrl.searchParams.get("invoiceID")
+      || parsedUrl.searchParams.get("invoice")
+      || parsedUrl.pathname.split("/").filter(Boolean).pop()
+      || rawValue;
+  } catch {
+    return rawValue
+      .replace(/^invoice:/i, "")
+      .replace(/^inv:/i, "")
+      .trim();
+  }
+}
+
 function buildInvoicePrintHtml(invoice) {
   const cashSummary = getCashDiscountSummary(invoice);
   const cardSummary = getCardPaymentSummary(invoice);
   const logoSrc = getPrintAssetSrc(EFD_LOGO_SRC);
   const zelleQrSrc = getPrintAssetSrc(ZELLE_QR_SRC);
+  const invoiceQrSrc = getInvoiceQrSrc(invoice.invoiceID);
   const repairRows = (invoice.repairSnapshots || []).map((repair) => `
     <tr>
       <td>
@@ -209,13 +288,16 @@ function buildInvoicePrintHtml(invoice) {
     <style>
       @page { size: letter; margin: 0.35in; }
       * { box-sizing: border-box; }
-      body { margin: 0; font-family: Arial, sans-serif; color: #111827; font-size: 11px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      body { margin: 0; padding-bottom: 1.25in; font-family: Arial, sans-serif; color: #111827; font-size: 11px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .header { display: flex; justify-content: space-between; gap: 24px; border-bottom: 2px solid #111827; padding-bottom: 10px; margin-bottom: 14px; }
       .brand-row { display: flex; align-items: flex-start; gap: 12px; }
       .logo { width: 62px; height: auto; object-fit: contain; }
       .brand { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
       .contact { line-height: 1.35; margin-top: 4px; color: #374151; }
+      .header-right { display: flex; align-items: flex-start; gap: 12px; }
       .title { font-size: 18px; font-weight: 700; text-align: right; }
+      .zelle-header { display: grid; grid-template-columns: 0.78in 1fr; gap: 7px; align-items: center; border: 1px solid #D1D5DB; padding: 6px; min-width: 2.25in; }
+      .zelle-header img { width: 0.78in; height: 0.78in; object-fit: contain; display: block; }
       .muted { color: #6B7280; font-size: 11px; margin-top: 3px; }
       .mono { font-family: "Courier New", monospace; }
       .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
@@ -231,9 +313,9 @@ function buildInvoicePrintHtml(invoice) {
       .totals-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #E5E7EB; }
       .grand { font-size: 16px; font-weight: 800; border-bottom: 2px solid #111827; }
       .section { margin-top: 16px; }
-      .payment-options { display: grid; grid-template-columns: 1fr 1.35in; gap: 16px; align-items: center; margin-top: 16px; border: 1px solid #D1D5DB; padding: 10px; break-inside: avoid; }
-      .qr-wrap { display: flex; justify-content: flex-end; }
-      .zelle-qr { width: 1.35in; height: 1.35in; object-fit: contain; border: 1px solid #D1D5DB; padding: 4px; display: block; }
+      .payment-options { margin-top: 16px; border: 1px solid #D1D5DB; padding: 10px; break-inside: avoid; }
+      .invoice-sticker { position: fixed; right: 0.35in; bottom: 0.28in; display: grid; grid-template-columns: 0.96in 1.25in; gap: 8px; align-items: center; border: 1px solid #111827; background: #FFFFFF; padding: 6px; break-inside: avoid; }
+      .invoice-sticker img { width: 0.96in; height: 0.96in; object-fit: contain; display: block; }
       .notes { border: 1px solid #D1D5DB; padding: 10px; min-height: 44px; white-space: pre-wrap; }
       @media print { .no-print { display: none; } }
     </style>
@@ -250,10 +332,20 @@ function buildInvoicePrintHtml(invoice) {
           </div>
         </div>
       </div>
-      <div class="title">
-        Repair Invoice<br />
-        ${escapeHtml(invoice.invoiceID)}
-        <div class="muted">${escapeHtml(new Date().toLocaleDateString())}</div>
+      <div class="header-right">
+        <div class="zelle-header">
+          <img src="${zelleQrSrc}" alt="Zelle payment QR" onerror="this.style.display='none';" />
+          <div>
+            <div class="label">Zelle</div>
+            <div><strong>Memo:</strong> ${escapeHtml(invoice.invoiceID)}</div>
+            <div class="muted">Cash/check total: ${formatCurrency(cashSummary.cashTotal)}</div>
+          </div>
+        </div>
+        <div class="title">
+          Repair Invoice<br />
+          ${escapeHtml(invoice.invoiceID)}
+          <div class="muted">${escapeHtml(new Date().toLocaleDateString())}</div>
+        </div>
       </div>
     </div>
 
@@ -284,13 +376,9 @@ function buildInvoicePrintHtml(invoice) {
     <div class="payment-options">
       <div>
         <div class="label">Payment Options</div>
-        <div><strong>Zelle:</strong> Scan the QR code and include invoice ${escapeHtml(invoice.invoiceID)} in the memo.</div>
+        <div><strong>Zelle:</strong> Scan the header QR code and include invoice ${escapeHtml(invoice.invoiceID)} in the memo.</div>
         <div class="muted">Cash/check total: ${formatCurrency(cashSummary.cashTotal)}</div>
         <div class="muted">Card total includes Stripe processing fee: ${formatCurrency(cardSummary.cardTotal)}</div>
-      </div>
-      <div class="qr-wrap">
-        <img class="zelle-qr" src="${zelleQrSrc}" alt="Zelle payment QR" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
-        <div class="muted" style="display:none;">Zelle QR not configured.</div>
       </div>
     </div>
 
@@ -308,6 +396,15 @@ function buildInvoicePrintHtml(invoice) {
         <div class="label">Notes</div>
         <div class="notes">${escapeHtml(invoice.closeoutNotes)}</div>
       </div>` : ""}
+
+    <div class="invoice-sticker">
+      <img src="${invoiceQrSrc}" alt="Scan to find invoice ${escapeHtml(invoice.invoiceID)}" />
+      <div>
+        <div class="label">Scan to Find Invoice</div>
+        <div class="mono strong">${escapeHtml(invoice.invoiceID)}</div>
+        <div class="muted">Use Payment & Pickup invoice scan.</div>
+      </div>
+    </div>
   </body>
 </html>`;
 }
@@ -622,6 +719,8 @@ function InvoiceCard({
   onCashPay,
   onCreateStripe,
   onSyncStripe,
+  onCardCollected,
+  onConvertCashToCard,
   onCreateTerminal,
   onSyncTerminal,
   collectingTerminalInvoiceID,
@@ -638,8 +737,10 @@ function InvoiceCard({
   const [deliveryFeeInput, setDeliveryFeeInput] = useState(invoice.deliveryFee || 5);
   const cashDiscountSummary = useMemo(() => getCashDiscountSummary(invoice), [invoice]);
   const cardPaymentSummary = useMemo(() => getCardPaymentSummary(invoice), [invoice]);
+  const fullInvoiceCardSummary = useMemo(() => getFullInvoiceCardSummary(invoice), [invoice]);
   const pendingStripe = (invoice.payments || []).find((payment) => payment.type === "stripe" && payment.status === "pending");
   const pendingTerminal = (invoice.payments || []).find((payment) => payment.type === "terminal" && payment.status === "pending");
+  const hasCompletedCashPayment = (invoice.payments || []).some((payment) => payment.type === "cash" && payment.status === "completed");
   const canEditInvoice = invoice.paymentStatus !== "paid" && ["draft", "open"].includes(invoice.status);
   const splitDisabled = selectedRepairIDs.length === 0 || selectedRepairIDs.length >= (invoice.repairIDs || []).length;
 
@@ -796,6 +897,26 @@ function InvoiceCard({
             </Button>
           )}
 
+          {hasCompletedCashPayment && (
+            <Alert severity="warning" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
+              <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ xs: "stretch", md: "center" }} justifyContent="space-between">
+                <Box>
+                  <Typography sx={{ fontWeight: 700 }}>Cash payment correction</Typography>
+                  <Typography variant="caption" sx={{ display: "block" }}>
+                    If this was actually a card payment, convert it to credit card and set collected total to {formatCurrency(fullInvoiceCardSummary.cardTotal)}.
+                  </Typography>
+                </Box>
+                <Button
+                  variant="outlined"
+                  onClick={() => onConvertCashToCard(invoice.invoiceID)}
+                  sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border, flexShrink: 0 }}
+                >
+                  Convert Cash to Credit Card
+                </Button>
+              </Stack>
+            </Alert>
+          )}
+
           {invoice.paymentStatus !== "paid" && (
             <>
               <Divider />
@@ -811,6 +932,13 @@ function InvoiceCard({
               <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
                 <Button variant="outlined" onClick={() => onCreateStripe(invoice.invoiceID, cardPaymentSummary.cardTotal)} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>
                   Create Stripe Intent ({formatCurrency(cardPaymentSummary.cardTotal)})
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => onCardCollected(invoice.invoiceID, cardPaymentSummary)}
+                  sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
+                >
+                  Credit Card Payment Collected ({formatCurrency(cardPaymentSummary.cardTotal)})
                 </Button>
                 {pendingStripe && (
                   <Button variant="outlined" onClick={() => onSyncStripe(invoice.invoiceID, pendingStripe.paymentIntentId)} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>
@@ -868,7 +996,9 @@ export default function PaymentPickupPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnCloseoutRepairID = searchParams.get("closeoutRepairID") || "";
+  const shouldOpenInvoiceScanner = searchParams.get("scanInvoice") === "1";
   const handledReturnRef = useRef("");
+  const handledInvoiceScanOpenRef = useRef(false);
   const [tab, setTab] = useState(0);
   const [closeoutRepairs, setCloseoutRepairs] = useState([]);
   const [invoices, setInvoices] = useState([]);
@@ -884,6 +1014,9 @@ export default function PaymentPickupPage() {
   const [collectingTerminalInvoiceID, setCollectingTerminalInvoiceID] = useState("");
   const [closeoutSearch, setCloseoutSearch] = useState("");
   const [closeoutScannerOpen, setCloseoutScannerOpen] = useState(false);
+  const [invoiceSearch, setInvoiceSearch] = useState("");
+  const [invoiceScannerOpen, setInvoiceScannerOpen] = useState(false);
+  const [invoicePage, setInvoicePage] = useState(1);
   const [scannedRepairID, setScannedRepairID] = useState("");
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "info" });
 
@@ -929,12 +1062,20 @@ export default function PaymentPickupPage() {
     }
   }, [authStatus, loadData, session]);
 
-  const draftOrOpenInvoices = useMemo(
-    () => invoices.filter((invoice) => ["draft", "open"].includes(invoice.status)),
+  const draftInvoices = useMemo(
+    () => invoices.filter((invoice) => invoice.status === "draft"),
+    [invoices]
+  );
+  const openInvoices = useMemo(
+    () => invoices.filter((invoice) => invoice.status === "open"),
     [invoices]
   );
   const paidInvoices = useMemo(
     () => invoices.filter((invoice) => invoice.status === "paid"),
+    [invoices]
+  );
+  const editableInvoices = useMemo(
+    () => invoices.filter((invoice) => invoice.paymentStatus !== "paid" && ["draft", "open"].includes(invoice.status)),
     [invoices]
   );
   const selectedRepairs = useMemo(
@@ -950,6 +1091,12 @@ export default function PaymentPickupPage() {
     () => closeoutRepairs.find((r) => r.repairID === scannedRepairID) || null,
     [closeoutRepairs, scannedRepairID]
   );
+
+  useEffect(() => {
+    if (!shouldOpenInvoiceScanner || loading || handledInvoiceScanOpenRef.current) return;
+    handledInvoiceScanOpenRef.current = true;
+    setInvoiceScannerOpen(true);
+  }, [loading, shouldOpenInvoiceScanner]);
 
   useEffect(() => {
     const activeRepairID = returnCloseoutRepairID || getSessionValue(CLOSEOUT_ACTIVE_REPAIR_KEY);
@@ -974,6 +1121,70 @@ export default function PaymentPickupPage() {
       repair.description,
     ].some((value) => String(value || "").toLowerCase().includes(search)));
   }, [closeoutRepairs, closeoutSearch]);
+
+  const filterInvoices = useCallback((invoiceList) => {
+    const search = invoiceSearch.trim().toLowerCase();
+    if (!search) return invoiceList;
+
+    return invoiceList.filter((invoice) => [
+      invoice.invoiceID,
+      invoice.customerName,
+      invoice.accountID,
+      invoice.accountType,
+      invoice.paymentStatus,
+      ...(invoice.repairIDs || []),
+      ...(invoice.repairSnapshots || []).flatMap((repair) => [
+        repair.repairID,
+        repair.customerName,
+      ]),
+    ].some((value) => String(value || "").toLowerCase().includes(search)));
+  }, [invoiceSearch]);
+
+  const visibleDraftInvoices = useMemo(() => filterInvoices(draftInvoices), [draftInvoices, filterInvoices]);
+  const visibleOpenInvoices = useMemo(() => filterInvoices(openInvoices), [openInvoices, filterInvoices]);
+  const visiblePaidInvoices = useMemo(() => filterInvoices(paidInvoices), [paidInvoices, filterInvoices]);
+  const activeInvoiceList = tab === 1 ? visibleDraftInvoices : tab === 2 ? visibleOpenInvoices : visiblePaidInvoices;
+  const activeInvoiceSummary = useMemo(() => summarizeInvoices(activeInvoiceList), [activeInvoiceList]);
+  const activeInvoiceTotalPages = Math.max(1, Math.ceil(activeInvoiceList.length / INVOICES_PER_PAGE));
+  const activeInvoicePage = Math.min(invoicePage, activeInvoiceTotalPages);
+  const paginatedInvoiceList = useMemo(() => {
+    const start = (activeInvoicePage - 1) * INVOICES_PER_PAGE;
+    return activeInvoiceList.slice(start, start + INVOICES_PER_PAGE);
+  }, [activeInvoiceList, activeInvoicePage]);
+  const invoicePageStart = activeInvoiceList.length === 0
+    ? 0
+    : ((activeInvoicePage - 1) * INVOICES_PER_PAGE) + 1;
+  const invoicePageEnd = Math.min(activeInvoicePage * INVOICES_PER_PAGE, activeInvoiceList.length);
+
+  useEffect(() => {
+    setInvoicePage(1);
+  }, [invoiceSearch, tab]);
+
+  const handleInvoiceScan = (value) => {
+    const invoiceID = normalizeScannedInvoiceID(value);
+    if (!invoiceID) return;
+
+    const matchedInvoice = invoices.find((invoice) =>
+      String(invoice.invoiceID || "").toLowerCase() === invoiceID.toLowerCase()
+    );
+
+    setInvoiceSearch(invoiceID);
+    setInvoiceScannerOpen(false);
+
+    if (!matchedInvoice) {
+      showMessage(`${invoiceID} was not found in repair invoices.`, "warning");
+      return;
+    }
+
+    if (matchedInvoice.status === "draft") {
+      setTab(1);
+    } else if (matchedInvoice.status === "open") {
+      setTab(2);
+    } else {
+      setTab(3);
+    }
+    showMessage(`Found invoice ${matchedInvoice.invoiceID}.`, "success");
+  };
 
   const toggleRepairSelection = (repairID) => {
     setSelectedRepairIDs((prev) =>
@@ -1139,6 +1350,7 @@ export default function PaymentPickupPage() {
   const handleFinalizeInvoice = async (invoiceID) => {
     try {
       await postInvoiceAction(`/api/repair-invoices/${invoiceID}/finalize`, {}, `Finalized invoice ${invoiceID}.`);
+      setTab(2);
     } catch (error) {
       showMessage(error.message, "error");
     }
@@ -1177,6 +1389,34 @@ export default function PaymentPickupPage() {
         `/api/repair-invoices/${invoiceID}/payments/stripe`,
         { paymentIntentId },
         `Refreshed Stripe status for ${invoiceID}.`
+      );
+    } catch (error) {
+      showMessage(error.message, "error");
+    }
+  };
+
+  const handleCardCollected = async (invoiceID, cardSummary) => {
+    try {
+      await postInvoiceAction(
+        `/api/repair-invoices/${invoiceID}/payments/card-collected`,
+        {
+          amount: parseFloat(cardSummary?.cardTotal || 0),
+          baseAmount: parseFloat(cardSummary?.baseTotal || 0),
+          processingFee: parseFloat(cardSummary?.processingFee || 0),
+        },
+        `Recorded credit card payment on ${invoiceID}.`
+      );
+    } catch (error) {
+      showMessage(error.message, "error");
+    }
+  };
+
+  const handleConvertCashToCard = async (invoiceID) => {
+    try {
+      await postInvoiceAction(
+        `/api/repair-invoices/${invoiceID}/payments/convert-cash-to-card`,
+        {},
+        `Converted cash payment to credit card on ${invoiceID}.`
       );
     } catch (error) {
       showMessage(error.message, "error");
@@ -1354,9 +1594,107 @@ export default function PaymentPickupPage() {
         }}
       >
         <Tab label={`Completed / Needs Closeout (${closeoutRepairs.length})`} />
-        <Tab label={`Draft / Open Invoices (${draftOrOpenInvoices.length})`} />
+        <Tab label={`Draft Invoices (${draftInvoices.length})`} />
+        <Tab label={`Open Invoices (${openInvoices.length})`} />
         <Tab label={`Paid / Closed (${paidInvoices.length})`} />
       </Tabs>
+
+      {tab > 0 && (
+        <Card sx={{ backgroundColor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, boxShadow: REPAIRS_UI.shadow, mb: 2 }}>
+          <CardContent>
+            <Stack spacing={1.5}>
+              <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ xs: "stretch", md: "center" }}>
+                <TextField
+                  label="Find Invoice"
+                  placeholder="Scan or search invoice ID, repair ID, customer, or account"
+                  value={invoiceSearch}
+                  onChange={(event) => setInvoiceSearch(event.target.value)}
+                  autoComplete="off"
+                  size="small"
+                  sx={{ flex: 1 }}
+                />
+                <Button
+                  variant="outlined"
+                  startIcon={<ScanIcon />}
+                  onClick={() => setInvoiceScannerOpen(true)}
+                  sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
+                >
+                  Scan to Search
+                </Button>
+                <Button
+                  variant="outlined"
+                  disabled={!invoiceSearch}
+                  onClick={() => setInvoiceSearch("")}
+                  sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
+                >
+                  Clear
+                </Button>
+                <Chip label={`${activeInvoiceSummary.count} shown`} />
+              </Stack>
+
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))" },
+                  gap: 1,
+                }}
+              >
+                {[
+                  ["Invoice Total", formatCurrency(activeInvoiceSummary.total)],
+                  ["Collected", formatCurrency(activeInvoiceSummary.collected)],
+                  ["Remaining", formatCurrency(activeInvoiceSummary.remaining)],
+                  ["Repairs", activeInvoiceSummary.repairs],
+                  ["Cash", formatCurrency(activeInvoiceSummary.cash)],
+                  ["Card", formatCurrency(activeInvoiceSummary.card)],
+                  ["Zelle", formatCurrency(activeInvoiceSummary.zelle)],
+                  ["Payments", activeInvoiceSummary.completedPayments],
+                ].map(([label, value]) => (
+                  <Box
+                    key={label}
+                    sx={{
+                      border: `1px solid ${REPAIRS_UI.border}`,
+                      backgroundColor: REPAIRS_UI.bgCard,
+                      borderRadius: 2,
+                      px: 1.25,
+                      py: 1,
+                      minWidth: 0,
+                    }}
+                  >
+                    <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>
+                      {label}
+                    </Typography>
+                    <Typography sx={{ color: REPAIRS_UI.textPrimary, fontWeight: 700, overflowWrap: "anywhere" }}>
+                      {value}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+
+              {activeInvoiceList.length > INVOICES_PER_PAGE && (
+                <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ xs: "stretch", md: "center" }} justifyContent="space-between">
+                  <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
+                    Showing {invoicePageStart}-{invoicePageEnd} of {activeInvoiceList.length}
+                  </Typography>
+                  <Pagination
+                    page={activeInvoicePage}
+                    count={activeInvoiceTotalPages}
+                    onChange={(event, value) => setInvoicePage(value)}
+                    color="primary"
+                    size="small"
+                    sx={{
+                      alignSelf: { xs: "center", md: "auto" },
+                      "& .MuiPaginationItem-root": {
+                        color: REPAIRS_UI.textPrimary,
+                        borderColor: REPAIRS_UI.border,
+                      },
+                    }}
+                  />
+                </Stack>
+              )}
+            </Stack>
+          </CardContent>
+        </Card>
+      )}
 
       {tab === 0 && (
         <Stack spacing={2.5}>
@@ -1466,25 +1804,26 @@ export default function PaymentPickupPage() {
 
       {tab === 1 && (
         <Stack spacing={2}>
-          {draftOrOpenInvoices.length === 0 ? (
+          {visibleDraftInvoices.length === 0 ? (
             <Alert severity="info" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
-              No draft or open repair invoices.
+              No draft repair invoices.
             </Alert>
           ) : (
-            draftOrOpenInvoices.map((invoice) => (
+            paginatedInvoiceList.map((invoice) => (
               <InvoiceCard
                 key={invoice.invoiceID}
                 invoice={invoice}
-                mergeTargets={draftOrOpenInvoices.filter((target) =>
+                mergeTargets={editableInvoices.filter((target) =>
                   target.invoiceID !== invoice.invoiceID
                   && target.accountType === invoice.accountType
                   && target.accountID === invoice.accountID
-                  && target.paymentStatus !== "paid"
                 )}
                 onFinalize={handleFinalizeInvoice}
                 onCashPay={handleCashPayment}
                 onCreateStripe={handleCreateStripe}
                 onSyncStripe={handleSyncStripe}
+                onCardCollected={handleCardCollected}
+                onConvertCashToCard={handleConvertCashToCard}
                 onCreateTerminal={handleCreateTerminal}
                 onSyncTerminal={handleSyncTerminal}
                 collectingTerminalInvoiceID={collectingTerminalInvoiceID}
@@ -1501,12 +1840,48 @@ export default function PaymentPickupPage() {
 
       {tab === 2 && (
         <Stack spacing={2}>
-          {paidInvoices.length === 0 ? (
+          {visibleOpenInvoices.length === 0 ? (
+            <Alert severity="info" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
+              No open repair invoices.
+            </Alert>
+          ) : (
+            paginatedInvoiceList.map((invoice) => (
+              <InvoiceCard
+                key={invoice.invoiceID}
+                invoice={invoice}
+                mergeTargets={editableInvoices.filter((target) =>
+                  target.invoiceID !== invoice.invoiceID
+                  && target.accountType === invoice.accountType
+                  && target.accountID === invoice.accountID
+                )}
+                onFinalize={handleFinalizeInvoice}
+                onCashPay={handleCashPayment}
+                onCreateStripe={handleCreateStripe}
+                onSyncStripe={handleSyncStripe}
+                onCardCollected={handleCardCollected}
+                onConvertCashToCard={handleConvertCashToCard}
+                onCreateTerminal={handleCreateTerminal}
+                onSyncTerminal={handleSyncTerminal}
+                collectingTerminalInvoiceID={collectingTerminalInvoiceID}
+                onUpdateDelivery={handleUpdateDelivery}
+                onSetCashDiscount={handleSetCashDiscount}
+                onSplitInvoice={handleSplitInvoice}
+                onMergeInvoice={handleMergeInvoice}
+                onRemoveRepairs={handleRemoveRepairsFromInvoice}
+              />
+            ))
+          )}
+        </Stack>
+      )}
+
+      {tab === 3 && (
+        <Stack spacing={2}>
+          {visiblePaidInvoices.length === 0 ? (
             <Alert severity="info" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
               No paid repair invoices yet.
             </Alert>
           ) : (
-            paidInvoices.map((invoice) => (
+            paginatedInvoiceList.map((invoice) => (
               <InvoiceCard
                 key={invoice.invoiceID}
                 invoice={invoice}
@@ -1515,6 +1890,8 @@ export default function PaymentPickupPage() {
                 onCashPay={handleCashPayment}
                 onCreateStripe={handleCreateStripe}
                 onSyncStripe={handleSyncStripe}
+                onCardCollected={handleCardCollected}
+                onConvertCashToCard={handleConvertCashToCard}
                 onCreateTerminal={handleCreateTerminal}
                 onSyncTerminal={handleSyncTerminal}
                 collectingTerminalInvoiceID={collectingTerminalInvoiceID}
@@ -1614,6 +1991,19 @@ export default function PaymentPickupPage() {
       >
         <Alert severity="info" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
           Scan a repair ticket barcode to open its closeout dialog. When done, scan the next repair.
+        </Alert>
+      </ContinuousBarcodeScanner>
+
+      <ContinuousBarcodeScanner
+        open={invoiceScannerOpen}
+        title="Scan Invoice"
+        actionLabel="Close"
+        onScan={handleInvoiceScan}
+        onClose={() => setInvoiceScannerOpen(false)}
+        onAction={() => setInvoiceScannerOpen(false)}
+      >
+        <Alert severity="info" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
+          Scan the QR code at the bottom of a printed invoice to jump to that invoice.
         </Alert>
       </ContinuousBarcodeScanner>
     </Box>

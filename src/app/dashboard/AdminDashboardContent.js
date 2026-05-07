@@ -34,7 +34,7 @@ import {
   TrendingUp as TrendingUpIcon,
   Work as WorkIcon,
 } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useRepairs } from '@/app/context/repairs.context';
 import ContinuousBarcodeScanner from '@/components/repairs/ContinuousBarcodeScanner';
 
@@ -264,10 +264,11 @@ function getRepairDisplayName(repair) {
   return repair.clientName || repair.customerName || repair.businessName || 'Unknown customer';
 }
 
-function RepairLookupPanel({ repairs, onNavigate }) {
+function RepairLookupPanel({ repairs, onNavigate, autoOpenScanner = false }) {
   const [query, setQuery] = React.useState('');
   const [error, setError] = React.useState('');
   const [cameraScannerOpen, setCameraScannerOpen] = React.useState(false);
+  const autoOpenedScannerRef = React.useRef(false);
 
   const trimmedQuery = query.trim();
   const matches = React.useMemo(() => {
@@ -319,6 +320,12 @@ function RepairLookupPanel({ repairs, onNavigate }) {
     setQuery(value);
     handleLookup(value);
   };
+
+  React.useEffect(() => {
+    if (!autoOpenScanner || autoOpenedScannerRef.current) return;
+    autoOpenedScannerRef.current = true;
+    setCameraScannerOpen(true);
+  }, [autoOpenScanner]);
 
   return (
     <Surface>
@@ -515,6 +522,7 @@ function RepairLookupPanel({ repairs, onNavigate }) {
 export default function AdminDashboardContent() {
   const { data: session } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { repairs, loading } = useRepairs();
   const [analyticsSnapshot, setAnalyticsSnapshot] = React.useState(null);
   const [reportSnapshot, setReportSnapshot] = React.useState(null);
@@ -759,7 +767,11 @@ export default function AdminDashboardContent() {
         <QueuePanel items={operationalQueues} onNavigate={(href) => router.push(href)} />
       </Box>
 
-      <RepairLookupPanel repairs={repairs || []} onNavigate={(href) => router.push(href)} />
+      <RepairLookupPanel
+        repairs={repairs || []}
+        onNavigate={(href) => router.push(href)}
+        autoOpenScanner={searchParams.get('scanRepair') === '1'}
+      />
 
       <Surface>
         <Stack spacing={2}>

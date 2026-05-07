@@ -474,6 +474,22 @@ export function buildPartsReadyForWorkUpdate({ now = new Date() } = {}) {
   };
 }
 
+export function buildCommunicationCompleteUpdate({ repair = {}, now = new Date() } = {}) {
+  if (repair.assignedTo) {
+    return {
+      status: REPAIR_STATUS.IN_PROGRESS,
+      benchStatus: LEGACY_BENCH_STATUS.IN_PROGRESS,
+      updatedAt: now,
+    };
+  }
+
+  return {
+    status: REPAIR_STATUS.READY_FOR_WORK,
+    benchStatus: LEGACY_BENCH_STATUS.UNCLAIMED,
+    updatedAt: now,
+  };
+}
+
 export function buildCompleteFromQcUpdate({ nextStatus, userName, now = new Date() }) {
   const normalizedStatus = normalizeRepairStatus(nextStatus);
   if (!QC_COMPLETION_STATUSES.includes(normalizedStatus)) {

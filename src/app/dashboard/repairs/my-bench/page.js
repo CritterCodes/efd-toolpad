@@ -354,15 +354,26 @@ function RepairBenchCard({
         )}
 
         {repair.benchQueue === BENCH_QUEUE.COMMUNICATIONS && (
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<CommunicationsIcon sx={{ fontSize: 14 }} />}
-            onClick={() => router.push(`/dashboard/repairs/${repair.repairID}`)}
-            sx={{ color: '#A855F7', borderColor: '#A855F7', fontSize: '0.75rem' }}
-          >
-            Open Communication
-          </Button>
+          <>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<CommunicationsIcon sx={{ fontSize: 14 }} />}
+              onClick={() => router.push(`/dashboard/repairs/${repair.repairID}`)}
+              sx={{ color: '#A855F7', borderColor: '#A855F7', fontSize: '0.75rem' }}
+            >
+              Open Communication
+            </Button>
+            <Button
+              size="small"
+              variant="contained"
+              disabled={loading}
+              onClick={() => doAction('communication-complete')}
+              sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', fontSize: '0.75rem', '&:hover': { bgcolor: '#c9a227' } }}
+            >
+              Communication Complete
+            </Button>
+          </>
         )}
       </CardActions>
     </Card>
