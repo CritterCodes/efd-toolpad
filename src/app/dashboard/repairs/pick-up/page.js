@@ -163,6 +163,23 @@ function getCardPaymentSummary(invoice) {
   };
 }
 
+function getInvoiceGrossTotal(invoice) {
+  return parseFloat(invoice.subtotal || 0)
+    + parseFloat(invoice.taxAmount || 0)
+    + parseFloat(invoice.deliveryFee || 0);
+}
+
+function getFullInvoiceCardSummary(invoice) {
+  const baseTotal = getInvoiceGrossTotal(invoice);
+  const processingFee = Math.round((baseTotal * CARD_SURCHARGE_RATE) * 100) / 100;
+
+  return {
+    baseTotal,
+    processingFee,
+    cardTotal: baseTotal + processingFee,
+  };
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -665,6 +682,7 @@ function InvoiceCard({
   onCreateStripe,
   onSyncStripe,
   onCardCollected,
+  onConvertCashToCard,
   onCreateTerminal,
   onSyncTerminal,
   collectingTerminalInvoiceID,
@@ -681,8 +699,10 @@ function InvoiceCard({
   const [deliveryFeeInput, setDeliveryFeeInput] = useState(invoice.deliveryFee || 5);
   const cashDiscountSummary = useMemo(() => getCashDiscountSummary(invoice), [invoice]);
   const cardPaymentSummary = useMemo(() => getCardPaymentSummary(invoice), [invoice]);
+  const fullInvoiceCardSummary = useMemo(() => getFullInvoiceCardSummary(invoice), [invoice]);
   const pendingStripe = (invoice.payments || []).find((payment) => payment.type === "stripe" && payment.status === "pending");
   const pendingTerminal = (invoice.payments || []).find((payment) => payment.type === "terminal" && payment.status === "pending");
+  const hasCompletedCashPayment = (invoice.payments || []).some((payment) => payment.type === "cash" && payment.status === "completed");
   const canEditInvoice = invoice.paymentStatus !== "paid" && ["draft", "open"].includes(invoice.status);
   const splitDisabled = selectedRepairIDs.length === 0 || selectedRepairIDs.length >= (invoice.repairIDs || []).length;
 
@@ -837,6 +857,26 @@ function InvoiceCard({
             <Button variant="outlined" onClick={() => onFinalize(invoice.invoiceID)} sx={{ alignSelf: "flex-start", color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>
               Finalize Invoice
             </Button>
+          )}
+
+          {hasCompletedCashPayment && (
+            <Alert severity="warning" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
+              <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ xs: "stretch", md: "center" }} justifyContent="space-between">
+                <Box>
+                  <Typography sx={{ fontWeight: 700 }}>Cash payment correction</Typography>
+                  <Typography variant="caption" sx={{ display: "block" }}>
+                    If this was actually a card payment, convert it to credit card and set collected total to {formatCurrency(fullInvoiceCardSummary.cardTotal)}.
+                  </Typography>
+                </Box>
+                <Button
+                  variant="outlined"
+                  onClick={() => onConvertCashToCard(invoice.invoiceID)}
+                  sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border, flexShrink: 0 }}
+                >
+                  Convert Cash to Credit Card
+                </Button>
+              </Stack>
+            </Alert>
           )}
 
           {invoice.paymentStatus !== "paid" && (
@@ -1316,6 +1356,18 @@ export default function PaymentPickupPage() {
     }
   };
 
+  const handleConvertCashToCard = async (invoiceID) => {
+    try {
+      await postInvoiceAction(
+        `/api/repair-invoices/${invoiceID}/payments/convert-cash-to-card`,
+        {},
+        `Converted cash payment to credit card on ${invoiceID}.`
+      );
+    } catch (error) {
+      showMessage(error.message, "error");
+    }
+  };
+
   const handleCreateTerminal = async (invoiceID, amount) => {
     try {
       setCollectingTerminalInvoiceID(invoiceID);
@@ -1656,6 +1708,7 @@ export default function PaymentPickupPage() {
                 onCreateStripe={handleCreateStripe}
                 onSyncStripe={handleSyncStripe}
                 onCardCollected={handleCardCollected}
+                onConvertCashToCard={handleConvertCashToCard}
                 onCreateTerminal={handleCreateTerminal}
                 onSyncTerminal={handleSyncTerminal}
                 collectingTerminalInvoiceID={collectingTerminalInvoiceID}
@@ -1691,6 +1744,7 @@ export default function PaymentPickupPage() {
                 onCreateStripe={handleCreateStripe}
                 onSyncStripe={handleSyncStripe}
                 onCardCollected={handleCardCollected}
+                onConvertCashToCard={handleConvertCashToCard}
                 onCreateTerminal={handleCreateTerminal}
                 onSyncTerminal={handleSyncTerminal}
                 collectingTerminalInvoiceID={collectingTerminalInvoiceID}
@@ -1722,6 +1776,7 @@ export default function PaymentPickupPage() {
                 onCreateStripe={handleCreateStripe}
                 onSyncStripe={handleSyncStripe}
                 onCardCollected={handleCardCollected}
+                onConvertCashToCard={handleConvertCashToCard}
                 onCreateTerminal={handleCreateTerminal}
                 onSyncTerminal={handleSyncTerminal}
                 collectingTerminalInvoiceID={collectingTerminalInvoiceID}
