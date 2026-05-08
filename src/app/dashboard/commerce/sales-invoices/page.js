@@ -51,9 +51,18 @@ const UI = {
 };
 
 const money = (value) => `$${Number(value || 0).toFixed(2)}`;
+const NO_CLIENT_OPTION = {
+  userID: '',
+  firstName: 'No client',
+  lastName: '',
+  name: 'No client / walk-in',
+  role: 'none',
+  isNoClient: true,
+};
 
 function getClientLabel(client) {
   if (!client) return '';
+  if (client.isNoClient) return 'No client / walk-in';
   const name = [client.firstName, client.lastName].filter(Boolean).join(' ') || client.name || client.email || client.userID;
   const phone = client.phoneNumber || client.phone || '';
   return `${name}${phone ? ` · ${phone}` : ''}`;
@@ -90,6 +99,7 @@ function buildEmptyCustomLine() {
 }
 
 function getClientName(client) {
+  if (client?.isNoClient) return 'No client / walk-in';
   return [client?.firstName, client?.lastName].filter(Boolean).join(' ') || client?.name || client?.email || client?.userID || '';
 }
 
@@ -99,6 +109,12 @@ function isSalesClient(user) {
 
 function unwrapCreatedClient(client) {
   return client?.data || client?.user || client;
+}
+
+function isSameClientOption(option, value) {
+  return option?.isNoClient === true && value?.isNoClient === true
+    || Boolean(option?.userID && option.userID === value?.userID)
+    || Boolean(option?.email && option.email === value?.email);
 }
 
 export default function SalesInvoicesPage() {
@@ -249,10 +265,10 @@ export default function SalesInvoicesPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clientID: selectedClient.userID || selectedClient.email,
+          clientID: selectedClient.isNoClient ? '' : selectedClient.userID || selectedClient.email,
           clientName,
-          clientPhone: selectedClient.phoneNumber || selectedClient.phone || '',
-          clientEmail: selectedClient.email || '',
+          clientPhone: selectedClient.isNoClient ? '' : selectedClient.phoneNumber || selectedClient.phone || '',
+          clientEmail: selectedClient.isNoClient ? '' : selectedClient.email || '',
           lineItems: payloadLines,
           cashDiscountApplied,
           amountPaid: payNow ? preview.total : 0,
@@ -435,10 +451,11 @@ export default function SalesInvoicesPage() {
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
               <Autocomplete
                 fullWidth
-                options={clients}
+                options={[NO_CLIENT_OPTION, ...clients]}
                 value={selectedClient}
                 onChange={(event, value) => setSelectedClient(value)}
                 getOptionLabel={getClientLabel}
+                isOptionEqualToValue={isSameClientOption}
                 renderInput={(params) => <TextField {...params} label="Client" />}
               />
               <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setClientOpen(true)} sx={{ flexShrink: 0 }}>
