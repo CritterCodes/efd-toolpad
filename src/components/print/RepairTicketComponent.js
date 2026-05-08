@@ -108,7 +108,7 @@ const RepairTicketComponent = ({ repair }) => {
             Recv: {repair.createdAt ? new Date(repair.createdAt).toLocaleDateString() : 'N/A'} | Due: {repair.promiseDate || 'N/A'}
           </Typography>
           <Typography sx={{ fontSize: '0.43rem', marginBottom: '1px', color: INK }}>
-            Metal: {repair.metalType || 'N/A'} {repair.karat}
+            Metal: {[repair.goldColor, repair.karat, repair.metalType || 'N/A'].filter(Boolean).join(' ')}
           </Typography>
           {repair.isRing && (repair.currentRingSize || repair.desiredRingSize) && (
             <Typography sx={{ fontSize: '0.43rem', marginBottom: '1px', color: INK }}>

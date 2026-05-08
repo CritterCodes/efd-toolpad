@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { uploadFileToS3 } from '../../../../utils/s3.util';
+import { connectToDatabase } from '@/lib/mongodb';
 
 export async function POST(request) {
     try {
@@ -45,6 +46,23 @@ export async function POST(request) {
 
         if (successfulUploads.length === 0) {
             return NextResponse.json({ error: 'All uploads failed' }, { status: 500 });
+        }
+
+        try {
+            const { db } = await connectToDatabase();
+            await db.collection('products').updateOne(
+                { productId },
+                {
+                    $push: { images: { $each: successfulUploads } },
+                    $set: { updatedAt: new Date() },
+                }
+            );
+        } catch (dbError) {
+            console.error('Uploaded images but failed to attach them to product:', dbError);
+            return NextResponse.json({
+                error: 'Images uploaded but failed to save them to the product',
+                uploadedImages: successfulUploads,
+            }, { status: 500 });
         }
 
         return NextResponse.json({

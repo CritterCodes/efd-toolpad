@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
 import { getUserArtisanTypes, canManageJewelry } from '@/lib/productPermissions';
+import { deriveRepairItemMetadata, withRepairItemMetadata } from '@/lib/productRepairMetadata';
 
 export async function GET() {
   try {
@@ -40,7 +41,7 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({ success: true, jewelry: jewelry || [] });
+    return NextResponse.json({ success: true, jewelry: (jewelry || []).map(withRepairItemMetadata) });
   } catch (error) {
     console.error('GET /api/products/jewelry error:', error);
     return NextResponse.json({ error: 'Failed to fetch jewelry' }, { status: 500 });
@@ -144,6 +145,47 @@ export async function POST(request) {
       ? gemstoneLineItems.map((g) => g.gemstoneId).filter(Boolean)
       : [];
 
+    const jewelryData = {
+      type: type || '',
+      category: type || '',
+      madeToOrder: isMadeToOrder,
+      material: material || '',
+      purity: purity || '',
+      weight: weight || '',
+      size: size || '',
+      customMounting: customMounting || false,
+
+      // V2 metals array
+      metals: metalsArray,
+
+      // V2 gemstone line items
+      gemstoneLineItems: Array.isArray(gemstoneLineItems) ? gemstoneLineItems : [],
+
+      // V2 production
+      production: {
+        castingRequired: castingRequired || false,
+        estimatedLeadTimeDays: estimatedLeadTimeDays || null,
+        notes: productionNotes || '',
+      },
+
+      // Ring Specifics
+      ringSize: ringSize || '',
+      canBeSized: canBeSized || false,
+      sizingRangeUp: sizingRangeUp || '',
+      sizingRangeDown: sizingRangeDown || '',
+      // Pendant Specifics
+      chainIncluded: chainIncluded || false,
+      chainMaterial: chainMaterial || '',
+      chainLength: chainLength || '',
+      chainStyle: chainStyle || '',
+      // Bracelet Specifics
+      length: length || '',
+      claspType: claspType || '',
+      // General
+      dimensions: dimensions || '',
+      ...otherData,
+    };
+
     const newJewelry = {
       productId,
       productType: 'jewelry',
@@ -198,46 +240,8 @@ export async function POST(request) {
       tags: Array.isArray(tags) ? tags : [],
       price: canonicalRetailPrice,
 
-      jewelry: {
-        type: type || '',
-        category: type || '',
-        madeToOrder: isMadeToOrder,
-        material: material || '',
-        purity: purity || '',
-        weight: weight || '',
-        size: size || '',
-        customMounting: customMounting || false,
-
-        // V2 metals array
-        metals: metalsArray,
-
-        // V2 gemstone line items
-        gemstoneLineItems: Array.isArray(gemstoneLineItems) ? gemstoneLineItems : [],
-
-        // V2 production
-        production: {
-          castingRequired: castingRequired || false,
-          estimatedLeadTimeDays: estimatedLeadTimeDays || null,
-          notes: productionNotes || '',
-        },
-
-        // Ring Specifics
-        ringSize: ringSize || '',
-        canBeSized: canBeSized || false,
-        sizingRangeUp: sizingRangeUp || '',
-        sizingRangeDown: sizingRangeDown || '',
-        // Pendant Specifics
-        chainIncluded: chainIncluded || false,
-        chainMaterial: chainMaterial || '',
-        chainLength: chainLength || '',
-        chainStyle: chainStyle || '',
-        // Bracelet Specifics
-        length: length || '',
-        claspType: claspType || '',
-        // General
-        dimensions: dimensions || '',
-        ...otherData,
-      },
+      jewelry: jewelryData,
+      repairItem: deriveRepairItemMetadata({ jewelry: jewelryData }),
 
       cadRequests: [],
       designs: [],

@@ -29,6 +29,7 @@ export default class Repair {
         // Item details
         this.metalType = data.metalType;
         this.karat = data.karat;
+        this.goldColor = data.goldColor || '';
         
         // Ring-specific fields
         this.isRing = data.isRing;
@@ -56,6 +57,8 @@ export default class Repair {
         // Pricing flags
         this.includeDelivery = data.includeDelivery || false;
         this.includeTax = data.includeTax || false;
+        this.compRepair = data.compRepair || false;
+        this.includedWithSale = data.includedWithSale || false;
         
         // Business information
         this.businessName = data.businessName || '';
@@ -72,6 +75,10 @@ export default class Repair {
         this.closeoutAt = data.closeoutAt || null;
         this.closeoutNotes = data.closeoutNotes || '';
         this.invoiceID = data.invoiceID || '';
+        this.sourceType = data.sourceType || '';
+        this.salesInvoiceID = data.salesInvoiceID || '';
+        this.salesLineID = data.salesLineID || '';
+        this.productID = data.productID || '';
         
         // Audit fields
         this.createdAt = data.createdAt || new Date();
@@ -159,6 +166,7 @@ export default class Repair {
             priority: this.priority,
             metalType: this.metalType,
             karat: this.karat,
+            goldColor: this.goldColor,
             isRing: this.isRing,
             currentRingSize: this.currentRingSize,
             desiredRingSize: this.desiredRingSize,
@@ -177,6 +185,8 @@ export default class Repair {
             taxRate: this.taxRate,
             includeDelivery: this.includeDelivery,
             includeTax: this.includeTax,
+            compRepair: this.compRepair,
+            includedWithSale: this.includedWithSale,
             businessName: this.businessName,
             // Status and workflow
             status: this.status,
@@ -189,6 +199,10 @@ export default class Repair {
             closeoutAt: this.closeoutAt,
             closeoutNotes: this.closeoutNotes,
             invoiceID: this.invoiceID,
+            sourceType: this.sourceType,
+            salesInvoiceID: this.salesInvoiceID,
+            salesLineID: this.salesLineID,
+            productID: this.productID,
             // Audit fields
             createdAt: this.createdAt,
             updatedAt: this.updatedAt,

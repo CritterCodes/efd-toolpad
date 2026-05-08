@@ -22,9 +22,8 @@ const FloatingActionButton = () => {
     const router = useRouter();
     const pathname = usePathname();
     const { data: session } = useSession();
-    const shopUrl = process.env.NEXT_PUBLIC_SHOP_URL || 'http://localhost:3000';
     const openSalesCheckout = () => {
-        window.location.href = `${shopUrl}/admin/checkout`;
+        router.push('/dashboard/commerce/sales-invoices?create=1');
     };
     
     // Get user role
@@ -73,11 +72,14 @@ const FloatingActionButton = () => {
                 
             case 'artisan':
                 return [
-                    {
+                    ...(session?.user?.employment?.isOnsite === true && (
+                        session?.user?.staffCapabilities?.repairOps === true ||
+                        session?.user?.staffCapabilities?.closeoutBilling === true
+                    ) ? [{
                         icon: <PointOfSaleIcon />,
                         name: 'Sales Checkout',
                         onClick: openSalesCheckout
-                    },
+                    }] : []),
                     {
                         icon: <PhotoLibraryIcon />,
                         name: 'Gallery',

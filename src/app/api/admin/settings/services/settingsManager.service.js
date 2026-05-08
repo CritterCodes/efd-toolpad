@@ -129,7 +129,8 @@ export default class SettingsManagerService {
         marketingFee,
         rushMultiplier,
         deliveryFee,
-        taxRate
+        taxRate,
+        consignmentFeeRate
       } = pricing;
       
       if (wage < 0 || wage > 200) throw Object.assign(new Error('Invalid wage amount'), { status: 400 });
@@ -144,6 +145,7 @@ export default class SettingsManagerService {
       if (rushMultiplier && (rushMultiplier < 1 || rushMultiplier > 5)) throw Object.assign(new Error('Rush multiplier must be between 1.0 and 5.0'), { status: 400 });
       if (deliveryFee && (deliveryFee < 0 || deliveryFee > 500)) throw Object.assign(new Error('Delivery fee must be between $0 and $500'), { status: 400 });
       if (taxRate && (taxRate < 0 || taxRate > 0.5)) throw Object.assign(new Error('Tax rate must be between 0 and 50%'), { status: 400 });
+      if (consignmentFeeRate != null && (consignmentFeeRate < 0 || consignmentFeeRate > 1)) throw Object.assign(new Error('Consignment fee must be between 0 and 100%'), { status: 400 });
     }
 
     if (analytics && analytics.federalTaxReserveRate != null) {

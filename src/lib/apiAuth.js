@@ -96,6 +96,30 @@ export function hasAnyStaffCapability(session, capabilities = []) {
     return capabilities.some((capability) => session?.user?.staffCapabilities?.[capability] === true);
 }
 
+export function canAccessSalesPos(session) {
+    if (['admin', 'dev', 'staff'].includes(session?.user?.role)) return true;
+    if (!isOnsiteRepairOps(session)) return false;
+    return session?.user?.staffCapabilities?.repairOps === true
+        || session?.user?.staffCapabilities?.closeoutBilling === true;
+}
+
+export async function requireSalesPosAccess() {
+    const { session, errorResponse } = await requireAuth();
+    if (errorResponse) return { session: null, errorResponse };
+
+    if (!canAccessSalesPos(session)) {
+        return {
+            session: null,
+            errorResponse: NextResponse.json(
+                { error: 'Access denied. Sales POS access is restricted to admins, staff, and onsite artisans with sales/repair operations capability.' },
+                { status: 403 }
+            ),
+        };
+    }
+
+    return { session, errorResponse: null };
+}
+
 /**
  * Require repairOps capability, optionally requiring a specific sub-capability.
  * Admins always pass. Artisans must be onsite with repairOps (and the sub-cap if specified).

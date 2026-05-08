@@ -22,6 +22,7 @@ export const useStoreSettings = () => {
         rushMultiplier: 1.5,
         deliveryFee: 25.0,
         taxRate: 0.0875,
+        consignmentFeeRate: 0.20,
         federalTaxReserveRate: 0.30
     });
 
@@ -50,6 +51,7 @@ export const useStoreSettings = () => {
                 rushMultiplier: adminSettings.rushMultiplier || 1.5,
                 deliveryFee: adminSettings.deliveryFee || 25.0,
                 taxRate: adminSettings.taxRate || 0.0875,
+                consignmentFeeRate: adminSettings.consignmentFeeRate ?? 0.20,
                 federalTaxReserveRate: Number(
                     adminSettings.federalTaxReserveRate
                     ?? adminSettings.analytics?.federalTaxReserveRate
@@ -85,6 +87,7 @@ export const useStoreSettings = () => {
                 field === 'businessFee' ||
                 field === 'consumablesFee' ||
                 field === 'taxRate' ||
+                field === 'consignmentFeeRate' ||
                 field === 'federalTaxReserveRate'
             ) {
                 setLocalSettings((prev) => ({

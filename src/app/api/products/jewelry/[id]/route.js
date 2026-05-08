@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { getUserArtisanTypes, canManageJewelry } from '@/lib/productPermissions';
+import { deriveRepairItemMetadata, withRepairItemMetadata } from '@/lib/productRepairMetadata';
 
 export async function GET(request, { params }) {
   try {
@@ -40,7 +41,7 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    return NextResponse.json({ success: true, jewelry });
+    return NextResponse.json({ success: true, jewelry: withRepairItemMetadata(jewelry) });
   } catch (error) {
     console.error('GET /api/products/jewelry/[id] error:', error);
     return NextResponse.json({ error: 'Failed to fetch jewelry' }, { status: 500 });
@@ -148,6 +149,39 @@ export async function PUT(request, { params }) {
       ? gemstoneLineItems.map((g) => g.gemstoneId).filter(Boolean)
       : existingJewelry.references?.gemstoneIds || [];
 
+    const jewelryData = {
+      ...existingJewelry.jewelry,
+      type: type !== undefined ? type : existingJewelry.jewelry?.type,
+      category: type !== undefined ? type : existingJewelry.jewelry?.category || existingJewelry.jewelry?.type,
+      madeToOrder: isMadeToOrder,
+      material: material !== undefined ? material : existingJewelry.jewelry?.material,
+      purity: purity !== undefined ? purity : existingJewelry.jewelry?.purity,
+      weight: weight !== undefined ? weight : existingJewelry.jewelry?.weight,
+      size: size !== undefined ? size : existingJewelry.jewelry?.size,
+      customMounting: customMounting !== undefined ? customMounting : existingJewelry.jewelry?.customMounting,
+      metals: metalsArray,
+      gemstoneLineItems: gemstoneLineItems !== undefined
+        ? gemstoneLineItems
+        : existingJewelry.jewelry?.gemstoneLineItems || [],
+      production: {
+        castingRequired: castingRequired !== undefined ? castingRequired : existingJewelry.jewelry?.production?.castingRequired || false,
+        estimatedLeadTimeDays: estimatedLeadTimeDays !== undefined ? estimatedLeadTimeDays : existingJewelry.jewelry?.production?.estimatedLeadTimeDays || null,
+        notes: productionNotes !== undefined ? productionNotes : existingJewelry.jewelry?.production?.notes || '',
+      },
+      ringSize: ringSize !== undefined ? ringSize : existingJewelry.jewelry?.ringSize,
+      canBeSized: canBeSized !== undefined ? canBeSized : existingJewelry.jewelry?.canBeSized,
+      sizingRangeUp: sizingRangeUp !== undefined ? sizingRangeUp : existingJewelry.jewelry?.sizingRangeUp,
+      sizingRangeDown: sizingRangeDown !== undefined ? sizingRangeDown : existingJewelry.jewelry?.sizingRangeDown,
+      chainIncluded: chainIncluded !== undefined ? chainIncluded : existingJewelry.jewelry?.chainIncluded,
+      chainMaterial: chainMaterial !== undefined ? chainMaterial : existingJewelry.jewelry?.chainMaterial,
+      chainLength: chainLength !== undefined ? chainLength : existingJewelry.jewelry?.chainLength,
+      chainStyle: chainStyle !== undefined ? chainStyle : existingJewelry.jewelry?.chainStyle,
+      length: length !== undefined ? length : existingJewelry.jewelry?.length,
+      claspType: claspType !== undefined ? claspType : existingJewelry.jewelry?.claspType,
+      dimensions: dimensions !== undefined ? dimensions : existingJewelry.jewelry?.dimensions,
+      ...otherData,
+    };
+
     const updateData = {
       title: title || existingJewelry.title,
       description: description !== undefined ? description : existingJewelry.description,
@@ -165,38 +199,8 @@ export async function PUT(request, { params }) {
       'pricing.currency': 'USD',
       'references.gemstoneIds': referencedGemstoneIds,
 
-      jewelry: {
-        ...existingJewelry.jewelry,
-        type: type !== undefined ? type : existingJewelry.jewelry?.type,
-        category: type !== undefined ? type : existingJewelry.jewelry?.category || existingJewelry.jewelry?.type,
-        madeToOrder: isMadeToOrder,
-        material: material !== undefined ? material : existingJewelry.jewelry?.material,
-        purity: purity !== undefined ? purity : existingJewelry.jewelry?.purity,
-        weight: weight !== undefined ? weight : existingJewelry.jewelry?.weight,
-        size: size !== undefined ? size : existingJewelry.jewelry?.size,
-        customMounting: customMounting !== undefined ? customMounting : existingJewelry.jewelry?.customMounting,
-        metals: metalsArray,
-        gemstoneLineItems: gemstoneLineItems !== undefined
-          ? gemstoneLineItems
-          : existingJewelry.jewelry?.gemstoneLineItems || [],
-        production: {
-          castingRequired: castingRequired !== undefined ? castingRequired : existingJewelry.jewelry?.production?.castingRequired || false,
-          estimatedLeadTimeDays: estimatedLeadTimeDays !== undefined ? estimatedLeadTimeDays : existingJewelry.jewelry?.production?.estimatedLeadTimeDays || null,
-          notes: productionNotes !== undefined ? productionNotes : existingJewelry.jewelry?.production?.notes || '',
-        },
-        ringSize: ringSize !== undefined ? ringSize : existingJewelry.jewelry?.ringSize,
-        canBeSized: canBeSized !== undefined ? canBeSized : existingJewelry.jewelry?.canBeSized,
-        sizingRangeUp: sizingRangeUp !== undefined ? sizingRangeUp : existingJewelry.jewelry?.sizingRangeUp,
-        sizingRangeDown: sizingRangeDown !== undefined ? sizingRangeDown : existingJewelry.jewelry?.sizingRangeDown,
-        chainIncluded: chainIncluded !== undefined ? chainIncluded : existingJewelry.jewelry?.chainIncluded,
-        chainMaterial: chainMaterial !== undefined ? chainMaterial : existingJewelry.jewelry?.chainMaterial,
-        chainLength: chainLength !== undefined ? chainLength : existingJewelry.jewelry?.chainLength,
-        chainStyle: chainStyle !== undefined ? chainStyle : existingJewelry.jewelry?.chainStyle,
-        length: length !== undefined ? length : existingJewelry.jewelry?.length,
-        claspType: claspType !== undefined ? claspType : existingJewelry.jewelry?.claspType,
-        dimensions: dimensions !== undefined ? dimensions : existingJewelry.jewelry?.dimensions,
-        ...otherData,
-      },
+      jewelry: jewelryData,
+      repairItem: deriveRepairItemMetadata({ jewelry: jewelryData }),
     };
 
     await db.collection('products').updateOne(searchCriteria, { $set: updateData });
