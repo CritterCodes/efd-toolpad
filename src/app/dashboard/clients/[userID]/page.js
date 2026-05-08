@@ -182,7 +182,7 @@ const ViewUserPage = ({ params }) => {
 
             {activeTab === 1 && (
                 <Box sx={{ mt: 3 }}>
-                    <ClientRepairsTab userID={userID} />
+                    <ClientRepairsTab userID={userID} user={user} />
                 </Box>
             )}
 

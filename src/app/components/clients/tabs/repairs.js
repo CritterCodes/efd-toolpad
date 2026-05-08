@@ -6,7 +6,45 @@ import NewRepairStepper from '@/app/components/repairs/newRepairStepper.componen
 import { useRepairs } from '@/app/context/repairs.context';
 import { Box, Pagination } from '@mui/material';
 
-const ClientRepairsTab = ({ userID }) => {
+const normalizeIdentifier = (value) => {
+    if (!value) return '';
+    if (typeof value === 'object') {
+        if (value.$oid) return String(value.$oid);
+        if (value._id) return normalizeIdentifier(value._id);
+    }
+    return String(value).trim();
+};
+
+const uniqueIdentifiers = (values) => [...new Set(values.map(normalizeIdentifier).filter(Boolean))];
+
+const getClientIdentifiers = (userID, user) => uniqueIdentifiers([
+    userID,
+    user?.userID,
+    user?._id,
+    user?.id,
+    user?.email,
+]);
+
+const repairBelongsToClient = (repair, clientIdentifiers) => {
+    if (!repair || clientIdentifiers.length === 0) return false;
+
+    const repairIdentifiers = uniqueIdentifiers([
+        repair.userID,
+        repair.clientID,
+        repair.clientId,
+        repair.customerID,
+        repair.customerId,
+        repair.client?._id,
+        repair.client?.id,
+        repair.client?.userID,
+        repair.clientEmail,
+        repair.email,
+    ]);
+
+    return repairIdentifiers.some((identifier) => clientIdentifiers.includes(identifier));
+};
+
+const ClientRepairsTab = ({ userID, user }) => {
     const { repairs, setRepairs } = useRepairs();
     const [filteredRepairs, setFilteredRepairs] = useState([]);
     const [statusFilter, setStatusFilter] = useState('');
@@ -21,8 +59,9 @@ const ClientRepairsTab = ({ userID }) => {
         console.log("✅ Filtering for userID:", userID);
 
         // ✅ Filter repairs by userID
+        const clientIdentifiers = getClientIdentifiers(userID, user);
         let updatedRepairs = repairs.filter(repair => {
-            const match = repair.userID === userID;
+            const match = repairBelongsToClient(repair, clientIdentifiers);
             if (!match) {
                 console.log(`❌ Repair filtered out - ID: ${repair.repairID}, userID: ${repair.userID}`);
             }
@@ -40,8 +79,8 @@ const ClientRepairsTab = ({ userID }) => {
         // ✅ Apply search query filter
         if (searchQuery) {
             updatedRepairs = updatedRepairs.filter(repair =>
-                repair.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                repair.description.toLowerCase().includes(searchQuery.toLowerCase())
+                (repair.clientName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (repair.description || '').toLowerCase().includes(searchQuery.toLowerCase())
             );
             console.log("✅ Repairs after search query filter:", updatedRepairs);
         }
@@ -55,12 +94,15 @@ const ClientRepairsTab = ({ userID }) => {
 
         console.log("✅ Repairs after sorting:", updatedRepairs);
         setFilteredRepairs(updatedRepairs);
-    }, [repairs, statusFilter, searchQuery, sortOrder, userID]);
+    }, [repairs, statusFilter, searchQuery, sortOrder, userID, user]);
 
     const handleNewRepair = (newRepair) => {
         console.log("🆕 New Repair Added:", newRepair);
         setRepairs((prev) => [...prev, newRepair]);
-        setFilteredRepairs((prevFiltered) => [...prevFiltered, newRepair]);
+        const clientIdentifiers = getClientIdentifiers(userID, user);
+        if (repairBelongsToClient(newRepair, clientIdentifiers)) {
+            setFilteredRepairs((prevFiltered) => [...prevFiltered, newRepair]);
+        }
     };
 
     return (
