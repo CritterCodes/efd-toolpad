@@ -133,21 +133,14 @@ export const adminNavigation = {
       ]
     },
     {
-      segment: 'dashboard/repairs',
-      title: 'Repair Admin',
-      icon: <ReceiptIcon />,
-      children: [
-        {
-          segment: 'labor-review',
-          title: 'Labor Review',
-          icon: <ReceiptIcon />
-        },
-        {
-          segment: 'payroll',
-          title: 'Payroll',
-          icon: <PaymentIcon />
-        }
-      ]
+      segment: 'dashboard/repairs/labor-review',
+      title: 'Labor Review',
+      icon: <ReceiptIcon />
+    },
+    {
+      segment: 'dashboard/repairs/payroll',
+      title: 'Payroll',
+      icon: <PaymentIcon />
     },
     {
       segment: 'dashboard/admin/tasks',
