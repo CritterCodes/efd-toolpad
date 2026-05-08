@@ -45,6 +45,7 @@ export const AdminSettingsProvider = ({ children }) => {
     minimumTaskRetailPrice: 0,
     minimumTaskWholesalePrice: 0,
     federalTaxReserveRate: DEFAULT_FEDERAL_TAX_RESERVE_RATE,
+    consignmentFeeRate: 0.20,
     
     // Fee structure (as percentages of base wage)
     administrativeFee: 0.10,  // 10% of base wage
@@ -132,6 +133,7 @@ export const AdminSettingsProvider = ({ children }) => {
         federalTaxReserveRate: Number(
           data.analytics?.federalTaxReserveRate ?? defaultSettings.federalTaxReserveRate
         ),
+        consignmentFeeRate: data.pricing?.consignmentFeeRate ?? defaultSettings.consignmentFeeRate,
         
         // Metal complexity multipliers (use defaults if not in API response)
         metalComplexityMultipliers: data.metalComplexityMultipliers || defaultSettings.metalComplexityMultipliers,
@@ -201,6 +203,7 @@ export const AdminSettingsProvider = ({ children }) => {
           rushMultiplier: newSettings.rushMultiplier || adminSettings?.rushMultiplier || 1.5,
           deliveryFee: newSettings.deliveryFee || adminSettings?.deliveryFee || 0,
           taxRate: newSettings.taxRate || adminSettings?.taxRate || 0,
+          consignmentFeeRate: newSettings.consignmentFeeRate ?? adminSettings?.consignmentFeeRate ?? 0.20,
           wholesaleConfig: {
             ...(adminSettings?.pricing?.wholesaleConfig || {}),
             minimumMultiplier: newSettings.wholesaleMarkup || adminSettings?.wholesaleMarkup || adminSettings?.pricing?.wholesaleConfig?.minimumMultiplier || 1.5

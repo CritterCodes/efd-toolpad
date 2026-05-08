@@ -113,9 +113,10 @@ function QueueCard({ candidate, onOpen }) {
           <Chip label={`Hours ${Number(candidate.laborHours || 0).toFixed(2)}`} size="small" />
           <Chip label={`Repairs ${candidate.repairsWorked || 0}`} size="small" />
           <Chip label={`Pay ${formatMoney(candidate.laborPay)}`} size="small" />
+          {Number(candidate.salePay || 0) > 0 && <Chip label={`Sales ${formatMoney(candidate.salePay)}`} size="small" color="success" />}
         </Stack>
         <Typography variant="caption" sx={{ display: 'block', color: REPAIRS_UI.textMuted, mt: 1.5 }}>
-          {candidate.entryCount || 0} unbatched labor log{candidate.entryCount === 1 ? '' : 's'}
+          {candidate.entryCount || 0} unbatched payout entr{candidate.entryCount === 1 ? 'y' : 'ies'}
         </Typography>
       </CardContent>
     </Card>
@@ -159,6 +160,7 @@ function HistoryCard({ batch, onOpen }) {
           <Chip label={`Hours ${Number(batch.laborHours || 0).toFixed(2)}`} size="small" />
           <Chip label={`Repairs ${batch.repairsWorked || 0}`} size="small" />
           <Chip label={`Pay ${formatMoney(batch.laborPay)}`} size="small" />
+          {Number(batch.salePay || 0) > 0 && <Chip label={`Sales ${formatMoney(batch.salePay)}`} size="small" color="success" />}
         </Stack>
         {batch.paidAt && (
           <Typography variant="caption" sx={{ display: 'block', color: REPAIRS_UI.textMuted, mt: 1.5 }}>
@@ -804,6 +806,7 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
                 <Chip label={`Week of ${new Date(selectedDetail.weekStart).toLocaleDateString()}`} />
                 <Chip label={`Hours ${Number(selectedDetail.laborHours || 0).toFixed(2)}`} />
                 <Chip label={`Pay ${formatMoney(selectedDetail.laborPay)}`} />
+                {Number(selectedDetail.salePay || 0) > 0 && <Chip label={`Sales ${formatMoney(selectedDetail.salePay)}`} color="success" />}
                 <Chip label={`Repairs ${selectedDetail.repairsWorked || 0}`} />
                 {selectedDetail.status && <Chip label={selectedDetail.status} />}
               </Stack>
@@ -855,6 +858,45 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
               )}
 
               <Stack spacing={1.5}>
+                {(selectedDetail.salePayouts || []).map((payout) => (
+                  <Box
+                    key={payout.payoutID}
+                    sx={{
+                      border: `1px solid ${REPAIRS_UI.border}`,
+                      borderRadius: 2,
+                      p: 1.5,
+                      bgcolor: REPAIRS_UI.bgPrimary,
+                    }}
+                  >
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between">
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 700 }}>
+                          Sale payout · {payout.invoiceID}
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
+                          {payout.saleDescription || 'Jewelry sale'}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ textAlign: { xs: 'left', sm: 'right' }, flexShrink: 0 }}>
+                        <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 700 }}>
+                          {formatMoney(payout.payoutAmount)}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>
+                          Gross {formatMoney(payout.grossSale)} · Consignment -{formatMoney(payout.consignmentAmount)}
+                        </Typography>
+                        {Number(payout.actualLaborDeduction || 0) > 0 && (
+                          <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary, display: 'block' }}>
+                            Labor deduction -{formatMoney(payout.actualLaborDeduction)}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Stack>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+                      <Chip size="small" label="Consignment sale" color="success" />
+                      {(payout.linkedRepairIDs || []).map((repairID) => <Chip key={repairID} size="small" label={repairID} />)}
+                    </Stack>
+                  </Box>
+                ))}
                 {(selectedDetail.logs || []).map((log) => {
                   const workItems = getWorkItemLabels(log.repair);
                   const repairChargeTotal = getRepairChargeTotal(log.repair);

@@ -145,6 +145,20 @@ export default function PricingMultiplierConfig({ localSettings, handleSettingCh
                             <Grid item xs={12}>
                                 <TextField
                                     fullWidth
+                                    label="Store Consignment Fee"
+                                    type="number"
+                                    value={(localSettings.consignmentFeeRate * 100).toFixed(1)}
+                                    onChange={(e) => handleSettingChange('consignmentFeeRate', e.target.value)}
+                                    InputProps={{
+                                        endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                                        inputProps: { min: 0, max: 100, step: 0.1 }
+                                    }}
+                                    helperText="Store percentage retained from artisan jewelry sales"
+                                />
+                            </Grid>
+                            <Grid item xs={12}>
+                                <TextField
+                                    fullWidth
                                     label="Federal Tax Reserve Rate"
                                     type="number"
                                     value={(localSettings.federalTaxReserveRate * 100).toFixed(1)}

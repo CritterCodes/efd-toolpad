@@ -5,7 +5,8 @@ import NoteAddIcon from '@mui/icons-material/NoteAdd';
 import MoveUpIcon from '@mui/icons-material/MoveUp';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import PersonIcon from '@mui/icons-material/Person';
-import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import HomeRepairServiceIcon from '@mui/icons-material/HomeRepairService';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -21,9 +22,8 @@ const FloatingActionButton = () => {
     const router = useRouter();
     const pathname = usePathname();
     const { data: session } = useSession();
-    const shopUrl = process.env.NEXT_PUBLIC_SHOP_URL || 'http://localhost:3000';
     const openSalesCheckout = () => {
-        window.location.href = `${shopUrl}/admin/checkout`;
+        router.push('/dashboard/commerce/sales-invoices?create=1');
     };
     
     // Get user role
@@ -50,12 +50,12 @@ const FloatingActionButton = () => {
                         onClick: () => router.push('/dashboard/repairs/move')
                     },
                     {
-                        icon: <QrCodeScannerIcon />,
+                        icon: <ReceiptLongIcon />,
                         name: 'Scan Invoice',
                         onClick: () => router.push('/dashboard/repairs/pick-up?scanInvoice=1')
                     },
                     {
-                        icon: <QrCodeScannerIcon />,
+                        icon: <HomeRepairServiceIcon />,
                         name: 'Scan Repair',
                         onClick: () => router.push('/dashboard?scanRepair=1')
                     }
@@ -72,11 +72,14 @@ const FloatingActionButton = () => {
                 
             case 'artisan':
                 return [
-                    {
+                    ...(session?.user?.employment?.isOnsite === true && (
+                        session?.user?.staffCapabilities?.repairOps === true ||
+                        session?.user?.staffCapabilities?.closeoutBilling === true
+                    ) ? [{
                         icon: <PointOfSaleIcon />,
                         name: 'Sales Checkout',
                         onClick: openSalesCheckout
-                    },
+                    }] : []),
                     {
                         icon: <PhotoLibraryIcon />,
                         name: 'Gallery',

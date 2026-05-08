@@ -124,6 +124,13 @@ const neutralChipSx = {
   borderColor: UI.border
 };
 
+const successChipSx = {
+  backgroundColor: 'rgba(46, 125, 50, 0.18)',
+  color: '#A5D6A7',
+  border: '1px solid',
+  borderColor: 'rgba(165, 214, 167, 0.35)'
+};
+
 const autocompleteSlotProps = {
   paper: {
     sx: {
@@ -921,6 +928,8 @@ export default function NewRepairForm({
   onSubmit, 
   initialData = null,
   submitMode = 'create',
+  persistOnSubmit = true,
+  submitLabel = '',
   repairID = null,
   clientInfo = null,
   isWholesale = false,
@@ -971,6 +980,8 @@ export default function NewRepairForm({
     storeName: 'Engel Fine Design',
     includeDelivery: false,
     includeTax: true, // Tax enabled by default
+    compRepair: false,
+    includedWithSale: false,
     
     // Image
     picture: null
@@ -1708,6 +1719,8 @@ export default function NewRepairForm({
 
   // Calculate total cost with admin settings
   const calculateTotalCost = useCallback(async () => {
+    if (formData.compRepair || formData.includedWithSale) return 0;
+
     console.log('Ã°Å¸Â§Â® CALCULATETOTALCOST START');
     const tasksCost = formData.tasks.reduce((sum, item) => 
       sum + (parseFloat(item.price ?? resolveTaskBasePrice(item, formData.metalType, formData.karat, formData.goldColor)) * (item.quantity || 1)), 0);
@@ -2034,8 +2047,10 @@ export default function NewRepairForm({
       let materialsCost = 0;
       let customCost = 0;
       
+      const isCompedRepair = formData.compRepair || formData.includedWithSale;
+
       // For admin users, calculate detailed pricing
-      if (!formData.isWholesale) {
+      if (!formData.isWholesale && !isCompedRepair) {
         totalCost = await calculateTotalCost();
         
         // Calculate pricing breakdown properly
@@ -2130,6 +2145,12 @@ export default function NewRepairForm({
       });
       console.log('Ã°Å¸â€œâ€¹ Full Submission Object:', submissionData);
 
+      if (!persistOnSubmit) {
+        onSubmit(submissionData);
+        setLoading(false);
+        return;
+      }
+
       const result = submitMode === 'edit' && repairID
         ? await RepairsService.updateRepair(repairID, submissionData)
         : await RepairsService.createRepair(submissionData);
@@ -2143,6 +2164,12 @@ export default function NewRepairForm({
           console.warn('Update response did not include a repairID; merging submitted data into context:', result);
           updateRepair(repairID, submissionData);
         }
+      } else if (isCompedRepair) {
+        totalCost = 0;
+        subtotal = 0;
+        tasksCost = 0;
+        materialsCost = 0;
+        customCost = 0;
       } else {
         // Add the new repair to the repairs context immediately
         if (result && (result.repairID || result.newRepair?.repairID)) {
@@ -2938,6 +2965,23 @@ export default function NewRepairForm({
               )}
 
               <Grid item xs={12}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={Boolean(formData.compRepair || formData.includedWithSale)}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        compRepair: e.target.checked,
+                        includedWithSale: e.target.checked,
+                        includeTax: e.target.checked ? false : prev.includeTax,
+                      }))}
+                    />
+                  }
+                  label="Comp repair price / included with sale"
+                />
+              </Grid>
+
+              <Grid item xs={12}>
                 <TextField
                   fullWidth
                   size="small"
@@ -3106,7 +3150,7 @@ export default function NewRepairForm({
             backgroundColor: UI.bgCard,
           }}
         >
-          {loading ? 'Saving...' : 'SAVE REPAIR'}
+          {loading ? 'Saving...' : (submitLabel || 'SAVE REPAIR')}
         </Button>
       </Box>
     </Box>
@@ -3437,6 +3481,7 @@ function CustomLineItem({
 // Total cost card with rush job information
 function TotalCostCard({ formData, calculateTotalCost, adminSettings, viewerIsWholesaler = false }) {
   const [totalCost, setTotalCost] = React.useState(0);
+  const isCompedRepair = Boolean(formData.compRepair || formData.includedWithSale);
   const [costBreakdown, setCostBreakdown] = React.useState({
     subtotal: 0,
     retailSubtotal: 0,
@@ -3604,13 +3649,18 @@ function TotalCostCard({ formData, calculateTotalCost, adminSettings, viewerIsWh
               fontSize: { xs: '1.75rem', sm: '2.125rem' }
             }}
           >
-            {loading ? (
+            {isCompedRepair ? (
+              '$0.00'
+            ) : loading ? (
               <Box component="span" sx={{ color: UI.textSecondary, fontSize: '0.7em' }}>Calculating...</Box>
             ) : (
               `$${totalCost.toFixed(2)}`
             )}
           </Typography>
           <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 1, gap: 0.5 }}>
+            {isCompedRepair && (
+              <Chip size="small" label="Comped / included with sale" sx={successChipSx} />
+            )}
             {formData.isWholesale && (
               <Chip label="Wholesale Pricing" variant="outlined" size="small" sx={neutralChipSx} />
             )}

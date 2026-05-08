@@ -1,5 +1,7 @@
 import RepairLaborLogsModel from '@/app/api/repairLaborLogs/model';
 import RepairPayrollBatchesModel from '@/app/api/repairPayrollBatches/model';
+import SalePayoutsModel from '@/app/api/salePayouts/model';
+import { syncSalesPayoutDeductions } from '@/app/api/sales-invoices/service';
 import { db } from '@/lib/database';
 import {
   PAYROLL_BATCH_STATUS,
@@ -70,24 +72,86 @@ async function enrichBatch(batch) {
   });
 
   const includedLogs = (breakdown.logs || []).filter((log) => (batch.logIDs || []).includes(log.logID));
+  const includedSalePayouts = await Promise.all((batch.salePayoutIDs || []).map((payoutID) => SalePayoutsModel.findByPayoutID(payoutID)));
 
   return {
     ...batch,
     logs: includedLogs,
+    salePayouts: includedSalePayouts.filter(Boolean),
   };
 }
 
 export async function listPayrollCandidates({ weekStart, weekEnd, userID } = {}) {
-  const candidates = await RepairLaborLogsModel.listPayrollCandidates({ weekStart, weekEnd, userID });
+  await syncSalesPayoutDeductions();
+  const [laborCandidates, saleCandidates] = await Promise.all([
+    RepairLaborLogsModel.listPayrollCandidates({ weekStart, weekEnd, userID }),
+    SalePayoutsModel.weeklyReport({ weekStart, weekEnd, userID }),
+  ]);
+  const candidatesByKey = new Map();
+  [...laborCandidates, ...saleCandidates].forEach((candidate) => {
+    const key = `${candidate.userID}-${new Date(candidate.weekStart).toISOString()}`;
+    const current = candidatesByKey.get(key) || {
+      userID: candidate.userID,
+      userName: candidate.userName,
+      weekStart: candidate.weekStart,
+      laborHours: 0,
+      laborPay: 0,
+      salePay: 0,
+      repairsWorked: 0,
+      entryCount: 0,
+      logIDs: [],
+      salePayoutIDs: [],
+    };
+    current.userName = current.userName || candidate.userName;
+    current.laborHours += Number(candidate.laborHours || 0);
+    current.laborPay += Number(candidate.laborPay || 0);
+    current.salePay += Number(candidate.salePay || 0);
+    current.repairsWorked += Number(candidate.repairsWorked || 0);
+    current.entryCount += Number(candidate.entryCount || candidate.entries || 0);
+    current.logIDs = [...new Set([...(current.logIDs || []), ...(candidate.logIDs || [])])];
+    current.salePayoutIDs = [...new Set([...(current.salePayoutIDs || []), ...(candidate.payoutIDs || [])])];
+    current.totalPay = current.laborPay + current.salePay;
+    candidatesByKey.set(key, current);
+  });
+  const candidates = [...candidatesByKey.values()].map((candidate) => ({
+    ...candidate,
+    laborPay: Number(candidate.laborPay || 0) + Number(candidate.salePay || 0),
+  }));
   const userMap = await getUserCompensationMap(candidates.map((candidate) => candidate.userID));
   return candidates.map((candidate) => applyCompensationMeta(candidate, userMap.get(candidate.userID)));
 }
 
 export async function getPayrollCandidateDetail({ weekStart, userID }) {
-  const detail = await RepairLaborLogsModel.payrollCandidateBreakdown({
+  await syncSalesPayoutDeductions();
+  let detail;
+  try {
+    detail = await RepairLaborLogsModel.payrollCandidateBreakdown({
+      weekStart: normalizeWeekStart(weekStart),
+      userID,
+    });
+  } catch (error) {
+    detail = {
+      userID,
+      userName: userID,
+      weekStart: normalizeWeekStart(weekStart),
+      laborHours: 0,
+      laborPay: 0,
+      repairsWorked: 0,
+      entryCount: 0,
+      logIDs: [],
+      logs: [],
+    };
+  }
+  const salePayouts = await SalePayoutsModel.weeklyBreakdown({
     weekStart: normalizeWeekStart(weekStart),
     userID,
   });
+  const salePay = salePayouts.reduce((sum, payout) => sum + Number(payout.payoutAmount || 0), 0);
+  detail.salePayouts = salePayouts;
+  detail.salePayoutIDs = salePayouts.map((payout) => payout.payoutID);
+  detail.salePay = salePay;
+  detail.laborPay = Number(detail.laborPay || 0) + salePay;
+  detail.entryCount = Number(detail.entryCount || 0) + salePayouts.length;
   const userMap = await getUserCompensationMap([detail.userID]);
   return applyCompensationMeta(detail, userMap.get(detail.userID));
 }
@@ -134,14 +198,18 @@ export async function createPayrollBatch({ weekStart, userID, createdBy, notes =
     repairsWorked: candidate.repairsWorked,
     entryCount: candidate.entryCount,
     logIDs: candidate.logIDs,
+    salePayoutIDs: candidate.salePayoutIDs || [],
+    salePay: candidate.salePay || 0,
     status: PAYROLL_BATCH_STATUS.DRAFT,
     notes,
     createdBy,
   });
 
   const attachedCount = await RepairLaborLogsModel.assignToPayrollBatch(candidate.logIDs, batch.batchID);
-  if (attachedCount !== candidate.logIDs.length) {
+  const saleAttachedCount = await SalePayoutsModel.assignToPayrollBatch(candidate.salePayoutIDs || [], batch.batchID);
+  if (attachedCount !== candidate.logIDs.length || saleAttachedCount !== (candidate.salePayoutIDs || []).length) {
     await RepairPayrollBatchesModel.deleteByBatchID(batch.batchID);
+    await SalePayoutsModel.releasePayrollBatch(batch.batchID);
     throw new Error('Payroll batch creation failed because one or more labor logs were already batched.');
   }
 
@@ -181,6 +249,7 @@ export async function markPayrollBatchPaid(batchID, {
   });
 
   await RepairLaborLogsModel.markBatchPaid(batchID, paidDate);
+  await SalePayoutsModel.markBatchPaid(batchID, paidDate);
   return updated;
 }
 
@@ -196,6 +265,7 @@ export async function voidPayrollBatch(batchID, { notes } = {}) {
   });
 
   await RepairLaborLogsModel.releasePayrollBatch(batchID);
+  await SalePayoutsModel.releasePayrollBatch(batchID);
   return updated;
 }
 

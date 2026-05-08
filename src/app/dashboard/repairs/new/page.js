@@ -19,6 +19,28 @@ const COLORS = {
   accent: '#D4AF37',
 };
 
+function getProductImageUrl(product) {
+  const image = product?.images?.[0]
+    || product?.image
+    || product?.featuredImage
+    || product?.media?.[0]
+    || product?.thumbnail
+    || product?.imageUrl
+    || product?.primaryImage
+    || product?.photos?.[0];
+
+  if (!image) return '';
+  if (typeof image === 'string') return image;
+  return image.url
+    || image.thumbnail
+    || image.secureUrl
+    || image.src
+    || image.previewUrl
+    || image.imageUrl
+    || image.originalUrl
+    || '';
+}
+
 const NewRepairPage = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -29,9 +51,13 @@ const NewRepairPage = () => {
   const [isWholesaler, setIsWholesaler] = useState(false);
   const [wholesalerStoreId, setWholesalerStoreId] = useState(null);
   const [wholesalerStoreName, setWholesalerStoreName] = useState(null);
+  const [linkedSaleContext, setLinkedSaleContext] = useState(null);
+  const [linkedSaleError, setLinkedSaleError] = useState('');
 
   const scannedWholesaleStoreId = searchParams.get('wholesaleStoreId');
   const scannedWholesaleStoreName = searchParams.get('wholesaleStoreName');
+  const salesInvoiceID = searchParams.get('salesInvoiceID');
+  const salesLineID = searchParams.get('salesLineID');
 
   useEffect(() => {
     if (status !== 'authenticated') return;
@@ -70,6 +96,82 @@ const NewRepairPage = () => {
     setWholesalerStoreName(null);
   }, [scannedWholesaleStoreId, scannedWholesaleStoreName, session]);
 
+  useEffect(() => {
+    const loadLinkedSale = async () => {
+      if (!salesInvoiceID || !salesLineID) {
+        setLinkedSaleContext(null);
+        setLinkedSaleError('');
+        return;
+      }
+
+      try {
+        setLinkedSaleError('');
+        const response = await fetch(`/api/sales-invoices/${salesInvoiceID}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to load linked sales invoice.');
+
+        const invoice = data.invoice;
+        const line = (invoice.lineItems || []).find((item) => item.lineID === salesLineID);
+        if (!line) throw new Error('Sales invoice line was not found.');
+
+        const repairItem = line.repairItem || {};
+        const isRing = Boolean(repairItem.ringSize || String(line.title || '').toLowerCase().includes('ring'));
+        const description = `Included work for ${line.title || 'jewelry item'} from sale ${invoice.invoiceID}`;
+        let productImageUrl = line.imageUrl || line.productImageUrl || '';
+
+        if (!productImageUrl && line.productID) {
+          try {
+            const productResponse = await fetch(`/api/products/jewelry/${line.productID}`);
+            const productData = await productResponse.json();
+            if (productResponse.ok) {
+              productImageUrl = getProductImageUrl(productData.jewelry || productData);
+            }
+          } catch (productError) {
+            console.warn('Failed to load linked product image for repair form:', productError);
+          }
+        }
+
+        setLinkedSaleContext({
+          invoice,
+          line,
+          clientInfo: {
+            userID: invoice.clientID,
+            name: invoice.clientName,
+          },
+          initialData: {
+            userID: invoice.clientID,
+            clientName: invoice.clientName,
+            description,
+            smartIntakeInput: description,
+            promiseDate: '',
+            picture: productImageUrl,
+            metalType: repairItem.metalType || '',
+            karat: repairItem.karat || '',
+            goldColor: repairItem.goldColor || '',
+            isRing,
+            currentRingSize: repairItem.ringSize || '',
+            desiredRingSize: '',
+            notes: `Included with sales invoice ${invoice.invoiceID}.`,
+            internalNotes: `Comped repair linked to sales invoice ${invoice.invoiceID}, line ${line.lineID}.`,
+            compRepair: true,
+            includedWithSale: true,
+            includeTax: false,
+            includeDelivery: false,
+            sourceType: 'sales_invoice',
+            salesInvoiceID: invoice.invoiceID,
+            salesLineID: line.lineID,
+            productID: line.productID || '',
+          },
+        });
+      } catch (error) {
+        setLinkedSaleContext(null);
+        setLinkedSaleError(error.message);
+      }
+    };
+
+    loadLinkedSale();
+  }, [salesInvoiceID, salesLineID]);
+
   if (status === 'loading') return null;
 
   const showToast = (message, severity = 'success') => {
@@ -89,6 +191,22 @@ const NewRepairPage = () => {
         || result._id;
 
       console.log('Redirecting to print page for repair ID:', repairId);
+
+      if (repairId && linkedSaleContext?.invoice?.invoiceID && linkedSaleContext?.line?.lineID) {
+        const linkResponse = await fetch(`/api/sales-invoices/${linkedSaleContext.invoice.invoiceID}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'link_repair',
+            lineID: linkedSaleContext.line.lineID,
+            repairID: repairId,
+          }),
+        });
+        const linkData = await linkResponse.json();
+        if (!linkResponse.ok) {
+          showToast?.(`Repair created, but invoice link failed: ${linkData.error || 'Unknown error'}`, 'warning');
+        }
+      }
 
       if (repairId) {
         router.push(`/dashboard/repairs/${repairId}/print`);
@@ -127,7 +245,7 @@ const NewRepairPage = () => {
             <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" spacing={2}>
               <Box>
                 <Chip
-                  label={isWholesaler ? 'Wholesale intake' : 'Repair intake'}
+                  label={linkedSaleContext ? 'Sales-linked repair' : isWholesaler ? 'Wholesale intake' : 'Repair intake'}
                   size="small"
                   sx={{
                     mb: 1.5,
@@ -141,8 +259,15 @@ const NewRepairPage = () => {
                   Create a new repair
                 </Typography>
                 <Typography sx={{ color: COLORS.textSecondary, maxWidth: 720, lineHeight: 1.6 }}>
-                  Intake client details, capture item information, assign services and pricing, then generate the repair ticket.
+                  {linkedSaleContext
+                    ? 'Create a comped repair ticket from the selected sales invoice line, then print the ticket for bench work.'
+                    : 'Intake client details, capture item information, assign services and pricing, then generate the repair ticket.'}
                 </Typography>
+                {linkedSaleContext && (
+                  <Typography sx={{ color: COLORS.accent, mt: 1, fontWeight: 600 }}>
+                    Linked sale: {linkedSaleContext.invoice.invoiceID} / {linkedSaleContext.line.title}
+                  </Typography>
+                )}
                 {scannedWholesaleStoreId && session?.user?.role !== 'wholesaler' && (
                   <Typography sx={{ color: COLORS.accent, mt: 1, fontWeight: 600 }}>
                     Store preset: {wholesalerStoreName || scannedWholesaleStoreId}
@@ -264,8 +389,11 @@ const NewRepairPage = () => {
             },
           }}
         >
+          {linkedSaleError && <Alert severity="error" sx={{ mb: 2 }}>{linkedSaleError}</Alert>}
           <NewRepairForm
             onSubmit={handleSubmit}
+            initialData={linkedSaleContext?.initialData || null}
+            clientInfo={linkedSaleContext?.clientInfo || null}
             isWholesale={isWholesaler}
             wholesalerStoreId={wholesalerStoreId}
             wholesalerStoreName={wholesalerStoreName}

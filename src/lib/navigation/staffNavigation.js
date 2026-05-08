@@ -28,12 +28,19 @@ import PaymentIcon from "@mui/icons-material/Payment";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import PrintIcon from "@mui/icons-material/Print";
 import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
+import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 
 import { SHARED_NAVIGATION } from "./sharedNavigation";
 
 export const staffNavigation = {
   [USER_ROLES.STAFF]: [
     SHARED_NAVIGATION.dashboard,
+    { kind: 'header', title: 'Commerce' },
+    {
+      segment: 'dashboard/commerce/sales-invoices',
+      title: 'Sales Invoices',
+      icon: <PointOfSaleIcon />
+    },
     {
       segment: 'dashboard/products',
       title: 'Products',

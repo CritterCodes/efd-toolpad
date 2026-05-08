@@ -16,6 +16,7 @@ import DiamondIcon from "@mui/icons-material/AutoAwesome";
 import RingIcon from "@mui/icons-material/FiberSmartRecord";
 import DesignServicesIcon from "@mui/icons-material/DesignServices";
 import PaymentIcon from "@mui/icons-material/Payment";
+import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
 import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 import LeadsIcon from "@mui/icons-material/ChatBubbleOutline";
@@ -28,6 +29,11 @@ export const adminNavigation = {
   [USER_ROLES.ADMIN]: [
     SHARED_NAVIGATION.dashboard,
     { kind: 'header', title: 'Commerce' },
+    {
+      segment: 'dashboard/commerce/sales-invoices',
+      title: 'Sales Invoices',
+      icon: <PointOfSaleIcon />
+    },
     {
       segment: 'dashboard/products',
       title: 'Products',
