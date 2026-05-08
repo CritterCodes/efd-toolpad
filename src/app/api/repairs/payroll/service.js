@@ -185,8 +185,11 @@ export async function createPayrollBatch({ weekStart, userID, createdBy, notes =
     userID,
   });
 
-  if (!candidate.logs || candidate.logs.length === 0) {
-    throw new Error('No eligible reviewed labor logs are available for that jeweler and week.');
+  const logIDs = Array.isArray(candidate.logIDs) ? candidate.logIDs : [];
+  const salePayoutIDs = Array.isArray(candidate.salePayoutIDs) ? candidate.salePayoutIDs : [];
+
+  if (logIDs.length === 0 && salePayoutIDs.length === 0) {
+    throw new Error('No eligible labor logs or sale payouts are available for that artisan and week.');
   }
 
   const batch = await RepairPayrollBatchesModel.create({
@@ -197,20 +200,21 @@ export async function createPayrollBatch({ weekStart, userID, createdBy, notes =
     laborPay: candidate.laborPay,
     repairsWorked: candidate.repairsWorked,
     entryCount: candidate.entryCount,
-    logIDs: candidate.logIDs,
-    salePayoutIDs: candidate.salePayoutIDs || [],
+    logIDs,
+    salePayoutIDs,
     salePay: candidate.salePay || 0,
     status: PAYROLL_BATCH_STATUS.DRAFT,
     notes,
     createdBy,
   });
 
-  const attachedCount = await RepairLaborLogsModel.assignToPayrollBatch(candidate.logIDs, batch.batchID);
-  const saleAttachedCount = await SalePayoutsModel.assignToPayrollBatch(candidate.salePayoutIDs || [], batch.batchID);
-  if (attachedCount !== candidate.logIDs.length || saleAttachedCount !== (candidate.salePayoutIDs || []).length) {
+  const attachedCount = await RepairLaborLogsModel.assignToPayrollBatch(logIDs, batch.batchID);
+  const saleAttachedCount = await SalePayoutsModel.assignToPayrollBatch(salePayoutIDs, batch.batchID);
+  if (attachedCount !== logIDs.length || saleAttachedCount !== salePayoutIDs.length) {
     await RepairPayrollBatchesModel.deleteByBatchID(batch.batchID);
     await SalePayoutsModel.releasePayrollBatch(batch.batchID);
-    throw new Error('Payroll batch creation failed because one or more labor logs were already batched.');
+    await RepairLaborLogsModel.releasePayrollBatch(batch.batchID);
+    throw new Error('Payroll batch creation failed because one or more labor logs or sale payouts were already batched.');
   }
 
   return await getPayrollBatchDetail(batch.batchID);
