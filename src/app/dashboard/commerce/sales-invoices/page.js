@@ -55,7 +55,8 @@ const money = (value) => `$${Number(value || 0).toFixed(2)}`;
 function getClientLabel(client) {
   if (!client) return '';
   const name = [client.firstName, client.lastName].filter(Boolean).join(' ') || client.name || client.email || client.userID;
-  return `${name}${client.phoneNumber ? ` · ${client.phoneNumber}` : ''}`;
+  const phone = client.phoneNumber || client.phone || '';
+  return `${name}${phone ? ` · ${phone}` : ''}`;
 }
 
 function getSeller(product) {
@@ -90,6 +91,14 @@ function buildEmptyCustomLine() {
 
 function getClientName(client) {
   return [client?.firstName, client?.lastName].filter(Boolean).join(' ') || client?.name || client?.email || client?.userID || '';
+}
+
+function isSalesClient(user) {
+  return ['customer', 'client', 'wholesaler'].includes(user?.role) || !user?.role;
+}
+
+function unwrapCreatedClient(client) {
+  return client?.data || client?.user || client;
 }
 
 export default function SalesInvoicesPage() {
@@ -142,7 +151,7 @@ export default function SalesInvoicesPage() {
       ]);
 
       const users = usersData.users || [];
-      setClients(users.filter((user) => user.role === 'client' || !user.role || user.role === 'wholesaler'));
+      setClients(users.filter(isSalesClient));
       setArtisans(users.filter((user) => ['artisan', 'admin', 'staff', 'dev'].includes(user.role)));
       setProducts((productsData.jewelry || []).filter((product) => product.status !== 'sold'));
       setTaxRate(Number(settingsData?.pricing?.taxRate || 0));
@@ -242,7 +251,7 @@ export default function SalesInvoicesPage() {
         body: JSON.stringify({
           clientID: selectedClient.userID || selectedClient.email,
           clientName,
-          clientPhone: selectedClient.phoneNumber || '',
+          clientPhone: selectedClient.phoneNumber || selectedClient.phone || '',
           clientEmail: selectedClient.email || '',
           lineItems: payloadLines,
           cashDiscountApplied,
@@ -302,8 +311,9 @@ export default function SalesInvoicesPage() {
   };
 
   const handleClientCreated = (client) => {
-    setClients((current) => [client, ...current]);
-    setSelectedClient(client);
+    const createdClient = unwrapCreatedClient(client);
+    setClients((current) => [createdClient, ...current]);
+    setSelectedClient(createdClient);
     setClientOpen(false);
   };
 
