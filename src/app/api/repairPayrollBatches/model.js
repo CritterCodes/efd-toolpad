@@ -59,7 +59,7 @@ export default class RepairPayrollBatchesModel {
       {
         userID,
         weekStart: new Date(weekStart),
-        status: { $ne: PAYROLL_BATCH_STATUS.VOID },
+        status: { $in: [PAYROLL_BATCH_STATUS.DRAFT, PAYROLL_BATCH_STATUS.FINALIZED] },
       },
       { projection: { _id: 0 }, sort: { createdAt: -1 } }
     );
