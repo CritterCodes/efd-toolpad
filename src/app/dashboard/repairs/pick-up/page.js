@@ -445,6 +445,8 @@ function formatDate(value) {
 }
 
 function getRepairDisplayTotal(repair) {
+  if (repair.compRepair === true || repair.includedWithSale === true) return 0;
+
   const storedTotal = parseFloat(repair.totalCost || 0);
   if (storedTotal > 0) return storedTotal;
 

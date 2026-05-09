@@ -47,12 +47,14 @@ export default class Repair {
         
         // Pricing - detailed breakdown
         this.isWholesale = data.isWholesale || false;
-        this.totalCost = data.totalCost || calculateTotalCost(data, data.isWholesale);
-        this.subtotal = data.subtotal || 0;
-        this.rushFee = data.rushFee || 0;
-        this.deliveryFee = data.deliveryFee || 0;
-        this.taxAmount = data.taxAmount || 0;
-        this.taxRate = data.taxRate || 0;
+        this.totalCost = (data.compRepair || data.includedWithSale)
+            ? 0
+            : (data.totalCost ?? calculateTotalCost(data, data.isWholesale));
+        this.subtotal = (data.compRepair || data.includedWithSale) ? 0 : (data.subtotal ?? 0);
+        this.rushFee = (data.compRepair || data.includedWithSale) ? 0 : (data.rushFee ?? 0);
+        this.deliveryFee = (data.compRepair || data.includedWithSale) ? 0 : (data.deliveryFee ?? 0);
+        this.taxAmount = (data.compRepair || data.includedWithSale) ? 0 : (data.taxAmount ?? 0);
+        this.taxRate = data.taxRate ?? 0;
         
         // Pricing flags
         this.includeDelivery = data.includeDelivery || false;

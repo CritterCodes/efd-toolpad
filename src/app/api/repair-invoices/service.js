@@ -53,6 +53,15 @@ function getRepairAccountContext(repair) {
 }
 
 function getRepairChargeSummary(repair) {
+  if (repair.compRepair === true || repair.includedWithSale === true) {
+    return {
+      subtotal: 0,
+      taxAmount: 0,
+      totalWithoutDelivery: 0,
+      existingDeliveryFee: 0,
+    };
+  }
+
   const lineItemSubtotal = [
     ...(repair.tasks || []),
     ...(repair.materials || []),
