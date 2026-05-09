@@ -982,6 +982,9 @@ export default function NewRepairForm({
     includeTax: true, // Tax enabled by default
     compRepair: false,
     includedWithSale: false,
+    whileYouWait: false,
+    assignedTo: '',
+    assignedJeweler: '',
     
     // Image
     picture: null
@@ -1015,6 +1018,7 @@ export default function NewRepairForm({
   const [availableTasks, setAvailableTasks] = useState([]);
   const [availableMaterials, setAvailableMaterials] = useState([]);
   const [availableUsers, setAvailableUsers] = useState([]);
+  const [benchJewelers, setBenchJewelers] = useState([]);
   const adminUsersRef = useRef([]); // Store admin client list for restoring after wholesale switch
   const [availableStores, setAvailableStores] = useState([
     {
@@ -1321,6 +1325,34 @@ export default function NewRepairForm({
     
     loadData();
   }, [isWholesale, wholesalerStoreId, wholesalerStoreName]); // Re-run when wholesaler store info resolves
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch('/api/repairs/bench-jewelers')
+      .then(async (res) => {
+        if (!res.ok) return [];
+        return await res.json();
+      })
+      .then((data) => {
+        if (!cancelled) setBenchJewelers(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setBenchJewelers([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const getJewelerLabel = (jeweler) => (
+    [jeweler.firstName, jeweler.lastName].filter(Boolean).join(' ').trim()
+    || jeweler.name
+    || jeweler.email
+    || jeweler.userID
+  );
+
   // Live price helpers use PricingEngine directly so repair pricing stays calculated from current cost inputs.
   const computeTaskPricing = (task, metalType, karat, goldColor = '') => {
     try {
@@ -2039,6 +2071,9 @@ export default function NewRepairForm({
       if (formData.isRush && !rushJobInfo.canCreate) {
         throw new Error(`Cannot create rush job: ${rushJobInfo.currentRushJobs}/${rushJobInfo.maxRushJobs} rush jobs already active`);
       }
+      if (formData.whileYouWait && !formData.assignedTo) {
+        throw new Error('Choose the artisan who completed the while-you-wait repair');
+      }
 
       // Prepare submission data with detailed pricing breakdown
       let totalCost = 0;
@@ -2098,6 +2133,9 @@ export default function NewRepairForm({
         rushMultiplier: adminSettings.rushMultiplier 
       });
       
+      const selectedWhileYouWaitJeweler = benchJewelers.find((jeweler) => jeweler.userID === formData.assignedTo);
+      const whileYouWaitJewelerName = selectedWhileYouWaitJeweler ? getJewelerLabel(selectedWhileYouWaitJeweler) : formData.assignedJeweler;
+      const completedNow = new Date().toISOString();
       const sanitizedFormData = formData;
       const submissionData = {
         ...sanitizedFormData,
@@ -2122,9 +2160,23 @@ export default function NewRepairForm({
         storeName: formData.storeName || 'Engel Fine Design',
         
         createdAt: initialData?.createdAt || new Date().toISOString(),
-        status: submitMode === 'edit'
+        status: submitMode === 'create' && formData.whileYouWait
+          ? 'COMPLETED'
+          : submitMode === 'edit'
           ? (formData.status || initialData?.status || 'READY FOR WORK')
-          : 'READY FOR WORK'
+          : 'READY FOR WORK',
+        ...(submitMode === 'create' && formData.whileYouWait ? {
+          benchStatus: null,
+          assignedTo: formData.assignedTo,
+          assignedJeweler: whileYouWaitJewelerName,
+          claimedAt: completedNow,
+          completedBy: whileYouWaitJewelerName,
+          completedAt: completedNow,
+          qcBy: whileYouWaitJewelerName,
+          qcDate: completedNow,
+          whileYouWaitCompletedAt: completedNow,
+          whileYouWaitCompletedBy: whileYouWaitJewelerName
+        } : {})
       };
 
       // Add comprehensive logging for submission
@@ -2631,6 +2683,70 @@ export default function NewRepairForm({
                   </Typography>
                 </FormControl>
               </Grid>
+
+              {!formData.isWholesale && submitMode === 'create' && (
+                <Grid item xs={12}>
+                  <Box
+                    sx={{
+                      p: 1.5,
+                      border: '1px solid',
+                      borderColor: formData.whileYouWait ? UI.accent : UI.border,
+                      borderRadius: 2,
+                      backgroundColor: formData.whileYouWait ? 'rgba(212, 175, 55, 0.08)' : UI.bgCard,
+                    }}
+                  >
+                    <Stack spacing={1.5}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={formData.whileYouWait}
+                            onChange={(event) => {
+                              const checked = event.target.checked;
+                              setFormData(prev => ({
+                                ...prev,
+                                whileYouWait: checked,
+                                assignedTo: checked ? prev.assignedTo : '',
+                                assignedJeweler: checked ? prev.assignedJeweler : '',
+                              }));
+                            }}
+                          />
+                        }
+                        label="While-you-wait repair"
+                      />
+                      <Typography variant="caption" sx={{ color: UI.textSecondary }}>
+                        Creates this repair as completed and sends it directly to Payment & Pickup closeout.
+                      </Typography>
+                      {formData.whileYouWait && (
+                        <FormControl fullWidth size="small" required>
+                          <InputLabel>Artisan who did the work</InputLabel>
+                          <Select
+                            MenuProps={selectMenuProps}
+                            value={formData.assignedTo}
+                            label="Artisan who did the work"
+                            onChange={(event) => {
+                              const selected = benchJewelers.find((jeweler) => jeweler.userID === event.target.value);
+                              setFormData(prev => ({
+                                ...prev,
+                                assignedTo: event.target.value,
+                                assignedJeweler: selected ? getJewelerLabel(selected) : '',
+                              }));
+                            }}
+                          >
+                            {benchJewelers.map((jeweler) => (
+                              <MenuItem key={jeweler.userID} value={jeweler.userID}>
+                                {getJewelerLabel(jeweler)}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                          <Typography variant="caption" sx={{ color: UI.textSecondary, mt: 0.5 }}>
+                            Used for labor attribution and repair history.
+                          </Typography>
+                        </FormControl>
+                      )}
+                    </Stack>
+                  </Box>
+                </Grid>
+              )}
               
               <Grid item xs={6}>
                 <FormControl fullWidth>

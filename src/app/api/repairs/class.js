@@ -99,11 +99,14 @@ export default class Repair {
         this.partsOrderedDate = data.partsOrderedDate || null;
         this.qcBy = data.qcBy || '';
         this.qcDate = data.qcDate || null;
-        this.benchStatus = data.benchStatus || 'UNCLAIMED';
+        this.benchStatus = data.benchStatus ?? 'UNCLAIMED';
         this.requiresLaborReview = data.requiresLaborReview || false;
         this.receivedBy = data.receivedBy || '';
         this.receivedAt = data.receivedAt || null;
         this.claimedAt = data.claimedAt || null;
+        this.whileYouWait = data.whileYouWait || false;
+        this.whileYouWaitCompletedBy = data.whileYouWaitCompletedBy || '';
+        this.whileYouWaitCompletedAt = data.whileYouWaitCompletedAt || null;
     }
     
     /**
@@ -224,6 +227,9 @@ export default class Repair {
             receivedBy: this.receivedBy,
             receivedAt: this.receivedAt,
             claimedAt: this.claimedAt,
+            whileYouWait: this.whileYouWait,
+            whileYouWaitCompletedBy: this.whileYouWaitCompletedBy,
+            whileYouWaitCompletedAt: this.whileYouWaitCompletedAt,
             // Legacy support
             repairTasks: this.repairTasks,
             parts: this.parts

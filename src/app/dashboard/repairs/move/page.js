@@ -5,12 +5,9 @@ import {
     Typography,
     Button,
     Alert,
-    Snackbar,
-    TextField,
-    MenuItem,
-    Divider
+    Snackbar
 } from "@mui/material";
-import { MoveUp as MoveIcon, QrCodeScanner as ScanIcon, Bolt as BoltIcon } from "@mui/icons-material";
+import { MoveUp as MoveIcon, QrCodeScanner as ScanIcon } from "@mui/icons-material";
 import { useRepairs } from "@/app/context/repairs.context";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from 'next-auth/react';
@@ -34,9 +31,6 @@ const MoveRepairsPage = () => {
     const searchParams = useSearchParams();
     const isScanMode = searchParams.get('mode') === 'scan';
     const [cameraScannerOpen, setCameraScannerOpen] = React.useState(false);
-    const [jewelers, setJewelers] = React.useState([]);
-    const [quickJewelerID, setQuickJewelerID] = React.useState('');
-    const [quickCompleteLoading, setQuickCompleteLoading] = React.useState(false);
 
     const {
         location,
@@ -65,27 +59,6 @@ const MoveRepairsPage = () => {
             router.push('/dashboard');
         }
     }, [authStatus, session, router]);
-
-    useEffect(() => {
-        if (authStatus !== 'authenticated') return;
-
-        let cancelled = false;
-        fetch('/api/repairs/bench-jewelers')
-            .then(async (res) => {
-                if (!res.ok) return [];
-                return await res.json();
-            })
-            .then((data) => {
-                if (!cancelled) setJewelers(Array.isArray(data) ? data : []);
-            })
-            .catch(() => {
-                if (!cancelled) setJewelers([]);
-            });
-
-        return () => {
-            cancelled = true;
-        };
-    }, [authStatus]);
 
     const selectedRepairs = repairIDs
         .map((repairID) => repairs.find((repair) => repair.repairID === repairID))
@@ -206,52 +179,6 @@ const MoveRepairsPage = () => {
         }
     };
 
-    const getJewelerLabel = (jeweler) => (
-        [jeweler.firstName, jeweler.lastName].filter(Boolean).join(' ').trim()
-        || jeweler.name
-        || jeweler.email
-        || jeweler.userID
-    );
-
-    const handleQuickComplete = async () => {
-        if (repairIDs.length === 0) {
-            showSnackbar("No repairs selected.", "error");
-            return;
-        }
-        if (!quickJewelerID) {
-            showSnackbar("Choose the jeweler who did the work.", "error");
-            return;
-        }
-
-        setQuickCompleteLoading(true);
-        try {
-            const results = await Promise.all(
-                repairIDs.map(async (repairID) => {
-                    const res = await fetch(`/api/repairs/${encodeURIComponent(repairID)}/quick-complete`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ userID: quickJewelerID }),
-                    });
-                    const data = await res.json().catch(() => ({}));
-                    if (!res.ok) throw new Error(data.error || `Failed to fast-complete ${repairID}`);
-                    return data;
-                })
-            );
-
-            const updatedByID = new Map(results.map((repair) => [repair.repairID, normalizeRepairWorkflow(repair)]));
-            setRepairs((prevRepairs) =>
-                prevRepairs.map((repair) => updatedByID.get(repair.repairID) || repair)
-            );
-
-            showSnackbar(`Fast-completed ${results.length} repair${results.length !== 1 ? 's' : ''} to Payment & Pickup.`, "success");
-            clearForm();
-        } catch (error) {
-            showSnackbar(`Error fast-completing repairs: ${error.message}`, "error");
-        } finally {
-            setQuickCompleteLoading(false);
-        }
-    };
-
     return (
         <Box sx={{ pb: 10, position: 'relative' }}>
             <Box
@@ -307,72 +234,6 @@ const MoveRepairsPage = () => {
                     </Alert>
                 )}
                 <AssignedPersonField status={location} value={assignedPerson} onChange={setAssignedPerson} />
-                <Box
-                    sx={{
-                        bgcolor: REPAIRS_UI.bgPanel,
-                        border: `1px solid ${REPAIRS_UI.border}`,
-                        borderRadius: 2,
-                        p: 2,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 1.5
-                    }}
-                >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                        <BoltIcon sx={{ color: REPAIRS_UI.accent }} />
-                        <Box sx={{ minWidth: 0, flex: 1 }}>
-                            <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 700 }}>
-                                While-you-wait complete
-                            </Typography>
-                            <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
-                                Assign the jeweler who did the work and send selected repairs straight to Payment & Pickup.
-                            </Typography>
-                        </Box>
-                    </Box>
-                    <Divider sx={{ borderColor: REPAIRS_UI.border }} />
-                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-                        <TextField
-                            select
-                            label="Jeweler who did the work"
-                            value={quickJewelerID}
-                            onChange={(event) => setQuickJewelerID(event.target.value)}
-                            disabled={jewelers.length === 0 || quickCompleteLoading}
-                            sx={{
-                                flex: '1 1 280px',
-                                '& .MuiOutlinedInput-root': {
-                                    bgcolor: REPAIRS_UI.bgCard,
-                                    color: REPAIRS_UI.textPrimary,
-                                },
-                                '& .MuiInputLabel-root': { color: REPAIRS_UI.textMuted },
-                                '& .MuiSelect-icon': { color: REPAIRS_UI.textSecondary },
-                            }}
-                            helperText="Required for labor/payroll attribution."
-                            FormHelperTextProps={{ sx: { color: REPAIRS_UI.textMuted } }}
-                        >
-                            {jewelers.map((jeweler) => (
-                                <MenuItem key={jeweler.userID} value={jeweler.userID}>
-                                    {getJewelerLabel(jeweler)}
-                                </MenuItem>
-                            ))}
-                        </TextField>
-                        <Button
-                            variant="contained"
-                            startIcon={<BoltIcon />}
-                            onClick={handleQuickComplete}
-                            disabled={quickCompleteLoading || repairIDs.length === 0 || !quickJewelerID}
-                            sx={{
-                                minHeight: 56,
-                                flex: { xs: '1 1 100%', sm: '0 0 auto' },
-                                bgcolor: REPAIRS_UI.accent,
-                                color: '#000',
-                                '&:hover': { bgcolor: '#c9a227' },
-                                '&.Mui-disabled': { color: REPAIRS_UI.textMuted, bgcolor: REPAIRS_UI.bgCard }
-                            }}
-                        >
-                            {quickCompleteLoading ? 'Completing...' : `Complete ${repairIDs.length || ''}`}
-                        </Button>
-                    </Box>
-                </Box>
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
                     <Box sx={{ flex: '1 1 320px' }}>
                         <RepairInput value={currentRepairID} onChange={setCurrentRepairID} onSubmit={handleRepairSubmit} />

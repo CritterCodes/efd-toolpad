@@ -7,6 +7,7 @@ import {
 } from '@mui/material';
 import {
   Work as WorkIcon,
+  Add as AddIcon,
   Refresh as RefreshIcon,
   QrCodeScanner as ScanIcon,
   VerifiedUser as QCIcon,
@@ -750,11 +751,11 @@ export default function MyBenchPage() {
             <Button
               size="small"
               variant="outlined"
-              startIcon={<ScanIcon />}
-              onClick={() => router.push('/dashboard/repairs/move?mode=scan')}
+              startIcon={<AddIcon />}
+              onClick={() => router.push('/dashboard/repairs/new')}
               sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
             >
-              Scan Ticket
+              New Repair
             </Button>
             <Button
               size="small"

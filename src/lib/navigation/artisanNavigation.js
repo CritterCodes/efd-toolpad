@@ -5,7 +5,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import LinkIcon from '@mui/icons-material/Link';
 import WorkIcon from '@mui/icons-material/Work';
-import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
+import AddIcon from '@mui/icons-material/Add';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import PaymentIcon from '@mui/icons-material/Payment';
@@ -53,6 +53,7 @@ function buildRepairOpsNavItems(caps = {}) {
 
   items.push(
     { kind: 'header', title: 'Repair Work' },
+    { segment: 'dashboard/repairs/new', title: 'New Repair', icon: <AddIcon /> },
     { segment: 'dashboard/repairs/my-bench', title: 'My Bench', icon: <WorkIcon /> },
   );
 
@@ -71,12 +72,6 @@ function buildRepairOpsNavItems(caps = {}) {
       icon: <LocalShippingIcon />,
     });
   }
-
-  items.push({
-    segment: '/dashboard/repairs/move?mode=scan',
-    title: 'Scan Ticket',
-    icon: <QrCodeScannerIcon />,
-  });
 
   return items;
 }

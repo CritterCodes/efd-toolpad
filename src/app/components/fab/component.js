@@ -2,7 +2,6 @@
 import React from 'react';
 import { SpeedDial, SpeedDialIcon, SpeedDialAction, Box } from '@mui/material';
 import NoteAddIcon from '@mui/icons-material/NoteAdd';
-import MoveUpIcon from '@mui/icons-material/MoveUp';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import PersonIcon from '@mui/icons-material/Person';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
@@ -13,7 +12,7 @@ import { useSession } from 'next-auth/react';
 
 /**
  * Role-dependent Floating Action Button (FAB)
- * - Admin: New Repair, Move Repair
+ * - Admin: New Repair
  * - Wholesaler: New Repair
  * - Artisan: Gallery, Profile  
  * - Customer: No FAB (returns null)
@@ -45,11 +44,6 @@ const FloatingActionButton = () => {
                         onClick: () => router.push('/dashboard/repairs/new')
                     },
                     {
-                        icon: <MoveUpIcon />,
-                        name: 'Move Repair',
-                        onClick: () => router.push('/dashboard/repairs/move')
-                    },
-                    {
                         icon: <ReceiptLongIcon />,
                         name: 'Scan Invoice',
                         onClick: () => router.push('/dashboard/repairs/pick-up?scanInvoice=1')
@@ -79,6 +73,11 @@ const FloatingActionButton = () => {
                         icon: <PointOfSaleIcon />,
                         name: 'Sales Checkout',
                         onClick: openSalesCheckout
+                    }] : []),
+                    ...(session?.user?.employment?.isOnsite === true && session?.user?.staffCapabilities?.repairOps === true ? [{
+                        icon: <NoteAddIcon />,
+                        name: 'New Repair',
+                        onClick: () => router.push('/dashboard/repairs/new')
                     }] : []),
                     {
                         icon: <PhotoLibraryIcon />,

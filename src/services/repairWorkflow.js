@@ -507,24 +507,6 @@ export function buildCompleteFromQcUpdate({ nextStatus, userName, now = new Date
   };
 }
 
-export function buildQuickCompleteUpdate({ repair, jewelerID, jewelerName, userName, now = new Date() }) {
-  return {
-    assignedTo: jewelerID,
-    assignedJeweler: jewelerName,
-    claimedAt: repair.claimedAt || now,
-    status: REPAIR_STATUS.COMPLETED,
-    benchStatus: null,
-    completedBy: jewelerName,
-    completedAt: now,
-    qcBy: userName,
-    qcDate: now,
-    whileYouWait: true,
-    whileYouWaitCompletedBy: userName,
-    whileYouWaitCompletedAt: now,
-    updatedAt: now,
-  };
-}
-
 export function buildReceiveRepairUpdate({ userID, internalNotes, now = new Date() }) {
   return cleanUpdate({
     receivedBy: userID,
