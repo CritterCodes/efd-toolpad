@@ -68,6 +68,10 @@ export async function getLaborRateSnapshot(session) {
 }
 
 export function calculateRepairChargeTotal(repair = {}) {
+  if (repair.compRepair === true || repair.includedWithSale === true) {
+    return 0;
+  }
+
   const taskTotal = (repair.tasks || []).reduce((sum, item) => (
     sum + ((Number(item?.price ?? item?.retailPrice) || 0) * (Math.max(Number(item?.quantity) || 1, 1)))
   ), 0);
