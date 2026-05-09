@@ -9,11 +9,13 @@ import {
   buildAccountsReceivableReport,
   buildCashCollectedReport,
   buildCloseoutBottlenecksPeriodReport,
+  combineAnalyticsInvoices,
   buildExpenseReport,
   buildFederalTaxReserveReport,
   buildJewelerPerformanceReport,
   buildLaborSettlementReport,
   buildPayrollReport,
+  buildSalesPayoutReport,
   buildWholesalePerformanceReport,
   getAnalyticsDateWindow,
 } from '@/services/repairAnalytics';
@@ -56,13 +58,15 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
   const baseline = getAnalyticsBaselineSettings(settings);
   const window = getAnalyticsDateWindow(dateRange);
 
-  const [repairs, invoices, laborLogs, payrollBatches, ownerDraws, expenses, recurringExpenses, pendingReviewLogs] = await Promise.all([
+  const [repairs, invoices, salesInvoices, laborLogs, payrollBatches, salePayouts, ownerDraws, expenses, recurringExpenses, pendingReviewLogs] = await Promise.all([
     dbInstance.collection('repairs').find({}).project({ _id: 0 }).toArray(),
     dbInstance.collection('repairInvoices').find({}).project({ _id: 0 }).toArray(),
+    dbInstance.collection('salesInvoices').find({}).project({ _id: 0 }).toArray(),
     dbInstance.collection('repairLaborLogs').find({
       weekStart: { $gte: baseline.laborAnalyticsStartDate },
     }).project({ _id: 0 }).toArray(),
     RepairPayrollBatchesModel.list({}),
+    dbInstance.collection('salePayouts').find({}).project({ _id: 0 }).toArray(),
     OwnerDrawsModel.list({}),
     BusinessExpensesModel.list({}),
     RecurringBusinessExpensesModel.list({}),
@@ -70,6 +74,7 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
   ]);
 
   const repairsById = new Map(repairs.map((repair) => [repair.repairID, repair]));
+  const analyticsInvoices = combineAnalyticsInvoices(invoices, salesInvoices);
   const invoicesById = new Map(invoices.map((invoice) => [invoice.invoiceID, invoice]));
   const usersById = await getUsersMapFromLogsAndBatches(laborLogs, payrollBatches);
   const laborAnalyticsPayrollBatches = payrollBatches.filter((batch) => (
@@ -89,8 +94,8 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
       startDate: window.startDate,
       endDate: window.endDate,
     },
-    cashCollected: buildCashCollectedReport(invoices, window, repairsById),
-    accountsReceivable: buildAccountsReceivableReport(invoices, window.endDate || new Date(), window),
+    cashCollected: buildCashCollectedReport(analyticsInvoices, window, repairsById),
+    accountsReceivable: buildAccountsReceivableReport(analyticsInvoices, window.endDate || new Date(), window),
     closeoutBottlenecks: buildCloseoutBottlenecksPeriodReport({
       repairs,
       invoicesById,
@@ -109,7 +114,7 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
       window,
     }),
     federalTaxReserve: buildFederalTaxReserveReport({
-      invoices,
+      invoices: analyticsInvoices,
       payrollBatches,
       ownerDraws,
       expenses,
@@ -122,6 +127,10 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
     payroll: buildPayrollReport({
       payrollBatches,
       usersById,
+      window,
+    }),
+    salesPayouts: buildSalesPayoutReport({
+      salePayouts,
       window,
     }),
     wholesalePerformance: buildWholesalePerformanceReport({ repairs, invoices, window }),

@@ -20,7 +20,13 @@ export const REPORT_DEFINITIONS = [
   {
     slug: 'payroll',
     title: 'Payroll Report',
-    description: 'Weekly payroll batch history, paid/unpaid status, and payment metadata.',
+    description: 'Weekly payroll batch history with labor pay, sales payouts, paid/unpaid status, and payment metadata.',
+    source: 'reports',
+  },
+  {
+    slug: 'sales-payouts',
+    title: 'Sales Payout Report',
+    description: 'Artisan sales payout amounts, paid/unpaid status, consignment fees, and labor deductions.',
     source: 'reports',
   },
   {

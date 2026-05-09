@@ -7,6 +7,7 @@ import {
 } from '@/services/analyticsBaseline';
 import {
   buildCustomerInsights,
+  combineAnalyticsInvoices,
   buildInvoiceRevenueSummary,
   buildLaborSummary,
   buildRepairOverview,
@@ -41,17 +42,19 @@ export async function getAnalyticsSummary({ dateRange = 'last_month', includeLeg
   const baseline = getAnalyticsBaselineSettings(settings);
   const window = getAnalyticsDateWindow(dateRange);
 
-  const [repairs, invoices, laborLogs] = await Promise.all([
+  const [repairs, invoices, salesInvoices, laborLogs] = await Promise.all([
     dbInstance.collection('repairs').find({}).project({ _id: 0 }).toArray(),
     dbInstance.collection('repairInvoices').find({}).project({ _id: 0 }).toArray(),
+    dbInstance.collection('salesInvoices').find({}).project({ _id: 0 }).toArray(),
     dbInstance.collection('repairLaborLogs').find({
       weekStart: { $gte: baseline.laborAnalyticsStartDate },
     }).project({ _id: 0 }).toArray(),
   ]);
 
   const repairsById = new Map(repairs.map((repair) => [repair.repairID, repair]));
+  const analyticsInvoices = combineAnalyticsInvoices(invoices, salesInvoices);
   const operationalRepairs = filterOperationalRepairs(repairs, { includeLegacy, window });
-  const filteredInvoices = invoices.filter((invoice) => isDateInWindow(invoice.createdAt, window));
+  const filteredInvoices = analyticsInvoices.filter((invoice) => isDateInWindow(invoice.createdAt, window));
   const filteredLaborLogs = laborLogs.filter((log) => (
     isDateInWindow(log.createdAt || log.adminReviewedAt || log.updatedAt || log.weekStart, window)
   ));

@@ -9,7 +9,9 @@ import {
   buildJewelerPerformanceReport,
   buildLaborSettlementReport,
   buildLaborSummary,
+  buildSalesPayoutReport,
   buildWholesalePerformanceReport,
+  combineAnalyticsInvoices,
   filterOperationalRepairs,
   getAnalyticsDateWindow,
 } from './repairAnalytics';
@@ -180,6 +182,80 @@ describe('repairAnalytics', () => {
     });
   });
 
+  it('includes normalized sales invoices in revenue, cash, receivables, and tax reserve analytics', () => {
+    const window = getAnalyticsDateWindow('this_month', new Date('2026-05-20T12:00:00.000Z'));
+    const invoices = combineAnalyticsInvoices([], [
+      {
+        invoiceID: 'sinv-paid',
+        clientName: 'Walk-in Client',
+        status: 'open',
+        paymentStatus: 'paid',
+        subtotal: 100,
+        taxAmount: 8.25,
+        total: 108.25,
+        amountPaid: 108.25,
+        remainingBalance: 0,
+        createdAt: '2026-05-05T12:00:00.000Z',
+        paidAt: '2026-05-05T12:10:00.000Z',
+        payments: [
+          { method: 'card_collected', amount: 108.25, collectedAt: '2026-05-05T12:10:00.000Z', collectedBy: 'user-1' },
+        ],
+      },
+      {
+        invoiceID: 'sinv-partial',
+        clientName: 'Partial Client',
+        status: 'draft',
+        paymentStatus: 'partial',
+        subtotal: 50,
+        taxAmount: 0,
+        total: 50,
+        amountPaid: 20,
+        remainingBalance: 30,
+        createdAt: '2026-05-06T12:00:00.000Z',
+        payments: [
+          { method: 'cash', amount: 20, collectedAt: '2026-05-06T12:10:00.000Z' },
+        ],
+      },
+      {
+        invoiceID: 'sinv-void',
+        clientName: 'Void Client',
+        status: 'void',
+        total: 999,
+        amountPaid: 999,
+        createdAt: '2026-05-07T12:00:00.000Z',
+        payments: [
+          { method: 'cash', amount: 999, collectedAt: '2026-05-07T12:10:00.000Z' },
+        ],
+      },
+    ]);
+
+    const revenue = buildInvoiceRevenueSummary(invoices, new Map());
+    const cash = buildCashCollectedReport(invoices, window, new Map());
+    const ar = buildAccountsReceivableReport(invoices, new Date('2026-05-20T12:00:00.000Z'), window);
+    const taxReserve = buildFederalTaxReserveReport({ invoices, window });
+
+    expect(revenue.revenue).toMatchObject({
+      totalRevenue: 158.25,
+      goLiveRevenue: 158.25,
+      legacyCarryoverRevenue: 0,
+      collectedRevenue: 128.25,
+      invoiceCount: 2,
+    });
+    expect(cash.summary.totalCollected).toBe(128.25);
+    expect(cash.summary.byMethod).toEqual([
+      { method: 'card_collected', amount: 108.25 },
+      { method: 'cash', amount: 20 },
+    ]);
+    expect(ar.summary.outstandingBalance).toBe(30);
+    expect(ar.rows[0]).toMatchObject({
+      invoiceID: 'sinv-partial',
+      accountName: 'Partial Client',
+      remainingBalance: 30,
+    });
+    expect(taxReserve.summary.cashCollected).toBe(128.25);
+    expect(taxReserve.summary.salesTaxHeld).toBe(8.25);
+  });
+
   it('anchors jeweler performance to labor log creation time, not week start', () => {
     const window = getAnalyticsDateWindow('today', new Date('2026-05-02T12:00:00.000Z'));
     const report = buildJewelerPerformanceReport({
@@ -239,7 +315,7 @@ describe('repairAnalytics', () => {
 
     const laborSettlement = buildLaborSettlementReport({
       payrollBatches: [
-        { userID: 'user-1', userName: 'Jacob', laborHours: 1.5, laborPay: 75, paidAt: '2026-05-02T13:00:00.000Z', paymentMethod: 'cash' },
+        { userID: 'user-1', userName: 'Jacob', laborHours: 1.5, laborPay: 95, salePay: 20, paidAt: '2026-05-02T13:00:00.000Z', paymentMethod: 'cash' },
         { userID: 'user-1', userName: 'Jacob', laborHours: 2, laborPay: 100, paidAt: '2026-04-20T13:00:00.000Z', paymentMethod: 'zelle' },
       ],
       usersById: new Map(),
@@ -248,7 +324,9 @@ describe('repairAnalytics', () => {
 
     expect(laborSettlement.summary).toMatchObject({
       totalPaidHours: 1.5,
-      totalPaidAmount: 75,
+      totalPaidLaborAmount: 75,
+      totalPaidSalesAmount: 20,
+      totalPaidAmount: 95,
       paidBatchCount: 1,
     });
 
@@ -298,7 +376,7 @@ describe('repairAnalytics', () => {
         },
       ],
       payrollBatches: [
-        { batchID: 'pay-1', userID: 'user-1', userName: 'Contractor One', laborPay: 40, laborHours: 1, paidAt: '2026-05-12T12:00:00.000Z', paymentMethod: 'zelle' },
+        { batchID: 'pay-1', userID: 'user-1', userName: 'Contractor One', laborPay: 55, salePay: 15, laborHours: 1, paidAt: '2026-05-12T12:00:00.000Z', paymentMethod: 'zelle' },
         { batchID: 'pay-2', userID: 'user-owner', userName: 'Owner', laborPay: 30, laborHours: 0.5, paidAt: '2026-05-13T12:00:00.000Z', paymentMethod: 'cash' },
       ],
       ownerDraws: [
@@ -323,7 +401,9 @@ describe('repairAnalytics', () => {
     expect(report.summary).toMatchObject({
       cashCollected: 155,
       salesTaxHeld: 5,
-      contractorPayrollPaid: 40,
+      contractorPayrollPaid: 55,
+      contractorLaborPayrollPaid: 40,
+      contractorSalesPayoutPaid: 15,
       ownerOperatorPayrollPaid: 30,
       trackedExpenses: 20,
       deductibleExpenses: 20,
@@ -331,13 +411,77 @@ describe('repairAnalytics', () => {
       scheduledCommittedExpenses: 12,
       plannedExpenses: 5,
       ownerDraws: 25,
-      estimatedTaxableProfit: 95,
-      recommendedFederalReserve: 28.5,
-      spendableCash: 61.5,
-      safeToSpendAfterScheduled: 49.5,
-      cashAfterOwnerDraws: 36.5,
+      estimatedTaxableProfit: 80,
+      recommendedFederalReserve: 24,
+      spendableCash: 51,
+      safeToSpendAfterScheduled: 39,
+      cashAfterOwnerDraws: 26,
       recurringTemplateCount: 1,
       recurringScheduledDueSoon: 1,
+    });
+  });
+
+  it('tracks sales payouts by artisan and payroll status', () => {
+    const window = getAnalyticsDateWindow('this_month', new Date('2026-05-20T12:00:00.000Z'));
+    const report = buildSalesPayoutReport({
+      salePayouts: [
+        {
+          payoutID: 'spay-1',
+          invoiceID: 'sinv-1',
+          sellerUserID: 'artisan-1',
+          sellerName: 'Artisan One',
+          saleDescription: 'Ring',
+          grossSale: 100,
+          consignmentAmount: 20,
+          actualLaborDeduction: 5,
+          payoutAmount: 75,
+          status: 'payable',
+          payrollStatus: 'paid',
+          weekStart: '2026-05-04T00:00:00.000Z',
+          payrolledAt: '2026-05-10T12:00:00.000Z',
+        },
+        {
+          payoutID: 'spay-2',
+          invoiceID: 'sinv-2',
+          sellerUserID: 'artisan-1',
+          sellerName: 'Artisan One',
+          saleDescription: 'Pendant',
+          grossSale: 50,
+          consignmentAmount: 10,
+          actualLaborDeduction: 0,
+          payoutAmount: 40,
+          status: 'payable',
+          payrollStatus: 'unbatched',
+          weekStart: '2026-05-11T00:00:00.000Z',
+        },
+        {
+          payoutID: 'spay-old',
+          invoiceID: 'sinv-old',
+          sellerUserID: 'artisan-2',
+          sellerName: 'Old Artisan',
+          grossSale: 999,
+          payoutAmount: 999,
+          payrollStatus: 'paid',
+          payrolledAt: '2026-04-10T12:00:00.000Z',
+        },
+      ],
+      window,
+    });
+
+    expect(report.summary).toMatchObject({
+      grossSale: 150,
+      consignmentAmount: 30,
+      actualLaborDeduction: 5,
+      totalPayout: 115,
+      paidPayout: 75,
+      unpaidPayout: 40,
+      payoutCount: 2,
+    });
+    expect(report.bySeller[0]).toMatchObject({
+      sellerName: 'Artisan One',
+      paidAmount: 75,
+      unpaidAmount: 40,
+      payoutAmount: 115,
     });
   });
 

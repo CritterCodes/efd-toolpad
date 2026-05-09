@@ -121,7 +121,7 @@ function getInvoiceOutstanding(invoice = {}) {
 }
 
 function getPaymentTimestamp(payment = {}) {
-  return payment.receivedAt || payment.createdAt || payment.syncedAt || null;
+  return payment.receivedAt || payment.collectedAt || payment.createdAt || payment.syncedAt || null;
 }
 
 function isOwnerOperatorUser(user = {}) {
@@ -133,7 +133,7 @@ function getExpenseCashTimestamp(expense = {}) {
 }
 
 function getPaymentAccountName(invoice = {}) {
-  return invoice.customerName || invoice.accountID || invoice.invoiceID;
+  return invoice.customerName || invoice.clientName || invoice.accountID || invoice.invoiceID;
 }
 
 function getAgingBucket(daysOpen) {
@@ -323,8 +323,10 @@ function normalizeShareEntries(invoice = {}, repairsById = new Map()) {
       baseTotal: Number(invoice.total || 0),
       taxAmount: Number(invoice.taxAmount || 0),
       isWholesale: invoice.accountType === 'wholesale',
-      origin: ANALYTICS_ORIGIN.LEGACY,
-      businessName: invoice.customerName || '',
+      origin: invoice.analyticsOrigin || ANALYTICS_ORIGIN.LEGACY,
+      businessName: invoice.customerName || invoice.clientName || '',
+      share: 1,
+      apportionedTotal: roundMoney(invoice.total || 0),
     }];
   }
 
@@ -341,6 +343,37 @@ function normalizeShareEntries(invoice = {}, repairsById = new Map()) {
       apportionedTotal: roundMoney(entry.baseTotal + deliveryShare - discountShare),
     };
   });
+}
+
+export function normalizeSalesInvoiceForAnalytics(invoice = {}) {
+  return {
+    ...invoice,
+    sourceType: 'sales',
+    analyticsOrigin: ANALYTICS_ORIGIN.GO_LIVE,
+    customerName: invoice.customerName || invoice.clientName || 'Sales client',
+    accountType: invoice.accountType || 'retail',
+    total: roundMoney(invoice.total || 0),
+    amountPaid: roundMoney(invoice.amountPaid || 0),
+    remainingBalance: roundMoney(
+      invoice.remainingBalance ?? Math.max(Number(invoice.total || 0) - Number(invoice.amountPaid || 0), 0)
+    ),
+    payments: (invoice.payments || []).map((payment) => ({
+      ...payment,
+      type: payment.type || payment.method || 'other',
+      receivedAt: payment.receivedAt || payment.collectedAt || payment.createdAt || invoice.paidAt || null,
+      receivedBy: payment.receivedBy || payment.collectedBy || '',
+      status: payment.status || 'completed',
+    })),
+  };
+}
+
+export function combineAnalyticsInvoices(repairInvoices = [], salesInvoices = []) {
+  return [
+    ...(repairInvoices || []),
+    ...(salesInvoices || [])
+      .filter((invoice) => invoice?.status !== 'void')
+      .map(normalizeSalesInvoiceForAnalytics),
+  ];
 }
 
 export function buildInvoiceRevenueSummary(invoices = [], repairsById = new Map()) {
@@ -407,8 +440,11 @@ export function buildInvoiceRevenueSummary(invoices = [], repairsById = new Map(
 
     taxBucket.taxCollected += Number(invoice.taxAmount || 0);
     taxBucket.revenue += Number(invoice.total || 0);
-    if (invoice.paidAt) {
-      collectedRevenue += Number(invoice.amountPaid || invoice.total || 0);
+    const amountPaid = Number(invoice.amountPaid || 0);
+    if (amountPaid > 0) {
+      collectedRevenue += amountPaid;
+    } else if (invoice.paidAt) {
+      collectedRevenue += Number(invoice.total || 0);
     }
 
     revenueTrendMap.set(monthKey, trendBucket);
@@ -501,7 +537,7 @@ export function buildCashCollectedReport(invoices = [], window, repairsById = ne
       if (payment.status && payment.status !== 'completed') continue;
 
       const amount = Number(payment.amount || 0);
-      const method = payment.type || 'other';
+      const method = payment.type || payment.method || 'other';
       const legacyAmount = roundMoney(amount * legacyShare);
       const goLiveAmount = roundMoney(amount * goLiveShare);
 
@@ -573,7 +609,7 @@ export function buildFederalTaxReserveReport({
         invoiceID: invoice.invoiceID,
         accountName: getPaymentAccountName(invoice),
         accountType: invoice.accountType || 'retail',
-        method: payment.type || 'other',
+        method: payment.type || payment.method || 'other',
         amount,
         taxHeld,
         receivedBy: payment.receivedBy || payment.createdBy || '',
@@ -593,7 +629,9 @@ export function buildFederalTaxReserveReport({
       userName: batch.userName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || batch.userID || 'Unknown user',
       isOwnerOperator: isOwnerOperatorUser(user),
       laborHours: Number(Number(batch.laborHours || 0).toFixed(2)),
-      laborPay: roundMoney(batch.laborPay || 0),
+      laborPay: roundMoney(Math.max(Number(batch.laborPay || 0) - Number(batch.salePay || 0), 0)),
+      salePay: roundMoney(batch.salePay || 0),
+      totalPay: roundMoney(batch.laborPay || 0),
       paymentMethod: batch.paymentMethod || '',
       paymentReference: batch.paymentReference || '',
       status: batch.status || '',
@@ -640,11 +678,23 @@ export function buildFederalTaxReserveReport({
 
   const cashCollected = sumMoney(payments.map((payment) => payment.amount));
   const salesTaxHeld = sumMoney(payments.map((payment) => payment.taxHeld));
-  const contractorPayrollPaid = sumMoney(
+  const contractorLaborPayrollPaid = sumMoney(
     payrollRows.filter((row) => !row.isOwnerOperator).map((row) => row.laborPay)
   );
-  const ownerOperatorPayrollPaid = sumMoney(
+  const contractorSalesPayoutPaid = sumMoney(
+    payrollRows.filter((row) => !row.isOwnerOperator).map((row) => row.salePay)
+  );
+  const contractorPayrollPaid = sumMoney(
+    payrollRows.filter((row) => !row.isOwnerOperator).map((row) => row.totalPay)
+  );
+  const ownerOperatorLaborPayrollPaid = sumMoney(
     payrollRows.filter((row) => row.isOwnerOperator).map((row) => row.laborPay)
+  );
+  const ownerOperatorSalesPayoutPaid = sumMoney(
+    payrollRows.filter((row) => row.isOwnerOperator).map((row) => row.salePay)
+  );
+  const ownerOperatorPayrollPaid = sumMoney(
+    payrollRows.filter((row) => row.isOwnerOperator).map((row) => row.totalPay)
   );
   const paidExpenseRows = expenseRows.filter((row) => (
     row.status === BUSINESS_EXPENSE_STATUS.PAID && isDateInWindow(getExpenseCashTimestamp(row), window)
@@ -680,7 +730,11 @@ export function buildFederalTaxReserveReport({
       cashCollected,
       salesTaxHeld,
       contractorPayrollPaid,
+      contractorLaborPayrollPaid,
+      contractorSalesPayoutPaid,
       ownerOperatorPayrollPaid,
+      ownerOperatorLaborPayrollPaid,
+      ownerOperatorSalesPayoutPaid,
       trackedExpenses,
       deductibleExpenses,
       nonDeductibleExpenses,
@@ -1034,6 +1088,8 @@ export function buildLaborSettlementReport({ payrollBatches = [], usersById = ne
         userName: batch.userName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || userID,
         isOwnerOperator: user.compensationProfile?.isOwnerOperator === true,
         paidHours: 0,
+        paidLaborAmount: 0,
+        paidSalesAmount: 0,
         paidAmount: 0,
         paidBatchCount: 0,
         paymentMethods: new Set(),
@@ -1041,7 +1097,11 @@ export function buildLaborSettlementReport({ payrollBatches = [], usersById = ne
     }
 
     const row = byJeweler.get(userID);
+    const salePay = Number(batch.salePay || 0);
+    const laborPay = Math.max(Number(batch.laborPay || 0) - salePay, 0);
     row.paidHours += Number(batch.laborHours || 0);
+    row.paidLaborAmount += laborPay;
+    row.paidSalesAmount += salePay;
     row.paidAmount += Number(batch.laborPay || 0);
     row.paidBatchCount += 1;
     if (batch.paymentMethod) row.paymentMethods.add(batch.paymentMethod);
@@ -1051,6 +1111,8 @@ export function buildLaborSettlementReport({ payrollBatches = [], usersById = ne
     .map((row) => ({
       ...row,
       paidHours: Number(row.paidHours.toFixed(2)),
+      paidLaborAmount: roundMoney(row.paidLaborAmount),
+      paidSalesAmount: roundMoney(row.paidSalesAmount),
       paidAmount: roundMoney(row.paidAmount),
       paymentMethods: Array.from(row.paymentMethods),
     }))
@@ -1058,17 +1120,108 @@ export function buildLaborSettlementReport({ payrollBatches = [], usersById = ne
 
   const summary = rows.reduce((acc, row) => ({
     totalPaidHours: Number((acc.totalPaidHours + row.paidHours).toFixed(2)),
+    totalPaidLaborAmount: roundMoney(acc.totalPaidLaborAmount + row.paidLaborAmount),
+    totalPaidSalesAmount: roundMoney(acc.totalPaidSalesAmount + row.paidSalesAmount),
     totalPaidAmount: roundMoney(acc.totalPaidAmount + row.paidAmount),
     paidBatchCount: acc.paidBatchCount + row.paidBatchCount,
     jewelers: acc.jewelers + 1,
   }), {
     totalPaidHours: 0,
+    totalPaidLaborAmount: 0,
+    totalPaidSalesAmount: 0,
     totalPaidAmount: 0,
     paidBatchCount: 0,
     jewelers: 0,
   });
 
   return { summary, rows };
+}
+
+export function buildSalesPayoutReport({ salePayouts = [], window }) {
+  const rows = (salePayouts || [])
+    .filter((payout) => {
+      const anchorDate = payout.payrolledAt || payout.weekStart || payout.createdAt;
+      return isDateInWindow(anchorDate, window);
+    })
+    .map((payout) => ({
+      payoutID: payout.payoutID,
+      invoiceID: payout.invoiceID,
+      lineID: payout.lineID,
+      productID: payout.productID || '',
+      sellerUserID: payout.sellerUserID || '',
+      sellerName: payout.sellerName || payout.sellerUserID || 'Unknown artisan',
+      saleDescription: payout.saleDescription || '',
+      grossSale: roundMoney(payout.grossSale || 0),
+      consignmentAmount: roundMoney(payout.consignmentAmount || 0),
+      actualLaborDeduction: roundMoney(payout.actualLaborDeduction || 0),
+      payoutAmount: roundMoney(payout.payoutAmount || 0),
+      status: payout.status || 'payable',
+      payrollStatus: payout.payrollStatus || 'unbatched',
+      payrollBatchID: payout.payrollBatchID || '',
+      weekStart: payout.weekStart || null,
+      payrolledAt: payout.payrolledAt || null,
+      createdAt: payout.createdAt || null,
+    }))
+    .sort((a, b) => new Date(b.payrolledAt || b.weekStart || b.createdAt || 0) - new Date(a.payrolledAt || a.weekStart || a.createdAt || 0));
+
+  const bySellerMap = new Map();
+  rows.forEach((row) => {
+    const key = row.sellerUserID || row.sellerName;
+    const seller = bySellerMap.get(key) || {
+      sellerUserID: row.sellerUserID,
+      sellerName: row.sellerName,
+      grossSale: 0,
+      consignmentAmount: 0,
+      actualLaborDeduction: 0,
+      payoutAmount: 0,
+      paidAmount: 0,
+      unpaidAmount: 0,
+      payoutCount: 0,
+    };
+    seller.grossSale = roundMoney(seller.grossSale + row.grossSale);
+    seller.consignmentAmount = roundMoney(seller.consignmentAmount + row.consignmentAmount);
+    seller.actualLaborDeduction = roundMoney(seller.actualLaborDeduction + row.actualLaborDeduction);
+    seller.payoutAmount = roundMoney(seller.payoutAmount + row.payoutAmount);
+    if (row.payrollStatus === 'paid') {
+      seller.paidAmount = roundMoney(seller.paidAmount + row.payoutAmount);
+    } else {
+      seller.unpaidAmount = roundMoney(seller.unpaidAmount + row.payoutAmount);
+    }
+    seller.payoutCount += 1;
+    bySellerMap.set(key, seller);
+  });
+
+  const summary = rows.reduce((acc, row) => {
+    acc.grossSale = roundMoney(acc.grossSale + row.grossSale);
+    acc.consignmentAmount = roundMoney(acc.consignmentAmount + row.consignmentAmount);
+    acc.actualLaborDeduction = roundMoney(acc.actualLaborDeduction + row.actualLaborDeduction);
+    acc.totalPayout = roundMoney(acc.totalPayout + row.payoutAmount);
+    if (row.payrollStatus === 'paid') {
+      acc.paidPayout = roundMoney(acc.paidPayout + row.payoutAmount);
+      acc.paidCount += 1;
+    } else {
+      acc.unpaidPayout = roundMoney(acc.unpaidPayout + row.payoutAmount);
+      acc.unpaidCount += 1;
+    }
+    acc.payoutCount += 1;
+    return acc;
+  }, {
+    grossSale: 0,
+    consignmentAmount: 0,
+    actualLaborDeduction: 0,
+    totalPayout: 0,
+    paidPayout: 0,
+    unpaidPayout: 0,
+    payoutCount: 0,
+    paidCount: 0,
+    unpaidCount: 0,
+  });
+
+  return {
+    summary,
+    rows,
+    bySeller: Array.from(bySellerMap.values()).sort((a, b) => b.payoutAmount - a.payoutAmount),
+  };
 }
 
 export function buildWholesalePerformanceReport({ repairs = [], invoices = [], window }) {
@@ -1147,8 +1300,11 @@ export function buildPayrollReport({ payrollBatches = [], usersById = new Map(),
         weekEnd: batch.weekEnd,
         status: batch.status || 'draft',
         laborHours: Number(Number(batch.laborHours || 0).toFixed(2)),
-        laborPay: roundMoney(batch.laborPay || 0),
+        laborPay: roundMoney(Math.max(Number(batch.laborPay || 0) - Number(batch.salePay || 0), 0)),
+        salePay: roundMoney(batch.salePay || 0),
+        totalPay: roundMoney(batch.laborPay || 0),
         repairsWorked: Number(batch.repairsWorked || 0),
+        salePayoutCount: Array.isArray(batch.salePayoutIDs) ? batch.salePayoutIDs.length : 0,
         entryCount: Number(batch.entryCount || 0),
         paidAt: batch.paidAt || null,
         paymentMethod: batch.paymentMethod || '',
@@ -1166,22 +1322,30 @@ export function buildPayrollReport({ payrollBatches = [], usersById = new Map(),
     acc.batchCount += 1;
     acc.totalHours = Number((acc.totalHours + row.laborHours).toFixed(2));
     acc.totalPay = roundMoney(acc.totalPay + row.laborPay);
+    acc.totalSalesPay = roundMoney(acc.totalSalesPay + row.salePay);
+    acc.totalCombinedPay = roundMoney(acc.totalCombinedPay + row.totalPay);
     if (row.status === 'paid') {
       acc.paidCount += 1;
-      acc.paidTotal = roundMoney(acc.paidTotal + row.laborPay);
+      acc.paidTotal = roundMoney(acc.paidTotal + row.totalPay);
+      acc.paidSalesTotal = roundMoney(acc.paidSalesTotal + row.salePay);
     } else {
       acc.unpaidCount += 1;
-      acc.unpaidTotal = roundMoney(acc.unpaidTotal + row.laborPay);
+      acc.unpaidTotal = roundMoney(acc.unpaidTotal + row.totalPay);
+      acc.unpaidSalesTotal = roundMoney(acc.unpaidSalesTotal + row.salePay);
     }
     return acc;
   }, {
     batchCount: 0,
     totalHours: 0,
     totalPay: 0,
+    totalSalesPay: 0,
+    totalCombinedPay: 0,
     paidCount: 0,
     unpaidCount: 0,
     paidTotal: 0,
     unpaidTotal: 0,
+    paidSalesTotal: 0,
+    unpaidSalesTotal: 0,
   });
 
   return { summary, rows };
