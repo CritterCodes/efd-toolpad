@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 import crypto, { hash } from 'crypto';
 import User from '../../users/class';
 import UserModel from './model';
-import { sendVerificationEmail, sendInviteEmail } from '@/app/utils/email.util.js';
+import { sendVerificationEmail, sendInviteEmail, sendPasswordResetEmail } from '@/app/utils/email.util.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRATION = '7d'; // Token expiration for JWT tokens
@@ -213,6 +213,37 @@ export default class AuthService {
         await sendInviteEmail(email, verificationToken, firstName);
 
         return newUser;
+    }
+
+    static async requestPasswordReset(email) {
+        const user = await UserModel.findByEmail(email);
+        if (!user) return { message: 'If that email exists, a reset link has been sent.' };
+
+        const token = crypto.randomBytes(32).toString('hex');
+        const expiry = new Date(Date.now() + 60 * 60 * 1000);
+
+        await UserModel.updateById(user.userID, {
+            resetToken: token,
+            resetTokenExpiry: expiry
+        });
+
+        await sendPasswordResetEmail(email, token);
+        return { message: 'If that email exists, a reset link has been sent.' };
+    }
+
+    static async resetPasswordWithToken(token, newPassword) {
+        const user = await UserModel.findByResetToken(token);
+        if (!user) throw new Error('Invalid or expired reset token.');
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await UserModel.updateById(user.userID, {
+            password: hashedPassword,
+            resetToken: null,
+            resetTokenExpiry: null,
+            status: 'verified'
+        });
+
+        return { message: 'Password reset successfully.' };
     }
 
     /**

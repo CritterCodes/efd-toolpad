@@ -1,5 +1,11 @@
 export const REPORT_DEFINITIONS = [
   {
+    slug: 'financial-foundation',
+    title: 'Financial Foundation Report',
+    description: 'Collected revenue, receivables, labor burden, expenses, owner burden, safe-to-spend, and data warnings.',
+    source: 'reports',
+  },
+  {
     slug: 'sales-tax',
     title: 'Sales Tax Report',
     description: 'Taxable sales, non-taxable sales, tax collected, and period totals.',

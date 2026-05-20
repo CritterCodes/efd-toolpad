@@ -4,13 +4,18 @@ import RepairLaborLogsModel from '@/app/api/repairLaborLogs/model';
 import OwnerDrawsModel from '@/app/api/ownerDraws/model';
 import BusinessExpensesModel from '@/app/api/businessExpenses/model';
 import RecurringBusinessExpensesModel from '@/app/api/recurringBusinessExpenses/model';
+import DebtAccountsModel from '@/app/api/debtAccounts/model';
+import DebtStatementsModel from '@/app/api/debtStatements/model';
+import DebtPaymentsModel from '@/app/api/debtPayments/model';
 import { getAnalyticsBaselineSettings } from '@/services/analyticsBaseline';
+import { buildDebtFoundationReport } from '@/services/debtAnalytics';
 import {
   buildAccountsReceivableReport,
   buildCashCollectedReport,
   buildCloseoutBottlenecksPeriodReport,
   combineAnalyticsInvoices,
   buildExpenseReport,
+  buildBankSafeToSpendReport,
   buildFederalTaxReserveReport,
   buildJewelerPerformanceReport,
   buildLaborSettlementReport,
@@ -18,6 +23,7 @@ import {
   buildSalesPayoutReport,
   buildWholesalePerformanceReport,
   getAnalyticsDateWindow,
+  normalizeFinancialOpeningBalance,
 } from '@/services/repairAnalytics';
 import { getAdminSettingsDocument } from '../summary/service';
 
@@ -56,9 +62,10 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
   const dbInstance = db._instance || await db.connect();
   const settings = await getAdminSettingsDocument();
   const baseline = getAnalyticsBaselineSettings(settings);
+  const openingBalance = normalizeFinancialOpeningBalance(settings?.financial?.openingBalance);
   const window = getAnalyticsDateWindow(dateRange);
 
-  const [repairs, invoices, salesInvoices, laborLogs, payrollBatches, salePayouts, ownerDraws, expenses, recurringExpenses, pendingReviewLogs] = await Promise.all([
+  const [repairs, invoices, salesInvoices, laborLogs, payrollBatches, salePayouts, ownerDraws, expenses, recurringExpenses, debtAccounts, debtStatements, debtPayments, pendingReviewLogs] = await Promise.all([
     dbInstance.collection('repairs').find({}).project({ _id: 0 }).toArray(),
     dbInstance.collection('repairInvoices').find({}).project({ _id: 0 }).toArray(),
     dbInstance.collection('salesInvoices').find({}).project({ _id: 0 }).toArray(),
@@ -70,6 +77,9 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
     OwnerDrawsModel.list({}),
     BusinessExpensesModel.list({}),
     RecurringBusinessExpensesModel.list({}),
+    DebtAccountsModel.list({}),
+    DebtStatementsModel.list({}),
+    DebtPaymentsModel.list({}),
     getPendingReviewLogs(),
   ]);
 
@@ -122,6 +132,24 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
       usersById,
       window,
       federalTaxReserveRate: baseline.federalTaxReserveRate,
+    }),
+    bankSafeToSpend: buildBankSafeToSpendReport({
+      openingBalance,
+      invoices: analyticsInvoices,
+      payrollBatches,
+      ownerDraws,
+      expenses,
+      recurringExpenses,
+      debtAccounts,
+      debtPayments,
+      usersById,
+      federalTaxReserveRate: baseline.federalTaxReserveRate,
+    }),
+    debtFoundation: buildDebtFoundationReport({
+      accounts: debtAccounts,
+      statements: debtStatements,
+      payments: debtPayments,
+      window,
     }),
     expenses: buildExpenseReport(expenses, window, recurringExpenses),
     payroll: buildPayrollReport({

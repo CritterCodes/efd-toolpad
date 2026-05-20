@@ -36,6 +36,14 @@ export default class UserModel {
         return await dbInstance.collection("users").findOne({ verificationToken: token });
     }
 
+    static async findByResetToken(token) {
+        const dbInstance = await db.connect();
+        return await dbInstance.collection("users").findOne({
+            resetToken: token,
+            resetTokenExpiry: { $gt: new Date() }
+        });
+    }
+
     /**
      * ✅ Create a new user
      * @param {Object} userData - User object data

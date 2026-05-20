@@ -48,9 +48,6 @@ const NewRepairPage = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
-  const [isWholesaler, setIsWholesaler] = useState(false);
-  const [wholesalerStoreId, setWholesalerStoreId] = useState(null);
-  const [wholesalerStoreName, setWholesalerStoreName] = useState(null);
   const [linkedSaleContext, setLinkedSaleContext] = useState(null);
   const [linkedSaleError, setLinkedSaleError] = useState('');
 
@@ -59,42 +56,31 @@ const NewRepairPage = () => {
   const salesInvoiceID = searchParams.get('salesInvoiceID');
   const salesLineID = searchParams.get('salesLineID');
 
+  // Derive wholesale context synchronously so NewRepairForm always gets the correct
+  // value on first render (avoids a race condition where the form would load EFD
+  // clients before the useEffect could flip isWholesaler to true).
+  const isWholesalerRole = status === 'authenticated' && session?.user?.role === 'wholesaler';
+  const isWholesaler = isWholesalerRole || !!scannedWholesaleStoreId;
+  const wholesalerStoreId = isWholesalerRole
+    ? (session.user.userID || session.user.id || session.user.email)
+    : (scannedWholesaleStoreId || null);
+  const wholesalerStoreName = isWholesalerRole
+    ? (session.user.name || session.user.email)
+    : (scannedWholesaleStoreName || scannedWholesaleStoreId || null);
+
   useEffect(() => {
     if (status !== 'authenticated') return;
 
     const isAdmin = session?.user?.role === 'admin';
-    const isWholesalerRole = session?.user?.role === 'wholesaler';
+    const isWholesalerRoleCheck = session?.user?.role === 'wholesaler';
     const isOnsiteRepairOps = session?.user?.role === 'artisan'
       && session?.user?.employment?.isOnsite === true
       && session?.user?.staffCapabilities?.repairOps === true;
 
-    if (!isAdmin && !isWholesalerRole && !isOnsiteRepairOps) {
+    if (!isAdmin && !isWholesalerRoleCheck && !isOnsiteRepairOps) {
       router.push('/dashboard');
     }
   }, [router, session, status]);
-
-  useEffect(() => {
-    if (!session?.user) return;
-
-    const userRole = session.user.role;
-    if (userRole === 'wholesaler') {
-      setIsWholesaler(true);
-      setWholesalerStoreId(session.user.userID || session.user.id || session.user.email);
-      setWholesalerStoreName(session.user.name || session.user.email);
-      return;
-    }
-
-    if (scannedWholesaleStoreId) {
-      setIsWholesaler(true);
-      setWholesalerStoreId(scannedWholesaleStoreId);
-      setWholesalerStoreName(scannedWholesaleStoreName || scannedWholesaleStoreId);
-      return;
-    }
-
-    setIsWholesaler(false);
-    setWholesalerStoreId(null);
-    setWholesalerStoreName(null);
-  }, [scannedWholesaleStoreId, scannedWholesaleStoreName, session]);
 
   useEffect(() => {
     const loadLinkedSale = async () => {

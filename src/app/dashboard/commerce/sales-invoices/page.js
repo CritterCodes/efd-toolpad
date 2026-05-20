@@ -15,10 +15,14 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  FormControl,
   FormControlLabel,
+  FormLabel,
   Grid,
   IconButton,
   MenuItem,
+  Radio,
+  RadioGroup,
   Stack,
   Switch,
   Tab,
@@ -35,6 +39,7 @@ import {
   Print as PrintIcon,
 } from '@mui/icons-material';
 import NewClientForm from '@/app/components/clients/newClientForm.component';
+import NewRepairForm from '@/app/components/repairs/NewRepairForm';
 import { deriveRepairItemMetadata } from '@/lib/productRepairMetadata';
 
 const UI = {
@@ -608,7 +613,7 @@ export default function SalesInvoicesPage() {
                       {payNow && (
                         <TextField select label="Payment method" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
                           <MenuItem value="cash">Cash</MenuItem>
-                          <MenuItem value="card">Card</MenuItem>
+                          <MenuItem value="credit_card">Card</MenuItem>
                           <MenuItem value="zelle">Zelle</MenuItem>
                         </TextField>
                       )}

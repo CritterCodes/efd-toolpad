@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildAccountsReceivableReport,
+  buildBankSafeToSpendReport,
   buildCashCollectedReport,
   buildCloseoutBottlenecksPeriodReport,
   buildExpenseReport,
@@ -14,6 +15,7 @@ import {
   combineAnalyticsInvoices,
   filterOperationalRepairs,
   getAnalyticsDateWindow,
+  normalizeFinancialOpeningBalance,
 } from './repairAnalytics';
 
 describe('repairAnalytics', () => {
@@ -243,7 +245,7 @@ describe('repairAnalytics', () => {
     });
     expect(cash.summary.totalCollected).toBe(128.25);
     expect(cash.summary.byMethod).toEqual([
-      { method: 'card_collected', amount: 108.25 },
+      { method: 'credit_card', amount: 108.25 },
       { method: 'cash', amount: 20 },
     ]);
     expect(ar.summary.outstandingBalance).toBe(30);
@@ -421,6 +423,140 @@ describe('repairAnalytics', () => {
     });
   });
 
+  it('normalizes the financial opening balance from admin settings', () => {
+    const openingBalance = normalizeFinancialOpeningBalance({
+      asOfDate: '2026-05-09',
+      bankBalance: '298.50',
+      cashDrawerBalance: '0',
+      notes: 'First clean cash start line. Older expenses retained as history.',
+      updatedAt: '2026-05-09T15:00:00.000Z',
+    });
+
+    expect(openingBalance).toMatchObject({
+      bankBalance: 298.50,
+      cashDrawerBalance: 0,
+      totalOpeningCash: 298.50,
+      notes: 'First clean cash start line. Older expenses retained as history.',
+      updatedAt: '2026-05-09T15:00:00.000Z',
+    });
+    expect(openingBalance.asOfDate).toBeInstanceOf(Date);
+  });
+
+  it('calculates bank safe-to-spend from opening cash and ignores pre-opening expenses', () => {
+    const report = buildBankSafeToSpendReport({
+      openingBalance: {
+        asOfDate: '2026-05-09',
+        bankBalance: 298.50,
+        cashDrawerBalance: 0,
+        notes: 'First clean cash start line. Older expenses retained as history.',
+      },
+      invoices: [
+        {
+          invoiceID: 'pre-opening-invoice',
+          customerName: 'Old Client',
+          total: 1000,
+          taxAmount: 0,
+          payments: [
+            { type: 'cash', amount: 1000, receivedAt: '2026-05-08T12:00:00.000Z', status: 'completed' },
+          ],
+        },
+        {
+          invoiceID: 'post-opening-invoice',
+          customerName: 'Client',
+          total: 110,
+          taxAmount: 10,
+          payments: [
+            { type: 'card', amount: 110, receivedAt: '2026-05-10T12:00:00.000Z', status: 'completed' },
+          ],
+        },
+        {
+          invoiceID: 'pending-card-invoice',
+          customerName: 'Client',
+          total: 45,
+          taxAmount: 0,
+          payments: [
+            { type: 'card', amount: 45, receivedAt: '2026-05-15T12:00:00.000Z', status: 'completed' },
+          ],
+        },
+      ],
+      payrollBatches: [
+        { batchID: 'pre-payroll', userID: 'contractor', userName: 'Contractor', laborPay: 999, paidAt: '2026-05-08T12:00:00.000Z' },
+        { batchID: 'contractor-payroll', userID: 'contractor', userName: 'Contractor', laborPay: 25, salePay: 5, paidAt: '2026-05-10T12:00:00.000Z' },
+        { batchID: 'owner-payroll', userID: 'owner', userName: 'Owner', laborPay: 30, paidAt: '2026-05-10T12:00:00.000Z' },
+      ],
+      ownerDraws: [
+        { drawID: 'owner-draw', userID: 'owner', userName: 'Owner', amount: 40, drawDate: '2026-05-10T12:00:00.000Z', status: 'recorded' },
+      ],
+      expenses: [
+        { expenseID: 'pre-opening-expense', vendor: 'Rent', amount: 500, expenseDate: '2026-05-08T12:00:00.000Z', paidAt: '2026-05-08T12:00:00.000Z', status: 'paid', isDeductible: true },
+        { expenseID: 'post-opening-expense', vendor: 'Shipping', amount: 20, expenseDate: '2026-05-10T12:00:00.000Z', paidAt: '2026-05-10T12:00:00.000Z', status: 'paid', isDeductible: true },
+        { expenseID: 'scheduled-expense', vendor: 'Software', amount: 12, expenseDate: '2026-05-11T12:00:00.000Z', status: 'scheduled', isDeductible: true },
+      ],
+      debtAccounts: [
+        {
+          debtAccountID: 'cash-app',
+          name: 'Cash App borrow',
+          type: 'loan',
+          paymentSchedule: 'cash_app_flat_fee',
+          openingBalance: 400,
+          openingBalanceDate: '2026-05-10',
+          active: true,
+        },
+        {
+          debtAccountID: 'credit-card',
+          name: 'Credit card',
+          type: 'credit_card',
+          openingBalance: 7000,
+          openingBalanceDate: '2026-05-10',
+          active: true,
+        },
+      ],
+      debtPayments: [
+        { debtPaymentID: 'pre-opening-debt-payment', amount: 999, paymentDate: '2026-05-08T12:00:00.000Z' },
+        { debtPaymentID: 'post-opening-debt-payment', amount: 50, paymentDate: '2026-05-10T12:00:00.000Z' },
+      ],
+      usersById: new Map([
+        ['contractor', { userID: 'contractor', compensationProfile: { isOwnerOperator: false } }],
+        ['owner', { userID: 'owner', compensationProfile: { isOwnerOperator: true } }],
+      ]),
+      federalTaxReserveRate: 0.30,
+      now: new Date('2026-05-16T12:00:00.000Z'),
+    });
+
+    expect(report.configured).toBe(true);
+    expect(report.summary).toMatchObject({
+      openingCash: 298.50,
+      cashCollected: 155,
+      salesTaxHeld: 10,
+      contractorPayrollPaid: 25,
+      ownerCashBurden: 70,
+      trackedExpenses: 20,
+      scheduledCommittedExpenses: 12,
+      debtPaymentsMade: 50,
+      debtCashInflows: 400,
+      merchantPayoutPending: 45,
+      estimatedCashOnHand: 643.50,
+      recommendedFederalReserve: 33,
+      bankSafeToSpend: 233.50,
+    });
+    expect(report.activity.debtCashInflowRows).toHaveLength(1);
+    expect(report.activity.debtCashInflowRows[0]).toMatchObject({
+      debtAccountID: 'cash-app',
+      amount: 400,
+    });
+    expect(report.activity.expenseRows.map((row) => row.expenseID)).not.toContain('pre-opening-expense');
+  });
+
+  it('returns an unconfigured bank safe-to-spend result when opening balance is missing', () => {
+    const report = buildBankSafeToSpendReport();
+
+    expect(report).toMatchObject({
+      configured: false,
+      openingBalance: null,
+      summary: null,
+    });
+  });
+
   it('tracks sales payouts by artisan and payroll status', () => {
     const window = getAnalyticsDateWindow('this_month', new Date('2026-05-20T12:00:00.000Z'));
     const report = buildSalesPayoutReport({
@@ -515,5 +651,49 @@ describe('repairAnalytics', () => {
       category: 'Software',
       total: 50,
     });
+  });
+
+  it('keeps date-only expenses inside the intended local month window', () => {
+    const window = getAnalyticsDateWindow('this_month', new Date('2026-05-10T12:00:00.000Z'));
+    const report = buildExpenseReport([
+      {
+        expenseID: 'may-first-expense',
+        expenseDate: '2026-05-01T00:00:00.000Z',
+        paidAt: '2026-05-01T00:00:00.000Z',
+        vendor: 'Google Workspace',
+        category: 'Software',
+        amount: 26.4,
+        status: 'paid',
+      },
+    ], window);
+
+    expect(report.rows.map((row) => row.expenseID)).toEqual(['may-first-expense']);
+    expect(report.summary.paid).toBe(26.4);
+  });
+
+  it('counts paid expenses by paid date in financial foundation math', () => {
+    const window = {
+      key: 'custom',
+      startDate: new Date('2026-05-01T00:00:00.000Z'),
+      endDate: new Date('2026-05-09T23:59:59.999Z'),
+    };
+    const report = buildFederalTaxReserveReport({
+      invoices: [],
+      expenses: [
+        {
+          expenseID: 'bank-withdrawal',
+          vendor: 'Cash withdrawal',
+          amount: 100,
+          expenseDate: '2026-05-10T12:00:00.000Z',
+          paidAt: '2026-05-05T12:00:00.000Z',
+          status: 'paid',
+          isDeductible: true,
+        },
+      ],
+      window,
+    });
+
+    expect(report.summary.trackedExpenses).toBe(100);
+    expect(report.expenseRows.map((row) => row.expenseID)).toEqual(['bank-withdrawal']);
   });
 });

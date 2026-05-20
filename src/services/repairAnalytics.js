@@ -50,6 +50,30 @@ function startOfDay(value) {
   return date;
 }
 
+function parseLocalDateOnly(value) {
+  if (typeof value !== 'string') return null;
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+
+  const [, year, month, day] = match;
+  return new Date(Number(year), Number(month) - 1, Number(day), 0, 0, 0, 0);
+}
+
+function normalizeDateOnlyLikeValue(value) {
+  if (!value) return value;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  if (
+    date.getUTCHours() === 0
+    && date.getUTCMinutes() === 0
+    && date.getUTCSeconds() === 0
+    && date.getUTCMilliseconds() === 0
+  ) {
+    return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0, 0);
+  }
+  return value;
+}
+
 function endOfDay(value) {
   const date = new Date(value);
   date.setHours(23, 59, 59, 999);
@@ -116,12 +140,42 @@ function sumMoney(values = []) {
   return roundMoney(values.reduce((sum, value) => sum + Number(value || 0), 0));
 }
 
+function addDays(value, days) {
+  const date = new Date(value);
+  date.setDate(date.getDate() + days);
+  return date;
+}
+
+function nextBusinessDay(value) {
+  let date = startOfDay(addDays(value, 1));
+  while (date.getDay() === 0 || date.getDay() === 6) {
+    date = startOfDay(addDays(date, 1));
+  }
+  return date;
+}
+
 function getInvoiceOutstanding(invoice = {}) {
   return roundMoney(Number(invoice.remainingBalance ?? Math.max(Number(invoice.total || 0) - Number(invoice.amountPaid || 0), 0)));
 }
 
 function getPaymentTimestamp(payment = {}) {
   return payment.receivedAt || payment.collectedAt || payment.createdAt || payment.syncedAt || null;
+}
+
+function normalizePaymentMethod(method = '') {
+  const value = String(method || 'other').trim().toLowerCase();
+  if (['card', 'credit', 'credit_card', 'card_collected', 'stripe', 'shopify_payments'].includes(value) || value.includes('card')) {
+    return 'credit_card';
+  }
+  return value || 'other';
+}
+
+function getPaymentMethod(payment = {}) {
+  return normalizePaymentMethod(payment.type || payment.method || 'other');
+}
+
+function isMerchantCardPayment(payment = {}) {
+  return getPaymentMethod(payment) === 'credit_card';
 }
 
 function isOwnerOperatorUser(user = {}) {
@@ -132,8 +186,50 @@ function getExpenseCashTimestamp(expense = {}) {
   return expense.paidAt || expense.expenseDate || null;
 }
 
+function getDebtCashInflowTimestamp(account = {}) {
+  return account.openingBalanceDate || account.balanceAsOfDate || account.asOfDate || account.createdAt || null;
+}
+
+function isDebtCashInflowAccount(account = {}) {
+  if (account.active === false) return false;
+  if (account.type === 'credit_card') return false;
+
+  return [
+    'cash_advance',
+    'owner_loan',
+    'loan',
+    'line_of_credit',
+  ].includes(account.type) || account.paymentSchedule === 'cash_app_flat_fee';
+}
+
 function getPaymentAccountName(invoice = {}) {
   return invoice.customerName || invoice.clientName || invoice.accountID || invoice.invoiceID;
+}
+
+export const DEFAULT_FINANCIAL_OPENING_BALANCE = {
+  asOfDate: '2026-05-09',
+  bankBalance: 298.50,
+  cashDrawerBalance: 0,
+  notes: 'First clean cash start line. Older expenses retained as history.',
+};
+
+export function normalizeFinancialOpeningBalance(openingBalance = null) {
+  if (!openingBalance || !openingBalance.asOfDate) return null;
+
+  const asOfDate = parseLocalDateOnly(openingBalance.asOfDate) || startOfDay(openingBalance.asOfDate);
+  if (Number.isNaN(asOfDate.getTime())) return null;
+
+  const bankBalance = roundMoney(openingBalance.bankBalance);
+  const cashDrawerBalance = roundMoney(openingBalance.cashDrawerBalance);
+
+  return {
+    asOfDate,
+    bankBalance,
+    cashDrawerBalance,
+    totalOpeningCash: roundMoney(bankBalance + cashDrawerBalance),
+    notes: String(openingBalance.notes || '').trim(),
+    updatedAt: openingBalance.updatedAt || null,
+  };
 }
 
 function getAgingBucket(daysOpen) {
@@ -359,7 +455,8 @@ export function normalizeSalesInvoiceForAnalytics(invoice = {}) {
     ),
     payments: (invoice.payments || []).map((payment) => ({
       ...payment,
-      type: payment.type || payment.method || 'other',
+      type: getPaymentMethod(payment),
+      method: getPaymentMethod(payment),
       receivedAt: payment.receivedAt || payment.collectedAt || payment.createdAt || invoice.paidAt || null,
       receivedBy: payment.receivedBy || payment.collectedBy || '',
       status: payment.status || 'completed',
@@ -537,7 +634,7 @@ export function buildCashCollectedReport(invoices = [], window, repairsById = ne
       if (payment.status && payment.status !== 'completed') continue;
 
       const amount = Number(payment.amount || 0);
-      const method = payment.type || payment.method || 'other';
+      const method = getPaymentMethod(payment);
       const legacyAmount = roundMoney(amount * legacyShare);
       const goLiveAmount = roundMoney(amount * goLiveShare);
 
@@ -609,7 +706,7 @@ export function buildFederalTaxReserveReport({
         invoiceID: invoice.invoiceID,
         accountName: getPaymentAccountName(invoice),
         accountType: invoice.accountType || 'retail',
-        method: payment.type || payment.method || 'other',
+        method: getPaymentMethod(payment),
         amount,
         taxHeld,
         receivedBy: payment.receivedBy || payment.createdBy || '',
@@ -657,18 +754,24 @@ export function buildFederalTaxReserveReport({
   }
 
   for (const expense of expenses) {
-    if (!expense?.expenseDate || !isDateInWindow(expense.expenseDate, window)) continue;
+    const expenseDate = normalizeDateOnlyLikeValue(expense?.expenseDate);
+    const paidAt = normalizeDateOnlyLikeValue(expense?.paidAt);
+    const status = expense.status || BUSINESS_EXPENSE_STATUS.PAID;
+    const cashDate = status === BUSINESS_EXPENSE_STATUS.PAID
+      ? paidAt || expenseDate
+      : expenseDate;
+    if (!cashDate || !isDateInWindow(cashDate, window)) continue;
 
     expenseRows.push({
       id: expense.expenseID,
       expenseID: expense.expenseID,
-      expenseDate: expense.expenseDate,
-      paidAt: expense.paidAt || null,
+      expenseDate,
+      paidAt: paidAt || null,
       vendor: expense.vendor || '',
       category: expense.category || 'Miscellaneous',
       amount: roundMoney(expense.amount || 0),
       paymentMethod: expense.paymentMethod || '',
-      status: expense.status || BUSINESS_EXPENSE_STATUS.PAID,
+      status,
       isDeductible: expense.isDeductible !== false,
       sourceType: expense.sourceType || RECURRING_EXPENSE_SOURCE_TYPE.MANUAL,
       sourceRecurringExpenseID: expense.sourceRecurringExpenseID || '',
@@ -762,8 +865,139 @@ export function buildFederalTaxReserveReport({
   };
 }
 
+export function buildBankSafeToSpendReport({
+  openingBalance = null,
+  invoices = [],
+  payrollBatches = [],
+  ownerDraws = [],
+  expenses = [],
+  recurringExpenses = [],
+  debtAccounts = [],
+  debtPayments = [],
+  usersById = new Map(),
+  federalTaxReserveRate = 0.30,
+  now = new Date(),
+} = {}) {
+  const normalizedOpeningBalance = normalizeFinancialOpeningBalance(openingBalance);
+
+  if (!normalizedOpeningBalance) {
+    return {
+      configured: false,
+      openingBalance: null,
+      summary: null,
+      activity: null,
+    };
+  }
+
+  const window = {
+    key: 'opening_balance_to_now',
+    startDate: normalizedOpeningBalance.asOfDate,
+    endDate: now,
+  };
+  const activity = buildFederalTaxReserveReport({
+    invoices,
+    payrollBatches,
+    ownerDraws,
+    expenses,
+    recurringExpenses,
+    usersById,
+    window,
+    federalTaxReserveRate,
+  });
+  const summary = activity.summary || {};
+  const ownerCashBurden = roundMoney(
+    Number(summary.ownerOperatorPayrollPaid || 0) + Number(summary.ownerDraws || 0)
+  );
+  const paymentCashMovementRows = [];
+  for (const invoice of invoices || []) {
+    for (const payment of invoice.payments || []) {
+      const timestamp = getPaymentTimestamp(payment);
+      if (!timestamp || !isDateInWindow(timestamp, window)) continue;
+      if (payment.status && payment.status !== 'completed') continue;
+
+      const collectedAt = new Date(timestamp);
+      const expectedDepositDate = isMerchantCardPayment(payment) ? nextBusinessDay(collectedAt) : collectedAt;
+      const amount = roundMoney(payment.amount);
+      paymentCashMovementRows.push({
+        invoiceID: invoice.invoiceID,
+        method: getPaymentMethod(payment),
+        amount,
+        collectedAt,
+        expectedDepositDate,
+        deposited: expectedDepositDate <= new Date(now),
+      });
+    }
+  }
+  const merchantPayoutPending = sumMoney(paymentCashMovementRows
+    .filter((payment) => !payment.deposited)
+    .map((payment) => payment.amount));
+  const debtPaymentsMade = sumMoney((debtPayments || [])
+    .filter((payment) => payment?.paymentDate && isDateInWindow(payment.paymentDate, window))
+    .map((payment) => payment.amount));
+  const debtCashInflowRows = (debtAccounts || [])
+    .filter((account) => isDebtCashInflowAccount(account))
+    .map((account) => ({
+      debtAccountID: account.debtAccountID,
+      name: account.name || account.lender || 'Debt account',
+      type: account.type || '',
+      lender: account.lender || '',
+      date: normalizeDateOnlyLikeValue(getDebtCashInflowTimestamp(account)),
+      amount: roundMoney(account.openingBalance),
+    }))
+    .filter((row) => row.amount > 0 && row.date && isDateInWindow(row.date, window));
+  const debtCashInflows = sumMoney(debtCashInflowRows.map((row) => row.amount));
+  const estimatedCashOnHand = roundMoney(
+    normalizedOpeningBalance.totalOpeningCash
+      + Number(summary.cashCollected || 0)
+      - merchantPayoutPending
+      + debtCashInflows
+      - Number(summary.contractorPayrollPaid || 0)
+      - ownerCashBurden
+      - Number(summary.trackedExpenses || 0)
+      - debtPaymentsMade
+  );
+  const bankSafeToSpend = roundMoney(
+    normalizedOpeningBalance.totalOpeningCash
+      + Number(summary.cashCollected || 0)
+      - Number(summary.salesTaxHeld || 0)
+      - Number(summary.contractorPayrollPaid || 0)
+      - ownerCashBurden
+      - Number(summary.trackedExpenses || 0)
+      - Number(summary.scheduledCommittedExpenses || 0)
+      - debtPaymentsMade
+      - Number(summary.recommendedFederalReserve || 0)
+  );
+
+  return {
+    configured: true,
+    openingBalance: normalizedOpeningBalance,
+    summary: {
+      ...summary,
+      openingCash: normalizedOpeningBalance.totalOpeningCash,
+      ownerCashBurden,
+      debtPaymentsMade,
+      debtCashInflows,
+      merchantPayoutPending,
+      estimatedCashOnHand,
+      bankSafeToSpend,
+      calculationStartDate: normalizedOpeningBalance.asOfDate,
+      calculationEndDate: now,
+    },
+    activity: {
+      ...activity,
+      debtCashInflowRows,
+      paymentCashMovementRows,
+    },
+  };
+}
+
 export function buildExpenseReport(expenses = [], window, recurringExpenses = []) {
   const rows = expenses
+    .map((expense) => ({
+      ...expense,
+      expenseDate: normalizeDateOnlyLikeValue(expense?.expenseDate),
+      paidAt: normalizeDateOnlyLikeValue(expense?.paidAt),
+    }))
     .filter((expense) => expense?.expenseDate && isDateInWindow(expense.expenseDate, window))
     .map((expense) => ({
       expenseID: expense.expenseID,

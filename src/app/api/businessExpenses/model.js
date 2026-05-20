@@ -7,6 +7,18 @@ import {
 } from '@/services/businessExpenses';
 import { RECURRING_EXPENSE_SOURCE_TYPE } from '@/services/recurringBusinessExpenses';
 
+function parseLocalDateInput(value, fallback = new Date()) {
+  if (!value) return fallback;
+  if (typeof value === 'string') {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (match) {
+      const [, year, month, day] = match;
+      return new Date(Number(year), Number(month) - 1, Number(day), 12, 0, 0, 0);
+    }
+  }
+  return new Date(value);
+}
+
 export default class BusinessExpensesModel {
   static COLLECTION = 'businessExpenses';
 
@@ -15,16 +27,16 @@ export default class BusinessExpensesModel {
     const now = new Date();
     const expense = {
       expenseID: data.expenseID || `bexp-${uuidv4().slice(0, 8)}`,
-      expenseDate: data.expenseDate ? new Date(data.expenseDate) : now,
+      expenseDate: parseLocalDateInput(data.expenseDate, now),
       vendor: (data.vendor || '').trim(),
       category: normalizeBusinessExpenseCategory(data.category),
       amount: Number(data.amount || 0),
       paymentMethod: data.paymentMethod || 'other',
       status: normalizeBusinessExpenseStatus(data.status),
       paidAt: data.paidAt
-        ? new Date(data.paidAt)
+        ? parseLocalDateInput(data.paidAt, now)
         : (normalizeBusinessExpenseStatus(data.status) === BUSINESS_EXPENSE_STATUS.PAID
-            ? (data.expenseDate ? new Date(data.expenseDate) : now)
+            ? parseLocalDateInput(data.expenseDate, now)
             : null),
       notes: data.notes || '',
       isDeductible: data.isDeductible !== false,
@@ -75,9 +87,9 @@ export default class BusinessExpensesModel {
           category: normalizeBusinessExpenseCategory(updateData.category),
           status: normalizeBusinessExpenseStatus(updateData.status),
           paidAt: updateData.paidAt
-            ? new Date(updateData.paidAt)
+            ? parseLocalDateInput(updateData.paidAt, new Date())
             : (normalizeBusinessExpenseStatus(updateData.status) === BUSINESS_EXPENSE_STATUS.PAID
-                ? (updateData.expenseDate ? new Date(updateData.expenseDate) : undefined)
+                ? (updateData.expenseDate ? parseLocalDateInput(updateData.expenseDate, new Date()) : undefined)
                 : null),
           sourceType: updateData.sourceType ?? undefined,
           sourceRecurringExpenseID: updateData.sourceRecurringExpenseID ?? undefined,

@@ -15,7 +15,7 @@ const transporter = nodemailer.createTransport({
  * @param {string} token - The verification token
  */
 export async function sendVerificationEmail(email, token) {
-    const verificationLink = `${process.env.APP_URL}/verify-email?token=${token}`;
+    const verificationLink = `${process.env.NEXT_PUBLIC_URL}/verify-email?token=${token}`;
 
     const mailOptions = {
         from: `"Your App Name" <${process.env.EMAIL_USER}>`,
@@ -44,7 +44,7 @@ export async function sendVerificationEmail(email, token) {
  * @param {string} token - The password reset token
  */
 export async function sendPasswordResetEmail(email, token) {
-    const resetLink = `${process.env.APP_URL}/reset-password?token=${token}`;
+    const resetLink = `${process.env.NEXT_PUBLIC_URL}/reset-password?token=${token}`;
 
     const mailOptions = {
         from: `"Your App Name" <${process.env.EMAIL_USER}>`,
@@ -74,7 +74,7 @@ export async function sendPasswordResetEmail(email, token) {
  * @param {string} firstName - The invited user's first name
  */
 export async function sendInviteEmail(email, token, firstName) {
-    const inviteLink = `${process.env.APP_URL}/complete-signup?token=${token}`;
+    const inviteLink = `${process.env.NEXT_PUBLIC_URL}/complete-signup?token=${token}`;
 
     const mailOptions = {
         from: `"Your App Name" <${process.env.EMAIL_USER}>`,

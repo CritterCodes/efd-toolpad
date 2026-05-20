@@ -1,8 +1,60 @@
 import { NextResponse } from "next/server";
 import { uploadRepairImage } from "@/utils/s3.util";
 import RepairsController from "./controller";
+import RepairLaborLogsModel from "@/app/api/repairLaborLogs/model";
 import { requireRepairsAccess, requireRole } from "@/lib/apiAuth";
+import {
+  calculateRepairChargeTotal,
+  calculateRepairLaborHours,
+  getLaborRateSnapshotForUser,
+} from "@/app/api/repairLaborLogs/utils";
 import { REPAIR_STATUS } from "@/services/repairWorkflow";
+
+async function createWhileYouWaitLaborLog(repair, session) {
+  if (!repair?.repairID || repair.whileYouWait !== true || repair.status !== "COMPLETED" || !repair.assignedTo) {
+    return null;
+  }
+
+  const existingLogs = await RepairLaborLogsModel.findByRepair(repair.repairID);
+  if (existingLogs.length > 0) {
+    return null;
+  }
+
+  const creditedLaborHours = calculateRepairLaborHours(repair);
+  const laborRateSnapshot = await getLaborRateSnapshotForUser({
+    userID: repair.assignedTo,
+    session,
+  });
+  const laborPaySnapshot = creditedLaborHours * laborRateSnapshot;
+  const repairChargeTotal = calculateRepairChargeTotal(repair);
+  const requiresAdminReview = (
+    laborRateSnapshot <= 0
+    || (repairChargeTotal > 0 && creditedLaborHours <= 0)
+    || (repairChargeTotal > 0 && laborPaySnapshot > repairChargeTotal)
+  );
+
+  const reviewNotes = [];
+  if (laborRateSnapshot <= 0) {
+    reviewNotes.push("Missing hourly rate snapshot. Confirm pay rate before payout.");
+  }
+  if (repairChargeTotal > 0 && creditedLaborHours <= 0) {
+    reviewNotes.push("Chargeable repair has no labor hours snapshot. Confirm hours before payout.");
+  }
+  if (repairChargeTotal > 0 && laborPaySnapshot > repairChargeTotal) {
+    reviewNotes.push(`Labor pay snapshot ${laborPaySnapshot.toFixed(2)} exceeds current repair total ${repairChargeTotal.toFixed(2)}.`);
+  }
+
+  return await RepairLaborLogsModel.create({
+    repairID: repair.repairID,
+    primaryJewelerUserID: repair.assignedTo,
+    primaryJewelerName: repair.assignedJeweler || repair.completedBy || repair.whileYouWaitCompletedBy || repair.assignedTo,
+    creditedLaborHours,
+    laborRateSnapshot,
+    sourceAction: "while_you_wait_complete",
+    requiresAdminReview,
+    notes: reviewNotes.join(" "),
+  });
+}
 
 export const POST = async (request) => {
   try {
@@ -124,6 +176,7 @@ export const POST = async (request) => {
     }
 
     const newRepair = await RepairsController.createRepair(repairData);
+    await createWhileYouWaitLaborLog(newRepair, session);
 
     return NextResponse.json(
       {

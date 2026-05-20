@@ -113,13 +113,65 @@ function downloadCsvSections(filename, sections) {
   URL.revokeObjectURL(url);
 }
 
-function SummaryCard({ label, value, note }) {
+function SummaryCard({ label, value, note, breakdown }) {
+  const [expanded, setExpanded] = React.useState(false);
+  const hasBreakdown = Array.isArray(breakdown) && breakdown.length > 0;
+
   return (
-    <Card variant="outlined">
+    <Card
+      variant="outlined"
+      onClick={hasBreakdown ? () => setExpanded((current) => !current) : undefined}
+      onKeyDown={hasBreakdown ? (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          setExpanded((current) => !current);
+        }
+      } : undefined}
+      role={hasBreakdown ? 'button' : undefined}
+      tabIndex={hasBreakdown ? 0 : undefined}
+      sx={{
+        cursor: hasBreakdown ? 'pointer' : 'default',
+        '&:hover': hasBreakdown ? { borderColor: 'primary.main' } : undefined,
+      }}
+    >
       <CardContent>
         <Typography variant="body2" color="text.secondary">{label}</Typography>
         <Typography variant="h5" fontWeight={700} sx={{ mt: 1 }}>{value}</Typography>
         {note && <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{note}</Typography>}
+        {hasBreakdown && (
+          <>
+            <Typography variant="caption" color="primary" sx={{ display: 'block', mt: 1.25 }}>
+              {expanded ? 'Hide math' : 'Click to see math'}
+            </Typography>
+            {expanded && (
+              <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
+                <Stack spacing={0.75}>
+                  {breakdown.map((row) => (
+                    <Box
+                      key={row.label}
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: '24px minmax(0, 1fr) auto',
+                        gap: 1,
+                        alignItems: 'baseline',
+                      }}
+                    >
+                      <Typography variant="body2" color={row.operator === '=' ? 'primary' : 'text.secondary'}>
+                        {row.operator}
+                      </Typography>
+                      <Typography variant="body2" color={row.operator === '=' ? 'primary' : 'text.secondary'}>
+                        {row.label}
+                      </Typography>
+                      <Typography variant="body2" fontWeight={row.operator === '=' ? 700 : 500}>
+                        {row.value}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Stack>
+              </Box>
+            )}
+          </>
+        )}
       </CardContent>
     </Card>
   );
@@ -208,6 +260,381 @@ function ReportTable({ columns, rows }) {
 
 function buildReportConfig(reportSlug, summary, reports, actions = {}) {
   switch (reportSlug) {
+    case 'financial-foundation': {
+      const foundationSummary = reports?.federalTaxReserve?.summary || {};
+      const bankSafeToSpend = reports?.bankSafeToSpend || {};
+      const bankSafeSummary = bankSafeToSpend.summary || {};
+      const debtSummary = reports?.debtFoundation?.summary || {};
+      const debtCashInflows = Number(bankSafeSummary.debtCashInflows || 0);
+      const merchantPayoutPending = Number(bankSafeSummary.merchantPayoutPending || 0);
+      const estimatedCashOnHand = bankSafeToSpend.configured
+        ? Number(bankSafeSummary.estimatedCashOnHand ?? (
+          Number(bankSafeSummary.openingCash || 0)
+          + Number(bankSafeSummary.cashCollected || 0)
+          - merchantPayoutPending
+          + debtCashInflows
+          - Number(bankSafeSummary.contractorPayrollPaid || 0)
+          - Number(bankSafeSummary.ownerCashBurden || 0)
+          - Number(bankSafeSummary.trackedExpenses || 0)
+          - Number(bankSafeSummary.debtPaymentsMade || 0)
+        ))
+        : null;
+      const debtAdjustedSafeToSpend = bankSafeToSpend.configured
+        ? Number(bankSafeSummary.bankSafeToSpend || 0) - Number(debtSummary.upcomingDebtPayments || 0)
+        : null;
+      const ownerBurden = Number(foundationSummary.ownerOperatorPayrollPaid || 0)
+        + Number(foundationSummary.ownerDraws || 0);
+      const ownerInclusiveSafeToSpend = Number(foundationSummary.safeToSpendAfterScheduled || 0) - ownerBurden;
+      const payrollAndOwnerRows = [
+        ...(reports?.federalTaxReserve?.payrollRows || []).map((row) => ({
+          ...row,
+          rowType: row.isOwnerOperator ? 'Owner/operator payroll' : 'Contractor payroll',
+          date: row.paidAt,
+          name: row.userName,
+          method: row.paymentMethod,
+          amount: row.totalPay,
+          reference: row.paymentReference,
+        })),
+        ...(reports?.federalTaxReserve?.ownerDrawRows || []).map((row) => ({
+          ...row,
+          rowType: 'Owner draw',
+          date: row.drawDate,
+          name: row.userName,
+          method: row.paymentMethod,
+          amount: row.amount,
+          reference: row.paymentReference,
+        })),
+      ].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+      const foundationNotes = [
+        {
+          id: 'unpaid-labor',
+          area: 'Unpaid labor owed',
+          status: 'Current estimate pending',
+          note: 'Step 1 does not finalize unpaid labor liability. Step 2 will define the canonical calculation from approved labor logs and unpaid payroll batches.',
+        },
+        {
+          id: 'materials-cogs',
+          area: 'Material cost basis / COGS',
+          status: 'Coming foundation check',
+          note: 'This report does not treat repair material charges as actual material cost. Inventory, recycled stock, and cost-basis checks come in a later step.',
+        },
+        {
+          id: 'safe-to-spend',
+          area: 'Period safe-to-spend',
+          status: 'Current estimate',
+          note: 'Uses the selected report period only. Bank Safe-To-Spend uses the opening balance floor instead.',
+        },
+      ];
+      if (!bankSafeToSpend.configured) {
+        foundationNotes.unshift({
+          id: 'opening-balance',
+          area: 'Opening balance',
+          status: 'Not configured',
+          note: 'Add the opening balance in Finance > Opening Balance to estimate spendable business cash from the clean start line.',
+        });
+      }
+      const periodSafeToSpendBreakdown = [
+        { operator: '+', label: 'Collected revenue in selected period', value: formatMoney(foundationSummary.cashCollected) },
+        { operator: '-', label: 'Sales tax held', value: formatMoney(foundationSummary.salesTaxHeld) },
+        { operator: '-', label: 'Paid contractor labor', value: formatMoney(foundationSummary.contractorPayrollPaid) },
+        { operator: '-', label: 'Paid expenses', value: formatMoney(foundationSummary.trackedExpenses) },
+        { operator: '-', label: 'Recommended federal reserve', value: formatMoney(foundationSummary.recommendedFederalReserve) },
+        { operator: '-', label: 'Scheduled expenses', value: formatMoney(foundationSummary.scheduledCommittedExpenses) },
+        { operator: '-', label: 'Owner cash burden', value: formatMoney(ownerBurden) },
+        { operator: '=', label: 'Period Safe-To-Spend', value: formatMoney(ownerInclusiveSafeToSpend) },
+      ];
+      const bankSafeToSpendBreakdown = bankSafeToSpend.configured ? [
+        { operator: '+', label: 'Opening bank + cash drawer', value: formatMoney(bankSafeSummary.openingCash) },
+        { operator: '+', label: 'Collected payments after opening date', value: formatMoney(bankSafeSummary.cashCollected) },
+        { operator: '-', label: 'Sales tax held after opening date', value: formatMoney(bankSafeSummary.salesTaxHeld) },
+        { operator: '-', label: 'Paid contractor labor after opening date', value: formatMoney(bankSafeSummary.contractorPayrollPaid) },
+        { operator: '-', label: 'Owner payroll + draws after opening date', value: formatMoney(bankSafeSummary.ownerCashBurden) },
+        { operator: '-', label: 'Paid expenses after opening date', value: formatMoney(bankSafeSummary.trackedExpenses) },
+        { operator: '-', label: 'Scheduled expenses after opening date', value: formatMoney(bankSafeSummary.scheduledCommittedExpenses) },
+        { operator: '-', label: 'Debt payments made after opening date', value: formatMoney(bankSafeSummary.debtPaymentsMade) },
+        { operator: '-', label: 'Recommended federal reserve after opening date', value: formatMoney(bankSafeSummary.recommendedFederalReserve) },
+        { operator: '=', label: 'Bank Safe-To-Spend', value: formatMoney(bankSafeSummary.bankSafeToSpend) },
+      ] : [
+        { operator: '=', label: 'Bank Safe-To-Spend', value: 'Not configured' },
+      ];
+      const estimatedCashOnHandBreakdown = bankSafeToSpend.configured ? [
+        { operator: '+', label: 'Opening bank + cash drawer', value: formatMoney(bankSafeSummary.openingCash) },
+        { operator: '+', label: 'Collected payments after opening date', value: formatMoney(bankSafeSummary.cashCollected) },
+        { operator: '-', label: 'Card payments not expected to land yet', value: formatMoney(merchantPayoutPending) },
+        { operator: '+', label: 'Borrowed cash / loan inflows after opening date', value: formatMoney(debtCashInflows) },
+        { operator: '-', label: 'Paid contractor labor after opening date', value: formatMoney(bankSafeSummary.contractorPayrollPaid) },
+        { operator: '-', label: 'Owner payroll + draws after opening date', value: formatMoney(bankSafeSummary.ownerCashBurden) },
+        { operator: '-', label: 'Paid expenses after opening date', value: formatMoney(bankSafeSummary.trackedExpenses) },
+        { operator: '-', label: 'Debt payments made after opening date', value: formatMoney(bankSafeSummary.debtPaymentsMade) },
+        { operator: '=', label: 'Estimated Cash On Hand', value: formatMoney(estimatedCashOnHand) },
+      ] : [
+        { operator: '=', label: 'Estimated Cash On Hand', value: 'Not configured' },
+      ];
+      const totalDebtBreakdown = (reports?.debtFoundation?.accountRows || []).length
+        ? [
+            ...(reports.debtFoundation.accountRows || []).map((row) => ({
+              operator: '+',
+              label: row.name,
+              value: formatMoney(row.payoffBalance),
+            })),
+            { operator: '=', label: 'Total Debt Balance', value: formatMoney(debtSummary.totalDebtBalance) },
+          ]
+        : [{ operator: '=', label: 'Total Debt Balance', value: formatMoney(0) }];
+      const debtAdjustedBreakdown = [
+        { operator: '+', label: 'Bank Safe-To-Spend', value: bankSafeToSpend.configured ? formatMoney(bankSafeSummary.bankSafeToSpend) : 'Not configured' },
+        { operator: '-', label: 'Upcoming debt payments', value: formatMoney(debtSummary.upcomingDebtPayments) },
+        { operator: '=', label: 'Debt-Adjusted Safe-To-Spend', value: bankSafeToSpend.configured ? formatMoney(debtAdjustedSafeToSpend) : 'Not configured' },
+      ];
+
+      return {
+        infoAlerts: [
+          'This shell report composes existing analytics data only. It does not change invoice, payroll, expense, repair, or inventory workflows.',
+          bankSafeToSpend.configured
+            ? `Bank Safe-To-Spend starts from ${formatMoney(bankSafeSummary.openingCash)} opening cash on ${formatDate(bankSafeSummary.calculationStartDate)} and activity after that date.`
+            : 'Bank Safe-To-Spend is not configured yet. Add the opening balance in Finance > Opening Balance.',
+        ],
+        summaryCards: [
+          { label: 'Collected Revenue', value: formatMoney(reports?.cashCollected?.summary?.totalCollected), note: 'Completed payment rows on repair and sales invoices.' },
+          { label: 'Sales Tax Held', value: formatMoney(foundationSummary.salesTaxHeld), note: 'Current estimate from collected invoice payments.' },
+          { label: 'Unpaid Receivables', value: formatMoney(reports?.accountsReceivable?.summary?.outstandingBalance), note: `${reports?.accountsReceivable?.summary?.invoiceCount || 0} open invoice(s).` },
+          { label: 'Paid Contractor Labor', value: formatMoney(foundationSummary.contractorPayrollPaid), note: 'Excludes owner/operator payroll.' },
+          { label: 'Unpaid Labor Owed', value: 'Not finalized', note: 'Current estimate pending Step 2 canonical calculation.' },
+          { label: 'Owner Cash Burden', value: formatMoney(ownerBurden), note: `Owner payroll: ${formatMoney(foundationSummary.ownerOperatorPayrollPaid)} | Draws: ${formatMoney(foundationSummary.ownerDraws)}` },
+          { label: 'Paid Expenses', value: formatMoney(foundationSummary.trackedExpenses), note: 'Recorded paid business expenses.' },
+          { label: 'Scheduled Expenses', value: formatMoney(foundationSummary.scheduledCommittedExpenses), note: 'Committed scheduled obligations in this period.' },
+          {
+            label: 'Period Safe-To-Spend',
+            value: formatMoney(ownerInclusiveSafeToSpend),
+            note: 'Selected period activity after reserve, scheduled obligations, and owner cash burden.',
+            breakdown: periodSafeToSpendBreakdown,
+          },
+          {
+            label: 'Estimated Cash On Hand',
+            value: bankSafeToSpend.configured ? formatMoney(estimatedCashOnHand) : 'Not configured',
+            note: bankSafeToSpend.configured
+              ? 'Estimated actual bank/cash balance from recorded cash movement. Card payouts land next business day.'
+              : 'Add opening balance in Finance > Opening Balance.',
+            breakdown: estimatedCashOnHandBreakdown,
+          },
+          {
+            label: 'Bank Safe-To-Spend',
+            value: bankSafeToSpend.configured ? formatMoney(bankSafeSummary.bankSafeToSpend) : 'Not configured',
+            note: bankSafeToSpend.configured
+              ? `Opening balance floor: ${formatDate(bankSafeSummary.calculationStartDate)}. Bank imports are not included.`
+              : 'Add opening balance in Finance > Opening Balance.',
+            breakdown: bankSafeToSpendBreakdown,
+          },
+          {
+            label: 'Total Debt Balance',
+            value: formatMoney(debtSummary.totalDebtBalance),
+            note: `Principal: ${formatMoney(debtSummary.totalPrincipalRemaining)} | Fees: ${formatMoney(debtSummary.totalFeeRemaining)}`,
+            breakdown: totalDebtBreakdown,
+          },
+          {
+            label: 'Upcoming Debt Payments',
+            value: formatMoney(debtSummary.upcomingDebtPayments),
+            note: `Principal: ${formatMoney(debtSummary.upcomingDebtPrincipal)} | Fees: ${formatMoney(debtSummary.upcomingDebtFees)}`,
+          },
+          {
+            label: 'Debt Payments Made',
+            value: formatMoney(debtSummary.debtPaymentsMade),
+            note: `Principal: ${formatMoney(debtSummary.debtPrincipalPaid)} | Interest/fees: ${formatMoney(debtSummary.debtInterestFeesPaid)}`,
+          },
+          {
+            label: 'Debt-Adjusted Safe-To-Spend',
+            value: bankSafeToSpend.configured ? formatMoney(debtAdjustedSafeToSpend) : 'Not configured',
+            note: 'Bank Safe-To-Spend minus upcoming required debt payments.',
+            breakdown: debtAdjustedBreakdown,
+          },
+        ],
+        sections: [
+          {
+            title: 'Cash Collection Detail',
+            rows: reports?.federalTaxReserve?.payments || [],
+            columns: [
+              { label: 'Received At', render: (row) => formatDate(row.receivedAt, true) },
+              { label: 'Invoice', value: 'invoiceID' },
+              { label: 'Account', value: 'accountName' },
+              { label: 'Method', value: 'method' },
+              { label: 'Tax Held', render: (row) => formatMoney(row.taxHeld), align: 'right' },
+              { label: 'Collected', render: (row) => formatMoney(row.amount), align: 'right' },
+            ],
+            exportColumns: [
+              { label: 'Received At', value: (row) => formatDate(row.receivedAt, true) },
+              { label: 'Invoice', value: 'invoiceID' },
+              { label: 'Account', value: 'accountName' },
+              { label: 'Account Type', value: 'accountType' },
+              { label: 'Method', value: 'method' },
+              { label: 'Tax Held', value: (row) => row.taxHeld },
+              { label: 'Collected', value: (row) => row.amount },
+            ],
+          },
+          {
+            title: 'Receivables Detail',
+            rows: reports?.accountsReceivable?.rows || [],
+            columns: [
+              { label: 'Invoice', value: 'invoiceID' },
+              { label: 'Account', value: 'accountName' },
+              { label: 'Type', value: 'accountType' },
+              { label: 'Payment Status', value: 'paymentStatus' },
+              { label: 'Aging', value: 'agingBucket' },
+              { label: 'Remaining', render: (row) => formatMoney(row.remainingBalance), align: 'right' },
+            ],
+            exportColumns: [
+              { label: 'Invoice', value: 'invoiceID' },
+              { label: 'Account', value: 'accountName' },
+              { label: 'Account Type', value: 'accountType' },
+              { label: 'Status', value: 'status' },
+              { label: 'Payment Status', value: 'paymentStatus' },
+              { label: 'Aging Bucket', value: 'agingBucket' },
+              { label: 'Days Open', value: 'daysOpen' },
+              { label: 'Remaining Balance', value: (row) => row.remainingBalance },
+            ],
+          },
+          {
+            title: 'Payroll / Owner Burden Detail',
+            rows: payrollAndOwnerRows,
+            columns: [
+              { label: 'Date', render: (row) => formatDate(row.date, true) },
+              { label: 'Type', value: 'rowType' },
+              { label: 'Name', value: 'name' },
+              { label: 'Method', value: 'method' },
+              { label: 'Reference', value: 'reference' },
+              { label: 'Amount', render: (row) => formatMoney(row.amount), align: 'right' },
+            ],
+            exportColumns: [
+              { label: 'Date', value: (row) => formatDate(row.date, true) },
+              { label: 'Type', value: 'rowType' },
+              { label: 'Name', value: 'name' },
+              { label: 'Method', value: 'method' },
+              { label: 'Reference', value: 'reference' },
+              { label: 'Amount', value: (row) => row.amount },
+            ],
+          },
+          {
+            title: 'Expense Detail',
+            rows: reports?.federalTaxReserve?.expenseRows || [],
+            columns: [
+              { label: 'Expense Date', render: (row) => formatDate(row.expenseDate, true) },
+              { label: 'Paid At', render: (row) => formatDate(row.paidAt, true) },
+              { label: 'Vendor', value: 'vendor' },
+              { label: 'Category', value: 'category' },
+              { label: 'Status', value: 'status' },
+              { label: 'Deductible', render: (row) => row.isDeductible ? 'Yes' : 'No' },
+              { label: 'Amount', render: (row) => formatMoney(row.amount), align: 'right' },
+            ],
+            exportColumns: [
+              { label: 'Expense Date', value: (row) => formatDate(row.expenseDate, true) },
+              { label: 'Paid At', value: (row) => formatDate(row.paidAt, true) },
+              { label: 'Expense ID', value: 'expenseID' },
+              { label: 'Vendor', value: 'vendor' },
+              { label: 'Category', value: 'category' },
+              { label: 'Source', value: 'sourceType' },
+              { label: 'Payment Method', value: 'paymentMethod' },
+              { label: 'Status', value: 'status' },
+              { label: 'Deductible', value: (row) => row.isDeductible ? 'Yes' : 'No' },
+              { label: 'Amount', value: (row) => row.amount },
+              { label: 'Notes', value: 'notes' },
+            ],
+          },
+          {
+            title: 'Foundation Data Notes',
+            rows: foundationNotes,
+            columns: [
+              { label: 'Area', value: 'area' },
+              { label: 'Status', value: 'status' },
+              { label: 'Note', value: 'note' },
+            ],
+            exportColumns: [
+              { label: 'Area', value: 'area' },
+              { label: 'Status', value: 'status' },
+              { label: 'Note', value: 'note' },
+            ],
+          },
+          {
+            title: 'Debt Account Detail',
+            rows: reports?.debtFoundation?.accountRows || [],
+            columns: [
+              { label: 'Account', value: 'name' },
+              { label: 'Type', value: 'type' },
+              { label: 'Lender', value: 'lender' },
+              { label: 'Schedule', value: 'paymentSchedule' },
+              { label: 'APR', render: (row) => row.interestRateAPR == null ? 'N/A' : `${Number(row.interestRateAPR).toFixed(2)}%` },
+              { label: 'Payoff Balance', render: (row) => formatMoney(row.payoffBalance), align: 'right' },
+              { label: 'Principal Left', render: (row) => formatMoney(row.principalRemaining), align: 'right' },
+              { label: 'Fees Left', render: (row) => formatMoney(row.feeRemaining), align: 'right' },
+              { label: 'Minimum Due', render: (row) => formatMoney(row.minimumPaymentDue), align: 'right' },
+              { label: 'Next Payment', render: (row) => formatDate(row.nextDueDate) },
+              { label: 'Upcoming Count', value: 'upcomingPaymentCount', align: 'right' },
+              { label: 'Upcoming Total', render: (row) => formatMoney(row.upcomingPaymentAmount), align: 'right' },
+              { label: 'Upcoming Fees', render: (row) => formatMoney(row.upcomingFeeAmount), align: 'right' },
+            ],
+            exportColumns: [
+              { label: 'Account', value: 'name' },
+              { label: 'Type', value: 'type' },
+              { label: 'Lender', value: 'lender' },
+              { label: 'Active', value: (row) => row.active ? 'Yes' : 'No' },
+              { label: 'Schedule', value: 'paymentSchedule' },
+              { label: 'APR', value: (row) => row.interestRateAPR ?? '' },
+              { label: 'Payoff Balance', value: (row) => row.payoffBalance },
+              { label: 'Principal Remaining', value: (row) => row.principalRemaining },
+              { label: 'Fees Remaining', value: (row) => row.feeRemaining },
+              { label: 'Minimum Due', value: (row) => row.minimumPaymentDue },
+              { label: 'Next Payment', value: (row) => formatDate(row.nextDueDate) },
+              { label: 'Upcoming Payment Count', value: 'upcomingPaymentCount' },
+              { label: 'Upcoming Payment', value: (row) => row.upcomingPaymentAmount },
+              { label: 'Upcoming Principal', value: (row) => row.upcomingPrincipalAmount },
+              { label: 'Upcoming Fees', value: (row) => row.upcomingFeeAmount },
+            ],
+          },
+          {
+            title: 'Debt Payments Detail',
+            rows: reports?.debtFoundation?.periodPaymentRows || [],
+            columns: [
+              { label: 'Paid At', render: (row) => formatDate(row.paymentDate, true) },
+              { label: 'Account', value: 'accountName' },
+              { label: 'Method', value: 'paymentMethod' },
+              { label: 'Principal', render: (row) => formatMoney(row.principalAmount), align: 'right' },
+              { label: 'Interest/Fees', render: (row) => formatMoney(row.debtCostPaid), align: 'right' },
+              { label: 'Amount', render: (row) => formatMoney(row.amount), align: 'right' },
+            ],
+            exportColumns: [
+              { label: 'Paid At', value: (row) => formatDate(row.paymentDate, true) },
+              { label: 'Account', value: 'accountName' },
+              { label: 'Payment Method', value: 'paymentMethod' },
+              { label: 'Reference', value: 'paymentReference' },
+              { label: 'Principal', value: (row) => row.principalAmount },
+              { label: 'Interest', value: (row) => row.interestAmount },
+              { label: 'Fees', value: (row) => row.feeAmount },
+              { label: 'Amount', value: (row) => row.amount },
+              { label: 'Notes', value: 'notes' },
+            ],
+          },
+          {
+            title: 'Debt Statement Detail',
+            rows: reports?.debtFoundation?.statementRows || [],
+            columns: [
+              { label: 'Statement Date', render: (row) => formatDate(row.statementDate) },
+              { label: 'Account', value: 'accountName' },
+              { label: 'Balance', render: (row) => formatMoney(row.balance), align: 'right' },
+              { label: 'Minimum Due', render: (row) => formatMoney(row.minimumPaymentDue), align: 'right' },
+              { label: 'Due Date', render: (row) => formatDate(row.dueDate) },
+              { label: 'Interest/Fees', render: (row) => formatMoney(row.debtCost), align: 'right' },
+            ],
+            exportColumns: [
+              { label: 'Statement Date', value: (row) => formatDate(row.statementDate) },
+              { label: 'Account', value: 'accountName' },
+              { label: 'Balance', value: (row) => row.balance },
+              { label: 'Minimum Due', value: (row) => row.minimumPaymentDue },
+              { label: 'Due Date', value: (row) => formatDate(row.dueDate) },
+              { label: 'Interest', value: (row) => row.interestCharged },
+              { label: 'Fees', value: (row) => row.feesCharged },
+              { label: 'Notes', value: 'notes' },
+            ],
+          },
+        ],
+      };
+    }
     case 'sales-tax':
       return {
         summaryCards: [
@@ -938,14 +1365,17 @@ export default function ReportDetailPageClient({
   }, [editingExpenseID, resetExpenseForm]);
 
   const reportConfig = React.useMemo(
-    () => buildReportConfig(reportSlug, summary, reports, {
-      managementMode,
-      ...(managementMode ? {
-        handleEditExpense,
-        handleDeleteExpense,
-      } : {}),
-    }),
-    [reportSlug, summary, reports, managementMode, handleEditExpense, handleDeleteExpense]
+    () => {
+      if (error) return null;
+      return buildReportConfig(reportSlug, summary, reports, {
+        managementMode,
+        ...(managementMode ? {
+          handleEditExpense,
+          handleDeleteExpense,
+        } : {}),
+      });
+    },
+    [reportSlug, summary, reports, error, managementMode, handleEditExpense, handleDeleteExpense]
   );
 
   if (!reportDefinition) {
@@ -993,6 +1423,7 @@ export default function ReportDetailPageClient({
           <Button
             variant="contained"
             startIcon={<DownloadIcon />}
+            disabled={Boolean(error) || !reportConfig?.sections?.length}
             onClick={() => {
               if (!reportConfig?.sections?.length) return;
               downloadCsvSections(`${reportSlug}-${dateRange}.csv`, reportConfig.sections);
@@ -1017,6 +1448,16 @@ export default function ReportDetailPageClient({
       </Stack>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error && (
+        <Card variant="outlined" sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" fontWeight={700}>Report data unavailable</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              Financial values are hidden because the report data request failed. This usually means the current account does not have access to admin analytics data.
+            </Typography>
+          </CardContent>
+        </Card>
+      )}
       {summary?.baseline?.note && <Alert severity="info" sx={{ mb: 2 }}>{summary.baseline.note}</Alert>}
       {(reportConfig?.infoAlerts || []).map((message) => (
         <Alert severity="warning" sx={{ mb: 2 }} key={message}>{message}</Alert>

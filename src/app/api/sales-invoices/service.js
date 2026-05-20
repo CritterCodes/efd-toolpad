@@ -382,6 +382,24 @@ export async function updateSalesInvoicePayment(invoiceID, { amount, method = 'c
   return updated;
 }
 
+export async function updateSalesInvoicePaymentMethod(invoiceID, { paymentID, method } = {}) {
+  if (!paymentID) throw new Error('Payment ID is required.');
+  if (!method) throw new Error('Payment method is required.');
+
+  const invoice = await SalesInvoicesModel.findByInvoiceID(invoiceID);
+  if (invoice.status === 'void') throw new Error('Void invoices cannot be changed.');
+
+  const payments = (invoice.payments || []).map((payment) => (
+    payment.paymentID === paymentID ? { ...payment, method } : payment
+  ));
+
+  if (!payments.some((payment) => payment.paymentID === paymentID)) {
+    throw new Error('Payment record was not found.');
+  }
+
+  return await SalesInvoicesModel.updateByInvoiceID(invoiceID, { payments });
+}
+
 export async function setSalesInvoiceCashDiscount(invoiceID, enabled = true) {
   const invoice = await SalesInvoicesModel.findByInvoiceID(invoiceID);
   if (invoice.paymentStatus === 'paid') throw new Error('Paid invoices cannot be changed.');

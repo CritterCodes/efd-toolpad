@@ -29,6 +29,12 @@ function sanitizeClient(user = {}) {
   };
 }
 
+function isOnsiteRepairOps(user) {
+  return user?.role === 'artisan'
+    && user?.employment?.isOnsite === true
+    && user?.staffCapabilities?.repairOps === true;
+}
+
 export async function GET(request) {
   try {
     const session = await auth();
@@ -37,13 +43,15 @@ export async function GET(request) {
     }
 
     const role = session.user.role;
-    if (!['admin', 'wholesaler'].includes(role)) {
+    const isArtisanRepairOps = isOnsiteRepairOps(session.user);
+    if (!['admin', 'wholesaler'].includes(role) && !isArtisanRepairOps) {
       return NextResponse.json({ success: false, error: 'Access denied' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
     const requestedWholesalerId = searchParams.get('wholesalerId');
-    const ownerWholesalerId = role === 'admin'
+    // Artisans must supply wholesalerId to scope their query to the correct store
+    const ownerWholesalerId = role === 'admin' || isArtisanRepairOps
       ? (requestedWholesalerId || '')
       : session.user.userID;
 
@@ -77,7 +85,8 @@ export async function POST(request) {
     }
 
     const role = session.user.role;
-    if (!['admin', 'wholesaler'].includes(role)) {
+    const isArtisanRepairOps = isOnsiteRepairOps(session.user);
+    if (!['admin', 'wholesaler'].includes(role) && !isArtisanRepairOps) {
       return NextResponse.json({ success: false, error: 'Access denied' }, { status: 403 });
     }
 
@@ -92,13 +101,15 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: 'firstName and lastName are required' }, { status: 400 });
     }
 
-    const ownerWholesalerId = role === 'admin'
-      ? String(payload.wholesalerId || '').trim()
-      : session.user.userID;
+    // Wholesalers always own the client themselves; admins and onsite artisans
+    // must supply wholesalerId to indicate which store the client belongs to.
+    const ownerWholesalerId = role === 'wholesaler'
+      ? session.user.userID
+      : String(payload.wholesalerId || '').trim();
 
-    const ownerWholesalerName = role === 'admin'
-      ? String(payload.wholesalerName || '').trim()
-      : (session.user.name || 'Wholesale Store');
+    const ownerWholesalerName = role === 'wholesaler'
+      ? (session.user.name || 'Wholesale Store')
+      : String(payload.wholesalerName || '').trim();
 
     if (!ownerWholesalerId) {
       return NextResponse.json({ success: false, error: 'wholesalerId is required' }, { status: 400 });

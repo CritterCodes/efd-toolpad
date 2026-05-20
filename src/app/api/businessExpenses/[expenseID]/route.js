@@ -15,7 +15,7 @@ export const PUT = async (req, { params }) => {
     }
 
     const expense = await BusinessExpensesModel.updateByExpenseID(expenseID, {
-      expenseDate: body.expenseDate ? new Date(body.expenseDate) : undefined,
+      expenseDate: body.expenseDate,
       vendor: body.vendor,
       category: body.category,
       amount: Number(body.amount),

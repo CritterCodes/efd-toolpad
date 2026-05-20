@@ -12,6 +12,11 @@ import Typography from '@mui/material/Typography';
 
 const FINANCE_SURFACES = [
   {
+    title: 'Opening Balance',
+    description: 'Set the clean bank and cash drawer start line for Bank Safe-To-Spend reporting.',
+    href: '/dashboard/finance/opening-balance',
+  },
+  {
     title: 'Inventory',
     description: 'Track physical stock, receive materials, record repair consumption, and watch low-stock suggestions.',
     href: '/dashboard/finance/inventory',
@@ -20,6 +25,11 @@ const FINANCE_SURFACES = [
     title: 'Expenses',
     description: 'Record paid and planned business expenses and keep the tax reserve math honest.',
     href: '/dashboard/finance/expenses',
+  },
+  {
+    title: 'Debt Accounts',
+    description: 'Track credit cards, loans, Cash App borrowing, statements, and repayment cash flow.',
+    href: '/dashboard/finance/debt-accounts',
   },
   {
     title: 'Owner Draws',

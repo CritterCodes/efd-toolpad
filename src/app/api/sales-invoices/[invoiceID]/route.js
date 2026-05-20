@@ -5,6 +5,7 @@ import {
   linkRepairToSalesInvoice,
   setSalesInvoiceCashDiscount,
   updateSalesInvoicePayment,
+  updateSalesInvoicePaymentMethod,
   voidSalesInvoice,
 } from '../service';
 
@@ -36,6 +37,11 @@ export const PATCH = async (req, { params }) => {
         amount: body.amount,
         method: body.method || 'cash',
         collectedBy: session.user.userID || session.user.email || '',
+      });
+    } else if (body.action === 'update_payment_method') {
+      invoice = await updateSalesInvoicePaymentMethod(invoiceID, {
+        paymentID: body.paymentID,
+        method: body.method,
       });
     } else if (body.action === 'cash_discount') {
       invoice = await setSalesInvoiceCashDiscount(invoiceID, body.enabled === true);

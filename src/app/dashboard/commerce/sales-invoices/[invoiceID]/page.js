@@ -11,7 +11,9 @@ import {
   Chip,
   Divider,
   Grid,
+  MenuItem,
   Stack,
+  TextField,
   Typography,
 } from '@mui/material';
 import {
@@ -74,6 +76,26 @@ export default function SalesInvoiceDetailPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to collect payment.');
+      setInvoice(data.invoice);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updatePaymentMethod = async (paymentID, method) => {
+    if (!invoice || !paymentID) return;
+    setSaving(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/sales-invoices/${invoice.invoiceID}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_payment_method', paymentID, method }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update payment method.');
       setInvoice(data.invoice);
     } catch (err) {
       setError(err.message);
@@ -151,6 +173,36 @@ export default function SalesInvoiceDetailPage() {
                 </Stack>
               </CardContent>
             </Card>
+            {(invoice.payments || []).length > 0 && (
+              <Card sx={{ mt: 2, bgcolor: UI.bgPanel, color: UI.textPrimary, border: `1px solid ${UI.border}` }}>
+                <CardContent>
+                  <Stack spacing={1.5}>
+                    <Typography sx={{ color: UI.textHeader, fontWeight: 700 }}>Payments</Typography>
+                    {(invoice.payments || []).map((payment) => (
+                      <Stack key={payment.paymentID} spacing={1}>
+                        <Typography variant="body2" sx={{ color: UI.textSecondary }}>
+                          {money(payment.amount)} collected {payment.collectedAt ? new Date(payment.collectedAt).toLocaleString() : ''}
+                        </Typography>
+                        <TextField
+                          select
+                          size="small"
+                          label="Payment method"
+                          value={payment.method || 'cash'}
+                          disabled={saving || invoice.status === 'void'}
+                          onChange={(event) => updatePaymentMethod(payment.paymentID, event.target.value)}
+                        >
+                          <MenuItem value="cash">Cash</MenuItem>
+                          <MenuItem value="credit_card">Card</MenuItem>
+                          <MenuItem value="check">Check</MenuItem>
+                          <MenuItem value="bank_transfer">Bank transfer</MenuItem>
+                          <MenuItem value="other">Other</MenuItem>
+                        </TextField>
+                      </Stack>
+                    ))}
+                  </Stack>
+                </CardContent>
+              </Card>
+            )}
           </Grid>
 
           <Grid item xs={12} md={8}>
