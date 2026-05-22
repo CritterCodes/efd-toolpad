@@ -1239,7 +1239,7 @@ function buildReportConfig(reportSlug, summary, reports, actions = {}) {
             rows: reports?.repairsReport?.zeroTotalRows || [],
             columns: [
               { label: 'Created', render: (row) => formatDate(row.createdAt) },
-              { label: 'Repair ID', value: 'repairID' },
+              { label: 'Repair ID', render: (row) => <a href={`/dashboard/repairs/${row.repairID}`} target="_blank" rel="noreferrer" style={{ fontFamily: 'monospace' }}>{row.repairID}</a> },
               { label: 'Client', value: 'clientName' },
               { label: 'Status', value: 'status' },
               { label: 'Invoice', value: 'invoiceID' },
@@ -1271,7 +1271,7 @@ function buildReportConfig(reportSlug, summary, reports, actions = {}) {
             rows: reports?.repairsReport?.allRows || [],
             columns: [
               { label: 'Created', render: (row) => formatDate(row.createdAt) },
-              { label: 'Repair ID', value: 'repairID' },
+              { label: 'Repair ID', render: (row) => <a href={`/dashboard/repairs/${row.repairID}`} target="_blank" rel="noreferrer" style={{ fontFamily: 'monospace' }}>{row.repairID}</a> },
               { label: 'Client', value: 'clientName' },
               { label: 'Status', value: 'status' },
               { label: 'Invoice', value: 'invoiceID' },

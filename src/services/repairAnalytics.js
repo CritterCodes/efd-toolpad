@@ -1585,8 +1585,25 @@ export function buildPayrollReport({ payrollBatches = [], usersById = new Map(),
   return { summary, rows };
 }
 
-export function buildRepairsReport(repairs = [], window) {
+export function buildRepairsReport(repairs = [], window, invoices = []) {
   const periodRepairs = (repairs || []).filter((repair) => isDateInWindow(repair.createdAt, window));
+
+  // Build repairID → { total, subtotal, taxAmount, invoiceID } from invoice snapshots.
+  // Invoice snapshots are the source of truth for billed amounts — the repair document's
+  // totalCost field is often 0 because pricing is finalized on the invoice, not written back.
+  const invoicedTotals = new Map();
+  for (const invoice of (invoices || [])) {
+    for (const snapshot of (invoice.repairSnapshots || [])) {
+      if (snapshot.repairID) {
+        invoicedTotals.set(snapshot.repairID, {
+          total: Number(snapshot.total || 0),
+          subtotal: Number(snapshot.subtotal || 0),
+          taxAmount: Number(snapshot.taxAmount || 0),
+          invoiceID: invoice.invoiceID || '',
+        });
+      }
+    }
+  }
 
   let totalBilled = 0;
   let zeroTotalCount = 0;
@@ -1597,10 +1614,21 @@ export function buildRepairsReport(repairs = [], window) {
   const allRows = [];
 
   for (const repair of periodRepairs) {
-    const total = Number(repair.totalCost || 0);
-    const isComp = Boolean(repair.compRepair);
     const isIncluded = Boolean(repair.includedWithSale);
     const status = repair.status || 'UNKNOWN';
+
+    const invoiced = invoicedTotals.get(repair.repairID);
+    // Use invoice snapshot total as the source of truth; fall back to repair fields.
+    const total = (isComp || isIncluded)
+      ? 0
+      : (invoiced ? invoiced.total : (
+          Number(repair.totalCost) || (
+            Number(repair.subtotal || 0)
+            + Number(repair.rushFee || 0)
+            + Number(repair.deliveryFee || 0)
+            + Number(repair.taxAmount || 0)
+          )
+        ));
 
     totalBilled += total;
     statusCounts[status] = (statusCounts[status] || 0) + 1;
@@ -1615,14 +1643,14 @@ export function buildRepairsReport(repairs = [], window) {
       status,
       createdAt: repair.createdAt,
       completedAt: repair.completedAt || null,
-      totalCost: total,
-      subtotal: Number(repair.subtotal || 0),
+      totalCost: roundMoney(total),
+      subtotal: invoiced ? invoiced.subtotal : Number(repair.subtotal || 0),
       rushFee: Number(repair.rushFee || 0),
       deliveryFee: Number(repair.deliveryFee || 0),
-      taxAmount: Number(repair.taxAmount || 0),
+      taxAmount: invoiced ? invoiced.taxAmount : Number(repair.taxAmount || 0),
       compRepair: isComp,
       includedWithSale: isIncluded,
-      invoiceID: repair.invoiceID || '',
+      invoiceID: invoiced?.invoiceID || repair.invoiceID || '',
       isWholesale: Boolean(repair.isWholesale),
     };
 
