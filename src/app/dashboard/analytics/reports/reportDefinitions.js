@@ -71,6 +71,12 @@ export const REPORT_DEFINITIONS = [
     description: 'Completed jobs not invoiced, pickup jobs unpaid, and labor-review blockers.',
     source: 'reports',
   },
+  {
+    slug: 'repairs',
+    title: 'Repairs Report',
+    description: 'All repairs in the selected period with billing totals, status breakdown, and $0-total diagnostic.',
+    source: 'reports',
+  },
 ];
 
 export function getReportDefinition(reportSlug) {

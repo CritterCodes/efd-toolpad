@@ -1218,6 +1218,90 @@ function buildReportConfig(reportSlug, summary, reports, actions = {}) {
         ],
       };
     }
+    case 'repairs': {
+      const repairsSummary = reports?.repairsReport?.summary || {};
+      return {
+        summaryCards: [
+          { label: 'Total Repairs', value: String(repairsSummary.totalCount || 0) },
+          { label: 'Total Billed', value: formatMoney(repairsSummary.totalBilled) },
+          { label: 'Avg Repair Total', value: formatMoney(repairsSummary.avgTotal) },
+          {
+            label: '$0 Total (Needs Review)',
+            value: String(repairsSummary.zeroTotalCount || 0),
+            note: 'Non-comp, non-included repairs billed at $0.',
+          },
+          { label: 'Comp Repairs', value: String(repairsSummary.compRepairCount || 0) },
+          { label: 'Included With Sale', value: String(repairsSummary.includedWithSaleCount || 0) },
+        ],
+        sections: [
+          ...(repairsSummary.zeroTotalCount > 0 ? [{
+            title: '$0 Total Repairs — Needs Review',
+            rows: reports?.repairsReport?.zeroTotalRows || [],
+            columns: [
+              { label: 'Created', render: (row) => formatDate(row.createdAt) },
+              { label: 'Repair ID', value: 'repairID' },
+              { label: 'Client', value: 'clientName' },
+              { label: 'Status', value: 'status' },
+              { label: 'Invoice', value: 'invoiceID' },
+              { label: 'Total', render: (row) => formatMoney(row.totalCost), align: 'right' },
+            ],
+            exportColumns: [
+              { label: 'Created', value: (row) => formatDate(row.createdAt) },
+              { label: 'Repair ID', value: 'repairID' },
+              { label: 'Client', value: 'clientName' },
+              { label: 'Status', value: 'status' },
+              { label: 'Invoice', value: 'invoiceID' },
+              { label: 'Total', value: (row) => row.totalCost },
+            ],
+          }] : []),
+          {
+            title: 'Status Breakdown',
+            rows: reports?.repairsReport?.statusRows || [],
+            columns: [
+              { label: 'Status', value: 'status' },
+              { label: 'Count', value: 'count', align: 'right' },
+            ],
+            exportColumns: [
+              { label: 'Status', value: 'status' },
+              { label: 'Count', value: 'count' },
+            ],
+          },
+          {
+            title: 'All Repairs',
+            rows: reports?.repairsReport?.allRows || [],
+            columns: [
+              { label: 'Created', render: (row) => formatDate(row.createdAt) },
+              { label: 'Repair ID', value: 'repairID' },
+              { label: 'Client', value: 'clientName' },
+              { label: 'Status', value: 'status' },
+              { label: 'Invoice', value: 'invoiceID' },
+              { label: 'Wholesale', render: (row) => (row.isWholesale ? 'Yes' : 'No') },
+              { label: 'Comp', render: (row) => (row.compRepair ? 'Yes' : '') },
+              { label: 'Subtotal', render: (row) => formatMoney(row.subtotal), align: 'right' },
+              { label: 'Rush', render: (row) => (row.rushFee > 0 ? formatMoney(row.rushFee) : ''), align: 'right' },
+              { label: 'Tax', render: (row) => (row.taxAmount > 0 ? formatMoney(row.taxAmount) : ''), align: 'right' },
+              { label: 'Total', render: (row) => formatMoney(row.totalCost), align: 'right' },
+            ],
+            exportColumns: [
+              { label: 'Created', value: (row) => formatDate(row.createdAt) },
+              { label: 'Completed', value: (row) => formatDate(row.completedAt) },
+              { label: 'Repair ID', value: 'repairID' },
+              { label: 'Client', value: 'clientName' },
+              { label: 'Status', value: 'status' },
+              { label: 'Invoice', value: 'invoiceID' },
+              { label: 'Wholesale', value: (row) => (row.isWholesale ? 'Yes' : 'No') },
+              { label: 'Comp', value: (row) => (row.compRepair ? 'Yes' : 'No') },
+              { label: 'Included With Sale', value: (row) => (row.includedWithSale ? 'Yes' : 'No') },
+              { label: 'Subtotal', value: (row) => row.subtotal },
+              { label: 'Rush Fee', value: (row) => row.rushFee },
+              { label: 'Delivery Fee', value: (row) => row.deliveryFee },
+              { label: 'Tax', value: (row) => row.taxAmount },
+              { label: 'Total', value: (row) => row.totalCost },
+            ],
+          },
+        ],
+      };
+    }
     default:
       return null;
   }

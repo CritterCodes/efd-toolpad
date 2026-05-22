@@ -1584,3 +1584,73 @@ export function buildPayrollReport({ payrollBatches = [], usersById = new Map(),
 
   return { summary, rows };
 }
+
+export function buildRepairsReport(repairs = [], window) {
+  const periodRepairs = (repairs || []).filter((repair) => isDateInWindow(repair.createdAt, window));
+
+  let totalBilled = 0;
+  let zeroTotalCount = 0;
+  let compRepairCount = 0;
+  let includedWithSaleCount = 0;
+  const statusCounts = {};
+  const zeroTotalRows = [];
+  const allRows = [];
+
+  for (const repair of periodRepairs) {
+    const total = Number(repair.totalCost || 0);
+    const isComp = Boolean(repair.compRepair);
+    const isIncluded = Boolean(repair.includedWithSale);
+    const status = repair.status || 'UNKNOWN';
+
+    totalBilled += total;
+    statusCounts[status] = (statusCounts[status] || 0) + 1;
+
+    if (isComp) compRepairCount += 1;
+    else if (isIncluded) includedWithSaleCount += 1;
+    else if (total === 0) zeroTotalCount += 1;
+
+    const row = {
+      repairID: repair.repairID,
+      clientName: repair.clientName || repair.businessName || '',
+      status,
+      createdAt: repair.createdAt,
+      completedAt: repair.completedAt || null,
+      totalCost: total,
+      subtotal: Number(repair.subtotal || 0),
+      rushFee: Number(repair.rushFee || 0),
+      deliveryFee: Number(repair.deliveryFee || 0),
+      taxAmount: Number(repair.taxAmount || 0),
+      compRepair: isComp,
+      includedWithSale: isIncluded,
+      invoiceID: repair.invoiceID || '',
+      isWholesale: Boolean(repair.isWholesale),
+    };
+
+    allRows.push(row);
+    if (!isComp && !isIncluded && total === 0) zeroTotalRows.push(row);
+  }
+
+  const billedRepairs = periodRepairs.filter((r) => !r.compRepair && !r.includedWithSale);
+  const avgTotal = billedRepairs.length > 0 ? roundMoney(totalBilled / billedRepairs.length) : 0;
+
+  const statusRows = Object.entries(statusCounts)
+    .map(([status, count]) => ({ status, count }))
+    .sort((a, b) => b.count - a.count);
+
+  allRows.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  zeroTotalRows.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  return {
+    summary: {
+      totalCount: periodRepairs.length,
+      totalBilled: roundMoney(totalBilled),
+      avgTotal,
+      zeroTotalCount,
+      compRepairCount,
+      includedWithSaleCount,
+    },
+    statusRows,
+    zeroTotalRows,
+    allRows,
+  };
+}

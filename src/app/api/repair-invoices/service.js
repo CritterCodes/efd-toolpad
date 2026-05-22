@@ -303,6 +303,34 @@ export async function syncPaidRepairs(invoice) {
   return invoice;
 }
 
+export async function reopenPaidInvoice(invoiceID) {
+  const invoice = await RepairInvoicesModel.findByInvoiceID(invoiceID);
+  if (invoice.paymentStatus !== 'paid') {
+    throw new Error('Only paid invoices can be reopened.');
+  }
+
+  const amountPaid = parseFloat(invoice.amountPaid || 0);
+  const { paymentStatus, remainingBalance } = computePaymentStatus(invoice.total, amountPaid);
+  const nextRepairStatus = invoice.deliveryMethod === 'delivery' ? 'DELIVERY BATCHED' : 'READY FOR PICKUP';
+
+  await Promise.all(
+    (invoice.repairIDs || []).map((repairID) =>
+      RepairsModel.updateById(repairID, {
+        status: nextRepairStatus,
+        closeoutStatus: 'batched',
+        updatedAt: new Date(),
+      })
+    )
+  );
+
+  return await RepairInvoicesModel.updateByInvoiceID(invoiceID, {
+    status: 'open',
+    paymentStatus,
+    remainingBalance,
+    paidAt: null,
+  });
+}
+
 export async function updateInvoiceDelivery(invoiceID, { deliveryMethod = 'pickup', deliveryFee = DEFAULT_DELIVERY_FEE } = {}) {
   const invoice = await RepairInvoicesModel.findByInvoiceID(invoiceID);
   if (invoice.paymentStatus === 'paid') throw new Error('Paid invoices cannot be changed.');

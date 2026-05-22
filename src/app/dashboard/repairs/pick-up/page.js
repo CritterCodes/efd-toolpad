@@ -731,6 +731,7 @@ function InvoiceCard({
   onSplitInvoice,
   onMergeInvoice,
   onRemoveRepairs,
+  onReopen,
 }) {
   const [cashAmount, setCashAmount] = useState(invoice.remainingBalance || 0);
   const [cashNotes, setCashNotes] = useState("");
@@ -897,6 +898,31 @@ function InvoiceCard({
             <Button variant="outlined" onClick={() => onFinalize(invoice.invoiceID)} sx={{ alignSelf: "flex-start", color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>
               Finalize Invoice
             </Button>
+          )}
+
+          {invoice.paymentStatus === "paid" && onReopen && (
+            <Alert severity="warning" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
+              <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ xs: "stretch", md: "center" }} justifyContent="space-between">
+                <Box>
+                  <Typography sx={{ fontWeight: 700 }}>Reopen this invoice</Typography>
+                  <Typography variant="caption" sx={{ display: "block" }}>
+                    Reverts to open status and moves repairs back to Ready for Pickup. Use this to correct a billing error.
+                  </Typography>
+                </Box>
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    const confirmed = window.confirm(
+                      `Reopen invoice ${invoice.invoiceID}?\n\nThis will revert it to open status and move its repairs back to Ready for Pickup. Any recorded payments will remain — you can then correct the invoice and re-collect if needed.`
+                    );
+                    if (confirmed) onReopen(invoice.invoiceID);
+                  }}
+                  sx={{ color: "#FCA5A5", borderColor: REPAIRS_UI.border, flexShrink: 0 }}
+                >
+                  Reopen Invoice
+                </Button>
+              </Stack>
+            </Alert>
           )}
 
           {hasCompletedCashPayment && (
@@ -1352,6 +1378,15 @@ export default function PaymentPickupPage() {
   const handleFinalizeInvoice = async (invoiceID) => {
     try {
       await postInvoiceAction(`/api/repair-invoices/${invoiceID}/finalize`, {}, `Finalized invoice ${invoiceID}.`);
+      setTab(2);
+    } catch (error) {
+      showMessage(error.message, "error");
+    }
+  };
+
+  const handleReopenInvoice = async (invoiceID) => {
+    try {
+      await postInvoiceAction(`/api/repair-invoices/${invoiceID}/reopen`, {}, `Reopened invoice ${invoiceID}.`);
       setTab(2);
     } catch (error) {
       showMessage(error.message, "error");
@@ -1902,6 +1937,7 @@ export default function PaymentPickupPage() {
                 onSplitInvoice={handleSplitInvoice}
                 onMergeInvoice={handleMergeInvoice}
                 onRemoveRepairs={handleRemoveRepairsFromInvoice}
+                onReopen={handleReopenInvoice}
               />
             ))
           )}

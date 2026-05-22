@@ -20,6 +20,7 @@ import {
   buildJewelerPerformanceReport,
   buildLaborSettlementReport,
   buildPayrollReport,
+  buildRepairsReport,
   buildSalesPayoutReport,
   buildWholesalePerformanceReport,
   getAnalyticsDateWindow,
@@ -162,5 +163,6 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
       window,
     }),
     wholesalePerformance: buildWholesalePerformanceReport({ repairs, invoices, window }),
+    repairsReport: buildRepairsReport(repairs, window),
   };
 }
