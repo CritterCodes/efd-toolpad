@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/apiAuth';
-import { reopenPaidInvoice } from '../../../service';
+import { reopenPaidInvoice } from '../../service';
 
 export const POST = async (req, { params }) => {
   try {
