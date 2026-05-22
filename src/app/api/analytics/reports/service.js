@@ -163,6 +163,6 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
       window,
     }),
     wholesalePerformance: buildWholesalePerformanceReport({ repairs, invoices, window }),
-    repairsReport: buildRepairsReport(repairs, window, invoices),
+    repairsReport: buildRepairsReport(repairs, window),
   };
 }
