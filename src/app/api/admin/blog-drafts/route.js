@@ -6,7 +6,7 @@ async function getBloggerDb() {
     global._bloggerMongoClient = new MongoClient(process.env.MONGODB_URI);
     await global._bloggerMongoClient.connect();
   }
-  return global._bloggerMongoClient.db(process.env.BLOGGER_DB_NAME || 'efd-database-DEV');
+  return global._bloggerMongoClient.db(process.env.BLOGGER_DB_NAME || process.env.MONGO_DB_NAME || 'efd-database');
 }
 
 export async function GET() {
