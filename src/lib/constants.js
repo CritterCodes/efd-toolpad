@@ -25,6 +25,9 @@ const Constants = {
     AFFILIATE_CAMPAIGNS_COLLECTION: 'affiliateCampaigns',
     AFFILIATE_REFERRAL_EVENTS_COLLECTION: 'affiliateReferralEvents',
 
+    // Blog (efd-blogger integration — lives in BLOGGER_DB_NAME database)
+    BLOG_POSTS_COLLECTION: 'blog_posts',
+
     // Legacy/Compatibility (to be phased out)
     REPAIRTASKS_COLLECTION: 'repairTasks', // Use TASKS_COLLECTION instead
     

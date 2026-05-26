@@ -22,6 +22,7 @@ import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 import LeadsIcon from "@mui/icons-material/ChatBubbleOutline";
 import LinkIcon from "@mui/icons-material/Link";
 import TravelExploreIcon from "@mui/icons-material/TravelExplore";
+import ArticleIcon from "@mui/icons-material/Article";
 
 import { SHARED_NAVIGATION } from "./sharedNavigation";
 
@@ -178,6 +179,11 @@ export const adminNavigation = {
       segment: 'dashboard/admin/wholesale-acquisition',
       title: 'Wholesale Acquisition',
       icon: <TravelExploreIcon />
+    },
+    {
+      segment: 'dashboard/blog-drafts',
+      title: 'Blog Drafts',
+      icon: <ArticleIcon />
     },
     { kind: 'header', title: 'Finance & Analytics' },
     {
