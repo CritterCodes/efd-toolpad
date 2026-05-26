@@ -8,6 +8,9 @@
     },
     "src/app/api/cron/update-metal-prices/route.js": {
       "maxDuration": 60
+    },
+    "src/app/api/admin/blog-drafts/[id]/submit/route.js": {
+      "maxDuration": 120
     }
   },
   "crons": [
