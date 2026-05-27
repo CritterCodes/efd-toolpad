@@ -9,6 +9,35 @@ async function getBloggerDb() {
   return global._bloggerMongoClient.db(process.env.BLOGGER_DB_NAME || process.env.MONGO_DB_NAME || 'efd-database');
 }
 
+export async function PATCH(req, { params }) {
+  const session = await auth();
+  if (!session?.user || !['admin', 'dev'].includes(session.user.role)) {
+    return Response.json({ error: 'Unauthorized' }, { status: 403 });
+  }
+
+  const { id } = await params;
+
+  let answers;
+  try {
+    const body = await req.json();
+    answers = body.answers;
+  } catch {
+    return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  try {
+    const db = await getBloggerDb();
+    await db.collection('blog_posts').updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { answers, updatedAt: new Date() } }
+    );
+    return Response.json({ ok: true });
+  } catch (err) {
+    console.error('[blog-drafts] PATCH error:', err.message);
+    return Response.json({ error: 'Failed to save answers' }, { status: 500 });
+  }
+}
+
 export async function GET(req, { params }) {
   const session = await auth();
   if (!session?.user || !['admin', 'dev'].includes(session.user.role)) {
