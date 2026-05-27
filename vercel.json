@@ -11,6 +11,15 @@
     },
     "src/app/api/admin/blog-drafts/[id]/submit/route.js": {
       "maxDuration": 120
+    },
+    "src/app/api/admin/blog-drafts/[id]/article-edit/route.js": {
+      "maxDuration": 120
+    },
+    "src/app/api/admin/blog-drafts/[id]/publish/route.js": {
+      "maxDuration": 60
+    },
+    "src/app/api/admin/trigger/route.js": {
+      "maxDuration": 30
     }
   },
   "crons": [

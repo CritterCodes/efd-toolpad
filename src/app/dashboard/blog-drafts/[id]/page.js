@@ -83,7 +83,7 @@ export default function BlogDraftChatPage({ params }) {
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
-  const [published, setPublished] = useState(null);
+  const [enriched, setEnriched] = useState(false);
   const [showDraft, setShowDraft] = useState(false);
 
   const messagesEndRef = useRef(null);
@@ -202,7 +202,7 @@ export default function BlogDraftChatPage({ params }) {
     setTimeout(() => inputRef.current?.focus(), 50);
   }
 
-  async function handlePublish() {
+  async function handleSubmit() {
     setError(null);
     setSubmitting(true);
     try {
@@ -213,7 +213,7 @@ export default function BlogDraftChatPage({ params }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Submission failed');
-      setPublished(data.slug);
+      setEnriched(true);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -233,19 +233,19 @@ export default function BlogDraftChatPage({ params }) {
     );
   }
 
-  if (published) {
+  if (enriched) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', backgroundColor: C.bg }}>
         <Box sx={{ textAlign: 'center', maxWidth: 420 }}>
           <Box sx={{ width: 64, height: 64, borderRadius: '50%', backgroundColor: C.successDim, border: `1px solid ${C.success}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2.5 }}>
             <CheckCircleIcon sx={{ color: C.success, fontSize: 32 }} />
           </Box>
-          <Typography variant="h6" sx={{ color: C.text, fontWeight: 600, mb: 1 }}>Article published</Typography>
-          <Typography sx={{ color: C.muted, mb: 3, fontSize: '0.9rem' }}>Your expertise has been woven in and the post is live.</Typography>
+          <Typography variant="h6" sx={{ color: C.text, fontWeight: 600, mb: 1 }}>Answers woven in</Typography>
+          <Typography sx={{ color: C.muted, mb: 3, fontSize: '0.9rem' }}>Your experience has been integrated throughout the article. Review it, make any edits, then publish.</Typography>
           <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'center' }}>
-            <Box component="a" href={`https://shop.engelfinedesign.com/blog/${published}`} target="_blank"
-              sx={{ px: 2.5, py: 1, backgroundColor: C.accent, color: '#000', borderRadius: 1.5, fontWeight: 600, fontSize: '0.875rem', textDecoration: 'none', '&:hover': { backgroundColor: '#B8932A' } }}>
-              View Article
+            <Box component="button" onClick={() => router.push(`/dashboard/blogs/${id}`)}
+              sx={{ px: 2.5, py: 1, backgroundColor: C.accent, color: '#000', border: 'none', borderRadius: 1.5, fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer', '&:hover': { backgroundColor: '#B8932A' } }}>
+              Review & Publish →
             </Box>
             <Box component="button" onClick={() => router.push('/dashboard/blog-drafts')}
               sx={{ px: 2.5, py: 1, backgroundColor: 'transparent', color: C.muted, border: `1px solid ${C.border}`, borderRadius: 1.5, fontSize: '0.875rem', cursor: 'pointer', '&:hover': { borderColor: C.muted } }}>
@@ -329,15 +329,15 @@ export default function BlogDraftChatPage({ params }) {
               <AiBubble key={i} isLast={isLast}>
                 <Box sx={{ backgroundColor: C.successDim, border: `1px solid ${C.success}33`, borderLeft: `3px solid ${C.success}`, borderRadius: '4px 16px 16px 16px', px: 2, py: 1.5 }}>
                   <Typography sx={{ color: C.text, fontSize: '0.925rem', lineHeight: 1.6, mb: 2 }}>
-                    That's everything. I'll weave your answers throughout the article now — this makes it genuinely yours. Ready to publish?
+                    That's everything. I'll weave your answers throughout the article now. Once enriched, you'll review the full article, make any final edits, then publish.
                   </Typography>
                   <Box
                     component="button"
-                    onClick={handlePublish}
+                    onClick={handleSubmit}
                     disabled={submitting}
                     sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2.5, py: 1, backgroundColor: submitting ? C.border : C.accent, color: submitting ? C.muted : '#000', border: 'none', borderRadius: 1.5, fontWeight: 600, fontSize: '0.875rem', cursor: submitting ? 'not-allowed' : 'pointer', transition: 'background-color 0.15s', '&:hover:not(:disabled)': { backgroundColor: '#B8932A' } }}
                   >
-                    {submitting ? <><CircularProgress size={14} sx={{ color: C.muted, mr: 0.5 }} /> Enriching & publishing…</> : 'Publish with my answers'}
+                    {submitting ? <><CircularProgress size={14} sx={{ color: C.muted, mr: 0.5 }} /> Enriching article…</> : 'Enrich article with my answers →'}
                   </Box>
                 </Box>
               </AiBubble>

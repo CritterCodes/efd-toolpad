@@ -23,6 +23,8 @@ import LeadsIcon from "@mui/icons-material/ChatBubbleOutline";
 import LinkIcon from "@mui/icons-material/Link";
 import TravelExploreIcon from "@mui/icons-material/TravelExplore";
 import ArticleIcon from "@mui/icons-material/Article";
+import EditNoteIcon from "@mui/icons-material/EditNote";
+import QuizIcon from "@mui/icons-material/Quiz";
 
 import { SHARED_NAVIGATION } from "./sharedNavigation";
 
@@ -181,9 +183,21 @@ export const adminNavigation = {
       icon: <TravelExploreIcon />
     },
     {
-      segment: 'dashboard/blog-drafts',
-      title: 'Blog Drafts',
-      icon: <ArticleIcon />
+      segment: 'dashboard/blogs',
+      title: 'Blog',
+      icon: <ArticleIcon />,
+      children: [
+        {
+          segment: '',
+          title: 'All Posts',
+          icon: <EditNoteIcon />,
+        },
+        {
+          segment: '/dashboard/blog-drafts',
+          title: 'Blog Drafts',
+          icon: <QuizIcon />,
+        },
+      ],
     },
     { kind: 'header', title: 'Finance & Analytics' },
     {

@@ -86,7 +86,7 @@ export default function BlogDraftsPage() {
             <QuizIcon sx={{ color: C.muted, fontSize: 48, mb: 1 }} />
             <Typography sx={{ color: C.muted }}>No drafts awaiting review</Typography>
             <Typography variant="body2" sx={{ color: C.muted, mt: 0.5 }}>
-              New drafts appear here after the pipeline runs (Mon + Thu at 6am)
+              New drafts appear here Monday mornings at 8am, or when you trigger the pipeline from Blog Management
             </Typography>
           </CardContent>
         </Card>
