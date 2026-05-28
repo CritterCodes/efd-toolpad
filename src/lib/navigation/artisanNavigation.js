@@ -5,6 +5,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import LinkIcon from '@mui/icons-material/Link';
 import WorkIcon from '@mui/icons-material/Work';
+import WorkHistoryIcon from '@mui/icons-material/WorkHistory';
 import AddIcon from '@mui/icons-material/Add';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
@@ -55,6 +56,7 @@ function buildRepairOpsNavItems(caps = {}) {
     { kind: 'header', title: 'Repair Work' },
     { segment: 'dashboard/repairs/new', title: 'New Repair', icon: <AddIcon /> },
     { segment: 'dashboard/repairs/my-bench', title: 'My Bench', icon: <WorkIcon /> },
+    { segment: 'dashboard/artisan/my-work', title: 'My Work', icon: <WorkHistoryIcon /> },
   );
 
   if (caps.receiving === true) {
