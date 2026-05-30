@@ -33,24 +33,28 @@ export class CustomerService {
   static async enrichTicketWithCustomer(ticket) {
     try {
       if (!ticket.userID) {
+        // No linked user record — preserve customer details entered manually
+        // (e.g. admin-created walk-in tickets) instead of blanking them.
         return {
           ...ticket,
-          customerName: 'Unknown Customer',
-          customerEmail: '',
-          customerPhone: '',
-          customer: null
+          customerName: ticket.customerName || ticket.clientInfo?.name || 'Unknown Customer',
+          customerEmail: ticket.customerEmail || ticket.clientInfo?.email || '',
+          customerPhone: ticket.customerPhone || ticket.clientInfo?.phone || '',
+          customer: ticket.customer || null
         };
       }
 
       const user = await this.getUserById(ticket.userID);
       
       if (!user) {
+        // No linked user record — preserve customer details entered manually
+        // (e.g. admin-created walk-in tickets) instead of blanking them.
         return {
           ...ticket,
-          customerName: 'Unknown Customer',
-          customerEmail: '',
-          customerPhone: '',
-          customer: null
+          customerName: ticket.customerName || ticket.clientInfo?.name || 'Unknown Customer',
+          customerEmail: ticket.customerEmail || ticket.clientInfo?.email || '',
+          customerPhone: ticket.customerPhone || ticket.clientInfo?.phone || '',
+          customer: ticket.customer || null
         };
       }
 
@@ -72,10 +76,10 @@ export class CustomerService {
       console.error('Error enriching ticket with customer data:', error);
       return {
         ...ticket,
-        customerName: 'Unknown Customer',
-        customerEmail: '',
-        customerPhone: '',
-        customer: null
+        customerName: ticket.customerName || ticket.clientInfo?.name || 'Unknown Customer',
+        customerEmail: ticket.customerEmail || ticket.clientInfo?.email || '',
+        customerPhone: ticket.customerPhone || ticket.clientInfo?.phone || '',
+        customer: ticket.customer || null
       };
     }
   }

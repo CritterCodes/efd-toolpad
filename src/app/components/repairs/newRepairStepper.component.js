@@ -65,6 +65,7 @@ export default function NewRepairStepper({ open, onClose, onSubmit, userID = nul
             formDataToSend.append('clientName', `${formData.firstName} ${formData.lastName}`.trim());
             formDataToSend.append('description', formData.description);
             formDataToSend.append('promiseDate', formData.promiseDate);
+            formDataToSend.append('isRush', formData.isRush ? 'true' : 'false');
     
             // ✅ Flatten the metalType correctly before sending
             const metalTypeString = formData.metalType.karat

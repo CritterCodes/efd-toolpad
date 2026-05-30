@@ -56,6 +56,10 @@ import { useRepairs } from '@/app/context/repairs.context';
 
 // Components
 import CameraCapture from '@/components/shared/CameraCapture';
+import PromiseDateSuggestion from '@/app/components/repairs/PromiseDateSuggestion';
+
+// Hooks
+import usePromiseDateEstimate from '@/hooks/repairs/usePromiseDateEstimate';
 
 // Metal configuration
 const METAL_TYPES = [
@@ -988,6 +992,18 @@ export default function NewRepairForm({
     
     // Image
     picture: null
+  });
+
+  // Auto-suggested promise date (read-only for wholesalers, see render below).
+  const {
+    estimate: promiseDateEstimate,
+    context: promiseDateContext,
+    loading: promiseDateLoading,
+    error: promiseDateError,
+  } = usePromiseDateEstimate({
+    tasks: formData.tasks,
+    isRush: formData.isRush,
+    isWholesale: formData.isWholesale,
   });
 
   // UI state
@@ -3143,6 +3159,23 @@ export default function NewRepairForm({
           stullerError={stullerError}
           addStullerMaterial={addStullerMaterial}
         />
+
+        {/* Wholesalers see a read-only estimated promise date (admin sets the
+            real one). Retail keeps the editable Promise Date field above. */}
+        {isWholesale && (
+          <FormSection title="Promise Date" subtitle="Estimated completion based on shop workload and your delivery schedule">
+            <PromiseDateSuggestion
+              readOnly
+              estimate={promiseDateEstimate}
+              context={promiseDateContext}
+              loading={promiseDateLoading}
+              error={promiseDateError}
+              value={formData.promiseDate}
+              onChange={(v) => setFormData(prev => ({ ...prev, promiseDate: v }))}
+              deliveryDays={promiseDateContext?.deliveryDays}
+            />
+          </FormSection>
+        )}
 
         {/* Total Cost & Pricing Breakdown */}
         <TotalCostCard

@@ -44,7 +44,7 @@ const defaultFormData = {
     paymentNotes: ''
 };
 
-export default function NewCustomTicketStepper({ open, onClose, onSubmit }) {
+export default function NewCustomTicketStepper({ open, onClose, onSuccess }) {
     const [activeStep, setActiveStep] = React.useState(0);
     const [formData, setFormData] = React.useState({ ...defaultFormData });
     const [loading, setLoading] = React.useState(false);
@@ -124,7 +124,17 @@ export default function NewCustomTicketStepper({ open, onClose, onSubmit }) {
                 customerPhone: formData.clientInfo.phone || '',
             };
 
-            await onSubmit(ticketData);
+            const response = await fetch('/api/custom-tickets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(ticketData),
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Failed to create ticket');
+            }
+
+            onSuccess?.(result.ticket);
             handleClose();
         } catch (err) {
             setError(err.message || 'Failed to create ticket');
@@ -256,5 +266,5 @@ export default function NewCustomTicketStepper({ open, onClose, onSubmit }) {
 NewCustomTicketStepper.propTypes = {
     open: PropTypes.bool.isRequired,
     onClose: PropTypes.func.isRequired,
-    onSubmit: PropTypes.func.isRequired
+    onSuccess: PropTypes.func
 };

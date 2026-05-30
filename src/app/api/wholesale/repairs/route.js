@@ -108,8 +108,25 @@ export async function POST(request) {
             ? REPAIR_STATUS.READY_FOR_WORK
             : REPAIR_STATUS.PENDING_PICKUP;
 
+        // Map selected catalog tasks into the canonical embedded `tasks` shape
+        // (carrying laborHours) so the bench and the workload estimator can read
+        // them. Falls back to pricing.totalLaborHours for the labor figure.
+        const repairTasks = Array.isArray(repairData.repairTasks) ? repairData.repairTasks : [];
+        const tasks = repairTasks.map((t) => ({
+            taskId: t.taskId || t._id || t.id || null,
+            title: t.title || t.name || "",
+            sku: t.sku || "",
+            category: t.category || "",
+            quantity: Number(t.quantity) || 1,
+            price: parseFloat(t.price ?? t.basePrice ?? 0) || 0,
+            laborHours: Number(t.laborHours ?? t?.pricing?.totalLaborHours) || 0,
+            pricing: { totalLaborHours: Number(t?.pricing?.totalLaborHours ?? t.laborHours) || 0 },
+        }));
+
         const newRepair = {
             ...repairData,
+            tasks,
+            isRush: !!repairData.isRush,
             repairID: `repair-${Date.now().toString(36)}`,
             userID: repairData.wholesalerId || session.user.userID,
             isWholesale: true,

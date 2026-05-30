@@ -1,17 +1,16 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { calculateAnalyticMetrics } from '@/utilities/helpers/quote.helpers';
+import { calculateCustomQuote } from '@/services/pricing/customQuote.pricing';
 
 export const useCustomTicketQuote = (ticket, onUpdateFinancials) => {
   const [editMode, setEditMode] = useState(true);
   const [isPublished, setIsPublished] = useState(ticket?.quote?.quotePublished || false);
   const [financialSettings, setFinancialSettings] = useState({
-    customDesignFee: 100.00,
+    cogMarkup: 2.5,
+    designFeeMarkup: 1.5,
+    rushMultiplier: 1.5,
     commissionPercentage: 0.10,
-    jewelerLaborRate: 45.00,
-    cadDesignerRate: 50.00,
-    materialMarkupPercentage: 0.30,
-    shippingRate: 25.00,
-    rushMultiplier: 1.5
+    targetMarginFloor: 0.45,
+    defaultDesignerFee: 0
   });
   const [loadingSettings, setLoadingSettings] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -32,7 +31,9 @@ export const useCustomTicketQuote = (ticket, onUpdateFinancials) => {
     laborTasks: ticket?.quote?.laborTasks || [],
     shippingCosts: ticket?.quote?.shippingCosts || [],
     isRush: ticket?.quote?.isRush || false,
-    includeCustomDesign: ticket?.quote?.includeCustomDesign || false
+    includeCustomDesign: ticket?.quote?.includeCustomDesign || false,
+    cogMarkup: ticket?.quote?.cogMarkup ?? '',          // per-quote override; '' → use settings default
+    designerFee: ticket?.quote?.designerFee ?? 0          // assigned designer's fee (or manual)
   });
 
   const [formData, setFormData] = useState(getInitialFormData());
@@ -46,19 +47,16 @@ export const useCustomTicketQuote = (ticket, onUpdateFinancials) => {
     try {
       const response = await fetch('/api/admin/settings');
       const result = await response.json();
-      
-      if (result && result.pricing) {
-        setFinancialSettings({
-          customDesignFee: result.financial?.customDesignFee || 100.00,
-          commissionPercentage: result.financial?.commissionPercentage || 0.10,
-          jewelerLaborRate: result.financial?.jewelerLaborRate || result.pricing?.wage || 45.00,
-          cadDesignerRate: result.financial?.cadDesignerRate || 50.00,
-          materialMarkupPercentage: result.financial?.materialMarkupPercentage || 
-                                   (result.pricing?.materialMarkup ? (result.pricing.materialMarkup - 1) : 1.0),
-          shippingRate: result.financial?.shippingRate || result.pricing?.deliveryFee || 25.00,
-          rushMultiplier: result.financial?.rushMultiplier || result.pricing?.rushMultiplier || 1.5
-        });
-      }
+      const f = result?.financial || {};
+
+      setFinancialSettings({
+        cogMarkup: f.cogMarkup ?? 2.5,
+        designFeeMarkup: f.designFeeMarkup ?? 1.5,
+        rushMultiplier: f.rushMultiplier ?? result?.pricing?.rushMultiplier ?? 1.5,
+        commissionPercentage: f.commissionPercentage ?? 0.10,
+        targetMarginFloor: f.targetMarginFloor ?? 0.45,
+        defaultDesignerFee: f.defaultDesignerFee ?? 0
+      });
     } catch (error) {
       console.error('Error loading financial settings:', error);
     } finally {
@@ -67,7 +65,7 @@ export const useCustomTicketQuote = (ticket, onUpdateFinancials) => {
   };
 
   const analytics = useMemo(() => {
-    return calculateAnalyticMetrics(formData, financialSettings);
+    return calculateCustomQuote(formData, financialSettings);
   }, [formData, financialSettings]);
 
   // Array item handlers
@@ -116,9 +114,12 @@ export const useCustomTicketQuote = (ticket, onUpdateFinancials) => {
       shippingCosts: formData.shippingCosts,
       isRush: formData.isRush,
       includeCustomDesign: formData.includeCustomDesign,
-      customDesignFee: financialSettings.customDesignFee,
+      cogMarkup: analytics.cogMarkup,
+      designerFee: analytics.designerFee,
+      designFeeMarkup: analytics.designFeeMarkup,
       quoteTotal: analytics.total,
       analytics: analytics,
+      formulaVersion: analytics.formulaVersion,
       ...publishUpdates
     }
   });

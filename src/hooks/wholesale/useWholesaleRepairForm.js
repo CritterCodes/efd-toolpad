@@ -14,6 +14,8 @@ export function useWholesaleRepairForm({
         description: initialData?.description || '',
         specialInstructions: initialData?.specialInstructions || '',
         promiseDate: initialData?.promiseDate || '',
+        isRush: initialData?.isRush || false,
+        repairTasks: initialData?.repairTasks || [],
         photos: initialData?.photos || []
     });
 
@@ -100,6 +102,10 @@ export function useWholesaleRepairForm({
 
         if (!formData.description.trim()) {
             newErrors.description = 'Repair description is required';
+        }
+
+        if (!formData.repairTasks?.length) {
+            newErrors.repairTasks = 'At least one repair task is required';
         }
 
         setErrors(newErrors);

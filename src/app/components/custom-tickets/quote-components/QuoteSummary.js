@@ -12,22 +12,18 @@ export function QuoteSummary({ analytics }) {
       <CardContent>
         <Box sx={{ mb: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-            <Typography variant="body2">Materials:</Typography>
-            <Typography variant="body2">${analytics.totalMaterialsRevenue?.toFixed(2) || '0.00'}</Typography>
+            <Typography variant="body2">Materials &amp; Labor:</Typography>
+            <Typography variant="body2">${analytics.cogPrice?.toFixed(2) || '0.00'}</Typography>
           </Box>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-            <Typography variant="body2">Labor:</Typography>
-            <Typography variant="body2">${analytics.laborRevenue?.toFixed(2) || '0.00'}</Typography>
-          </Box>
-          {analytics.customDesignFee > 0 && (
+          {analytics.designPrice > 0 && (
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography variant="body2">Custom Design:</Typography>
-              <Typography variant="body2">${analytics.customDesignFee?.toFixed(2)}</Typography>
+              <Typography variant="body2">${analytics.designPrice?.toFixed(2)}</Typography>
             </Box>
           )}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
             <Typography variant="body2">Shipping:</Typography>
-            <Typography variant="body2">${analytics.totalShippingCost?.toFixed(2) || '0.00'}</Typography>
+            <Typography variant="body2">${analytics.shippingPrice?.toFixed(2) || '0.00'}</Typography>
           </Box>
           {analytics.rushUpcharge > 0 && (
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
@@ -37,9 +33,12 @@ export function QuoteSummary({ analytics }) {
           )}
           <Divider sx={{ my: 1 }} />
           <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-            <Typography variant="h6">Total:</Typography>
+            <Typography variant="h6">Total (pre-tax):</Typography>
             <Typography variant="h6" color="primary">${analytics.total?.toFixed(2) || '0.00'}</Typography>
           </Box>
+          <Typography variant="caption" color="text.secondary">
+            Sales tax calculated at checkout (Stripe Tax)
+          </Typography>
         </Box>
       </CardContent>
     </Card>

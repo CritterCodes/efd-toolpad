@@ -97,7 +97,9 @@ export default class TicketValidationModel {
       throw new Error(`Validation failed: ${errors.join(', ')}`);
     }
 
-    return true;
+    // Return the validated data (not just `true`) — CrudService.createTicket
+    // feeds this into applyCreationBusinessRules, so it must be the ticket object.
+    return ticketData;
   }
 
   /**

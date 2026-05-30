@@ -53,12 +53,15 @@ export class CrudService {
 
   static async createTicket(ticketData) {
       try {
+        // Ensure adapter (embedded service) is initialized before use
+        await ensureAdapterInitialized();
+
         // Validate input data
         const validatedData = await CustomTicketModel.validateTicketData(ticketData);
-  
+
         // Apply business rules before creation
         const processedData = await CustomTicketModel.applyCreationBusinessRules(validatedData);
-  
+
         // Use microservice for creation
         const adapter = getCustomTicketsAdapter();
         const result = await adapter.createTicket(processedData);

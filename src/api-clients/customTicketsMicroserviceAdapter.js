@@ -151,13 +151,41 @@ class CustomTicketsMicroserviceAdapter {
 
   async createTicket(ticketData) {
     if (this.mode === 'embedded' && this.embeddedService) {
-      return await this.embeddedService.createTicket(ticketData);
+      const embeddedResult = await this.embeddedService.createTicket(ticketData);
+      // Normalize embedded service response to match API format
+      return { success: true, ticket: embeddedResult };
     }
 
-    return await this.makeApiRequest('/api/tickets', {
-      method: 'POST',
-      body: JSON.stringify(ticketData),
-    });
+    try {
+      return await this.makeApiRequest('/api/tickets', {
+        method: 'POST',
+        body: JSON.stringify(ticketData),
+      });
+    } catch (error) {
+      logger.info(`createTicket caught error: ${error.message}`);
+
+      // Handle fallback to embedded mode (mirrors updateTicket)
+      if (
+        error.message === 'FALLBACK_TO_EMBEDDED' ||
+        error.cause?.code === 'ECONNREFUSED' ||
+        (error.message && error.message.includes('fetch failed'))
+      ) {
+        this.mode = 'embedded';
+        if (!this.embeddedService) {
+          await this.initializeEmbeddedService();
+        }
+
+        if (this.embeddedService) {
+          logger.info('Using embedded service for createTicket fallback');
+          const embeddedResult = await this.embeddedService.createTicket(ticketData);
+          // Normalize embedded service response to match API format
+          return { success: true, ticket: embeddedResult };
+        }
+        logger.error('Embedded service not available for createTicket fallback');
+      }
+
+      throw error;
+    }
   }
 
   async updateTicket(id, updateData) {

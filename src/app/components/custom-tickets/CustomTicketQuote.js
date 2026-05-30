@@ -67,7 +67,7 @@ export default function CustomTicketQuote({ ticket, onUpdateFinancials }) {
           Phase 2: Labor & Processes
         </Typography>
         <LaborSection
-          laborTasks={formData.laborTasks}
+          formData={formData}
           editMode={editMode}
           handleItemChange={handleItemChange}
         />
@@ -79,7 +79,7 @@ export default function CustomTicketQuote({ ticket, onUpdateFinancials }) {
         </Typography>
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
           <ShippingSection
-            shippingCosts={formData.shippingCosts}
+            formData={formData}
             editMode={editMode}
             handleItemChange={handleItemChange}
           />
@@ -87,6 +87,7 @@ export default function CustomTicketQuote({ ticket, onUpdateFinancials }) {
             formData={formData}
             editMode={editMode}
             updateField={updateField}
+            financialSettings={financialSettings}
           />
         </Box>
       </Paper>

@@ -3,6 +3,7 @@ import { Box, Paper, Tabs, Tab, Button, CircularProgress, Typography } from '@mu
 import { useWholesaleRepairForm } from '../../../hooks/wholesale/useWholesaleRepairForm';
 import ClientInfoSection from './form-sections/ClientInfoSection';
 import RepairDetailsSection from './form-sections/RepairDetailsSection';
+import TasksSection from './form-sections/TasksSection';
 import PhotoUploadSection from './form-sections/PhotoUploadSection';
 
 export default function WholesaleRepairForm(props) {
@@ -20,12 +21,14 @@ export default function WholesaleRepairForm(props) {
             <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)} sx={{ mb: 4 }}>
                 <Tab label="Client Info" {...a11yProps(0)} />
                 <Tab label="Repair Details" {...a11yProps(1)} />
-                <Tab label="Photos" {...a11yProps(2)} />
+                <Tab label="Tasks" {...a11yProps(2)} />
+                <Tab label="Photos" {...a11yProps(3)} />
             </Tabs>
             <form onSubmit={handleSubmit}>
                 {activeTab === 0 && <ClientInfoSection formData={formData} errors={errors} handleInputChange={handleInputChange} />}
                 {activeTab === 1 && <RepairDetailsSection formData={formData} errors={errors} handleInputChange={handleInputChange} />}
-                {activeTab === 2 && <PhotoUploadSection photos={formData.photos} handlePhotoUpload={handlePhotoUpload} removePhoto={removePhoto} />}
+                {activeTab === 2 && <TasksSection formData={formData} errors={errors} handleInputChange={handleInputChange} />}
+                {activeTab === 3 && <PhotoUploadSection photos={formData.photos} handlePhotoUpload={handlePhotoUpload} removePhoto={removePhoto} />}
                 <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
                     <Button onClick={props.onCancel}>Cancel</Button>
                     <Button type="submit" variant="contained" disabled={isSubmitting}>

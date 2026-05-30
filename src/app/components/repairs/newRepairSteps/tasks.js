@@ -2,11 +2,13 @@
 "use client";
 import * as React from "react";
 import PropTypes from "prop-types";
-import { Box, Typography, Button, Autocomplete, TextField } from "@mui/material";
+import { Box, Typography, Button, Autocomplete, TextField, FormControlLabel, Checkbox } from "@mui/material";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import useNewRepairTasks from "@/hooks/repairs/useNewRepairTasks";
+import usePromiseDateEstimate from "@/hooks/repairs/usePromiseDateEstimate";
 import TaskSelectionList from "./tasks/TaskSelectionList";
 import TaskFilters from "./tasks/TaskFilters";
+import PromiseDateSuggestion from "../PromiseDateSuggestion";
 
 export default function TasksStep({ formData, setFormData, isWholesale }) {
     const {
@@ -16,9 +18,15 @@ export default function TasksStep({ formData, setFormData, isWholesale }) {
     } = useNewRepairTasks(formData);
 
     React.useEffect(() => {
-        setFormData({ ...formData, repairTasks: selectedRepairTasks });
+        setFormData(prev => ({ ...prev, repairTasks: selectedRepairTasks }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedRepairTasks]);
+
+    const { estimate, context, loading, error } = usePromiseDateEstimate({
+        tasks: selectedRepairTasks,
+        isRush: !!formData.isRush,
+        isWholesale: !!isWholesale,
+    });
 
     return (
         <React.Fragment>
@@ -27,7 +35,7 @@ export default function TasksStep({ formData, setFormData, isWholesale }) {
                 Filters
             </Button>
             {showFilters && (
-                <TaskFilters 
+                <TaskFilters
                     categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter}
                     metalTypeFilter={metalTypeFilter} setMetalTypeFilter={setMetalTypeFilter}
                 />
@@ -38,9 +46,30 @@ export default function TasksStep({ formData, setFormData, isWholesale }) {
                 onChange={(event, newValue) => { if (newValue) handleAddRepairTask(newValue); }}
                 renderInput={(params) => <TextField {...params} label="Search Tasks" variant="outlined" />}
             />
-            <TaskSelectionList 
+            <TaskSelectionList
                 selectedRepairTasks={selectedRepairTasks}
                 handleRemoveRepairTask={handleRemoveRepairTask}
+            />
+
+            <FormControlLabel
+                sx={{ mt: 1 }}
+                control={
+                    <Checkbox
+                        checked={!!formData.isRush}
+                        onChange={(e) => setFormData(prev => ({ ...prev, isRush: e.target.checked }))}
+                    />
+                }
+                label="Rush job"
+            />
+
+            <PromiseDateSuggestion
+                estimate={estimate}
+                context={context}
+                loading={loading}
+                error={error}
+                value={formData.promiseDate}
+                onChange={(v) => setFormData(prev => ({ ...prev, promiseDate: v }))}
+                deliveryDays={isWholesale ? context?.deliveryDays : undefined}
             />
         </React.Fragment>
     );
