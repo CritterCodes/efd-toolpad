@@ -30,6 +30,14 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# build & scratch logs (never commit)
+*.log
+.codex-*
+
+# local data / api dumps
+logs_result*.json
+*-response*.json
+
 # env files (can opt-in for committing if needed)
 .env*
 
