@@ -43,15 +43,16 @@ export const SKILL_LEVEL_MULTIPLIERS = {
 
 /**
  * Default Material Markup Multiplier
- * Applied to base material costs to calculate marked-up material prices
- * 
- * NOTE: This is the standard default. Individual admin settings may override.
+ * @deprecated Material markup is no longer applied to prices. Retail = baseCost × businessMultiplier,
+ * wholesale = baseCost × wholesaleMarkup. These constants are retained for back-compat reads only
+ * (the value is still surfaced in pricing result objects) and the admin "Material Markup" setting is
+ * now a no-op pending a settings-UI cleanup pass.
  */
 export const DEFAULT_MATERIAL_MARKUP = 2.0; // 100% markup (2.0x)
 
 /**
  * Minimum Material Markup Multiplier
- * Enforced minimum markup to ensure profitability
+ * @deprecated See DEFAULT_MATERIAL_MARKUP — no longer affects pricing.
  */
 export const MINIMUM_MATERIAL_MARKUP = 2.0; // Must be at least 2.0x
 

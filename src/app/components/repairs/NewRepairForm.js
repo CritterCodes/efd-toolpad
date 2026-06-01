@@ -801,9 +801,10 @@ const normalizePricingSettings = (adminSettings = {}) => {
 const calculateRetailFromBaseCosts = (baseMaterialsCost = 0, laborCost = 0, adminSettings = {}) => {
   const safeMaterials = Math.max(toNumber(baseMaterialsCost), 0);
   const safeLabor = Math.max(toNumber(laborCost), 0);
-  const { materialMarkup, businessMultiplier } = normalizePricingSettings(adminSettings);
+  const { businessMultiplier } = normalizePricingSettings(adminSettings);
 
-  const retail = ((safeMaterials + safeLabor) * businessMultiplier) + (safeMaterials * (materialMarkup - 1));
+  // materialMarkup deprecated — retail = baseCost × businessMultiplier only (materials no longer double-marked-up)
+  const retail = (safeMaterials + safeLabor) * businessMultiplier;
   return Math.round(retail * 100) / 100;
 };
 
@@ -3370,8 +3371,10 @@ function RepairItemsSection({
           options={availableMaterials}
           getOptionLabel={(option) => {
             const displayName = option.displayName || option.name || 'Material';
-            const basePrice = resolveMaterialRetailPrice(option, formData.metalType, formData.karat, formData.goldColor, adminSettings);
-            return `${displayName} - $${basePrice.toFixed(2)}`;
+            const retail = resolveMaterialRetailPrice(option, formData.metalType, formData.karat, formData.goldColor, adminSettings);
+            const wholesale = resolveMaterialWholesalePrice(option, formData.metalType, formData.karat, formData.goldColor, adminSettings);
+            const shownPrice = formData.isWholesale && wholesale > 0 ? wholesale : retail;
+            return `${displayName} - $${shownPrice.toFixed(2)}`;
           }}
           renderInput={(params) => (
             <TextField {...params} label="Add Material" size="small" />

@@ -31,7 +31,7 @@ export function calculateProcessCost(process, adminSettings = {}, availableMater
     if (material.unit === 'portion' && material.portionsPerUnit > 1) {
        if (!material.estimatedCost) { const rawUnit = material.unitCost || 0; cost = rawUnit / material.portionsPerUnit; }
     }
-    baseMaterialsCost += cost * quantity; oldMarkedUpMaterialsCost += (cost * materialMarkup) * quantity;
+    baseMaterialsCost += cost * quantity; oldMarkedUpMaterialsCost += cost * quantity; /* materialMarkup deprecated — no longer applied */
   });
   const businessMultiplier = getBusinessMultiplierValue(adminSettings);
   const metalComplexityMultiplier = 1.0;
@@ -64,7 +64,7 @@ function _calculateMetalDependentProcessCost(process, settings, laborCost, hourl
   variantMap.forEach((variant, variantKey) => {
     let variantTotalMaterialsCost = 0; const materialBreakdown = [];
     universalMaterials.forEach(m => {
-      const cost = (m.estimatedCost || 0) * materialMarkup; variantTotalMaterialsCost += cost;
+      const cost = (m.estimatedCost || 0); variantTotalMaterialsCost += cost; /* materialMarkup deprecated — no longer applied */
       materialBreakdown.push({ name: m.displayName || m.name, quantity: m.quantity || 1, unitPrice: cost / (m.quantity || 1), total: cost });
     });
     materials.filter(m => m.isMetalDependent).forEach(m => {
