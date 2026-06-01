@@ -198,6 +198,8 @@ export async function PUT(request) {
         if (profileData.services !== undefined) updateData['artisanApplication.services'] = profileData.services;
         if (profileData.materials !== undefined) updateData['artisanApplication.materials'] = profileData.materials;
         if (profileData.techniques !== undefined) updateData['artisanApplication.techniques'] = profileData.techniques;
+        // Custom design fee — used by the custom quote builder (charged at designFeeMarkup)
+        if (profileData.customDesignFee !== undefined) updateData['artisanApplication.customDesignFee'] = parseFloat(profileData.customDesignFee) || 0;
         
         // Always update timestamp
         updateData['artisanApplication.updatedAt'] = new Date();

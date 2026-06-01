@@ -11,14 +11,16 @@ import {
     Tab,
     Typography
 } from '@mui/material';
-import { 
+import {
     Store as StoreIcon,
     Extension as IntegrationIcon,
-    PhoneIphone as PWAIcon
+    PhoneIphone as PWAIcon,
+    Diamond as DesignIcon
 } from '@mui/icons-material';
 import StoreSettingsTab from '@/components/admin/StoreSettingsTab';
 import IntegrationsTab from '@/components/admin/IntegrationsTab';
 import PWASettingsTab from '@/components/admin/PWASettingsTab';
+import CustomDesignPricingTab from '@/components/admin/CustomDesignPricingTab';
 
 function TabPanel({ children, value, index, ...other }) {
     return (
@@ -91,11 +93,17 @@ export default function AdminSettingsPage() {
                                 id="admin-tab-1"
                                 aria-controls="admin-tabpanel-1"
                             />
-                            <Tab 
-                                icon={<PWAIcon />} 
-                                label="PWA / App Install" 
+                            <Tab
+                                icon={<PWAIcon />}
+                                label="PWA / App Install"
                                 id="admin-tab-2"
                                 aria-controls="admin-tabpanel-2"
+                            />
+                            <Tab
+                                icon={<DesignIcon />}
+                                label="Custom Design"
+                                id="admin-tab-3"
+                                aria-controls="admin-tabpanel-3"
                             />
                         </Tabs>
                     </Box>
@@ -110,6 +118,10 @@ export default function AdminSettingsPage() {
                     
                     <TabPanel value={tabValue} index={2}>
                         <PWASettingsTab />
+                    </TabPanel>
+
+                    <TabPanel value={tabValue} index={3}>
+                        <CustomDesignPricingTab />
                     </TabPanel>
                 </Box>
             </Box>

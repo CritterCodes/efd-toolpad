@@ -257,20 +257,25 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Settings not found' }, { status: 404 });
     }
 
-    // Validate financial inputs
+    // Validate financial inputs (custom-quote formula v2 — see docs §9)
     const {
-      customDesignFee,
+      cogMarkup,
+      designFeeMarkup,
+      rushMultiplier,
       commissionPercentage,
-      jewelerLaborRate,
-      cadDesignerRate,
-      materialMarkupPercentage,
-      shippingRate,
-      rushMultiplier
+      targetMarginFloor,
+      defaultDesignerFee
     } = financial;
 
-    if (customDesignFee < 0 || commissionPercentage < 0 || jewelerLaborRate < 0 || 
-        cadDesignerRate < 0 || materialMarkupPercentage < 0 || shippingRate < 0 || 
-        rushMultiplier < 1) {
+    const invalidFinancial =
+      (cogMarkup != null && (cogMarkup < 1 || cogMarkup > 10)) ||
+      (designFeeMarkup != null && (designFeeMarkup < 1 || designFeeMarkup > 5)) ||
+      (rushMultiplier != null && rushMultiplier < 1) ||
+      (commissionPercentage != null && (commissionPercentage < 0 || commissionPercentage > 1)) ||
+      (targetMarginFloor != null && (targetMarginFloor < 0 || targetMarginFloor > 1)) ||
+      (defaultDesignerFee != null && defaultDesignerFee < 0);
+
+    if (invalidFinancial) {
       return NextResponse.json({ error: 'Invalid financial values' }, { status: 400 });
     }
 

@@ -198,6 +198,8 @@ export default class TicketCRUDController {
         artisanFirstName: artisan?.firstName || artisan?.artisanApplication?.firstName || '',
         artisanLastName: artisan?.lastName || artisan?.artisanApplication?.lastName || '',
         artisanSlug: artisan?.artisanApplication?.slug || '',
+        // Snapshot the artisan's design fee so the quote builder can auto-resolve it
+        customDesignFee: artisan?.artisanApplication?.customDesignFee ?? null,
         assignedAt: new Date().toISOString()
       };
 

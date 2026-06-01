@@ -1,27 +1,44 @@
-import React from 'react';
-import { Card, CardContent, CardHeader, Typography, Grid, TextField, Box, Button, IconButton } from '@mui/material';
-import { Build as BuildIcon, Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, Typography, Grid, TextField, Box, Button, IconButton, Stack } from '@mui/material';
+import { Build as BuildIcon, Add as AddIcon, Delete as DeleteIcon, MenuBook as CatalogIcon } from '@mui/icons-material';
+import { TaskCatalogPicker } from './TaskCatalogPicker';
 
 export function LaborSection({ formData, handleItemChange, editMode }) {
   const parseCost = (value) => parseFloat(value.replace(/[$,]/g, '')) || 0;
+  const [catalogOpen, setCatalogOpen] = useState(false);
 
   return (
     <Card sx={{ mb: 2 }}>
-      <CardHeader 
-        title="Labor Tasks" 
+      <CardHeader
+        title="Labor Tasks"
         avatar={<BuildIcon color="primary" />}
         action={
           editMode && (
-            <Button
-              startIcon={<AddIcon />}
-              onClick={() => handleItemChange('laborTasks', 'ADD', { newItem: { description: '', cost: 0, quantity: 1 } })}
-              size="small"
-              variant="outlined"
-            >
-              Add Task
-            </Button>
+            <Stack direction="row" spacing={1}>
+              <Button
+                startIcon={<CatalogIcon />}
+                onClick={() => setCatalogOpen(true)}
+                size="small"
+                variant="contained"
+              >
+                Add from Catalog
+              </Button>
+              <Button
+                startIcon={<AddIcon />}
+                onClick={() => handleItemChange('laborTasks', 'ADD', { newItem: { description: '', cost: 0, quantity: 1 } })}
+                size="small"
+                variant="outlined"
+              >
+                Add Task
+              </Button>
+            </Stack>
           )
         }
+      />
+      <TaskCatalogPicker
+        open={catalogOpen}
+        onClose={() => setCatalogOpen(false)}
+        onPick={(newItem) => handleItemChange('laborTasks', 'ADD', { newItem })}
       />
       <CardContent>
         {formData.laborTasks.map((task, index) => (

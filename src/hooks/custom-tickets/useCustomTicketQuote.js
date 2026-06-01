@@ -33,7 +33,13 @@ export const useCustomTicketQuote = (ticket, onUpdateFinancials) => {
     isRush: ticket?.quote?.isRush || false,
     includeCustomDesign: ticket?.quote?.includeCustomDesign || false,
     cogMarkup: ticket?.quote?.cogMarkup ?? '',          // per-quote override; '' → use settings default
-    designerFee: ticket?.quote?.designerFee ?? 0          // assigned designer's fee (or manual)
+    // Designer fee: a saved quote value wins; otherwise auto-resolve from the
+    // assigned artisan's snapshotted fee; else 0 (formula falls back to settings default).
+    designerFee: ticket?.quote?.designerFee
+      ?? (ticket?.assignedArtisans || [])
+           .map(a => a?.customDesignFee)
+           .find(v => typeof v === 'number' && v > 0)
+      ?? 0
   });
 
   const [formData, setFormData] = useState(getInitialFormData());
@@ -120,6 +126,16 @@ export const useCustomTicketQuote = (ticket, onUpdateFinancials) => {
       quoteTotal: analytics.total,
       analytics: analytics,
       formulaVersion: analytics.formulaVersion,
+      preTax: true, // quotes are pre-tax; Stripe Tax computes tax at payment
+      // Snapshot the effective pricing settings so a saved/published quote
+      // never silently changes when admin settings move later.
+      settingsSnapshot: {
+        cogMarkup: analytics.cogMarkup,
+        designFeeMarkup: analytics.designFeeMarkup,
+        rushMultiplier: financialSettings.rushMultiplier,
+        commissionPercentage: analytics.commissionPercentage,
+        targetMarginFloor: financialSettings.targetMarginFloor
+      },
       ...publishUpdates
     }
   });

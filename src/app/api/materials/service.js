@@ -178,12 +178,10 @@ export default class MaterialService {
                 );
             }
             materialInstance.update(updateData);
-            
-            // Recalculate pricing if cost-related fields changed
-            if (updateData.unitCost || updateData.portionsPerUnit) {
-                const adminSettings = await this.getAdminSettings();
-                materialInstance.calculatePricing(adminSettings);
-            }
+
+            // Note: per-portion/material pricing is computed on read from raw
+            // Stuller inputs (compute-on-read), so there is no pricing to
+            // recalculate or persist here.
 
             // Validate updated material
             const validationErrors = materialInstance.validate();

@@ -1,4 +1,4 @@
-import { Card, CardContent, Typography, Grid, TextField, Autocomplete, Chip } from '@mui/material';
+import { Card, CardContent, Typography, Grid, TextField, Autocomplete, Chip, InputAdornment } from '@mui/material';
 import { Business as BusinessIcon } from '@mui/icons-material';
 import Constants from '@/lib/constants';
 
@@ -71,6 +71,18 @@ export default function BusinessInfoSection({ profileData, handleInputChange }) 
                             value={profileData.yearsExperience}
                             onChange={(e) => handleInputChange('yearsExperience', parseInt(e.target.value) || 0)}
                             InputProps={{ inputProps: { min: 0, max: 100 } }}
+                            size="small"
+                        />
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                        <TextField
+                            fullWidth
+                            type="number"
+                            label="Custom Design Fee"
+                            value={profileData.customDesignFee ?? ''}
+                            onChange={(e) => handleInputChange('customDesignFee', parseFloat(e.target.value) || 0)}
+                            helperText="Your fee for a custom design; the shop charges this × its markup."
+                            InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment>, inputProps: { min: 0, step: 5 } }}
                             size="small"
                         />
                     </Grid>
