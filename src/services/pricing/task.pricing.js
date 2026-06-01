@@ -20,6 +20,31 @@ function getVariantRetailMultiplier(taskData, contextKey) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 }
 
+// Karat cycle-up ladder (project_metal_karat_cycle_up): when an exact metalType_karat
+// variant isn't stocked, substitute the nearest HIGHER karat of the SAME color
+// (10k -> 14k -> 18k). Non-gold metals and off-ladder karats: exact match only.
+const KARAT_CYCLE_LADDER = ['10k', '14k', '18k'];
+
+// Resolve a stullerProducts entry for contextKey, cycling up the karat (same color) when
+// the exact karat is missing. Returns { product, usedKey, substituted }; product is null
+// when nothing matches (exact or cycled-up) so the caller can flag it instead of charging $0.
+function resolveVariantWithCycleUp(stullerProducts, contextKey, buildKey) {
+  if (!Array.isArray(stullerProducts) || !contextKey) return { product: null, usedKey: null, substituted: false };
+  const exact = stullerProducts.find(p => buildKey(p) === contextKey);
+  if (exact) return { product: exact, usedKey: contextKey, substituted: false };
+  const parsed = /^(.*)_(\d+k)$/.exec(contextKey);
+  if (!parsed) return { product: null, usedKey: null, substituted: false };
+  const prefix = parsed[1];
+  const idx = KARAT_CYCLE_LADDER.indexOf(parsed[2]);
+  if (idx === -1) return { product: null, usedKey: null, substituted: false };
+  for (let j = idx + 1; j < KARAT_CYCLE_LADDER.length; j++) {
+    const candidateKey = `${prefix}_${KARAT_CYCLE_LADDER[j]}`;
+    const found = stullerProducts.find(p => buildKey(p) === candidateKey);
+    if (found) return { product: found, usedKey: candidateKey, substituted: true };
+  }
+  return { product: null, usedKey: null, substituted: false };
+}
+
 export function calculateTaskCost(taskData, adminSettings = {}, availableProcesses = [], availableMaterials = [], context = null, availableTools = []) {
   if (!taskData || typeof taskData !== 'object') throw new TypeError(ERROR_MESSAGES.TASK_DATA_MUST_BE_OBJECT);
   if (!Array.isArray(availableMaterials)) throw new TypeError(ERROR_MESSAGES.AVAILABLE_MATERIALS_MUST_BE_ARRAY);
@@ -37,6 +62,8 @@ export function calculateTaskCost(taskData, adminSettings = {}, availableProcess
     }
   }
   let totalLaborHours = 0; let totalProcessCost = 0; let totalMaterialCost = 0; let totalProcessMaterialCost = 0; let totalWeightedLaborCost = 0; let totalWeightedBaseMaterialsCost = 0;
+  const materialVariantSubstitutions = []; // { name, requested, usedVariant, source }
+  const unmatchedMaterials = []; // { name, requested } -- metal-dependent material with no usable variant (priced $0; flag "quote on request")
   if (taskData.processes && Array.isArray(taskData.processes)) {
     taskData.processes.forEach((processSelection, index) => {
       let quantity = parseFloat(processSelection.quantity || 1);
@@ -48,6 +75,12 @@ export function calculateTaskCost(taskData, adminSettings = {}, availableProcess
         if (contextKey && processCost.isMetalDependent && processCost.metalPrices && processCost.metalPrices[contextKey]) {
             const variantPricing = processCost.metalPrices[contextKey];
             weightedLabor = variantPricing.weightedLaborCost; weightedMaterials = variantPricing.weightedBaseMaterialsCost; currentTotalCost = variantPricing.totalCost;
+            if (Array.isArray(variantPricing.materialBreakdown)) {
+              variantPricing.materialBreakdown.forEach((mb) => {
+                if (mb && mb.substituted) materialVariantSubstitutions.push({ name: mb.name, requested: contextKey, usedVariant: mb.substitutedFrom, source: 'process' });
+                else if (mb && mb.isVariant && mb.found === false) unmatchedMaterials.push({ name: mb.name, requested: contextKey, source: 'process' });
+              });
+            }
         } else {
             const complexity = processCost.metalComplexityMultiplier || 1;
             const pLabor = processCost.laborCost || 0; const pBaseMat = processCost.baseMaterialsCost || 0;
@@ -68,11 +101,17 @@ export function calculateTaskCost(taskData, adminSettings = {}, availableProcess
         // For Stuller materials, resolve the per-variant stullerPrice/portionsPerUnit when metal context is present
         if (contextKey && material.isMetalDependent && Array.isArray(material.stullerProducts) && material.stullerProducts.length > 0) {
           const buildKey = p => `${p.metalType}_${p.karat}`.toLowerCase().replace(/[^a-z0-9]/g, '_');
-          const product = material.stullerProducts.find(p => buildKey(p) === contextKey);
+          const { product, usedKey, substituted } = resolveVariantWithCycleUp(material.stullerProducts, contextKey, buildKey);
+          const matLabel = material.displayName || material.name;
+          const matId = material._id ? String(material._id) : undefined;
           if (product) {
             const portions = Number(product.portionsPerUnit) > 0 ? Number(product.portionsPerUnit) : (Number(material.portionsPerUnit) || 1);
             const rawCost = parseFloat(product.stullerPrice) || parseFloat(product.unitCost) || 0;
             effectiveMaterial = { ...material, unitCost: portions > 0 ? rawCost / portions : rawCost };
+            if (substituted) materialVariantSubstitutions.push({ materialId: matId, name: matLabel, requested: contextKey, usedVariant: usedKey });
+          } else {
+            // No exact or cycled-up variant -- do NOT silently price $0; flag for "quote on request".
+            unmatchedMaterials.push({ materialId: matId, name: matLabel, requested: contextKey });
           }
         }
         const matCost = calculateMaterialCost(effectiveMaterial, quantity, adminSettings);
@@ -151,6 +190,8 @@ export function calculateTaskCost(taskData, adminSettings = {}, availableProcess
     minimumWholesalePrice,
     businessMultiplier: businessMultiplier,
     materialMarkup: materialMarkup,
+    materialVariantSubstitutions,
+    unmatchedMaterials,
     calculatedAt: new Date().toISOString()
   };
 }

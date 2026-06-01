@@ -41,6 +41,22 @@ export function calculateProcessCost(process, adminSettings = {}, availableMater
   return { laborCost: Math.round(laborCost * 100) / 100, baseMaterialsCost: Math.round(baseMaterialsCost * 100) / 100, materialsCost: Math.round(oldMarkedUpMaterialsCost * 100) / 100, materialMarkup: materialMarkup, weightedLaborCost: weightedLaborCost, weightedBaseMaterialsCost: weightedBaseMaterialsCost, metalComplexityMultiplier: metalComplexityMultiplier, totalCost: Math.round(retailPrice * 100) / 100, retailPrice: Math.round(retailPrice * 100) / 100, hourlyRate: Math.round(hourlyRate * 100) / 100, skillMultiplier: getSkillLevelMultiplier(skillLevel), laborHours: laborHours, calculatedAt: new Date().toISOString(), isMetalDependent: false };
 }
 
+// Karat cycle-up for process materials (project_metal_karat_cycle_up): when a material
+// lacks the requested karat, substitute the nearest HIGHER karat of the same color.
+const PROCESS_KARAT_LADDER = ['10K', '14K', '18K'];
+function findProductWithCycleUp(products, metalType, karat) {
+  if (!Array.isArray(products)) return { product: null, substituted: false, usedKarat: null };
+  const exact = products.find(p => p.metalType === metalType && p.karat === karat);
+  if (exact) return { product: exact, substituted: false, usedKarat: karat };
+  const idx = PROCESS_KARAT_LADDER.indexOf(karat);
+  if (idx === -1) return { product: null, substituted: false, usedKarat: null };
+  for (let j = idx + 1; j < PROCESS_KARAT_LADDER.length; j++) {
+    const found = products.find(p => p.metalType === metalType && p.karat === PROCESS_KARAT_LADDER[j]);
+    if (found) return { product: found, substituted: true, usedKarat: PROCESS_KARAT_LADDER[j] };
+  }
+  return { product: null, substituted: false, usedKarat: null };
+}
+
 function _calculateMetalDependentProcessCost(process, settings, laborCost, hourlyRate, skillLevel, laborHours, materialMarkup, materials = []) {
   const bizMul = calculateBusinessMultiplier({ administrativeFee: settings.administrativeFee, businessFee: settings.businessFee, consumablesFee: settings.consumablesFee });
   const enforcedBizMul = enforceMinimumBusinessMultiplier(bizMul);
@@ -68,7 +84,7 @@ function _calculateMetalDependentProcessCost(process, settings, laborCost, hourl
       materialBreakdown.push({ name: m.displayName || m.name, quantity: m.quantity || 1, unitPrice: cost / (m.quantity || 1), total: cost });
     });
     materials.filter(m => m.isMetalDependent).forEach(m => {
-      const product = (m.stullerProducts || []).find(p => p.metalType === variant.metalType && p.karat === variant.karat);
+      const { product, substituted, usedKarat } = findProductWithCycleUp(m.stullerProducts || [], variant.metalType, variant.karat);
       let cost = 0; let unitPrice = 0;
       if (product) {
         let rawCost = getMaterialBaseRawCost(null, product);
@@ -78,12 +94,13 @@ function _calculateMetalDependentProcessCost(process, settings, laborCost, hourl
         cost = markedUp * quantity; unitPrice = markedUp;
       }
       variantTotalMaterialsCost += cost;
-      materialBreakdown.push({ name: m.displayName || m.name, quantity: m.quantity || 1, unitPrice: unitPrice, total: cost, isVariant: true, found: !!product });
+      const substitutedFrom = substituted ? `${variant.metalType}_${usedKarat}`.toLowerCase().replace(/[^a-z0-9]/g, '_') : null;
+      materialBreakdown.push({ name: m.displayName || m.name, quantity: m.quantity || 1, unitPrice: unitPrice, total: cost, isVariant: true, found: !!product, substituted, substitutedFrom });
     });
     const metalComplexity = 1.0; let variantBaseMaterialsCost = 0;
     universalMaterials.forEach(m => { variantBaseMaterialsCost += (m.estimatedCost || 0); });
     materials.filter(m => m.isMetalDependent).forEach(m => {
-      const product = (m.stullerProducts || []).find(p => p.metalType === variant.metalType && p.karat === variant.karat);
+      const { product } = findProductWithCycleUp(m.stullerProducts || [], variant.metalType, variant.karat);
        if (product) {
         let rawCost = getMaterialBaseRawCost(null, product);
         const portions = Number(product.portionsPerUnit) > 0 ? Number(product.portionsPerUnit) : (m.portionsPerUnit || 1);
