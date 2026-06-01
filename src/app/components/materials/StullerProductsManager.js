@@ -108,15 +108,17 @@ export default function StullerProductsManager({
     }
   };
 
-  const handleDeleteProduct = (productId) => {
-    const updatedProducts = stullerProducts.filter(p => p.id !== productId);
+  // Operate by array index, not product.id: some stored products lack a
+  // distinct id, which made id-based delete/edit hit the wrong row (or all).
+  const handleDeleteProduct = (index) => {
+    const updatedProducts = stullerProducts.filter((_, i) => i !== index);
     onProductsChange(updatedProducts);
   };
 
-  const handleUpdateProductPortions = (productId, nextValue) => {
+  const handleUpdateProductPortions = (index, nextValue) => {
     const parsedValue = Math.max(1, parseInt(nextValue, 10) || 1);
-    const updatedProducts = stullerProducts.map((product) => (
-      product.id === productId
+    const updatedProducts = stullerProducts.map((product, i) => (
+      i === index
         ? { ...product, portionsPerUnit: parsedValue }
         : product
     ));
@@ -226,8 +228,8 @@ export default function StullerProductsManager({
         </Alert>
       ) : isMobile ? (
         <Box display="flex" flexDirection="column" gap={2}>
-          {stullerProducts.map((product) => (
-            <Paper key={product.id} variant="outlined" sx={{ p: 2 }}>
+          {stullerProducts.map((product, index) => (
+            <Paper key={product.id || index} variant="outlined" sx={{ p: 2 }}>
               <Box display="flex" justifyContent="space-between" alignItems="flex-start" gap={2}>
                 <Box sx={{ minWidth: 0 }}>
                   <Typography variant="subtitle2" sx={{ wordBreak: 'break-word' }}>
@@ -240,7 +242,7 @@ export default function StullerProductsManager({
                 <IconButton
                   size="small"
                   color="error"
-                  onClick={() => handleDeleteProduct(product.id)}
+                  onClick={() => handleDeleteProduct(index)}
                   title="Remove Product"
                 >
                   <DeleteIcon />
@@ -269,7 +271,7 @@ export default function StullerProductsManager({
                     size="small"
                     type="number"
                     value={getProductPortionsPerUnit(product)}
-                    onChange={(event) => handleUpdateProductPortions(product.id, event.target.value)}
+                    onChange={(event) => handleUpdateProductPortions(index, event.target.value)}
                     inputProps={{ min: 1, step: 1 }}
                     sx={{ mt: 0.5 }}
                   />
@@ -291,6 +293,7 @@ export default function StullerProductsManager({
           <Table>
             <TableHead>
               <TableRow>
+                <TableCell padding="checkbox" />
                 <TableCell>Item Number</TableCell>
                 <TableCell>Metal Type</TableCell>
                 <TableCell>Karat</TableCell>
@@ -299,12 +302,21 @@ export default function StullerProductsManager({
                 <TableCell>Marked-up Price</TableCell>
                 <TableCell>Raw Cost/Portion</TableCell>
                 <TableCell>Final Cost/Portion</TableCell>
-                <TableCell>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {stullerProducts.map((product) => (
-                <TableRow key={product.id}>
+              {stullerProducts.map((product, index) => (
+                <TableRow key={product.id || index}>
+                  <TableCell padding="checkbox">
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => handleDeleteProduct(index)}
+                      title="Remove Product"
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </TableCell>
                   <TableCell>{product.stullerItemNumber}</TableCell>
                   <TableCell>
                     {product.metalType ? (
@@ -337,7 +349,7 @@ export default function StullerProductsManager({
                       size="small"
                       type="number"
                       value={getProductPortionsPerUnit(product)}
-                      onChange={(event) => handleUpdateProductPortions(product.id, event.target.value)}
+                      onChange={(event) => handleUpdateProductPortions(index, event.target.value)}
                       inputProps={{ min: 1, step: 1 }}
                     />
                   </TableCell>
@@ -351,16 +363,6 @@ export default function StullerProductsManager({
                   <TableCell>{formatCurrency(calculateRawCostPerPortion(product))}</TableCell>
                   <TableCell>
                     <strong>{formatCurrency(calculateDisplayMarkedUpCostPerPortion(product))}</strong>
-                  </TableCell>
-                  <TableCell>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => handleDeleteProduct(product.id)}
-                      title="Remove Product"
-                    >
-                      <DeleteIcon />
-                    </IconButton>
                   </TableCell>
                 </TableRow>
               ))}
