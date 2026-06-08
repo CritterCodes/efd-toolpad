@@ -25,6 +25,7 @@ import TravelExploreIcon from "@mui/icons-material/TravelExplore";
 import ArticleIcon from "@mui/icons-material/Article";
 import EditNoteIcon from "@mui/icons-material/EditNote";
 import QuizIcon from "@mui/icons-material/Quiz";
+import HowToVoteIcon from "@mui/icons-material/HowToVote";
 
 import { SHARED_NAVIGATION } from "./sharedNavigation";
 
@@ -258,6 +259,11 @@ export const adminNavigation = {
           icon: <ReceiptIcon />
         }
       ]
+    },
+    {
+      segment: 'dashboard/vote-reminders',
+      title: 'Vote Campaign',
+      icon: <HowToVoteIcon />
     },
     {
       segment: 'dashboard/admin/settings',
