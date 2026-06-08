@@ -18,6 +18,7 @@ import DesignServicesIcon from "@mui/icons-material/DesignServices";
 import PaymentIcon from "@mui/icons-material/Payment";
 import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 import LeadsIcon from "@mui/icons-material/ChatBubbleOutline";
+import HowToVoteIcon from "@mui/icons-material/HowToVote";
 
 import { SHARED_NAVIGATION } from "./sharedNavigation";
 
@@ -171,6 +172,11 @@ export const devNavigation = {
           icon: <ReceiptIcon />
         }
       ]
+    },
+    {
+      segment: 'dashboard/vote-reminders',
+      title: 'Vote Campaign',
+      icon: <HowToVoteIcon />
     },
     { kind: 'header', title: 'System' },
     {
