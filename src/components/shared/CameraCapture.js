@@ -20,6 +20,55 @@ import {
   Close as CloseIcon
 } from '@mui/icons-material';
 
+// Downscale + re-encode a selected/captured image so uploads stay well under
+// Vercel's 4.5 MB serverless request-body limit. Full-resolution phone photos
+// are routinely 4-12 MB and would otherwise 413 (FUNCTION_PAYLOAD_TOO_LARGE).
+const MAX_EDGE = 1600; // px, longest side
+const JPEG_QUALITY = 0.85;
+
+const compressImage = (file) =>
+  new Promise((resolve) => {
+    // Only attempt for raster images the browser can decode; pass anything else through.
+    if (!file || !file.type?.startsWith('image/')) {
+      resolve(file);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const { width, height } = img;
+      const scale = Math.min(1, MAX_EDGE / Math.max(width, height));
+      // Already small in both dimensions and bytes — skip the re-encode.
+      if (scale === 1 && file.size <= 1.5 * 1024 * 1024) {
+        resolve(file);
+        return;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(width * scale);
+      canvas.height = Math.round(height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            resolve(file);
+            return;
+          }
+          const baseName = (file.name || `photo-${Date.now()}`).replace(/\.[^.]+$/, '');
+          resolve(new File([blob], `${baseName}.jpg`, { type: 'image/jpeg', lastModified: Date.now() }));
+        },
+        'image/jpeg',
+        JPEG_QUALITY
+      );
+    };
+    img.onerror = () => {
+      // Undecodable format (e.g. some HEIC) — fall back to the original file.
+      URL.revokeObjectURL(objectUrl);
+      resolve(file);
+    };
+    img.src = objectUrl;
+  });
+
 export default function CameraCapture({ onCapture, disabled = false }) {
   // Default to native file input (safe for SSR + mobile).
   // Only show webcam dialog after confirming desktop on client.
@@ -155,9 +204,11 @@ export default function CameraCapture({ onCapture, disabled = false }) {
     setSelectedDeviceId(e.target.value); startCamera(e.target.value);
   }, [startCamera]);
 
-  const handleFileSelect = useCallback((e) => {
+  const handleFileSelect = useCallback(async (e) => {
     const file = e.target.files?.[0];
-    if (file) onCapture(file);
+    if (!file) return;
+    const prepared = await compressImage(file);
+    onCapture(prepared);
   }, [onCapture]);
 
   return (
