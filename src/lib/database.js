@@ -8,43 +8,57 @@ class Database {
         if (typeof window !== 'undefined') {
             throw new Error('Database class should only be used on the server-side');
         }
-        
-        if (!Database.instance) {
-            // Check if MONGODB_URI is defined
-            const mongoUri = process.env.MONGODB_URI;
-            
-            if (!mongoUri) {
-                throw new Error('MONGODB_URI environment variable is not defined');
-            }
-            
-            // Use HMR-friendly approach from Vercel example
-            if (process.env.NODE_ENV === "development") {
-                // In development mode, use a global variable for HMR compatibility
-                let globalWithMongo = global;
-                if (!globalWithMongo._mongoClient) {
-                    globalWithMongo._mongoClient = new MongoClient(mongoUri, {
-                        minPoolSize: 5,
-                        maxPoolSize: 10,
-                    });
-                }
-                this.client = globalWithMongo._mongoClient;
-            } else {
-                // In production mode, create a new client
-                this.client = new MongoClient(mongoUri, {
+
+        if (Database.instance) {
+            return Database.instance;
+        }
+
+        // Defer client creation and the MONGODB_URI check to first use (see
+        // _ensureClient). Doing it here would throw when `new Database()` runs at
+        // module import — which happens during `next build` page-data collection,
+        // where the env var may legitimately be absent.
+        this.client = null;
+        this._instance = null;
+        Database.instance = this;
+        return this;
+    }
+
+    // Lazily create the MongoClient. Safe to call repeatedly; only the first call
+    // builds the client. Throws only when a connection is actually needed at runtime.
+    _ensureClient() {
+        if (this.client) return this.client;
+
+        const mongoUri = process.env.MONGODB_URI;
+        if (!mongoUri) {
+            throw new Error('MONGODB_URI environment variable is not defined');
+        }
+
+        // Use HMR-friendly approach from Vercel example
+        if (process.env.NODE_ENV === "development") {
+            // In development mode, use a global variable for HMR compatibility
+            let globalWithMongo = global;
+            if (!globalWithMongo._mongoClient) {
+                globalWithMongo._mongoClient = new MongoClient(mongoUri, {
                     minPoolSize: 5,
                     maxPoolSize: 10,
                 });
             }
-            this._instance = null;
-            Database.instance = this;
+            this.client = globalWithMongo._mongoClient;
+        } else {
+            // In production mode, create a new client
+            this.client = new MongoClient(mongoUri, {
+                minPoolSize: 5,
+                maxPoolSize: 10,
+            });
         }
-        return Database.instance;
+        return this.client;
     }
 
     async connect() {
         if (!this._instance) {
             try {
                 console.log("🔄 Attempting MongoDB connection...");
+                this._ensureClient();
                 await this.client.connect();
                 this._instance = this.client.db(process.env.MONGO_DB_NAME || "efd-database");
             } catch (error) {
