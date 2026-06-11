@@ -10,6 +10,20 @@ const FREQUENCY_LABELS = {
   weekly: 'Weekly',
 };
 
+// Friendly labels for vote-click sources (set by efd-shop's /go redirect).
+const SOURCE_LABELS = {
+  landing_page: 'Landing page',
+  landing_signedup: 'Landing (after signup)',
+  modal_skip: 'Banner popup (skip)',
+  modal_signup: 'Banner popup (after signup)',
+  email_welcome: 'Email — welcome',
+  email_reminder: 'Email — reminder',
+  calendar: 'Calendar reminder',
+  unknown: 'Other / direct',
+};
+
+const EMAIL_SOURCES = ['email_welcome', 'email_reminder'];
+
 /**
  * GET /api/admin/vote-reminders
  * Returns counts for the vote-reminder campaign:
@@ -29,7 +43,7 @@ export async function GET() {
     const events = db.collection('voteReminderEvents');
     const filter = { campaignKey: CAMPAIGN_KEY };
 
-    const [emailTotal, emailActive, emailUnsubscribed, byFrequencyRaw, calendarAdds, recent] =
+    const [emailTotal, emailActive, emailUnsubscribed, byFrequencyRaw, calendarAdds, voteClicksRaw, recent] =
       await Promise.all([
         subs.countDocuments(filter),
         subs.countDocuments({ ...filter, status: 'active' }),
@@ -41,6 +55,13 @@ export async function GET() {
           ])
           .toArray(),
         events.countDocuments({ ...filter, type: 'calendar_add' }),
+        events
+          .aggregate([
+            { $match: { ...filter, type: 'vote_click' } },
+            { $group: { _id: '$source', count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+          ])
+          .toArray(),
         subs
           .find(filter, { projection: { email: 1, frequency: 1, status: 1, source: 1, createdAt: 1 } })
           .sort({ createdAt: -1 })
@@ -54,6 +75,19 @@ export async function GET() {
       count: f.count,
     }));
 
+    const voteClicksBySource = voteClicksRaw.map((c) => ({
+      id: c._id || 'unknown',
+      label: SOURCE_LABELS[c._id] || c._id || 'Other / direct',
+      count: c.count,
+    }));
+    const voteClicksTotal = voteClicksBySource.reduce((sum, c) => sum + c.count, 0);
+    const voteClicksFromEmail = voteClicksBySource
+      .filter((c) => EMAIL_SOURCES.includes(c.id))
+      .reduce((sum, c) => sum + c.count, 0);
+    const voteClicksFromCalendar = voteClicksBySource
+      .filter((c) => c.id === 'calendar')
+      .reduce((sum, c) => sum + c.count, 0);
+
     return Response.json({
       campaignKey: CAMPAIGN_KEY,
       email: {
@@ -63,6 +97,12 @@ export async function GET() {
         byFrequency,
       },
       calendar: { total: calendarAdds },
+      voteClicks: {
+        total: voteClicksTotal,
+        fromEmail: voteClicksFromEmail,
+        fromCalendar: voteClicksFromCalendar,
+        bySource: voteClicksBySource,
+      },
       totalReminders: emailActive + calendarAdds,
       recent: recent.map((r) => ({
         email: r.email,

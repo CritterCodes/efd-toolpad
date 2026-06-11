@@ -92,6 +92,31 @@ export default function VoteRemindersPage() {
             <StatCard title="Unsubscribed" value={data.email.unsubscribed} note="Email opt-outs" />
           </Box>
 
+          {/* Vote clicks */}
+          <Typography variant="h6" fontWeight={600} sx={{ mb: 1.5 }}>Vote clicks</Typography>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2, mb: 3 }}>
+            <StatCard title="🗳️ Total vote clicks" value={data.voteClicks?.total ?? 0} note="“Vote now” taps → voting site" highlight />
+            <StatCard title="From email" value={data.voteClicks?.fromEmail ?? 0} note="Welcome + reminder emails" />
+            <StatCard title="From calendar" value={data.voteClicks?.fromCalendar ?? 0} note="Calendar reminder taps" />
+          </Box>
+
+          {/* Vote clicks by source */}
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" fontWeight={600} sx={{ mb: 1 }}>Vote clicks by source</Typography>
+              <Divider sx={{ mb: 2 }} />
+              {!data.voteClicks?.bySource?.length ? (
+                <Typography variant="body2" color="text.secondary">No vote clicks tracked yet.</Typography>
+              ) : (
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  {data.voteClicks.bySource.map((c) => (
+                    <Chip key={c.id} label={`${c.label}: ${c.count}`} variant="outlined" />
+                  ))}
+                </Stack>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Email cadence breakdown */}
           <Card sx={{ mb: 3 }}>
             <CardContent>
