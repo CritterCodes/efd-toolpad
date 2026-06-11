@@ -43,7 +43,7 @@ export async function GET() {
     const events = db.collection('voteReminderEvents');
     const filter = { campaignKey: CAMPAIGN_KEY };
 
-    const [emailTotal, emailActive, emailUnsubscribed, byFrequencyRaw, calendarAdds, voteClicksRaw, recent] =
+    const [emailTotal, emailActive, emailUnsubscribed, byFrequencyRaw, calendarAdds, voteClicksRaw, recent, voterLogRaw] =
       await Promise.all([
         subs.countDocuments(filter),
         subs.countDocuments({ ...filter, status: 'active' }),
@@ -67,6 +67,15 @@ export async function GET() {
           .sort({ createdAt: -1 })
           .limit(25)
           .toArray(),
+        // Email-attributed vote clicks — "who voted (via the link), when".
+        events
+          .find(
+            { ...filter, type: 'vote_click', email: { $ne: null } },
+            { projection: { email: 1, source: 1, createdAt: 1 } }
+          )
+          .sort({ createdAt: -1 })
+          .limit(50)
+          .toArray(),
       ]);
 
     const byFrequency = byFrequencyRaw.map((f) => ({
@@ -88,6 +97,12 @@ export async function GET() {
       .filter((c) => c.id === 'calendar')
       .reduce((sum, c) => sum + c.count, 0);
 
+    const voterLog = voterLogRaw.map((v) => ({
+      email: v.email,
+      channel: SOURCE_LABELS[v.source] || v.source || 'Other',
+      createdAt: v.createdAt,
+    }));
+
     return Response.json({
       campaignKey: CAMPAIGN_KEY,
       email: {
@@ -102,6 +117,7 @@ export async function GET() {
         fromEmail: voteClicksFromEmail,
         fromCalendar: voteClicksFromCalendar,
         bySource: voteClicksBySource,
+        recent: voterLog,
       },
       totalReminders: emailActive + calendarAdds,
       recent: recent.map((r) => ({
