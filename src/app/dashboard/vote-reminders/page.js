@@ -117,6 +117,40 @@ export default function VoteRemindersPage() {
             </CardContent>
           </Card>
 
+          {/* Who clicked the vote link (email subscribers) */}
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" fontWeight={600} sx={{ mb: 1 }}>Who clicked the vote link (email subscribers)</Typography>
+              <Divider sx={{ mb: 2 }} />
+              {!data.voteClicks?.recent?.length ? (
+                <Typography variant="body2" color="text.secondary">
+                  No identified vote clicks yet. (Calendar and on-site clicks are anonymous.)
+                </Typography>
+              ) : (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Email</TableCell>
+                        <TableCell>Channel</TableCell>
+                        <TableCell>When</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {data.voteClicks.recent.map((v, i) => (
+                        <TableRow key={`${v.email}-${i}`}>
+                          <TableCell>{v.email}</TableCell>
+                          <TableCell>{v.channel}</TableCell>
+                          <TableCell>{formatDate(v.createdAt)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Email cadence breakdown */}
           <Card sx={{ mb: 3 }}>
             <CardContent>
