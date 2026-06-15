@@ -1,5 +1,6 @@
 import { db } from '@/lib/database';
 import { v4 as uuidv4 } from 'uuid';
+import Constants from '@/lib/constants';
 import {
   PAYROLL_LOG_STATUS,
   buildPayrollBatchTotals,
@@ -15,8 +16,25 @@ export default class RepairLaborLogsModel {
   static async create(data) {
     const dbInstance = await db.connect();
     const now = new Date();
+
+    // Resolve the work order this labor belongs to (S0 spine). New logs are
+    // keyed by workOrderID; repairID is retained for back-compat lookups.
+    let workOrderID = data.workOrderID || null;
+    if (!workOrderID && data.repairID) {
+      const wo = await dbInstance
+        .collection(Constants.WORK_ORDERS_COLLECTION)
+        .findOne(
+          { sourceType: 'repair', sourceID: data.repairID },
+          { projection: { workOrderID: 1 } }
+        );
+      workOrderID = wo?.workOrderID || null;
+    }
+
     const entry = {
       logID: uuidv4(),
+      workOrderID,
+      sourceType: data.sourceType || (data.repairID ? 'repair' : null),
+      sourceID: data.sourceID || data.repairID || null,
       repairID: data.repairID,
       primaryJewelerUserID: data.primaryJewelerUserID,
       primaryJewelerName: data.primaryJewelerName,

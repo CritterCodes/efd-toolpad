@@ -93,4 +93,53 @@ export default class WorkOrdersModel {
     );
     return this.findByID(workOrderID);
   }
+
+  /**
+   * Keep a repair's work order in sync (S0: repair is still the workflow owner;
+   * the WO mirrors its bench state). Upserts by (repair, repairID) so it's safe
+   * to call on create and on every update. Idempotent.
+   */
+  static async syncFromRepair(repair) {
+    if (!repair || !repair.repairID) return null;
+    const col = await this.collection();
+    const now = new Date();
+    const mirrored = {
+      title: repair.description ? String(repair.description).slice(0, 80) : `Repair ${repair.repairID}`,
+      description: repair.description ?? null,
+      metalType: repair.metalType ?? null,
+      karat: repair.karat ?? null,
+      isRush: !!repair.isRush,
+      promiseDate: repair.promiseDate ?? null,
+      status: repair.status ?? null,
+      assignedJeweler: repair.assignedJeweler ?? null,
+      assignedToUserID: repair.assignedTo ?? null,
+      claimedAt: repair.claimedAt ?? null,
+      completedAt: repair.completedAt ?? null,
+      requiresLaborReview: !!repair.requiresLaborReview,
+      qcBy: repair.qcBy ?? null,
+      qcDate: repair.qcDate ?? null,
+      tasks: Array.isArray(repair.tasks) ? repair.tasks : [],
+      updatedAt: now,
+    };
+    await col.updateOne(
+      { sourceType: WORK_ORDER_SOURCE.REPAIR, sourceID: repair.repairID },
+      {
+        $set: mirrored,
+        $setOnInsert: {
+          workOrderID: randomUUID(),
+          sourceType: WORK_ORDER_SOURCE.REPAIR,
+          sourceID: repair.repairID,
+          seq: 1,
+          discipline: DISCIPLINE.BENCH_JEWELRY,
+          createdAt: now,
+          createdBy: 'repair-sync',
+        },
+      },
+      { upsert: true }
+    );
+    return col.findOne(
+      { sourceType: WORK_ORDER_SOURCE.REPAIR, sourceID: repair.repairID },
+      { projection: { _id: 0 } }
+    );
+  }
 }

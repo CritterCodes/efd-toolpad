@@ -1,5 +1,6 @@
 import { db } from "@/lib/database";
 import { v4 as uuidv4 } from 'uuid';
+import WorkOrdersModel from "@/app/api/workOrders/model";
 
 export default class RepairsModel {
     /**
@@ -38,6 +39,13 @@ export default class RepairsModel {
             if (result.acknowledged) {
                 // ✅ Return the full inserted repair object
                 console.log("✅ Repair successfully saved to the database:", repair.repairID);
+                // Spine sync: ensure a work order exists for this repair (S0).
+                // Non-fatal — a repair must still save even if WO sync hiccups.
+                try {
+                    await WorkOrdersModel.syncFromRepair(repair);
+                } catch (woError) {
+                    console.error("⚠️ Work order sync failed on repair create:", woError.message);
+                }
                 return repair;
             } else {
                 console.error("❌ Database Insert Failed");
@@ -67,7 +75,14 @@ export default class RepairsModel {
             }
 
             // ✅ Return the updated repair object after updating
-            return await this.findById(repairID);
+            const updatedRepair = await this.findById(repairID);
+            // Spine sync: mirror the repair's bench state onto its work order (S0).
+            try {
+                await WorkOrdersModel.syncFromRepair(updatedRepair);
+            } catch (woError) {
+                console.error("⚠️ Work order sync failed on repair update:", woError.message);
+            }
+            return updatedRepair;
         } catch (error) {
             console.error("❌ Error in RepairsModel:", error);
             throw new Error("Failed to update repair in the database.");

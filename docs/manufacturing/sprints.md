@@ -22,14 +22,21 @@ change**, and establish a clean foundation.
   - create empty `drops`/`designs`/`pieces` (+indexes)
   - **cleanup:** drop `inventory`/`inventoryTransactions`/`inventoryReorderSuggestions`;
     reset trash `products` data (DEV now; **confirm before prod**)
-- **Code:**
-  - constants for new collections; data-access models for `workOrders` / `laborLogs` / `payrollBatches`
-  - repairs **emit** a WO; My Bench reads `workOrders` (with discipline gating)
-  - labor review + payroll read generalized collections
-  - fix `src/lib/database.js` to **fail closed** if `MONGO_DB_NAME` is unset (no silent prod default)
-  - delete orphaned cross-DB dead code; unify on `lib/database.js`
-- **Done when:** a repair flows end-to-end (claim → work → QC → labor → payroll) through the new
-  spine with no user-visible change; a non-jeweler cannot claim a repair.
+- **Code (done):**
+  - constants + `database.js` accessors for new collections; **fail-closed** on unset `MONGO_DB_NAME`
+  - `workOrders` data-access model + discipline service (artisanType→discipline)
+  - labor/payroll models repointed to `laborLogs`/`payrollBatches`
+  - repairs **emit & sync** a work order (`RepairsModel.create`/`updateById`); new labor logs carry `workOrderID`
+- **Deferred out of S0 (no value yet + regression risk):**
+  - **My Bench read-switch to `workOrders` + hard discipline *visibility* enforcement → moved to S2/S4**,
+    when a second source (sale-service, pieces) actually needs to appear on the bench and forces the
+    aggregation. Today there is one lane (`bench_jewelry`) and `artisanTypes` is **unpopulated for all
+    users**, so gating visibility now would lock every artisan out. Discipline is stored on every WO; hard
+    lane enforcement lands with the bench rewrite + once artisan tagging is populated.
+  - **Delete orphaned cross-DB cad/designs code → moved to S3** (absorbed there; deleting now would break
+    the still-live CAD Requests page, violating no-regression).
+- **Done when:** repairs flow through the synced WO spine; labor/payroll read the generalized
+  collections; full `next build` passes; **no user-visible change**.
 
 ## S1 — Billing modes
 
