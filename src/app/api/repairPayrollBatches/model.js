@@ -6,7 +6,8 @@ import {
 } from '@/services/payrollUtils';
 
 export default class RepairPayrollBatchesModel {
-  static COLLECTION = 'repairPayrollBatches';
+  // Generalized in S0: renamed from repairPayrollBatches.
+  static COLLECTION = 'payrollBatches';
 
   static async create(data) {
     const dbInstance = await db.connect();

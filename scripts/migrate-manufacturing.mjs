@@ -79,6 +79,7 @@ async function main() {
       sourceType: 'repair',
       sourceID: r.repairID,
       seq: 1,
+      discipline: 'bench_jewelry',
       title: r.description ? String(r.description).slice(0, 80) : `Repair ${r.repairID}`,
       description: r.description ?? null,
       metalType: r.metalType ?? null,
@@ -102,6 +103,14 @@ async function main() {
     woCreated++;
   }
   steps.push(`workOrders: ${woCreated} created, ${woSkipped} already existed (${allRepairs.length} repairs)`);
+
+  // Backfill discipline on any repair WOs created before discipline existed.
+  const discRes = await workOrders.updateMany(
+    { sourceType: 'repair', discipline: { $exists: false } },
+    { $set: { discipline: 'bench_jewelry' } }
+  );
+  await workOrders.createIndex({ discipline: 1, status: 1 });
+  steps.push(`workOrders discipline backfilled: ${discRes.modifiedCount}`);
 
   // ── Step 2: rename repairLaborLogs -> laborLogs, link work orders ───────
   if (await collExists(db, 'repairLaborLogs') && !(await collExists(db, 'laborLogs'))) {

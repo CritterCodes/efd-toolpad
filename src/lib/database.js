@@ -2,6 +2,20 @@
 import { MongoClient } from "mongodb";
 import Constants from "./constants.js";
 
+// Resolve the target database name. Fails closed: if MONGO_DB_NAME is unset we
+// throw rather than silently defaulting to production ("efd-database"). This is
+// only reached at runtime (connect()), never during `next build`, so it can't
+// break page-data collection.
+function resolveDbName() {
+    const name = process.env.MONGO_DB_NAME;
+    if (!name) {
+        throw new Error(
+            'MONGO_DB_NAME environment variable is not defined (refusing to default to production).'
+        );
+    }
+    return name;
+}
+
 class Database {
     constructor() {
         // Prevent instantiation on client-side
@@ -60,7 +74,7 @@ class Database {
                 console.log("🔄 Attempting MongoDB connection...");
                 this._ensureClient();
                 await this.client.connect();
-                this._instance = this.client.db(process.env.MONGO_DB_NAME || "efd-database");
+                this._instance = this.client.db(resolveDbName());
             } catch (error) {
                 console.error("❌ MongoDB Connection Error:", error.message);
                 // Try alternative connection string without directConnection
@@ -77,7 +91,7 @@ class Database {
                         await altClient.connect();
                         console.log("✅ MongoDB Connected (alternative settings)");
                         this.client = altClient;
-                        this._instance = this.client.db(process.env.MONGO_DB_NAME || "efd-database");
+                        this._instance = this.client.db(resolveDbName());
                     } catch (altError) {
                         console.error("❌ Alternative MongoDB Connection Also Failed:", altError.message);
                         throw new Error("Failed to connect to MongoDB");
@@ -177,6 +191,37 @@ class Database {
     async dbAffiliateReferralEvents() {
         await this.connect();
         return this._instance.collection(Constants.AFFILIATE_REFERRAL_EVENTS_COLLECTION);
+    }
+
+    // Manufacturing / Production cycle (Work Order spine — see docs/manufacturing)
+    async dbWorkOrders() {
+        await this.connect();
+        return this._instance.collection(Constants.WORK_ORDERS_COLLECTION);
+    }
+
+    async dbLaborLogs() {
+        await this.connect();
+        return this._instance.collection(Constants.LABOR_LOGS_COLLECTION);
+    }
+
+    async dbPayrollBatches() {
+        await this.connect();
+        return this._instance.collection(Constants.PAYROLL_BATCHES_COLLECTION);
+    }
+
+    async dbDrops() {
+        await this.connect();
+        return this._instance.collection(Constants.DROPS_COLLECTION);
+    }
+
+    async dbDesigns() {
+        await this.connect();
+        return this._instance.collection(Constants.DESIGNS_COLLECTION);
+    }
+
+    async dbPieces() {
+        await this.connect();
+        return this._instance.collection(Constants.PIECES_COLLECTION);
     }
 
     // Legacy alias for backward compatibility

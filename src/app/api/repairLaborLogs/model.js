@@ -8,7 +8,9 @@ import {
 } from '@/services/payrollUtils';
 
 export default class RepairLaborLogsModel {
-  static COLLECTION = 'repairLaborLogs';
+  // Generalized in S0: labor logs now live in `laborLogs` keyed by workOrderID.
+  // Logs retain repairID, so the repair $lookups below still resolve.
+  static COLLECTION = 'laborLogs';
 
   static async create(data) {
     const dbInstance = await db.connect();

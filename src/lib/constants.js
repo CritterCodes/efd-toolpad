@@ -6,7 +6,15 @@ const Constants = {
     TASKS_COLLECTION: 'tasks',
     MATERIALS_COLLECTION: 'materials',
     PROCESSES_COLLECTION: 'processes',
-    
+
+    // Manufacturing / Production cycle (Work Order spine — see docs/manufacturing)
+    WORK_ORDERS_COLLECTION: 'workOrders',
+    LABOR_LOGS_COLLECTION: 'laborLogs',            // generalized from repairLaborLogs (S0)
+    PAYROLL_BATCHES_COLLECTION: 'payrollBatches',  // generalized from repairPayrollBatches (S0)
+    DROPS_COLLECTION: 'drops',
+    DESIGNS_COLLECTION: 'designs',
+    PIECES_COLLECTION: 'pieces',
+
     // Admin Collections
     ADMIN_SETTINGS_COLLECTION: 'adminSettings',
     ADMIN_SETTINGS_AUDIT_COLLECTION: 'adminSettingsAudit',
