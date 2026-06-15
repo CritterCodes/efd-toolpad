@@ -1,9 +1,11 @@
 # Sprint Plan
 
 Each sprint ships **migration + code together** — data never drifts ahead of the code that
-reads it. Migration is one idempotent, re-runnable script (`scripts/migrate-manufacturing.mjs`),
-no down-migrations (DEV is re-cloneable; prod gets a backup at cutover). Schemas: see
-[data-model.md](./data-model.md) — update it in the same PR as any data change.
+reads it. Each sprint delivers **one hardened, idempotent migration** under `scripts/migrations/`
+(e.g. `s0-workorder-spine.mjs`) built on `_lib.mjs`, with `--dry-run` + a pre-flight backup and
+target-DB guards. No down-migrations (DEV is re-cloneable; prod gets a backup + a rehearsal on the
+`efd-db-migrate` clone at cutover). Schemas: see [data-model.md](./data-model.md) — update it in the
+same PR as any data change.
 
 **Dependency chain:** S0 → {S1, S3}; S2 → S0,S1; S4 → S0,S1,S3; S5 → S4; S6 → S5; S7 → S4,S5.
 
@@ -14,14 +16,13 @@ no down-migrations (DEV is re-cloneable; prod gets a backup at cutover). Schemas
 **Goal:** re-platform repairs onto the source-agnostic Work Order spine with **zero behavior
 change**, and establish a clean foundation.
 
-- **Migration** *(drafted & applied to DEV; finalize here)*:
-  - create `workOrders` (one per repair, `discipline: bench_jewelry`, seq 1) — *⚠ extend the
-    existing script to set `discipline`*
+- **Migration** — `scripts/migrations/s0-workorder-spine.mjs` *(hardened, applied to DEV; dry-run verified against prod)*:
+  - create `workOrders` (one per repair, `discipline: bench_jewelry`, seq 1) + indexes
   - rename `repairLaborLogs`→`laborLogs`, `repairPayrollBatches`→`payrollBatches`; link logs to WOs
   - add `billing.mode` default to repairs
   - create empty `drops`/`designs`/`pieces` (+indexes)
-  - **cleanup:** drop `inventory`/`inventoryTransactions`/`inventoryReorderSuggestions`;
-    reset trash `products` data (DEV now; **confirm before prod**)
+  - *Additive/renames only — no deletions.* Dropping junk `inventory*` and resetting trash
+    `products` are deferred (products reset belongs to S5; inventory junk can be dropped at cutover).
 - **Code (done):**
   - constants + `database.js` accessors for new collections; **fail-closed** on unset `MONGO_DB_NAME`
   - `workOrders` data-access model + discipline service (artisanType→discipline)

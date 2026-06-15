@@ -100,10 +100,24 @@ relationship and how (or whether) that work is billed.
 - **Billing mode** — how a source is charged: `retail | wholesale | internal | comped`.
 - **Fee pillars** — Storefront / Custody / Fulfillment; compose into consignment↔marketplace fees.
 
-## Dev environment
+## Dev, staging & migration environments
 
-Canonical dev DB is **`efd-database-DEV`** (uppercase), a full clone of prod on the same
-self-hosted Mongo (logical isolation only). Tooling:
-- `scripts/clone-prod-to-dev.mjs` — re-clone prod → DEV (guarded against writing to prod).
-- `scripts/migrate-manufacturing.mjs` — idempotent Phase-1 (S0) data migration; refuses prod
-  unless `MIGRATE_ALLOW_PROD=YES_I_AM_SURE`.
+Three databases on the same self-hosted Mongo (logical isolation):
+
+| DB | Role |
+|---|---|
+| `efd-database` | **production** — only ever targeted by the final cutover |
+| `efd-database-DEV` | **canonical dev** — full clone of prod; where we build & iterate each sprint |
+| `efd-db-migrate` | **migration staging** — fresh clone of prod used to rehearse the hardened prod migrations end-to-end before touching real prod |
+
+Tooling:
+- `scripts/clone-prod-to-dev.mjs` — clone prod → a target DB (guarded; refuses to write prod).
+  Re-clone DEV, or stage via `CLONE_TARGET_DB=efd-db-migrate`.
+- `scripts/migrations/` — **one hardened, idempotent migration per sprint** (`s0-workorder-spine.mjs`, …)
+  built on `_lib.mjs`. Each supports `--dry-run`, takes a pre-flight `mongodump` backup before any write,
+  and guards the target (only `efd-database-DEV` / `efd-db-migrate`, or prod with
+  `MIGRATE_ALLOW_PROD=YES_I_AM_SURE`; `--skip-backup` is blocked on prod).
+
+**Cutover model:** iterate on DEV each sprint → at the end, clone prod → `efd-db-migrate` and run every
+sprint's hardened migration there for real to rehearse → then run on prod (with backup) in lockstep with
+deploying the branch. Migrations are additive/renames (no data deletion) and re-runnable.
