@@ -47,6 +47,7 @@ The unit that lands on a bench. Knows nothing about customers or pricing.
 | `requiresLaborReview` | bool | multi-artisan flag |
 | `qcBy` / `qcDate` | string/date | QC is a status + permission, **not** a discipline |
 | `tasks` | array | processes performed (drives labor); from `processes`/`universalTasks` |
+| `saleContext` | object? | `{ salesInvoiceID, salesLineID }` when the work is attached to a sale (S2) — null otherwise |
 | `createdAt` / `updatedAt` / `createdBy` | date/string | |
 
 **Discipline ↔ artisanType map:** `bench_jewelry`→Jeweler, `cad`→CAD Designer,
@@ -58,6 +59,11 @@ The unit that lands on a bench. Knows nothing about customers or pricing.
 WOs are excluded from My Bench. Owner unrestricted; admins may assign across lanes.
 
 **My Bench query:** `{ assignedToUserID: me }` ∪ `{ discipline: { $in: myDisciplines }, status: claimable, assignedToUserID: null }`.
+
+**Sale-service (S2):** sale-driven service (a resize, etc.) is delivered as a **repair-backed work order**
+(`sourceType: 'repair'`) tagged with `saleContext`, comped via S1, with labor deducted from the seller
+payout — *not* a standalone `sale_service` source. The `sale_service` / `cad_request` sourceType values
+remain reserved for future sources that have no repair record.
 
 ---
 

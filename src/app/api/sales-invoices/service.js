@@ -2,6 +2,7 @@ import { ObjectId } from 'mongodb';
 import SalesInvoicesModel from './model';
 import SalePayoutsModel from '@/app/api/salePayouts/model';
 import RepairLaborLogsModel from '@/app/api/repairLaborLogs/model';
+import RepairsModel from '@/app/api/repairs/model';
 import { db } from '@/lib/database';
 import { deriveRepairItemMetadata } from '@/lib/productRepairMetadata';
 
@@ -320,6 +321,16 @@ export async function linkRepairToSalesInvoice(invoiceID, { lineID, repairID } =
   if (!lineItems.some((line) => line.lineID === lineID)) {
     throw new Error('Sales invoice line was not found.');
   }
+
+  // Stamp the sale reference onto the repair so its work order is tagged as
+  // sale-service (S2). RepairsModel.updateById triggers the work-order sync.
+  await RepairsModel.updateById(repairID, {
+    salesInvoiceID: invoiceID,
+    salesLineID: lineID,
+    updatedAt: new Date(),
+  }).catch((error) => {
+    console.error('⚠️ Failed to stamp sale reference on repair:', error.message);
+  });
 
   const linkedRepairIDs = Array.from(new Set([
     ...(invoice.linkedRepairIDs || []),

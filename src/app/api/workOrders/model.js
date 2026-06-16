@@ -119,6 +119,12 @@ export default class WorkOrdersModel {
       qcBy: repair.qcBy ?? null,
       qcDate: repair.qcDate ?? null,
       tasks: Array.isArray(repair.tasks) ? repair.tasks : [],
+      // Sale-service tracking (S2): when a repair is attached to a sale (a resize,
+      // etc.), tag its work order so sale-service work is directly queryable rather
+      // than requiring a cross-reference to the invoice.
+      saleContext: repair.salesInvoiceID
+        ? { salesInvoiceID: repair.salesInvoiceID, salesLineID: repair.salesLineID ?? null }
+        : null,
       updatedAt: now,
     };
     await col.updateOne(

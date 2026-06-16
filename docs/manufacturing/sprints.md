@@ -55,12 +55,21 @@ change**, and establish a clean foundation.
 - **Done when:** ✅ a comped/internal repair charges $0 (labor review **and** invoice) while labor
   logs still pay the jeweler; `next build` passes.
 
-## S2 — Sale service work orders
+## S2 — Sale-service work orders ✅
 
-**Goal:** a sale can spawn a `sale_service` WO (e.g. resize) without faking a repair.
-- **Migration:** none (additive).
-- **Code:** sale → WO creation, lands on the jeweler bench, billing `comped` or charged.
-- **Done when:** a resize attached to a sale appears on the bench, pays labor, creates no fake repair.
+**Goal:** sale-driven service (e.g. a resize) tracked as bench work that pays the jeweler with no
+customer charge — a clear path, not a faked customer repair.
+- **Already wired by S0+S1 + the existing sales system:** `linkRepairToSalesInvoice` links the service
+  repair to a sale line and deducts its labor from the seller payout (`getActualLaborDeduction`);
+  `includedWithSale`→`comped` (S1) zeroes the customer charge; the S0 spine gives it a work order,
+  bench presence, and payroll.
+- **Code (this sprint):** `linkRepairToSalesInvoice` now stamps `salesInvoiceID`/`salesLineID` on the
+  repair; the work-order sync tags the WO with `saleContext`, so sale-service work is directly queryable
+  (no invoice cross-reference). Closes the late-link gap.
+- **Migration:** `scripts/migrations/s2-sale-service-work-orders.mjs` — backfills sale refs +
+  `saleContext` for pre-existing sale-linked repairs (idempotent; DEV currently has none).
+- **Done when:** ✅ a sale-linked resize is comped (no customer charge), appears on the bench, pays the
+  jeweler via payroll, deducts labor from the seller payout, and is tagged `saleContext` for tracking.
 
 ## S3 — Drops & Designs (+ CAD estimator)
 
