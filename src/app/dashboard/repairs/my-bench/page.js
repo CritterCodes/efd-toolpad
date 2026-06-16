@@ -1,12 +1,13 @@
-"use client";
-import React, { useState, useEffect, useCallback } from 'react';
+'use client';
+
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Box, Typography, Grid, Button, Chip, CircularProgress, Tabs, Tab,
-  Card, CardContent, CardActions, Divider, Alert, TextField, MenuItem, Checkbox,
-  Dialog, DialogTitle, DialogContent, DialogActions, Stack,
+  TextField, MenuItem, Alert, Snackbar, Stack,
+  Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
 import {
-  Work as WorkIcon,
+  Handyman as WorkIcon,
   Add as AddIcon,
   Refresh as RefreshIcon,
   QrCodeScanner as ScanIcon,
@@ -17,51 +18,27 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
-import RepairThumbnail from '@/app/dashboard/repairs/components/RepairThumbnail';
 import ContinuousBarcodeScanner from '@/components/repairs/ContinuousBarcodeScanner';
-import {
-  BENCH_QUEUE,
-  BENCH_TABS,
-  isRepairInBenchTab,
-  normalizeRepairWorkflow,
-} from '@/services/repairWorkflow';
+import { BENCH_QUEUE, BENCH_TABS, isWorkOrderInTab } from '@/services/workOrders/workOrderWorkflow';
+import BenchWorkCard from './components/BenchWorkCard';
 
-const BENCH_STATUS_COLOR = {
-  IN_PROGRESS: '#0088FE',
-  UNCLAIMED: REPAIRS_UI.textMuted,
-  COMMUNICATIONS: '#A855F7',
-  WAITING_PARTS: '#FF8042',
-  QC: '#00C49F',
-};
-
-const DEFAULT_PARTS_FORM = {
-  source: 'stuller',
-  stullerSku: '',
-  name: '',
-  description: '',
-  quantity: '1',
-  price: '',
-};
+const DEFAULT_PARTS_FORM = { source: 'stuller', stullerSku: '', name: '', description: '', quantity: '1', price: '' };
 
 function toNumber(value, fallback = 0) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
-
 function normalizePricingSettings(adminSettings = {}) {
-  const pricing = adminSettings?.pricing && typeof adminSettings.pricing === 'object'
-    ? adminSettings.pricing
-    : adminSettings;
+  const pricing = adminSettings?.pricing && typeof adminSettings.pricing === 'object' ? adminSettings.pricing : adminSettings;
   const administrativeFee = toNumber(pricing?.administrativeFee ?? 0.10);
   const businessFee = toNumber(pricing?.businessFee ?? 0.15);
   const consumablesFee = toNumber(pricing?.consumablesFee ?? 0.05);
   const materialMarkup = Math.max(toNumber(pricing?.materialMarkup ?? 1.0), 1);
   const businessMultiplier = Math.max(1 + administrativeFee + businessFee + consumablesFee, 1);
-
   return { materialMarkup, businessMultiplier };
 }
-
 function calculateRetailFromBaseCosts(baseMaterialsCost = 0, laborCost = 0, adminSettings = {}) {
   const safeMaterials = Math.max(toNumber(baseMaterialsCost), 0);
   const safeLabor = Math.max(toNumber(laborCost), 0);
@@ -69,347 +46,61 @@ function calculateRetailFromBaseCosts(baseMaterialsCost = 0, laborCost = 0, admi
   const retail = ((safeMaterials + safeLabor) * businessMultiplier) + (safeMaterials * (materialMarkup - 1));
   return Math.round(retail * 100) / 100;
 }
-
 function buildStullerMaterial(stullerResponse, stullerSku, adminSettings = {}) {
   const data = stullerResponse?.data || stullerResponse || {};
   const basePrice = toNumber(data.price || data.showcasePrice, 0);
   const retailPrice = calculateRetailFromBaseCosts(basePrice, 0, adminSettings);
   const name = data.description || `Stuller ${stullerSku}`;
-
   return {
-    id: Date.now(),
-    name,
-    displayName: name,
+    id: Date.now(), name, displayName: name,
     description: `${data.longDescription || data.description || name} (Stuller: ${stullerSku})`,
-    quantity: 1,
-    price: retailPrice,
-    retailPrice,
-    unitCost: basePrice,
-    stullerPrice: basePrice,
-    baseCostPerPortion: basePrice,
-    category: 'stuller_material',
-    supplier: 'Stuller',
-    stuller_item_number: stullerSku,
-    isStullerItem: true,
+    quantity: 1, price: retailPrice, retailPrice, unitCost: basePrice, stullerPrice: basePrice,
+    baseCostPerPortion: basePrice, category: 'stuller_material', supplier: 'Stuller',
+    stuller_item_number: stullerSku, isStullerItem: true,
     stullerData: {
-      originalPrice: basePrice,
-      itemNumber: stullerSku,
+      originalPrice: basePrice, itemNumber: stullerSku,
       materialMarkup: normalizePricingSettings(adminSettings).materialMarkup,
       businessMultiplier: normalizePricingSettings(adminSettings).businessMultiplier,
-      weight: data.weight,
-      dimensions: data.dimensions,
-      metal: data.metal,
+      weight: data.weight, dimensions: data.dimensions, metal: data.metal,
     },
   };
 }
 
-function getJewelerLabel(jeweler) {
-  return [jeweler.firstName, jeweler.lastName].filter(Boolean).join(' ').trim()
-    || jeweler.name
-    || jeweler.email
-    || jeweler.userID;
-}
-
-function RepairBenchCard({
-  repair,
-  currentUserID,
-  isAdmin,
-  jewelers,
-  onRefresh,
-  selectable = false,
-  isSelected = false,
-  onToggleSelect,
-  onOpenPartsDialog,
-}) {
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const doAction = async (action) => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await fetch(`/api/repairs/${repair.repairID}/${action}`, { method: 'POST' });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Action failed');
-      }
-      onRefresh();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const assignJeweler = async (userID) => {
-    if (userID === repair.assignedTo) return;
-    if (!userID) {
-      await doAction('unclaim');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    try {
-      const res = await fetch(`/api/repairs/${encodeURIComponent(repair.repairID)}/assign-bench`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userID }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Unable to assign repair');
-      onRefresh();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const isMine = repair.assignedTo === currentUserID;
-
-  return (
-    <Card
-      sx={{
-        bgcolor: REPAIRS_UI.bgPanel,
-        border: `1px solid ${isSelected ? REPAIRS_UI.accent : REPAIRS_UI.border}`,
-        borderRadius: 2,
-        boxShadow: isSelected ? `0 0 0 2px ${REPAIRS_UI.accent}33` : 'none',
-      }}
-    >
-      <CardContent sx={{ pb: 1 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            {selectable && (
-              <Checkbox
-                checked={isSelected}
-                onChange={() => onToggleSelect?.(repair.repairID)}
-                sx={{
-                  color: REPAIRS_UI.border,
-                  '&.Mui-checked': { color: REPAIRS_UI.accent },
-                  p: 0,
-                }}
-              />
-            )}
-            <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, fontFamily: 'monospace' }}>
-              {repair.repairID}
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', gap: 0.5 }}>
-            {repair.isRush && (
-              <Chip label="RUSH" size="small" sx={{ bgcolor: '#FF4444', color: '#fff', fontSize: '0.65rem', height: 20 }} />
-            )}
-            <Chip
-              label={repair.benchStatus || 'UNCLAIMED'}
-              size="small"
-              sx={{
-                bgcolor: BENCH_STATUS_COLOR[repair.benchStatus] ?? REPAIRS_UI.bgCard,
-                color: '#fff',
-                fontSize: '0.65rem',
-                height: 20,
-              }}
-            />
-          </Box>
-        </Box>
-
-        <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start' }}>
-          <RepairThumbnail repair={repair} size={82} />
-          <Box sx={{ minWidth: 0, flex: 1 }}>
-            <Typography variant="subtitle2" sx={{ color: REPAIRS_UI.textHeader, fontWeight: 600, mb: 0.5 }}>
-              {repair.clientName || repair.businessName}
-            </Typography>
-            <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, mb: 1, fontSize: '0.8rem' }}>
-              {repair.description?.slice(0, 100)}{repair.description?.length > 100 ? '...' : ''}
-            </Typography>
-
-            {repair.assignedJeweler && (
-              <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
-                Assigned to: {repair.assignedJeweler}
-              </Typography>
-            )}
-
-            {repair.promiseDate && (
-              <Typography variant="caption" sx={{ display: 'block', color: REPAIRS_UI.accent }}>
-                Due: {new Date(repair.promiseDate).toLocaleDateString()}
-              </Typography>
-            )}
-          </Box>
-        </Box>
-
-        {error && <Alert severity="error" sx={{ mt: 1, py: 0 }}>{error}</Alert>}
-      </CardContent>
-
-      <Divider sx={{ borderColor: REPAIRS_UI.border }} />
-
-      <CardActions sx={{ px: 1.5, py: 1, gap: 0.5, flexWrap: 'wrap' }}>
-        <Button
-          size="small"
-          variant="outlined"
-          onClick={() => router.push(`/dashboard/repairs/${repair.repairID}`)}
-          sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border, fontSize: '0.75rem' }}
-        >
-          View
-        </Button>
-
-        {isAdmin && (
-          <TextField
-            select
-            size="small"
-            label="Assign Jeweler"
-            value={repair.assignedTo || ''}
-            disabled={loading || jewelers.length === 0}
-            onChange={(event) => assignJeweler(event.target.value)}
-            sx={{
-              minWidth: 170,
-              '& .MuiOutlinedInput-root': {
-                bgcolor: REPAIRS_UI.bgCard,
-                color: REPAIRS_UI.textPrimary,
-                fontSize: '0.75rem',
-              },
-              '& .MuiInputLabel-root': { color: REPAIRS_UI.textMuted, fontSize: '0.75rem' },
-              '& .MuiSelect-icon': { color: REPAIRS_UI.textSecondary },
-            }}
-          >
-            <MenuItem value="">
-              Unassigned
-            </MenuItem>
-            {jewelers.map((jeweler) => (
-              <MenuItem key={jeweler.userID} value={jeweler.userID}>
-                {getJewelerLabel(jeweler)}
-              </MenuItem>
-            ))}
-          </TextField>
-        )}
-
-        {!isMine && repair.benchQueue === BENCH_QUEUE.UNCLAIMED && (
-          <Button
-            size="small"
-            variant="contained"
-            disabled={loading}
-            onClick={() => doAction('claim')}
-            sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', fontSize: '0.75rem', '&:hover': { bgcolor: '#c9a227' } }}
-          >
-            Claim
-          </Button>
-        )}
-
-        {isMine && repair.benchQueue === BENCH_QUEUE.IN_PROGRESS && (
-          <>
-            <Button
-              size="small"
-              variant="outlined"
-              disabled={loading}
-              onClick={() => doAction('unclaim')}
-              sx={{ color: REPAIRS_UI.textSecondary, borderColor: REPAIRS_UI.border, fontSize: '0.75rem' }}
-            >
-              Unclaim
-            </Button>
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<PartsIcon sx={{ fontSize: 14 }} />}
-              disabled={loading}
-              onClick={() => onOpenPartsDialog?.(repair)}
-              sx={{ color: REPAIRS_UI.textSecondary, borderColor: REPAIRS_UI.border, fontSize: '0.75rem' }}
-            >
-              Needs Parts
-            </Button>
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<QCIcon sx={{ fontSize: 14 }} />}
-              disabled={loading}
-              onClick={() => doAction('move-to-qc')}
-              sx={{ color: '#00C49F', borderColor: '#00C49F', fontSize: '0.75rem' }}
-            >
-              Move to QC
-            </Button>
-          </>
-        )}
-
-        {repair.benchQueue === BENCH_QUEUE.WAITING_PARTS && (
-          <>
-            {repair.normalizedStatus !== 'PARTS ORDERED' && (
-              <Button
-                size="small"
-                variant="outlined"
-                startIcon={<PartsIcon sx={{ fontSize: 14 }} />}
-                disabled={loading}
-                onClick={() => doAction('mark-parts-ordered')}
-                sx={{ color: REPAIRS_UI.textSecondary, borderColor: REPAIRS_UI.border, fontSize: '0.75rem' }}
-              >
-                Mark Parts Ordered
-              </Button>
-            )}
-            <Button
-              size="small"
-              variant="contained"
-              disabled={loading}
-              onClick={() => doAction('parts-ready-for-work')}
-              sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', fontSize: '0.75rem', '&:hover': { bgcolor: '#c9a227' } }}
-            >
-              Move Back to Bench
-            </Button>
-          </>
-        )}
-
-        {repair.benchQueue === BENCH_QUEUE.COMMUNICATIONS && (
-          <>
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<CommunicationsIcon sx={{ fontSize: 14 }} />}
-              onClick={() => router.push(`/dashboard/repairs/${repair.repairID}`)}
-              sx={{ color: '#A855F7', borderColor: '#A855F7', fontSize: '0.75rem' }}
-            >
-              Open Communication
-            </Button>
-            <Button
-              size="small"
-              variant="contained"
-              disabled={loading}
-              onClick={() => doAction('communication-complete')}
-              sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', fontSize: '0.75rem', '&:hover': { bgcolor: '#c9a227' } }}
-            >
-              Communication Complete
-            </Button>
-          </>
-        )}
-      </CardActions>
-    </Card>
-  );
-}
-
-export default function MyBenchPage() {
+export default function BenchPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [repairs, setRepairs] = useState([]);
+  const [workOrders, setWorkOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState(0);
+  const [busyID, setBusyID] = useState('');
+  const [cardErrors, setCardErrors] = useState({});
+  const [jewelers, setJewelers] = useState([]);
+  const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
+
+  // Scan-to-claim (repairs)
   const [scanValue, setScanValue] = useState('');
   const [scanLoading, setScanLoading] = useState(false);
-  const [scanError, setScanError] = useState('');
-  const [scanSuccess, setScanSuccess] = useState('');
   const [queuedClaimIDs, setQueuedClaimIDs] = useState([]);
   const [claimScannerOpen, setClaimScannerOpen] = useState(false);
-  const [jewelers, setJewelers] = useState([]);
+
+  // Bulk QC + parts
   const [bulkQcLoading, setBulkQcLoading] = useState(false);
   const [selectedQcIDs, setSelectedQcIDs] = useState([]);
   const [bulkCompleteLoading, setBulkCompleteLoading] = useState(false);
-  const [partsDialogRepair, setPartsDialogRepair] = useState(null);
+  const [partsDialogWO, setPartsDialogWO] = useState(null);
   const [partsForm, setPartsForm] = useState(DEFAULT_PARTS_FORM);
   const [partsLoading, setPartsLoading] = useState(false);
   const [partsError, setPartsError] = useState('');
 
-  const fetchRepairs = useCallback(async () => {
+  const showSnack = (message, severity = 'success') => setSnack({ open: true, message, severity });
+  const closeSnack = () => setSnack((s) => ({ ...s, open: false }));
+
+  const fetchWorkOrders = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/repairs/my-bench');
-      if (res.ok) {
-        const data = await res.json();
-        setRepairs(Array.isArray(data) ? data.map(normalizeRepairWorkflow) : []);
-      }
+      const res = await fetch('/api/bench/my-bench');
+      if (res.ok) setWorkOrders(await res.json());
+      else showSnack((await res.json().catch(() => ({}))).error || 'Failed to load bench', 'error');
     } finally {
       setLoading(false);
     }
@@ -418,10 +109,7 @@ export default function MyBenchPage() {
   const fetchJewelers = useCallback(async () => {
     try {
       const res = await fetch('/api/repairs/bench-jewelers');
-      if (res.ok) {
-        const data = await res.json();
-        setJewelers(Array.isArray(data) ? data : []);
-      }
+      setJewelers(res.ok ? await res.json() : []);
     } catch {
       setJewelers([]);
     }
@@ -429,241 +117,135 @@ export default function MyBenchPage() {
 
   useEffect(() => {
     if (status === 'authenticated') {
-      fetchRepairs();
+      fetchWorkOrders();
       fetchJewelers();
     }
-  }, [status, fetchRepairs, fetchJewelers]);
+  }, [status, fetchWorkOrders, fetchJewelers]);
 
-  const queueClaimID = (repairID) => {
-    const cleanRepairID = String(repairID || '').trim();
-    if (!cleanRepairID) return;
+  const userID = session?.user?.userID;
+  const isAdmin = ['admin', 'dev'].includes(session?.user?.role);
 
-    setScanError('');
-    setScanSuccess('');
-
-    if (queuedClaimIDs.includes(cleanRepairID)) {
-      setScanError(`${cleanRepairID} is already queued.`);
-      setScanValue('');
-      return;
+  // Unified per-work-order action.
+  const runAction = async (wo, action, body = {}) => {
+    setBusyID(wo.workOrderID);
+    setCardErrors((m) => ({ ...m, [wo.workOrderID]: '' }));
+    try {
+      const res = await fetch(`/api/bench/work-orders/${wo.workOrderID}/${action}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `${action} failed`);
+      await fetchWorkOrders();
+    } catch (e) {
+      setCardErrors((m) => ({ ...m, [wo.workOrderID]: e.message }));
+      showSnack(e.message, 'error');
+    } finally {
+      setBusyID('');
     }
+  };
 
-    setQueuedClaimIDs(prev => [...prev, cleanRepairID]);
-    setScanSuccess(`Queued ${cleanRepairID}`);
+  // --- Scan to claim (repairs; scanned value is a repairID) ---
+  const queueClaimID = (repairID) => {
+    const clean = String(repairID || '').trim();
+    if (!clean) return;
+    setQueuedClaimIDs((prev) => (prev.includes(clean) ? prev : [...prev, clean]));
     setScanValue('');
   };
+  const handleQueueScan = (e) => { e?.preventDefault?.(); queueClaimID(scanValue); };
+  const removeQueued = (repairID) => setQueuedClaimIDs((prev) => prev.filter((id) => id !== repairID));
 
-  const handleQueueScan = (event) => {
-    event?.preventDefault?.();
-    queueClaimID(scanValue);
-  };
-
-  const handleRemoveQueuedClaim = (repairID) => {
-    setQueuedClaimIDs(prev => prev.filter(id => id !== repairID));
-  };
-
-  const handleClaimQueuedRepairs = async () => {
+  const claimQueued = async () => {
     if (queuedClaimIDs.length === 0) return;
-
     setScanLoading(true);
-    setScanError('');
-    setScanSuccess('');
-
     try {
       const results = [];
-
       for (const repairID of queuedClaimIDs) {
         const res = await fetch(`/api/repairs/${encodeURIComponent(repairID)}/claim`, { method: 'POST' });
-        const data = await res.json().catch(() => ({}));
-
-        if (!res.ok) {
-          results.push({ repairID, ok: false, error: data.error || 'Unable to claim repair' });
-          continue;
-        }
-
-        results.push({ repairID, ok: true });
+        results.push({ repairID, ok: res.ok, error: res.ok ? null : ((await res.json().catch(() => ({}))).error || 'Unable to claim') });
       }
-
-      const claimed = results.filter(result => result.ok).map(result => result.repairID);
-      const failed = results.filter(result => !result.ok);
-
-      if (claimed.length > 0) {
-        setQueuedClaimIDs(prev => prev.filter(id => !claimed.includes(id)));
-      }
-
-      setScanValue('');
-      await fetchRepairs();
-
-      if (failed.length === 0) {
-        setScanSuccess(`Claimed ${claimed.length} repair${claimed.length !== 1 ? 's' : ''}.`);
-      } else {
-        setScanError(failed.map(result => `${result.repairID}: ${result.error}`).join(' | '));
-        if (claimed.length > 0) {
-          setScanSuccess(`Claimed ${claimed.length} repair${claimed.length !== 1 ? 's' : ''}.`);
-        }
-      }
-    } catch (error) {
-      setScanError(error.message);
+      const claimed = results.filter((r) => r.ok).map((r) => r.repairID);
+      const failed = results.filter((r) => !r.ok);
+      if (claimed.length) setQueuedClaimIDs((prev) => prev.filter((id) => !claimed.includes(id)));
+      await fetchWorkOrders();
+      if (claimed.length) showSnack(`Claimed ${claimed.length} repair${claimed.length !== 1 ? 's' : ''}.`, 'success');
+      if (failed.length) showSnack(failed.map((r) => `${r.repairID}: ${r.error}`).join(' | '), 'error');
     } finally {
       setScanLoading(false);
     }
   };
 
-  const handleMoveMyBenchToQc = async () => {
-    const mineReadyForQc = repairs.filter(
-      repair => repair.assignedTo === userID && repair.benchQueue === BENCH_QUEUE.IN_PROGRESS
-    );
+  // --- Bulk: move my in-progress repairs to QC ---
+  const byTab = useMemo(() => Object.fromEntries(
+    BENCH_TABS.map(({ key }) => [key, workOrders.filter((wo) => isWorkOrderInTab(wo, key, userID))]),
+  ), [workOrders, userID]);
 
-    if (mineReadyForQc.length === 0) return;
+  // Every source supports move-to-QC now (repairs + production/custom pieces).
+  const mineInProgress = useMemo(
+    () => (byTab[BENCH_QUEUE.MINE] || []).filter((wo) => wo.benchQueue === BENCH_QUEUE.IN_PROGRESS),
+    [byTab],
+  );
 
+  const moveMyBenchToQc = async () => {
+    if (mineInProgress.length === 0) return;
     setBulkQcLoading(true);
-    setScanError('');
-    setScanSuccess('');
-
     try {
-      const results = [];
-
-      for (const repair of mineReadyForQc) {
-        const repairID = repair.repairID;
-        const res = await fetch(`/api/repairs/${encodeURIComponent(repairID)}/move-to-qc`, { method: 'POST' });
-        const data = await res.json().catch(() => ({}));
-
-        if (!res.ok) {
-          results.push({ repairID, ok: false, error: data.error || 'Unable to move repair to QC' });
-          continue;
-        }
-
-        results.push({ repairID, ok: true });
+      let moved = 0; const errs = [];
+      for (const wo of mineInProgress) {
+        const res = await fetch(`/api/bench/work-orders/${wo.workOrderID}/move-to-qc`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+        });
+        if (res.ok) moved += 1; else errs.push((await res.json().catch(() => ({}))).error || wo.workOrderID);
       }
-
-      await fetchRepairs();
-
-      const moved = results.filter(result => result.ok);
-      const failed = results.filter(result => !result.ok);
-
-      if (failed.length > 0) {
-        setScanError(failed.map(result => `${result.repairID}: ${result.error}`).join(' | '));
-      }
-
-      if (moved.length > 0) {
-        setScanSuccess(`Moved ${moved.length} repair${moved.length !== 1 ? 's' : ''} to QC.`);
-      }
-    } catch (error) {
-      setScanError(error.message);
+      await fetchWorkOrders();
+      if (moved) showSnack(`Moved ${moved} repair${moved !== 1 ? 's' : ''} to QC.`, 'success');
+      if (errs.length) showSnack(errs.join(' | '), 'error');
     } finally {
       setBulkQcLoading(false);
     }
   };
 
-  const handleToggleQcSelection = (repairID) => {
-    setSelectedQcIDs(prev => (
-      prev.includes(repairID)
-        ? prev.filter(id => id !== repairID)
-        : [...prev, repairID]
-    ));
-  };
-
-  const handleSetShownQcSelection = (repairIDs, checked) => {
-    setSelectedQcIDs(prev => {
-      if (checked) {
-        return Array.from(new Set([...prev, ...repairIDs]));
-      }
-      return prev.filter(id => !repairIDs.includes(id));
-    });
-  };
-
-  const handleCompleteSelectedQc = async () => {
-    const qcRepairIDs = repairs
-      .filter(repair => selectedQcIDs.includes(repair.repairID) && repair.benchQueue === BENCH_QUEUE.QC)
-      .map(repair => repair.repairID);
-
-    if (qcRepairIDs.length === 0) return;
-
+  // --- Bulk QC approve ---
+  const toggleQc = (id) => setSelectedQcIDs((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  const completeSelectedQc = async () => {
+    const ids = (byTab[BENCH_QUEUE.QC] || []).filter((wo) => selectedQcIDs.includes(wo.workOrderID));
+    if (ids.length === 0) return;
     setBulkCompleteLoading(true);
-    setScanError('');
-    setScanSuccess('');
-
     try {
-      const results = [];
-
-      for (const repairID of qcRepairIDs) {
-        const res = await fetch(`/api/repairs/${encodeURIComponent(repairID)}/complete-from-qc`, { method: 'POST' });
-        const data = await res.json().catch(() => ({}));
-
-        if (!res.ok) {
-          results.push({ repairID, ok: false, error: data.error || 'Unable to complete repair from QC' });
-          continue;
-        }
-
-        results.push({ repairID, ok: true });
+      let done = 0; const errs = [];
+      for (const wo of ids) {
+        const res = await fetch(`/api/bench/work-orders/${wo.workOrderID}/complete-from-qc`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+        });
+        if (res.ok) { done += 1; } else errs.push((await res.json().catch(() => ({}))).error || wo.workOrderID);
       }
-
-      const completed = results.filter(result => result.ok).map(result => result.repairID);
-      const failed = results.filter(result => !result.ok);
-
-      if (completed.length > 0) {
-        setSelectedQcIDs(prev => prev.filter(id => !completed.includes(id)));
-      }
-
-      await fetchRepairs();
-
-      if (failed.length > 0) {
-        setScanError(failed.map(result => `${result.repairID}: ${result.error}`).join(' | '));
-      }
-
-      if (completed.length > 0) {
-        setScanSuccess(`Approved ${completed.length} QC repair${completed.length !== 1 ? 's' : ''} and moved ${completed.length !== 1 ? 'them' : 'it'} to Payment & Pickup.`);
-      }
-    } catch (error) {
-      setScanError(error.message);
+      if (done) setSelectedQcIDs((prev) => prev.filter((id) => !ids.some((wo) => wo.workOrderID === id)));
+      await fetchWorkOrders();
+      if (done) showSnack(`Approved ${done} and moved to Payment & Pickup.`, 'success');
+      if (errs.length) showSnack(errs.join(' | '), 'error');
     } finally {
       setBulkCompleteLoading(false);
     }
   };
 
-  const openPartsDialog = (repair) => {
-    setPartsDialogRepair(repair);
-    setPartsForm(DEFAULT_PARTS_FORM);
-    setPartsError('');
-  };
+  // --- Parts dialog ---
+  const openPartsDialog = (wo) => { setPartsDialogWO(wo); setPartsForm(DEFAULT_PARTS_FORM); setPartsError(''); };
+  const closePartsDialog = () => { if (!partsLoading) { setPartsDialogWO(null); setPartsForm(DEFAULT_PARTS_FORM); setPartsError(''); } };
+  const setPF = (field, value) => setPartsForm((prev) => ({ ...prev, [field]: value }));
 
-  const closePartsDialog = () => {
-    if (partsLoading) return;
-    setPartsDialogRepair(null);
-    setPartsForm(DEFAULT_PARTS_FORM);
-    setPartsError('');
-  };
-
-  const handlePartsFormChange = (field, value) => {
-    setPartsForm(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleMoveToNeedsParts = async () => {
-    if (!partsDialogRepair) return;
-
+  const submitNeedsParts = async () => {
+    if (!partsDialogWO) return;
     setPartsLoading(true);
     setPartsError('');
-    setScanError('');
-    setScanSuccess('');
-
     try {
       let material;
-
       if (partsForm.source === 'stuller') {
         const cleanSku = partsForm.stullerSku.trim();
         if (!cleanSku) throw new Error('Enter a Stuller part number.');
-
         const [stullerRes, settingsRes] = await Promise.all([
-          fetch('/api/stuller/item', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ itemNumber: cleanSku }),
-          }),
+          fetch('/api/stuller/item', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ itemNumber: cleanSku }) }),
           fetch('/api/admin/settings'),
         ]);
-
         const stullerData = await stullerRes.json().catch(() => ({}));
         if (!stullerRes.ok) throw new Error(stullerData.error || 'Failed to fetch Stuller item.');
-
         const adminSettings = settingsRes.ok ? await settingsRes.json().catch(() => ({})) : {};
         material = buildStullerMaterial(stullerData, cleanSku, adminSettings);
       } else {
@@ -672,36 +254,21 @@ export default function MyBenchPage() {
         const price = Math.max(toNumber(partsForm.price, 0), 0);
         if (!name) throw new Error('Enter a material name.');
         if (quantity <= 0) throw new Error('Quantity must be greater than zero.');
-
         material = {
-          id: Date.now(),
-          name,
-          displayName: name,
-          description: partsForm.description.trim() || name,
-          quantity,
-          price,
-          retailPrice: price,
-          unitCost: price,
-          category: 'manual_material',
-          supplier: 'Manual',
-          isStullerItem: false,
+          id: Date.now(), name, displayName: name, description: partsForm.description.trim() || name,
+          quantity, price, retailPrice: price, unitCost: price, category: 'manual_material', supplier: 'Manual', isStullerItem: false,
         };
       }
-
-      const res = await fetch(`/api/repairs/${encodeURIComponent(partsDialogRepair.repairID)}/mark-waiting-parts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ material }),
+      const res = await fetch(`/api/bench/work-orders/${partsDialogWO.workOrderID}/mark-waiting-parts`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ material }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Unable to move repair to needs parts.');
-
-      await fetchRepairs();
-      setScanSuccess(`Added material and moved ${partsDialogRepair.repairID} to Needs Parts.`);
-      setPartsDialogRepair(null);
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Unable to move to needs parts.');
+      await fetchWorkOrders();
+      showSnack(`Added material and moved ${partsDialogWO.sourceID} to Needs Parts.`, 'success');
+      setPartsDialogWO(null);
       setPartsForm(DEFAULT_PARTS_FORM);
-    } catch (error) {
-      setPartsError(error.message);
+    } catch (e) {
+      setPartsError(e.message);
     } finally {
       setPartsLoading(false);
     }
@@ -711,281 +278,120 @@ export default function MyBenchPage() {
     return <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}><CircularProgress sx={{ color: REPAIRS_UI.accent }} /></Box>;
   }
 
-  const userID = session?.user?.userID;
-  const caps = session?.user?.staffCapabilities || {};
-  const isAdmin = ['admin', 'dev'].includes(session?.user?.role);
-  const isOnsiteRepairOps = session?.user?.employment?.isOnsite === true && caps.repairOps === true;
-  const canCompleteQc = isAdmin || caps.qualityControl === true;
-
-  if (!isAdmin && !isOnsiteRepairOps) {
-    router.push('/dashboard');
-    return null;
-  }
-
-  const byTab = Object.fromEntries(
-    BENCH_TABS.map(({ key }) => [key, repairs.filter((repair) => isRepairInBenchTab(repair, key, userID))])
-  );
-
   const activeKey = BENCH_TABS[tab].key;
   const shown = byTab[activeKey] || [];
-  const mineReadyForQcCount = byTab[BENCH_QUEUE.MINE].filter(r => r.benchQueue === BENCH_QUEUE.IN_PROGRESS).length;
-  const shownQcIDs = activeKey === BENCH_QUEUE.QC ? shown.map(repair => repair.repairID) : [];
-  const selectedShownQcIDs = shownQcIDs.filter(repairID => selectedQcIDs.includes(repairID));
+  const shownQcIDs = activeKey === BENCH_QUEUE.QC ? shown.map((wo) => wo.workOrderID) : [];
+  const selectedShownQc = shownQcIDs.filter((id) => selectedQcIDs.includes(id));
 
   return (
     <Box sx={{ pb: 8 }}>
+      {/* Header panel */}
       <Box sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 3, p: { xs: 2, md: 3 }, mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mb: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <WorkIcon sx={{ color: REPAIRS_UI.accent, fontSize: 28 }} />
             <Box>
-              <Typography sx={{ fontSize: { xs: 24, md: 30 }, fontWeight: 600, color: REPAIRS_UI.textHeader, lineHeight: 1.1 }}>
-                My Bench
-              </Typography>
+              <Typography sx={{ fontSize: { xs: 24, md: 30 }, fontWeight: 600, color: REPAIRS_UI.textHeader, lineHeight: 1.1 }}>My Bench</Typography>
               <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
-                Your active work queue
+                All active work across your disciplines — repairs, production, customs, sale service.
               </Typography>
             </Box>
           </Box>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<AddIcon />}
-              onClick={() => router.push('/dashboard/repairs/new')}
-              sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
-            >
-              New Repair
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={() => router.push('/dashboard/repairs/new')} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>New Repair</Button>
+            <Button size="small" variant="contained" startIcon={<QCIcon />} onClick={moveMyBenchToQc} disabled={bulkQcLoading || mineInProgress.length === 0} sx={{ bgcolor: '#00C49F', color: '#000', '&:hover': { bgcolor: '#00a985' } }}>
+              {bulkQcLoading ? 'Moving…' : `Move My Bench to QC (${mineInProgress.length})`}
             </Button>
-            <Button
-              size="small"
-              variant="contained"
-              startIcon={<QCIcon />}
-              onClick={handleMoveMyBenchToQc}
-              disabled={bulkQcLoading || mineReadyForQcCount === 0}
-              sx={{ bgcolor: '#00C49F', color: '#000', '&:hover': { bgcolor: '#00a985' } }}
-            >
-              {bulkQcLoading ? 'Moving...' : `Move My Bench to QC (${mineReadyForQcCount})`}
-            </Button>
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<RefreshIcon />}
-              onClick={fetchRepairs}
-              disabled={loading}
-              sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
-            >
-              Refresh
-            </Button>
+            <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={fetchWorkOrders} disabled={loading} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>Refresh</Button>
           </Box>
         </Box>
 
+        {/* Summary counts */}
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 2 }}>
           {BENCH_TABS.map(({ label, key }) => (
             <Box key={key} sx={{ textAlign: 'center' }}>
-              <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: REPAIRS_UI.textHeader, lineHeight: 1 }}>
-                {byTab[key]?.length ?? 0}
-              </Typography>
+              <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: REPAIRS_UI.textHeader, lineHeight: 1 }}>{byTab[key]?.length ?? 0}</Typography>
               <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{label}</Typography>
             </Box>
           ))}
         </Box>
 
-        <Box
-          component="form"
-          onSubmit={handleQueueScan}
-          sx={{
-            mt: 2,
-            display: 'flex',
-            gap: 1,
-            flexWrap: 'wrap',
-            alignItems: 'flex-start',
-          }}
-        >
+        {/* Scan to claim */}
+        <Box component="form" onSubmit={handleQueueScan} sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <TextField
-            label="Scan to Claim"
-            placeholder="Scan repair ticket barcode"
-            value={scanValue}
-            onChange={(e) => setScanValue(e.target.value)}
-            autoComplete="off"
-            autoFocus
-            size="small"
-            sx={{
-              minWidth: { xs: '100%', sm: 320 },
-              '& .MuiOutlinedInput-root': {
-                bgcolor: REPAIRS_UI.bgCard,
-                color: REPAIRS_UI.textPrimary,
-              },
-              '& .MuiInputLabel-root': { color: REPAIRS_UI.textMuted },
-            }}
-            helperText="Barcode scan should land here. Press Enter to queue each repair, then claim the batch."
+            label="Scan to Claim" placeholder="Scan repair ticket barcode" value={scanValue}
+            onChange={(e) => setScanValue(e.target.value)} autoComplete="off" autoFocus size="small"
+            sx={{ minWidth: { xs: '100%', sm: 320 }, '& .MuiOutlinedInput-root': { bgcolor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary }, '& .MuiInputLabel-root': { color: REPAIRS_UI.textMuted } }}
+            helperText="Barcode scan lands here. Press Enter to queue each repair, then claim the batch."
             FormHelperTextProps={{ sx: { color: REPAIRS_UI.textMuted } }}
           />
-          <Button
-            type="submit"
-            variant="outlined"
-            startIcon={<ScanIcon />}
-            disabled={scanLoading || !scanValue.trim()}
-            sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
-          >
-            Queue Scan
-          </Button>
-          <Button
-            type="button"
-            variant="outlined"
-            startIcon={<ScanIcon />}
-            disabled={scanLoading}
-            sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
-            onClick={() => setClaimScannerOpen(true)}
-          >
-            Camera Scan
-          </Button>
-          <Button
-            type="button"
-            variant="contained"
-            disabled={scanLoading || queuedClaimIDs.length === 0}
-            sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}
-            onClick={handleClaimQueuedRepairs}
-          >
-            {scanLoading ? 'Claiming...' : `Claim ${queuedClaimIDs.length} Queued`}
+          <Button type="submit" variant="outlined" startIcon={<ScanIcon />} disabled={scanLoading || !scanValue.trim()} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>Queue Scan</Button>
+          <Button type="button" variant="outlined" startIcon={<ScanIcon />} disabled={scanLoading} onClick={() => setClaimScannerOpen(true)} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>Camera Scan</Button>
+          <Button type="button" variant="contained" disabled={scanLoading || queuedClaimIDs.length === 0} onClick={claimQueued} sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}>
+            {scanLoading ? 'Claiming…' : `Claim ${queuedClaimIDs.length} Queued`}
           </Button>
         </Box>
-
         {queuedClaimIDs.length > 0 && (
           <Box sx={{ mt: 1.5 }}>
-            <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 1 }}>
-              Queued to claim ({queuedClaimIDs.length})
-            </Typography>
+            <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 1 }}>Queued to claim ({queuedClaimIDs.length})</Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              {queuedClaimIDs.map((repairID) => (
-                <Chip
-                  key={repairID}
-                  label={repairID}
-                  onDelete={() => handleRemoveQueuedClaim(repairID)}
-                  deleteIcon={<CloseIcon />}
-                  sx={{
-                    bgcolor: REPAIRS_UI.bgCard,
-                    color: REPAIRS_UI.textPrimary,
-                    border: `1px solid ${REPAIRS_UI.border}`,
-                  }}
-                />
+              {queuedClaimIDs.map((id) => (
+                <Chip key={id} label={id} onDelete={() => removeQueued(id)} deleteIcon={<CloseIcon />} sx={{ bgcolor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }} />
               ))}
             </Box>
           </Box>
         )}
-
-        {scanError && (
-          <Alert severity="error" sx={{ mt: 1.5 }}>
-            {scanError}
-          </Alert>
-        )}
-        {scanSuccess && (
-          <Alert severity="success" sx={{ mt: 1.5 }}>
-            {scanSuccess}
-          </Alert>
-        )}
       </Box>
 
+      {/* Tabs */}
       <Tabs
-        value={tab}
-        onChange={(_, v) => setTab(v)}
-        variant="scrollable"
-        scrollButtons="auto"
-        allowScrollButtonsMobile
-        sx={{
-          mb: 2,
-          maxWidth: '100%',
-          '& .MuiTabs-scroller': { overflowX: 'auto !important' },
-          '& .MuiTab-root': { color: REPAIRS_UI.textSecondary, textTransform: 'none', flexShrink: 0 },
-          '& .Mui-selected': { color: REPAIRS_UI.accent },
-          '& .MuiTabs-indicator': { bgcolor: REPAIRS_UI.accent },
-        }}
+        value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile
+        sx={{ mb: 2, maxWidth: '100%', '& .MuiTabs-scroller': { overflowX: 'auto !important' }, '& .MuiTab-root': { color: REPAIRS_UI.textSecondary, textTransform: 'none', flexShrink: 0 }, '& .Mui-selected': { color: REPAIRS_UI.accent }, '& .MuiTabs-indicator': { bgcolor: REPAIRS_UI.accent } }}
       >
-        {BENCH_TABS.map(({ label, key }) => (
-          <Tab key={key} label={`${label} (${byTab[key]?.length ?? 0})`} />
-        ))}
+        {BENCH_TABS.map(({ label, key }) => <Tab key={key} label={`${label} (${byTab[key]?.length ?? 0})`} />)}
       </Tabs>
 
+      {/* QC bulk bar */}
       {activeKey === BENCH_QUEUE.QC && shown.length > 0 && (
-        <Box
-          sx={{
-            bgcolor: REPAIRS_UI.bgPanel,
-            border: `1px solid ${REPAIRS_UI.border}`,
-            borderRadius: 2,
-            p: 1.5,
-            mb: 2,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 1.5,
-            flexWrap: 'wrap',
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Checkbox
-              checked={selectedShownQcIDs.length === shownQcIDs.length && shownQcIDs.length > 0}
-              indeterminate={selectedShownQcIDs.length > 0 && selectedShownQcIDs.length < shownQcIDs.length}
-              onChange={(event) => handleSetShownQcSelection(shownQcIDs, event.target.checked)}
-              sx={{
-                color: REPAIRS_UI.border,
-                '&.Mui-checked': { color: REPAIRS_UI.accent },
-                '&.MuiCheckbox-indeterminate': { color: REPAIRS_UI.accent },
-              }}
-            />
-            <Box>
-              <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 600 }}>
-                QC Selection
-              </Typography>
-              <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
-                {selectedShownQcIDs.length} selected on this tab
-              </Typography>
-            </Box>
+        <Box sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, p: 1.5, mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, flexWrap: 'wrap' }}>
+          <Box>
+            <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 600 }}>QC Selection</Typography>
+            <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{selectedShownQc.length} selected on this tab</Typography>
           </Box>
-          <Button
-            variant="contained"
-            startIcon={<QCIcon />}
-            disabled={!canCompleteQc || bulkCompleteLoading || selectedShownQcIDs.length === 0}
-            onClick={handleCompleteSelectedQc}
-            sx={{ bgcolor: '#00C49F', color: '#000', '&:hover': { bgcolor: '#00a985' } }}
-          >
-            {bulkCompleteLoading ? 'Approving...' : `Approve to Payment & Pickup (${selectedShownQcIDs.length})`}
+          <Button variant="contained" startIcon={<QCIcon />} disabled={bulkCompleteLoading || selectedShownQc.length === 0} onClick={completeSelectedQc} sx={{ bgcolor: '#00C49F', color: '#000', '&:hover': { bgcolor: '#00a985' } }}>
+            {bulkCompleteLoading ? 'Approving…' : `Approve to Payment & Pickup (${selectedShownQc.length})`}
           </Button>
         </Box>
       )}
 
+      {/* Grid / states */}
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-          <CircularProgress sx={{ color: REPAIRS_UI.accent }} />
-        </Box>
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress sx={{ color: REPAIRS_UI.accent }} /></Box>
       ) : shown.length === 0 ? (
         <Box sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 3, py: 6, textAlign: 'center' }}>
-          {activeKey === BENCH_QUEUE.COMMUNICATIONS ? (
-            <CommunicationsIcon sx={{ fontSize: 48, color: REPAIRS_UI.textMuted, mb: 1.5 }} />
-          ) : (
-            <WorkIcon sx={{ fontSize: 48, color: REPAIRS_UI.textMuted, mb: 1.5 }} />
-          )}
+          {activeKey === BENCH_QUEUE.COMMUNICATIONS
+            ? <CommunicationsIcon sx={{ fontSize: 48, color: REPAIRS_UI.textMuted, mb: 1.5 }} />
+            : <WorkIcon sx={{ fontSize: 48, color: REPAIRS_UI.textMuted, mb: 1.5 }} />}
           <Typography sx={{ color: REPAIRS_UI.textHeader }}>Nothing here</Typography>
           <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, mt: 0.5 }}>
-            {tab === 0
-              ? 'You have no repairs claimed to your bench.'
-              : activeKey === BENCH_QUEUE.COMMUNICATIONS
-                ? 'No repairs currently require communication.'
-                : 'No repairs in this category.'}
+            {activeKey === BENCH_QUEUE.MINE ? 'You have no work claimed to your bench.' : 'No work in this category.'}
           </Typography>
         </Box>
       ) : (
         <Grid container spacing={2}>
-          {shown.map(repair => (
-            <Grid item xs={12} sm={6} xl={4} key={repair.repairID}>
-              <RepairBenchCard
-                repair={repair}
+          {shown.map((wo) => (
+            <Grid item xs={12} sm={6} xl={4} key={wo.workOrderID}>
+              <BenchWorkCard
+                wo={wo}
                 currentUserID={userID}
                 isAdmin={isAdmin}
                 jewelers={jewelers}
-                onRefresh={fetchRepairs}
+                busy={busyID === wo.workOrderID}
+                error={cardErrors[wo.workOrderID]}
                 selectable={activeKey === BENCH_QUEUE.QC}
-                isSelected={selectedQcIDs.includes(repair.repairID)}
-                onToggleSelect={handleToggleQcSelection}
+                isSelected={selectedQcIDs.includes(wo.workOrderID)}
+                onToggleSelect={toggleQc}
+                onAction={runAction}
                 onOpenPartsDialog={openPartsDialog}
               />
             </Grid>
@@ -993,114 +399,52 @@ export default function MyBenchPage() {
         </Grid>
       )}
 
+      {/* Camera scanner */}
       <ContinuousBarcodeScanner
         open={claimScannerOpen}
         title="Scan Repairs to Claim"
         queuedCount={queuedClaimIDs.length}
-        actionLabel={scanLoading ? 'Claiming...' : `Claim ${queuedClaimIDs.length} Queued`}
+        actionLabel={scanLoading ? 'Claiming…' : `Claim ${queuedClaimIDs.length} Queued`}
         actionDisabled={scanLoading || queuedClaimIDs.length === 0}
         onClose={() => setClaimScannerOpen(false)}
         onScan={queueClaimID}
-        onAction={handleClaimQueuedRepairs}
+        onAction={claimQueued}
       >
         {queuedClaimIDs.length > 0 ? (
           <Box>
-            <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 1 }}>
-              Queued to claim ({queuedClaimIDs.length})
-            </Typography>
+            <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 1 }}>Queued to claim ({queuedClaimIDs.length})</Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              {queuedClaimIDs.map((repairID) => (
-                <Chip
-                  key={repairID}
-                  label={repairID}
-                  onDelete={() => handleRemoveQueuedClaim(repairID)}
-                  deleteIcon={<CloseIcon />}
-                  sx={{
-                    bgcolor: REPAIRS_UI.bgCard,
-                    color: REPAIRS_UI.textPrimary,
-                    border: `1px solid ${REPAIRS_UI.border}`,
-                  }}
-                />
+              {queuedClaimIDs.map((id) => (
+                <Chip key={id} label={id} onDelete={() => removeQueued(id)} deleteIcon={<CloseIcon />} sx={{ bgcolor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }} />
               ))}
             </Box>
           </Box>
         ) : (
-          <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
-            Scanned repairs will appear here. The camera stays open until you close it.
-          </Typography>
+          <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>Scanned repairs appear here. The camera stays open until you close it.</Typography>
         )}
       </ContinuousBarcodeScanner>
 
-      <Dialog open={!!partsDialogRepair} onClose={closePartsDialog} maxWidth="sm" fullWidth>
+      {/* Needs Parts dialog */}
+      <Dialog open={!!partsDialogWO} onClose={closePartsDialog} maxWidth="sm" fullWidth>
         <DialogTitle>Move to Needs Parts</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
-            <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
-              Add the part or material that needs to be ordered before moving this repair.
-            </Typography>
-            {partsDialogRepair && (
-              <Alert severity="info">
-                {partsDialogRepair.repairID} - {partsDialogRepair.clientName || partsDialogRepair.businessName}
-              </Alert>
-            )}
+            <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>Add the part or material that needs to be ordered before moving this repair.</Typography>
+            {partsDialogWO && <Alert severity="info">{partsDialogWO.sourceID} — {partsDialogWO.source?.clientName || partsDialogWO.source?.businessName || ''}</Alert>}
             {partsError && <Alert severity="error">{partsError}</Alert>}
-            <TextField
-              select
-              label="Material Source"
-              value={partsForm.source}
-              onChange={(event) => handlePartsFormChange('source', event.target.value)}
-              fullWidth
-            >
+            <TextField select label="Material Source" value={partsForm.source} onChange={(e) => setPF('source', e.target.value)} fullWidth>
               <MenuItem value="stuller">Stuller part number</MenuItem>
               <MenuItem value="manual">Manual material</MenuItem>
             </TextField>
-
             {partsForm.source === 'stuller' ? (
-              <TextField
-                label="Stuller Part Number"
-                value={partsForm.stullerSku}
-                onChange={(event) => handlePartsFormChange('stullerSku', event.target.value)}
-                autoFocus
-                fullWidth
-              />
+              <TextField label="Stuller Part Number" value={partsForm.stullerSku} onChange={(e) => setPF('stullerSku', e.target.value)} autoFocus fullWidth />
             ) : (
               <>
-                <TextField
-                  label="Material Name"
-                  value={partsForm.name}
-                  onChange={(event) => handlePartsFormChange('name', event.target.value)}
-                  autoFocus
-                  fullWidth
-                />
-                <TextField
-                  label="Description"
-                  value={partsForm.description}
-                  onChange={(event) => handlePartsFormChange('description', event.target.value)}
-                  fullWidth
-                  multiline
-                  minRows={2}
-                />
+                <TextField label="Material Name" value={partsForm.name} onChange={(e) => setPF('name', e.target.value)} autoFocus fullWidth />
+                <TextField label="Description" value={partsForm.description} onChange={(e) => setPF('description', e.target.value)} fullWidth multiline minRows={2} />
                 <Grid container spacing={1.5}>
-                  <Grid item xs={6}>
-                    <TextField
-                      label="Quantity"
-                      type="number"
-                      value={partsForm.quantity}
-                      onChange={(event) => handlePartsFormChange('quantity', event.target.value)}
-                      inputProps={{ min: 0, step: 0.25 }}
-                      fullWidth
-                    />
-                  </Grid>
-                  <Grid item xs={6}>
-                    <TextField
-                      label="Line Price"
-                      type="number"
-                      value={partsForm.price}
-                      onChange={(event) => handlePartsFormChange('price', event.target.value)}
-                      inputProps={{ min: 0, step: 0.01 }}
-                      fullWidth
-                    />
-                  </Grid>
+                  <Grid item xs={6}><TextField label="Quantity" type="number" value={partsForm.quantity} onChange={(e) => setPF('quantity', e.target.value)} inputProps={{ min: 0, step: 0.25 }} fullWidth /></Grid>
+                  <Grid item xs={6}><TextField label="Line Price" type="number" value={partsForm.price} onChange={(e) => setPF('price', e.target.value)} inputProps={{ min: 0, step: 0.01 }} fullWidth /></Grid>
                 </Grid>
               </>
             )}
@@ -1108,16 +452,15 @@ export default function MyBenchPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={closePartsDialog} disabled={partsLoading}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={handleMoveToNeedsParts}
-            disabled={partsLoading}
-            sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}
-          >
-            {partsLoading ? 'Moving...' : 'Add Material & Move'}
+          <Button variant="contained" onClick={submitNeedsParts} disabled={partsLoading} sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}>
+            {partsLoading ? 'Moving…' : 'Add Material & Move'}
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar open={snack.open} autoHideDuration={5000} onClose={closeSnack} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert onClose={closeSnack} severity={snack.severity} sx={{ bgcolor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }}>{snack.message}</Alert>
+      </Snackbar>
     </Box>
   );
 }

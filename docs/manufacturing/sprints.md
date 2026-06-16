@@ -302,7 +302,12 @@ Sequenced sub-phases (value + dependency). Recommended order U1→U6.
     Unclaimed → Claim → Move to QC → QC tab → bulk Approve → off bench; the labor log surfaces in labor-review
     (`sourceAction: piece_move_to_qc`, unbatched, flagged for review) → payroll picks up custom labor like repair labor.
     Sale-service is repair-backed, so it already had the full gate.
-  - **`my-bench` can retire** once this is the canonical bench. **Page design archetype for U2–U6:** `REPAIRS_UI`
+  - **Consolidated to a single "My Bench" (2026-06):** the unified bench now SERVES at `/dashboard/repairs/my-bench`
+    (the familiar URL — all ~7 existing links keep working) and is titled "My Bench". The standalone `/dashboard/bench`
+    is now a redirect → my-bench; the "Bench (All Work)" nav entry was removed (one "My Bench" entry remains). The
+    legacy repair-only page was parked at `deprecated/dashboard-repairs-my-bench/page.js` (outside the app router → not
+    a route; safe to delete once proven in prod). **`/api/repairs/my-bench` API stays live** — the artisan-detail view
+    (`users/artisans/[userID]`) reads it with a `?userID=` param. **Page design archetype for U2–U6:** `REPAIRS_UI`
     tokens + header-panel / metric-card / filter-bar / card-grid / snackbar (see Customs UI below), not plain tables.
 - **Customs UI ✅ (S7 system, restyled with U1):** `/dashboard/customs` (list) + `/dashboard/customs/[customID]`
   (detail) rebuilt to the same archetype — list: metric cards (total/in-production/awaiting-payment/pipeline),

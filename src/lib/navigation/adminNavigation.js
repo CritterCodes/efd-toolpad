@@ -89,11 +89,6 @@ export const adminNavigation = {
     },
     { kind: 'header', title: 'Repair Work' },
     {
-      segment: 'dashboard/bench',
-      title: 'Bench (All Work)',
-      icon: <HandymanIcon />
-    },
-    {
       segment: 'dashboard/repairs/my-bench',
       title: 'My Bench',
       icon: <BuildIcon />
