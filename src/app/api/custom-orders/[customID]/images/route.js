@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
+import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { requireRole } from '@/lib/apiAuth';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
-import { S3UploadService } from '@/services/aws/s3Upload.service';
+import { storageClient, STORAGE_BUCKET, storageUrl } from '@/lib/storage';
 
-/** POST /api/custom-orders/[customID]/images — upload a moodboard/reference image to S3. */
+/**
+ * POST /api/custom-orders/[customID]/images — upload a moodboard/reference image.
+ * Stores to the shared object store via lib/storage (MinIO; the SDK speaks the
+ * S3 protocol but the bucket is our self-hosted MinIO, not AWS).
+ */
 export const POST = async (req, { params }) => {
   const { session, errorResponse } = await requireRole(['admin', 'dev']);
   if (errorResponse) return errorResponse;
@@ -24,14 +29,18 @@ export const POST = async (req, { params }) => {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const url = await S3UploadService.uploadToS3(
-    buffer,
-    file.name || 'image',
-    file.type || 'application/octet-stream',
-    `admin/custom-orders/${customID}/moodboard`,
-  );
+  const safeName = (file.name || 'image').replace(/[^a-zA-Z0-9.-]/g, '_');
+  const key = `admin/custom-orders/${customID}/moodboard/${Date.now()}-${safeName}`;
+  await storageClient.send(new PutObjectCommand({
+    Bucket: STORAGE_BUCKET,
+    Key: key,
+    Body: buffer,
+    ContentType: file.type || 'application/octet-stream',
+  }));
+
   const image = await CustomOrdersModel.addImage(customID, {
-    url,
+    url: storageUrl(key),
+    key,
     caption: form.get('caption') || '',
     uploadedBy: session.user.name || session.user.email || session.user.userID || 'admin',
   });
