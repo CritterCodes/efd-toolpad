@@ -15,7 +15,7 @@ import { db } from '@/lib/database';
 import WorkOrdersModel, { WORK_ORDER_SOURCE } from '@/app/api/workOrders/model';
 import RepairsModel from '@/app/api/repairs/model';
 import { moveRepairToQc } from '@/app/api/repairs/[repairID]/send-to-qc/route';
-import { claimPieceWorkOrder, completePieceWorkOrder } from '@/services/bench/pieceWorkOrderActions';
+import { claimPieceWorkOrder, movePieceToQc, completePieceWorkOrderFromQc } from '@/services/bench/pieceWorkOrderActions';
 import {
   buildClaimRepairUpdate,
   buildUnclaimRepairUpdate,
@@ -192,9 +192,10 @@ async function runPieceAction({ session, workOrderID, action }) {
   switch (action) {
     case 'claim':
       return claimPieceWorkOrder({ session, workOrderID });
-    case 'complete':
+    case 'move-to-qc':
+      return movePieceToQc({ session, workOrderID });
     case 'complete-from-qc':
-      return completePieceWorkOrder({ session, workOrderID });
+      return completePieceWorkOrderFromQc({ session, workOrderID });
     default:
       throw err(`Unsupported piece action: ${action}`, 'BAD_REQUEST');
   }

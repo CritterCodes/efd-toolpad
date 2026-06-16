@@ -197,12 +197,12 @@ export default function BenchWorkCard({
           </>
         )}
 
-        {/* Piece: unclaimed → Claim; in progress → Complete */}
+        {/* Piece: unclaimed → Claim; in progress → Move to QC (logs labor). QC → bulk approve bar. */}
         {isPiece && wo.benchQueue === BENCH_QUEUE.UNCLAIMED && (
           <Button size="small" variant="contained" disabled={busy} onClick={() => onAction(wo, 'claim')} sx={goldBtn}>Claim</Button>
         )}
         {isPiece && wo.benchQueue === BENCH_QUEUE.IN_PROGRESS && (
-          <Button size="small" variant="outlined" startIcon={<QCIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => onAction(wo, 'complete')} sx={btn({ color: '#00C49F', borderColor: '#00C49F' })}>Complete (log labor)</Button>
+          <Button size="small" variant="outlined" startIcon={<QCIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => onAction(wo, 'move-to-qc')} sx={btn({ color: '#00C49F', borderColor: '#00C49F' })}>Move to QC</Button>
         )}
       </CardActions>
     </Card>

@@ -178,8 +178,9 @@ export default function BenchPage() {
     BENCH_TABS.map(({ key }) => [key, workOrders.filter((wo) => isWorkOrderInTab(wo, key, userID))]),
   ), [workOrders, userID]);
 
+  // Every source supports move-to-QC now (repairs + production/custom pieces).
   const mineInProgress = useMemo(
-    () => (byTab[BENCH_QUEUE.MINE] || []).filter((wo) => wo.benchQueue === BENCH_QUEUE.IN_PROGRESS && wo.sourceType === 'repair'),
+    () => (byTab[BENCH_QUEUE.MINE] || []).filter((wo) => wo.benchQueue === BENCH_QUEUE.IN_PROGRESS),
     [byTab],
   );
 

@@ -294,6 +294,14 @@ Sequenced sub-phases (value + dependency). Recommended order U1→U6.
     each step resyncing the WO. No schema migration (purely additive: derived reads + new endpoints + UI).
   - Faithful to main: in-progress work assigned to others shows only under its assignee's "My Bench" (admins use
     this same tab logic). Tests: `workOrderWorkflow.test.js` (7) green; `repairWorkflow.test.js` (7) unaffected.
+  - **QC gate unified across ALL sources (2026-06):** pieces (production AND customs — customs reach the bench as
+    `production_piece` WOs via S7d) now move through the SAME gate as repairs: claim → in progress → **Move to QC**
+    → bulk **Approve to Payment & Pickup**. `pieceWorkOrderActions.js` refactored to mirror repairs — labor is
+    logged at the **move-to-QC** transition (was at completion), QC approval finalizes + re-rolls COGS. `loadPieceWorkOrder`
+    accepts `production_piece` + `custom_piece`. **Verified live (DEV):** custom order → Start production → piece WO
+    Unclaimed → Claim → Move to QC → QC tab → bulk Approve → off bench; the labor log surfaces in labor-review
+    (`sourceAction: piece_move_to_qc`, unbatched, flagged for review) → payroll picks up custom labor like repair labor.
+    Sale-service is repair-backed, so it already had the full gate.
   - **`my-bench` can retire** once this is the canonical bench. **Page design archetype for U2–U6:** `REPAIRS_UI`
     tokens + header-panel / metric-card / filter-bar / card-grid / snackbar (see Customs UI below), not plain tables.
 - **Customs UI ✅ (S7 system, restyled with U1):** `/dashboard/customs` (list) + `/dashboard/customs/[customID]`
