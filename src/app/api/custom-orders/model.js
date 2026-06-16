@@ -73,6 +73,19 @@ export default class CustomOrdersModel {
       isRush: !!data.isRush,
       status,
       statusHistory: [{ status, changedAt: now, changedBy: data.createdBy ?? null, reason: 'created' }],
+      // Spec (C1): what the client is commissioning.
+      jewelryType: data.jewelryType ?? null,
+      metalType: data.metalType ?? null,
+      karat: data.karat ?? null,
+      size: data.size ?? null,
+      gemstones: Array.isArray(data.gemstones) ? data.gemstones : [],
+      budget: data.budget ?? null,
+      dueDate: data.dueDate ?? null,
+      specialRequests: data.specialRequests ?? '',
+      // Collaboration (C1): internal notes, client/internal message threads, moodboard images.
+      notes: Array.isArray(data.notes) ? data.notes : [],
+      communications: Array.isArray(data.communications) ? data.communications : [],
+      images: Array.isArray(data.images) ? data.images : [],
       designIDs: Array.isArray(data.designIDs) ? data.designIDs : [],
       pieceIDs: Array.isArray(data.pieceIDs) ? data.pieceIDs : [],
       quote: this.normalizeQuote({ ...EMPTY_QUOTE, ...(data.quote || {}) }),
@@ -134,6 +147,65 @@ export default class CustomOrdersModel {
     const ops = { $set: { updatedAt: new Date() } };
     if (Object.keys(add).length) ops.$addToSet = add;
     await col.updateOne({ customID }, ops);
+    return this.findById(customID);
+  }
+
+  /* ---- Collaboration (C1): notes / communications / images ---- */
+
+  /** Append an internal note. type: 'internal' | 'client_visible'. */
+  static async addNote(customID, { text, author = null, type = 'internal', tags = [] }) {
+    const col = await this.collection();
+    const note = {
+      id: randomUUID(),
+      text: String(text || ''),
+      author,
+      type: type === 'client_visible' ? 'client_visible' : 'internal',
+      tags: Array.isArray(tags) ? tags : [],
+      createdAt: new Date(),
+    };
+    await col.updateOne({ customID }, { $push: { notes: note }, $set: { updatedAt: new Date() } });
+    return note;
+  }
+
+  static async deleteNote(customID, noteID) {
+    const col = await this.collection();
+    await col.updateOne({ customID }, { $pull: { notes: { id: noteID } }, $set: { updatedAt: new Date() } });
+    return this.findById(customID);
+  }
+
+  /** Append a message. thread: 'client' | 'internal'; direction: 'outbound' | 'inbound'. */
+  static async addCommunication(customID, { text, author = null, thread = 'client', direction = 'outbound' }) {
+    const col = await this.collection();
+    const message = {
+      id: randomUUID(),
+      text: String(text || ''),
+      author,
+      thread: thread === 'internal' ? 'internal' : 'client',
+      direction: direction === 'inbound' ? 'inbound' : 'outbound',
+      createdAt: new Date(),
+    };
+    await col.updateOne({ customID }, { $push: { communications: message }, $set: { updatedAt: new Date() } });
+    return message;
+  }
+
+  /** Append a moodboard / reference image (url already uploaded to S3). */
+  static async addImage(customID, { url, key = null, caption = '', uploadedBy = null }) {
+    const col = await this.collection();
+    const image = {
+      id: randomUUID(),
+      url,
+      key,
+      caption: String(caption || ''),
+      uploadedBy,
+      uploadedAt: new Date(),
+    };
+    await col.updateOne({ customID }, { $push: { images: image }, $set: { updatedAt: new Date() } });
+    return image;
+  }
+
+  static async removeImage(customID, imageID) {
+    const col = await this.collection();
+    await col.updateOne({ customID }, { $pull: { images: { id: imageID } }, $set: { updatedAt: new Date() } });
     return this.findById(customID);
   }
 
