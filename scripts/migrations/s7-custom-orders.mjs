@@ -21,6 +21,7 @@ const steps = [
       await customOrders.createIndex({ clientID: 1 });
       await customOrders.createIndex({ status: 1 });
       await customOrders.createIndex({ createdAt: -1 });
+      await customOrders.createIndex({ 'share.token': 1 }, { sparse: true }); // storefront /d/<token> lookup
       return 'ensured customOrders indexes';
     },
   },

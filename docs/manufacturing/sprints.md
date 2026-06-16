@@ -214,7 +214,11 @@ Slices:
   `designIDs`/`pieceIDs` on the order); `POST /api/custom-orders/[customID]/production`. Reuses the S4
   engine → custom fabrication hits the unified bench → labor→payroll (owner draw) → COGS → margin.
   E2E verified end-to-end: custom → production → WO completed → labor logged → margin = quote − COGS.
-- **S7e — 3D viewer + share:** `designModel` + `share` per the contract; meshMap via `POST /api/glb/inspect`.
+- **S7e — 3D viewer + share ✅:** `customViewer.js` (`validateDesignModel` reusing product meshMap rules,
+  unit-tested; `setDesignModel` / `createShareLink` [requires a model first] / `setShareEnabled`) + API
+  (`PUT /design-model`, `POST`/`PUT /share`). Share URL = `${NEXT_PUBLIC_SHOP_URL}/d/<token>`; `share.token`
+  indexed. E2E verified (model-gate, mint token, revoke/re-enable). **Cross-app TODO:** efd-shop's `/d/<token>`
+  page must also resolve `customOrders` (today it resolves legacy `customTickets`).
 - **S7f — legacy freeze + nav:** label legacy "Custom Tickets (Legacy)"; new "Customs" entry defaults new
   intake to the new system.
 - **S7g — UI:** list + tabbed detail (overview / quote / invoices / bench / viewer / comms), verified via preview.
