@@ -265,9 +265,21 @@ renderer never idles — but `preview_snapshot`/`preview_inspect`/`preview_eval`
 verification, which the tooling prefers anyway.) Screens were deferred for *sequencing*, not capability — batch
 them once the backends are proven:
 
-- Drop / Design / Piece editor UIs (CRUD + STL upload + live cost preview against the estimate endpoint)
-- **Shared meshMap builder** (3D viewer mapping UI) — used by S5 (product `viewer`) **and** S7 (custom
-  `designModel`); build once.
-- Bench frontend switch from `/api/repairs/my-bench` → `/api/bench/my-bench` (unified, discipline-gated)
-- Billing-mode selector + `internal`-for-repairs (S1 polish)
-- Marketplace fee-schedule / artisan-agreement admin screens (S6)
+Sequenced sub-phases (value + dependency). Recommended order U1→U6.
+
+- **U1 — Unified bench ✅:** new page `/dashboard/bench` reading `/api/bench/my-bench` (all sources,
+  discipline-gated) — lane chips, source enrichment (Repair · client / Piece · design), claim/complete for
+  production-piece WOs, "Open repair" for repair WOs. Built **alongside** the live `/dashboard/repairs/my-bench`
+  (no regression); nav entry "Bench (All Work)". **Verified live:** renders 2 active repair-sourced WOs with
+  correct lanes/sources/status. (Production-piece claim/complete wiring uses the S4c-verified endpoints.)
+- **U2 — Production catalog:** Drops / Designs (+ STL upload + live cost estimate) / Pieces editors.
+- **U3 — meshMap builder (shared):** GLB upload → `/api/glb/inspect` → assign meshes → save. **Reused by U4 +
+  customs 3D (U6)** — build once. (Trickiest single component; reuse existing STL/GLB viewer components.)
+- **U4 — Product editor:** reimagined product CRUD to the contract shape + publish gate (uses U3).
+- **U5 — Marketplace admin:** fee-schedule editor + artisan-agreement screens (S6).
+- **U6 — Polish:** billing-mode selector (S1), admin "shop board" (all lanes), customs design-model/share
+  controls (uses U3).
+
+Established UI conventions (from S7g): `'use client'` page, MUI, `fetch` the API directly; verify live via
+the preview harness (session persists as `dev-preview-admin`; use `preview_snapshot`/`eval` not screenshots;
+React inputs need native-setter+dispatch; navigate with absolute `http://localhost:3099/...`).
