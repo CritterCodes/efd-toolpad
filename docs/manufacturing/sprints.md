@@ -34,8 +34,10 @@ change**, and establish a clean foundation.
     aggregation. Today there is one lane (`bench_jewelry`) and `artisanTypes` is **unpopulated for all
     users**, so gating visibility now would lock every artisan out. Discipline is stored on every WO; hard
     lane enforcement lands with the bench rewrite + once artisan tagging is populated.
-  - **Delete orphaned cross-DB cad/designs code → moved to S3** (absorbed there; deleting now would break
-    the still-live CAD Requests page, violating no-regression).
+  - **Delete orphaned cross-DB cad/designs code + unify DB helpers → moved to the Tech-debt backlog**
+    (see bottom). S3 *sidestepped* this by putting the catalog under `/api/production/*`, so the orphaned
+    `/api/designs` mock route, the `jewelry-ecommerce` cross-DB route, and the two DB-connection patterns
+    (`@/lib/database` vs `@/lib/mongodb`) **still exist**. Parked, no callers — cleaned up with S5.
 - **Done when:** repairs flow through the synced WO spine; labor/payroll read the generalized
   collections; full `next build` passes; **no user-visible change**.
 
@@ -181,3 +183,28 @@ showcase listing with COGS-based pricing.
 
 - Gemstone-listed-by-artisan + custom-design-on-a-gemstone flow.
 - Artisan **minisites** (the fee model already accommodates them; UI/hosting is later).
+
+## Tech-debt / cleanup backlog (don't lose these)
+
+Tracked here so deferred cleanup can't fall through the cracks. Target: alongside **S5**.
+
+- **Orphaned cross-DB code** — delete the `/api/designs` mock GET + `/api/cad-requests/[id]/volume`
+  route (hardcoded `jewelry-ecommerce` DB) once the gemstone/cad-request flow is reconciled (S3 sidestepped
+  these via `/api/production/*`; they have no callers).
+- **Unify DB-connection helpers** — collapse `@/lib/mongodb` (`connectToDatabase`) into `@/lib/database`
+  so there's one connection pattern.
+- **Drop junk `inventory*` collections** (`inventory`/`inventoryTransactions`/`inventoryReorderSuggestions`)
+  — at cutover (materials-inventory is parked indefinitely; see README).
+- **Reset trash `products` data** into the contract shape — part of S5.
+
+## Deferred UI phase (batched, build once backends are proven)
+
+All net-new screens were deferred from their sprints because UI isn't build/test-verifiable the way the
+backends are. Batch them once S4c/S5 backends land:
+
+- Drop / Design / Piece editor UIs (CRUD + STL upload + live cost preview against the estimate endpoint)
+- **Shared meshMap builder** (3D viewer mapping UI) — used by S5 (product `viewer`) **and** S7 (custom
+  `designModel`); build once.
+- Bench frontend switch from `/api/repairs/my-bench` → `/api/bench/my-bench` (unified, discipline-gated)
+- Billing-mode selector + `internal`-for-repairs (S1 polish)
+- Marketplace fee-schedule / artisan-agreement admin screens (S6)
