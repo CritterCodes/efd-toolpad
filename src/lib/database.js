@@ -224,6 +224,11 @@ class Database {
         return this._instance.collection(Constants.PIECES_COLLECTION);
     }
 
+    async dbCustomOrders() {
+        await this.connect();
+        return this._instance.collection(Constants.CUSTOM_ORDERS_COLLECTION);
+    }
+
     // Legacy alias for backward compatibility
     async dbRepairTasks() {
         await this.connect();

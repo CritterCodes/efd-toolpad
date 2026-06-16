@@ -14,6 +14,7 @@ const Constants = {
     DROPS_COLLECTION: 'drops',
     DESIGNS_COLLECTION: 'designs',
     PIECES_COLLECTION: 'pieces',
+    CUSTOM_ORDERS_COLLECTION: 'customOrders',  // S7 — new customs (legacy customTickets frozen)
 
     // Admin Collections
     ADMIN_SETTINGS_COLLECTION: 'adminSettings',
