@@ -1,15 +1,19 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  Card, CardContent, Typography, Box, Chip, IconButton, Menu, MenuItem, Divider, Avatar, Stack,
+  Card, CardContent, CardActions, Typography, Box, Chip, Divider, Button, Checkbox,
+  TextField, MenuItem, Alert,
 } from '@mui/material';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
-import PersonIcon from '@mui/icons-material/Person';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 import HandymanIcon from '@mui/icons-material/Handyman';
 import DesignServicesIcon from '@mui/icons-material/DesignServices';
 import DiamondIcon from '@mui/icons-material/AutoAwesome';
-import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
+import PartsIcon from '@mui/icons-material/Category';
+import QCIcon from '@mui/icons-material/VerifiedUser';
+import CommunicationsIcon from '@mui/icons-material/Forum';
+import { useRouter } from 'next/navigation';
+
+import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import RepairThumbnail from '@/app/dashboard/repairs/components/RepairThumbnail';
+import { BENCH_QUEUE } from '@/services/repairWorkflow';
 
 const LANE = {
   bench_jewelry: { label: 'Bench', color: 'primary', Icon: HandymanIcon },
@@ -18,39 +22,45 @@ const LANE = {
   gem_cutting: { label: 'Gem Cutting', color: 'warning', Icon: DiamondIcon },
 };
 
-function statusColor(s = '') {
-  if (/PROGRESS/i.test(s)) return 'primary';
-  if (/QC|QUALITY/i.test(s)) return 'secondary';
-  if (/READY/i.test(s)) return 'info';
-  if (/PARTS|COMMUNICATION/i.test(s)) return 'warning';
-  return 'default';
-}
+const QUEUE_META = {
+  [BENCH_QUEUE.UNCLAIMED]: { label: 'UNCLAIMED', color: REPAIRS_UI.textMuted },
+  [BENCH_QUEUE.IN_PROGRESS]: { label: 'IN PROGRESS', color: '#0088FE' },
+  [BENCH_QUEUE.COMMUNICATIONS]: { label: 'COMMUNICATIONS', color: '#A855F7' },
+  [BENCH_QUEUE.WAITING_PARTS]: { label: 'NEEDS PARTS', color: '#FF8042' },
+  [BENCH_QUEUE.QC]: { label: 'QC', color: '#00C49F' },
+};
 
-function dueStatus(promiseDate) {
-  if (!promiseDate) return null;
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const d = new Date(promiseDate); d.setHours(0, 0, 0, 0);
-  const diff = Math.ceil((d - today) / 86400000);
-  if (diff < 0) return { color: 'error', label: `${Math.abs(diff)}d overdue`, filled: true };
-  if (diff === 0) return { color: 'warning', label: 'Due today' };
-  if (diff <= 3) return { color: 'info', label: `Due in ${diff}d` };
-  return { color: 'default', label: `Due ${d.toLocaleDateString()}` };
-}
+const btn = (extra = {}) => ({ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border, fontSize: '0.75rem', ...extra });
+const goldBtn = { bgcolor: REPAIRS_UI.accent, color: '#000', fontSize: '0.75rem', '&:hover': { bgcolor: '#c9a227' } };
 
-function sourceLabel(wo) {
+function sourceTitle(wo) {
   const s = wo.source || {};
-  if (s.kind === 'repair') return `Repair · ${s.clientName || s.businessName || wo.sourceID}`;
-  if (s.kind === 'piece') return `Piece · ${s.designName || s.sku || wo.sourceID}`;
+  if (s.kind === 'repair') return s.clientName || s.businessName || wo.sourceID;
+  if (s.kind === 'piece') return s.designName || s.sku || wo.title || wo.sourceID;
+  return wo.title || wo.sourceType;
+}
+
+function sourceTag(wo) {
+  const s = wo.source || {};
+  if (s.kind === 'repair') return 'Repair';
+  if (s.kind === 'piece') return 'Piece';
   return wo.sourceType;
 }
 
-export default function BenchWorkCard({ wo, busy, onClaim, onComplete, onOpenRepair }) {
-  const [anchor, setAnchor] = useState(null);
+export default function BenchWorkCard({
+  wo, currentUserID, isAdmin, jewelers = [], busy,
+  selectable = false, isSelected = false, onToggleSelect,
+  onAction, onOpenPartsDialog, error,
+}) {
+  const router = useRouter();
   const lane = LANE[wo.discipline] || { label: wo.discipline, color: 'default', Icon: HandymanIcon };
   const LaneIcon = lane.Icon;
-  const due = dueStatus(wo.promiseDate);
-  const isPiece = wo.sourceType === 'production_piece';
+  const queue = QUEUE_META[wo.benchQueue] || { label: wo.status || '—', color: REPAIRS_UI.textMuted };
   const isRepair = wo.sourceType === 'repair';
+  const isPiece = wo.sourceType === 'production_piece' || wo.sourceType === 'custom_piece';
+  const isMine = wo.assignedToUserID && wo.assignedToUserID === currentUserID;
+  const repairID = wo.sourceID;
+  const desc = wo.source?.description || wo.description || '';
 
   return (
     <Card
@@ -58,54 +68,143 @@ export default function BenchWorkCard({ wo, busy, onClaim, onComplete, onOpenRep
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        backgroundColor: REPAIRS_UI.bgCard,
+        bgcolor: REPAIRS_UI.bgPanel,
         backgroundImage: 'none',
-        border: `1px solid ${REPAIRS_UI.border}`,
+        border: `1px solid ${isSelected ? REPAIRS_UI.accent : REPAIRS_UI.border}`,
         borderLeft: '3px solid',
         borderLeftColor: `${lane.color}.main`,
         borderRadius: 2,
-        transition: 'box-shadow 120ms ease, transform 120ms ease',
-        '&:hover': { boxShadow: REPAIRS_UI.shadow, transform: 'translateY(-2px)' },
+        boxShadow: isSelected ? `0 0 0 2px ${REPAIRS_UI.accent}33` : 'none',
       }}
     >
-      <CardContent sx={{ flexGrow: 1 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-          <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap">
-            <Chip size="small" icon={<LaneIcon sx={{ fontSize: 15 }} />} label={lane.label} color={lane.color} variant="outlined" />
-            {wo.isRush && <Chip size="small" icon={<PriorityHighIcon />} label="RUSH" color="error" sx={{ height: 24 }} />}
-          </Stack>
-          <IconButton size="small" onClick={(e) => { e.stopPropagation(); setAnchor(e.currentTarget); }}>
-            <MoreVertIcon />
-          </IconButton>
+      <CardContent sx={{ pb: 1, flexGrow: 1 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1, gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+            {selectable && (
+              <Checkbox
+                checked={isSelected}
+                onChange={() => onToggleSelect?.(wo.workOrderID)}
+                sx={{ color: REPAIRS_UI.border, '&.Mui-checked': { color: REPAIRS_UI.accent }, p: 0 }}
+              />
+            )}
+            <Chip
+              size="small"
+              icon={<LaneIcon sx={{ fontSize: 14 }} />}
+              label={lane.label}
+              color={lane.color}
+              variant="outlined"
+              sx={{ height: 22 }}
+            />
+            <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, fontFamily: 'monospace' }} noWrap>
+              {sourceTag(wo)} · {wo.sourceID}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
+            {wo.isRush && <Chip label="RUSH" size="small" sx={{ bgcolor: '#FF4444', color: '#fff', fontSize: '0.65rem', height: 20 }} />}
+            <Chip label={queue.label} size="small" sx={{ bgcolor: queue.color, color: '#fff', fontSize: '0.65rem', height: 20 }} />
+          </Box>
         </Box>
 
-        <Typography variant="subtitle1" sx={{ fontWeight: 600 }} noWrap title={wo.title || ''}>{wo.title || '—'}</Typography>
-        <Typography variant="body2" color="text.secondary" noWrap>{sourceLabel(wo)}</Typography>
-
-        <Divider sx={{ my: 1.5 }} />
-
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          <Chip size="small" label={wo.status || '—'} color={statusColor(wo.status || '')} />
-          {due && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <AccessTimeIcon fontSize="small" color="action" />
-              <Chip size="small" label={due.label} color={due.color} variant={due.filled ? 'filled' : 'outlined'} />
-            </Box>
-          )}
+        <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start' }}>
+          {isRepair && <RepairThumbnail repair={wo.source} size={82} />}
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography variant="subtitle2" sx={{ color: REPAIRS_UI.textHeader, fontWeight: 600, mb: 0.5 }} noWrap>
+              {sourceTitle(wo)}
+            </Typography>
+            {desc && (
+              <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, mb: 1, fontSize: '0.8rem' }}>
+                {desc.slice(0, 100)}{desc.length > 100 ? '…' : ''}
+              </Typography>
+            )}
+            {wo.assignedJeweler && (
+              <Typography variant="caption" sx={{ display: 'block', color: REPAIRS_UI.textMuted }}>
+                Assigned to: {wo.assignedJeweler}
+              </Typography>
+            )}
+            {wo.promiseDate && (
+              <Typography variant="caption" sx={{ display: 'block', color: REPAIRS_UI.accent }}>
+                Due: {new Date(wo.promiseDate).toLocaleDateString()}
+              </Typography>
+            )}
+          </Box>
         </Box>
 
-        <Box sx={{ mt: 1 }}>
-          {wo.assignedJeweler
-            ? <Chip size="small" variant="outlined" color="primary" avatar={<Avatar sx={{ width: 20, height: 20 }}><PersonIcon sx={{ fontSize: 13 }} /></Avatar>} label={wo.assignedJeweler} />
-            : <Chip size="small" variant="outlined" label="Unclaimed" />}
-        </Box>
+        {error && <Alert severity="error" sx={{ mt: 1, py: 0 }}>{error}</Alert>}
       </CardContent>
 
-      <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)} {...repairsMenuProps}>
-        {isPiece && !wo.assignedToUserID && <MenuItem disabled={busy} onClick={() => { onClaim(wo); setAnchor(null); }}>Claim</MenuItem>}
-        {isPiece && <MenuItem disabled={busy} onClick={() => { onComplete(wo); setAnchor(null); }}>Complete (log labor)</MenuItem>}
-        {isRepair && <MenuItem onClick={() => { onOpenRepair(wo); setAnchor(null); }}>Open repair</MenuItem>}
-      </Menu>
+      <Divider sx={{ borderColor: REPAIRS_UI.border }} />
+
+      <CardActions sx={{ px: 1.5, py: 1, gap: 0.5, flexWrap: 'wrap' }}>
+        {isRepair && (
+          <Button size="small" variant="outlined" onClick={() => router.push(`/dashboard/repairs/${repairID}`)} sx={btn()}>
+            View
+          </Button>
+        )}
+
+        {isAdmin && isRepair && (
+          <TextField
+            select
+            size="small"
+            label="Assign Jeweler"
+            value={wo.assignedToUserID || ''}
+            disabled={busy || jewelers.length === 0}
+            onChange={(e) => onAction(wo, e.target.value ? 'assign' : 'unclaim', e.target.value ? { userID: e.target.value } : {})}
+            sx={{
+              minWidth: 160,
+              '& .MuiOutlinedInput-root': { bgcolor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, fontSize: '0.75rem' },
+              '& .MuiInputLabel-root': { color: REPAIRS_UI.textMuted, fontSize: '0.75rem' },
+              '& .MuiSelect-icon': { color: REPAIRS_UI.textSecondary },
+            }}
+          >
+            <MenuItem value="">Unassigned</MenuItem>
+            {jewelers.map((j) => (
+              <MenuItem key={j.userID} value={j.userID}>
+                {[j.firstName, j.lastName].filter(Boolean).join(' ').trim() || j.name || j.email || j.userID}
+              </MenuItem>
+            ))}
+          </TextField>
+        )}
+
+        {/* Repair: unclaimed → Claim */}
+        {isRepair && !isMine && wo.benchQueue === BENCH_QUEUE.UNCLAIMED && (
+          <Button size="small" variant="contained" disabled={busy} onClick={() => onAction(wo, 'claim')} sx={goldBtn}>Claim</Button>
+        )}
+
+        {/* Repair: mine in progress → Unclaim / Needs Parts / Move to QC */}
+        {isRepair && isMine && wo.benchQueue === BENCH_QUEUE.IN_PROGRESS && (
+          <>
+            <Button size="small" variant="outlined" disabled={busy} onClick={() => onAction(wo, 'unclaim')} sx={btn({ color: REPAIRS_UI.textSecondary })}>Unclaim</Button>
+            <Button size="small" variant="outlined" startIcon={<PartsIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => onOpenPartsDialog?.(wo)} sx={btn({ color: REPAIRS_UI.textSecondary })}>Needs Parts</Button>
+            <Button size="small" variant="outlined" startIcon={<QCIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => onAction(wo, 'move-to-qc')} sx={btn({ color: '#00C49F', borderColor: '#00C49F' })}>Move to QC</Button>
+          </>
+        )}
+
+        {/* Repair: waiting parts → Mark Parts Ordered / Move Back to Bench */}
+        {isRepair && wo.benchQueue === BENCH_QUEUE.WAITING_PARTS && (
+          <>
+            {wo.status !== 'PARTS ORDERED' && (
+              <Button size="small" variant="outlined" startIcon={<PartsIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => onAction(wo, 'mark-parts-ordered')} sx={btn({ color: REPAIRS_UI.textSecondary })}>Mark Parts Ordered</Button>
+            )}
+            <Button size="small" variant="contained" disabled={busy} onClick={() => onAction(wo, 'parts-ready-for-work')} sx={goldBtn}>Move Back to Bench</Button>
+          </>
+        )}
+
+        {/* Repair: communications → Open / Complete */}
+        {isRepair && wo.benchQueue === BENCH_QUEUE.COMMUNICATIONS && (
+          <>
+            <Button size="small" variant="outlined" startIcon={<CommunicationsIcon sx={{ fontSize: 14 }} />} onClick={() => router.push(`/dashboard/repairs/${repairID}`)} sx={btn({ color: '#A855F7', borderColor: '#A855F7' })}>Open Communication</Button>
+            <Button size="small" variant="contained" disabled={busy} onClick={() => onAction(wo, 'communication-complete')} sx={goldBtn}>Communication Complete</Button>
+          </>
+        )}
+
+        {/* Piece: unclaimed → Claim; in progress → Complete */}
+        {isPiece && wo.benchQueue === BENCH_QUEUE.UNCLAIMED && (
+          <Button size="small" variant="contained" disabled={busy} onClick={() => onAction(wo, 'claim')} sx={goldBtn}>Claim</Button>
+        )}
+        {isPiece && wo.benchQueue === BENCH_QUEUE.IN_PROGRESS && (
+          <Button size="small" variant="outlined" startIcon={<QCIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => onAction(wo, 'complete')} sx={btn({ color: '#00C49F', borderColor: '#00C49F' })}>Complete (log labor)</Button>
+        )}
+      </CardActions>
     </Card>
   );
 }

@@ -12,6 +12,7 @@
 import { db } from '@/lib/database';
 import { getActiveBenchRawStatuses } from '@/services/repairWorkflow';
 import { disciplinesForArtisanTypes, DISCIPLINE } from '@/services/workOrders/disciplines';
+import { projectWorkOrder } from '@/services/workOrders/workOrderWorkflow';
 
 // Roles that see every discipline (matches lib/apiAuth.isAdmin). Inlined so this
 // service stays decoupled from the auth module (next-auth) and unit-testable.
@@ -85,6 +86,9 @@ export async function getBenchWorkOrders({ session } = {}) {
       const piece = pieceMap.get(wo.sourceID) || {};
       source = { kind: 'piece', ...piece, designName: piece.designID ? (designMap.get(piece.designID)?.name ?? null) : null };
     }
-    return { ...wo, source };
+    // Attach the derived, source-agnostic bench queue (mine/unclaimed/
+    // communications/waiting_parts/qc) so the unified bench can tab + gate
+    // actions exactly like the repairs My Bench. Queue is derived, never stored.
+    return projectWorkOrder({ ...wo, source });
   });
 }

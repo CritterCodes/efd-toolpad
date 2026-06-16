@@ -272,6 +272,36 @@ Sequenced sub-phases (value + dependency). Recommended order U1→U6.
   production-piece WOs, "Open repair" for repair WOs. Built **alongside** the live `/dashboard/repairs/my-bench`
   (no regression); nav entry "Bench (All Work)". **Verified live:** renders 2 active repair-sourced WOs with
   correct lanes/sources/status. (Production-piece claim/complete wiring uses the S4c-verified endpoints.)
+  **Workflow-parity rebuild (2026-06) — unify on the workOrders model:** the first cuts (bare table, then a
+  card grid) were missing the repair flow's tabs + features. Decision (user): **unify the full repair workflow
+  onto the work-order surface** rather than keep two benches or read-only repairs. Implementation:
+  - **`services/workOrders/workOrderWorkflow.js`** — source-agnostic bench projection. `deriveWorkOrderQueue(wo)`
+    reuses `repairWorkflow.getWorkflowProjection` for repair WOs (the WO mirrors the repair's status/assignedTo,
+    kept fresh by `RepairsModel.updateById → syncFromRepair`) and maps piece statuses for production/custom WOs.
+    Queue is **derived, never stored** → cannot drift from the repair. `BENCH_TABS` (Mine/Unclaimed/Communications/
+    Needs Parts/QC), `isWorkOrderInTab`. Client-safe (no server-only imports — inlines the `'repair'` source string;
+    importing the WO model would pull `@/lib/database`+`crypto` into the client bundle and crash it).
+  - **`services/bench/benchActions.js`** + **`/api/bench/work-orders/[workOrderID]/[action]`** — one unified action
+    surface. Repair WOs delegate to the exact `repairWorkflow` builders + `RepairsModel` (auto-resyncs the WO →
+    zero divergence from the legacy `/api/repairs/*` routes); piece WOs use `pieceWorkOrderActions`. Authorization
+    mirrors `requireRepairOps(cap)` per action. Replaced the two static `claim`/`complete` bench routes.
+  - **`benchQuery.js`** now attaches the derived queue (+ repair enrichment incl. `picture` for the thumbnail).
+  - **`/dashboard/bench`** rebuilt to full parity with `/dashboard/repairs/my-bench`: tabs + counts, scan-to-claim
+    (text + `ContinuousBarcodeScanner` camera, batch claim via `/api/repairs/{id}/claim`), "Move My Bench to QC"
+    bulk, QC selection + "Approve to Payment & Pickup" bulk, per-card Needs-Parts dialog (Stuller lookup / manual
+    material), jeweler-assign dropdown (admin), `RepairThumbnail`, due dates — all driven through the one action
+    endpoint. **Verified live (DEV):** moved a repair through Move-to-QC → QC tab card → bulk Approve → off bench,
+    each step resyncing the WO. No schema migration (purely additive: derived reads + new endpoints + UI).
+  - Faithful to main: in-progress work assigned to others shows only under its assignee's "My Bench" (admins use
+    this same tab logic). Tests: `workOrderWorkflow.test.js` (7) green; `repairWorkflow.test.js` (7) unaffected.
+  - **`my-bench` can retire** once this is the canonical bench. **Page design archetype for U2–U6:** `REPAIRS_UI`
+    tokens + header-panel / metric-card / filter-bar / card-grid / snackbar (see Customs UI below), not plain tables.
+- **Customs UI ✅ (S7 system, restyled with U1):** `/dashboard/customs` (list) + `/dashboard/customs/[customID]`
+  (detail) rebuilt to the same archetype — list: metric cards (total/in-production/awaiting-payment/pipeline),
+  status filter, clickable order-card grid, dark "New Custom" dialog; detail: header + status chip, styled Quote
+  panel (line items, gold total, margin/COGS), Production panel (start → bench), Invoices & Payment panel (themed
+  progress bar + table), dark quote/invoice dialogs, snackbar. **Verified live** against DEV (created a test order,
+  confirmed list card + detail render).
 - **U2 — Production catalog:** Drops / Designs (+ STL upload + live cost estimate) / Pieces editors.
 - **U3 — meshMap builder (shared):** GLB upload → `/api/glb/inspect` → assign meshes → save. **Reused by U4 +
   customs 3D (U6)** — build once. (Trickiest single component; reuse existing STL/GLB viewer components.)
