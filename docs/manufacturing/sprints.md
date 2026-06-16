@@ -71,12 +71,22 @@ customer charge — a clear path, not a faked customer repair.
 - **Done when:** ✅ a sale-linked resize is comped (no customer charge), appears on the bench, pays the
   jeweler via payroll, deducts labor from the seller payout, and is tagged `saleContext` for tracking.
 
-## S3 — Drops & Designs (+ CAD estimator)
+## S3 — Drops & Designs (+ CAD estimator) — 🚧 in progress
 
 **Goal:** the catalog/IP layer and the `estCost` engine.
-- **Migration:** indexes only (`drops`/`designs` start empty).
-- **Code:** drop/design CRUD; CAD upload + viewers (salvaged); **absorb cad-requests** as `cad`
-  work orders; `estCost` from salvaged `stlVolumeCalculator` + `metalTypes` + `metalPrices`.
+- **Migration:** `scripts/migrations/s3-drops-designs.mjs` — ensure drop/design indexes (additive; applied to DEV).
+- **Done (S3a):**
+  - `src/services/production/designCost.js` — the estCost engine, salvaging `metalTypes.js`
+    (specific-gravity / karat / 1.3× casting) + `stlVolumeCalculator` volume:
+    volume → wax → metal weight → karat-adjusted price → metal cost + stones/findings/labor.
+    Unit-tested (`designCost.test.js`, 6 passing).
+  - `DropsModel` + `DesignsModel` — CRUD + indexes, schema per data-model.
+- **Remaining (S3b):**
+  - API routes `/api/drops` + `/api/designs` CRUD — **replacing the orphaned mock `/api/designs`**
+    (check frontend usage first; absorb the useful parts of the gemstone cad-request flow)
+  - CAD/GLB upload to S3 + an `estCost` endpoint wiring the engine to the `metalPrices` collection
+  - absorb cad-requests as `cad`-discipline work orders (surface on a CAD Designer's bench)
+  - Design/Drop CRUD UI + STL upload + live cost preview
 - **Done when:** create a drop, add a design with CAD + BOM + a computed cost estimate; a CAD
   request shows on a CAD Designer's bench.
 
