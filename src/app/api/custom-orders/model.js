@@ -125,6 +125,18 @@ export default class CustomOrdersModel {
     return { ...quote, quoteTotal: computeQuote(quote).quoteTotal };
   }
 
+  /** Link a spawned Design / Piece onto the order (idempotent via $addToSet). */
+  static async linkProduction(customID, { designID, pieceID } = {}) {
+    const col = await this.collection();
+    const add = {};
+    if (designID) add.designIDs = designID;
+    if (pieceID) add.pieceIDs = pieceID;
+    const ops = { $set: { updatedAt: new Date() } };
+    if (Object.keys(add).length) ops.$addToSet = add;
+    await col.updateOne({ customID }, ops);
+    return this.findById(customID);
+  }
+
   /** Margin = quoteTotal − Σ COGS of linked pieces (real cost incl. bench labor). */
   static async marginFor(customID) {
     const order = await this.findById(customID);

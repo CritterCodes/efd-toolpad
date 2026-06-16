@@ -56,6 +56,7 @@ export default class PiecesModel {
       status: data.status || PIECE_STATUS.PLANNED,
       productID: data.productID ?? null,
       customerID: data.customerID ?? null,
+      customOrderID: data.customOrderID ?? null,   // present for custom-order pieces (S7)
       billing: data.billing ?? null,
       createdAt: now,
       updatedAt: now,

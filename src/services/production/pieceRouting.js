@@ -21,6 +21,7 @@ export async function createPieceFromDesign(designID, opts = {}) {
     sku: opts.sku ?? null,
     serialNumber: opts.serialNumber ?? null,
     customerID: opts.customerID ?? null,   // present for customs (S7)
+    customOrderID: opts.customOrderID ?? null,
     billing: opts.billing ?? null,
     actualMaterials: Array.isArray(opts.actualMaterials) ? opts.actualMaterials : [],
     createdBy: opts.createdBy ?? null,

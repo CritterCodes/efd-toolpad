@@ -209,8 +209,11 @@ Slices:
   progress + forward-only order advance to `in_production` at 50%) + API (`/invoices`, `/invoices/[id]`,
   `/payment-progress`). Notifications **fire-and-forget** (don't block the payment path on slow/failed email —
   improvement over legacy's blocking await). E2E verified: deposit → paid → 60% → production-ready + advanced.
-- **S7d — bench linkage:** custom order → Design + Piece(s) + routed work orders (reuse `createPieceFromDesign`
-  w/ a `customOrderID`); labor→payroll/owner-draw; COGS→margin.
+- **S7d — bench linkage ✅:** `addProductionToCustomOrder` (`customProduction.js`) spawns a Design + Piece
+  (with routed work orders) from a custom order and links both ways (`customOrderID` on the piece;
+  `designIDs`/`pieceIDs` on the order); `POST /api/custom-orders/[customID]/production`. Reuses the S4
+  engine → custom fabrication hits the unified bench → labor→payroll (owner draw) → COGS → margin.
+  E2E verified end-to-end: custom → production → WO completed → labor logged → margin = quote − COGS.
 - **S7e — 3D viewer + share:** `designModel` + `share` per the contract; meshMap via `POST /api/glb/inspect`.
 - **S7f — legacy freeze + nav:** label legacy "Custom Tickets (Legacy)"; new "Customs" entry defaults new
   intake to the new system.
