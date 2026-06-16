@@ -204,9 +204,11 @@ Slices:
 - **S7b — quote/financials ✅:** `customQuote.js` (`computeQuote` 40%-markup parity + `computeMargin`,
   unit-tested) wired into the model (auto-recompute `quoteTotal`; `marginFor` = quote − Σ piece COGS) +
   `/api/custom-orders` (+`[customID]`, `/quote`) CRUD. `billing.mode` carried.
-- **S7c — billing parity:** invoices + deposit + payment-progress + **50% production threshold** + final +
-  notifications. Clean **single-source** invoices (preserve the behavior; drop legacy's embedded-vs-collection
-  dual-write smell).
+- **S7c — billing parity ✅:** `customInvoices` (single-source, keyed by `customID`) + `paymentProgress.js`
+  (unit-tested; **50% production threshold**) + `customInvoices.service.js` (create / mark-paid →
+  progress + forward-only order advance to `in_production` at 50%) + API (`/invoices`, `/invoices/[id]`,
+  `/payment-progress`). Notifications **fire-and-forget** (don't block the payment path on slow/failed email —
+  improvement over legacy's blocking await). E2E verified: deposit → paid → 60% → production-ready + advanced.
 - **S7d — bench linkage:** custom order → Design + Piece(s) + routed work orders (reuse `createPieceFromDesign`
   w/ a `customOrderID`); labor→payroll/owner-draw; COGS→margin.
 - **S7e — 3D viewer + share:** `designModel` + `share` per the contract; meshMap via `POST /api/glb/inspect`.

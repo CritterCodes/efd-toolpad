@@ -24,6 +24,20 @@ const steps = [
       return 'ensured customOrders indexes';
     },
   },
+  {
+    title: 'customInvoices: ensure indexes (single-source custom billing)',
+    run: async ({ db, dryRun }) => {
+      const exists = (await db.listCollections({ name: 'customInvoices' }).toArray()).length > 0;
+      const customInvoices = db.collection('customInvoices');
+      if (dryRun) {
+        return `would ensure customInvoices indexes (collection ${exists ? 'exists' : 'will be created'})`;
+      }
+      await customInvoices.createIndex({ invoiceID: 1 }, { unique: true });
+      await customInvoices.createIndex({ customID: 1 });
+      await customInvoices.createIndex({ status: 1 });
+      return 'ensured customInvoices indexes';
+    },
+  },
 ];
 
 runMigration({ name: 's7-custom-orders', steps }).catch((e) => {
