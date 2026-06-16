@@ -111,12 +111,15 @@ customer charge — a clear path, not a faked customer repair.
   - API: `/api/production/pieces` (+ `[pieceID]`, `/materials`, `/recompute`).
   - **End-to-end verified on DEV:** design (cad→bench→engraving) → 3 work orders in 3 disciplines;
     material + labor log → COGS roll-up (120 + 50 = 170).
-- **Remaining (S4b — the deferred bench read-switch):**
-  - **My Bench reads work orders** (union: repair- + piece-sourced), discipline-gated (fallback to
-    `bench_jewelry` while `artisanTypes` is unpopulated, so no artisan is locked out). New unified bench
-    endpoint alongside the existing `/api/repairs/my-bench` (frontend switch happens in the UI phase).
+- **Done (S4b — unified bench read-switch, the keystone deferred from S0):** `/api/bench/my-bench` +
+  `benchQuery.js` read **work orders** (union: repair + piece + sale-service + cad), discipline-gated
+  with a `bench_jewelry` fallback. Verified e2e on DEV: admin → all lanes; CAD designer → cad-only;
+  untagged artisan → bench_jewelry only (no lockout, no cross-lane leak). Runs alongside the legacy
+  `/api/repairs/my-bench`; the frontend switch happens in the UI phase.
+- **Remaining (S4c):**
   - Piece work-order transitions (claim / move-to-QC / complete) that create labor logs keyed by
-    `workOrderID` → labor pays the artisan **and** capitalizes into the piece COGS.
+    `workOrderID` → labor pays the artisan **and** capitalizes into the piece COGS (analog of
+    `moveRepairToQc` for pieces).
   - absorb cad-requests as `cad` work orders (now that the bench can show them).
 - **Done when:** make a piece; its bench work orders pay the artisans **and** roll into the piece's COGS.
 
