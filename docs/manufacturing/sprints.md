@@ -81,11 +81,25 @@ change**, and establish a clean foundation.
 
 ## S5 — Piece → Product (reimagined)
 
-**Goal:** clean Product model; completed piece becomes a showcase listing with COGS-based pricing.
-- **Migration:** rebuild `products` shape (data was reset in S0).
-- **Code:** product CRUD; piece→product link; availability derived from piece status;
-  COGS-based suggested retail.
-- **Done when:** a finished piece lists as a product showing real margin; stock reflects piece status.
+**Goal:** clean Product model conforming to the storefront contract; completed piece becomes a
+showcase listing with COGS-based pricing.
+- **Contract:** the `products` collection is **shared with efd-shop and read directly** — build to
+  [product-page-data-contract.md](./product-page-data-contract.md) exactly (field names normative,
+  e.g. `productId`).
+- **Migration:** reset/normalize the trash `products` data into the contract shape (S0 left it
+  untouched; **confirm before prod**).
+- **Code:**
+  - product editor writes the contract shape: `productId`/`status`/`isPublic`,
+    `pricing.retailPrice`(+`compareAtPrice`)/`price`, `availability`, `jewelry{}`, `images[]`, `viewer{}`
+  - **3D media + meshMap builder:** upload GLB to S3 → call storefront `POST /api/glb/inspect` →
+    render mapping UI from `meshNodeNames` pre-filled with `suggestedMeshMap` → save `viewer.glbUrl` +
+    `viewer.meshMap`. `glbUrl` derives from the Design's GLB export.
+  - `pricing.costBasis` = Piece COGS (stripped by storefront); piece→product link; availability
+    derived from piece status; COGS-based suggested retail
+  - enforce the contract §8 checklist before publish; ensure S3 CORS allows the storefront origin
+- **Cross-app dependency:** `POST /api/glb/inspect` is hosted by **efd-shop**, not admin — admin calls it.
+- **Done when:** a finished piece lists as a contract-valid product (photos / 3D / both) on efd-shop with
+  real margin; stock reflects piece status.
 
 ## S6 — Marketplace + payouts
 

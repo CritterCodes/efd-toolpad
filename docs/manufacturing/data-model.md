@@ -176,21 +176,32 @@ One physical instance. Where real COGS accrues and availability lives.
 
 ---
 
-## `products` ♻️ (S5) — sketch, finalized in S5
+## `products` ♻️ (S5) — **storefront-read shape**
 
-Sellable listing. Replaces the trash collection. Optional Piece backing.
+⚠ efd-admin and efd-shop **share the `products` collection**; the storefront reads documents
+**directly** (no API). The shape is therefore dictated by the storefront — see
+[product-page-data-contract.md](./product-page-data-contract.md) (**authoritative**; field names &
+casing are normative, e.g. `productId` not `productID`). Admin (S5) writes exactly that shape.
 
-| Field | Type | Notes |
-|---|---|---|
-| `productID` | uuid | |
-| `title` / `description` / `media[]` | | listing content |
-| `price` | number | what the customer pays |
-| `cost` | number | derived from backing piece(s) COGS (1:1 = that piece; 1:N = aggregate) |
-| `seller` | object | `{ type: house \| artisan, artisanId? }` |
-| `custody` | enum | `consignment (EFD holds) \| artisan_held` |
-| `listingSurfaces[]` | enum[] | `efd_shop \| minisite \| in_store` |
-| `status` | enum | `draft \| published \| unpublished` |
-| `pieceIDs[]` | string[] | optional backing inventory |
+**Storefront-read fields (must match the contract):** `productId` (string handle), `status` /
+`isPublic`, `title`, `vendor`, `description`, `pricing.retailPrice` (+`compareAtPrice`) or top-level
+`price`, `availability` (`ready-to-ship` | `made-to-order`), `jewelry{ type, metals[], ringSize,
+weight, dimensions, production }`, `images[]`, `viewer{ glbUrl, meshMap[], environment?, orientation?, … }`.
+
+**Admin-internal fields (stripped/ignored by storefront):**
+
+| Field | Notes |
+|---|---|
+| `pricing.costBasis` | **= Piece COGS** (stripped by storefront) — this is our `cost`/margin source |
+| `internalNotes` | stripped by storefront |
+| `seller` | `{ type: house \| artisan, artisanId? }` (marketplace, S6) |
+| `custody` | `consignment \| artisan_held` (S6) |
+| `listingSurfaces[]` | `efd_shop \| minisite \| in_store` (S6) |
+| `pieceIDs[]` | backing Piece inventory (optional; availability derived from their status) |
+
+Media has three cases (photos / 3D / both); `viewer.meshMap` is built in admin via the storefront's
+`POST /api/glb/inspect`. `viewer.glbUrl` derives from the Design's exported GLB. Enforce the contract's
+§8 validation checklist before publish; S3 bucket must send CORS for the storefront origin.
 
 ---
 
