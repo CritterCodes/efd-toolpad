@@ -1,6 +1,7 @@
 import { db } from '@/lib/database';
 import RepairsModel from '@/app/api/repairs/model';
 import RepairInvoicesModel from './model';
+import { isCustomerCharged, resolveBillingMode } from '@/services/billing/modes';
 
 const DEFAULT_DELIVERY_FEE = 5;
 
@@ -53,7 +54,8 @@ function getRepairAccountContext(repair) {
 }
 
 function getRepairChargeSummary(repair) {
-  if (repair.compRepair === true || repair.includedWithSale === true) {
+  // internal/comped → nothing billed to the customer
+  if (!isCustomerCharged(resolveBillingMode(repair))) {
     return {
       subtotal: 0,
       taxAmount: 0,

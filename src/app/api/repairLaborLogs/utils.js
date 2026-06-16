@@ -1,5 +1,6 @@
 import { db } from '@/lib/database';
 import { UserQueryService } from '@/lib/user/user.query.service.js';
+import { isCustomerCharged, resolveBillingMode } from '@/services/billing/modes';
 
 async function getShopLaborWage() {
   try {
@@ -68,7 +69,8 @@ export async function getLaborRateSnapshot(session) {
 }
 
 export function calculateRepairChargeTotal(repair = {}) {
-  if (repair.compRepair === true || repair.includedWithSale === true) {
+  // internal/comped → customer owes nothing (labor is still paid separately)
+  if (!isCustomerCharged(resolveBillingMode(repair))) {
     return 0;
   }
 

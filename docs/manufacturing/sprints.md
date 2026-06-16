@@ -39,12 +39,21 @@ change**, and establish a clean foundation.
 - **Done when:** repairs flow through the synced WO spine; labor/payroll read the generalized
   collections; full `next build` passes; **no user-visible change**.
 
-## S1 — Billing modes
+## S1 — Billing modes ✅
 
-**Goal:** first-class `retail | wholesale | internal | comped`, replacing the $0/negative-line-item hack.
-- **Migration:** backfill `billing.mode` (done); map any legacy comp hacks.
-- **Code:** pricing service honors `internal`/`comped` (zero customer price, **labor still paid**); repair billing selector UI.
-- **Done when:** a comped repair charges $0 but still creates a labor log that pays the jeweler.
+**Goal:** first-class `retail | wholesale | internal | comped`, replacing the ad-hoc
+`compRepair`/`includedWithSale`/`isWholesale` flags.
+- **Migration:** `scripts/migrations/s1-billing-modes.mjs` — backfills canonical `billing.mode`
+  from the legacy flags (DEV: 222 retail / 114 wholesale / 1 comped; idempotent).
+- **Code:** `src/services/billing/modes.js` (canonical modes + `resolveBillingMode`, with comp/internal
+  precedence so S0's `retail` default can't mask a comp flag). Both charge paths —
+  `calculateRepairChargeTotal` (labor review) and invoice `getRepairChargeSummary` — zero the customer
+  charge for `internal`/`comped`; repairs stamp `billing.mode` on create.
+- **Deferred (low-risk polish):** explicit billing-mode selector UI + `internal` for repairs — the
+  existing comp/wholesale toggles already map to modes via the resolver, and `internal` is for
+  production (S4), not repairs.
+- **Done when:** ✅ a comped/internal repair charges $0 (labor review **and** invoice) while labor
+  logs still pay the jeweler; `next build` passes.
 
 ## S2 — Sale service work orders
 

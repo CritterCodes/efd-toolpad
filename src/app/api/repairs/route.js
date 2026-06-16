@@ -9,6 +9,7 @@ import {
   getLaborRateSnapshotForUser,
 } from "@/app/api/repairLaborLogs/utils";
 import { REPAIR_STATUS } from "@/services/repairWorkflow";
+import { resolveBillingMode } from "@/services/billing/modes";
 
 async function createWhileYouWaitLaborLog(repair, session) {
   if (!repair?.repairID || repair.whileYouWait !== true || repair.status !== "COMPLETED" || !repair.assignedTo) {
@@ -174,6 +175,9 @@ export const POST = async (request) => {
     ) {
       repairData.status = REPAIR_STATUS.PENDING_PICKUP;
     }
+
+    // Canonical billing classification (S1) — derived from comp/wholesale flags.
+    repairData.billing = { mode: resolveBillingMode(repairData) };
 
     const newRepair = await RepairsController.createRepair(repairData);
     await createWhileYouWaitLaborLog(newRepair, session);

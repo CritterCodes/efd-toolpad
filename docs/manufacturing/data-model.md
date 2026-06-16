@@ -103,8 +103,13 @@ discipline `bench_jewelry`). Bench/assignment/labor fields move to the WO. Gains
 | Field | Type | Notes |
 |---|---|---|
 | `billing.mode` | enum | `retail \| wholesale \| internal \| comped` (S1) |
-| `billing.compReason` | string | when comped |
+| `billing.compReason` | string | when comped (`comp` / `included_with_sale`) |
 | `billing.approvedBy` / `billing.approvedAt` | | |
+
+Billing mode is resolved via `src/services/billing/modes.js` (`resolveBillingMode`): explicit
+`internal`/`comped` win, then legacy `compRepair`/`includedWithSale`→`comped`, then
+`isWholesale`/explicit→`wholesale`, else `retail`. `internal`/`comped` zero the **customer** charge
+(both labor-review and invoice paths) but never the labor payout.
 
 ---
 
