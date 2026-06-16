@@ -81,12 +81,17 @@ customer charge — a clear path, not a faked customer repair.
     volume → wax → metal weight → karat-adjusted price → metal cost + stones/findings/labor.
     Unit-tested (`designCost.test.js`, 6 passing).
   - `DropsModel` + `DesignsModel` — CRUD + indexes, schema per data-model.
-- **Remaining (S3b):**
-  - API routes `/api/drops` + `/api/designs` CRUD — **replacing the orphaned mock `/api/designs`**
-    (check frontend usage first; absorb the useful parts of the gemstone cad-request flow)
-  - CAD/GLB upload to S3 + an `estCost` endpoint wiring the engine to the `metalPrices` collection
+- **Done (S3b — API):**
+  - `/api/production/drops` (+ `[dropID]`) and `/api/production/designs` (+ `[designID]`) CRUD, admin/dev gated.
+    Used the clean **`/api/production/*`** namespace to sidestep the still-occupied legacy `/api/designs`
+    (its mock base route has **no callers**; the gemstone subroutes `/create`,`/configure`,`/approve`
+    are left intact + parked). `DesignsModel` reads are scoped to `designID` so legacy gemstone docs in
+    the shared `designs` collection can't leak into the production catalog.
+  - `/api/production/designs/estimate` — wires the estCost engine to live `metalPrices`.
+- **Remaining (S3c):**
+  - CAD/GLB upload to S3 (store the URL on the design)
   - absorb cad-requests as `cad`-discipline work orders (surface on a CAD Designer's bench)
-  - Design/Drop CRUD UI + STL upload + live cost preview
+  - Drop/Design CRUD UI + STL upload + live cost preview (calls the estimate endpoint)
 - **Done when:** create a drop, add a design with CAD + BOM + a computed cost estimate; a CAD
   request shows on a CAD Designer's bench.
 

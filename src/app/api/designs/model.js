@@ -68,12 +68,14 @@ export default class DesignsModel {
 
   static async list(filter = {}) {
     const col = await this.collection();
-    return col.find(filter, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray();
+    // Scope to production designs (have a designID) so legacy gemstone-cad docs
+    // that share this collection never leak into the production catalog.
+    return col.find({ designID: { $exists: true }, ...filter }, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray();
   }
 
   static async findByDrop(dropID) {
     const col = await this.collection();
-    return col.find({ dropID }, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray();
+    return col.find({ designID: { $exists: true }, dropID }, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray();
   }
 
   static async updateById(designID, updateData) {
