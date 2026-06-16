@@ -127,16 +127,27 @@ customer charge — a clear path, not a faked customer repair.
   routing step — proven in S4c.
 - **Done when:** make a piece; its bench work orders pay the artisans **and** roll into the piece's COGS.
 
-## S5 — Piece → Product (reimagined)
+## S5 — Piece → Product (reimagined) — 🚧 backend bridge done (UI deferred)
 
 **Goal:** clean Product model conforming to the storefront contract; completed piece becomes a
 showcase listing with COGS-based pricing.
 - **Contract:** the `products` collection is **shared with efd-shop and read directly** — build to
   [product-page-data-contract.md](./product-page-data-contract.md) exactly (field names normative,
   e.g. `productId`).
-- **Migration:** reset/normalize the trash `products` data into the contract shape (S0 left it
-  untouched; **confirm before prod**).
-- **Code:**
+- **Finding:** the existing `products` schema is **already contract-aligned** (`productId`,
+  `pricing.{retailPrice,compareAtPrice,costBasis}`, `seller`, `availability`, `references.designId`,
+  `jewelry`, `images`, plus an existing product `viewer` route) — **no destructive reset needed**
+  (the earlier "trash products" assumption predated the prod clone; DEV now mirrors prod's clean shape).
+- **Done (S5a — bridge + validator):**
+  - `src/services/products/productContract.js` — `validateProductContract` (contract §8, unit-tested)
+    + `buildProductFromPiece` (`pricing.costBasis` = piece COGS, suggested retail = COGS × 2.5, links
+    `references.designId`/`pieceID`, derives availability from piece status) + `suggestedRetailFromCOGS`.
+  - `POST /api/production/pieces/[pieceID]/list-product` — creates a contract draft product from a piece,
+    links piece↔product, marks the piece `available`. Verified e2e on DEV (COGS 100 → costBasis 100,
+    retail 250, linked).
+- **Remaining (UI phase):** product editor screen, 3D media + **shared meshMap builder** (via efd-shop
+  `POST /api/glb/inspect`), publish flow wiring `validateProductContract` (§8 gate) + S3 bucket CORS.
+- **Code (reference):**
   - product editor writes the contract shape: `productId`/`status`/`isPublic`,
     `pricing.retailPrice`(+`compareAtPrice`)/`price`, `availability`, `jewelry{}`, `images[]`, `viewer{}`
   - **3D media + meshMap builder:** upload GLB to S3 → call storefront `POST /api/glb/inspect` →
@@ -197,7 +208,8 @@ Tracked here so deferred cleanup can't fall through the cracks. Target: alongsid
   so there's one connection pattern.
 - **Drop junk `inventory*` collections** (`inventory`/`inventoryTransactions`/`inventoryReorderSuggestions`)
   — at cutover (materials-inventory is parked indefinitely; see README).
-- **Reset trash `products` data** into the contract shape — part of S5.
+- ~~Reset trash `products` data~~ — **not needed**: the `products` schema is already contract-aligned
+  (S5 finding). At most a light field-normalization pass at cutover if any legacy docs drift.
 - **Legacy cad-request absorption** — convert the old gemstone-attached cad-requests
   (`products.cadRequests[]`) into `cad` work orders, as part of reconciling the parked gemstone flow.
   (New production CAD work already reaches the bench via piece `cad` routing steps — this is only the
