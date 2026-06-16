@@ -1,6 +1,8 @@
 import { db } from '@/lib/database';
 import { randomUUID } from 'crypto';
 import Constants from '@/lib/constants';
+import { computeQuote, computeMargin } from '@/services/customs/customQuote';
+import PiecesModel from '@/app/api/pieces/model';
 
 /**
  * NEW customs (S7) — a custom order on the production engine: customer + Design +
@@ -73,7 +75,7 @@ export default class CustomOrdersModel {
       statusHistory: [{ status, changedAt: now, changedBy: data.createdBy ?? null, reason: 'created' }],
       designIDs: Array.isArray(data.designIDs) ? data.designIDs : [],
       pieceIDs: Array.isArray(data.pieceIDs) ? data.pieceIDs : [],
-      quote: { ...EMPTY_QUOTE, ...(data.quote || {}) },
+      quote: this.normalizeQuote({ ...EMPTY_QUOTE, ...(data.quote || {}) }),
       billing: data.billing ?? { mode: 'retail' },
       designModel: data.designModel ?? null,
       shareTitle: data.shareTitle ?? null,
@@ -102,6 +104,11 @@ export default class CustomOrdersModel {
     const existing = await this.findById(customID);
     if (!existing) return null;
 
+    // Recompute quoteTotal whenever the quote changes (merge partial onto existing).
+    if (updateData.quote) {
+      updateData = { ...updateData, quote: this.normalizeQuote({ ...existing.quote, ...updateData.quote }) };
+    }
+
     const set = { ...updateData, updatedAt: new Date() };
     const ops = { $set: set };
     if (updateData.status && updateData.status !== existing.status) {
@@ -111,5 +118,19 @@ export default class CustomOrdersModel {
     }
     await col.updateOne({ customID }, ops);
     return this.findById(customID);
+  }
+
+  /** Normalize a quote: recompute quoteTotal from inputs (40% markup parity). */
+  static normalizeQuote(quote = {}) {
+    return { ...quote, quoteTotal: computeQuote(quote).quoteTotal };
+  }
+
+  /** Margin = quoteTotal − Σ COGS of linked pieces (real cost incl. bench labor). */
+  static async marginFor(customID) {
+    const order = await this.findById(customID);
+    if (!order) return null;
+    const pieces = await Promise.all((order.pieceIDs || []).map((id) => PiecesModel.findById(id)));
+    const cogsList = pieces.filter(Boolean).map((p) => p.totalCOGS);
+    return computeMargin(order.quote?.quoteTotal || 0, cogsList);
   }
 }

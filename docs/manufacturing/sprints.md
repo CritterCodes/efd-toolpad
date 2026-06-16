@@ -199,10 +199,11 @@ customer-revenue-only (no fee double-disbursed — verified: customs touch payro
 `quoteTotal − piece COGS` (incl. your labor).
 
 Slices:
-- **S7a — order entity:** `customOrders` collection + model (CRUD, status + `statusHistory`) + migration
+- **S7a — order entity ✅:** `customOrders` collection + model (CRUD, status + `statusHistory`) + migration
   (indexes). Reuse `clients`.
-- **S7b — quote/financials:** materials/labor/casting/shipping/designFee/rush + **40% markup** (parity) +
-  `billing.mode`; show margin vs linked piece COGS.
+- **S7b — quote/financials ✅:** `customQuote.js` (`computeQuote` 40%-markup parity + `computeMargin`,
+  unit-tested) wired into the model (auto-recompute `quoteTotal`; `marginFor` = quote − Σ piece COGS) +
+  `/api/custom-orders` (+`[customID]`, `/quote`) CRUD. `billing.mode` carried.
 - **S7c — billing parity:** invoices + deposit + payment-progress + **50% production threshold** + final +
   notifications. Clean **single-source** invoices (preserve the behavior; drop legacy's embedded-vs-collection
   dual-write smell).
