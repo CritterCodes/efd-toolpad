@@ -18,7 +18,8 @@ Status legend: 🟢 live · 🆕 new · ♻️ reimagined/rewritten · 🕓 defe
 | `pieces` | 🆕 | physical instances + actual COGS + availability | S4 |
 | `products` | ♻️ | sellable listing + price | S5 |
 | `sales` / orders | 🕓 | sale event + fee resolution + payout | S5/S6 |
-| `customTickets` | 🟢→♻️ | customer custom orders; gains `designModel`/`share` viewer (S7) | S7 |
+| `customTickets` | 🟢 frozen/legacy | existing custom system — **frozen**, drains its lifecycle, untouched | S7 |
+| `customOrders` | 🆕 | NEW customs on the production engine (customer + Design + Piece(s) + billing) | S7 |
 | `artisanAgreements` | 🕓 | per-artisan type + negotiated rates | S6 |
 | `feeSchedule` | 🕓 | admin-configurable fee pillar rates | S6 |
 | `inventory`, `inventoryTransactions`, `inventoryReorderSuggestions` | ⛔ | **data dropped** in S0 (junk). The *materials-inventory concept* (supply stock for cost mgmt — not products, not pieces) is **parked indefinitely** | S0 |
@@ -228,11 +229,11 @@ Captures the fee-resolution inputs at sale time; produces an artisan payout.
 
 ---
 
-## `customTickets` 🟢→♻️ (S7) — customer custom orders
+## `customTickets` 🟢 FROZEN/legacy (S7)
 
-Live collection (must not regress — S7 rewrites it onto Design + Piece + customer + billing). Shared
-with efd-shop; **writes go through `POST /api/custom-designs/tickets` actions, not direct collection
-writes.** Gains an embedded 3D viewer + public share link — see
+**Frozen** — not extended; existing tickets drain their lifecycle on the legacy code/UI (relabeled
+"Custom Tickets (Legacy)"). NEW customs go to `customOrders` (below), which reuses the same 3D-viewer/share
+contract. The legacy 3D-viewer/share fields still apply to any legacy ticket that adopts them — see
 [custom-design-viewer-contract.md](./custom-design-viewer-contract.md) (authoritative):
 
 | Field | Type | Notes |
@@ -246,6 +247,31 @@ writes.** Gains an embedded 3D viewer + public share link — see
 Admin actions (`POST /api/custom-designs/tickets`): `updateDesignModel`, `createShareLink`,
 `setShareEnabled`. The `meshMap` is built via the shared `POST /api/glb/inspect` (same as products).
 The share page `/d/<token>` is storefront-hosted; admin only mints/revokes the token.
+
+## `customOrders` 🆕 (S7) — NEW customs on the production engine
+
+A custom = customer + Design + Piece(s) + billing, with full billing parity. Reuses the engine
+(Design/estCost, Piece/COGS, routed work orders → bench → labor→payroll, billing modes) + the 3D-viewer
+contract + `clients` + notifications.
+
+| Field | Type | Notes |
+|---|---|---|
+| `customID` | string | key (`CO-{ts}-{rand}`) |
+| `clientID` | string | reuse `clients` |
+| `customerName` / `customerEmail` / `customerPhone` | string | snapshot/contact |
+| `title` / `description` / `type` / `priority` | | |
+| `status` / `statusHistory[]` | enum / array | lifecycle (`{status, changedAt, changedBy, reason}`) |
+| `designIDs[]` / `pieceIDs[]` | string[] | engine linkage (fabrication → bench → COGS) |
+| `quote` | object | `{ materialCosts[], laborCost, laborHours, castingCost, shippingCost, designFee, rushMultiplier, markup(0.40), quoteTotal }` — customer price (revenue) |
+| `billing` | object | `{ mode }` (S1) |
+| `designModel` / `shareTitle` / `share` | | 3D viewer + share link (per the viewer contract) |
+| `createdAt` / `updatedAt` / `createdBy` | | |
+
+**Invoices** for customs live in a single source keyed by `customID` (deposit / progress / final /
+partial; payment-progress; **50% production threshold** → notify) — preserving legacy *behavior* without the
+embedded-vs-collection dual-write. **COGS** comes from linked pieces; **margin = `quote.quoteTotal` −
+Σ piece COGS** (incl. your bench labor). The **bench labor log is the single source of custom-labor pay**;
+the quote is customer-revenue only.
 
 ## Fee model 🕓 (S6) — services continuum
 

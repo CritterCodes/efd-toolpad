@@ -182,29 +182,39 @@ showcase listing with COGS-based pricing.
 - **Done when:** an artisan sale splits into EFD fee + artisan payout per the resolved schedule, and the
   payout appears in that artisan's payroll batch. (Minisites already supported — no new rules.)
 
-## S7 — Customs — additive integration, NOT a rewrite — 🚧 audit done
+## S7 — Customs — parallel NEW system (legacy frozen) — 🚧 planning
 
-**Pre-work (DONE):** [s7-customs-audit.md](./s7-customs-audit.md). The audit found `customTickets` is a
-**large, mature, production MVC system** (CRUD + status history, multi-artisan assignment w/ fee snapshots,
-S3 communications, full invoice/deposit/payment-progress w/ a 50% production threshold, financials + 40%
-markup, 8 notification types, role-based access, analytics, tabbed detail UI). Most of it is **orthogonal**
-to the production engine. **Re-scoped: a full rewrite would be high-risk and largely redundant — instead,
-additively integrate while preserving every capability in the audit checklist.**
+**Decision:** **strangler-fig.** Legacy `customTickets` is **frozen + marked legacy** (untouched; drains its
+lifecycle). NEW customs run through a fresh **`customOrders`** collection on the production engine, with
+**full billing parity** rebuilt cleanly. Lowest regression risk (legacy untouched); trades rebuild effort +
+temporary dual UX. Pre-work audit / parity checklist: [s7-customs-audit.md](./s7-customs-audit.md).
 
-**Goal:** customs gain the production engine + 3D viewer/share, without disturbing the existing flow.
-- **Engine linkage:** a custom ticket can spawn **Design + Piece(s)** and route **work orders** across
-  disciplines → custom fabrication hits the unified bench, pays artisans (labor→payroll), and accrues
-  **COGS** — *alongside* (not replacing) the ticket's existing assignment/financials. (Piece already has
-  `customerID`/`billing` fields.)
-- **3D viewer + share links:** add `designModel` + `share` per
-  [custom-design-viewer-contract.md](./custom-design-viewer-contract.md) (replaces the Shapr3D `designLink`);
-  meshMap via shared `POST /api/glb/inspect`; actions `updateDesignModel`/`createShareLink`/`setShareEnabled`.
-  **Cross-app:** resolve whether `/api/custom-designs/tickets` is admin- or efd-shop-hosted (+ relation to the
-  existing `/api/custom-tickets`).
-- **Billing reconcile (light):** the ticket quote/deposit/invoice system already charges the customer;
-  `billing.mode` is optional classification, not a replacement.
-- **Done when:** every audit-checklist function still works **and** a custom can drive Design/Piece/
-  work-order fabrication + show an embedded 3D model + a working public share link.
+**A custom = customer + Design + Piece(s) + billing** (D3), reusing S3–S5: Design/estCost, Piece/COGS, routed
+work orders → unified bench → labor→payroll (owner draw) → margin. **Reuse** clients, notifications, the
+3D-viewer/share contract — do NOT fork them.
+
+**Labor model (the whole point):** custom fabrication labor flows to the bench → labor logs → payroll exactly
+like repairs/production. The **bench labor log is the SINGLE source of custom-labor pay**; the quote stays
+customer-revenue-only (no fee double-disbursed — verified: customs touch payroll nowhere today). Margin =
+`quoteTotal − piece COGS` (incl. your labor).
+
+Slices:
+- **S7a — order entity:** `customOrders` collection + model (CRUD, status + `statusHistory`) + migration
+  (indexes). Reuse `clients`.
+- **S7b — quote/financials:** materials/labor/casting/shipping/designFee/rush + **40% markup** (parity) +
+  `billing.mode`; show margin vs linked piece COGS.
+- **S7c — billing parity:** invoices + deposit + payment-progress + **50% production threshold** + final +
+  notifications. Clean **single-source** invoices (preserve the behavior; drop legacy's embedded-vs-collection
+  dual-write smell).
+- **S7d — bench linkage:** custom order → Design + Piece(s) + routed work orders (reuse `createPieceFromDesign`
+  w/ a `customOrderID`); labor→payroll/owner-draw; COGS→margin.
+- **S7e — 3D viewer + share:** `designModel` + `share` per the contract; meshMap via `POST /api/glb/inspect`.
+- **S7f — legacy freeze + nav:** label legacy "Custom Tickets (Legacy)"; new "Customs" entry defaults new
+  intake to the new system.
+- **S7g — UI:** list + tabbed detail (overview / quote / invoices / bench / viewer / comms), verified via preview.
+
+**Done when:** a new custom runs end-to-end (intake → quote → deposit/payment-progress → bench fabrication
+paying labor → final → margin), legacy continues untouched, and the parity checklist holds for new customs.
 
 ---
 
