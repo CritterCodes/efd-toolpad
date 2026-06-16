@@ -34,6 +34,14 @@ export const uploadRepairImage = async (file, repairId = 'general') =>
     uploadFileToS3(file, `admin/repairs/${repairId}`, 'image-');
 
 /**
+ * Upload a production Design asset (CAD/STL/GLB/render) to the shared assets
+ * bucket. The resulting URL is what the storefront product/custom 3D viewers
+ * consume (see docs/manufacturing/product-page-data-contract.md).
+ */
+export const uploadDesignAsset = async (file, designID = 'general') =>
+    uploadFileToS3(file, `designs/${designID}`, '');
+
+/**
  * Upload base64 encoded image (used for images from communication channels).
  */
 export const uploadBase64ToS3 = async (base64Data, fileName, fileType, folder = 'communications') => {

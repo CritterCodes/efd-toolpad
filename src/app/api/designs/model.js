@@ -83,4 +83,16 @@ export default class DesignsModel {
     await col.updateOne({ designID }, { $set: { ...updateData, updatedAt: new Date() } });
     return this.findById(designID);
   }
+
+  static ASSET_FIELDS = ['cadFiles', 'renders', 'referenceImages'];
+
+  /** Append an uploaded asset URL to one of the design's asset arrays. */
+  static async addAsset(designID, field, url) {
+    if (!this.ASSET_FIELDS.includes(field)) {
+      throw new Error(`Invalid asset field "${field}". Allowed: ${this.ASSET_FIELDS.join(', ')}`);
+    }
+    const col = await this.collection();
+    await col.updateOne({ designID }, { $push: { [field]: url }, $set: { updatedAt: new Date() } });
+    return this.findById(designID);
+  }
 }

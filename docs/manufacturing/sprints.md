@@ -71,7 +71,7 @@ customer charge — a clear path, not a faked customer repair.
 - **Done when:** ✅ a sale-linked resize is comped (no customer charge), appears on the bench, pays the
   jeweler via payroll, deducts labor from the seller payout, and is tagged `saleContext` for tracking.
 
-## S3 — Drops & Designs (+ CAD estimator) — 🚧 in progress
+## S3 — Drops & Designs (+ CAD estimator) — ✅ backend complete (UI deferred)
 
 **Goal:** the catalog/IP layer and the `estCost` engine.
 - **Migration:** `scripts/migrations/s3-drops-designs.mjs` — ensure drop/design indexes (additive; applied to DEV).
@@ -88,10 +88,14 @@ customer charge — a clear path, not a faked customer repair.
     are left intact + parked). `DesignsModel` reads are scoped to `designID` so legacy gemstone docs in
     the shared `designs` collection can't leak into the production catalog.
   - `/api/production/designs/estimate` — wires the estCost engine to live `metalPrices`.
-- **Remaining (S3c):**
-  - CAD/GLB upload to S3 (store the URL on the design)
-  - absorb cad-requests as `cad`-discipline work orders (surface on a CAD Designer's bench)
-  - Drop/Design CRUD UI + STL upload + live cost preview (calls the estimate endpoint)
+- **Done (S3c — CAD upload):** `uploadDesignAsset` + `POST /api/production/designs/[designID]/assets`
+  (multipart → S3 `efd-repair-images` bucket → appends URL to `cadFiles`/`renders`/`referenceImages`).
+- **Deferred:**
+  - **UI** (Drop/Design editors, STL upload, **meshMap builder**, live cost preview) → batched into a
+    dedicated UI phase once the S4/S5 backends land. The meshMap builder is shared with S5 (products) +
+    S7 (customs), so it's built once.
+  - **cad-request absorption** as `cad` work orders → folds into **S4** (needs the My Bench work-order
+    read-switch, which S4 introduces).
 - **Done when:** create a drop, add a design with CAD + BOM + a computed cost estimate; a CAD
   request shows on a CAD Designer's bench.
 
