@@ -127,8 +127,18 @@ showcase listing with COGS-based pricing.
   function** (financials, statuses, comments, files, notifications) → that list is the acceptance checklist.
 - **Migration:** migrate `customTickets` → pieces/designs (+ customer + billing) **without losing any data or capability**.
 - **Code:** custom intake → design → piece → routed WOs across disciplines → billing/sale.
-- **Done when:** every function that exists today still works, and customs run through the same
-  Design/Piece/Work-Order engine as production.
+- **3D viewer + share links** — build to [custom-design-viewer-contract.md](./custom-design-viewer-contract.md):
+  attach `designModel` (same shape as product `viewer`; meshMap via shared `POST /api/glb/inspect`) and
+  mint/revoke public share links via the `POST /api/custom-designs/tickets` actions
+  (`updateDesignModel` / `createShareLink` / `setShareEnabled`). Writes go through those actions, **not**
+  direct collection writes. Enforce the contract §8 checklist (esp. **no-PII `shareTitle`** + a visible
+  "Revoke link" control). The `designModel.glbUrl` derives from the custom's Design GLB export.
+- **Cross-app:** the `/d/<token>` share page + `/api/glb/inspect` are storefront-hosted; resolve whether
+  `/api/custom-designs/tickets` is hosted by admin or efd-shop (and how it relates to admin's existing
+  `/api/custom-tickets`) during the pre-work audit.
+- **Done when:** every function that exists today still works; customs run through the same
+  Design/Piece/Work-Order engine as production; and a custom can show an embedded 3D model + a working
+  public share link.
 
 ---
 

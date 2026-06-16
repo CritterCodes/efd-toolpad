@@ -18,6 +18,7 @@ Status legend: 🟢 live · 🆕 new · ♻️ reimagined/rewritten · 🕓 defe
 | `pieces` | 🆕 | physical instances + actual COGS + availability | S4 |
 | `products` | ♻️ | sellable listing + price | S5 |
 | `sales` / orders | 🕓 | sale event + fee resolution + payout | S5/S6 |
+| `customTickets` | 🟢→♻️ | customer custom orders; gains `designModel`/`share` viewer (S7) | S7 |
 | `artisanAgreements` | 🕓 | per-artisan type + negotiated rates | S6 |
 | `feeSchedule` | 🕓 | admin-configurable fee pillar rates | S6 |
 | `inventory`, `inventoryTransactions`, `inventoryReorderSuggestions` | ⛔ | **data dropped** in S0 (junk). The *materials-inventory concept* (supply stock for cost mgmt — not products, not pieces) is **parked indefinitely** | S0 |
@@ -226,6 +227,25 @@ Captures the fee-resolution inputs at sale time; produces an artisan payout.
 | `pieceID` | string? | the consumed piece (status → reserved → sold) |
 
 ---
+
+## `customTickets` 🟢→♻️ (S7) — customer custom orders
+
+Live collection (must not regress — S7 rewrites it onto Design + Piece + customer + billing). Shared
+with efd-shop; **writes go through `POST /api/custom-designs/tickets` actions, not direct collection
+writes.** Gains an embedded 3D viewer + public share link — see
+[custom-design-viewer-contract.md](./custom-design-viewer-contract.md) (authoritative):
+
+| Field | Type | Notes |
+|---|---|---|
+| `ticketID` | string | key |
+| `designModel` | object | `{ glbUrl, meshMap[], environment?, orientation?, background? }` — same shape as product `viewer` |
+| `shareTitle` | string | non-PII title shown on portal + public share page |
+| `share` | object | `{ token, enabled, createdAt }` — set by the API (createShareLink / setShareEnabled) |
+| `designLink` | string | LEGACY Shapr3D link; shown only if `designModel` absent |
+
+Admin actions (`POST /api/custom-designs/tickets`): `updateDesignModel`, `createShareLink`,
+`setShareEnabled`. The `meshMap` is built via the shared `POST /api/glb/inspect` (same as products).
+The share page `/d/<token>` is storefront-hosted; admin only mints/revokes the token.
 
 ## Fee model 🕓 (S6) — services continuum
 
