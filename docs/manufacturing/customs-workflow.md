@@ -55,11 +55,22 @@ system adopts/aligns to formula v2** (or reuses it directly). v2 already does:
 | Margin/analytics | grossProfit, grossMargin, commission, `belowMarginFloor` vs `targetMarginFloor` | settings |
 | Settings snapshot | locked into the quote at publish so later setting changes don't mutate published quotes | — |
 
-**Additions formula v2 needs for this spine (new):**
-- **GLB-creation fee** — a CAD labor/fee line (its own WO), folded into COG (or its own marked-up bucket — see Open Q3).
-- **QC review fee** — flat, from a **new setting** `adminSettings.financial.qcReviewFee`; folded into COG.
-- **Casting** — a material line (see §7), counts in COG.
+**Markup model — DECIDED (overrides v2's three-bucket split): single COG bucket.**
+Fold **everything** into one COG bucket — materials, **gemstones**, bench labor, **designer CAD fee**,
+**GLB-creation fee**, **QC review fee**, **casting**, and **shipping** — then `price = COG × cogMarkup`.
+There is **no separate `designFeeMarkup` bucket** anymore (the design fee is folded into COG and marked up by
+`cogMarkup` like everything else). Artists are still **paid the base fee** as a payout; the marked-up amount is
+the customer price. `margin = price − COG = COG × (cogMarkup − 1)`.
+- _(Note: shipping is folded into COG and therefore marked up too, per owner. Flag if you later want shipping
+  pass-through instead.)_
+
+**Other additions for this spine:**
+- **QC review fee** — flat, from a **new setting** `adminSettings.financial.qcReviewFee`; into COG (marked up).
+- **GLB-creation fee** — a CAD fee line (its own WO); into COG (marked up).
+- **Casting** — a material line (see §7); into COG.
 - Per-item quotes when a custom has multiple items (aggregate to order totals).
+- **Client-management bonus** = `clientMgmtBonusPct × margin` (a **% of profit** from settings), paid to the
+  assigned designer **only if they managed the client comms**; comes out of net profit (does not change price).
 
 ---
 
@@ -137,10 +148,10 @@ Recording a casting cost on a custom:
 
 ## 8. Settings additions (`adminSettings.financial`)
 
-- `qcReviewFee` (NEW, flat $) — CAD QC peer-review payout.
-- `clientMgmtBonus` (NEW) — designer bonus for managing client comms (flat or % — Open Q5).
-- Reuse existing: `cogMarkup`, `designFeeMarkup`, `rushMultiplier`, `commissionPercentage`, `targetMarginFloor`,
-  `defaultDesignerFee`, `pricing.wage`.
+- `qcReviewFee` (NEW, flat $) — CAD QC peer-review payout (into COG, marked up).
+- `clientMgmtBonusPct` (NEW, % of profit) — designer bonus for managing client comms; paid out of net profit.
+- Reuse existing: `cogMarkup` (the one markup), `rushMultiplier`, `commissionPercentage`, `targetMarginFloor`,
+  `defaultDesignerFee`, `pricing.wage`. **`designFeeMarkup` is retired** for customs (design fee now in COG).
 
 ---
 
@@ -156,16 +167,18 @@ Rebuild `/dashboard/customs` to the app design system (REPAIRS_UI), mirroring le
 
 ---
 
-## 10. Open questions (to resolve before/while building)
+## 10. Resolved decisions (2026-06)
 
-1. **Multi-item**: confirmed supported (rare). Model as `items[]`; single-item stays flat. OK?
-2. **GLB-creation fee**: its own marked-up bucket like the design fee, or folded into COG (×cogMarkup)?
-3. **QC review fee markup**: marked up to customer (like design fee) or pure pass-through cost paid flat?
-4. **STL→GLB stones**: GLB needs stones rendered (gem presets via meshMap); STL is metal-only. Confirm the GLB
-   WO is where stones/gem-presets get added (the meshMap builder, U3).
-5. **Client-management bonus**: flat amount or %? How measured — designer is the sender of ≥X client messages,
-   or admin toggles "designer managed client"? Where paid (payroll line)?
-6. **Per-jeweler rates**: deferred until the artisan-management rebuild. Confirm bench uses global wage meanwhile.
+1. **Multi-item**: ✅ supported (rare). Model as `items[]`; single-item stays flat.
+2. **GLB-creation fee**: ✅ folded into **COG** (marked up by `cogMarkup`). And the **designer fee is folded
+   into COG too** — single-bucket markup; `designFeeMarkup` retired (see §2).
+3. **QC review fee**: ✅ folded into **COG**, marked up by `cogMarkup`.
+4. **STL→GLB stones**: ✅ confirmed — the **GLB work order** is where stones/gem-presets are added (meshMap
+   builder, U3). STL stays metal-only.
+5. **Client-management bonus**: ✅ a **percentage of profit** from admin settings (`clientMgmtBonusPct`), paid to
+   the assigned designer **only if they managed the client comms** (no bonus if admin handled it). Out of net profit.
+6. **Per-jeweler rates**: ✅ deferred until the artisan-management rebuild; bench uses the global
+   `adminSettings.pricing.wage` meanwhile.
 
 ---
 
