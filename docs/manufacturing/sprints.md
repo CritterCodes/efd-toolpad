@@ -219,8 +219,9 @@ Slices:
   (`PUT /design-model`, `POST`/`PUT /share`). Share URL = `${NEXT_PUBLIC_SHOP_URL}/d/<token>`; `share.token`
   indexed. E2E verified (model-gate, mint token, revoke/re-enable). **Cross-app TODO:** efd-shop's `/d/<token>`
   page must also resolve `customOrders` (today it resolves legacy `customTickets`).
-- **S7f — legacy freeze + nav:** label legacy "Custom Tickets (Legacy)"; new "Customs" entry defaults new
-  intake to the new system.
+- **S7f — legacy freeze + nav 🟡:** legacy entry relabeled **"Custom Tickets (Legacy)"** in admin + dev nav
+  (✅, build-verified, app boots clean). The new **"Customs"** nav entry + defaulting new intake to the new
+  system land with **S7g** (they point at the not-yet-built customs UI page).
 - **S7g — UI:** list + tabbed detail (overview / quote / invoices / bench / viewer / comms), verified via preview.
 
 **Done when:** a new custom runs end-to-end (intake → quote → deposit/payment-progress → bench fabrication

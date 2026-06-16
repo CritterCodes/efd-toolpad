@@ -77,7 +77,7 @@ export const adminNavigation = {
         },
         {
           segment: 'custom-tickets',
-          title: 'Custom Tickets',
+          title: 'Custom Tickets (Legacy)',
           icon: <ReceiptIcon />
         }
       ]

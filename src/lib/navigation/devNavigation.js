@@ -65,7 +65,7 @@ export const devNavigation = {
         },
         {
           segment: 'custom-tickets',
-          title: 'Custom Tickets',
+          title: 'Custom Tickets (Legacy)',
           icon: <ReceiptIcon />
         }
       ]
