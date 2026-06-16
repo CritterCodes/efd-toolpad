@@ -5,6 +5,8 @@ import RepairLaborLogsModel from '@/app/api/repairLaborLogs/model';
 import RepairsModel from '@/app/api/repairs/model';
 import { db } from '@/lib/database';
 import { deriveRepairItemMetadata } from '@/lib/productRepairMetadata';
+import { resolveFee } from '@/services/billing/feeResolver';
+import { loadFeeSchedule } from '@/services/billing/feeSchedule';
 
 const DEFAULT_CONSIGNMENT_RATE = 0.20;
 
@@ -36,6 +38,7 @@ async function getSalesSettings() {
   return {
     taxRate: toNumber(settings?.pricing?.taxRate, 0),
     consignmentRate: toNumber(settings?.pricing?.consignmentFeeRate, DEFAULT_CONSIGNMENT_RATE),
+    feeSchedule: loadFeeSchedule(settings || {}),
   };
 }
 
@@ -137,7 +140,18 @@ async function normalizeLineItems(rawLineItems = [], settings) {
     if (unitPrice <= 0) throw new Error('Every sales line must have a positive price.');
 
     const lineTotal = roundMoney(unitPrice * quantity);
-    const consignmentAmount = roundMoney(lineTotal * settings.consignmentRate);
+    // Fee via the services-continuum resolver (S6b). Defaults (EFD holds + ships)
+    // resolve to the consignment bundle = the legacy flat rate, so existing sales
+    // are unchanged until a line supplies channel/custody/fulfilledBy.
+    const custodyAtSale = raw.custodyAtSale || product?.custody || 'consignment';
+    const fulfilledBy = raw.fulfilledBy || 'efd';
+    const channel = raw.channel || 'in_store';
+    const fee = resolveFee({
+      lineTotal,
+      context: { custody: custodyAtSale, fulfilledBy, channel },
+      schedule: settings.feeSchedule,
+    });
+    const consignmentAmount = fee.efdFee;
     const repairItem = raw.repairItem || product?.repairItem || deriveRepairItemMetadata(product || raw);
 
     normalized.push({
@@ -155,11 +169,15 @@ async function normalizeLineItems(rawLineItems = [], settings) {
       unitPrice: roundMoney(unitPrice),
       lineTotal,
       taxable: raw.taxable !== false,
-      consignmentRate: settings.consignmentRate,
+      consignmentRate: fee.efdFeeRate,
       consignmentAmount,
+      feeMode: fee.mode,
+      channel,
+      custodyAtSale,
+      fulfilledBy,
       estimatedLaborHoldback: 0,
       actualLaborDeduction: 0,
-      sellerPayoutEstimate: roundMoney(lineTotal - consignmentAmount),
+      sellerPayoutEstimate: fee.artisanPayout,
       includedTasks: [],
       repairDraft: null,
       linkedRepairIDs: [],

@@ -160,7 +160,7 @@ showcase listing with COGS-based pricing.
 - **Done when:** a finished piece lists as a contract-valid product (photos / 3D / both) on efd-shop with
   real margin; stock reflects piece status.
 
-## S6 — Marketplace + payouts — 🚧 fee model formalized (integration deferred)
+## S6 — Marketplace + payouts — ✅ backend complete (admin UI deferred)
 
 **Goal:** artisan listings, services-based fees, artisan payouts into unified payroll.
 - **Audit (already built):** `sales-invoices/service.js` + `salePayouts` already record per-line payouts
@@ -172,11 +172,13 @@ showcase listing with COGS-based pricing.
   marketplace from custody + fulfillment and charges most→least (consignment ≥ hybrid ≥ marketplace).
   Configurable `feeSchedule` (rates are placeholders; consignment bundle defaults to the legacy flat
   rate). Backward-compatible (flat `consignmentRate` path reproduces current math). Unit-tested (3).
-- **Remaining (S6b — integration):**
-  - capture `channel`/`custodyAtSale`/`fulfilledBy` on sale lines + `seller`/`custody`/`listingSurfaces` on products
-  - wire `resolveFee` into `normalizeLineItems`/`createPayoutEntries`, **defaulting to consignment** so
-    existing payouts are unchanged until context is supplied (careful: touches live payout math)
-  - admin fee-schedule + artisan-agreement settings screens (UI phase)
+- **Done (S6b — integration):** `resolveFee` wired into `normalizeLineItems` — sale lines now carry
+  `channel`/`custodyAtSale`/`fulfilledBy` + `feeMode`/`efdFee`; **default context = consignment**, so existing
+  payouts are unchanged (verified e2e: default line = legacy math; marketplace line charges less + pays the
+  seller more). `getSalesSettings` loads the schedule (consignment bundle = legacy `consignmentFeeRate`).
+  `createPayoutEntries` needs no change (it reads `line.consignmentAmount`, now = the resolved fee).
+- **Remaining (UI phase):** `seller`/`custody`/`listingSurfaces` controls on the product editor; admin
+  fee-schedule + artisan-agreement settings screens.
 - **Done when:** an artisan sale splits into EFD fee + artisan payout per the resolved schedule, and the
   payout appears in that artisan's payroll batch. (Minisites already supported — no new rules.)
 
