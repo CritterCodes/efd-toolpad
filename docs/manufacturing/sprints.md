@@ -182,7 +182,7 @@ showcase listing with COGS-based pricing.
 - **Done when:** an artisan sale splits into EFD fee + artisan payout per the resolved schedule, and the
   payout appears in that artisan's payroll batch. (Minisites already supported — no new rules.)
 
-## S7 — Customs — parallel NEW system (legacy frozen) — 🚧 planning
+## S7 — Customs — parallel NEW system (legacy frozen) — ✅ (UI: meshMap builder is a follow-up)
 
 **Decision:** **strangler-fig.** Legacy `customTickets` is **frozen + marked legacy** (untouched; drains its
 lifecycle). NEW customs run through a fresh **`customOrders`** collection on the production engine, with
@@ -219,10 +219,13 @@ Slices:
   (`PUT /design-model`, `POST`/`PUT /share`). Share URL = `${NEXT_PUBLIC_SHOP_URL}/d/<token>`; `share.token`
   indexed. E2E verified (model-gate, mint token, revoke/re-enable). **Cross-app TODO:** efd-shop's `/d/<token>`
   page must also resolve `customOrders` (today it resolves legacy `customTickets`).
-- **S7f — legacy freeze + nav 🟡:** legacy entry relabeled **"Custom Tickets (Legacy)"** in admin + dev nav
-  (✅, build-verified, app boots clean). The new **"Customs"** nav entry + defaulting new intake to the new
-  system land with **S7g** (they point at the not-yet-built customs UI page).
-- **S7g — UI:** list + tabbed detail (overview / quote / invoices / bench / viewer / comms), verified via preview.
+- **S7f — legacy freeze + nav ✅:** legacy relabeled **"Custom Tickets (Legacy)"**; new **"Customs"** nav
+  entry added (admin nav) → the new system is the primary intake path.
+- **S7g — UI ✅ (core):** `/dashboard/customs` (list + create) + `/dashboard/customs/[customID]` (detail:
+  quote + **margin**, invoices + **payment-progress bar**, create-invoice / mark-paid, **Start production →
+  bench**). **Verified live via the preview harness** (list renders, detail renders, "Start production"
+  spawned a Design + Piece). Follow-up: the rich **meshMap builder** UI (via `/api/glb/inspect`) + the
+  design-model/share controls on the detail page (the APIs exist from S7e).
 
 **Done when:** a new custom runs end-to-end (intake → quote → deposit/payment-progress → bench fabrication
 paying labor → final → margin), legacy continues untouched, and the parity checklist holds for new customs.

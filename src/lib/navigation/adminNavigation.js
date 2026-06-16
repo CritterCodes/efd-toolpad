@@ -82,6 +82,11 @@ export const adminNavigation = {
         }
       ]
     },
+    {
+      segment: 'dashboard/customs',
+      title: 'Customs',
+      icon: <DiamondIcon />
+    },
     { kind: 'header', title: 'Repair Work' },
     {
       segment: 'dashboard/repairs/my-bench',
