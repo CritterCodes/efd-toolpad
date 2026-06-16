@@ -227,8 +227,13 @@ Tracked here so deferred cleanup can't fall through the cracks. Target: alongsid
 
 ## Deferred UI phase (batched, build once backends are proven)
 
-All net-new screens were deferred from their sprints because UI isn't build/test-verifiable the way the
-backends are. Batch them once S4c/S5 backends land:
+UI **is** verifiable via the Claude Preview harness: `npm run dev:preview` (port-less; `scripts/dev-preview.mjs`
+points NEXT_PUBLIC_URL/NEXTAUTH_URL at the preview origin so credentials auth works in-instance), launched via
+`.claude/launch.json`. Auth: a disposable DEV admin (`dev-preview-admin@efd.local`) seeded in the DEV `users`
+collection. Verified login → dashboard renders with live DEV data. (Screenshots time out in this env — the
+renderer never idles — but `preview_snapshot`/`preview_inspect`/`preview_eval` give precise structural + style
+verification, which the tooling prefers anyway.) Screens were deferred for *sequencing*, not capability — batch
+them once the backends are proven:
 
 - Drop / Design / Piece editor UIs (CRUD + STL upload + live cost preview against the estimate endpoint)
 - **Shared meshMap builder** (3D viewer mapping UI) — used by S5 (product `viewer`) **and** S7 (custom

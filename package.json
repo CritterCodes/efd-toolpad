@@ -8,6 +8,7 @@
     "predev:pwa": "node scripts/prepare-next-dir.js",
     "prebuild:pwa": "node scripts/prepare-next-dir.js",
     "dev": "next dev --port 3001",
+    "dev:preview": "node scripts/dev-preview.mjs",
     "dev:pwa": "ENABLE_PWA=true next dev --port 3001",
     "build": "next build",
     "build:pwa": "ENABLE_PWA=true next build",

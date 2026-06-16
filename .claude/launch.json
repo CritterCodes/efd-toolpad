@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "efd-admin",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:preview"],
+      "port": 3099
+    }
+  ]
+}
