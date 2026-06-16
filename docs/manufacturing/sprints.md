@@ -99,13 +99,26 @@ customer charge — a clear path, not a faked customer repair.
 - **Done when:** create a drop, add a design with CAD + BOM + a computed cost estimate; a CAD
   request shows on a CAD Designer's bench.
 
-## S4 — Pieces + routing
+## S4 — Pieces + routing — 🚧 in progress
 
 **Goal:** per-piece COGS; routing generates work orders across disciplines.
-- **Migration:** none.
-- **Code:** piece lifecycle; a design's `routing[]` spawns the piece's WOs (each with its
-  discipline); labor capitalizes into `accruedLaborCost`/`totalCOGS`.
-- **Done when:** make a piece; its bench WOs pay the artisans **and** roll into the piece's COGS.
+- **Migration:** `scripts/migrations/s4-pieces.mjs` — ensure piece indexes (additive; applied to DEV).
+- **Done (S4a — pieces backend):**
+  - `PiecesModel` (lifecycle status, actualMaterials, workOrderIDs, COGS fields) + `pieceCost.js`
+    (`computePieceCosts`, unit-tested) — COGS = materials at cost + labor accrued from the piece's WOs.
+  - `createPieceFromDesign` (`pieceRouting.js`) — a design's `routing[]` spawns one work order per step
+    in its own discipline (`production_piece` source); single bench_jewelry step if no routing.
+  - API: `/api/production/pieces` (+ `[pieceID]`, `/materials`, `/recompute`).
+  - **End-to-end verified on DEV:** design (cad→bench→engraving) → 3 work orders in 3 disciplines;
+    material + labor log → COGS roll-up (120 + 50 = 170).
+- **Remaining (S4b — the deferred bench read-switch):**
+  - **My Bench reads work orders** (union: repair- + piece-sourced), discipline-gated (fallback to
+    `bench_jewelry` while `artisanTypes` is unpopulated, so no artisan is locked out). New unified bench
+    endpoint alongside the existing `/api/repairs/my-bench` (frontend switch happens in the UI phase).
+  - Piece work-order transitions (claim / move-to-QC / complete) that create labor logs keyed by
+    `workOrderID` → labor pays the artisan **and** capitalizes into the piece COGS.
+  - absorb cad-requests as `cad` work orders (now that the bench can show them).
+- **Done when:** make a piece; its bench work orders pay the artisans **and** roll into the piece's COGS.
 
 ## S5 — Piece → Product (reimagined)
 
