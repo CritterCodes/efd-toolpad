@@ -101,7 +101,7 @@ customer charge — a clear path, not a faked customer repair.
 - **Done when:** create a drop, add a design with CAD + BOM + a computed cost estimate; a CAD
   request shows on a CAD Designer's bench.
 
-## S4 — Pieces + routing — 🚧 in progress
+## S4 — Pieces + routing — ✅ backend complete (UI deferred)
 
 **Goal:** per-piece COGS; routing generates work orders across disciplines.
 - **Migration:** `scripts/migrations/s4-pieces.mjs` — ensure piece indexes (additive; applied to DEV).
@@ -118,11 +118,13 @@ customer charge — a clear path, not a faked customer repair.
   with a `bench_jewelry` fallback. Verified e2e on DEV: admin → all lanes; CAD designer → cad-only;
   untagged artisan → bench_jewelry only (no lockout, no cross-lane leak). Runs alongside the legacy
   `/api/repairs/my-bench`; the frontend switch happens in the UI phase.
-- **Remaining (S4c):**
-  - Piece work-order transitions (claim / move-to-QC / complete) that create labor logs keyed by
-    `workOrderID` → labor pays the artisan **and** capitalizes into the piece COGS (analog of
-    `moveRepairToQc` for pieces).
-  - absorb cad-requests as `cad` work orders (now that the bench can show them).
+- **Done (S4c — piece bench actions):** `claimPieceWorkOrder` (hard **lane enforcement** — a CAD designer
+  can't claim a jeweler's work; untagged → jeweler fallback) + `completePieceWorkOrder` (logs labor to the
+  unified `laborLogs` keyed by `workOrderID` → pays the artisan via payroll **and** re-rolls piece COGS).
+  Endpoints `/api/bench/work-orders/[workOrderID]/{claim,complete}`. Verified e2e on DEV.
+- **Re-homed:** legacy **cad-request absorption** → Tech-debt backlog (it belongs to the parked gemstone/
+  cad-request flow). CAD *design work itself* already reaches a CAD designer's bench via a piece's `cad`
+  routing step — proven in S4c.
 - **Done when:** make a piece; its bench work orders pay the artisans **and** roll into the piece's COGS.
 
 ## S5 — Piece → Product (reimagined)
@@ -196,6 +198,10 @@ Tracked here so deferred cleanup can't fall through the cracks. Target: alongsid
 - **Drop junk `inventory*` collections** (`inventory`/`inventoryTransactions`/`inventoryReorderSuggestions`)
   — at cutover (materials-inventory is parked indefinitely; see README).
 - **Reset trash `products` data** into the contract shape — part of S5.
+- **Legacy cad-request absorption** — convert the old gemstone-attached cad-requests
+  (`products.cadRequests[]`) into `cad` work orders, as part of reconciling the parked gemstone flow.
+  (New production CAD work already reaches the bench via piece `cad` routing steps — this is only the
+  legacy data.)
 
 ## Deferred UI phase (batched, build once backends are proven)
 
