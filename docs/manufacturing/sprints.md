@@ -160,15 +160,25 @@ showcase listing with COGS-based pricing.
 - **Done when:** a finished piece lists as a contract-valid product (photos / 3D / both) on efd-shop with
   real margin; stock reflects piece status.
 
-## S6 — Marketplace + payouts
+## S6 — Marketplace + payouts — 🚧 fee model formalized (integration deferred)
 
 **Goal:** artisan listings, services-based fees, artisan payouts into unified payroll.
-- **Migration:** add `artisanAgreements`, `feeSchedule` (+ seed structure; **rates left blank**).
-- **Code:** `seller`/`custody`/`listingSurfaces` on products; **fee resolver** (storefront/custody/
-  fulfillment pillars); sale → `efdFee` + `artisanPayout`; payout flows into `payrollBatches` via `salePayouts`.
-- **Done when:** an artisan sale splits into EFD fee + artisan payout per the configured schedule,
-  and the payout appears in that artisan's payroll batch. (Minisites are a later add — the fee
-  model already supports them with no new rules.)
+- **Audit (already built):** `sales-invoices/service.js` + `salePayouts` already record per-line payouts
+  (`consignmentAmount`, `payoutAmount` = gross − consignment − labor deduction) and **converge into
+  payroll** — the payroll service batches `salePayouts` by seller/week alongside labor logs (**D8 ✅**).
+  The gap was a single **flat consignment rate** (`adminSettings.pricing.consignmentFeeRate`, default 0.20).
+- **Done (S6a — fee model):** `src/services/billing/feeResolver.js` + `feeSchedule.js` — the
+  services-continuum fee (D7): `resolveFee({lineTotal, context})` classifies consignment / hybrid /
+  marketplace from custody + fulfillment and charges most→least (consignment ≥ hybrid ≥ marketplace).
+  Configurable `feeSchedule` (rates are placeholders; consignment bundle defaults to the legacy flat
+  rate). Backward-compatible (flat `consignmentRate` path reproduces current math). Unit-tested (3).
+- **Remaining (S6b — integration):**
+  - capture `channel`/`custodyAtSale`/`fulfilledBy` on sale lines + `seller`/`custody`/`listingSurfaces` on products
+  - wire `resolveFee` into `normalizeLineItems`/`createPayoutEntries`, **defaulting to consignment** so
+    existing payouts are unchanged until context is supplied (careful: touches live payout math)
+  - admin fee-schedule + artisan-agreement settings screens (UI phase)
+- **Done when:** an artisan sale splits into EFD fee + artisan payout per the resolved schedule, and the
+  payout appears in that artisan's payroll batch. (Minisites already supported — no new rules.)
 
 ## S7 — Customs *(graceful, no-regression rewrite)*
 
