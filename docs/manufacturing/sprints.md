@@ -182,25 +182,29 @@ showcase listing with COGS-based pricing.
 - **Done when:** an artisan sale splits into EFD fee + artisan payout per the resolved schedule, and the
   payout appears in that artisan's payroll batch. (Minisites already supported — no new rules.)
 
-## S7 — Customs *(graceful, no-regression rewrite)*
+## S7 — Customs — additive integration, NOT a rewrite — 🚧 audit done
 
-**Goal:** fold `customTickets` onto the new spine: a custom = Design + Piece(s) + customerID + billing.
-- **Pre-work (required):** audit the existing custom-ticket flow and enumerate **every current
-  function** (financials, statuses, comments, files, notifications) → that list is the acceptance checklist.
-- **Migration:** migrate `customTickets` → pieces/designs (+ customer + billing) **without losing any data or capability**.
-- **Code:** custom intake → design → piece → routed WOs across disciplines → billing/sale.
-- **3D viewer + share links** — build to [custom-design-viewer-contract.md](./custom-design-viewer-contract.md):
-  attach `designModel` (same shape as product `viewer`; meshMap via shared `POST /api/glb/inspect`) and
-  mint/revoke public share links via the `POST /api/custom-designs/tickets` actions
-  (`updateDesignModel` / `createShareLink` / `setShareEnabled`). Writes go through those actions, **not**
-  direct collection writes. Enforce the contract §8 checklist (esp. **no-PII `shareTitle`** + a visible
-  "Revoke link" control). The `designModel.glbUrl` derives from the custom's Design GLB export.
-- **Cross-app:** the `/d/<token>` share page + `/api/glb/inspect` are storefront-hosted; resolve whether
-  `/api/custom-designs/tickets` is hosted by admin or efd-shop (and how it relates to admin's existing
-  `/api/custom-tickets`) during the pre-work audit.
-- **Done when:** every function that exists today still works; customs run through the same
-  Design/Piece/Work-Order engine as production; and a custom can show an embedded 3D model + a working
-  public share link.
+**Pre-work (DONE):** [s7-customs-audit.md](./s7-customs-audit.md). The audit found `customTickets` is a
+**large, mature, production MVC system** (CRUD + status history, multi-artisan assignment w/ fee snapshots,
+S3 communications, full invoice/deposit/payment-progress w/ a 50% production threshold, financials + 40%
+markup, 8 notification types, role-based access, analytics, tabbed detail UI). Most of it is **orthogonal**
+to the production engine. **Re-scoped: a full rewrite would be high-risk and largely redundant — instead,
+additively integrate while preserving every capability in the audit checklist.**
+
+**Goal:** customs gain the production engine + 3D viewer/share, without disturbing the existing flow.
+- **Engine linkage:** a custom ticket can spawn **Design + Piece(s)** and route **work orders** across
+  disciplines → custom fabrication hits the unified bench, pays artisans (labor→payroll), and accrues
+  **COGS** — *alongside* (not replacing) the ticket's existing assignment/financials. (Piece already has
+  `customerID`/`billing` fields.)
+- **3D viewer + share links:** add `designModel` + `share` per
+  [custom-design-viewer-contract.md](./custom-design-viewer-contract.md) (replaces the Shapr3D `designLink`);
+  meshMap via shared `POST /api/glb/inspect`; actions `updateDesignModel`/`createShareLink`/`setShareEnabled`.
+  **Cross-app:** resolve whether `/api/custom-designs/tickets` is admin- or efd-shop-hosted (+ relation to the
+  existing `/api/custom-tickets`).
+- **Billing reconcile (light):** the ticket quote/deposit/invoice system already charges the customer;
+  `billing.mode` is optional classification, not a replacement.
+- **Done when:** every audit-checklist function still works **and** a custom can drive Design/Piece/
+  work-order fabrication + show an embedded 3D model + a working public share link.
 
 ---
 
