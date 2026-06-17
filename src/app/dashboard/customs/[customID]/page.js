@@ -4,38 +4,31 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Box, Typography, Button, Chip, Stack, Paper, Grid, Divider, CircularProgress,
-  Table, TableHead, TableRow, TableCell, TableBody,
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField, LinearProgress,
-  Snackbar, Alert,
+  Table, TableHead, TableRow, TableCell, TableBody, Tabs, Tab, LinearProgress,
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField, Snackbar, Alert,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
 import BuildCircleIcon from '@mui/icons-material/BuildCircle';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import DiamondIcon from '@mui/icons-material/AutoAwesome';
+import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import StatusTimeline from '../components/StatusTimeline';
+import OverviewTab from '../components/tabs/OverviewTab';
+import NotesTab from '../components/tabs/NotesTab';
+import CommunicationsTab from '../components/tabs/CommunicationsTab';
+import ImagesTab from '../components/tabs/ImagesTab';
+import ShareTab from '../components/tabs/ShareTab';
 
 const money = (n) => `$${(Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
 const STATUS_COLOR = {
-  pending: 'default', consultation: 'info', design: 'info', quote: 'warning',
-  deposit: 'warning', in_production: 'primary', qc: 'secondary',
-  completed: 'success', delivered: 'success', cancelled: 'error',
+  pending: 'default', consultation: 'info', design: 'info', quote: 'warning', deposit: 'warning',
+  in_production: 'primary', qc: 'secondary', completed: 'success', delivered: 'success', cancelled: 'error',
 };
-
-const dialogPaperProps = {
-  sx: {
-    backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none',
-    color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}`,
-  },
-};
-
-const panelSx = {
-  p: 2.5, height: '100%',
-  backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none',
-  border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none',
-};
+const dialogPaperProps = { sx: { backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` } };
+const panelSx = { p: 2.5, height: '100%', backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' };
 
 function PanelHeader({ icon: Icon, title, action }) {
   return (
@@ -48,7 +41,6 @@ function PanelHeader({ icon: Icon, title, action }) {
     </Stack>
   );
 }
-
 function Stat({ label, value, color }) {
   return (
     <Box>
@@ -65,14 +57,15 @@ export default function CustomDetailPage() {
   const [margin, setMargin] = useState(null);
   const [billing, setBilling] = useState({ invoices: [], progress: null });
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState(0);
+  const [busy, setBusy] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [quoteForm, setQuoteForm] = useState({ laborCost: 0, castingCost: 0, shippingCost: 0, designFee: 0, rushMultiplier: 1 });
   const [invoiceForm, setInvoiceForm] = useState({ type: 'deposit', amount: 0 });
-  const [busy, setBusy] = useState(false);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
 
-  const showSnack = (message, severity = 'success') => setSnack({ open: true, message, severity });
+  const notify = (message, severity = 'success') => setSnack({ open: true, message, severity });
   const closeSnack = () => setSnack((s) => ({ ...s, open: false }));
 
   const load = useCallback(async () => {
@@ -88,12 +81,11 @@ export default function CustomDetailPage() {
       setMargin(m);
       setQuoteForm({
         laborCost: o.quote?.laborCost || 0, castingCost: o.quote?.castingCost || 0,
-        shippingCost: o.quote?.shippingCost || 0, designFee: o.quote?.designFee || 0,
-        rushMultiplier: o.quote?.rushMultiplier || 1,
+        shippingCost: o.quote?.shippingCost || 0, designFee: o.quote?.designFee || 0, rushMultiplier: o.quote?.rushMultiplier || 1,
       });
       if (bRes.ok) setBilling(await bRes.json());
     } catch (e) {
-      showSnack(e.message, 'error');
+      notify(e.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -101,55 +93,39 @@ export default function CustomDetailPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const call = async (fn, successMsg) => {
+  const call = async (fn, okMsg) => {
     setBusy(true);
-    try {
-      await fn();
-      if (successMsg) showSnack(successMsg, 'success');
-      await load();
-    } catch (e) {
-      showSnack(e.message, 'error');
-    } finally {
-      setBusy(false);
-    }
+    try { await fn(); if (okMsg) notify(okMsg, 'success'); await load(); }
+    catch (e) { notify(e.message, 'error'); } finally { setBusy(false); }
   };
-
+  const changeStatus = (status) => call(async () => {
+    const res = await fetch(`/api/custom-orders/${customID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status, statusReason: 'manual update' }) });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Status update failed');
+  }, 'Status updated');
+  const saveDetails = (fields) => call(async () => {
+    const res = await fetch(`/api/custom-orders/${customID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields) });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Save failed');
+  }, 'Details saved');
   const saveQuote = () => call(async () => {
-    const res = await fetch(`/api/custom-orders/${customID}/quote`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...quoteForm, laborCost: Number(quoteForm.laborCost), castingCost: Number(quoteForm.castingCost), shippingCost: Number(quoteForm.shippingCost), designFee: Number(quoteForm.designFee), rushMultiplier: Number(quoteForm.rushMultiplier) }),
-    });
+    const res = await fetch(`/api/custom-orders/${customID}/quote`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...quoteForm, laborCost: Number(quoteForm.laborCost), castingCost: Number(quoteForm.castingCost), shippingCost: Number(quoteForm.shippingCost), designFee: Number(quoteForm.designFee), rushMultiplier: Number(quoteForm.rushMultiplier) }) });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Quote save failed');
     setQuoteOpen(false);
   }, 'Quote saved');
-
   const createInvoice = () => call(async () => {
-    const res = await fetch(`/api/custom-orders/${customID}/invoices`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: invoiceForm.type, amount: Number(invoiceForm.amount) }),
-    });
+    const res = await fetch(`/api/custom-orders/${customID}/invoices`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: invoiceForm.type, amount: Number(invoiceForm.amount) }) });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Invoice create failed');
-    setInvoiceOpen(false);
-    setInvoiceForm({ type: 'deposit', amount: 0 });
+    setInvoiceOpen(false); setInvoiceForm({ type: 'deposit', amount: 0 });
   }, 'Invoice created');
-
   const markPaid = (invoiceID) => call(async () => {
-    const res = await fetch(`/api/custom-orders/${customID}/invoices/${invoiceID}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'paid' }),
-    });
+    const res = await fetch(`/api/custom-orders/${customID}/invoices/${invoiceID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'paid' }) });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Mark-paid failed');
   }, 'Invoice marked paid');
-
   const startProduction = () => call(async () => {
-    const res = await fetch(`/api/custom-orders/${customID}/production`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
-    });
+    const res = await fetch(`/api/custom-orders/${customID}/production`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Start production failed');
   }, 'Production started — work routed to the bench');
 
-  if (loading) {
-    return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress sx={{ color: REPAIRS_UI.accent }} /></Box>;
-  }
+  if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress sx={{ color: REPAIRS_UI.accent }} /></Box>;
   if (!order) {
     return (
       <Box sx={{ p: 3 }}>
@@ -161,177 +137,135 @@ export default function CustomDetailPage() {
 
   const q = order.quote || {};
   const progress = billing.progress;
+  const notes = order.notes || [];
+  const comms = order.communications || [];
+  const images = order.images || [];
+
+  const TABS = [
+    'Overview', 'Quote', 'Invoices', 'Production',
+    `Notes (${notes.length})`, `Communications (${comms.length})`, `Images (${images.length})`, '3D & Share',
+  ];
 
   return (
     <Box sx={{ pb: 6 }}>
-      {/* Header panel */}
-      <Box
-        sx={{
-          backgroundColor: { xs: 'transparent', sm: REPAIRS_UI.bgPanel },
-          border: { xs: 'none', sm: `1px solid ${REPAIRS_UI.border}` },
-          borderRadius: { xs: 0, sm: 3 },
-          boxShadow: { xs: 'none', sm: REPAIRS_UI.shadow },
-          p: { xs: 0.5, sm: 2.5, md: 3 },
-          mb: 3,
-        }}
-      >
-        <Button startIcon={<ArrowBackIcon />} onClick={() => router.push('/dashboard/customs')} sx={{ color: REPAIRS_UI.textSecondary, mb: 1.5, pl: 0 }}>
-          All customs
-        </Button>
+      {/* Header */}
+      <Box sx={{ backgroundColor: { xs: 'transparent', sm: REPAIRS_UI.bgPanel }, border: { xs: 'none', sm: `1px solid ${REPAIRS_UI.border}` }, borderRadius: { xs: 0, sm: 3 }, boxShadow: { xs: 'none', sm: REPAIRS_UI.shadow }, p: { xs: 0.5, sm: 2.5, md: 3 }, mb: 3 }}>
+        <Button startIcon={<ArrowBackIcon />} onClick={() => router.push('/dashboard/customs')} sx={{ color: REPAIRS_UI.textSecondary, mb: 1.5, pl: 0 }}>All customs</Button>
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
           <Box sx={{ maxWidth: 920 }}>
-            <Typography
-              sx={{
-                display: 'inline-flex', alignItems: 'center', gap: 1,
-                px: 1.25, py: 0.5, mb: 1.5,
-                fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em',
-                color: REPAIRS_UI.textPrimary, backgroundColor: REPAIRS_UI.bgCard,
-                border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, textTransform: 'uppercase',
-              }}
-            >
-              <DiamondIcon sx={{ fontSize: 16, color: REPAIRS_UI.accent }} />
-              {order.customID}
+            <Typography sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, px: 1.25, py: 0.5, mb: 1.5, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', color: REPAIRS_UI.textPrimary, backgroundColor: REPAIRS_UI.bgCard, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, textTransform: 'uppercase' }}>
+              <DiamondIcon sx={{ fontSize: 16, color: REPAIRS_UI.accent }} />{order.customID}
             </Typography>
-            <Typography sx={{ fontSize: { xs: 26, md: 32 }, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 0.5 }}>
-              {order.title || 'Custom Order'}
-            </Typography>
-            <Typography sx={{ color: REPAIRS_UI.textSecondary }}>
-              {order.customerName || order.clientID || '—'}
-            </Typography>
+            <Typography sx={{ fontSize: { xs: 26, md: 32 }, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 0.5 }}>{order.title || 'Custom Order'}</Typography>
+            <Typography sx={{ color: REPAIRS_UI.textSecondary }}>{order.customerName || order.clientID || '—'}</Typography>
           </Box>
-          <Chip label={(order.status || '').replace('_', ' ')} color={STATUS_COLOR[order.status] || 'default'} />
+          <Stack direction="row" spacing={1} alignItems="center">
+            {order.isRush && <Chip size="small" icon={<PriorityHighIcon />} label="RUSH" sx={{ bgcolor: '#FF4444', color: '#fff' }} />}
+            <Chip label={(order.status || '').replace('_', ' ')} color={STATUS_COLOR[order.status] || 'default'} />
+          </Stack>
         </Stack>
       </Box>
 
-      <Grid container spacing={2}>
-        {/* Quote + margin */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={panelSx}>
-            <PanelHeader
-              icon={RequestQuoteIcon}
-              title="Quote"
-              action={<Button size="small" onClick={() => setQuoteOpen(true)} sx={{ color: REPAIRS_UI.accent }}>Edit</Button>}
-            />
-            <Stack spacing={1}>
-              <Stack direction="row" justifyContent="space-between"><Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>Labor (× {q.rushMultiplier || 1})</Typography><Typography variant="body2">{money(q.laborCost)}</Typography></Stack>
-              <Stack direction="row" justifyContent="space-between"><Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>Casting</Typography><Typography variant="body2">{money(q.castingCost)}</Typography></Stack>
-              <Stack direction="row" justifyContent="space-between"><Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>Shipping</Typography><Typography variant="body2">{money(q.shippingCost)}</Typography></Stack>
-              <Stack direction="row" justifyContent="space-between"><Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>Design fee</Typography><Typography variant="body2">{money(q.designFee)}</Typography></Stack>
-            </Stack>
-            <Divider sx={{ my: 1.5, borderColor: REPAIRS_UI.border }} />
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader }}>Quote total</Typography>
-              <Typography sx={{ fontWeight: 700, fontSize: '1.25rem', color: REPAIRS_UI.accent }}>{money(q.quoteTotal)}</Typography>
-            </Stack>
-            {margin && (
-              <Stack direction="row" spacing={3} sx={{ mt: 2 }}>
-                <Stat label="Margin" value={`${money(margin.margin)} (${margin.marginPct}%)`} color={margin.margin >= 0 ? '#66BB6A' : '#EF5350'} />
-                <Stat label="COGS" value={money(margin.cogs)} />
-              </Stack>
-            )}
-          </Paper>
-        </Grid>
+      <StatusTimeline order={order} busy={busy} onChange={changeStatus} />
 
-        {/* Production / bench */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={panelSx}>
-            <PanelHeader icon={BuildCircleIcon} title="Production" />
-            <Stack direction="row" spacing={3} sx={{ mb: 2 }}>
-              <Stat label="Pieces" value={(order.pieceIDs || []).length} />
-              <Stat label="Designs" value={(order.designIDs || []).length} />
-            </Stack>
-            <Button
-              variant="outlined"
-              disabled={busy}
-              onClick={startProduction}
-              sx={{ borderColor: REPAIRS_UI.accent, color: REPAIRS_UI.accent, '&:hover': { borderColor: '#C19B2E', backgroundColor: 'rgba(212,175,55,0.08)' } }}
-            >
-              Start production (→ bench)
-            </Button>
-            <Typography variant="caption" display="block" sx={{ mt: 1.5, color: REPAIRS_UI.textMuted, lineHeight: 1.5 }}>
-              Spawns a design + piece + routed work orders on the bench; labor pays through payroll and accrues into COGS.
-            </Typography>
-          </Paper>
-        </Grid>
+      <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile
+        sx={{ mb: 2, '& .MuiTab-root': { color: REPAIRS_UI.textSecondary, textTransform: 'none' }, '& .Mui-selected': { color: REPAIRS_UI.accent }, '& .MuiTabs-indicator': { bgcolor: REPAIRS_UI.accent } }}>
+        {TABS.map((t) => <Tab key={t} label={t} />)}
+      </Tabs>
 
-        {/* Invoices / payment progress */}
-        <Grid item xs={12}>
-          <Paper sx={{ ...panelSx, height: 'auto' }}>
-            <PanelHeader
-              icon={ReceiptLongIcon}
-              title="Invoices & Payment"
-              action={
-                <Button
-                  size="small"
-                  variant="contained"
-                  onClick={() => setInvoiceOpen(true)}
-                  sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}
-                >
-                  New Invoice
-                </Button>
-              }
-            />
-            {progress && (
-              <Box sx={{ mb: 2 }}>
-                <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
-                  <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
-                    Paid {money(progress.totalPaid)} of {money(progress.projectTotal)} ({progress.paymentProgress}%)
-                  </Typography>
-                  <Stack direction="row" spacing={1}>
-                    {progress.canStartProduction && <Chip size="small" label="Production-ready" color="info" />}
-                    {progress.isFullyPaid && <Chip size="small" label="Fully paid" color="success" />}
-                  </Stack>
+      {/* Overview */}
+      {tab === 0 && <OverviewTab order={order} busy={busy} onSave={saveDetails} />}
+
+      {/* Quote */}
+      {tab === 1 && (
+        <Paper sx={panelSx}>
+          <PanelHeader icon={RequestQuoteIcon} title="Quote" action={<Button size="small" onClick={() => setQuoteOpen(true)} sx={{ color: REPAIRS_UI.accent }}>Edit</Button>} />
+          <Stack spacing={1}>
+            <Stack direction="row" justifyContent="space-between"><Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>Labor (× {q.rushMultiplier || 1})</Typography><Typography variant="body2">{money(q.laborCost)}</Typography></Stack>
+            <Stack direction="row" justifyContent="space-between"><Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>Casting</Typography><Typography variant="body2">{money(q.castingCost)}</Typography></Stack>
+            <Stack direction="row" justifyContent="space-between"><Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>Shipping</Typography><Typography variant="body2">{money(q.shippingCost)}</Typography></Stack>
+            <Stack direction="row" justifyContent="space-between"><Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>Design fee</Typography><Typography variant="body2">{money(q.designFee)}</Typography></Stack>
+          </Stack>
+          <Divider sx={{ my: 1.5, borderColor: REPAIRS_UI.border }} />
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader }}>Quote total</Typography>
+            <Typography sx={{ fontWeight: 700, fontSize: '1.25rem', color: REPAIRS_UI.accent }}>{money(q.quoteTotal)}</Typography>
+          </Stack>
+          {margin && (
+            <Stack direction="row" spacing={3} sx={{ mt: 2 }}>
+              <Stat label="Margin" value={`${money(margin.margin)} (${margin.marginPct}%)`} color={margin.margin >= 0 ? '#66BB6A' : '#EF5350'} />
+              <Stat label="COGS" value={money(margin.cogs)} />
+            </Stack>
+          )}
+        </Paper>
+      )}
+
+      {/* Invoices */}
+      {tab === 2 && (
+        <Paper sx={{ ...panelSx, height: 'auto' }}>
+          <PanelHeader icon={ReceiptLongIcon} title="Invoices & Payment" action={<Button size="small" variant="contained" onClick={() => setInvoiceOpen(true)} sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>New Invoice</Button>} />
+          {progress && (
+            <Box sx={{ mb: 2 }}>
+              <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
+                <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>Paid {money(progress.totalPaid)} of {money(progress.projectTotal)} ({progress.paymentProgress}%)</Typography>
+                <Stack direction="row" spacing={1}>
+                  {progress.canStartProduction && <Chip size="small" label="Production-ready" color="info" />}
+                  {progress.isFullyPaid && <Chip size="small" label="Fully paid" color="success" />}
                 </Stack>
-                <LinearProgress
-                  variant="determinate"
-                  value={Math.min(100, progress.paymentProgress)}
-                  sx={{ height: 8, borderRadius: 4, backgroundColor: REPAIRS_UI.bgTertiary, '& .MuiLinearProgress-bar': { backgroundColor: REPAIRS_UI.accent } }}
-                />
-              </Box>
-            )}
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ color: REPAIRS_UI.textSecondary, borderColor: REPAIRS_UI.border }}>Invoice</TableCell>
-                  <TableCell sx={{ color: REPAIRS_UI.textSecondary, borderColor: REPAIRS_UI.border }}>Type</TableCell>
-                  <TableCell align="right" sx={{ color: REPAIRS_UI.textSecondary, borderColor: REPAIRS_UI.border }}>Amount</TableCell>
-                  <TableCell sx={{ color: REPAIRS_UI.textSecondary, borderColor: REPAIRS_UI.border }}>Status</TableCell>
-                  <TableCell sx={{ borderColor: REPAIRS_UI.border }} />
+              </Stack>
+              <LinearProgress variant="determinate" value={Math.min(100, progress.paymentProgress)} sx={{ height: 8, borderRadius: 4, backgroundColor: REPAIRS_UI.bgTertiary, '& .MuiLinearProgress-bar': { backgroundColor: REPAIRS_UI.accent } }} />
+            </Box>
+          )}
+          <Table size="small">
+            <TableHead><TableRow>
+              {['Invoice', 'Type', 'Amount', 'Status', ''].map((h, i) => <TableCell key={i} align={h === 'Amount' ? 'right' : 'left'} sx={{ color: REPAIRS_UI.textSecondary, borderColor: REPAIRS_UI.border }}>{h}</TableCell>)}
+            </TableRow></TableHead>
+            <TableBody>
+              {(billing.invoices || []).length === 0 ? (
+                <TableRow><TableCell colSpan={5} sx={{ borderColor: REPAIRS_UI.border }}><Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted }}>No invoices yet.</Typography></TableCell></TableRow>
+              ) : billing.invoices.map((inv) => (
+                <TableRow key={inv.invoiceID}>
+                  <TableCell sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>{inv.invoiceNumber}</TableCell>
+                  <TableCell sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>{inv.type}</TableCell>
+                  <TableCell align="right" sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>{money(inv.amount)}</TableCell>
+                  <TableCell sx={{ borderColor: REPAIRS_UI.border }}><Chip size="small" label={inv.status} color={inv.status === 'paid' ? 'success' : inv.status === 'cancelled' ? 'default' : 'warning'} /></TableCell>
+                  <TableCell align="right" sx={{ borderColor: REPAIRS_UI.border }}>{inv.status !== 'paid' && inv.status !== 'cancelled' && <Button size="small" disabled={busy} onClick={() => markPaid(inv.invoiceID)} sx={{ color: REPAIRS_UI.accent }}>Mark paid</Button>}</TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {(billing.invoices || []).length === 0 ? (
-                  <TableRow><TableCell colSpan={5} sx={{ borderColor: REPAIRS_UI.border }}><Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted }}>No invoices yet.</Typography></TableCell></TableRow>
-                ) : billing.invoices.map((inv) => (
-                  <TableRow key={inv.invoiceID}>
-                    <TableCell sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>{inv.invoiceNumber}</TableCell>
-                    <TableCell sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>{inv.type}</TableCell>
-                    <TableCell align="right" sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>{money(inv.amount)}</TableCell>
-                    <TableCell sx={{ borderColor: REPAIRS_UI.border }}><Chip size="small" label={inv.status} color={inv.status === 'paid' ? 'success' : inv.status === 'cancelled' ? 'default' : 'warning'} /></TableCell>
-                    <TableCell align="right" sx={{ borderColor: REPAIRS_UI.border }}>{inv.status !== 'paid' && inv.status !== 'cancelled' && <Button size="small" disabled={busy} onClick={() => markPaid(inv.invoiceID)} sx={{ color: REPAIRS_UI.accent }}>Mark paid</Button>}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Paper>
-        </Grid>
-      </Grid>
+              ))}
+            </TableBody>
+          </Table>
+        </Paper>
+      )}
+
+      {/* Production */}
+      {tab === 3 && (
+        <Paper sx={panelSx}>
+          <PanelHeader icon={BuildCircleIcon} title="Production" />
+          <Stack direction="row" spacing={3} sx={{ mb: 2 }}>
+            <Stat label="Pieces" value={(order.pieceIDs || []).length} />
+            <Stat label="Designs" value={(order.designIDs || []).length} />
+          </Stack>
+          <Button variant="outlined" disabled={busy} onClick={startProduction} sx={{ borderColor: REPAIRS_UI.accent, color: REPAIRS_UI.accent, '&:hover': { borderColor: '#C19B2E', backgroundColor: 'rgba(212,175,55,0.08)' } }}>Start production (→ bench)</Button>
+          <Typography variant="caption" display="block" sx={{ mt: 1.5, color: REPAIRS_UI.textMuted, lineHeight: 1.5 }}>
+            Spawns a design + piece + routed work orders on the bench; labor pays through payroll and accrues into COGS. (Incremental per-stage work orders + casting costs land with the production spine slice.)
+          </Typography>
+        </Paper>
+      )}
+
+      {tab === 4 && <NotesTab customID={customID} notes={notes} onChanged={load} notify={notify} />}
+      {tab === 5 && <CommunicationsTab customID={customID} communications={comms} onChanged={load} notify={notify} />}
+      {tab === 6 && <ImagesTab customID={customID} images={images} onChanged={load} notify={notify} />}
+      {tab === 7 && <ShareTab customID={customID} order={order} onChanged={load} notify={notify} />}
 
       {/* Quote dialog */}
       <Dialog open={quoteOpen} onClose={() => setQuoteOpen(false)} fullWidth maxWidth="sm" PaperProps={dialogPaperProps}>
         <DialogTitle>Edit Quote</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            {[
-              { f: 'laborCost', label: 'Labor cost' },
-              { f: 'castingCost', label: 'Casting cost' },
-              { f: 'shippingCost', label: 'Shipping cost' },
-              { f: 'designFee', label: 'Design fee' },
-              { f: 'rushMultiplier', label: 'Rush multiplier' },
-            ].map(({ f, label }) => (
+            {[['laborCost', 'Labor cost'], ['castingCost', 'Casting cost'], ['shippingCost', 'Shipping cost'], ['designFee', 'Design fee'], ['rushMultiplier', 'Rush multiplier']].map(([f, label]) => (
               <TextField key={f} label={label} type="number" value={quoteForm[f]} onChange={(e) => setQuoteForm({ ...quoteForm, [f]: e.target.value })} fullWidth />
             ))}
-            <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>A 40% markup is applied to the subtotal.</Typography>
+            <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>Current quote uses a flat markup. The full COG-bucket formula (gemstones, designer fee, etc.) lands with the quote-engine slice.</Typography>
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -345,14 +279,7 @@ export default function CustomDetailPage() {
         <DialogTitle>New Invoice</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField
-              select
-              SelectProps={{ native: true }}
-              label="Type"
-              value={invoiceForm.type}
-              onChange={(e) => setInvoiceForm({ ...invoiceForm, type: e.target.value })}
-              fullWidth
-            >
+            <TextField select SelectProps={{ native: true }} label="Type" value={invoiceForm.type} onChange={(e) => setInvoiceForm({ ...invoiceForm, type: e.target.value })} fullWidth>
               {['deposit', 'progress', 'final', 'partial'].map((t) => <option key={t} value={t}>{t}</option>)}
             </TextField>
             <TextField label="Amount" type="number" value={invoiceForm.amount} onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: e.target.value })} fullWidth />
@@ -365,9 +292,7 @@ export default function CustomDetailPage() {
       </Dialog>
 
       <Snackbar open={snack.open} autoHideDuration={5000} onClose={closeSnack} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-        <Alert onClose={closeSnack} severity={snack.severity} sx={{ backgroundColor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }}>
-          {snack.message}
-        </Alert>
+        <Alert onClose={closeSnack} severity={snack.severity} sx={{ backgroundColor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }}>{snack.message}</Alert>
       </Snackbar>
     </Box>
   );
