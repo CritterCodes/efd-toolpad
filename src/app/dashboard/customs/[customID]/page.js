@@ -9,7 +9,6 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
-import BuildCircleIcon from '@mui/icons-material/BuildCircle';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import DiamondIcon from '@mui/icons-material/AutoAwesome';
 import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
@@ -18,6 +17,7 @@ import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import StatusTimeline from '../components/StatusTimeline';
 import OverviewTab from '../components/tabs/OverviewTab';
 import AssignmentTab from '../components/tabs/AssignmentTab';
+import ProductionTab from '../components/tabs/ProductionTab';
 import NotesTab from '../components/tabs/NotesTab';
 import CommunicationsTab from '../components/tabs/CommunicationsTab';
 import ImagesTab from '../components/tabs/ImagesTab';
@@ -121,11 +121,6 @@ export default function CustomDetailPage() {
     const res = await fetch(`/api/custom-orders/${customID}/invoices/${invoiceID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'paid' }) });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Mark-paid failed');
   }, 'Invoice marked paid');
-  const startProduction = () => call(async () => {
-    const res = await fetch(`/api/custom-orders/${customID}/production`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Start production failed');
-  }, 'Production started — work routed to the bench');
-
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress sx={{ color: REPAIRS_UI.accent }} /></Box>;
   if (!order) {
     return (
@@ -252,19 +247,7 @@ export default function CustomDetailPage() {
       )}
 
       {/* Production */}
-      {tab === 3 && (
-        <Paper sx={panelSx}>
-          <PanelHeader icon={BuildCircleIcon} title="Production" />
-          <Stack direction="row" spacing={3} sx={{ mb: 2 }}>
-            <Stat label="Pieces" value={(order.pieceIDs || []).length} />
-            <Stat label="Designs" value={(order.designIDs || []).length} />
-          </Stack>
-          <Button variant="outlined" disabled={busy} onClick={startProduction} sx={{ borderColor: REPAIRS_UI.accent, color: REPAIRS_UI.accent, '&:hover': { borderColor: '#C19B2E', backgroundColor: 'rgba(212,175,55,0.08)' } }}>Start production (→ bench)</Button>
-          <Typography variant="caption" display="block" sx={{ mt: 1.5, color: REPAIRS_UI.textMuted, lineHeight: 1.5 }}>
-            Spawns a design + piece + routed work orders on the bench; labor pays through payroll and accrues into COGS. (Incremental per-stage work orders + casting costs land with the production spine slice.)
-          </Typography>
-        </Paper>
-      )}
+      {tab === 3 && <ProductionTab customID={customID} order={order} margin={margin} notify={notify} />}
 
       {tab === 4 && <AssignmentTab customID={customID} assignments={assignments} onChanged={load} notify={notify} />}
       {tab === 5 && <NotesTab customID={customID} notes={notes} onChanged={load} notify={notify} />}

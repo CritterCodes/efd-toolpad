@@ -197,8 +197,12 @@ Depend on the production/quote decisions:
   + record comms access. `assignments[]` + `/assignments` endpoints + `/assignable-artisans` + Assignment tab.
   Verified live (assigned CAD designer w/ $350 fee → designFee 100→350, COG 470→720, total →1800). **The bench
   work-order spawn + CAD/STL/QC lifecycle is C6** (deferred so the bench card isn't shipped before it works).
-- **C6** Work-order spine: incremental WO spawn per discipline; STL upload @ bench → QC; **CAD QC peer-review
-  payout**; **GLB** WO; **labor-payable-on-QC**; consolidated child-WO tree + COGS rollup.
+- **C6** Work-order spine (decomposed):
+  - **C6a ✅** Incremental WO spawn per discipline + consolidated child-WO view (Production tab) + COGS rollup;
+    assigning a CAD designer auto-spawns their CAD WO on the bench (creates a bare piece on demand). Verified live.
+  - **C6b** STL upload @ bench (metal-only) → moves CAD WO to QC.
+  - **C6c** CAD QC peer-review payout (unassigned, claimed by other CAD designers; flat fee → COG).
+  - **C6d** GLB work order (STL→GLB) + labor-payable-on-QC gating across the bench.
 - **C7** Casting → expense ledger w/ invoice number.
 - **C8** `qcReviewFee` + `clientMgmtBonus` settings; client-management bonus logic.
 

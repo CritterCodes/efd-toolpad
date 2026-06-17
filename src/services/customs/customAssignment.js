@@ -10,6 +10,8 @@
 import { db } from '@/lib/database';
 import { randomUUID } from 'crypto';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
+import { spawnCustomWorkOrder } from '@/services/customs/customProduction';
+import { DISCIPLINE } from '@/services/workOrders/disciplines';
 
 export const ASSIGNMENT_ROLE = { CAD: 'cad', BENCH: 'bench' };
 
@@ -71,9 +73,16 @@ export async function assignArtisan({ customID, userID, role = ASSIGNMENT_ROLE.C
   };
   await CustomOrdersModel.addAssignment(customID, assignment);
 
-  // Fold the CAD designer's fee into the quote's designFee → COG → markup (C4).
-  if (assignment.role === ASSIGNMENT_ROLE.CAD && feeSnapshot > 0) {
-    await CustomOrdersModel.updateById(customID, { quote: { ...order.quote, designFee: feeSnapshot } }, { changedBy: assignedBy, reason: 'cad designer assigned' });
+  if (assignment.role === ASSIGNMENT_ROLE.CAD) {
+    // Fold the CAD designer's fee into the quote's designFee → COG → markup (C4).
+    if (feeSnapshot > 0) {
+      await CustomOrdersModel.updateById(customID, { quote: { ...order.quote, designFee: feeSnapshot } }, { changedBy: assignedBy, reason: 'cad designer assigned' });
+    }
+    // Spawn the CAD work order on the designer's bench (C6).
+    await spawnCustomWorkOrder({
+      customID, discipline: DISCIPLINE.CAD, title: `${order.title || `Custom ${customID}`} — CAD`,
+      assignedToUserID: userID, assignedJeweler: assignment.name, createdBy: assignedBy,
+    });
   }
   return CustomOrdersModel.findById(customID);
 }
