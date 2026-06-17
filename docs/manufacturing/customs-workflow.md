@@ -193,7 +193,10 @@ Independent of the open questions (start anytime):
 Depend on the production/quote decisions:
 - **C4 ✅** Single-COG-bucket quote engine in `customOrders`: materials+gemstones+labor+casting+shipping+designer
   fee+GLB fee+QC fee → COG × `cogMarkup` (from admin settings, default 2.5) × rush. Verified live (COG 470 → 1175).
-- **C5** Assignment model (roles, fee snapshot, spawn WO, comms access) + artisan profile CAD-rate surfacing.
+- **C5 ✅** Assignment model: assign CAD/bench artisan → snapshot `customDesignFee` into the quote (folds into COG)
+  + record comms access. `assignments[]` + `/assignments` endpoints + `/assignable-artisans` + Assignment tab.
+  Verified live (assigned CAD designer w/ $350 fee → designFee 100→350, COG 470→720, total →1800). **The bench
+  work-order spawn + CAD/STL/QC lifecycle is C6** (deferred so the bench card isn't shipped before it works).
 - **C6** Work-order spine: incremental WO spawn per discipline; STL upload @ bench → QC; **CAD QC peer-review
   payout**; **GLB** WO; **labor-payable-on-QC**; consolidated child-WO tree + COGS rollup.
 - **C7** Casting → expense ledger w/ invoice number.

@@ -91,6 +91,8 @@ export default class CustomOrdersModel {
       notes: Array.isArray(data.notes) ? data.notes : [],
       communications: Array.isArray(data.communications) ? data.communications : [],
       images: Array.isArray(data.images) ? data.images : [],
+      // Assignments (C5): artisans assigned to roles (cad/bench), with fee snapshots.
+      assignments: Array.isArray(data.assignments) ? data.assignments : [],
       designIDs: Array.isArray(data.designIDs) ? data.designIDs : [],
       pieceIDs: Array.isArray(data.pieceIDs) ? data.pieceIDs : [],
       quote,
@@ -227,6 +229,20 @@ export default class CustomOrdersModel {
   static async removeImage(customID, imageID) {
     const col = await this.collection();
     await col.updateOne({ customID }, { $pull: { images: { id: imageID } }, $set: { updatedAt: new Date() } });
+    return this.findById(customID);
+  }
+
+  /* ---- Assignments (C5): artisans assigned to roles, with fee snapshots ---- */
+
+  static async addAssignment(customID, assignment) {
+    const col = await this.collection();
+    await col.updateOne({ customID }, { $push: { assignments: assignment }, $set: { updatedAt: new Date() } });
+    return assignment;
+  }
+
+  static async removeAssignment(customID, assignmentID) {
+    const col = await this.collection();
+    await col.updateOne({ customID }, { $pull: { assignments: { id: assignmentID } }, $set: { updatedAt: new Date() } });
     return this.findById(customID);
   }
 

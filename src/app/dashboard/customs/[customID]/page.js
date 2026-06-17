@@ -17,6 +17,7 @@ import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import StatusTimeline from '../components/StatusTimeline';
 import OverviewTab from '../components/tabs/OverviewTab';
+import AssignmentTab from '../components/tabs/AssignmentTab';
 import NotesTab from '../components/tabs/NotesTab';
 import CommunicationsTab from '../components/tabs/CommunicationsTab';
 import ImagesTab from '../components/tabs/ImagesTab';
@@ -141,8 +142,9 @@ export default function CustomDetailPage() {
   const comms = order.communications || [];
   const images = order.images || [];
 
+  const assignments = order.assignments || [];
   const TABS = [
-    'Overview', 'Quote', 'Invoices', 'Production',
+    'Overview', 'Quote', 'Invoices', 'Production', `Assignment (${assignments.length})`,
     `Notes (${notes.length})`, `Communications (${comms.length})`, `Images (${images.length})`, '3D & Share',
   ];
 
@@ -264,10 +266,11 @@ export default function CustomDetailPage() {
         </Paper>
       )}
 
-      {tab === 4 && <NotesTab customID={customID} notes={notes} onChanged={load} notify={notify} />}
-      {tab === 5 && <CommunicationsTab customID={customID} communications={comms} onChanged={load} notify={notify} />}
-      {tab === 6 && <ImagesTab customID={customID} images={images} onChanged={load} notify={notify} />}
-      {tab === 7 && <ShareTab customID={customID} order={order} onChanged={load} notify={notify} />}
+      {tab === 4 && <AssignmentTab customID={customID} assignments={assignments} onChanged={load} notify={notify} />}
+      {tab === 5 && <NotesTab customID={customID} notes={notes} onChanged={load} notify={notify} />}
+      {tab === 6 && <CommunicationsTab customID={customID} communications={comms} onChanged={load} notify={notify} />}
+      {tab === 7 && <ImagesTab customID={customID} images={images} onChanged={load} notify={notify} />}
+      {tab === 8 && <ShareTab customID={customID} order={order} onChanged={load} notify={notify} />}
 
       {/* Quote dialog */}
       <Dialog open={quoteOpen} onClose={() => setQuoteOpen(false)} fullWidth maxWidth="sm" PaperProps={dialogPaperProps}>
