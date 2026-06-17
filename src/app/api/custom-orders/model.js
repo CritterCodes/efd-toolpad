@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import Constants from '@/lib/constants';
 import { computeQuote, computeMargin } from '@/services/customs/customQuote';
 import PiecesModel from '@/app/api/pieces/model';
+import SettingsManagerService from '@/app/api/admin/settings/services/settingsManager.service';
 
 /**
  * NEW customs (S7) — a custom order on the production engine: customer + Design +
@@ -27,14 +28,17 @@ function genCustomID() {
 }
 
 const EMPTY_QUOTE = {
-  materialCosts: [],
+  materialCosts: [],   // includes gemstones (category-tagged line items)
   laborCost: 0,
   laborHours: 0,
   castingCost: 0,
   shippingCost: 0,
-  designFee: 0,
+  designFee: 0,        // designer CAD fee snapshot (folded into COG)
+  glbFee: 0,           // GLB-creation fee (folded into COG)
+  qcReviewFee: 0,      // CAD QC peer-review fee (folded into COG)
   rushMultiplier: 1,
-  markup: 0.40,
+  cogMarkup: 0,        // snapshot of the markup used (0 → recomputed from settings)
+  cog: 0,
   quoteTotal: 0,
 };
 
@@ -60,6 +64,7 @@ export default class CustomOrdersModel {
     const col = await this.collection();
     const now = new Date();
     const status = data.status || CUSTOM_ORDER_STATUS.PENDING;
+    const quote = await this.normalizeQuote({ ...EMPTY_QUOTE, ...(data.quote || {}) });
     const order = {
       customID: data.customID || genCustomID(),
       clientID: data.clientID ?? null,
@@ -88,7 +93,7 @@ export default class CustomOrdersModel {
       images: Array.isArray(data.images) ? data.images : [],
       designIDs: Array.isArray(data.designIDs) ? data.designIDs : [],
       pieceIDs: Array.isArray(data.pieceIDs) ? data.pieceIDs : [],
-      quote: this.normalizeQuote({ ...EMPTY_QUOTE, ...(data.quote || {}) }),
+      quote,
       billing: data.billing ?? { mode: 'retail' },
       designModel: data.designModel ?? null,
       shareTitle: data.shareTitle ?? null,
@@ -119,7 +124,7 @@ export default class CustomOrdersModel {
 
     // Recompute quoteTotal whenever the quote changes (merge partial onto existing).
     if (updateData.quote) {
-      updateData = { ...updateData, quote: this.normalizeQuote({ ...existing.quote, ...updateData.quote }) };
+      updateData = { ...updateData, quote: await this.normalizeQuote({ ...existing.quote, ...updateData.quote }) };
     }
 
     const set = { ...updateData, updatedAt: new Date() };
@@ -133,9 +138,25 @@ export default class CustomOrdersModel {
     return this.findById(customID);
   }
 
-  /** Normalize a quote: recompute quoteTotal from inputs (40% markup parity). */
-  static normalizeQuote(quote = {}) {
-    return { ...quote, quoteTotal: computeQuote(quote).quoteTotal };
+  /** The markup settings for customs pricing (tolerant of missing admin settings). */
+  static async pricingSettings() {
+    try {
+      const s = await SettingsManagerService.getSettings();
+      const cogMarkup = Number(s?.financial?.cogMarkup);
+      return { cogMarkup: cogMarkup > 0 ? cogMarkup : 2.5 };
+    } catch {
+      return { cogMarkup: 2.5 };
+    }
+  }
+
+  /**
+   * Normalize a quote: recompute the single-COG-bucket total using the markup
+   * from admin settings, and snapshot cog + cogMarkup + quoteTotal onto the quote.
+   */
+  static async normalizeQuote(quote = {}) {
+    const settings = await this.pricingSettings();
+    const computed = computeQuote(quote, settings);
+    return { ...quote, cog: computed.cog, cogMarkup: computed.cogMarkup, quoteTotal: computed.quoteTotal };
   }
 
   /** Link a spawned Design / Piece onto the order (idempotent via $addToSet). */

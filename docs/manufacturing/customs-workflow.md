@@ -185,12 +185,14 @@ Rebuild `/dashboard/customs` to the app design system (REPAIRS_UI), mirroring le
 ## 11. Build slices (after approval)
 
 Independent of the open questions (start anytime):
-- **C1** Backend gaps: notes, communications (both threads + notifications), images/moodboard S3 upload, spec fields.
-- **C2** Detail page → tabbed parity shell (Overview/Status/Quote/Invoices/Production/Notes/Comms/Images/3D&Share).
-- **C3** List page → rich parity (cards, filters, pagination, multi-step create).
+- **C1 ✅** Backend gaps: notes, communications (both threads), images/moodboard upload (MinIO), spec fields.
+  (Client-thread notification wiring left as a TODO.)
+- **C2 ✅** Detail page → tabbed parity (Overview/Status timeline/Quote/Invoices/Production/Notes/Comms/Images/3D&Share).
+- **C3 ✅** List page → rich parity (cards w/ thumbnails, filters, search/sort, pagination, multi-step create).
 
 Depend on the production/quote decisions:
-- **C4** Adopt quote formula v2 in `customOrders` (gemstones, shipping, designer fee, settings markup).
+- **C4 ✅** Single-COG-bucket quote engine in `customOrders`: materials+gemstones+labor+casting+shipping+designer
+  fee+GLB fee+QC fee → COG × `cogMarkup` (from admin settings, default 2.5) × rush. Verified live (COG 470 → 1175).
 - **C5** Assignment model (roles, fee snapshot, spawn WO, comms access) + artisan profile CAD-rate surfacing.
 - **C6** Work-order spine: incremental WO spawn per discipline; STL upload @ bench → QC; **CAD QC peer-review
   payout**; **GLB** WO; **labor-payable-on-QC**; consolidated child-WO tree + COGS rollup.

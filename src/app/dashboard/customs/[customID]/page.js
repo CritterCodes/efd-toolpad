@@ -181,20 +181,32 @@ export default function CustomDetailPage() {
         <Paper sx={panelSx}>
           <PanelHeader icon={RequestQuoteIcon} title="Quote" action={<Button size="small" onClick={() => setQuoteOpen(true)} sx={{ color: REPAIRS_UI.accent }}>Edit</Button>} />
           <Stack spacing={1}>
-            <Stack direction="row" justifyContent="space-between"><Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>Labor (× {q.rushMultiplier || 1})</Typography><Typography variant="body2">{money(q.laborCost)}</Typography></Stack>
-            <Stack direction="row" justifyContent="space-between"><Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>Casting</Typography><Typography variant="body2">{money(q.castingCost)}</Typography></Stack>
-            <Stack direction="row" justifyContent="space-between"><Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>Shipping</Typography><Typography variant="body2">{money(q.shippingCost)}</Typography></Stack>
-            <Stack direction="row" justifyContent="space-between"><Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>Design fee</Typography><Typography variant="body2">{money(q.designFee)}</Typography></Stack>
+            {[
+              ['Materials & gemstones', (q.materialCosts || []).reduce((s, m) => s + (m.cost != null ? Number(m.cost) || 0 : (Number(m.quantity) || 1) * (Number(m.unitPrice) || 0)), 0)],
+              ['Labor', q.laborCost],
+              ['Casting', q.castingCost],
+              ['Shipping', q.shippingCost],
+              ['Designer fee', q.designFee],
+              ['GLB fee', q.glbFee],
+              ['QC review fee', q.qcReviewFee],
+            ].filter(([, v]) => Number(v) > 0).map(([label, v]) => (
+              <Stack key={label} direction="row" justifyContent="space-between">
+                <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>{label}</Typography>
+                <Typography variant="body2">{money(v)}</Typography>
+              </Stack>
+            ))}
           </Stack>
           <Divider sx={{ my: 1.5, borderColor: REPAIRS_UI.border }} />
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Stack direction="row" justifyContent="space-between"><Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>COG (cost)</Typography><Typography variant="body2">{money(q.cog)}</Typography></Stack>
+          <Stack direction="row" justifyContent="space-between"><Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>Markup</Typography><Typography variant="body2">× {q.cogMarkup || 2.5}{q.rushMultiplier > 1 ? ` · rush × ${q.rushMultiplier}` : ''}</Typography></Stack>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
             <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader }}>Quote total</Typography>
             <Typography sx={{ fontWeight: 700, fontSize: '1.25rem', color: REPAIRS_UI.accent }}>{money(q.quoteTotal)}</Typography>
           </Stack>
           {margin && (
             <Stack direction="row" spacing={3} sx={{ mt: 2 }}>
-              <Stat label="Margin" value={`${money(margin.margin)} (${margin.marginPct}%)`} color={margin.margin >= 0 ? '#66BB6A' : '#EF5350'} />
-              <Stat label="COGS" value={money(margin.cogs)} />
+              <Stat label="Margin (vs piece COGS)" value={`${money(margin.margin)} (${margin.marginPct}%)`} color={margin.margin >= 0 ? '#66BB6A' : '#EF5350'} />
+              <Stat label="Piece COGS" value={money(margin.cogs)} />
             </Stack>
           )}
         </Paper>
@@ -265,7 +277,7 @@ export default function CustomDetailPage() {
             {[['laborCost', 'Labor cost'], ['castingCost', 'Casting cost'], ['shippingCost', 'Shipping cost'], ['designFee', 'Design fee'], ['rushMultiplier', 'Rush multiplier']].map(([f, label]) => (
               <TextField key={f} label={label} type="number" value={quoteForm[f]} onChange={(e) => setQuoteForm({ ...quoteForm, [f]: e.target.value })} fullWidth />
             ))}
-            <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>Current quote uses a flat markup. The full COG-bucket formula (gemstones, designer fee, etc.) lands with the quote-engine slice.</Typography>
+            <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>These fold into one COG bucket (with gemstones, designer/GLB/QC fees) and are marked up by cogMarkup from admin settings. GLB &amp; QC fees populate from the production spine.</Typography>
           </Stack>
         </DialogContent>
         <DialogActions>
