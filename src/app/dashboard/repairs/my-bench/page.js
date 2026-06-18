@@ -143,6 +143,25 @@ export default function BenchPage() {
     }
   };
 
+  // CAD STL upload (multipart) → moves the CAD work order to QC.
+  const uploadStl = async (wo, file) => {
+    setBusyID(wo.workOrderID);
+    setCardErrors((m) => ({ ...m, [wo.workOrderID]: '' }));
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch(`/api/bench/work-orders/${wo.workOrderID}/upload-stl`, { method: 'POST', body: fd });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'STL upload failed');
+      showSnack('STL uploaded — work order moved to QC', 'success');
+      await fetchWorkOrders();
+    } catch (e) {
+      setCardErrors((m) => ({ ...m, [wo.workOrderID]: e.message }));
+      showSnack(e.message, 'error');
+    } finally {
+      setBusyID('');
+    }
+  };
+
   // --- Scan to claim (repairs; scanned value is a repairID) ---
   const queueClaimID = (repairID) => {
     const clean = String(repairID || '').trim();
@@ -393,6 +412,7 @@ export default function BenchPage() {
                 onToggleSelect={toggleQc}
                 onAction={runAction}
                 onOpenPartsDialog={openPartsDialog}
+                onUploadStl={uploadStl}
               />
             </Grid>
           ))}

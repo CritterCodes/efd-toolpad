@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   Card, CardContent, CardActions, Typography, Box, Chip, Divider, Button, Checkbox,
   TextField, MenuItem, Alert,
@@ -8,6 +8,7 @@ import DesignServicesIcon from '@mui/icons-material/DesignServices';
 import DiamondIcon from '@mui/icons-material/AutoAwesome';
 import PartsIcon from '@mui/icons-material/Category';
 import QCIcon from '@mui/icons-material/VerifiedUser';
+import UploadIcon from '@mui/icons-material/UploadFile';
 import CommunicationsIcon from '@mui/icons-material/Forum';
 import { useRouter } from 'next/navigation';
 
@@ -50,14 +51,17 @@ function sourceTag(wo) {
 export default function BenchWorkCard({
   wo, currentUserID, isAdmin, jewelers = [], busy,
   selectable = false, isSelected = false, onToggleSelect,
-  onAction, onOpenPartsDialog, error,
+  onAction, onOpenPartsDialog, onUploadStl, error,
 }) {
   const router = useRouter();
+  const stlInputRef = useRef(null);
   const lane = LANE[wo.discipline] || { label: wo.discipline, color: 'default', Icon: HandymanIcon };
   const LaneIcon = lane.Icon;
   const queue = QUEUE_META[wo.benchQueue] || { label: wo.status || '—', color: REPAIRS_UI.textMuted };
   const isRepair = wo.sourceType === 'repair';
   const isPiece = wo.sourceType === 'production_piece' || wo.sourceType === 'custom_piece';
+  const isCad = wo.discipline === 'cad';
+  const hasStl = !!wo.files?.stl;
   const isMine = wo.assignedToUserID && wo.assignedToUserID === currentUserID;
   const repairID = wo.sourceID;
   const desc = wo.source?.description || wo.description || '';
@@ -124,6 +128,11 @@ export default function BenchWorkCard({
             {wo.promiseDate && (
               <Typography variant="caption" sx={{ display: 'block', color: REPAIRS_UI.accent }}>
                 Due: {new Date(wo.promiseDate).toLocaleDateString()}
+              </Typography>
+            )}
+            {hasStl && (
+              <Typography variant="caption" sx={{ display: 'block', color: '#66BB6A' }}>
+                STL uploaded ✓
               </Typography>
             )}
           </Box>
@@ -197,11 +206,21 @@ export default function BenchWorkCard({
           </>
         )}
 
-        {/* Piece: unclaimed → Claim; in progress → Move to QC (logs labor). QC → bulk approve bar. */}
+        {/* Piece: unclaimed → Claim. QC → bulk approve bar. */}
         {isPiece && wo.benchQueue === BENCH_QUEUE.UNCLAIMED && (
           <Button size="small" variant="contained" disabled={busy} onClick={() => onAction(wo, 'claim')} sx={goldBtn}>Claim</Button>
         )}
-        {isPiece && wo.benchQueue === BENCH_QUEUE.IN_PROGRESS && (
+
+        {/* Piece in progress: CAD uploads STL (→ QC, no hourly labor); others move to QC (logs labor). */}
+        {isPiece && wo.benchQueue === BENCH_QUEUE.IN_PROGRESS && isCad && (
+          <>
+            <input ref={stlInputRef} type="file" accept=".stl,model/stl,application/octet-stream" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onUploadStl?.(wo, f); e.target.value = ''; }} />
+            <Button size="small" variant="outlined" startIcon={<UploadIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => stlInputRef.current?.click()} sx={btn({ color: '#64B5F6', borderColor: '#64B5F6' })}>
+              {hasStl ? 'Replace STL' : 'Upload STL (→ QC)'}
+            </Button>
+          </>
+        )}
+        {isPiece && wo.benchQueue === BENCH_QUEUE.IN_PROGRESS && !isCad && (
           <Button size="small" variant="outlined" startIcon={<QCIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => onAction(wo, 'move-to-qc')} sx={btn({ color: '#00C49F', borderColor: '#00C49F' })}>Move to QC</Button>
         )}
       </CardActions>

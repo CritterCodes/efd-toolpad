@@ -200,7 +200,11 @@ Depend on the production/quote decisions:
 - **C6** Work-order spine (decomposed):
   - **C6a ✅** Incremental WO spawn per discipline + consolidated child-WO view (Production tab) + COGS rollup;
     assigning a CAD designer auto-spawns their CAD WO on the bench (creates a bare piece on demand). Verified live.
-  - **C6b** STL upload @ bench (metal-only) → moves CAD WO to QC.
+  - **C6b ✅** STL upload @ bench (metal-only) → moves the CAD WO to QC. WorkOrders gain a `files` field;
+    `uploadCadStl` stores the STL to MinIO + mirrors onto the piece + status→QC; **no hourly labor logged** (CAD is
+    paid the flat design fee in the quote, not hours×rate — bench WOs keep the hourly move-to-QC). Route
+    `/api/bench/work-orders/[id]/upload-stl` (multipart); bench card shows a discipline-aware "Upload STL (→ QC)"
+    for CAD WOs + an "STL uploaded ✓" indicator. Verified live (STL→MinIO, WO→QC, laborValue 0).
   - **C6c** CAD QC peer-review payout (unassigned, claimed by other CAD designers; flat fee → COG).
   - **C6d** GLB work order (STL→GLB) + labor-payable-on-QC gating across the bench.
 - **C7** Casting → expense ledger w/ invoice number.

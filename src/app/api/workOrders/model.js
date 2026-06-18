@@ -59,6 +59,8 @@ export default class WorkOrdersModel {
       qcBy: data.qcBy ?? null,
       qcDate: data.qcDate ?? null,
       tasks: Array.isArray(data.tasks) ? data.tasks : [],
+      // File deliverables (C6): { stl: {url,key,…}, glb: {…} }. STL = casting (metal-only); GLB = web viewer.
+      files: (data.files && typeof data.files === 'object') ? data.files : {},
       createdAt: now,
       updatedAt: now,
       createdBy: data.createdBy ?? null,

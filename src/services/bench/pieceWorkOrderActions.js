@@ -13,11 +13,13 @@
  * Labor logs go into the unified `laborLogs` collection keyed by workOrderID so
  * payroll picks them up exactly like repair labor.
  */
+import { PutObjectCommand } from '@aws-sdk/client-s3';
 import WorkOrdersModel from '@/app/api/workOrders/model';
 import PiecesModel from '@/app/api/pieces/model';
 import RepairLaborLogsModel from '@/app/api/repairLaborLogs/model';
 import { getLaborRateSnapshotForUser } from '@/app/api/repairLaborLogs/utils';
 import { canClaimDiscipline, DISCIPLINE } from '@/services/workOrders/disciplines';
+import { storageClient, STORAGE_BUCKET, storageUrl } from '@/lib/storage';
 
 const ADMIN_ROLES = ['admin', 'dev'];
 const PIECE_SOURCES = ['production_piece', 'custom_piece'];
@@ -88,6 +90,44 @@ export async function movePieceToQc({ session, workOrderID }) {
   });
 
   return WorkOrdersModel.updateByID(workOrderID, {
+    status: 'QC',
+    completedBy: session.user.name,
+    completedAt: new Date(),
+  });
+}
+
+/**
+ * Upload the STL for a CAD work order (C6b). STL = the metal-only model for the
+ * manufacturer/casting (no stones). Uploading it completes the CAD design step
+ * and moves the WO to QC (CAD QC peer review, C6c). NO hourly labor is logged —
+ * the CAD designer is paid the flat design fee captured in the quote (C4/C5),
+ * not hours × rate. Stored to MinIO via lib/storage; mirrored onto the piece.
+ */
+export async function uploadCadStl({ session, workOrderID, file }) {
+  const wo = await loadPieceWorkOrder(workOrderID);
+  if (wo.discipline !== DISCIPLINE.CAD) {
+    const e = new Error('STL upload is only for CAD work orders.'); e.code = 'BAD_REQUEST'; throw e;
+  }
+  if (!isAdminRole(session) && wo.assignedToUserID && wo.assignedToUserID !== session.user.userID) {
+    const e = new Error('Only the assigned designer can upload the STL.'); e.code = 'FORBIDDEN'; throw e;
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const safe = (file.name || 'model.stl').replace(/[^a-zA-Z0-9.-]/g, '_');
+  const key = `production/pieces/${wo.sourceID}/stl/${Date.now()}-${safe}`;
+  await storageClient.send(new PutObjectCommand({
+    Bucket: STORAGE_BUCKET, Key: key, Body: buffer, ContentType: file.type || 'model/stl',
+  }));
+  const stl = {
+    url: storageUrl(key), key, originalName: file.name || null,
+    uploadedBy: session.user.name || session.user.email || session.user.userID, uploadedAt: new Date(),
+  };
+
+  const piece = await PiecesModel.findById(wo.sourceID);
+  if (piece) await PiecesModel.updateById(wo.sourceID, { files: { ...(piece.files || {}), stl } });
+
+  return WorkOrdersModel.updateByID(workOrderID, {
+    files: { ...(wo.files || {}), stl },
     status: 'QC',
     completedBy: session.user.name,
     completedAt: new Date(),
