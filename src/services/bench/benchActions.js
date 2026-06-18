@@ -15,7 +15,7 @@ import { db } from '@/lib/database';
 import WorkOrdersModel, { WORK_ORDER_SOURCE } from '@/app/api/workOrders/model';
 import RepairsModel from '@/app/api/repairs/model';
 import { moveRepairToQc } from '@/app/api/repairs/[repairID]/send-to-qc/route';
-import { claimPieceWorkOrder, movePieceToQc, completePieceWorkOrderFromQc } from '@/services/bench/pieceWorkOrderActions';
+import { claimPieceWorkOrder, movePieceToQc, completePieceWorkOrderFromQc, approveCadQc, rejectCadQc } from '@/services/bench/pieceWorkOrderActions';
 import {
   buildClaimRepairUpdate,
   buildUnclaimRepairUpdate,
@@ -188,7 +188,7 @@ async function runRepairAction({ session, repairID, action, body }) {
 }
 
 /* ------------------------------ piece actions ---------------------------- */
-async function runPieceAction({ session, workOrderID, action }) {
+async function runPieceAction({ session, workOrderID, action, body }) {
   switch (action) {
     case 'claim':
       return claimPieceWorkOrder({ session, workOrderID });
@@ -196,6 +196,10 @@ async function runPieceAction({ session, workOrderID, action }) {
       return movePieceToQc({ session, workOrderID });
     case 'complete-from-qc':
       return completePieceWorkOrderFromQc({ session, workOrderID });
+    case 'cad-qc-approve':
+      return approveCadQc({ session, workOrderID });
+    case 'cad-qc-reject':
+      return rejectCadQc({ session, workOrderID, notes: body?.notes });
     default:
       throw err(`Unsupported piece action: ${action}`, 'BAD_REQUEST');
   }
@@ -214,7 +218,7 @@ export async function runBenchAction({ session, workOrderID, action, body = {} }
     return runRepairAction({ session, repairID: wo.sourceID, action, body });
   }
   if (PIECE_SOURCES.includes(wo.sourceType)) {
-    return runPieceAction({ session, workOrderID, action });
+    return runPieceAction({ session, workOrderID, action, body });
   }
   throw err(`No bench actions for source type: ${wo.sourceType}`, 'BAD_REQUEST');
 }

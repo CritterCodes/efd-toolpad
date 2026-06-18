@@ -62,6 +62,8 @@ export default function BenchWorkCard({
   const isPiece = wo.sourceType === 'production_piece' || wo.sourceType === 'custom_piece';
   const isCad = wo.discipline === 'cad';
   const hasStl = !!wo.files?.stl;
+  const stlUrl = wo.files?.stl?.url;
+  const isCadQc = isPiece && isCad && wo.benchQueue === BENCH_QUEUE.QC;
   const isMine = wo.assignedToUserID && wo.assignedToUserID === currentUserID;
   const repairID = wo.sourceID;
   const desc = wo.source?.description || wo.description || '';
@@ -84,7 +86,7 @@ export default function BenchWorkCard({
       <CardContent sx={{ pb: 1, flexGrow: 1 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1, gap: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-            {selectable && (
+            {selectable && !isCadQc && (
               <Checkbox
                 checked={isSelected}
                 onChange={() => onToggleSelect?.(wo.workOrderID)}
@@ -131,9 +133,9 @@ export default function BenchWorkCard({
               </Typography>
             )}
             {hasStl && (
-              <Typography variant="caption" sx={{ display: 'block', color: '#66BB6A' }}>
-                STL uploaded ✓
-              </Typography>
+              stlUrl
+                ? <Typography component="a" href={stlUrl} target="_blank" rel="noreferrer" variant="caption" sx={{ display: 'block', color: '#66BB6A', textDecoration: 'underline' }}>STL uploaded ✓ (open)</Typography>
+                : <Typography variant="caption" sx={{ display: 'block', color: '#66BB6A' }}>STL uploaded ✓</Typography>
             )}
           </Box>
         </Box>
@@ -222,6 +224,14 @@ export default function BenchWorkCard({
         )}
         {isPiece && wo.benchQueue === BENCH_QUEUE.IN_PROGRESS && !isCad && (
           <Button size="small" variant="outlined" startIcon={<QCIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => onAction(wo, 'move-to-qc')} sx={btn({ color: '#00C49F', borderColor: '#00C49F' })}>Move to QC</Button>
+        )}
+
+        {/* CAD QC peer review (another CAD designer): approve (pays QC fee) or reject. */}
+        {isCadQc && (
+          <>
+            <Button size="small" variant="contained" startIcon={<QCIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => onAction(wo, 'cad-qc-approve')} sx={goldBtn}>Approve (QC review)</Button>
+            <Button size="small" variant="outlined" disabled={busy} onClick={() => onAction(wo, 'cad-qc-reject')} sx={btn({ color: '#EF5350', borderColor: '#EF5350' })}>Reject</Button>
+          </>
         )}
       </CardActions>
     </Card>

@@ -50,6 +50,8 @@ export default class WorkOrdersModel {
       karat: data.karat ?? null,
       isRush: !!data.isRush,
       promiseDate: data.promiseDate ?? null,
+      // Flat fee for flat-paid disciplines (CAD design); 0 for hourly bench work.
+      flatFee: Number(data.flatFee) || 0,
       status: data.status ?? null,
       assignedJeweler: data.assignedJeweler ?? null,
       assignedToUserID: data.assignedToUserID ?? null,

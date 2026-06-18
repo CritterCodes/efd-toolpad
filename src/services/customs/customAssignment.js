@@ -78,10 +78,11 @@ export async function assignArtisan({ customID, userID, role = ASSIGNMENT_ROLE.C
     if (feeSnapshot > 0) {
       await CustomOrdersModel.updateById(customID, { quote: { ...order.quote, designFee: feeSnapshot } }, { changedBy: assignedBy, reason: 'cad designer assigned' });
     }
-    // Spawn the CAD work order on the designer's bench (C6).
+    // Spawn the CAD work order on the designer's bench (C6); carry the flat
+    // design fee so it can be logged into COGS when QC passes (C6c).
     await spawnCustomWorkOrder({
       customID, discipline: DISCIPLINE.CAD, title: `${order.title || `Custom ${customID}`} — CAD`,
-      assignedToUserID: userID, assignedJeweler: assignment.name, createdBy: assignedBy,
+      assignedToUserID: userID, assignedJeweler: assignment.name, flatFee: feeSnapshot, createdBy: assignedBy,
     });
   }
   return CustomOrdersModel.findById(customID);

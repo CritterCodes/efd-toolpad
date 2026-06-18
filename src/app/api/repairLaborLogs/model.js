@@ -40,7 +40,11 @@ export default class RepairLaborLogsModel {
       primaryJewelerName: data.primaryJewelerName,
       creditedLaborHours: data.creditedLaborHours ?? 0,
       laborRateSnapshot: data.laborRateSnapshot ?? 0,
-      creditedValue: (data.creditedLaborHours ?? 0) * (data.laborRateSnapshot ?? 0),
+      // Flat-fee labor (CAD design fee, CAD QC review fee) passes creditedValue
+      // directly (with 0 hours); hourly labor derives it from hours × rate.
+      creditedValue: data.creditedValue != null
+        ? Number(data.creditedValue) || 0
+        : (data.creditedLaborHours ?? 0) * (data.laborRateSnapshot ?? 0),
       sourceAction: data.sourceAction,
       requiresAdminReview: data.requiresAdminReview ?? false,
       adminReviewedBy: '',

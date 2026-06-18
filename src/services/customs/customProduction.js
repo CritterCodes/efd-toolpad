@@ -81,7 +81,7 @@ export async function ensureCustomPiece(customID, opts = {}) {
  */
 export async function spawnCustomWorkOrder({
   customID, discipline = DISCIPLINE.BENCH_JEWELRY, title = null,
-  assignedToUserID = null, assignedJeweler = null, estLaborHours = 0, process = null, createdBy = null,
+  assignedToUserID = null, assignedJeweler = null, estLaborHours = 0, process = null, flatFee = 0, createdBy = null,
 }) {
   const { pieceID } = await ensureCustomPiece(customID, { createdBy });
   const piece = await PiecesModel.findById(pieceID);
@@ -97,6 +97,7 @@ export async function spawnCustomWorkOrder({
     assignedToUserID,
     assignedJeweler,
     claimedAt: assignedToUserID ? new Date() : null,
+    flatFee: Number(flatFee) || 0,
     tasks: (process || Number(estLaborHours) > 0) ? [{ process: process || discipline, estLaborHours: Number(estLaborHours) || 0 }] : [],
     createdBy,
   });

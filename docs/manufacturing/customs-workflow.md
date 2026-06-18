@@ -205,8 +205,14 @@ Depend on the production/quote decisions:
     paid the flat design fee in the quote, not hours×rate — bench WOs keep the hourly move-to-QC). Route
     `/api/bench/work-orders/[id]/upload-stl` (multipart); bench card shows a discipline-aware "Upload STL (→ QC)"
     for CAD WOs + an "STL uploaded ✓" indicator. Verified live (STL→MinIO, WO→QC, laborValue 0).
-  - **C6c** CAD QC peer-review payout (unassigned, claimed by other CAD designers; flat fee → COG).
-  - **C6d** GLB work order (STL→GLB) + labor-payable-on-QC gating across the bench.
+  - **C6c ✅** CAD QC peer-review payout. A CAD designer OTHER than the author approves the QC'd CAD WO (server
+    blocks reviewing your own). On approval, two **flat-fee** labor logs hit piece COGS: the author's design fee
+    (`wo.flatFee`, snapshotted from the assignment) + the reviewer's `qcReviewFee` (admin setting, default 25) —
+    this is the **flat-fee-into-COGS reconciliation** + labor-payable-on-QC for CAD. Labor logs gained a
+    `creditedValue` override (flat fee, 0 hours); WOs gained `flatFee`. Bench card shows Approve/Reject for CAD QC
+    WOs (excluded from the bulk approve) + an STL link. Verified live (author 350 + QC 25 → COGS 375, margin 500/57%).
+  - **C6d** GLB work order (STL→GLB) + labor-payable-on-QC gating for the remaining (bench) disciplines.
+  - Partially lands C8's `qcReviewFee` setting (read with a default; formal settings UI in C8).
 - **C7** Casting → expense ledger w/ invoice number.
 - **C8** `qcReviewFee` + `clientMgmtBonus` settings; client-management bonus logic.
 

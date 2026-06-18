@@ -20,6 +20,18 @@ import RepairLaborLogsModel from '@/app/api/repairLaborLogs/model';
 import { getLaborRateSnapshotForUser } from '@/app/api/repairLaborLogs/utils';
 import { canClaimDiscipline, DISCIPLINE } from '@/services/workOrders/disciplines';
 import { storageClient, STORAGE_BUCKET, storageUrl } from '@/lib/storage';
+import SettingsManagerService from '@/app/api/admin/settings/services/settingsManager.service';
+
+const DEFAULT_QC_REVIEW_FEE = 25;
+async function getQcReviewFee() {
+  try {
+    const s = await SettingsManagerService.getSettings();
+    const fee = Number(s?.financial?.qcReviewFee);
+    return fee > 0 ? fee : DEFAULT_QC_REVIEW_FEE;
+  } catch {
+    return DEFAULT_QC_REVIEW_FEE;
+  }
+}
 
 const ADMIN_ROLES = ['admin', 'dev'];
 const PIECE_SOURCES = ['production_piece', 'custom_piece'];
@@ -131,6 +143,64 @@ export async function uploadCadStl({ session, workOrderID, file }) {
     status: 'QC',
     completedBy: session.user.name,
     completedAt: new Date(),
+  });
+}
+
+/**
+ * Approve a CAD work order out of QC — the paid PEER REVIEW (C6c). A CAD designer
+ * OTHER than the author reviews the STL against the design-standards SOP and
+ * approves. On approval we log two flat-fee labor entries into the piece COGS:
+ *   - the author's CAD design fee (wo.flatFee) — now payable (labor-on-QC rule), and
+ *   - the reviewer's flat QC review fee (admin setting).
+ * Then the WO completes and COGS re-rolls. Author may not review their own work.
+ */
+export async function approveCadQc({ session, workOrderID }) {
+  const wo = await loadPieceWorkOrder(workOrderID);
+  if (wo.discipline !== DISCIPLINE.CAD) {
+    const e = new Error('QC peer review applies only to CAD work orders.'); e.code = 'BAD_REQUEST'; throw e;
+  }
+  if (!isAdminRole(session) && wo.assignedToUserID === session.user.userID) {
+    const e = new Error('A CAD designer cannot peer-review their own work.'); e.code = 'FORBIDDEN'; throw e;
+  }
+
+  // Author's CAD design fee → payable now that QC passed.
+  if (Number(wo.flatFee) > 0) {
+    await RepairLaborLogsModel.create({
+      workOrderID, sourceType: wo.sourceType, sourceID: wo.sourceID,
+      primaryJewelerUserID: wo.assignedToUserID, primaryJewelerName: wo.assignedJeweler,
+      creditedLaborHours: 0, creditedValue: Number(wo.flatFee),
+      sourceAction: 'cad_design_fee', requiresAdminReview: false,
+    });
+  }
+  // Reviewer's flat QC review fee.
+  const qcReviewFee = await getQcReviewFee();
+  await RepairLaborLogsModel.create({
+    workOrderID, sourceType: wo.sourceType, sourceID: wo.sourceID,
+    primaryJewelerUserID: session.user.userID, primaryJewelerName: session.user.name,
+    creditedLaborHours: 0, creditedValue: qcReviewFee,
+    sourceAction: 'cad_qc_review', requiresAdminReview: false,
+    notes: 'CAD QC peer review.',
+  });
+
+  const workOrder = await WorkOrdersModel.updateByID(workOrderID, {
+    status: 'COMPLETED', qcBy: session.user.name, qcDate: new Date(),
+  });
+  const piece = await PiecesModel.recomputeCosts(wo.sourceID);
+  return { workOrder, piece };
+}
+
+/** Reject a CAD work order at QC — back to the author (IN PROGRESS), no payout. */
+export async function rejectCadQc({ session, workOrderID, notes = '' }) {
+  const wo = await loadPieceWorkOrder(workOrderID);
+  if (wo.discipline !== DISCIPLINE.CAD) {
+    const e = new Error('QC peer review applies only to CAD work orders.'); e.code = 'BAD_REQUEST'; throw e;
+  }
+  if (!isAdminRole(session) && wo.assignedToUserID === session.user.userID) {
+    const e = new Error('A CAD designer cannot peer-review their own work.'); e.code = 'FORBIDDEN'; throw e;
+  }
+  return WorkOrdersModel.updateByID(workOrderID, {
+    status: 'IN PROGRESS', qcBy: null, qcDate: null,
+    qcRejectedBy: session.user.name, qcRejectedAt: new Date(), qcRejectNotes: notes || '',
   });
 }
 
