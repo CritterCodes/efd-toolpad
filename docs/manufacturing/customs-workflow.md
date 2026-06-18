@@ -240,5 +240,30 @@ bench labor (gated on QC) → COGS rollup → margin, all on the unified bench.
 quote → assignment → CAD/STL → CAD QC peer-review payout → GLB → casting (→ expense ledger) → bench labor
 (gated on QC) → COGS → margin → client-management bonus flow, all on the unified bench/payroll.
 
+## 12. Customs v2 — deeper parity (post-build feedback round)
+
+Owner feedback after the first pass. Decisions: viewer → shared `packages/refrakt`; build the quote builder first.
+
+- **CQ — Quote builder ✅ (DONE):** replaced the cramped Edit-Quote *modal* with a rich INLINE builder on the Quote
+  tab (`QuoteTab.js`) — view/edit modes, a line-item materials/gemstones table (name, category, qty, unit, line
+  total; add/remove rows), labor/casting/shipping/designer-fee/rush fields, GLB/QC fees shown read-only (from
+  production), and a **live COG → ×markup → total** preview. Verified live (added a $500 gemstone line → COG 850,
+  total 2125). Removed the modal + quoteForm/saveQuote from the detail page.
+- **CV — Shared REFRAKT viewer (DECIDED, not built):** the powerful viewer is `efd-shop/lib/refrakt/JewelryViewer`
+  (three + @react-three/fiber + drei). This is a **pnpm workspace** (`web/`, with `packages/pricing-engine`,
+  `packages/repair-core`). Decision: **extract `efd-shop/lib/refrakt` → `packages/refrakt`** consumed by BOTH apps;
+  add fiber/drei to efd-admin (three already present); admin wrapper (dynamic import, ssr:false). Use it for custom
+  GLB review (3D & Share / CAD QC) AND **product-create preview** (admin must see what the shop will render before
+  saving). Config shape = `{ glbUrl, meshMap[], environment, orientation, background, scale, camera, autoRotate }`
+  (already matches our designModel / product `viewer`).
+- **CI — Stripe payment-link invoices (TODO):** invoices should generate a Stripe payment link, **emailed** to the
+  client, **tied to the quote**. Build on the existing Stripe integration (`api/repair-invoices/stripe.js`
+  createStripePaymentIntent / stripeRequest; the generic `lib/paymentService.createPaymentLink` is a stub).
+- **CS — Quote status + efd-shop acceptance (TODO):** quotes need a status (draft/sent/accepted/declined). The
+  client views + **accepts the quote in the efd-shop custom portal**; invoices are also **accessible in that portal**.
+  Needs a quote-status field + a contract the shop reads/writes (analogous to the product / custom-design-viewer
+  contracts). efd-shop UI is shop-side (same workspace, separate app).
+- Also: re-audit the detail page for any remaining legacy custom-ticket parity gaps as we go.
+
 Related future work (noted, not in scope here): **rebuild the artisan-management system** (enables per-jeweler
 rates), and the **CAD design-standards SOP** (placeholder at `docs/manufacturing/cad-design-standards-sop.md`).

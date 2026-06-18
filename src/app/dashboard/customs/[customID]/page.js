@@ -16,6 +16,7 @@ import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import StatusTimeline from '../components/StatusTimeline';
 import OverviewTab from '../components/tabs/OverviewTab';
+import QuoteTab from '../components/tabs/QuoteTab';
 import AssignmentTab from '../components/tabs/AssignmentTab';
 import ProductionTab from '../components/tabs/ProductionTab';
 import NotesTab from '../components/tabs/NotesTab';
@@ -60,9 +61,7 @@ export default function CustomDetailPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [quoteOpen, setQuoteOpen] = useState(false);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
-  const [quoteForm, setQuoteForm] = useState({ laborCost: 0, castingCost: 0, shippingCost: 0, designFee: 0, rushMultiplier: 1 });
   const [invoiceForm, setInvoiceForm] = useState({ type: 'deposit', amount: 0 });
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
 
@@ -80,10 +79,6 @@ export default function CustomDetailPage() {
       const { order: o, margin: m } = await oRes.json();
       setOrder(o);
       setMargin(m);
-      setQuoteForm({
-        laborCost: o.quote?.laborCost || 0, castingCost: o.quote?.castingCost || 0,
-        shippingCost: o.quote?.shippingCost || 0, designFee: o.quote?.designFee || 0, rushMultiplier: o.quote?.rushMultiplier || 1,
-      });
       if (bRes.ok) setBilling(await bRes.json());
     } catch (e) {
       notify(e.message, 'error');
@@ -107,11 +102,6 @@ export default function CustomDetailPage() {
     const res = await fetch(`/api/custom-orders/${customID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields) });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Save failed');
   }, 'Details saved');
-  const saveQuote = () => call(async () => {
-    const res = await fetch(`/api/custom-orders/${customID}/quote`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...quoteForm, laborCost: Number(quoteForm.laborCost), castingCost: Number(quoteForm.castingCost), shippingCost: Number(quoteForm.shippingCost), designFee: Number(quoteForm.designFee), rushMultiplier: Number(quoteForm.rushMultiplier) }) });
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Quote save failed');
-    setQuoteOpen(false);
-  }, 'Quote saved');
   const createInvoice = () => call(async () => {
     const res = await fetch(`/api/custom-orders/${customID}/invoices`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: invoiceForm.type, amount: Number(invoiceForm.amount) }) });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Invoice create failed');
@@ -174,40 +164,7 @@ export default function CustomDetailPage() {
       {tab === 0 && <OverviewTab order={order} busy={busy} onSave={saveDetails} />}
 
       {/* Quote */}
-      {tab === 1 && (
-        <Paper sx={panelSx}>
-          <PanelHeader icon={RequestQuoteIcon} title="Quote" action={<Button size="small" onClick={() => setQuoteOpen(true)} sx={{ color: REPAIRS_UI.accent }}>Edit</Button>} />
-          <Stack spacing={1}>
-            {[
-              ['Materials & gemstones', (q.materialCosts || []).reduce((s, m) => s + (m.cost != null ? Number(m.cost) || 0 : (Number(m.quantity) || 1) * (Number(m.unitPrice) || 0)), 0)],
-              ['Labor', q.laborCost],
-              ['Casting', q.castingCost],
-              ['Shipping', q.shippingCost],
-              ['Designer fee', q.designFee],
-              ['GLB fee', q.glbFee],
-              ['QC review fee', q.qcReviewFee],
-            ].filter(([, v]) => Number(v) > 0).map(([label, v]) => (
-              <Stack key={label} direction="row" justifyContent="space-between">
-                <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>{label}</Typography>
-                <Typography variant="body2">{money(v)}</Typography>
-              </Stack>
-            ))}
-          </Stack>
-          <Divider sx={{ my: 1.5, borderColor: REPAIRS_UI.border }} />
-          <Stack direction="row" justifyContent="space-between"><Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>COG (cost)</Typography><Typography variant="body2">{money(q.cog)}</Typography></Stack>
-          <Stack direction="row" justifyContent="space-between"><Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>Markup</Typography><Typography variant="body2">× {q.cogMarkup || 2.5}{q.rushMultiplier > 1 ? ` · rush × ${q.rushMultiplier}` : ''}</Typography></Stack>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
-            <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader }}>Quote total</Typography>
-            <Typography sx={{ fontWeight: 700, fontSize: '1.25rem', color: REPAIRS_UI.accent }}>{money(q.quoteTotal)}</Typography>
-          </Stack>
-          {margin && (
-            <Stack direction="row" spacing={3} sx={{ mt: 2 }}>
-              <Stat label="Margin (vs piece COGS)" value={`${money(margin.margin)} (${margin.marginPct}%)`} color={margin.margin >= 0 ? '#66BB6A' : '#EF5350'} />
-              <Stat label="Piece COGS" value={money(margin.cogs)} />
-            </Stack>
-          )}
-        </Paper>
-      )}
+      {tab === 1 && <QuoteTab customID={customID} order={order} margin={margin} notify={notify} onChanged={load} />}
 
       {/* Invoices */}
       {tab === 2 && (
@@ -254,23 +211,6 @@ export default function CustomDetailPage() {
       {tab === 6 && <CommunicationsTab customID={customID} communications={comms} onChanged={load} notify={notify} />}
       {tab === 7 && <ImagesTab customID={customID} images={images} onChanged={load} notify={notify} />}
       {tab === 8 && <ShareTab customID={customID} order={order} onChanged={load} notify={notify} />}
-
-      {/* Quote dialog */}
-      <Dialog open={quoteOpen} onClose={() => setQuoteOpen(false)} fullWidth maxWidth="sm" PaperProps={dialogPaperProps}>
-        <DialogTitle>Edit Quote</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            {[['laborCost', 'Labor cost'], ['castingCost', 'Casting cost'], ['shippingCost', 'Shipping cost'], ['designFee', 'Design fee'], ['rushMultiplier', 'Rush multiplier']].map(([f, label]) => (
-              <TextField key={f} label={label} type="number" value={quoteForm[f]} onChange={(e) => setQuoteForm({ ...quoteForm, [f]: e.target.value })} fullWidth />
-            ))}
-            <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>These fold into one COG bucket (with gemstones, designer/GLB/QC fees) and are marked up by cogMarkup from admin settings. GLB &amp; QC fees populate from the production spine.</Typography>
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setQuoteOpen(false)} sx={{ color: REPAIRS_UI.textSecondary }}>Cancel</Button>
-          <Button variant="contained" disabled={busy} onClick={saveQuote} sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>Save</Button>
-        </DialogActions>
-      </Dialog>
 
       {/* Invoice dialog */}
       <Dialog open={invoiceOpen} onClose={() => setInvoiceOpen(false)} fullWidth maxWidth="sm" PaperProps={dialogPaperProps}>
