@@ -247,7 +247,7 @@ export default function CustomDetailPage() {
       )}
 
       {/* Production */}
-      {tab === 3 && <ProductionTab customID={customID} order={order} margin={margin} notify={notify} />}
+      {tab === 3 && <ProductionTab customID={customID} order={order} margin={margin} notify={notify} onChanged={load} />}
 
       {tab === 4 && <AssignmentTab customID={customID} assignments={assignments} onChanged={load} notify={notify} />}
       {tab === 5 && <NotesTab customID={customID} notes={notes} onChanged={load} notify={notify} />}

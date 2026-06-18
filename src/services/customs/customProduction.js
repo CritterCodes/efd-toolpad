@@ -119,6 +119,49 @@ export async function spawnCustomWorkOrder({
   return wo;
 }
 
+/**
+ * Record a casting cost on a custom (C7). Casting is a purchased input, so it:
+ *  1. adds a material cost line to the piece (→ piece COGS → margin), and
+ *  2. writes a business-expense ledger entry,
+ * both stamped with the casting vendor's invoice number.
+ */
+export async function addCastingCost({ customID, amount, vendor = '', invoiceNumber = '', notes = '', paymentMethod = 'other', status = 'paid', createdBy = null }) {
+  const amt = Number(amount);
+  if (!(amt > 0)) { const e = new Error('Casting amount must be greater than zero.'); e.code = 'BAD_REQUEST'; throw e; }
+
+  const { pieceID } = await ensureCustomPiece(customID, { createdBy });
+  const material = {
+    id: `cast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    name: vendor ? `Casting — ${vendor}` : 'Casting',
+    category: 'casting',
+    unitCost: amt,
+    qty: 1,
+    vendor,
+    invoiceNumber,
+    notes,
+  };
+  const piece = await PiecesModel.addMaterial(pieceID, material); // pushes + recomputes COGS
+
+  // Lazy import to avoid a server-only model in the import graph until needed.
+  const { default: BusinessExpensesModel } = await import('@/app/api/businessExpenses/model');
+  const expense = await BusinessExpensesModel.create({
+    expenseDate: new Date(),
+    vendor,
+    category: 'Materials / Parts',
+    amount: amt,
+    invoiceNumber,
+    paymentMethod,
+    status,
+    notes: notes || `Casting for custom ${customID}`,
+    isDeductible: true,
+    sourceReferenceType: 'custom_order',
+    sourceReferenceID: customID,
+    createdBy,
+  });
+
+  return { piece, expense };
+}
+
 /** All work orders across the custom's piece(s), each with its accrued labor. */
 export async function getCustomWorkOrders(customID) {
   const order = await CustomOrdersModel.findById(customID);

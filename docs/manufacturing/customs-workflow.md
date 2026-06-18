@@ -190,6 +190,11 @@ Independent of the open questions (start anytime):
 - **C2 ✅** Detail page → tabbed parity (Overview/Status timeline/Quote/Invoices/Production/Notes/Comms/Images/3D&Share).
 - **C3 ✅** List page → rich parity (cards w/ thumbnails, filters, search/sort, pagination, multi-step create).
 
+- **C7 ✅** Casting → expense ledger. `addCastingCost` adds a `casting` material line to the piece (→ COGS) AND
+  writes a `businessExpenses` entry (category Materials / Parts, `sourceReferenceType: custom_order`), both stamped
+  with the vendor `invoiceNumber` (new field on the expense model). Production tab "Record casting" dialog (amount,
+  vendor, invoice #, notes). Verified live (casting 200 → piece COGS 750→950; expense INV-9981 linked to the order).
+
 Depend on the production/quote decisions:
 - **C4 ✅** Single-COG-bucket quote engine in `customOrders`: materials+gemstones+labor+casting+shipping+designer
   fee+GLB fee+QC fee → COG × `cogMarkup` (from admin settings, default 2.5) × rush. Verified live (COG 470 → 1175).

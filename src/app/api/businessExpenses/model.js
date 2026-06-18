@@ -31,6 +31,7 @@ export default class BusinessExpensesModel {
       vendor: (data.vendor || '').trim(),
       category: normalizeBusinessExpenseCategory(data.category),
       amount: Number(data.amount || 0),
+      invoiceNumber: (data.invoiceNumber || '').trim(),
       paymentMethod: data.paymentMethod || 'other',
       status: normalizeBusinessExpenseStatus(data.status),
       paidAt: data.paidAt

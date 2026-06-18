@@ -29,7 +29,7 @@ function statusColor(s = '') {
   return 'default';
 }
 
-export default function ProductionTab({ customID, order, margin, notify }) {
+export default function ProductionTab({ customID, order, margin, notify, onChanged }) {
   const router = useRouter();
   const [workOrders, setWorkOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,6 +37,9 @@ export default function ProductionTab({ customID, order, margin, notify }) {
   const EMPTY_FORM = { discipline: 'bench_jewelry', cadStage: 'glb', title: '', estLaborHours: '', assignedToUserID: '' };
   const [form, setForm] = useState(EMPTY_FORM);
   const [artisans, setArtisans] = useState([]);
+  const [castOpen, setCastOpen] = useState(false);
+  const EMPTY_CAST = { amount: '', vendor: '', invoiceNumber: '', notes: '' };
+  const [castForm, setCastForm] = useState(EMPTY_CAST);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -65,7 +68,21 @@ export default function ProductionTab({ customID, order, margin, notify }) {
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to add work order');
       setAddOpen(false); setForm(EMPTY_FORM);
       notify('Work order added — routed to the bench', 'success');
-      await load();
+      await load(); await onChanged?.();
+    } catch (e) { notify(e.message, 'error'); } finally { setBusy(false); }
+  };
+
+  const addCasting = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/custom-orders/${customID}/casting`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: Number(castForm.amount) || 0, vendor: castForm.vendor, invoiceNumber: castForm.invoiceNumber, notes: castForm.notes }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to record casting');
+      setCastOpen(false); setCastForm(EMPTY_CAST);
+      notify('Casting cost recorded — added to COGS + expense ledger', 'success');
+      await load(); await onChanged?.();
     } catch (e) { notify(e.message, 'error'); } finally { setBusy(false); }
   };
 
@@ -73,9 +90,12 @@ export default function ProductionTab({ customID, order, margin, notify }) {
     <Stack spacing={2}>
       {/* COGS rollup */}
       <Paper sx={panelSx}>
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
-          <BuildCircleIcon sx={{ color: REPAIRS_UI.accent }} />
-          <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader }}>Production &amp; COGS</Typography>
+        <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <BuildCircleIcon sx={{ color: REPAIRS_UI.accent }} />
+            <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader }}>Production &amp; COGS</Typography>
+          </Stack>
+          <Button size="small" variant="outlined" disabled={busy} onClick={() => setCastOpen(true)} sx={{ borderColor: REPAIRS_UI.border, color: REPAIRS_UI.textPrimary }}>Record casting</Button>
         </Stack>
         <Grid container spacing={2}>
           <Grid item xs={6} sm={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>Work orders</Typography><Typography sx={{ fontWeight: 700, color: REPAIRS_UI.textPrimary }}>{workOrders.length}</Typography></Grid>
@@ -150,6 +170,23 @@ export default function ProductionTab({ customID, order, margin, notify }) {
         <DialogActions>
           <Button onClick={() => setAddOpen(false)} sx={{ color: REPAIRS_UI.textSecondary }}>Cancel</Button>
           <Button variant="contained" onClick={add} disabled={busy} sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>Add</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={castOpen} onClose={() => !busy && setCastOpen(false)} fullWidth maxWidth="sm" PaperProps={dialogPaperProps}>
+        <DialogTitle>Record casting cost</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>Adds a material line to the piece COGS and writes a finance/expenses ledger entry, both stamped with the vendor invoice number.</Typography>
+            <TextField label="Amount" type="number" value={castForm.amount} onChange={(e) => setCastForm((f) => ({ ...f, amount: e.target.value }))} fullWidth />
+            <TextField label="Casting vendor" value={castForm.vendor} onChange={(e) => setCastForm((f) => ({ ...f, vendor: e.target.value }))} fullWidth />
+            <TextField label="Vendor invoice #" value={castForm.invoiceNumber} onChange={(e) => setCastForm((f) => ({ ...f, invoiceNumber: e.target.value }))} fullWidth />
+            <TextField label="Notes" value={castForm.notes} onChange={(e) => setCastForm((f) => ({ ...f, notes: e.target.value }))} fullWidth multiline minRows={2} />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCastOpen(false)} sx={{ color: REPAIRS_UI.textSecondary }}>Cancel</Button>
+          <Button variant="contained" onClick={addCasting} disabled={busy || !(Number(castForm.amount) > 0)} sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>Record</Button>
         </DialogActions>
       </Dialog>
     </Stack>
