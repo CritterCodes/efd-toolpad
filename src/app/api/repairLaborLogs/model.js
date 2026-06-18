@@ -46,6 +46,8 @@ export default class RepairLaborLogsModel {
         ? Number(data.creditedValue) || 0
         : (data.creditedLaborHours ?? 0) * (data.laborRateSnapshot ?? 0),
       sourceAction: data.sourceAction,
+      // Held until QC passes (piece bench work): not a payroll candidate while true.
+      pendingQc: data.pendingQc ?? false,
       requiresAdminReview: data.requiresAdminReview ?? false,
       adminReviewedBy: '',
       adminReviewedAt: null,
@@ -253,6 +255,16 @@ export default class RepairLaborLogsModel {
     };
   }
 
+  /** Release QC-held labor for a work order → payable (called when QC approves). */
+  static async releasePendingQc(workOrderID) {
+    const dbInstance = await db.connect();
+    const result = await dbInstance.collection(this.COLLECTION).updateMany(
+      { workOrderID, pendingQc: true },
+      { $set: { pendingQc: false, updatedAt: new Date() } },
+    );
+    return result.modifiedCount;
+  }
+
   static async updateById(logID, updateData) {
     const dbInstance = await db.connect();
     await dbInstance.collection(this.COLLECTION).updateOne(
@@ -266,6 +278,7 @@ export default class RepairLaborLogsModel {
   static buildUnbatchedMatch({ weekStart, weekEnd, userID } = {}) {
     const match = {
       requiresAdminReview: false,
+      pendingQc: { $ne: true }, // labor held until QC passes is not yet a payroll candidate
       $or: [
         { payrollStatus: { $exists: false } },
         { payrollStatus: PAYROLL_LOG_STATUS.UNBATCHED },

@@ -44,6 +44,8 @@ export default class WorkOrdersModel {
       sourceID: data.sourceID,
       seq: data.seq ?? 1,
       discipline: data.discipline || DISCIPLINE.BENCH_JEWELRY,
+      // CAD sub-stage: 'design' (STL, for casting) | 'glb' (web viewer). Null for non-CAD.
+      cadStage: data.cadStage ?? null,
       title: data.title ?? null,
       description: data.description ?? null,
       metalType: data.metalType ?? null,

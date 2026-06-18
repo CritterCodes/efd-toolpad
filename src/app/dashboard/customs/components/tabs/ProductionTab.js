@@ -34,7 +34,9 @@ export default function ProductionTab({ customID, order, margin, notify }) {
   const [workOrders, setWorkOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
-  const [form, setForm] = useState({ discipline: 'bench_jewelry', title: '', estLaborHours: '' });
+  const EMPTY_FORM = { discipline: 'bench_jewelry', cadStage: 'glb', title: '', estLaborHours: '', assignedToUserID: '' };
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [artisans, setArtisans] = useState([]);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -45,16 +47,23 @@ export default function ProductionTab({ customID, order, margin, notify }) {
     } finally { setLoading(false); }
   }, [customID]);
   useEffect(() => { load(); }, [load]);
+  // Load assignable artisans when the dialog opens (for CAD assignment).
+  useEffect(() => {
+    if (!addOpen) return;
+    fetch('/api/custom-orders/assignable-artisans').then((r) => r.ok ? r.json() : []).then(setArtisans).catch(() => setArtisans([]));
+  }, [addOpen]);
 
+  const isCad = form.discipline === 'cad';
   const add = async () => {
     setBusy(true);
     try {
+      const payload = { discipline: form.discipline, title: form.title || null, estLaborHours: Number(form.estLaborHours) || 0 };
+      if (isCad) { payload.cadStage = form.cadStage; if (form.assignedToUserID) payload.assignedToUserID = form.assignedToUserID; }
       const res = await fetch(`/api/custom-orders/${customID}/work-orders`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ discipline: form.discipline, title: form.title || null, estLaborHours: Number(form.estLaborHours) || 0 }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to add work order');
-      setAddOpen(false); setForm({ discipline: 'bench_jewelry', title: '', estLaborHours: '' });
+      setAddOpen(false); setForm(EMPTY_FORM);
       notify('Work order added — routed to the bench', 'success');
       await load();
     } catch (e) { notify(e.message, 'error'); } finally { setBusy(false); }
@@ -122,8 +131,20 @@ export default function ProductionTab({ customID, order, margin, notify }) {
             <TextField select label="Discipline" value={form.discipline} onChange={(e) => setForm((f) => ({ ...f, discipline: e.target.value }))} fullWidth>
               {LANES.map((l) => <MenuItem key={l.value} value={l.value}>{l.label}</MenuItem>)}
             </TextField>
+            {isCad && (
+              <>
+                <TextField select label="CAD stage" value={form.cadStage} onChange={(e) => setForm((f) => ({ ...f, cadStage: e.target.value }))} fullWidth>
+                  <MenuItem value="design">Design (STL — casting)</MenuItem>
+                  <MenuItem value="glb">GLB (web viewer)</MenuItem>
+                </TextField>
+                <TextField select label="Assign CAD designer (optional)" value={form.assignedToUserID} onChange={(e) => setForm((f) => ({ ...f, assignedToUserID: e.target.value }))} fullWidth helperText="Assigning snapshots their CAD fee into COGS.">
+                  <MenuItem value="">Unassigned (claimed from the bench)</MenuItem>
+                  {artisans.map((a) => <MenuItem key={a.userID} value={a.userID}>{a.name}{a.customDesignFee ? ` · $${a.customDesignFee.toLocaleString()}` : ''}</MenuItem>)}
+                </TextField>
+              </>
+            )}
             <TextField label="Title" placeholder="e.g. Cast cleanup & stone setting" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} fullWidth />
-            <TextField label="Est. labor hours" type="number" value={form.estLaborHours} onChange={(e) => setForm((f) => ({ ...f, estLaborHours: e.target.value }))} fullWidth />
+            {!isCad && <TextField label="Est. labor hours" type="number" value={form.estLaborHours} onChange={(e) => setForm((f) => ({ ...f, estLaborHours: e.target.value }))} fullWidth />}
           </Stack>
         </DialogContent>
         <DialogActions>

@@ -81,7 +81,7 @@ export async function assignArtisan({ customID, userID, role = ASSIGNMENT_ROLE.C
     // Spawn the CAD work order on the designer's bench (C6); carry the flat
     // design fee so it can be logged into COGS when QC passes (C6c).
     await spawnCustomWorkOrder({
-      customID, discipline: DISCIPLINE.CAD, title: `${order.title || `Custom ${customID}`} — CAD`,
+      customID, discipline: DISCIPLINE.CAD, cadStage: 'design', title: `${order.title || `Custom ${customID}`} — CAD (STL)`,
       assignedToUserID: userID, assignedJeweler: assignment.name, flatFee: feeSnapshot, createdBy: assignedBy,
     });
   }

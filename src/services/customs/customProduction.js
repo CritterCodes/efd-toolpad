@@ -80,24 +80,38 @@ export async function ensureCustomPiece(customID, opts = {}) {
  * Optionally pre-assigned (e.g. the CAD designer at assignment time).
  */
 export async function spawnCustomWorkOrder({
-  customID, discipline = DISCIPLINE.BENCH_JEWELRY, title = null,
+  customID, discipline = DISCIPLINE.BENCH_JEWELRY, title = null, cadStage = null,
   assignedToUserID = null, assignedJeweler = null, estLaborHours = 0, process = null, flatFee = 0, createdBy = null,
 }) {
   const { pieceID } = await ensureCustomPiece(customID, { createdBy });
   const piece = await PiecesModel.findById(pieceID);
   const seq = (piece.workOrderIDs?.length || 0) + 1;
 
+  // Resolve the assignee's name + (for CAD) their flat design fee from the profile
+  // when only a userID is supplied (e.g. assigning a GLB stage from the UI).
+  let resolvedName = assignedJeweler;
+  let resolvedFee = Number(flatFee) || 0;
+  if (assignedToUserID && (!resolvedName || (discipline === DISCIPLINE.CAD && !resolvedFee))) {
+    const dbi = await db.connect();
+    const u = await dbi.collection('users').findOne({ userID: assignedToUserID }, { projection: { _id: 0, firstName: 1, lastName: 1, name: 1, email: 1, artisanApplication: 1 } });
+    if (u) {
+      if (!resolvedName) resolvedName = [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || u.name || u.email || assignedToUserID;
+      if (discipline === DISCIPLINE.CAD && !resolvedFee) resolvedFee = Number(u.artisanApplication?.customDesignFee) || 0;
+    }
+  }
+
   const wo = await WorkOrdersModel.create({
     sourceType: WORK_ORDER_SOURCE.PRODUCTION_PIECE,
     sourceID: pieceID,
     seq,
     discipline,
+    cadStage: discipline === DISCIPLINE.CAD ? (cadStage || 'design') : null,
     title: title || `Custom ${customID} — ${discipline}`,
     status: assignedToUserID ? 'IN PROGRESS' : 'READY FOR WORK',
     assignedToUserID,
-    assignedJeweler,
+    assignedJeweler: resolvedName,
     claimedAt: assignedToUserID ? new Date() : null,
-    flatFee: Number(flatFee) || 0,
+    flatFee: resolvedFee,
     tasks: (process || Number(estLaborHours) > 0) ? [{ process: process || discipline, estLaborHours: Number(estLaborHours) || 0 }] : [],
     createdBy,
   });

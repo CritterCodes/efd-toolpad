@@ -22,6 +22,7 @@ export const POST = async (req, { params }) => {
     const wo = await spawnCustomWorkOrder({
       customID,
       discipline: body.discipline,
+      cadStage: body.cadStage || null,
       title: body.title || null,
       assignedToUserID: body.assignedToUserID || null,
       assignedJeweler: body.assignedJeweler || null,

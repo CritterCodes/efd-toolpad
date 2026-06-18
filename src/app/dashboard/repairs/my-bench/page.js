@@ -143,16 +143,16 @@ export default function BenchPage() {
     }
   };
 
-  // CAD STL upload (multipart) → moves the CAD work order to QC.
-  const uploadStl = async (wo, file) => {
+  // CAD STL/GLB upload (multipart) → moves the CAD work order to QC.
+  const uploadCadFile = async (wo, file, kind) => {
     setBusyID(wo.workOrderID);
     setCardErrors((m) => ({ ...m, [wo.workOrderID]: '' }));
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await fetch(`/api/bench/work-orders/${wo.workOrderID}/upload-stl`, { method: 'POST', body: fd });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'STL upload failed');
-      showSnack('STL uploaded — work order moved to QC', 'success');
+      const res = await fetch(`/api/bench/work-orders/${wo.workOrderID}/upload-${kind}`, { method: 'POST', body: fd });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `${kind.toUpperCase()} upload failed`);
+      showSnack(`${kind.toUpperCase()} uploaded — work order moved to QC`, 'success');
       await fetchWorkOrders();
     } catch (e) {
       setCardErrors((m) => ({ ...m, [wo.workOrderID]: e.message }));
@@ -161,6 +161,8 @@ export default function BenchPage() {
       setBusyID('');
     }
   };
+  const uploadStl = (wo, file) => uploadCadFile(wo, file, 'stl');
+  const uploadGlb = (wo, file) => uploadCadFile(wo, file, 'glb');
 
   // --- Scan to claim (repairs; scanned value is a repairID) ---
   const queueClaimID = (repairID) => {
@@ -413,6 +415,7 @@ export default function BenchPage() {
                 onAction={runAction}
                 onOpenPartsDialog={openPartsDialog}
                 onUploadStl={uploadStl}
+                onUploadGlb={uploadGlb}
               />
             </Grid>
           ))}

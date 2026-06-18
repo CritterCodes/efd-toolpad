@@ -51,7 +51,7 @@ function sourceTag(wo) {
 export default function BenchWorkCard({
   wo, currentUserID, isAdmin, jewelers = [], busy,
   selectable = false, isSelected = false, onToggleSelect,
-  onAction, onOpenPartsDialog, onUploadStl, error,
+  onAction, onOpenPartsDialog, onUploadStl, onUploadGlb, error,
 }) {
   const router = useRouter();
   const stlInputRef = useRef(null);
@@ -61,8 +61,11 @@ export default function BenchWorkCard({
   const isRepair = wo.sourceType === 'repair';
   const isPiece = wo.sourceType === 'production_piece' || wo.sourceType === 'custom_piece';
   const isCad = wo.discipline === 'cad';
-  const hasStl = !!wo.files?.stl;
-  const stlUrl = wo.files?.stl?.url;
+  const isGlbStage = isCad && wo.cadStage === 'glb';
+  const fileObj = isGlbStage ? wo.files?.glb : wo.files?.stl;
+  const hasFile = !!fileObj;
+  const fileUrl = fileObj?.url;
+  const fileLabel = isGlbStage ? 'GLB' : 'STL';
   const isCadQc = isPiece && isCad && wo.benchQueue === BENCH_QUEUE.QC;
   const isMine = wo.assignedToUserID && wo.assignedToUserID === currentUserID;
   const repairID = wo.sourceID;
@@ -132,10 +135,10 @@ export default function BenchWorkCard({
                 Due: {new Date(wo.promiseDate).toLocaleDateString()}
               </Typography>
             )}
-            {hasStl && (
-              stlUrl
-                ? <Typography component="a" href={stlUrl} target="_blank" rel="noreferrer" variant="caption" sx={{ display: 'block', color: '#66BB6A', textDecoration: 'underline' }}>STL uploaded ✓ (open)</Typography>
-                : <Typography variant="caption" sx={{ display: 'block', color: '#66BB6A' }}>STL uploaded ✓</Typography>
+            {hasFile && (
+              fileUrl
+                ? <Typography component="a" href={fileUrl} target="_blank" rel="noreferrer" variant="caption" sx={{ display: 'block', color: '#66BB6A', textDecoration: 'underline' }}>{fileLabel} uploaded ✓ (open)</Typography>
+                : <Typography variant="caption" sx={{ display: 'block', color: '#66BB6A' }}>{fileLabel} uploaded ✓</Typography>
             )}
           </Box>
         </Box>
@@ -213,12 +216,16 @@ export default function BenchWorkCard({
           <Button size="small" variant="contained" disabled={busy} onClick={() => onAction(wo, 'claim')} sx={goldBtn}>Claim</Button>
         )}
 
-        {/* Piece in progress: CAD uploads STL (→ QC, no hourly labor); others move to QC (logs labor). */}
+        {/* Piece in progress: CAD uploads STL/GLB (→ QC, no hourly labor); others move to QC (logs labor). */}
         {isPiece && wo.benchQueue === BENCH_QUEUE.IN_PROGRESS && isCad && (
           <>
-            <input ref={stlInputRef} type="file" accept=".stl,model/stl,application/octet-stream" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onUploadStl?.(wo, f); e.target.value = ''; }} />
+            <input
+              ref={stlInputRef} type="file" hidden
+              accept={isGlbStage ? '.glb,model/gltf-binary,application/octet-stream' : '.stl,model/stl,application/octet-stream'}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) (isGlbStage ? onUploadGlb : onUploadStl)?.(wo, f); e.target.value = ''; }}
+            />
             <Button size="small" variant="outlined" startIcon={<UploadIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => stlInputRef.current?.click()} sx={btn({ color: '#64B5F6', borderColor: '#64B5F6' })}>
-              {hasStl ? 'Replace STL' : 'Upload STL (→ QC)'}
+              {hasFile ? `Replace ${fileLabel}` : `Upload ${fileLabel} (→ QC)`}
             </Button>
           </>
         )}

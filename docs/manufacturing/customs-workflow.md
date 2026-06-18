@@ -211,8 +211,17 @@ Depend on the production/quote decisions:
     this is the **flat-fee-into-COGS reconciliation** + labor-payable-on-QC for CAD. Labor logs gained a
     `creditedValue` override (flat fee, 0 hours); WOs gained `flatFee`. Bench card shows Approve/Reject for CAD QC
     WOs (excluded from the bulk approve) + an STL link. Verified live (author 350 + QC 25 → COGS 375, margin 500/57%).
-  - **C6d** GLB work order (STL→GLB) + labor-payable-on-QC gating for the remaining (bench) disciplines.
+  - **C6d ✅** GLB work order + labor-payable-on-QC for bench. WOs gain `cadStage` ('design'|'glb'); a GLB CAD WO
+    is spawnable from the Production tab (stage + optional assigned designer, fee resolved from profile);
+    `uploadCadGlb` stores the GLB to MinIO, mirrors onto the piece, AND sets the order's `designModel.glbUrl`
+    (→ 3D & Share / efd-shop), status→QC; the same CAD QC peer-review (C6c) pays the flat fees. Bench card is
+    stage-aware (Upload STL vs Upload GLB). **Bench (hourly) labor gate:** move-to-QC logs labor with `pendingQc`
+    (excluded from payroll candidates); complete-from-QC releases it. Verified live (GLB approve → COGS 375→750;
+    bench claim→QC→complete released labor).
   - Partially lands C8's `qcReviewFee` setting (read with a default; formal settings UI in C8).
+
+**C6 COMPLETE.** Full custom production spine: assign CAD → STL upload → CAD QC peer-review payout → GLB stage →
+bench labor (gated on QC) → COGS rollup → margin, all on the unified bench.
 - **C7** Casting → expense ledger w/ invoice number.
 - **C8** `qcReviewFee` + `clientMgmtBonus` settings; client-management bonus logic.
 
