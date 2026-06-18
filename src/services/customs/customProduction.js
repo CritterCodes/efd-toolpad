@@ -10,8 +10,12 @@ import CustomOrdersModel from '@/app/api/custom-orders/model';
 import DesignsModel, { DESIGN_STATUS } from '@/app/api/designs/model';
 import PiecesModel from '@/app/api/pieces/model';
 import WorkOrdersModel, { WORK_ORDER_SOURCE } from '@/app/api/workOrders/model';
+import RepairLaborLogsModel from '@/app/api/repairLaborLogs/model';
+import SettingsManagerService from '@/app/api/admin/settings/services/settingsManager.service';
 import { DISCIPLINE } from '@/services/workOrders/disciplines';
 import { createPieceFromDesign } from '@/services/production/pieceRouting';
+
+const DEFAULT_CLIENT_MGMT_BONUS_PCT = 0.05;
 
 export async function addProductionToCustomOrder(customID, opts = {}) {
   const order = await CustomOrdersModel.findById(customID);
@@ -160,6 +164,58 @@ export async function addCastingCost({ customID, amount, vendor = '', invoiceNum
   });
 
   return { piece, expense };
+}
+
+/**
+ * Award the client-management bonus (C8) when an order completes. The assigned
+ * CAD designer earns `clientMgmtBonusPct` of the order's profit IF they managed
+ * the client themselves — i.e. they authored ≥1 outbound client-thread message
+ * (if admin did the communicating, no bonus). The bonus is logged as a flat-fee
+ * labor entry on the CAD work order, so payroll pays it and it nets out of margin.
+ * Idempotent (guarded by order.clientMgmtBonusAwarded).
+ */
+export async function awardClientMgmtBonus({ customID }) {
+  const order = await CustomOrdersModel.findById(customID);
+  if (!order || order.clientMgmtBonusAwarded) return null;
+
+  const cad = (order.assignments || []).find((a) => a.role === 'cad' && a.userID);
+  if (!cad) return null;
+
+  const managedClient = (order.communications || []).some(
+    (m) => (m.thread || 'client') === 'client' && m.direction === 'outbound' && m.authorUserID && m.authorUserID === cad.userID,
+  );
+  if (!managedClient) {
+    await CustomOrdersModel.updateById(customID, { clientMgmtBonusAwarded: true, clientMgmtBonus: 0 });
+    return { bonus: 0, eligible: false };
+  }
+
+  let pct = DEFAULT_CLIENT_MGMT_BONUS_PCT;
+  try {
+    const s = await SettingsManagerService.getSettings();
+    const v = Number(s?.financial?.clientMgmtBonusPct);
+    if (v >= 0 && v <= 1) pct = v;
+  } catch { /* default */ }
+
+  const margin = await CustomOrdersModel.marginFor(customID);
+  const bonus = Math.round(Math.max(0, (margin?.margin || 0)) * pct * 100) / 100;
+
+  if (bonus > 0) {
+    const wos = await getCustomWorkOrders(customID);
+    const target = wos.find((w) => w.discipline === DISCIPLINE.CAD) || wos[0];
+    if (target) {
+      await RepairLaborLogsModel.create({
+        workOrderID: target.workOrderID, sourceType: target.sourceType, sourceID: target.sourceID,
+        primaryJewelerUserID: cad.userID, primaryJewelerName: cad.name,
+        creditedLaborHours: 0, creditedValue: bonus,
+        sourceAction: 'client_mgmt_bonus', requiresAdminReview: false,
+        notes: `Client-management bonus (${Math.round(pct * 100)}% of profit).`,
+      });
+      await PiecesModel.recomputeCosts(target.sourceID);
+    }
+  }
+
+  await CustomOrdersModel.updateById(customID, { clientMgmtBonusAwarded: true, clientMgmtBonus: bonus, clientMgmtBonusUserID: cad.userID });
+  return { bonus, eligible: true, designer: cad.name };
 }
 
 /** All work orders across the custom's piece(s), each with its accrued labor. */

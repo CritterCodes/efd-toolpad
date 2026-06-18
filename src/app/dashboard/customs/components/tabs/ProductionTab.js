@@ -103,6 +103,11 @@ export default function ProductionTab({ customID, order, margin, notify, onChang
           <Grid item xs={6} sm={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>Piece COGS</Typography><Typography sx={{ fontWeight: 700, color: REPAIRS_UI.textPrimary }}>{money(margin?.cogs)}</Typography></Grid>
           <Grid item xs={6} sm={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>Margin</Typography><Typography sx={{ fontWeight: 700, color: (margin?.margin ?? 0) >= 0 ? '#66BB6A' : '#EF5350' }}>{money(margin?.margin)} ({margin?.marginPct ?? 0}%)</Typography></Grid>
         </Grid>
+        {order.clientMgmtBonusAwarded && (order.clientMgmtBonus || 0) > 0 && (
+          <Typography variant="caption" display="block" sx={{ mt: 1, color: '#66BB6A' }}>
+            Client-management bonus paid: {money(order.clientMgmtBonus)} (designer managed the client).
+          </Typography>
+        )}
         <Typography variant="caption" display="block" sx={{ mt: 1.5, color: REPAIRS_UI.textMuted, lineHeight: 1.5 }}>
           Each work order routes to its discipline lane on the bench. Labor logged there rolls into piece COGS → margin.
           (Casting/material costs land with C7; STL→QC→GLB lifecycle with later C6 sub-slices.)

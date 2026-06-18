@@ -29,6 +29,7 @@ export const POST = async (req, { params }) => {
   const message = await CustomOrdersModel.addCommunication(customID, {
     text: body.text,
     author: session.user.name || session.user.email || session.user.userID || 'admin',
+    authorUserID: session.user.userID || null,
     thread: body.thread,
     direction: 'outbound',
   });

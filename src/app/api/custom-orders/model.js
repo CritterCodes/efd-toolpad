@@ -197,12 +197,13 @@ export default class CustomOrdersModel {
   }
 
   /** Append a message. thread: 'client' | 'internal'; direction: 'outbound' | 'inbound'. */
-  static async addCommunication(customID, { text, author = null, thread = 'client', direction = 'outbound' }) {
+  static async addCommunication(customID, { text, author = null, authorUserID = null, thread = 'client', direction = 'outbound' }) {
     const col = await this.collection();
     const message = {
       id: randomUUID(),
       text: String(text || ''),
       author,
+      authorUserID, // who sent it — used to award the client-management bonus (C8)
       thread: thread === 'internal' ? 'internal' : 'client',
       direction: direction === 'inbound' ? 'inbound' : 'outbound',
       createdAt: new Date(),

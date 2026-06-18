@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/apiAuth';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
+import { awardClientMgmtBonus } from '@/services/customs/customProduction';
 
 /** GET /api/custom-orders/[customID] — returns the order + live margin (quote − piece COGS) */
 export const GET = async (req, { params }) => {
@@ -21,10 +22,21 @@ export const PUT = async (req, { params }) => {
 
   const { customID } = await params;
   const body = await req.json().catch(() => ({}));
-  const updated = await CustomOrdersModel.updateById(customID, body, {
+  const existing = await CustomOrdersModel.findById(customID);
+  let updated = await CustomOrdersModel.updateById(customID, body, {
     changedBy: session.user.userID || session.user.email || '',
     reason: body.statusReason || '',
   });
   if (!updated) return NextResponse.json({ error: 'Custom order not found.' }, { status: 404 });
+
+  // On completion, award the client-management bonus (C8) — best-effort.
+  if (updated.status === 'completed' && existing?.status !== 'completed') {
+    try {
+      await awardClientMgmtBonus({ customID });
+      updated = await CustomOrdersModel.findById(customID);
+    } catch (e) {
+      console.error('Client-management bonus award failed:', e.message);
+    }
+  }
   return NextResponse.json(updated, { status: 200 });
 };

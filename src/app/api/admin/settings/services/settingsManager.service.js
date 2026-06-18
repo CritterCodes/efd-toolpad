@@ -250,7 +250,9 @@ export default class SettingsManagerService {
       rushMultiplier,
       commissionPercentage,
       targetMarginFloor,
-      defaultDesignerFee
+      defaultDesignerFee,
+      qcReviewFee,
+      clientMgmtBonusPct,
     } = financial;
 
     const invalid =
@@ -259,7 +261,9 @@ export default class SettingsManagerService {
       (rushMultiplier != null && rushMultiplier < 1) ||
       (commissionPercentage != null && (commissionPercentage < 0 || commissionPercentage > 1)) ||
       (targetMarginFloor != null && (targetMarginFloor < 0 || targetMarginFloor > 1)) ||
-      (defaultDesignerFee != null && defaultDesignerFee < 0);
+      (defaultDesignerFee != null && defaultDesignerFee < 0) ||
+      (qcReviewFee != null && qcReviewFee < 0) ||
+      (clientMgmtBonusPct != null && (clientMgmtBonusPct < 0 || clientMgmtBonusPct > 1));
 
     if (invalid) {
       throw Object.assign(new Error('Invalid financial values'), { status: 400 });

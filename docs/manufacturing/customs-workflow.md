@@ -228,7 +228,17 @@ Depend on the production/quote decisions:
 **C6 COMPLETE.** Full custom production spine: assign CAD → STL upload → CAD QC peer-review payout → GLB stage →
 bench labor (gated on QC) → COGS rollup → margin, all on the unified bench.
 - **C7** Casting → expense ledger w/ invoice number.
-- **C8** `qcReviewFee` + `clientMgmtBonus` settings; client-management bonus logic.
+- **C8 ✅** `qcReviewFee` + `clientMgmtBonusPct` financial settings (validated + persisted via the settings API,
+  read with defaults; a dedicated settings-form UI is deferred — no existing financial-settings form to extend,
+  tracked with the broader admin/finance UI). **Client-management bonus:** comms messages now store `authorUserID`;
+  on order completion, `awardClientMgmtBonus` pays the assigned CAD designer `clientMgmtBonusPct × profit`
+  (default 5%) **only if they authored an outbound client-thread message** (admin managing the client → no bonus).
+  Logged as a flat-fee labor entry on the CAD WO (payroll + nets out of margin), idempotent. Verified live:
+  designer-managed → 43.75 (5% of 875); admin-managed → 0.
+
+**🎉 CUSTOMS BUILD COMPLETE (C1–C8 + client-base intake).** Full parity UI on the new model + the entire
+quote → assignment → CAD/STL → CAD QC peer-review payout → GLB → casting (→ expense ledger) → bench labor
+(gated on QC) → COGS → margin → client-management bonus flow, all on the unified bench/payroll.
 
 Related future work (noted, not in scope here): **rebuild the artisan-management system** (enables per-jeweler
 rates), and the **CAD design-standards SOP** (placeholder at `docs/manufacturing/cad-design-standards-sop.md`).
