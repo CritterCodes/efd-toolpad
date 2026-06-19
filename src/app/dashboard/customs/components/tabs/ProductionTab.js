@@ -109,7 +109,7 @@ export default function ProductionTab({ customID, order, margin, notify, onChang
           </Typography>
         )}
         <Typography variant="caption" display="block" sx={{ mt: 1.5, color: REPAIRS_UI.textMuted, lineHeight: 1.5 }}>
-          Work orders are generated from the quote's labor tasks when the order reaches production (deposit ≥ 50%);
+          Work orders are generated from the quote&rsquo;s labor tasks when the order reaches production (deposit ≥ 50%);
           the CAD work order is created at designer assignment. Each routes to its discipline lane on the bench, and
           labor logged there rolls into piece COGS → margin. Use &ldquo;Add work order&rdquo; for anything beyond the quote plan.
         </Typography>
