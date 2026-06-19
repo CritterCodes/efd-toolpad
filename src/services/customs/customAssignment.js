@@ -15,11 +15,17 @@ import { DISCIPLINE } from '@/services/workOrders/disciplines';
 
 export const ASSIGNMENT_ROLE = { CAD: 'cad', BENCH: 'bench' };
 
+// Who can be assigned to a custom: the artisan roles, the in-house staff who also
+// work the bench (admin/dev are the makers in this shop), and anyone of any role
+// who holds an artisan application (e.g. an admin who is also an artisan).
 const ASSIGNABLE_QUERY = {
-  role: { $in: ['artisan', 'senior-artisan'] },
   isApproved: { $ne: false },
   isActive: { $ne: false },
   status: { $nin: ['inactive', 'disabled', 'deleted'] },
+  $or: [
+    { role: { $in: ['artisan', 'senior-artisan', 'admin', 'dev'] } },
+    { 'artisanApplication.artisanType': { $exists: true, $ne: null } },
+  ],
 };
 
 function artisanName(u = {}) {
