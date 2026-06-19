@@ -261,6 +261,31 @@ the quote's lines drive production, they aren't a disconnected estimate.
 quote → assignment → CAD/STL → CAD QC peer-review payout → GLB → casting (→ expense ledger) → bench labor
 (gated on QC) → COGS → margin → client-management bonus flow, all on the unified bench/payroll.
 
+### Intake optimization + efd-shop alignment (2026-06)
+
+Owner: "a new custom is always custom" (drop Type), "title is deprecated" (admin + shop), use dropdowns like the
+new-repair form, and the **efd-shop request form must line up with what the admin expects**.
+
+- **Type removed** — the model defaults `type: 'custom-design'`; the New Custom stepper no longer asks.
+- **Title deprecated** — custom orders are labelled by **jewelry type + metal** via `customOrderLabel()` (list card,
+  detail header, search). `title` stays on the model only for back-compat with legacy rows.
+- **Spec dropdowns** — `src/constants/customRequest.constants.js` is canonical: `JEWELRY_TYPES`, `BUDGET_RANGES`
+  (stored as the range label, not a number), `TIMELINE_OPTIONS` (rush derived via `isRushTimeline`),
+  `GEMSTONE_OPTIONS`; metal + karat **re-export materials.constants** so the custom form matches repair intake.
+  Model gained a `timeline` field. NewCustomStepper + OverviewTab edit dialog both use these.
+- **efd-shop intake → customOrders (the alignment).** Both apps share one DB. The shop request form
+  (`efd-shop/app/custom-work/request/page.js`) dropped Project Title, split Metal into **Metal + Karat** dropdowns,
+  and now reads `efd-shop/lib/customRequest.constants.js` (a value-identical MIRROR of the admin constants). On
+  submit the shop route creates a **customOrder** (status pending, `source:'efd-shop'`) via
+  `efd-shop/lib/customOrderService.js` — the admin system of record, so requests appear in the new
+  `/dashboard/customs`. **Transitional bridge:** the legacy `customTickets` doc is still written (client
+  portal + image upload unchanged), linked by `sourceTicketID ↔ customOrderID`; the ticket keeps a combined
+  `"18K White Gold"` string for portal back-compat while the order stores split `metalType`+`karat`.
+  **Follow-up (not done): migrate the 1404-line client portal + upload route onto customOrders, then drop the
+  ticket write** ("retire customTickets for new requests"). Verified live: a shop submission created
+  `source:'efd-shop'` order, surfaced in the admin API with split metal/karat, gemstones, budget range, timeline,
+  rush, empty title.
+
 ## 12. Customs v2 — deeper parity (post-build feedback round)
 
 Owner feedback after the first pass. Decisions: viewer → shared `packages/refrakt`; build the quote builder first.
