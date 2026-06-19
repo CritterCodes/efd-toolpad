@@ -5,6 +5,7 @@ import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 import EventIcon from '@mui/icons-material/Event';
 import ImageIcon from '@mui/icons-material/Image';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import { customOrderLabel } from '@/constants/customRequest.constants';
 
 const STATUS_COLOR = {
   pending: 'default', consultation: 'info', design: 'info', quote: 'warning',
@@ -56,8 +57,8 @@ export default function CustomOrderCard({ order, onOpen }) {
           <Stack direction="row" spacing={1.25} alignItems="flex-start">
             <Thumbs images={o.images} />
             <Box sx={{ minWidth: 0, flex: 1 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: REPAIRS_UI.textPrimary }} noWrap title={o.title || ''}>
-                {o.title || 'Untitled custom'}
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: REPAIRS_UI.textPrimary }} noWrap title={customOrderLabel(o)}>
+                {customOrderLabel(o)}
               </Typography>
               <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.25 }}>
                 <Avatar sx={{ width: 18, height: 18, bgcolor: REPAIRS_UI.bgTertiary }}><PersonIcon sx={{ fontSize: 12, color: REPAIRS_UI.textSecondary }} /></Avatar>

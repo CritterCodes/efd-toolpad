@@ -14,6 +14,7 @@ import DiamondIcon from '@mui/icons-material/AutoAwesome';
 import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import { customOrderLabel } from '@/constants/customRequest.constants';
 import StatusTimeline from '../components/StatusTimeline';
 import OverviewTab from '../components/tabs/OverviewTab';
 import QuoteTab from '../components/tabs/QuoteTab';
@@ -143,7 +144,7 @@ export default function CustomDetailPage() {
             <Typography sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, px: 1.25, py: 0.5, mb: 1.5, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', color: REPAIRS_UI.textPrimary, backgroundColor: REPAIRS_UI.bgCard, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, textTransform: 'uppercase' }}>
               <DiamondIcon sx={{ fontSize: 16, color: REPAIRS_UI.accent }} />{order.customID}
             </Typography>
-            <Typography sx={{ fontSize: { xs: 26, md: 32 }, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 0.5 }}>{order.title || 'Custom Order'}</Typography>
+            <Typography sx={{ fontSize: { xs: 26, md: 32 }, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 0.5 }}>{customOrderLabel(order)}</Typography>
             <Typography sx={{ color: REPAIRS_UI.textSecondary }}>{order.customerName || order.clientID || '—'}</Typography>
             <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mt: 0.5 }}>
               Created {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '—'}

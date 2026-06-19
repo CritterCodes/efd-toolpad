@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
 import {
   Grid, Paper, Stack, Typography, Box, Button, Avatar, Divider, Chip,
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem,
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Autocomplete,
 } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import EmailIcon from '@mui/icons-material/Email';
 import PhoneIcon from '@mui/icons-material/Phone';
 import EditIcon from '@mui/icons-material/Edit';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import {
+  JEWELRY_TYPES, METAL_OPTIONS, KARAT_OPTIONS, BUDGET_RANGES, TIMELINE_OPTIONS,
+  GEMSTONE_OPTIONS, metalLabel, karatLabel,
+} from '@/constants/customRequest.constants';
 
 const panelSx = { p: { xs: 2, md: 3 }, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' };
 const dialogPaperProps = { sx: { backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` } };
@@ -46,38 +50,42 @@ export default function OverviewTab({ order, billing, busy, onSave }) {
       customerName: order.customerName || '', customerEmail: order.customerEmail || '', customerPhone: order.customerPhone || '',
       priority: order.priority || 'normal',
       jewelryType: order.jewelryType || '', metalType: order.metalType || '', karat: order.karat || '', size: order.size || '',
-      budget: order.budget ?? '', dueDate: order.dueDate ? String(order.dueDate).slice(0, 10) : '',
+      gemstones: Array.isArray(order.gemstones) ? order.gemstones : [],
+      budget: order.budget ?? '', timeline: order.timeline || '', dueDate: order.dueDate ? String(order.dueDate).slice(0, 10) : '',
       description: order.description || '', specialRequests: order.specialRequests || '',
     });
     setEditOpen(true);
   };
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const save = async () => {
-    await onSave({ ...form, budget: form.budget === '' ? null : Number(form.budget), dueDate: form.dueDate || null });
+    await onSave({ ...form, budget: form.budget || null, timeline: form.timeline || null, dueDate: form.dueDate || null });
     setEditOpen(false);
   };
 
   const q = order.quote || {};
   const progress = billing?.progress;
   const owed = progress ? Math.max(0, (Number(progress.projectTotal) || 0) - (Number(progress.totalPaid) || 0)) : null;
-  const gems = [
-    q.centerstone?.item,
-    ...((q.accentStones || []).map((s) => s.description)),
-    // legacy fallback: gemstone-tagged generic lines
-    ...((q.materialCosts || []).filter((m) => m.category === 'gemstone').map((m) => m.name)),
-  ].filter(Boolean);
+  // Prefer the requested gemstones (intake spec); fall back to quote-derived stones.
+  const gems = (Array.isArray(order.gemstones) && order.gemstones.length)
+    ? order.gemstones
+    : [
+        q.centerstone?.item,
+        ...((q.accentStones || []).map((s) => s.description)),
+        // legacy fallback: gemstone-tagged generic lines
+        ...((q.materialCosts || []).filter((m) => m.category === 'gemstone').map((m) => m.name)),
+      ].filter(Boolean);
   const cadAssignees = (order.assignments || []).map((a) => a.name).filter(Boolean);
   const hasSpecial = !!(order.specialRequests && order.specialRequests.trim());
 
   const details = [
-    ['Type', titleCase(order.type) || 'Custom Design'],
     ['Created', fmtDate(order.createdAt)],
     ['Updated', fmtDate(order.updatedAt)],
-    ['Jewelry type', order.jewelryType],
-    ['Metal', order.metalType],
-    ['Karat', order.karat],
+    ['Jewelry type', titleCase(order.jewelryType)],
+    ['Metal', order.metalType ? metalLabel(order.metalType) : null],
+    ['Karat', order.karat ? karatLabel(order.karat) : null],
     ['Size', order.size],
-    ['Budget', order.budget != null && order.budget !== '' ? `$${Number(order.budget).toLocaleString()}` : null],
+    ['Budget', order.budget || null],
+    ['Timeline', order.timeline || null],
     ['Due date', order.dueDate ? fmtDate(order.dueDate) : null],
   ];
 
@@ -166,12 +174,40 @@ export default function OverviewTab({ order, billing, busy, onSave }) {
               <MenuItem value="high">High</MenuItem>
             </TextField>
             <Grid container spacing={2}>
-              <Grid item xs={6}><TextField label="Jewelry type" value={form.jewelryType ?? ''} onChange={(e) => set('jewelryType', e.target.value)} fullWidth /></Grid>
-              <Grid item xs={6}><TextField label="Metal" value={form.metalType ?? ''} onChange={(e) => set('metalType', e.target.value)} fullWidth /></Grid>
-              <Grid item xs={3}><TextField label="Karat" value={form.karat ?? ''} onChange={(e) => set('karat', e.target.value)} fullWidth /></Grid>
-              <Grid item xs={3}><TextField label="Size" value={form.size ?? ''} onChange={(e) => set('size', e.target.value)} fullWidth /></Grid>
-              <Grid item xs={3}><TextField label="Budget" type="number" value={form.budget ?? ''} onChange={(e) => set('budget', e.target.value)} fullWidth /></Grid>
-              <Grid item xs={3}><TextField label="Due" type="date" InputLabelProps={{ shrink: true }} value={form.dueDate ?? ''} onChange={(e) => set('dueDate', e.target.value)} fullWidth /></Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField select label="Jewelry type" value={form.jewelryType ?? ''} onChange={(e) => set('jewelryType', e.target.value)} fullWidth>
+                  {JEWELRY_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={6}><TextField label="Size" placeholder="ring size / chain length" value={form.size ?? ''} onChange={(e) => set('size', e.target.value)} fullWidth /></Grid>
+              <Grid item xs={6}>
+                <TextField select label="Metal" value={form.metalType ?? ''} onChange={(e) => set('metalType', e.target.value)} fullWidth>
+                  {METAL_OPTIONS.map((m) => <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={6}>
+                <TextField select label="Karat / purity" value={form.karat ?? ''} onChange={(e) => set('karat', e.target.value)} fullWidth>
+                  {KARAT_OPTIONS.map((k) => <MenuItem key={k.value || 'na'} value={k.value}>{k.label}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={6}>
+                <TextField select label="Budget" value={form.budget ?? ''} onChange={(e) => set('budget', e.target.value)} fullWidth>
+                  {BUDGET_RANGES.map((b) => <MenuItem key={b} value={b}>{b}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={6}>
+                <TextField select label="Timeline" value={form.timeline ?? ''} onChange={(e) => set('timeline', e.target.value)} fullWidth>
+                  {TIMELINE_OPTIONS.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={12}>
+                <Autocomplete
+                  multiple freeSolo options={GEMSTONE_OPTIONS} value={form.gemstones ?? []}
+                  onChange={(_, v) => set('gemstones', v)}
+                  renderInput={(params) => <TextField {...params} label="Gemstones" placeholder="add stone…" />}
+                />
+              </Grid>
+              <Grid item xs={6}><TextField label="Due date" type="date" InputLabelProps={{ shrink: true }} value={form.dueDate ?? ''} onChange={(e) => set('dueDate', e.target.value)} fullWidth /></Grid>
             </Grid>
             <TextField label="Description" value={form.description ?? ''} onChange={(e) => set('description', e.target.value)} fullWidth multiline minRows={2} />
             <TextField label="Special requests" value={form.specialRequests ?? ''} onChange={(e) => set('specialRequests', e.target.value)} fullWidth multiline minRows={2} />

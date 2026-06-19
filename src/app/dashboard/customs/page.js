@@ -89,7 +89,7 @@ export default function CustomsPage() {
       if (type !== 'all' && (o.type || 'custom-design') !== type) return false;
       if (rushOnly && !o.isRush) return false;
       if (!q) return true;
-      const hay = [o.customID, o.customerName, o.clientID, o.title, o.status, o.description].filter(Boolean).join(' ').toLowerCase();
+      const hay = [o.customID, o.customerName, o.clientID, o.jewelryType, o.title, o.status, o.description].filter(Boolean).join(' ').toLowerCase();
       return hay.includes(q);
     });
     list = list.slice().sort((a, b) => {
@@ -134,7 +134,7 @@ export default function CustomsPage() {
       {/* Filter bar */}
       <Paper sx={{ p: 2, mb: 2, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' }}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }}>
-          <TextField placeholder="Search by ID, customer, title, description…" value={search} onChange={(e) => setSearch(e.target.value)} size="small" fullWidth
+          <TextField placeholder="Search by ID, customer, jewelry type, description…" value={search} onChange={(e) => setSearch(e.target.value)} size="small" fullWidth
             InputProps={{ startAdornment: (<InputAdornment position="start"><SearchIcon sx={{ color: REPAIRS_UI.textSecondary }} /></InputAdornment>) }} />
           <FormControl size="small" sx={{ minWidth: 150 }}>
             <InputLabel>Type</InputLabel>

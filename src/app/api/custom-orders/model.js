@@ -98,6 +98,7 @@ export default class CustomOrdersModel {
       size: data.size ?? null,
       gemstones: Array.isArray(data.gemstones) ? data.gemstones : [],
       budget: data.budget ?? null,
+      timeline: data.timeline ?? null,
       dueDate: data.dueDate ?? null,
       specialRequests: data.specialRequests ?? '',
       // Collaboration (C1): internal notes, client/internal message threads, moodboard images.

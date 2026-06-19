@@ -8,8 +8,12 @@ import PersonAddIcon from '@mui/icons-material/PersonAddAlt';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import UsersService from '@/services/users';
 import NewClientForm from '@/app/components/clients/newClientForm.component';
+import {
+  JEWELRY_TYPES, METAL_OPTIONS, KARAT_OPTIONS, BUDGET_RANGES, TIMELINE_OPTIONS,
+  GEMSTONE_OPTIONS, isRushTimeline, metalLabel,
+} from '@/constants/customRequest.constants';
 
-const STEPS = ['Client & Item', 'Specification', 'Review'];
+const STEPS = ['Client', 'Specification', 'Review'];
 
 const dialogPaperProps = {
   sx: { backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` },
@@ -17,8 +21,9 @@ const dialogPaperProps = {
 const goldBtn = { backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } };
 
 const EMPTY = {
-  selectedClient: null, title: '', type: 'custom-design', isRush: false,
-  jewelryType: '', metalType: '', karat: '', size: '', budget: '', dueDate: '', description: '', specialRequests: '',
+  selectedClient: null, isRush: false,
+  jewelryType: '', metalType: '', karat: '', size: '', gemstones: [],
+  budget: '', timeline: '', description: '', specialRequests: '',
 };
 
 function clientLabel(c) {
@@ -69,10 +74,12 @@ export default function NewCustomStepper({ open, onClose, onCreated, onError }) 
         customerName: clientName(c),
         customerEmail: c.email || '',
         customerPhone: c.phoneNumber || c.phone || '',
-        title: form.title, type: form.type, isRush: form.isRush,
+        // type is always custom-design (model default); title is deprecated.
+        isRush: form.isRush || isRushTimeline(form.timeline),
         jewelryType: form.jewelryType, metalType: form.metalType, karat: form.karat, size: form.size,
-        budget: form.budget === '' ? null : Number(form.budget),
-        dueDate: form.dueDate || null,
+        gemstones: form.gemstones,
+        budget: form.budget || null,
+        timeline: form.timeline || null,
         description: form.description, specialRequests: form.specialRequests,
       };
       const res = await fetch('/api/custom-orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -126,31 +133,49 @@ export default function NewCustomStepper({ open, onClose, onCreated, onError }) 
               </Stack>
             )}
 
-            <TextField label="Title" value={form.title} onChange={(e) => set('title', e.target.value)} fullWidth />
-            <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} sm={6}>
-                <TextField select label="Type" value={form.type} onChange={(e) => set('type', e.target.value)} fullWidth>
-                  <MenuItem value="custom-design">Custom Design</MenuItem>
-                  <MenuItem value="repair">Repair</MenuItem>
-                </TextField>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControlLabel control={<Switch checked={form.isRush} onChange={(e) => set('isRush', e.target.checked)} />} label="Rush order" />
-              </Grid>
-            </Grid>
           </Stack>
         )}
 
         {step === 1 && (
           <Stack spacing={2}>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}><TextField label="Jewelry type" placeholder="ring, pendant…" value={form.jewelryType} onChange={(e) => set('jewelryType', e.target.value)} fullWidth /></Grid>
-              <Grid item xs={12} sm={6}><TextField label="Metal type" placeholder="14k yellow gold…" value={form.metalType} onChange={(e) => set('metalType', e.target.value)} fullWidth /></Grid>
-              <Grid item xs={6} sm={3}><TextField label="Karat" value={form.karat} onChange={(e) => set('karat', e.target.value)} fullWidth /></Grid>
-              <Grid item xs={6} sm={3}><TextField label="Size" value={form.size} onChange={(e) => set('size', e.target.value)} fullWidth /></Grid>
-              <Grid item xs={6} sm={3}><TextField label="Budget" type="number" value={form.budget} onChange={(e) => set('budget', e.target.value)} fullWidth /></Grid>
-              <Grid item xs={6} sm={3}><TextField label="Due date" type="date" InputLabelProps={{ shrink: true }} value={form.dueDate} onChange={(e) => set('dueDate', e.target.value)} fullWidth /></Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField select label="Jewelry type" value={form.jewelryType} onChange={(e) => set('jewelryType', e.target.value)} fullWidth>
+                  {JEWELRY_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField label="Size" placeholder="ring size / chain length" value={form.size} onChange={(e) => set('size', e.target.value)} fullWidth />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField select label="Metal type" value={form.metalType} onChange={(e) => set('metalType', e.target.value)} fullWidth>
+                  {METAL_OPTIONS.map((m) => <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField select label="Karat / purity" value={form.karat} onChange={(e) => set('karat', e.target.value)} fullWidth>
+                  {KARAT_OPTIONS.map((k) => <MenuItem key={k.value || 'na'} value={k.value}>{k.label}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField select label="Budget" value={form.budget} onChange={(e) => set('budget', e.target.value)} fullWidth>
+                  {BUDGET_RANGES.map((b) => <MenuItem key={b} value={b}>{b}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField select label="Timeline" value={form.timeline} onChange={(e) => set('timeline', e.target.value)} fullWidth>
+                  {TIMELINE_OPTIONS.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={12}>
+                <Autocomplete
+                  multiple freeSolo options={GEMSTONE_OPTIONS} value={form.gemstones}
+                  onChange={(_, v) => set('gemstones', v)}
+                  renderInput={(params) => <TextField {...params} label="Gemstones" placeholder="add stone…" />}
+                />
+              </Grid>
             </Grid>
+            <FormControlLabel control={<Switch checked={form.isRush} onChange={(e) => set('isRush', e.target.checked)} />} label="Rush order" />
             <TextField label="Description" value={form.description} onChange={(e) => set('description', e.target.value)} fullWidth multiline minRows={2} />
             <TextField label="Special requests" value={form.specialRequests} onChange={(e) => set('specialRequests', e.target.value)} fullWidth multiline minRows={2} />
           </Stack>
@@ -163,11 +188,10 @@ export default function NewCustomStepper({ open, onClose, onCreated, onError }) 
               {[
                 ['Client', clientName(form.selectedClient) || '—'],
                 ['Contact', [form.selectedClient?.email, form.selectedClient?.phoneNumber || form.selectedClient?.phone].filter(Boolean).join(' · ') || '—'],
-                ['Title', form.title || '—'],
-                ['Type', form.type + (form.isRush ? ' · RUSH' : '')],
-                ['Jewelry', [form.jewelryType, form.metalType, form.karat && `${form.karat}k`, form.size && `sz ${form.size}`].filter(Boolean).join(' · ') || '—'],
-                ['Budget', form.budget ? `$${Number(form.budget).toLocaleString()}` : '—'],
-                ['Due', form.dueDate || '—'],
+                ['Jewelry', [form.jewelryType, form.metalType && metalLabel(form.metalType), form.karat, form.size && `sz ${form.size}`].filter(Boolean).join(' · ') || '—'],
+                ['Gemstones', form.gemstones.length ? form.gemstones.join(', ') : '—'],
+                ['Budget', form.budget || '—'],
+                ['Timeline', (form.timeline || '—') + ((form.isRush || isRushTimeline(form.timeline)) ? ' · RUSH' : '')],
               ].map(([k, v]) => (
                 <Box className="row" key={k}>
                   <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>{k}</Typography>
