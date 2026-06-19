@@ -6,6 +6,7 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import BuildCircleIcon from '@mui/icons-material/BuildCircle';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import DownloadIcon from '@mui/icons-material/Download';
 import { useRouter } from 'next/navigation';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 
@@ -143,6 +144,20 @@ export default function ProductionTab({ customID, order, margin, notify, onChang
                     <Chip size="small" label={wo.status || '—'} color={statusColor(wo.status)} />
                   </Stack>
                 </Stack>
+                {(wo.files?.stl?.url || wo.files?.glb?.url) && (
+                  <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mt: 1, pl: 0.25 }}>
+                    {wo.files?.stl?.url && (
+                      <Button size="small" variant="outlined" startIcon={<DownloadIcon sx={{ fontSize: 15 }} />} component="a" href={wo.files.stl.url} target="_blank" rel="noreferrer" sx={{ color: '#64B5F6', borderColor: REPAIRS_UI.border, textTransform: 'none' }}>
+                        STL{wo.files.stl.originalName ? ` · ${wo.files.stl.originalName}` : ''}{wo.files.stl.volumeCm3 ? ` (${wo.files.stl.volumeCm3} cm³)` : ''}
+                      </Button>
+                    )}
+                    {wo.files?.glb?.url && (
+                      <Button size="small" variant="outlined" startIcon={<DownloadIcon sx={{ fontSize: 15 }} />} component="a" href={wo.files.glb.url} target="_blank" rel="noreferrer" sx={{ color: '#66BB6A', borderColor: REPAIRS_UI.border, textTransform: 'none' }}>
+                        GLB{wo.files.glb.originalName ? ` · ${wo.files.glb.originalName}` : ''}
+                      </Button>
+                    )}
+                  </Stack>
+                )}
               </Paper>
             ))}
             <Button size="small" startIcon={<OpenInNewIcon sx={{ fontSize: 15 }} />} onClick={() => router.push('/dashboard/repairs/my-bench')} sx={{ alignSelf: 'flex-start', color: REPAIRS_UI.textSecondary }}>Open the bench</Button>

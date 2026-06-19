@@ -9,6 +9,7 @@ import DiamondIcon from '@mui/icons-material/AutoAwesome';
 import PartsIcon from '@mui/icons-material/Category';
 import QCIcon from '@mui/icons-material/VerifiedUser';
 import UploadIcon from '@mui/icons-material/UploadFile';
+import DownloadIcon from '@mui/icons-material/Download';
 import CommunicationsIcon from '@mui/icons-material/Forum';
 import { useRouter } from 'next/navigation';
 
@@ -245,10 +246,17 @@ export default function BenchWorkCard({
           <Button size="small" variant="outlined" startIcon={<QCIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => onAction(wo, 'move-to-qc')} sx={btn({ color: '#00C49F', borderColor: '#00C49F' })}>Move to QC</Button>
         )}
 
-        {/* CAD QC peer review (another CAD designer): approve (pays QC fee) or reject. */}
+        {/* CAD QC peer review (another CAD designer): download & review, then approve (pays QC fee) or reject. */}
         {isCadQc && (
           <>
-            <Button size="small" variant="contained" startIcon={<QCIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => onAction(wo, 'cad-qc-approve')} sx={goldBtn}>Approve (QC review)</Button>
+            <Button
+              size="small" variant="outlined" startIcon={<DownloadIcon sx={{ fontSize: 14 }} />}
+              component="a" href={fileUrl || undefined} target="_blank" rel="noreferrer" disabled={!fileUrl}
+              sx={btn({ color: '#64B5F6', borderColor: '#64B5F6' })}
+            >
+              {hasFile ? `Review ${fileLabel}` : `No ${fileLabel} to review`}
+            </Button>
+            <Button size="small" variant="contained" startIcon={<QCIcon sx={{ fontSize: 14 }} />} disabled={busy || !hasFile} onClick={() => onAction(wo, 'cad-qc-approve')} sx={goldBtn}>Approve (QC review)</Button>
             <Button size="small" variant="outlined" disabled={busy} onClick={() => onAction(wo, 'cad-qc-reject')} sx={btn({ color: '#EF5350', borderColor: '#EF5350' })}>Reject</Button>
           </>
         )}
