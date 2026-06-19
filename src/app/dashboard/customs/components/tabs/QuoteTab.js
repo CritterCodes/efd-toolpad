@@ -300,19 +300,30 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
           <Grid item xs={12} sm={4}><TextField fullWidth size="small" label="Cost" type="number" value={form.centerstone.cost} disabled={!editMode} onChange={(e) => setNested('centerstone', 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
           <Grid item xs={12} sm={8}><TextField fullWidth size="small" label="Mounting" value={form.mounting.item} disabled={!editMode} onChange={(e) => setNested('mounting', 'item', e.target.value)} /></Grid>
           <Grid item xs={12} sm={4}><TextField fullWidth size="small" label="Cost" type="number" value={form.mounting.cost} disabled={!editMode} onChange={(e) => setNested('mounting', 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
-          {editMode && (
+          {(editMode || stlVolumeCm3 > 0) && (
             <Grid item xs={12}>
-              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ p: 1, borderRadius: 1, border: `1px dashed ${REPAIRS_UI.border}`, bgcolor: REPAIRS_UI.bgTertiary }}>
-                <CalculateIcon sx={{ color: REPAIRS_UI.accent, fontSize: 18 }} />
+              <Stack spacing={1} sx={{ p: 1.25, borderRadius: 1, border: `1px dashed ${stlVolumeCm3 > 0 ? REPAIRS_UI.accent : REPAIRS_UI.border}`, bgcolor: REPAIRS_UI.bgTertiary }}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <CalculateIcon sx={{ color: REPAIRS_UI.accent, fontSize: 18 }} />
+                  <Typography variant="caption" sx={{ color: REPAIRS_UI.textPrimary, fontWeight: 600 }}>Casting quote (from CAD model)</Typography>
+                </Stack>
                 <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>
-                  {stlVolumeCm3 > 0 ? `Estimate metal from the CAD model (${stlVolumeCm3} cm³)` : 'Upload the STL on the CAD work order to estimate metal from the model'}
+                  {stlVolumeCm3 > 0
+                    ? `The uploaded CAD model is ${stlVolumeCm3} cm³. Estimate the metal/casting cost from it — this replaces a vendor casting quote and fills the Mounting cost above.`
+                    : 'Upload the STL on the CAD work order, then estimate the metal/casting cost from the model here — it replaces a vendor casting quote and fills the Mounting cost.'}
                 </Typography>
-                <TextField select size="small" label="Metal" value={estMetal} onChange={(e) => setEstMetal(e.target.value)} disabled={stlVolumeCm3 <= 0} sx={{ minWidth: 180 }}>
-                  {METAL_OPTS.map((m) => <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>)}
-                </TextField>
-                <Button size="small" variant="outlined" startIcon={<CalculateIcon />} disabled={estimating || stlVolumeCm3 <= 0} onClick={estimateMounting} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>
-                  Estimate from model
-                </Button>
+                {editMode && stlVolumeCm3 > 0 ? (
+                  <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                    <TextField select size="small" label="Metal" value={estMetal} onChange={(e) => setEstMetal(e.target.value)} sx={{ minWidth: 180 }}>
+                      {METAL_OPTS.map((m) => <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>)}
+                    </TextField>
+                    <Button size="small" variant="contained" startIcon={<CalculateIcon />} disabled={estimating} onClick={estimateMounting} sx={goldBtn}>
+                      Estimate casting → Mounting
+                    </Button>
+                  </Stack>
+                ) : !editMode && stlVolumeCm3 > 0 ? (
+                  <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>Edit the quote to estimate and apply the casting cost.</Typography>
+                ) : null}
               </Stack>
             </Grid>
           )}
