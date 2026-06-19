@@ -17,6 +17,7 @@ export const POST = async (req, { params }) => {
       customID,
       userID: body.userID,
       role: body.role,
+      fee: body.fee,
       assignedBy: session.user.userID || session.user.email || '',
     });
     return NextResponse.json(order, { status: 201 });

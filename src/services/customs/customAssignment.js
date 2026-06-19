@@ -52,8 +52,12 @@ export async function listAssignableArtisans() {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** Assign an artisan to a role; CAD assignments snapshot the fee into the quote. */
-export async function assignArtisan({ customID, userID, role = ASSIGNMENT_ROLE.CAD, assignedBy = null }) {
+/**
+ * Assign an artisan to a role; CAD assignments snapshot the design fee into the
+ * quote (folds into COG). `fee` overrides the designer's profile fee for this
+ * custom (e.g. an admin-artisan with no profile fee, or a per-job rate).
+ */
+export async function assignArtisan({ customID, userID, role = ASSIGNMENT_ROLE.CAD, fee = null, assignedBy = null }) {
   const order = await CustomOrdersModel.findById(customID);
   if (!order) throw notFound('Custom order not found.');
 
@@ -64,7 +68,11 @@ export async function assignArtisan({ customID, userID, role = ASSIGNMENT_ROLE.C
   );
   if (!user) throw notFound('Assignable artisan not found.');
 
-  const feeSnapshot = role === ASSIGNMENT_ROLE.CAD ? (Number(user.artisanApplication?.customDesignFee) || 0) : 0;
+  const profileFee = Number(user.artisanApplication?.customDesignFee) || 0;
+  const overrideFee = fee === null || fee === '' ? null : Number(fee);
+  const feeSnapshot = role === ASSIGNMENT_ROLE.CAD
+    ? (Number.isFinite(overrideFee) && overrideFee >= 0 ? overrideFee : profileFee)
+    : 0;
   const assignment = {
     id: randomUUID(),
     userID,
@@ -81,8 +89,13 @@ export async function assignArtisan({ customID, userID, role = ASSIGNMENT_ROLE.C
 
   if (assignment.role === ASSIGNMENT_ROLE.CAD) {
     // Fold the CAD designer's fee into the quote's designFee → COG → markup (C4).
+    // Always reflect the assignment (turns the custom-design fee on in the quote).
     if (feeSnapshot > 0) {
-      await CustomOrdersModel.updateById(customID, { quote: { ...order.quote, designFee: feeSnapshot } }, { changedBy: assignedBy, reason: 'cad designer assigned' });
+      await CustomOrdersModel.updateById(
+        customID,
+        { quote: { ...order.quote, designFee: feeSnapshot, includeCustomDesign: true } },
+        { changedBy: assignedBy, reason: 'cad designer assigned' },
+      );
     }
     // Spawn the CAD work order on the designer's bench (C6); carry the flat
     // design fee so it can be logged into COGS when QC passes (C6c).

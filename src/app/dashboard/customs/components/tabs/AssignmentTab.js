@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Paper, Stack, Typography, Button, Chip, IconButton, Avatar,
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem,
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, InputAdornment,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/PersonAdd';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
@@ -21,6 +21,7 @@ export default function AssignmentTab({ customID, assignments = [], onChanged, n
   const [artisans, setArtisans] = useState([]);
   const [userID, setUserID] = useState('');
   const [role, setRole] = useState('cad');
+  const [fee, setFee] = useState('');
   const [busy, setBusy] = useState(false);
 
   const loadArtisans = useCallback(async () => {
@@ -33,14 +34,23 @@ export default function AssignmentTab({ customID, assignments = [], onChanged, n
 
   const picked = artisans.find((a) => a.userID === userID);
 
+  // When an artisan is picked, default the CAD fee to their profile fee (editable).
+  const pickArtisan = (id) => {
+    setUserID(id);
+    const a = artisans.find((x) => x.userID === id);
+    setFee(a?.customDesignFee ? String(a.customDesignFee) : '');
+  };
+
   const assign = async () => {
     if (!userID) return;
     setBusy(true);
     try {
-      const res = await fetch(`/api/custom-orders/${customID}/assignments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userID, role }) });
+      const payload = { userID, role };
+      if (role === 'cad' && fee !== '') payload.fee = Number(fee);
+      const res = await fetch(`/api/custom-orders/${customID}/assignments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to assign');
-      setOpen(false); setUserID(''); setRole('cad');
-      notify(role === 'cad' ? 'CAD designer assigned — fee folded into the quote' : 'Artisan assigned', 'success');
+      setOpen(false); setUserID(''); setRole('cad'); setFee('');
+      notify(role === 'cad' ? 'CAD designer assigned — design fee folded into the quote' : 'Artisan assigned', 'success');
       await onChanged();
     } catch (e) { notify(e.message, 'error'); } finally { setBusy(false); }
   };
@@ -107,7 +117,7 @@ export default function AssignmentTab({ customID, assignments = [], onChanged, n
               <MenuItem value="cad">CAD Designer (fee → quote)</MenuItem>
               <MenuItem value="bench">Bench Jeweler</MenuItem>
             </TextField>
-            <TextField select label="Artisan" value={userID} onChange={(e) => setUserID(e.target.value)} fullWidth>
+            <TextField select label="Artisan" value={userID} onChange={(e) => pickArtisan(e.target.value)} fullWidth>
               {artisans.length === 0 && <MenuItem value="" disabled>No assignable artisans found</MenuItem>}
               {artisans.map((a) => (
                 <MenuItem key={a.userID} value={a.userID}>
@@ -115,10 +125,21 @@ export default function AssignmentTab({ customID, assignments = [], onChanged, n
                 </MenuItem>
               ))}
             </TextField>
-            {role === 'cad' && picked && (
-              <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
-                {picked.customDesignFee > 0 ? `${money(picked.customDesignFee)} CAD fee will be folded into the quote.` : 'This artisan has no CAD fee set on their profile.'}
-              </Typography>
+            {role === 'cad' && (
+              <>
+                <TextField
+                  label="CAD design fee" type="number" value={fee} disabled={!picked}
+                  onChange={(e) => setFee(e.target.value)}
+                  InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                  helperText={picked
+                    ? (picked.customDesignFee > 0 ? 'Defaults to the designer’s profile fee — edit to override for this custom.' : 'This designer has no profile fee — enter the fee for this custom.')
+                    : 'Pick a designer to set their fee.'}
+                  fullWidth
+                />
+                <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
+                  {Number(fee) > 0 ? `${money(Number(fee))} will be folded into the quote (COG → markup) and paid to the designer on QC approval.` : 'No design fee will be added to the quote.'}
+                </Typography>
+              </>
             )}
           </Stack>
         </DialogContent>
