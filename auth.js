@@ -31,6 +31,7 @@ const providers = [
                         role: user.role,
                         token: user.token,
                         image: user.image,
+                        artisanTypes: user.artisanTypes || [],
                         staffCapabilities: user.staffCapabilities,
                         employment: user.employment
                     } :
@@ -42,6 +43,7 @@ const providers = [
                         role: user.role,
                         token: user.token,
                         image: user.image,
+                        artisanTypes: user.artisanTypes || [],
                         staffCapabilities: user.staffCapabilities,
                         employment: user.employment
                     };
@@ -76,6 +78,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 token.name = user.name;
                 token.role = user.role;
                 token.image = user.image;
+                token.artisanTypes = user.artisanTypes || [];
                 token.staffCapabilities = user.staffCapabilities || null;
                 token.employment = user.employment || null;
             }
@@ -91,6 +94,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             session.user.storeID = token.storeID;
             session.user.role = token.role;
             session.user.image = token.image;
+            session.user.artisanTypes = token.artisanTypes || [];
             session.user.staffCapabilities = token.staffCapabilities || null;
             session.user.employment = token.employment || null;
             return session;

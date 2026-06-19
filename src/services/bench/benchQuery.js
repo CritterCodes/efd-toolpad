@@ -39,7 +39,14 @@ export async function getBenchWorkOrders({ session } = {}) {
   const disciplines = resolveBenchDisciplines(session);
 
   const query = { status: { $in: getActiveBenchRawStatuses() } };
-  if (disciplines) query.discipline = { $in: disciplines };
+  if (disciplines) {
+    // Lane-gate the queue, BUT always surface work assigned to the caller — if a
+    // job is assigned to you (e.g. a CAD job on an admin who also designs), it must
+    // appear on your bench even when its discipline is outside your normal lanes.
+    const userID = session?.user?.userID;
+    query.$or = [{ discipline: { $in: disciplines } }];
+    if (userID) query.$or.push({ assignedToUserID: userID });
+  }
 
   const workOrders = await dbInstance.collection('workOrders')
     .find(query, { projection: { _id: 0 } })
