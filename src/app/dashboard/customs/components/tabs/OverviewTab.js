@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Grid, Paper, Stack, Typography, Box, Button, Avatar, Divider,
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField,
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem,
 } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import EmailIcon from '@mui/icons-material/Email';
@@ -35,6 +35,7 @@ export default function OverviewTab({ order, busy, onSave }) {
   const openEdit = () => {
     setForm({
       customerName: order.customerName || '', customerEmail: order.customerEmail || '', customerPhone: order.customerPhone || '',
+      priority: order.priority || 'normal',
       jewelryType: order.jewelryType || '', metalType: order.metalType || '', karat: order.karat || '', size: order.size || '',
       budget: order.budget ?? '', dueDate: order.dueDate ? String(order.dueDate).slice(0, 10) : '',
       description: order.description || '', specialRequests: order.specialRequests || '',
@@ -77,10 +78,13 @@ export default function OverviewTab({ order, busy, onSave }) {
         <Paper sx={panelSx}>
           <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 1.5 }}>Specification</Typography>
           <Stack spacing={1}>
+            <Row label="Priority" value={order.priority === 'high' ? 'High' : 'Normal'} />
             {SPEC_FIELDS.map(([k, label]) => <Row key={k} label={label} value={fmt(k, order[k])} />)}
-            {Array.isArray(order.gemstones) && order.gemstones.length > 0 && (
-              <Row label="Gemstones" value={order.gemstones.map((g) => (typeof g === 'string' ? g : g.name || g.type)).filter(Boolean).join(', ')} />
-            )}
+            {(() => {
+              // Gemstones come from the quote's gemstone-category line items (single source of truth).
+              const gems = (order.quote?.materialCosts || []).filter((m) => m.category === 'gemstone').map((m) => m.name).filter(Boolean);
+              return gems.length ? <Row label="Gemstones" value={gems.join(', ')} /> : null;
+            })()}
           </Stack>
         </Paper>
       </Grid>
@@ -104,6 +108,10 @@ export default function OverviewTab({ order, busy, onSave }) {
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             {CUSTOMER_FIELDS.map(([k, label]) => <TextField key={k} label={label} value={form[k] ?? ''} onChange={(e) => set(k, e.target.value)} fullWidth />)}
+            <TextField select label="Priority" value={form.priority ?? 'normal'} onChange={(e) => set('priority', e.target.value)} fullWidth>
+              <MenuItem value="normal">Normal</MenuItem>
+              <MenuItem value="high">High</MenuItem>
+            </TextField>
             <Grid container spacing={2}>
               <Grid item xs={6}><TextField label="Jewelry type" value={form.jewelryType ?? ''} onChange={(e) => set('jewelryType', e.target.value)} fullWidth /></Grid>
               <Grid item xs={6}><TextField label="Metal" value={form.metalType ?? ''} onChange={(e) => set('metalType', e.target.value)} fullWidth /></Grid>
