@@ -264,6 +264,12 @@ Owner feedback after the first pass. Decisions: viewer → shared `packages/refr
   Needs a quote-status field + a contract the shop reads/writes (analogous to the product / custom-design-viewer
   contracts). efd-shop UI is shop-side (same workspace, separate app).
 - Also: re-audit the detail page for any remaining legacy custom-ticket parity gaps as we go.
+- **Detail parity audit ✅ (done):** diffed legacy custom-ticket detail vs the new detail and closed the in-model
+  gaps — header High-priority chip + Created/Updated dates; status timeline per-status icons + description; Overview
+  Client ID + Quote-total reference + gemstones; Notes tags + scrollable list; Assignment shows assigned date.
+  **Deliberately NOT ported (legacy-only, not in the customOrders model — would render empty):** affiliate/referral
+  attribution, `needsAttention`, `requestDetails` timeline / est-completion, artisan slug, admin-vs-user note-author
+  icon, the granular requiresAction status matrix. Flag if any of these should become real customs features.
 
 Related future work (noted, not in scope here): **rebuild the artisan-management system** (enables per-jeweler
 rates), and the **CAD design-standards SOP** (placeholder at `docs/manufacturing/cad-design-standards-sop.md`).

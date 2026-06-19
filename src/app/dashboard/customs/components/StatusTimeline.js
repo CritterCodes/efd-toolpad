@@ -4,10 +4,19 @@ import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components
 
 // Customs lifecycle (cancelled is off-track and handled separately).
 const LIFECYCLE = ['pending', 'consultation', 'design', 'quote', 'deposit', 'in_production', 'qc', 'completed', 'delivered'];
-const LABEL = {
-  pending: 'Pending', consultation: 'Consultation', design: 'Design', quote: 'Quote', deposit: 'Deposit',
-  in_production: 'Production', qc: 'QC', completed: 'Completed', delivered: 'Delivered', cancelled: 'Cancelled',
+const META = {
+  pending: { label: 'Pending', icon: '🕓', desc: 'New request awaiting review.' },
+  consultation: { label: 'Consultation', icon: '💬', desc: 'Discussing the design with the client.' },
+  design: { label: 'Design', icon: '✏️', desc: 'CAD design in progress (STL → QC).' },
+  quote: { label: 'Quote', icon: '🧾', desc: 'Quote prepared / sent for approval.' },
+  deposit: { label: 'Deposit', icon: '💳', desc: 'Awaiting deposit to start production.' },
+  in_production: { label: 'Production', icon: '🔨', desc: 'On the bench — casting, setting, finishing.' },
+  qc: { label: 'QC', icon: '🔍', desc: 'Quality check before completion.' },
+  completed: { label: 'Completed', icon: '✅', desc: 'Finished — awaiting delivery/pickup.' },
+  delivered: { label: 'Delivered', icon: '📦', desc: 'Delivered to the client.' },
+  cancelled: { label: 'Cancelled', icon: '✖️', desc: 'Order cancelled.' },
 };
+const LABEL = Object.fromEntries(Object.entries(META).map(([k, v]) => [k, v.label]));
 const ALL_STATUSES = [...LIFECYCLE, 'cancelled'];
 
 export default function StatusTimeline({ order, busy, onChange }) {
@@ -29,16 +38,21 @@ export default function StatusTimeline({ order, busy, onChange }) {
             '& .MuiStepIcon-root.Mui-active': { color: REPAIRS_UI.accent },
             '& .MuiStepIcon-root.Mui-completed': { color: REPAIRS_UI.accent },
           }}>
-            {LIFECYCLE.map((s) => <Step key={s}><StepLabel>{LABEL[s]}</StepLabel></Step>)}
+            {LIFECYCLE.map((s) => <Step key={s}><StepLabel icon={<span style={{ fontSize: 16 }}>{META[s].icon}</span>}>{META[s].label}</StepLabel></Step>)}
           </Stepper>
         )}
-        <FormControl size="small" sx={{ minWidth: 180 }} disabled={busy}>
+        <FormControl size="small" sx={{ minWidth: 200 }} disabled={busy}>
           <InputLabel>Change status</InputLabel>
           <Select value={current} label="Change status" MenuProps={repairsMenuProps} onChange={(e) => onChange(e.target.value)}>
-            {ALL_STATUSES.map((s) => <MenuItem key={s} value={s}>{LABEL[s]}</MenuItem>)}
+            {ALL_STATUSES.map((s) => <MenuItem key={s} value={s}>{META[s].icon} {META[s].label}</MenuItem>)}
           </Select>
         </FormControl>
       </Stack>
+      {META[current] && (
+        <Typography variant="caption" sx={{ display: 'block', mt: 1, color: REPAIRS_UI.textSecondary }}>
+          {META[current].icon} {META[current].desc}
+        </Typography>
+      )}
     </Box>
   );
 }

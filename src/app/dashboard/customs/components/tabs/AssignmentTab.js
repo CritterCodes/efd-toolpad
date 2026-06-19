@@ -81,9 +81,10 @@ export default function AssignmentTab({ customID, assignments = [], onChanged, n
                     <Avatar sx={{ bgcolor: REPAIRS_UI.bgTertiary }}><Icon sx={{ color: meta.color }} /></Avatar>
                     <Box>
                       <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textPrimary }}>{a.name}</Typography>
-                      <Stack direction="row" spacing={0.75} alignItems="center">
+                      <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap">
                         <Chip size="small" label={meta.label} variant="outlined" sx={{ height: 20, borderColor: REPAIRS_UI.border, color: REPAIRS_UI.textSecondary }} />
                         {a.artisanType && <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{a.artisanType}</Typography>}
+                        {a.assignedAt && <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>· assigned {new Date(a.assignedAt).toLocaleDateString()}</Typography>}
                       </Stack>
                     </Box>
                   </Stack>

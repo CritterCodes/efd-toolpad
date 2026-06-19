@@ -63,6 +63,12 @@ export default function OverviewTab({ order, busy, onSave }) {
           <Stack spacing={1}>
             <Row icon={EmailIcon} label="Email" value={order.customerEmail} />
             <Row icon={PhoneIcon} label="Phone" value={order.customerPhone} />
+            <Row label="Client ID" value={order.clientID} />
+          </Stack>
+          <Divider sx={{ my: 1.5, borderColor: REPAIRS_UI.border }} />
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>Quote total</Typography>
+            <Typography sx={{ fontWeight: 700, color: REPAIRS_UI.accent }}>{order.quote?.quoteTotal != null ? `$${Number(order.quote.quoteTotal).toLocaleString()}` : '—'}</Typography>
           </Stack>
         </Paper>
       </Grid>
@@ -72,6 +78,9 @@ export default function OverviewTab({ order, busy, onSave }) {
           <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 1.5 }}>Specification</Typography>
           <Stack spacing={1}>
             {SPEC_FIELDS.map(([k, label]) => <Row key={k} label={label} value={fmt(k, order[k])} />)}
+            {Array.isArray(order.gemstones) && order.gemstones.length > 0 && (
+              <Row label="Gemstones" value={order.gemstones.map((g) => (typeof g === 'string' ? g : g.name || g.type)).filter(Boolean).join(', ')} />
+            )}
           </Stack>
         </Paper>
       </Grid>

@@ -145,8 +145,13 @@ export default function CustomDetailPage() {
             </Typography>
             <Typography sx={{ fontSize: { xs: 26, md: 32 }, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 0.5 }}>{order.title || 'Custom Order'}</Typography>
             <Typography sx={{ color: REPAIRS_UI.textSecondary }}>{order.customerName || order.clientID || '—'}</Typography>
+            <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mt: 0.5 }}>
+              Created {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '—'}
+              {order.updatedAt ? ` · Updated ${new Date(order.updatedAt).toLocaleDateString()}` : ''}
+            </Typography>
           </Box>
           <Stack direction="row" spacing={1} alignItems="center">
+            {order.priority === 'high' && <Chip size="small" label="High priority" color="error" variant="outlined" />}
             {order.isRush && <Chip size="small" icon={<PriorityHighIcon />} label="RUSH" sx={{ bgcolor: '#FF4444', color: '#fff' }} />}
             <Chip label={(order.status || '').replace('_', ' ')} color={STATUS_COLOR[order.status] || 'default'} />
           </Stack>

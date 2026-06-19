@@ -47,7 +47,7 @@ export default function NotesTab({ customID, notes = [], onChanged, notify }) {
           <Typography sx={{ color: REPAIRS_UI.textSecondary }}>No notes yet.</Typography>
         </Paper>
       ) : (
-        <Stack spacing={1.5}>
+        <Stack spacing={1.5} sx={{ maxHeight: 480, overflowY: 'auto', pr: 0.5 }}>
           {notes.map((n) => (
             <Paper key={n.id} sx={{ p: 2, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' }}>
               <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
@@ -62,6 +62,11 @@ export default function NotesTab({ customID, notes = [], onChanged, notify }) {
                 </Stack>
               </Stack>
               <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, mt: 1, whiteSpace: 'pre-wrap' }}>{n.text}</Typography>
+              {Array.isArray(n.tags) && n.tags.length > 0 && (
+                <Stack direction="row" spacing={0.5} sx={{ mt: 1, flexWrap: 'wrap' }}>
+                  {n.tags.map((tag) => <Chip key={tag} size="small" label={tag} variant="outlined" sx={{ height: 20, borderColor: REPAIRS_UI.border, color: REPAIRS_UI.textMuted }} />)}
+                </Stack>
+              )}
             </Paper>
           ))}
         </Stack>
