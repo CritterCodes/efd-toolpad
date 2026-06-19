@@ -1,60 +1,59 @@
 /**
- * Custom-order quote math (C4) — single COG-bucket model.
+ * Custom-order quote math (C4 + structured-parity) — single COG-bucket model over
+ * the legacy custom-ticket quote SHAPE (centerstone / mounting / accent stones /
+ * additional materials / labor tasks / shipping lines + casting + designer/GLB/QC
+ * fees). Everything folds into ONE COG bucket, then × cogMarkup (admin settings)
+ * × rush. Artists are paid base fees; the marked-up amount is the customer price.
  *
- * Per the locked customs-workflow decisions: fold EVERY cost into one COG
- * bucket — materials (incl. gemstones), bench labor, casting, shipping, the
- * designer CAD fee, the GLB-creation fee, and the QC review fee — then mark the
- * whole bucket up by `cogMarkup` from admin settings (no separate designFee
- * markup). Rush multiplies the marked-up total.
+ *   cog        = materials + labor + shipping + casting + designer + GLB + QC fees
+ *   quoteTotal = cog × cogMarkup × (isRush ? rushMultiplier : 1)
  *
- *   cog        = materials + labor + casting + shipping + designFee + glbFee + qcReviewFee
- *   quoteTotal = cog × cogMarkup × rushMultiplier
- *
- * Artists are paid their base fees as payouts; the marked-up amount is the
- * customer price. Pure functions (settings passed in) so they stay unit-testable
- * without a DB. See docs/manufacturing/customs-workflow.md §2.
+ * Legacy flat fields (materialCosts[]/laborCost/shippingCost) are still summed so
+ * pre-existing orders keep computing. Pure (settings passed in) — unit-testable.
  */
 const DEFAULT_COG_MARKUP = 2.5;
+const DEFAULT_RUSH = 1.5;
 
 function round(value) {
   return Math.round((Number(value) || 0) * 100) / 100;
 }
-
-function lineCost(item) {
-  if (item && item.cost != null) return Number(item.cost) || 0;
-  return (Number(item?.quantity) || 1) * (Number(item?.unitPrice) || 0);
+const n = (v) => Number(v) || 0;
+/** cost × quantity for line-item arrays (qty defaults to 1). */
+function lineSum(arr) {
+  return (arr || []).reduce((s, x) => s + n(x.cost) * Math.max(n(x.quantity) || 1, 1), 0);
+}
+/** Legacy generic material line: explicit cost, else qty × unitPrice. */
+function legacyLine(m) {
+  if (m.cost != null && m.cost !== '') return n(m.cost);
+  return Math.max(n(m.quantity) || 1, 0) * n(m.unitPrice);
 }
 
-/**
- * Compute the quote breakdown + total. `settings` supplies the markup
- * (`cogMarkup`, default 2.5) — pass it from admin settings; defaults keep the
- * function usable standalone.
- */
 export function computeQuote(quote = {}, settings = {}) {
-  const materialsTotal = (quote.materialCosts || []).reduce((sum, m) => sum + lineCost(m), 0);
-  const laborTotal = Number(quote.laborCost) || 0;
-  const castingTotal = Number(quote.castingCost) || 0;
-  const shippingTotal = Number(quote.shippingCost) || 0;
-  const designTotal = Number(quote.designFee) || 0;
-  const glbTotal = Number(quote.glbFee) || 0;
-  const qcTotal = Number(quote.qcReviewFee) || 0;
+  const materialsTotal =
+    n(quote.centerstone?.cost) + n(quote.mounting?.cost)
+    + lineSum(quote.accentStones) + lineSum(quote.additionalMaterials)
+    + (quote.materialCosts || []).reduce((s, m) => s + legacyLine(m), 0); // legacy fallback
+  const laborTotal = lineSum(quote.laborTasks) + n(quote.laborCost);       // + legacy flat
+  const shippingTotal = lineSum(quote.shippingCosts) + n(quote.shippingCost);
+  const castingTotal = n(quote.castingCost);
+  const designTotal = n(quote.designFee);
+  const glbTotal = n(quote.glbFee);
+  const qcTotal = n(quote.qcReviewFee);
 
-  // Single COG bucket — everything the shop pays out.
-  const cog = materialsTotal + laborTotal + castingTotal + shippingTotal + designTotal + glbTotal + qcTotal;
+  const cog = materialsTotal + laborTotal + shippingTotal + castingTotal + designTotal + glbTotal + qcTotal;
 
-  const cogMarkup = Number(settings.cogMarkup ?? quote.cogMarkup) > 0
-    ? Number(settings.cogMarkup ?? quote.cogMarkup)
-    : DEFAULT_COG_MARKUP;
-  // Rush is an applied multiplier on the quote (1 = none).
-  const rushMultiplier = Number(quote.rushMultiplier) > 1 ? Number(quote.rushMultiplier) : 1;
+  const cogMarkup = n(settings.cogMarkup) > 0 ? n(settings.cogMarkup) : (n(quote.cogMarkup) > 0 ? n(quote.cogMarkup) : DEFAULT_COG_MARKUP);
+  let rushMultiplier = 1;
+  if (quote.isRush) rushMultiplier = n(quote.rushMultiplier) > 1 ? n(quote.rushMultiplier) : (n(settings.rushMultiplier) > 1 ? n(settings.rushMultiplier) : DEFAULT_RUSH);
+  else if (n(quote.rushMultiplier) > 1) rushMultiplier = n(quote.rushMultiplier); // legacy flat rush
 
   const quoteTotal = cog * cogMarkup * rushMultiplier;
 
   return {
     materialsTotal: round(materialsTotal),
     laborTotal: round(laborTotal),
-    castingTotal: round(castingTotal),
     shippingTotal: round(shippingTotal),
+    castingTotal: round(castingTotal),
     designTotal: round(designTotal),
     glbTotal: round(glbTotal),
     qcTotal: round(qcTotal),
@@ -62,7 +61,6 @@ export function computeQuote(quote = {}, settings = {}) {
     cogMarkup,
     rushMultiplier,
     quoteTotal: round(quoteTotal),
-    // Projected margin vs the quoted COG (real margin uses piece COGS, see computeMargin).
     projectedMargin: round(quoteTotal - cog),
   };
 }

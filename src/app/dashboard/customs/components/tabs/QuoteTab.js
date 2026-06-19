@@ -1,33 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Box, Paper, Stack, Typography, Button, IconButton, Divider, TextField, MenuItem,
-  Table, TableHead, TableRow, TableCell, TableBody, Grid, Chip,
+  Box, Paper, Stack, Typography, Button, IconButton, Divider, TextField, Grid, Chip,
+  FormControlLabel, Switch, InputAdornment,
 } from '@mui/material';
-import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import InsightsIcon from '@mui/icons-material/Insights';
 import DiamondIcon from '@mui/icons-material/AutoAwesome';
+import BuildIcon from '@mui/icons-material/Build';
+import ShippingIcon from '@mui/icons-material/LocalShipping';
+import TuneIcon from '@mui/icons-material/Tune';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import EditIcon from '@mui/icons-material/Edit';
+import PublishIcon from '@mui/icons-material/Publish';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 
-const cardSx = { p: 2.5, height: '100%', backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' };
-const money = (n) => `$${(Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const num = (v) => Number(v) || 0;
-const MATERIAL_CATEGORIES = [
-  { value: 'material', label: 'Material' }, { value: 'gemstone', label: 'Gemstone' },
-  { value: 'finding', label: 'Finding' }, { value: 'mounting', label: 'Mounting' },
-];
+const cardSx = { p: 2.5, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' };
+const money = (x) => `$${(Number(x) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const n = (v) => Number(v) || 0;
+const lineSum = (arr) => (arr || []).reduce((s, x) => s + n(x.cost) * Math.max(n(x.quantity) || 1, 1), 0);
+const goldBtn = { backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } };
 
-function lineCost(m) {
-  if (m.cost != null && m.cost !== '') return num(m.cost);
-  return Math.max(num(m.quantity) || 1, 0) * num(m.unitPrice);
-}
-function toEditable(m) {
-  const hasUnit = m.unitPrice != null && m.unitPrice !== '';
-  return { name: m.name || m.displayName || '', category: m.category || 'material', quantity: m.quantity ?? 1, unitPrice: hasUnit ? m.unitPrice : (m.cost ?? 0) };
-}
 function CardHead({ icon: Icon, title, action, color = REPAIRS_UI.accent }) {
   return (
     <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
@@ -45,7 +39,25 @@ function Row({ label, value, color, strong, warn }) {
   );
 }
 
-/** Customer-facing summary. */
+/** Repeatable line-item editor (description [+qty] + cost). */
+function LineEditor({ rows, onChange, withQty, editMode, emptyText }) {
+  const set = (i, k, v) => onChange(rows.map((r, idx) => (idx === i ? { ...r, [k]: v } : r)));
+  const remove = (i) => onChange(rows.filter((_, idx) => idx !== i));
+  if (!rows.length) return <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted, py: 1 }}>{emptyText}</Typography>;
+  return (
+    <Stack spacing={1}>
+      {rows.map((r, i) => (
+        <Grid container spacing={1} key={i} alignItems="center">
+          <Grid item xs={withQty ? 6 : 8}><TextField fullWidth size="small" label="Description" value={r.description || ''} disabled={!editMode} onChange={(e) => set(i, 'description', e.target.value)} /></Grid>
+          {withQty && <Grid item xs={2}><TextField fullWidth size="small" label="Qty" type="number" value={r.quantity ?? 1} disabled={!editMode} onChange={(e) => set(i, 'quantity', e.target.value)} /></Grid>}
+          <Grid item xs={3}><TextField fullWidth size="small" label="Cost" type="number" value={r.cost ?? 0} disabled={!editMode} onChange={(e) => set(i, 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
+          <Grid item xs={1}>{editMode && <IconButton size="small" onClick={() => remove(i)} sx={{ color: REPAIRS_UI.textMuted }}><DeleteIcon fontSize="small" /></IconButton>}</Grid>
+        </Grid>
+      ))}
+    </Stack>
+  );
+}
+
 function QuoteSummaryCard({ lines, cog, cogMarkup, rush, total }) {
   return (
     <Paper sx={cardSx}>
@@ -62,8 +74,6 @@ function QuoteSummaryCard({ lines, cog, cogMarkup, rush, total }) {
     </Paper>
   );
 }
-
-/** Internal analytics. */
 function AnalyticsCard({ cog, total, designerPayout, margin, bonus, floorPct }) {
   const grossProfit = total - cog;
   const grossMargin = total > 0 ? (grossProfit / total) * 100 : 0;
@@ -90,14 +100,27 @@ function AnalyticsCard({ cog, total, designerPayout, margin, bonus, floorPct }) 
   );
 }
 
+const blankForm = (q = {}) => ({
+  centerstone: { item: q.centerstone?.item || q.centerstone?.description || '', cost: q.centerstone?.cost ?? 0 },
+  mounting: { item: q.mounting?.item || q.mounting?.description || '', cost: q.mounting?.cost ?? 0 },
+  accentStones: Array.isArray(q.accentStones) ? q.accentStones : [],
+  additionalMaterials: Array.isArray(q.additionalMaterials) ? q.additionalMaterials : [],
+  laborTasks: Array.isArray(q.laborTasks) ? q.laborTasks : [],
+  shippingCosts: Array.isArray(q.shippingCosts) ? q.shippingCosts : [],
+  isRush: !!q.isRush,
+  includeCustomDesign: !!q.includeCustomDesign || n(q.designFee) > 0,
+  designFee: q.designFee ?? 0,
+});
+
 export default function QuoteTab({ customID, order, margin, onChanged, notify }) {
   const q = order.quote || {};
   const [editMode, setEditMode] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [materials, setMaterials] = useState([]);
-  const [fields, setFields] = useState({ laborCost: 0, castingCost: 0, shippingCost: 0, designFee: 0, rushMultiplier: 1 });
+  const [form, setForm] = useState(() => blankForm(q));
   const [floorPct, setFloorPct] = useState(45);
 
+  // Re-sync from the order when not editing (e.g. after save/refresh).
+  useEffect(() => { if (!editMode) setForm(blankForm(order.quote || {})); }, [order.quote, editMode]);
   useEffect(() => {
     fetch('/api/admin/settings').then((r) => r.ok ? r.json() : null).then((s) => {
       const f = Number(s?.financial?.targetMarginFloor);
@@ -105,93 +128,132 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
     }).catch(() => {});
   }, []);
 
-  const startEdit = () => {
-    setMaterials((q.materialCosts || []).map(toEditable));
-    setFields({ laborCost: q.laborCost || 0, castingCost: q.castingCost || 0, shippingCost: q.shippingCost || 0, designFee: q.designFee || 0, rushMultiplier: q.rushMultiplier || 1 });
-    setEditMode(true);
-  };
-  const setField = (k, v) => setFields((f) => ({ ...f, [k]: v }));
-  const setRow = (i, k, v) => setMaterials((rows) => rows.map((r, idx) => (idx === i ? { ...r, [k]: v } : r)));
-  const addRow = () => setMaterials((rows) => [...rows, { name: '', category: 'material', quantity: 1, unitPrice: 0 }]);
-  const removeRow = (i) => setMaterials((rows) => rows.filter((_, idx) => idx !== i));
+  const setField = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const setNested = (parent, k, v) => setForm((f) => ({ ...f, [parent]: { ...f[parent], [k]: v } }));
 
-  const glbFee = num(q.glbFee);
-  const qcFee = num(q.qcReviewFee);
-  const cogMarkup = num(q.cogMarkup) || 2.5;
-
-  // Values shown depend on mode (stored vs live edit).
-  const matLines = editMode ? materials : (q.materialCosts || []).map(toEditable);
-  const matTotal = matLines.reduce((s, m) => s + lineCost(m), 0);
-  const f = editMode ? fields : { laborCost: q.laborCost, castingCost: q.castingCost, shippingCost: q.shippingCost, designFee: q.designFee, rushMultiplier: q.rushMultiplier };
-  const cog = matTotal + num(f.laborCost) + num(f.castingCost) + num(f.shippingCost) + num(f.designFee) + glbFee + qcFee;
-  const rush = num(f.rushMultiplier) > 1 ? num(f.rushMultiplier) : 1;
-  const total = editMode ? cog * cogMarkup * rush : num(q.quoteTotal);
+  // Live COG/total (mirrors computeQuote; glb/qc/casting come from production/order).
+  const castingCost = n(q.castingCost); const glbFee = n(q.glbFee); const qcFee = n(q.qcReviewFee);
+  const cogMarkup = n(q.cogMarkup) || 2.5;
+  const matTotal = n(form.centerstone.cost) + n(form.mounting.cost) + lineSum(form.accentStones) + lineSum(form.additionalMaterials);
+  const laborTotal = lineSum(form.laborTasks);
+  const shipTotal = lineSum(form.shippingCosts);
+  const designTotal = form.includeCustomDesign ? n(form.designFee) : n(form.designFee);
+  const cog = matTotal + laborTotal + shipTotal + castingCost + designTotal + glbFee + qcFee;
+  const rush = form.isRush ? (n(q.rushMultiplier) > 1 ? n(q.rushMultiplier) : 1.5) : 1;
+  const total = cog * cogMarkup * rush;
 
   const summaryLines = [
-    ['Materials & gemstones', matTotal], ['Labor', num(f.laborCost)], ['Casting', num(f.castingCost)],
-    ['Shipping', num(f.shippingCost)], ['Designer fee', num(f.designFee)], ['GLB fee', glbFee], ['QC review fee', qcFee],
-  ].filter(([, v]) => num(v) > 0);
+    ['Materials & gemstones', matTotal], ['Labor', laborTotal], ['Shipping', shipTotal],
+    ['Casting', castingCost], ['Designer fee', designTotal], ['GLB fee', glbFee], ['QC review fee', qcFee],
+  ].filter(([, v]) => n(v) > 0);
 
-  const save = async () => {
+  const persist = useCallback(async (extra = {}) => {
     setBusy(true);
     try {
-      const materialCosts = materials.filter((m) => m.name.trim() || lineCost(m) > 0)
-        .map((m) => ({ name: m.name.trim() || 'Item', category: m.category, quantity: num(m.quantity) || 1, unitPrice: num(m.unitPrice) }));
-      const res = await fetch(`/api/custom-orders/${customID}/quote`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ materialCosts, laborCost: num(fields.laborCost), castingCost: num(fields.castingCost), shippingCost: num(fields.shippingCost), designFee: num(fields.designFee), rushMultiplier: num(fields.rushMultiplier) || 1 }),
-      });
+      const body = {
+        centerstone: form.centerstone, mounting: form.mounting,
+        accentStones: form.accentStones.map((r) => ({ description: r.description || '', quantity: n(r.quantity) || 1, cost: n(r.cost) })),
+        additionalMaterials: form.additionalMaterials.map((r) => ({ description: r.description || '', quantity: n(r.quantity) || 1, cost: n(r.cost) })),
+        laborTasks: form.laborTasks.map((r) => ({ description: r.description || '', quantity: n(r.quantity) || 1, cost: n(r.cost) })),
+        shippingCosts: form.shippingCosts.map((r) => ({ description: r.description || '', cost: n(r.cost) })),
+        isRush: form.isRush, includeCustomDesign: form.includeCustomDesign, designFee: n(form.designFee),
+        // clear legacy flats so they don't double-count
+        materialCosts: [], laborCost: 0, shippingCost: 0,
+        ...extra,
+      };
+      const res = await fetch(`/api/custom-orders/${customID}/quote`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Quote save failed');
-      notify('Quote saved', 'success');
-      setEditMode(false);
       await onChanged?.();
-    } catch (e) { notify(e.message, 'error'); } finally { setBusy(false); }
-  };
+      return true;
+    } catch (e) { notify(e.message, 'error'); return false; } finally { setBusy(false); }
+  }, [customID, form, onChanged, notify]);
+
+  const save = async () => { if (await persist()) { setEditMode(false); notify('Quote saved', 'success'); } };
+  const saveAndPublish = async () => { if (await persist({ quotePublished: true, publishedAt: new Date().toISOString() })) { setEditMode(false); notify('Quote published to client', 'success'); } };
+  const publish = async () => { if (await persist({ quotePublished: true, publishedAt: new Date().toISOString() })) notify('Quote published to client', 'success'); };
+  const unpublish = async () => { if (await persist({ quotePublished: false, publishedAt: null })) notify('Quote unpublished', 'success'); };
+
+  const published = !!q.quotePublished;
+  const lineAdd = (key, withQty) => setField(key, [...form[key], withQty ? { description: '', quantity: 1, cost: 0 } : { description: '', cost: 0 }]);
 
   return (
     <Stack spacing={2}>
       {/* Header */}
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Stack direction="row" spacing={1} alignItems="center"><RequestQuoteIcon sx={{ color: REPAIRS_UI.accent }} /><Typography sx={{ fontWeight: 600, fontSize: '1.1rem', color: REPAIRS_UI.textHeader }}>Quote</Typography>
-          <Chip size="small" label={money(total)} sx={{ bgcolor: REPAIRS_UI.bgTertiary, color: REPAIRS_UI.accent, fontWeight: 700 }} /></Stack>
-        {editMode
-          ? <Stack direction="row" spacing={1}><Button size="small" onClick={() => setEditMode(false)} sx={{ color: REPAIRS_UI.textSecondary }}>Cancel</Button><Button size="small" variant="contained" disabled={busy} onClick={save} sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>Save</Button></Stack>
-          : <Button size="small" startIcon={<EditIcon sx={{ fontSize: 16 }} />} onClick={startEdit} sx={{ color: REPAIRS_UI.accent }}>Edit</Button>}
+      <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography sx={{ fontWeight: 600, fontSize: '1.2rem', color: REPAIRS_UI.textHeader }}>Quote Builder</Typography>
+          {published && <Chip size="small" icon={<VisibilityIcon sx={{ fontSize: 15 }} />} color="success" label="Published to client" />}
+          <Chip size="small" label={money(total)} sx={{ bgcolor: REPAIRS_UI.bgTertiary, color: REPAIRS_UI.accent, fontWeight: 700 }} />
+        </Stack>
+        {!editMode ? (
+          <Stack direction="row" spacing={1}>
+            <Button size="small" variant="outlined" startIcon={<EditIcon />} onClick={() => setEditMode(true)} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>Edit Quote</Button>
+            {published
+              ? <Button size="small" variant="outlined" color="warning" startIcon={<VisibilityIcon />} disabled={busy} onClick={unpublish}>Unpublish</Button>
+              : <Button size="small" variant="contained" color="success" startIcon={<PublishIcon />} disabled={busy || total <= 0} onClick={publish}>Publish</Button>}
+          </Stack>
+        ) : (
+          <Stack direction="row" spacing={1}>
+            <Button size="small" onClick={() => { setEditMode(false); setForm(blankForm(order.quote || {})); }} sx={{ color: REPAIRS_UI.textSecondary }}>Cancel</Button>
+            <Button size="small" variant="contained" disabled={busy} onClick={save} sx={goldBtn}>Save</Button>
+            {!published && <Button size="small" variant="contained" color="success" startIcon={<PublishIcon />} disabled={busy || total <= 0} onClick={saveAndPublish}>Save &amp; Publish</Button>}
+          </Stack>
+        )}
       </Stack>
 
-      {/* Editor (carded line-item table + fields) */}
-      {editMode && (
-        <Paper sx={cardSx}>
-          <CardHead icon={DiamondIcon} title="Materials & gemstones" action={<Button size="small" startIcon={<AddIcon />} onClick={addRow} sx={{ color: REPAIRS_UI.accent }}>Add line</Button>} />
-          <Table size="small" sx={{ mb: 2 }}>
-            <TableHead><TableRow>{['Item', 'Category', 'Qty', 'Unit', 'Total', ''].map((h, i) => <TableCell key={i} align={['Qty', 'Unit', 'Total'].includes(h) ? 'right' : 'left'} sx={{ color: REPAIRS_UI.textMuted, borderColor: REPAIRS_UI.border, px: 0.75 }}>{h}</TableCell>)}</TableRow></TableHead>
-            <TableBody>
-              {materials.map((m, i) => (
-                <TableRow key={i}>
-                  <TableCell sx={{ borderColor: REPAIRS_UI.border, px: 0.75 }}><TextField variant="standard" value={m.name} onChange={(e) => setRow(i, 'name', e.target.value)} fullWidth placeholder="Item" /></TableCell>
-                  <TableCell sx={{ borderColor: REPAIRS_UI.border, px: 0.75 }}><TextField select variant="standard" value={m.category} onChange={(e) => setRow(i, 'category', e.target.value)} sx={{ minWidth: 90 }}>{MATERIAL_CATEGORIES.map((c) => <MenuItem key={c.value} value={c.value}>{c.label}</MenuItem>)}</TextField></TableCell>
-                  <TableCell sx={{ borderColor: REPAIRS_UI.border, px: 0.75, width: 56 }}><TextField variant="standard" type="number" value={m.quantity} onChange={(e) => setRow(i, 'quantity', e.target.value)} inputProps={{ style: { textAlign: 'right' } }} /></TableCell>
-                  <TableCell sx={{ borderColor: REPAIRS_UI.border, px: 0.75, width: 76 }}><TextField variant="standard" type="number" value={m.unitPrice} onChange={(e) => setRow(i, 'unitPrice', e.target.value)} inputProps={{ style: { textAlign: 'right' } }} /></TableCell>
-                  <TableCell align="right" sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border, px: 0.75 }}>{money(lineCost(m))}</TableCell>
-                  <TableCell sx={{ borderColor: REPAIRS_UI.border, px: 0.25 }}><IconButton size="small" onClick={() => removeRow(i)} sx={{ color: REPAIRS_UI.textMuted }}><DeleteIcon fontSize="small" /></IconButton></TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <Grid container spacing={2}>
-            <Grid item xs={6} sm={2.4}><TextField label="Labor" type="number" size="small" value={fields.laborCost} onChange={(e) => setField('laborCost', e.target.value)} fullWidth /></Grid>
-            <Grid item xs={6} sm={2.4}><TextField label="Casting" type="number" size="small" value={fields.castingCost} onChange={(e) => setField('castingCost', e.target.value)} fullWidth /></Grid>
-            <Grid item xs={6} sm={2.4}><TextField label="Shipping" type="number" size="small" value={fields.shippingCost} onChange={(e) => setField('shippingCost', e.target.value)} fullWidth /></Grid>
-            <Grid item xs={6} sm={2.4}><TextField label="Designer fee" type="number" size="small" value={fields.designFee} onChange={(e) => setField('designFee', e.target.value)} fullWidth /></Grid>
-            <Grid item xs={6} sm={2.4}><TextField label="Rush ×" type="number" size="small" value={fields.rushMultiplier} onChange={(e) => setField('rushMultiplier', e.target.value)} fullWidth /></Grid>
-          </Grid>
-        </Paper>
-      )}
+      {/* Phase 1: Materials */}
+      <Paper sx={cardSx}>
+        <CardHead icon={DiamondIcon} title="Materials" />
+        <Grid container spacing={2} sx={{ mb: 1.5 }}>
+          <Grid item xs={12} sm={8}><TextField fullWidth size="small" label="Centerstone" value={form.centerstone.item} disabled={!editMode} onChange={(e) => setNested('centerstone', 'item', e.target.value)} /></Grid>
+          <Grid item xs={12} sm={4}><TextField fullWidth size="small" label="Cost" type="number" value={form.centerstone.cost} disabled={!editMode} onChange={(e) => setNested('centerstone', 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
+          <Grid item xs={12} sm={8}><TextField fullWidth size="small" label="Mounting" value={form.mounting.item} disabled={!editMode} onChange={(e) => setNested('mounting', 'item', e.target.value)} /></Grid>
+          <Grid item xs={12} sm={4}><TextField fullWidth size="small" label="Cost" type="number" value={form.mounting.cost} disabled={!editMode} onChange={(e) => setNested('mounting', 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
+        </Grid>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+          <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, fontWeight: 600 }}>Accent stones</Typography>
+          {editMode && <Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('accentStones', true)} sx={{ color: REPAIRS_UI.accent }}>Add stone</Button>}
+        </Stack>
+        <LineEditor rows={form.accentStones} onChange={(rows) => setField('accentStones', rows)} withQty editMode={editMode} emptyText="No accent stones." />
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 2, mb: 1 }}>
+          <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, fontWeight: 600 }}>Additional materials</Typography>
+          {editMode && <Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('additionalMaterials', true)} sx={{ color: REPAIRS_UI.accent }}>Add material</Button>}
+        </Stack>
+        <LineEditor rows={form.additionalMaterials} onChange={(rows) => setField('additionalMaterials', rows)} withQty editMode={editMode} emptyText="No additional materials." />
+      </Paper>
+
+      {/* Phase 2: Labor */}
+      <Paper sx={cardSx}>
+        <CardHead icon={BuildIcon} title="Labor Tasks" action={editMode && <Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('laborTasks', true)} sx={{ color: REPAIRS_UI.accent }}>Add task</Button>} />
+        <LineEditor rows={form.laborTasks} onChange={(rows) => setField('laborTasks', rows)} withQty editMode={editMode} emptyText='No labor tasks. Click "Add task" to add production tasks.' />
+      </Paper>
+
+      {/* Phase 3: Additional services */}
+      <Grid container spacing={2}>
+        <Grid item xs={12} md={6}>
+          <Paper sx={cardSx}>
+            <CardHead icon={ShippingIcon} title="Shipping" action={editMode && <Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('shippingCosts', false)} sx={{ color: REPAIRS_UI.accent }}>Add shipping</Button>} />
+            <LineEditor rows={form.shippingCosts} onChange={(rows) => setField('shippingCosts', rows)} editMode={editMode} emptyText="No shipping costs." />
+          </Paper>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Paper sx={cardSx}>
+            <CardHead icon={TuneIcon} title="Options" />
+            <Stack spacing={1}>
+              <FormControlLabel control={<Switch checked={form.isRush} disabled={!editMode} onChange={(e) => setField('isRush', e.target.checked)} />} label={`Rush order (${Math.round((rush > 1 ? rush : 1.5) * 100 - 100)}% surcharge on COG)`} sx={{ color: REPAIRS_UI.textSecondary }} />
+              <FormControlLabel control={<Switch checked={form.includeCustomDesign} disabled={!editMode} onChange={(e) => setField('includeCustomDesign', e.target.checked)} />} label="Custom design fee" sx={{ color: REPAIRS_UI.textSecondary }} />
+              {form.includeCustomDesign && (
+                <TextField size="small" label="Designer fee" type="number" value={form.designFee} disabled={!editMode} onChange={(e) => setField('designFee', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} helperText="Snapshotted from the assigned CAD designer." />
+              )}
+            </Stack>
+          </Paper>
+        </Grid>
+      </Grid>
 
       {/* Two-panel summary */}
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}><QuoteSummaryCard lines={summaryLines} cog={cog} cogMarkup={cogMarkup} rush={rush} total={total} /></Grid>
-        <Grid item xs={12} md={6}><AnalyticsCard cog={cog} total={total} designerPayout={num(f.designFee)} margin={margin} bonus={num(order.clientMgmtBonus)} floorPct={floorPct} /></Grid>
+        <Grid item xs={12} md={6}><AnalyticsCard cog={cog} total={total} designerPayout={designTotal} margin={margin} bonus={n(order.clientMgmtBonus)} floorPct={floorPct} /></Grid>
       </Grid>
     </Stack>
   );

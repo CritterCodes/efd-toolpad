@@ -28,16 +28,29 @@ function genCustomID() {
 }
 
 const EMPTY_QUOTE = {
-  materialCosts: [],   // includes gemstones (category-tagged line items)
-  laborCost: 0,
-  laborHours: 0,
+  // Structured materials (legacy custom-ticket parity).
+  centerstone: { item: '', cost: 0 },
+  mounting: { item: '', cost: 0 },
+  accentStones: [],          // [{ description, quantity, cost }]
+  additionalMaterials: [],   // [{ description, quantity, cost }]
+  laborTasks: [],            // [{ description, quantity, cost }]
+  shippingCosts: [],         // [{ description, cost }]
+  isRush: false,
+  includeCustomDesign: false,
+  // Fees folded into COG.
   castingCost: 0,
-  shippingCost: 0,
-  designFee: 0,        // designer CAD fee snapshot (folded into COG)
-  glbFee: 0,           // GLB-creation fee (folded into COG)
-  qcReviewFee: 0,      // CAD QC peer-review fee (folded into COG)
+  designFee: 0,              // designer CAD fee snapshot (C5)
+  glbFee: 0,                 // GLB-creation fee (C6)
+  qcReviewFee: 0,            // CAD QC peer-review fee (C6c)
   rushMultiplier: 1,
-  cogMarkup: 0,        // snapshot of the markup used (0 → recomputed from settings)
+  // Publish to the client (efd-shop portal — CS).
+  quotePublished: false,
+  publishedAt: null,
+  // Legacy flat fields kept for back-compat (still summed by computeQuote).
+  materialCosts: [],
+  laborCost: 0,
+  shippingCost: 0,
+  cogMarkup: 0,              // snapshot of the markup used
   cog: 0,
   quoteTotal: 0,
 };
@@ -145,9 +158,10 @@ export default class CustomOrdersModel {
     try {
       const s = await SettingsManagerService.getSettings();
       const cogMarkup = Number(s?.financial?.cogMarkup);
-      return { cogMarkup: cogMarkup > 0 ? cogMarkup : 2.5 };
+      const rushMultiplier = Number(s?.financial?.rushMultiplier);
+      return { cogMarkup: cogMarkup > 0 ? cogMarkup : 2.5, rushMultiplier: rushMultiplier > 1 ? rushMultiplier : 1.5 };
     } catch {
-      return { cogMarkup: 2.5 };
+      return { cogMarkup: 2.5, rushMultiplier: 1.5 };
     }
   }
 

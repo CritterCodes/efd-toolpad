@@ -60,7 +60,12 @@ export default function OverviewTab({ order, billing, busy, onSave }) {
   const q = order.quote || {};
   const progress = billing?.progress;
   const owed = progress ? Math.max(0, (Number(progress.projectTotal) || 0) - (Number(progress.totalPaid) || 0)) : null;
-  const gems = (q.materialCosts || []).filter((m) => m.category === 'gemstone').map((m) => m.name).filter(Boolean);
+  const gems = [
+    q.centerstone?.item,
+    ...((q.accentStones || []).map((s) => s.description)),
+    // legacy fallback: gemstone-tagged generic lines
+    ...((q.materialCosts || []).filter((m) => m.category === 'gemstone').map((m) => m.name)),
+  ].filter(Boolean);
   const cadAssignees = (order.assignments || []).map((a) => a.name).filter(Boolean);
   const hasSpecial = !!(order.specialRequests && order.specialRequests.trim());
 
