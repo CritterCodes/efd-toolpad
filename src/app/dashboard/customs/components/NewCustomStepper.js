@@ -9,8 +9,8 @@ import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import UsersService from '@/services/users';
 import NewClientForm from '@/app/components/clients/newClientForm.component';
 import {
-  JEWELRY_TYPES, METAL_OPTIONS, KARAT_OPTIONS, BUDGET_RANGES, TIMELINE_OPTIONS,
-  GEMSTONE_OPTIONS, isRushTimeline, metalLabel,
+  JEWELRY_TYPES, METAL_TYPES, GOLD_COLORS, getKaratOptions, BUDGET_RANGES, TIMELINE_OPTIONS,
+  GEMSTONE_OPTIONS, isRushTimeline, metalDisplay,
 } from '@/constants/customRequest.constants';
 
 const STEPS = ['Client', 'Specification', 'Review'];
@@ -22,7 +22,7 @@ const goldBtn = { backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeig
 
 const EMPTY = {
   selectedClient: null, isRush: false,
-  jewelryType: '', metalType: '', karat: '', size: '', gemstones: [],
+  jewelryType: '', metalType: '', karat: '', goldColor: '', size: '', gemstones: [],
   budget: '', timeline: '', description: '', specialRequests: '',
 };
 
@@ -76,7 +76,7 @@ export default function NewCustomStepper({ open, onClose, onCreated, onError }) 
         customerPhone: c.phoneNumber || c.phone || '',
         // type is always custom-design (model default); title is deprecated.
         isRush: form.isRush || isRushTimeline(form.timeline),
-        jewelryType: form.jewelryType, metalType: form.metalType, karat: form.karat, size: form.size,
+        jewelryType: form.jewelryType, metalType: form.metalType, karat: form.karat, goldColor: form.goldColor, size: form.size,
         gemstones: form.gemstones,
         budget: form.budget || null,
         timeline: form.timeline || null,
@@ -148,15 +148,25 @@ export default function NewCustomStepper({ open, onClose, onCreated, onError }) 
                 <TextField label="Size" placeholder="ring size / chain length" value={form.size} onChange={(e) => set('size', e.target.value)} fullWidth />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <TextField select label="Metal type" value={form.metalType} onChange={(e) => set('metalType', e.target.value)} fullWidth>
-                  {METAL_OPTIONS.map((m) => <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>)}
+                <TextField select label="Metal type" value={form.metalType}
+                  onChange={(e) => setForm((f) => ({ ...f, metalType: e.target.value, karat: '', goldColor: '' }))} fullWidth>
+                  {METAL_TYPES.map((m) => <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>)}
                 </TextField>
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField select label="Karat / purity" value={form.karat} onChange={(e) => set('karat', e.target.value)} fullWidth>
-                  {KARAT_OPTIONS.map((k) => <MenuItem key={k.value || 'na'} value={k.value}>{k.label}</MenuItem>)}
-                </TextField>
-              </Grid>
+              {getKaratOptions(form.metalType).length > 0 && (
+                <Grid item xs={12} sm={6}>
+                  <TextField select label="Karat / purity" value={form.karat} onChange={(e) => set('karat', e.target.value)} fullWidth>
+                    {getKaratOptions(form.metalType).map((k) => <MenuItem key={k} value={k}>{k}</MenuItem>)}
+                  </TextField>
+                </Grid>
+              )}
+              {form.metalType === 'gold' && (
+                <Grid item xs={12} sm={6}>
+                  <TextField select label="Gold color" value={form.goldColor} onChange={(e) => set('goldColor', e.target.value)} fullWidth>
+                    {GOLD_COLORS.map((c) => <MenuItem key={c.value} value={c.value}>{c.label}</MenuItem>)}
+                  </TextField>
+                </Grid>
+              )}
               <Grid item xs={12} sm={6}>
                 <TextField select label="Budget" value={form.budget} onChange={(e) => set('budget', e.target.value)} fullWidth>
                   {BUDGET_RANGES.map((b) => <MenuItem key={b} value={b}>{b}</MenuItem>)}
@@ -188,7 +198,7 @@ export default function NewCustomStepper({ open, onClose, onCreated, onError }) 
               {[
                 ['Client', clientName(form.selectedClient) || '—'],
                 ['Contact', [form.selectedClient?.email, form.selectedClient?.phoneNumber || form.selectedClient?.phone].filter(Boolean).join(' · ') || '—'],
-                ['Jewelry', [form.jewelryType, form.metalType && metalLabel(form.metalType), form.karat, form.size && `sz ${form.size}`].filter(Boolean).join(' · ') || '—'],
+                ['Jewelry', [form.jewelryType, metalDisplay(form.metalType, form.goldColor), form.karat, form.size && `sz ${form.size}`].filter(Boolean).join(' · ') || '—'],
                 ['Gemstones', form.gemstones.length ? form.gemstones.join(', ') : '—'],
                 ['Budget', form.budget || '—'],
                 ['Timeline', (form.timeline || '—') + ((form.isRush || isRushTimeline(form.timeline)) ? ' · RUSH' : '')],

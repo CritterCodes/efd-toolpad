@@ -61,19 +61,8 @@ import PromiseDateSuggestion from '@/app/components/repairs/PromiseDateSuggestio
 // Hooks
 import usePromiseDateEstimate from '@/hooks/repairs/usePromiseDateEstimate';
 
-// Metal configuration
-const METAL_TYPES = [
-  { value: 'gold', label: 'Gold', karatOptions: ['10k', '14k', '18k', '22k'] },
-  { value: 'silver', label: 'Silver', karatOptions: ['925', '999'] },
-  { value: 'platinum', label: 'Platinum', karatOptions: ['950', '999'] },
-  { value: 'costume', label: 'Costume', karatOptions: [] }
-];
-
-const GOLD_COLORS = [
-  { value: 'yellow', label: 'Yellow Gold' },
-  { value: 'white', label: 'White Gold' },
-  { value: 'rose', label: 'Rose Gold' }
-];
+// Metal configuration — single source of truth, shared with the custom-request intake.
+import { METAL_TYPES, GOLD_COLORS } from '@/constants/customRequest.constants';
 
 // Ring sizes (US standard)
 const RING_SIZES = [

@@ -9,8 +9,8 @@ import PhoneIcon from '@mui/icons-material/Phone';
 import EditIcon from '@mui/icons-material/Edit';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import {
-  JEWELRY_TYPES, METAL_OPTIONS, KARAT_OPTIONS, BUDGET_RANGES, TIMELINE_OPTIONS,
-  GEMSTONE_OPTIONS, metalLabel, karatLabel,
+  JEWELRY_TYPES, METAL_TYPES, GOLD_COLORS, getKaratOptions, BUDGET_RANGES, TIMELINE_OPTIONS,
+  GEMSTONE_OPTIONS, metalDisplay, karatLabel,
 } from '@/constants/customRequest.constants';
 
 const panelSx = { p: { xs: 2, md: 3 }, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' };
@@ -49,7 +49,7 @@ export default function OverviewTab({ order, billing, busy, onSave }) {
     setForm({
       customerName: order.customerName || '', customerEmail: order.customerEmail || '', customerPhone: order.customerPhone || '',
       priority: order.priority || 'normal',
-      jewelryType: order.jewelryType || '', metalType: order.metalType || '', karat: order.karat || '', size: order.size || '',
+      jewelryType: order.jewelryType || '', metalType: order.metalType || '', karat: order.karat || '', goldColor: order.goldColor || '', size: order.size || '',
       gemstones: Array.isArray(order.gemstones) ? order.gemstones : [],
       budget: order.budget ?? '', timeline: order.timeline || '', dueDate: order.dueDate ? String(order.dueDate).slice(0, 10) : '',
       description: order.description || '', specialRequests: order.specialRequests || '',
@@ -81,7 +81,7 @@ export default function OverviewTab({ order, billing, busy, onSave }) {
     ['Created', fmtDate(order.createdAt)],
     ['Updated', fmtDate(order.updatedAt)],
     ['Jewelry type', titleCase(order.jewelryType)],
-    ['Metal', order.metalType ? metalLabel(order.metalType) : null],
+    ['Metal', metalDisplay(order.metalType, order.goldColor) || null],
     ['Karat', order.karat ? karatLabel(order.karat) : null],
     ['Size', order.size],
     ['Budget', order.budget || null],
@@ -181,15 +181,25 @@ export default function OverviewTab({ order, billing, busy, onSave }) {
               </Grid>
               <Grid item xs={12} sm={6}><TextField label="Size" placeholder="ring size / chain length" value={form.size ?? ''} onChange={(e) => set('size', e.target.value)} fullWidth /></Grid>
               <Grid item xs={6}>
-                <TextField select label="Metal" value={form.metalType ?? ''} onChange={(e) => set('metalType', e.target.value)} fullWidth>
-                  {METAL_OPTIONS.map((m) => <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>)}
+                <TextField select label="Metal" value={form.metalType ?? ''}
+                  onChange={(e) => setForm((f) => ({ ...f, metalType: e.target.value, karat: '', goldColor: '' }))} fullWidth>
+                  {METAL_TYPES.map((m) => <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>)}
                 </TextField>
               </Grid>
-              <Grid item xs={6}>
-                <TextField select label="Karat / purity" value={form.karat ?? ''} onChange={(e) => set('karat', e.target.value)} fullWidth>
-                  {KARAT_OPTIONS.map((k) => <MenuItem key={k.value || 'na'} value={k.value}>{k.label}</MenuItem>)}
-                </TextField>
-              </Grid>
+              {getKaratOptions(form.metalType).length > 0 && (
+                <Grid item xs={6}>
+                  <TextField select label="Karat / purity" value={form.karat ?? ''} onChange={(e) => set('karat', e.target.value)} fullWidth>
+                    {getKaratOptions(form.metalType).map((k) => <MenuItem key={k} value={k}>{k}</MenuItem>)}
+                  </TextField>
+                </Grid>
+              )}
+              {form.metalType === 'gold' && (
+                <Grid item xs={6}>
+                  <TextField select label="Gold color" value={form.goldColor ?? ''} onChange={(e) => set('goldColor', e.target.value)} fullWidth>
+                    {GOLD_COLORS.map((c) => <MenuItem key={c.value} value={c.value}>{c.label}</MenuItem>)}
+                  </TextField>
+                </Grid>
+              )}
               <Grid item xs={6}>
                 <TextField select label="Budget" value={form.budget ?? ''} onChange={(e) => set('budget', e.target.value)} fullWidth>
                   {BUDGET_RANGES.map((b) => <MenuItem key={b} value={b}>{b}</MenuItem>)}

@@ -1,16 +1,35 @@
 /**
  * Canonical option lists for a CUSTOM REQUEST / custom order spec — shared by the
- * admin "New Custom" form (NewCustomStepper) and the customer-facing efd-shop
- * request form. Keep these in sync with efd-shop/app/lib/customRequest.constants.js
- * (mirror; same `value`s so a shop submission maps cleanly onto a customOrder).
+ * admin "New Custom" form (NewCustomStepper), the OverviewTab edit dialog, and the
+ * customer-facing efd-shop request form. Mirror: efd-shop/lib/customRequest.constants.js
+ * (same `value`s so a shop submission maps cleanly onto a customOrder).
  *
- * Metal + karat reuse the SAME options the repair intake uses (materials.constants),
- * so the custom form matches the new-repair form exactly. Title is intentionally
- * absent — custom requests are labelled by jewelry type + customer, not a free title.
+ * METAL_TYPES / GOLD_COLORS / getKaratOptions are the SINGLE SOURCE OF TRUTH for
+ * metal + karat handling and are also imported by the new-repair form
+ * (app/components/repairs/NewRepairForm.js) so custom intake behaves EXACTLY like
+ * repair intake: metal = gold/silver/platinum/costume, karat options cascade from
+ * the chosen metal, karat + gold color reset when the metal changes, and gold
+ * exposes a colour. Title is intentionally absent — custom requests are labelled by
+ * jewelry type + metal, not a free title.
  */
-import { METAL_OPTIONS, KARAT_OPTIONS } from '@/utils/materials.constants';
 
-export { METAL_OPTIONS, KARAT_OPTIONS };
+// Metal + karat — cascading model (karat options depend on the metal).
+export const METAL_TYPES = [
+  { value: 'gold', label: 'Gold', karatOptions: ['10k', '14k', '18k', '22k'] },
+  { value: 'silver', label: 'Silver', karatOptions: ['925', '999'] },
+  { value: 'platinum', label: 'Platinum', karatOptions: ['950', '999'] },
+  { value: 'costume', label: 'Costume', karatOptions: [] },
+];
+
+export const GOLD_COLORS = [
+  { value: 'yellow', label: 'Yellow Gold' },
+  { value: 'white', label: 'White Gold' },
+  { value: 'rose', label: 'Rose Gold' },
+];
+
+/** Karat options for a given metal value (empty for costume / unknown). */
+export const getKaratOptions = (metalType) =>
+  METAL_TYPES.find((m) => m.value === metalType)?.karatOptions || [];
 
 export const JEWELRY_TYPES = [
   'Engagement Ring', 'Wedding Band', 'Ring', 'Necklace', 'Pendant',
@@ -38,8 +57,16 @@ export const GEMSTONE_OPTIONS = [
 
 const titleCase = (s) => String(s || '').replace(/[-_]/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 
-export const metalLabel = (value) => METAL_OPTIONS.find((m) => m.value === value)?.label || titleCase(value);
-export const karatLabel = (value) => KARAT_OPTIONS.find((k) => k.value === value)?.label || (value || '');
+/** Human metal label: gold qualified by colour ("Yellow Gold"), else the metal label. */
+export function metalDisplay(metalType, goldColor) {
+  if (!metalType) return '';
+  if (metalType === 'gold') {
+    return GOLD_COLORS.find((c) => c.value === goldColor)?.label || 'Gold';
+  }
+  return METAL_TYPES.find((m) => m.value === metalType)?.label || titleCase(metalType);
+}
+
+export const karatLabel = (value) => (value ? String(value).toUpperCase() : '');
 
 /**
  * The human label for a custom order (title is deprecated). Prefers the jewelry
@@ -48,7 +75,7 @@ export const karatLabel = (value) => KARAT_OPTIONS.find((k) => k.value === value
 export function customOrderLabel(order = {}) {
   const jt = titleCase(order.jewelryType);
   if (jt) {
-    const metal = order.metalType ? metalLabel(order.metalType) : '';
+    const metal = metalDisplay(order.metalType, order.goldColor);
     return metal ? `${jt} · ${metal}` : jt;
   }
   return order.title || 'Custom Order';

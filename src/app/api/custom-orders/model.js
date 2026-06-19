@@ -95,6 +95,7 @@ export default class CustomOrdersModel {
       jewelryType: data.jewelryType ?? null,
       metalType: data.metalType ?? null,
       karat: data.karat ?? null,
+      goldColor: data.goldColor ?? null,
       size: data.size ?? null,
       gemstones: Array.isArray(data.gemstones) ? data.gemstones : [],
       budget: data.budget ?? null,
