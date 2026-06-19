@@ -124,10 +124,13 @@ export async function spawnCustomWorkOrder({
 }
 
 /**
- * Record a casting cost on a custom (C7). Casting is a purchased input, so it:
- *  1. adds a material cost line to the piece (→ piece COGS → margin), and
+ * CASTING RECEIVED (C7 + realignment) — the workflow moment the cast metal arrives
+ * with the vendor's invoice. Casting is a purchased input, so it:
+ *  1. adds a material cost line to the piece (→ piece COGS → margin),
  *  2. writes a business-expense ledger entry,
- * both stamped with the casting vendor's invoice number.
+ *  both stamped with the vendor's invoice number; and
+ *  3. GENERATES the in-house bench work orders from the quote — you can't do bench
+ *     work (cleanup, setting, polish) until the cast is in hand. Idempotent.
  */
 export async function addCastingCost({ customID, amount, vendor = '', invoiceNumber = '', notes = '', paymentMethod = 'other', status = 'paid', createdBy = null }) {
   const amt = Number(amount);
@@ -163,7 +166,11 @@ export async function addCastingCost({ customID, amount, vendor = '', invoiceNum
     createdBy,
   });
 
-  return { piece, expense };
+  // Casting is in hand → generate the in-house bench work orders from the quote (idempotent).
+  const generation = await generateWorkOrdersFromQuote({ customID, createdBy: createdBy || 'system' });
+  await CustomOrdersModel.updateById(customID, { castingReceivedAt: new Date() });
+
+  return { piece, expense, generation };
 }
 
 /**

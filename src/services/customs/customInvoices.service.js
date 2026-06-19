@@ -99,15 +99,8 @@ export async function setCustomInvoiceStatus(customID, invoiceID, status) {
     const target = progress.hasReached50 ? CUSTOM_ORDER_STATUS.IN_PRODUCTION : CUSTOM_ORDER_STATUS.DEPOSIT;
     if ((STATUS_RANK[order.status] ?? 0) < (STATUS_RANK[target] ?? 0)) {
       await CustomOrdersModel.updateById(customID, { status: target }, { changedBy: 'system', reason: `payment ${progress.paymentProgress}%` });
-      // Quote plans the work: production start generates the bench WOs from the quote (idempotent).
-      if (target === CUSTOM_ORDER_STATUS.IN_PRODUCTION) {
-        try {
-          const { generateWorkOrdersFromQuote } = await import('@/services/customs/customProduction');
-          await generateWorkOrdersFromQuote({ customID });
-        } catch (e) {
-          console.error('generateWorkOrdersFromQuote failed:', e.message);
-        }
-      }
+      // Note: bench work orders are generated at CASTING RECEIVED (not deposit) — you
+      // can't do in-house bench work until the cast metal is in hand. See customProduction.recordCastingReceived.
     }
     notifyPayment(order, invoice, progress); // fire-and-forget
   }

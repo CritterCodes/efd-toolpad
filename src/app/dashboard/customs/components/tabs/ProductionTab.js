@@ -95,7 +95,7 @@ export default function ProductionTab({ customID, order, margin, notify, onChang
             <BuildCircleIcon sx={{ color: REPAIRS_UI.accent }} />
             <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader }}>Production &amp; COGS</Typography>
           </Stack>
-          <Button size="small" variant="outlined" disabled={busy} onClick={() => setCastOpen(true)} sx={{ borderColor: REPAIRS_UI.border, color: REPAIRS_UI.textPrimary }}>Record casting</Button>
+          <Button size="small" variant="outlined" disabled={busy} onClick={() => setCastOpen(true)} sx={{ borderColor: REPAIRS_UI.border, color: REPAIRS_UI.textPrimary }}>Casting received</Button>
         </Stack>
         <Grid container spacing={2}>
           <Grid item xs={6} sm={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>Work orders</Typography><Typography sx={{ fontWeight: 700, color: REPAIRS_UI.textPrimary }}>{workOrders.length}</Typography></Grid>
@@ -180,10 +180,10 @@ export default function ProductionTab({ customID, order, margin, notify, onChang
       </Dialog>
 
       <Dialog open={castOpen} onClose={() => !busy && setCastOpen(false)} fullWidth maxWidth="sm" PaperProps={dialogPaperProps}>
-        <DialogTitle>Record casting cost</DialogTitle>
+        <DialogTitle>Casting received</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>Adds a material line to the piece COGS and writes a finance/expenses ledger entry, both stamped with the vendor invoice number.</Typography>
+            <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>Records the vendor casting invoice → piece COGS + finance/expenses ledger (both stamped with the invoice #), and generates the in-house bench work orders from the quote.</Typography>
             <TextField label="Amount" type="number" value={castForm.amount} onChange={(e) => setCastForm((f) => ({ ...f, amount: e.target.value }))} fullWidth />
             <TextField label="Casting vendor" value={castForm.vendor} onChange={(e) => setCastForm((f) => ({ ...f, vendor: e.target.value }))} fullWidth />
             <TextField label="Vendor invoice #" value={castForm.invoiceNumber} onChange={(e) => setCastForm((f) => ({ ...f, invoiceNumber: e.target.value }))} fullWidth />
