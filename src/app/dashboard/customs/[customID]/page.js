@@ -126,6 +126,12 @@ export default function CustomDetailPage() {
     const res = await fetch(`/api/custom-orders/${customID}/invoices/${invoiceID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'paid' }) });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Mark-paid failed');
   }, 'Invoice marked paid');
+  const sendPaymentLink = (invoiceID) => call(async () => {
+    const res = await fetch(`/api/custom-orders/${customID}/invoices/${invoiceID}/checkout`, { method: 'POST' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Could not create payment link');
+    if (data.url) { try { await navigator.clipboard.writeText(data.url); } catch { /* clipboard optional */ } }
+  }, 'Payment link sent to client (and copied to clipboard)');
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress sx={{ color: REPAIRS_UI.accent }} /></Box>;
   if (!order) {
     return (
@@ -235,7 +241,15 @@ export default function CustomDetailPage() {
                   <TableCell sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>{inv.type}</TableCell>
                   <TableCell align="right" sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>{money(inv.amount)}</TableCell>
                   <TableCell sx={{ borderColor: REPAIRS_UI.border }}><Chip size="small" label={inv.status} color={inv.status === 'paid' ? 'success' : inv.status === 'cancelled' ? 'default' : 'warning'} /></TableCell>
-                  <TableCell align="right" sx={{ borderColor: REPAIRS_UI.border }}>{inv.status !== 'paid' && inv.status !== 'cancelled' && <Button size="small" disabled={busy} onClick={() => markPaid(inv.invoiceID)} sx={{ color: REPAIRS_UI.accent }}>Mark paid</Button>}</TableCell>
+                  <TableCell align="right" sx={{ borderColor: REPAIRS_UI.border }}>
+                    {inv.status !== 'paid' && inv.status !== 'cancelled' && (
+                      <Stack direction="row" spacing={0.5} justifyContent="flex-end" alignItems="center">
+                        <Button size="small" disabled={busy} onClick={() => sendPaymentLink(inv.invoiceID)} sx={{ color: '#64B5F6' }}>{inv.checkoutUrl ? 'Resend link' : 'Send payment link'}</Button>
+                        {inv.checkoutUrl && <Button size="small" component="a" href={inv.checkoutUrl} target="_blank" rel="noreferrer" sx={{ color: REPAIRS_UI.textSecondary, minWidth: 0 }}>Open</Button>}
+                        <Button size="small" disabled={busy} onClick={() => markPaid(inv.invoiceID)} sx={{ color: REPAIRS_UI.accent }}>Mark paid</Button>
+                      </Stack>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

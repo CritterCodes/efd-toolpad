@@ -64,4 +64,14 @@ export default class CustomInvoicesModel {
     await col.updateOne({ invoiceID }, { $set: set });
     return this.findById(invoiceID);
   }
+
+  /** Store the Stripe Checkout session + payment link on the invoice. */
+  static async setCheckout(invoiceID, { sessionID, checkoutUrl }) {
+    const col = await this.collection();
+    await col.updateOne(
+      { invoiceID },
+      { $set: { stripeSessionID: sessionID, checkoutUrl, checkoutCreatedAt: new Date(), updatedAt: new Date() } },
+    );
+    return this.findById(invoiceID);
+  }
 }

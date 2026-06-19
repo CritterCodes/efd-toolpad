@@ -11,6 +11,7 @@ import CustomOrdersModel, { CUSTOM_ORDER_STATUS } from '@/app/api/custom-orders/
 import CustomInvoicesModel, { CUSTOM_INVOICE_STATUS } from '@/app/api/custom-orders/invoices/model';
 import { computePaymentProgress } from '@/services/customs/paymentProgress';
 import { NotificationService, NOTIFICATION_TYPES } from '@/lib/notificationService';
+import { createCheckoutSession } from '@/app/api/custom-orders/stripe';
 
 const STATUS_RANK = {
   pending: 0, consultation: 1, design: 2, quote: 3, deposit: 4,
@@ -78,6 +79,46 @@ export async function createCustomInvoice(customID, data) {
 
   notifyInvoiceCreated(order, invoice); // fire-and-forget
   return { invoice, progress };
+}
+
+/**
+ * Create a Stripe Checkout payment link for an invoice and email it to the client.
+ * The webhook (checkout.session.completed) marks the invoice paid — this only sends
+ * the request. Re-runnable: generates a fresh link if the prior one wasn't paid.
+ */
+export async function createInvoiceCheckout(customID, invoiceID) {
+  const order = await CustomOrdersModel.findById(customID);
+  if (!order) throw new Error('Custom order not found.');
+  const invoice = await CustomInvoicesModel.findById(invoiceID);
+  if (!invoice || invoice.customID !== customID) throw new Error('Invoice not found.');
+  if (invoice.status === CUSTOM_INVOICE_STATUS.PAID) { const e = new Error('Invoice is already paid.'); e.code = 'BAD_REQUEST'; throw e; }
+
+  const base = (process.env.EFD_SHOP_URL || process.env.NEXT_PUBLIC_URL || '').replace(/\/$/, '');
+  const session = await createCheckoutSession({
+    amountInCents: Math.round((Number(invoice.amount) || 0) * 100),
+    invoiceID,
+    customID,
+    customerEmail: invoice.customerEmail || order.customerEmail || '',
+    description: `${order.jewelryType || 'Custom order'} ${customID} — ${invoice.type} payment`,
+    successUrl: `${base}/custom-work/portal?paid=${invoiceID}`,
+    cancelUrl: `${base}/custom-work/portal?cancelled=${invoiceID}`,
+  });
+
+  const updated = await CustomInvoicesModel.setCheckout(invoiceID, { sessionID: session.id, checkoutUrl: session.url });
+
+  // Email the payment link to the client (fire-and-forget).
+  NotificationService.createNotification({
+    userId: order.clientID,
+    type: NOTIFICATION_TYPES.INVOICE_CREATED,
+    title: 'Payment link ready',
+    message: `Your ${invoice.type} payment of $${(Number(invoice.amount) || 0).toFixed(2)} is ready. Pay securely: ${session.url}`,
+    channels: ['inApp', 'email'],
+    templateName: 'invoice-created',
+    recipientEmail: invoice.customerEmail || order.customerEmail || '',
+    data: { customID, invoiceNumber: invoice.invoiceNumber, amount: (Number(invoice.amount) || 0).toFixed(2), type: invoice.type, checkoutUrl: session.url },
+  }).catch((e) => console.error('⚠️ payment-link notification failed:', e.message));
+
+  return { url: session.url, invoice: updated };
 }
 
 export async function getCustomPaymentProgress(customID) {
