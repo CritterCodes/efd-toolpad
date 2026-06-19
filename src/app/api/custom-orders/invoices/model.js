@@ -57,10 +57,13 @@ export default class CustomInvoicesModel {
     return col.findOne({ invoiceID }, { projection: { _id: 0 } });
   }
 
-  static async updateStatus(invoiceID, status) {
+  static async updateStatus(invoiceID, status, paymentMethod = null) {
     const col = await this.collection();
     const set = { status, updatedAt: new Date() };
-    if (status === CUSTOM_INVOICE_STATUS.PAID) set.paidAt = new Date();
+    if (status === CUSTOM_INVOICE_STATUS.PAID) {
+      set.paidAt = new Date();
+      if (paymentMethod) set.paymentMethod = paymentMethod; // cash | card | stripe | other
+    }
     await col.updateOne({ invoiceID }, { $set: set });
     return this.findById(invoiceID);
   }

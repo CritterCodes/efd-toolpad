@@ -30,7 +30,7 @@ export const POST = async (req) => {
       const meta = session.metadata || {};
       const paid = session.payment_status === 'paid' || session.status === 'complete';
       if (meta.kind === 'custom_invoice' && meta.customID && meta.invoiceID && paid) {
-        await setCustomInvoiceStatus(meta.customID, meta.invoiceID, CUSTOM_INVOICE_STATUS.PAID);
+        await setCustomInvoiceStatus(meta.customID, meta.invoiceID, CUSTOM_INVOICE_STATUS.PAID, 'stripe');
       }
     }
   } catch (error) {

@@ -127,10 +127,10 @@ export async function getCustomPaymentProgress(customID) {
   return progressFor(order);
 }
 
-export async function setCustomInvoiceStatus(customID, invoiceID, status) {
+export async function setCustomInvoiceStatus(customID, invoiceID, status, paymentMethod = null) {
   const order = await CustomOrdersModel.findById(customID);
   if (!order) throw new Error('Custom order not found.');
-  const invoice = await CustomInvoicesModel.updateStatus(invoiceID, status);
+  const invoice = await CustomInvoicesModel.updateStatus(invoiceID, status, paymentMethod);
   if (!invoice) throw new Error('Invoice not found.');
 
   const { progress } = await progressFor(order);
