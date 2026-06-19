@@ -241,12 +241,21 @@ bench labor (gated on QC) → COGS rollup → margin, all on the unified bench.
 After the parity push, course-corrected back to the original intent: **building the quote plans the work** —
 the quote's lines drive production, they aren't a disconnected estimate.
 - Each quote **labor task carries a discipline** (cad/bench_jewelry/engraving/gem_cutting).
-- **On production start (deposit ≥ 50% → in_production)**, the quote's labor tasks GENERATE bench work orders
-  (one per task, in its lane, with the estimated hours). Idempotent (`productionGeneratedAt` guard).
+- **On casting-received**, the quote's labor tasks GENERATE the in-house bench work orders (one per task, in its
+  lane, with the estimated hours). Idempotent (`productionGeneratedAt` guard). You can't do bench work (cleanup,
+  setting, polish) until the cast metal is physically in hand, which is exactly the "Casting received" event.
 - The **CAD work order stays spawned at assignment** (design happens before the quote is finalized).
 - Casting (C7) + actual materials are recorded on the piece as real cost; the quote lines are the CHARGE.
 - Margin still = quote total − actual piece COGS. Manual "Add work order" remains a supplement.
-Decision (owner): generation trigger = on production start (deposit-paid threshold), not on quote save.
+- **Generation trigger = casting-received** (`addCastingCost`), superseding the earlier deposit/in_production
+  trigger. Owner's real workflow: quote → client approves → order from vendor → vendor invoices on completion →
+  pay → receive the cast piece **with the receipt** → that receipt moment records the vendor invoice
+  (→ piece COGS + expense ledger) AND creates the in-house bench WOs. The deposit/in_production hooks were removed
+  from `customInvoices.service` and the order PUT route.
+- **Model quoter feeds the Mounting line.** The CAD STL upload computes the model volume (mm³→cm³, stored on the
+  piece as `printVolumeCm3` and surfaced on the order as `designModel.stlVolumeCm3`). The Quote tab's Mounting
+  section has **"Estimate from model"**: pick a metal → live per-gram prices × volume → `estimateMetalCost`
+  fills the mounting cost. This replaces the "get a casting quote from the vendor" step before ordering.
 
 **🎉 CUSTOMS BUILD COMPLETE (C1–C8 + client-base intake).** Full parity UI on the new model + the entire
 quote → assignment → CAD/STL → CAD QC peer-review payout → GLB → casting (→ expense ledger) → bench labor
