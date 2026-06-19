@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Paper, Stack, Typography, Button, IconButton, Divider, TextField, Grid, Chip,
-  FormControlLabel, Switch, InputAdornment, Autocomplete,
+  FormControlLabel, Switch, InputAdornment, Autocomplete, MenuItem,
 } from '@mui/material';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import InsightsIcon from '@mui/icons-material/Insights';
@@ -21,6 +21,18 @@ const money = (x) => `$${(Number(x) || 0).toLocaleString(undefined, { minimumFra
 const n = (v) => Number(v) || 0;
 const lineSum = (arr) => (arr || []).reduce((s, x) => s + n(x.cost) * Math.max(n(x.quantity) || 1, 1), 0);
 const goldBtn = { backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } };
+const DISCIPLINE_OPTS = [
+  { value: 'bench_jewelry', label: 'Bench' }, { value: 'cad', label: 'CAD' },
+  { value: 'engraving', label: 'Engraving' }, { value: 'gem_cutting', label: 'Gem Cutting' },
+];
+// Map a task-catalog category to a bench discipline (for the generated work order's lane).
+function categoryToDiscipline(category = '') {
+  const c = String(category).toLowerCase();
+  if (/cad|design/.test(c)) return 'cad';
+  if (/engrav/.test(c)) return 'engraving';
+  if (/gem|cut|lapidar|ston.*cut/.test(c)) return 'gem_cutting';
+  return 'bench_jewelry';
+}
 
 function CardHead({ icon: Icon, title, action, color = REPAIRS_UI.accent }) {
   return (
@@ -62,7 +74,7 @@ function TaskAutocomplete({ value, disabled, onText, onPick }) {
       getOptionLabel={(o) => (typeof o === 'string' ? o : o.label || '')}
       isOptionEqualToValue={(o, v) => o.label === v.label}
       onInputChange={(_, v) => { setInput(v); onText(v); }}
-      onChange={(_, v) => { if (v && typeof v !== 'string') onPick({ description: v.label, cost: v.cost, hours: v.hours }); }}
+      onChange={(_, v) => { if (v && typeof v !== 'string') onPick({ description: v.label, cost: v.cost, hours: v.hours, category: v.category }); }}
       renderOption={(props, o) => (
         <Box component="li" {...props} sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
           <span>{o.label}</span>
@@ -77,24 +89,32 @@ function TaskAutocomplete({ value, disabled, onText, onPick }) {
   );
 }
 
-/** Repeatable line-item editor (description [+qty] + cost). `suggest` → task autocomplete. */
-function LineEditor({ rows, onChange, withQty, editMode, emptyText, suggest }) {
+/** Repeatable line-item editor (description [+discipline][+qty] + cost). `suggest` → task autocomplete. */
+function LineEditor({ rows, onChange, withQty, withDiscipline, editMode, emptyText, suggest }) {
   const set = (i, k, v) => onChange(rows.map((r, idx) => (idx === i ? { ...r, [k]: v } : r)));
   const patch = (i, obj) => onChange(rows.map((r, idx) => (idx === i ? { ...r, ...obj } : r)));
   const remove = (i) => onChange(rows.filter((_, idx) => idx !== i));
   if (!rows.length) return <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted, py: 1 }}>{emptyText}</Typography>;
+  const descSm = withDiscipline ? 5 : (withQty ? 6 : 8);
   return (
     <Stack spacing={1}>
       {rows.map((r, i) => (
         <Grid container spacing={1} key={i} alignItems="center">
-          <Grid item xs={withQty ? 6 : 8}>
+          <Grid item xs={12} sm={descSm}>
             {suggest
-              ? <TaskAutocomplete value={r.description} disabled={!editMode} onText={(v) => set(i, 'description', v)} onPick={({ description, cost, hours }) => patch(i, { description, cost, hours })} />
+              ? <TaskAutocomplete value={r.description} disabled={!editMode} onText={(v) => set(i, 'description', v)} onPick={({ description, cost, hours, category }) => patch(i, { description, cost, hours, ...(category ? { discipline: categoryToDiscipline(category) } : {}) })} />
               : <TextField fullWidth size="small" label="Description" value={r.description || ''} disabled={!editMode} onChange={(e) => set(i, 'description', e.target.value)} />}
           </Grid>
-          {withQty && <Grid item xs={2}><TextField fullWidth size="small" label="Qty" type="number" value={r.quantity ?? 1} disabled={!editMode} onChange={(e) => set(i, 'quantity', e.target.value)} /></Grid>}
-          <Grid item xs={3}><TextField fullWidth size="small" label="Cost" type="number" value={r.cost ?? 0} disabled={!editMode} onChange={(e) => set(i, 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
-          <Grid item xs={1}>{editMode && <IconButton size="small" onClick={() => remove(i)} sx={{ color: REPAIRS_UI.textMuted }}><DeleteIcon fontSize="small" /></IconButton>}</Grid>
+          {withDiscipline && (
+            <Grid item xs={6} sm={3}>
+              <TextField select fullWidth size="small" label="Lane" value={r.discipline || 'bench_jewelry'} disabled={!editMode} onChange={(e) => set(i, 'discipline', e.target.value)}>
+                {DISCIPLINE_OPTS.map((d) => <MenuItem key={d.value} value={d.value}>{d.label}</MenuItem>)}
+              </TextField>
+            </Grid>
+          )}
+          {withQty && <Grid item xs={4} sm={withDiscipline ? 1 : 2}><TextField fullWidth size="small" label="Qty" type="number" value={r.quantity ?? 1} disabled={!editMode} onChange={(e) => set(i, 'quantity', e.target.value)} /></Grid>}
+          <Grid item xs={withDiscipline ? 6 : 8} sm={withDiscipline ? 2 : 3}><TextField fullWidth size="small" label="Cost" type="number" value={r.cost ?? 0} disabled={!editMode} onChange={(e) => set(i, 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
+          <Grid item xs={2} sm={1}>{editMode && <IconButton size="small" onClick={() => remove(i)} sx={{ color: REPAIRS_UI.textMuted }}><DeleteIcon fontSize="small" /></IconButton>}</Grid>
         </Grid>
       ))}
     </Stack>
@@ -197,7 +217,7 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
         centerstone: form.centerstone, mounting: form.mounting,
         accentStones: form.accentStones.map((r) => ({ description: r.description || '', quantity: n(r.quantity) || 1, cost: n(r.cost) })),
         additionalMaterials: form.additionalMaterials.map((r) => ({ description: r.description || '', quantity: n(r.quantity) || 1, cost: n(r.cost) })),
-        laborTasks: form.laborTasks.map((r) => ({ description: r.description || '', quantity: n(r.quantity) || 1, cost: n(r.cost) })),
+        laborTasks: form.laborTasks.map((r) => ({ description: r.description || '', quantity: n(r.quantity) || 1, cost: n(r.cost), hours: n(r.hours), discipline: r.discipline || 'bench_jewelry' })),
         shippingCosts: form.shippingCosts.map((r) => ({ description: r.description || '', cost: n(r.cost) })),
         isRush: form.isRush, includeCustomDesign: form.includeCustomDesign, designFee: n(form.designFee),
         // clear legacy flats so they don't double-count
@@ -217,7 +237,7 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
   const unpublish = async () => { if (await persist({ quotePublished: false, publishedAt: null })) notify('Quote unpublished', 'success'); };
 
   const published = !!q.quotePublished;
-  const lineAdd = (key, withQty) => setField(key, [...form[key], withQty ? { description: '', quantity: 1, cost: 0 } : { description: '', cost: 0 }]);
+  const lineAdd = (key, newRow) => setField(key, [...form[key], newRow]);
 
   return (
     <Stack spacing={2}>
@@ -255,27 +275,28 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
         </Grid>
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
           <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, fontWeight: 600 }}>Accent stones</Typography>
-          {editMode && <Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('accentStones', true)} sx={{ color: REPAIRS_UI.accent }}>Add stone</Button>}
+          {editMode && <Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('accentStones', { description: '', quantity: 1, cost: 0 })} sx={{ color: REPAIRS_UI.accent }}>Add stone</Button>}
         </Stack>
         <LineEditor rows={form.accentStones} onChange={(rows) => setField('accentStones', rows)} withQty editMode={editMode} emptyText="No accent stones." />
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 2, mb: 1 }}>
           <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, fontWeight: 600 }}>Additional materials</Typography>
-          {editMode && <Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('additionalMaterials', true)} sx={{ color: REPAIRS_UI.accent }}>Add material</Button>}
+          {editMode && <Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('additionalMaterials', { description: '', quantity: 1, cost: 0 })} sx={{ color: REPAIRS_UI.accent }}>Add material</Button>}
         </Stack>
         <LineEditor rows={form.additionalMaterials} onChange={(rows) => setField('additionalMaterials', rows)} withQty editMode={editMode} emptyText="No additional materials." />
       </Paper>
 
       {/* Phase 2: Labor */}
       <Paper sx={cardSx}>
-        <CardHead icon={BuildIcon} title="Labor Tasks" action={editMode && <Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('laborTasks', true)} sx={{ color: REPAIRS_UI.accent }}>Add task</Button>} />
-        <LineEditor rows={form.laborTasks} onChange={(rows) => setField('laborTasks', rows)} withQty editMode={editMode} suggest emptyText='No labor tasks. Click "Add task" to add production tasks.' />
+        <CardHead icon={BuildIcon} title="Labor Tasks" action={editMode && <Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('laborTasks', { description: '', quantity: 1, cost: 0, hours: 0, discipline: 'bench_jewelry' })} sx={{ color: REPAIRS_UI.accent }}>Add task</Button>} />
+        <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 1 }}>Each task generates a bench work order in its lane when the order reaches production (deposit ≥ 50%).</Typography>
+        <LineEditor rows={form.laborTasks} onChange={(rows) => setField('laborTasks', rows)} withQty withDiscipline editMode={editMode} suggest emptyText='No labor tasks. Click "Add task" to add production tasks.' />
       </Paper>
 
       {/* Phase 3: Additional services */}
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}>
           <Paper sx={cardSx}>
-            <CardHead icon={ShippingIcon} title="Shipping" action={editMode && <Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('shippingCosts', false)} sx={{ color: REPAIRS_UI.accent }}>Add shipping</Button>} />
+            <CardHead icon={ShippingIcon} title="Shipping" action={editMode && <Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('shippingCosts', { description: '', cost: 0 })} sx={{ color: REPAIRS_UI.accent }}>Add shipping</Button>} />
             <LineEditor rows={form.shippingCosts} onChange={(rows) => setField('shippingCosts', rows)} editMode={editMode} emptyText="No shipping costs." />
           </Paper>
         </Grid>

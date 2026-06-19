@@ -236,6 +236,18 @@ bench labor (gated on QC) → COGS rollup → margin, all on the unified bench.
   Logged as a flat-fee labor entry on the CAD WO (payroll + nets out of margin), idempotent. Verified live:
   designer-managed → 43.75 (5% of 875); admin-managed → 0.
 
+## REALIGNMENT (2026-06): the quote IS the production plan
+
+After the parity push, course-corrected back to the original intent: **building the quote plans the work** —
+the quote's lines drive production, they aren't a disconnected estimate.
+- Each quote **labor task carries a discipline** (cad/bench_jewelry/engraving/gem_cutting).
+- **On production start (deposit ≥ 50% → in_production)**, the quote's labor tasks GENERATE bench work orders
+  (one per task, in its lane, with the estimated hours). Idempotent (`productionGeneratedAt` guard).
+- The **CAD work order stays spawned at assignment** (design happens before the quote is finalized).
+- Casting (C7) + actual materials are recorded on the piece as real cost; the quote lines are the CHARGE.
+- Margin still = quote total − actual piece COGS. Manual "Add work order" remains a supplement.
+Decision (owner): generation trigger = on production start (deposit-paid threshold), not on quote save.
+
 **🎉 CUSTOMS BUILD COMPLETE (C1–C8 + client-base intake).** Full parity UI on the new model + the entire
 quote → assignment → CAD/STL → CAD QC peer-review payout → GLB → casting (→ expense ledger) → bench labor
 (gated on QC) → COGS → margin → client-management bonus flow, all on the unified bench/payroll.

@@ -218,6 +218,37 @@ export async function awardClientMgmtBonus({ customID }) {
   return { bonus, eligible: true, designer: cad.name };
 }
 
+/**
+ * Generate bench work orders FROM the quote's labor tasks (the realignment: the
+ * quote plans the work). Called when the order reaches production (deposit ≥ 50%).
+ * One WO per labor task, in its discipline, carrying the estimated hours. The CAD
+ * design WO is spawned earlier at assignment, so this is the bench/production work.
+ * Idempotent — guarded by order.productionGeneratedAt.
+ */
+export async function generateWorkOrdersFromQuote({ customID, createdBy = 'system' }) {
+  const order = await CustomOrdersModel.findById(customID);
+  if (!order) return null;
+  if (order.productionGeneratedAt) return { generated: 0, skipped: 'already-generated' };
+
+  const tasks = order.quote?.laborTasks || [];
+  let generated = 0;
+  for (const t of tasks) {
+    const desc = String(t.description || '').trim();
+    if (!desc) continue;
+    await spawnCustomWorkOrder({
+      customID,
+      discipline: t.discipline || DISCIPLINE.BENCH_JEWELRY,
+      title: desc,
+      estLaborHours: Number(t.hours) || 0,
+      process: desc,
+      createdBy,
+    });
+    generated += 1;
+  }
+  await CustomOrdersModel.updateById(customID, { productionGeneratedAt: new Date() });
+  return { generated };
+}
+
 /** All work orders across the custom's piece(s), each with its accrued labor. */
 export async function getCustomWorkOrders(customID) {
   const order = await CustomOrdersModel.findById(customID);

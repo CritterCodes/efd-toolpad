@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/apiAuth';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
-import { awardClientMgmtBonus } from '@/services/customs/customProduction';
+import { awardClientMgmtBonus, generateWorkOrdersFromQuote } from '@/services/customs/customProduction';
 
 /** GET /api/custom-orders/[customID] — returns the order + live margin (quote − piece COGS) */
 export const GET = async (req, { params }) => {
@@ -29,6 +29,10 @@ export const PUT = async (req, { params }) => {
   });
   if (!updated) return NextResponse.json({ error: 'Custom order not found.' }, { status: 404 });
 
+  // Quote plans the work: reaching production generates bench WOs from the quote (idempotent).
+  if (updated.status === 'in_production' && existing?.status !== 'in_production') {
+    try { await generateWorkOrdersFromQuote({ customID }); } catch (e) { console.error('generateWorkOrdersFromQuote failed:', e.message); }
+  }
   // On completion, award the client-management bonus (C8) — best-effort.
   if (updated.status === 'completed' && existing?.status !== 'completed') {
     try {
