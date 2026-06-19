@@ -37,14 +37,14 @@ const goldBtn = { bgcolor: REPAIRS_UI.accent, color: '#000', fontSize: '0.75rem'
 function sourceTitle(wo) {
   const s = wo.source || {};
   if (s.kind === 'repair') return s.clientName || s.businessName || wo.sourceID;
-  if (s.kind === 'piece') return s.designName || s.sku || wo.title || wo.sourceID;
+  if (s.kind === 'piece') return s.custom?.label || s.designName || s.sku || wo.title || wo.sourceID;
   return wo.title || wo.sourceType;
 }
 
 function sourceTag(wo) {
   const s = wo.source || {};
   if (s.kind === 'repair') return 'Repair';
-  if (s.kind === 'piece') return 'Piece';
+  if (s.kind === 'piece') return s.custom ? 'Custom' : 'Piece';
   return wo.sourceType;
 }
 
@@ -69,6 +69,7 @@ export default function BenchWorkCard({
   const isCadQc = isPiece && isCad && wo.benchQueue === BENCH_QUEUE.QC;
   const isMine = wo.assignedToUserID && wo.assignedToUserID === currentUserID;
   const repairID = wo.sourceID;
+  const custom = wo.source?.custom || null;
   const desc = wo.source?.description || wo.description || '';
 
   return (
@@ -125,6 +126,11 @@ export default function BenchWorkCard({
                 {desc.slice(0, 100)}{desc.length > 100 ? '…' : ''}
               </Typography>
             )}
+            {custom?.customerName && (
+              <Typography variant="caption" sx={{ display: 'block', color: REPAIRS_UI.textSecondary }}>
+                Customer: {custom.customerName}
+              </Typography>
+            )}
             {wo.assignedJeweler && (
               <Typography variant="caption" sx={{ display: 'block', color: REPAIRS_UI.textMuted }}>
                 Assigned to: {wo.assignedJeweler}
@@ -152,6 +158,12 @@ export default function BenchWorkCard({
         {isRepair && (
           <Button size="small" variant="outlined" onClick={() => router.push(`/dashboard/repairs/${repairID}`)} sx={btn()}>
             View
+          </Button>
+        )}
+
+        {isPiece && custom?.customID && (
+          <Button size="small" variant="outlined" onClick={() => router.push(`/dashboard/customs/${custom.customID}`)} sx={btn()}>
+            View Custom
           </Button>
         )}
 

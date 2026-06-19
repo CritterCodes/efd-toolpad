@@ -13,6 +13,7 @@ import { db } from '@/lib/database';
 import { getActiveBenchRawStatuses } from '@/services/repairWorkflow';
 import { disciplinesForArtisanTypes, DISCIPLINE } from '@/services/workOrders/disciplines';
 import { projectWorkOrder } from '@/services/workOrders/workOrderWorkflow';
+import { customOrderLabel } from '@/constants/customRequest.constants';
 
 // Roles that see every discipline (matches lib/apiAuth.isAdmin). Inlined so this
 // service stays decoupled from the auth module (next-auth) and unit-testable.
@@ -61,13 +62,24 @@ export async function getBenchWorkOrders({ session } = {}) {
     pieceIDs.length
       ? dbInstance.collection('pieces').find(
           { pieceID: { $in: pieceIDs } },
-          { projection: { _id: 0, pieceID: 1, designID: 1, status: 1, totalCOGS: 1, sku: 1 } }
+          { projection: { _id: 0, pieceID: 1, designID: 1, status: 1, totalCOGS: 1, sku: 1, customOrderID: 1 } }
         ).toArray()
       : [],
   ]);
 
   const repairMap = new Map(repairs.map((r) => [r.repairID, r]));
   const pieceMap = new Map(pieces.map((p) => [p.pieceID, p]));
+
+  // For custom-linked pieces, pull the custom order so bench cards are recognizable
+  // (customer + jewelry type) and link back to the custom, not a bare piece ID.
+  const customOrderIDs = [...new Set(pieces.map((p) => p.customOrderID).filter(Boolean))];
+  const customOrders = customOrderIDs.length
+    ? await dbInstance.collection('customOrders').find(
+        { customID: { $in: customOrderIDs } },
+        { projection: { _id: 0, customID: 1, customerName: 1, jewelryType: 1, metalType: 1, goldColor: 1, title: 1 } }
+      ).toArray()
+    : [];
+  const customMap = new Map(customOrders.map((o) => [o.customID, o]));
 
   const designIDs = [...new Set(pieces.map((p) => p.designID).filter(Boolean))];
   const designs = designIDs.length
@@ -84,7 +96,16 @@ export async function getBenchWorkOrders({ session } = {}) {
       source = { kind: 'repair', ...(repairMap.get(wo.sourceID) || {}) };
     } else if (wo.sourceType === 'production_piece') {
       const piece = pieceMap.get(wo.sourceID) || {};
-      source = { kind: 'piece', ...piece, designName: piece.designID ? (designMap.get(piece.designID)?.name ?? null) : null };
+      const customOrder = piece.customOrderID ? customMap.get(piece.customOrderID) : null;
+      source = {
+        kind: 'piece',
+        ...piece,
+        designName: piece.designID ? (designMap.get(piece.designID)?.name ?? null) : null,
+        // Custom context for recognizable cards + a link back to the custom order.
+        custom: customOrder
+          ? { customID: customOrder.customID, customerName: customOrder.customerName, label: customOrderLabel(customOrder) }
+          : null,
+      };
     }
     // Attach the derived, source-agnostic bench queue (mine/unclaimed/
     // communications/waiting_parts/qc) so the unified bench can tab + gate
