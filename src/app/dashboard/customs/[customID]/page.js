@@ -63,7 +63,8 @@ export default function CustomDetailPage() {
   const [tab, setTab] = useState(0);
   const [busy, setBusy] = useState(false);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
-  const [invoiceForm, setInvoiceForm] = useState({ type: 'deposit', amount: 0 });
+  // mode: 'deposit' (depositPct of quote total) | 'full' (remaining balance) | 'custom' (typed amount)
+  const [invoiceForm, setInvoiceForm] = useState({ mode: 'deposit', depositPct: 50, amount: '' });
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
 
   const notify = (message, severity = 'success') => setSnack({ open: true, message, severity });
@@ -103,10 +104,23 @@ export default function CustomDetailPage() {
     const res = await fetch(`/api/custom-orders/${customID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields) });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Save failed');
   }, 'Details saved');
+  const quoteTotal = Number(order?.quote?.quoteTotal) || 0;
+  const remaining = billing.progress ? Number(billing.progress.remainingAmount) || 0 : quoteTotal;
+  const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+  const invoiceAmount = () => {
+    if (invoiceForm.mode === 'full') return round2(remaining || quoteTotal);
+    if (invoiceForm.mode === 'deposit') return round2(quoteTotal * (Number(invoiceForm.depositPct) || 0) / 100);
+    return round2(invoiceForm.amount);
+  };
+  const invoiceType = () => {
+    if (invoiceForm.mode === 'full') return 'final';
+    if (invoiceForm.mode === 'deposit') return 'deposit';
+    return 'partial';
+  };
   const createInvoice = () => call(async () => {
-    const res = await fetch(`/api/custom-orders/${customID}/invoices`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: invoiceForm.type, amount: Number(invoiceForm.amount) }) });
+    const res = await fetch(`/api/custom-orders/${customID}/invoices`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: invoiceType(), amount: invoiceAmount() }) });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Invoice create failed');
-    setInvoiceOpen(false); setInvoiceForm({ type: 'deposit', amount: 0 });
+    setInvoiceOpen(false); setInvoiceForm({ mode: 'deposit', depositPct: 50, amount: '' });
   }, 'Invoice created');
   const markPaid = (invoiceID) => call(async () => {
     const res = await fetch(`/api/custom-orders/${customID}/invoices/${invoiceID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'paid' }) });
@@ -188,6 +202,26 @@ export default function CustomDetailPage() {
               <LinearProgress variant="determinate" value={Math.min(100, progress.paymentProgress)} sx={{ height: 8, borderRadius: 4, backgroundColor: REPAIRS_UI.bgTertiary, '& .MuiLinearProgress-bar': { backgroundColor: REPAIRS_UI.accent } }} />
             </Box>
           )}
+          {progress?.hasReached50 && (() => {
+            const q = order.quote || {};
+            const parts = [
+              q.mounting?.item && { label: 'Mounting', name: q.mounting.item },
+              q.centerstone?.item && { label: 'Center stone', name: q.centerstone.item },
+              ...((q.accentStones || []).filter((s) => s.description).map((s) => ({ label: 'Accent', name: `${s.quantity || 1}× ${s.description}` }))),
+            ].filter(Boolean);
+            return (
+              <Box sx={{ mb: 2, p: 1.5, borderRadius: 1, border: '1px solid rgba(102,187,106,0.4)', backgroundColor: 'rgba(102,187,106,0.08)' }}>
+                <Typography variant="body2" sx={{ color: '#66BB6A', fontWeight: 700, mb: 0.5 }}>50% reached — order the parts</Typography>
+                {parts.length === 0 ? (
+                  <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>No gemstones or mounting on the quote yet.</Typography>
+                ) : (
+                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    {parts.map((p, i) => <Chip key={i} size="small" label={`${p.label}: ${p.name}`} variant="outlined" sx={{ borderColor: REPAIRS_UI.border, color: REPAIRS_UI.textPrimary }} />)}
+                  </Stack>
+                )}
+              </Box>
+            );
+          })()}
           <Table size="small">
             <TableHead><TableRow>
               {['Invoice', 'Type', 'Amount', 'Status', ''].map((h, i) => <TableCell key={i} align={h === 'Amount' ? 'right' : 'left'} sx={{ color: REPAIRS_UI.textSecondary, borderColor: REPAIRS_UI.border }}>{h}</TableCell>)}
@@ -223,15 +257,36 @@ export default function CustomDetailPage() {
         <DialogTitle>New Invoice</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField select SelectProps={{ native: true }} label="Type" value={invoiceForm.type} onChange={(e) => setInvoiceForm({ ...invoiceForm, type: e.target.value })} fullWidth>
-              {['deposit', 'progress', 'final', 'partial'].map((t) => <option key={t} value={t}>{t}</option>)}
+            {quoteTotal <= 0 ? (
+              <Alert severity="warning" sx={{ backgroundColor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }}>Build and publish the quote first — invoices are based on the quote total.</Alert>
+            ) : (
+              <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
+                Quote total <strong style={{ color: REPAIRS_UI.textPrimary }}>{money(quoteTotal)}</strong> · Remaining <strong style={{ color: REPAIRS_UI.textPrimary }}>{money(remaining)}</strong>
+              </Typography>
+            )}
+            <TextField select SelectProps={{ native: true }} label="Invoice for" value={invoiceForm.mode} onChange={(e) => setInvoiceForm({ ...invoiceForm, mode: e.target.value })} fullWidth>
+              <option value="deposit">Deposit (% of quote)</option>
+              <option value="full">Pay in full (remaining balance)</option>
+              <option value="custom">Custom amount</option>
             </TextField>
-            <TextField label="Amount" type="number" value={invoiceForm.amount} onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: e.target.value })} fullWidth />
+            {invoiceForm.mode === 'deposit' && (
+              <TextField label="Deposit %" type="number" value={invoiceForm.depositPct} onChange={(e) => setInvoiceForm({ ...invoiceForm, depositPct: e.target.value })} helperText="Default 50%. Lower it for smaller staged payments." fullWidth InputProps={{ endAdornment: <Typography sx={{ color: REPAIRS_UI.textMuted }}>%</Typography> }} />
+            )}
+            {invoiceForm.mode === 'custom' && (
+              <TextField label="Amount" type="number" value={invoiceForm.amount} onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: e.target.value })} fullWidth />
+            )}
+            <Box sx={{ p: 1.5, borderRadius: 1, border: `1px solid ${REPAIRS_UI.border}`, backgroundColor: REPAIRS_UI.bgTertiary }}>
+              <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>This invoice</Typography>
+              <Typography sx={{ fontWeight: 700, color: REPAIRS_UI.accent, fontSize: '1.2rem' }}>{money(invoiceAmount())}</Typography>
+              {invoiceForm.mode === 'deposit' && Number(invoiceForm.depositPct) >= 50 && (
+                <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>At 50%+, parts (gemstones &amp; mounting) can be ordered.</Typography>
+              )}
+            </Box>
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setInvoiceOpen(false)} sx={{ color: REPAIRS_UI.textSecondary }}>Cancel</Button>
-          <Button variant="contained" disabled={busy || Number(invoiceForm.amount) <= 0} onClick={createInvoice} sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>Create</Button>
+          <Button variant="contained" disabled={busy || invoiceAmount() <= 0} onClick={createInvoice} sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>Create</Button>
         </DialogActions>
       </Dialog>
 
