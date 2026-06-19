@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  Grid, Paper, Stack, Typography, Box, Button, Avatar, Divider,
+  Grid, Paper, Stack, Typography, Box, Button, Avatar, Divider, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem,
 } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
@@ -9,26 +9,35 @@ import PhoneIcon from '@mui/icons-material/Phone';
 import EditIcon from '@mui/icons-material/Edit';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 
-const panelSx = { p: 2.5, height: '100%', backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' };
+const panelSx = { p: { xs: 2, md: 3 }, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' };
 const dialogPaperProps = { sx: { backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` } };
+const money = (n) => `$${(Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Not set');
+const titleCase = (s) => String(s || '').replace(/[-_]/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 
-function Row({ icon: Icon, label, value }) {
+function SectionHead({ children }) {
+  return <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: REPAIRS_UI.textSecondary, mb: 1 }}>{children}</Typography>;
+}
+function DetailRow({ label, value, chip }) {
   return (
-    <Stack direction="row" spacing={1} alignItems="center">
-      {Icon && <Icon sx={{ fontSize: 16, color: REPAIRS_UI.textMuted }} />}
-      <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, minWidth: 110 }}>{label}</Typography>
-      <Typography variant="body2" sx={{ color: REPAIRS_UI.textPrimary }}>{value || '—'}</Typography>
+    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ py: 0.25 }}>
+      <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>{label}</Typography>
+      {chip || <Typography variant="body2" sx={{ color: REPAIRS_UI.textPrimary, fontWeight: 500 }}>{value ?? '—'}</Typography>}
     </Stack>
   );
 }
+function StatBox({ label, value, color }) {
+  return (
+    <Box sx={{ textAlign: 'center', p: 1.5, backgroundColor: REPAIRS_UI.bgTertiary, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2 }}>
+      <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>{label}</Typography>
+      <Typography sx={{ fontSize: '1.25rem', fontWeight: 700, color: color || REPAIRS_UI.textHeader }}>{value}</Typography>
+    </Box>
+  );
+}
 
-const SPEC_FIELDS = [
-  ['jewelryType', 'Jewelry type'], ['metalType', 'Metal'], ['karat', 'Karat'], ['size', 'Size'],
-  ['budget', 'Budget'], ['dueDate', 'Due date'],
-];
 const CUSTOMER_FIELDS = [['customerName', 'Name'], ['customerEmail', 'Email'], ['customerPhone', 'Phone']];
 
-export default function OverviewTab({ order, busy, onSave }) {
+export default function OverviewTab({ order, billing, busy, onSave }) {
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState({});
 
@@ -47,60 +56,99 @@ export default function OverviewTab({ order, busy, onSave }) {
     await onSave({ ...form, budget: form.budget === '' ? null : Number(form.budget), dueDate: form.dueDate || null });
     setEditOpen(false);
   };
-  const fmt = (k, v) => (k === 'budget' && v != null && v !== '' ? `$${Number(v).toLocaleString()}` : (k === 'dueDate' && v ? new Date(v).toLocaleDateString() : v));
+
+  const q = order.quote || {};
+  const progress = billing?.progress;
+  const owed = progress ? Math.max(0, (Number(progress.projectTotal) || 0) - (Number(progress.totalPaid) || 0)) : null;
+  const gems = (q.materialCosts || []).filter((m) => m.category === 'gemstone').map((m) => m.name).filter(Boolean);
+  const cadAssignees = (order.assignments || []).map((a) => a.name).filter(Boolean);
+  const hasSpecial = !!(order.specialRequests && order.specialRequests.trim());
+
+  const details = [
+    ['Type', titleCase(order.type) || 'Custom Design'],
+    ['Created', fmtDate(order.createdAt)],
+    ['Updated', fmtDate(order.updatedAt)],
+    ['Jewelry type', order.jewelryType],
+    ['Metal', order.metalType],
+    ['Karat', order.karat],
+    ['Size', order.size],
+    ['Budget', order.budget != null && order.budget !== '' ? `$${Number(order.budget).toLocaleString()}` : null],
+    ['Due date', order.dueDate ? fmtDate(order.dueDate) : null],
+  ];
 
   return (
-    <Grid container spacing={2}>
-      <Grid item xs={12} md={6}>
-        <Paper sx={panelSx}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
-            <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader }}>Customer</Typography>
-            <Button size="small" startIcon={<EditIcon sx={{ fontSize: 16 }} />} onClick={openEdit} sx={{ color: REPAIRS_UI.accent }}>Edit</Button>
-          </Stack>
-          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1.5 }}>
-            <Avatar sx={{ bgcolor: REPAIRS_UI.bgTertiary }}><PersonIcon sx={{ color: REPAIRS_UI.textSecondary }} /></Avatar>
-            <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textPrimary }}>{order.customerName || order.clientID || '—'}</Typography>
-          </Stack>
-          <Stack spacing={1}>
-            <Row icon={EmailIcon} label="Email" value={order.customerEmail} />
-            <Row icon={PhoneIcon} label="Phone" value={order.customerPhone} />
-            <Row label="Client ID" value={order.clientID} />
-          </Stack>
-          <Divider sx={{ my: 1.5, borderColor: REPAIRS_UI.border }} />
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>Quote total</Typography>
-            <Typography sx={{ fontWeight: 700, color: REPAIRS_UI.accent }}>{order.quote?.quoteTotal != null ? `$${Number(order.quote.quoteTotal).toLocaleString()}` : '—'}</Typography>
-          </Stack>
-        </Paper>
-      </Grid>
+    <Paper sx={panelSx}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+        <Typography sx={{ fontWeight: 600, fontSize: '1.1rem', color: REPAIRS_UI.textHeader }}>Overview</Typography>
+        <Button size="small" startIcon={<EditIcon sx={{ fontSize: 16 }} />} onClick={openEdit} sx={{ color: REPAIRS_UI.accent }}>Edit</Button>
+      </Stack>
 
-      <Grid item xs={12} md={6}>
-        <Paper sx={panelSx}>
-          <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 1.5 }}>Specification</Typography>
-          <Stack spacing={1}>
-            <Row label="Priority" value={order.priority === 'high' ? 'High' : 'Normal'} />
-            {SPEC_FIELDS.map(([k, label]) => <Row key={k} label={label} value={fmt(k, order[k])} />)}
-            {(() => {
-              // Gemstones come from the quote's gemstone-category line items (single source of truth).
-              const gems = (order.quote?.materialCosts || []).filter((m) => m.category === 'gemstone').map((m) => m.name).filter(Boolean);
-              return gems.length ? <Row label="Gemstones" value={gems.join(', ')} /> : null;
-            })()}
+      <Grid container spacing={3}>
+        {/* Customer Information */}
+        <Grid item xs={12} md={6}>
+          <SectionHead>Customer Information</SectionHead>
+          <Stack direction="row" spacing={2} alignItems="flex-start">
+            <Avatar sx={{ bgcolor: REPAIRS_UI.accent, color: '#1A1A1A' }}><PersonIcon /></Avatar>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textPrimary }}>{order.customerName || 'Unknown customer'}</Typography>
+              {order.customerEmail && <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.5 }}><EmailIcon sx={{ fontSize: 15, color: REPAIRS_UI.textMuted }} /><Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>{order.customerEmail}</Typography></Stack>}
+              {order.customerPhone && <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.5 }}><PhoneIcon sx={{ fontSize: 15, color: REPAIRS_UI.textMuted }} /><Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>{order.customerPhone}</Typography></Stack>}
+              {order.clientID && <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted, mt: 0.5 }}>Client ID: {order.clientID}</Typography>}
+            </Box>
           </Stack>
-        </Paper>
-      </Grid>
+        </Grid>
 
-      <Grid item xs={12}>
-        <Paper sx={panelSx}>
-          <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 1 }}>Description</Typography>
-          <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, whiteSpace: 'pre-wrap' }}>{order.description || 'No description.'}</Typography>
-          {order.specialRequests && (
-            <>
-              <Divider sx={{ my: 1.5, borderColor: REPAIRS_UI.border }} />
-              <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 1 }}>Special requests</Typography>
-              <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, whiteSpace: 'pre-wrap' }}>{order.specialRequests}</Typography>
-            </>
-          )}
-        </Paper>
+        {/* Ticket Details */}
+        <Grid item xs={12} md={6}>
+          <SectionHead>Order Details</SectionHead>
+          <Stack spacing={0.25}>
+            <DetailRow label="Priority" chip={<Chip size="small" label={(order.priority || 'normal').toUpperCase()} color={order.priority === 'high' ? 'error' : 'default'} />} />
+            {details.filter(([, v]) => v != null && v !== '').map(([label, v]) => <DetailRow key={label} label={label} value={v} />)}
+          </Stack>
+        </Grid>
+
+        {/* Additional Details */}
+        {(order.description || hasSpecial) && (
+          <Grid item xs={12}>
+            <SectionHead>Additional Details</SectionHead>
+            {order.description && (
+              <Box sx={{ mb: hasSpecial ? 2 : 0 }}>
+                <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>Description</Typography>
+                <Typography variant="body2" sx={{ mt: 0.5, p: 2, backgroundColor: REPAIRS_UI.bgCard, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 1, color: REPAIRS_UI.textPrimary, whiteSpace: 'pre-wrap' }}>{order.description}</Typography>
+              </Box>
+            )}
+            {hasSpecial && (
+              <Box>
+                <Typography variant="caption" sx={{ color: '#FFB74D' }}>Special requests</Typography>
+                <Typography variant="body2" sx={{ mt: 0.5, p: 2, backgroundColor: 'rgba(255,167,38,0.08)', border: '1px solid rgba(255,167,38,0.4)', borderRadius: 1, color: REPAIRS_UI.textPrimary, whiteSpace: 'pre-wrap' }}>{order.specialRequests}</Typography>
+              </Box>
+            )}
+          </Grid>
+        )}
+
+        {/* Financial Summary */}
+        <Grid item xs={12}>
+          <SectionHead>Financial Summary</SectionHead>
+          <Grid container spacing={2}>
+            <Grid item xs={6} sm={4}><StatBox label="Quote total" value={money(q.quoteTotal)} color={REPAIRS_UI.accent} /></Grid>
+            {owed != null && <Grid item xs={6} sm={4}><StatBox label="Owed (outstanding)" value={money(owed)} color={owed > 0 ? '#FFB74D' : '#66BB6A'} /></Grid>}
+            {progress && <Grid item xs={6} sm={4}><StatBox label="Paid" value={`${progress.paymentProgress || 0}%`} /></Grid>}
+          </Grid>
+        </Grid>
+
+        {/* Status & Properties */}
+        <Grid item xs={12}>
+          <SectionHead>Status &amp; Properties</SectionHead>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            {gems.length > 0 && <Chip size="small" variant="outlined" color="info" label={`Gemstones: ${gems.join(', ')}`} />}
+            {order.priority === 'high' && <Chip size="small" color="error" label="High priority" />}
+            {order.isRush && <Chip size="small" sx={{ bgcolor: '#FF4444', color: '#fff' }} label="Rush" />}
+            {cadAssignees.map((n) => <Chip key={n} size="small" variant="outlined" color="primary" label={`Assigned: ${n}`} />)}
+            {progress?.isFullyPaid && <Chip size="small" color="success" label="No outstanding balance" />}
+            {hasSpecial && <Chip size="small" variant="outlined" color="warning" label="Special requests" />}
+            {(order.communications || []).length === 0 && (order.notes || []).length === 0 && <Chip size="small" variant="outlined" label="No communications" />}
+          </Stack>
+        </Grid>
       </Grid>
 
       <Dialog open={editOpen} onClose={() => !busy && setEditOpen(false)} fullWidth maxWidth="sm" PaperProps={dialogPaperProps}>
@@ -129,6 +177,6 @@ export default function OverviewTab({ order, busy, onSave }) {
           <Button variant="contained" onClick={save} disabled={busy} sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>Save</Button>
         </DialogActions>
       </Dialog>
-    </Grid>
+    </Paper>
   );
 }

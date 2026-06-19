@@ -166,7 +166,7 @@ export default function CustomDetailPage() {
       </Tabs>
 
       {/* Overview */}
-      {tab === 0 && <OverviewTab order={order} busy={busy} onSave={saveDetails} />}
+      {tab === 0 && <OverviewTab order={order} billing={billing} busy={busy} onSave={saveDetails} />}
 
       {/* Quote */}
       {tab === 1 && <QuoteTab customID={customID} order={order} margin={margin} notify={notify} onChanged={load} />}
