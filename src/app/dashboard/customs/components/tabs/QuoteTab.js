@@ -15,6 +15,12 @@ import EditIcon from '@mui/icons-material/Edit';
 import PublishIcon from '@mui/icons-material/Publish';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import { METAL_TYPES } from '@/constants/metalTypes';
+
+// Castable metals for the model-cost estimator (exclude the wax/reference entry).
+const METAL_OPTS = Object.entries(METAL_TYPES)
+  .filter(([, m]) => m.category !== 'reference')
+  .map(([value, m]) => ({ value, label: m.label }));
 
 const cardSx = { p: 2.5, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' };
 const money = (x) => `$${(Number(x) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -194,6 +200,28 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
   const setField = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const setNested = (parent, k, v) => setForm((f) => ({ ...f, [parent]: { ...f[parent], [k]: v } }));
 
+  // Model-cost estimator (Build B): STL volume (set on CAD upload) × metal → mounting metal cost.
+  const stlVolumeCm3 = n(order.designModel?.stlVolumeCm3);
+  const [estMetal, setEstMetal] = useState('GOLD_14K_YELLOW');
+  const [estimating, setEstimating] = useState(false);
+  const estimateMounting = async () => {
+    if (stlVolumeCm3 <= 0) { notify('No model volume yet — upload the STL on the CAD work order first.', 'warning'); return; }
+    setEstimating(true);
+    try {
+      const res = await fetch('/api/production/designs/estimate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stlVolumeCm3, metalKey: estMetal }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Estimate failed');
+      const metalCost = n(data.estimate?.metal?.metalCost);
+      setNested('mounting', 'cost', metalCost);
+      const label = METAL_OPTS.find((m) => m.value === estMetal)?.label || estMetal;
+      if (!form.mounting.item) setNested('mounting', 'item', `${label} mounting (cast)`);
+      notify(`Estimated ${label} metal: ${money(metalCost)} (${data.estimate.metal.metalWeightG} g from ${stlVolumeCm3} cm³)`, 'success');
+    } catch (e) { notify(e.message, 'error'); } finally { setEstimating(false); }
+  };
+
   // Live COG/total (mirrors computeQuote; glb/qc/casting come from production/order).
   const castingCost = n(q.castingCost); const glbFee = n(q.glbFee); const qcFee = n(q.qcReviewFee);
   const cogMarkup = n(q.cogMarkup) || 2.5;
@@ -272,6 +300,22 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
           <Grid item xs={12} sm={4}><TextField fullWidth size="small" label="Cost" type="number" value={form.centerstone.cost} disabled={!editMode} onChange={(e) => setNested('centerstone', 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
           <Grid item xs={12} sm={8}><TextField fullWidth size="small" label="Mounting" value={form.mounting.item} disabled={!editMode} onChange={(e) => setNested('mounting', 'item', e.target.value)} /></Grid>
           <Grid item xs={12} sm={4}><TextField fullWidth size="small" label="Cost" type="number" value={form.mounting.cost} disabled={!editMode} onChange={(e) => setNested('mounting', 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
+          {editMode && (
+            <Grid item xs={12}>
+              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ p: 1, borderRadius: 1, border: `1px dashed ${REPAIRS_UI.border}`, bgcolor: REPAIRS_UI.bgTertiary }}>
+                <CalculateIcon sx={{ color: REPAIRS_UI.accent, fontSize: 18 }} />
+                <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>
+                  {stlVolumeCm3 > 0 ? `Estimate metal from the CAD model (${stlVolumeCm3} cm³)` : 'Upload the STL on the CAD work order to estimate metal from the model'}
+                </Typography>
+                <TextField select size="small" label="Metal" value={estMetal} onChange={(e) => setEstMetal(e.target.value)} disabled={stlVolumeCm3 <= 0} sx={{ minWidth: 180 }}>
+                  {METAL_OPTS.map((m) => <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>)}
+                </TextField>
+                <Button size="small" variant="outlined" startIcon={<CalculateIcon />} disabled={estimating || stlVolumeCm3 <= 0} onClick={estimateMounting} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>
+                  Estimate from model
+                </Button>
+              </Stack>
+            </Grid>
+          )}
         </Grid>
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
           <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, fontWeight: 600 }}>Accent stones</Typography>

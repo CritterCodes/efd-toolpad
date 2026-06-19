@@ -22,6 +22,18 @@ import { getLaborRateSnapshotForUser } from '@/app/api/repairLaborLogs/utils';
 import { canClaimDiscipline, DISCIPLINE } from '@/services/workOrders/disciplines';
 import { storageClient, STORAGE_BUCKET, storageUrl } from '@/lib/storage';
 import SettingsManagerService from '@/app/api/admin/settings/services/settingsManager.service';
+import { getSTLVolume } from '@/lib/stlParser';
+
+/** STL files are authored in mm; the cost estimator works in cm³ (1 cm³ = 1000 mm³). */
+async function stlVolumeCm3(arrayBuffer) {
+  try {
+    const mm3 = await getSTLVolume(arrayBuffer);
+    if (!Number.isFinite(mm3) || mm3 <= 0) return null;
+    return Math.round((mm3 / 1000) * 1000) / 1000; // cm³, 3dp
+  } catch {
+    return null; // a parse failure must never block the upload
+  }
+}
 
 const DEFAULT_QC_REVIEW_FEE = 25;
 async function getQcReviewFee() {
@@ -126,19 +138,36 @@ export async function uploadCadStl({ session, workOrderID, file }) {
     const e = new Error('Only the assigned designer can upload the STL.'); e.code = 'FORBIDDEN'; throw e;
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
   const safe = (file.name || 'model.stl').replace(/[^a-zA-Z0-9.-]/g, '_');
   const key = `production/pieces/${wo.sourceID}/stl/${Date.now()}-${safe}`;
   await storageClient.send(new PutObjectCommand({
     Bucket: STORAGE_BUCKET, Key: key, Body: buffer, ContentType: file.type || 'model/stl',
   }));
+  // Compute the model volume so the quote's Mounting "Estimate from model" can price metal.
+  const volumeCm3 = await stlVolumeCm3(arrayBuffer);
   const stl = {
     url: storageUrl(key), key, originalName: file.name || null,
+    volumeCm3,
     uploadedBy: session.user.name || session.user.email || session.user.userID, uploadedAt: new Date(),
   };
 
   const piece = await PiecesModel.findById(wo.sourceID);
-  if (piece) await PiecesModel.updateById(wo.sourceID, { files: { ...(piece.files || {}), stl } });
+  if (piece) {
+    const updates = { files: { ...(piece.files || {}), stl } };
+    if (volumeCm3 != null) updates.printVolumeCm3 = volumeCm3;
+    await PiecesModel.updateById(wo.sourceID, updates);
+    // Surface the volume on the linked custom order so the Quote tab can read it.
+    if (piece.customOrderID && volumeCm3 != null) {
+      const order = await CustomOrdersModel.findById(piece.customOrderID);
+      if (order) {
+        await CustomOrdersModel.updateById(piece.customOrderID, {
+          designModel: { ...(order.designModel || {}), stlVolumeCm3: volumeCm3 },
+        });
+      }
+    }
+  }
 
   return WorkOrdersModel.updateByID(workOrderID, {
     files: { ...(wo.files || {}), stl },
