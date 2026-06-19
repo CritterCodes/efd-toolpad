@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Paper, Stack, Typography, Button, IconButton, Divider, TextField, Grid, Chip,
-  FormControlLabel, Switch, InputAdornment,
+  FormControlLabel, Switch, InputAdornment, Autocomplete,
 } from '@mui/material';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import InsightsIcon from '@mui/icons-material/Insights';
@@ -39,16 +39,59 @@ function Row({ label, value, color, strong, warn }) {
   );
 }
 
-/** Repeatable line-item editor (description [+qty] + cost). */
-function LineEditor({ rows, onChange, withQty, editMode, emptyText }) {
+/** Autocomplete sourced from the repair task catalog + historical custom tasks. */
+function TaskAutocomplete({ value, disabled, onText, onPick }) {
+  const [options, setOptions] = useState([]);
+  const [input, setInput] = useState(value || '');
+  useEffect(() => { setInput(value || ''); }, [value]);
+  useEffect(() => {
+    if (disabled) return undefined;
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/custom-orders/task-suggestions?search=${encodeURIComponent(input || '')}`);
+        if (r.ok && !cancelled) setOptions(await r.json());
+      } catch { /* ignore */ }
+    }, 250);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [input, disabled]);
+  return (
+    <Autocomplete
+      freeSolo size="small" disabled={disabled} options={options} filterOptions={(x) => x}
+      value={null} inputValue={input}
+      getOptionLabel={(o) => (typeof o === 'string' ? o : o.label || '')}
+      isOptionEqualToValue={(o, v) => o.label === v.label}
+      onInputChange={(_, v) => { setInput(v); onText(v); }}
+      onChange={(_, v) => { if (v && typeof v !== 'string') onPick({ description: v.label, cost: v.cost, hours: v.hours }); }}
+      renderOption={(props, o) => (
+        <Box component="li" {...props} sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
+          <span>{o.label}</span>
+          <Stack direction="row" spacing={0.75} alignItems="center">
+            {o.cost > 0 && <Typography variant="caption" sx={{ color: 'text.secondary' }}>${o.cost}</Typography>}
+            <Chip size="small" label={o.source === 'custom' ? 'custom' : 'repair'} variant="outlined" sx={{ height: 18 }} />
+          </Stack>
+        </Box>
+      )}
+      renderInput={(params) => <TextField {...params} label="Task description" placeholder="set stones, polish…" />}
+    />
+  );
+}
+
+/** Repeatable line-item editor (description [+qty] + cost). `suggest` → task autocomplete. */
+function LineEditor({ rows, onChange, withQty, editMode, emptyText, suggest }) {
   const set = (i, k, v) => onChange(rows.map((r, idx) => (idx === i ? { ...r, [k]: v } : r)));
+  const patch = (i, obj) => onChange(rows.map((r, idx) => (idx === i ? { ...r, ...obj } : r)));
   const remove = (i) => onChange(rows.filter((_, idx) => idx !== i));
   if (!rows.length) return <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted, py: 1 }}>{emptyText}</Typography>;
   return (
     <Stack spacing={1}>
       {rows.map((r, i) => (
         <Grid container spacing={1} key={i} alignItems="center">
-          <Grid item xs={withQty ? 6 : 8}><TextField fullWidth size="small" label="Description" value={r.description || ''} disabled={!editMode} onChange={(e) => set(i, 'description', e.target.value)} /></Grid>
+          <Grid item xs={withQty ? 6 : 8}>
+            {suggest
+              ? <TaskAutocomplete value={r.description} disabled={!editMode} onText={(v) => set(i, 'description', v)} onPick={({ description, cost, hours }) => patch(i, { description, cost, hours })} />
+              : <TextField fullWidth size="small" label="Description" value={r.description || ''} disabled={!editMode} onChange={(e) => set(i, 'description', e.target.value)} />}
+          </Grid>
           {withQty && <Grid item xs={2}><TextField fullWidth size="small" label="Qty" type="number" value={r.quantity ?? 1} disabled={!editMode} onChange={(e) => set(i, 'quantity', e.target.value)} /></Grid>}
           <Grid item xs={3}><TextField fullWidth size="small" label="Cost" type="number" value={r.cost ?? 0} disabled={!editMode} onChange={(e) => set(i, 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
           <Grid item xs={1}>{editMode && <IconButton size="small" onClick={() => remove(i)} sx={{ color: REPAIRS_UI.textMuted }}><DeleteIcon fontSize="small" /></IconButton>}</Grid>
@@ -225,7 +268,7 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
       {/* Phase 2: Labor */}
       <Paper sx={cardSx}>
         <CardHead icon={BuildIcon} title="Labor Tasks" action={editMode && <Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('laborTasks', true)} sx={{ color: REPAIRS_UI.accent }}>Add task</Button>} />
-        <LineEditor rows={form.laborTasks} onChange={(rows) => setField('laborTasks', rows)} withQty editMode={editMode} emptyText='No labor tasks. Click "Add task" to add production tasks.' />
+        <LineEditor rows={form.laborTasks} onChange={(rows) => setField('laborTasks', rows)} withQty editMode={editMode} suggest emptyText='No labor tasks. Click "Add task" to add production tasks.' />
       </Paper>
 
       {/* Phase 3: Additional services */}
