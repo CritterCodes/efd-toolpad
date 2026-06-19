@@ -52,13 +52,15 @@ export default function OverviewTab({ order, billing, busy, onSave }) {
       jewelryType: order.jewelryType || '', metalType: order.metalType || '', karat: order.karat || '', goldColor: order.goldColor || '', size: order.size || '',
       gemstones: Array.isArray(order.gemstones) ? order.gemstones : [],
       budget: order.budget ?? '', timeline: order.timeline || '', dueDate: order.dueDate ? String(order.dueDate).slice(0, 10) : '',
-      description: order.description || '', specialRequests: order.specialRequests || '',
+      // Request = flattened description + legacy specialRequests.
+      description: [order.description, order.specialRequests].filter((t) => t && t.trim()).join('\n\n'),
     });
     setEditOpen(true);
   };
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const save = async () => {
-    await onSave({ ...form, budget: form.budget || null, timeline: form.timeline || null, dueDate: form.dueDate || null });
+    // Persist the flattened request into description and clear the legacy field.
+    await onSave({ ...form, budget: form.budget || null, timeline: form.timeline || null, dueDate: form.dueDate || null, specialRequests: '' });
     setEditOpen(false);
   };
 
@@ -75,7 +77,8 @@ export default function OverviewTab({ order, billing, busy, onSave }) {
         ...((q.materialCosts || []).filter((m) => m.category === 'gemstone').map((m) => m.name)),
       ].filter(Boolean);
   const cadAssignees = (order.assignments || []).map((a) => a.name).filter(Boolean);
-  const hasSpecial = !!(order.specialRequests && order.specialRequests.trim());
+  // The request is the flattened description + any legacy special requests.
+  const requestText = [order.description, order.specialRequests].filter((t) => t && t.trim()).join('\n\n');
 
   const details = [
     ['Created', fmtDate(order.createdAt)],
@@ -120,22 +123,11 @@ export default function OverviewTab({ order, billing, busy, onSave }) {
           </Stack>
         </Grid>
 
-        {/* Additional Details */}
-        {(order.description || hasSpecial) && (
+        {/* Request */}
+        {requestText && (
           <Grid item xs={12}>
-            <SectionHead>Additional Details</SectionHead>
-            {order.description && (
-              <Box sx={{ mb: hasSpecial ? 2 : 0 }}>
-                <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>Description</Typography>
-                <Typography variant="body2" sx={{ mt: 0.5, p: 2, backgroundColor: REPAIRS_UI.bgCard, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 1, color: REPAIRS_UI.textPrimary, whiteSpace: 'pre-wrap' }}>{order.description}</Typography>
-              </Box>
-            )}
-            {hasSpecial && (
-              <Box>
-                <Typography variant="caption" sx={{ color: '#FFB74D' }}>Special requests</Typography>
-                <Typography variant="body2" sx={{ mt: 0.5, p: 2, backgroundColor: 'rgba(255,167,38,0.08)', border: '1px solid rgba(255,167,38,0.4)', borderRadius: 1, color: REPAIRS_UI.textPrimary, whiteSpace: 'pre-wrap' }}>{order.specialRequests}</Typography>
-              </Box>
-            )}
+            <SectionHead>Request</SectionHead>
+            <Typography variant="body2" sx={{ mt: 0.5, p: 2, backgroundColor: REPAIRS_UI.bgCard, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 1, color: REPAIRS_UI.textPrimary, whiteSpace: 'pre-wrap' }}>{requestText}</Typography>
           </Grid>
         )}
 
@@ -158,7 +150,6 @@ export default function OverviewTab({ order, billing, busy, onSave }) {
             {order.isRush && <Chip size="small" sx={{ bgcolor: '#FF4444', color: '#fff' }} label="Rush" />}
             {cadAssignees.map((n) => <Chip key={n} size="small" variant="outlined" color="primary" label={`Assigned: ${n}`} />)}
             {progress?.isFullyPaid && <Chip size="small" color="success" label="No outstanding balance" />}
-            {hasSpecial && <Chip size="small" variant="outlined" color="warning" label="Special requests" />}
             {(order.communications || []).length === 0 && (order.notes || []).length === 0 && <Chip size="small" variant="outlined" label="No communications" />}
           </Stack>
         </Grid>
@@ -219,8 +210,7 @@ export default function OverviewTab({ order, billing, busy, onSave }) {
               </Grid>
               <Grid item xs={6}><TextField label="Due date" type="date" InputLabelProps={{ shrink: true }} value={form.dueDate ?? ''} onChange={(e) => set('dueDate', e.target.value)} fullWidth /></Grid>
             </Grid>
-            <TextField label="Description" value={form.description ?? ''} onChange={(e) => set('description', e.target.value)} fullWidth multiline minRows={2} />
-            <TextField label="Special requests" value={form.specialRequests ?? ''} onChange={(e) => set('specialRequests', e.target.value)} fullWidth multiline minRows={2} />
+            <TextField label="Request details" placeholder="Describe the piece, inspiration, engraving, special requests…" value={form.description ?? ''} onChange={(e) => set('description', e.target.value)} fullWidth multiline minRows={4} />
           </Stack>
         </DialogContent>
         <DialogActions>

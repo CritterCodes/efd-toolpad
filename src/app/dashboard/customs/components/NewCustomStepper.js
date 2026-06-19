@@ -23,7 +23,7 @@ const goldBtn = { backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeig
 const EMPTY = {
   selectedClient: null, isRush: false,
   jewelryType: '', metalType: '', karat: '', goldColor: '', size: '', gemstones: [],
-  budget: '', timeline: '', description: '', specialRequests: '',
+  budget: '', timeline: '', description: '',
 };
 
 function clientLabel(c) {
@@ -80,7 +80,7 @@ export default function NewCustomStepper({ open, onClose, onCreated, onError }) 
         gemstones: form.gemstones,
         budget: form.budget || null,
         timeline: form.timeline || null,
-        description: form.description, specialRequests: form.specialRequests,
+        description: form.description,
       };
       const res = await fetch('/api/custom-orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to create');
@@ -186,8 +186,7 @@ export default function NewCustomStepper({ open, onClose, onCreated, onError }) 
               </Grid>
             </Grid>
             <FormControlLabel control={<Switch checked={form.isRush} onChange={(e) => set('isRush', e.target.checked)} />} label="Rush order" />
-            <TextField label="Description" value={form.description} onChange={(e) => set('description', e.target.value)} fullWidth multiline minRows={2} />
-            <TextField label="Special requests" value={form.specialRequests} onChange={(e) => set('specialRequests', e.target.value)} fullWidth multiline minRows={2} />
+            <TextField label="Request details" placeholder="Describe the piece, inspiration, engraving, special requests…" value={form.description} onChange={(e) => set('description', e.target.value)} fullWidth multiline minRows={4} />
           </Stack>
         )}
 
