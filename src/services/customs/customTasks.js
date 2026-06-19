@@ -6,6 +6,7 @@
  */
 import { db } from '@/lib/database';
 import Constants from '@/lib/constants';
+import { TasksService } from '@/app/api/tasks/service';
 
 function escapeRegex(s) {
   return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -16,20 +17,21 @@ export async function getTaskSuggestions(search = '', limit = 40) {
   const term = String(search || '').trim();
   const rx = term ? { $regex: escapeRegex(term), $options: 'i' } : null;
 
-  // Repair / bench task catalog.
-  const catalog = await dbi.collection(Constants.TASKS_COLLECTION)
-    .find(rx ? { title: rx } : {}, { projection: { _id: 0, title: 1, category: 1, pricing: 1, laborHours: 1, isActive: 1 } })
-    .limit(limit)
-    .toArray();
-  const repair = catalog
-    .filter((t) => t.isActive !== false && t.title)
-    .map((t) => ({
-      label: t.title,
-      cost: Number(t.pricing?.laborCost) || 0,
-      hours: Number(t.pricing?.totalLaborHours ?? t.laborHours) || 0,
-      category: t.category || null,
-      source: 'repair',
-    }));
+  // Repair / bench task catalog — via TasksService so labor cost is computed by
+  // the pricing engine on read (NOT the stale stored pricing.laborCost).
+  let repair = [];
+  try {
+    const result = await TasksService.getTasks({ isActive: true, ...(term ? { search: term } : {}), limit });
+    repair = (result?.data || [])
+      .filter((t) => t.title)
+      .map((t) => ({
+        label: t.title,
+        cost: Number(t.pricing?.laborCost) || 0,
+        hours: Number(t.pricing?.totalLaborHours ?? t.laborHours) || 0,
+        category: t.category || null,
+        source: 'repair',
+      }));
+  } catch { /* catalog unavailable */ }
 
   // Historical custom labor tasks.
   let custom = [];
