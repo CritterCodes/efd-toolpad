@@ -52,11 +52,6 @@ export const devNavigation = {
       title: 'Clients',
       icon: <PeopleIcon />
     },
-    {
-      segment: 'dashboard/requests',
-      title: 'Requests',
-      icon: <AssignmentIcon />
-    },
     { kind: 'header', title: 'Repair Work' },
     {
       segment: 'dashboard/repairs/my-bench',

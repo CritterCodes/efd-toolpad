@@ -65,11 +65,6 @@ export const adminNavigation = {
       icon: <PeopleIcon />
     },
     {
-      segment: 'dashboard/requests',
-      title: 'Requests',
-      icon: <AssignmentIcon />
-    },
-    {
       segment: 'dashboard/customs',
       title: 'Customs',
       icon: <DiamondIcon />
