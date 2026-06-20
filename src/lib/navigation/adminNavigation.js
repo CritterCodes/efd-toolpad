@@ -74,11 +74,6 @@ export const adminNavigation = {
           segment: 'cad-requests',
           title: 'CAD Requests',
           icon: <DesignServicesIcon />
-        },
-        {
-          segment: 'custom-tickets',
-          title: 'Custom Tickets (Legacy)',
-          icon: <ReceiptIcon />
         }
       ]
     },

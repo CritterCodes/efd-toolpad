@@ -10,11 +10,6 @@ import { useMemo } from 'react';
 
 // Custom breadcrumb configurations for specific routes
 const CUSTOM_BREADCRUMBS = {
-  '/dashboard/requests/custom-tickets': [
-    { label: 'Dashboard', href: '/dashboard' },
-    { label: 'Requests', href: '/dashboard/requests' },
-    { label: 'Custom Tickets', href: '/dashboard/requests/custom-tickets' }
-  ],
   '/dashboard/requests/design-requests': [
     { label: 'Dashboard', href: '/dashboard' },
     { label: 'Requests', href: '/dashboard/requests' },
@@ -29,7 +24,6 @@ const CUSTOM_BREADCRUMBS = {
 
 // Routes that should have special handling
 const DYNAMIC_ROUTES = {
-  'custom-tickets': (id) => `Custom Ticket #${id.slice(-8)}`,
   'design-requests': (id) => `Design Request #${id.slice(-8)}`,
   'gemstones': (id) => `Gemstone #${id.slice(-8)}`,
   'users': (id) => 'User Profile',
@@ -102,7 +96,6 @@ function isUUID(str) {
 
 function getSegmentLabel(segment) {
   const labels = {
-    'custom-tickets': 'Custom Tickets',
     'design-requests': 'Design Requests',
     'requests': 'Requests',
     'products': 'Products',

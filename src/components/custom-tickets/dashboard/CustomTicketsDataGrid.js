@@ -1,1 +1,0 @@
-export const CustomTicketsDataGrid = (props) => <div {...props}>DataGrid</div>;

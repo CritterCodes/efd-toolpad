@@ -62,11 +62,6 @@ export const devNavigation = {
           segment: 'cad-requests',
           title: 'CAD Requests',
           icon: <DesignServicesIcon />
-        },
-        {
-          segment: 'custom-tickets',
-          title: 'Custom Tickets (Legacy)',
-          icon: <ReceiptIcon />
         }
       ]
     },

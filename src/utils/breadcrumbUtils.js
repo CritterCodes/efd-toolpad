@@ -76,7 +76,6 @@ export function generateDynamicBreadcrumbs(baseRoute, itemName, itemId) {
  */
 function formatSegmentLabel(segment) {
   const labels = {
-    'custom-tickets': 'Custom Tickets',
     'design-requests': 'Design Requests',
     'requests': 'Requests',
     'products': 'Products',
@@ -92,13 +91,6 @@ function formatSegmentLabel(segment) {
  * Breadcrumb configuration for complex nested routes
  */
 export const BREADCRUMB_CONFIGS = {
-  // Custom ticket detail page
-  customTicketDetail: (ticketId) => [
-    { label: 'Dashboard', href: '/dashboard' },
-    { label: 'Custom Tickets', href: '/dashboard/custom-tickets' },
-    { label: `Ticket #${ticketId.slice(-8)}`, href: `/dashboard/custom-tickets/${ticketId}` }
-  ],
-
   // Design request detail page
   designRequestDetail: (requestId) => [
     { label: 'Dashboard', href: '/dashboard' },
@@ -107,12 +99,6 @@ export const BREADCRUMB_CONFIGS = {
     { label: `Request #${requestId.slice(-8)}`, href: `/dashboard/requests/design-requests/${requestId}` }
   ],
 
-  // Artisan custom tickets
-  artisanCustomTickets: () => [
-    { label: 'Dashboard', href: '/dashboard' },
-    { label: 'Requests', href: '/dashboard/requests' },
-    { label: 'My Custom Tickets', href: '/dashboard/requests/custom-tickets' }
-  ],
 
   // Gemstone detail page
   gemstoneDetail: (gemstoneId) => [

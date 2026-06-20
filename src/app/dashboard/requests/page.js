@@ -24,10 +24,10 @@ export default function RequestsPage() {
         },
         {
             type: 'Universal',
-            title: 'Custom Tickets',
-            description: isAdmin ? 'All custom work tickets' : 'Your custom work tickets',
+            title: 'Custom Orders',
+            description: isAdmin ? 'All custom work orders' : 'Your custom work orders',
             icon: <ReceiptIcon sx={{ fontSize: 48, color: 'warning.main' }} />,
-            route: '/dashboard/requests/custom-tickets',
+            route: '/dashboard/customs',
             color: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)'
         }
     ];

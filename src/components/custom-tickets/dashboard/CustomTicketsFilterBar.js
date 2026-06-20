@@ -1,1 +1,0 @@
-export const CustomTicketsFilterBar = (props) => <div {...props}>FilterBar</div>;
