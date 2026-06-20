@@ -217,8 +217,8 @@ Slices:
 - **S7e — 3D viewer + share ✅:** `customViewer.js` (`validateDesignModel` reusing product meshMap rules,
   unit-tested; `setDesignModel` / `createShareLink` [requires a model first] / `setShareEnabled`) + API
   (`PUT /design-model`, `POST`/`PUT /share`). Share URL = `${NEXT_PUBLIC_SHOP_URL}/d/<token>`; `share.token`
-  indexed. E2E verified (model-gate, mint token, revoke/re-enable). **Cross-app TODO:** efd-shop's `/d/<token>`
-  page must also resolve `customOrders` (today it resolves legacy `customTickets`).
+  indexed. E2E verified (model-gate, mint token, revoke/re-enable). **Cross-app ✅ DONE:** efd-shop's `/d/<token>`
+  now resolves `customOrders` by `share.token` (repointed off `customTickets`).
 - **S7f — legacy freeze + nav ✅:** legacy relabeled **"Custom Tickets (Legacy)"**; new **"Customs"** nav
   entry added (admin nav) → the new system is the primary intake path.
 - **S7g — UI ✅ (core):** `/dashboard/customs` (list + create) + `/dashboard/customs/[customID]` (detail:
@@ -253,7 +253,15 @@ Tracked here so deferred cleanup can't fall through the cracks. Target: alongsid
 - **Legacy cad-request absorption** — convert the old gemstone-attached cad-requests
   (`products.cadRequests[]`) into `cad` work orders, as part of reconciling the parked gemstone flow.
   (New production CAD work already reaches the bench via piece `cad` routing steps — this is only the
-  legacy data.)
+  legacy data.) Nav de-cluttered 2026-06 (CAD Requests entries removed); the API + product-embedded
+  "New CAD Request" dialog on jewelry/gemstone product pages remain until this is done.
+- **customTickets deprecation — residuals (2026-06):** `efd-shop/lib/customDesignNotificationService` still
+  has unreachable `customTickets` lookups (repoint when client-message/admin notifications get wired into the
+  new `/orders` API); root `microservices/custom-tickets-service/` is now orphaned; `/dashboard/requests`
+  page is navless (remove with the cad-request flow); the `customTickets` collection is retained (migrated,
+  not dropped) — drop it as a deliberate step once confident.
+- **Scrub legacy AWS-S3 image URLs → MinIO** — migrated customOrders carry `efd-repair-images.s3…` URLs
+  (see the scrub-s3 task); rewrite to MinIO so images resolve off the new storage.
 
 ## Deferred UI phase (batched, build once backends are proven)
 

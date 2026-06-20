@@ -295,21 +295,17 @@ Owner feedback after the first pass. Decisions: viewer → shared `packages/refr
   total; add/remove rows), labor/casting/shipping/designer-fee/rush fields, GLB/QC fees shown read-only (from
   production), and a **live COG → ×markup → total** preview. Verified live (added a $500 gemstone line → COG 850,
   total 2125). Removed the modal + quoteForm/saveQuote from the detail page.
-- **CV — Shared REFRAKT viewer (DECIDED, not built):** the powerful viewer is `efd-shop/lib/refrakt/JewelryViewer`
-  (three + @react-three/fiber + drei). This is a **pnpm workspace** (`web/`, with `packages/pricing-engine`,
-  `packages/repair-core`). Decision: **extract `efd-shop/lib/refrakt` → `packages/refrakt`** consumed by BOTH apps;
-  add fiber/drei to efd-admin (three already present); admin wrapper (dynamic import, ssr:false). Use it for custom
-  GLB review (3D & Share / CAD QC) AND **product-create preview** (admin must see what the shop will render before
-  saving). Config shape = `{ glbUrl, meshMap[], environment, orientation, background, scale, camera, autoRotate }`
-  (already matches our designModel / product `viewer`).
-- **CI — Stripe payment-link invoices (TODO):** invoices should generate a Stripe payment link, **emailed** to the
-  client, **tied to the quote**. Build on the existing Stripe integration (`api/repair-invoices/stripe.js`
-  createStripePaymentIntent / stripeRequest; the generic `lib/paymentService.createPaymentLink` is a stub).
-- **CS — Quote status + efd-shop acceptance (TODO):** quotes need a status (draft/sent/accepted/declined). The
-  client views + **accepts the quote in the efd-shop custom portal**; invoices are also **accessible in that portal**.
-  Needs a quote-status field + a contract the shop reads/writes (analogous to the product / custom-design-viewer
-  contracts). efd-shop UI is shop-side (same workspace, separate app).
-- Also: re-audit the detail page for any remaining legacy custom-ticket parity gaps as we go.
+- **CV — Shared REFRAKT viewer (DECIDED, partially realized):** the customer portal + `/d/[token]` already render
+  GLB via `efd-shop/.../JewelryViewerClient`. **Still NOT built:** extracting `efd-shop/lib/refrakt` →
+  `packages/refrakt` consumed by BOTH apps, so the **admin** can preview GLBs (3D & Share / CAD QC / product-create
+  preview). Config shape = `{ glbUrl, meshMap[], environment, orientation, background, scale, camera, autoRotate }`.
+- **CI — Stripe payment-link invoices ✅ DONE:** `api/custom-orders/stripe.js` (createCheckoutSession +
+  HMAC webhook verify); `invoices/[invoiceID]/checkout` creates + emails the link; `/api/stripe/webhook`
+  auto-marks paid. Plus in-store **Cash / Card** mark-paid recording `paymentMethod`. Verified live end-to-end
+  against the connected Stripe test account. (Requires STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET in env.)
+- **CS — Quote acceptance ✅ DONE (status enum partial):** client **accepts the published quote in the portal**
+  (`POST /api/custom-designs/orders/[id]/accept-quote` → `quote.acceptedAt`), and invoices are **accessible + payable
+  in the portal**. NOT built: a full draft/sent/**declined** status enum (only published + acceptedAt today).
 - **Detail parity audit ✅ (done):** diffed legacy custom-ticket detail vs the new detail and closed the in-model
   gaps — header High-priority chip + Created/Updated dates; status timeline per-status icons + description; Overview
   Client ID + Quote-total reference + gemstones; Notes tags + scrollable list; Assignment shows assigned date.
@@ -319,3 +315,22 @@ Owner feedback after the first pass. Decisions: viewer → shared `packages/refr
 
 Related future work (noted, not in scope here): **rebuild the artisan-management system** (enables per-jeweler
 rates), and the **CAD design-standards SOP** (placeholder at `docs/manufacturing/cad-design-standards-sop.md`).
+
+## 13. Client portal rebuild + customTickets deprecation — ✅ DONE (2026-06)
+
+The efd-shop customer side now runs entirely on `customOrders`; the legacy `customTickets` system is retired.
+- **Secure client API** (`efd-shop/app/api/custom-designs/orders/**`): JWT-Bearer auth (`lib/requireClient`),
+  ownership-scoped — list, detail, edit-spec, mood-board up/delete, messages, accept-quote, invoices, intake POST.
+  `lib/customOrderService` data ops + `toClientView` sanitizer (hides COGS/markup/fees, internal notes/thread).
+- **Portal rebuilt** (`efd-shop/app/custom-work/portal/page.js`) on that API, themed to the shop's dark token
+  system (not MUI Paper). Intake single-writes a customOrder (no more dual-write). `/d/[token]` + `/quotes`
+  repointed to customOrders.
+- **Migration:** `efd-shop/scripts/migrateCustomTicketsToOrders.mjs` (idempotent) — 18/18 tickets → customOrders.
+- **Legacy removed:** efd-shop `tickets`/`upload`/`debug` routes + `customTicketService`; admin `api/custom-tickets`,
+  `components/custom-tickets`, `hooks/custom-tickets`, controllers/services, `dashboard/{custom-tickets,
+  requests/custom-tickets}`, orphan `TicketsDashboard`. Nav de-cluttered (Custom Tickets, CAD Requests, Requests
+  entries removed). **Kept:** `config/statuses` (shared with workflow), `CUSTOM_TICKETS_COLLECTION` constant, the
+  migrated collection (safety net).
+- **Residuals:** `efd-shop/customDesignNotificationService` still has unreachable customTickets lookups (wire
+  client-message/admin notifications into `/orders`); root `microservices/custom-tickets-service/` orphaned;
+  navless `/dashboard/requests` page; legacy AWS-S3 image URLs on migrated orders (→ MinIO scrub).
