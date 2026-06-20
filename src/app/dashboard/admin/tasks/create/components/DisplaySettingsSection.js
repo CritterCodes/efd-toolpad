@@ -25,6 +25,12 @@ export function DisplaySettingsSection({ formData, setFormData }) {
             />
           </Grid>
           <Grid item xs={6} sm={4} md={3}>
+            <FormControlLabel
+              control={<Checkbox size="small" checked={(formData.contexts || []).includes('custom')} onChange={(e) => setFormData(prev => ({ ...prev, contexts: e.target.checked ? Array.from(new Set([...(prev.contexts || []), 'custom'])) : (prev.contexts || []).filter((c) => c !== 'custom') }))} />}
+              label="Custom quote builder"
+            />
+          </Grid>
+          <Grid item xs={6} sm={4} md={3}>
             <TextField
               fullWidth
               size="small"

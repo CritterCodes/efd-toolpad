@@ -184,6 +184,9 @@ export function useTaskFormHandlers({
         minimumLaborPrice: parseFloat(formData.minimumLaborPrice) > 0 ? parseFloat(formData.minimumLaborPrice) : null,
         variantPricingAdjustments: normalizeVariantPricingAdjustments(formData.variantPricingAdjustments),
         aiMeta: formData.aiMeta || null,
+        // Context tags (e.g. 'custom') — opt the task into the custom quote builder's
+        // labor autocomplete. Empty array = not custom-tagged.
+        contexts: Array.isArray(formData.contexts) ? formData.contexts : [],
       };
 
       const isEditMode = mode === 'edit' && taskId;

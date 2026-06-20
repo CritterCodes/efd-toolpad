@@ -67,7 +67,7 @@ function TaskAutocomplete({ value, disabled, onText, onPick }) {
     let cancelled = false;
     const t = setTimeout(async () => {
       try {
-        const r = await fetch(`/api/custom-orders/task-suggestions?search=${encodeURIComponent(input || '')}`);
+        const r = await fetch(`/api/custom-orders/task-suggestions?context=custom&search=${encodeURIComponent(input || '')}`);
         if (r.ok && !cancelled) setOptions(await r.json());
       } catch { /* ignore */ }
     }, 250);

@@ -18,9 +18,10 @@ export async function getTaskSuggestions(search = '', limit = 40, context = null
   const rx = term ? { $regex: escapeRegex(term), $options: 'i' } : null;
 
   // Repair / bench task catalog — via TasksService so labor cost is computed by
-  // the pricing engine on read (NOT the stale stored pricing.laborCost). Scoped to
-  // the given context tag (default 'custom') so the quote builder only offers
-  // custom-relevant tasks — repair tasks opt in via their `contexts` tag.
+  // the pricing engine on read (NOT the stale stored pricing.laborCost). When a
+  // `context` is given (e.g. 'custom') the catalog is scoped to tasks tagged with
+  // that context, so the quote builder only offers custom-relevant tasks — repair
+  // tasks opt in via their `contexts` tag. No context = the full active catalog.
   let repair = [];
   try {
     const result = await TasksService.getTasks({ isActive: true, ...(context ? { context } : {}), ...(term ? { search: term } : {}), limit });

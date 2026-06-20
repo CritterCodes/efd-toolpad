@@ -99,6 +99,9 @@ export async function POST(request) {
         sortOrder: taskData.display?.sortOrder || 0
       },
       
+      // Context tags (e.g. 'custom') — opt the task into the custom quote builder.
+      contexts: Array.isArray(taskData.contexts) ? taskData.contexts : [],
+
       // Universal task flags
       isUniversal: true,
       supportsAllMetals: true,

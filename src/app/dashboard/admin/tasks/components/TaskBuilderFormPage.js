@@ -53,6 +53,7 @@ const DEFAULT_TASK_FORM = {
     isFeatured: false,
     sortOrder: 0
   },
+  contexts: [],
   minimumPrice: '',
   priceOverride: '',
   minimumWholesalePrice: '',
@@ -186,6 +187,7 @@ export default function TaskBuilderFormPage({ mode = 'create', taskId = null }) 
             ...(task.display || {}),
             isActive: task.display?.isActive ?? task.isActive ?? true
           },
+          contexts: Array.isArray(task.contexts) ? task.contexts : [],
           minimumPrice: task.minimumPrice?.toString() || '',
           priceOverride: task.priceOverride?.toString() || '',
           minimumWholesalePrice: task.minimumWholesalePrice?.toString() || '',
