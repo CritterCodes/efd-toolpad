@@ -12,16 +12,18 @@ function escapeRegex(s) {
   return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-export async function getTaskSuggestions(search = '', limit = 40) {
+export async function getTaskSuggestions(search = '', limit = 40, context = null) {
   const dbi = await db.connect();
   const term = String(search || '').trim();
   const rx = term ? { $regex: escapeRegex(term), $options: 'i' } : null;
 
   // Repair / bench task catalog — via TasksService so labor cost is computed by
-  // the pricing engine on read (NOT the stale stored pricing.laborCost).
+  // the pricing engine on read (NOT the stale stored pricing.laborCost). Scoped to
+  // the given context tag (default 'custom') so the quote builder only offers
+  // custom-relevant tasks — repair tasks opt in via their `contexts` tag.
   let repair = [];
   try {
-    const result = await TasksService.getTasks({ isActive: true, ...(term ? { search: term } : {}), limit });
+    const result = await TasksService.getTasks({ isActive: true, ...(context ? { context } : {}), ...(term ? { search: term } : {}), limit });
     repair = (result?.data || [])
       .filter((t) => t.title)
       .map((t) => ({

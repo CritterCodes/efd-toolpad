@@ -28,6 +28,12 @@ export function buildQuery(filters) {
     query.category = filters.category;
   }
 
+  // Context tag (e.g. 'custom') — a task whose `contexts` array includes the value.
+  // Used by the custom quote builder to show only custom-relevant tasks.
+  if (filters.context) {
+    query.contexts = filters.context;
+  }
+
   if (filters.metalType && filters.metalType !== 'all') {
     query.$or = [
       { metalType: filters.metalType },

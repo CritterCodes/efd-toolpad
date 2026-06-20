@@ -1,20 +1,24 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { Box, Button, Typography, CircularProgress } from '@mui/material';
+import { Box, Typography, List, ListItem, Button, CircularProgress } from '@mui/material';
 import { useParams } from 'next/navigation';
 import { metalDisplay, karatLabel, customOrderLabel } from '@/constants/customRequest.constants';
 
+// Mirrors RepairTicketComponent's look so custom bench tickets fit the same bin/scan
+// workflow. Scoped to the BENCH work (physical: cleanup/setting/polish) — CAD + GLB
+// are remote/no-physical, so they're excluded.
+const PAPER = '#ffffff';
+const INK = '#111111';
+const MUTED = '#4b5563';
+const BORDER = '#000000';
+const ACCENT = '#d32f2f';
 const SLIP_W = '3.6in';
 const SLIP_H = '5.5in';
 const QR = 64;
 const qrSrc = (id) => `https://api.qrserver.com/v1/create-qr-code/?size=${QR}x${QR}&margin=1&data=${encodeURIComponent(id || '')}`;
-const LANE = { bench_jewelry: 'Bench', cad: 'CAD', engraving: 'Engraving', gem_cutting: 'Gem Cutting' };
+const LANE = { bench_jewelry: 'Bench', engraving: 'Engraving', gem_cutting: 'Gem Cutting' };
+const PHYSICAL = ['bench_jewelry', 'engraving', 'gem_cutting']; // exclude cad (remote)
 
-/**
- * Bench "ready for work" ticket for a custom piece — printed when the cast/mounting
- * is received, so the physical piece can be binned with its work list. Mirrors the
- * repair ticket's print-isolation pattern (single 3.6×5.5in slip, auto window.print).
- */
 export default function CustomBenchTicketPrint() {
   const { customID } = useParams();
   const [order, setOrder] = useState(null);
@@ -41,7 +45,6 @@ export default function CustomBenchTicketPrint() {
     return () => { cancelled = true; };
   }, [customID]);
 
-  // Auto-print once the ticket has rendered.
   useEffect(() => {
     if (!loading && order) {
       const t = setTimeout(() => window.print(), 600);
@@ -53,22 +56,24 @@ export default function CustomBenchTicketPrint() {
   if (loading) return <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress /></Box>;
   if (!order) return <Box sx={{ p: 4 }}><Typography color="error">Custom order not found.</Typography></Box>;
 
-  const metal = [metalDisplay(order.metalType, order.goldColor), order.karat ? karatLabel(order.karat) : ''].filter(Boolean).join(' · ');
-  const gems = (order.gemstones || []).join(', ');
-  const request = [order.description, order.specialRequests].filter((t) => t && t.trim()).join(' — ');
-  // Bench-relevant work (exclude completed/cancelled + CAD design which happens pre-cast).
-  const tasks = (workOrders || []).filter((w) => !['COMPLETED', 'CANCELLED', 'DELIVERED'].includes(String(w.status || '').toUpperCase()));
+  const metal = [metalDisplay(order.metalType, order.goldColor), order.karat ? karatLabel(order.karat) : ''].filter(Boolean).join(' ');
+  const desc = [order.description, order.specialRequests].filter((t) => t && t.trim()).join(' — ');
+  const image = (order.images || []).find((i) => i.url)?.url || null;
+  // Bench work only (physical lanes, not yet finished) — CAD/GLB excluded.
+  const benchItems = (workOrders || []).filter(
+    (w) => PHYSICAL.includes(w.discipline) && !['COMPLETED', 'CANCELLED', 'DELIVERED'].includes(String(w.status || '').toUpperCase()),
+  );
 
   return (
     <Box className="print-root">
       <style jsx global>{`
         @media print {
           @page { size: ${SLIP_W} ${SLIP_H}; margin: 0; }
-          html, body { width: ${SLIP_W} !important; height: ${SLIP_H} !important; margin: 0 !important; padding: 0 !important; background: #fff !important; color: #111 !important; overflow: hidden !important; }
+          html, body { width: ${SLIP_W} !important; height: ${SLIP_H} !important; margin: 0 !important; padding: 0 !important; background: #fff !important; overflow: hidden !important; }
           nav, header, aside, .MuiDrawer-root, .MuiAppBar-root, .MuiBreadcrumbs-root, .no-print { display: none !important; }
           body * { visibility: hidden !important; }
           .print-slip, .print-slip * { visibility: visible !important; }
-          .print-slip { position: fixed !important; top: 0 !important; left: 0 !important; width: ${SLIP_W} !important; height: ${SLIP_H} !important; overflow: hidden !important; margin: 0 !important; padding: 0 !important; }
+          .print-slip { position: fixed !important; top: 0 !important; left: 0 !important; }
         }
       `}</style>
 
@@ -77,63 +82,58 @@ export default function CustomBenchTicketPrint() {
         <Button variant="outlined" onClick={() => window.close()}>Close</Button>
       </Box>
 
-      <Box
-        className="print-slip"
-        sx={{ width: SLIP_W, height: SLIP_H, m: '0 auto', p: '0.2in', boxSizing: 'border-box', color: '#111', bgcolor: '#fff', fontFamily: 'Arial, sans-serif', border: '1px solid #ccc' }}
-      >
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #111', pb: '4px' }}>
-          <Box>
-            <div style={{ fontSize: 9, letterSpacing: 1, fontWeight: 700 }}>ENGEL FINE DESIGN</div>
-            <div style={{ fontSize: 11, fontWeight: 800 }}>CUSTOM · READY FOR WORK</div>
+      <Box className="print-slip" sx={{ width: SLIP_W, height: SLIP_H, maxWidth: SLIP_W, maxHeight: SLIP_H, p: '4px', border: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxSizing: 'border-box', backgroundColor: PAPER, color: INK, m: '0 auto' }}>
+        {/* Header */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: '3px' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <img src="/logos/[efd]LogoBlack.png" alt="Logo" style={{ width: '34px', height: '17px', marginRight: '4px' }} />
+            <Typography sx={{ fontSize: '0.6rem', fontWeight: 'bold', color: ACCENT }}>BENCH TICKET</Typography>
           </Box>
-          <img src={qrSrc(order.customID)} alt={order.customID} width={QR} height={QR} style={{ flexShrink: 0 }} />
+          <Typography sx={{ fontSize: '0.44rem', fontWeight: 'bold', textAlign: 'right', color: INK }}>Engel Fine Design · Custom</Typography>
         </Box>
 
-        <div style={{ fontFamily: 'monospace', fontSize: 10, marginTop: 4 }}>{order.customID}</div>
-        <div style={{ fontSize: 14, fontWeight: 800, margin: '2px 0 4px' }}>{customOrderLabel(order)}</div>
+        {/* Info row */}
+        <Box sx={{ display: 'flex', mb: '1px' }}>
+          {image && (
+            <Box sx={{ flex: 1, textAlign: 'center' }}>
+              <img src={image} alt="Piece" style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: '3px' }} />
+            </Box>
+          )}
+          <Box sx={{ flex: 2, pl: image ? '4px' : 0 }}>
+            <Typography sx={{ fontSize: '0.52rem', fontWeight: 'bold', mb: '1px', color: INK }}>{order.customerName || customOrderLabel(order)}</Typography>
+            <Typography sx={{ fontSize: '0.43rem', mb: '1px', color: INK }}>{customOrderLabel(order)}</Typography>
+            <Typography sx={{ fontSize: '0.43rem', mb: '1px', color: INK }}>
+              Recv: {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'} | Due: {order.dueDate ? new Date(order.dueDate).toLocaleDateString() : (order.timeline || 'N/A')}
+            </Typography>
+            <Typography sx={{ fontSize: '0.43rem', mb: '1px', color: INK }}>Metal: {metal || 'N/A'}</Typography>
+            {order.size && <Typography sx={{ fontSize: '0.43rem', mb: '1px', color: INK }}>Size: {order.size}</Typography>}
+            {(order.gemstones || []).length > 0 && <Typography sx={{ fontSize: '0.43rem', mb: '1px', color: INK }}>Stones: {order.gemstones.join(', ')}</Typography>}
+            {desc && (
+              <Typography sx={{ fontSize: '0.43rem', mb: '1px', color: INK, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}>{desc}</Typography>
+            )}
+            {order.isRush && <Typography sx={{ fontSize: '0.43rem', fontWeight: 'bold', color: INK }}>RUSH</Typography>}
+            <Box sx={{ mt: '3px', display: 'flex', justifyContent: 'space-between', fontSize: '0.38rem', fontWeight: 'bold', color: INK }}>
+              <span>CAST______</span><span>SET______</span><span>C&amp;P______</span><span>QC______</span>
+            </Box>
+          </Box>
+        </Box>
 
-        <table style={{ width: '100%', fontSize: 10, borderCollapse: 'collapse' }}>
-          <tbody>
-            <Row k="Customer" v={order.customerName || '—'} />
-            <Row k="Metal" v={metal || '—'} />
-            {order.size && <Row k="Size" v={order.size} />}
-            {gems && <Row k="Gemstones" v={gems} />}
-          </tbody>
-        </table>
+        <Typography sx={{ fontSize: '0.48rem', fontWeight: 'bold', mb: '2px', mt: '2px', color: MUTED }}>Bench Work:</Typography>
+        <List dense disablePadding sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+          {benchItems.length === 0 ? (
+            <Typography sx={{ fontSize: '0.43rem', color: MUTED }}>No open bench work orders.</Typography>
+          ) : benchItems.map((w, i) => (
+            <ListItem key={w.workOrderID || i} sx={{ p: '1px 0', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', color: INK }}>
+              <Typography sx={{ fontSize: '0.43rem', color: INK }}>{LANE[w.discipline] || w.discipline}: {w.title || w.discipline}</Typography>
+              <Typography sx={{ fontSize: '0.36rem', color: MUTED }}>Bench ____  C&amp;P ____  QC ____</Typography>
+            </ListItem>
+          ))}
+        </List>
 
-        <div style={{ fontSize: 9, fontWeight: 700, marginTop: 6, borderBottom: '1px solid #999' }}>WORK TO DO</div>
-        {tasks.length === 0 ? (
-          <div style={{ fontSize: 10, color: '#666' }}>No open work orders.</div>
-        ) : (
-          <ul style={{ margin: '2px 0', paddingLeft: 16, fontSize: 10 }}>
-            {tasks.map((w) => (
-              <li key={w.workOrderID}>
-                <strong>{LANE[w.discipline] || w.discipline}:</strong> {w.title || w.discipline}
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {request && (
-          <>
-            <div style={{ fontSize: 9, fontWeight: 700, marginTop: 6, borderBottom: '1px solid #999' }}>NOTES</div>
-            <div style={{ fontSize: 9, whiteSpace: 'pre-wrap', maxHeight: '1in', overflow: 'hidden' }}>{request}</div>
-          </>
-        )}
-
-        <div style={{ position: 'absolute', bottom: '0.15in', fontSize: 8, color: '#666' }}>
-          Printed {new Date().toLocaleString('en-US')}
-        </div>
+        <Box sx={{ textAlign: 'center', mt: '2px', height: QR, overflow: 'hidden', flexShrink: 0, '& img': { width: QR, height: QR, display: 'block', margin: '0 auto' } }}>
+          <img src={qrSrc(order.customID)} alt={`Custom ${order.customID}`} />
+        </Box>
       </Box>
     </Box>
-  );
-}
-
-function Row({ k, v }) {
-  return (
-    <tr>
-      <td style={{ fontWeight: 700, padding: '1px 6px 1px 0', verticalAlign: 'top', whiteSpace: 'nowrap' }}>{k}</td>
-      <td style={{ padding: '1px 0' }}>{v}</td>
-    </tr>
   );
 }
