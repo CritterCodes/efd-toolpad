@@ -12,8 +12,20 @@ import { randomUUID } from 'crypto';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
 import { spawnCustomWorkOrder } from '@/services/customs/customProduction';
 import { DISCIPLINE } from '@/services/workOrders/disciplines';
+import SettingsManagerService from '@/app/api/admin/settings/services/settingsManager.service';
 
 export const ASSIGNMENT_ROLE = { CAD: 'cad', BENCH: 'bench' };
+
+const DEFAULT_QC_REVIEW_FEE = 25;
+async function qcReviewFeeSetting() {
+  try {
+    const s = await SettingsManagerService.getSettings();
+    const fee = Number(s?.financial?.qcReviewFee);
+    return fee >= 0 ? fee : DEFAULT_QC_REVIEW_FEE;
+  } catch {
+    return DEFAULT_QC_REVIEW_FEE;
+  }
+}
 
 // Who can be assigned to a custom: the artisan roles, the in-house staff who also
 // work the bench (admin/dev are the makers in this shop), and anyone of any role
@@ -88,15 +100,15 @@ export async function assignArtisan({ customID, userID, role = ASSIGNMENT_ROLE.C
   await CustomOrdersModel.addAssignment(customID, assignment);
 
   if (assignment.role === ASSIGNMENT_ROLE.CAD) {
-    // Fold the CAD designer's fee into the quote's designFee → COG → markup (C4).
-    // Always reflect the assignment (turns the custom-design fee on in the quote).
-    if (feeSnapshot > 0) {
-      await CustomOrdersModel.updateById(
-        customID,
-        { quote: { ...order.quote, designFee: feeSnapshot, includeCustomDesign: true } },
-        { changedBy: assignedBy, reason: 'cad designer assigned' },
-      );
-    }
+    // Fold the CAD designer's fee + the (paid) QC peer-review fee into the quote's
+    // COG → markup (C4): the CAD design always goes through paid QC, so the client
+    // is charged for it rather than the shop absorbing it. Both snapshot here.
+    const qcFee = await qcReviewFeeSetting();
+    await CustomOrdersModel.updateById(
+      customID,
+      { quote: { ...order.quote, designFee: feeSnapshot, qcReviewFee: qcFee, includeCustomDesign: feeSnapshot > 0 || qcFee > 0 } },
+      { changedBy: assignedBy, reason: 'cad designer assigned' },
+    );
     // Spawn the CAD work order on the designer's bench (C6); carry the flat
     // design fee so it can be logged into COGS when QC passes (C6c).
     await spawnCustomWorkOrder({

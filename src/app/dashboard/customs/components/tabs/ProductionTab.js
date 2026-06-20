@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Paper, Stack, Typography, Button, Chip, Grid, CircularProgress,
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem,
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, InputAdornment,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import BuildCircleIcon from '@mui/icons-material/BuildCircle';
@@ -35,7 +35,7 @@ export default function ProductionTab({ customID, order, margin, notify, onChang
   const [workOrders, setWorkOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
-  const EMPTY_FORM = { discipline: 'bench_jewelry', cadStage: 'glb', title: '', estLaborHours: '', assignedToUserID: '' };
+  const EMPTY_FORM = { discipline: 'bench_jewelry', cadStage: 'glb', title: '', estLaborHours: '', assignedToUserID: '', fee: '' };
   const [form, setForm] = useState(EMPTY_FORM);
   const [artisans, setArtisans] = useState([]);
   const [castOpen, setCastOpen] = useState(false);
@@ -62,7 +62,11 @@ export default function ProductionTab({ customID, order, margin, notify, onChang
     setBusy(true);
     try {
       const payload = { discipline: form.discipline, title: form.title || null, estLaborHours: Number(form.estLaborHours) || 0 };
-      if (isCad) { payload.cadStage = form.cadStage; if (form.assignedToUserID) payload.assignedToUserID = form.assignedToUserID; }
+      if (isCad) {
+        payload.cadStage = form.cadStage;
+        if (form.assignedToUserID) payload.assignedToUserID = form.assignedToUserID;
+        if (form.fee !== '') payload.flatFee = Number(form.fee) || 0; // GLB/CAD fee → quote (glbFee) + COGS
+      }
       const res = await fetch(`/api/custom-orders/${customID}/work-orders`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
       });
@@ -82,7 +86,9 @@ export default function ProductionTab({ customID, order, margin, notify, onChang
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to record casting');
       setCastOpen(false); setCastForm(EMPTY_CAST);
-      notify('Casting cost recorded — added to COGS + expense ledger', 'success');
+      notify('Casting recorded — COGS + ledger updated, bench ticket printing', 'success');
+      // Print the bench "ready for work" ticket immediately so the cast piece can be binned.
+      if (typeof window !== 'undefined') window.open(`/dashboard/customs/${customID}/print`, '_blank');
       await load(); await onChanged?.();
     } catch (e) { notify(e.message, 'error'); } finally { setBusy(false); }
   };
@@ -178,10 +184,11 @@ export default function ProductionTab({ customID, order, margin, notify, onChang
                   <MenuItem value="design">Design (STL — casting)</MenuItem>
                   <MenuItem value="glb">GLB (web viewer)</MenuItem>
                 </TextField>
-                <TextField select label="Assign CAD designer (optional)" value={form.assignedToUserID} onChange={(e) => setForm((f) => ({ ...f, assignedToUserID: e.target.value }))} fullWidth helperText="Assigning snapshots their CAD fee into COGS.">
+                <TextField select label="Assign CAD designer (optional)" value={form.assignedToUserID} onChange={(e) => setForm((f) => ({ ...f, assignedToUserID: e.target.value, fee: f.fee || (artisans.find((a) => a.userID === e.target.value)?.customDesignFee || '') }))} fullWidth helperText="Assigning snapshots their CAD fee into COGS.">
                   <MenuItem value="">Unassigned (claimed from the bench)</MenuItem>
                   {artisans.map((a) => <MenuItem key={a.userID} value={a.userID}>{a.name}{a.customDesignFee ? ` · $${a.customDesignFee.toLocaleString()}` : ''}</MenuItem>)}
                 </TextField>
+                <TextField label={form.cadStage === 'glb' ? 'GLB fee' : 'CAD fee'} type="number" value={form.fee} onChange={(e) => setForm((f) => ({ ...f, fee: e.target.value }))} fullWidth InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} helperText={form.cadStage === 'glb' ? 'Folds into the quote (glbFee → COG → markup) + paid on QC.' : 'Folds into the quote (designFee) + paid on QC.'} />
               </>
             )}
             <TextField label="Title" placeholder="e.g. Cast cleanup & stone setting" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} fullWidth />

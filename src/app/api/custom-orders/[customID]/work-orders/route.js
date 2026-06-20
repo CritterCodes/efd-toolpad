@@ -27,6 +27,7 @@ export const POST = async (req, { params }) => {
       assignedToUserID: body.assignedToUserID || null,
       assignedJeweler: body.assignedJeweler || null,
       estLaborHours: body.estLaborHours || 0,
+      flatFee: body.flatFee || 0,
       process: body.process || null,
       createdBy: session.user.userID || session.user.email || '',
     });

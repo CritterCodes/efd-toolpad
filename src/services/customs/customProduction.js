@@ -120,6 +120,19 @@ export async function spawnCustomWorkOrder({
     createdBy,
   });
   await PiecesModel.setWorkOrders(pieceID, [...(piece.workOrderIDs || []), wo.workOrderID]);
+
+  // A GLB-stage CAD work order is a billable design opportunity — snapshot its fee
+  // into the quote (glbFee → COG → markup) so the client is charged for it (C4/C6).
+  if (discipline === DISCIPLINE.CAD && cadStage === 'glb' && resolvedFee > 0) {
+    const order = await CustomOrdersModel.findById(customID);
+    if (order) {
+      await CustomOrdersModel.updateById(
+        customID,
+        { quote: { ...order.quote, glbFee: resolvedFee } },
+        { changedBy: createdBy, reason: 'glb work order created' },
+      );
+    }
+  }
   return wo;
 }
 
