@@ -97,7 +97,6 @@ export const DASHBOARD_SECTIONS = {
     { id: 'overview', label: 'Overview', icon: '📊', url: '/dashboard/admin/overview' },
     { id: 'pending-approval', label: 'Pending Approval', icon: '⏳', url: '/dashboard/admin/pending-approval', badge: 'count' },
     { id: 'products', label: 'Products', icon: '💎', url: '/dashboard/admin/products' },
-    { id: 'cad-requests', label: 'CAD Requests', icon: '🎨', url: '/dashboard/requests/cad-requests' },
     { id: 'collections', label: 'Collections', icon: '📚', url: '/dashboard/admin/collections' },
     { id: 'drops', label: 'Drop Orchestration', icon: '🎯', url: '/dashboard/admin/drops' },
     { id: 'artisans', label: 'Artisan Management', icon: '👥', url: '/dashboard/admin/artisans' },

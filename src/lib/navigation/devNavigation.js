@@ -14,7 +14,6 @@ import PickupIcon from "@mui/icons-material/LocalShipping";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import DiamondIcon from "@mui/icons-material/AutoAwesome";
 import RingIcon from "@mui/icons-material/FiberSmartRecord";
-import DesignServicesIcon from "@mui/icons-material/DesignServices";
 import PaymentIcon from "@mui/icons-material/Payment";
 import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 import LeadsIcon from "@mui/icons-material/ChatBubbleOutline";
@@ -56,14 +55,7 @@ export const devNavigation = {
     {
       segment: 'dashboard/requests',
       title: 'Requests',
-      icon: <AssignmentIcon />,
-      children: [
-        {
-          segment: 'cad-requests',
-          title: 'CAD Requests',
-          icon: <DesignServicesIcon />
-        }
-      ]
+      icon: <AssignmentIcon />
     },
     { kind: 'header', title: 'Repair Work' },
     {
