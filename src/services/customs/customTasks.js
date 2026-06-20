@@ -59,3 +59,32 @@ export async function getTaskSuggestions(search = '', limit = 40, context = null
   }
   return out.slice(0, limit);
 }
+
+/**
+ * Resolve a custom-context catalog task (by exact title) into a quote labor LINE.
+ * Cost = the task's engine-computed laborCost (its `minimumLaborPrice` floor); falls
+ * back to `fallbackCost` if the task is missing/zero (e.g. the seed hasn't run). The
+ * line is marked `discipline:'cad'` + `noWorkOrder` so it folds into the quote's labor
+ * COG but is NOT re-spawned as a bench work order at casting (CAD/GLB/QC have their own
+ * flows). `autoKey` lets the auto-add dedupe itself on re-assign / re-create.
+ */
+export async function getCustomTaskLine(title, { autoKey = null, fallbackCost = 0 } = {}) {
+  let cost = 0; let hours = 0;
+  try {
+    const result = await TasksService.getTasks({ isActive: true, context: 'custom', search: title, limit: 10 });
+    const match = (result?.data || []).find((t) => String(t.title).toLowerCase() === String(title).toLowerCase());
+    if (match) {
+      cost = Number(match.pricing?.laborCost) || 0;
+      hours = Number(match.pricing?.totalLaborHours ?? match.laborHours) || 0;
+    }
+  } catch { /* fall back below */ }
+  const resolved = cost > 0 ? cost : (Number(fallbackCost) || 0);
+  return { description: title, quantity: 1, cost: resolved, hours, discipline: 'cad', source: 'auto', autoKey, noWorkOrder: true };
+}
+
+/** Merge an auto labor line into a laborTasks array, replacing any prior line with the
+ *  same `autoKey` (idempotent on re-assign / re-create). */
+export function mergeAutoLaborLine(laborTasks = [], line) {
+  const kept = (laborTasks || []).filter((t) => !(line.autoKey && t.autoKey === line.autoKey));
+  return [...kept, line];
+}

@@ -8,8 +8,13 @@
  *   cog        = materials + labor + shipping + casting + designer + GLB + QC fees
  *   quoteTotal = cog × cogMarkup × (isRush ? rushMultiplier : 1)
  *
- * Legacy flat fields (materialCosts[]/laborCost/shippingCost) are still summed so
- * pre-existing orders keep computing. Pure (settings passed in) — unit-testable.
+ * NOTE (T2): new orders model CAD QC + GLB as LABOR LINES (quote.laborTasks), not the
+ * `glbFee`/`qcReviewFee` fields — so those fields are 0 for new orders and counted via
+ * `laborTotal`. The glbFee/qcReviewFee terms below remain ONLY for back-compat with
+ * pre-T2 orders (which carry the fields and no QC/GLB labor lines) — no double count.
+ * The designer fee stays a field (`designFee`, per-designer). Legacy flat fields
+ * (materialCosts[]/laborCost/shippingCost) are still summed so pre-existing orders keep
+ * computing. Pure (settings passed in) — unit-testable.
  */
 const DEFAULT_COG_MARKUP = 2.5;
 const DEFAULT_RUSH = 1.5;

@@ -11,6 +11,7 @@ import { db } from '@/lib/database';
 import { randomUUID } from 'crypto';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
 import { spawnCustomWorkOrder } from '@/services/customs/customProduction';
+import { getCustomTaskLine, mergeAutoLaborLine } from '@/services/customs/customTasks';
 import { DISCIPLINE } from '@/services/workOrders/disciplines';
 import SettingsManagerService from '@/app/api/admin/settings/services/settingsManager.service';
 
@@ -100,13 +101,17 @@ export async function assignArtisan({ customID, userID, role = ASSIGNMENT_ROLE.C
   await CustomOrdersModel.addAssignment(customID, assignment);
 
   if (assignment.role === ASSIGNMENT_ROLE.CAD) {
-    // Fold the CAD designer's fee + the (paid) QC peer-review fee into the quote's
-    // COG → markup (C4): the CAD design always goes through paid QC, so the client
-    // is charged for it rather than the shop absorbing it. Both snapshot here.
+    // The CAD designer's per-job fee snapshots into the quote (designFee → COG → markup).
+    // The CAD design always goes through paid peer QC, so we ALSO add a "CAD QC Review"
+    // labor line from the custom task catalog (priced like any task; falls back to the
+    // qcReviewFee setting if the seed hasn't run). It's a labor line — not a separate
+    // fee field — so QC is modeled as work, like the rest of the tasks.
     const qcFee = await qcReviewFeeSetting();
+    const qcLine = await getCustomTaskLine('CAD QC Review', { autoKey: 'custom-qc', fallbackCost: qcFee });
+    const laborTasks = mergeAutoLaborLine(order.quote?.laborTasks, qcLine);
     await CustomOrdersModel.updateById(
       customID,
-      { quote: { ...order.quote, designFee: feeSnapshot, qcReviewFee: qcFee, includeCustomDesign: feeSnapshot > 0 || qcFee > 0 } },
+      { quote: { ...order.quote, designFee: feeSnapshot, laborTasks, includeCustomDesign: feeSnapshot > 0 } },
       { changedBy: assignedBy, reason: 'cad designer assigned' },
     );
     // Spawn the CAD work order on the designer's bench (C6); carry the flat

@@ -14,6 +14,7 @@ import RepairLaborLogsModel from '@/app/api/repairLaborLogs/model';
 import SettingsManagerService from '@/app/api/admin/settings/services/settingsManager.service';
 import { DISCIPLINE } from '@/services/workOrders/disciplines';
 import { createPieceFromDesign } from '@/services/production/pieceRouting';
+import { getCustomTaskLine, mergeAutoLaborLine } from '@/services/customs/customTasks';
 
 const DEFAULT_CLIENT_MGMT_BONUS_PCT = 0.05;
 
@@ -121,14 +122,18 @@ export async function spawnCustomWorkOrder({
   });
   await PiecesModel.setWorkOrders(pieceID, [...(piece.workOrderIDs || []), wo.workOrderID]);
 
-  // A GLB-stage CAD work order is a billable design opportunity — snapshot its fee
-  // into the quote (glbFee → COG → markup) so the client is charged for it (C4/C6).
-  if (discipline === DISCIPLINE.CAD && cadStage === 'glb' && resolvedFee > 0) {
+  // A GLB-stage CAD work order is a billable design opportunity — add a "GLB Creation"
+  // labor line from the custom task catalog (priced like any task; falls back to the
+  // designer's resolved fee if the seed hasn't run) so the client is charged for it.
+  // It's a labor line, not a separate glbFee field — GLB is modeled as work (C4/C6).
+  if (discipline === DISCIPLINE.CAD && cadStage === 'glb') {
     const order = await CustomOrdersModel.findById(customID);
     if (order) {
+      const glbLine = await getCustomTaskLine('GLB Creation', { autoKey: 'custom-glb', fallbackCost: resolvedFee });
+      const laborTasks = mergeAutoLaborLine(order.quote?.laborTasks, glbLine);
       await CustomOrdersModel.updateById(
         customID,
-        { quote: { ...order.quote, glbFee: resolvedFee } },
+        { quote: { ...order.quote, laborTasks } },
         { changedBy: createdBy, reason: 'glb work order created' },
       );
     }
@@ -255,6 +260,9 @@ export async function generateWorkOrdersFromQuote({ customID, createdBy = 'syste
   for (const t of tasks) {
     const desc = String(t.description || '').trim();
     if (!desc) continue;
+    // Skip CAD-lane / auto lines (CAD design, GLB, QC) — those are created by the CAD
+    // flow at their own stage, not as bench work generated when casting is received.
+    if (t.noWorkOrder || t.discipline === DISCIPLINE.CAD) continue;
     await spawnCustomWorkOrder({
       customID,
       discipline: t.discipline || DISCIPLINE.BENCH_JEWELRY,

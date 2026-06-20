@@ -245,7 +245,7 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
         centerstone: form.centerstone, mounting: form.mounting,
         accentStones: form.accentStones.map((r) => ({ description: r.description || '', quantity: n(r.quantity) || 1, cost: n(r.cost) })),
         additionalMaterials: form.additionalMaterials.map((r) => ({ description: r.description || '', quantity: n(r.quantity) || 1, cost: n(r.cost) })),
-        laborTasks: form.laborTasks.map((r) => ({ description: r.description || '', quantity: n(r.quantity) || 1, cost: n(r.cost), hours: n(r.hours), discipline: r.discipline || 'bench_jewelry' })),
+        laborTasks: form.laborTasks.map((r) => ({ description: r.description || '', quantity: n(r.quantity) || 1, cost: n(r.cost), hours: n(r.hours), discipline: r.discipline || 'bench_jewelry', ...(r.autoKey ? { autoKey: r.autoKey, source: r.source || 'auto' } : {}), ...(r.noWorkOrder ? { noWorkOrder: true } : {}) })),
         shippingCosts: form.shippingCosts.map((r) => ({ description: r.description || '', cost: n(r.cost) })),
         isRush: form.isRush, includeCustomDesign: form.includeCustomDesign, designFee: n(form.designFee),
         // clear legacy flats so they don't double-count
@@ -343,7 +343,7 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
       {/* Phase 2: Labor */}
       <Paper sx={cardSx}>
         <CardHead icon={BuildIcon} title="Labor Tasks" action={editMode && <Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('laborTasks', { description: '', quantity: 1, cost: 0, hours: 0, discipline: 'bench_jewelry' })} sx={{ color: REPAIRS_UI.accent }}>Add task</Button>} />
-        <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 1 }}>Each task generates a bench work order in its lane when the order reaches production (deposit ≥ 50%).</Typography>
+        <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 1 }}>Each bench task generates a work order in its lane when the order reaches production (deposit ≥ 50%). CAD/QC/GLB lines are added automatically by the design flow and don&apos;t spawn bench work.</Typography>
         <LineEditor rows={form.laborTasks} onChange={(rows) => setField('laborTasks', rows)} withQty withDiscipline editMode={editMode} suggest emptyText='No labor tasks. Click "Add task" to add production tasks.' />
       </Paper>
 

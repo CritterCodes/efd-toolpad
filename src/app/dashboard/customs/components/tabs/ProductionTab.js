@@ -65,7 +65,7 @@ export default function ProductionTab({ customID, order, margin, notify, onChang
       if (isCad) {
         payload.cadStage = form.cadStage;
         if (form.assignedToUserID) payload.assignedToUserID = form.assignedToUserID;
-        if (form.fee !== '') payload.flatFee = Number(form.fee) || 0; // GLB/CAD fee → quote (glbFee) + COGS
+        if (form.fee !== '') payload.flatFee = Number(form.fee) || 0; // designer/modeler payout on the WO (→ COGS)
       }
       const res = await fetch(`/api/custom-orders/${customID}/work-orders`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
@@ -188,7 +188,7 @@ export default function ProductionTab({ customID, order, margin, notify, onChang
                   <MenuItem value="">Unassigned (claimed from the bench)</MenuItem>
                   {artisans.map((a) => <MenuItem key={a.userID} value={a.userID}>{a.name}{a.customDesignFee ? ` · $${a.customDesignFee.toLocaleString()}` : ''}</MenuItem>)}
                 </TextField>
-                <TextField label={form.cadStage === 'glb' ? 'GLB fee' : 'CAD fee'} type="number" value={form.fee} onChange={(e) => setForm((f) => ({ ...f, fee: e.target.value }))} fullWidth InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} helperText={form.cadStage === 'glb' ? 'Folds into the quote (glbFee → COG → markup) + paid on QC.' : 'Folds into the quote (designFee) + paid on QC.'} />
+                <TextField label={form.cadStage === 'glb' ? 'GLB fee' : 'CAD fee'} type="number" value={form.fee} onChange={(e) => setForm((f) => ({ ...f, fee: e.target.value }))} fullWidth InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} helperText={form.cadStage === 'glb' ? 'Modeler payout (→ COGS). Adds a "GLB Creation" labor line to the quote (cost from the custom task; editable there).' : 'Folds into the quote (designFee) + paid on QC.'} />
               </>
             )}
             <TextField label="Title" placeholder="e.g. Cast cleanup & stone setting" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} fullWidth />
