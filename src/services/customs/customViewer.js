@@ -37,7 +37,9 @@ export function shareUrl(token) {
   return `${base}/d/${token}`;
 }
 
-/** Attach/replace the 3D model on a custom order (validated). */
+/** Attach/replace the 3D model on a custom order (validated). MERGES with the existing
+ * designModel so fields the caller doesn't manage (e.g. `stlVolumeCm3`, written by the
+ * STL upload for the casting estimator) aren't wiped when materials are (re)assigned. */
 export async function setDesignModel(customID, designModel) {
   const { valid, errors } = validateDesignModel(designModel);
   if (!valid) {
@@ -45,7 +47,10 @@ export async function setDesignModel(customID, designModel) {
     err.code = 'INVALID_DESIGN_MODEL';
     throw err;
   }
-  const updated = await CustomOrdersModel.updateById(customID, { designModel });
+  const order = await CustomOrdersModel.findById(customID);
+  if (!order) throw new Error('Custom order not found.');
+  const merged = { ...(order.designModel || {}), ...designModel };
+  const updated = await CustomOrdersModel.updateById(customID, { designModel: merged });
   if (!updated) throw new Error('Custom order not found.');
   return updated;
 }
