@@ -111,6 +111,10 @@ const nextConfig = withPWA({
         }
     ] : []
 })({
+    // Disabled to match efd-shop: React StrictMode double-mounts the REFRAKT r3f
+    // <Canvas> in dev, which disposes its WebGL context ("Context Lost" → the GLB
+    // viewer flashes then goes blank). Dev-only behavior; no production impact.
+    reactStrictMode: false,
     outputFileTracingRoot: projectRoot,
     eslint: {
         ignoreDuringBuilds: true,
