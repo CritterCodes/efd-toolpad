@@ -23,6 +23,7 @@ import { canClaimDiscipline, DISCIPLINE } from '@/services/workOrders/discipline
 import { storageClient, STORAGE_BUCKET, storageUrl } from '@/lib/storage';
 import SettingsManagerService from '@/app/api/admin/settings/services/settingsManager.service';
 import { getSTLVolume } from '@/lib/stlParser';
+import { createShareLink, setShareEnabled } from '@/services/customs/customViewer';
 
 /** STL files are authored in mm; the cost estimator works in cm³ (1 cm³ = 1000 mm³). */
 async function stlVolumeCm3(arrayBuffer) {
@@ -296,6 +297,24 @@ export async function approveCadQc({ session, workOrderID }) {
     status: 'COMPLETED', qcBy: session.user.name, qcDate: new Date(),
   });
   const piece = await PiecesModel.recomputeCosts(wo.sourceID);
+
+  // GLB passed QC → publish the customer share link so the approved design is viewable
+  // in the efd-shop customs portal (+ the public /d/<token> page). Idempotent: reuse an
+  // existing token (just enable it) rather than minting a new one. Never block QC on this.
+  if (wo.cadStage === 'glb' && piece?.customOrderID) {
+    try {
+      const order = await CustomOrdersModel.findById(piece.customOrderID);
+      if (order?.designModel?.glbUrl) {
+        if (order.share?.token) {
+          if (!order.share.enabled) await setShareEnabled(piece.customOrderID, true);
+        } else {
+          await createShareLink(piece.customOrderID);
+        }
+      }
+    } catch (e) {
+      console.warn('[customs] auto-share on GLB QC approval failed:', e.message);
+    }
+  }
   return { workOrder, piece };
 }
 
