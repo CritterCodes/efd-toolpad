@@ -11,7 +11,6 @@ import ShippingIcon from '@mui/icons-material/LocalShipping';
 import TuneIcon from '@mui/icons-material/Tune';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
-import EditIcon from '@mui/icons-material/Edit';
 import PublishIcon from '@mui/icons-material/Publish';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
@@ -108,18 +107,18 @@ function LineEditor({ rows, onChange, withQty, withDiscipline, editMode, emptyTe
         <Grid container spacing={1} key={i} alignItems="center">
           <Grid item xs={12} sm={descSm}>
             {suggest
-              ? <TaskAutocomplete value={r.description} disabled={!editMode} onText={(v) => set(i, 'description', v)} onPick={({ description, cost, hours, category }) => patch(i, { description, cost, hours, ...(category ? { discipline: categoryToDiscipline(category) } : {}) })} />
-              : <TextField fullWidth size="small" label="Description" value={r.description || ''} disabled={!editMode} onChange={(e) => set(i, 'description', e.target.value)} />}
+              ? <TaskAutocomplete value={r.description} disabled={busy} onText={(v) => set(i, 'description', v)} onPick={({ description, cost, hours, category }) => patch(i, { description, cost, hours, ...(category ? { discipline: categoryToDiscipline(category) } : {}) })} />
+              : <TextField fullWidth size="small" label="Description" value={r.description || ''} disabled={busy} onChange={(e) => set(i, 'description', e.target.value)} />}
           </Grid>
           {withDiscipline && (
             <Grid item xs={6} sm={3}>
-              <TextField select fullWidth size="small" label="Lane" value={r.discipline || 'bench_jewelry'} disabled={!editMode} onChange={(e) => set(i, 'discipline', e.target.value)}>
+              <TextField select fullWidth size="small" label="Lane" value={r.discipline || 'bench_jewelry'} disabled={busy} onChange={(e) => set(i, 'discipline', e.target.value)}>
                 {DISCIPLINE_OPTS.map((d) => <MenuItem key={d.value} value={d.value}>{d.label}</MenuItem>)}
               </TextField>
             </Grid>
           )}
-          {withQty && <Grid item xs={4} sm={withDiscipline ? 1 : 2}><TextField fullWidth size="small" label="Qty" type="number" value={r.quantity ?? 1} disabled={!editMode} onChange={(e) => set(i, 'quantity', e.target.value)} /></Grid>}
-          <Grid item xs={withDiscipline ? 6 : 8} sm={withDiscipline ? 2 : 3}><TextField fullWidth size="small" label="Cost" type="number" value={r.cost ?? 0} disabled={!editMode} onChange={(e) => set(i, 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
+          {withQty && <Grid item xs={4} sm={withDiscipline ? 1 : 2}><TextField fullWidth size="small" label="Qty" type="number" value={r.quantity ?? 1} disabled={busy} onChange={(e) => set(i, 'quantity', e.target.value)} /></Grid>}
+          <Grid item xs={withDiscipline ? 6 : 8} sm={withDiscipline ? 2 : 3}><TextField fullWidth size="small" label="Cost" type="number" value={r.cost ?? 0} disabled={busy} onChange={(e) => set(i, 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
           <Grid item xs={2} sm={1}>{editMode && <IconButton size="small" onClick={() => remove(i)} sx={{ color: REPAIRS_UI.textMuted }}><DeleteIcon fontSize="small" /></IconButton>}</Grid>
         </Grid>
       ))}
@@ -183,13 +182,14 @@ const blankForm = (q = {}) => ({
 
 export default function QuoteTab({ customID, order, margin, onChanged, notify }) {
   const q = order.quote || {};
-  const [editMode, setEditMode] = useState(false);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState(() => blankForm(q));
   const [floorPct, setFloorPct] = useState(45);
 
-  // Re-sync from the order when not editing (e.g. after save/refresh).
-  useEffect(() => { if (!editMode) setForm(blankForm(order.quote || {})); }, [order.quote, editMode]);
+  // Always-editable (no Edit toggle). Re-sync from the order whenever it reloads
+  // (after save / casting / status changes — the only times `order.quote` changes
+  // identity; in-progress edits aren't clobbered because typing doesn't reload).
+  useEffect(() => { setForm(blankForm(order.quote || {})); }, [order.quote]);
   useEffect(() => {
     fetch('/api/admin/settings').then((r) => r.ok ? r.json() : null).then((s) => {
       const f = Number(s?.financial?.targetMarginFloor);
@@ -259,8 +259,7 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
     } catch (e) { notify(e.message, 'error'); return false; } finally { setBusy(false); }
   }, [customID, form, onChanged, notify]);
 
-  const save = async () => { if (await persist()) { setEditMode(false); notify('Quote saved', 'success'); } };
-  const saveAndPublish = async () => { if (await persist({ quotePublished: true, publishedAt: new Date().toISOString() })) { setEditMode(false); notify('Quote published to client', 'success'); } };
+  const save = async () => { if (await persist()) notify('Quote saved', 'success'); };
   const publish = async () => { if (await persist({ quotePublished: true, publishedAt: new Date().toISOString() })) notify('Quote published to client', 'success'); };
   const unpublish = async () => { if (await persist({ quotePublished: false, publishedAt: null })) notify('Quote unpublished', 'success'); };
 
@@ -276,93 +275,81 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
           {published && <Chip size="small" icon={<VisibilityIcon sx={{ fontSize: 15 }} />} color="success" label="Published to client" />}
           <Chip size="small" label={money(total)} sx={{ bgcolor: REPAIRS_UI.bgTertiary, color: REPAIRS_UI.accent, fontWeight: 700 }} />
         </Stack>
-        {!editMode ? (
-          <Stack direction="row" spacing={1}>
-            <Button size="small" variant="outlined" startIcon={<EditIcon />} onClick={() => setEditMode(true)} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>Edit Quote</Button>
-            {published
-              ? <Button size="small" variant="outlined" color="warning" startIcon={<VisibilityIcon />} disabled={busy} onClick={unpublish}>Unpublish</Button>
-              : <Button size="small" variant="contained" color="success" startIcon={<PublishIcon />} disabled={busy || total <= 0} onClick={publish}>Publish</Button>}
-          </Stack>
-        ) : (
-          <Stack direction="row" spacing={1}>
-            <Button size="small" onClick={() => { setEditMode(false); setForm(blankForm(order.quote || {})); }} sx={{ color: REPAIRS_UI.textSecondary }}>Cancel</Button>
-            <Button size="small" variant="contained" disabled={busy} onClick={save} sx={goldBtn}>Save</Button>
-            {!published && <Button size="small" variant="contained" color="success" startIcon={<PublishIcon />} disabled={busy || total <= 0} onClick={saveAndPublish}>Save &amp; Publish</Button>}
-          </Stack>
-        )}
+        <Stack direction="row" spacing={1}>
+          <Button size="small" variant="contained" disabled={busy} onClick={save} sx={goldBtn}>Save</Button>
+          {published
+            ? <Button size="small" variant="outlined" color="warning" startIcon={<VisibilityIcon />} disabled={busy} onClick={unpublish}>Unpublish</Button>
+            : <Button size="small" variant="contained" color="success" startIcon={<PublishIcon />} disabled={busy || total <= 0} onClick={publish}>Publish</Button>}
+        </Stack>
       </Stack>
 
       {/* Phase 1: Materials */}
       <Paper sx={cardSx}>
         <CardHead icon={DiamondIcon} title="Materials" />
         <Grid container spacing={2} sx={{ mb: 1.5 }}>
-          <Grid item xs={12} sm={8}><TextField fullWidth size="small" label="Centerstone" value={form.centerstone.item} disabled={!editMode} onChange={(e) => setNested('centerstone', 'item', e.target.value)} /></Grid>
-          <Grid item xs={12} sm={4}><TextField fullWidth size="small" label="Cost" type="number" value={form.centerstone.cost} disabled={!editMode} onChange={(e) => setNested('centerstone', 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
-          <Grid item xs={12} sm={8}><TextField fullWidth size="small" label="Mounting" value={form.mounting.item} disabled={!editMode} onChange={(e) => setNested('mounting', 'item', e.target.value)} /></Grid>
-          <Grid item xs={12} sm={4}><TextField fullWidth size="small" label="Cost" type="number" value={form.mounting.cost} disabled={!editMode} onChange={(e) => setNested('mounting', 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
-          {(editMode || stlVolumeCm3 > 0) && (
-            <Grid item xs={12}>
-              <Stack spacing={1} sx={{ p: 1.25, borderRadius: 1, border: `1px dashed ${stlVolumeCm3 > 0 ? REPAIRS_UI.accent : REPAIRS_UI.border}`, bgcolor: REPAIRS_UI.bgTertiary }}>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <CalculateIcon sx={{ color: REPAIRS_UI.accent, fontSize: 18 }} />
-                  <Typography variant="caption" sx={{ color: REPAIRS_UI.textPrimary, fontWeight: 600 }}>Casting quote (from CAD model)</Typography>
-                </Stack>
-                <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>
-                  {stlVolumeCm3 > 0
-                    ? `The uploaded CAD model is ${stlVolumeCm3} cm³. Estimate the metal/casting cost from it — this replaces a vendor casting quote and fills the Mounting cost above.`
-                    : 'Upload the STL on the CAD work order, then estimate the metal/casting cost from the model here — it replaces a vendor casting quote and fills the Mounting cost.'}
-                </Typography>
-                {editMode && stlVolumeCm3 > 0 ? (
-                  <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-                    <TextField select size="small" label="Metal" value={estMetal} onChange={(e) => setEstMetal(e.target.value)} sx={{ minWidth: 180 }}>
-                      {METAL_OPTS.map((m) => <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>)}
-                    </TextField>
-                    <Button size="small" variant="contained" startIcon={<CalculateIcon />} disabled={estimating} onClick={estimateMounting} sx={goldBtn}>
-                      Estimate casting → Mounting
-                    </Button>
-                  </Stack>
-                ) : !editMode && stlVolumeCm3 > 0 ? (
-                  <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>Edit the quote to estimate and apply the casting cost.</Typography>
-                ) : null}
+          <Grid item xs={12} sm={8}><TextField fullWidth size="small" label="Centerstone" value={form.centerstone.item} disabled={busy} onChange={(e) => setNested('centerstone', 'item', e.target.value)} /></Grid>
+          <Grid item xs={12} sm={4}><TextField fullWidth size="small" label="Cost" type="number" value={form.centerstone.cost} disabled={busy} onChange={(e) => setNested('centerstone', 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
+          <Grid item xs={12} sm={8}><TextField fullWidth size="small" label="Mounting" value={form.mounting.item} disabled={busy} onChange={(e) => setNested('mounting', 'item', e.target.value)} /></Grid>
+          <Grid item xs={12} sm={4}><TextField fullWidth size="small" label="Cost" type="number" value={form.mounting.cost} disabled={busy} onChange={(e) => setNested('mounting', 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
+          <Grid item xs={12}>
+            <Stack spacing={1} sx={{ p: 1.25, borderRadius: 1, border: `1px dashed ${stlVolumeCm3 > 0 ? REPAIRS_UI.accent : REPAIRS_UI.border}`, bgcolor: REPAIRS_UI.bgTertiary }}>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <CalculateIcon sx={{ color: REPAIRS_UI.accent, fontSize: 18 }} />
+                <Typography variant="caption" sx={{ color: REPAIRS_UI.textPrimary, fontWeight: 600 }}>Casting quote (from CAD model)</Typography>
               </Stack>
-            </Grid>
-          )}
+              <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>
+                {stlVolumeCm3 > 0
+                  ? `The uploaded CAD model is ${stlVolumeCm3} cm³. Estimate the metal/casting cost from it — this replaces a vendor casting quote and fills the Mounting cost above.`
+                  : 'Upload the STL on the CAD work order, then estimate the metal/casting cost from the model here — it replaces a vendor casting quote and fills the Mounting cost.'}
+              </Typography>
+              {stlVolumeCm3 > 0 && (
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                  <TextField select size="small" label="Metal" value={estMetal} onChange={(e) => setEstMetal(e.target.value)} sx={{ minWidth: 180 }}>
+                    {METAL_OPTS.map((m) => <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>)}
+                  </TextField>
+                  <Button size="small" variant="contained" startIcon={<CalculateIcon />} disabled={estimating || busy} onClick={estimateMounting} sx={goldBtn}>
+                    Estimate casting → Mounting
+                  </Button>
+                </Stack>
+              )}
+            </Stack>
+          </Grid>
         </Grid>
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
           <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, fontWeight: 600 }}>Accent stones</Typography>
-          {editMode && <Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('accentStones', { description: '', quantity: 1, cost: 0 })} sx={{ color: REPAIRS_UI.accent }}>Add stone</Button>}
+          {<Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('accentStones', { description: '', quantity: 1, cost: 0 })} sx={{ color: REPAIRS_UI.accent }}>Add stone</Button>}
         </Stack>
-        <LineEditor rows={form.accentStones} onChange={(rows) => setField('accentStones', rows)} withQty editMode={editMode} emptyText="No accent stones." />
+        <LineEditor rows={form.accentStones} onChange={(rows) => setField('accentStones', rows)} withQty editMode={!busy} emptyText="No accent stones." />
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 2, mb: 1 }}>
           <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, fontWeight: 600 }}>Additional materials</Typography>
-          {editMode && <Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('additionalMaterials', { description: '', quantity: 1, cost: 0 })} sx={{ color: REPAIRS_UI.accent }}>Add material</Button>}
+          {<Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('additionalMaterials', { description: '', quantity: 1, cost: 0 })} sx={{ color: REPAIRS_UI.accent }}>Add material</Button>}
         </Stack>
-        <LineEditor rows={form.additionalMaterials} onChange={(rows) => setField('additionalMaterials', rows)} withQty editMode={editMode} emptyText="No additional materials." />
+        <LineEditor rows={form.additionalMaterials} onChange={(rows) => setField('additionalMaterials', rows)} withQty editMode={!busy} emptyText="No additional materials." />
       </Paper>
 
       {/* Phase 2: Labor */}
       <Paper sx={cardSx}>
-        <CardHead icon={BuildIcon} title="Labor Tasks" action={editMode && <Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('laborTasks', { description: '', quantity: 1, cost: 0, hours: 0, discipline: 'bench_jewelry' })} sx={{ color: REPAIRS_UI.accent }}>Add task</Button>} />
+        <CardHead icon={BuildIcon} title="Labor Tasks" action={<Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('laborTasks', { description: '', quantity: 1, cost: 0, hours: 0, discipline: 'bench_jewelry' })} sx={{ color: REPAIRS_UI.accent }}>Add task</Button>} />
         <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 1 }}>Each bench task generates a work order in its lane when the order reaches production (deposit ≥ 50%). CAD/QC/GLB lines are added automatically by the design flow and don&apos;t spawn bench work.</Typography>
-        <LineEditor rows={form.laborTasks} onChange={(rows) => setField('laborTasks', rows)} withQty withDiscipline editMode={editMode} suggest emptyText='No labor tasks. Click "Add task" to add production tasks.' />
+        <LineEditor rows={form.laborTasks} onChange={(rows) => setField('laborTasks', rows)} withQty withDiscipline editMode={!busy} suggest emptyText='No labor tasks. Click "Add task" to add production tasks.' />
       </Paper>
 
       {/* Phase 3: Additional services */}
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}>
           <Paper sx={cardSx}>
-            <CardHead icon={ShippingIcon} title="Shipping" action={editMode && <Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('shippingCosts', { description: '', cost: 0 })} sx={{ color: REPAIRS_UI.accent }}>Add shipping</Button>} />
-            <LineEditor rows={form.shippingCosts} onChange={(rows) => setField('shippingCosts', rows)} editMode={editMode} emptyText="No shipping costs." />
+            <CardHead icon={ShippingIcon} title="Shipping" action={<Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('shippingCosts', { description: '', cost: 0 })} sx={{ color: REPAIRS_UI.accent }}>Add shipping</Button>} />
+            <LineEditor rows={form.shippingCosts} onChange={(rows) => setField('shippingCosts', rows)} editMode={!busy} emptyText="No shipping costs." />
           </Paper>
         </Grid>
         <Grid item xs={12} md={6}>
           <Paper sx={cardSx}>
             <CardHead icon={TuneIcon} title="Options" />
             <Stack spacing={1}>
-              <FormControlLabel control={<Switch checked={form.isRush} disabled={!editMode} onChange={(e) => setField('isRush', e.target.checked)} />} label={`Rush order (${Math.round((rush > 1 ? rush : 1.5) * 100 - 100)}% surcharge on COG)`} sx={{ color: REPAIRS_UI.textSecondary }} />
-              <FormControlLabel control={<Switch checked={form.includeCustomDesign} disabled={!editMode} onChange={(e) => setField('includeCustomDesign', e.target.checked)} />} label="Custom design fee" sx={{ color: REPAIRS_UI.textSecondary }} />
+              <FormControlLabel control={<Switch checked={form.isRush} disabled={busy} onChange={(e) => setField('isRush', e.target.checked)} />} label={`Rush order (${Math.round((rush > 1 ? rush : 1.5) * 100 - 100)}% surcharge on COG)`} sx={{ color: REPAIRS_UI.textSecondary }} />
+              <FormControlLabel control={<Switch checked={form.includeCustomDesign} disabled={busy} onChange={(e) => setField('includeCustomDesign', e.target.checked)} />} label="Custom design fee" sx={{ color: REPAIRS_UI.textSecondary }} />
               {form.includeCustomDesign && (
-                <TextField size="small" label="Designer fee" type="number" value={form.designFee} disabled={!editMode} onChange={(e) => setField('designFee', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} helperText="Snapshotted from the assigned CAD designer." />
+                <TextField size="small" label="Designer fee" type="number" value={form.designFee} disabled={busy} onChange={(e) => setField('designFee', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} helperText="Snapshotted from the assigned CAD designer." />
               )}
             </Stack>
           </Paper>
