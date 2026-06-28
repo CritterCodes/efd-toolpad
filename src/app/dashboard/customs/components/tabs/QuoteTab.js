@@ -107,18 +107,18 @@ function LineEditor({ rows, onChange, withQty, withDiscipline, editMode, emptyTe
         <Grid container spacing={1} key={i} alignItems="center">
           <Grid item xs={12} sm={descSm}>
             {suggest
-              ? <TaskAutocomplete value={r.description} disabled={busy} onText={(v) => set(i, 'description', v)} onPick={({ description, cost, hours, category }) => patch(i, { description, cost, hours, ...(category ? { discipline: categoryToDiscipline(category) } : {}) })} />
-              : <TextField fullWidth size="small" label="Description" value={r.description || ''} disabled={busy} onChange={(e) => set(i, 'description', e.target.value)} />}
+              ? <TaskAutocomplete value={r.description} disabled={!editMode} onText={(v) => set(i, 'description', v)} onPick={({ description, cost, hours, category }) => patch(i, { description, cost, hours, ...(category ? { discipline: categoryToDiscipline(category) } : {}) })} />
+              : <TextField fullWidth size="small" label="Description" value={r.description || ''} disabled={!editMode} onChange={(e) => set(i, 'description', e.target.value)} />}
           </Grid>
           {withDiscipline && (
             <Grid item xs={6} sm={3}>
-              <TextField select fullWidth size="small" label="Lane" value={r.discipline || 'bench_jewelry'} disabled={busy} onChange={(e) => set(i, 'discipline', e.target.value)}>
+              <TextField select fullWidth size="small" label="Lane" value={r.discipline || 'bench_jewelry'} disabled={!editMode} onChange={(e) => set(i, 'discipline', e.target.value)}>
                 {DISCIPLINE_OPTS.map((d) => <MenuItem key={d.value} value={d.value}>{d.label}</MenuItem>)}
               </TextField>
             </Grid>
           )}
-          {withQty && <Grid item xs={4} sm={withDiscipline ? 1 : 2}><TextField fullWidth size="small" label="Qty" type="number" value={r.quantity ?? 1} disabled={busy} onChange={(e) => set(i, 'quantity', e.target.value)} /></Grid>}
-          <Grid item xs={withDiscipline ? 6 : 8} sm={withDiscipline ? 2 : 3}><TextField fullWidth size="small" label="Cost" type="number" value={r.cost ?? 0} disabled={busy} onChange={(e) => set(i, 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
+          {withQty && <Grid item xs={4} sm={withDiscipline ? 1 : 2}><TextField fullWidth size="small" label="Qty" type="number" value={r.quantity ?? 1} disabled={!editMode} onChange={(e) => set(i, 'quantity', e.target.value)} /></Grid>}
+          <Grid item xs={withDiscipline ? 6 : 8} sm={withDiscipline ? 2 : 3}><TextField fullWidth size="small" label="Cost" type="number" value={r.cost ?? 0} disabled={!editMode} onChange={(e) => set(i, 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
           <Grid item xs={2} sm={1}>{editMode && <IconButton size="small" onClick={() => remove(i)} sx={{ color: REPAIRS_UI.textMuted }}><DeleteIcon fontSize="small" /></IconButton>}</Grid>
         </Grid>
       ))}
