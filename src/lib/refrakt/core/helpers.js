@@ -11,6 +11,14 @@ import { VERT, buildFrag } from './shaders'
 // ── Scratch vector (no per-frame allocation) ──────────────────────────────────
 const _ct = new THREE.Vector3()
 
+// Deterministic per-mesh noise seed (from the mesh name, so a stone's inclusions
+// are stable across reloads/exports but differ from its neighbours).
+export function seedVec(name = '') {
+    let h = 5381
+    for (let i = 0; i < name.length; i++) h = ((h << 5) + h + name.charCodeAt(i)) >>> 0
+    return new THREE.Vector3((h % 1000) / 10, ((h >>> 8) % 1000) / 10, ((h >>> 16) % 1000) / 10)
+}
+
 // ── Keyframe interpolation ────────────────────────────────────────────────────
 /**
  * Smooth (cubic smoothstep) interpolation through a circular array of values.
@@ -99,7 +107,7 @@ export function ringAlpha(t, homeT, baseY) {
  * @param {number}                    opts.off     - bvhOffset (self-intersection guard)
  * @returns {THREE.ShaderMaterial}
  */
-export function makeMat({ env, size, state, bvhStruct, frag, mesh, ior, color, aber, fresnel, fb, cm, off }) {
+export function makeMat({ env, size, state, bvhStruct, frag, mesh, ior, color, aber, fresnel, fb, cm, off, absorption, inclusions, inclusionSeed, inclScale, tubes, tubeAngle, velvet, opacity }) {
     return new THREE.ShaderMaterial({
         uniforms: {
             envMap:                  { value: env },
@@ -112,6 +120,14 @@ export function makeMat({ env, size, state, bvhStruct, frag, mesh, ior, color, a
             facetBlend:              { value: fb },
             colorMode:               { value: cm },
             bvhOffset:               { value: off },
+            absorption:              { value: absorption ?? new THREE.Vector3(0, 0, 0) },
+            inclusions:              { value: inclusions ?? 0 },
+            inclusionSeed:           { value: inclusionSeed ?? seedVec(mesh?.name) },
+            inclScale:               { value: inclScale ?? 1 },
+            tubes:                   { value: tubes ?? 0 },
+            tubeAngle:               { value: tubeAngle ?? 0 },
+            velvet:                  { value: velvet ?? 0 },
+            opacity:                 { value: opacity ?? 0 },
             resolution:              { value: new THREE.Vector2(size.width, size.height) },
             projectionMatrixInverse: { value: state.camera.projectionMatrixInverse.clone() },
             viewMatrixInverse:       { value: state.camera.matrixWorld.clone() },

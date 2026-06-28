@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Dialog, DialogTitle, DialogContent, IconButton, Box, Typography, Button } from '@mui/material';
+import React, { useEffect, useState } from 'react';
+import { Dialog, DialogTitle, DialogContent, IconButton, Box, Typography, Button, CircularProgress } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import DownloadIcon from '@mui/icons-material/Download';
 import ThreeDIcon from '@mui/icons-material/ViewInAr';
@@ -10,10 +10,43 @@ import JewelryViewerClient from './JewelryViewerClient';
 /**
  * GLB review modal — renders a GLB inline in the REFRAKT viewer (the SAME renderer
  * the customer sees on the shop), so QC reviews the model in 3D instead of downloading
- * it. Used for the CAD QC peer-review step on a GLB-stage work order. Raw GLB has no
- * meshMap yet, so the viewer just shows it with default materials + lighting + orbit.
+ * it. Used for the CAD QC peer-review step on a GLB-stage work order.
+ *
+ * A raw QC GLB has no meshMap yet, so on open we ask /api/glb/inspect for a heuristic
+ * `suggestedMeshMap` (tags gem/metal meshes by node name) and feed it to the viewer —
+ * otherwise diamonds fall back to their dull baked GLB material instead of the gem
+ * ray-march shader. This is a preview heuristic; the authoritative meshMap is built
+ * later in the meshMap builder.
  */
 export default function GlbReviewModal({ open, onClose, glbUrl, title = 'GLB — 3D Review' }) {
+  const [meshMap, setMeshMap] = useState(null);
+  const [inspecting, setInspecting] = useState(false);
+
+  useEffect(() => {
+    if (!open || !glbUrl) { setMeshMap(null); return undefined; }
+    let cancelled = false;
+    setInspecting(true);
+    (async () => {
+      try {
+        const res = await fetch('/api/glb/inspect', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ glbUrl }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled) setMeshMap(res.ok && Array.isArray(data.suggestedMeshMap) ? data.suggestedMeshMap : []);
+      } catch {
+        if (!cancelled) setMeshMap([]); // fall back to default materials
+      } finally {
+        if (!cancelled) setInspecting(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open, glbUrl]);
+
+  // Wait for the inspect result before mounting the viewer, so the gem/metal materials
+  // are applied on first render (the viewer assigns materials once, in a layout effect).
+  const ready = open && glbUrl && meshMap !== null;
+
   return (
     <Dialog
       open={open}
@@ -31,16 +64,22 @@ export default function GlbReviewModal({ open, onClose, glbUrl, title = 'GLB —
       </DialogTitle>
       <DialogContent sx={{ p: 0 }}>
         <Box sx={{ width: '100%', height: '68vh', minHeight: 380, backgroundColor: '#080808', position: 'relative' }}>
-          {open && glbUrl ? (
-            <JewelryViewerClient glbUrl={glbUrl} config={{ background: '#080808' }} style={{ width: '100%', height: '100%' }} />
-          ) : (
+          {!glbUrl ? (
             <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Typography sx={{ color: '#6B7280', fontFamily: 'monospace', fontSize: 14 }}>No GLB to review</Typography>
             </Box>
+          ) : !ready ? (
+            <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <CircularProgress size={28} sx={{ color: '#D4AF37' }} />
+            </Box>
+          ) : (
+            <JewelryViewerClient glbUrl={glbUrl} config={{ background: '#080808', meshMap }} style={{ width: '100%', height: '100%' }} />
           )}
         </Box>
         <Box sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="caption" sx={{ color: '#6B7280' }}>Drag to orbit · scroll to zoom</Typography>
+          <Typography variant="caption" sx={{ color: '#6B7280' }}>
+            {inspecting ? 'Inspecting model…' : 'Drag to orbit · scroll to zoom · materials auto-detected for preview'}
+          </Typography>
           {glbUrl && (
             <Button size="small" startIcon={<DownloadIcon sx={{ fontSize: 14 }} />} component="a" href={glbUrl} target="_blank" rel="noreferrer" sx={{ color: '#9CA3AF' }}>
               Download GLB

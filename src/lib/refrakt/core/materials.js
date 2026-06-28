@@ -65,6 +65,7 @@ export const GEM_CONFIGS = {
         fb:    0.0,     // facetBlend — 0=interpolated normals, 1=geometric normals
         cm:    0.0,     // colorMode — 0=direct, 1=luminance-tinted
         off:   0.01,    // bvhOffset — prevents self-intersection artifacts
+        density: 0.0,   // Beer–Lambert depth absorption (0 = clear like diamond; colour deepens with path)
     },
     amethyst: {
         ior:   1.54,
@@ -74,6 +75,9 @@ export const GEM_CONFIGS = {
         fb:    0.0,
         cm:    1.0,     // luminance mode for rich color
         off:   0.00005,
+        density: 1.4,
+        velvet: 0.2,
+        opacity: 0.12,
     },
     ruby: {
         ior:   1.77,
@@ -83,6 +87,9 @@ export const GEM_CONFIGS = {
         fb:    0.0,
         cm:    1.0,
         off:   0.0001,
+        density: 2.2,
+        velvet: 0.3,
+        opacity: 0.22,
     },
     sapphire: {
         ior:   1.77,
@@ -92,6 +99,9 @@ export const GEM_CONFIGS = {
         fb:    0.0,
         cm:    1.0,
         off:   0.0001,
+        density: 2.2,
+        velvet: 0.32,
+        opacity: 0.25,
     },
     emerald: {
         ior:   1.57,
@@ -101,6 +111,12 @@ export const GEM_CONFIGS = {
         fb:    0.0,
         cm:    1.0,
         off:   0.0001,
+        density: 3.0,   // emeralds carry the most body colour
+        incl:  0.55,    // jardin — emeralds are expected to be included
+        velvet: 0.5,    // turbid/soft — emeralds are not optically clean like glass
+        opacity: 0.32,  // low clarity — many emeralds read nearly opaque
+        tubes: 0.45,    // parallel growth tubes — signature emerald inclusion
+        tubeAngle: 0.4,
     },
     marquise: {
         // Marquise-cut diamond — slightly higher facetBlend for geometric sharpness
@@ -111,6 +127,7 @@ export const GEM_CONFIGS = {
         fb:    1.0,     // full geometric normals for sharp facet breaks
         cm:    0.0,
         off:   0.01,
+        density: 0.0,
     },
     moissanite: {
         ior:   2.65,    // higher than diamond — more fire/dispersion
@@ -120,5 +137,6 @@ export const GEM_CONFIGS = {
         fb:    0.0,
         cm:    0.0,
         off:   0.01,
+        density: 0.0,
     },
 }

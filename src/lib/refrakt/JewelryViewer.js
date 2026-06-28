@@ -2,11 +2,6 @@
 /**
  * REFRAKT — JewelryViewer
  *
- * NOTE: Ported verbatim from efd-shop/lib/refrakt (the customer-facing viewer) so the
- * admin renders GLBs (CAD QC, 3D & Share) with the SAME renderer the client sees. This
- * is a temporary duplicate pending the planned `packages/refrakt` extraction consumed by
- * both apps — keep in sync with the shop copy until then.
- *
  * Generic BVH ray-marching gemstone viewer for PRODUCT pages.
  * Accepts any GLB + a config object that maps mesh names to material/gem types.
  *
@@ -81,14 +76,26 @@ const METAL_MATS = {
 // ── Gem config resolver ───────────────────────────────────────────────────────
 function resolveGemCfg(slot) {
     const base = GEM_CONFIGS[slot.gemPreset] || GEM_CONFIGS.diamond
+    const color   = slot.color ? new THREE.Color(...slot.color) : base.color.clone()
+    const density = slot.density ?? base.density ?? 0
+    // Absorption is the complement of the transmitted colour — a green emerald
+    // absorbs red + blue. White stones (diamond) absorb nothing at any density.
+    const absorption = new THREE.Vector3((1 - color.r) * density, (1 - color.g) * density, (1 - color.b) * density)
     return {
         ior:     slot.ior        ?? base.ior,
-        color:   slot.color      ? new THREE.Color(...slot.color) : base.color.clone(),
+        color,
         aber:    slot.aberration ?? base.aber,
         fresnel: slot.fresnel    ?? base.fresnel,
         fb:      slot.facetBlend ?? base.fb,
         cm:      slot.colorMode  ?? base.cm,
         off:     base.off,
+        absorption,
+        inclusions: slot.inclusions ?? base.incl ?? 0,
+        inclScale:  slot.inclScale ?? base.inclScale ?? 1,
+        tubes:      slot.tubes ?? base.tubes ?? 0,
+        tubeAngle:  slot.tubeAngle ?? base.tubeAngle ?? 0,
+        velvet:     slot.velvet ?? base.velvet ?? 0,
+        opacity:    slot.opacity ?? base.opacity ?? 0,
     }
 }
 
@@ -99,6 +106,16 @@ const _s   = new THREE.Vector3()
 // Every model is normalized to this bounding-sphere radius at the origin, so a
 // single fixed camera frames any GLB regardless of source units (mm/cm).
 const FIT_RADIUS = 1.0
+
+// Slot → mesh matching. Default is case-insensitive substring (forgiving, good
+// for hand-written configs like 'mounting'). Set slot.match === 'exact' to
+// require the whole name — the Studio uses this so per-stone assignments can't
+// bleed across similarly-named meshes (e.g. 'Diamond_04' vs 'Diamond_04001').
+function slotMatches(meshNameLower, slot) {
+    const key = (slot.nameContains ?? '').toLowerCase()
+    if (!key) return false
+    return slot.match === 'exact' ? meshNameLower === key : meshNameLower.includes(key)
+}
 
 // ── Inner scene component (lives inside Canvas) ───────────────────────────────
 function JewelryScene({ glbUrl, config }) {
@@ -134,10 +151,31 @@ function JewelryScene({ glbUrl, config }) {
             child.receiveShadow = true
             const n = child.name.toLowerCase()
             for (const slot of meshMap) {
-                const key = (slot.nameContains ?? '').toLowerCase()
-                if (!n.includes(key)) continue
-                if (slot.type === 'metal') child.material = (METAL_MATS[slot.finish] || METAL_MATS.gold)()
+                if (!slotMatches(n, slot)) continue
+                if (slot.type === 'metal') {
+                    const mm = (METAL_MATS[slot.finish] || METAL_MATS.gold)()
+                    if (Array.isArray(slot.color)) mm.color.setRGB(slot.color[0], slot.color[1], slot.color[2])
+                    if (slot.roughness != null) mm.roughness = slot.roughness
+                    child.material = mm
+                }
                 if (slot.type === 'ignore') child.visible = false
+                // Gems get an immediate transmissive-glass stand-in so they never
+                // flash (or get stuck on) the GLB's raw material. The BVH shader
+                // below replaces it once the environment is ready; if that fails,
+                // the piece still reads as a gem instead of a white blob.
+                if (slot.type === 'gem') {
+                    const g = resolveGemCfg(slot)
+                    child.material = new THREE.MeshPhysicalMaterial({
+                        color:           g.color.clone(),
+                        metalness:       0,
+                        roughness:       0.05,
+                        transmission:    1,
+                        ior:             g.ior,
+                        thickness:       0.4,
+                        transparent:     true,
+                        envMapIntensity: 1.6,
+                    })
+                }
                 break // first matching slot wins
             }
         })
@@ -166,35 +204,43 @@ function JewelryScene({ glbUrl, config }) {
                 const frag = buildFrag(ss, si)
 
                 for (const slot of gemSlots) {
-                    const nameKey = (slot.nameContains ?? '').toLowerCase()
                     const gemCfg  = resolveGemCfg(slot)
 
                     const meshes = []
                     glbScene.traverse(c => {
-                        if (c.isMesh && c.name.toLowerCase().includes(nameKey)) meshes.push(c)
+                        if (c.isMesh && slotMatches(c.name.toLowerCase(), slot)) meshes.push(c)
                     })
-                    if (!meshes.length) continue
+                    if (!meshes.length) {
+                        console.warn(`[REFRAKT] gem slot "${slot.nameContains}" matched no meshes — check the mesh name.`)
+                        continue
+                    }
 
-                    // Shared BVH — build once from first mesh, reuse for identical geometry
-                    const bvh       = new MeshBVH(meshes[0].geometry.clone(), { strategy: SAH, maxLeafTris: 1 })
-                    const bvhStruct = new MeshBVHUniformStruct()
-                    bvhStruct.updateFrom(bvh)
+                    // Build per slot in isolation: a bad geometry shouldn't take down
+                    // the other gems. The transmissive stand-in stays if this throws.
+                    try {
+                        // Shared BVH — build once from first mesh, reuse for identical geometry
+                        const bvh       = new MeshBVH(meshes[0].geometry.clone(), { strategy: SAH, maxLeafTris: 1 })
+                        const bvhStruct = new MeshBVHUniformStruct()
+                        bvhStruct.updateFrom(bvh)
 
-                    for (const mesh of meshes) {
-                        const mat = makeMat({
-                            env: threeScene.environment,
-                            size,
-                            state: { camera },
-                            bvhStruct,
-                            frag,
-                            mesh,
-                            ...gemCfg,
-                        })
-                        mesh.material = mat
-                        bvhList.current.push({ mesh, mat })
+                        for (const mesh of meshes) {
+                            const mat = makeMat({
+                                env: threeScene.environment,
+                                size,
+                                state: { camera },
+                                bvhStruct,
+                                frag,
+                                mesh,
+                                ...gemCfg,
+                            })
+                            mesh.material = mat
+                            bvhList.current.push({ mesh, mat })
+                        }
+                    } catch (err) {
+                        console.warn(`[REFRAKT] BVH gem shader failed for "${slot.nameContains}" — falling back to glass material.`, err)
                     }
                 }
-            })
+            }).catch(err => console.warn('[REFRAKT] failed to load three-mesh-bvh.', err))
         }
 
         glbScene.updateMatrixWorld(true)
