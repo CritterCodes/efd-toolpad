@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Card, CardContent, CardActions, Typography, Box, Chip, Divider, Button, Checkbox,
   TextField, MenuItem, Alert,
@@ -10,11 +10,13 @@ import PartsIcon from '@mui/icons-material/Category';
 import QCIcon from '@mui/icons-material/VerifiedUser';
 import UploadIcon from '@mui/icons-material/UploadFile';
 import DownloadIcon from '@mui/icons-material/Download';
+import ThreeDIcon from '@mui/icons-material/ViewInAr';
 import CommunicationsIcon from '@mui/icons-material/Forum';
 import { useRouter } from 'next/navigation';
 
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import RepairThumbnail from '@/app/dashboard/repairs/components/RepairThumbnail';
+import GlbReviewModal from '@/components/viewers/GlbReviewModal';
 import { BENCH_QUEUE } from '@/services/repairWorkflow';
 
 const LANE = {
@@ -56,6 +58,7 @@ export default function BenchWorkCard({
 }) {
   const router = useRouter();
   const stlInputRef = useRef(null);
+  const [glbReviewOpen, setGlbReviewOpen] = useState(false);
   const lane = LANE[wo.discipline] || { label: wo.discipline, color: 'default', Icon: HandymanIcon };
   const LaneIcon = lane.Icon;
   const queue = QUEUE_META[wo.benchQueue] || { label: wo.status || '—', color: REPAIRS_UI.textMuted };
@@ -74,6 +77,7 @@ export default function BenchWorkCard({
   const desc = wo.source?.description || wo.description || '';
 
   return (
+    <>
     <Card
       sx={{
         height: '100%',
@@ -246,21 +250,41 @@ export default function BenchWorkCard({
           <Button size="small" variant="outlined" startIcon={<QCIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => onAction(wo, 'move-to-qc')} sx={btn({ color: '#00C49F', borderColor: '#00C49F' })}>Move to QC</Button>
         )}
 
-        {/* CAD QC peer review (another CAD designer): download & review, then approve (pays QC fee) or reject. */}
+        {/* CAD QC peer review (another CAD designer): review the model, then approve (pays QC fee) or reject.
+            GLB → inspect in the REFRAKT 3D viewer (same renderer the client sees); STL → download to review. */}
         {isCadQc && (
           <>
-            <Button
-              size="small" variant="outlined" startIcon={<DownloadIcon sx={{ fontSize: 14 }} />}
-              component="a" href={fileUrl || undefined} target="_blank" rel="noreferrer" disabled={!fileUrl}
-              sx={btn({ color: '#64B5F6', borderColor: '#64B5F6' })}
-            >
-              {hasFile ? `Review ${fileLabel}` : `No ${fileLabel} to review`}
-            </Button>
+            {isGlbStage ? (
+              <Button
+                size="small" variant="outlined" startIcon={<ThreeDIcon sx={{ fontSize: 14 }} />}
+                disabled={!fileUrl} onClick={() => setGlbReviewOpen(true)}
+                sx={btn({ color: '#64B5F6', borderColor: '#64B5F6' })}
+              >
+                {hasFile ? 'Review GLB (3D)' : 'No GLB to review'}
+              </Button>
+            ) : (
+              <Button
+                size="small" variant="outlined" startIcon={<DownloadIcon sx={{ fontSize: 14 }} />}
+                component="a" href={fileUrl || undefined} target="_blank" rel="noreferrer" disabled={!fileUrl}
+                sx={btn({ color: '#64B5F6', borderColor: '#64B5F6' })}
+              >
+                {hasFile ? `Review ${fileLabel}` : `No ${fileLabel} to review`}
+              </Button>
+            )}
             <Button size="small" variant="contained" startIcon={<QCIcon sx={{ fontSize: 14 }} />} disabled={busy || !hasFile} onClick={() => onAction(wo, 'cad-qc-approve')} sx={goldBtn}>Approve (QC review)</Button>
             <Button size="small" variant="outlined" disabled={busy} onClick={() => onAction(wo, 'cad-qc-reject')} sx={btn({ color: '#EF5350', borderColor: '#EF5350' })}>Reject</Button>
           </>
         )}
       </CardActions>
     </Card>
+    {isCadQc && isGlbStage && (
+      <GlbReviewModal
+        open={glbReviewOpen}
+        onClose={() => setGlbReviewOpen(false)}
+        glbUrl={fileUrl}
+        title={`GLB — ${sourceTitle(wo)}`}
+      />
+    )}
+    </>
   );
 }
