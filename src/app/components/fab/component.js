@@ -115,12 +115,19 @@ const FloatingActionButton = () => {
                 bottom: 16,
                 right: 16,
                 zIndex: 1200,
+                // The SpeedDial root reserves a tall column for its (collapsed) actions.
+                // Without this, that invisible fixed column captures clicks on content
+                // buttons beneath it (right-side "dead space"). Pass clicks through the
+                // empty area; re-enable pointer events only on the actual FAB + actions.
+                pointerEvents: 'none',
             }}
         >
             <SpeedDial
                 ariaLabel={`${userRole} Actions`}
                 icon={<SpeedDialIcon />}
                 sx={{
+                    '& .MuiSpeedDial-fab': { pointerEvents: 'auto' },
+                    '& .MuiSpeedDialAction-fab': { pointerEvents: 'auto' },
                     '& .MuiFab-primary': {
                         backgroundColor: 'primary.main',
                         '&:hover': { backgroundColor: 'primary.dark' }
