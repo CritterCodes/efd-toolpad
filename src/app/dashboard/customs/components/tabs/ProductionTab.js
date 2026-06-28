@@ -7,10 +7,8 @@ import AddIcon from '@mui/icons-material/Add';
 import BuildCircleIcon from '@mui/icons-material/BuildCircle';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import DownloadIcon from '@mui/icons-material/Download';
-import PaletteIcon from '@mui/icons-material/Palette';
 import { useRouter } from 'next/navigation';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
-import MaterialAssigner from '@/components/viewers/MaterialAssigner';
 
 const dialogPaperProps = { sx: { backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` } };
 const panelSx = { p: 2.5, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' };
@@ -44,7 +42,6 @@ export default function ProductionTab({ customID, order, margin, notify, onChang
   const EMPTY_CAST = { amount: '', vendor: '', invoiceNumber: '', notes: '' };
   const [castForm, setCastForm] = useState(EMPTY_CAST);
   const [busy, setBusy] = useState(false);
-  const [assignGlbUrl, setAssignGlbUrl] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -161,14 +158,9 @@ export default function ProductionTab({ customID, order, margin, notify, onChang
                       </Button>
                     )}
                     {wo.files?.glb?.url && (
-                      <>
-                        <Button size="small" variant="outlined" startIcon={<DownloadIcon sx={{ fontSize: 15 }} />} component="a" href={wo.files.glb.url} target="_blank" rel="noreferrer" sx={{ color: '#66BB6A', borderColor: REPAIRS_UI.border, textTransform: 'none' }}>
-                          GLB{wo.files.glb.originalName ? ` · ${wo.files.glb.originalName}` : ''}
-                        </Button>
-                        <Button size="small" variant="outlined" startIcon={<PaletteIcon sx={{ fontSize: 15 }} />} onClick={() => setAssignGlbUrl(wo.files.glb.url)} sx={{ color: REPAIRS_UI.accent, borderColor: REPAIRS_UI.border, textTransform: 'none' }}>
-                          Assign materials
-                        </Button>
-                      </>
+                      <Button size="small" variant="outlined" startIcon={<DownloadIcon sx={{ fontSize: 15 }} />} component="a" href={wo.files.glb.url} target="_blank" rel="noreferrer" sx={{ color: '#66BB6A', borderColor: REPAIRS_UI.border, textTransform: 'none' }}>
+                        GLB{wo.files.glb.originalName ? ` · ${wo.files.glb.originalName}` : ''}
+                      </Button>
                     )}
                   </Stack>
                 )}
@@ -225,15 +217,6 @@ export default function ProductionTab({ customID, order, margin, notify, onChang
           <Button variant="contained" onClick={addCasting} disabled={busy || !(Number(castForm.amount) > 0)} sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>Record</Button>
         </DialogActions>
       </Dialog>
-
-      <MaterialAssigner
-        open={!!assignGlbUrl}
-        onClose={() => setAssignGlbUrl(null)}
-        customID={customID}
-        glbUrl={assignGlbUrl}
-        initialDesignModel={order?.designModel}
-        onSaved={() => { setAssignGlbUrl(null); onChanged?.(); }}
-      />
     </Stack>
   );
 }

@@ -151,7 +151,7 @@ function parseAssign(value) {
   return { role: 'ignore' };
 }
 
-export default function MaterialAssigner({ open, onClose, customID, glbUrl, initialDesignModel, onSaved }) {
+export default function MaterialAssigner({ open, onClose, customID, glbUrl, initialDesignModel, onSaved, saveLabel = 'Save to design model' }) {
   const [meshes, setMeshes] = useState([]);
   const [assign, setAssign] = useState({});
   const [selected, setSelected] = useState(() => new Set());
@@ -227,7 +227,7 @@ export default function MaterialAssigner({ open, onClose, customID, glbUrl, init
           <Typography sx={{ fontWeight: 600 }}>Assign Materials</Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Button variant="contained" size="small" startIcon={saving ? <CircularProgress size={14} sx={{ color: '#000' }} /> : <SaveIcon sx={{ fontSize: 16 }} />} disabled={saving || !config} onClick={save} sx={{ backgroundColor: '#D4AF37', color: '#000', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>
-              Save to design model
+              {saveLabel}
             </Button>
             <IconButton onClick={onClose} size="small" sx={{ color: '#9CA3AF' }}><CloseIcon /></IconButton>
           </Box>

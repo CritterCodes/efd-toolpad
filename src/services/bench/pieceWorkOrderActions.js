@@ -218,8 +218,38 @@ export async function uploadCadGlb({ session, workOrderID, file }) {
     }
   }
 
+  // NOTE: uploading the GLB no longer auto-advances to QC. The GLB must have its
+  // materials assigned first (meshMap → designModel via the Assign Materials studio
+  // page), and submitCadGlbToQc() is what moves it to QC. Keep it IN PROGRESS here.
   return WorkOrdersModel.updateByID(workOrderID, {
     files: { ...(wo.files || {}), glb },
+  });
+}
+
+/**
+ * Submit a GLB-stage CAD work order to QC AFTER materials are assigned. The flow is
+ * upload GLB → assign materials (meshMap saved to the order's designModel) → submit
+ * to QC. Requires a GLB + a non-empty authored meshMap. No hourly labor (the CAD fee
+ * is flat, paid at QC peer-review approval). Mirrors the old uploadCadGlb transition.
+ */
+export async function submitCadGlbToQc({ session, workOrderID }) {
+  const wo = await loadPieceWorkOrder(workOrderID);
+  if (wo.discipline !== DISCIPLINE.CAD) {
+    const e = new Error('Submit-to-QC applies only to CAD work orders.'); e.code = 'BAD_REQUEST'; throw e;
+  }
+  if (!isAdminRole(session) && wo.assignedToUserID && wo.assignedToUserID !== session.user.userID) {
+    const e = new Error('Only the assigned designer can submit this GLB to QC.'); e.code = 'FORBIDDEN'; throw e;
+  }
+  if (!wo.files?.glb?.url) {
+    const e = new Error('Upload the GLB before submitting to QC.'); e.code = 'BAD_REQUEST'; throw e;
+  }
+  const piece = await PiecesModel.findById(wo.sourceID);
+  const order = piece?.customOrderID ? await CustomOrdersModel.findById(piece.customOrderID) : null;
+  if (!order?.designModel?.meshMap?.length) {
+    const e = new Error('Assign materials to the model before submitting to QC.'); e.code = 'BAD_REQUEST'; throw e;
+  }
+
+  return WorkOrdersModel.updateByID(workOrderID, {
     status: 'QC',
     completedBy: session.user.name,
     completedAt: new Date(),

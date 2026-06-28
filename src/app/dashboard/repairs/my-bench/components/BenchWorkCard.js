@@ -11,6 +11,7 @@ import QCIcon from '@mui/icons-material/VerifiedUser';
 import UploadIcon from '@mui/icons-material/UploadFile';
 import DownloadIcon from '@mui/icons-material/Download';
 import ThreeDIcon from '@mui/icons-material/ViewInAr';
+import PaletteIcon from '@mui/icons-material/Palette';
 import CommunicationsIcon from '@mui/icons-material/Forum';
 import { useRouter } from 'next/navigation';
 
@@ -71,6 +72,7 @@ export default function BenchWorkCard({
   const fileUrl = fileObj?.url;
   const fileLabel = isGlbStage ? 'GLB' : 'STL';
   const isCadQc = isPiece && isCad && wo.benchQueue === BENCH_QUEUE.QC;
+  const customOrderID = wo.source?.custom?.customID || null;
   const isMine = wo.assignedToUserID && wo.assignedToUserID === currentUserID;
   const repairID = wo.sourceID;
   const custom = wo.source?.custom || null;
@@ -233,7 +235,8 @@ export default function BenchWorkCard({
           <Button size="small" variant="contained" disabled={busy} onClick={() => onAction(wo, 'claim')} sx={goldBtn}>Claim</Button>
         )}
 
-        {/* Piece in progress: CAD uploads STL/GLB (→ QC, no hourly labor); others move to QC (logs labor). */}
+        {/* Piece in progress: STL uploads → QC; GLB uploads then needs materials assigned
+            (Assign materials → that submits to QC). Others move to QC (logs labor). */}
         {isPiece && wo.benchQueue === BENCH_QUEUE.IN_PROGRESS && isCad && (
           <>
             <input
@@ -242,8 +245,13 @@ export default function BenchWorkCard({
               onChange={(e) => { const f = e.target.files?.[0]; if (f) (isGlbStage ? onUploadGlb : onUploadStl)?.(wo, f); e.target.value = ''; }}
             />
             <Button size="small" variant="outlined" startIcon={<UploadIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => stlInputRef.current?.click()} sx={btn({ color: '#64B5F6', borderColor: '#64B5F6' })}>
-              {hasFile ? `Replace ${fileLabel}` : `Upload ${fileLabel} (→ QC)`}
+              {hasFile ? `Replace ${fileLabel}` : (isGlbStage ? 'Upload GLB' : 'Upload STL (→ QC)')}
             </Button>
+            {isGlbStage && hasFile && customOrderID && (
+              <Button size="small" variant="contained" startIcon={<PaletteIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => router.push(`/dashboard/customs/${customOrderID}/assign-materials?wo=${wo.workOrderID}`)} sx={goldBtn}>
+                Assign materials → QC
+              </Button>
+            )}
           </>
         )}
         {isPiece && wo.benchQueue === BENCH_QUEUE.IN_PROGRESS && !isCad && (
