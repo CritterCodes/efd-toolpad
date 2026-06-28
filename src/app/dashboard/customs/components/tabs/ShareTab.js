@@ -2,7 +2,10 @@ import React, { useState } from 'react';
 import { Box, Paper, Stack, Typography, Button, TextField, Switch, FormControlLabel, Link, Alert } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ViewInArIcon from '@mui/icons-material/ViewInAr';
+import PaletteIcon from '@mui/icons-material/Palette';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import JewelryViewerClient from '@/components/viewers/JewelryViewerClient';
+import MaterialAssigner from '@/components/viewers/MaterialAssigner';
 
 const panelSx = { p: 2.5, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' };
 const SHOP_BASE = process.env.NEXT_PUBLIC_SHOP_URL || '';
@@ -10,6 +13,7 @@ const SHOP_BASE = process.env.NEXT_PUBLIC_SHOP_URL || '';
 export default function ShareTab({ customID, order, onChanged, notify }) {
   const [glbUrl, setGlbUrl] = useState(order.designModel?.glbUrl || '');
   const [busy, setBusy] = useState(false);
+  const [studioOpen, setStudioOpen] = useState(false);
   const model = order.designModel;
   const share = order.share;
   const shareUrl = share?.token ? `${SHOP_BASE}/d/${share.token}` : '';
@@ -40,11 +44,31 @@ export default function ShareTab({ customID, order, onChanged, notify }) {
           <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader }}>3D Model (GLB)</Typography>
         </Stack>
         <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 1.5 }}>
-          The GLB is the client-review/web model (created in the CAD GLB stage). Mesh-map assignment comes with the shared meshMap builder.
+          The GLB is the client-review/web model (created in the CAD GLB stage). Use the Studio to
+          revise materials if the client requests changes after QC — saved changes flow to the client
+          portal on the same share link.
         </Typography>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
-          <TextField label="GLB URL" value={glbUrl} onChange={(e) => setGlbUrl(e.target.value)} size="small" fullWidth />
-          <Button variant="outlined" disabled={busy || !glbUrl.trim()} onClick={saveModel} sx={{ borderColor: REPAIRS_UI.accent, color: REPAIRS_UI.accent, whiteSpace: 'nowrap' }}>Save Model</Button>
+
+        {model?.glbUrl ? (
+          <Stack spacing={1.5}>
+            <Box sx={{ width: '100%', height: 360, borderRadius: 2, overflow: 'hidden', border: `1px solid ${REPAIRS_UI.border}`, backgroundColor: model.background || '#080808' }}>
+              <JewelryViewerClient glbUrl={model.glbUrl} config={model} style={{ width: '100%', height: '100%' }} />
+            </Box>
+            <Box>
+              <Button variant="contained" startIcon={<PaletteIcon />} onClick={() => setStudioOpen(true)} sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>
+                Edit in Studio
+              </Button>
+            </Box>
+          </Stack>
+        ) : (
+          <Alert severity="info" sx={{ backgroundColor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textSecondary, border: `1px solid ${REPAIRS_UI.border}` }}>
+            No GLB yet — it&apos;s created + materials assigned on the CAD GLB work order. You can also paste a GLB URL below.
+          </Alert>
+        )}
+
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }} sx={{ mt: 1.5 }}>
+          <TextField label="GLB URL (advanced)" value={glbUrl} onChange={(e) => setGlbUrl(e.target.value)} size="small" fullWidth />
+          <Button variant="outlined" disabled={busy || !glbUrl.trim()} onClick={saveModel} sx={{ borderColor: REPAIRS_UI.border, color: REPAIRS_UI.textSecondary, whiteSpace: 'nowrap' }}>Save URL</Button>
         </Stack>
       </Paper>
 
@@ -66,6 +90,17 @@ export default function ShareTab({ customID, order, onChanged, notify }) {
           </Stack>
         )}
       </Paper>
+
+      {/* Post-QC revision studio: edit materials → saves designModel (no QC transition). */}
+      <MaterialAssigner
+        open={studioOpen}
+        onClose={() => setStudioOpen(false)}
+        customID={customID}
+        glbUrl={model?.glbUrl}
+        initialDesignModel={model}
+        saveLabel="Save changes"
+        onSaved={() => { setStudioOpen(false); onChanged?.(); notify('Design updated', 'success'); }}
+      />
     </Stack>
   );
 }
