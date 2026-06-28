@@ -20,10 +20,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useGLTF, Environment, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 
-import { GEM_CONFIGS, GOLD_MAT, SATIN_MAT, SILVER_MAT } from '@/lib/refrakt/core/materials';
-import { buildFrag } from '@/lib/refrakt/core/shaders';
-import { makeMat, syncBVH } from '@/lib/refrakt/core/helpers';
-import { Lights } from '@/lib/refrakt/core/lights';
+import { GEM_CONFIGS, GOLD_MAT, SATIN_MAT, SILVER_MAT, buildFrag, makeMat, syncBVH, Lights } from '@crittercodes/refrakt';
 
 const METAL_MATS = {
   gold: () => GOLD_MAT.clone(),

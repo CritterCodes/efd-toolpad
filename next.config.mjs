@@ -115,6 +115,9 @@ const nextConfig = withPWA({
     // <Canvas> in dev, which disposes its WebGL context ("Context Lost" → the GLB
     // viewer flashes then goes blank). Dev-only behavior; no production impact.
     reactStrictMode: false,
+    // The REFRAKT engine (@crittercodes/refrakt) ships raw r3f/JSX source — Next must
+    // compile it. Same as efd-shop.
+    transpilePackages: ['@crittercodes/refrakt'],
     outputFileTracingRoot: projectRoot,
     eslint: {
         ignoreDuringBuilds: true,

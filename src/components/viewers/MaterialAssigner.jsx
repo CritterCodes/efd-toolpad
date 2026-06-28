@@ -15,7 +15,7 @@ import { Dialog, Box, Button, IconButton, Typography, CircularProgress, Snackbar
 import CloseIcon from '@mui/icons-material/Close';
 import SaveIcon from '@mui/icons-material/Save';
 import StudioViewer from './StudioViewer';
-import { GEM_CONFIGS } from '@/lib/refrakt/core/materials';
+import { GEM_CONFIGS } from '@crittercodes/refrakt';
 
 const METAL_FINISHES = [
   { value: 'gold', label: 'Yellow Gold (polished)' },
