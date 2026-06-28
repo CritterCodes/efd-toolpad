@@ -28,6 +28,16 @@ describe('computeQuote (structured single-COG bucket)', () => {
     expect(q.quoteTotal).toBeCloseTo(750, 2);
     expect(computeQuote({}).quoteTotal).toBe(0);
   });
+
+  it('per-quote cogMarkup overrides the settings default; blank falls back', () => {
+    const lines = { laborTasks: [{ cost: 100, quantity: 1 }] };
+    // quote override (3) wins over settings (2)
+    expect(computeQuote({ ...lines, cogMarkup: 3 }, { cogMarkup: 2 }).quoteTotal).toBeCloseTo(300, 2);
+    // no override → settings default (2)
+    expect(computeQuote({ ...lines }, { cogMarkup: 2 }).quoteTotal).toBeCloseTo(200, 2);
+    // neither → hard default 2.5
+    expect(computeQuote({ ...lines }).quoteTotal).toBeCloseTo(250, 2);
+  });
 });
 
 describe('computeMargin', () => {

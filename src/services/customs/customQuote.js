@@ -47,7 +47,9 @@ export function computeQuote(quote = {}, settings = {}) {
 
   const cog = materialsTotal + laborTotal + shippingTotal + castingTotal + designTotal + glbTotal + qcTotal;
 
-  const cogMarkup = n(settings.cogMarkup) > 0 ? n(settings.cogMarkup) : (n(quote.cogMarkup) > 0 ? n(quote.cogMarkup) : DEFAULT_COG_MARKUP);
+  // Per-quote markup OVERRIDE wins over the admin-settings default (0/unset → use the
+  // settings default, then the hard default). Lets the quote builder set a markup per job.
+  const cogMarkup = n(quote.cogMarkup) > 0 ? n(quote.cogMarkup) : (n(settings.cogMarkup) > 0 ? n(settings.cogMarkup) : DEFAULT_COG_MARKUP);
   let rushMultiplier = 1;
   if (quote.isRush) rushMultiplier = n(quote.rushMultiplier) > 1 ? n(quote.rushMultiplier) : (n(settings.rushMultiplier) > 1 ? n(settings.rushMultiplier) : DEFAULT_RUSH);
   else if (n(quote.rushMultiplier) > 1) rushMultiplier = n(quote.rushMultiplier); // legacy flat rush

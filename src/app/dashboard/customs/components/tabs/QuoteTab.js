@@ -178,6 +178,7 @@ const blankForm = (q = {}) => ({
   isRush: !!q.isRush,
   includeCustomDesign: !!q.includeCustomDesign || n(q.designFee) > 0,
   designFee: q.designFee ?? 0,
+  cogMarkup: n(q.cogMarkup) > 0 ? q.cogMarkup : '', // '' = use the admin-settings default
 });
 
 export default function QuoteTab({ customID, order, margin, onChanged, notify }) {
@@ -185,6 +186,7 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState(() => blankForm(q));
   const [floorPct, setFloorPct] = useState(45);
+  const [defaultMarkup, setDefaultMarkup] = useState(2.5); // admin-settings cogMarkup (fallback when no per-quote override)
 
   // Always-editable (no Edit toggle). Re-sync from the order whenever it reloads
   // (after save / casting / status changes — the only times `order.quote` changes
@@ -194,6 +196,8 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
     fetch('/api/admin/settings').then((r) => r.ok ? r.json() : null).then((s) => {
       const f = Number(s?.financial?.targetMarginFloor);
       if (f >= 0 && f <= 1) setFloorPct(f * 100);
+      const m = Number(s?.financial?.cogMarkup);
+      if (m > 0) setDefaultMarkup(m);
     }).catch(() => {});
   }, []);
 
@@ -224,7 +228,8 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
 
   // Live COG/total (mirrors computeQuote; glb/qc/casting come from production/order).
   const castingCost = n(q.castingCost); const glbFee = n(q.glbFee); const qcFee = n(q.qcReviewFee);
-  const cogMarkup = n(q.cogMarkup) || 2.5;
+  // Per-quote markup override (form) wins over the admin-settings default — mirrors computeQuote.
+  const cogMarkup = n(form.cogMarkup) > 0 ? n(form.cogMarkup) : defaultMarkup;
   const matTotal = n(form.centerstone.cost) + n(form.mounting.cost) + lineSum(form.accentStones) + lineSum(form.additionalMaterials);
   const laborTotal = lineSum(form.laborTasks);
   const shipTotal = lineSum(form.shippingCosts);
@@ -248,6 +253,8 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
         laborTasks: form.laborTasks.map((r) => ({ description: r.description || '', quantity: n(r.quantity) || 1, cost: n(r.cost), hours: n(r.hours), discipline: r.discipline || 'bench_jewelry', ...(r.autoKey ? { autoKey: r.autoKey, source: r.source || 'auto' } : {}), ...(r.noWorkOrder ? { noWorkOrder: true } : {}) })),
         shippingCosts: form.shippingCosts.map((r) => ({ description: r.description || '', cost: n(r.cost) })),
         isRush: form.isRush, includeCustomDesign: form.includeCustomDesign, designFee: n(form.designFee),
+        cogMarkup: n(form.cogMarkup) || 0, // 0 = revert to the admin-settings default
+
         // clear legacy flats so they don't double-count
         materialCosts: [], laborCost: 0, shippingCost: 0,
         ...extra,
@@ -351,6 +358,13 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
               {form.includeCustomDesign && (
                 <TextField size="small" label="Designer fee" type="number" value={form.designFee} disabled={busy} onChange={(e) => setField('designFee', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} helperText="Snapshotted from the assigned CAD designer." />
               )}
+              <TextField
+                size="small" label="COG markup" type="number" value={form.cogMarkup} disabled={busy}
+                onChange={(e) => setField('cogMarkup', e.target.value)}
+                InputProps={{ startAdornment: <InputAdornment position="start">×</InputAdornment> }}
+                placeholder={String(defaultMarkup)}
+                helperText={`Multiplier on COG for this quote. Blank = default (×${defaultMarkup}).`}
+              />
             </Stack>
           </Paper>
         </Grid>
