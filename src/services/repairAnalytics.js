@@ -472,9 +472,10 @@ export function normalizeSalesInvoiceForAnalytics(invoice = {}) {
  * A/R, federal-tax-reserve, and safe-to-spend.
  *
  * Notes:
- *  - Custom quotes don't itemize sales tax (the quote is a single COG-bucket total
- *    × markup), so taxAmount is 0 — custom revenue lands as non-taxable and holds no
- *    sales-tax reserve. Itemizing custom sales tax is a separate decision.
+ *  - `amount` is tax-INCLUSIVE; the invoice's `taxRate` (snapshot at billing) backs out
+ *    the sales-tax portion: tax = amount × rate / (1 + rate). Matches the repair/sales
+ *    convention where `total` is gross and tax is reported separately. Legacy/untaxed
+ *    invoices carry rate 0 → all revenue, no tax.
  *  - A paid invoice synthesizes one completed payment (so cash-collected/reserve see
  *    it), timestamped at paidAt. Pending invoices contribute invoiced revenue + A/R.
  */
@@ -482,6 +483,8 @@ export function normalizeCustomInvoiceForAnalytics(invoice = {}) {
   const amount = roundMoney(invoice.amount || 0);
   const isPaid = invoice.status === 'paid';
   const amountPaid = isPaid ? amount : 0;
+  const taxRate = Number(invoice.taxRate) || 0;
+  const taxAmount = taxRate > 0 ? roundMoney(amount * taxRate / (1 + taxRate)) : 0;
   return {
     ...invoice,
     sourceType: 'custom',
@@ -493,7 +496,7 @@ export function normalizeCustomInvoiceForAnalytics(invoice = {}) {
     total: amount,
     amountPaid: roundMoney(amountPaid),
     remainingBalance: roundMoney(amount - amountPaid),
-    taxAmount: 0,
+    taxAmount,
     payments: isPaid
       ? [{
         type: invoice.paymentMethod || 'other',

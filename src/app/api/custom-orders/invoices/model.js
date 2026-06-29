@@ -35,6 +35,10 @@ export default class CustomInvoicesModel {
       customID: data.customID,
       type: data.type || CUSTOM_INVOICE_TYPE.DEPOSIT,
       amount: Number(data.amount) || 0,
+      // Sales-tax rate (fraction) in effect when billed. `amount` is tax-INCLUSIVE; the
+      // tax portion = amount × taxRate / (1 + taxRate). Stored so analytics can back out
+      // the pass-through tax. Legacy/untaxed invoices have 0.
+      taxRate: Number(data.taxRate) || 0,
       description: data.description || '',
       customerEmail: data.customerEmail || '',
       status: CUSTOM_INVOICE_STATUS.PENDING,

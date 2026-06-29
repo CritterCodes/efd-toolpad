@@ -20,7 +20,10 @@ const STATUS_RANK = {
 
 async function progressFor(order) {
   const invoices = await CustomInvoicesModel.listByCustom(order.customID);
-  return { invoices, progress: computePaymentProgress(order.quote?.quoteTotal || 0, invoices) };
+  // Bill against the tax-inclusive total (what the customer owes); fall back to the
+  // pre-tax quoteTotal for legacy orders quoted before sales tax was applied.
+  const projectTotal = order.quote?.total ?? order.quote?.quoteTotal ?? 0;
+  return { invoices, progress: computePaymentProgress(projectTotal, invoices) };
 }
 
 // Fire-and-forget: never block the caller on (slow, retrying) email.
@@ -73,6 +76,9 @@ export async function createCustomInvoice(customID, data) {
   const invoice = await CustomInvoicesModel.create({
     customID,
     customerEmail: data.customerEmail || order.customerEmail,
+    // Snapshot the order's effective tax rate so the recorded amount (tax-inclusive)
+    // can be decomposed into revenue + sales tax in reporting.
+    taxRate: data.taxRate ?? order.quote?.taxRate ?? 0,
     ...data,
   });
   const { progress } = await progressFor(order);

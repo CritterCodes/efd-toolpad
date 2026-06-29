@@ -155,26 +155,41 @@ export default class CustomOrdersModel {
     return this.findById(customID);
   }
 
-  /** The markup settings for customs pricing (tolerant of missing admin settings). */
+  /** The markup + tax settings for customs pricing (tolerant of missing admin settings). */
   static async pricingSettings() {
     try {
       const s = await SettingsManagerService.getSettings();
       const cogMarkup = Number(s?.financial?.cogMarkup);
       const rushMultiplier = Number(s?.financial?.rushMultiplier);
-      return { cogMarkup: cogMarkup > 0 ? cogMarkup : 2.5, rushMultiplier: rushMultiplier > 1 ? rushMultiplier : 1.5 };
+      const taxRate = Number(s?.pricing?.taxRate); // sales tax rate (fraction) — same source repairs/sales use
+      return {
+        cogMarkup: cogMarkup > 0 ? cogMarkup : 2.5,
+        rushMultiplier: rushMultiplier > 1 ? rushMultiplier : 1.5,
+        taxRate: taxRate >= 0 ? taxRate : 0,
+      };
     } catch {
-      return { cogMarkup: 2.5, rushMultiplier: 1.5 };
+      return { cogMarkup: 2.5, rushMultiplier: 1.5, taxRate: 0 };
     }
   }
 
   /**
    * Normalize a quote: recompute the single-COG-bucket total using the markup
-   * from admin settings, and snapshot cog + cogMarkup + quoteTotal onto the quote.
+   * from admin settings, and snapshot cog + cogMarkup + quoteTotal + the sales-tax
+   * fields (taxRate/taxAmount/total) onto the quote. quoteTotal stays PRE-tax;
+   * `total` is the tax-inclusive amount the customer is billed.
    */
   static async normalizeQuote(quote = {}) {
     const settings = await this.pricingSettings();
     const computed = computeQuote(quote, settings);
-    return { ...quote, cog: computed.cog, cogMarkup: computed.cogMarkup, quoteTotal: computed.quoteTotal };
+    return {
+      ...quote,
+      cog: computed.cog,
+      cogMarkup: computed.cogMarkup,
+      quoteTotal: computed.quoteTotal,
+      taxRate: computed.taxRate,
+      taxAmount: computed.taxAmount,
+      total: computed.total,
+    };
   }
 
   /** Link a spawned Design / Piece onto the order (idempotent via $addToSet). */

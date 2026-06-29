@@ -80,7 +80,7 @@ export default function CustomOrderCard({ order, onOpen }) {
                 <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>Due {new Date(o.dueDate).toLocaleDateString()}</Typography>
               </Stack>
             ) : <span />}
-            <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.accent }}>{money(o.quote?.quoteTotal)}</Typography>
+            <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.accent }}>{money(o.quote?.total ?? o.quote?.quoteTotal)}</Typography>
           </Stack>
         </CardContent>
       </CardActionArea>

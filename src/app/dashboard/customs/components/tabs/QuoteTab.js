@@ -143,7 +143,7 @@ function LineEditor({ rows, onChange, withQty, withDiscipline, withHours, editMo
   );
 }
 
-function QuoteSummaryCard({ lines, cog, cogMarkup, rush, total }) {
+function QuoteSummaryCard({ lines, cog, cogMarkup, rush, subtotal, taxRate, taxAmount, total }) {
   return (
     <Paper sx={cardSx}>
       <CardHead icon={CalculateIcon} title="Quote Summary" />
@@ -151,11 +151,15 @@ function QuoteSummaryCard({ lines, cog, cogMarkup, rush, total }) {
       <Divider sx={{ my: 1.25, borderColor: REPAIRS_UI.border }} />
       <Row label="COG (cost)" value={money(cog)} />
       <Row label="Markup" value={`× ${cogMarkup}${rush > 1 ? ` · rush × ${rush}` : ''}`} />
+      <Row label="Subtotal" value={money(subtotal)} />
+      <Row label={`Sales tax (${(Number(taxRate) * 100).toFixed(taxRate && taxRate * 100 % 1 ? 2 : 1)}%)`} value={money(taxAmount)} />
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
-        <Typography sx={{ fontWeight: 700, color: REPAIRS_UI.textHeader }}>Quote total</Typography>
+        <Typography sx={{ fontWeight: 700, color: REPAIRS_UI.textHeader }}>Total due</Typography>
         <Typography sx={{ fontWeight: 700, fontSize: '1.4rem', color: REPAIRS_UI.accent }}>{money(total)}</Typography>
       </Stack>
-      <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>Sales tax calculated at checkout (Stripe Tax).</Typography>
+      <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
+        {taxRate > 0 ? 'Sales tax (admin-settings rate) is added to the subtotal and billed on invoices.' : 'Tax-exempt — no sales tax applied.'}
+      </Typography>
     </Paper>
   );
 }
@@ -196,6 +200,7 @@ const blankForm = (q = {}) => ({
   includeCustomDesign: !!q.includeCustomDesign || n(q.designFee) > 0,
   designFee: q.designFee ?? 0,
   cogMarkup: n(q.cogMarkup) > 0 ? q.cogMarkup : '', // '' = use the admin-settings default
+  taxExempt: !!q.taxExempt, // resale/wholesale custom → no sales tax
 });
 
 export default function QuoteTab({ customID, order, margin, onChanged, notify }) {
@@ -204,6 +209,7 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
   const [form, setForm] = useState(() => blankForm(q));
   const [floorPct, setFloorPct] = useState(45);
   const [defaultMarkup, setDefaultMarkup] = useState(2.5); // admin-settings cogMarkup (fallback when no per-quote override)
+  const [taxRate, setTaxRate] = useState(0); // admin-settings pricing.taxRate (fraction)
 
   // Always-editable (no Edit toggle). Re-sync from the order whenever it reloads
   // (after save / casting / status changes — the only times `order.quote` changes
@@ -215,6 +221,8 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
       if (f >= 0 && f <= 1) setFloorPct(f * 100);
       const m = Number(s?.financial?.cogMarkup);
       if (m > 0) setDefaultMarkup(m);
+      const t = Number(s?.pricing?.taxRate);
+      if (t >= 0) setTaxRate(t);
     }).catch(() => {});
   }, []);
 
@@ -253,7 +261,10 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
   const designTotal = form.includeCustomDesign ? n(form.designFee) : n(form.designFee);
   const cog = matTotal + laborTotal + shipTotal + castingCost + designTotal + glbFee + qcFee;
   const rush = form.isRush ? (n(q.rushMultiplier) > 1 ? n(q.rushMultiplier) : 1.5) : 1;
-  const total = cog * cogMarkup * rush;
+  const subtotal = cog * cogMarkup * rush; // pre-tax marked-up price (revenue/margin basis)
+  const effTaxRate = form.taxExempt ? 0 : taxRate;
+  const taxAmount = subtotal * effTaxRate;
+  const total = subtotal + taxAmount; // tax-inclusive grand total the customer is billed
 
   const summaryLines = [
     ['Materials & gemstones', matTotal], ['Labor', laborTotal], ['Shipping', shipTotal],
@@ -271,6 +282,7 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
         shippingCosts: form.shippingCosts.map((r) => ({ description: r.description || '', cost: n(r.cost) })),
         isRush: form.isRush, includeCustomDesign: form.includeCustomDesign, designFee: n(form.designFee),
         cogMarkup: n(form.cogMarkup) || 0, // 0 = revert to the admin-settings default
+        taxExempt: !!form.taxExempt,
 
         // clear legacy flats so they don't double-count
         materialCosts: [], laborCost: 0, shippingCost: 0,
@@ -372,6 +384,7 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
             <Stack spacing={1}>
               <FormControlLabel control={<Switch checked={form.isRush} disabled={busy} onChange={(e) => setField('isRush', e.target.checked)} />} label={`Rush order (${Math.round((rush > 1 ? rush : 1.5) * 100 - 100)}% surcharge on COG)`} sx={{ color: REPAIRS_UI.textSecondary }} />
               <FormControlLabel control={<Switch checked={form.includeCustomDesign} disabled={busy} onChange={(e) => setField('includeCustomDesign', e.target.checked)} />} label="Custom design fee" sx={{ color: REPAIRS_UI.textSecondary }} />
+              <FormControlLabel control={<Switch checked={form.taxExempt} disabled={busy || !taxRate} onChange={(e) => setField('taxExempt', e.target.checked)} />} label={`Tax exempt (no sales tax)${taxRate ? '' : ' — no rate set'}`} sx={{ color: REPAIRS_UI.textSecondary }} />
               {form.includeCustomDesign && (
                 <TextField size="small" label="Designer fee" type="number" value={form.designFee} disabled={busy} onChange={(e) => setField('designFee', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} helperText="Snapshotted from the assigned CAD designer." />
               )}
@@ -389,8 +402,8 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
 
       {/* Two-panel summary */}
       <Grid container spacing={2}>
-        <Grid item xs={12} md={6}><QuoteSummaryCard lines={summaryLines} cog={cog} cogMarkup={cogMarkup} rush={rush} total={total} /></Grid>
-        <Grid item xs={12} md={6}><AnalyticsCard cog={cog} total={total} designerPayout={designTotal} margin={margin} bonus={n(order.clientMgmtBonus)} floorPct={floorPct} /></Grid>
+        <Grid item xs={12} md={6}><QuoteSummaryCard lines={summaryLines} cog={cog} cogMarkup={cogMarkup} rush={rush} subtotal={subtotal} taxRate={effTaxRate} taxAmount={taxAmount} total={total} /></Grid>
+        <Grid item xs={12} md={6}><AnalyticsCard cog={cog} total={subtotal} designerPayout={designTotal} margin={margin} bonus={n(order.clientMgmtBonus)} floorPct={floorPct} /></Grid>
       </Grid>
     </Stack>
   );

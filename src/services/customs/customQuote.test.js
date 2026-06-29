@@ -38,6 +38,26 @@ describe('computeQuote (structured single-COG bucket)', () => {
     // neither → hard default 2.5
     expect(computeQuote({ ...lines }).quoteTotal).toBeCloseTo(250, 2);
   });
+
+  it('adds sales tax on top of the marked-up total (quoteTotal stays pre-tax)', () => {
+    const q = computeQuote(
+      { laborTasks: [{ cost: 100, quantity: 1 }] },
+      { cogMarkup: 2, taxRate: 0.0875 },
+    );
+    expect(q.quoteTotal).toBeCloseTo(200, 2); // pre-tax (revenue/margin basis)
+    expect(q.taxRate).toBeCloseTo(0.0875, 4);
+    expect(q.taxAmount).toBeCloseTo(17.5, 2); // 200 × 8.75%
+    expect(q.total).toBeCloseTo(217.5, 2); // tax-inclusive amount billed
+  });
+
+  it('taxExempt zeroes tax; explicit quote.taxRate overrides the settings rate', () => {
+    const lines = { laborTasks: [{ cost: 100, quantity: 1 }] };
+    const exempt = computeQuote({ ...lines, taxExempt: true }, { cogMarkup: 2, taxRate: 0.0875 });
+    expect(exempt.taxAmount).toBe(0);
+    expect(exempt.total).toBeCloseTo(200, 2);
+    const override = computeQuote({ ...lines, taxRate: 0.05 }, { cogMarkup: 2, taxRate: 0.0875 });
+    expect(override.taxAmount).toBeCloseTo(10, 2); // 200 × 5%
+  });
 });
 
 describe('computeMargin', () => {

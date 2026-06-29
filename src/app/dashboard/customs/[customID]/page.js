@@ -104,7 +104,9 @@ export default function CustomDetailPage() {
     const res = await fetch(`/api/custom-orders/${customID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields) });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Save failed');
   }, 'Details saved');
-  const quoteTotal = Number(order?.quote?.quoteTotal) || 0;
+  // Customer billing uses the tax-INCLUSIVE total (quote.total); fall back to the
+  // pre-tax quoteTotal for legacy orders quoted before sales tax was applied.
+  const quoteTotal = Number(order?.quote?.total ?? order?.quote?.quoteTotal) || 0;
   const remaining = billing.progress ? Number(billing.progress.remainingAmount) || 0 : quoteTotal;
   const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
   const invoiceAmount = () => {

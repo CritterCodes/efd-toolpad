@@ -311,6 +311,28 @@ describe('repairAnalytics', () => {
     expect(taxReserve.summary.salesTaxHeld).toBe(0);
   });
 
+  it('backs sales tax out of a taxed custom invoice (amount is tax-inclusive)', () => {
+    const window = getAnalyticsDateWindow('this_month', new Date('2026-05-20T12:00:00.000Z'));
+    const invoices = combineAnalyticsInvoices([], [], [
+      {
+        invoiceID: 'cinv-taxed',
+        customID: 'CO-9',
+        amount: 1087.5, // $1000 pre-tax + 8.75% tax
+        taxRate: 0.0875,
+        status: 'paid',
+        paymentMethod: 'cash',
+        createdAt: '2026-05-05T12:00:00.000Z',
+        paidAt: '2026-05-05T12:10:00.000Z',
+      },
+    ]);
+    const cash = buildCashCollectedReport(invoices, window, new Map());
+    const taxReserve = buildFederalTaxReserveReport({ invoices, window });
+    // Full gross is collected; the $87.50 tax portion is held (not spendable).
+    expect(cash.summary.totalCollected).toBe(1087.5);
+    expect(taxReserve.summary.cashCollected).toBe(1087.5);
+    expect(taxReserve.summary.salesTaxHeld).toBe(87.5);
+  });
+
   it('anchors jeweler performance to labor log creation time, not week start', () => {
     const window = getAnalyticsDateWindow('today', new Date('2026-05-02T12:00:00.000Z'));
     const report = buildJewelerPerformanceReport({

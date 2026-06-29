@@ -56,6 +56,15 @@ export function computeQuote(quote = {}, settings = {}) {
 
   const quoteTotal = cog * cogMarkup * rushMultiplier;
 
+  // Sales tax sits ON TOP of the marked-up price (it's a pass-through liability, not
+  // revenue/margin). Rate comes from admin settings (settings.taxRate, a fraction);
+  // `quote.taxExempt` zeroes it (e.g. a resale/wholesale custom), and an explicit
+  // `quote.taxRate` overrides the settings default. quoteTotal stays PRE-tax so margin
+  // math is unaffected; `total` is the tax-inclusive grand total the customer is billed.
+  const taxRate = quote.taxExempt ? 0 : (n(quote.taxRate) > 0 ? n(quote.taxRate) : n(settings.taxRate));
+  const taxAmount = quoteTotal * taxRate;
+  const total = quoteTotal + taxAmount;
+
   return {
     materialsTotal: round(materialsTotal),
     laborTotal: round(laborTotal),
@@ -68,6 +77,9 @@ export function computeQuote(quote = {}, settings = {}) {
     cogMarkup,
     rushMultiplier,
     quoteTotal: round(quoteTotal),
+    taxRate,
+    taxAmount: round(taxAmount),
+    total: round(total),
     projectedMargin: round(quoteTotal - cog),
   };
 }

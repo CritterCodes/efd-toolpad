@@ -135,7 +135,7 @@ export default function OverviewTab({ order, billing, busy, onSave }) {
         <Grid item xs={12}>
           <SectionHead>Financial Summary</SectionHead>
           <Grid container spacing={2}>
-            <Grid item xs={6} sm={4}><StatBox label="Quote total" value={money(q.quoteTotal)} color={REPAIRS_UI.accent} /></Grid>
+            <Grid item xs={6} sm={4}><StatBox label="Quote total" value={money(q.total ?? q.quoteTotal)} color={REPAIRS_UI.accent} /></Grid>
             {owed != null && <Grid item xs={6} sm={4}><StatBox label="Owed (outstanding)" value={money(owed)} color={owed > 0 ? '#FFB74D' : '#66BB6A'} /></Grid>}
             {progress && <Grid item xs={6} sm={4}><StatBox label="Paid" value={`${progress.paymentProgress || 0}%`} /></Grid>}
           </Grid>
