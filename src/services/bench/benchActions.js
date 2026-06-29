@@ -15,7 +15,7 @@ import { db } from '@/lib/database';
 import WorkOrdersModel, { WORK_ORDER_SOURCE } from '@/app/api/workOrders/model';
 import RepairsModel from '@/app/api/repairs/model';
 import { moveRepairToQc } from '@/app/api/repairs/[repairID]/send-to-qc/route';
-import { claimPieceWorkOrder, movePieceToQc, completePieceWorkOrderFromQc, approveCadQc, rejectCadQc, submitCadGlbToQc } from '@/services/bench/pieceWorkOrderActions';
+import { claimPieceWorkOrder, movePieceToQc, completePieceWorkOrderFromQc, approveCadQc, rejectCadQc, submitCadGlbToQc, splitPieceTask } from '@/services/bench/pieceWorkOrderActions';
 import {
   buildClaimRepairUpdate,
   buildUnclaimRepairUpdate,
@@ -198,6 +198,8 @@ async function runPieceAction({ session, workOrderID, action, body }) {
       return completePieceWorkOrderFromQc({ session, workOrderID });
     case 'cad-submit-qc':
       return submitCadGlbToQc({ session, workOrderID });
+    case 'split-task':
+      return splitPieceTask({ session, workOrderID, taskIndex: body?.taskIndex, assignToUserID: body?.assignToUserID });
     case 'cad-qc-approve':
       return approveCadQc({ session, workOrderID });
     case 'cad-qc-reject':

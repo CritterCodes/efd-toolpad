@@ -88,6 +88,8 @@ export default function BenchWorkCard({
   const fileLabel = isGlbStage ? 'GLB' : 'STL';
   const isCadQc = isPiece && isCad && wo.benchQueue === BENCH_QUEUE.QC;
   const customOrderID = wo.source?.custom?.customID || null;
+  // Admins can split any task off a multi-task piece WO to a specific jeweler (before QC).
+  const canSplit = isAdmin && isPiece && (wo.tasks?.length > 1) && wo.benchQueue !== BENCH_QUEUE.QC && jewelers.length > 0;
   const isMine = wo.assignedToUserID && wo.assignedToUserID === currentUserID;
   const repairID = wo.sourceID;
   const custom = wo.source?.custom || null;
@@ -182,15 +184,31 @@ export default function BenchWorkCard({
                 const mats = taskMaterials(t);
                 const detail = t.description && t.description !== taskLabel(t) ? t.description : '';
                 return (
-                  <Box key={i} sx={{ display: 'flex', gap: 0.75, alignItems: 'baseline' }}>
-                    <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: REPAIRS_UI.accent, mt: '5px', flexShrink: 0 }} />
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography variant="caption" sx={{ color: REPAIRS_UI.textPrimary, fontSize: '0.78rem' }}>
-                        {taskLabel(t)}{hours > 0 && <Box component="span" sx={{ color: REPAIRS_UI.textMuted }}> · {hours}h</Box>}
-                      </Typography>
-                      {detail && <Typography variant="caption" sx={{ display: 'block', color: REPAIRS_UI.textMuted, fontSize: '0.68rem' }}>{detail.slice(0, 90)}{detail.length > 90 ? '…' : ''}</Typography>}
-                      {mats.length > 0 && <Typography variant="caption" sx={{ display: 'block', color: REPAIRS_UI.textMuted, fontSize: '0.68rem' }}>parts: {mats.join(', ')}</Typography>}
+                  <Box key={i} sx={{ display: 'flex', gap: 0.75, alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'baseline', minWidth: 0 }}>
+                      <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: REPAIRS_UI.accent, mt: '5px', flexShrink: 0 }} />
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="caption" sx={{ color: REPAIRS_UI.textPrimary, fontSize: '0.78rem' }}>
+                          {taskLabel(t)}{hours > 0 && <Box component="span" sx={{ color: REPAIRS_UI.textMuted }}> · {hours}h</Box>}
+                        </Typography>
+                        {detail && <Typography variant="caption" sx={{ display: 'block', color: REPAIRS_UI.textMuted, fontSize: '0.68rem' }}>{detail.slice(0, 90)}{detail.length > 90 ? '…' : ''}</Typography>}
+                        {mats.length > 0 && <Typography variant="caption" sx={{ display: 'block', color: REPAIRS_UI.textMuted, fontSize: '0.68rem' }}>parts: {mats.join(', ')}</Typography>}
+                      </Box>
                     </Box>
+                    {canSplit && (
+                      <TextField
+                        select size="small" value="" disabled={busy}
+                        SelectProps={{ displayEmpty: true, renderValue: () => 'Split →' }}
+                        onChange={(e) => { if (e.target.value) onAction(wo, 'split-task', { taskIndex: i, assignToUserID: e.target.value }); }}
+                        sx={{ flexShrink: 0, minWidth: 96, '& .MuiInputBase-root': { fontSize: '0.7rem', bgcolor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textSecondary }, '& .MuiSelect-icon': { color: REPAIRS_UI.textMuted } }}
+                      >
+                        {jewelers.map((j) => (
+                          <MenuItem key={j.userID} value={j.userID} sx={{ fontSize: '0.75rem' }}>
+                            {[j.firstName, j.lastName].filter(Boolean).join(' ').trim() || j.name || j.email || j.userID}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    )}
                   </Box>
                 );
               })}

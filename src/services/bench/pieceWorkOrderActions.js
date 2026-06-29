@@ -24,6 +24,7 @@ import { storageClient, STORAGE_BUCKET, storageUrl } from '@/lib/storage';
 import SettingsManagerService from '@/app/api/admin/settings/services/settingsManager.service';
 import { getSTLVolume } from '@/lib/stlParser';
 import { createShareLink, setShareEnabled } from '@/services/customs/customViewer';
+import { db } from '@/lib/database';
 
 /** STL files are authored in mm; the cost estimator works in cm³ (1 cm³ = 1000 mm³). */
 async function stlVolumeCm3(arrayBuffer) {
@@ -255,6 +256,51 @@ export async function submitCadGlbToQc({ session, workOrderID }) {
     completedBy: session.user.name,
     completedAt: new Date(),
   });
+}
+
+/**
+ * Split one task off a multi-task piece work order into its OWN work order, optionally
+ * assigned to a specific jeweler. This is how different jewelers split a custom (e.g.
+ * Vernon does the casting cleanup, you do the stone setting): each ends up on a separate
+ * WO so each is credited their own labor at move-to-QC. Admin-only; can't split a WO
+ * that's already in QC/completed or that has a single task. The new WO carries the moved
+ * task (its hours → that jeweler's payout); the original keeps the rest.
+ */
+export async function splitPieceTask({ session, workOrderID, taskIndex, assignToUserID = null }) {
+  if (!isAdminRole(session)) { const e = new Error('Only an admin can split/assign tasks.'); e.code = 'FORBIDDEN'; throw e; }
+  const wo = await loadPieceWorkOrder(workOrderID);
+  const tasks = Array.isArray(wo.tasks) ? wo.tasks : [];
+  const idx = Number(taskIndex);
+  if (!Number.isInteger(idx) || idx < 0 || idx >= tasks.length) { const e = new Error('Invalid task index.'); e.code = 'BAD_REQUEST'; throw e; }
+  if (tasks.length < 2) { const e = new Error('Nothing to split — this work order has a single task.'); e.code = 'BAD_REQUEST'; throw e; }
+  if (['QC', 'COMPLETED', 'DELIVERED', 'CANCELLED'].includes(String(wo.status || '').toUpperCase())) {
+    const e = new Error('Cannot split a work order that is in QC or completed.'); e.code = 'BAD_REQUEST'; throw e;
+  }
+
+  let assignedJeweler = null;
+  if (assignToUserID) {
+    const dbi = await db.connect();
+    const u = await dbi.collection('users').findOne({ userID: assignToUserID }, { projection: { _id: 0, firstName: 1, lastName: 1, name: 1, email: 1 } });
+    if (!u) { const e = new Error('Assignable artisan not found.'); e.code = 'NOT_FOUND'; throw e; }
+    assignedJeweler = [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || u.name || u.email || assignToUserID;
+  }
+
+  const task = tasks[idx];
+  const piece = await PiecesModel.findById(wo.sourceID);
+  const seq = (piece?.workOrderIDs?.length || 0) + 1;
+  const newWo = await WorkOrdersModel.create({
+    sourceType: wo.sourceType, sourceID: wo.sourceID, seq,
+    discipline: wo.discipline, cadStage: null,
+    title: task.process || wo.discipline,
+    status: assignToUserID ? 'IN PROGRESS' : 'READY FOR WORK',
+    assignedToUserID: assignToUserID || null, assignedJeweler,
+    claimedAt: assignToUserID ? new Date() : null,
+    tasks: [task],
+    createdBy: session.user.userID || session.user.email || '',
+  });
+  await PiecesModel.setWorkOrders(wo.sourceID, [...(piece?.workOrderIDs || []), newWo.workOrderID]);
+  await WorkOrdersModel.updateByID(workOrderID, { tasks: tasks.filter((_, i) => i !== idx) });
+  return { workOrder: newWo };
 }
 
 /**
