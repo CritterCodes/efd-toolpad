@@ -290,12 +290,16 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
       };
       const res = await fetch(`/api/custom-orders/${customID}/quote`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Quote save failed');
+      const data = await res.json().catch(() => ({}));
       await onChanged?.();
-      return true;
+      return { workOrdersSynced: Number(data.workOrdersSynced) || 0 };
     } catch (e) { notify(e.message, 'error'); return false; } finally { setBusy(false); }
   }, [customID, form, onChanged, notify]);
 
-  const save = async () => { if (await persist()) notify('Quote saved', 'success'); };
+  const save = async () => {
+    const r = await persist();
+    if (r) notify(`Quote saved${r.workOrdersSynced ? ` · ${r.workOrdersSynced} work order${r.workOrdersSynced > 1 ? 's' : ''} re-synced` : ''}`, 'success');
+  };
   const publish = async () => { if (await persist({ quotePublished: true, publishedAt: new Date().toISOString() })) notify('Quote published to client', 'success'); };
   const unpublish = async () => { if (await persist({ quotePublished: false, publishedAt: null })) notify('Quote unpublished', 'success'); };
 

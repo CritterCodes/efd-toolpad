@@ -288,6 +288,86 @@ export async function generateWorkOrdersFromQuote({ customID, createdBy = 'syste
   return { generated };
 }
 
+/**
+ * Sync edited quote labor hours onto already-generated bench work orders. The quote
+ * PLANS the work; once work orders are generated (casting received) their task hours
+ * drive the bench payout (Σ estLaborHours × the jeweler's rate at move-to-QC). If the
+ * planned hours are later edited on the quote, those WO hours would otherwise go stale.
+ * Matches quote labor tasks to WO tasks by (discipline, process name) and updates
+ * estLaborHours IN PLACE.
+ *
+ * Safe by construction:
+ *  - Only touches PRE-QC work orders (READY FOR WORK / IN PROGRESS). Once a WO moves to
+ *    QC its labor log is already written with frozen hours — editing it then would not
+ *    (and must not) change a credited payout.
+ *  - Never changes structure (no tasks added / removed / moved), so a task that was
+ *    split off to another jeweler keeps its own WO; only its hours track the quote.
+ *  - New quote tasks aren't auto-spawned and removed ones aren't deleted (those are
+ *    deliberate structural changes — use "Add work order" / the bench).
+ * Idempotent; returns the count of work orders updated.
+ */
+const PRE_QC_WO_STATUSES = ['READY FOR WORK', 'IN PROGRESS'];
+
+/** Planned hours from quote labor tasks, keyed `lane::process` (sums dupes per lane). */
+export function planQuoteLaborHours(laborTasks = []) {
+  const planned = new Map();
+  for (const t of laborTasks || []) {
+    const desc = String(t.description || '').trim();
+    if (!desc || t.noWorkOrder || t.discipline === DISCIPLINE.CAD) continue;
+    const lane = t.discipline || DISCIPLINE.BENCH_JEWELRY;
+    const key = `${lane}::${desc.toLowerCase()}`;
+    planned.set(key, (planned.get(key) || 0) + (Number(t.hours) || 0));
+  }
+  return planned;
+}
+
+/**
+ * Pure core of the sync: given work orders + quote labor tasks, return the WO updates
+ * (`[{ workOrderID, tasks }]`) needed to bring each WO task's estLaborHours in line with
+ * the plan, matched by (discipline, process name). Only emits a WO if something changed.
+ * Structure is preserved — tasks are never added, removed, or moved.
+ */
+export function applyQuoteHoursToWorkOrders(workOrders = [], laborTasks = []) {
+  const planned = planQuoteLaborHours(laborTasks);
+  if (!planned.size) return [];
+  const updates = [];
+  for (const wo of workOrders || []) {
+    let changed = false;
+    const tasks = (wo.tasks || []).map((task) => {
+      const key = `${wo.discipline}::${String(task.process || '').trim().toLowerCase()}`;
+      if (planned.has(key) && Number(task.estLaborHours) !== planned.get(key)) {
+        changed = true;
+        return { ...task, estLaborHours: planned.get(key) };
+      }
+      return task;
+    });
+    if (changed) updates.push({ workOrderID: wo.workOrderID, tasks });
+  }
+  return updates;
+}
+
+export async function syncQuoteHoursToWorkOrders({ customID }) {
+  const order = await CustomOrdersModel.findById(customID);
+  if (!order || !order.productionGeneratedAt) return { updated: 0 };
+  const pieceIDs = order.pieceIDs || [];
+  if (!pieceIDs.length) return { updated: 0 };
+
+  const dbi = await db.connect();
+  const wos = await dbi.collection(Constants.WORK_ORDERS_COLLECTION)
+    .find({
+      sourceType: WORK_ORDER_SOURCE.PRODUCTION_PIECE,
+      sourceID: { $in: pieceIDs },
+      status: { $in: PRE_QC_WO_STATUSES },
+    }, { projection: { _id: 0 } })
+    .toArray();
+
+  const updates = applyQuoteHoursToWorkOrders(wos, order.quote?.laborTasks || []);
+  for (const u of updates) {
+    await WorkOrdersModel.updateByID(u.workOrderID, { tasks: u.tasks });
+  }
+  return { updated: updates.length };
+}
+
 /** All work orders across the custom's piece(s), each with its accrued labor. */
 export async function getCustomWorkOrders(customID) {
   const order = await CustomOrdersModel.findById(customID);
