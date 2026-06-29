@@ -95,15 +95,19 @@ function TaskAutocomplete({ value, disabled, onText, onPick }) {
 }
 
 /** Repeatable line-item editor (description [+discipline][+qty] + cost). `suggest` → task autocomplete. */
-function LineEditor({ rows, onChange, withQty, withDiscipline, editMode, emptyText, suggest }) {
+function LineEditor({ rows, onChange, withQty, withDiscipline, withHours, editMode, emptyText, suggest }) {
   const set = (i, k, v) => onChange(rows.map((r, idx) => (idx === i ? { ...r, [k]: v } : r)));
   const patch = (i, obj) => onChange(rows.map((r, idx) => (idx === i ? { ...r, ...obj } : r)));
   const remove = (i) => onChange(rows.filter((_, idx) => idx !== i));
   if (!rows.length) return <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted, py: 1 }}>{emptyText}</Typography>;
-  const descSm = withDiscipline ? 5 : (withQty ? 6 : 8);
+  const descSm = withDiscipline ? 4 : (withQty ? 6 : 8);
   return (
     <Stack spacing={1}>
-      {rows.map((r, i) => (
+      {rows.map((r, i) => {
+        // Bench-lane labor with no hours → the generated work order has nothing to pay the
+        // jeweler. CAD-lane lines (QC/GLB) don't spawn paying bench WOs, so don't warn there.
+        const noHours = withHours && r.discipline !== 'cad' && !(Number(r.hours) > 0);
+        return (
         <Grid container spacing={1} key={i} alignItems="center">
           <Grid item xs={12} sm={descSm}>
             {suggest
@@ -111,17 +115,30 @@ function LineEditor({ rows, onChange, withQty, withDiscipline, editMode, emptyTe
               : <TextField fullWidth size="small" label="Description" value={r.description || ''} disabled={!editMode} onChange={(e) => set(i, 'description', e.target.value)} />}
           </Grid>
           {withDiscipline && (
-            <Grid item xs={6} sm={3}>
+            <Grid item xs={6} sm={2.5}>
               <TextField select fullWidth size="small" label="Lane" value={r.discipline || 'bench_jewelry'} disabled={!editMode} onChange={(e) => set(i, 'discipline', e.target.value)}>
                 {DISCIPLINE_OPTS.map((d) => <MenuItem key={d.value} value={d.value}>{d.label}</MenuItem>)}
               </TextField>
             </Grid>
           )}
           {withQty && <Grid item xs={4} sm={withDiscipline ? 1 : 2}><TextField fullWidth size="small" label="Qty" type="number" value={r.quantity ?? 1} disabled={!editMode} onChange={(e) => set(i, 'quantity', e.target.value)} /></Grid>}
+          {withHours && (
+            <Grid item xs={4} sm={1.5}>
+              <TextField
+                fullWidth size="small" label="Hrs" type="number" value={r.hours ?? 0} disabled={!editMode}
+                onChange={(e) => set(i, 'hours', e.target.value)}
+                error={noHours}
+                helperText={noHours ? 'no payout' : ' '}
+                FormHelperTextProps={{ sx: { mx: 0, mt: 0, fontSize: '0.6rem', color: '#EF5350' } }}
+                inputProps={{ step: 0.25, min: 0 }}
+              />
+            </Grid>
+          )}
           <Grid item xs={withDiscipline ? 6 : 8} sm={withDiscipline ? 2 : 3}><TextField fullWidth size="small" label="Cost" type="number" value={r.cost ?? 0} disabled={!editMode} onChange={(e) => set(i, 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
           <Grid item xs={2} sm={1}>{editMode && <IconButton size="small" onClick={() => remove(i)} sx={{ color: REPAIRS_UI.textMuted }}><DeleteIcon fontSize="small" /></IconButton>}</Grid>
         </Grid>
-      ))}
+      );
+      })}
     </Stack>
   );
 }
@@ -337,8 +354,8 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
       {/* Phase 2: Labor */}
       <Paper sx={cardSx}>
         <CardHead icon={BuildIcon} title="Labor Tasks" action={<Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('laborTasks', { description: '', quantity: 1, cost: 0, hours: 0, discipline: 'bench_jewelry' })} sx={{ color: REPAIRS_UI.accent }}>Add task</Button>} />
-        <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 1 }}>Each bench task generates a work order in its lane when the order reaches production (deposit ≥ 50%). CAD/QC/GLB lines are added automatically by the design flow and don&apos;t spawn bench work.</Typography>
-        <LineEditor rows={form.laborTasks} onChange={(rows) => setField('laborTasks', rows)} withQty withDiscipline editMode={!busy} suggest emptyText='No labor tasks. Click "Add task" to add production tasks.' />
+        <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 1 }}>Each bench task generates a work order in its lane when the order reaches production (deposit ≥ 50%). <b>Hrs</b> is the labor the bench jeweler is paid for (hours × their rate) — a bench task with 0 hrs spawns a work order with no payout. Cost is what the customer is charged. CAD/QC/GLB lines are added automatically by the design flow.</Typography>
+        <LineEditor rows={form.laborTasks} onChange={(rows) => setField('laborTasks', rows)} withQty withDiscipline withHours editMode={!busy} suggest emptyText='No labor tasks. Click "Add task" to add production tasks.' />
       </Paper>
 
       {/* Phase 3: Additional services */}
