@@ -95,10 +95,15 @@ export async function claimPieceWorkOrder({ session, workOrderID }) {
 export async function movePieceToQc({ session, workOrderID }) {
   const wo = await loadPieceWorkOrder(workOrderID);
 
+  // Credit the work order's ASSIGNED jeweler, not whoever clicks — so an admin moving a
+  // jeweler's piece to QC on their behalf pays the jeweler, never themselves (mirrors the
+  // repair flow). Falls back to the caller only if the WO is somehow unassigned.
+  const jewelerUserID = wo.assignedToUserID || session.user.userID;
+  const jewelerName = wo.assignedJeweler || session.user.name;
+
   const creditedLaborHours = (wo.tasks || []).reduce((sum, t) => sum + (Number(t.estLaborHours) || 0), 0);
   const laborRateSnapshot = await getLaborRateSnapshotForUser({
-    userID: session.user.userID,
-    email: session.user.email,
+    userID: jewelerUserID,
     session,
   });
   const requiresAdminReview = creditedLaborHours <= 0 || laborRateSnapshot <= 0;
@@ -107,8 +112,8 @@ export async function movePieceToQc({ session, workOrderID }) {
     workOrderID,
     sourceType: wo.sourceType,
     sourceID: wo.sourceID,
-    primaryJewelerUserID: session.user.userID,
-    primaryJewelerName: session.user.name,
+    primaryJewelerUserID: jewelerUserID,
+    primaryJewelerName: jewelerName,
     creditedLaborHours,
     laborRateSnapshot,
     sourceAction: 'piece_move_to_qc',
