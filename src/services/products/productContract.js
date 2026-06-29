@@ -9,9 +9,15 @@
  * publish.
  */
 import { randomUUID } from 'crypto';
+import { VALID_FINISHES, VALID_GEM_PRESETS } from '@crittercodes/refrakt';
 
-export const METAL_FINISHES = ['gold', 'satin', 'whiteGold', 'roseGold', 'platinum', 'silver'];
-export const GEM_PRESETS = ['diamond', 'amethyst', 'ruby', 'sapphire', 'emerald', 'marquise', 'moissanite'];
+// Material vocabulary is owned by the engine package (refrakt ≥1.2). These are the
+// VALIDATION supersets (incl. cuts like `marquise`) — re-exported under the historical
+// names so every `.includes()` call site keeps working from one source of truth. UI
+// pickers must use the package's curated METALS/GEMS instead (not these). See
+// docs/REFRAKT_1.2_VOCAB_HANDOFF.md.
+export const METAL_FINISHES = VALID_FINISHES;
+export const GEM_PRESETS = VALID_GEM_PRESETS;
 export const AVAILABILITY = ['ready-to-ship', 'made-to-order'];
 
 function round(value) {

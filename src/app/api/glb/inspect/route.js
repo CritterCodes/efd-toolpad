@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/apiAuth';
+import { VALID_GEM_PRESETS } from '@crittercodes/refrakt';
 
 // POST /api/glb/inspect  { glbUrl: string }
 //
@@ -28,7 +29,7 @@ function allowedHosts() {
 
 const GEM_KEYWORDS = ['diamond', 'amethyst', 'ruby', 'sapphire', 'emerald', 'moissanite', 'topaz', 'aquamarine', 'tourmaline', 'opal', 'gem', 'stone', 'centerstone'];
 const METAL_KEYWORDS = ['mounting', 'shank', 'band', 'metal', 'prong', 'head', 'setting'];
-const GEM_PRESETS = new Set(['diamond', 'amethyst', 'ruby', 'sapphire', 'emerald', 'moissanite', 'marquise']);
+const GEM_PRESETS = new Set(VALID_GEM_PRESETS); // engine vocab superset — keeps marquise recognition
 
 function resolveUrl(glbUrl, origin) {
   let u;
