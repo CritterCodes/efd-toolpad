@@ -14,6 +14,7 @@ import {
   Divider,
   Grid,
   IconButton,
+  MenuItem,
   Stack,
   TextField,
   Typography,
@@ -74,11 +75,26 @@ function formatSourceAction(action = '') {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function ReviewCard({ log, onApprove, loading, onOpenRepair }) {
+const jewelerName = (j) => [j.firstName, j.lastName].filter(Boolean).join(' ').trim() || j.name || j.email || j.userID;
+
+function ReviewCard({ log, jewelers = [], onApprove, loading, onOpenRepair }) {
   const suggestedHours = getRepairSuggestedLaborHours(log.repair);
   const initialHours = Number(log.creditedLaborHours || 0) > 0 ? Number(log.creditedLaborHours || 0) : suggestedHours;
   const [hours, setHours] = useState(initialHours);
   const [notes, setNotes] = useState(log.notes || '');
+  // Split-across-jewelers mode: rows of { userID, name, hours }. Seeded with the
+  // current jeweler taking the full hours; the admin reallocates from there.
+  const [splitMode, setSplitMode] = useState(false);
+  const [allocs, setAllocs] = useState([{ userID: log.primaryJewelerUserID || '', name: log.primaryJewelerName || '', hours: initialHours }]);
+  const allocTotal = allocs.reduce((s, a) => s + (Number(a.hours) || 0), 0);
+  const allocValid = allocs.every((a) => a.userID && Number(a.hours) > 0) && allocs.length > 0;
+  const setAlloc = (i, patch) => setAllocs((rows) => rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  const addAlloc = () => setAllocs((rows) => [...rows, { userID: '', name: '', hours: 0 }]);
+  const removeAlloc = (i) => setAllocs((rows) => rows.filter((_, idx) => idx !== i));
+  const submit = () => {
+    if (splitMode) onApprove(log.logID, { allocations: allocs.map((a) => ({ userID: a.userID, name: a.name, hours: Number(a.hours) || 0 })), notes });
+    else onApprove(log.logID, { creditedLaborHours: hours, notes });
+  };
   const workItems = getWorkItemLabels(log.repair);
   const repairChargeTotal = getRepairChargeTotal(log.repair);
   const exceedsTicketValue = repairChargeTotal > 0 && ((Number(hours || 0) * Number(log.laborRateSnapshot || 0)) > repairChargeTotal);
@@ -141,31 +157,81 @@ function ReviewCard({ log, onApprove, loading, onOpenRepair }) {
             )}
           </Box>
         </Stack>
-        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 1.5 }}>
-          <TextField
-            label="Credited Hours"
+        <Stack direction="row" justifyContent="flex-end" sx={{ mb: 1 }}>
+          <Button
             size="small"
-            type="number"
-            value={hours}
-            onChange={(e) => setHours(e.target.value)}
-            inputProps={{ min: 0, step: 0.25 }}
-            helperText={suggestedHours > 0 ? `Suggested ${suggestedHours.toFixed(2)}h from current ticket` : ''}
-          />
-          <TextField
-            label="Notes"
-            size="small"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            sx={{ minWidth: 220, flex: 1 }}
-          />
-        </Box>
+            onClick={() => setSplitMode((v) => !v)}
+            disabled={jewelers.length === 0}
+            sx={{ color: splitMode ? REPAIRS_UI.accent : REPAIRS_UI.textSecondary }}
+          >
+            {splitMode ? 'Single jeweler' : 'Split across jewelers'}
+          </Button>
+        </Stack>
+
+        {!splitMode ? (
+          <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 1.5 }}>
+            <TextField
+              label="Credited Hours"
+              size="small"
+              type="number"
+              value={hours}
+              onChange={(e) => setHours(e.target.value)}
+              inputProps={{ min: 0, step: 0.25 }}
+              helperText={suggestedHours > 0 ? `Suggested ${suggestedHours.toFixed(2)}h from current ticket` : ''}
+            />
+            <TextField
+              label="Notes"
+              size="small"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              sx={{ minWidth: 220, flex: 1 }}
+            />
+          </Box>
+        ) : (
+          <Box sx={{ mb: 1.5 }}>
+            <Stack spacing={1}>
+              {allocs.map((a, i) => (
+                <Stack direction="row" spacing={1} alignItems="center" key={i}>
+                  <TextField
+                    select size="small" label="Jeweler" value={a.userID}
+                    onChange={(e) => {
+                      const j = jewelers.find((x) => x.userID === e.target.value);
+                      setAlloc(i, { userID: e.target.value, name: j ? jewelerName(j) : '' });
+                    }}
+                    sx={{ minWidth: 180, flex: 1 }}
+                  >
+                    {jewelers.map((j) => <MenuItem key={j.userID} value={j.userID}>{jewelerName(j)}</MenuItem>)}
+                  </TextField>
+                  <TextField
+                    label="Hrs" size="small" type="number" value={a.hours}
+                    onChange={(e) => setAlloc(i, { hours: e.target.value })}
+                    inputProps={{ min: 0, step: 0.25 }} sx={{ width: 90 }}
+                  />
+                  <IconButton size="small" disabled={allocs.length <= 1} onClick={() => removeAlloc(i)} sx={{ color: REPAIRS_UI.textMuted }}>
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </Stack>
+              ))}
+            </Stack>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
+              <Button size="small" onClick={addAlloc} sx={{ color: REPAIRS_UI.accent }}>+ Add jeweler</Button>
+              <Typography variant="caption" sx={{ color: Math.abs(allocTotal - Number(hours)) > 0.001 ? '#E0A33E' : REPAIRS_UI.textSecondary }}>
+                Allocated {allocTotal.toFixed(2)}h{suggestedHours > 0 ? ` · suggested ${suggestedHours.toFixed(2)}h` : ''}
+              </Typography>
+            </Stack>
+            <TextField
+              label="Notes" size="small" value={notes} fullWidth sx={{ mt: 1 }}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </Box>
+        )}
         <Button
           variant="contained"
-          disabled={loading}
-          onClick={() => onApprove(log.logID, hours, notes)}
+          disabled={loading || (splitMode && !allocValid)}
+          onClick={submit}
           sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}
         >
-          Finalize Review
+          {splitMode ? 'Finalize Split' : 'Finalize Review'}
         </Button>
         <Button
           size="small"
@@ -184,6 +250,7 @@ export default function LaborReviewPage() {
   const router = useRouter();
   const [pending, setPending] = useState([]);
   const [weekly, setWeekly] = useState([]);
+  const [jewelers, setJewelers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingLogID, setSavingLogID] = useState('');
   const [error, setError] = useState('');
@@ -195,9 +262,10 @@ export default function LaborReviewPage() {
     setLoading(true);
     setError('');
     try {
-      const [pendingRes, weeklyRes] = await Promise.all([
+      const [pendingRes, weeklyRes, jewelersRes] = await Promise.all([
         fetch('/api/repairs/labor-review'),
         fetch('/api/repairs/labor-report'),
+        fetch('/api/repairs/bench-jewelers'),
       ]);
 
       if (!pendingRes.ok || !weeklyRes.ok) {
@@ -207,6 +275,7 @@ export default function LaborReviewPage() {
       const [pendingData, weeklyData] = await Promise.all([pendingRes.json(), weeklyRes.json()]);
       setPending(Array.isArray(pendingData) ? pendingData : []);
       setWeekly(Array.isArray(weeklyData) ? weeklyData : []);
+      setJewelers(jewelersRes.ok ? await jewelersRes.json() : []);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -234,14 +303,14 @@ export default function LaborReviewPage() {
     });
   }, [weekly]);
 
-  const finalizeReview = async (logID, creditedLaborHours, notes) => {
+  const finalizeReview = async (logID, payload) => {
     setSavingLogID(logID);
     setError('');
     try {
       const res = await fetch('/api/repairs/labor-review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ logID, creditedLaborHours, notes }),
+        body: JSON.stringify({ logID, ...payload }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -327,6 +396,7 @@ export default function LaborReviewPage() {
               <Grid item xs={12} md={6} key={log.logID}>
                 <ReviewCard
                   log={log}
+                  jewelers={jewelers}
                   loading={savingLogID === log.logID}
                   onApprove={finalizeReview}
                   onOpenRepair={(repairID) => router.push(`/dashboard/repairs/${repairID}`)}
