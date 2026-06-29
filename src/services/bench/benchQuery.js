@@ -34,18 +34,27 @@ export function resolveBenchDisciplines(session) {
   return disciplines.length ? disciplines : [DISCIPLINE.BENCH_JEWELRY];
 }
 
-export async function getBenchWorkOrders({ session } = {}) {
+export async function getBenchWorkOrders({ session, targetUserID = null } = {}) {
   const dbInstance = await db.connect();
-  const disciplines = resolveBenchDisciplines(session);
+
+  // Admin-on-behalf: an admin viewing a specific jeweler's bench (the artisan-details
+  // "My Bench" tab) sees that jeweler's ASSIGNED work — so the admin can move it through
+  // QC etc. without lane-gating to the admin's own lanes.
+  const adminViewingOther = targetUserID && sessionIsAdmin(session) && targetUserID !== session?.user?.userID;
 
   const query = { status: { $in: getActiveBenchRawStatuses() } };
-  if (disciplines) {
-    // Lane-gate the queue, BUT always surface work assigned to the caller — if a
-    // job is assigned to you (e.g. a CAD job on an admin who also designs), it must
-    // appear on your bench even when its discipline is outside your normal lanes.
-    const userID = session?.user?.userID;
-    query.$or = [{ discipline: { $in: disciplines } }];
-    if (userID) query.$or.push({ assignedToUserID: userID });
+  if (adminViewingOther) {
+    query.assignedToUserID = targetUserID;
+  } else {
+    const disciplines = resolveBenchDisciplines(session);
+    if (disciplines) {
+      // Lane-gate the queue, BUT always surface work assigned to the caller — if a
+      // job is assigned to you (e.g. a CAD job on an admin who also designs), it must
+      // appear on your bench even when its discipline is outside your normal lanes.
+      const userID = session?.user?.userID;
+      query.$or = [{ discipline: { $in: disciplines } }];
+      if (userID) query.$or.push({ assignedToUserID: userID });
+    }
   }
 
   const workOrders = await dbInstance.collection('workOrders')

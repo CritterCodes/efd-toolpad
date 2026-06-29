@@ -16,6 +16,7 @@ import WorkOrdersModel, { WORK_ORDER_SOURCE } from '@/app/api/workOrders/model';
 import RepairsModel from '@/app/api/repairs/model';
 import { moveRepairToQc } from '@/app/api/repairs/[repairID]/send-to-qc/route';
 import { claimPieceWorkOrder, movePieceToQc, completePieceWorkOrderFromQc, approveCadQc, rejectCadQc, submitCadGlbToQc, splitPieceTask } from '@/services/bench/pieceWorkOrderActions';
+import { signOffAndHandoffRepair, creditRepairLaborAtQc } from '@/services/repairs/benchHandoff';
 import {
   buildClaimRepairUpdate,
   buildUnclaimRepairUpdate,
@@ -129,8 +130,26 @@ async function runRepairAction({ session, repairID, action, body }) {
       assertRepairOps(session, 'benchWork');
       return moveRepairToQc(session, repairID);
     }
+    case 'handoff': {
+      // Bench-native partial sign-off + handoff. Auth mirrors move-to-qc (benchWork); the
+      // service further requires the caller hold the repair OR be admin (acting on behalf).
+      assertRepairOps(session, 'benchWork');
+      const repair = await RepairsModel.findById(repairID);
+      if (!isAdminRole(session) && repair.assignedTo !== session.user.userID) {
+        throw err('You can only sign off / hand off a repair assigned to you.', 'FORBIDDEN');
+      }
+      return signOffAndHandoffRepair({
+        session, repairID,
+        completedTaskIndexes: body?.completedTaskIndexes || [],
+        assignToUserID: body?.assignToUserID || null,
+      });
+    }
     case 'complete-from-qc': {
       assertRepairOps(session, 'qualityControl');
+      // Labor is credited HERE (QC pass) — one payable log per jeweler from the sign-off
+      // stamps, attributed to whoever did the work (not the QC actor). Before status flip.
+      const repair = await RepairsModel.findById(repairID);
+      await creditRepairLaborAtQc({ repair, session });
       const nextStatus = body?.deliveryBatched
         ? 'DELIVERY BATCHED'
         : (body?.readyForPickup ? 'READY FOR PICKUP' : 'COMPLETED');

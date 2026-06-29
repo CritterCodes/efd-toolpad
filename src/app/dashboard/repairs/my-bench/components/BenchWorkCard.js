@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import {
   Card, CardContent, CardActions, Typography, Box, Chip, Divider, Button, Checkbox,
   TextField, MenuItem, Alert, Stack,
+  Dialog, DialogTitle, DialogContent, DialogActions, FormControlLabel,
 } from '@mui/material';
 import HandymanIcon from '@mui/icons-material/Handyman';
 import DesignServicesIcon from '@mui/icons-material/DesignServices';
@@ -75,6 +76,9 @@ export default function BenchWorkCard({
   const router = useRouter();
   const stlInputRef = useRef(null);
   const [glbReviewOpen, setGlbReviewOpen] = useState(false);
+  const [handoffOpen, setHandoffOpen] = useState(false);
+  const [signedOff, setSignedOff] = useState({}); // task index → checked
+  const [handoffTarget, setHandoffTarget] = useState('');
   const lane = LANE[wo.discipline] || { label: wo.discipline, color: 'default', Icon: HandymanIcon };
   const LaneIcon = lane.Icon;
   const queue = QUEUE_META[wo.benchQueue] || { label: wo.status || '—', color: REPAIRS_UI.textMuted };
@@ -94,6 +98,20 @@ export default function BenchWorkCard({
   const repairID = wo.sourceID;
   const custom = wo.source?.custom || null;
   const desc = wo.source?.description || wo.description || '';
+
+  // Bench handoff: the assignee (or an admin on their behalf) signs off the tasks they did
+  // and hands the rest off. Tasks already stamped completedByUserID are done/credited.
+  const repairTasks = isRepair && Array.isArray(wo.tasks) ? wo.tasks : [];
+  const uncreditedTaskIndexes = repairTasks.reduce((acc, t, i) => { if (!t?.completedByUserID) acc.push(i); return acc; }, []);
+  const canHandoff = isRepair && wo.benchQueue === BENCH_QUEUE.IN_PROGRESS && (isMine || isAdmin) && uncreditedTaskIndexes.length > 0;
+  const checkedIndexes = uncreditedTaskIndexes.filter((i) => signedOff[i]);
+  const allUncreditedChecked = uncreditedTaskIndexes.length > 0 && checkedIndexes.length === uncreditedTaskIndexes.length;
+  const closeHandoff = () => { setHandoffOpen(false); setSignedOff({}); setHandoffTarget(''); };
+  const submitHandoff = () => {
+    if (!checkedIndexes.length) return;
+    onAction(wo, 'handoff', { completedTaskIndexes: checkedIndexes, assignToUserID: allUncreditedChecked ? null : (handoffTarget || null) });
+    closeHandoff();
+  };
 
   return (
     <>
@@ -263,11 +281,15 @@ export default function BenchWorkCard({
           <Button size="small" variant="contained" disabled={busy} onClick={() => onAction(wo, 'claim')} sx={goldBtn}>Claim</Button>
         )}
 
-        {/* Repair: mine in progress → Unclaim / Needs Parts / Move to QC */}
-        {isRepair && isMine && wo.benchQueue === BENCH_QUEUE.IN_PROGRESS && (
+        {/* Repair in progress (the assignee, or an admin acting on their behalf):
+            Unclaim / Needs Parts / Sign off & hand off / Move to QC */}
+        {isRepair && (isMine || isAdmin) && wo.benchQueue === BENCH_QUEUE.IN_PROGRESS && (
           <>
             <Button size="small" variant="outlined" disabled={busy} onClick={() => onAction(wo, 'unclaim')} sx={btn({ color: REPAIRS_UI.textSecondary })}>Unclaim</Button>
             <Button size="small" variant="outlined" startIcon={<PartsIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => onOpenPartsDialog?.(wo)} sx={btn({ color: REPAIRS_UI.textSecondary })}>Needs Parts</Button>
+            {canHandoff && repairTasks.length > 1 && (
+              <Button size="small" variant="outlined" startIcon={<HandymanIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => setHandoffOpen(true)} sx={btn({ color: '#E0A33E', borderColor: '#E0A33E' })}>Sign off &amp; hand off</Button>
+            )}
             <Button size="small" variant="outlined" startIcon={<QCIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => onAction(wo, 'move-to-qc')} sx={btn({ color: '#00C49F', borderColor: '#00C49F' })}>Move to QC</Button>
           </>
         )}
@@ -353,6 +375,60 @@ export default function BenchWorkCard({
         title={`GLB — ${sourceTitle(wo)}`}
       />
     )}
+
+    <Dialog open={handoffOpen} onClose={closeHandoff} fullWidth maxWidth="sm"
+      PaperProps={{ sx: { bgcolor: REPAIRS_UI.bgPanel, backgroundImage: 'none', color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` } }}>
+      <DialogTitle sx={{ color: REPAIRS_UI.textHeader }}>Sign off &amp; hand off</DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, mb: 1.5 }}>
+          Check the tasks you completed — you&apos;re credited for those when the repair passes QC.
+          Hand the rest to another jeweler, or leave it for the open queue. Check everything to send it straight to QC.
+        </Typography>
+        <Stack spacing={0.5}>
+          {repairTasks.map((t, i) => (
+            t.completedByUserID ? (
+              <Typography key={i} variant="body2" sx={{ color: REPAIRS_UI.textMuted, pl: 0.5 }}>
+                ✓ {taskLabel(t)}{taskHours(t) > 0 ? ` · ${taskHours(t)}h` : ''}{t.completedByName ? ` — ${t.completedByName}` : ''}
+              </Typography>
+            ) : (
+              <FormControlLabel
+                key={i}
+                control={<Checkbox checked={!!signedOff[i]} disabled={busy}
+                  onChange={(e) => setSignedOff((s) => ({ ...s, [i]: e.target.checked }))}
+                  sx={{ color: REPAIRS_UI.border, '&.Mui-checked': { color: REPAIRS_UI.accent } }} />}
+                label={`${taskLabel(t)}${taskHours(t) > 0 ? ` · ${taskHours(t)}h` : ''}`}
+                sx={{ color: REPAIRS_UI.textPrimary, '& .MuiFormControlLabel-label': { fontSize: '0.85rem' } }}
+              />
+            )
+          ))}
+        </Stack>
+        {!allUncreditedChecked && (
+          <TextField
+            select fullWidth size="small" label="Hand to (optional — blank = open queue)"
+            value={handoffTarget} disabled={busy} onChange={(e) => setHandoffTarget(e.target.value)}
+            sx={{ mt: 2, '& .MuiOutlinedInput-root': { bgcolor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary }, '& .MuiInputLabel-root': { color: REPAIRS_UI.textMuted } }}
+          >
+            <MenuItem value="">Open queue (anyone can claim)</MenuItem>
+            {jewelers.filter((j) => j.userID !== wo.assignedToUserID).map((j) => (
+              <MenuItem key={j.userID} value={j.userID}>
+                {[j.firstName, j.lastName].filter(Boolean).join(' ').trim() || j.name || j.email || j.userID}
+              </MenuItem>
+            ))}
+          </TextField>
+        )}
+        {allUncreditedChecked && (
+          <Alert severity="info" sx={{ mt: 2, bgcolor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textSecondary, border: `1px solid ${REPAIRS_UI.border}` }}>
+            All remaining tasks checked — this will send the repair to QC.
+          </Alert>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={closeHandoff} disabled={busy} sx={{ color: REPAIRS_UI.textSecondary }}>Cancel</Button>
+        <Button variant="contained" disabled={busy || !checkedIndexes.length} onClick={submitHandoff} sx={goldBtn}>
+          {allUncreditedChecked ? 'Sign off & send to QC' : 'Sign off & hand off'}
+        </Button>
+      </DialogActions>
+    </Dialog>
     </>
   );
 }

@@ -37,6 +37,64 @@ export function calculateRepairLaborHours(repair = {}) {
   return Math.round((taskHours + customLineItemHours) * 100) / 100;
 }
 
+/** Hours for a single repair task (per-task form of calculateRepairLaborHours). */
+export function taskLaborHours(task = {}) {
+  const quantity = Math.max(Number(task?.quantity) || 1, 1);
+  const hours = Number(task?.pricing?.totalLaborHours) || Number(task?.laborHours) || 0;
+  return hours * quantity;
+}
+
+/** Indexes of repair tasks not yet signed off (no `completedByUserID` stamp). */
+export function getUncreditedTaskIndexes(repair = {}) {
+  return (repair.tasks || []).reduce((acc, task, i) => {
+    if (!task?.completedByUserID) acc.push(i);
+    return acc;
+  }, []);
+}
+
+/** Sum labor hours across the given task indexes (rounded to cents of an hour). */
+export function sumTaskLaborHours(repair = {}, indexes = []) {
+  const tasks = repair.tasks || [];
+  const total = (indexes || []).reduce((sum, i) => sum + taskLaborHours(tasks[i] || {}), 0);
+  return Math.round(total * 100) / 100;
+}
+
+function sumCustomLineItemHours(repair = {}) {
+  const h = (repair.customLineItems || []).reduce((sum, item) => {
+    const quantity = Math.max(Number(item?.quantity) || 1, 1);
+    return sum + (Number(item?.laborHours) || 0) * quantity;
+  }, 0);
+  return Math.round(h * 100) / 100;
+}
+
+/**
+ * Group signed-off tasks by the jeweler who did them → one entry per jeweler with summed
+ * hours and the rate snapshot captured at sign-off. customLineItem hours (no per-task
+ * stamp) fold into `finalMoverUserID`'s bucket — the jeweler who did the final move-to-QC.
+ * `rate` may be 0 if it wasn't captured; the caller backfills it before paying.
+ * @returns {Array<{ userID, name, hours, rate }>}
+ */
+export function groupCompletedTasksByJeweler(repair = {}, { finalMoverUserID = null } = {}) {
+  const byUser = new Map();
+  for (const task of repair.tasks || []) {
+    const userID = task?.completedByUserID;
+    if (!userID) continue;
+    const cur = byUser.get(userID) || { userID, name: task.completedByName || '', hours: 0, rate: Number(task.laborRateSnapshot) || 0 };
+    cur.hours += taskLaborHours(task);
+    if (!cur.name && task.completedByName) cur.name = task.completedByName;
+    if (!cur.rate && Number(task.laborRateSnapshot) > 0) cur.rate = Number(task.laborRateSnapshot);
+    byUser.set(userID, cur);
+  }
+  const extra = sumCustomLineItemHours(repair);
+  if (extra > 0 && byUser.size) {
+    const targetID = finalMoverUserID && byUser.has(finalMoverUserID)
+      ? finalMoverUserID
+      : [...byUser.keys()][byUser.size - 1];
+    byUser.get(targetID).hours += extra;
+  }
+  return [...byUser.values()].map((e) => ({ ...e, hours: Math.round(e.hours * 100) / 100 }));
+}
+
 export async function getLaborRateSnapshotForUser({ userID = '', email = '', session = null } = {}) {
   const shopWage = await getShopLaborWage();
   if (shopWage > 0) {

@@ -1,62 +1,41 @@
 import { NextResponse } from 'next/server';
 import RepairsModel from '../../model';
-import RepairLaborLogsModel from '@/app/api/repairLaborLogs/model';
 import { requireRepairOps } from '@/lib/apiAuth';
-import {
-  calculateRepairChargeTotal,
-  calculateRepairLaborHours,
-  getLaborRateSnapshot,
-} from '@/app/api/repairLaborLogs/utils';
+import { getUncreditedTaskIndexes, getLaborRateSnapshotForUser } from '@/app/api/repairLaborLogs/utils';
 import { buildMoveToQcUpdate } from '@/services/repairWorkflow';
 
+/**
+ * Move a repair to QC. Labor is NOT credited here — it's credited when the repair PASSES QC
+ * (creditRepairLaborAtQc). This step just STAMPS any not-yet-signed-off tasks as done by the
+ * repair's assigned jeweler — so the final segment of a handoff chain (or a solo repair) is
+ * attributed correctly — then transitions to QC. Attribution uses the assignee, not the
+ * clicker, so an admin moving a job to QC on a jeweler's behalf still credits the jeweler.
+ */
 export async function moveRepairToQc(session, repairID) {
   if (!repairID) return NextResponse.json({ error: 'Repair ID is required.' }, { status: 400 });
 
   const repair = await RepairsModel.findById(repairID);
+  const now = new Date();
 
-  const callerID = session.user.userID;
-  const requiresSharedWorkReview = repair.requiresLaborReview === true;
-  const creditedLaborHours = calculateRepairLaborHours(repair);
-  const laborRateSnapshot = await getLaborRateSnapshot(session);
-  const laborPaySnapshot = creditedLaborHours * laborRateSnapshot;
-  const repairChargeTotal = calculateRepairChargeTotal(repair);
-  const requiresCompReview = (
-    (repairChargeTotal > 0 && creditedLaborHours <= 0)
-    || 
-    laborRateSnapshot <= 0
-    || (repairChargeTotal > 0 && laborPaySnapshot > repairChargeTotal)
-  );
-  const requiresReview = requiresSharedWorkReview || requiresCompReview;
+  const assigneeID = repair.assignedTo || session.user.userID;
+  const assigneeName = repair.assignedJeweler || session.user.name;
+  const uncredited = getUncreditedTaskIndexes(repair);
 
-  const reviewNotes = [];
-  if (requiresSharedWorkReview) {
-    reviewNotes.push('Shared-work repair requires admin labor review.');
-  }
-  if (repairChargeTotal > 0 && creditedLaborHours <= 0) {
-    reviewNotes.push('Chargeable repair has no labor hours snapshot. Confirm hours before payout.');
-  }
-  if (laborRateSnapshot <= 0) {
-    reviewNotes.push('Missing hourly rate snapshot. Confirm pay rate before payout.');
-  }
-  if (repairChargeTotal > 0 && laborPaySnapshot > repairChargeTotal) {
-    reviewNotes.push(`Labor pay snapshot ${laborPaySnapshot.toFixed(2)} exceeds current repair total ${repairChargeTotal.toFixed(2)}.`);
+  let tasks = repair.tasks || [];
+  if (uncredited.length) {
+    const rate = Number(await getLaborRateSnapshotForUser({ userID: assigneeID, session })) || 0;
+    const stamp = new Set(uncredited);
+    tasks = tasks.map((task, i) => (
+      stamp.has(i)
+        ? { ...task, completedByUserID: assigneeID, completedByName: assigneeName, completedAt: now, laborRateSnapshot: rate }
+        : task
+    ));
   }
 
-  await RepairLaborLogsModel.create({
-    repairID,
-    primaryJewelerUserID: callerID,
-    primaryJewelerName: session.user.name,
-    creditedLaborHours,
-    laborRateSnapshot,
-    sourceAction: 'move_to_qc',
-    requiresAdminReview: requiresReview,
-    notes: reviewNotes.join(' '),
+  return RepairsModel.updateById(repairID, {
+    tasks,
+    ...buildMoveToQcUpdate({ userName: session.user.name, now }),
   });
-
-  return await RepairsModel.updateById(repairID, buildMoveToQcUpdate({
-    userName: session.user.name,
-    now: new Date(),
-  }));
 }
 
 export const POST = async (req, { params }) => {
