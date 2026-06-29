@@ -1,11 +1,16 @@
+'use client';
+
 import React, { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Box, Paper, Stack, Typography, Button, TextField, Switch, FormControlLabel, Link, Alert } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ViewInArIcon from '@mui/icons-material/ViewInAr';
 import PaletteIcon from '@mui/icons-material/Palette';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import JewelryViewerClient from '@/components/viewers/JewelryViewerClient';
-import MaterialAssigner from '@/components/viewers/MaterialAssigner';
+
+// The packaged REFRAKT Studio — full-screen WebGL editor; never SSR.
+const Studio = dynamic(() => import('@crittercodes/refrakt').then((m) => m.Studio), { ssr: false });
 
 const panelSx = { p: 2.5, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' };
 const SHOP_BASE = process.env.NEXT_PUBLIC_SHOP_URL || '';
@@ -91,16 +96,25 @@ export default function ShareTab({ customID, order, onChanged, notify }) {
         )}
       </Paper>
 
-      {/* Post-QC revision studio: edit materials → saves designModel (no QC transition). */}
-      <MaterialAssigner
-        open={studioOpen}
-        onClose={() => setStudioOpen(false)}
-        customID={customID}
-        glbUrl={model?.glbUrl}
-        initialDesignModel={model}
-        saveLabel="Save changes"
-        onSaved={() => { setStudioOpen(false); onChanged?.(); notify('Design updated', 'success'); }}
-      />
+      {/* Post-QC revision studio: edit materials → saves designModel (no QC transition).
+          Studio emits the full JewelryViewer config on save; we persist it here. */}
+      {studioOpen && model?.glbUrl && (
+        <Studio
+          glbUrl={model.glbUrl}
+          initialConfig={model}
+          saveLabel="Save changes"
+          onClose={() => setStudioOpen(false)}
+          onSave={async (config) => {
+            try {
+              const res = await fetch(`/api/custom-orders/${customID}/design-model`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ glbUrl: model.glbUrl, ...config }) });
+              if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to save model');
+              setStudioOpen(false);
+              await onChanged?.();
+              notify('Design updated', 'success');
+            } catch (e) { notify(e.message, 'error'); }
+          }}
+        />
+      )}
     </Stack>
   );
 }

@@ -8,10 +8,13 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Box, CircularProgress, Typography, Button } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import MaterialAssigner from '@/components/viewers/MaterialAssigner';
+
+// The packaged REFRAKT Studio — full-screen WebGL editor; never SSR.
+const Studio = dynamic(() => import('@crittercodes/refrakt').then((m) => m.Studio), { ssr: false });
 
 export default function AssignMaterialsPage() {
   const { customID } = useParams();
@@ -42,15 +45,23 @@ export default function AssignMaterialsPage() {
 
   const back = useCallback(() => router.push('/dashboard/repairs/my-bench'), [router]);
 
-  // After the designModel saves, submit the GLB work order to QC, then return to bench.
-  const onSaved = useCallback(async () => {
+  const glbUrl = order?.designModel?.glbUrl || null;
+
+  // Studio emits the full JewelryViewer config on Save. Persist it to the design
+  // model, then (if launched from a GLB work order) submit that work order to QC.
+  const onSave = useCallback(async (config) => {
+    try {
+      const res = await fetch(`/api/custom-orders/${customID}/design-model`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ glbUrl, ...config }) });
+      if (!res.ok) { const data = await res.json().catch(() => ({})); throw new Error(data.error || 'Failed to save design model'); }
+    } catch (e) {
+      // eslint-disable-next-line no-alert
+      if (typeof window !== 'undefined') window.alert(`Save failed: ${e.message}`);
+      return;
+    }
     if (workOrderID) {
       try {
         const res = await fetch(`/api/bench/work-orders/${workOrderID}/cad-submit-qc`, { method: 'POST' });
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || 'Could not submit to QC');
-        }
+        if (!res.ok) { const data = await res.json().catch(() => ({})); throw new Error(data.error || 'Could not submit to QC'); }
       } catch (e) {
         // Materials saved, but the QC transition failed — surface it and stay.
         // eslint-disable-next-line no-alert
@@ -59,9 +70,7 @@ export default function AssignMaterialsPage() {
       }
     }
     back();
-  }, [workOrderID, back]);
-
-  const glbUrl = order?.designModel?.glbUrl || null;
+  }, [customID, glbUrl, workOrderID, back]);
 
   if (loading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}><CircularProgress sx={{ color: '#D4AF37' }} /></Box>;
@@ -76,14 +85,12 @@ export default function AssignMaterialsPage() {
   }
 
   return (
-    <MaterialAssigner
-      open
-      onClose={back}
-      customID={customID}
+    <Studio
       glbUrl={glbUrl}
-      initialDesignModel={order.designModel}
+      initialConfig={order.designModel}
       saveLabel={workOrderID ? 'Save & send to QC' : 'Save to design model'}
-      onSaved={onSaved}
+      onClose={back}
+      onSave={onSave}
     />
   );
 }
