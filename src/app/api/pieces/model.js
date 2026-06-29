@@ -98,6 +98,22 @@ export default class PiecesModel {
     return this.recomputeCosts(pieceID);
   }
 
+  /**
+   * Idempotently record a single-instance material (e.g. casting): replace any
+   * existing line in the same `category` rather than pushing a duplicate. Without
+   * this, clicking "Casting received" twice (or re-testing) double-counts the
+   * casting cost into COGS. Pass a stable `category` to scope the replacement.
+   */
+  static async upsertMaterialByCategory(pieceID, category, material) {
+    const col = await this.collection();
+    await col.updateOne({ pieceID }, { $pull: { actualMaterials: { category } } });
+    await col.updateOne(
+      { pieceID },
+      { $push: { actualMaterials: { ...material, category } }, $set: { updatedAt: new Date() } },
+    );
+    return this.recomputeCosts(pieceID);
+  }
+
   /** Re-roll COGS from the piece's actual materials + the labor logged on its work orders. */
   static async recomputeCosts(pieceID) {
     const piece = await this.findById(pieceID);

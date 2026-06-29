@@ -162,18 +162,21 @@ export async function addCastingCost({ customID, amount, vendor = '', invoiceNum
   const material = {
     id: `cast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     name: vendor ? `Casting — ${vendor}` : 'Casting',
-    category: 'casting',
     unitCost: amt,
     qty: 1,
     vendor,
     invoiceNumber,
     notes,
   };
-  const piece = await PiecesModel.addMaterial(pieceID, material); // pushes + recomputes COGS
+  // Idempotent: replace any prior casting line (don't double-count) so re-receiving
+  // or correcting the casting invoice doesn't inflate piece COGS.
+  const piece = await PiecesModel.upsertMaterialByCategory(pieceID, 'casting', material);
 
   // Lazy import to avoid a server-only model in the import graph until needed.
   const { default: BusinessExpensesModel } = await import('@/app/api/businessExpenses/model');
-  const expense = await BusinessExpensesModel.create({
+  // Mirror the idempotency on the ledger: update the existing casting expense for
+  // this order rather than writing a second one.
+  const expenseFields = {
     expenseDate: new Date(),
     vendor,
     category: 'Materials / Parts',
@@ -186,7 +189,11 @@ export async function addCastingCost({ customID, amount, vendor = '', invoiceNum
     sourceReferenceType: 'custom_order',
     sourceReferenceID: customID,
     createdBy,
-  });
+  };
+  const existingExpense = await BusinessExpensesModel.findBySourceReference('custom_order', customID);
+  const expense = existingExpense?.expenseID
+    ? await BusinessExpensesModel.updateByExpenseID(existingExpense.expenseID, expenseFields)
+    : await BusinessExpensesModel.create(expenseFields);
 
   // Casting is in hand → generate the in-house bench work orders from the quote (idempotent).
   const generation = await generateWorkOrdersFromQuote({ customID, createdBy: createdBy || 'system' });
