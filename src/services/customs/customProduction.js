@@ -86,7 +86,7 @@ export async function ensureCustomPiece(customID, opts = {}) {
  */
 export async function spawnCustomWorkOrder({
   customID, discipline = DISCIPLINE.BENCH_JEWELRY, title = null, cadStage = null,
-  assignedToUserID = null, assignedJeweler = null, estLaborHours = 0, process = null, flatFee = 0, createdBy = null,
+  assignedToUserID = null, assignedJeweler = null, estLaborHours = 0, process = null, tasks = null, flatFee = 0, createdBy = null,
 }) {
   const { pieceID } = await ensureCustomPiece(customID, { createdBy });
   const piece = await PiecesModel.findById(pieceID);
@@ -117,7 +117,11 @@ export async function spawnCustomWorkOrder({
     assignedJeweler: resolvedName,
     claimedAt: assignedToUserID ? new Date() : null,
     flatFee: resolvedFee,
-    tasks: (process || Number(estLaborHours) > 0) ? [{ process: process || discipline, estLaborHours: Number(estLaborHours) || 0 }] : [],
+    // Multiple bundled tasks (one WO per lane) when `tasks` is supplied; else the single
+    // process/estLaborHours form. The WO's tasks[] hours drive the bench payout (sum × rate).
+    tasks: Array.isArray(tasks) && tasks.length
+      ? tasks.map((t) => ({ process: t.process || discipline, estLaborHours: Number(t.estLaborHours) || 0 }))
+      : ((process || Number(estLaborHours) > 0) ? [{ process: process || discipline, estLaborHours: Number(estLaborHours) || 0 }] : []),
     createdBy,
   });
   await PiecesModel.setWorkOrders(pieceID, [...(piece.workOrderIDs || []), wo.workOrderID]);
@@ -244,10 +248,12 @@ export async function awardClientMgmtBonus({ customID }) {
 }
 
 /**
- * Generate bench work orders FROM the quote's labor tasks (the realignment: the
- * quote plans the work). Called when the order reaches production (deposit ≥ 50%).
- * One WO per labor task, in its discipline, carrying the estimated hours. The CAD
- * design WO is spawned earlier at assignment, so this is the bench/production work.
+ * Generate bench work orders FROM the quote's labor tasks (the realignment: the quote
+ * plans the work). Called when casting is received. Bundles tasks ONE WO PER DISCIPLINE
+ * lane — most customs are all bench, so one jeweler claims/completes a single WO carrying
+ * all the bench tasks; engraving/gem-cutting split into their own WO (different artisans).
+ * Each WO's tasks[] carry the estimated hours (sum × the jeweler's rate = payout). CAD-lane
+ * / auto lines (CAD design, GLB, QC) are skipped (handled by the design flow).
  * Idempotent — guarded by order.productionGeneratedAt.
  */
 export async function generateWorkOrdersFromQuote({ customID, createdBy = 'system' }) {
@@ -255,22 +261,20 @@ export async function generateWorkOrdersFromQuote({ customID, createdBy = 'syste
   if (!order) return null;
   if (order.productionGeneratedAt) return { generated: 0, skipped: 'already-generated' };
 
-  const tasks = order.quote?.laborTasks || [];
-  let generated = 0;
-  for (const t of tasks) {
+  // Group production labor tasks by lane (skip CAD-lane / no-WO lines).
+  const byLane = new Map();
+  for (const t of order.quote?.laborTasks || []) {
     const desc = String(t.description || '').trim();
-    if (!desc) continue;
-    // Skip CAD-lane / auto lines (CAD design, GLB, QC) — those are created by the CAD
-    // flow at their own stage, not as bench work generated when casting is received.
-    if (t.noWorkOrder || t.discipline === DISCIPLINE.CAD) continue;
-    await spawnCustomWorkOrder({
-      customID,
-      discipline: t.discipline || DISCIPLINE.BENCH_JEWELRY,
-      title: desc,
-      estLaborHours: Number(t.hours) || 0,
-      process: desc,
-      createdBy,
-    });
+    if (!desc || t.noWorkOrder || t.discipline === DISCIPLINE.CAD) continue;
+    const lane = t.discipline || DISCIPLINE.BENCH_JEWELRY;
+    if (!byLane.has(lane)) byLane.set(lane, []);
+    byLane.get(lane).push({ process: desc, estLaborHours: Number(t.hours) || 0 });
+  }
+
+  let generated = 0;
+  for (const [lane, laneTasks] of byLane) {
+    const title = laneTasks.map((t) => t.process).join(' + ');
+    await spawnCustomWorkOrder({ customID, discipline: lane, title, tasks: laneTasks, createdBy });
     generated += 1;
   }
   await CustomOrdersModel.updateById(customID, { productionGeneratedAt: new Date() });
