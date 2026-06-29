@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/database';
 import { requireRepairOps } from '@/lib/apiAuth';
 
+// Includes admin/dev: in this shop the owner/admins also work the bench, get labor
+// review + payroll, and must be assignable (e.g. assigning a split task to yourself).
 const ASSIGNABLE_ARTISAN_QUERY = {
-  role: { $in: ['artisan', 'senior-artisan'] },
+  role: { $in: ['artisan', 'senior-artisan', 'admin', 'dev'] },
   isApproved: { $ne: false },
   isActive: { $ne: false },
   status: { $nin: ['inactive', 'disabled', 'deleted'] },
