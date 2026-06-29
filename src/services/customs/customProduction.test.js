@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { planQuoteLaborHours, applyQuoteHoursToWorkOrders } from '@/services/customs/customProduction';
+import { planQuoteLaborHours, applyQuoteHoursToWorkOrders, reconcileQuoteToWorkOrders } from '@/services/customs/customProduction';
 
 describe('planQuoteLaborHours', () => {
   it('keys bench tasks by lane::process and skips CAD / no-WO lines', () => {
@@ -69,5 +69,88 @@ describe('applyQuoteHoursToWorkOrders', () => {
       [{ description: 'Engrave initials', hours: 0.5, discipline: 'engraving' }],
     );
     expect(updates).toEqual([]); // nothing matched, nothing changed
+  });
+});
+
+describe('reconcileQuoteToWorkOrders (structural sync: update + spawn + cull)', () => {
+  const bench = (id, tasks, extra = {}) => ({ workOrderID: id, discipline: 'bench_jewelry', seq: 1, status: 'READY FOR WORK', tasks, ...extra });
+
+  it('appends a newly-added quote task to the lane\'s existing WO', () => {
+    const r = reconcileQuoteToWorkOrders(
+      [bench('wo-1', [{ process: 'Set Stone', estLaborHours: 0.4 }])],
+      [
+        { description: 'Set Stone', hours: 0.4, discipline: 'bench_jewelry' },
+        { description: 'Polish', hours: 0.3, discipline: 'bench_jewelry' }, // new
+      ],
+    );
+    expect(r.spawns).toEqual([]);
+    expect(r.woEmptied).toEqual([]);
+    expect(r.woUpdates).toEqual([{ workOrderID: 'wo-1', tasks: [
+      { process: 'Set Stone', estLaborHours: 0.4 },
+      { process: 'Polish', estLaborHours: 0.3 },
+    ] }]);
+  });
+
+  it('spawns a new WO when the added task is in a lane with no WO', () => {
+    const r = reconcileQuoteToWorkOrders(
+      [bench('wo-1', [{ process: 'Set Stone', estLaborHours: 0.4 }])],
+      [
+        { description: 'Set Stone', hours: 0.4, discipline: 'bench_jewelry' },
+        { description: 'Engrave initials', hours: 0.5, discipline: 'engraving' }, // new lane
+      ],
+    );
+    expect(r.woUpdates).toEqual([]);
+    expect(r.spawns).toEqual([{ discipline: 'engraving', tasks: [{ process: 'Engrave initials', estLaborHours: 0.5 }] }]);
+  });
+
+  it('culls a removed task; empties the WO when its last task is gone', () => {
+    const r = reconcileQuoteToWorkOrders(
+      [bench('wo-1', [{ process: 'Set Stone', estLaborHours: 0.4 }, { process: 'Polish', estLaborHours: 0.3 }])],
+      [{ description: 'Set Stone', hours: 0.4, discipline: 'bench_jewelry' }], // Polish removed
+    );
+    expect(r.woEmptied).toEqual([]);
+    expect(r.woUpdates).toEqual([{ workOrderID: 'wo-1', tasks: [{ process: 'Set Stone', estLaborHours: 0.4 }] }]);
+
+    const r2 = reconcileQuoteToWorkOrders(
+      [bench('wo-1', [{ process: 'Polish', estLaborHours: 0.3 }])],
+      [{ description: 'Set Stone', hours: 0.4, discipline: 'bench_jewelry' }], // only task removed, Set Stone is new
+    );
+    // Polish culled → wo-1 emptied; Set Stone has nowhere to go (its only lane WO is emptied) → spawn.
+    expect(r2.woEmptied).toEqual([{ workOrderID: 'wo-1', tasks: [] }]);
+    expect(r2.spawns).toEqual([{ discipline: 'bench_jewelry', tasks: [{ process: 'Set Stone', estLaborHours: 0.4 }] }]);
+  });
+
+  it('preserves a split: updates the task in whichever WO holds it, no spurious spawn', () => {
+    const r = reconcileQuoteToWorkOrders(
+      [bench('wo-1', [{ process: 'Clean up Casting', estLaborHours: 0.8 }]), bench('wo-2', [{ process: 'Set Stone', estLaborHours: 0.4 }], { seq: 2 })],
+      [
+        { description: 'Clean up Casting', hours: 0.8, discipline: 'bench_jewelry' },
+        { description: 'Set Stone', hours: 0.6, discipline: 'bench_jewelry' }, // hours changed
+      ],
+    );
+    expect(r.spawns).toEqual([]);
+    expect(r.woEmptied).toEqual([]);
+    expect(r.woUpdates).toEqual([{ workOrderID: 'wo-2', tasks: [{ process: 'Set Stone', estLaborHours: 0.6 }] }]);
+  });
+
+  it('no-ops when the plan already matches', () => {
+    const r = reconcileQuoteToWorkOrders(
+      [bench('wo-1', [{ process: 'Set Stone', estLaborHours: 0.4 }])],
+      [{ description: 'Set Stone', hours: 0.4, discipline: 'bench_jewelry' }],
+    );
+    expect(r).toEqual({ woUpdates: [], woEmptied: [], spawns: [] });
+  });
+
+  it('never re-spawns or mutates work already on a COMPLETED/QC work order', () => {
+    // The lane's WO is done. Re-saving the same quote must NOT spawn a duplicate, and must
+    // not touch the completed WO. (Regression: coverage counts all WOs; mutation is pre-QC only.)
+    const r = reconcileQuoteToWorkOrders(
+      [bench('wo-done', [{ process: 'Clean up Casting', estLaborHours: 0.8 }, { process: 'Set Stone', estLaborHours: 0.4 }], { status: 'COMPLETED' })],
+      [
+        { description: 'Clean up Casting', hours: 0.8, discipline: 'bench_jewelry' },
+        { description: 'Set Stone', hours: 0.4, discipline: 'bench_jewelry' },
+      ],
+    );
+    expect(r).toEqual({ woUpdates: [], woEmptied: [], spawns: [] });
   });
 });

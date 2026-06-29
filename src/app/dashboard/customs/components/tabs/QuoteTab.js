@@ -292,13 +292,19 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Quote save failed');
       const data = await res.json().catch(() => ({}));
       await onChanged?.();
-      return { workOrdersSynced: Number(data.workOrdersSynced) || 0 };
+      return { sync: data.workOrdersSync || { updated: Number(data.workOrdersSynced) || 0, spawned: 0, removed: 0 } };
     } catch (e) { notify(e.message, 'error'); return false; } finally { setBusy(false); }
   }, [customID, form, onChanged, notify]);
 
   const save = async () => {
     const r = await persist();
-    if (r) notify(`Quote saved${r.workOrdersSynced ? ` · ${r.workOrdersSynced} work order${r.workOrdersSynced > 1 ? 's' : ''} re-synced` : ''}`, 'success');
+    if (!r) return;
+    const { updated = 0, spawned = 0, removed = 0 } = r.sync || {};
+    const parts = [];
+    if (updated) parts.push(`${updated} updated`);
+    if (spawned) parts.push(`${spawned} added`);
+    if (removed) parts.push(`${removed} removed`);
+    notify(`Quote saved${parts.length ? ` · work orders: ${parts.join(', ')}` : ''}`, 'success');
   };
   const publish = async () => { if (await persist({ quotePublished: true, publishedAt: new Date().toISOString() })) notify('Quote published to client', 'success'); };
   const unpublish = async () => { if (await persist({ quotePublished: false, publishedAt: null })) notify('Quote unpublished', 'success'); };

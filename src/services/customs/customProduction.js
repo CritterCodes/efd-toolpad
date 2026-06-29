@@ -289,22 +289,19 @@ export async function generateWorkOrdersFromQuote({ customID, createdBy = 'syste
 }
 
 /**
- * Sync edited quote labor hours onto already-generated bench work orders. The quote
- * PLANS the work; once work orders are generated (casting received) their task hours
- * drive the bench payout (Σ estLaborHours × the jeweler's rate at move-to-QC). If the
- * planned hours are later edited on the quote, those WO hours would otherwise go stale.
- * Matches quote labor tasks to WO tasks by (discipline, process name) and updates
- * estLaborHours IN PLACE.
+ * Keep generated bench work orders in sync with the quote's labor plan. The quote PLANS
+ * the work; once WOs are generated (casting received) their tasks drive the bench payout
+ * (Σ estLaborHours × the jeweler's rate). Editing the quote afterward reconciles the WOs:
+ * update hours, append added tasks, cull removed ones, spawn WOs for new lanes.
  *
  * Safe by construction:
- *  - Only touches PRE-QC work orders (READY FOR WORK / IN PROGRESS). Once a WO moves to
- *    QC its labor log is already written with frozen hours — editing it then would not
+ *  - Only touches PRE-QC work orders (READY FOR WORK / IN PROGRESS). Once a WO moves to QC
+ *    its labor log is already written with frozen hours — restructuring it then would not
  *    (and must not) change a credited payout.
- *  - Never changes structure (no tasks added / removed / moved), so a task that was
- *    split off to another jeweler keeps its own WO; only its hours track the quote.
- *  - New quote tasks aren't auto-spawned and removed ones aren't deleted (those are
- *    deliberate structural changes — use "Add work order" / the bench).
- * Idempotent; returns the count of work orders updated.
+ *  - Deletes a WO only when it's emptied AND still unclaimed; claimed work is never deleted.
+ *  - Matches by (discipline, process name), so a task split off to another jeweler keeps
+ *    its own WO and just tracks the quote.
+ * Idempotent.
  */
 const PRE_QC_WO_STATUSES = ['READY FOR WORK', 'IN PROGRESS'];
 
@@ -346,26 +343,142 @@ export function applyQuoteHoursToWorkOrders(workOrders = [], laborTasks = []) {
   return updates;
 }
 
-export async function syncQuoteHoursToWorkOrders({ customID }) {
+/** Desired bench tasks per lane: lane -> Map(processLower -> {process, estLaborHours}). */
+function desiredLaneTasks(laborTasks = []) {
+  const byLane = new Map();
+  for (const t of laborTasks || []) {
+    const desc = String(t.description || '').trim();
+    if (!desc || t.noWorkOrder || t.discipline === DISCIPLINE.CAD) continue;
+    const lane = t.discipline || DISCIPLINE.BENCH_JEWELRY;
+    if (!byLane.has(lane)) byLane.set(lane, new Map());
+    const m = byLane.get(lane);
+    const k = desc.toLowerCase();
+    const prev = m.get(k);
+    m.set(k, { process: prev?.process || desc, estLaborHours: (prev?.estLaborHours || 0) + (Number(t.hours) || 0) });
+  }
+  return byLane;
+}
+
+/**
+ * Pure structural reconcile of generated bench WOs against the quote's labor tasks,
+ * matched by (discipline, process name). Returns the diff to apply:
+ *   - woUpdates: WOs whose task set changed — hours updated, removed tasks culled, and/or
+ *     newly-added quote tasks appended to the lane's primary WO.
+ *   - woEmptied: WOs whose tasks were ALL culled (caller deletes only if unclaimed).
+ *   - spawns:    new {discipline, tasks} bundles for quote lanes that have no WO yet.
+ * Caller passes PRE-QC WOs only, so claimed/QC'd work is never restructured. Splits are
+ * preserved — a task is matched wherever it currently lives.
+ */
+export function reconcileQuoteToWorkOrders(workOrders = [], laborTasks = []) {
+  const desired = desiredLaneTasks(laborTasks);
+  const woUpdates = [];
+  const woEmptied = [];
+
+  // Coverage is computed from ALL work orders (incl. COMPLETED/QC) so we never spawn a
+  // duplicate of work that's already on a (possibly finished) WO. Mutation, by contrast,
+  // is restricted to PRE-QC WOs — completed/QC'd work is read-only.
+  const covered = new Set();
+  for (const wo of workOrders || []) {
+    for (const t of wo.tasks || []) covered.add(`${wo.discipline}::${String(t.process || '').trim().toLowerCase()}`);
+  }
+  const mutable = (workOrders || []).filter((w) => PRE_QC_WO_STATUSES.includes(w.status));
+
+  // Pass 1 — per MUTABLE WO: cull tasks the quote dropped, update hours on the rest.
+  for (const wo of mutable) {
+    const laneDesired = desired.get(wo.discipline) || new Map();
+    let changed = false;
+    const tasks = [];
+    for (const task of wo.tasks || []) {
+      const k = String(task.process || '').trim().toLowerCase();
+      const want = laneDesired.get(k);
+      if (want) {
+        if (Number(task.estLaborHours) !== want.estLaborHours) { changed = true; tasks.push({ ...task, estLaborHours: want.estLaborHours }); }
+        else tasks.push(task);
+      } else {
+        changed = true; // task removed from the quote → cull
+      }
+    }
+    if (changed) (tasks.length === 0 ? woEmptied : woUpdates).push({ workOrderID: wo.workOrderID, tasks });
+  }
+
+  // Pass 2 — quote tasks not covered by ANY existing WO: append to the lane's primary
+  // mutable (non-emptied) WO, else spawn a new lane WO.
+  const emptiedIDs = new Set(woEmptied.map((w) => w.workOrderID));
+  const laneTargets = new Map();
+  for (const wo of [...mutable].sort((a, b) => (a.seq || 0) - (b.seq || 0))) {
+    if (emptiedIDs.has(wo.workOrderID)) continue;
+    if (!laneTargets.has(wo.discipline)) laneTargets.set(wo.discipline, wo);
+  }
+  const spawns = [];
+  for (const [lane, m] of desired) {
+    for (const [k, want] of m) {
+      if (covered.has(`${lane}::${k}`)) continue;
+      const target = laneTargets.get(lane);
+      if (target) {
+        let upd = woUpdates.find((u) => u.workOrderID === target.workOrderID);
+        if (!upd) { upd = { workOrderID: target.workOrderID, tasks: [...(target.tasks || [])] }; woUpdates.push(upd); }
+        upd.tasks.push({ process: want.process, estLaborHours: want.estLaborHours });
+      } else {
+        let s = spawns.find((x) => x.discipline === lane);
+        if (!s) { s = { discipline: lane, tasks: [] }; spawns.push(s); }
+        s.tasks.push({ process: want.process, estLaborHours: want.estLaborHours });
+      }
+    }
+  }
+
+  return { woUpdates, woEmptied, spawns };
+}
+
+/**
+ * Apply the quote→WO reconcile against the order's PRE-QC bench work orders: update task
+ * hours, append newly-added tasks, cull removed ones, spawn WOs for new lanes, and delete
+ * a WO only if it was emptied AND is still unclaimed (never delete claimed/QC'd work — a
+ * claimed-but-emptied WO just keeps an empty task set for the admin to handle). Idempotent.
+ */
+export async function syncQuoteToWorkOrders({ customID, createdBy = 'system' }) {
+  const empty = { updated: 0, spawned: 0, removed: 0 };
   const order = await CustomOrdersModel.findById(customID);
-  if (!order || !order.productionGeneratedAt) return { updated: 0 };
+  if (!order || !order.productionGeneratedAt) return empty;
   const pieceIDs = order.pieceIDs || [];
-  if (!pieceIDs.length) return { updated: 0 };
+  if (!pieceIDs.length) return empty;
 
   const dbi = await db.connect();
+  // Fetch ALL the order's piece WOs (any status). reconcile reads every WO for coverage
+  // (so completed lanes aren't re-spawned) but only mutates the PRE-QC ones.
   const wos = await dbi.collection(Constants.WORK_ORDERS_COLLECTION)
     .find({
       sourceType: WORK_ORDER_SOURCE.PRODUCTION_PIECE,
       sourceID: { $in: pieceIDs },
-      status: { $in: PRE_QC_WO_STATUSES },
     }, { projection: { _id: 0 } })
     .toArray();
 
-  const updates = applyQuoteHoursToWorkOrders(wos, order.quote?.laborTasks || []);
-  for (const u of updates) {
+  const { woUpdates, woEmptied, spawns } = reconcileQuoteToWorkOrders(wos, order.quote?.laborTasks || []);
+  const woByID = new Map(wos.map((w) => [w.workOrderID, w]));
+
+  for (const u of woUpdates) {
     await WorkOrdersModel.updateByID(u.workOrderID, { tasks: u.tasks });
   }
-  return { updated: updates.length };
+
+  let removed = 0;
+  for (const e of woEmptied) {
+    const wo = woByID.get(e.workOrderID);
+    if (wo && wo.status === 'READY FOR WORK') {
+      await dbi.collection(Constants.WORK_ORDERS_COLLECTION).deleteOne({ workOrderID: e.workOrderID });
+      const piece = await PiecesModel.findById(wo.sourceID);
+      if (piece) await PiecesModel.setWorkOrders(wo.sourceID, (piece.workOrderIDs || []).filter((id) => id !== e.workOrderID));
+      removed += 1;
+    } else {
+      await WorkOrdersModel.updateByID(e.workOrderID, { tasks: [] }); // claimed → keep, empty
+    }
+  }
+
+  let spawned = 0;
+  for (const s of spawns) {
+    await spawnCustomWorkOrder({ customID, discipline: s.discipline, title: s.tasks.map((t) => t.process).join(' + '), tasks: s.tasks, createdBy });
+    spawned += 1;
+  }
+
+  return { updated: woUpdates.length, spawned, removed };
 }
 
 /** All work orders across the custom's piece(s), each with its accrued labor. */

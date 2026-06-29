@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/apiAuth';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
-import { syncQuoteHoursToWorkOrders } from '@/services/customs/customProduction';
+import { syncQuoteToWorkOrders } from '@/services/customs/customProduction';
 
 /**
  * PUT /api/custom-orders/[customID]/quote
@@ -17,15 +17,16 @@ export const PUT = async (req, { params }) => {
   const updated = await CustomOrdersModel.updateById(customID, { quote });
   if (!updated) return NextResponse.json({ error: 'Custom order not found.' }, { status: 404 });
 
-  // Propagate edited labor hours to any already-generated (pre-QC) bench work orders so
-  // their payout stays in sync with the plan. Non-fatal — never block saving the quote.
-  let workOrdersSynced = 0;
+  // Reconcile any already-generated (pre-QC) bench work orders with the edited plan:
+  // update hours, append added tasks, cull removed ones, spawn WOs for new lanes.
+  // Non-fatal — never block saving the quote.
+  let wo = { updated: 0, spawned: 0, removed: 0 };
   try {
-    ({ updated: workOrdersSynced } = await syncQuoteHoursToWorkOrders({ customID }));
+    wo = await syncQuoteToWorkOrders({ customID });
   } catch (e) {
-    console.warn('[customs] quote→WO hour sync failed:', e.message);
+    console.warn('[customs] quote→WO sync failed:', e.message);
   }
 
   const margin = await CustomOrdersModel.marginFor(customID);
-  return NextResponse.json({ order: updated, margin, workOrdersSynced }, { status: 200 });
+  return NextResponse.json({ order: updated, margin, workOrdersSync: wo, workOrdersSynced: wo.updated }, { status: 200 });
 };
