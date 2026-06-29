@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import {
   Card, CardContent, CardActions, Typography, Box, Chip, Divider, Button, Checkbox,
-  TextField, MenuItem, Alert,
+  TextField, MenuItem, Alert, Stack,
 } from '@mui/material';
 import HandymanIcon from '@mui/icons-material/Handyman';
 import DesignServicesIcon from '@mui/icons-material/DesignServices';
@@ -43,6 +43,21 @@ function sourceTitle(wo) {
   if (s.kind === 'repair') return s.clientName || s.businessName || wo.sourceID;
   if (s.kind === 'piece') return s.custom?.label || s.designName || s.sku || wo.title || wo.sourceID;
   return wo.title || wo.sourceType;
+}
+
+// wo.tasks is unified across sources: repair WOs mirror the repair's rich task docs
+// (title/description/processes/materials/laborHours); piece/custom WOs carry
+// { process, estLaborHours }. These normalize either shape for display.
+function taskLabel(t) {
+  return t.title || t.process || t.processName || t.name || t.displayName || t.description || 'Task';
+}
+function taskHours(t) {
+  const direct = Number(t.estLaborHours ?? t.laborHours ?? t.totalLaborHours ?? 0);
+  if (direct > 0) return direct;
+  return (t.processes || []).reduce((s, p) => s + (Number(p.laborHours) || 0), 0);
+}
+function taskMaterials(t) {
+  return (t.materials || []).map((m) => m.displayName || m.materialName || m.name).filter(Boolean);
 }
 
 function sourceTag(wo) {
@@ -155,6 +170,33 @@ export default function BenchWorkCard({
             )}
           </Box>
         </Box>
+
+        {Array.isArray(wo.tasks) && wo.tasks.length > 0 && (
+          <Box sx={{ mt: 1.25, pt: 1, borderTop: `1px dashed ${REPAIRS_UI.border}` }}>
+            <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', mb: 0.5 }}>
+              Tasks ({wo.tasks.length})
+            </Typography>
+            <Stack spacing={0.5}>
+              {wo.tasks.map((t, i) => {
+                const hours = taskHours(t);
+                const mats = taskMaterials(t);
+                const detail = t.description && t.description !== taskLabel(t) ? t.description : '';
+                return (
+                  <Box key={i} sx={{ display: 'flex', gap: 0.75, alignItems: 'baseline' }}>
+                    <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: REPAIRS_UI.accent, mt: '5px', flexShrink: 0 }} />
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="caption" sx={{ color: REPAIRS_UI.textPrimary, fontSize: '0.78rem' }}>
+                        {taskLabel(t)}{hours > 0 && <Box component="span" sx={{ color: REPAIRS_UI.textMuted }}> · {hours}h</Box>}
+                      </Typography>
+                      {detail && <Typography variant="caption" sx={{ display: 'block', color: REPAIRS_UI.textMuted, fontSize: '0.68rem' }}>{detail.slice(0, 90)}{detail.length > 90 ? '…' : ''}</Typography>}
+                      {mats.length > 0 && <Typography variant="caption" sx={{ display: 'block', color: REPAIRS_UI.textMuted, fontSize: '0.68rem' }}>parts: {mats.join(', ')}</Typography>}
+                    </Box>
+                  </Box>
+                );
+              })}
+            </Stack>
+          </Box>
+        )}
 
         {error && <Alert severity="error" sx={{ mt: 1, py: 0 }}>{error}</Alert>}
       </CardContent>
