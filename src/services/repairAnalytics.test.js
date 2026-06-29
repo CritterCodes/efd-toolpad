@@ -258,6 +258,59 @@ describe('repairAnalytics', () => {
     expect(taxReserve.summary.salesTaxHeld).toBe(8.25);
   });
 
+  it('includes custom-order invoices in revenue, cash, and receivables analytics', () => {
+    const window = getAnalyticsDateWindow('this_month', new Date('2026-05-20T12:00:00.000Z'));
+    const invoices = combineAnalyticsInvoices([], [], [
+      {
+        invoiceID: 'cinv-paid',
+        customID: 'CO-1',
+        customerEmail: 'client@example.com',
+        type: 'final',
+        amount: 1200,
+        status: 'paid',
+        paymentMethod: 'cash',
+        createdAt: '2026-05-05T12:00:00.000Z',
+        paidAt: '2026-05-05T12:10:00.000Z',
+      },
+      {
+        invoiceID: 'cinv-pending',
+        customID: 'CO-2',
+        type: 'deposit',
+        amount: 600,
+        status: 'pending_payment',
+        createdAt: '2026-05-06T12:00:00.000Z',
+      },
+      {
+        invoiceID: 'cinv-cancelled',
+        customID: 'CO-3',
+        amount: 999,
+        status: 'cancelled',
+        createdAt: '2026-05-07T12:00:00.000Z',
+      },
+    ]);
+
+    const revenue = buildInvoiceRevenueSummary(invoices, new Map());
+    const cash = buildCashCollectedReport(invoices, window, new Map());
+    const ar = buildAccountsReceivableReport(invoices, new Date('2026-05-20T12:00:00.000Z'), window);
+    const taxReserve = buildFederalTaxReserveReport({ invoices, window });
+
+    // Paid + pending count as invoiced revenue; cancelled is excluded.
+    expect(revenue.revenue).toMatchObject({
+      totalRevenue: 1800,
+      goLiveRevenue: 1800,
+      collectedRevenue: 1200,
+      invoiceCount: 2,
+    });
+    // Only the paid invoice produces cash; custom revenue holds no sales tax.
+    expect(cash.summary.totalCollected).toBe(1200);
+    expect(cash.summary.byMethod).toEqual([{ method: 'cash', amount: 1200 }]);
+    // The unpaid deposit is a receivable.
+    expect(ar.summary.outstandingBalance).toBe(600);
+    expect(ar.rows[0]).toMatchObject({ invoiceID: 'cinv-pending', remainingBalance: 600 });
+    expect(taxReserve.summary.cashCollected).toBe(1200);
+    expect(taxReserve.summary.salesTaxHeld).toBe(0);
+  });
+
   it('anchors jeweler performance to labor log creation time, not week start', () => {
     const window = getAnalyticsDateWindow('today', new Date('2026-05-02T12:00:00.000Z'));
     const report = buildJewelerPerformanceReport({

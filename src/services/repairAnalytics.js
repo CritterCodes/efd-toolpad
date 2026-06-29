@@ -464,12 +464,58 @@ export function normalizeSalesInvoiceForAnalytics(invoice = {}) {
   };
 }
 
-export function combineAnalyticsInvoices(repairInvoices = [], salesInvoices = []) {
+/**
+ * Custom-order invoices (S7c) carry a flat `amount` and a coarse status
+ * (pending_payment | paid | cancelled) with no payments[] array or tax breakdown.
+ * Map them into the unified analytics-invoice shape so custom-order revenue flows
+ * through the SAME reports as repairs and sales: invoiced revenue, cash collected,
+ * A/R, federal-tax-reserve, and safe-to-spend.
+ *
+ * Notes:
+ *  - Custom quotes don't itemize sales tax (the quote is a single COG-bucket total
+ *    × markup), so taxAmount is 0 — custom revenue lands as non-taxable and holds no
+ *    sales-tax reserve. Itemizing custom sales tax is a separate decision.
+ *  - A paid invoice synthesizes one completed payment (so cash-collected/reserve see
+ *    it), timestamped at paidAt. Pending invoices contribute invoiced revenue + A/R.
+ */
+export function normalizeCustomInvoiceForAnalytics(invoice = {}) {
+  const amount = roundMoney(invoice.amount || 0);
+  const isPaid = invoice.status === 'paid';
+  const amountPaid = isPaid ? amount : 0;
+  return {
+    ...invoice,
+    sourceType: 'custom',
+    analyticsOrigin: ANALYTICS_ORIGIN.GO_LIVE,
+    customerName: invoice.customerName || invoice.customerEmail || `Custom ${invoice.customID || ''}`.trim(),
+    accountType: 'retail',
+    status: isPaid ? 'paid' : 'open',
+    paymentStatus: isPaid ? 'paid' : 'unpaid',
+    total: amount,
+    amountPaid: roundMoney(amountPaid),
+    remainingBalance: roundMoney(amount - amountPaid),
+    taxAmount: 0,
+    payments: isPaid
+      ? [{
+        type: invoice.paymentMethod || 'other',
+        method: invoice.paymentMethod || 'other',
+        amount,
+        receivedAt: invoice.paidAt || invoice.updatedAt || invoice.createdAt || null,
+        receivedBy: '',
+        status: 'completed',
+      }]
+      : [],
+  };
+}
+
+export function combineAnalyticsInvoices(repairInvoices = [], salesInvoices = [], customInvoices = []) {
   return [
     ...(repairInvoices || []),
     ...(salesInvoices || [])
       .filter((invoice) => invoice?.status !== 'void')
       .map(normalizeSalesInvoiceForAnalytics),
+    ...(customInvoices || [])
+      .filter((invoice) => invoice?.status !== 'cancelled')
+      .map(normalizeCustomInvoiceForAnalytics),
   ];
 }
 

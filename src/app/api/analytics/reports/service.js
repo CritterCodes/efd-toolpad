@@ -66,10 +66,11 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
   const openingBalance = normalizeFinancialOpeningBalance(settings?.financial?.openingBalance);
   const window = getAnalyticsDateWindow(dateRange);
 
-  const [repairs, invoices, salesInvoices, laborLogs, payrollBatches, salePayouts, ownerDraws, expenses, recurringExpenses, debtAccounts, debtStatements, debtPayments, pendingReviewLogs] = await Promise.all([
+  const [repairs, invoices, salesInvoices, customInvoices, laborLogs, payrollBatches, salePayouts, ownerDraws, expenses, recurringExpenses, debtAccounts, debtStatements, debtPayments, pendingReviewLogs] = await Promise.all([
     dbInstance.collection('repairs').find({}).project({ _id: 0 }).toArray(),
     dbInstance.collection('repairInvoices').find({}).project({ _id: 0 }).toArray(),
     dbInstance.collection('salesInvoices').find({}).project({ _id: 0 }).toArray(),
+    dbInstance.collection('customInvoices').find({}).project({ _id: 0 }).toArray(),
     dbInstance.collection('repairLaborLogs').find({
       weekStart: { $gte: baseline.laborAnalyticsStartDate },
     }).project({ _id: 0 }).toArray(),
@@ -85,7 +86,7 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
   ]);
 
   const repairsById = new Map(repairs.map((repair) => [repair.repairID, repair]));
-  const analyticsInvoices = combineAnalyticsInvoices(invoices, salesInvoices);
+  const analyticsInvoices = combineAnalyticsInvoices(invoices, salesInvoices, customInvoices);
   const invoicesById = new Map(invoices.map((invoice) => [invoice.invoiceID, invoice]));
   const usersById = await getUsersMapFromLogsAndBatches(laborLogs, payrollBatches);
   const laborAnalyticsPayrollBatches = payrollBatches.filter((batch) => (
