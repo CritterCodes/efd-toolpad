@@ -329,15 +329,24 @@ export async function approveCadQc({ session, workOrderID }) {
       sourceAction: 'cad_design_fee', requiresAdminReview: false,
     });
   }
-  // Reviewer's flat QC review fee.
-  const qcReviewFee = await getQcReviewFee();
-  await RepairLaborLogsModel.create({
-    workOrderID, sourceType: wo.sourceType, sourceID: wo.sourceID,
-    primaryJewelerUserID: session.user.userID, primaryJewelerName: session.user.name,
-    creditedLaborHours: 0, creditedValue: qcReviewFee,
-    sourceAction: 'cad_qc_review', requiresAdminReview: false,
-    notes: 'CAD QC peer review.',
+  // Reviewer's flat QC review fee — charged ONCE per piece, not per CAD work order.
+  // A piece can have several CAD WOs (STL for casting, GLB for the web viewer); the
+  // QC review fee should only land once, so guard against an existing review log on
+  // any of this piece's work orders before charging again.
+  const dbInstance = await db.connect();
+  const alreadyReviewed = await dbInstance.collection('laborLogs').findOne({
+    sourceID: wo.sourceID, sourceAction: 'cad_qc_review',
   });
+  if (!alreadyReviewed) {
+    const qcReviewFee = await getQcReviewFee();
+    await RepairLaborLogsModel.create({
+      workOrderID, sourceType: wo.sourceType, sourceID: wo.sourceID,
+      primaryJewelerUserID: session.user.userID, primaryJewelerName: session.user.name,
+      creditedLaborHours: 0, creditedValue: qcReviewFee,
+      sourceAction: 'cad_qc_review', requiresAdminReview: false,
+      notes: 'CAD QC peer review.',
+    });
+  }
 
   const workOrder = await WorkOrdersModel.updateByID(workOrderID, {
     status: 'COMPLETED', qcBy: session.user.name, qcDate: new Date(),
