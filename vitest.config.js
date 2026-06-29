@@ -2,6 +2,13 @@ import { defineConfig } from 'vitest/config'
 import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
+  // Component files are JSX inside plain .js. Vite's esbuild transform EXCLUDES .js by
+  // default (its default exclude is /\.js$/), so JSX survived into import-analysis and
+  // failed to parse. Set the loader to jsx (automatic runtime → no React import needed),
+  // include .js/.jsx, and clear the default exclude so .js actually gets transformed.
+  // Harmless for the JSX-free logic suites. Per-file `// @vitest-environment jsdom` opts
+  // component tests into a DOM; the default env stays node for the pure-logic suites.
+  esbuild: { loader: 'jsx', jsx: 'automatic', include: /\.jsx?$/, exclude: [] },
   test: {
     environment: 'node',
     globals: true,
