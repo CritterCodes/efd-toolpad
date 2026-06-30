@@ -1,24 +1,11 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { requireRole } from '@/lib/apiAuth';
 import { TasksModel } from '../model';
-
-// Temporary auth config (TODO: fix authentication properly)
-const authConfig = {
-  providers: [], // Not needed for getServerSession
-  secret: process.env.NEXTAUTH_SECRET
-};
 
 export async function POST(request) {
   try {
-    console.log('🔥 UNIVERSAL-TASK-API - Create universal task request received');
-
-    // Temporarily skip authentication to avoid blocking the form
-    // TODO: Re-enable once authentication is properly configured
-    // const session = await getServerSession(authConfig);
-    // if (!session) {
-    //   console.log('🔥 UNIVERSAL-TASK-API - Unauthorized request');
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    // }
+    const { session, errorResponse } = await requireRole(['admin', 'dev']);
+    if (errorResponse) return errorResponse;
 
     const taskData = await request.json();
     console.log('🔥 UNIVERSAL-TASK-API - Task data received:', {
@@ -109,7 +96,7 @@ export async function POST(request) {
       // Metadata
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      createdBy: 'admin@example.com' // TODO: Replace with proper session.user?.email when auth is fixed
+      createdBy: session.user?.email || session.user?.userID || 'system'
     };
 
     console.log('🔥 UNIVERSAL-TASK-API - Creating universal task:', {

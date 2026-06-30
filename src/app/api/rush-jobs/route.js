@@ -3,27 +3,14 @@
  * Handles rush job capacity and pricing calculations
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { RushJobService } from '@/services/rushJob.service';
-import { getServerSession } from "next-auth";
-
-// NextAuth configuration for getServerSession
-const authConfig = {
-  providers: [], // Not needed for getServerSession
-  secret: process.env.NEXTAUTH_SECRET
-};
+import { requireRepairOps } from '@/lib/apiAuth';
 
 export async function GET(request) {
   try {
-    // For now, skip authentication to avoid blocking the form
-    // TODO: Re-enable once authentication is properly configured
-    // const session = await getServerSession(authConfig);
-    // if (!session?.user?.email) {
-    //   return NextResponse.json(
-    //     { success: false, error: "Authentication required" },
-    //     { status: 401 }
-    //   );
-    // }
+    const { errorResponse } = await requireRepairOps();
+    if (errorResponse) return errorResponse;
 
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
@@ -60,15 +47,8 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    // For now, skip authentication to avoid blocking the form
-    // TODO: Re-enable once authentication is properly configured
-    // const session = await getServerSession(authConfig);
-    // if (!session?.user?.email) {
-    //   return NextResponse.json(
-    //     { success: false, error: "Authentication required" },
-    //     { status: 401 }
-    //   );
-    // }
+    const { errorResponse } = await requireRepairOps();
+    if (errorResponse) return errorResponse;
 
     const body = await request.json();
     const { action, data } = body;
