@@ -1,0 +1,20 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/middleware.js",
+    "scripts/**/*.{js,mjs,cjs}",
+    "next.config.mjs",
+    "vitest.config.js",
+    "src/**/*.test.{js,jsx}"
+  ],
+  "project": ["src/**/*.{js,jsx}"],
+  "ignore": [
+    "public/**",
+    "examples/**",
+    "frontend/**",
+    "microservices/**",
+    "deprecated/**"
+  ],
+  "ignoreDependencies": [],
+  "ignoreBinaries": []
+}

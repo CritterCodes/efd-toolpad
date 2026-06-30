@@ -99,13 +99,35 @@ The **legacy** side appears unused and props up 4 false "reachable" pages:
 Confirm `constants/roles.js` + `RoleBasedNavigation.jsx` have no live importer, then remove the
 cluster + those 4 pages as one unit.
 
-## Tier 4 — MODULE-LEVEL: needs a real tool, NOT the agent list
-The "428 unimported modules" scan is **unreliable** — it counted only `@/` alias imports and
-ignored relative + dynamic imports, so it false-flagged live code (e.g. `lib/navigation/*`, and
-active `*.test.js` files vitest runs). **Do not bulk-delete from it.** Get a trustworthy module
-graph first: add **`knip`** (handles relative/dynamic imports + Next entry points) and treat its
-output as the source of truth for dead files *and* dead exports-within-live-files. The agent list
-is a hint set to cross-check against knip, nothing more.
+## Tier 4 — MODULE-LEVEL: use knip (installed + configured)
+`knip` is now a devDep with `knip.json` (scoped to the admin app: Next + scripts + tests as
+entries; `public/`, `frontend/`, `microservices/`, `examples/`, `deprecated/` ignored). Run:
+**`pnpm deadcode`**. Validated trustworthy: the `@/` alias resolves, Next route/page/layout
+entries are correctly excluded (0 false-flagged), and known-live files (AppShell,
+roleBasedNavigation, customProduction, QuoteTab, …) are correctly NOT listed.
+
+Current candidates: **~464 unused src files, 163 unused exports, 17 unused deps** (converges
+with the agents' 428 → the dead mass is real). **Caveat — delete in REVIEWED batches, not
+blind:** knip can miss `dynamic(() => import())` targets (spot-check found `viewers/GLBViewer.jsx`
+flagged-but-referenced). Workflow per batch: take a cluster → confirm none are dynamically
+imported → delete → `pnpm build` + `pnpm test`. Best done cluster-by-cluster (e.g. the
+`src/app/components/*.component.js` legacy mirror, dead analytics/drop-dashboard components,
+`src/schemas/`, `src/config/`).
+
+### Whole abandoned CLUSTERS (knip-surfaced, outside src/) — confirm-then-delete as units
+These are separate sub-trees, biggest single wins, but confirm they aren't deployed elsewhere:
+- `frontend/` (~8 files) — an old **repair-costing demo** sub-app (`.tsx`); superseded by the
+  in-app costing. The deleted `app/admin/demo/repair-costing` page was its admin entry.
+- `microservices/custom-tickets-service/` (~13 files) — orphaned microservice for the
+  deprecated customTickets system (collection retained, code dead).
+- `examples/` (3 files) — material/dialog example scripts.
+- `src/middleware copy.js` — a stray copy of `middleware.js` (Next only uses `middleware.js`).
+
+### Also from knip (separate fixes, not deletions)
+- **Unlisted deps:** `prop-types` (used across many `app/components/*.component.js`) and `dotenv`
+  (used in `scripts/*`) are imported but not in package.json — add them, or (better) these
+  `*.component.js` files are likely part of the dead legacy mirror anyway.
+- **Unused deps (17) / devDeps (4):** prune from package.json after the file sweep settles.
 
 ## Keep — confirmed live despite "legacy"/deprecated labels
 `api/repairs/closeout/legacy-close` (called from pick-up page); `repairTasks` schema field

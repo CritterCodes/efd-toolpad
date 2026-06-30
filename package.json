@@ -16,6 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "next lint",
+    "deadcode": "knip",
     "audit:repair-workflow": "node scripts/audit-repair-workflow.mjs",
     "backfill:repair-workflow": "node scripts/backfill-repair-workflow.mjs",
     "backfill:repair-analytics-baseline": "node scripts/backfill-repair-analytics-baseline.mjs",
@@ -79,6 +80,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.1.3",
     "jsdom": "^25.0.1",
+    "knip": "^6.23.0",
     "vitest": "^2.1.9"
   }
 }
