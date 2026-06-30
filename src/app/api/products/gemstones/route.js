@@ -157,7 +157,6 @@ export async function POST(request) {
       references: {
         gemstoneIds: [],
         designId: null,
-        cadRequestId: null,
       },
 
       // V2 inventory

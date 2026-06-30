@@ -17,7 +17,6 @@ import JewelryMaterials from './components/JewelryMaterials';
 import JewelryPricing from './components/JewelryPricing';
 import JewelryMedia from './components/JewelryMedia';
 import JewelryPublishing from './components/JewelryPublishing';
-import JewelryCadRequests from './components/JewelryCadRequests';
 
 export default function JewelryEditorPage() {
     const router = useRouter();
@@ -26,10 +25,9 @@ export default function JewelryEditorPage() {
     
     const {
         formData, handleInputChange, loading, saving, error, isNew,
-        availableGemstones, metalPrices, cadRequests, cadDialogOpen,
-        editingCadRequest, handleImageUpload, handleRemoveNewImage,
+        availableGemstones, metalPrices, handleImageUpload, handleRemoveNewImage,
         handleRemoveExistingImage, handleFileUpload, handleDeleteFile,
-        handleSave, handleOpenCadDialog, handleCloseCadDialog
+        handleSave
     } = useJewelryEditor(jewelryId);
 
     if (loading) {
@@ -118,14 +116,6 @@ export default function JewelryEditorPage() {
                         handleRemoveExistingImage={handleRemoveExistingImage}
                         handleFileUpload={handleFileUpload}
                         handleDeleteFile={handleDeleteFile}
-                    />
-
-                    <JewelryCadRequests 
-                        cadRequests={cadRequests}
-                        editingCadRequest={editingCadRequest}
-                        cadDialogOpen={cadDialogOpen}
-                        handleOpenCadDialog={handleOpenCadDialog}
-                        handleCloseCadDialog={handleCloseCadDialog}
                     />
                 </Grid>
 

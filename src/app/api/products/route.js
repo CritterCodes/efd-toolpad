@@ -152,7 +152,6 @@ export async function POST(request) {
       media: data.media || {},
       collectionIds: [],
       dropIds: [],
-      cadRequests: [],
       designs: [],
       designOptions: [],
       seo: data.seo || {},

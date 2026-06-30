@@ -221,7 +221,6 @@ export async function POST(request) {
       references: {
         gemstoneIds: referencedGemstoneIds,
         designId: null,
-        cadRequestId: null,
       },
 
       // Stripe (set when synced)
@@ -243,7 +242,6 @@ export async function POST(request) {
       jewelry: jewelryData,
       repairItem: deriveRepairItemMetadata({ jewelry: jewelryData }),
 
-      cadRequests: [],
       designs: [],
     };
 

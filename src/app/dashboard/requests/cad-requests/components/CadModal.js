@@ -1,1 +1,0 @@
-export default function CadModal() { return null; }

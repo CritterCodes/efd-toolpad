@@ -13,19 +13,6 @@ export const useJewelryEditor = (jewelryId) => {
     const [availableGemstones, setAvailableGemstones] = useState([]);
     const [metalPrices, setMetalPrices] = useState(null);
 
-    // CAD Request State
-    const [cadRequests, setCadRequests] = useState([]);
-    const [designs, setDesigns] = useState([]);
-    const [cadDialogOpen, setCadDialogOpen] = useState(false);
-    const [editingCadRequest, setEditingCadRequest] = useState(null);
-    const [cadFormData, setCadFormData] = useState({
-        mountingType: '',
-        styleDescription: '',
-        ringSize: '',
-        specialRequests: '',
-        assignedDesigner: ''
-    });
-
     const [formData, setFormData] = useState({
         title: '', type: '', price: '', status: 'draft',
         availability: 'ready-to-ship', classification: 'signature',
@@ -127,9 +114,6 @@ export const useJewelryEditor = (jewelryId) => {
                         mountingLabor: 0, otherCosts: 0, selectedMetals: []
                     }
                 });
-
-                setCadRequests(jewelry.cadRequests || []);
-                setDesigns(jewelry.designs || []);
             } catch (err) {
                 console.error('Error fetching jewelry:', err);
                 setError('Failed to load jewelry details');
@@ -268,36 +252,10 @@ export const useJewelryEditor = (jewelryId) => {
         }
     };
 
-    const handleOpenCadDialog = (request = null) => {
-        if (request) {
-            setEditingCadRequest(request);
-            setCadFormData({
-                mountingType: request.mountingDetails?.mountingType || '',
-                styleDescription: request.mountingDetails?.styleDescription || '',
-                ringSize: request.mountingDetails?.ringSize || '',
-                specialRequests: request.mountingDetails?.specialRequests || '',
-                assignedDesigner: request.assignedDesigner || ''
-            });
-        } else {
-            setEditingCadRequest(null);
-            setCadFormData({
-                mountingType: '', styleDescription: '', ringSize: '',
-                specialRequests: '', assignedDesigner: ''
-            });
-        }
-        setCadDialogOpen(true);
-    };
-
-    const handleCloseCadDialog = () => {
-        setCadDialogOpen(false);
-        setEditingCadRequest(null);
-    };
-
     return {
         formData, handleInputChange, loading, saving, error, isNew,
-        availableGemstones, metalPrices, cadRequests, cadDialogOpen,
-        editingCadRequest, handleImageUpload, handleRemoveNewImage,
+        availableGemstones, metalPrices, handleImageUpload, handleRemoveNewImage,
         handleRemoveExistingImage, handleFileUpload, handleDeleteFile,
-        handleSave, handleOpenCadDialog, handleCloseCadDialog
+        handleSave
     };
 };

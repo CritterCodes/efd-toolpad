@@ -90,9 +90,7 @@ export default function NotificationBell() {
     if (!link) {
       // Fallback mapping based on type
       const { type, data } = notification;
-      if (type?.includes('cad_') && data?.requestId) {
-        link = `/dashboard/cad-requests`;
-      } else if (type?.includes('custom_ticket_') && data?.ticketId) {
+      if (type?.includes('custom_ticket_') && data?.ticketId) {
         link = `/dashboard/custom-tickets/${data.ticketId}`;
       } else if (type?.includes('artisan_') && data?.artisanId) {
         link = `/dashboard/users/${data.artisanId}`;

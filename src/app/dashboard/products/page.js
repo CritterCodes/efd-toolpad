@@ -5,7 +5,6 @@ import { Box, Typography, Card, CardContent, Grid, Button } from '@mui/material'
 import { useSession } from 'next-auth/react';
 import DiamondIcon from '@mui/icons-material/Diamond';
 import CircleIcon from '@mui/icons-material/Circle';
-import DesignServicesIcon from '@mui/icons-material/DesignServices';
 import { useRouter } from 'next/navigation';
 
 export default function ProductsPage() {
@@ -30,14 +29,6 @@ export default function ProductsPage() {
             icon: <CircleIcon sx={{ fontSize: 48, color: 'warning.main' }} />,
             route: '/dashboard/products/jewelry',
             color: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)'
-        },
-        {
-            type: 'CAD Designer',
-            title: 'CAD Designs',
-            description: isAdmin ? 'All CAD designs from all artisans' : 'Your digital jewelry models and prototypes',
-            icon: <DesignServicesIcon sx={{ fontSize: 48, color: 'success.main' }} />,
-            route: '/dashboard/products/cad-design',
-            color: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)'
         }
     ];
 

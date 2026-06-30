@@ -1,1 +1,0 @@
-export default function CadTable() { return null; }
