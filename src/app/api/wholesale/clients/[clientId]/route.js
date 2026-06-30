@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 
 function sanitizeClient(client = {}) {
   return {
@@ -34,7 +34,7 @@ export async function GET(_request, { params }) {
       return NextResponse.json({ success: false, error: 'Access denied' }, { status: 403 });
     }
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
     const clientId = String(params?.clientId || '').trim();
     if (!clientId) {
       return NextResponse.json({ success: false, error: 'clientId is required' }, { status: 400 });
@@ -76,7 +76,7 @@ export async function PUT(request, { params }) {
     }
 
     const payload = await request.json();
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
 
     const existing = await db.collection('clients').findOne({
       $or: [{ userID: clientId }, { clientID: clientId }]
@@ -132,7 +132,7 @@ export async function DELETE(_request, { params }) {
       return NextResponse.json({ success: false, error: 'clientId is required' }, { status: 400 });
     }
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
     const existing = await db.collection('clients').findOne({
       $or: [{ userID: clientId }, { clientID: clientId }]
     });

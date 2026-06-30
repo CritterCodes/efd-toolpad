@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { ObjectId } from 'mongodb';
 import { getUserArtisanTypes, canManageJewelry } from '@/lib/productPermissions';
 import { deriveRepairItemMetadata, withRepairItemMetadata } from '@/lib/productRepairMetadata';
@@ -12,7 +12,7 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
     const { id } = await params;
 
     let jewelry = await db.collection('products').findOne({ productId: id, productType: 'jewelry' });
@@ -55,7 +55,7 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
     const { id } = await params;
     const data = await request.json();
 
@@ -219,7 +219,7 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
     const { id } = await params;
 
     let searchCriteria = { productId: id, productType: 'jewelry' };

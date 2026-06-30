@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 
 export async function GET(request) {
@@ -22,7 +22,7 @@ export async function GET(request) {
         }
 
         console.log('🔗 Connecting to database...');
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
         console.log('✅ Database connected');
 
         const allRequests = [];

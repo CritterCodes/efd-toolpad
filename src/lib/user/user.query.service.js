@@ -1,10 +1,10 @@
-import { connectToDatabase } from '../mongodb.js';
+import { db as mongo } from '@/lib/database';
 import { UserManagementService } from './user.management.service.js';
 
 export class UserQueryService {
   static async findUserByEmail(email) {
     try {
-      const { db } = await connectToDatabase();
+      const db = await mongo.connect();
       const user = await db.collection('users').findOne({ 
         email: { $regex: new RegExp(`^${email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
       });
@@ -17,7 +17,7 @@ export class UserQueryService {
 
   static async findUsersByEmail(email) {
     try {
-      const { db } = await connectToDatabase();
+      const db = await mongo.connect();
       const users = await db.collection('users').find({ 
         email: { $regex: new RegExp(`^${email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
       }).toArray();
@@ -69,7 +69,7 @@ export class UserQueryService {
   static async findUserByUserID(userID) {
     try {
       console.log('🔍 findUserByUserID - Looking for userID:', userID);
-      const { db } = await connectToDatabase();
+      const db = await mongo.connect();
       const user = await db.collection('users').findOne({ userID });
       console.log('📋 findUserByUserID - Database result:', user ? {
         userID: user.userID,
@@ -89,7 +89,7 @@ export class UserQueryService {
 
   static async findUserByProvider(provider, providerId) {
     try {
-      const { db } = await connectToDatabase();
+      const db = await mongo.connect();
       const query = {};
       query[`providers.${provider}.id`] = providerId;
       const user = await db.collection('users').findOne(query);

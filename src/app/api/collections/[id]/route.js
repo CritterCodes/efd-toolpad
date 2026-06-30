@@ -4,7 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '../../../../lib/mongodb.js';
+import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 
@@ -23,7 +23,7 @@ export async function GET(request, { params }) {
       );
     }
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
     const collection = await db.collection('collections').findOne({
       _id: new ObjectId(id)
     });
@@ -68,7 +68,7 @@ export async function PUT(request, { params }) {
       );
     }
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
     const collection = await db.collection('collections').findOne({
       _id: new ObjectId(id)
     });
@@ -167,7 +167,7 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
     const collection = await db.collection('collections').findOne({
       _id: new ObjectId(id)
     });

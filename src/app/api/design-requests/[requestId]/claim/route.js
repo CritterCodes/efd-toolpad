@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { connectDB } from '@/lib/database';
+import { db as mongo } from '@/lib/database';
 import { ObjectId } from 'mongodb';
 
 export async function POST(request, { params }) {
@@ -17,7 +17,7 @@ export async function POST(request, { params }) {
             return NextResponse.json({ error: 'Invalid request ID' }, { status: 400 });
         }
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
 
         // Check if request exists and is available
         const designRequest = await db.collection('designRequests').findOne({

@@ -1,4 +1,4 @@
-import { connectToDatabase } from '../mongodb.js';
+import { db as mongo } from '@/lib/database';
 import { v4 as uuidv4 } from 'uuid';
 import { USER_ROLES, USER_STATUS, AUTH_PROVIDERS, ROLE_PERMISSIONS } from './user.constants.js';
 import { UserRoleService } from './user.role.service.js';
@@ -7,7 +7,7 @@ import { UserQueryService } from './user.query.service.js';
 export class UserManagementService {
   static async initializeDatabase() {
     try {
-      const { db } = await connectToDatabase();
+      const db = await mongo.connect();
       
       await db.collection('users').createIndex(
         { email: 1 },
@@ -75,7 +75,7 @@ export class UserManagementService {
 
   static async findDuplicateEmails() {
     try {
-      const { db } = await connectToDatabase();
+      const db = await mongo.connect();
       return await db.collection('users').aggregate([
         {
           $group: {
@@ -96,7 +96,7 @@ export class UserManagementService {
 
   static async mergeDuplicateUsers(preferredUser, duplicateUsers) {
     try {
-      const { db } = await connectToDatabase();
+      const db = await mongo.connect();
       if (duplicateUsers.length === 0) return;
       
       console.log(`🔄 Merging ${duplicateUsers.length} duplicate users into ${preferredUser.userID}`);
@@ -138,7 +138,7 @@ export class UserManagementService {
 
   static async createUser(userData) {
     try {
-      await connectToDatabase();
+      await mongo.connect();
       const newUser = {
         userID: userData.userID || `user-${uuidv4().substring(0, 8)}`,
         firstName: userData.firstName,
@@ -157,7 +157,7 @@ export class UserManagementService {
         jewelry: []
       };
 
-      const { db } = await connectToDatabase();
+      const db = await mongo.connect();
       const result = await db.collection('users').insertOne(newUser);
       console.log(`✅ Created new user: ${newUser.email} with role: ${newUser.role}`);
       return { ...newUser, _id: result.insertedId };

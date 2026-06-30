@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 
 /**
@@ -18,7 +18,7 @@ export async function PUT(request, { params }) {
         const body = await request.json();
         const { metals, mountingOptions, basePrice, metalPrices } = body;
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
 
         // Find gemstone and update design configuration
         const result = await db.collection('products').findOneAndUpdate(

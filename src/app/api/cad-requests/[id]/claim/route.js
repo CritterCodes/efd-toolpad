@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { NotificationService, NOTIFICATION_TYPES, CHANNELS } from '@/lib/notificationService';
 
@@ -21,7 +21,7 @@ export async function POST(request, { params }) {
         const body = await request.json();
         const { designerId, designerName, designerEmail } = body;
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
 
         // Find the gemstone with this CAD request
         console.log('🔍 Looking for gemstone with CAD request ID:', id);

@@ -4,7 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '../../../../../lib/mongodb.js';
+import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 
@@ -58,7 +58,7 @@ export async function POST(request, { params }) {
       }
     }
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
 
     // Check drop request exists and is open
     const dropRequest = await db.collection('drop-requests').findOne({

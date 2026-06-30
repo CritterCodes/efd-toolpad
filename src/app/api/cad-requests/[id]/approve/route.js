@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { NotificationService, NOTIFICATION_TYPES } from '@/lib/notificationService';
 
@@ -30,7 +30,7 @@ export async function POST(request, { params }) {
         const body = await request.json();
         const { approvalNotes } = body;
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
 
         // Find the gemstone with this CAD request
         const gemstone = await db.collection('products').findOne({

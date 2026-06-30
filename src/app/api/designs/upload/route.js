@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { uploadFileToS3 } from '@/utils/s3.util';
 import { calculateSTLVolume } from '@/utils/stlVolumeCalculator';
 import { ObjectId } from 'mongodb';
@@ -22,7 +22,7 @@ export async function POST(request) {
             }, { status: 403 });
         }
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
 
         // Parse form data
         const formData = await request.formData();

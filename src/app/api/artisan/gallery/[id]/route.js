@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from "@/lib/auth";
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 
 export async function DELETE(req, { params }) {
     try {
@@ -20,7 +20,7 @@ export async function DELETE(req, { params }) {
             return NextResponse.json({ error: 'Item ID is required' }, { status: 400 });
         }
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
         
         // Find user by userID
         const user = await db.collection('users').findOne({ userID: session.user.userID });
@@ -78,7 +78,7 @@ export async function PUT(req, { params }) {
             return NextResponse.json({ error: 'Item ID is required' }, { status: 400 });
         }
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
         
         // Find user by userID
         const user = await db.collection('users').findOne({ userID: session.user.userID });

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 
@@ -15,7 +15,7 @@ export async function GET(request, { params }) {
         const { designId } = await params;
         console.log('ὐd Looking for design:', designId);
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
 
         // Find gemstone containing this design (support both old _id and new id formats)
         let gemstone = await db.collection('products').findOne({
@@ -93,7 +93,7 @@ export async function DELETE(request, { params }) {
         
         console.log('🚮 Deleting design:', designId, 'fileType:', fileType);
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
 
         // Find product (gemstone) containing this design (support both old _id and new id formats)
         let product = await db.collection('products').findOne({

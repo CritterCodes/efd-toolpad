@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { ObjectId } from 'mongodb';
 
 export async function GET(request) {
@@ -15,7 +15,7 @@ export async function GET(request) {
         const status = searchParams.get('status');
         const assignedTo = searchParams.get('assignedTo');
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
         
         // Build query filter
         let filter = {};
@@ -121,7 +121,7 @@ export async function POST(request) {
             );
         }
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
 
         // Check if request already exists for this gemstone
         const existingRequest = await db.collection('designRequests').findOne({

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { ObjectId } from 'mongodb';
 
 export async function PUT(request, { params }) {
@@ -22,7 +22,7 @@ export async function PUT(request, { params }) {
             );
         }
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
         
         const updateData = {
             name,
@@ -68,7 +68,7 @@ export async function DELETE(request, { params }) {
         }
 
         const { id } = params;
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
 
         const result = await db.collection('products').deleteOne(
             { _id: new ObjectId(id), productType: 'cad-design' }
@@ -102,7 +102,7 @@ export async function GET(request, { params }) {
         }
 
         const { id } = params;
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
 
         const design = await db.collection('products').findOne(
             { _id: new ObjectId(id), productType: 'cad-design' }

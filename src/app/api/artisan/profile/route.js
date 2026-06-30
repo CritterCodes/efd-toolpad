@@ -6,7 +6,7 @@
 
 import { NextResponse } from 'next/server';
 import { UnifiedUserService } from '@/lib/unifiedUserService';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { auth } from '@/../auth';
 import { uploadFileToS3 } from '@/utils/s3.util';
 
@@ -30,7 +30,7 @@ export async function GET(request) {
             );
         }
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
         const userID = session.user.userID;
 
         // Get user's artisan application data
@@ -80,7 +80,7 @@ export async function PUT(request) {
             );
         }
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
         const userID = session.user.userID;
 
         // Parse form data

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 
@@ -15,7 +15,7 @@ export async function PUT(request, { params }) {
         const body = await request.json();
         const { status, notes, updatedBy } = body;
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
 
         // Validate the status transition
         const validStatuses = [

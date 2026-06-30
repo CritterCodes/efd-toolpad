@@ -4,7 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '../../../lib/mongodb.js';
+import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 
@@ -28,7 +28,7 @@ export async function GET(request) {
     const limit = parseInt(searchParams.get('limit')) || 20;
     const skip = (page - 1) * limit;
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
 
     // Build filter
     const filter = {};
@@ -125,7 +125,7 @@ export async function POST(request) {
       );
     }
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
 
     // Create drop request
     const dropRequest = {

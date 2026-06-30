@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import { NotificationService, NOTIFICATION_TYPES, CHANNELS } from '@/lib/notificationService';
@@ -21,7 +21,7 @@ export async function POST(request, { params }) {
         const { statusNotes } = body;
         console.log('📝 Status notes:', statusNotes);
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
 
         // Find the gemstone with the design (support both old _id and new id formats)
         let gemstone = await db.collection('products').findOne({

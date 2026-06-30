@@ -1,5 +1,5 @@
 import { auth } from '@/lib/auth';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 
 // The Best of the River Valley campaign (matches efd-shop lib/voteCampaign.js).
 const CAMPAIGN_KEY = 'best-of-river-valley-2026';
@@ -38,7 +38,7 @@ export async function GET() {
   }
 
   try {
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
     const subs = db.collection('voteReminders');
     const events = db.collection('voteReminderEvents');
     const filter = { campaignKey: CAMPAIGN_KEY };

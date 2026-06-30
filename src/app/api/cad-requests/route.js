@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import { NotificationService, NOTIFICATION_TYPES, CHANNELS } from '@/lib/notificationService';
@@ -30,7 +30,7 @@ export async function GET(request) {
         }
         
         console.log('🔗 Connecting to database...');
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
         console.log('✅ Database connected');
         
         // Find the gemstone and get its CAD requests
@@ -100,7 +100,7 @@ export async function POST(request) {
         }
         
         console.log('🔗 POST: Connecting to database...');
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
         console.log('✅ POST: Database connected');
         
         // Find the gemstone first

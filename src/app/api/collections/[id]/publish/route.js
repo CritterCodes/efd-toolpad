@@ -4,7 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { connectDB } from '@/lib/database';
+import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 
@@ -36,7 +36,7 @@ export async function POST(request, { params }) {
       );
     }
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
     const collection = await db.collection('collections').findOne({
       _id: new ObjectId(id)
     });

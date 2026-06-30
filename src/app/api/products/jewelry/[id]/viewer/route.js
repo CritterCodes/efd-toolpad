@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { ObjectId } from 'mongodb';
 import { uploadFileToS3 } from '../../../../../../utils/s3.util';
 
@@ -35,7 +35,7 @@ export async function GET(request, { params }) {
             return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
         }
 
-        const { db } = await connectToDatabase()
+        const db = await mongo.connect()
         const { id }  = await params
         const product = await resolveProduct(db, id)
 
@@ -58,7 +58,7 @@ export async function PATCH(request, { params }) {
             return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
         }
 
-        const { db } = await connectToDatabase()
+        const db = await mongo.connect()
         const { id }  = await params
         const product = await resolveProduct(db, id)
 
@@ -113,7 +113,7 @@ export async function POST(request, { params }) {
             return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
         }
 
-        const { db } = await connectToDatabase()
+        const db = await mongo.connect()
         const { id }  = await params
         const product = await resolveProduct(db, id)
 

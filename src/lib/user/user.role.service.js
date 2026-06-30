@@ -1,4 +1,4 @@
-import { connectToDatabase } from '../mongodb.js';
+import { db as mongo } from '@/lib/database';
 import { v4 as uuidv4 } from 'uuid';
 import { USER_ROLES, USER_STATUS, ROLE_PERMISSIONS } from './user.constants.js';
 import { UserQueryService } from './user.query.service.js';
@@ -47,7 +47,7 @@ export class UserRoleService {
 
   static async updateUserRole(userID, newRole, approvedBy = null) {
     try {
-      const { db } = await connectToDatabase();
+      const db = await mongo.connect();
       const user = await UserQueryService.findUserByUserID(userID);
       
       if (!user) throw new Error('User not found');
@@ -82,7 +82,7 @@ export class UserRoleService {
 
   static async getPendingUsers() {
     try {
-      const { db } = await connectToDatabase();
+      const db = await mongo.connect();
       return await db.collection('users').find({ status: USER_STATUS.PENDING }).toArray();
     } catch (error) {
       console.error('Error getting pending users:', error);
@@ -92,7 +92,7 @@ export class UserRoleService {
 
   static async approveUser(userID, approvedBy, notes = '') {
     try {
-      const { db } = await connectToDatabase();
+      const db = await mongo.connect();
       const user = await UserQueryService.findUserByUserID(userID);
       
       if (!user) throw new Error('User not found');
@@ -128,7 +128,7 @@ export class UserRoleService {
 
   static async rejectUser(userID, rejectedBy, reason = '') {
     try {
-      const { db } = await connectToDatabase();
+      const db = await mongo.connect();
       const user = await UserQueryService.findUserByUserID(userID);
       
       if (!user) throw new Error('User not found');
@@ -160,7 +160,7 @@ export class UserRoleService {
 
   static async createAdminUser(userData, createdBy) {
     try {
-      const { db } = await connectToDatabase();
+      const db = await mongo.connect();
       const existingUser = await UserQueryService.findUserByEmail(userData.email);
       if (existingUser) throw new Error('User with this email already exists');
 
@@ -191,7 +191,7 @@ export class UserRoleService {
 
   static async getUserStats() {
     try {
-      const { db } = await connectToDatabase();
+      const db = await mongo.connect();
       const totalUsers = await db.collection('users').countDocuments();
       const pendingUsers = await db.collection('users').countDocuments({ status: USER_STATUS.PENDING });
       const activeUsers = await db.collection('users').countDocuments({ status: USER_STATUS.ACTIVE });

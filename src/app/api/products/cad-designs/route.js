@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from "@/lib/auth";
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 
 export async function GET() {
     try {
@@ -9,7 +9,7 @@ export async function GET() {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
         const designs = await db.collection('products').find({ 
             productType: 'cad-design' 
         }).toArray();
@@ -45,7 +45,7 @@ export async function POST(request) {
             );
         }
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
         
         const design = {
             productType: 'cad-design',

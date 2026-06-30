@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { uploadFileToS3 } from '@/utils/s3.util';
 import { ObjectId } from 'mongodb';
 import {
@@ -44,7 +44,7 @@ export async function GET(request) {
       return NextResponse.json({ success: false, error: 'Could not identify user account' }, { status: 400 });
     }
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
     const user = await db.collection('users').findOne(userQuery, {
       projection: {
         firstName: 1,
@@ -98,7 +98,7 @@ export async function PUT(request) {
 
     validateLogoFile(ticketLogoFile);
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
     const now = new Date();
 
     const updateFields = {

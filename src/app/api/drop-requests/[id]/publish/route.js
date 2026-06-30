@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectDB } from '@/lib/database';
+import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import { NotificationService, NOTIFICATION_TYPES } from '@/lib/notificationService';
@@ -34,7 +34,7 @@ export async function POST(request, { params }) {
       );
     }
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
     const dropRequest = await db.collection('drop-requests').findOne({
       _id: new ObjectId(id)
     });

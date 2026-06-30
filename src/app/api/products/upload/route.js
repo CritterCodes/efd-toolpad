@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { uploadFileToS3 } from '../../../../utils/s3.util';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 
 export async function POST(request) {
     try {
@@ -49,7 +49,7 @@ export async function POST(request) {
         }
 
         try {
-            const { db } = await connectToDatabase();
+            const db = await mongo.connect();
             await db.collection('products').updateOne(
                 { productId },
                 {

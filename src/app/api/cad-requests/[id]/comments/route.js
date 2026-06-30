@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 
@@ -19,7 +19,7 @@ export async function POST(request, { params }) {
             return NextResponse.json({ error: 'Comment cannot be empty' }, { status: 400 });
         }
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
 
         // Find the gemstone with the CAD request
         const gemstone = await db.collection('products').findOne({
@@ -86,7 +86,7 @@ export async function GET(request, { params }) {
             return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
         }
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
 
         // Find the gemstone with the CAD request
         const gemstone = await db.collection('products').findOne({

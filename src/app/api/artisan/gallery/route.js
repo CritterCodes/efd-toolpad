@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from "@/lib/auth";
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { uploadFileToS3 } from '@/utils/s3.util';
 import { ObjectId } from 'mongodb';
 
@@ -17,7 +17,7 @@ export async function GET(request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
         
         // Find user by userID (not ObjectId)
         const user = await db.collection('users').findOne({ userID: session.user.userID });
@@ -69,7 +69,7 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
         
         // Find user by userID (not ObjectId)
         const user = await db.collection('users').findOne({ userID: session.user.userID });

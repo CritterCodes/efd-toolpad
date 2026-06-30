@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 
 /**
@@ -16,7 +16,7 @@ export async function GET(request, { params }) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
 
         // Find the gemstone with the CAD request using custom ID
         console.log('🔍 Looking for gemstone with CAD request ID:', id);
@@ -89,7 +89,7 @@ export async function PUT(request, { params }) {
         const body = await request.json();
         const { gemstoneId, status, notes, updatedBy, ...updateData } = body;
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
 
         // Build update object
         const updateFields = {
@@ -177,7 +177,7 @@ export async function DELETE(request, { params }) {
         const { searchParams } = new URL(request.url);
         const gemstoneId = searchParams.get('gemstoneId');
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
 
         // Find and delete the CAD request
         const result = await db.collection('products').updateOne(
@@ -231,7 +231,7 @@ export async function PATCH(request, { params }) {
         const body = await request.json();
         const { action, ...updateData } = body;
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
 
         // Build update object based on action
         const updateFields = {

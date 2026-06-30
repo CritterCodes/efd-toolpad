@@ -4,12 +4,12 @@
  * POST: Update metal prices (admin only, called daily by cron job)
  */
 
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 
 export async function GET(req) {
   try {
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
     
     // Try to get prices from cache (within 24 hours)
     const metalPrices = await db.collection('metalPrices').findOne({
@@ -74,7 +74,7 @@ export async function POST(req) {
       }, { status: 400 });
     }
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
 
     // Update or create metal prices
     const result = await db.collection('metalPrices').updateOne(

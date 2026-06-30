@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { getUserArtisanTypes, canManageGemstones } from '@/lib/productPermissions';
 
 export async function GET() {
@@ -10,7 +10,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
     const isAdmin = ['admin', 'staff', 'dev'].includes(session.user.role);
 
     let gemstones;
@@ -88,7 +88,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Title and species are required' }, { status: 400 });
     }
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
 
     const actualUserId = userId || session.user.userID || session.user.email;
     let actualVendor = vendor || session.user.businessName || session.user.name;
@@ -282,7 +282,7 @@ export async function PUT(request) {
       return NextResponse.json({ error: 'ProductId, title and species are required' }, { status: 400 });
     }
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
 
     // Permission check for write ops
     if (!['admin', 'staff', 'dev'].includes(session.user.role)) {
@@ -359,7 +359,7 @@ export async function DELETE(request) {
       return NextResponse.json({ error: 'Gemstone ID is required' }, { status: 400 });
     }
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
 
     // Permission check
     if (!['admin', 'staff', 'dev'].includes(session.user.role)) {

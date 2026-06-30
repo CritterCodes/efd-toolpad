@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import { uploadFileToS3 } from '@/utils/s3.util';
@@ -18,7 +18,7 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Access denied. CAD Designer role required.' }, { status: 403 });
         }
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
 
         // Parse form data
         const formData = await request.formData();

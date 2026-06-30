@@ -3,7 +3,7 @@
  * Reads analytics data from the centralized analytics collection
  */
 
-import { connectToDatabase } from './mongodb.js';
+import { db as mongo } from '@/lib/database';
 
 export class AnalyticsService {
   static COLLECTION_NAME = 'analytics';
@@ -15,7 +15,7 @@ export class AnalyticsService {
     try {
       console.log('🔍 [ANALYTICS] Getting data for:', { userID, vendorBusinessName, timeRange });
       
-      const { db } = await connectToDatabase();
+      const db = await mongo.connect();
       const collection = db.collection(this.COLLECTION_NAME);
 
       // Try multiple query strategies to find the analytics document

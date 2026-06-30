@@ -1,4 +1,4 @@
-import { connectToDatabase } from '../mongodb.js';
+import { db as mongo } from '@/lib/database';
 import { v4 as uuidv4 } from 'uuid';
 import { USER_ROLES, USER_STATUS, AUTH_PROVIDERS, ROLE_PERMISSIONS } from './user.constants.js';
 import { UserQueryService } from './user.query.service.js';
@@ -10,7 +10,7 @@ export class UserAuthService {
   static async authenticateWithGoogle(googleProfile, additionalData = {}) {
     console.log("��� UnifiedUserService.authenticateWithGoogle started for:", googleProfile.email);
     try {
-      const { db } = await connectToDatabase();
+      const db = await mongo.connect();
       
       let user = await UserQueryService.findUserByEmailSafe(googleProfile.email);
       

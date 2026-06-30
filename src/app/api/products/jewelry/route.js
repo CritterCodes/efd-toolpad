@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { getUserArtisanTypes, canManageJewelry } from '@/lib/productPermissions';
 import { deriveRepairItemMetadata, withRepairItemMetadata } from '@/lib/productRepairMetadata';
 
@@ -11,7 +11,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
     const isAdmin = ['admin', 'staff', 'dev'].includes(session.user.role);
 
     let jewelry;
@@ -101,7 +101,7 @@ export async function POST(request) {
       ...otherData
     } = data;
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
 
     const actualUserId = session.user.userID || session.user.email;
     let actualVendor = vendor || session.user.businessName || session.user.name || '';

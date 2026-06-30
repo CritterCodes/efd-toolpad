@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 
@@ -21,7 +21,7 @@ export async function GET(request) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
 
     // Build query based on user role
     let query = {};
@@ -83,7 +83,7 @@ export async function POST(request) {
     }
 
     const data = await request.json();
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
 
     // Validate required fields
     const requiredFields = ['title', 'description', 'productType'];

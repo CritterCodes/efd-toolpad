@@ -244,8 +244,8 @@ Tracked here so deferred cleanup can't fall through the cracks. Target: alongsid
 - **Orphaned cross-DB code** — delete the `/api/designs` mock GET + `/api/cad-requests/[id]/volume`
   route (hardcoded `jewelry-ecommerce` DB) once the gemstone/cad-request flow is reconciled (S3 sidestepped
   these via `/api/production/*`; they have no callers).
-- **Unify DB-connection helpers** — collapse `@/lib/mongodb` (`connectToDatabase`) into `@/lib/database`
-  so there's one connection pattern.
+- ✅ **Unify DB-connection helpers (DONE)** — collapsed `@/lib/mongodb` (`connectToDatabase`) into
+  `@/lib/database` (`db.connect()`); `lib/mongodb.js` deleted, ~50 call sites migrated. One pattern now.
 - **Drop junk `inventory*` collections** (`inventory`/`inventoryTransactions`/`inventoryReorderSuggestions`)
   — at cutover (materials-inventory is parked indefinitely; see README).
 - ~~Reset trash `products` data~~ — **not needed**: the `products` schema is already contract-aligned

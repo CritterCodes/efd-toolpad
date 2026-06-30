@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import { NotificationService, NOTIFICATION_TYPES, CHANNELS } from '@/lib/notificationService';
@@ -17,7 +17,7 @@ export async function POST(request, { params }) {
         const body = await request.json();
         const { notes, approvedBy } = body;
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
 
         // Find the gemstone with the design using custom design ID (or fall back to _id for old designs)
         let gemstone = await db.collection('products').findOne({

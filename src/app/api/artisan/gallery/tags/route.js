@@ -5,7 +5,7 @@
 
 import { NextResponse } from 'next/server';
 import { auth } from "@/lib/auth";
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 
 export async function GET() {
     try {
@@ -14,7 +14,7 @@ export async function GET() {
             return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
         }
 
-        const { db } = await connectToDatabase();
+        const db = await mongo.connect();
         
         // Find user by userID
         const user = await db.collection('users').findOne({ userID: session.user.userID });

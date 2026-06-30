@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 
@@ -10,7 +10,7 @@ import { ObjectId } from 'mongodb';
 export async function GET(request, { params }) {
   try {
     const { id } = params;
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
 
     // Validate ID
     if (!ObjectId.isValid(id)) {
@@ -48,7 +48,7 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: 'Invalid product ID' }, { status: 400 });
     }
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
     const data = await request.json();
 
     // Find product
@@ -117,7 +117,7 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: 'Invalid product ID' }, { status: 400 });
     }
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
 
     // Find product
     const product = await db.collection('products').findOne({

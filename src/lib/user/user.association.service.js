@@ -1,9 +1,9 @@
-import { connectToDatabase } from '../mongodb.js';
+import { db as mongo } from '@/lib/database';
 
 export class UserAssociationService {
   static async addCustomRequest(userID, requestData) {
     try {
-      const { db } = await connectToDatabase();
+      const db = await mongo.connect();
       const result = await db.collection('users').updateOne(
         { userID },
         { 
@@ -22,7 +22,7 @@ export class UserAssociationService {
 
   static async addJewelry(userID, jewelryData) {
     try {
-      const { db } = await connectToDatabase();
+      const db = await mongo.connect();
       const result = await db.collection('users').updateOne(
         { userID },
         { 

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import { NotificationService, NOTIFICATION_TYPES } from '@/lib/notificationService';
@@ -25,7 +25,7 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'Invalid product ID' }, { status: 400 });
     }
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
     const body = await request.json();
 
     if (!body.reason) {

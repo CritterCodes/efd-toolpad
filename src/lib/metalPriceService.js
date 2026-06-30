@@ -3,7 +3,7 @@
  * Handles fetching and caching metal prices from metalpriceapi.com
  */
 
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 
 /**
  * Fetch current metal prices from metalpriceapi.com
@@ -64,7 +64,7 @@ async function fetchMetalPricesFromAPI() {
  */
 export async function getCurrentMetalPrices() {
   try {
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
 
     // Check if we have cached prices from today
     const metalPrices = await db.collection('metalPrices').findOne({
@@ -103,7 +103,7 @@ export async function updateMetalPrices() {
     }
 
     // Save to database
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
     
     const result = await db.collection('metalPrices').updateOne(
       { _id: 'current_prices' },

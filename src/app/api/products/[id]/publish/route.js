@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import { NotificationService, NOTIFICATION_TYPES } from '@/lib/notificationService';
@@ -17,7 +17,7 @@ export async function POST(request, { params }) {
     }
 
     const { id } = params;
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
     const body = await request.json().catch(() => ({}));
 
     // Find product by _id or productId

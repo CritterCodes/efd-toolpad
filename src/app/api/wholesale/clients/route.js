@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { auth } from '@/lib/auth';
-import { connectToDatabase } from '@/lib/mongodb';
+import { db as mongo } from '@/lib/database';
 
 function buildClientName(user = {}) {
   const first = String(user.firstName || '').trim();
@@ -55,7 +55,7 @@ export async function GET(request) {
       ? (requestedWholesalerId || '')
       : session.user.userID;
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
     const query = {};
     if (ownerWholesalerId) {
       query.parentWholesalerId = ownerWholesalerId;
@@ -115,7 +115,7 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: 'wholesalerId is required' }, { status: 400 });
     }
 
-    const { db } = await connectToDatabase();
+    const db = await mongo.connect();
 
     if (email) {
       const existingByEmailInClients = await db.collection('clients').findOne({
