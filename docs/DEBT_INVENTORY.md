@@ -25,10 +25,8 @@ and [sprints.md](manufacturing/sprints.md).
 - ~~**Auth disabled on live endpoints**~~ ✅ DONE (d5fe3c1) — `rush-jobs` (GET+POST) re-gated
   with `requireRepairOps()`; `tasks/universal` (POST) with `requireRole(['admin','dev'])` +
   session-derived `createdBy`. No disabled-auth patterns remain in the codebase.
-- **`src/lib/paymentService.js` is a stub** — `createPaymentLink` / `getPaymentStatus` /
-  `processRefund` / `verifyWebhook` are `console.warn` no-ops. Custom orders use Stripe
-  directly (`src/app/api/custom-orders/stripe.js`), so confirm who (if anyone) calls
-  paymentService and either wire it or delete it. **Still open.**
+- ~~**`src/lib/paymentService.js` is a stub**~~ ✅ DONE (3ddb8f7) — deleted; it was a no-op
+  stub with zero references (custom orders use Stripe directly). **🔴 section now clear.**
 
 ## 🟡 Unimplemented integrations (stubs that silently no-op)
 - **Email / notifications not implemented** — `src/lib/emailService.js`,
