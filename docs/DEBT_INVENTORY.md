@@ -99,7 +99,23 @@ The **legacy** side appears unused and props up 4 false "reachable" pages:
 Confirm `constants/roles.js` + `RoleBasedNavigation.jsx` have no live importer, then remove the
 cluster + those 4 pages as one unit.
 
-## Tier 4 — MODULE-LEVEL: use knip (installed + configured)
+## Tier 4 — MODULE-LEVEL: ✅ FILE SWEEP COMPLETE — `knip` reports 0 unused files
+Removed across reviewed, build+test-verified batches (each a commit):
+`frontend/` (8) · app/components mirror (51) · non-component modules hooks/schemas/services/
+utils/config/lib/contexts/constants (207) · components (132) · app/ helper modules (73) =
+**~471 files**, on top of the earlier Tier 0–3 stubs/routes/legacy-shell. **knip "Unused files"
+is now empty.** Method per batch: re-run knip (cascade-aware) → confirm no dynamic-import target
+in the set (codebase dynamic-imports only models/lib/services/packages, never local components)
+→ delete → `pnpm build` + `pnpm test`.
+
+**Still open (separate, finer-grained — NOT file deletions):**
+- **Unused exports (163)** — dead exports *inside live files*. Trim per-file (remove export +
+  confirm nothing breaks). Tedious; lower value. e.g. `DASHBOARD_SECTIONS`/`getDashboardSections`
+  in `constants/roles.js` (orphaned when the legacy nav shell was removed).
+- **Unused dependencies (17) + devDeps (4)** — prune from package.json, but verify each isn't used
+  implicitly (build tooling, runtime, peer) before removing.
+
+### (historical) original knip notes — use knip (installed + configured)
 `knip` is now a devDep with `knip.json` (scoped to the admin app: Next + scripts + tests as
 entries; `public/`, `frontend/`, `microservices/`, `examples/`, `deprecated/` ignored). Run:
 **`pnpm deadcode`**. Validated trustworthy: the `@/` alias resolves, Next route/page/layout
