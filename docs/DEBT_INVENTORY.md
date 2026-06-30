@@ -22,14 +22,13 @@ and [sprints.md](manufacturing/sprints.md).
 > **How to regenerate:** `grep -rnIE "\b(TODO|FIXME|HACK|XXX|STUB)\b" src` + `find src -iname "*-backup*" -o -iname "*-broken*" -o -iname "*.bak" -o -iname "*deprecated*"` + read sprints.md "Tech-debt" / "Deferred UI phase" sections + `git branch`.
 
 ## 🔴 Security / correctness stubs (triage first)
-- **Auth disabled on live endpoints** — `src/app/api/rush-jobs/route.js` and
-  `src/app/api/tasks/universal/route.js` both carry *"Re-enable once authentication is
-  properly configured"*; the latter hardcodes `createdBy: 'admin@example.com'`. These accept
-  requests unauthenticated. **Verify exposure and re-gate.**
+- ~~**Auth disabled on live endpoints**~~ ✅ DONE (d5fe3c1) — `rush-jobs` (GET+POST) re-gated
+  with `requireRepairOps()`; `tasks/universal` (POST) with `requireRole(['admin','dev'])` +
+  session-derived `createdBy`. No disabled-auth patterns remain in the codebase.
 - **`src/lib/paymentService.js` is a stub** — `createPaymentLink` / `getPaymentStatus` /
   `processRefund` / `verifyWebhook` are `console.warn` no-ops. Custom orders use Stripe
   directly (`src/app/api/custom-orders/stripe.js`), so confirm who (if anyone) calls
-  paymentService and either wire it or delete it.
+  paymentService and either wire it or delete it. **Still open.**
 
 ## 🟡 Unimplemented integrations (stubs that silently no-op)
 - **Email / notifications not implemented** — `src/lib/emailService.js`,
