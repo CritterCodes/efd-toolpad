@@ -1,1 +1,0 @@
-export const TicketSummary = (props) => <div>Summary</div>;

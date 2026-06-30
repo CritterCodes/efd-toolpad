@@ -1,1 +1,0 @@
-export const SelectedMaterialsList = (props) => <div>List</div>;

@@ -1,1 +1,0 @@
-export const AnalyticsSummaryCards = (props) => <div {...props}>Cards</div>;

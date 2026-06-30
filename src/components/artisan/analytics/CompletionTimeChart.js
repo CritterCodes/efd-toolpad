@@ -1,1 +1,0 @@
-export const CompletionTimeChart = (props) => <div {...props}>Chart</div>;
