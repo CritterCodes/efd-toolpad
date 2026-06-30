@@ -237,7 +237,21 @@ class Database {
 }
 
 export default Database;
-export const db = new Database();
+
+// Lazily-instantiated singleton. Exporting `new Database()` directly ran the constructor
+// at module-load — which threw whenever this module was pulled into a CLIENT bundle (even
+// transitively, e.g. a 'use client' component importing a service that imports this). The
+// Proxy defers construction until a property is actually accessed, so importing is safe
+// everywhere; the constructor's server-only guard still fires if client code truly USES the
+// DB. Server usage (`db.connect()`, `db.dbUsers()`, …) is unchanged.
+let _dbSingleton = null;
+export const db = new Proxy({}, {
+    get(_target, prop) {
+        if (!_dbSingleton) _dbSingleton = new Database();
+        const value = _dbSingleton[prop];
+        return typeof value === 'function' ? value.bind(_dbSingleton) : value;
+    },
+});
 
 // Backward compatibility export
 export const connectDB = async () => {
