@@ -62,3 +62,53 @@ CO-mqx0d5ya (#27).
 12 local branches (archive/*, backup/*, rescue/*, hotfix/*, codex/*, feature/*, ui/modern-redesign)
 — prune the merged/abandoned ones. Everything from this session sits on
 `chore/react-19-upgrade` (mislabeled) — see #23.
+
+---
+
+# Dead-code sweep (#29) — ranked inventory
+
+From a 3-lens fan-out (orphan pages / unimported modules / dead API routes + legacy clusters),
+reconciled + de-falsed. **Tiers are by confidence + removal risk. Delete top-down.**
+
+## ✅ Tier 0 — removed (11fc43a, this session)
+7 empty (0-byte) route stubs (`admin/initialize-processes-materials`, `admin/seed-collections`,
+`admin/settings/cascade`, `contact/route`, `tasks/crud`, `contact/bulk`, `contact/analytics`),
+2 empty pages (`dashboard/contact-requests`, `dashboard/repair-tasks`), and the 0-ref
+`@deprecated` `utils/pricing/legacy-pricing.util.js`.
+
+## Tier 1 — high confidence, delete after a 1-line ref check each
+- **Orphan pages (non-empty, 0 refs):** `app/admin/demo/repair-costing/page.js` (demo stub),
+  `app/dashboard/admin/artisans/overview/page.js`.
+- **Debug/dev API routes (0 callers; also a mild info-leak):** `api/debug-data`,
+  `api/debug/env`, `api/debug/session`, `api/debug/session-info`, `api/debug/test-auth`.
+- **Complete-but-unused API routes (0 callers):** `api/suggestions` (gemstone), `api/roles/permissions`,
+  `api/auth/check-local-storage`.
+
+## Tier 2 — verify EXTERNAL caller first (efd-shop / Vercel cron), then delete
+- `api/cron/update-metal-prices` — may be a Vercel cron target (check cron config / vercel.json).
+- `api/auth/migrate-passwords` — one-time migration utility; confirm it isn't invoked anywhere.
+- `api/products/gemstones/*`, `api/products/cad-designs/*` — 0 in-app callers; superseded by the
+  CAD-request flow, but verify efd-shop + the gemstone data model don't depend on them.
+
+## Tier 3 — LEGACY NAV CLUSTER (one investigation, likely deletes together)
+Active nav = `@/lib/roleBasedNavigation` + `lib/navigation/*` (confirmed live, imported relatively).
+The **legacy** side appears unused and props up 4 false "reachable" pages:
+- `src/constants/roles.js` (`DASHBOARD_SECTIONS`) + the `RoleBasedNavigation.jsx` component.
+- The 4 pages referenced ONLY by it: `dashboard/artisan/{collections,drops,products}`,
+  `dashboard/wholesaler/products`.
+Confirm `constants/roles.js` + `RoleBasedNavigation.jsx` have no live importer, then remove the
+cluster + those 4 pages as one unit.
+
+## Tier 4 — MODULE-LEVEL: needs a real tool, NOT the agent list
+The "428 unimported modules" scan is **unreliable** — it counted only `@/` alias imports and
+ignored relative + dynamic imports, so it false-flagged live code (e.g. `lib/navigation/*`, and
+active `*.test.js` files vitest runs). **Do not bulk-delete from it.** Get a trustworthy module
+graph first: add **`knip`** (handles relative/dynamic imports + Next entry points) and treat its
+output as the source of truth for dead files *and* dead exports-within-live-files. The agent list
+is a hint set to cross-check against knip, nothing more.
+
+## Keep — confirmed live despite "legacy"/deprecated labels
+`api/repairs/closeout/legacy-close` (called from pick-up page); `repairTasks` schema field
+(migration may be incomplete); `@deprecated` *methods* inside otherwise-live files
+(`processes/service.js`, `tasks/service.js`, `taskUpdate.service.js`, `material.pricing.js`) —
+finer-grained export-level cleanup, defer to the knip pass.
