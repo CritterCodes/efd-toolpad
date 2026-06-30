@@ -41,19 +41,20 @@ and [sprints.md](manufacturing/sprints.md).
 - **`UserGridList.js`** — row edit/delete buttons are `onClick={() => {/* TODO */}}` no-ops.
 - **`DashboardLayout.jsx`** — overview cards + "wholesale products" sections are TODO stubs.
 
-## 🟢 Abandoned / duplicate files (dead code → task #29 sweep)
-`src/components/dashboards/ArtisanDashboard-{backup,broken,redundant}.js`,
-`WholesalerDashboard-backup.js`, `src/app/dashboard/page-backup.js`,
-`src/app/dashboard/products/jewelry/[id]/page.js.bak`, `src/utils/processes.util.js.bak`,
-`src/services/_deprecated_appointments.js`, `src/services/_deprecated_googleCalendar.js`,
-the top-level `deprecated/` dir (incl. the parked legacy my-bench page).
-(`src/app/dashboard/bench/page.js` is an intentional redirect stub — **keep**.)
+## ✅ Abandoned / duplicate files — DONE (commit 9628b08)
+Removed (5.2k lines, all zero-reference): `ArtisanDashboard-{backup,broken,redundant}.js`,
+`WholesalerDashboard-backup.js`, `dashboard/page-backup.js`, `products/jewelry/[id]/page.js.bak`,
+`utils/processes.util.js.bak`, `services/_deprecated_{appointments,googleCalendar}.js`, and the
+`deprecated/` dir. (`src/app/dashboard/bench/page.js` is an intentional redirect stub — kept.)
 
 ## Deferred by design — tracked in sprints.md (already in live tasks)
 - **UI phase** U2 production catalog (#31), U4 product editor (#32), U5 marketplace admin
   (#33), U6 polish (#34). U1 bench + Customs UI done; U3 meshMap ≈ delivered via refrakt Studio.
-- **Tech-debt backlog** (#35): orphaned cross-DB code, unify DB helpers, drop junk `inventory*`
-  collections, legacy cad-request absorption, customTickets residuals. Plus scrub S3→MinIO (#28).
+- **Tech-debt backlog** (#35): ~~orphaned cross-DB code~~ ✅ done (b5ad4d8 — also removed the last
+  `jewelry-ecommerce` hardcoded-DB ref); still open: unify DB helpers (`@/lib/mongodb` →
+  `@/lib/database`, ~48 importers), drop junk `inventory*` collections at cutover, legacy
+  cad-request absorption (+ product-embedded "New CAD Request" dialog + navless `/dashboard/requests`),
+  customTickets residuals. Plus scrub S3→MinIO (#28).
 
 ## This session's loose ends (live tasks)
 Branch + PR (#23), manual-verify bench handoff (#24), verify piece/CAD WOs in the
