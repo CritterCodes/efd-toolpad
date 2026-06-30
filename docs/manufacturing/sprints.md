@@ -260,8 +260,10 @@ Tracked here so deferred cleanup can't fall through the cracks. Target: alongsid
   new `/orders` API); root `microservices/custom-tickets-service/` is now orphaned; `/dashboard/requests`
   page is navless (remove with the cad-request flow); the `customTickets` collection is retained (migrated,
   not dropped) — drop it as a deliberate step once confident.
-- **Scrub legacy AWS-S3 image URLs → MinIO** — migrated customOrders carry `efd-repair-images.s3…` URLs
-  (see the scrub-s3 task); rewrite to MinIO so images resolve off the new storage.
+- ✅ **Scrub legacy AWS-S3 image URLs → MinIO (DONE)** — `scripts/migrate-s3-bucket-urls.js`
+  (--verify/--copy/--apply). The repair photos were never copied to MinIO, so the scrub first
+  copied 271 objects S3→MinIO, then rewrote 650 URLs across 368 docs (repairs/users/customOrders/
+  customTickets/gallery). Verified 0 remaining.
 
 ## Deferred UI phase (batched, build once backends are proven)
 
