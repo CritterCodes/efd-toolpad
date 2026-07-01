@@ -36,7 +36,7 @@ export const artisanApplicantNavigation = {
   [USER_ROLES.ARTISAN_APPLICANT]: [
     SHARED_NAVIGATION.dashboard,
     {
-      segment: 'dashboard/application',
+      segment: 'dashboard/pending',
       title: 'Application Status',
       icon: <RequestQuoteIcon />
     },

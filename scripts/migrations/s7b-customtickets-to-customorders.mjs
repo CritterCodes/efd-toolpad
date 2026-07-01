@@ -87,9 +87,12 @@ function buildQuote(t) {
   };
 }
 
-function buildOrder(t) {
+function buildOrder(t, user = null) {
   const rd = t.requestDetails || {}; // legacy spec lives here (jewelryType/metal/size/gemstones/budget/timeline/specialRequests)
   const rawStatus = String(t.status || 'pending').trim();
+  // BUG-001: legacy tickets store the customer as `userID` (not a denormalized name); resolve it from
+  // the `users` collection and snapshot the identity so the customs UI shows a real name, not "Unknown".
+  const userName = user ? ([user.firstName, user.lastName].filter(Boolean).join(' ') || user.businessName || user.name || '') : '';
   const status = STATUS_MAP[rawStatus] || STATUS_MAP[rawStatus.toLowerCase()] || 'pending';
   const assignments = Array.isArray(t.assignedArtisans)
     ? t.assignedArtisans.map((a, i) => ({
@@ -105,10 +108,10 @@ function buildOrder(t) {
     customID: `CO-mig-${t.ticketID}`,
     migratedFromTicketID: t.ticketID,
     clientID: t.clientID ?? t.userID ?? null,
-    legacyUserID: t.userID ?? null, // legacy customer ref (does NOT resolve to `clients` — reconcile separately)
-    customerName: t.customerName ?? '',
-    customerEmail: t.customerEmail ?? '',
-    customerPhone: t.customerPhone ?? '',
+    legacyUserID: t.userID ?? null, // legacy customer ref (a users.userID; snapshotted below)
+    customerName: t.customerName || userName || '',
+    customerEmail: t.customerEmail || user?.email || '',
+    customerPhone: t.customerPhone || user?.phoneNumber || user?.phone || '',
     title: t.title ?? '',
     description: t.description ?? '',
     type: t.type ?? 'custom-design',
@@ -179,6 +182,12 @@ const steps = [
       const tickets = await db.collection('customTickets').find({}).toArray();
       const orders = db.collection('customOrders');
 
+      // BUG-001: resolve each legacy `userID` → `users` doc so we can snapshot the customer identity.
+      const userIDs = [...new Set(tickets.map((t) => t.userID).filter(Boolean))];
+      const userDocs = userIDs.length ? await db.collection('users').find({ userID: { $in: userIDs } }).toArray() : [];
+      const userMap = new Map(userDocs.map((u) => [u.userID, u]));
+      const resolvedCustomers = tickets.filter((t) => userMap.has(t.userID)).length;
+
       // Landscape (dry-run visibility): distinct statuses + any that STATUS_MAP misses.
       const statusCounts = {};
       const unmapped = new Set();
@@ -198,13 +207,14 @@ const steps = [
           if (!t.ticketID) { skipped++; continue; }
           const exists = await orders.findOne({ migratedFromTicketID: t.ticketID }, { projection: { _id: 1 } });
           if (exists) { skipped++; continue; }
-          await orders.insertOne(buildOrder(t));
+          await orders.insertOne(buildOrder(t, userMap.get(t.userID)));
           migrated++;
         }
       }
 
       const report = [
         `tickets=${tickets.length}`,
+        `customers resolved from users: ${resolvedCustomers}/${tickets.length}`,
         `quoteShape{nested:${nested}, flat:${flat}, none:${noQuote}}`,
         `statuses=${JSON.stringify(statusCounts)}`,
         unmapped.size ? `⚠ UNMAPPED statuses (default→pending): ${[...unmapped].join(', ')}` : 'all statuses mapped',
