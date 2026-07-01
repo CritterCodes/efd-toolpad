@@ -21,7 +21,8 @@
  */
 import { runMigration } from './_lib.mjs';
 
-// Legacy ticket.status  →  CUSTOM_ORDER_STATUS. Extend once the dry-run report lists real values.
+// Legacy ticket.status  →  CUSTOM_ORDER_STATUS.
+// The bottom block is confirmed against real prod data (s7b dry-run on the prod clone, 2026-06-30).
 const STATUS_MAP = {
   pending: 'pending',
   new: 'pending',
@@ -44,6 +45,11 @@ const STATUS_MAP = {
   'picked-up': 'delivered',
   cancelled: 'cancelled',
   canceled: 'cancelled',
+  // --- confirmed present in prod customTickets ---
+  sketching: 'design',            // early design phase
+  'creating-cad': 'design',       // CAD in progress
+  'ordering-materials': 'in_production', // materials ordered → production underway
+  'final-payment-sent': 'completed',     // work done, final invoice issued
 };
 
 const num = (v) => (typeof v === 'number' && isFinite(v) ? v : 0);

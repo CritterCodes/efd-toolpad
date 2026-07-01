@@ -6,7 +6,7 @@
  * ensuring the Piece indexes; pieces are created by the app (PiecesModel /
  * createPieceFromDesign) — no data to backfill. Additive, idempotent.
  */
-import { runMigration } from './_lib.mjs';
+import { runMigration, collExists } from './_lib.mjs';
 
 const steps = [
   {
@@ -14,7 +14,8 @@ const steps = [
     run: async ({ db, dryRun }) => {
       const pieces = db.collection('pieces');
       if (dryRun) {
-        const idx = (await pieces.indexes()).length;
+        // On a fresh clone `pieces` may not exist yet (S0 creates it on apply).
+        const idx = (await collExists(db, 'pieces')) ? (await pieces.indexes()).length : 0;
         return `would ensure piece indexes (pieces has ${idx})`;
       }
       await pieces.createIndex({ pieceID: 1 }, { unique: true });

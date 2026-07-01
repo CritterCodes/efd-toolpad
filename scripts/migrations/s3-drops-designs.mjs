@@ -6,7 +6,7 @@
  * change is ensuring the Design/Drop indexes. Additive, idempotent. New designs are
  * written by the app (DesignsModel) — no data to backfill.
  */
-import { runMigration } from './_lib.mjs';
+import { runMigration, collExists } from './_lib.mjs';
 
 const steps = [
   {
@@ -16,8 +16,9 @@ const steps = [
       const designs = db.collection('designs');
 
       if (dryRun) {
-        const dropIdx = (await drops.indexes()).length;
-        const designIdx = (await designs.indexes()).length;
+        // On a fresh clone the collections may not exist yet (S0 creates them on apply).
+        const dropIdx = (await collExists(db, 'drops')) ? (await drops.indexes()).length : 0;
+        const designIdx = (await collExists(db, 'designs')) ? (await designs.indexes()).length : 0;
         return `would ensure drop/design indexes (drops has ${dropIdx}, designs has ${designIdx})`;
       }
 
