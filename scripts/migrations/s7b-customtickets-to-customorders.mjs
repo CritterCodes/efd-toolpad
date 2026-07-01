@@ -88,6 +88,7 @@ function buildQuote(t) {
 }
 
 function buildOrder(t) {
+  const rd = t.requestDetails || {}; // legacy spec lives here (jewelryType/metal/size/gemstones/budget/timeline/specialRequests)
   const rawStatus = String(t.status || 'pending').trim();
   const status = STATUS_MAP[rawStatus] || STATUS_MAP[rawStatus.toLowerCase()] || 'pending';
   const assignments = Array.isArray(t.assignedArtisans)
@@ -104,6 +105,7 @@ function buildOrder(t) {
     customID: `CO-mig-${t.ticketID}`,
     migratedFromTicketID: t.ticketID,
     clientID: t.clientID ?? t.userID ?? null,
+    legacyUserID: t.userID ?? null, // legacy customer ref (does NOT resolve to `clients` — reconcile separately)
     customerName: t.customerName ?? '',
     customerEmail: t.customerEmail ?? '',
     customerPhone: t.customerPhone ?? '',
@@ -122,20 +124,22 @@ function buildOrder(t) {
           reason: h.reason ?? 'migrated',
         }))
       : [{ status, changedAt: t.createdAt ? new Date(t.createdAt) : new Date(), changedBy: null, reason: 'migrated from customTickets' }],
-    // Spec fields (best-effort from legacy).
-    jewelryType: t.jewelryType ?? null,
-    metalType: t.metalType ?? null,
-    karat: t.karat ?? null,
-    goldColor: t.goldColor ?? null,
-    size: t.size ?? t.ringSize ?? null,
-    gemstones: Array.isArray(t.gemstones) ? t.gemstones : [],
-    budget: t.budget ?? null,
-    timeline: t.timeline ?? null,
-    dueDate: t.dueDate ? new Date(t.dueDate) : null,
-    specialRequests: t.specialRequests ?? '',
+    // Spec fields (legacy `requestDetails`, with top-level fallbacks).
+    jewelryType: rd.jewelryType ?? t.jewelryType ?? null,
+    metalType: rd.metalType ?? t.metalType ?? null,
+    karat: rd.karat ?? t.karat ?? null,
+    goldColor: rd.goldColor ?? t.goldColor ?? null,
+    size: rd.size ?? t.size ?? t.ringSize ?? null,
+    gemstones: Array.isArray(rd.gemstones) ? rd.gemstones : (Array.isArray(t.gemstones) ? t.gemstones : []),
+    budget: rd.budget ?? t.budget ?? null,
+    timeline: rd.timeline ?? t.timeline ?? null,
+    dueDate: t.dueDate ? new Date(t.dueDate) : (t.estimatedCompletion ? new Date(t.estimatedCompletion) : null),
+    specialRequests: rd.specialRequests ?? t.specialRequests ?? '',
     notes: Array.isArray(t.notes) ? t.notes : [],
     communications: Array.isArray(t.communications) ? t.communications : [],
-    images: Array.isArray(t.images) ? t.images : (Array.isArray(t.moodboard) ? t.moodboard : []),
+    // referenceImages/moodBoard/designFiles + clientFeedback remain on the retained
+    // customTickets doc (via migratedFromTicketID) — surfaced later once element shapes are wired.
+    images: Array.isArray(rd.referenceImages) ? rd.referenceImages : [],
     assignments,
     designIDs: [],
     pieceIDs: [],
