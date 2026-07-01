@@ -32,11 +32,18 @@ for (const line of fs.readFileSync('.env.local', 'utf8').split(/\r?\n/)) {
   if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
   env[m[1]] = v;
 }
-const { MONGODB_URI, MONGO_DB_NAME } = env;
+const { MONGODB_URI } = env;
+// Target DB: MIGRATE_DB overrides .env.local's MONGO_DB_NAME (e.g. the cutover clone efd-db-migrate).
+const MONGO_DB_NAME = process.env.MIGRATE_DB || env.MONGO_DB_NAME;
 const MINIO_PUBLIC_URL = (env.MINIO_PUBLIC_URL || '').replace(/\/$/, '');
 const MINIO_BUCKET = env.MINIO_BUCKET || env.AWS_BUCKET_NAME;
 if (!MONGODB_URI || !MONGO_DB_NAME || !MINIO_PUBLIC_URL || !MINIO_BUCKET) {
   console.error('Missing MONGODB_URI / MONGO_DB_NAME / MINIO_PUBLIC_URL / MINIO_BUCKET');
+  process.exit(1);
+}
+// Guard: never rewrite production in-place unless explicitly allowed (the cutover swaps DBs instead).
+if (APPLY && MONGO_DB_NAME === 'efd-database' && process.env.SCRUB_ALLOW_PROD !== 'YES') {
+  console.error('Refusing to --apply against production "efd-database". Set SCRUB_ALLOW_PROD=YES to override.');
   process.exit(1);
 }
 
