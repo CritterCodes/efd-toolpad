@@ -3,7 +3,7 @@ import { requireRole } from '@/lib/apiAuth';
 import { db } from '@/lib/database';
 import PiecesModel from '@/app/api/pieces/model';
 import DesignsModel from '@/app/api/designs/model';
-import { buildProductFromPiece } from '@/services/products/productContract';
+import { buildProductFromPiece, ripenConceptToJewelry } from '@/services/products/productContract';
 
 /**
  * POST /api/production/pieces/[pieceID]/list-product
@@ -25,15 +25,30 @@ export const POST = async (req, { params }) => {
 
   const design = piece.designID ? await DesignsModel.findById(piece.designID) : null;
   const body = await req.json().catch(() => ({}));
+  const now = new Date();
+  const dbInstance = await db.connect();
+
+  // If this piece's design was already listed as a CONCEPT, ripen THAT product into a
+  // real jewelry listing (actual COGS) rather than creating a duplicate. (M1-T3)
+  if (design?.productID) {
+    const existing = await dbInstance.collection('products').findOne({ productId: design.productID });
+    if (existing && existing.productType === 'concept') {
+      const patch = ripenConceptToJewelry({ product: existing, piece });
+      await dbInstance.collection('products').updateOne(
+        { productId: existing.productId },
+        { $set: { ...patch, updatedAt: now } },
+      );
+      const updatedPiece = await PiecesModel.updateById(pieceID, { productID: existing.productId, status: 'available' });
+      const product = await dbInstance.collection('products').findOne({ productId: existing.productId }, { projection: { _id: 0 } });
+      return NextResponse.json({ product, piece: updatedPiece, ripened: true }, { status: 200 });
+    }
+  }
 
   const productDoc = buildProductFromPiece({
     piece,
     design,
     opts: { ...body, createdBy: session.user.userID || session.user.email || '' },
   });
-
-  const now = new Date();
-  const dbInstance = await db.connect();
   await dbInstance.collection('products').insertOne({ ...productDoc, createdAt: now, updatedAt: now });
 
   const updatedPiece = await PiecesModel.updateById(pieceID, {

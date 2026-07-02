@@ -46,6 +46,7 @@ export default class PiecesModel {
     const piece = {
       pieceID: data.pieceID || randomUUID(),
       designID: data.designID ?? null,
+      gemstoneId: data.gemstoneId ?? null,   // originating gemstone (flywheel; Pipeline M1-T2)
       dropID: data.dropID ?? null,
       sku: data.sku ?? null,
       serialNumber: data.serialNumber ?? null,

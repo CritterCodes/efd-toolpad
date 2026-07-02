@@ -58,26 +58,29 @@ the *speculative* path (peers making things for the catalog).
 
 ## 2. Current state of the build
 
-- **Branch model:** `chore/react-19-upgrade` (HEAD, the working branch) = `feat/manufacturing-
-  production-cycle` + React 19 + recent work. **141 commits ahead of `main`.** `feat/…` is kept
-  fast-forwarded to HEAD. **`main` is FROZEN** and runs the *legacy* pre-rebuild code.
+- **Branch model:** the rebuild is **merged to `main` and live in prod** (blue-green cutover
+  2026-07-01). `main` now carries the full manufacturing/customs rebuild (S0–S7 + React 19). `feat/
+  manufacturing-production-cycle` is kept fast-forwarded to `main`; new UI-phase work now ships
+  **incrementally to `main`** — the old "no merge to main" freeze is **LIFTED**.
 - **3-database model** (same self-hosted Mongo, logical isolation):
-  - `efd-database` — **PROD**. Still the OLD collections (`customTickets`, `repairLaborLogs`,
-    `repairPayrollBatches`, `inventory*`). Never targeted except at cutover.
-  - `efd-database-DEV` — **canonical dev**, where the rebuild runs. Has the renamed/new collections.
-  - `efd-db-migrate` — staging clone of prod to rehearse migrations (created at cutover, not yet).
-- **Collection renames** baked into the branch (S0): `repairLaborLogs→laborLogs`,
-  `repairPayrollBatches→payrollBatches`, plus new `workOrders, drops, designs, pieces, customOrders,
-  customInvoices`. **This is why the branch is DEV-only** — its code reads the new names, which don't
-  exist in prod.
-- **Backends S0–S7: COMPLETE + verified** (build/lint/unit/e2e on DEV). Customs (S7) is fully built
-  **including its UI** and is the most production-ready slice.
-- **UI phase:** U1 (unified bench `/dashboard/bench`) done + browser-verified. U2–U6 pending.
-- **Recent work (this branch):** bench per-task handoff + admin-on-behalf + labor-at-QC; quote→WO
-  sync; tech-debt (dep prune, `@/lib/mongodb`→`@/lib/database` unify, lazy-db proxy, **S3→MinIO image
-  scrub**); **legacy cad-request skeleton removed** (commit `0473265`).
-- **Prod cutover: NOT done.** Documented plan: clone prod→`efd-db-migrate`, run all sprint migrations
-  there, rehearse, then run on prod (with mongodump backup), deploy branch in lockstep.
+  - `efd-database` — **PROD**. Post-cutover: has the **new/renamed collections** (`laborLogs`,
+    `payrollBatches`, `workOrders`, `drops`, `designs`, `pieces`, `customOrders`, `customInvoices`).
+  - `efd-database-legacy` — **the pre-cutover prod snapshot = rollback point** (original `customTickets`,
+    `repairLaborLogs`, `repairPayrollBatches`, `inventory*`). Restore-with-`--drop` to roll back.
+  - `efd-database-DEV` — **canonical dev**, where new work is built/verified before shipping.
+  - `efd-db-migrate` — staging clone used to rehearse the cutover migrations (its job is done).
+- **Collection renames** (S0) are now **live in prod**: `repairLaborLogs→laborLogs`,
+  `repairPayrollBatches→payrollBatches`, plus the new production/customs collections. The migrations
+  ran on prod at cutover; labor logs kept `repairID` so repair `$lookup`s still work.
+- **Backends S0–S7: COMPLETE + verified + LIVE.** Customs (S7) shipped with its UI. Notifications +
+  Web Push and the deep-clean/S3→MinIO scrub also shipped.
+- **UI phase:** U1 (unified bench `/dashboard/bench`) done + browser-verified. U2–U6 pending — now
+  reframed + sequenced under the **"Production Pipeline — Unified Make → List → Drop"** goal
+  (`team/goals/production-pipeline.md`), which reconciles the three overlapping half-built worlds
+  (production engine, legacy gemstone/design-request, collections) into one spine.
+- **Prod cutover: DONE (2026-07-01).** Executed as a blue-green DB swap per `CUTOVER_RUNBOOK.md`
+  (clone→migrate→scrub→backup-to-`efd-database-legacy`→promote→deploy). Rollback = redeploy prior
+  commit + `mongorestore --drop efd-database-legacy → efd-database`.
 
 ---
 
@@ -142,10 +145,14 @@ reimagined "CAD request" on the existing production spine.
 
 ## 5. Hard rules (do not forget)
 
-- **`main` is FROZEN.** No merge/deploy to `main` until the rebuild ships **OR** a deliberate,
-  rehearsed prod cutover is performed. A naive merge breaks prod (collection renames hit live repairs).
-- **The branch is DEV-only.** It expects renamed/new collections that exist only in `efd-database-DEV`.
-- **Prod cutover is a sequence, never a quick merge:** clone prod→`efd-db-migrate` → run all sprint
-  migrations there → rehearse → mongodump backup → run on prod → deploy branch in lockstep.
+- **The freeze is LIFTED (cutover done 2026-07-01).** `main` is live with the rebuild; new work ships
+  **incrementally to `main`**. There is no longer a DEV-only branch gate.
+- **Any change that renames/reshapes a live collection is still a migration, never a quick edit:** write
+  an idempotent migration under `scripts/migrations/`, `--dry-run` + backup, verify on `efd-database-DEV`,
+  then apply to prod. Data-shape changes on prod are deliberate, not incidental.
+- **Rollback exists:** `efd-database-legacy` is the pre-cutover snapshot; redeploy the prior commit +
+  `mongorestore --drop` to recover.
+- **efd-shop shares the prod DB** (`products`, `customOrders`, `pushSubscriptions`) — coordinate any
+  shared-shape change with Lead Shop and log it in `team/decisions/` before shipping.
 - **No-regression parity:** rebuilds must match-or-beat the legacy form+function.
-- Keep `feat/manufacturing-production-cycle` fast-forwarded to the working branch after each commit.
+- Keep `feat/manufacturing-production-cycle` fast-forwarded to `main` after each commit.

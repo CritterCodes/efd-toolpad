@@ -14,6 +14,7 @@ const Constants = {
     DROPS_COLLECTION: 'drops',
     DESIGNS_COLLECTION: 'designs',
     PIECES_COLLECTION: 'pieces',
+    COLLECTIONS_COLLECTION: 'collections',   // Collection≡Drop unified model (Pipeline M1-T5)
     CUSTOM_ORDERS_COLLECTION: 'customOrders',  // S7 — new customs (legacy customTickets frozen)
 
     // Admin Collections

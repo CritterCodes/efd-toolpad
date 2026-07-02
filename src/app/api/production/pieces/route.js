@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/apiAuth';
 import PiecesModel from '@/app/api/pieces/model';
-import { createPieceFromDesign } from '@/services/production/pieceRouting';
+import { createPieceFromDesign, createDirectPiece } from '@/services/production/pieceRouting';
 
 /** GET /api/production/pieces — list (optional ?designID= / ?status=) */
 export const GET = async (req) => {
@@ -19,21 +19,22 @@ export const GET = async (req) => {
 };
 
 /**
- * POST /api/production/pieces — create a piece from a design (spawns routed work orders)
- * Body: { designID, metalType?, karat?, dropID?, sku?, actualMaterials?, customerID?, billing? }
+ * POST /api/production/pieces — create a piece + spawn its routed work orders.
+ * With `designID` → production path (routing from the Design). Without `designID` →
+ * a direct handmade / premade-with-CAD piece, COGS-only, no estimate (Pipeline M1-T4).
+ * Body: { designID?, metalType?, karat?, dropID?, sku?, routing?, actualMaterials?, customerID?, billing? }
  */
 export const POST = async (req) => {
   const { session, errorResponse } = await requireRole(['admin', 'dev']);
   if (errorResponse) return errorResponse;
 
   const body = await req.json().catch(() => ({}));
-  if (!body?.designID) return NextResponse.json({ error: 'designID is required.' }, { status: 400 });
+  const createdBy = session.user.userID || session.user.email || '';
 
   try {
-    const piece = await createPieceFromDesign(body.designID, {
-      ...body,
-      createdBy: session.user.userID || session.user.email || '',
-    });
+    const piece = body?.designID
+      ? await createPieceFromDesign(body.designID, { ...body, createdBy })
+      : await createDirectPiece({ ...body, createdBy });
     return NextResponse.json(piece, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });

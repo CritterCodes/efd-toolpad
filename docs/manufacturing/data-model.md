@@ -13,16 +13,20 @@ Status legend: 🟢 live · 🆕 new · ♻️ reimagined/rewritten · 🕓 defe
 | `laborLogs` | ♻️ (was `repairLaborLogs`) | per-WO labor credit | S0 |
 | `payrollBatches` | ♻️ (was `repairPayrollBatches`) | frozen weekly payout batches | S0 |
 | `repairs` | ♻️ | a WO source; keeps billing, loses bench/labor fields | S0/S1 |
-| `drops` | 🆕 | production releases/collections | S3 |
-| `designs` | 🆕 | manufacturing spec + IP + estimated cost | S3 |
+| `collections` | ♻️ (absorbs `drops`) | unified Collection ≡ Drop — curated product group + scheduled release (shop-read) | S3/PP |
+| ~~`drops`~~ | ⛔ merged | **deprecated** — folded into `collections` (PP M1-T5 migration) | S3 |
+| `designs` | 🆕 | manufacturing spec + IP; CAD/estimate **optional** | S3 |
 | `pieces` | 🆕 | physical instances + actual COGS + availability | S4 |
 | `products` | ♻️ | sellable listing + price | S5 |
 | `sales` / orders | 🕓 | sale event + fee resolution + payout | S5/S6 |
 | `customTickets` | 🟢 frozen/legacy | existing custom system — **frozen**, drains its lifecycle, untouched | S7 |
 | `customOrders` | 🆕 | NEW customs on the production engine (customer + Design + Piece(s) + billing) | S7 |
+| `designRequests` | 🟢 legacy (World 1) | peer design-request seed; broken writes; rebuilt onto the engine in PP M6 | S3/PP |
 | `artisanAgreements` | 🕓 | per-artisan type + negotiated rates | S6 |
 | `feeSchedule` | 🕓 | admin-configurable fee pillar rates | S6 |
 | `inventory`, `inventoryTransactions`, `inventoryReorderSuggestions` | ⛔ | **data dropped** in S0 (junk). The *materials-inventory concept* (supply stock for cost mgmt — not products, not pieces) is **parked indefinitely** | S0 |
+
+_Sprint "PP" = the Production Pipeline goal (hub: `team/goals/production-pipeline.md`)._
 
 ---
 
@@ -121,37 +125,64 @@ Billing mode is resolved via `src/services/billing/modes.js` (`resolveBillingMod
 
 ---
 
-## `drops` 🆕 (S3)
+## `collections` ♻️ (S3 → Production Pipeline goal) — Collection ≡ Drop (**shop-read**)
+
+**Absorbs the legacy `drops` collection.** One object is both a curated product group and a timed release
+("drop"). ⚠ **shop-read shape** for the customer drop page — see the companion
+`collection-page-data-contract.md` (authoritative) + decision 0003.
 
 | Field | Type | Notes |
 |---|---|---|
-| `dropID` | uuid | unique |
-| `name` / `slug` / `theme` / `description` | string | |
-| `channel` | enum | `showcase \| show \| online \| wholesale` |
-| `status` | enum | `planning \| in_production \| released \| archived` |
-| `targetReleaseDate` | date | |
-| `createdAt` / `createdBy` | | |
+| `collectionId` | uuid | stable internal + cross-ref key |
+| `slug` | string | **shop URL handle**, unique (drop page) |
+| `name` / `description` / `theme?` | string | |
+| `ownerType` | enum | `efd` (house, collaborative/multi-artist) \| `artisan` (single-owner). Replaces legacy `type: artisan\|admin\|drop`. |
+| `ownerId?` / `ownerInfo?` | string/object | set for `artisan` collections (curator + attribution) |
+| `channel?` | enum | `showcase \| show \| online \| wholesale` (production-planning; from `drops`) |
+| `status` | enum | `draft` (building/staging) \| `scheduled` (releaseAt set) \| `released` (live/dropped) \| `archived`. Replaces legacy `isPublished` + drops' status. |
+| `releaseAt?` | date | scheduled release moment |
+| `releasedAt?` | date | actual release timestamp |
+| `members[]` | array | ordered `{ productId, position, notes?, addedAt? }` — members are **Products** (any `productType`) |
+| `heroImage?` / `thumbnail?` / `image?` / `seo?` | | merchandising |
+| `createdAt` / `updatedAt` / `createdBy` | | |
+
+**Ownership:** EFD (collaborative) drops group many artisans' products; each member Product keeps its own
+`seller`, and payouts follow the seller via the S6 payout system. The collection `ownerType`/`ownerId` is
+the **curator**, not the revenue owner.
+
+**Release:** members are staged while `status: draft`; at `releaseAt` (or "go live now") the batch publishes
+to the shop at once (`status → released`). The exact publish trigger (admin scheduled job vs. shop
+`releaseAt`-visibility) is **decision 0003** (Lead Shop's call). Shop shows a collection when `released`
+(+ `releaseAt ≤ now` if the visibility-based mechanism is chosen).
+
+> **`drops` deprecated:** folded into `collections` by Pipeline goal M1-T5 (migration). `design.dropID`
+> becomes provenance-only — a design "joins" a drop by having its concept/jewelry Product added to
+> `members[]`, not via `dropID`.
 
 ---
 
 ## `designs` 🆕 (S3)
 
 Reusable spec + IP. Absorbs the salvaged CAD estimator (`stlVolumeCalculator` + `metalTypes`).
+**CAD/estimate is optional** (Production Pipeline goal): a design may be **concept-only** (viewer/GLB
+assets for a refrakt listing, no CAD/routing) or a **full manufacturing spec**. `cadFiles`,
+`stlVolumeCm3`, `bom`, `routing`, `estCost` are all nullable; COGS (on the Piece) is what's always recorded.
 
 | Field | Type | Notes |
 |---|---|---|
 | `designID` | uuid | unique |
-| `dropID` | string? | optional |
+| `dropID` | string? | optional — **provenance only** now; drop membership is via a Product in `collections.members[]` |
+| `gemstoneId` | string? | linked stone's `productId` (Pipeline goal) — optional; threads to Piece → Product |
 | `name` / `description` | string | |
 | `designerUserID` | string | |
-| `cadFiles[]` / `renders[]` / `referenceImages[]` | string[] | S3 storage paths |
-| `stlVolumeCm3` | number | from `stlVolumeCalculator` |
+| `cadFiles[]` / `renders[]` / `referenceImages[]` | string[]? | storage paths (MinIO); `renders`/GLB feed a concept listing's viewer. **Optional.** |
+| `stlVolumeCm3` | number? | from `stlVolumeCalculator`. **Optional** (no CAD → no volume). |
 | `metalOptions[]` | array | metal/karat combos it can be made in |
-| `bom` | object | `{ castingEstimate, stones[]{type,shape,size,qty,estUnitCost}, findings[]{materialID,qty}, estMaterialCost }` |
-| `routing[]` | array | ordered ops: `{ seq, discipline, process, estLaborHours }` — becomes a piece's WOs |
-| `estCost` | number | volume × SG × karat-adjusted price × casting markup + labor (per `metalTypes.js`) |
+| `bom` | object? | `{ castingEstimate, stones[]{type,shape,size,qty,estUnitCost}, findings[]{materialID,qty}, estMaterialCost }`. **Optional.** |
+| `routing[]` | array? | ordered ops: `{ seq, discipline, process, estLaborHours }` — becomes a piece's WOs. **Optional** (handmade → no routing). |
+| `estCost` | number? | volume × SG × karat-adjusted price × casting markup + labor. **Optional**; for concepts, computed with **live metal rates**. |
 | `suggestedRetail` | number | |
-| `status` | enum | `concept \| cad \| approved_for_production \| retired` |
+| `status` | enum | `concept \| cad \| approved_for_production \| retired` (lifecycle; distinct from `productType`) |
 
 **Indexes:** `{designID:1}` unique · `{dropID:1}` · `{status:1}`.
 
@@ -159,12 +190,15 @@ Reusable spec + IP. Absorbs the salvaged CAD estimator (`stlVolumeCalculator` + 
 
 ## `pieces` 🆕 (S4)
 
-One physical instance. Where real COGS accrues and availability lives.
+One physical instance. Where real COGS accrues and availability lives. A Piece may be created
+**directly** (handmade / on-hand, with a bare or no Design) — the estimate path is optional, COGS is
+always recorded (Production Pipeline goal).
 
 | Field | Type | Notes |
 |---|---|---|
 | `pieceID` | uuid | unique |
-| `designID` | string | |
+| `designID` | string? | **optional** — null for a handmade/on-hand piece with no design spec |
+| `gemstoneId` | string? | linked stone's `productId` (Pipeline goal) — carried from the Design; threads to Product |
 | `dropID` | string? | |
 | `sku` / `serialNumber` | string | serialization scheme TBD in S4 |
 | `metalType` / `karat` | string | chosen for THIS piece |
@@ -194,13 +228,32 @@ casing are normative, e.g. `productId` not `productID`). Admin (S5) writes exact
 **Storefront-read fields (must match the contract):** `productId` (string handle), `status` /
 `isPublic`, `title`, `vendor`, `description`, `pricing.retailPrice` (+`compareAtPrice`) or top-level
 `price`, `availability` (`ready-to-ship` | `made-to-order`), `jewelry{ type, metals[], ringSize,
-weight, dimensions, production }`, `images[]`, `viewer{ glbUrl, meshMap[], environment?, orientation?, … }`.
+weight, dimensions, production }`, `images[]`, `viewer{ glbUrl, meshMap[], environment?, orientation?, … }`,
+plus (Production Pipeline goal — decision 0004, **accepted by Lead Shop**): `productType`,
+`runSize{ type, size?, remaining? }`, `references.gemstoneId`.
+
+### Polymorphic types + editions + gemstone thread (Production Pipeline goal)
+
+| Field | Type | Notes |
+|---|---|---|
+| `productType` | string | `gemstone` \| `concept` \| `jewelry` (existing field; **`concept` is new**). `gemstone` = listed loose stone; `concept` = a Design listed with no finished Piece (made-to-order, live-metal priced); `jewelry` = finished/piece-backed. Absent → treat as `jewelry`. |
+| `runSize` | object | `{ type: one_of_one \| limited \| unlimited, size?, remaining? }`. `size` required for `limited` (edition cap N). `remaining` = **admin-computed, shop-read** = `size − produced` (count of pieces created for this product); present for `limited` only. Shop renders edition **language** ("One of one" / "Edition of N" / "Made to order"), and "N remaining" only when `remaining` is provided — never as a stock/inventory count. A **production cap**, not stock; availability still derives from piece status (D6). Absent → `unlimited`. |
+| `references.gemstoneId` | string? | originating gemstone's `productId`, threaded Design → Piece → Product (the flywheel). Optional; shop-read (enables "cut from this stone"). |
+
+**Concept financials (like customs):** a `concept` product's `pricing.retailPrice` is derived from the
+Design's `estCost` computed with **live metal rates** (stored on the doc, refreshed by admin — the shop
+reads a number, not a live calc). `pricing.costBasis` holds the **estimated** design cost until a Piece is
+produced + linked, then flips to the Piece's **actual** COGS (same as `buildProductFromPiece`); margin =
+`retailPrice − costBasis`. `pricing.costBasisSource` (`estimated | actual`, admin-internal) records which,
+so reported profit is never estimated-as-real.
 
 **Admin-internal fields (stripped/ignored by storefront):**
 
 | Field | Notes |
 |---|---|
-| `pricing.costBasis` | **= Piece COGS** (stripped by storefront) — this is our `cost`/margin source |
+| `pricing.costBasis` | **= Piece COGS** (or estimated design cost for a `concept`; stripped by storefront) — our `cost`/margin source |
+| `pricing.costBasisSource` | `estimated` \| `actual` — whether `costBasis` is a live-metal estimate or real produced COGS (Pipeline goal) |
+| `references` | `{ designId?, pieceID?, gemstoneId? }` — provenance links (note existing casing: `designId` / `pieceID`) |
 | `internalNotes` | stripped by storefront |
 | `seller` | `{ type: house \| artisan, artisanId? }` (marketplace, S6) |
 | `custody` | `consignment \| artisan_held` (S6) |
@@ -272,6 +325,18 @@ partial; payment-progress; **50% production threshold** → notify) — preservi
 embedded-vs-collection dual-write. **COGS** comes from linked pieces; **margin = `quote.quoteTotal` −
 Σ piece COGS** (incl. your bench labor). The **bench labor log is the single source of custom-labor pay**;
 the quote is customer-revenue only.
+
+## `designRequests` 🟢 legacy (World 1) — peer design-request seed
+
+The original gemstone/design-request flow: a `designRequests` doc links a **gemstone `product`**
+(`gemstoneId`) to a requested/submitted design. **Currently half-broken** (create throws — missing
+`getServerSession` import; `complete` only flips gemstone flags, spawns no production) and **disconnected
+from the production engine.** Fields as-is: `gemstoneId`, `status`, `requirements`, `priority`, `dueDate`,
+`requestedBy`, `assignedTo`, `assignedAt`.
+
+**Fate (Production Pipeline goal M6 — strangler-fig):** rebuilt onto the engine so "produce" spawns a real
+Design + Piece via `createPieceFromDesign` (gemstone-linked), and the stub UI is filled. Not extended
+until then; documented here so the SoT acknowledges it.
 
 ## Fee model 🕓 (S6) — services continuum
 

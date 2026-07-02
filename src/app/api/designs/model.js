@@ -39,6 +39,7 @@ export default class DesignsModel {
     const now = new Date();
     const design = {
       designID: data.designID || randomUUID(),
+      gemstoneId: data.gemstoneId ?? null,   // originating gemstone (flywheel; Pipeline M1-T2/T3)
       dropID: data.dropID ?? null,
       name: data.name ?? '',
       description: data.description ?? null,
@@ -52,6 +53,7 @@ export default class DesignsModel {
       routing: Array.isArray(data.routing) ? data.routing : [],
       estCost: data.estCost ?? null,
       suggestedRetail: data.suggestedRetail ?? null,
+      productID: data.productID ?? null,   // set when listed as a concept product (M1-T3)
       status: data.status || DESIGN_STATUS.CONCEPT,
       createdAt: now,
       updatedAt: now,

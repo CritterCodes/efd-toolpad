@@ -44,11 +44,30 @@ exposed. The URL handle is `productId` (or Mongo `_id`): `/products/<productId>`
     "production": { "estimatedLeadTimeDays": 21 }
   },
 
+  "productType": "jewelry",                 // "gemstone" | "concept" | "jewelry" (§2.1; absent → jewelry)
+  "runSize": { "type": "limited", "size": 10, "remaining": 3 },  // edition control (§2.1)
+  "references": { "gemstoneId": "efd-sapphire-loose-014" },      // optional gemstone link (§2.1)
+
   "images": [ "https://efd-repair-images.s3.us-east-2.amazonaws.com/products/efd-001/a.jpg" ],
 
   "viewer": { /* §4 — present ONLY if the product has a 3D model */ }
 }
 ```
+
+## 2.1 productType, editions (`runSize`), gemstone link — Production Pipeline (decision 0004, accepted)
+
+All three fields are **additive**; existing products omit them and behave exactly as today.
+
+- **`productType`** — `"gemstone" | "concept" | "jewelry"`. Existing field; **`concept` is new** (a design
+  listed with no finished piece — made-to-order, live-metal priced). Does **not** affect visibility (§1);
+  may drive type-specific display.
+- **`runSize`** — `{ type: "one_of_one" | "limited" | "unlimited", size?, remaining? }`. `size` = edition
+  cap (required for `limited`). `remaining` is **admin-computed** (`size − produced`), present for `limited`
+  only. **Render edition language, not stock:** `"One of one"` / `"Edition of N"` / `"Made to order"`; show
+  `"N remaining"` **only** when `remaining` is present. Never imply a finished-goods inventory — the system
+  keeps none (availability derives from piece status). Absent `runSize` → treat as `unlimited`.
+- **`references.gemstoneId`** — the originating gemstone's `productId` (optional). Enables a "cut from this
+  stone" cross-link. Non-stone products omit it.
 
 ## 3. The three media cases (unified `ProductMedia` stage)
 
@@ -138,6 +157,8 @@ it the viewer fails silently (blank).
 - [ ] every gem mesh in the GLB covered by a `gem` slot (warn otherwise)
 - [ ] `images[]` reachable
 - [ ] at least one of `viewer` / `images` present
+- [ ] `productType` is `gemstone` \| `concept` \| `jewelry` (absent → `jewelry`)
+- [ ] if `runSize.type` is `limited`, `size` is a positive integer; `remaining` (if present) is `0…size`
 
 ## 9. Examples
 
