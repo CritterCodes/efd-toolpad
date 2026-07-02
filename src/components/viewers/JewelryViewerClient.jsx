@@ -9,6 +9,19 @@ const JewelryViewer = dynamic(() => import('@crittercodes/refrakt/JewelryViewer'
   ssr: false,
 });
 
-export default function JewelryViewerClient(props) {
-  return <JewelryViewer {...props} />;
+// Default AI-render handler → our admin-only Gemini route. Shows the Generate-render
+// button; callers can pass their own `onRender`/`onSaveRender` or `onRender={null}`.
+async function renderViaGemini({ image, prompt }) {
+  const res = await fetch('/api/refrakt-render', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image, prompt }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Render failed.');
+  return data.url;
+}
+
+export default function JewelryViewerClient({ onRender = renderViaGemini, ...props }) {
+  return <JewelryViewer onRender={onRender} {...props} />;
 }

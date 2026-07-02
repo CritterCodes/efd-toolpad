@@ -57,7 +57,22 @@ export default function ShareTab({ customID, order, onChanged, notify }) {
         {model?.glbUrl ? (
           <Stack spacing={1.5}>
             <Box sx={{ width: '100%', height: 360, borderRadius: 2, overflow: 'hidden', border: `1px solid ${REPAIRS_UI.border}`, backgroundColor: model.background || '#080808' }}>
-              <JewelryViewerClient glbUrl={model.glbUrl} config={model} style={{ width: '100%', height: '100%' }} />
+              <JewelryViewerClient
+                glbUrl={model.glbUrl}
+                config={model}
+                style={{ width: '100%', height: '100%' }}
+                renderContext={order.title || 'fine jewelry piece'}
+                onSaveRender={async (url) => {
+                  const blob = await (await fetch(url)).blob();
+                  const fd = new FormData();
+                  fd.append('file', blob, `refrakt-render-${Date.now()}.png`);
+                  fd.append('caption', 'AI render');
+                  const res = await fetch(`/api/custom-orders/${customID}/images`, { method: 'POST', body: fd });
+                  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Could not save image');
+                  notify?.('Render saved to this order’s images', 'success');
+                  await onChanged?.();
+                }}
+              />
             </Box>
             <Box>
               <Button variant="contained" startIcon={<PaletteIcon />} onClick={() => setStudioOpen(true)} sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>
