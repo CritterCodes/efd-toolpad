@@ -3,7 +3,11 @@ import {
   getUserNotifications,
   markNotificationAsRead,
   archiveNotification,
+  notifyAllAdmins as realNotifyAllAdmins,
 } from '../../lib/notificationService.js';
+
+// Re-export the admin fan-out helper so call sites import everything from '@/lib/notificationService'.
+export const notifyAllAdmins = realNotifyAllAdmins;
 
 /**
  * Notification type constants used across the application.

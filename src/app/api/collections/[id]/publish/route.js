@@ -7,12 +7,7 @@ import { NextResponse } from 'next/server';
 import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
-
-// Mock notification function - real implementation is in root lib
-async function notifyArtisanSelectedForDrop(...args) {
-  console.log('📧 Notification queued:', args);
-  return Promise.resolve();
-}
+import { NotificationService, notifyAllAdmins } from '@/lib/notificationService';
 
 /**
  * POST /api/collections/:id/publish
@@ -111,31 +106,78 @@ export async function POST(request, { params }) {
       { returnDocument: 'after' }
     );
 
-    // For drop collections, trigger notifications to selected artisans
-    if (collection.type === 'drop' && collection.drop?.requestId) {
-      // Get original drop request to find selected artisans
-      const dropRequest = await db.collection('drop-requests').findOne({
-        _id: new ObjectId(collection.drop.requestId)
-      });
+    // PR2 — notify each artisan whose product is in the published collection.
+    // Best-effort: never fail the publish if notifications error.
+    try {
+      const collectionName = collection.name || collection.title || collection.drop?.theme || 'a collection';
+      const actionUrl = `${process.env.NEXT_PUBLIC_ADMIN_URL || ''}/dashboard/collections/${id}`;
 
-      if (dropRequest && dropRequest.selectedArtisans && dropRequest.selectedArtisans.length > 0) {
-        // Send "artisan-selected-for-drop" notifications
-        try {
-          for (const selectedArtisan of dropRequest.selectedArtisans) {
-            await notifyArtisanSelectedForDrop(
-              dropRequest._id.toString(),
-              selectedArtisan.artisanId,
-              selectedArtisan.email,
-              selectedArtisan.name,
-              collection.drop.theme
-            );
+      // Resolve the owning artisans of the products in this collection.
+      const productObjectIds = (collection.products || [])
+        .map((p) => {
+          try { return new ObjectId(p.productId); } catch { return null; }
+        })
+        .filter(Boolean);
+
+      let notifiedCount = 0;
+      if (productObjectIds.length > 0) {
+        const products = await db.collection('products')
+          .find({ _id: { $in: productObjectIds } })
+          .project({ _id: 1, title: 1, userId: 1 })
+          .toArray();
+
+        // Unique owning artisan userIDs (product.userId is the artisan userID string).
+        const artisanUserIDs = [...new Set(products.map((p) => p.userId).filter(Boolean))];
+
+        if (artisanUserIDs.length > 0) {
+          const artisans = await db.collection('users')
+            .find({ userID: { $in: artisanUserIDs } })
+            .project({ _id: 0, userID: 1, email: 1 })
+            .toArray();
+          const emailByUserID = new Map(artisans.map((u) => [u.userID, u.email]));
+
+          for (const artisanUserID of artisanUserIDs) {
+            try {
+              await NotificationService.createNotification({
+                userId: artisanUserID,
+                type: 'collection-published',
+                title: 'Collection Published',
+                message: `A collection featuring your work, "${collectionName}", is now live.`,
+                channels: ['inApp', 'email'],
+                recipientEmail: emailByUserID.get(artisanUserID) || '',
+                priority: 'normal',
+                data: {
+                  actionUrl,
+                  relatedType: 'collection',
+                  collectionId: id,
+                  collectionName,
+                },
+              });
+              notifiedCount += 1;
+            } catch (perArtisanError) {
+              console.error(`⚠️ PR2 collection-published notify failed for ${artisanUserID}:`, perArtisanError.message);
+            }
           }
-          console.log(`✅ Sent selection notifications to ${dropRequest.selectedArtisans.length} artisans`);
-        } catch (notifError) {
-          console.error('⚠️ Warning: Failed to send selection notifications:', notifError);
-          // Don't fail the request if notification fails
         }
       }
+
+      if (notifiedCount > 0) {
+        console.log(`✅ Sent collection-published notifications to ${notifiedCount} artisan(s)`);
+      } else {
+        // No resolvable product-owning artisans — surface to admins so the publish isn't silent.
+        console.warn('⚠️ PR2: no artisans resolved from collection products; notifying admins only');
+        await notifyAllAdmins({
+          type: 'collection-published',
+          title: 'Collection Published',
+          message: `Collection "${collectionName}" was published (no artisan recipients resolved).`,
+          actionUrl,
+          priority: 'low',
+          relatedData: { collectionId: id, collectionName },
+        });
+      }
+    } catch (notifError) {
+      console.error('⚠️ PR2 collection-published notification failed:', notifError.message);
+      // Don't fail the request if notification fails
     }
 
     return NextResponse.json({

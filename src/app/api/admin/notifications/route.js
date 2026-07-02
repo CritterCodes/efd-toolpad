@@ -19,10 +19,13 @@ export async function GET(request) {
     const status = searchParams.get('status');
     const page = Math.floor(skip / limit) + 1;
 
+    // Admins/superadmins/devs also see shop→admin broadcast alerts (userId:'admin'); artisans do not.
+    const isAdmin = ['admin', 'superadmin', 'dev'].includes(session.user.role);
     const result = await getUserNotifications(session.user.userID, {
       limit,
       page,
       unreadOnly: status === 'unread',
+      includeAdminBroadcast: isAdmin,
     });
 
     // Flatten inApp.read to top-level read for frontend compatibility

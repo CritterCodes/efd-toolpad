@@ -15,6 +15,9 @@ import SettingsManagerService from '@/app/api/admin/settings/services/settingsMa
 import { DISCIPLINE } from '@/services/workOrders/disciplines';
 import { createPieceFromDesign } from '@/services/production/pieceRouting';
 import { getCustomTaskLine, mergeAutoLaborLine } from '@/services/customs/customTasks';
+import { NotificationService, notifyAllAdmins } from '@/lib/notificationService';
+
+const ADMIN_CUSTOM_LINK = (customID) => `${process.env.NEXT_PUBLIC_ADMIN_URL || ''}/dashboard/customs/${customID}`;
 
 const DEFAULT_CLIENT_MGMT_BONUS_PCT = 0.05;
 
@@ -126,6 +129,25 @@ export async function spawnCustomWorkOrder({
   });
   await PiecesModel.setWorkOrders(pieceID, [...(piece.workOrderIDs || []), wo.workOrderID]);
 
+  // X7 — if this WO was spawned pre-assigned (e.g. the CAD/GLB designer at assignment
+  // time), notify that artisan. Unassigned WOs (claimed later at the bench) skip this —
+  // the claim itself notifies (W1). Best-effort; never block the spawn.
+  if (assignedToUserID) {
+    try {
+      await NotificationService.createNotification({
+        userId: assignedToUserID,
+        type: 'custom-wo-assigned',
+        title: 'New work order assigned',
+        message: `You've been assigned "${wo.title}" for custom ${customID}.`,
+        channels: ['inApp', 'push'],
+        priority: 'normal',
+        data: { actionUrl: ADMIN_CUSTOM_LINK(customID), customID, workOrderID: wo.workOrderID },
+      });
+    } catch (e) {
+      console.error('⚠️ custom-wo-assigned notification failed:', e.message);
+    }
+  }
+
   // A GLB-stage CAD work order is a billable design opportunity — add a "GLB Creation"
   // labor line from the custom task catalog (priced like any task; falls back to the
   // designer's resolved fee if the seed hasn't run) so the client is charged for it.
@@ -198,6 +220,40 @@ export async function addCastingCost({ customID, amount, vendor = '', invoiceNum
   // Casting is in hand → generate the in-house bench work orders from the quote (idempotent).
   const generation = await generateWorkOrdersFromQuote({ customID, createdBy: createdBy || 'system' });
   await CustomOrdersModel.updateById(customID, { castingReceivedAt: new Date() });
+
+  // X6 — casting received: alert the production-team artisans assigned to this order's
+  // work orders that the cast metal is in hand and bench work can begin. If no WOs are
+  // assigned yet (freshly generated WOs start unassigned), fall back to alerting admins.
+  // Best-effort — never block recording the casting cost.
+  try {
+    const wos = await getCustomWorkOrders(customID);
+    const assigneeIDs = [...new Set(wos.map((w) => w.assignedToUserID).filter(Boolean))];
+    if (assigneeIDs.length) {
+      for (const userId of assigneeIDs) {
+        await NotificationService.createNotification({
+          userId,
+          type: 'custom-casting-received',
+          title: 'Casting received — bench work can begin',
+          message: `The casting for custom ${customID} has arrived. Your bench work is ready to start.`,
+          channels: ['inApp'],
+          priority: 'normal',
+          data: { actionUrl: ADMIN_CUSTOM_LINK(customID), customID },
+        });
+      }
+    } else {
+      // No assigned artisans yet — surface to admins so someone routes the bench work.
+      await notifyAllAdmins({
+        type: 'custom-casting-received',
+        title: 'Casting received',
+        message: `Casting for custom ${customID} has arrived and bench work orders were generated.`,
+        actionUrl: ADMIN_CUSTOM_LINK(customID),
+        priority: 'normal',
+        relatedData: { customID },
+      });
+    }
+  } catch (e) {
+    console.error('⚠️ custom-casting-received notification failed:', e.message);
+  }
 
   return { piece, expense, generation };
 }

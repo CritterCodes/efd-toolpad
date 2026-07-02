@@ -3,6 +3,7 @@ import RepairPayrollBatchesModel from '@/app/api/repairPayrollBatches/model';
 import SalePayoutsModel from '@/app/api/salePayouts/model';
 import { syncSalesPayoutDeductions } from '@/app/api/sales-invoices/service';
 import { db } from '@/lib/database';
+import { NotificationService } from '@/lib/notificationService';
 import {
   PAYROLL_BATCH_STATUS,
   canVoidPayrollBatch,
@@ -254,6 +255,39 @@ export async function markPayrollBatchPaid(batchID, {
 
   await RepairLaborLogsModel.markBatchPaid(batchID, paidDate);
   await SalePayoutsModel.markBatchPaid(batchID, paidDate);
+
+  // P2 — notify the paid artisan (money-critical; best-effort, never blocks the payout).
+  // A payroll batch is per-artisan (single userID), so one notification per marked-paid batch.
+  try {
+    const artisanUserID = batch.userID;
+    if (artisanUserID) {
+      const userMap = await getUserCompensationMap([artisanUserID]);
+      const user = userMap.get(artisanUserID);
+      const amount = Number(batch.laborPay || 0) + Number(batch.salePay || 0);
+      const amountLabel = amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+      await NotificationService.createNotification({
+        userId: artisanUserID,
+        type: 'payout-sent',
+        title: 'You have been paid',
+        message: `Your payroll batch of ${amountLabel} for the week of ${new Date(batch.weekStart).toLocaleDateString()} has been marked paid${paymentMethod ? ` via ${paymentMethod}` : ''}.`,
+        channels: ['inApp', 'email', 'push'],
+        recipientEmail: user?.email || '',
+        priority: 'high',
+        data: {
+          actionUrl: `${process.env.NEXT_PUBLIC_ADMIN_URL || ''}/dashboard/payroll`,
+          relatedType: 'payroll-batch',
+          batchID,
+          amount,
+          weekStart: batch.weekStart,
+          paymentMethod,
+          paymentReference,
+        },
+      });
+    }
+  } catch (notifyError) {
+    console.error('⚠️ P2 payout-sent notification failed:', notifyError.message);
+  }
+
   return updated;
 }
 

@@ -189,7 +189,18 @@ export default class UserController {
                     { status: 400 }
                 );
             }
-    
+
+            // Capture the prior role so we can detect an actual role change afterward.
+            let previousRole;
+            if (updateData && typeof updateData.role !== 'undefined') {
+                try {
+                    const priorUser = await UserService.getUserByQuery(query);
+                    previousRole = priorUser?.role;
+                } catch (lookupError) {
+                    console.error('⚠️ Failed to read prior user role before update:', lookupError);
+                }
+            }
+
             const updatedUser = await UserService.updateUser(query, updateData);
             if (!updatedUser) {
                 return new Response(
@@ -197,7 +208,35 @@ export default class UserController {
                     { status: 400 }
                 );
             }
-    
+
+            // Best-effort role-change notification (never blocks the update).
+            try {
+                if (
+                    typeof previousRole !== 'undefined' &&
+                    updatedUser.role &&
+                    updatedUser.role !== previousRole
+                ) {
+                    const recipientUserId = updatedUser.userID || (updatedUser._id ? updatedUser._id.toString() : '');
+                    const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || '';
+                    await NotificationService.createNotification({
+                        userId: recipientUserId,
+                        type: 'role-changed',
+                        title: 'Your account role was updated',
+                        message: `Your account role has been changed to "${updatedUser.role}".`,
+                        channels: [CHANNELS.IN_APP],
+                        recipientEmail: updatedUser.email || '',
+                        priority: 'low',
+                        data: {
+                            previousRole,
+                            newRole: updatedUser.role,
+                            actionUrl: `${adminUrl}/dashboard`,
+                        },
+                    });
+                }
+            } catch (notificationError) {
+                console.error('⚠️ Failed to send role-change notification:', notificationError);
+            }
+
             return new Response(
                 JSON.stringify({ message: "User updated successfully", user: updatedUser }),
                 { status: 200 }

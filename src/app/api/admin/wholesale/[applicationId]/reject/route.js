@@ -1,6 +1,7 @@
 // /api/admin/wholesale/[applicationId]/reject/route.js
 import { updateWholesaleApplicationStatus, getWholesaleApplicationById } from '@/lib/wholesaleService.js';
 import { requireRole } from '@/lib/apiAuth';
+import { NotificationService } from '@/lib/notificationService';
 
 export async function POST(request, { params }) {
   try {
@@ -42,7 +43,28 @@ export async function POST(request, { params }) {
 
     console.log(`Wholesale application ${applicationId} rejected by ${session.user.email}`);
 
-    // TODO: Send rejection email to user with reason
+    // Best-effort rejection notification to the wholesaler (never blocks the response).
+    try {
+      const recipientUserId = application.accountUserID || application.userID || '';
+      const recipientEmail = application.email || '';
+      const businessName = application.businessName || `${application.firstName || ''} ${application.lastName || ''}`.trim();
+      const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || '';
+
+      await NotificationService.createNotification({
+        userId: recipientUserId,
+        type: 'wholesale-rejected',
+        title: 'Update on your wholesale application',
+        message: reviewNotes
+          ? `Your wholesale application${businessName ? ` for ${businessName}` : ''} was not approved. Reason: ${reviewNotes}`
+          : `Your wholesale application${businessName ? ` for ${businessName}` : ''} was not approved at this time.`,
+        channels: ['inApp', 'email'],
+        recipientEmail,
+        priority: 'high',
+        data: { businessName, reason: reviewNotes || '', actionUrl: `${adminUrl}/wholesale` },
+      });
+    } catch (notificationError) {
+      console.error('⚠️ Failed to send wholesale rejection notification:', notificationError);
+    }
 
     return Response.json({
       success: true,

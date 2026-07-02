@@ -14,10 +14,12 @@ import {
   CircularProgress,
   Chip
 } from '@mui/material';
-import { Notifications as NotificationsIcon, Circle as CircleIcon } from '@mui/icons-material';
+import { Notifications as NotificationsIcon, Circle as CircleIcon, NotificationsActive as NotificationsActiveIcon, NotificationsOff as NotificationsOffIcon } from '@mui/icons-material';
+import { Button } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { formatDistanceToNow } from 'date-fns';
+import { usePushNotifications } from '@/lib/usePushNotifications';
 
 export default function NotificationBell() {
   const sessionState = useSession() || {};
@@ -28,6 +30,12 @@ export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('all'); // 'all' | 'unread'
+  const push = usePushNotifications();
+
+  const togglePush = async () => {
+    if (push.subscribed) await push.unsubscribe();
+    else await push.subscribe();
+  };
 
   const open = Boolean(anchorEl);
 
@@ -228,6 +236,26 @@ export default function NotificationBell() {
               ))}
             </List>
           </Box>
+        )}
+        {push.supported && (
+          <>
+            <Divider />
+            <Box sx={{ p: 1.5, display: 'flex', justifyContent: 'center' }}>
+              <Button
+                size="small"
+                fullWidth
+                startIcon={push.subscribed ? <NotificationsOffIcon fontSize="small" /> : <NotificationsActiveIcon fontSize="small" />}
+                onClick={togglePush}
+                disabled={push.busy || push.permission === 'denied'}
+                title={push.permission === 'denied' ? 'Notifications are blocked in your browser settings' : ''}
+                sx={{ textTransform: 'none' }}
+              >
+                {push.subscribed
+                  ? 'Turn off push notifications'
+                  : (push.permission === 'denied' ? 'Push blocked in browser' : 'Enable push notifications')}
+              </Button>
+            </Box>
+          </>
         )}
       </Menu>
     </>

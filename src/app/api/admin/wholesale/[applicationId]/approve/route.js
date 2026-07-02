@@ -5,6 +5,30 @@ import {
   updateWholesaleApplicationStatus,
 } from '@/lib/wholesaleService.js';
 import { requireRole } from '@/lib/apiAuth';
+import { NotificationService } from '@/lib/notificationService';
+
+// Best-effort approval notification to the wholesaler (never blocks the response).
+async function notifyWholesaleApproved(application) {
+  try {
+    const recipientUserId = application.accountUserID || application.userID || '';
+    const recipientEmail = application.email || '';
+    const businessName = application.businessName || `${application.firstName || ''} ${application.lastName || ''}`.trim();
+    const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || '';
+
+    await NotificationService.createNotification({
+      userId: recipientUserId,
+      type: 'wholesale-approved',
+      title: 'Your wholesale application was approved',
+      message: `Good news${businessName ? ` for ${businessName}` : ''}! Your wholesale account has been approved. You can now sign in and access wholesale pricing.`,
+      channels: ['inApp', 'email'],
+      recipientEmail,
+      priority: 'high',
+      data: { businessName, actionUrl: `${adminUrl}/dashboard` },
+    });
+  } catch (notificationError) {
+    console.error('⚠️ Failed to send wholesale approval notification:', notificationError);
+  }
+}
 
 export async function POST(request, { params }) {
   try {
@@ -46,6 +70,8 @@ export async function POST(request, { params }) {
         reviewNotes,
       });
 
+      await notifyWholesaleApproved(application);
+
       return Response.json({
         success: true,
         merged: true,
@@ -67,7 +93,7 @@ export async function POST(request, { params }) {
 
     console.log(`Wholesale application ${applicationId} approved by ${session.user.email}`);
 
-    // TODO: Send approval email to user
+    await notifyWholesaleApproved(application);
 
     return Response.json({
       success: true,

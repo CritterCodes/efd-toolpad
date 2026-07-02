@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { uploadRepairImage } from "@/utils/s3.util"; 
 import RepairsController from "../controller";
 import { requireRepairOps } from "@/lib/apiAuth";
+import { NotificationService } from "@/lib/notificationService";
+import { normalizeRepairStatus, QC_COMPLETION_STATUSES } from "@/services/repairWorkflow";
 
 /**
  * POST Route for Quality Control updates including status, notes, checklist, and image uploads
@@ -42,6 +44,33 @@ export const POST = async (req) => {
         // ✅ Update repair in the database using the controller
         const updatedRepair = await RepairsController.updateRepairById(repairID, updateData);
         console.log("✅ Quality Control Update Successful:", updatedRepair);
+
+        // R9 — QC fail/bounce: when the item does NOT land on a completion status, it bounced
+        // back for rework. Notify the assignee artisan (best-effort, in-app + push).
+        try {
+            const canonicalStatus = normalizeRepairStatus(status);
+            const isCompletion = QC_COMPLETION_STATUSES.includes(canonicalStatus);
+            const assigneeID = updatedRepair?.assignedTo;
+            if (!isCompletion && assigneeID) {
+                const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || "";
+                await NotificationService.createNotification({
+                    userId: assigneeID,
+                    type: "repair-qc-failed",
+                    title: "Repair bounced from QC",
+                    message: `A repair you worked on did not pass QC${updatedRepair.clientName ? ` (${updatedRepair.clientName})` : ""} and needs rework.`,
+                    channels: ["inApp"],
+                    priority: "high",
+                    data: {
+                        actionUrl: `${adminUrl}/dashboard/repairs/${repairID}`,
+                        repairID,
+                        status: updatedRepair.status || "",
+                        clientName: updatedRepair.clientName || "",
+                    },
+                });
+            }
+        } catch (notifyError) {
+            console.error("R9 repair-qc-failed notification failed (non-fatal):", notifyError.message);
+        }
 
         return NextResponse.json(updatedRepair, { status: 200 });
     } catch (error) {

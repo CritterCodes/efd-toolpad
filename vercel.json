@@ -9,6 +9,12 @@
     "src/app/api/cron/update-metal-prices/route.js": {
       "maxDuration": 60
     },
+    "src/app/api/cron/birthday-offers/route.js": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/abandoned-cart/route.js": {
+      "maxDuration": 60
+    },
     "src/app/api/admin/blog-drafts/[id]/submit/route.js": {
       "maxDuration": 120
     },
@@ -26,6 +32,14 @@
     {
       "path": "/api/cron/update-metal-prices",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/birthday-offers",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/abandoned-cart",
+      "schedule": "0 * * * *"
     }
   ]
 }

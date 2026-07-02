@@ -3,6 +3,7 @@ import RepairsModel from '../../model';
 import { requireRepairOps } from '@/lib/apiAuth';
 import { buildCompleteFromQcUpdate } from '@/services/repairWorkflow';
 import { creditRepairLaborAtQc } from '@/services/repairs/benchHandoff';
+import { NotificationService } from '@/lib/notificationService';
 
 export const POST = async (req, { params }) => {
   try {
@@ -25,6 +26,31 @@ export const POST = async (req, { params }) => {
       userName: session.user.name,
       now: new Date(),
     }));
+
+    // R3 — QC passed, repair completed & ready for pickup: notify customer (best-effort, high priority).
+    try {
+      const customerID = updated.userID;
+      const customerEmail = updated.email || updated.clientEmail || updated.customerEmail || '';
+      if (customerID || customerEmail) {
+        const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || '';
+        await NotificationService.createNotification({
+          userId: customerID,
+          type: 'repair-ready-pickup',
+          title: 'Your repair is ready for pickup',
+          message: `Good news${updated.clientName ? `, ${updated.clientName}` : ''}! Your repair has passed final inspection and is ready for pickup.`,
+          channels: ['inApp', 'email'],
+          recipientEmail: customerEmail || undefined,
+          priority: 'high',
+          data: {
+            actionUrl: `${adminUrl}/dashboard/repairs/${repairID}`,
+            repairID,
+            clientName: updated.clientName || '',
+          },
+        });
+      }
+    } catch (notifyError) {
+      console.error('R3 repair-ready-pickup notification failed (non-fatal):', notifyError.message);
+    }
 
     return NextResponse.json(updated, { status: 200 });
   } catch (error) {

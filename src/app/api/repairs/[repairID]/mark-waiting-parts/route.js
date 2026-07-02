@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import RepairsModel from '../../model';
 import { requireRepairOps } from '@/lib/apiAuth';
 import { buildMarkWaitingPartsUpdate } from '@/services/repairWorkflow';
+import { NotificationService } from '@/lib/notificationService';
 
 function toNumber(value, fallback = 0) {
   const parsed = Number(value);
@@ -74,6 +75,32 @@ export const POST = async (req, { params }) => {
       partsOrderedDate: body.partsOrderedDate ? new Date(body.partsOrderedDate) : now,
       now,
     }));
+
+    // R6 — waiting for parts: notify customer of the status update (best-effort).
+    try {
+      const customerID = updated.userID;
+      const customerEmail = updated.email || updated.clientEmail || updated.customerEmail || '';
+      if (customerID || customerEmail) {
+        const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || '';
+        await NotificationService.createNotification({
+          userId: customerID,
+          type: 'repair-status',
+          title: 'Repair update: waiting for parts',
+          message: `We're sourcing parts for your repair${updated.clientName ? `, ${updated.clientName}` : ''}. We'll keep you posted as it progresses.`,
+          channels: ['inApp', 'email'],
+          recipientEmail: customerEmail || undefined,
+          priority: 'normal',
+          data: {
+            actionUrl: `${adminUrl}/dashboard/repairs/${repairID}`,
+            repairID,
+            status: updated.status || '',
+            clientName: updated.clientName || '',
+          },
+        });
+      }
+    } catch (notifyError) {
+      console.error('R6 repair-status (waiting-parts) notification failed (non-fatal):', notifyError.message);
+    }
 
     return NextResponse.json(updated, { status: 200 });
   } catch (error) {

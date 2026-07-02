@@ -2,6 +2,7 @@
 // Service functions for artisan application management
 
 import { db } from './database.js';
+import { NotificationService } from '@/lib/notificationService';
 
 /**
  * Get all artisan applications with optional filters
@@ -138,26 +139,67 @@ export async function updateArtisanApplicationStatus(applicationId, status, revi
       'artisanApplication.updatedAt': new Date()
     };
 
+    // Fetch the applicant once so we can both generate a slug (on approve) and
+    // notify the artisan (on approve/reject) using their canonical shop identity.
+    const user = await usersCollection.findOne({ 'artisanApplication.applicationId': applicationId });
+
     // If approving, set approved date and change role from 'artisan-applicant' to 'artisan'
     if (status === 'approved') {
       updateData['artisanApplication.approvedAt'] = new Date();
       updateData.role = 'artisan';
-      
+
       // Generate slug for the artisan profile if not exists
-      const user = await usersCollection.findOne({ 'artisanApplication.applicationId': applicationId });
-      if (user && !user.artisanApplication.slug) {
-        const businessName = user.artisanApplication.businessName || `${user.firstName} ${user.lastName}`;
+      if (user && !user.artisanApplication?.slug) {
+        const businessName = user.artisanApplication?.businessName || `${user.firstName} ${user.lastName}`;
         const slug = generateSlug(businessName);
         updateData['artisanApplication.slug'] = slug;
       }
     }
-    
+
     const result = await usersCollection
       .updateOne(
         { 'artisanApplication.applicationId': applicationId },
         { $set: updateData }
       );
-    
+
+    // Best-effort artisan notification (never blocks the status change).
+    if (result.modifiedCount > 0 && user && (status === 'approved' || status === 'rejected')) {
+      try {
+        const recipientUserId = user.userID || (user._id ? user._id.toString() : '');
+        const recipientEmail = user.email || '';
+        const artisanName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Artisan';
+        const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || '';
+
+        if (status === 'approved') {
+          await NotificationService.createNotification({
+            userId: recipientUserId,
+            type: 'artisan-approved',
+            title: 'Your artisan application was approved',
+            message: `Congratulations ${artisanName}! Your artisan application has been approved. You can now sign in and start building your profile.`,
+            channels: ['inApp', 'email', 'push'],
+            recipientEmail,
+            priority: 'high',
+            data: { artisanName, actionUrl: `${adminUrl}/dashboard` },
+          });
+        } else {
+          await NotificationService.createNotification({
+            userId: recipientUserId,
+            type: 'artisan-rejected',
+            title: 'Update on your artisan application',
+            message: reviewNotes
+              ? `Your artisan application was not approved. Reason: ${reviewNotes}`
+              : 'Your artisan application was not approved at this time.',
+            channels: ['inApp', 'email', 'push'],
+            recipientEmail,
+            priority: 'high',
+            data: { artisanName, reason: reviewNotes || '', actionUrl: `${adminUrl}/artisan-application` },
+          });
+        }
+      } catch (notificationError) {
+        console.error('⚠️ Failed to send artisan application status notification:', notificationError);
+      }
+    }
+
     return result.modifiedCount > 0;
   } catch (error) {
     console.error('Error updating artisan application status:', error);

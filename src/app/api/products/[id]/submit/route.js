@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import Database from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
+import { notifyAllAdmins } from '@/lib/notificationService';
 
 /**
  * POST /api/products/:id/submit
@@ -112,6 +113,26 @@ export async function POST(request, { params }) {
     }
 
     console.log(`✅ Product ${id} submitted for approval by ${session.user.email}`);
+
+    // PR3 — alert all admins that a product awaits approval (best-effort; never blocks submit).
+    try {
+      const title = result.title || product.title || 'Untitled product';
+      const artisanEmail = session.user.email || '';
+      await notifyAllAdmins({
+        type: 'product-submitted-for-review',
+        title: 'New Product Awaiting Approval',
+        message: `${artisanEmail} submitted "${title}"`,
+        actionUrl: `${process.env.NEXT_PUBLIC_ADMIN_URL || ''}/dashboard/products/pending`,
+        priority: 'normal',
+        relatedData: {
+          productId: result.productId || result._id?.toString() || id,
+          title,
+          artisanEmail,
+        },
+      });
+    } catch (notifyError) {
+      console.error('⚠️ PR3 product-submitted-for-review notification failed:', notifyError.message);
+    }
 
     return NextResponse.json({
       success: true,

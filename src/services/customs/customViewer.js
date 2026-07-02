@@ -10,6 +10,7 @@
 import { randomBytes } from 'crypto';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
 import { METAL_FINISHES, GEM_PRESETS } from '@/services/products/productContract';
+import { NotificationService } from '@/lib/notificationService';
 
 export function validateDesignModel(designModel = {}) {
   const errors = [];
@@ -70,6 +71,28 @@ export async function createShareLink(customID, shareTitle) {
     share,
     ...(shareTitle != null ? { shareTitle } : {}),
   });
+
+  // X3 — the design/GLB is now client-visible (share link minted + enabled). Tell the
+  // client their design is ready to review. This is the single "becomes visible" edge:
+  // both the manual Share tab and the auto-share on GLB QC approval mint the link here.
+  // Best-effort — never block minting the link.
+  if (updated?.clientID) {
+    try {
+      await NotificationService.createNotification({
+        userId: updated.clientID,
+        type: 'custom-design-ready',
+        title: 'Your design is ready to review',
+        message: `The 3D design for "${updated.title || 'your custom piece'}" is ready — take a look!`,
+        channels: ['inApp', 'email'],
+        recipientEmail: updated.customerEmail,
+        priority: 'high',
+        data: { actionUrl: `${process.env.NEXT_PUBLIC_APP_URL || ''}/custom-work/portal`, customID },
+      });
+    } catch (e) {
+      console.error('⚠️ custom-design-ready notification failed:', e.message);
+    }
+  }
+
   return { token, url: shareUrl(token), order: updated };
 }
 

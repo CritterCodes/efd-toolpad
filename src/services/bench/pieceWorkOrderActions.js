@@ -25,6 +25,25 @@ import SettingsManagerService from '@/app/api/admin/settings/services/settingsMa
 import { getSTLVolume } from '@/lib/stlParser';
 import { createShareLink, setShareEnabled } from '@/services/customs/customViewer';
 import { db } from '@/lib/database';
+import { NotificationService, notifyAllAdmins } from '@/lib/notificationService';
+
+const BENCH_ACTION_URL = `${process.env.NEXT_PUBLIC_ADMIN_URL || ''}/dashboard/bench`;
+const customLink = (customID) => `${process.env.NEXT_PUBLIC_ADMIN_URL || ''}/dashboard/customs/${customID}`;
+
+/** Resolve the linked customID (if any) for a piece work order, for notification links. */
+async function customIDForWorkOrder(wo) {
+  try {
+    const piece = await PiecesModel.findById(wo.sourceID);
+    return piece?.customOrderID || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Short human label for a work order used in notification copy. */
+function woLabel(wo) {
+  return wo?.title || wo?.discipline || `Work order ${wo?.workOrderID || ''}`.trim();
+}
 
 /** STL files are authored in mm; the cost estimator works in cm³ (1 cm³ = 1000 mm³). */
 async function stlVolumeCm3(arrayBuffer) {
@@ -79,12 +98,31 @@ export async function claimPieceWorkOrder({ session, workOrderID }) {
     throw error;
   }
 
-  return WorkOrdersModel.updateByID(workOrderID, {
+  const updated = await WorkOrdersModel.updateByID(workOrderID, {
     status: 'IN PROGRESS',
     assignedToUserID: session.user.userID,
     assignedJeweler: session.user.name,
     claimedAt: new Date(),
   });
+
+  // W1: notify the artisan who now owns this work order (best-effort — never block the claim).
+  try {
+    if (session.user.userID) {
+      await NotificationService.createNotification({
+        userId: session.user.userID,
+        type: 'wo-assigned',
+        title: 'Work order claimed',
+        message: `You claimed "${woLabel(wo)}". It's now in progress on your bench.`,
+        channels: ['inApp', 'email'],
+        priority: 'normal',
+        data: { actionUrl: BENCH_ACTION_URL },
+      });
+    }
+  } catch (e) {
+    console.error('[bench] wo-assigned (claim) notify failed:', e?.message || e);
+  }
+
+  return updated;
 }
 
 /**
@@ -176,12 +214,29 @@ export async function uploadCadStl({ session, workOrderID, file }) {
     }
   }
 
-  return WorkOrdersModel.updateByID(workOrderID, {
+  const updated = await WorkOrdersModel.updateByID(workOrderID, {
     files: { ...(wo.files || {}), stl },
     status: 'QC',
     completedBy: session.user.name,
     completedAt: new Date(),
   });
+
+  // X8 — STL design submitted for QC peer review: alert admins. Best-effort.
+  try {
+    const customID = piece?.customOrderID || (await customIDForWorkOrder(wo));
+    await notifyAllAdmins({
+      type: 'custom-design-submitted',
+      title: 'Design submitted for QC review',
+      message: `"${woLabel(wo)}"${customID ? ` (custom ${customID})` : ''} was submitted for CAD QC peer review.`,
+      actionUrl: customID ? customLink(customID) : BENCH_ACTION_URL,
+      priority: 'normal',
+      relatedData: { customID: customID || null, workOrderID },
+    });
+  } catch (e) {
+    console.error('⚠️ custom-design-submitted (STL) notify failed:', e?.message || e);
+  }
+
+  return updated;
 }
 
 /**
@@ -256,11 +311,28 @@ export async function submitCadGlbToQc({ session, workOrderID }) {
     const e = new Error('Assign materials to the model before submitting to QC.'); e.code = 'BAD_REQUEST'; throw e;
   }
 
-  return WorkOrdersModel.updateByID(workOrderID, {
+  const updated = await WorkOrdersModel.updateByID(workOrderID, {
     status: 'QC',
     completedBy: session.user.name,
     completedAt: new Date(),
   });
+
+  // X8 — GLB design submitted for QC peer review: alert admins that a CAD/GLB WO needs review.
+  // Best-effort; never block the submit.
+  try {
+    await notifyAllAdmins({
+      type: 'custom-design-submitted',
+      title: 'Design submitted for QC review',
+      message: `"${woLabel(wo)}"${order?.customID ? ` (custom ${order.customID})` : ''} was submitted for CAD QC peer review.`,
+      actionUrl: order?.customID ? customLink(order.customID) : BENCH_ACTION_URL,
+      priority: 'normal',
+      relatedData: { customID: order?.customID || null, workOrderID },
+    });
+  } catch (e) {
+    console.error('⚠️ custom-design-submitted (GLB) notify failed:', e?.message || e);
+  }
+
+  return updated;
 }
 
 /**
@@ -305,6 +377,25 @@ export async function splitPieceTask({ session, workOrderID, taskIndex, assignTo
   });
   await PiecesModel.setWorkOrders(wo.sourceID, [...(piece?.workOrderIDs || []), newWo.workOrderID]);
   await WorkOrdersModel.updateByID(workOrderID, { tasks: tasks.filter((_, i) => i !== idx) });
+
+  // W1: an admin split-and-ASSIGNED this task to a specific artisan → notify them.
+  // (An unassigned split goes to the open queue with no recipient, so skip that case.)
+  try {
+    if (assignToUserID) {
+      await NotificationService.createNotification({
+        userId: assignToUserID,
+        type: 'wo-assigned',
+        title: 'New work order assigned',
+        message: `You've been assigned "${newWo.title || newWo.discipline}". It's ready on your bench.`,
+        channels: ['inApp', 'email'],
+        priority: 'normal',
+        data: { actionUrl: BENCH_ACTION_URL },
+      });
+    }
+  } catch (e) {
+    console.error('[bench] wo-assigned (split) notify failed:', e?.message || e);
+  }
+
   return { workOrder: newWo };
 }
 
@@ -375,6 +466,24 @@ export async function approveCadQc({ session, workOrderID }) {
       console.warn('[customs] auto-share on GLB QC approval failed:', e.message);
     }
   }
+
+  // W3: CAD QC passed → the author's flat design fee is now payable. Notify the author artisan.
+  try {
+    if (wo.assignedToUserID) {
+      await NotificationService.createNotification({
+        userId: wo.assignedToUserID,
+        type: 'wo-completed',
+        title: 'CAD work passed QC',
+        message: `Your CAD work "${woLabel(wo)}" passed QC review — your design fee has been credited.`,
+        channels: ['inApp'],
+        priority: 'normal',
+        data: { actionUrl: BENCH_ACTION_URL },
+      });
+    }
+  } catch (e) {
+    console.error('[bench] wo-completed (cad-qc) notify failed:', e?.message || e);
+  }
+
   return { workOrder, piece };
 }
 
@@ -387,10 +496,29 @@ export async function rejectCadQc({ session, workOrderID, notes = '' }) {
   if (!isAdminRole(session) && wo.assignedToUserID === session.user.userID) {
     const e = new Error('A CAD designer cannot peer-review their own work.'); e.code = 'FORBIDDEN'; throw e;
   }
-  return WorkOrdersModel.updateByID(workOrderID, {
+  const updated = await WorkOrdersModel.updateByID(workOrderID, {
     status: 'IN PROGRESS', qcBy: null, qcDate: null,
     qcRejectedBy: session.user.name, qcRejectedAt: new Date(), qcRejectNotes: notes || '',
   });
+
+  // W4: CAD QC failed → bounced back to the author for rework. Notify the author artisan.
+  try {
+    if (wo.assignedToUserID) {
+      await NotificationService.createNotification({
+        userId: wo.assignedToUserID,
+        type: 'wo-qc-failed',
+        title: 'CAD work needs rework',
+        message: `Your CAD work "${woLabel(wo)}" was returned from QC${notes ? `: ${notes}` : '.'} Please revise and resubmit.`,
+        channels: ['inApp'],
+        priority: 'high',
+        data: { actionUrl: BENCH_ACTION_URL },
+      });
+    }
+  } catch (e) {
+    console.error('[bench] wo-qc-failed (cad-qc) notify failed:', e?.message || e);
+  }
+
+  return updated;
 }
 
 /** Approve a piece work order out of QC — release held labor, finalize, re-roll COGS. */
@@ -402,6 +530,24 @@ export async function completePieceWorkOrderFromQc({ workOrderID }) {
     qcDate: new Date(),
   });
   const piece = await PiecesModel.recomputeCosts(wo.sourceID);
+
+  // W3: piece work order passed QC → held labor is now payable. Notify the assigned artisan.
+  try {
+    if (wo.assignedToUserID) {
+      await NotificationService.createNotification({
+        userId: wo.assignedToUserID,
+        type: 'wo-completed',
+        title: 'Work order passed QC',
+        message: `Your work order "${woLabel(wo)}" passed QC — your labor has been credited.`,
+        channels: ['inApp'],
+        priority: 'normal',
+        data: { actionUrl: BENCH_ACTION_URL },
+      });
+    }
+  } catch (e) {
+    console.error('[bench] wo-completed notify failed:', e?.message || e);
+  }
+
   return { workOrder, piece };
 }
 

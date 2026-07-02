@@ -8,6 +8,7 @@
  */
 import { db } from '@/lib/database';
 import RepairsModel from '@/app/api/repairs/model';
+import { NotificationService } from '@/lib/notificationService';
 import RepairLaborLogsModel from '@/app/api/repairLaborLogs/model';
 import {
   buildMoveToQcUpdate,
@@ -68,6 +69,7 @@ export async function signOffAndHandoffRepair({ session, repairID, completedTask
   }, []);
 
   let routeUpdate;
+  let handoffTarget = null;
   if (remaining.length === 0) {
     // Everything is done → straight to QC. The repair-level completedBy reflects the actor.
     routeUpdate = buildMoveToQcUpdate({ userName: session.user.name, now });
@@ -78,6 +80,7 @@ export async function signOffAndHandoffRepair({ session, repairID, completedTask
       { projection: { _id: 0, userID: 1, firstName: 1, lastName: 1, name: 1, email: 1 } },
     );
     if (!next) throw err('Hand-off jeweler not found.', 'NOT_FOUND');
+    handoffTarget = next;
     routeUpdate = buildAssignBenchUpdate({
       repair, userID: next.userID, userName: jewelerName(next), now, requiresLaborReview: false,
     });
@@ -85,7 +88,32 @@ export async function signOffAndHandoffRepair({ session, repairID, completedTask
     routeUpdate = buildUnclaimRepairUpdate({ now });
   }
 
-  return RepairsModel.updateById(repairID, { tasks, ...routeUpdate });
+  const result = await RepairsModel.updateById(repairID, { tasks, ...routeUpdate });
+
+  // R8 — bench handoff: notify the target artisan the repair was handed off to them
+  // (best-effort, in-app + push). Only fires when a specific target jeweler was set.
+  if (handoffTarget?.userID) {
+    try {
+      const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || '';
+      await NotificationService.createNotification({
+        userId: handoffTarget.userID,
+        type: 'repair-handoff',
+        title: 'Repair handed off to you',
+        message: `A repair has been handed off to you${result?.clientName ? ` (${result.clientName})` : ''} to finish the remaining tasks.`,
+        channels: ['inApp'],
+        priority: 'normal',
+        data: {
+          actionUrl: `${adminUrl}/dashboard/repairs/${repairID}`,
+          repairID,
+          clientName: result?.clientName || '',
+        },
+      });
+    } catch (notifyError) {
+      console.error('R8 repair-handoff notification failed (non-fatal):', notifyError.message);
+    }
+  }
+
+  return result;
 }
 
 /**

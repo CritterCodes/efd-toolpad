@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/apiAuth';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
+import { NotificationService } from '@/lib/notificationService';
 
 /** GET /api/custom-orders/[customID]/communications — list messages (both threads). */
 export const GET = async (req, { params }) => {
@@ -33,7 +34,25 @@ export const POST = async (req, { params }) => {
     thread: body.thread,
     direction: 'outbound',
   });
-  // TODO (C-comms): fire-and-forget client notification for client-thread messages
-  // (mirror customInvoices.service notifications) once the message NOTIFICATION_TYPE is wired.
+  // X4 — admin→client message: notify the client when an admin posts to their thread.
+  // This POST only ever writes outbound (admin-authored) messages; inbound client posts
+  // come through the shop, so there's no risk of notifying on an inbound message here.
+  // Fire-and-forget — never block the message write.
+  if ((message.thread || 'client') === 'client' && order.clientID) {
+    try {
+      await NotificationService.createNotification({
+        userId: order.clientID,
+        type: 'custom-message',
+        title: 'New message about your custom piece',
+        message: `You have a new message about "${order.title || 'your custom piece'}".`,
+        channels: ['inApp', 'email'],
+        recipientEmail: order.customerEmail,
+        priority: 'normal',
+        data: { actionUrl: `${process.env.NEXT_PUBLIC_APP_URL || ''}/custom-work/portal`, customID },
+      });
+    } catch (e) {
+      console.error('⚠️ custom-message notification failed:', e.message);
+    }
+  }
   return NextResponse.json(message, { status: 201 });
 };

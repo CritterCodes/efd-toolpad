@@ -10,6 +10,7 @@ import {
 } from "@/app/api/repairLaborLogs/utils";
 import { REPAIR_STATUS } from "@/services/repairWorkflow";
 import { resolveBillingMode } from "@/services/billing/modes";
+import { NotificationService, notifyAllAdmins } from "@/lib/notificationService";
 
 async function createWhileYouWaitLaborLog(repair, session) {
   if (!repair?.repairID || repair.whileYouWait !== true || repair.status !== "COMPLETED" || !repair.assignedTo) {
@@ -181,6 +182,40 @@ export const POST = async (request) => {
 
     const newRepair = await RepairsController.createRepair(repairData);
     await createWhileYouWaitLaborLog(newRepair, session);
+
+    // R1 — repair lead received: customer ack (best-effort) + admin alert. Never blocks intake.
+    try {
+      const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || "";
+      const customerID = newRepair.userID;
+      const customerEmail = newRepair.email || newRepair.clientEmail || newRepair.customerEmail || "";
+      // Customer may be a partial lead (no shop account) — only notify if we have an identifier.
+      if (customerID || customerEmail) {
+        await NotificationService.createNotification({
+          userId: customerID,
+          type: "repair-lead-received",
+          title: "We received your repair request",
+          message: `Thanks${newRepair.clientName ? `, ${newRepair.clientName}` : ""}! We've received your repair request and will follow up shortly.`,
+          channels: ["inApp", "email"],
+          recipientEmail: customerEmail || undefined,
+          priority: "normal",
+          data: {
+            actionUrl: `${adminUrl}/dashboard/repairs/${newRepair.repairID}`,
+            repairID: newRepair.repairID,
+            clientName: newRepair.clientName || "",
+          },
+        });
+      }
+      await notifyAllAdmins({
+        type: "new-repair-lead",
+        title: "New repair lead received",
+        message: `A new repair was submitted${newRepair.clientName ? ` for ${newRepair.clientName}` : ""}.`,
+        actionUrl: `${adminUrl}/dashboard/repairs/${newRepair.repairID}`,
+        priority: "normal",
+        relatedData: { repairID: newRepair.repairID, clientName: newRepair.clientName || "" },
+      });
+    } catch (notifyError) {
+      console.error("R1 repair-lead notification failed (non-fatal):", notifyError.message);
+    }
 
     return NextResponse.json(
       {
