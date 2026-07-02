@@ -18,6 +18,8 @@ import PaymentIcon from "@mui/icons-material/Payment";
 import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 import LeadsIcon from "@mui/icons-material/ChatBubbleOutline";
 import HowToVoteIcon from "@mui/icons-material/HowToVote";
+import PrecisionManufacturingIcon from "@mui/icons-material/PrecisionManufacturing";
+import CollectionsBookmarkIcon from "@mui/icons-material/CollectionsBookmark";
 
 import { SHARED_NAVIGATION } from "./sharedNavigation";
 
@@ -51,6 +53,33 @@ export const devNavigation = {
       segment: 'dashboard/clients',
       title: 'Clients',
       icon: <PeopleIcon />
+    },
+    {
+      segment: 'dashboard/customs',
+      title: 'Customs',
+      icon: <DiamondIcon />
+    },
+    {
+      segment: 'dashboard/production',
+      title: 'Production',
+      icon: <PrecisionManufacturingIcon />,
+      children: [
+        {
+          segment: 'collections',
+          title: 'Drops & Collections',
+          icon: <CollectionsBookmarkIcon />
+        },
+        {
+          segment: 'designs',
+          title: 'Designs',
+          icon: <DiamondIcon />
+        },
+        {
+          segment: 'pieces',
+          title: 'Pieces',
+          icon: <RingIcon />
+        }
+      ]
     },
     { kind: 'header', title: 'Repair Work' },
     {

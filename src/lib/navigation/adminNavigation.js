@@ -16,6 +16,8 @@ import DiamondIcon from "@mui/icons-material/AutoAwesome";
 import RingIcon from "@mui/icons-material/FiberSmartRecord";
 import PaymentIcon from "@mui/icons-material/Payment";
 import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
+import PrecisionManufacturingIcon from "@mui/icons-material/PrecisionManufacturing";
+import CollectionsBookmarkIcon from "@mui/icons-material/CollectionsBookmark";
 import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
 import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 import LeadsIcon from "@mui/icons-material/ChatBubbleOutline";
@@ -68,6 +70,28 @@ export const adminNavigation = {
       segment: 'dashboard/customs',
       title: 'Customs',
       icon: <DiamondIcon />
+    },
+    {
+      segment: 'dashboard/production',
+      title: 'Production',
+      icon: <PrecisionManufacturingIcon />,
+      children: [
+        {
+          segment: 'collections',
+          title: 'Drops & Collections',
+          icon: <CollectionsBookmarkIcon />
+        },
+        {
+          segment: 'designs',
+          title: 'Designs',
+          icon: <DiamondIcon />
+        },
+        {
+          segment: 'pieces',
+          title: 'Pieces',
+          icon: <RingIcon />
+        }
+      ]
     },
     { kind: 'header', title: 'Repair Work' },
     {
