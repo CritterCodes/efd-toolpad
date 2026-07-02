@@ -1,16 +1,15 @@
 /**
  * POST /api/refrakt-render — turn a JewelryViewer frame into a photoreal render.
  *
- * Body: { image: "data:image/png;base64,…", prompt: string } → { url: "data:…;base64,…" }
+ * Body: { image, prompt, materials, scene, context } → { url }
  *
- * Calls Gemini 3 Pro Image ("Nano Banana") via REST (no SDK). The input frame preserves
- * the piece's geometry; the prompt supplies the metals/stones from the config. Admin-only.
+ * The model config, scene → prompt assembly and the Gemini call live in the package
+ * (generateRender from '@crittercodes/refrakt/server'); this route only supplies the key.
+ * Admin-only.
  */
 import { NextResponse } from 'next/server';
+import { generateRender } from '@crittercodes/refrakt/server';
 import { requireRole } from '@/lib/apiAuth';
-
-const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
-const IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-3-pro-image';
 
 export async function POST(request) {
   const { errorResponse } = await requireRole(['admin', 'dev']);
@@ -21,30 +20,15 @@ export async function POST(request) {
 
   let body;
   try { body = await request.json(); } catch { return NextResponse.json({ error: 'Invalid JSON.' }, { status: 400 }); }
-  const { image, prompt } = body || {};
-  if (!image || typeof image !== 'string') return NextResponse.json({ error: 'Missing image.' }, { status: 400 });
-
-  const base64 = image.split(',').pop();
+  const { image, prompt, materials, scene, context } = body || {};
 
   try {
-    const res = await fetch(`${GEMINI_API_BASE}/models/${IMAGE_MODEL}:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [
-          { text: prompt || 'Photorealistic studio product photograph of this piece of fine jewelry, preserving its exact geometry.' },
-          { inlineData: { mimeType: 'image/png', data: base64 } },
-        ] }],
-        generationConfig: { responseModalities: ['IMAGE'], temperature: 0.4 },
-      }),
+    const { url } = await generateRender({
+      apiKey,
+      model: process.env.GEMINI_IMAGE_MODEL,
+      image, prompt, materials, scene, context,
     });
-    const payload = await res.json();
-    if (!res.ok) return NextResponse.json({ error: payload?.error?.message || 'Gemini request failed.' }, { status: 502 });
-    const inline = (payload?.candidates?.[0]?.content?.parts || []).find((p) => p.inlineData || p.inline_data);
-    const data = inline?.inlineData?.data || inline?.inline_data?.data;
-    if (!data) return NextResponse.json({ error: 'No image was returned.' }, { status: 502 });
-    const mime = inline?.inlineData?.mimeType || inline?.inline_data?.mime_type || 'image/png';
-    return NextResponse.json({ url: `data:${mime};base64,${data}` });
+    return NextResponse.json({ url });
   } catch (e) {
     return NextResponse.json({ error: (e && e.message) || 'Render failed.' }, { status: 500 });
   }
