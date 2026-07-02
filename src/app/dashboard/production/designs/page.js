@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Box, Typography, Button, Grid, Card, CardContent, Paper, TextField, InputAdornment,
   FormControl, InputLabel, Select, MenuItem, Stack, Chip, CircularProgress, Snackbar, Alert,
-  Dialog, DialogTitle, DialogContent, DialogActions,
+  Dialog, DialogTitle, DialogContent, DialogActions, Autocomplete,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DesignServicesIcon from '@mui/icons-material/DesignServices';
@@ -12,6 +12,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import InboxIcon from '@mui/icons-material/Inbox';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import DiamondIcon from '@mui/icons-material/AutoAwesome';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 
 import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
 
@@ -44,8 +45,28 @@ function MetricCard({ icon: Icon, label, value, accent }) {
   );
 }
 
-function DesignCard({ design, onOpen }) {
+function DesignCard({ design, onUploaded, onError }) {
   const d = design;
+  const [uploading, setUploading] = useState(false);
+
+  // STL/CAD upload → MinIO via the design assets route, appended to design.cadFiles (M2-T4).
+  const upload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('field', 'cadFiles');
+      const res = await fetch(`/api/production/designs/${d.designID}/assets`, { method: 'POST', body: fd });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Upload failed');
+      onUploaded?.();
+    } catch (err) { onError?.(err.message); } finally {
+      setUploading(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
   return (
     <Card sx={{ height: '100%', backgroundColor: REPAIRS_UI.bgCard, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2 }}>
       <CardContent>
@@ -55,9 +76,14 @@ function DesignCard({ design, onOpen }) {
         </Stack>
         <Typography sx={{ fontSize: 18, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 0.5 }}>{d.name || 'Untitled design'}</Typography>
         {d.description && <Typography sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.85rem', mb: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{d.description}</Typography>}
-        <Stack direction="row" spacing={2} sx={{ mt: 1.5, color: REPAIRS_UI.textMuted, fontSize: '0.8rem' }}>
-          <Box>{d.estCost != null ? `est ${money(d.estCost)}` : 'no estimate'}</Box>
-          {d.cadFiles?.length ? <Box>CAD ✓</Box> : <Box>no CAD</Box>}
+        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mt: 1.5 }}>
+          <Box sx={{ color: REPAIRS_UI.textMuted, fontSize: '0.8rem' }}>{d.estCost != null ? `est ${money(d.estCost)}` : 'no estimate'}</Box>
+          <Box sx={{ flex: 1 }} />
+          <Button size="small" component="label" disabled={uploading} startIcon={<UploadFileIcon sx={{ fontSize: 16 }} />}
+            sx={{ color: d.cadFiles?.length ? '#66BB6A' : REPAIRS_UI.accent, textTransform: 'none', fontSize: '0.78rem' }}>
+            {uploading ? 'Uploading…' : (d.cadFiles?.length ? `CAD ✓ (${d.cadFiles.length})` : 'Upload CAD/STL')}
+            <input type="file" hidden accept=".stl,.obj,.glb,.3dm,.zip" onChange={upload} />
+          </Button>
         </Stack>
       </CardContent>
     </Card>
@@ -70,7 +96,33 @@ function CreateDesignDialog({ open, onClose, onCreated, onError }) {
   const [estimate, setEstimate] = useState(null);
   const [estimating, setEstimating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [gems, setGems] = useState([]);
+  const [gemsLoading, setGemsLoading] = useState(false);
   const set = (k) => (e) => { setForm((f) => ({ ...f, [k]: e.target.value })); setEstimate(null); };
+
+  // Load listed gemstones for the link picker when the dialog opens (M2-T4).
+  useEffect(() => {
+    if (!open) return undefined;
+    let cancelled = false;
+    (async () => {
+      setGemsLoading(true);
+      try {
+        const res = await fetch('/api/products/gemstones');
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled) setGems(Array.isArray(data.gemstones) ? data.gemstones : []);
+      } catch { /* non-fatal — picker just stays empty */ } finally {
+        if (!cancelled) setGemsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open]);
+
+  const gemLabel = (g) => (
+    g?.title
+    || [g?.gemstone?.species, g?.gemstone?.carat ? `${g.gemstone.carat}ct` : null].filter(Boolean).join(' ')
+    || g?.productId
+    || ''
+  );
 
   const previewEstimate = async () => {
     if (!form.stlVolumeCm3) { onError('Enter a CAD volume (cm³) to estimate.'); return; }
@@ -123,7 +175,19 @@ function CreateDesignDialog({ open, onClose, onCreated, onError }) {
           </FormControl>
           <TextField label="CAD volume (cm³) — optional" type="number" value={form.stlVolumeCm3} onChange={set('stlVolumeCm3')} size="small" fullWidth
             helperText="From the STL. Leave blank for a handmade / no-CAD design." />
-          <TextField label="Gemstone link (productId) — optional" value={form.gemstoneId} onChange={set('gemstoneId')} size="small" fullWidth />
+          <Autocomplete
+            size="small"
+            options={gems}
+            loading={gemsLoading}
+            getOptionLabel={gemLabel}
+            isOptionEqualToValue={(o, v) => o?.productId === v?.productId}
+            value={gems.find((g) => g.productId === form.gemstoneId) || null}
+            onChange={(_, opt) => { setForm((f) => ({ ...f, gemstoneId: opt?.productId || '' })); setEstimate(null); }}
+            renderInput={(params) => (
+              <TextField {...params} label="Gemstone link — optional"
+                helperText="Search listed gemstones; links this design to its originating stone (the flywheel)." />
+            )}
+          />
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Button onClick={previewEstimate} disabled={estimating || !form.stlVolumeCm3} startIcon={<CalculateIcon />} variant="outlined"
               sx={{ color: REPAIRS_UI.accent, borderColor: REPAIRS_UI.border }}>
@@ -234,7 +298,7 @@ export default function ProductionDesignsPage() {
         <Grid container spacing={2}>
           {filtered.map((d) => (
             <Grid item xs={12} sm={6} md={4} key={d.designID}>
-              <DesignCard design={d} />
+              <DesignCard design={d} onUploaded={load} onError={(m) => showSnack(m, 'error')} />
             </Grid>
           ))}
         </Grid>
