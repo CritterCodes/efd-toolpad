@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Box,
   Typography,
@@ -17,7 +18,6 @@ import WholesalersTable from './wholesale/WholesalersTable';
 import ReconciliationList from './wholesale/ReconciliationList';
 import ActionDialog from './wholesale/ActionDialog';
 import DetailDialog from './wholesale/DetailDialog';
-import WholesalerDetailDialog from './wholesale/WholesalerDetailDialog';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -47,17 +47,15 @@ export default function WholesaleManagement() {
     error,
     handleApprove,
     handleReject,
-    handleUpdateWholesaler,
     handleReconciliationAction,
   } = useWholesaleManagement();
 
+  const router = useRouter();
   const [tabValue, setTabValue] = useState(0);
   const [selectedApplication, setSelectedApplication] = useState(null);
-  const [selectedWholesaler, setSelectedWholesaler] = useState(null);
   const [actionDialogOpen, setActionDialogOpen] = useState(false);
   const [actionType, setActionType] = useState('');
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
-  const [wholesalerDetailOpen, setWholesalerDetailOpen] = useState(false);
 
   const openActionDialog = (application, action) => {
     setSelectedApplication(application);
@@ -70,9 +68,11 @@ export default function WholesaleManagement() {
     setDetailDialogOpen(true);
   };
 
-  const openWholesalerDetailDialog = (wholesaler) => {
-    setSelectedWholesaler(wholesaler);
-    setWholesalerDetailOpen(true);
+  const openWholesalerDetail = (wholesaler) => {
+    const accountId = wholesaler?.id || wholesaler?.userID;
+    if (accountId) {
+      router.push(`/dashboard/users/wholesalers/${encodeURIComponent(accountId)}`);
+    }
   };
 
   const confirmAction = async (applicationId, reviewNotes) => {
@@ -82,13 +82,6 @@ export default function WholesaleManagement() {
       await handleReject(applicationId, reviewNotes);
     }
     setActionDialogOpen(false);
-  };
-
-  const updateWholesaler = async (wholesalerId, payload) => {
-    const updatedWholesaler = await handleUpdateWholesaler(wholesalerId, payload);
-    if (updatedWholesaler) {
-      setSelectedWholesaler(updatedWholesaler);
-    }
   };
 
   if (loading && applications.length === 0 && wholesalers.length === 0) {
@@ -143,7 +136,7 @@ export default function WholesaleManagement() {
       </TabPanel>
 
       <TabPanel value={tabValue} index={1}>
-        <WholesalersTable wholesalers={wholesalers} onOpenDetail={openWholesalerDetailDialog} />
+        <WholesalersTable wholesalers={wholesalers} onOpenDetail={openWholesalerDetail} />
       </TabPanel>
 
       <TabPanel value={tabValue} index={2}>
@@ -167,14 +160,6 @@ export default function WholesaleManagement() {
         open={detailDialogOpen}
         onClose={() => setDetailDialogOpen(false)}
         application={selectedApplication}
-      />
-
-      <WholesalerDetailDialog
-        open={wholesalerDetailOpen}
-        onClose={() => setWholesalerDetailOpen(false)}
-        wholesaler={selectedWholesaler}
-        onSave={updateWholesaler}
-        loading={loading}
       />
     </Box>
   );

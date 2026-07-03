@@ -18,6 +18,7 @@ import PaymentIcon from "@mui/icons-material/Payment";
 import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 import LeadsIcon from "@mui/icons-material/ChatBubbleOutline";
 import HowToVoteIcon from "@mui/icons-material/HowToVote";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 
 import { SHARED_NAVIGATION } from "./sharedNavigation";
 
@@ -72,6 +73,11 @@ export const devNavigation = {
       segment: 'dashboard/repairs/pending-wholesale',
       title: 'Wholesale Pickup',
       icon: <NotificationsActiveIcon />
+    },
+    {
+      segment: 'dashboard/repairs/by-period',
+      title: 'Repairs by Period',
+      icon: <CalendarMonthIcon />
     },
     { kind: 'header', title: 'Administration' },
     {

@@ -44,6 +44,33 @@ function pickProfileFields(payload = {}) {
   }, {});
 }
 
+export async function GET(request, { params }) {
+  try {
+    const { errorResponse } = await requireRole(['admin', 'dev']);
+    if (errorResponse) return errorResponse;
+
+    const { accountId } = await params;
+    if (!accountId) {
+      return Response.json({ success: false, error: 'Wholesaler account ID is required' }, { status: 400 });
+    }
+
+    const users = await db.dbUsers();
+    const existingUser = await users.findOne(buildLookup(accountId));
+
+    if (!existingUser || existingUser.role !== 'wholesaler') {
+      return Response.json({ success: false, error: 'Wholesaler account not found' }, { status: 404 });
+    }
+
+    return Response.json({
+      success: true,
+      data: summarizeWholesaleUser(existingUser),
+    });
+  } catch (error) {
+    console.error('Error fetching wholesale account:', error);
+    return Response.json({ success: false, error: 'Failed to fetch wholesaler account' }, { status: 500 });
+  }
+}
+
 export async function PUT(request, { params }) {
   try {
     const { errorResponse } = await requireRole(['admin', 'dev']);
