@@ -1,5 +1,4 @@
 {
-  "installCommand": "pnpm install --no-frozen-lockfile",
   "functions": {
     "src/app/api/*/route.js": {
       "maxDuration": 30
