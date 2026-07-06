@@ -91,17 +91,60 @@ export default class RepairsModel {
 
 
     /**
-     * ✅ Delete a repair by repairID and confirm deletion
+     * ✅ Delete a repair by repairID, cascading to everything tied to it so no orphans linger.
+     * Removes the repair's work order(s) and labor log(s); if a labor log was in a payroll batch,
+     * the batch is kept internally consistent (log pulled, counts decremented, its hours/pay
+     * backed out). Repair invoices are intentionally NOT touched — they're customer billing
+     * records (a consolidated wholesale invoice can reference other live repairs too).
      */
     static deleteById = async (repairID) => {
         const dbInstance = await db.connect();
-        const result = await dbInstance.collection("repairs").deleteOne({ repairID });
 
+        // 1) Work orders (bench spine) — not financial, always safe to remove.
+        const woResult = await dbInstance.collection("workOrders")
+            .deleteMany({ sourceType: "repair", sourceID: repairID });
+
+        // 2) Labor logs — back each out of its payroll batch (grouped, so a repair with multiple
+        //    logs in one batch only decrements repairsWorked once), then delete them.
+        const logs = await dbInstance.collection("laborLogs")
+            .find({ repairID })
+            .project({ _id: 0, logID: 1, payrollBatchID: 1, creditedLaborHours: 1, creditedValue: 1 })
+            .toArray();
+        const byBatch = {};
+        for (const log of logs) {
+            if (!log.payrollBatchID) continue;
+            const agg = (byBatch[log.payrollBatchID] ||= { logIDs: [], hours: 0, pay: 0 });
+            agg.logIDs.push(log.logID);
+            agg.hours += Number(log.creditedLaborHours) || 0;
+            agg.pay += Number(log.creditedValue) || 0;
+        }
+        for (const [batchID, agg] of Object.entries(byBatch)) {
+            await dbInstance.collection("payrollBatches").updateOne(
+                { batchID },
+                {
+                    $pull: { logIDs: { $in: agg.logIDs } },
+                    $inc: {
+                        entryCount: -agg.logIDs.length,
+                        repairsWorked: -1,
+                        laborHours: -(Math.round(agg.hours * 100) / 100),
+                        laborPay: -(Math.round(agg.pay * 100) / 100),
+                    },
+                    $set: { updatedAt: new Date() },
+                }
+            );
+        }
+        const logResult = await dbInstance.collection("laborLogs").deleteMany({ repairID });
+
+        // 3) The repair itself.
+        const result = await dbInstance.collection("repairs").deleteOne({ repairID });
         if (result.deletedCount === 0) {
             throw new Error("Repair not found.");
         }
 
-        return { message: `Successfully deleted repair with ID: ${repairID}` };
+        return {
+            message: `Successfully deleted repair with ID: ${repairID}`,
+            cascade: { workOrders: woResult.deletedCount, laborLogs: logResult.deletedCount },
+        };
     };
 
     /**
