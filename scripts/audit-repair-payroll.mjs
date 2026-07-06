@@ -22,7 +22,7 @@ async function main() {
 
   try {
     const db = client.db(dbName);
-    const laborLogs = db.collection('repairLaborLogs');
+    const laborLogs = db.collection('laborLogs');
     const repairs = db.collection('repairs');
 
     const weekStart = getMondayOfWeek(new Date());
@@ -64,7 +64,7 @@ async function main() {
         },
         {
           $lookup: {
-            from: 'repairLaborLogs',
+            from: 'laborLogs',
             localField: 'repairID',
             foreignField: 'repairID',
             as: 'laborLogs',
