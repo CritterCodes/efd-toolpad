@@ -61,14 +61,18 @@ function formatSourceAction(action = '') {
   return action.replace(/[_-]+/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 }
 
-function getMondayOfCurrentWeek() {
+// Labor weekStart is stored at UTC-midnight Monday (server getMondayOfWeek on Vercel/UTC).
+// Compare in UTC — a local getDay()/setHours() shifts the boundary a day in US timezones,
+// which dropped current-week work out of "This Week" into "Past Weeks".
+function getMondayOfCurrentWeekUTC() {
   const now = new Date();
-  const day = now.getDay();
+  const day = now.getUTCDay();
   const diff = (day === 0 ? -6 : 1 - day);
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + diff);
-  monday.setHours(0, 0, 0, 0);
-  return monday;
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff));
+}
+
+function weekKey(value) {
+  return new Date(value).toISOString().slice(0, 10); // UTC YYYY-MM-DD
 }
 
 export default function ArtisanMyWorkPage() {
@@ -110,21 +114,16 @@ export default function ArtisanMyWorkPage() {
     }
   }, [fetchData, router, session?.user?.role, status]);
 
-  const currentWeekMonday = useMemo(() => getMondayOfCurrentWeek(), []);
+  const currentWeekMonday = useMemo(() => getMondayOfCurrentWeekUTC(), []);
+  const currentWeekKey = useMemo(() => weekKey(currentWeekMonday), [currentWeekMonday]);
 
   const thisWeekLabor = useMemo(() => {
-    return laborWeeks.filter((entry) => {
-      const entryMonday = new Date(entry.weekStart);
-      return entryMonday.toDateString() === currentWeekMonday.toDateString();
-    });
-  }, [laborWeeks, currentWeekMonday]);
+    return laborWeeks.filter((entry) => weekKey(entry.weekStart) === currentWeekKey);
+  }, [laborWeeks, currentWeekKey]);
 
   const pastWeekLabor = useMemo(() => {
-    return laborWeeks.filter((entry) => {
-      const entryMonday = new Date(entry.weekStart);
-      return entryMonday.toDateString() !== currentWeekMonday.toDateString();
-    });
-  }, [laborWeeks, currentWeekMonday]);
+    return laborWeeks.filter((entry) => weekKey(entry.weekStart) !== currentWeekKey);
+  }, [laborWeeks, currentWeekKey]);
 
   const thisWeekInvoices = useMemo(() => {
     return salesInvoices.filter((inv) => {

@@ -2242,12 +2242,17 @@ export default function NewRepairForm({
       onSubmit(result);
       
     } catch (error) {
-      const apiErrorMessage =
-        error?.response?.data?.error ||
-        error?.response?.data?.message ||
+      // Coerce to a STRING. A gateway 504 returns { error: { code, message } }; setting that
+      // object as errors.submit and rendering it crashed the page (React error #31 —
+      // "objects are not valid as a React child").
+      const data = error?.response?.data;
+      const candidate =
+        (typeof data?.error === 'string' && data.error) ||
+        (data?.error && typeof data.error === 'object' && (data.error.message || data.error.code)) ||
+        (typeof data?.message === 'string' && data.message) ||
         error?.message ||
         'Failed to create repair';
-      setErrors({ submit: apiErrorMessage });
+      setErrors({ submit: typeof candidate === 'string' ? candidate : String(candidate) });
     } finally {
       setLoading(false);
     }
