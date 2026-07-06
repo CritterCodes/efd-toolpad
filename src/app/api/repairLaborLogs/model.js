@@ -210,11 +210,23 @@ export default class RepairLaborLogsModel {
         },
       },
       { $unwind: { path: '$repair', preserveNullAndEmptyArrays: true } },
+      // Resolve the work order too, so non-repair sources (production pieces, customs)
+      // that carry no repairID still surface with a title/status/discipline.
+      {
+        $lookup: {
+          from: 'workOrders',
+          localField: 'workOrderID',
+          foreignField: 'workOrderID',
+          as: 'wo',
+        },
+      },
+      { $unwind: { path: '$wo', preserveNullAndEmptyArrays: true } },
       {
         $project: {
           _id: 0,
           logID: 1,
           repairID: 1,
+          workOrderID: 1,
           primaryJewelerUserID: 1,
           primaryJewelerName: 1,
           creditedLaborHours: 1,
@@ -237,17 +249,28 @@ export default class RepairLaborLogsModel {
             materials: '$repair.materials',
             customLineItems: '$repair.customLineItems',
           },
+          // Source-agnostic summary for the unified bench/My Work views.
+          source: {
+            type: { $ifNull: ['$sourceType', '$wo.sourceType', 'repair'] },
+            sourceID: { $ifNull: ['$sourceID', '$repairID'] },
+            workOrderID: '$workOrderID',
+            title: { $ifNull: ['$wo.title', '$repair.description'] },
+            status: { $ifNull: ['$wo.status', '$repair.status'] },
+            discipline: '$wo.discipline',
+          },
         },
       },
       { $sort: { createdAt: -1 } },
     ]).toArray();
 
     const repairIDs = new Set(logs.map((log) => log.repairID).filter(Boolean));
+    const workOrderIDs = new Set(logs.map((log) => log.workOrderID || log.repairID).filter(Boolean));
     return {
       userID,
       userName: logs[0]?.primaryJewelerName || '',
       weekStart: start,
       repairsWorked: repairIDs.size,
+      itemsWorked: workOrderIDs.size, // all sources (repairs + pieces + customs)
       entries: logs.length,
       laborHours: logs.reduce((sum, log) => sum + Number(log.creditedLaborHours || 0), 0),
       laborPay: logs.reduce((sum, log) => sum + Number(log.creditedValue || 0), 0),
