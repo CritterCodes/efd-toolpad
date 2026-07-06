@@ -71,7 +71,7 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
     dbInstance.collection('repairInvoices').find({}).project({ _id: 0 }).toArray(),
     dbInstance.collection('salesInvoices').find({}).project({ _id: 0 }).toArray(),
     dbInstance.collection('customInvoices').find({}).project({ _id: 0 }).toArray(),
-    dbInstance.collection('repairLaborLogs').find({
+    dbInstance.collection('laborLogs').find({
       weekStart: { $gte: baseline.laborAnalyticsStartDate },
     }).project({ _id: 0 }).toArray(),
     RepairPayrollBatchesModel.list({}),

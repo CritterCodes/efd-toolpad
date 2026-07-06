@@ -27,6 +27,7 @@ import ArticleIcon from "@mui/icons-material/Article";
 import EditNoteIcon from "@mui/icons-material/EditNote";
 import QuizIcon from "@mui/icons-material/Quiz";
 import HowToVoteIcon from "@mui/icons-material/HowToVote";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 
 import { SHARED_NAVIGATION } from "./sharedNavigation";
 
@@ -113,6 +114,11 @@ export const adminNavigation = {
       segment: 'dashboard/repairs/pending-wholesale',
       title: 'Wholesale Pickup',
       icon: <NotificationsActiveIcon />
+    },
+    {
+      segment: 'dashboard/repairs/by-period',
+      title: 'Repairs by Period',
+      icon: <CalendarMonthIcon />
     },
     { kind: 'header', title: 'Administration' },
     {

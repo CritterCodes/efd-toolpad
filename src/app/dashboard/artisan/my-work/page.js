@@ -61,14 +61,32 @@ function formatSourceAction(action = '') {
   return action.replace(/[_-]+/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 }
 
-function getMondayOfCurrentWeek() {
+const SOURCE_TYPE_LABELS = {
+  repair: 'Repair',
+  production_piece: 'Piece',
+  custom_piece: 'Custom',
+  custom: 'Custom',
+  sale_service: 'Sale Service',
+  cad: 'CAD',
+};
+
+function sourceTypeLabel(type) {
+  if (!type) return 'Work';
+  return SOURCE_TYPE_LABELS[type] || formatSourceAction(type);
+}
+
+// Labor weekStart is stored at UTC-midnight Monday (server getMondayOfWeek on Vercel/UTC).
+// Compare in UTC — a local getDay()/setHours() shifts the boundary a day in US timezones,
+// which dropped current-week work out of "This Week" into "Past Weeks".
+function getMondayOfCurrentWeekUTC() {
   const now = new Date();
-  const day = now.getDay();
+  const day = now.getUTCDay();
   const diff = (day === 0 ? -6 : 1 - day);
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + diff);
-  monday.setHours(0, 0, 0, 0);
-  return monday;
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff));
+}
+
+function weekKey(value) {
+  return new Date(value).toISOString().slice(0, 10); // UTC YYYY-MM-DD
 }
 
 export default function ArtisanMyWorkPage() {
@@ -110,21 +128,16 @@ export default function ArtisanMyWorkPage() {
     }
   }, [fetchData, router, session?.user?.role, status]);
 
-  const currentWeekMonday = useMemo(() => getMondayOfCurrentWeek(), []);
+  const currentWeekMonday = useMemo(() => getMondayOfCurrentWeekUTC(), []);
+  const currentWeekKey = useMemo(() => weekKey(currentWeekMonday), [currentWeekMonday]);
 
   const thisWeekLabor = useMemo(() => {
-    return laborWeeks.filter((entry) => {
-      const entryMonday = new Date(entry.weekStart);
-      return entryMonday.toDateString() === currentWeekMonday.toDateString();
-    });
-  }, [laborWeeks, currentWeekMonday]);
+    return laborWeeks.filter((entry) => weekKey(entry.weekStart) === currentWeekKey);
+  }, [laborWeeks, currentWeekKey]);
 
   const pastWeekLabor = useMemo(() => {
-    return laborWeeks.filter((entry) => {
-      const entryMonday = new Date(entry.weekStart);
-      return entryMonday.toDateString() !== currentWeekMonday.toDateString();
-    });
-  }, [laborWeeks, currentWeekMonday]);
+    return laborWeeks.filter((entry) => weekKey(entry.weekStart) !== currentWeekKey);
+  }, [laborWeeks, currentWeekKey]);
 
   const thisWeekInvoices = useMemo(() => {
     return salesInvoices.filter((inv) => {
@@ -283,7 +296,7 @@ export default function ArtisanMyWorkPage() {
                 sx={{ bgcolor: 'rgba(225, 179, 42, 0.14)', color: REPAIRS_UI.textHeader }}
               />
               <Chip
-                label={`Repairs ${selectedWeek.repairsWorked || 0}`}
+                label={`Work Items ${selectedWeek.itemsWorked ?? selectedWeek.repairsWorked ?? 0}`}
                 sx={{ bgcolor: 'rgba(225, 179, 42, 0.14)', color: REPAIRS_UI.textHeader }}
               />
               <Chip
@@ -304,6 +317,14 @@ export default function ArtisanMyWorkPage() {
               {selectedWeek.logs.map((log) => {
                 const workItems = getWorkItemLabels(log.repair);
                 const repairChargeTotal = getRepairChargeTotal(log.repair);
+                const isRepair = (log.source?.type || (log.repairID ? 'repair' : '')) === 'repair';
+                const sourceType = log.source?.type || (log.repairID ? 'repair' : '');
+                const headingName = isRepair
+                  ? (log.repair?.clientName || log.repair?.businessName || 'Repair')
+                  : sourceTypeLabel(sourceType);
+                const headingRef = log.repairID || log.source?.sourceID || log.source?.workOrderID || '';
+                const description = log.repair?.description || log.source?.title || 'No description saved.';
+                const statusLabel = log.repair?.status || log.source?.status;
                 return (
                   <Box
                     key={log.logID}
@@ -329,10 +350,10 @@ export default function ArtisanMyWorkPage() {
                         <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1}>
                           <Box sx={{ minWidth: 0 }}>
                             <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 700 }}>
-                              {log.repair?.clientName || log.repair?.businessName || 'Repair'} · {log.repairID}
+                              {headingName}{headingRef ? ` · ${headingRef}` : ''}
                             </Typography>
                             <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
-                              {log.repair?.description || 'No repair description saved.'}
+                              {description}
                             </Typography>
                           </Box>
                           <Box sx={{ textAlign: { xs: 'left', sm: 'right' }, flexShrink: 0 }}>
@@ -342,14 +363,17 @@ export default function ArtisanMyWorkPage() {
                             <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>
                               {Number(log.creditedLaborHours || 0).toFixed(2)}h @ {formatMoney(log.laborRateSnapshot)}/hr
                             </Typography>
-                            <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary, display: 'block' }}>
-                              Ticket {formatMoney(repairChargeTotal)}
-                            </Typography>
+                            {isRepair && (
+                              <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary, display: 'block' }}>
+                                Ticket {formatMoney(repairChargeTotal)}
+                              </Typography>
+                            )}
                           </Box>
                         </Stack>
                         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+                          {sourceType && <Chip size="small" label={sourceTypeLabel(sourceType)} />}
                           <Chip size="small" label={formatSourceAction(log.sourceAction || 'Labor Credit')} />
-                          {log.repair?.status && <Chip size="small" label={log.repair.status} />}
+                          {statusLabel && <Chip size="small" label={statusLabel} />}
                           {log.createdAt && <Chip size="small" label={new Date(log.createdAt).toLocaleString()} />}
                         </Stack>
                         {workItems.length > 0 && (
@@ -363,14 +387,18 @@ export default function ArtisanMyWorkPage() {
                             Notes: {log.notes}
                           </Typography>
                         )}
-                        <Divider sx={{ borderColor: REPAIRS_UI.border, my: 1 }} />
-                        <Button
-                          size="small"
-                          onClick={() => router.push(`/dashboard/repairs/${log.repairID}`)}
-                          sx={{ color: REPAIRS_UI.accent, px: 0 }}
-                        >
-                          Open Repair
-                        </Button>
+                        {isRepair && log.repairID && (
+                          <>
+                            <Divider sx={{ borderColor: REPAIRS_UI.border, my: 1 }} />
+                            <Button
+                              size="small"
+                              onClick={() => router.push(`/dashboard/repairs/${log.repairID}`)}
+                              sx={{ color: REPAIRS_UI.accent, px: 0 }}
+                            >
+                              Open Repair
+                            </Button>
+                          </>
+                        )}
                       </Box>
                     </Stack>
                   </Box>
