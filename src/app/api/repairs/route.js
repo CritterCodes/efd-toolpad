@@ -181,10 +181,20 @@ export const POST = async (request) => {
     repairData.billing = { mode: resolveBillingMode(repairData) };
 
     const newRepair = await RepairsController.createRepair(repairData);
-    await createWhileYouWaitLaborLog(newRepair, session);
 
-    // R1 — repair lead received: customer ack (best-effort) + admin alert. Never blocks intake.
+    // Fast DB write crediting while-you-wait labor. Guarded so a labor-log failure
+    // can never 500 a repair that was already created.
     try {
+      await createWhileYouWaitLaborLog(newRepair, session);
+    } catch (laborError) {
+      console.error("while-you-wait labor log failed (non-fatal):", laborError.message);
+    }
+
+    // R1 — repair lead received: customer ack (best-effort) + admin alert. FIRE-AND-FORGET:
+    // the email channel can hang, and awaiting it here pushed the request past Vercel's 30s
+    // function limit → 504 on create (the repair saved, but the client errored before the
+    // print redirect). Notifications must never block intake.
+    const notifyRepairLead = async () => {
       const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || "";
       const customerID = newRepair.userID;
       const customerEmail = newRepair.email || newRepair.clientEmail || newRepair.customerEmail || "";
@@ -213,9 +223,10 @@ export const POST = async (request) => {
         priority: "normal",
         relatedData: { repairID: newRepair.repairID, clientName: newRepair.clientName || "" },
       });
-    } catch (notifyError) {
+    };
+    notifyRepairLead().catch((notifyError) => {
       console.error("R1 repair-lead notification failed (non-fatal):", notifyError.message);
-    }
+    });
 
     return NextResponse.json(
       {
