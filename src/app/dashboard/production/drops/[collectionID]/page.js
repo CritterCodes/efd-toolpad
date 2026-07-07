@@ -15,7 +15,7 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   Box, Typography, Button, Card, CardContent, Stack, Chip, CircularProgress, Alert, Grid, Tooltip,
   Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, TextField, InputAdornment,
-  Drawer, List, ListItemButton, ListItemText, Checkbox, IconButton, Divider,
+  Drawer, List, ListItemButton, ListItemText, Checkbox, IconButton, Divider, Snackbar,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
@@ -29,6 +29,9 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import { validateProductContract } from '@/services/products/productContract';
+import ProductionEntityCard from '@/components/production/ProductionEntityCard';
+import EntityGallery from '@/components/production/media/EntityGallery';
+import { primaryImageOf } from '@/components/production/media/EntityThumbnail';
 
 const money = (n) => `$${(Number(n) || 0).toLocaleString()}`;
 const STATUS_COLOR = { draft: REPAIRS_UI.textMuted, scheduled: '#FFB74D', released: '#66BB6A', archived: REPAIRS_UI.textMuted };
@@ -156,6 +159,20 @@ export default function DropDetailPage() {
     } catch (e) { setGoLive(false); setNotice({ severity: 'error', msg: e.message }); } finally { setBusy(false); }
   };
 
+  // U-11 — drop cover / gallery via the U-4 collections images route (upload + delete).
+  const uploadImage = async (file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch(`/api/production/collections/${collectionID}/images`, { method: 'POST', body: fd });
+    if (!res.ok) { setNotice({ severity: 'error', msg: (await res.json().catch(() => ({}))).error || 'Upload failed' }); return; }
+    setNotice({ severity: 'success', msg: 'Image uploaded.' }); await load();
+  };
+  const deleteImage = async (imageId) => {
+    const res = await fetch(`/api/production/collections/${collectionID}/images/${imageId}`, { method: 'DELETE' });
+    if (!res.ok) { setNotice({ severity: 'error', msg: (await res.json().catch(() => ({}))).error || 'Delete failed' }); return; }
+    setNotice({ severity: 'success', msg: 'Image removed.' }); await load();
+  };
+
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}><CircularProgress sx={{ color: REPAIRS_UI.accent }} /></Box>;
   if (error || !collection) {
     return (
@@ -207,46 +224,58 @@ export default function DropDetailPage() {
         </Stack>
       </Box>
 
-      {notice && <Alert severity={notice.severity} sx={{ mb: 2, backgroundColor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }} onClose={() => setNotice(null)}>{notice.msg}</Alert>}
+      {/* U-11 — cover image / gallery (drop.images via the U-4 collections images route). */}
+      <Card sx={{ backgroundColor: REPAIRS_UI.bgCard, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, mb: 3 }}>
+        <CardContent>
+          <EntityGallery
+            title="Cover & gallery"
+            images={Array.isArray(collection.images) ? collection.images : []}
+            onUpload={uploadImage}
+            onDelete={deleteImage}
+            cols={4}
+            emptyText="No cover/gallery images yet. The first upload becomes the primary."
+          />
+        </CardContent>
+      </Card>
 
       {/* Member list = the canvas */}
       {members.length === 0 ? (
         <Card sx={{ backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px dashed ${REPAIRS_UI.border}`, borderRadius: 2 }}>
           <CardContent sx={{ textAlign: 'center', py: 6 }}>
-            <Typography sx={{ color: REPAIRS_UI.textSecondary }}>No products staged. (Add-products drawer lands in the next increment — stage via the API or the Products editor meanwhile.)</Typography>
+            <Typography sx={{ color: REPAIRS_UI.textSecondary }}>No products staged yet. Use “Add products” to stage some.</Typography>
           </CardContent>
         </Card>
       ) : (
         <Grid container spacing={2}>
-          {members.map((m, idx) => (
-            <Grid item xs={12} sm={6} md={4} key={m.productId}>
-              <Card sx={{ height: '100%', backgroundColor: REPAIRS_UI.bgCard, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2 }}>
-                <CardContent>
-                  <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1 }}>
-                    <Chip size="small"
-                      icon={m.ready ? <CheckCircleIcon sx={{ fontSize: 14 }} /> : <WarningAmberIcon sx={{ fontSize: 14 }} />}
-                      label={m.ready ? 'Ready' : 'Not ready'}
-                      sx={{ backgroundColor: m.ready ? '#66BB6A22' : '#E5737322', color: m.ready ? '#66BB6A' : '#E57373', fontWeight: 700 }} />
-                    <Stack direction="row" spacing={0.5} alignItems="center">
-                      {!released && (
-                        <>
-                          <IconButton size="small" aria-label="Move up" disabled={busy || idx === 0} onClick={() => reorder(idx, -1)} sx={{ color: REPAIRS_UI.textSecondary, p: 0.25 }}><ArrowUpwardIcon sx={{ fontSize: 16 }} /></IconButton>
-                          <IconButton size="small" aria-label="Move down" disabled={busy || idx === members.length - 1} onClick={() => reorder(idx, 1)} sx={{ color: REPAIRS_UI.textSecondary, p: 0.25 }}><ArrowDownwardIcon sx={{ fontSize: 16 }} /></IconButton>
-                        </>
-                      )}
-                      <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: '0.75rem' }}>#{idx + 1}</Typography>
-                    </Stack>
-                  </Stack>
-                  <Typography sx={{ fontSize: 15, fontWeight: 600, color: REPAIRS_UI.textHeader }}>{m.product?.title || m.product?.name || m.productId}</Typography>
-                  <Typography sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.82rem' }}>
-                    {priceOf(m.product) != null ? money(priceOf(m.product)) : '—'}
-                    {m.product?.seller?.name || m.product?.artisanId ? ` · ${m.product.seller?.name || m.product.artisanId}` : ''}
-                  </Typography>
-                  {!m.ready && <Typography sx={{ color: '#E57373', fontSize: '0.76rem', mt: 0.5 }}>{(m.errors || []).slice(0, 2).join('; ')}</Typography>}
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
+          {members.map((m, idx) => {
+            const readyChip = (
+              <Chip key="ready" size="small"
+                icon={m.ready ? <CheckCircleIcon sx={{ fontSize: 14 }} /> : <WarningAmberIcon sx={{ fontSize: 14 }} />}
+                label={m.ready ? 'Ready' : 'Not ready'}
+                sx={{ backgroundColor: m.ready ? '#66BB6A22' : '#E5737322', color: m.ready ? '#66BB6A' : '#E57373', fontWeight: 700 }} />
+            );
+            // reorder + position live in the overlay (outside the CardActionArea → no nested buttons).
+            const overlay = (
+              <Stack direction="row" spacing={0.25} alignItems="center" sx={{ backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 1, px: 0.5 }}>
+                {!released && <IconButton size="small" aria-label="Move up" disabled={busy || idx === 0} onClick={() => reorder(idx, -1)} sx={{ color: '#fff', p: 0.25 }}><ArrowUpwardIcon sx={{ fontSize: 16 }} /></IconButton>}
+                {!released && <IconButton size="small" aria-label="Move down" disabled={busy || idx === members.length - 1} onClick={() => reorder(idx, 1)} sx={{ color: '#fff', p: 0.25 }}><ArrowDownwardIcon sx={{ fontSize: 16 }} /></IconButton>}
+                <Typography sx={{ color: '#fff', fontSize: '0.7rem', px: 0.25 }}>#{idx + 1}</Typography>
+              </Stack>
+            );
+            const sellerName = m.product?.seller?.name || m.product?.artisanId;
+            return (
+              <Grid item xs={12} sm={6} md={4} key={m.productId}>
+                <ProductionEntityCard
+                  image={primaryImageOf(m.product)}
+                  title={m.product?.title || m.product?.name || m.productId}
+                  meta={`${priceOf(m.product) != null ? money(priceOf(m.product)) : '—'}${sellerName ? ` · ${sellerName}` : ''}`}
+                  description={!m.ready ? (m.errors || []).slice(0, 2).join('; ') : null}
+                  chips={[readyChip]}
+                  overlay={overlay}
+                />
+              </Grid>
+            );
+          })}
         </Grid>
       )}
 
@@ -305,6 +334,10 @@ export default function DropDetailPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar open={!!notice} autoHideDuration={5000} onClose={() => setNotice(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert onClose={() => setNotice(null)} severity={notice?.severity || 'info'} sx={{ backgroundColor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }}>{notice?.msg}</Alert>
+      </Snackbar>
     </Box>
   );
 }

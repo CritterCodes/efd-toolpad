@@ -31,11 +31,14 @@ export default function ProductionEntityCard({
   footerRight = null,
   href,
   onOpen,
+  overlay = null,
 }) {
   const actionProps = href ? { component: Link, href } : { onClick: onOpen };
   const showFooter = footerLeft != null || footerRight != null;
   return (
-    <Card sx={{ height: '100%', backgroundColor: REPAIRS_UI.bgCard, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, transition: 'box-shadow 120ms ease, transform 120ms ease', '&:hover': { boxShadow: REPAIRS_UI.shadow, transform: 'translateY(-2px)' } }}>
+    <Card sx={{ position: 'relative', height: '100%', backgroundColor: REPAIRS_UI.bgCard, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, transition: 'box-shadow 120ms ease, transform 120ms ease', '&:hover': { boxShadow: REPAIRS_UI.shadow, transform: 'translateY(-2px)' } }}>
+      {/* overlay: interactive controls (e.g. reorder) rendered OUTSIDE the CardActionArea so they aren't nested buttons. */}
+      {overlay && <Box sx={{ position: 'absolute', top: 6, right: 6, zIndex: 2 }}>{overlay}</Box>}
       <CardActionArea {...actionProps} sx={{ height: '100%' }}>
         <CardContent>
           {(chips.length > 0 || id) && (
