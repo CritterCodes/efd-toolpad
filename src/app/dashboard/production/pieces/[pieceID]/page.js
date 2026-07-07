@@ -11,13 +11,14 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Box, Typography, Button, Card, CardContent, Stack, Chip, CircularProgress, Divider, Alert,
-  Table, TableBody, TableCell, TableHead, TableRow, TextField,
+  Table, TableBody, TableCell, TableHead, TableRow, TextField, Snackbar,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import SellIcon from '@mui/icons-material/Sell';
 import AddIcon from '@mui/icons-material/Add';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import EntityGallery from '@/components/production/media/EntityGallery';
 
 const money = (n) => `$${(Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const STATUS_COLOR = { planned: REPAIRS_UI.textMuted, casting_ordered: '#64B5F6', in_finishing: '#FFB74D', qc: '#BA68C8', available: '#66BB6A', sold: REPAIRS_UI.textMuted };
@@ -30,7 +31,8 @@ export default function PieceDetailPage() {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [mat, setMat] = useState({ description: '', qty: '1', unitCost: '' });
-  const [notice, setNotice] = useState(null);
+  const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
+  const showSnack = (message, severity = 'success') => setSnack({ open: true, message, severity });
 
   const load = useCallback(async () => {
     try {
@@ -47,9 +49,9 @@ export default function PieceDetailPage() {
   const back = useCallback(() => router.push('/dashboard/production/pieces'), [router]);
 
   const act = async (label, fn) => {
-    setBusy(true); setNotice(null);
-    try { await fn(); await load(); setNotice({ severity: 'success', msg: `${label} done.` }); }
-    catch (e) { setNotice({ severity: 'error', msg: e.message }); }
+    setBusy(true);
+    try { await fn(); await load(); showSnack(`${label} done.`); }
+    catch (e) { showSnack(e.message, 'error'); }
     finally { setBusy(false); }
   };
 
@@ -63,10 +65,24 @@ export default function PieceDetailPage() {
   };
 
   const recompute = () => act('Recompute COGS', () => post('recompute'));
-  const listProduct = () => act('List as product', async () => { const r = await post('list-product'); setNotice({ severity: 'success', msg: `Listed as product ${r.product?.productId || r.product?._id || ''}.` }); });
+  const listProduct = () => act('List as product', () => post('list-product'));
   const addMaterial = () => {
-    if (!mat.unitCost) { setNotice({ severity: 'error', msg: 'Unit cost is required.' }); return; }
+    if (!mat.unitCost) { showSnack('Unit cost is required.', 'error'); return; }
     act('Add material', async () => { await post('materials', { description: mat.description, qty: Number(mat.qty) || 1, unitCost: Number(mat.unitCost) }); setMat({ description: '', qty: '1', unitCost: '' }); });
+  };
+
+  // U-10 — piece Media gallery via the U-4 images route (upload + delete; returns the image sub-doc).
+  const uploadImage = async (file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch(`/api/production/pieces/${pieceID}/images`, { method: 'POST', body: fd });
+    if (!res.ok) { showSnack((await res.json().catch(() => ({}))).error || 'Upload failed', 'error'); return; }
+    showSnack('Image uploaded.'); await load();
+  };
+  const deleteImage = async (imageId) => {
+    const res = await fetch(`/api/production/pieces/${pieceID}/images/${imageId}`, { method: 'DELETE' });
+    if (!res.ok) { showSnack((await res.json().catch(() => ({}))).error || 'Delete failed', 'error'); return; }
+    showSnack('Image removed.'); await load();
   };
 
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}><CircularProgress sx={{ color: REPAIRS_UI.accent }} /></Box>;
@@ -100,8 +116,6 @@ export default function PieceDetailPage() {
           {p.designID && <Box><Typography sx={{ fontSize: '0.72rem', color: REPAIRS_UI.textMuted, textTransform: 'uppercase' }}>Design</Typography><Typography component={Link} href={`/dashboard/production/designs/${p.designID}`} sx={{ color: REPAIRS_UI.accent, fontSize: '0.85rem', fontFamily: 'monospace', textDecoration: 'none' }}>{p.designID}</Typography></Box>}
         </Stack>
       </Box>
-
-      {notice && <Alert severity={notice.severity} sx={{ mb: 2, backgroundColor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }} onClose={() => setNotice(null)}>{notice.msg}</Alert>}
 
       <Card sx={{ backgroundColor: REPAIRS_UI.bgCard, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, mb: 3 }}>
         <CardContent>
@@ -149,6 +163,24 @@ export default function PieceDetailPage() {
           </Stack>
         </CardContent>
       </Card>
+
+      {/* U-10 — Media gallery via the U-4 piece images route (upload + delete). */}
+      <Card sx={{ mt: 3, backgroundColor: REPAIRS_UI.bgCard, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2 }}>
+        <CardContent>
+          <EntityGallery
+            title="Media"
+            images={Array.isArray(p.images) ? p.images : []}
+            onUpload={uploadImage}
+            onDelete={deleteImage}
+            cols={4}
+            emptyText="No images yet. Upload one."
+          />
+        </CardContent>
+      </Card>
+
+      <Snackbar open={snack.open} autoHideDuration={5000} onClose={() => setSnack((s) => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert onClose={() => setSnack((s) => ({ ...s, open: false }))} severity={snack.severity} sx={{ backgroundColor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }}>{snack.message}</Alert>
+      </Snackbar>
     </Box>
   );
 }
