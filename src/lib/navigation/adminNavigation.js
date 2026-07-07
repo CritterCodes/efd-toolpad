@@ -41,14 +41,6 @@ export const adminNavigation = {
       icon: <PointOfSaleIcon />
     },
     {
-      // C-3 (0008 §3.1): Products is one leaf → the unified `dashboard/products` catalog (productType
-      // tabs + status filter). Jewelry/Gemstones/Awaiting-approval children removed; their legacy pages
-      // stay reachable by URL until the owner-gated C-4 retires them.
-      segment: 'dashboard/products',
-      title: 'Products',
-      icon: <InventoryIcon />,
-    },
-    {
       segment: 'dashboard/clients',
       title: 'Clients',
       icon: <PeopleIcon />
@@ -59,10 +51,20 @@ export const adminNavigation = {
       icon: <DiamondIcon />
     },
     {
+      // Item 5 (0008 §3.1 amended): the "Products" SECTION — the unified catalog (C-1) alongside the
+      // make-side (Drops/Designs/Pieces) + Gemstones. Replaces the old top-level Products leaf + the
+      // "Production" group. The section itself is a grouping (no landing page — production/page.js
+      // redirect retired). Catalog + Gemstones use absolute segments (they live under dashboard/products,
+      // not dashboard/production).
       segment: 'dashboard/production',
-      title: 'Production',
+      title: 'Products',
       icon: <PrecisionManufacturingIcon />,
       children: [
+        {
+          segment: '/dashboard/products',
+          title: 'Catalog',
+          icon: <InventoryIcon />
+        },
         {
           segment: 'drops',
           title: 'Drops',
@@ -77,9 +79,12 @@ export const adminNavigation = {
           segment: 'pieces',
           title: 'Pieces',
           icon: <RingIcon />
+        },
+        {
+          segment: '/dashboard/products/gemstones',
+          title: 'Gemstones',
+          icon: <DiamondIcon />
         }
-        // C-3 (0008 §3.1): Production stays the make-side (Drops/Designs/Pieces). The old 'Products'
-        // child was folded into the single top-level Products catalog leaf (page still URL-reachable).
       ]
     },
     { kind: 'header', title: 'Repair Work' },

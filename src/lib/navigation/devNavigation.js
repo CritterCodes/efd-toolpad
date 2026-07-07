@@ -28,13 +28,6 @@ export const devNavigation = {
     SHARED_NAVIGATION.dashboard,
     { kind: 'header', title: 'Commerce' },
     {
-      // C-3 (0008 §3.1): Products is one leaf → the unified `dashboard/products` catalog.
-      // Jewelry/Gemstones/Awaiting-approval children removed; legacy pages stay URL-reachable until C-4.
-      segment: 'dashboard/products',
-      title: 'Products',
-      icon: <InventoryIcon />,
-    },
-    {
       segment: 'dashboard/clients',
       title: 'Clients',
       icon: <PeopleIcon />
@@ -45,10 +38,19 @@ export const devNavigation = {
       icon: <DiamondIcon />
     },
     {
+      // Item 5 (0008 §3.1 amended): the "Products" SECTION — unified catalog (C-1) + make-side
+      // (Drops/Designs/Pieces) + Gemstones. Replaces the old top-level Products leaf + "Production" group.
+      // Grouping only (no landing page; production/page.js redirect retired). Catalog + Gemstones use
+      // absolute segments (they live under dashboard/products).
       segment: 'dashboard/production',
-      title: 'Production',
+      title: 'Products',
       icon: <PrecisionManufacturingIcon />,
       children: [
+        {
+          segment: '/dashboard/products',
+          title: 'Catalog',
+          icon: <InventoryIcon />
+        },
         {
           segment: 'drops',
           title: 'Drops',
@@ -63,8 +65,12 @@ export const devNavigation = {
           segment: 'pieces',
           title: 'Pieces',
           icon: <RingIcon />
+        },
+        {
+          segment: '/dashboard/products/gemstones',
+          title: 'Gemstones',
+          icon: <DiamondIcon />
         }
-        // C-3 (0008 §3.1): 'Products' child folded into the single top-level Products catalog leaf.
       ]
     },
     { kind: 'header', title: 'Repair Work' },
