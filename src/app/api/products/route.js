@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
-import { ObjectId } from 'mongodb';
 
 /**
  * GET /api/products
@@ -67,106 +66,34 @@ export async function GET(request) {
 }
 
 /**
- * POST /api/products
- * Create new product (artisan submission or admin entry)
+ * POST /api/products — RETIRED (0008 C-6).
+ *
+ * This handler wrote a THIRD, incompatible product shape (ObjectId-keyed with
+ * `inventory{quantity,available}` / `collectionIds` / `dropIds` / `designOptions`
+ * and an `artisanId` owner field) that no live UI create button produced — the
+ * dead generic write path flagged in 0008 §2.3. It conflicts with the canonical
+ * string-`productId` contract (0004/D6).
+ *
+ * Product creation now has ONE canonical path per type:
+ *   - jewelry   → POST /api/products/jewelry
+ *   - gemstone  → POST /api/products/gemstones
+ *   - concept   → POST /api/production/designs/[designID]/list-concept  (pipeline)
+ *   - jewelry (from a made piece) → POST /api/production/pieces/[pieceID]/list-product
+ * all of which shape the doc via services/products/productContract
+ * (normalizeProductWrite / buildProductFromPiece / buildConceptFromDesign).
+ *
+ * Per D9 the route file is left dormant (not deleted) and returns 410 Gone so any
+ * unexpected caller surfaces in logs instead of silently writing a bad shape.
+ * GET /api/products (the unified catalog read) is unchanged, above.
  */
-export async function POST(request) {
-  try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-
-    // Only artisans and admins can create products
-    if (!['artisan', 'admin', 'superadmin'].includes(session.user.role)) {
-      return NextResponse.json({ error: 'Only artisans and admins can create products' }, { status: 403 });
-    }
-
-    const data = await request.json();
-    const db = await mongo.connect();
-
-    // Validate required fields
-    const requiredFields = ['title', 'description', 'productType'];
-    for (const field of requiredFields) {
-      if (!data[field]) {
-        return NextResponse.json(
-          { error: `Missing required field: ${field}` },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Generate slug from title
-    const slug = data.title
-      .toLowerCase()
-      .trim()
-      .replace(/[^\w\s-]/g, '')
-      .replace(/[\s_]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-
-    // Check if slug is unique
-    const existingSlug = await db.collection('products').findOne({ slug });
-    if (existingSlug) {
-      return NextResponse.json(
-        { error: 'Product title already exists' },
-        { status: 400 }
-      );
-    }
-
-    // Create product document
-    const product = {
-      title: data.title,
-      slug,
-      description: data.description,
-      productType: data.productType,
-      artisanId: session.user.userID || session.user.id,
-      artisanInfo: {
-        artisanId: session.user.userID || session.user.id,
-        businessName: session.user.businessName || data.artisanInfo?.businessName,
-        businessHandle: session.user.businessHandle || data.artisanInfo?.businessHandle,
-        email: session.user.email,
-        phone: data.artisanInfo?.phone,
-        location: data.artisanInfo?.location
-      },
-      status: session.user.role === 'admin' ? 'approved' : 'draft',
-      statusHistory: [
-        {
-          status: session.user.role === 'admin' ? 'approved' : 'draft',
-          timestamp: new Date(),
-          changedBy: session.user.userID || session.user.id,
-          reason: 'Product created',
-          notes: ''
-        }
-      ],
-      // Copy optional fields if provided
-      gemstone: data.gemstone || {},
-      pricing: data.pricing || {},
-      inventory: {
-        quantity: data.inventory?.quantity || 1,
-        reserved: 0,
-        available: data.inventory?.quantity || 1,
-        lowStockThreshold: data.inventory?.lowStockThreshold || 3,
-        sku: data.inventory?.sku || `${slug}-${Date.now()}`
-      },
-      images: data.images || [],
-      media: data.media || {},
-      collectionIds: [],
-      dropIds: [],
-      designs: [],
-      designOptions: [],
-      seo: data.seo || {},
-      tags: data.tags || [],
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-
-    // Insert product
-    const result = await db.collection('products').insertOne(product);
-    product._id = result.insertedId;
-
-    return NextResponse.json(product, { status: 201 });
-  } catch (error) {
-    console.error('❌ Error creating product:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+export async function POST() {
+  return NextResponse.json(
+    {
+      error: 'Retired endpoint (0008 C-6). Create products via the typed routes '
+        + '(/api/products/jewelry, /api/products/gemstones) or the pipeline '
+        + '(list-concept / list-product).',
+      code: 'ENDPOINT_RETIRED',
+    },
+    { status: 410 },
+  );
 }

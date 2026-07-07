@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db as mongo } from '@/lib/database';
 import { getUserArtisanTypes, canManageGemstones } from '@/lib/productPermissions';
+import { normalizeProductWrite } from '@/services/products/productContract';
 
 export async function GET() {
   try {
@@ -221,12 +222,15 @@ export async function POST(request) {
       updatedAt: now,
     };
 
-    const result = await db.collection('products').insertOne(gemstone);
+    // C-6: converge on the ONE canonical normalizer (string productId, valid
+    // productType, status, singular references.gemstoneId).
+    const canonical = normalizeProductWrite(gemstone);
+    const result = await db.collection('products').insertOne(canonical);
 
     return NextResponse.json({
       success: true,
-      gemstone: { ...gemstone, _id: result.insertedId },
-      productId,
+      gemstone: { ...canonical, _id: result.insertedId },
+      productId: canonical.productId,
     });
   } catch (error) {
     console.error('POST /api/products/gemstones error:', error);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateProductContract, buildProductFromPiece, buildConceptFromDesign, ripenConceptToJewelry, suggestedRetailFromCOGS, normalizeRunSize } from '@/services/products/productContract';
+import { validateProductContract, buildProductFromPiece, buildConceptFromDesign, ripenConceptToJewelry, suggestedRetailFromCOGS, normalizeRunSize, generateProductId, normalizeGemstoneRefs, normalizeProductWrite } from '@/services/products/productContract';
 
 describe('validateProductContract', () => {
   const base = { productId: 'efd-ring-001', title: 'Ring', pricing: { retailPrice: 100 }, availability: 'ready-to-ship', images: ['https://x/a.jpg'] };
@@ -178,5 +178,86 @@ describe('normalizeRunSize', () => {
     expect(normalizeRunSize({ type: 'unlimited' })).toEqual({ type: 'unlimited' });
     expect(normalizeRunSize(null)).toEqual({ type: 'unlimited' });
     expect(normalizeRunSize({ type: 'limited' })).toEqual({ type: 'unlimited' });
+  });
+});
+
+// ── 0008 C-6: canonical write path ──────────────────────────────────────────
+describe('generateProductId', () => {
+  it('prefixes by productType and is URL-safe', () => {
+    expect(generateProductId('gemstone', 'Blue Sapphire')).toMatch(/^gem_blue-sapphire_[a-z0-9]+$/);
+    expect(generateProductId('jewelry', 'Halo Ring')).toMatch(/^jwl_halo-ring_[a-z0-9]+$/);
+    expect(generateProductId('concept', 'Nebula')).toMatch(/^cpt_nebula_[a-z0-9]+$/);
+  });
+
+  it('falls back to a prefix-only id when there is no usable seed', () => {
+    expect(generateProductId('jewelry')).toMatch(/^jwl_[a-z0-9]+$/);
+    expect(generateProductId('widget', 'x')).toMatch(/^prd_x_[a-z0-9]+$/); // unknown type → prd
+  });
+
+  it('always produces a valid contract productId', () => {
+    expect(validateProductContract({ productId: generateProductId('gemstone', 'Río & Sol!!'), title: 'x', pricing: { retailPrice: 1 }, availability: 'made-to-order', images: ['a'] }).valid).toBe(true);
+  });
+});
+
+describe('normalizeGemstoneRefs (D5)', () => {
+  it('adopts gemstoneIds[0] → singular gemstoneId, retaining the array', () => {
+    expect(normalizeGemstoneRefs({ gemstoneIds: ['g1', 'g2'] })).toEqual({ gemstoneId: 'g1', gemstoneIds: ['g1', 'g2'] });
+  });
+
+  it('keeps an existing singular gemstoneId (does not overwrite from the array)', () => {
+    expect(normalizeGemstoneRefs({ gemstoneId: 'gA', gemstoneIds: ['gB'] })).toEqual({ gemstoneId: 'gA', gemstoneIds: ['gB'] });
+  });
+
+  it('null gemstoneId when neither singular nor a non-empty array is present', () => {
+    expect(normalizeGemstoneRefs({ gemstoneIds: [] })).toEqual({ gemstoneId: null, gemstoneIds: [] });
+    expect(normalizeGemstoneRefs({})).toEqual({ gemstoneId: null });
+  });
+
+  it('preserves unrelated reference fields', () => {
+    expect(normalizeGemstoneRefs({ designId: 'd1', gemstoneIds: ['g1'] })).toEqual({ designId: 'd1', gemstoneId: 'g1', gemstoneIds: ['g1'] });
+  });
+});
+
+describe('normalizeProductWrite (canonical write path)', () => {
+  it('guarantees the four invariants: productId, productType, status, singular gemstoneId', () => {
+    const out = normalizeProductWrite({ title: 'Ring', references: { gemstoneIds: ['g1'] } });
+    expect(out.productType).toBe('jewelry'); // absent → jewelry
+    expect(out.productId).toMatch(/^jwl_/);
+    expect(out.status).toBe('draft');
+    expect(out.references.gemstoneId).toBe('g1');
+    expect(out.references.gemstoneIds).toEqual(['g1']);
+  });
+
+  it('keeps a valid productType and an existing valid string productId', () => {
+    const out = normalizeProductWrite({ productId: 'gem_keepme', productType: 'gemstone', status: 'published', title: 'S' });
+    expect(out.productId).toBe('gem_keepme');
+    expect(out.productType).toBe('gemstone');
+    expect(out.status).toBe('published');
+  });
+
+  it('replaces an invalid (non-URL-safe / ObjectId-ish) productId', () => {
+    const out = normalizeProductWrite({ productId: 'has spaces', productType: 'concept', title: 'C' });
+    expect(out.productId).not.toBe('has spaces');
+    expect(out.productId).toMatch(/^cpt_/);
+  });
+
+  it('coerces an unknown productType to jewelry', () => {
+    expect(normalizeProductWrite({ productType: 'widget', title: 'x' }).productType).toBe('jewelry');
+  });
+
+  it('is idempotent (re-normalizing is a no-op on the invariants)', () => {
+    const once = normalizeProductWrite({ title: 'Ring', productType: 'gemstone', references: { gemstoneIds: ['g1'] } });
+    const twice = normalizeProductWrite(once);
+    expect(twice.productId).toBe(once.productId);
+    expect(twice.productType).toBe(once.productType);
+    expect(twice.status).toBe(once.status);
+    expect(twice.references).toEqual(once.references);
+  });
+
+  it('passes unknown fields through untouched', () => {
+    const out = normalizeProductWrite({ title: 'x', jewelry: { metals: [] }, images: ['a'], seller: { userId: 'u1' } });
+    expect(out.jewelry).toEqual({ metals: [] });
+    expect(out.images).toEqual(['a']);
+    expect(out.seller).toEqual({ userId: 'u1' });
   });
 });

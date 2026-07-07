@@ -38,6 +38,63 @@ export function suggestedRetailFromCOGS(cogs, markup = 2.5) {
   return round((Number(cogs) || 0) * markup);
 }
 
+// ── Canonical write path (0008 C-6) ─────────────────────────────────────────
+// One place that decides a product's string `productId` and reconciles the
+// `references.gemstoneId` (singular, 0004/D5) vs legacy `gemstoneIds[]` drift, so
+// every writer (typed jewelry/gemstone routes + the pipeline builders) emits the
+// same shape. The generic `POST /api/products` "third shape" (ObjectId-keyed,
+// `inventory{}`/`collectionIds`/`designOptions`) is retired — see the route.
+
+const PRODUCT_ID_PREFIX = { gemstone: 'gem', concept: 'cpt', jewelry: 'jwl' };
+
+/**
+ * Mint a canonical URL-safe string productId, prefixed by type (D6: string
+ * `productId` is canonical; the pipeline + typed routes already use it).
+ */
+export function generateProductId(productType = 'jewelry', seed = '') {
+  const prefix = PRODUCT_ID_PREFIX[productType] || 'prd';
+  const base = slugify(seed);
+  const rand = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  return base && base !== 'piece' ? `${prefix}_${base}_${rand}` : `${prefix}_${rand}`;
+}
+
+/**
+ * Normalize a product's `references` block to the 0004/D5 contract: `gemstoneId`
+ * (singular) is authoritative; when only the legacy `gemstoneIds[]` array is
+ * present, adopt `gemstoneIds[0]` and RETAIN the array (deprecated-but-kept).
+ * Pure — safe for both the write path and the C-5 backfill.
+ * @returns {{ gemstoneId: string|null, gemstoneIds?: string[], [k:string]: any }}
+ */
+export function normalizeGemstoneRefs(references = {}) {
+  const refs = { ...(references || {}) };
+  const arr = Array.isArray(refs.gemstoneIds) ? refs.gemstoneIds.filter(Boolean) : null;
+  if (refs.gemstoneId == null && arr && arr.length > 0) {
+    refs.gemstoneId = arr[0];
+  }
+  if (refs.gemstoneId === undefined) refs.gemstoneId = null;
+  if (arr) refs.gemstoneIds = arr; // retain (deprecated)
+  return refs;
+}
+
+/**
+ * The canonical shape-normalizer every product WRITE runs through. Guarantees the
+ * four invariants the unified list/editor rely on (0008 §5): a string `productId`,
+ * a valid `productType`, a `status`, and a singular `references.gemstoneId`.
+ * Additive + non-destructive: unknown fields pass through untouched; existing
+ * values win (so re-normalizing is a no-op — idempotent).
+ */
+export function normalizeProductWrite(input = {}) {
+  const doc = { ...input };
+  const productType = PRODUCT_TYPES.includes(doc.productType) ? doc.productType : 'jewelry';
+  doc.productType = productType;
+  if (!doc.productId || !/^[A-Za-z0-9_-]+$/.test(String(doc.productId))) {
+    doc.productId = generateProductId(productType, doc.title || doc.name);
+  }
+  doc.status = doc.status || 'draft';
+  doc.references = normalizeGemstoneRefs(doc.references);
+  return doc;
+}
+
 export const RUN_SIZE_TYPES = ['one_of_one', 'limited', 'unlimited'];
 
 /**

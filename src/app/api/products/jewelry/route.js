@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { db as mongo } from '@/lib/database';
 import { getUserArtisanTypes, canManageJewelry } from '@/lib/productPermissions';
 import { deriveRepairItemMetadata, withRepairItemMetadata } from '@/lib/productRepairMetadata';
+import { normalizeProductWrite } from '@/services/products/productContract';
 
 export async function GET() {
   try {
@@ -217,7 +218,8 @@ export async function POST(request) {
         publishedAt: null,
       },
 
-      // V2 references
+      // V2 references — normalized below to the 0004/D5 singular `gemstoneId`
+      // (retaining the deprecated `gemstoneIds[]`) via normalizeProductWrite.
       references: {
         gemstoneIds: referencedGemstoneIds,
         designId: null,
@@ -245,11 +247,14 @@ export async function POST(request) {
       designs: [],
     };
 
-    const result = await db.collection('products').insertOne(newJewelry);
+    // C-6: run every product write through the ONE canonical normalizer (string
+    // productId, valid productType, status, singular references.gemstoneId).
+    const canonical = normalizeProductWrite(newJewelry);
+    const result = await db.collection('products').insertOne(canonical);
 
     return NextResponse.json({
       success: true,
-      productId,
+      productId: canonical.productId,
       id: result.insertedId,
     });
   } catch (error) {
