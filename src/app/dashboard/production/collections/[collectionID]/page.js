@@ -15,13 +15,17 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Box, Typography, Button, Card, CardContent, Stack, Chip, CircularProgress, Alert, Grid, Tooltip,
-  Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, TextField,
+  Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, TextField, InputAdornment,
+  Drawer, List, ListItemButton, ListItemText, Checkbox, IconButton, Divider,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
+import SearchIcon from '@mui/icons-material/Search';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import { validateProductContract } from '@/services/products/productContract';
 
@@ -40,6 +44,9 @@ export default function CollectionDetailPage() {
   const [notice, setNotice] = useState(null);
   const [goLive, setGoLive] = useState(false);
   const [when, setWhen] = useState('');
+  const [addOpen, setAddOpen] = useState(false);
+  const [pickSearch, setPickSearch] = useState('');
+  const [picked, setPicked] = useState(() => new Set());
 
   const load = useCallback(async () => {
     try {
@@ -74,6 +81,35 @@ export default function CollectionDetailPage() {
   const allReady = members.length > 0 && readyCount === members.length;
   const status = collection?.status || 'draft';
   const released = status === 'released';
+
+  // Add-products picker: all products NOT already staged (staging a not-ready product is allowed — spec §7).
+  const memberIds = useMemo(() => new Set((collection?.members || []).map((m) => m.productId)), [collection]);
+  const candidates = useMemo(() => {
+    const q = pickSearch.trim().toLowerCase();
+    return Object.values(productsById)
+      .filter((p) => !memberIds.has(p.productId))
+      .filter((p) => !q || [p.title, p.name, p.productId].filter(Boolean).join(' ').toLowerCase().includes(q));
+  }, [productsById, memberIds, pickSearch]);
+
+  const togglePick = (id) => setPicked((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+
+  const doAddPicked = async () => {
+    const ids = [...picked];
+    if (!ids.length) return;
+    setBusy(true); setNotice(null);
+    let ok = 0;
+    for (const productId of ids) {
+      try {
+        const res = await fetch(`/api/production/collections/${collectionID}/members`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ productId }),
+        });
+        if (res.ok) ok += 1;
+      } catch { /* keep going; summarize below */ }
+    }
+    setPicked(new Set()); setAddOpen(false); await load();
+    setNotice({ severity: ok === ids.length ? 'success' : 'warning', msg: `Staged ${ok} of ${ids.length} product(s).` });
+    setBusy(false);
+  };
 
   const patch = async (body) => {
     const res = await fetch(`/api/production/collections/${collectionID}`, {
@@ -133,6 +169,9 @@ export default function CollectionDetailPage() {
           </Box>
           <Stack direction="row" spacing={1.5} alignItems="center">
             {!released && (
+              <Button onClick={() => setAddOpen(true)} startIcon={<AddIcon />} variant="outlined" sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>Add products</Button>
+            )}
+            {!released && (
               <Stack direction="row" spacing={1} alignItems="center">
                 <TextField type="datetime-local" size="small" value={when} onChange={(e) => setWhen(e.target.value)} disabled={!allReady}
                   sx={{ '& input': { color: REPAIRS_UI.textPrimary } }} />
@@ -183,6 +222,45 @@ export default function CollectionDetailPage() {
           ))}
         </Grid>
       )}
+
+      {/* Add products — right-side drawer (spec): searchable picker, multi-select, membership stays visible behind it */}
+      <Drawer anchor="right" open={addOpen} onClose={() => setAddOpen(false)}
+        PaperProps={{ sx: { width: { xs: '100%', sm: 420 }, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', borderLeft: `1px solid ${REPAIRS_UI.border}` } }}>
+        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+            <Typography sx={{ fontSize: 18, fontWeight: 600, color: REPAIRS_UI.textHeader }}>Add products</Typography>
+            <IconButton onClick={() => setAddOpen(false)} sx={{ color: REPAIRS_UI.textSecondary }}><CloseIcon /></IconButton>
+          </Stack>
+          <TextField placeholder="Search products…" value={pickSearch} onChange={(e) => setPickSearch(e.target.value)} size="small" fullWidth sx={{ mb: 1 }}
+            InputProps={{ startAdornment: (<InputAdornment position="start"><SearchIcon sx={{ color: REPAIRS_UI.textSecondary }} /></InputAdornment>) }} />
+          <Typography sx={{ fontSize: '0.75rem', color: REPAIRS_UI.textMuted, mb: 1 }}>Staging a not-yet-ready product is allowed — readiness gates the release, not membership.</Typography>
+          <Box sx={{ flex: 1, overflowY: 'auto', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 1 }}>
+            {candidates.length === 0 ? (
+              <Typography sx={{ color: REPAIRS_UI.textSecondary, p: 2, fontSize: '0.85rem' }}>No products to add (all staged, or none match).</Typography>
+            ) : (
+              <List dense disablePadding>
+                {candidates.map((p) => {
+                  const ready = validateProductContract(p).valid;
+                  return (
+                    <ListItemButton key={p.productId} onClick={() => togglePick(p.productId)} sx={{ borderBottom: `1px solid ${REPAIRS_UI.border}` }}>
+                      <Checkbox edge="start" checked={picked.has(p.productId)} tabIndex={-1} disableRipple sx={{ color: REPAIRS_UI.textMuted, '&.Mui-checked': { color: REPAIRS_UI.accent } }} />
+                      <ListItemText
+                        primary={<span style={{ color: REPAIRS_UI.textHeader }}>{p.title || p.name || p.productId}</span>}
+                        secondary={<span style={{ color: REPAIRS_UI.textSecondary }}>{priceOf(p) != null ? money(priceOf(p)) : '—'} · {p.productType || 'jewelry'} · {ready ? 'ready' : '⚠ not ready'}</span>}
+                      />
+                    </ListItemButton>
+                  );
+                })}
+              </List>
+            )}
+          </Box>
+          <Divider sx={{ borderColor: REPAIRS_UI.border, my: 1.5 }} />
+          <Button onClick={doAddPicked} disabled={busy || picked.size === 0} variant="contained" fullWidth
+            sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>
+            {busy ? 'Staging…' : `Add ${picked.size || ''} product${picked.size === 1 ? '' : 's'}`.trim()}
+          </Button>
+        </Box>
+      </Drawer>
 
       {/* Go-live = the ONE modal (outward-facing, irreversible) */}
       <Dialog open={goLive} onClose={() => setGoLive(false)}

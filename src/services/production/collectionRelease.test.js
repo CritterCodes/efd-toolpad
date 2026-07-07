@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isDue, releasePlan } from '@/services/production/collectionRelease';
+import { isDue, releasePlan, unreadyMembers } from '@/services/production/collectionRelease';
 import { COLLECTION_STATUS } from '@/services/production/collectionsUnify';
 
 const NOW = new Date('2026-07-02T12:00:00Z');
@@ -25,5 +25,25 @@ describe('releasePlan', () => {
   it('handles an empty / member-less collection', () => {
     expect(releasePlan({}, NOW).memberProductIds).toEqual([]);
     expect(releasePlan({ members: [{ position: 0 }] }, NOW).memberProductIds).toEqual([]); // no productId → filtered
+  });
+});
+
+describe('unreadyMembers (§8 release gate — relocated from members-add, #203)', () => {
+  const ready = { productId: 'ok', title: 'Ring', pricing: { retailPrice: 100 }, availability: 'ready-to-ship', images: ['https://x/a.jpg'] };
+
+  it('returns [] when every member passes contract §8', () => {
+    expect(unreadyMembers([ready, { ...ready, productId: 'ok2' }])).toEqual([]);
+  });
+
+  it('flags members that fail §8 (and a missing product doc)', () => {
+    const bad = { productId: 'bad', title: '', availability: 'whenever' }; // no title/price/media/availability
+    const out = unreadyMembers([ready, bad, { productId: 'phantom' }]);
+    expect(out.map((r) => r.productId).sort()).toEqual(['bad', 'phantom']);
+    expect(out.every((r) => Array.isArray(r.errors) && r.errors.length > 0)).toBe(true);
+  });
+
+  it('tolerates empty input', () => {
+    expect(unreadyMembers([])).toEqual([]);
+    expect(unreadyMembers(undefined)).toEqual([]);
   });
 });

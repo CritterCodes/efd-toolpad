@@ -10,6 +10,20 @@
 import CollectionsModel from '@/app/api/collections/model';
 import { db } from '@/lib/database';
 import { COLLECTION_STATUS } from '@/services/production/collectionsUnify';
+import { validateProductContract } from '@/services/products/productContract';
+
+/**
+ * Members that fail the storefront contract §8 — RELEASE is blocked until this is empty (M5-T1 spec §7,
+ * PM ruling #203: readiness gates release, not membership). A missing product doc counts as unready.
+ * Pure → unit-testable.
+ * @returns {Array<{ productId: string, errors: string[] }>}
+ */
+export function unreadyMembers(memberProducts = []) {
+  return (Array.isArray(memberProducts) ? memberProducts : [])
+    .map((p) => ({ productId: p?.productId ?? null, ...validateProductContract(p || {}) }))
+    .filter((r) => !r.valid)
+    .map((r) => ({ productId: r.productId, errors: r.errors }));
+}
 
 /** A collection is due when it's scheduled and its releaseAt has arrived. */
 export function isDue(collection = {}, now = new Date()) {
@@ -44,6 +58,18 @@ export async function releaseCollection(collectionId, { now = new Date() } = {})
   const { memberProductIds, collectionUpdate } = releasePlan(collection, now);
   const dbInstance = await db.connect();
   if (memberProductIds.length) {
+    // §8 RELEASE gate (PM ruling #203): every member must pass the storefront contract before go-live
+    // (or a scheduled fire) — staging a not-ready product is allowed, but publishing it is not.
+    const products = await dbInstance.collection('products').find({ productId: { $in: memberProductIds } }).toArray();
+    const byId = new Map(products.map((p) => [p.productId, p]));
+    const memberDocs = memberProductIds.map((id) => byId.get(id) || { productId: id }); // missing doc ⇒ unready
+    const unready = unreadyMembers(memberDocs);
+    if (unready.length) {
+      const err = new Error(`Cannot release: ${unready.length} member(s) fail contract §8: ${unready.map((u) => u.productId).join(', ')}. Fix or unstage them.`);
+      err.code = 'MEMBERS_NOT_READY';
+      err.unready = unready;
+      throw err;
+    }
     await dbInstance.collection('products').updateMany(
       { productId: { $in: memberProductIds } },
       { $set: { status: 'published', 'publishing.visible': true, 'publishing.publishedAt': collectionUpdate.releasedAt, updatedAt: new Date() } },
