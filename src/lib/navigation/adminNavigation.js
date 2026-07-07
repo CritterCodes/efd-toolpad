@@ -41,23 +41,12 @@ export const adminNavigation = {
       icon: <PointOfSaleIcon />
     },
     {
+      // C-3 (0008 §3.1): Products is one leaf → the unified `dashboard/products` catalog (productType
+      // tabs + status filter). Jewelry/Gemstones/Awaiting-approval children removed; their legacy pages
+      // stay reachable by URL until the owner-gated C-4 retires them.
       segment: 'dashboard/products',
       title: 'Products',
       icon: <InventoryIcon />,
-      children: [
-        {
-          segment: 'jewelry',
-          title: 'Jewelry',
-          icon: <RingIcon />
-        },
-        {
-          segment: 'gemstones',
-          title: 'Gemstones',
-          icon: <DiamondIcon />
-        }
-        // C-2: 'Awaiting Approval' child removed — the review queue now lives in the unified
-        // Products catalog as a `pending-approval` status filter with per-row approve/reject/publish.
-      ]
     },
     {
       segment: 'dashboard/clients',
@@ -88,12 +77,9 @@ export const adminNavigation = {
           segment: 'pieces',
           title: 'Pieces',
           icon: <RingIcon />
-        },
-        {
-          segment: 'products',
-          title: 'Products',
-          icon: <InventoryIcon />
         }
+        // C-3 (0008 §3.1): Production stays the make-side (Drops/Designs/Pieces). The old 'Products'
+        // child was folded into the single top-level Products catalog leaf (page still URL-reachable).
       ]
     },
     { kind: 'header', title: 'Repair Work' },

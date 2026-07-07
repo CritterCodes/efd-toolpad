@@ -28,22 +28,11 @@ export const devNavigation = {
     SHARED_NAVIGATION.dashboard,
     { kind: 'header', title: 'Commerce' },
     {
+      // C-3 (0008 §3.1): Products is one leaf → the unified `dashboard/products` catalog.
+      // Jewelry/Gemstones/Awaiting-approval children removed; legacy pages stay URL-reachable until C-4.
       segment: 'dashboard/products',
       title: 'Products',
       icon: <InventoryIcon />,
-      children: [
-        {
-          segment: 'jewelry',
-          title: 'Jewelry',
-          icon: <RingIcon />
-        },
-        {
-          segment: 'gemstones',
-          title: 'Gemstones',
-          icon: <DiamondIcon />
-        }
-        // C-2: 'Awaiting Approval' child removed — review folded into the unified Products catalog.
-      ]
     },
     {
       segment: 'dashboard/clients',
@@ -74,12 +63,8 @@ export const devNavigation = {
           segment: 'pieces',
           title: 'Pieces',
           icon: <RingIcon />
-        },
-        {
-          segment: 'products',
-          title: 'Products',
-          icon: <InventoryIcon />
         }
+        // C-3 (0008 §3.1): 'Products' child folded into the single top-level Products catalog leaf.
       ]
     },
     { kind: 'header', title: 'Repair Work' },
