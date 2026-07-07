@@ -126,6 +126,37 @@ Order most-specific → least-specific.
 Unmatched meshes keep their original GLB material (fine for non-gem/non-metal parts). **Gems must be
 mapped to `type:"gem"`** or they won't get the refraction shader (look dull/flat).
 
+## 5a. `customizable` — customer-configurable slots + cost bindings (Customizer; decisions 0002 v2 + 0005 §6)
+
+A meshMap slot MAY carry an additive `customizable` block marking it customer-configurable in the storefront
+Customizer (refrakt `<Customizer>`). Authored on the **Design** via `<ConfiguratorSetup>` (admin screen), inherited
+by products; a product may override. A premade/as-built piece omits it (locked as built).
+
+```jsonc
+{ "nameContains": "Band", "type": "metal", "finish": "polished",
+  "volumeCm3": 0.49,                       // ADMIN-INTERNAL — per-metal-slot volume (ConfiguratorSetup 1.10.x); 0005 §6 metal cost
+  "customizable": {
+    "label": "Band metal",                 // optional customer-facing label
+    "default": "polished",                 // one of the option values
+    "options": [
+      { "finish": "polished", "binding": { "metalKey": "GOLD_18K_WHITE" } },   // `binding` = ADMIN-INTERNAL (below)
+      { "finish": "yellow",   "binding": { "metalKey": "GOLD_18K_YELLOW" } }
+    ]
+  } }
+```
+
+- **Options are visual-only** (`finish`/`gemPreset` from §5's vocab — no new vocab; refrakt never prices).
+- **Slot identity + join key = `nameContains`** (matches `RefraktSelection.selections[].slot` + every `resolvedMeshMap` entry).
+- **Shop-facing** (the Customizer needs them): `customizable.{label, default, options[].finish|gemPreset}`.
+- **Storefront behavior:** render `<Customizer>` iff a slot has `customizable.options[]` (+ `glbUrl`); live price via
+  `POST /api/refrakt-price` (decision 0005: authoritative pre-tax `subtotal` + display `total`). Non-customizable
+  products render static media unchanged.
+
+**ADMIN-INTERNAL — MUST be stripped from any shop-facing read (like `pricing.costBasis`):** each option's cost
+`binding` (metal → `{ metalKey }`; gem → `{ gemstoneId }` | `{ materialRef, carat }`) and per-metal-slot `volumeCm3`
+are cost inputs the pricing engine resolves (0005 §6) — they never cross to the storefront (shop gets the resolved
+price only). The endpoint `422`s a customizable option that has no binding (authoring incomplete).
+
 ## 6. Admin workflow + GLB inspect endpoint (lives in efd-shop)
 
 **`POST /api/glb/inspect`** (storefront-hosted; SSRF-guarded — absolute URLs must be the S3 asset

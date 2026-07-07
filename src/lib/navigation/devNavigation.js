@@ -79,6 +79,11 @@ export const devNavigation = {
           segment: 'pieces',
           title: 'Pieces',
           icon: <RingIcon />
+        },
+        {
+          segment: 'products',
+          title: 'Products',
+          icon: <InventoryIcon />
         }
       ]
     },

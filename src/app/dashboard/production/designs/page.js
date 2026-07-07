@@ -1,12 +1,14 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import Link from 'next/link';
 import {
   Box, Typography, Button, Grid, Card, CardContent, Paper, TextField, InputAdornment,
   FormControl, InputLabel, Select, MenuItem, Stack, Chip, CircularProgress, Snackbar, Alert,
   Dialog, DialogTitle, DialogContent, DialogActions, Autocomplete,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import DesignServicesIcon from '@mui/icons-material/DesignServices';
 import SearchIcon from '@mui/icons-material/Search';
 import InboxIcon from '@mui/icons-material/Inbox';
@@ -74,7 +76,13 @@ function DesignCard({ design, onUploaded, onError }) {
           <Chip size="small" label={(d.status || 'concept').replace(/_/g, ' ')} sx={{ backgroundColor: `${STATUS_COLOR[d.status] || REPAIRS_UI.textMuted}22`, color: STATUS_COLOR[d.status] || REPAIRS_UI.textMuted, textTransform: 'capitalize', fontWeight: 700 }} />
           {d.gemstoneId && <Chip size="small" icon={<DiamondIcon sx={{ fontSize: 14 }} />} label="Gem-linked" sx={{ backgroundColor: REPAIRS_UI.bgTertiary, color: REPAIRS_UI.accent, border: `1px solid ${REPAIRS_UI.border}` }} />}
         </Stack>
-        <Typography sx={{ fontSize: 18, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 0.5 }}>{d.name || 'Untitled design'}</Typography>
+        <Typography
+          component={Link}
+          href={`/dashboard/production/designs/${d.designID}`}
+          sx={{ fontSize: 18, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 0.5, display: 'block', textDecoration: 'none', '&:hover': { color: REPAIRS_UI.accent } }}
+        >
+          {d.name || 'Untitled design'}
+        </Typography>
         {d.description && <Typography sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.85rem', mb: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{d.description}</Typography>}
         <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mt: 1.5 }}>
           <Box sx={{ color: REPAIRS_UI.textMuted, fontSize: '0.8rem' }}>{d.estCost != null ? `est ${money(d.estCost)}` : 'no estimate'}</Box>
@@ -85,6 +93,11 @@ function DesignCard({ design, onUploaded, onError }) {
             <input type="file" hidden accept=".stl,.obj,.glb,.3dm,.zip" onChange={upload} />
           </Button>
         </Stack>
+        <Button component={Link} href={`/dashboard/production/designs/${d.designID}`} size="small" fullWidth
+          startIcon={<OpenInNewIcon sx={{ fontSize: 15 }} />}
+          sx={{ mt: 1.5, color: REPAIRS_UI.accent, borderColor: REPAIRS_UI.border, textTransform: 'none', fontSize: '0.8rem', border: `1px solid ${REPAIRS_UI.border}` }}>
+          Open · Materials &amp; Customize
+        </Button>
       </CardContent>
     </Card>
   );

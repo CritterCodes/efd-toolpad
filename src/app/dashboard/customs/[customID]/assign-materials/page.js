@@ -8,13 +8,10 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import dynamic from 'next/dynamic';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Box, CircularProgress, Typography, Button } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-
-// The packaged REFRAKT Studio — full-screen WebGL editor; never SSR.
-const Studio = dynamic(() => import('@crittercodes/refrakt').then((m) => m.Studio), { ssr: false });
+import MaterialStudio from '@/components/viewers/MaterialStudio';
 
 export default function AssignMaterialsPage() {
   const { customID } = useParams();
@@ -85,7 +82,7 @@ export default function AssignMaterialsPage() {
   }
 
   return (
-    <Studio
+    <MaterialStudio
       glbUrl={glbUrl}
       initialConfig={order.designModel}
       saveLabel={workOrderID ? 'Save & send to QC' : 'Save to design model'}

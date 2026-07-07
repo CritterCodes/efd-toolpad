@@ -26,6 +26,23 @@ describe('validateProductContract', () => {
     expect(withViewer([{ nameContains: 'Gem', type: 'gem', gemPreset: 'unobtanium' }]).valid).toBe(false);
     expect(withViewer([]).valid).toBe(false);
   });
+
+  it('validates productType enum (absent → jewelry, ok)', () => {
+    expect(validateProductContract({ ...base, productType: 'concept' }).valid).toBe(true);
+    expect(validateProductContract({ ...base, productType: 'gemstone' }).valid).toBe(true);
+    expect(validateProductContract({ ...base }).valid).toBe(true); // absent → jewelry
+    const bad = validateProductContract({ ...base, productType: 'widget' });
+    expect(bad.valid).toBe(false);
+    expect(bad.errors.some((e) => e.includes('productType'))).toBe(true);
+  });
+
+  it('validates limited runSize size + remaining bounds', () => {
+    expect(validateProductContract({ ...base, runSize: { type: 'limited', size: 10, remaining: 3 } }).valid).toBe(true);
+    expect(validateProductContract({ ...base, runSize: { type: 'unlimited' } }).valid).toBe(true);
+    expect(validateProductContract({ ...base, runSize: { type: 'limited', size: 0 } }).valid).toBe(false);      // size must be ≥1
+    expect(validateProductContract({ ...base, runSize: { type: 'limited', size: 2.5 } }).valid).toBe(false);    // integer
+    expect(validateProductContract({ ...base, runSize: { type: 'limited', size: 5, remaining: 9 } }).valid).toBe(false); // remaining > size
+  });
 });
 
 describe('buildProductFromPiece', () => {

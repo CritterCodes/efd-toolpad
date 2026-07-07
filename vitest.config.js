@@ -12,6 +12,11 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
+    // Scope discovery to the app's own suite. Without this, `vitest run` sweeps the
+    // whole tree — including stale copies under `.claude/worktrees/*` (each a full
+    // checkout with its own tests), inflating counts + surfacing duplicate failures.
+    include: ['src/**/*.{test,spec}.{js,jsx,ts,tsx}'],
+    exclude: ['**/node_modules/**', '**/.claude/**', '**/dist/**', '**/.next/**'],
     // Transform the refrakt source (extensionless internal imports) instead of
     // externalizing it to node's ESM loader, which can't resolve them.
     server: { deps: { inline: [/@crittercodes\/refrakt/] } },

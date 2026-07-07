@@ -54,6 +54,8 @@ export default class DesignsModel {
       estCost: data.estCost ?? null,
       suggestedRetail: data.suggestedRetail ?? null,
       productID: data.productID ?? null,   // set when listed as a concept product (M1-T3)
+      // 3D viewer config (meshMap + Customizer `customizable` block w/ cost bindings; M3-T2 / 0005 §6)
+      viewer: data.viewer ?? null,
       status: data.status || DESIGN_STATUS.CONCEPT,
       createdAt: now,
       updatedAt: now,
@@ -83,6 +85,20 @@ export default class DesignsModel {
   static async updateById(designID, updateData) {
     const col = await this.collection();
     await col.updateOne({ designID }, { $set: { ...updateData, updatedAt: new Date() } });
+    return this.findById(designID);
+  }
+
+  /**
+   * Save the Customizer authoring output (M3-T2 / decision 0005 §6) onto the design's viewer
+   * config: the refrakt-native meshMap (slots carry `customizable` blocks + per-option cost
+   * bindings) + optional glbUrl. Field-merged so other viewer keys are untouched.
+   */
+  static async setViewer(designID, { meshMap, glbUrl } = {}) {
+    const col = await this.collection();
+    const $set = { updatedAt: new Date() };
+    if (Array.isArray(meshMap)) $set['viewer.meshMap'] = meshMap;
+    if (glbUrl) $set['viewer.glbUrl'] = glbUrl;
+    await col.updateOne({ designID }, { $set });
     return this.findById(designID);
   }
 

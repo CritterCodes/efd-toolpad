@@ -91,6 +91,11 @@ export const adminNavigation = {
           segment: 'pieces',
           title: 'Pieces',
           icon: <RingIcon />
+        },
+        {
+          segment: 'products',
+          title: 'Products',
+          icon: <InventoryIcon />
         }
       ]
     },

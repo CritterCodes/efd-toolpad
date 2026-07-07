@@ -19,6 +19,7 @@ import { VALID_FINISHES, VALID_GEM_PRESETS } from '@crittercodes/refrakt';
 export const METAL_FINISHES = VALID_FINISHES;
 export const GEM_PRESETS = VALID_GEM_PRESETS;
 export const AVAILABILITY = ['ready-to-ship', 'made-to-order'];
+export const PRODUCT_TYPES = ['gemstone', 'concept', 'jewelry']; // §2/§8; absent → jewelry
 
 function round(value) {
   return Math.round((Number(value) || 0) * 100) / 100;
@@ -106,6 +107,23 @@ export function validateProductContract(doc = {}) {
   const hasImages = Array.isArray(doc.images) && doc.images.length > 0;
   if (!doc.viewer && !hasImages) {
     errors.push('at least one of viewer or images is required');
+  }
+
+  const productType = doc.productType ?? 'jewelry'; // absent → jewelry (§8)
+  if (!PRODUCT_TYPES.includes(productType)) {
+    errors.push(`productType must be one of: ${PRODUCT_TYPES.join(', ')}`);
+  }
+
+  if (doc?.runSize?.type === 'limited') {
+    const size = Number(doc.runSize.size);
+    if (!Number.isInteger(size) || size < 1) {
+      errors.push('runSize.size must be a positive integer for a limited run');
+    } else if (doc.runSize.remaining != null) {
+      const rem = Number(doc.runSize.remaining);
+      if (!Number.isInteger(rem) || rem < 0 || rem > size) {
+        errors.push('runSize.remaining must be an integer in 0…size');
+      }
+    }
   }
 
   return { valid: errors.length === 0, errors };
