@@ -8,14 +8,22 @@
 
 import React, { useEffect, useState } from 'react';
 import {
-  Card, CardContent, Stack, Chip, Typography, Button, Dialog, DialogTitle, DialogContent,
-  DialogActions, TextField, FormControl, InputLabel, Select, MenuItem, InputAdornment,
+  Box, Card, CardContent, Stack, Chip, Typography, Button, Dialog, DialogTitle, DialogContent,
+  DialogActions, TextField, FormControl, InputLabel, Select, MenuItem, InputAdornment, Divider,
 } from '@mui/material';
 import ViewInArIcon from '@mui/icons-material/ViewInAr';
 import ImageIcon from '@mui/icons-material/Image';
 import DiamondIcon from '@mui/icons-material/AutoAwesome';
 import EditIcon from '@mui/icons-material/Edit';
 import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
+import EntityThumbnail from '@/components/production/media/EntityThumbnail';
+import EntityGallery from '@/components/production/media/EntityGallery';
+
+/** Primary image (or first) of a product's images[] — the card thumbnail source (U-6). */
+export const primaryImageOf = (p) => {
+  const imgs = Array.isArray(p?.images) ? p.images : [];
+  return imgs.find((i) => i?.isPrimary) || imgs[0] || null;
+};
 
 export const money = (n) => `$${(Number(n) || 0).toLocaleString()}`;
 export const TYPE_COLOR = { gemstone: '#BA68C8', concept: '#64B5F6', jewelry: REPAIRS_UI.accent };
@@ -54,10 +62,15 @@ export function ProductCard({ product, onEdit, onStatusAction }) {
           <Chip size="small" label={type} sx={{ backgroundColor: `${TYPE_COLOR[type] || REPAIRS_UI.accent}22`, color: TYPE_COLOR[type] || REPAIRS_UI.accent, textTransform: 'capitalize', fontWeight: 700 }} />
           <Chip size="small" label={(p.status || 'draft').replace(/_/g, ' ')} sx={{ backgroundColor: `${STATUS_COLOR[p.status] || REPAIRS_UI.textMuted}22`, color: STATUS_COLOR[p.status] || REPAIRS_UI.textMuted, textTransform: 'capitalize', fontWeight: 700 }} />
         </Stack>
-        <Typography sx={{ fontSize: 17, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 0.5 }}>{p.title || p.name || 'Untitled product'}</Typography>
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-          <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 700 }}>{priceOf(p) != null ? money(priceOf(p)) : '—'}</Typography>
-          <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: '0.8rem' }}>· {runSizeLabel(p.runSize)}</Typography>
+        <Stack direction="row" spacing={1.25} alignItems="flex-start" sx={{ mb: 1 }}>
+          <EntityThumbnail image={primaryImageOf(p)} size={56} />
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography sx={{ fontSize: 17, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 0.25 }} noWrap>{p.title || p.name || 'Untitled product'}</Typography>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 700 }}>{priceOf(p) != null ? money(priceOf(p)) : '—'}</Typography>
+              <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: '0.8rem' }} noWrap>· {runSizeLabel(p.runSize)}</Typography>
+            </Stack>
+          </Box>
         </Stack>
         <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
           {p.viewer && <Chip size="small" icon={<ViewInArIcon sx={{ fontSize: 14 }} />} label="3D" sx={{ backgroundColor: REPAIRS_UI.bgTertiary, color: REPAIRS_UI.textSecondary, border: `1px solid ${REPAIRS_UI.border}` }} />}
@@ -89,13 +102,31 @@ export function EditProductDialog({ product, onClose, onSaved, onError }) {
   const [runType, setRunType] = useState('unlimited');
   const [size, setSize] = useState('');
   const [saving, setSaving] = useState(false);
+  const [images, setImages] = useState([]); // U-6: live product media
 
   useEffect(() => {
     if (!product) return;
     setRetailPrice(priceOf(product) != null ? String(priceOf(product)) : '');
     setRunType(product.runSize?.type || 'unlimited');
     setSize(product.runSize?.size != null ? String(product.runSize.size) : '');
+    setImages(Array.isArray(product.images) ? product.images : []);
   }, [product]);
+
+  // U-6 media (wired to the U-4 /api/products/[_id]/images routes). Local state keeps the gallery live;
+  // the list reload on Save/close persists the change into the cards' thumbnails.
+  const uploadImage = async (file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch(`/api/products/${product._id}/images`, { method: 'POST', body: fd });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { onError(data.error || 'Image upload failed'); return; }
+    setImages((prev) => [...prev, data]);
+  };
+  const deleteImage = async (id) => {
+    const res = await fetch(`/api/products/${product._id}/images/${id}`, { method: 'DELETE' });
+    if (!res.ok) { onError((await res.json().catch(() => ({}))).error || 'Image delete failed'); return; }
+    setImages((prev) => prev.filter((i) => i.id !== id));
+  };
 
   const submit = async () => {
     const price = Number(retailPrice);
@@ -119,7 +150,7 @@ export function EditProductDialog({ product, onClose, onSaved, onError }) {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs"
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm"
       PaperProps={{ sx: { backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}` } }}>
       <DialogTitle sx={{ color: REPAIRS_UI.textHeader }}>Edit {product?.title || 'product'}</DialogTitle>
       <DialogContent>
@@ -138,6 +169,10 @@ export function EditProductDialog({ product, onClose, onSaved, onError }) {
             <TextField label="Edition size" type="number" value={size} onChange={(e) => setSize(e.target.value)} size="small" fullWidth
               helperText="remaining is recomputed from units already produced." />
           )}
+          <Divider sx={{ borderColor: REPAIRS_UI.border }} />
+          {/* U-6: product media — the headline catalog gap. Uploads via the U-4 images route. */}
+          <EntityGallery images={images} onUpload={product?._id ? uploadImage : undefined} onDelete={product?._id ? deleteImage : undefined}
+            title="Product images" cols={3} emptyText="No product images. Upload photos for the catalog thumbnail + product page." />
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
