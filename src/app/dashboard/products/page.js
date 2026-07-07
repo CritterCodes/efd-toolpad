@@ -54,6 +54,26 @@ export default function ProductsCatalogPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // C-2: approve/reject/publish an artisan-submitted (pending-approval) product from the catalog,
+  // reusing the existing POST /api/products/:id/{approve|reject|publish} routes (keyed by _id).
+  const onStatusAction = async (product, action) => {
+    let body = {};
+    if (action === 'reject') {
+      // eslint-disable-next-line no-alert
+      const reason = typeof window !== 'undefined' ? window.prompt('Reason for rejection?') : null;
+      if (reason == null) return; // cancelled
+      body = { reason };
+    }
+    try {
+      const res = await fetch(`/api/products/${product._id}/${action}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `${action} failed`);
+      showSnack(`${action[0].toUpperCase()}${action.slice(1)}d "${product.title || product.productId}".`);
+      load();
+    } catch (e) { showSnack(e.message, 'error'); }
+  };
+
   const counts = useMemo(() => {
     const c = { all: products.length, jewelry: 0, gemstone: 0, concept: 0 };
     for (const p of products) { const t = typeOf(p); if (c[t] != null) c[t] += 1; }
@@ -119,7 +139,7 @@ export default function ProductsCatalogPage() {
         <Grid container spacing={2}>
           {filtered.map((p) => (
             <Grid item xs={12} sm={6} md={4} key={p._id || p.productId}>
-              <ProductCard product={p} onEdit={setEditing} />
+              <ProductCard product={p} onEdit={setEditing} onStatusAction={onStatusAction} />
             </Grid>
           ))}
         </Grid>

@@ -40,10 +40,13 @@ export function readinessHint(p) {
   return issues;
 }
 
-export function ProductCard({ product, onEdit }) {
+export function ProductCard({ product, onEdit, onStatusAction }) {
   const p = product;
   const type = typeOf(p);
   const issues = readinessHint(p);
+  // C-2: awaiting-approval review folded into the catalog — approve/reject/publish appear per-row for
+  // artisan-submitted products, only when the host wires `onStatusAction` (the unified catalog does).
+  const pending = p.status === 'pending-approval';
   return (
     <Card sx={{ height: '100%', backgroundColor: REPAIRS_UI.bgCard, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2 }}>
       <CardContent>
@@ -68,6 +71,13 @@ export function ProductCard({ product, onEdit }) {
           sx={{ color: REPAIRS_UI.accent, textTransform: 'none', fontSize: '0.8rem', border: `1px solid ${REPAIRS_UI.border}` }}>
           Edit price &amp; run size
         </Button>
+        {pending && onStatusAction && (
+          <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+            <Button size="small" fullWidth onClick={() => onStatusAction(p, 'approve')} sx={{ color: '#66BB6A', textTransform: 'none', fontSize: '0.78rem', border: '1px solid #66BB6A55' }}>Approve</Button>
+            <Button size="small" fullWidth onClick={() => onStatusAction(p, 'reject')} sx={{ color: '#E57373', textTransform: 'none', fontSize: '0.78rem', border: '1px solid #E5737355' }}>Reject</Button>
+            <Button size="small" fullWidth onClick={() => onStatusAction(p, 'publish')} sx={{ color: REPAIRS_UI.accent, textTransform: 'none', fontSize: '0.78rem', border: `1px solid ${REPAIRS_UI.border}` }}>Publish</Button>
+          </Stack>
+        )}
       </CardContent>
     </Card>
   );

@@ -5,7 +5,6 @@ import BuildIcon from "@mui/icons-material/Handyman";
 import BarChartIcon from "@mui/icons-material/Insights";
 import PeopleIcon from "@mui/icons-material/People";
 import InventoryIcon from "@mui/icons-material/Inventory2";
-import AssignmentIcon from "@mui/icons-material/Assignment";
 import SettingsIcon from "@mui/icons-material/Settings";
 import ReceiptIcon from "@mui/icons-material/Receipt";
 import HandymanIcon from "@mui/icons-material/Handyman";
@@ -42,12 +41,8 @@ export const devNavigation = {
           segment: 'gemstones',
           title: 'Gemstones',
           icon: <DiamondIcon />
-        },
-        {
-          segment: 'awaiting-approval',
-          title: 'Awaiting Approval',
-          icon: <AssignmentIcon />
         }
+        // C-2: 'Awaiting Approval' child removed — review folded into the unified Products catalog.
       ]
     },
     {

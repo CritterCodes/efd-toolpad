@@ -54,12 +54,9 @@ export const adminNavigation = {
           segment: 'gemstones',
           title: 'Gemstones',
           icon: <DiamondIcon />
-        },
-        {
-          segment: 'awaiting-approval',
-          title: 'Awaiting Approval',
-          icon: <AssignmentIcon />
         }
+        // C-2: 'Awaiting Approval' child removed — the review queue now lives in the unified
+        // Products catalog as a `pending-approval` status filter with per-row approve/reject/publish.
       ]
     },
     {
