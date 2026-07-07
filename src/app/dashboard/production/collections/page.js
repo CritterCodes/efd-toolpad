@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Box, Typography, Button, Grid, Card, CardContent, CardActionArea, Paper, TextField,
   InputAdornment, FormControl, InputLabel, Select, MenuItem, Stack, Chip, CircularProgress,
@@ -121,6 +122,7 @@ export default function ProductionCollectionsPage() {
   const [status, setStatus] = useState('all');
   const [ownerType, setOwnerType] = useState('all');
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
+  const router = useRouter();
 
   const showSnack = (message, severity = 'success') => setSnack({ open: true, message, severity });
   const closeSnack = () => setSnack((s) => ({ ...s, open: false }));
@@ -156,8 +158,8 @@ export default function ProductionCollectionsPage() {
     });
   }, [collections, search, status, ownerType]);
 
-  // Part (5) — stage-members + Schedule/Go-live interaction — HELD for owner design steer (#66/#67).
-  const onManage = () => showSnack('Staging & release UX is pending an owner design steer (M2-T1 pt 5).', 'info');
+  // Part (5) → M5-T1: open the drop detail page (stage members + schedule + go-live).
+  const onManage = (c) => router.push(`/dashboard/production/collections/${c.collectionId}`);
 
   return (
     <Box sx={{ pb: 6 }}>
