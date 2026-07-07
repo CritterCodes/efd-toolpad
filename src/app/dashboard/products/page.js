@@ -9,8 +9,9 @@
  * owner-gated C-4. Awaiting-approval folds in as a status filter in C-2.
  */
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { Suspense, useEffect, useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
   Box, Typography, Paper, TextField, InputAdornment, FormControl, InputLabel, Select, MenuItem,
   Stack, Tabs, Tab, Grid, CircularProgress, Snackbar, Alert, Button,
@@ -30,11 +31,17 @@ const TABS = [
 ];
 const STATUSES = ['all', 'draft', 'pending-approval', 'published', 'unpublished', 'rejected'];
 
-export default function ProductsCatalogPage() {
+function ProductsCatalogInner() {
+  // C-4: legacy list/editor pages redirect here carrying query params — pre-select the tab/status they
+  // map to, and open the editor for a deep-linked `?edit=<id>` (the retired `[id]` editor targets).
+  // Accepts both `type` (0008 §3.3 spec spelling) and `tab` for the segment.
+  const sp = useSearchParams();
+  const segParam = sp.get('type') || sp.get('tab');
+  const editParam = sp.get('edit');
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState('all');
-  const [status, setStatus] = useState('all');
+  const [tab, setTab] = useState(() => (TABS.some((t) => t.key === segParam) ? segParam : 'all'));
+  const [status, setStatus] = useState(() => (STATUSES.includes(sp.get('status')) ? sp.get('status') : 'all'));
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState(null);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
@@ -53,6 +60,14 @@ export default function ProductsCatalogPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // C-4: a retired `[id]` editor redirects to `?edit=<id>` — open the shared editor dialog for that
+  // product once the list has loaded (match on _id or productId). No bookmark 404 (D8).
+  useEffect(() => {
+    if (!editParam || editing || products.length === 0) return;
+    const target = products.find((p) => String(p._id) === editParam || p.productId === editParam);
+    if (target) setEditing(target);
+  }, [editParam, editing, products]);
 
   // C-2: approve/reject/publish an artisan-submitted (pending-approval) product from the catalog,
   // reusing the existing POST /api/products/:id/{approve|reject|publish} routes (keyed by _id).
@@ -129,10 +144,12 @@ export default function ProductsCatalogPage() {
         <Paper sx={{ p: 6, textAlign: 'center', backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px dashed ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' }}>
           <InboxIcon sx={{ fontSize: 48, color: REPAIRS_UI.textMuted, mb: 1 }} />
           <Typography sx={{ color: REPAIRS_UI.textSecondary }}>
-            {products.length === 0 ? 'No products yet.' : 'No products match this tab / filters.'}
+            {products.length === 0
+              ? 'No products yet. List a design (concept) or a piece (jewelry) from Production.'
+              : 'No products match this tab / filters.'}
           </Typography>
-          <Button component={Link} href="/dashboard/products/jewelry" size="small" sx={{ mt: 1, color: REPAIRS_UI.accent, textTransform: 'none' }}>
-            Open the legacy per-type views
+          <Button component={Link} href="/dashboard/production/designs" size="small" sx={{ mt: 1, color: REPAIRS_UI.accent, textTransform: 'none' }}>
+            Go to Production ▸ Designs
           </Button>
         </Paper>
       ) : (
@@ -156,5 +173,14 @@ export default function ProductsCatalogPage() {
         <Alert onClose={closeSnack} severity={snack.severity} sx={{ backgroundColor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }}>{snack.message}</Alert>
       </Snackbar>
     </Box>
+  );
+}
+
+// useSearchParams (C-4 query-param pre-select) needs a Suspense boundary.
+export default function ProductsCatalogPage() {
+  return (
+    <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress sx={{ color: REPAIRS_UI.accent }} /></Box>}>
+      <ProductsCatalogInner />
+    </Suspense>
   );
 }
