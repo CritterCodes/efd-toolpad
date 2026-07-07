@@ -1,12 +1,14 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import Link from 'next/link';
 import {
   Box, Typography, Button, Grid, Card, CardContent, Paper, TextField, InputAdornment,
   FormControl, InputLabel, Select, MenuItem, Stack, Chip, CircularProgress, Snackbar, Alert,
   Dialog, DialogTitle, DialogContent, DialogActions, ToggleButton, ToggleButtonGroup,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import PrecisionManufacturingIcon from '@mui/icons-material/PrecisionManufacturing';
 import SearchIcon from '@mui/icons-material/Search';
 import InboxIcon from '@mui/icons-material/Inbox';
@@ -53,6 +55,11 @@ function PieceCard({ piece }) {
           <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}><PaymentsIcon sx={{ fontSize: 16 }} />COGS {money(p.totalCOGS)}</Box>
           <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}><BuildCircleIcon sx={{ fontSize: 16 }} />{woCount} WO{woCount === 1 ? '' : 's'}</Box>
         </Stack>
+        <Button component={Link} href={`/dashboard/production/pieces/${p.pieceID}`} size="small" fullWidth
+          startIcon={<OpenInNewIcon sx={{ fontSize: 15 }} />}
+          sx={{ mt: 1.5, color: REPAIRS_UI.accent, textTransform: 'none', fontSize: '0.8rem', border: `1px solid ${REPAIRS_UI.border}` }}>
+          Open · COGS, materials, list
+        </Button>
       </CardContent>
     </Card>
   );
