@@ -3,7 +3,7 @@ import { createHash } from 'crypto';
 import { db } from '@/lib/database';
 import DesignsModel from '@/app/api/designs/model';
 import { METAL_TYPES } from '@/constants/metalTypes';
-import { priceSelection } from '@/services/production/pricing';
+import { priceSelection, resolveMetalVolumes } from '@/services/production/pricing';
 import { resolveSelectionBindings } from '@/services/production/customizableBindings';
 import { getDailyMetalSnapshot, currentPriceDay } from '@/services/production/dailyMetalSnapshot';
 import { consumeRateLimit } from '@/lib/rateLimit';
@@ -120,22 +120,39 @@ export const POST = async (req) => {
     );
   }
 
-  // §5 concept/jewelry → design-estimate. Metal per-slot: bound `metalKey` (customizable) wins,
-  // else the design's declared metal (fixed). (Bound-gem pricing deferred — see docstring.)
-  const { metalPrices, cogMarkup, taxRate, gemPrices, priceDay } = await getInputs();
+  // §5 concept/jewelry → design-estimate. Wrap the money path so a pricing-input failure returns a
+  // clean 500 (not an unstyled throw). Metal per-slot: bound `metalKey` (customizable) wins, else the
+  // design's declared metal (fixed); each metal slot priced off its OWN `volumeCm3` (#187).
+  let inputs;
+  try {
+    inputs = await getInputs();
+  } catch (e) {
+    return NextResponse.json({ error: 'Pricing temporarily unavailable.', detail: e?.message }, { status: 500 });
+  }
+  const { metalPrices, cogMarkup, taxRate, gemPrices, priceDay } = inputs;
+  const gemEnabled = process.env.CUSTOMIZER_GEM_ENABLED === 'true'; // owner #4 / 0006: default OFF until real gem cost data
   const primaryMetalKey = Array.isArray(design.metalOptions) && design.metalOptions.find((k) => METAL_TYPES[k]);
   const bom = design.bom || {};
   const findingsCost = (bom.findings || []).reduce((s, f) => s + (Number(f.estUnitCost) || 0) * Math.max(Number(f.qty) || 1, 1), 0);
 
-  const cost = priceSelection({
-    resolvedMeshMap,
-    stlVolumeCm3: design.stlVolumeCm3 || 0,
-    metalPrices,
-    resolveMetalKey: (finish) => metalKeyByFinish[finish] || (METAL_TYPES[finish] ? finish : (primaryMetalKey || null)),
-    gemUnitPrice: (preset) => Number(gemPrices[preset]) || 0,
-    findingsCost,
-    markup: 1, // apply markup below so the retail breakdown mirrors 0005 (retail, never COGS)
-  });
+  let cost;
+  try {
+    cost = priceSelection({
+      resolvedMeshMap,
+      stlVolumeCm3: design.stlVolumeCm3 || 0,
+      metalPrices,
+      resolveMetalKey: (finish) => metalKeyByFinish[finish] || (METAL_TYPES[finish] ? finish : (primaryMetalKey || null)),
+      // Per-slot metal volume: each metal slot off its own authored volumeCm3 (whole-model only as a
+      // single-slot fallback) — fixes the multi-metal double-count (#187).
+      resolveSlotVolumeCm3: resolveMetalVolumes({ resolvedMeshMap, designMeshMap: design.viewer?.meshMap || [], stlVolumeCm3: design.stlVolumeCm3 || 0 }),
+      // Bound gems stay OFF behind the switch until real gem cost data lands (owner #4 / 0005 §6).
+      gemUnitPrice: (preset) => (gemEnabled ? (Number(gemPrices[preset]) || 0) : 0),
+      findingsCost,
+      markup: 1, // apply markup below so the retail breakdown mirrors 0005 (retail, never COGS)
+    });
+  } catch (e) {
+    return NextResponse.json({ error: 'Pricing failed for this selection.', detail: e?.message }, { status: 500 });
+  }
 
   // Retail breakdown = cost components × markup (0005: breakdown is retail, NEVER costBasis).
   const breakdown = {

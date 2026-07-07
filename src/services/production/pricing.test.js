@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { priceSelection } from '@/services/production/pricing';
+import { priceSelection, resolveMetalVolumes } from '@/services/production/pricing';
 
 describe('priceSelection (M3-T3 live config pricing)', () => {
   it('sums gems × qty + findings + labor and applies markup', () => {
@@ -70,5 +70,70 @@ describe('priceSelection (M3-T3 live config pricing)', () => {
   it('empty / member-less selection → zero price, no throw', () => {
     expect(priceSelection({}).price).toBe(0);
     expect(priceSelection({ resolvedMeshMap: [] }).costBasis).toBe(0);
+  });
+
+  // #187 — per-slot metal volume; multi-metal must NOT double-count the whole-model volume.
+  it('prices each metal slot off ITS OWN volumeCm3 (no double-count with 2 metal slots)', () => {
+    const resolvedMeshMap = [
+      { nameContains: 'band', type: 'metal', finish: 'silverPolished' },
+      { nameContains: 'prongs', type: 'metal', finish: 'silverPolished' },
+    ];
+    // designMeshMap authors different per-slot volumes; whole-model stlVolumeCm3 differs from both.
+    const designMeshMap = [
+      { nameContains: 'band', type: 'metal', volumeCm3: 10 },
+      { nameContains: 'prongs', type: 'metal', volumeCm3: 2 },
+    ];
+    const resolveSlotVolumeCm3 = resolveMetalVolumes({ resolvedMeshMap, designMeshMap, stlVolumeCm3: 999 });
+    const out = priceSelection({
+      resolvedMeshMap,
+      stlVolumeCm3: 999, // must be IGNORED per-slot now
+      metalPrices: { silver: 1 },
+      resolveMetalKey: () => 'SILVER_STERLING',
+      resolveSlotVolumeCm3,
+      markup: 1,
+    });
+    // band(10cm³)=125.06 + prongs(2cm³)=25.01 = 150.07 — NOT 2×(whole-model 999).
+    expect(out.breakdown.metal).toBe(150.07);
+  });
+
+  it('CUSTOMIZER_GEM_ENABLED-style gate: gemUnitPrice→0 zeroes the gem line', () => {
+    const out = priceSelection({
+      resolvedMeshMap: [{ type: 'gem', gemPreset: 'diamond' }],
+      gemUnitPrice: () => 0, // route passes 0 when the gem switch is OFF
+      markup: 1,
+    });
+    expect(out.breakdown.gems).toBe(0);
+  });
+});
+
+describe('resolveMetalVolumes (#187 per-slot metal volume)', () => {
+  const designMeshMap = [
+    { nameContains: 'band', type: 'metal', volumeCm3: 10 },
+    { nameContains: 'prongs', type: 'metal', volumeCm3: 2 },
+  ];
+
+  it('returns each slot its authored volume', () => {
+    const r = resolveMetalVolumes({
+      resolvedMeshMap: [{ nameContains: 'band', type: 'metal', finish: 'x' }, { nameContains: 'prongs', type: 'metal', finish: 'y' }],
+      designMeshMap, stlVolumeCm3: 999,
+    });
+    expect(r({ nameContains: 'band' })).toBe(10);
+    expect(r({ nameContains: 'prongs' })).toBe(2);
+  });
+
+  it('with ≥2 metal slots, an unauthored slot gets 0 (never the whole model)', () => {
+    const r = resolveMetalVolumes({
+      resolvedMeshMap: [{ nameContains: 'band', type: 'metal', finish: 'x' }, { nameContains: 'halo', type: 'metal', finish: 'y' }],
+      designMeshMap, stlVolumeCm3: 999,
+    });
+    expect(r({ nameContains: 'halo' })).toBe(0); // not 999
+  });
+
+  it('with exactly ONE metal slot + no authored volume, falls back to whole-model stlVolumeCm3', () => {
+    const r = resolveMetalVolumes({
+      resolvedMeshMap: [{ nameContains: 'solid', type: 'metal', finish: 'x' }],
+      designMeshMap: [], stlVolumeCm3: 7,
+    });
+    expect(r({ nameContains: 'solid' })).toBe(7);
   });
 });

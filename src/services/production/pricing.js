@@ -17,11 +17,34 @@ import { estimateMetalCost } from '@/services/production/designCost';
 
 const round = (v) => Math.round((Number(v) || 0) * 100) / 100;
 
+/**
+ * Build a per-slot metal-volume resolver (fixes the multi-metal double-count, #187). Each metal slot
+ * is priced off ITS OWN authored `volumeCm3` (from the design meshMap, joined by `nameContains`).
+ * Whole-model `stlVolumeCm3` is used ONLY as a single-metal-slot fallback — with ≥2 metal slots, a
+ * slot lacking an authored volume returns 0 (never the whole model), so nothing double-counts.
+ * @returns {(slot:object) => number}
+ */
+export function resolveMetalVolumes({ resolvedMeshMap = [], designMeshMap = [], stlVolumeCm3 = 0 } = {}) {
+  const volByName = new Map();
+  for (const s of (Array.isArray(designMeshMap) ? designMeshMap : [])) {
+    if (s && typeof s.volumeCm3 === 'number' && s.nameContains) volByName.set(s.nameContains, s.volumeCm3);
+  }
+  const metalSlotCount = (Array.isArray(resolvedMeshMap) ? resolvedMeshMap : [])
+    .filter((s) => s?.type === 'metal' && s.finish).length;
+  const single = metalSlotCount === 1;
+  return (slot) => {
+    const v = volByName.get(slot?.nameContains);
+    if (typeof v === 'number') return v;
+    return single ? (Number(stlVolumeCm3) || 0) : 0; // whole-model only when there's exactly one metal slot
+  };
+}
+
 export function priceSelection({
   resolvedMeshMap = [],
   stlVolumeCm3 = 0,
   metalPrices = {},
   resolveMetalKey = () => null,
+  resolveSlotVolumeCm3 = () => null,
   gemUnitPrice = () => 0,
   findingsCost = 0,
   laborCost = 0,
@@ -36,7 +59,10 @@ export function priceSelection({
     if (slot?.type === 'metal' && slot.finish) {
       const metalKey = resolveMetalKey(slot.finish);
       if (metalKey) {
-        const { metalCost } = estimateMetalCost({ volumeCm3: stlVolumeCm3, metalKey, metalPrices });
+        // Per-slot volume (#187). null/undefined → whole-model stlVolumeCm3 (legacy single-slot behavior).
+        const raw = resolveSlotVolumeCm3(slot);
+        const volumeCm3 = (raw === null || raw === undefined) ? stlVolumeCm3 : (Number(raw) || 0);
+        const { metalCost } = estimateMetalCost({ volumeCm3, metalKey, metalPrices });
         breakdown.metal = round(breakdown.metal + metalCost);
       }
     } else if (slot?.type === 'gem' && slot.gemPreset) {
