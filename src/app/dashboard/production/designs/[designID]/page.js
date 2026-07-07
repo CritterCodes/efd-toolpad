@@ -14,6 +14,7 @@ import {
   Snackbar, Paper, IconButton,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import EditIcon from '@mui/icons-material/Edit';
 import ViewInArIcon from '@mui/icons-material/ViewInAr';
 import TuneIcon from '@mui/icons-material/Tune';
 import DiamondIcon from '@mui/icons-material/AutoAwesome';
@@ -96,9 +97,12 @@ export default function DesignDetailPage() {
 
       {/* Header */}
       <Box sx={{ backgroundColor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 3, p: { xs: 2, md: 3 }, mb: 3 }}>
-        <Stack direction="row" spacing={1} sx={{ mb: 1 }} alignItems="center">
-          <Chip size="small" label={(d.status || 'concept').replace(/_/g, ' ')} sx={{ backgroundColor: `${STATUS_COLOR[d.status] || REPAIRS_UI.textMuted}22`, color: STATUS_COLOR[d.status] || REPAIRS_UI.textMuted, textTransform: 'capitalize', fontWeight: 700 }} />
-          {d.gemstoneId && <Chip size="small" icon={<DiamondIcon sx={{ fontSize: 14 }} />} label="Gem-linked" sx={{ backgroundColor: REPAIRS_UI.bgTertiary, color: REPAIRS_UI.accent, border: `1px solid ${REPAIRS_UI.border}` }} />}
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1 }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Chip size="small" label={(d.status || 'concept').replace(/_/g, ' ')} sx={{ backgroundColor: `${STATUS_COLOR[d.status] || REPAIRS_UI.textMuted}22`, color: STATUS_COLOR[d.status] || REPAIRS_UI.textMuted, textTransform: 'capitalize', fontWeight: 700 }} />
+            {d.gemstoneId && <Chip size="small" icon={<DiamondIcon sx={{ fontSize: 14 }} />} label="Gem-linked" sx={{ backgroundColor: REPAIRS_UI.bgTertiary, color: REPAIRS_UI.accent, border: `1px solid ${REPAIRS_UI.border}` }} />}
+          </Stack>
+          <Button component={Link} href={authoringHref('edit')} startIcon={<EditIcon sx={{ fontSize: 16 }} />} variant="outlined" size="small" sx={{ color: REPAIRS_UI.accent, borderColor: REPAIRS_UI.border, textTransform: 'none' }}>Edit</Button>
         </Stack>
         <Typography sx={{ fontSize: { xs: 26, md: 32 }, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 0.5 }}>{d.name || 'Untitled design'}</Typography>
         {d.description && <Typography sx={{ color: REPAIRS_UI.textSecondary, lineHeight: 1.6, maxWidth: 720 }}>{d.description}</Typography>}
