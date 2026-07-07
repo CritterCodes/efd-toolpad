@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   COLLECTION_STATUS,
   OWNER_TYPE,
+  reorderMembers,
   dropStatusToCollectionStatus,
   legacyCollectionStatus,
   membersFromLegacyProducts,
@@ -75,5 +76,32 @@ describe('unifiedDocFromDrop', () => {
     const doc = unifiedDocFromDrop({ dropID: 'd2', status: 'released' }, []);
     expect(doc.status).toBe(COLLECTION_STATUS.RELEASED);
     expect(doc.members).toEqual([]);
+  });
+});
+
+describe('reorderMembers (M5-T1 drop-page order)', () => {
+  const members = [
+    { productId: 'a', position: 0, notes: 'x' },
+    { productId: 'b', position: 1 },
+    { productId: 'c', position: 2 },
+  ];
+
+  it('reindexes position to match the given order', () => {
+    const out = reorderMembers(members, ['c', 'a', 'b']);
+    expect(out.map((m) => m.productId)).toEqual(['c', 'a', 'b']);
+    expect(out.map((m) => m.position)).toEqual([0, 1, 2]);
+    expect(out[1].notes).toBe('x'); // other fields preserved
+  });
+
+  it('keeps unnamed members after named ones (by prior position); ignores unknown ids', () => {
+    const out = reorderMembers(members, ['b', 'zzz']); // only b named; zzz unknown
+    expect(out.map((m) => m.productId)).toEqual(['b', 'a', 'c']);
+    expect(out.map((m) => m.position)).toEqual([0, 1, 2]);
+  });
+
+  it('tolerates empty inputs (no mutation)', () => {
+    expect(reorderMembers([], ['a'])).toEqual([]);
+    expect(reorderMembers(members, [])).toHaveLength(3);
+    expect(members[0].position).toBe(0); // input untouched
   });
 });

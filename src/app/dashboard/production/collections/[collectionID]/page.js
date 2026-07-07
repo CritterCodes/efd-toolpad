@@ -26,6 +26,8 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import SearchIcon from '@mui/icons-material/Search';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import { validateProductContract } from '@/services/products/productContract';
 
@@ -127,6 +129,24 @@ export default function CollectionDetailPage() {
     catch (e) { setNotice({ severity: 'error', msg: e.message }); } finally { setBusy(false); }
   };
 
+  // a11y reorder (spec: drag-and-drop with an up/down fallback; DnD-pointer is a later polish).
+  const reorder = async (index, dir) => {
+    const ids = members.map((m) => m.productId);
+    const j = index + dir;
+    if (j < 0 || j >= ids.length) return;
+    [ids[index], ids[j]] = [ids[j], ids[index]];
+    setBusy(true); setNotice(null);
+    try { await patch2(ids); await load(); }
+    catch (e) { setNotice({ severity: 'error', msg: e.message }); }
+    finally { setBusy(false); }
+  };
+  const patch2 = async (order) => {
+    const res = await fetch(`/api/production/collections/${collectionID}/members`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order }),
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Reorder failed');
+  };
+
   const doGoLive = async () => {
     setBusy(true); setNotice(null);
     try {
@@ -199,7 +219,7 @@ export default function CollectionDetailPage() {
         </Card>
       ) : (
         <Grid container spacing={2}>
-          {members.map((m) => (
+          {members.map((m, idx) => (
             <Grid item xs={12} sm={6} md={4} key={m.productId}>
               <Card sx={{ height: '100%', backgroundColor: REPAIRS_UI.bgCard, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2 }}>
                 <CardContent>
@@ -208,7 +228,15 @@ export default function CollectionDetailPage() {
                       icon={m.ready ? <CheckCircleIcon sx={{ fontSize: 14 }} /> : <WarningAmberIcon sx={{ fontSize: 14 }} />}
                       label={m.ready ? 'Ready' : 'Not ready'}
                       sx={{ backgroundColor: m.ready ? '#66BB6A22' : '#E5737322', color: m.ready ? '#66BB6A' : '#E57373', fontWeight: 700 }} />
-                    <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: '0.75rem' }}>#{(m.position ?? 0) + 1}</Typography>
+                    <Stack direction="row" spacing={0.5} alignItems="center">
+                      {!released && (
+                        <>
+                          <IconButton size="small" aria-label="Move up" disabled={busy || idx === 0} onClick={() => reorder(idx, -1)} sx={{ color: REPAIRS_UI.textSecondary, p: 0.25 }}><ArrowUpwardIcon sx={{ fontSize: 16 }} /></IconButton>
+                          <IconButton size="small" aria-label="Move down" disabled={busy || idx === members.length - 1} onClick={() => reorder(idx, 1)} sx={{ color: REPAIRS_UI.textSecondary, p: 0.25 }}><ArrowDownwardIcon sx={{ fontSize: 16 }} /></IconButton>
+                        </>
+                      )}
+                      <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: '0.75rem' }}>#{idx + 1}</Typography>
+                    </Stack>
                   </Stack>
                   <Typography sx={{ fontSize: 15, fontWeight: 600, color: REPAIRS_UI.textHeader }}>{m.product?.title || m.product?.name || m.productId}</Typography>
                   <Typography sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.82rem' }}>

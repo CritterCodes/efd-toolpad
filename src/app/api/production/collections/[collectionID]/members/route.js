@@ -28,6 +28,23 @@ export const POST = async (req, { params }) => {
   return NextResponse.json(collection, { status: 200 });
 };
 
+/**
+ * PUT /api/production/collections/[collectionID]/members — reorder staged members (M5-T1).
+ * Body: { order: [productId, …] } → reassigns `members[].position` = index (the shop drop-page order).
+ */
+export const PUT = async (req, { params }) => {
+  const { errorResponse } = await requireRole(['admin', 'dev']);
+  if (errorResponse) return errorResponse;
+
+  const { collectionID } = await params;
+  const body = await req.json().catch(() => ({}));
+  if (!Array.isArray(body?.order)) return NextResponse.json({ error: 'order (array of productIds) is required.' }, { status: 400 });
+
+  const collection = await CollectionsModel.setMemberOrder(collectionID, body.order);
+  if (!collection) return NextResponse.json({ error: 'Collection not found.' }, { status: 404 });
+  return NextResponse.json(collection, { status: 200 });
+};
+
 /** DELETE /api/production/collections/[collectionID]/members?productId=… — unstage. */
 export const DELETE = async (req, { params }) => {
   const { errorResponse } = await requireRole(['admin', 'dev']);

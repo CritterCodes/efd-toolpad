@@ -80,3 +80,19 @@ export function unifiedDocFromDrop(drop = {}, memberProductIds = []) {
     migratedFrom: 'drop',
   };
 }
+
+/**
+ * Reorder a collection's members to match `orderedProductIds`, reassigning `position` = index (the
+ * shop drop-page order; M5-T1). Members not named in the order keep their relative order AFTER the
+ * named ones; unknown ids in the order are ignored. Pure → returns a NEW members array.
+ */
+export function reorderMembers(members = [], orderedProductIds = []) {
+  const rank = new Map((Array.isArray(orderedProductIds) ? orderedProductIds : []).map((id, i) => [id, i]));
+  return [...(Array.isArray(members) ? members : [])]
+    .sort((a, b) => {
+      const ra = rank.has(a?.productId) ? rank.get(a.productId) : Infinity;
+      const rb = rank.has(b?.productId) ? rank.get(b.productId) : Infinity;
+      return ra - rb || (a?.position ?? 0) - (b?.position ?? 0);
+    })
+    .map((m, i) => ({ ...m, position: i }));
+}

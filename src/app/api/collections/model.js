@@ -1,7 +1,7 @@
 import { db } from '@/lib/database';
 import { randomUUID } from 'crypto';
 import Constants from '@/lib/constants';
-import { COLLECTION_STATUS, OWNER_TYPE } from '@/services/production/collectionsUnify';
+import { COLLECTION_STATUS, OWNER_TYPE, reorderMembers } from '@/services/production/collectionsUnify';
 
 /**
  * Unified Collection ≡ Drop (Pipeline M1-T5). One `collections` collection holds both
@@ -110,6 +110,20 @@ export default class CollectionsModel {
       { collectionId },
       { $pull: { members: { productId } }, $set: { updatedAt: new Date() } },
     );
+    return this.findById(collectionId);
+  }
+
+  /**
+   * Reorder members to match `orderedProductIds` — reassigns each member's `position` to its index
+   * (the shop drop-page order; M5-T1). Members not named in the order keep their relative order after
+   * the named ones. Unknown ids are ignored. No-op if the collection is missing.
+   */
+  static async setMemberOrder(collectionId, orderedProductIds = []) {
+    const col = await this.collection();
+    const doc = await this.findById(collectionId);
+    if (!doc) return null;
+    const members = reorderMembers(doc.members || [], orderedProductIds);
+    await col.updateOne({ collectionId }, { $set: { members, updatedAt: new Date() } });
     return this.findById(collectionId);
   }
 }
