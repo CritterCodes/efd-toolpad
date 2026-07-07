@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import {
   Box, Typography, Button, Grid, Paper, TextField,
   InputAdornment, FormControl, InputLabel, Select, MenuItem, Stack, Chip, CircularProgress,
-  Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions,
+  Snackbar, Alert,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CollectionsIcon from '@mui/icons-material/Collections';
@@ -50,64 +50,9 @@ function DropCard({ collection, onManage }) {
   );
 }
 
-function CreateDropDialog({ open, onClose, onCreated, onError }) {
-  const empty = { name: '', ownerType: 'efd', theme: '', description: '', releaseAt: '' };
-  const [form, setForm] = useState(empty);
-  const [saving, setSaving] = useState(false);
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
-
-  const submit = async () => {
-    if (!form.name.trim()) { onError('Name is required.'); return; }
-    setSaving(true);
-    try {
-      const body = { ...form, releaseAt: form.releaseAt || null };
-      const res = await fetch('/api/production/collections', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to create drop');
-      const created = await res.json();
-      setForm(empty);
-      onCreated(created);
-    } catch (e) {
-      onError(e.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm"
-      PaperProps={{ sx: { backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}` } }}>
-      <DialogTitle sx={{ color: REPAIRS_UI.textHeader }}>New Drop</DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} sx={{ mt: 1 }}>
-          <TextField label="Name" value={form.name} onChange={set('name')} size="small" fullWidth autoFocus required />
-          <FormControl size="small" fullWidth>
-            <InputLabel>Owner</InputLabel>
-            <Select value={form.ownerType} label="Owner" onChange={set('ownerType')} MenuProps={repairsMenuProps}>
-              <MenuItem value="efd">EFD (house)</MenuItem>
-              <MenuItem value="artisan">Artisan</MenuItem>
-            </Select>
-          </FormControl>
-          <TextField label="Theme" value={form.theme} onChange={set('theme')} size="small" fullWidth />
-          <TextField label="Description" value={form.description} onChange={set('description')} size="small" fullWidth multiline minRows={2} />
-          <TextField label="Release date" type="datetime-local" value={form.releaseAt} onChange={set('releaseAt')} size="small" fullWidth InputLabelProps={{ shrink: true }} />
-        </Stack>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose} sx={{ color: REPAIRS_UI.textSecondary }}>Cancel</Button>
-        <Button onClick={submit} disabled={saving} variant="contained" sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>
-          {saving ? 'Creating…' : 'Create'}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
 export default function ProductionDropsPage() {
   const [collections, setCollections] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [ownerType, setOwnerType] = useState('all');
@@ -165,7 +110,7 @@ export default function ProductionDropsPage() {
               Curate products into a drop, then release them together on a schedule. A drop is a collection with a release date.
             </Typography>
           </Box>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)} sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>New Drop</Button>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => router.push('/dashboard/production/drops/new')} sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>New Drop</Button>
         </Stack>
       </Box>
 
@@ -214,13 +159,6 @@ export default function ProductionDropsPage() {
           ))}
         </Grid>
       )}
-
-      <CreateDropDialog
-        open={open}
-        onClose={() => setOpen(false)}
-        onCreated={(created) => { setOpen(false); showSnack(`Created "${created.name}".`); load(); }}
-        onError={(m) => showSnack(m, 'error')}
-      />
 
       <Snackbar open={snack.open} autoHideDuration={5000} onClose={closeSnack} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert onClose={closeSnack} severity={snack.severity} sx={{ backgroundColor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }}>{snack.message}</Alert>
