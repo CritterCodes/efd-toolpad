@@ -10,27 +10,15 @@
  * Layout/chrome are owned here; entity-specific content is passed in (chips, meta, footer) so the
  * one card serves all four. Open via `href` (Link) or `onOpen` (click).
  *
- * NOTE: the leading thumbnail is inline here; U-2 extracts a shared `<EntityThumbnail>` that this
- * swaps to (thumb-or-placeholder, one source of truth for card + detail).
+ * The leading thumbnail uses the shared `<EntityThumbnail>` (U-2) — one image-or-placeholder for
+ * card + detail.
  */
 
 import React from 'react';
 import Link from 'next/link';
 import { Card, CardActionArea, CardContent, Box, Stack, Typography, Divider } from '@mui/material';
-import ImageIcon from '@mui/icons-material/Image';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
-
-function Thumb({ image }) {
-  const common = { width: 56, height: 56, borderRadius: 1, flexShrink: 0, border: `1px solid ${REPAIRS_UI.border}` };
-  if (image) {
-    return <Box component="img" src={image} alt="" sx={{ ...common, objectFit: 'cover' }} />;
-  }
-  return (
-    <Box sx={{ ...common, backgroundColor: REPAIRS_UI.bgCard, display: 'flex', alignItems: 'center', justifyContent: 'center', color: REPAIRS_UI.textMuted }}>
-      <ImageIcon fontSize="small" />
-    </Box>
-  );
-}
+import EntityThumbnail from '@/components/production/media/EntityThumbnail';
 
 export default function ProductionEntityCard({
   image = null,
@@ -60,7 +48,7 @@ export default function ProductionEntityCard({
           )}
 
           <Stack direction="row" spacing={1.25} alignItems="flex-start">
-            <Thumb image={image} />
+            <EntityThumbnail image={image} size={56} />
             <Box sx={{ minWidth: 0, flex: 1 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader }} noWrap title={typeof title === 'string' ? title : undefined}>
                 {title}
