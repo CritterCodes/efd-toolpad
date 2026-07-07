@@ -64,8 +64,8 @@ export const adminNavigation = {
       icon: <PrecisionManufacturingIcon />,
       children: [
         {
-          segment: 'collections',
-          title: 'Drops & Collections',
+          segment: 'drops',
+          title: 'Drops',
           icon: <CollectionsBookmarkIcon />
         },
         {

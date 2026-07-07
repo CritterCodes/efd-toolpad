@@ -50,8 +50,8 @@ export const devNavigation = {
       icon: <PrecisionManufacturingIcon />,
       children: [
         {
-          segment: 'collections',
-          title: 'Drops & Collections',
+          segment: 'drops',
+          title: 'Drops',
           icon: <CollectionsBookmarkIcon />
         },
         {
