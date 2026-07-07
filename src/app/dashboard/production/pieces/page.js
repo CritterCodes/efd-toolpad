@@ -16,26 +16,11 @@ import PaymentsIcon from '@mui/icons-material/Payments';
 import BuildCircleIcon from '@mui/icons-material/BuildCircle';
 
 import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
+import MetricCard from '@/components/production/MetricCard';
 
 const STATUS_OPTIONS = ['all', 'planned', 'casting_ordered', 'in_finishing', 'qc', 'completed', 'available', 'reserved', 'sold', 'scrapped', 'returned'];
 const STATUS_COLOR = { planned: REPAIRS_UI.textMuted, in_finishing: '#64B5F6', qc: '#FFB74D', completed: '#66BB6A', available: '#66BB6A', sold: REPAIRS_UI.accent };
 const money = (n) => `$${(Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-function MetricCard({ icon: Icon, label, value, accent }) {
-  return (
-    <Card sx={{ height: '100%', backgroundColor: REPAIRS_UI.bgCard, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2 }}>
-      <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, borderRadius: 2, backgroundColor: REPAIRS_UI.bgTertiary, border: `1px solid ${REPAIRS_UI.border}` }}>
-          <Icon sx={{ color: accent || REPAIRS_UI.accent, fontSize: 22 }} />
-        </Box>
-        <Box>
-          <Typography sx={{ fontSize: 24, fontWeight: 700, color: REPAIRS_UI.textHeader, lineHeight: 1.1 }}>{value}</Typography>
-          <Typography sx={{ fontSize: '0.74rem', color: REPAIRS_UI.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</Typography>
-        </Box>
-      </CardContent>
-    </Card>
-  );
-}
 
 function PieceCard({ piece }) {
   const p = piece;
