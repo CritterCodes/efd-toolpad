@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Box, Typography, Button, Grid, Paper, TextField, InputAdornment,
   FormControl, InputLabel, Select, MenuItem, Stack, Chip, CircularProgress, Snackbar, Alert,
-  Dialog, DialogTitle, DialogContent, DialogActions, ToggleButton, ToggleButtonGroup,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import PrecisionManufacturingIcon from '@mui/icons-material/PrecisionManufacturing';
@@ -44,71 +44,10 @@ function PieceCard({ piece }) {
   );
 }
 
-function CreatePieceDialog({ open, onClose, onCreated, onError }) {
-  const empty = { source: 'handmade', designID: '', metalType: '', karat: '', sku: '' };
-  const [form, setForm] = useState(empty);
-  const [saving, setSaving] = useState(false);
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
-
-  const submit = async () => {
-    if (form.source === 'design' && !form.designID.trim()) { onError('Design ID is required for a design-based piece.'); return; }
-    setSaving(true);
-    try {
-      // designID present → production path (spawns routed WOs); absent → direct/handmade (M1-T4).
-      const body = {
-        metalType: form.metalType || null,
-        karat: form.karat || null,
-        sku: form.sku || null,
-        ...(form.source === 'design' ? { designID: form.designID.trim() } : {}),
-      };
-      const res = await fetch('/api/production/pieces', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to create piece');
-      const created = await res.json();
-      setForm(empty);
-      onCreated(created);
-    } catch (e) { onError(e.message); } finally { setSaving(false); }
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm"
-      PaperProps={{ sx: { backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}` } }}>
-      <DialogTitle sx={{ color: REPAIRS_UI.textHeader }}>New Piece</DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} sx={{ mt: 1 }}>
-          <ToggleButtonGroup exclusive size="small" value={form.source} onChange={(_, v) => v && setForm((f) => ({ ...f, source: v }))} sx={{ alignSelf: 'flex-start' }}>
-            <ToggleButton value="handmade" sx={{ color: REPAIRS_UI.textSecondary, '&.Mui-selected': { color: REPAIRS_UI.accent } }}>Handmade (no design)</ToggleButton>
-            <ToggleButton value="design" sx={{ color: REPAIRS_UI.textSecondary, '&.Mui-selected': { color: REPAIRS_UI.accent } }}>From design</ToggleButton>
-          </ToggleButtonGroup>
-          {form.source === 'design' && (
-            <TextField label="Design ID" value={form.designID} onChange={set('designID')} size="small" fullWidth
-              helperText="Spawns routed work orders from the design's routing." />
-          )}
-          <Stack direction="row" spacing={2}>
-            <TextField label="Metal" value={form.metalType} onChange={set('metalType')} size="small" fullWidth placeholder="e.g. gold" />
-            <TextField label="Karat" value={form.karat} onChange={set('karat')} size="small" fullWidth placeholder="e.g. 14k" />
-          </Stack>
-          <TextField label="SKU — optional" value={form.sku} onChange={set('sku')} size="small" fullWidth />
-          <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: '0.8rem' }}>
-            A bench work order is spawned automatically. COGS rolls up from materials + labor logged on the bench.
-          </Typography>
-        </Stack>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose} sx={{ color: REPAIRS_UI.textSecondary }}>Cancel</Button>
-        <Button onClick={submit} disabled={saving} variant="contained" sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>
-          {saving ? 'Creating…' : 'Create'}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
 export default function ProductionPiecesPage() {
+  const router = useRouter();
   const [pieces, setPieces] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
@@ -156,7 +95,7 @@ export default function ProductionPiecesPage() {
               A physical instance produced from a design (or handmade). Carries actual COGS — materials at cost + labor from its bench work orders.
             </Typography>
           </Box>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)} sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>New Piece</Button>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => router.push('/dashboard/production/pieces/new')} sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>New Piece</Button>
         </Stack>
       </Box>
 
@@ -198,12 +137,6 @@ export default function ProductionPiecesPage() {
         </Grid>
       )}
 
-      <CreatePieceDialog
-        open={open}
-        onClose={() => setOpen(false)}
-        onCreated={(created) => { setOpen(false); showSnack(`Created piece ${created.sku || created.pieceID?.slice(0, 8) || ''}.`); load(); }}
-        onError={(m) => showSnack(m, 'error')}
-      />
 
       <Snackbar open={snack.open} autoHideDuration={5000} onClose={closeSnack} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert onClose={closeSnack} severity={snack.severity} sx={{ backgroundColor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }}>{snack.message}</Alert>
