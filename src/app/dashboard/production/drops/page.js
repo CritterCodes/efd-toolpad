@@ -7,7 +7,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Box, Typography, Button, Grid, Card, CardContent, CardActionArea, Paper, TextField,
+  Box, Typography, Button, Grid, Paper, TextField,
   InputAdornment, FormControl, InputLabel, Select, MenuItem, Stack, Chip, CircularProgress,
   Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
@@ -17,36 +17,36 @@ import SearchIcon from '@mui/icons-material/Search';
 import InboxIcon from '@mui/icons-material/Inbox';
 import EventIcon from '@mui/icons-material/Event';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
-import EditNoteIcon from '@mui/icons-material/EditNote';
 
 import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
 import MetricCard from '@/components/production/MetricCard';
+import ProductionEntityCard from '@/components/production/ProductionEntityCard';
+import { primaryImageOf } from '@/components/production/media/EntityThumbnail';
 
 const STATUS_OPTIONS = ['all', 'draft', 'scheduled', 'released', 'archived'];
 const STATUS_COLOR = { draft: REPAIRS_UI.textMuted, scheduled: '#FFB74D', released: '#66BB6A', archived: REPAIRS_UI.textMuted };
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—');
 
 
+// U-7 — browse-only card via the shared <ProductionEntityCard>.
 function DropCard({ collection, onManage }) {
   const c = collection;
   const memberCount = Array.isArray(c.members) ? c.members.length : 0;
+  const chips = [
+    <Chip key="owner" size="small" label={c.ownerType === 'artisan' ? 'Artisan' : 'EFD'} sx={{ backgroundColor: REPAIRS_UI.bgTertiary, color: REPAIRS_UI.textSecondary, border: `1px solid ${REPAIRS_UI.border}`, fontWeight: 600 }} />,
+    <Chip key="status" size="small" label={c.status || 'draft'} sx={{ backgroundColor: `${STATUS_COLOR[c.status] || REPAIRS_UI.textMuted}22`, color: STATUS_COLOR[c.status] || REPAIRS_UI.textMuted, textTransform: 'capitalize', fontWeight: 700 }} />,
+  ];
   return (
-    <Card sx={{ height: '100%', backgroundColor: REPAIRS_UI.bgCard, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2 }}>
-      <CardActionArea onClick={() => onManage(c)} sx={{ p: 0.5, height: '100%' }}>
-        <CardContent>
-          <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1 }}>
-            <Chip size="small" label={c.ownerType === 'artisan' ? 'Artisan' : 'EFD'} sx={{ backgroundColor: REPAIRS_UI.bgTertiary, color: REPAIRS_UI.textSecondary, border: `1px solid ${REPAIRS_UI.border}`, fontWeight: 600 }} />
-            <Chip size="small" label={c.status || 'draft'} sx={{ backgroundColor: `${STATUS_COLOR[c.status] || REPAIRS_UI.textMuted}22`, color: STATUS_COLOR[c.status] || REPAIRS_UI.textMuted, textTransform: 'capitalize', fontWeight: 700 }} />
-          </Stack>
-          <Typography sx={{ fontSize: 18, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 0.5 }}>{c.name || 'Untitled drop'}</Typography>
-          {c.theme && <Typography sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.85rem', mb: 1 }}>{c.theme}</Typography>}
-          <Stack direction="row" spacing={2} sx={{ mt: 1.5, color: REPAIRS_UI.textMuted, fontSize: '0.8rem' }}>
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}><CollectionsIcon sx={{ fontSize: 16 }} />{memberCount} {memberCount === 1 ? 'product' : 'products'}</Box>
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}><EventIcon sx={{ fontSize: 16 }} />{fmtDate(c.releaseAt)}</Box>
-          </Stack>
-        </CardContent>
-      </CardActionArea>
-    </Card>
+    <ProductionEntityCard
+      image={primaryImageOf(c)}
+      id={c.collectionId}
+      title={c.name || 'Untitled drop'}
+      meta={c.theme || null}
+      chips={chips}
+      footerLeft={<Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}><CollectionsIcon sx={{ fontSize: 15 }} />{memberCount} {memberCount === 1 ? 'product' : 'products'}</Box>}
+      footerRight={<Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, fontSize: '0.8rem' }}><EventIcon sx={{ fontSize: 15 }} />{fmtDate(c.releaseAt)}</Box>}
+      onOpen={() => onManage(c)}
+    />
   );
 }
 

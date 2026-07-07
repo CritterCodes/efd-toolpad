@@ -1,14 +1,12 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import Link from 'next/link';
 import {
-  Box, Typography, Button, Grid, Card, CardContent, Paper, TextField, InputAdornment,
+  Box, Typography, Button, Grid, Paper, TextField, InputAdornment,
   FormControl, InputLabel, Select, MenuItem, Stack, Chip, CircularProgress, Snackbar, Alert,
   Dialog, DialogTitle, DialogContent, DialogActions, ToggleButton, ToggleButtonGroup,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import PrecisionManufacturingIcon from '@mui/icons-material/PrecisionManufacturing';
 import SearchIcon from '@mui/icons-material/Search';
 import InboxIcon from '@mui/icons-material/Inbox';
@@ -17,36 +15,32 @@ import BuildCircleIcon from '@mui/icons-material/BuildCircle';
 
 import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
 import MetricCard from '@/components/production/MetricCard';
+import ProductionEntityCard from '@/components/production/ProductionEntityCard';
+import { primaryImageOf } from '@/components/production/media/EntityThumbnail';
 
 const STATUS_OPTIONS = ['all', 'planned', 'casting_ordered', 'in_finishing', 'qc', 'completed', 'available', 'reserved', 'sold', 'scrapped', 'returned'];
 const STATUS_COLOR = { planned: REPAIRS_UI.textMuted, in_finishing: '#64B5F6', qc: '#FFB74D', completed: '#66BB6A', available: '#66BB6A', sold: REPAIRS_UI.accent };
 const money = (n) => `$${(Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+// U-7 — browse-only card via the shared <ProductionEntityCard> (thumbnail + chips + meta + footer).
 function PieceCard({ piece }) {
   const p = piece;
   const woCount = Array.isArray(p.workOrderIDs) ? p.workOrderIDs.length : 0;
+  const chips = [
+    <Chip key="status" size="small" label={(p.status || 'planned').replace(/_/g, ' ')} sx={{ backgroundColor: `${STATUS_COLOR[p.status] || REPAIRS_UI.textMuted}22`, color: STATUS_COLOR[p.status] || REPAIRS_UI.textMuted, textTransform: 'capitalize', fontWeight: 700 }} />,
+    ...(!p.designID ? [<Chip key="handmade" size="small" label="Handmade" sx={{ backgroundColor: REPAIRS_UI.bgTertiary, color: REPAIRS_UI.textSecondary, border: `1px solid ${REPAIRS_UI.border}` }} />] : []),
+  ];
   return (
-    <Card sx={{ height: '100%', backgroundColor: REPAIRS_UI.bgCard, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2 }}>
-      <CardContent>
-        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1 }}>
-          <Chip size="small" label={(p.status || 'planned').replace(/_/g, ' ')} sx={{ backgroundColor: `${STATUS_COLOR[p.status] || REPAIRS_UI.textMuted}22`, color: STATUS_COLOR[p.status] || REPAIRS_UI.textMuted, textTransform: 'capitalize', fontWeight: 700 }} />
-          {!p.designID && <Chip size="small" label="Handmade" sx={{ backgroundColor: REPAIRS_UI.bgTertiary, color: REPAIRS_UI.textSecondary, border: `1px solid ${REPAIRS_UI.border}` }} />}
-        </Stack>
-        <Typography sx={{ fontSize: 16, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 0.5 }}>{p.sku || p.pieceID?.slice(0, 8) || 'Piece'}</Typography>
-        <Typography sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.85rem', mb: 1 }}>
-          {[p.metalType, p.karat].filter(Boolean).join(' ') || '—'}
-        </Typography>
-        <Stack direction="row" spacing={2} sx={{ mt: 1.5, color: REPAIRS_UI.textMuted, fontSize: '0.8rem' }}>
-          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}><PaymentsIcon sx={{ fontSize: 16 }} />COGS {money(p.totalCOGS)}</Box>
-          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}><BuildCircleIcon sx={{ fontSize: 16 }} />{woCount} WO{woCount === 1 ? '' : 's'}</Box>
-        </Stack>
-        <Button component={Link} href={`/dashboard/production/pieces/${p.pieceID}`} size="small" fullWidth
-          startIcon={<OpenInNewIcon sx={{ fontSize: 15 }} />}
-          sx={{ mt: 1.5, color: REPAIRS_UI.accent, textTransform: 'none', fontSize: '0.8rem', border: `1px solid ${REPAIRS_UI.border}` }}>
-          Open · COGS, materials, list
-        </Button>
-      </CardContent>
-    </Card>
+    <ProductionEntityCard
+      image={primaryImageOf(p)}
+      id={p.pieceID ? p.pieceID.slice(0, 8) : null}
+      title={p.sku || p.pieceID?.slice(0, 8) || 'Piece'}
+      meta={[p.metalType, p.karat].filter(Boolean).join(' ') || '—'}
+      chips={chips}
+      footerLeft={<Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}><BuildCircleIcon sx={{ fontSize: 15 }} />{woCount} WO{woCount === 1 ? '' : 's'}</Box>}
+      footerRight={<Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}><PaymentsIcon sx={{ fontSize: 15 }} />COGS {money(p.totalCOGS)}</Box>}
+      href={`/dashboard/production/pieces/${p.pieceID}`}
+    />
   );
 }
 

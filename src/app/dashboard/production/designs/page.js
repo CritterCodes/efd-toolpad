@@ -1,23 +1,21 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import Link from 'next/link';
 import {
-  Box, Typography, Button, Grid, Card, CardContent, Paper, TextField, InputAdornment,
+  Box, Typography, Button, Grid, Paper, TextField, InputAdornment,
   FormControl, InputLabel, Select, MenuItem, Stack, Chip, CircularProgress, Snackbar, Alert,
   Dialog, DialogTitle, DialogContent, DialogActions, Autocomplete,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import DesignServicesIcon from '@mui/icons-material/DesignServices';
 import SearchIcon from '@mui/icons-material/Search';
 import InboxIcon from '@mui/icons-material/Inbox';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import DiamondIcon from '@mui/icons-material/AutoAwesome';
-import UploadFileIcon from '@mui/icons-material/UploadFile';
 
 import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
 import MetricCard from '@/components/production/MetricCard';
+import ProductionEntityCard from '@/components/production/ProductionEntityCard';
 
 // Valid estimator metal keys (from src/constants/metalTypes.js).
 const METAL_KEYS = [
@@ -32,59 +30,24 @@ const STATUS_OPTIONS = ['all', 'concept', 'cad', 'approved_for_production', 'ret
 const STATUS_COLOR = { concept: REPAIRS_UI.textMuted, cad: '#64B5F6', approved_for_production: '#66BB6A', retired: REPAIRS_UI.textMuted };
 const money = (n) => `$${(Number(n) || 0).toLocaleString()}`;
 
-function DesignCard({ design, onUploaded, onError }) {
+// U-7/U-8 — browse-only card via the shared <ProductionEntityCard>. The on-card STL/CAD upload
+// (old M2-T4 control) is removed here; it relocates to the design detail (U-9) + form (U-12).
+function DesignCard({ design }) {
   const d = design;
-  const [uploading, setUploading] = useState(false);
-
-  // STL/CAD upload → MinIO via the design assets route, appended to design.cadFiles (M2-T4).
-  const upload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('field', 'cadFiles');
-      const res = await fetch(`/api/production/designs/${d.designID}/assets`, { method: 'POST', body: fd });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Upload failed');
-      onUploaded?.();
-    } catch (err) { onError?.(err.message); } finally {
-      setUploading(false);
-      if (e.target) e.target.value = '';
-    }
-  };
-
+  const chips = [
+    <Chip key="status" size="small" label={(d.status || 'concept').replace(/_/g, ' ')} sx={{ backgroundColor: `${STATUS_COLOR[d.status] || REPAIRS_UI.textMuted}22`, color: STATUS_COLOR[d.status] || REPAIRS_UI.textMuted, textTransform: 'capitalize', fontWeight: 700 }} />,
+    ...(d.gemstoneId ? [<Chip key="gem" size="small" icon={<DiamondIcon sx={{ fontSize: 14 }} />} label="Gem-linked" sx={{ backgroundColor: REPAIRS_UI.bgTertiary, color: REPAIRS_UI.accent, border: `1px solid ${REPAIRS_UI.border}` }} />] : []),
+    ...(d.cadFiles?.length ? [<Chip key="cad" size="small" label={`CAD ✓ ${d.cadFiles.length}`} sx={{ backgroundColor: '#66BB6A22', color: '#66BB6A', fontWeight: 700 }} />] : []),
+  ];
   return (
-    <Card sx={{ height: '100%', backgroundColor: REPAIRS_UI.bgCard, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2 }}>
-      <CardContent>
-        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1 }}>
-          <Chip size="small" label={(d.status || 'concept').replace(/_/g, ' ')} sx={{ backgroundColor: `${STATUS_COLOR[d.status] || REPAIRS_UI.textMuted}22`, color: STATUS_COLOR[d.status] || REPAIRS_UI.textMuted, textTransform: 'capitalize', fontWeight: 700 }} />
-          {d.gemstoneId && <Chip size="small" icon={<DiamondIcon sx={{ fontSize: 14 }} />} label="Gem-linked" sx={{ backgroundColor: REPAIRS_UI.bgTertiary, color: REPAIRS_UI.accent, border: `1px solid ${REPAIRS_UI.border}` }} />}
-        </Stack>
-        <Typography
-          component={Link}
-          href={`/dashboard/production/designs/${d.designID}`}
-          sx={{ fontSize: 18, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 0.5, display: 'block', textDecoration: 'none', '&:hover': { color: REPAIRS_UI.accent } }}
-        >
-          {d.name || 'Untitled design'}
-        </Typography>
-        {d.description && <Typography sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.85rem', mb: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{d.description}</Typography>}
-        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mt: 1.5 }}>
-          <Box sx={{ color: REPAIRS_UI.textMuted, fontSize: '0.8rem' }}>{d.estCost != null ? `est ${money(d.estCost)}` : 'no estimate'}</Box>
-          <Box sx={{ flex: 1 }} />
-          <Button size="small" component="label" disabled={uploading} startIcon={<UploadFileIcon sx={{ fontSize: 16 }} />}
-            sx={{ color: d.cadFiles?.length ? '#66BB6A' : REPAIRS_UI.accent, textTransform: 'none', fontSize: '0.78rem' }}>
-            {uploading ? 'Uploading…' : (d.cadFiles?.length ? `CAD ✓ (${d.cadFiles.length})` : 'Upload CAD/STL')}
-            <input type="file" hidden accept=".stl,.obj,.glb,.3dm,.zip" onChange={upload} />
-          </Button>
-        </Stack>
-        <Button component={Link} href={`/dashboard/production/designs/${d.designID}`} size="small" fullWidth
-          startIcon={<OpenInNewIcon sx={{ fontSize: 15 }} />}
-          sx={{ mt: 1.5, color: REPAIRS_UI.accent, borderColor: REPAIRS_UI.border, textTransform: 'none', fontSize: '0.8rem', border: `1px solid ${REPAIRS_UI.border}` }}>
-          Open · Materials &amp; Customize
-        </Button>
-      </CardContent>
-    </Card>
+    <ProductionEntityCard
+      image={d.renders?.[0] || d.referenceImages?.[0] || null}
+      title={d.name || 'Untitled design'}
+      description={d.description || null}
+      chips={chips}
+      footerLeft={<span>{d.estCost != null ? `est ${money(d.estCost)}` : 'no estimate'}</span>}
+      href={`/dashboard/production/designs/${d.designID}`}
+    />
   );
 }
 
@@ -296,7 +259,7 @@ export default function ProductionDesignsPage() {
         <Grid container spacing={2}>
           {filtered.map((d) => (
             <Grid item xs={12} sm={6} md={4} key={d.designID}>
-              <DesignCard design={d} onUploaded={load} onError={(m) => showSnack(m, 'error')} />
+              <DesignCard design={d} />
             </Grid>
           ))}
         </Grid>

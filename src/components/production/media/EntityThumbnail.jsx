@@ -11,6 +11,12 @@ import { Box, Typography } from '@mui/material';
 import ImageIcon from '@mui/icons-material/Image';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 
+/** Pick the primary image sub-doc from an entity's `images[]` (isPrimary, else first, else null). */
+export function primaryImageOf(entity) {
+  const imgs = Array.isArray(entity?.images) ? entity.images : [];
+  return imgs.find((i) => i?.isPrimary) || imgs[0] || null;
+}
+
 /** Resolve a url from a string or an image sub-doc (`{url|src|location|key}`) or an array (first). */
 export function imageUrlOf(image) {
   const v = Array.isArray(image) ? image[0] : image;
