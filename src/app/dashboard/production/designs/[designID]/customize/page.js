@@ -67,7 +67,8 @@ export default function DesignCustomizePage() {
           for (const o of s.options) if (o.binding) { (seeded[s.nameContains] ||= {})[o[key]] = o.binding; }
         }
         setBindings(seeded);
-        if (gRes && gRes.ok) { const g = await gRes.json().catch(() => []); setGemstones(Array.isArray(g) ? g : (g.products || [])); }
+        // /api/products/gemstones returns { success, gemstones: [...] } — read that shape (bug: was reading g.products → empty picker).
+        if (gRes && gRes.ok) { const g = await gRes.json().catch(() => ({})); setGemstones(Array.isArray(g) ? g : (g.gemstones || g.products || [])); }
       } catch (e) { if (!cancelled) setError(e.message); } finally { if (!cancelled) setLoading(false); }
     })();
     return () => { cancelled = true; };
