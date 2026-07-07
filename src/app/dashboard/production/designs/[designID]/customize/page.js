@@ -81,6 +81,14 @@ export default function DesignCustomizePage() {
   const volBySlot = useMemo(() => Object.fromEntries(
     (meshMap || []).filter((s) => s?.type === 'metal' && typeof s.volumeCm3 === 'number').map((s) => [s.nameContains, s.volumeCm3]),
   ), [meshMap]);
+  // Metal slots with NO usable volumeCm3 → the pricing endpoint prices them at $0. Harmless for a
+  // single-metal piece (whole-model stlVolume fallback), but with ≥2 metal slots it SILENTLY
+  // under-counts that slot's metal (#187/#196). Surface it so the author fixes it before listing.
+  const metalSlots = useMemo(() => (meshMap || []).filter((s) => s?.type === 'metal'), [meshMap]);
+  const metalMissingVol = useMemo(
+    () => metalSlots.filter((s) => !(typeof s.volumeCm3 === 'number' && s.volumeCm3 > 0)).map((s) => s.nameContains || '(unnamed)'),
+    [metalSlots],
+  );
 
   const setBinding = (nameContains, optionValue, binding) =>
     setBindings((b) => ({ ...b, [nameContains]: { ...(b[nameContains] || {}), [optionValue]: binding } }));
@@ -136,6 +144,13 @@ export default function DesignCustomizePage() {
         10³–10⁶× (near-zero metal cost). Verify: a metal slot’s <code>volumeCm3 × SG</code> (18K gold ≈ 15.6, silver ≈ 10.5)
         ≈ the piece’s known metal mass in grams. Volumes are shown per metal slot below. (refrakt #151)
       </Alert>
+
+      {metalMissingVol.length > 0 && (
+        <Alert severity="error" sx={{ mb: 2, backgroundColor: '#2A1414', color: '#EF9A9A', border: `1px solid ${REPAIRS_UI.border}` }}>
+          <b>{metalMissingVol.length} metal slot(s) have no <code>volumeCm3</code></b> ({metalMissingVol.join(', ')}) — these
+          will price at <b>$0</b> metal.{metalSlots.length > 1 ? ' With more than one metal slot the whole-model fallback does NOT apply, so this slot silently UNDER-counts metal cost (#187/#196).' : ' A single-metal piece falls back to the whole-model volume, but a real per-slot volume is safer.'} Check the GLB unit is correct and the slot has renderable geometry so <code>ConfiguratorSetup</code> can emit its volume.
+        </Alert>
+      )}
 
       {/* refrakt authoring surface (appearance: which parts customizable + allowed presets + default) */}
       <Box sx={{ border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, overflow: 'hidden', mb: 3 }}>
