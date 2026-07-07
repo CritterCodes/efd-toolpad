@@ -14,6 +14,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableRow, TextField, Snackbar,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import EditIcon from '@mui/icons-material/Edit';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import SellIcon from '@mui/icons-material/Sell';
 import AddIcon from '@mui/icons-material/Add';
@@ -104,9 +105,12 @@ export default function PieceDetailPage() {
       <Button startIcon={<ArrowBackIcon />} onClick={back} sx={{ color: REPAIRS_UI.textSecondary, mb: 2 }}>Back to pieces</Button>
 
       <Box sx={{ backgroundColor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 3, p: { xs: 2, md: 3 }, mb: 3 }}>
-        <Stack direction="row" spacing={1} sx={{ mb: 1 }} alignItems="center">
-          <Chip size="small" label={(p.status || 'planned').replace(/_/g, ' ')} sx={{ backgroundColor: `${STATUS_COLOR[p.status] || REPAIRS_UI.textMuted}22`, color: STATUS_COLOR[p.status] || REPAIRS_UI.textMuted, textTransform: 'capitalize', fontWeight: 700 }} />
-          {listed && <Chip size="small" label={`Listed · ${p.productID}`} sx={{ backgroundColor: REPAIRS_UI.bgTertiary, color: '#66BB6A', border: `1px solid ${REPAIRS_UI.border}` }} />}
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1 }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Chip size="small" label={(p.status || 'planned').replace(/_/g, ' ')} sx={{ backgroundColor: `${STATUS_COLOR[p.status] || REPAIRS_UI.textMuted}22`, color: STATUS_COLOR[p.status] || REPAIRS_UI.textMuted, textTransform: 'capitalize', fontWeight: 700 }} />
+            {listed && <Chip size="small" label={`Listed · ${p.productID}`} sx={{ backgroundColor: REPAIRS_UI.bgTertiary, color: '#66BB6A', border: `1px solid ${REPAIRS_UI.border}` }} />}
+          </Stack>
+          <Button component={Link} href={`/dashboard/production/pieces/${p.pieceID}/edit`} startIcon={<EditIcon sx={{ fontSize: 16 }} />} variant="outlined" size="small" sx={{ color: REPAIRS_UI.accent, borderColor: REPAIRS_UI.border, textTransform: 'none' }}>Edit</Button>
         </Stack>
         <Typography sx={{ fontSize: { xs: 24, md: 30 }, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 0.5 }}>{p.sku || p.pieceID}</Typography>
         <Stack direction="row" spacing={3} sx={{ mt: 2, flexWrap: 'wrap' }}>
