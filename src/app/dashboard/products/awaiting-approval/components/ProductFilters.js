@@ -1,15 +1,16 @@
 import React from 'react';
-import { 
-    Grid, 
-    Paper, 
-    TextField, 
-    InputAdornment, 
-    FormControl, 
-    InputLabel, 
-    Select, 
-    MenuItem 
+import {
+    Grid,
+    Paper,
+    TextField,
+    InputAdornment,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem
 } from '@mui/material';
 import { Search as SearchIcon } from '@mui/icons-material';
+import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
 
 export default function ProductFilters({
     searchQuery,
@@ -22,7 +23,7 @@ export default function ProductFilters({
     uniqueArtisans
 }) {
     return (
-        <Paper sx={{ p: 3, mb: 3 }}>
+        <Paper sx={{ p: 3, mb: 3, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' }}>
             <Grid container spacing={2}>
                 <Grid item xs={12} md={4}>
                     <TextField
@@ -34,7 +35,7 @@ export default function ProductFilters({
                         InputProps={{
                             startAdornment: (
                                 <InputAdornment position="start">
-                                    <SearchIcon />
+                                    <SearchIcon sx={{ color: REPAIRS_UI.textSecondary }} />
                                 </InputAdornment>
                             )
                         }}
@@ -47,6 +48,7 @@ export default function ProductFilters({
                             value={statusFilter}
                             label="Status"
                             onChange={(e) => setStatusFilter(e.target.value)}
+                            MenuProps={repairsMenuProps}
                         >
                             <MenuItem value="all">All Statuses</MenuItem>
                             {uniqueStatuses.map(status => (
@@ -64,6 +66,7 @@ export default function ProductFilters({
                             value={artisanFilter}
                             label="Artisan"
                             onChange={(e) => setArtisanFilter(e.target.value)}
+                            MenuProps={repairsMenuProps}
                         >
                             <MenuItem value="all">All Artisans</MenuItem>
                             {Object.entries(uniqueArtisans).map(([id, name]) => (
