@@ -21,7 +21,6 @@ Status legend: 🟢 live · 🆕 new · ♻️ reimagined/rewritten · 🕓 defe
 | `sales` / orders | 🕓 | sale event + fee resolution + payout | S5/S6 |
 | `customTickets` | 🟢 frozen/legacy | existing custom system — **frozen**, drains its lifecycle, untouched | S7 |
 | `customOrders` | 🆕 | NEW customs on the production engine (customer + Design + Piece(s) + billing) | S7 |
-| `designRequests` | 🟢 legacy (World 1) | peer design-request seed; broken writes; rebuilt onto the engine in PP M6 | S3/PP |
 | `artisanAgreements` | 🕓 | per-artisan type + negotiated rates | S6 |
 | `feeSchedule` | 🕓 | admin-configurable fee pillar rates | S6 |
 | `inventory`, `inventoryTransactions`, `inventoryReorderSuggestions` | ⛔ | **data dropped** in S0 (junk). The *materials-inventory concept* (supply stock for cost mgmt — not products, not pieces) is **parked indefinitely** | S0 |
@@ -325,18 +324,6 @@ partial; payment-progress; **50% production threshold** → notify) — preservi
 embedded-vs-collection dual-write. **COGS** comes from linked pieces; **margin = `quote.quoteTotal` −
 Σ piece COGS** (incl. your bench labor). The **bench labor log is the single source of custom-labor pay**;
 the quote is customer-revenue only.
-
-## `designRequests` 🟢 legacy (World 1) — peer design-request seed
-
-The original gemstone/design-request flow: a `designRequests` doc links a **gemstone `product`**
-(`gemstoneId`) to a requested/submitted design. **Currently half-broken** (create throws — missing
-`getServerSession` import; `complete` only flips gemstone flags, spawns no production) and **disconnected
-from the production engine.** Fields as-is: `gemstoneId`, `status`, `requirements`, `priority`, `dueDate`,
-`requestedBy`, `assignedTo`, `assignedAt`.
-
-**Fate (Production Pipeline goal M6 — strangler-fig):** rebuilt onto the engine so "produce" spawns a real
-Design + Piece via `createPieceFromDesign` (gemstone-linked), and the stub UI is filled. Not extended
-until then; documented here so the SoT acknowledges it.
 
 ## Fee model 🕓 (S6) — services continuum
 

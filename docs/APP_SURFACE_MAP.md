@@ -95,8 +95,6 @@ No admin-panel access. Storefront (`efd-shop`) only; public share pages `/d/<tok
 
 **Clients** (`/dashboard/clients`): `[userID]` — individual client profile detail/edit.
 
-**Design requests** (`/dashboard/design-requests`) — ⚠ stub, not in any nav (U2 target).
-
 **Users** (`/dashboard/users`): `admin`, `artisans` (+`/[userID]`), `developers`, `manage`,
 `wholesalers` (+`/[wholesalerId]/print-intake-slips`).
 
@@ -127,12 +125,12 @@ surface (outside `/dashboard`, so middleware doesn't guard it; the page self-gat
 
 ---
 
-## Feature / API layer (39 backend groups)
+## Feature / API layer (38 backend groups)
 
 | Domain | API groups (route counts) |
 |---|---|
 | Repairs | `repairs` (32), `repair-invoices` (14), `bench` (4), `rush-jobs` (1) |
-| Customs | `custom-orders` (21), `design-requests` (3) |
+| Customs | `custom-orders` (21) |
 | Production/Catalog | `production` (11), `designs` (2), `drop-requests` (5), `collections` (4), `products` (17) |
 | Tasks/Process | `tasks` (13), `processes` (3), `materials` (2), `tools-machinery` (1) |
 | Users/Access | `users` (5), `artisan` (10), `artisans` (1), `auth` (11) |
@@ -141,7 +139,7 @@ surface (outside `/dashboard`, so middleware doesn't guard it; the page self-gat
 | Marketing/Content | `affiliates` (6), `wholesale` (7) |
 | Platform | `admin` (46), `analytics` (2), `ai` (5), `glb` (1), `cron` (2) |
 
-Built-but-unwired (no UI): `production/*`, `design-requests`, `collections`, `drop-requests`
+Built-but-unwired (no UI): `production/*`, `collections`, `drop-requests`
 (see [PRODUCTION_PIPELINE_VISION.md](./PRODUCTION_PIPELINE_VISION.md)).
 
 **Model-only modules** (under `src/app/api/*` with a `model.js` but **no `route.js`** — data-access
@@ -182,6 +180,7 @@ Stop condition: map unchanged for **3 consecutive** iterations AND sub-agent agr
   Stability counter = 2/3.** Running the final confirmation round.
 - **Iteration 7** — final confirmation sub-agent returned **MAP COMPLETE** (112 pages, 39 API groups,
   8 roles all verified present & accurate; no new surface/feature). No growth → **stability counter = 3/3.**
+- **Task #24** — removed `design-requests` feature: deleted API (4 routes), UI stub (`/dashboard/design-requests`), and hook. **API groups: 39 → 38. Pages: 112 → 111.**
 
 ### ✅ CONVERGED
 Map stable for **3 consecutive rounds** (iterations 5–7) with **both agents in agreement** that it is
