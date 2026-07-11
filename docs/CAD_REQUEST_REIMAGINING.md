@@ -36,8 +36,6 @@ be **produced** (→ Piece → Product) or just **listed** as a concept linked t
 The manufacturing spine exists as APIs; the UI is the deferred work:
 - **`/api/production/*` (11, no UI):** `designs` (+`/assets`, `/estimate`), `pieces` (+`/materials`,
   `/recompute`, **`/list-product`** = piece→store product), `drops`. → this is **U2**.
-- **`/api/design-requests/*`** (claim/complete) + a partial `design-requests` page — the speculative
-  entry seed.
 - **`/api/products/*` (18)** + product/gemstone/jewelry pages — product mgmt exists; the
   contract-aligned editor + publish gate is **U4**; marketplace controls are **U5**.
 - The Work-Order spine + Drop/Design/Piece model is the backbone (see manufacturing/data-model.md).
@@ -64,15 +62,13 @@ was the deleted cad-request hook; the modern bench/production CAD pipeline in
 `products/{route,gemstones,jewelry}`; the "CAD Designs" card on the products hub.
 
 **Kept (modern):** `api/designs/{model,[designId],[designId]/configure}`; the whole
-`api/production/*` + `design-requests` + `useDesignRequests` flow; the `cad_request` WO-source enum
-(`api/workOrders/model.js`) and the `CAD_*` notification-type constants (forward vocab for the
-reimagined pipeline — currently orphaned but harmless).
+`api/production/*`; the `cad_request` WO-source enum (`api/workOrders/model.js`) and the `CAD_*`
+notification-type constants (forward vocab for the reimagined pipeline — currently orphaned but harmless).
 
 Verified: whole-`src` dangling-import grep clean; `next lint` on edited files green. Full
 `next build` deferred (dev server holding `.next`).
 
-## Later (U2): build the reimagined Design Request
-Thin entry doc (peer, no commitment) → spawns the shared CAD work order on the bench (reuse
-`pieceWorkOrderActions` + `submitCadGlbToQc`/`approveCadQc` + auto-share) → on GLB approval, a Design
-that either lists against the gemstone or produces a Piece (`/api/production/pieces`) → `list-product`
-publishes the catalog Product. Proper owner/role auth; one screen in nav; gemstone-as-hub linking (U5).
+## U2: production catalog
+Design → Piece → `list-product` publishes the catalog Product, with the gemstone as hub.
+The peer/speculative entry path (Design Request) is deferred to the umbrella platform — see
+`docs/platform/peer-request-produce.md` (design 6a501ae5 / task #24).

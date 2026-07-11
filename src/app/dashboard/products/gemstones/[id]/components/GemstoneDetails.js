@@ -2,9 +2,8 @@
 
 import React from 'react';
 import { Card, CardContent, Typography, Grid, TextField, MenuItem } from '@mui/material';
+import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
 
-// Gemstone identity + gemological fields. Field names match the POST/PUT body of
-// /api/products/gemstones (title + species required).
 export default function GemstoneDetails({ form = {}, onChange = () => {} }) {
     const F = (field, label, opts = {}) => (
         <TextField
@@ -18,9 +17,9 @@ export default function GemstoneDetails({ form = {}, onChange = () => {} }) {
     );
 
     return (
-        <Card sx={{ mb: 3 }}>
+        <Card sx={{ mb: 3, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' }}>
             <CardContent>
-                <Typography variant="h6" sx={{ mb: 2 }}>Gemstone Details</Typography>
+                <Typography variant="h6" sx={{ mb: 2, color: REPAIRS_UI.textHeader }}>Gemstone Details</Typography>
                 <Grid container spacing={2}>
                     <Grid item xs={12} sm={6}>{F('title', 'Title *', { required: true })}</Grid>
                     <Grid item xs={12} sm={6}>{F('species', 'Species *', { required: true, placeholder: 'e.g. Sapphire' })}</Grid>
@@ -30,6 +29,7 @@ export default function GemstoneDetails({ form = {}, onChange = () => {} }) {
                             fullWidth size="small" select label="Origin type"
                             value={form.naturalSynthetic ?? 'natural'}
                             onChange={(e) => onChange('naturalSynthetic', e.target.value)}
+                            SelectProps={{ MenuProps: repairsMenuProps }}
                         >
                             <MenuItem value="natural">Natural</MenuItem>
                             <MenuItem value="synthetic">Synthetic</MenuItem>

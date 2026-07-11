@@ -4,13 +4,14 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
     Box, Typography, Grid, Button, CircularProgress, Alert,
-    IconButton, Breadcrumbs, Link, Stack,
+    IconButton, Breadcrumbs, Stack, Link,
 } from '@mui/material';
 import {
     ArrowBack as ArrowBackIcon, Publish as PublishIcon, Drafts as DraftsIcon,
 } from '@mui/icons-material';
 import GemstoneDetails from './components/GemstoneDetails';
 import GemstonePricing from './components/GemstonePricing';
+import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 
 const EMPTY = {
     title: '', species: '', subspecies: '', naturalSynthetic: 'natural',
@@ -20,9 +21,6 @@ const EMPTY = {
     status: 'draft',
 };
 
-// Gemstone editor (rebuilt — the prior GemstoneDetails/GemstonePricing were empty `return null` stubs
-// from an incomplete refactor, leaving this page blank). Mirrors the jewelry editor: load-on-edit,
-// new-on 'new', Save Draft / Publish → POST /api/products/gemstones or PUT .../[id].
 export default function GemstonePage() {
     const router = useRouter();
     const params = useParams();
@@ -75,7 +73,6 @@ export default function GemstonePage() {
             if (!res.ok) throw new Error(data.error || 'Failed to save gemstone');
             const pid = data.gemstone?.productId || data.productId || id;
             if (isNew && pid && pid !== 'new') router.push(`/dashboard/products/gemstones/${pid}`);
-            else router.push('/dashboard/products/gemstones');
         } catch (e) {
             setError(e.message);
         } finally {
@@ -84,32 +81,59 @@ export default function GemstonePage() {
     };
 
     if (loading) {
-        return <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}><CircularProgress /></Box>;
+        return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}>
+                <CircularProgress sx={{ color: REPAIRS_UI.accent }} />
+            </Box>
+        );
     }
 
     return (
         <Box sx={{ p: { xs: 1.5, sm: 2, md: 3 }, maxWidth: '100%', overflowX: 'hidden' }}>
-            <Box sx={{ display: 'flex', alignItems: { xs: 'flex-start', sm: 'center' }, flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 2, sm: 0 }, mb: 3 }}>
-                <IconButton onClick={() => router.push('/dashboard/products/gemstones')} sx={{ mr: { sm: 2 } }} aria-label="Back to gemstones">
+            <Box sx={{
+                display: 'flex', alignItems: { xs: 'flex-start', sm: 'center' },
+                flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 2, sm: 0 }, mb: 3,
+            }}>
+                <IconButton
+                    onClick={() => router.push('/dashboard/products/gemstones')}
+                    sx={{ mr: { sm: 2 }, color: REPAIRS_UI.textSecondary }}
+                    aria-label="Back to gemstones"
+                >
                     <ArrowBackIcon />
                 </IconButton>
                 <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                    <Typography variant="h4" sx={{ fontSize: { xs: '1.75rem', sm: '2.125rem' }, overflowWrap: 'anywhere' }}>
+                    <Typography sx={{ fontSize: { xs: '1.75rem', sm: '2.125rem' }, fontWeight: 600, color: REPAIRS_UI.textHeader, overflowWrap: 'anywhere' }}>
                         {isNew ? 'New Gemstone' : form.title || 'Edit Gemstone'}
                     </Typography>
-                    <Breadcrumbs aria-label="breadcrumb">
-                        <Link color="inherit" href="/dashboard">Dashboard</Link>
-                        <Link color="inherit" href="/dashboard/products/gemstones">Gemstones</Link>
-                        <Typography color="text.primary">{isNew ? 'New' : 'Edit'}</Typography>
+                    <Breadcrumbs aria-label="breadcrumb" sx={{ '& .MuiBreadcrumbs-separator': { color: REPAIRS_UI.textMuted } }}>
+                        <Link href="/dashboard" sx={{ color: REPAIRS_UI.textSecondary, '&:hover': { color: REPAIRS_UI.accent } }} underline="hover">Dashboard</Link>
+                        <Link href="/dashboard/products/gemstones" sx={{ color: REPAIRS_UI.textSecondary, '&:hover': { color: REPAIRS_UI.accent } }} underline="hover">Gemstones</Link>
+                        <Typography sx={{ color: REPAIRS_UI.textHeader }}>{isNew ? 'New' : 'Edit'}</Typography>
                     </Breadcrumbs>
                 </Box>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ width: { xs: '100%', sm: 'auto' } }}>
-                    <Button variant="outlined" startIcon={<DraftsIcon />} onClick={() => handleSave('draft')} disabled={saving} fullWidth>Save Draft</Button>
-                    <Button variant="contained" startIcon={<PublishIcon />} onClick={() => handleSave('active')} disabled={saving} fullWidth>Publish</Button>
+                    <Button
+                        variant="outlined" startIcon={<DraftsIcon />}
+                        onClick={() => handleSave('draft')} disabled={saving} fullWidth
+                        sx={{ borderColor: REPAIRS_UI.border, color: REPAIRS_UI.textPrimary, '&:hover': { borderColor: REPAIRS_UI.accent, backgroundColor: REPAIRS_UI.bgCard } }}
+                    >
+                        Save Draft
+                    </Button>
+                    <Button
+                        variant="contained" startIcon={<PublishIcon />}
+                        onClick={() => handleSave('active')} disabled={saving} fullWidth
+                        sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}
+                    >
+                        Publish
+                    </Button>
                 </Stack>
             </Box>
 
-            {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+            {error && (
+                <Alert severity="error" sx={{ mb: 3, backgroundColor: '#4A1D1D', color: '#F8BBBB', border: '1px solid #7A2E2E' }}>
+                    {error}
+                </Alert>
+            )}
 
             <Grid container spacing={3}>
                 <Grid item xs={12} md={8}>

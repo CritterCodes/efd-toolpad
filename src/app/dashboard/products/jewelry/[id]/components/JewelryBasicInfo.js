@@ -3,11 +3,12 @@ import {
     Grid, TextField, FormControl, InputLabel, Select, MenuItem,
     FormControlLabel, Switch, Divider, Typography, Paper
 } from '@mui/material';
+import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
 
 export default function JewelryBasicInfo({ formData, handleInputChange }) {
     return (
-        <Paper sx={{ mb: 3, p: { xs: 2, sm: 3 } }}>
-            <Typography variant="h6" gutterBottom>Product Details</Typography>
+        <Paper sx={{ mb: 3, p: { xs: 2, sm: 3 }, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' }}>
+            <Typography variant="h6" gutterBottom sx={{ color: REPAIRS_UI.textHeader }}>Product Details</Typography>
             <Grid container spacing={2}>
                 <Grid item xs={12}>
                     <TextField
@@ -21,6 +22,7 @@ export default function JewelryBasicInfo({ formData, handleInputChange }) {
                         <Select
                             value={formData.type} label="Type"
                             onChange={(e) => handleInputChange('type', e.target.value)}
+                            MenuProps={repairsMenuProps}
                         >
                             {['Ring', 'Pendant', 'Bracelet', 'Earrings', 'Other'].map(t => (
                                 <MenuItem key={t} value={t}>{t}</MenuItem>
@@ -30,7 +32,7 @@ export default function JewelryBasicInfo({ formData, handleInputChange }) {
                 </Grid>
                 <Grid item xs={12} sm={6}>
                     <TextField
-                        fullWidth label="Price" type="number" 
+                        fullWidth label="Price" type="number"
                         value={formData.price}
                         onChange={(e) => handleInputChange('price', e.target.value)}
                         InputProps={{ startAdornment: <Typography sx={{ mr: 1 }}>$</Typography> }}
@@ -40,8 +42,8 @@ export default function JewelryBasicInfo({ formData, handleInputChange }) {
                 {formData.type === 'Ring' && (
                     <>
                         <Grid item xs={12}>
-                            <Divider sx={{ my: 1 }} />
-                            <Typography variant="subtitle2" gutterBottom sx={{ mt: 1 }}>Ring Specifics</Typography>
+                            <Divider sx={{ my: 1, borderColor: REPAIRS_UI.border }} />
+                            <Typography variant="subtitle2" gutterBottom sx={{ mt: 1, color: REPAIRS_UI.textSecondary }}>Ring Specifics</Typography>
                         </Grid>
                         <Grid item xs={12} sm={4}>
                             <TextField
@@ -82,8 +84,8 @@ export default function JewelryBasicInfo({ formData, handleInputChange }) {
                 {formData.type === 'Pendant' && (
                     <>
                         <Grid item xs={12}>
-                            <Divider sx={{ my: 1 }} />
-                            <Typography variant="subtitle2" gutterBottom sx={{ mt: 1 }}>Pendant Specifics</Typography>
+                            <Divider sx={{ my: 1, borderColor: REPAIRS_UI.border }} />
+                            <Typography variant="subtitle2" gutterBottom sx={{ mt: 1, color: REPAIRS_UI.textSecondary }}>Pendant Specifics</Typography>
                         </Grid>
                         <Grid item xs={12} sm={6}>
                             <FormControlLabel
@@ -113,8 +115,8 @@ export default function JewelryBasicInfo({ formData, handleInputChange }) {
                 {formData.type === 'Bracelet' && (
                     <>
                         <Grid item xs={12}>
-                            <Divider sx={{ my: 1 }} />
-                            <Typography variant="subtitle2" gutterBottom sx={{ mt: 1 }}>Bracelet Specifics</Typography>
+                            <Divider sx={{ my: 1, borderColor: REPAIRS_UI.border }} />
+                            <Typography variant="subtitle2" gutterBottom sx={{ mt: 1, color: REPAIRS_UI.textSecondary }}>Bracelet Specifics</Typography>
                         </Grid>
                         <Grid item xs={12} sm={6}>
                             <TextField fullWidth label="Length" value={formData.length} onChange={(e) => handleInputChange('length', e.target.value)} />
@@ -128,8 +130,8 @@ export default function JewelryBasicInfo({ formData, handleInputChange }) {
                 {(formData.type === 'Other' || formData.type === 'Earrings') && (
                     <>
                         <Grid item xs={12}>
-                            <Divider sx={{ my: 1 }} />
-                            <Typography variant="subtitle2" gutterBottom sx={{ mt: 1 }}>Details</Typography>
+                            <Divider sx={{ my: 1, borderColor: REPAIRS_UI.border }} />
+                            <Typography variant="subtitle2" gutterBottom sx={{ mt: 1, color: REPAIRS_UI.textSecondary }}>Details</Typography>
                         </Grid>
                         <Grid item xs={12}>
                             <TextField fullWidth label="Dimensions / Size Description" value={formData.dimensions} onChange={(e) => handleInputChange('dimensions', e.target.value)} />

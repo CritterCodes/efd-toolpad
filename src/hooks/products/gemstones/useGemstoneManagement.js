@@ -32,7 +32,6 @@ export function useGemstoneManagement(apiPath = '/api/products/gemstones') {
 
   const handleDeleteProduct = async (product) => {
     const id = product._id || product.id || product;
-    if (!window.confirm('Are you sure you want to delete this gemstone?')) return;
     try {
       setLoading(true);
       const res = await fetch(`${apiPath}?id=${id}`, { method: 'DELETE' });

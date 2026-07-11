@@ -2,51 +2,47 @@
 
 > **Canonical orientation doc.** Read this BEFORE any production-pipeline / customs / deploy work.
 > Pairs with: `docs/manufacturing/{README.md, data-model.md, sprints.md}` (sprint detail + locked
-> decisions), `docs/CAD_REQUEST_REIMAGINING.md` (the design-request spec). Last updated 2026-06-30.
+> decisions). Last updated 2026-06-30.
 
 ---
 
 ## 1. The vision (owner's mental model)
 
-A single manufacturing engine serving **two front doors** that feed **one shared CAD work order**
-and exit to **two destinations**:
+The manufacturing engine serves **Custom Orders** as its committed front door, producing Pieces that
+exit to the client or to the store catalog:
 
 ```
    ORIGIN (the "why")                 SHARED CORE                       EXIT (where it goes)
  ┌─────────────────────────────┐                                  ┌─────────────────────────────┐
- │ CUSTOM ORDER                │──┐                            ┌──│ the client's bespoke piece  │
- │  • client-initiated         │  │     CAD work order        │   │  (fulfilled to that client) │
- │  • SALE COMMITMENT (deposit │  │   discipline:'cad'        │   └─────────────────────────────┘
- │    before production)       │  ├──▶ STL→GLB · bench claim ─┤
- ├─────────────────────────────┤  │   · GLB QC → auto-share   │   ┌─────────────────────────────┐
- │ DESIGN REQUEST (production) │──┘   · refrakt material      └──▶│ store PRODUCT, gemstone-    │
- │  • peer-initiated (gem      │      · labor credited at QC      │ linked (or back to cutter)  │
- │    cutter / designer)       │                                  │ — or a "listed-only" design │
- │  • NO sale commitment       │                                  │   concept linked to a stone │
- └─────────────────────────────┘                                  └─────────────────────────────┘
+ │ CUSTOM ORDER                │                               ┌──│ the client's bespoke piece  │
+ │  • client-initiated         │      CAD work order           │   │  (fulfilled to that client) │
+ │  • SALE COMMITMENT (deposit │    discipline:'cad'           │   └─────────────────────────────┘
+ │    before production)       │──▶ STL→GLB · bench claim ────┤
+ └─────────────────────────────┘    · GLB QC → auto-share      │   ┌─────────────────────────────┐
+                                    · refrakt material         └──▶│ store PRODUCT, gemstone-    │
+                                    · labor credited at QC         │ linked                      │
+                                                                   └─────────────────────────────┘
 ```
 
-**The CAD work order is identical in both.** Only the *origin doc* (custom order vs. design request)
-and the *exit* (client piece vs. catalog product) differ. "cad wo really are the same wo whether it's
-a custom or a production pipeline."
+> **Note:** the peer/speculative path (Design Request — gem-cutter-initiated, no sale commitment)
+> was determined to be a platform-level concept, not EFD-internal. Its produce shape is preserved
+> in `docs/platform/peer-request-produce.md` for reuse when the umbrella platform ships a job board.
+> Design 6a501ae5 / task #24.
 
-### The peer-jobs ecosystem (the flywheel)
-The people: **gem cutters**, **designers**, **bench jewelers** — peers who request and fulfill each
-other's work. The flow:
+### The gemstone flywheel (production catalog)
+The people: **gem cutters**, **designers**, **bench jewelers** — peers who create and fulfill work.
+The EFD loop:
 
 1. A **gem cutter lists a stone** → it becomes a gemstone **Product** in the store (the hub).
-2. From a listed stone, anyone can **request a piece be made** (a *Design Request*) **or** a
-   **designer submits a design** for it.
+2. A **designer submits a design** against the stone.
 3. A design can be **produced** (→ Piece → Product) **or** just **listed** as a concept linked to
    that stone (no production yet — a "design-on-a-stone" listing).
 4. Produced pieces become catalog **Products**; the **gemstone stays linked** through the whole chain.
 
-The **gemstone is the hub**; design-requests, submitted designs, and produced pieces all orbit it.
-Custom orders are the *committed* path (a client paid to have something made); design requests are
-the *speculative* path (peers making things for the catalog).
+The **gemstone is the hub**; submitted designs and produced pieces orbit it.
+Custom orders are the *committed* path (a client paid to have something made).
 
 > **Open vision points to refine with the owner** (not yet modeled in code):
-> - **Designer-submits-a-design** entry — currently only "request a piece" (design request) exists.
 > - **"Listed-only" design concept** — `list-product` today requires a finished Piece; there's no
 >   path to list a design *concept* against a stone without producing it.
 > - **Gemstone link on the product** — `buildProductFromPiece` keeps `references.{designId,pieceID}`
@@ -97,15 +93,7 @@ the *speculative* path (peers making things for the catalog).
 - **Sales / payroll / settings / users / affiliates / analytics** — live.
 
 ### Built but UNUSED — no UI yet (the "build UI for these" list)
-**U2.1 — Design Request (speculative peer front door):**
-- `GET /api/design-requests` — list (joins gemstone + design)
-- `POST /api/design-requests` — create ⚠️ **BROKEN** (`getServerSession` not imported)
-- `POST /api/design-requests/[requestId]/claim`
-- `POST /api/design-requests/[requestId]/complete` — only flips a flag; does **not** spawn production
-- *UI today: `/dashboard/design-requests` is a stub shell that calls nothing
-  (`useDesignRequests` = no-op stubs).*
-
-**U2.2 — Production catalog (engine built, zero screens):**
+**U2 — Production catalog (engine built, zero screens):**
 - Drops: `GET·POST /api/production/drops` · `GET·PUT …/[dropID]`
 - Designs: `GET·POST /api/production/designs` · `GET·PUT …/[designID]` ·
   `POST …/[designID]/assets` (CAD/GLB upload→MinIO) · `POST /api/production/designs/estimate` (cost engine)
@@ -119,10 +107,8 @@ the *speculative* path (peers making things for the catalog).
 - `GET·PUT·DELETE /api/collections/[id]` · `GET·POST·DELETE …/[id]/products` · `POST …/[id]/publish`
 - *No dashboard collections page exists.*
 
-### The two backend stitches still missing for the flywheel
-1. **Request → production bridge:** `design-requests/complete` should spawn a production Design/Piece
-   (reuse `createPieceFromDesign`) instead of only setting a flag.
-2. **Gemstone link preserved:** carry `gemstoneId` through `buildProductFromPiece` →
+### The backend stitch still missing for the flywheel
+1. **Gemstone link preserved:** carry `gemstoneId` through `buildProductFromPiece` →
    `product.references.gemstoneId` so store products stay stone-linked.
 
 ---
@@ -131,8 +117,7 @@ the *speculative* path (peers making things for the catalog).
 
 | Phase | Screen(s) | Wires these APIs |
 |---|---|---|
-| **U2.1** | Design Request inbox/board (fill the stub) | `design-requests` (+fix create, +bridge to production) |
-| **U2.2** | Production catalog: Drops / Designs (STL upload + live cost) / Pieces editors | all `/api/production/*` |
+| **U2** | Production catalog: Drops / Designs (STL upload + live cost) / Pieces editors | all `/api/production/*` |
 | **U3** | Shared **meshMap builder** (GLB→`/api/glb/inspect`→assign meshes) | reused by U4 + customs 3D |
 | **U4** | Product editor → contract shape + publish gate | `products/*` + `validateProductContract` |
 | **U5** | Marketplace admin: collections, fee-schedule, cutter ownership/listing | `collections/*` + S6 payouts |
