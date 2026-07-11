@@ -83,9 +83,11 @@ export async function PUT(request, { params }) {
       updatedAt: new Date()
     };
 
-    // Don't allow changing artisanId or status through PUT
+    // Admins may set status directly; non-admin roles cannot change status or ownership here
+    if (!isAdmin) {
+      delete updateData.status;
+    }
     delete updateData.artisanId;
-    delete updateData.status;
     delete updateData.statusHistory;
 
     const result = await db.collection('products').findOneAndUpdate(
