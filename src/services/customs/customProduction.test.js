@@ -1,7 +1,43 @@
-import { describe, expect, it } from 'vitest';
-import { planQuoteLaborHours, applyQuoteHoursToWorkOrders, reconcileQuoteToWorkOrders, customPieceInput } from '@/services/customs/customProduction';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const customOrders = vi.hoisted(() => ({ findById: vi.fn(), linkProduction: vi.fn() }));
+const designs = vi.hoisted(() => ({ findById: vi.fn(), create: vi.fn() }));
+const pieces = vi.hoisted(() => ({ create: vi.fn() }));
+
+vi.mock('@/app/api/custom-orders/model', () => ({ default: customOrders }));
+vi.mock('@/app/api/designs/model', () => ({ default: designs, DESIGN_STATUS: { CAD: 'cad' } }));
+vi.mock('@/app/api/pieces/model', () => ({ default: pieces }));
+
+import {
+  planQuoteLaborHours,
+  applyQuoteHoursToWorkOrders,
+  reconcileQuoteToWorkOrders,
+  customPieceInput,
+  ensureCustomPiece,
+} from '@/services/customs/customProduction';
 
 describe('custom piece spawn gemstone thread', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('spawns a Piece from the linked Design without dropping gemstoneId', async () => {
+    customOrders.findById.mockResolvedValue({
+      designIDs: ['design-1'], pieceIDs: [], clientID: 'client-1', metalType: 'gold',
+    });
+    designs.findById.mockResolvedValue({ designID: 'design-1', gemstoneId: 'gem-1' });
+    pieces.create.mockResolvedValue({ pieceID: 'piece-1' });
+    customOrders.linkProduction.mockResolvedValue({ pieceIDs: ['piece-1'] });
+
+    await expect(ensureCustomPiece('custom-1')).resolves.toEqual({
+      pieceID: 'piece-1', order: { pieceIDs: ['piece-1'] },
+    });
+    expect(pieces.create).toHaveBeenCalledWith(expect.objectContaining({
+      designID: 'design-1', gemstoneId: 'gem-1', customOrderID: 'custom-1',
+    }));
+    expect(customOrders.linkProduction).toHaveBeenCalledWith('custom-1', {
+      designID: 'design-1', pieceID: 'piece-1',
+    });
+  });
+
   it('copies the linked Design gemstoneId into the spawned Piece', () => {
     expect(customPieceInput(
       { clientID: 'client-1', metalType: 'gold' },

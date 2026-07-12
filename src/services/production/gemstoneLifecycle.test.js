@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const updateOne = vi.fn();
 const updateMany = vi.fn();
+const findOne = vi.fn();
 vi.mock('@/lib/database', () => ({
-  db: { connect: vi.fn(async () => ({ collection: () => ({ updateOne, updateMany }) })) },
+  db: { connect: vi.fn(async () => ({ collection: () => ({ findOne, updateOne, updateMany }) })) },
 }));
 
 import { reserveLinkedGemstones, setGemstonePieceStatus } from './gemstoneLifecycle';
+import { markProductsSold } from '@/app/api/sales-invoices/service';
 
 describe('linked gemstone piece lifecycle', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -17,6 +19,21 @@ describe('linked gemstone piece lifecycle', () => {
       { references: { gemstoneId: 'gem-1' } },
       { references: {} },
     ]);
+    expect(updateMany).toHaveBeenCalledWith(
+      { productID: { $in: ['gem-1'] }, status: { $ne: 'sold' } },
+      { $set: { status: 'reserved', updatedAt: expect.any(Date) } },
+    );
+  });
+
+  it('sales invoice finalization reads the sold Product link and reserves its backing stone Piece', async () => {
+    findOne.mockResolvedValue({ productId: 'parent-1', references: { gemstoneId: 'gem-1' } });
+
+    await markProductsSold({
+      paidAt: new Date('2026-07-12T00:00:00Z'),
+      lineItems: [{ type: 'product', productID: 'parent-1' }],
+    });
+
+    expect(findOne).toHaveBeenCalledWith({ productId: 'parent-1' });
     expect(updateMany).toHaveBeenCalledWith(
       { productID: { $in: ['gem-1'] }, status: { $ne: 'sold' } },
       { $set: { status: 'reserved', updatedAt: expect.any(Date) } },

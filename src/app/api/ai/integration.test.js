@@ -3,7 +3,7 @@
  * Run with: GEMINI_API_KEY=<key> npx vitest run src/app/api/ai/integration.test.js
  * These are intentionally slow (real network) and cost tokens.
  */
-import { describe, it, expect, beforeAll } from 'vitest'
+import { describe, it, expect } from 'vitest'
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta'
 const GEMINI_MODEL = 'gemini-2.5-flash'
@@ -27,11 +27,10 @@ const extractText = (payload) => {
   return parts.map((p) => String(p?.text || '').trim()).filter(Boolean).join('\n').trim()
 }
 
-beforeAll(() => {
-  if (!API_KEY) throw new Error('GEMINI_API_KEY is not set — cannot run integration tests')
-})
+// Real-network/cost tests are opt-in; ordinary CI and preview builds run the mocked route suites.
+const describeWithGemini = API_KEY && process.env.RUN_GEMINI_INTEGRATION === '1' ? describe : describe.skip
 
-describe('Gemini API — model reachability', () => {
+describeWithGemini('Gemini API — model reachability', () => {
   it('gemini-2.5-flash responds with 200', async () => {
     const { status, payload } = await callGemini({
       contents: [{ role: 'user', parts: [{ text: 'Say "ok" and nothing else.' }] }],
@@ -43,7 +42,7 @@ describe('Gemini API — model reachability', () => {
   }, 30000)
 })
 
-describe('generate-ai-meta — real Gemini output', () => {
+describeWithGemini('generate-ai-meta — real Gemini output', () => {
   it('returns valid JSON with all required keys for a real repair task', async () => {
     const prompt = [
       'You are a jewelry repair expert helping configure an AI repair assistant.',
@@ -85,7 +84,7 @@ describe('generate-ai-meta — real Gemini output', () => {
   }, 30000)
 })
 
-describe('parse-smart-intake — real Gemini output', () => {
+describeWithGemini('parse-smart-intake — real Gemini output', () => {
   it('extracts ring sizing details from natural language input', async () => {
     const prompt = [
       'You are parsing jewelry repair intake text into structured data.',
@@ -157,7 +156,7 @@ describe('parse-smart-intake — real Gemini output', () => {
   }, 30000)
 })
 
-describe('describe-item-image — real Gemini output (text-only fallback)', () => {
+describeWithGemini('describe-item-image — real Gemini output (text-only fallback)', () => {
   it('returns a coherent jewelry description from a text prompt', async () => {
     // Vision requires a real image — this test verifies the model accepts
     // the prompt format and returns a usable text response using a described item.

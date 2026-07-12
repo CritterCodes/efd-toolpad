@@ -250,7 +250,7 @@ async function createPayoutEntries(invoice) {
   return { payoutEntryIDs, lineItems: nextLines };
 }
 
-async function markProductsSold(invoice) {
+export async function markProductsSold(invoice) {
   const dbInstance = await db.connect();
   const soldProducts = await Promise.all((invoice.lineItems || [])
     .filter((line) => line.type === 'product' && (line.productID || line.productObjectID))
