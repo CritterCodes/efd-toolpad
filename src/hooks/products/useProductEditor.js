@@ -139,8 +139,7 @@ export function useProductEditor(productId) {
             const resolvedStatus =
                 targetStatus === 'publish' ? 'active'
                 : targetStatus === 'archived' ? 'archived'
-                : form.status === 'archived' ? 'archived'
-                : 'draft';
+                : form.status;
 
             const payload = {
                 ...form,
