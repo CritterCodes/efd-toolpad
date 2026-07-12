@@ -12,6 +12,21 @@ export const POST = async (req, { params }) => {
   const { id } = await params;
   if (!ObjectId.isValid(id)) return NextResponse.json({ error: 'Invalid product ID' }, { status: 400 });
 
+  const db = await mongo.connect();
+  const product = await db.collection('products').findOne({ _id: new ObjectId(id) });
+  if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+
+  const isArtisan = session.user.role === 'artisan';
+  const isOwner = product.artisanId === (session.user.userID || session.user.id);
+  const isAdminRole = ['admin', 'superadmin', 'dev'].includes(session.user.role);
+
+  if (!isAdminRole && (!isArtisan || !isOwner)) {
+    return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+  }
+  if (isArtisan && isOwner && product.status !== 'draft') {
+    return NextResponse.json({ error: 'Can only edit draft products' }, { status: 400 });
+  }
+
   let form;
   try { form = await req.formData(); } catch {
     return NextResponse.json({ error: 'Expected multipart/form-data with a file.' }, { status: 400 });
@@ -37,7 +52,6 @@ export const POST = async (req, { params }) => {
     key,
     uploadedBy: session.user.name || session.user.email || session.user.userID || 'admin',
   };
-  const db = await mongo.connect();
   await db.collection('products').updateOne(
     { _id: new ObjectId(id) },
     { $push: { images: image }, $set: { updatedAt: new Date() } }
