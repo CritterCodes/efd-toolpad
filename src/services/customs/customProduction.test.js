@@ -15,6 +15,7 @@ import {
   customPieceInput,
   ensureCustomPiece,
 } from '@/services/customs/customProduction';
+import { buildProductFromPiece } from '@/services/products/productContract';
 
 describe('custom piece spawn gemstone thread', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -36,6 +37,26 @@ describe('custom piece spawn gemstone thread', () => {
     expect(customOrders.linkProduction).toHaveBeenCalledWith('custom-1', {
       designID: 'design-1', pieceID: 'piece-1',
     });
+  });
+
+  it('threads Design.gemstoneId through the created Piece into Product.references', async () => {
+    const design = { designID: 'design-1', gemstoneId: 'gem-1', name: 'Linked ring' };
+    customOrders.findById.mockResolvedValue({
+      designIDs: [design.designID], pieceIDs: [], clientID: 'client-1', metalType: 'gold',
+    });
+    designs.findById.mockResolvedValue(design);
+    pieces.create.mockImplementation(async (input) => ({ ...input, pieceID: 'piece-1', totalCost: 125 }));
+    customOrders.linkProduction.mockResolvedValue({ pieceIDs: ['piece-1'] });
+
+    await ensureCustomPiece('custom-1');
+
+    const createdPiece = pieces.create.mock.results[0].value;
+    const product = buildProductFromPiece({ piece: await createdPiece, design });
+    expect(product.references).toEqual(expect.objectContaining({
+      designId: 'design-1',
+      pieceID: 'piece-1',
+      gemstoneId: 'gem-1',
+    }));
   });
 
   it('copies the linked Design gemstoneId into the spawned Piece', () => {
