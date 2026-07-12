@@ -1,5 +1,13 @@
 import React from 'react';
-import { Box, Grid, Card, CardMedia, CardContent, Typography, Checkbox, FormControlLabel, Select, MenuItem, Button } from '@mui/material';
+import {
+  Accordion, AccordionDetails, AccordionSummary, Box, Button, Card, CardContent, Checkbox, Chip,
+  CircularProgress, FormControlLabel, Grid, Table, TableBody, TableCell, TableContainer, TableHead,
+  TableRow, Typography,
+} from '@mui/material';
+import CheckIcon from '@mui/icons-material/Check';
+import ErrorIcon from '@mui/icons-material/Error';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ImportIcon from '@mui/icons-material/Download';
 
 export default function StullerProductGrid({ searchResults, selectedProducts, handleProductSelect }) {
     return () => (
