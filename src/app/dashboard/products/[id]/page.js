@@ -64,7 +64,7 @@ export default function ProductEditorPage() {
     const handleArchive = async () => {
         if (!window.confirm('Archive this product?')) return;
         handleChange('status', 'archived');
-        await handleSave('draft');
+        await handleSave('archived');
     };
 
     const handleDelete = async () => {
