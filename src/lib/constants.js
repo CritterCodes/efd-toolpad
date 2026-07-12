@@ -57,7 +57,8 @@ const Constants = {
         'Jeweler',
         'Gem Cutter', 
         'CAD Designer',
-        'Hand Engraver'
+        'Hand Engraver',
+        'Caster'
     ],
     
     SPECIALTIES_SUGGESTIONS: [
