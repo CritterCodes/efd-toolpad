@@ -1,5 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { planQuoteLaborHours, applyQuoteHoursToWorkOrders, reconcileQuoteToWorkOrders } from '@/services/customs/customProduction';
+import { planQuoteLaborHours, applyQuoteHoursToWorkOrders, reconcileQuoteToWorkOrders, customPieceInput } from '@/services/customs/customProduction';
+
+describe('custom piece spawn gemstone thread', () => {
+  it('copies the linked Design gemstoneId into the spawned Piece', () => {
+    expect(customPieceInput(
+      { clientID: 'client-1', metalType: 'gold' },
+      { designID: 'design-1', gemstoneId: 'gem-1' },
+      'custom-1',
+    )).toEqual(expect.objectContaining({
+      designID: 'design-1',
+      gemstoneId: 'gem-1',
+      customOrderID: 'custom-1',
+    }));
+  });
+
+  it('preserves legacy behavior for an unlinked Design', () => {
+    expect(customPieceInput({}, { designID: 'design-2' }, 'custom-2').gemstoneId).toBeNull();
+  });
+});
 
 describe('planQuoteLaborHours', () => {
   it('keys bench tasks by lane::process and skips CAD / no-WO lines', () => {

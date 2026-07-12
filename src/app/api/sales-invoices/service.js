@@ -7,6 +7,7 @@ import { db } from '@/lib/database';
 import { deriveRepairItemMetadata } from '@/lib/productRepairMetadata';
 import { resolveFee } from '@/services/billing/feeResolver';
 import { loadFeeSchedule } from '@/services/billing/feeSchedule';
+import { reserveLinkedGemstones } from '@/services/production/gemstoneLifecycle';
 
 const DEFAULT_CONSIGNMENT_RATE = 0.20;
 
@@ -251,13 +252,14 @@ async function createPayoutEntries(invoice) {
 
 async function markProductsSold(invoice) {
   const dbInstance = await db.connect();
-  await Promise.all((invoice.lineItems || [])
+  const soldProducts = await Promise.all((invoice.lineItems || [])
     .filter((line) => line.type === 'product' && (line.productID || line.productObjectID))
-    .map((line) => {
+    .map(async (line) => {
       const query = line.productObjectID && ObjectId.isValid(line.productObjectID)
         ? { _id: new ObjectId(line.productObjectID) }
         : { productId: line.productID };
-      return dbInstance.collection('products').updateOne(query, {
+      const product = await dbInstance.collection('products').findOne(query);
+      await dbInstance.collection('products').updateOne(query, {
         $set: {
           status: 'sold',
           soldAt: invoice.paidAt || new Date(),
@@ -277,7 +279,9 @@ async function markProductsSold(invoice) {
           updatedAt: new Date(),
         },
       });
+      return product;
     }));
+  await reserveLinkedGemstones(soldProducts);
 }
 
 export async function listSalesInvoices(filter = {}) {
