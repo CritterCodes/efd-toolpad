@@ -161,7 +161,8 @@ export function useProductEditor(productId) {
                 throw new Error(err.error || 'Save failed');
             }
 
-            setSavedForm({ ...form });
+            setForm(prev => ({ ...prev, status: resolvedStatus }));
+            setSavedForm({ ...form, status: resolvedStatus });
             setSaving('');
         } catch (err) {
             setSaving('failed');
