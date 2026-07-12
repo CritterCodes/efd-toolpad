@@ -41,9 +41,8 @@ export default function ProductEditorPage() {
 
     const {
         form, loading, saving, saveError, isDirty,
-        images, imageUrls,
+        productImages, refreshImages,
         handleChange, handleSave,
-        handleImageAdd, handleImageRemove, handleImageReorder,
     } = useProductEditor(productId);
 
     useEffect(() => {
@@ -135,11 +134,9 @@ export default function ProductEditorPage() {
                         <Card sx={{ mb: 3, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' }}>
                             <CardContent>
                                 <ProductMediaPanel
-                                    imageUrls={imageUrls}
-                                    pendingImages={images}
-                                    onImageAdd={handleImageAdd}
-                                    onImageRemove={handleImageRemove}
-                                    onImageReorder={handleImageReorder}
+                                    productId={productId}
+                                    images={productImages}
+                                    onChanged={refreshImages}
                                 />
                             </CardContent>
                         </Card>
