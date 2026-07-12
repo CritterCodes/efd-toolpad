@@ -12,6 +12,7 @@ const EMPTY_FORM = {
     artisan: '', collections: [], vendor: '',
     onHandQty: '', location: '', continueSelling: false,
     weight: '', shippingClass: '',
+    related: [],
 };
 
 export function useProductEditor(productId) {
@@ -92,6 +93,7 @@ export function useProductEditor(productId) {
                     continueSelling: inventory.continueSelling || p.continueSelling || false,
                     weight: fulfillment.weight || p.weight || '',
                     shippingClass: fulfillment.shippingClass || p.shippingClass || '',
+                    related: p.related || [],
                     updatedAt: p.updatedAt || '',
                     createdAt: p.createdAt || '',
                 };

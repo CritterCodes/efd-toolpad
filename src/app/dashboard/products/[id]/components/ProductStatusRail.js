@@ -5,10 +5,12 @@ import {
     Accordion, AccordionSummary, AccordionDetails,
     FormControl, InputLabel, Select, MenuItem, Checkbox,
     ListItemText, OutlinedInput, TextField, Typography,
-    Chip, Box, Stack, FormControlLabel
+    Chip, Box, Stack, FormControlLabel, Autocomplete
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
+
+const RELATED_PATHS = { design: '/dashboard/designs', drop: '/dashboard/drops', repair: '/dashboard/repairs' };
 
 const CHANNELS = [
     { value: 'retail', label: 'Retail' },
@@ -116,7 +118,22 @@ export default function ProductStatusRail({ form, onChange }) {
                 </AccordionSummary>
                 <AccordionDetails sx={{ pt: 0 }}>
                     <TextField fullWidth label="Artisan" size="small" value={form.artisan} onChange={(e) => onChange('artisan', e.target.value)} sx={{ ...inputSx, mb: 2 }} />
-                    <TextField fullWidth label="Collections" size="small" placeholder="collection slugs, comma-separated" value={Array.isArray(form.collections) ? form.collections.join(', ') : form.collections} onChange={(e) => onChange('collections', e.target.value.split(',').map(s => s.trim()).filter(Boolean))} sx={{ ...inputSx, mb: 2 }} />
+                    <Autocomplete
+                        multiple
+                        freeSolo
+                        value={Array.isArray(form.collections) ? form.collections : []}
+                        onChange={(_, newValue) => onChange('collections', newValue)}
+                        options={[]}
+                        renderTags={(value, getTagProps) =>
+                            value.map((option, index) => (
+                                <Chip label={option} size="small" {...getTagProps({ index })} key={option} />
+                            ))
+                        }
+                        renderInput={(params) => (
+                            <TextField {...params} label="Collections" size="small" placeholder="Type and Enter" sx={inputSx} />
+                        )}
+                        sx={{ mb: 2 }}
+                    />
                     <TextField fullWidth label="Vendor" size="small" value={form.vendor} onChange={(e) => onChange('vendor', e.target.value)} sx={inputSx} />
                 </AccordionDetails>
             </Accordion>
@@ -142,6 +159,34 @@ export default function ProductStatusRail({ form, onChange }) {
                 <AccordionDetails sx={{ pt: 0 }}>
                     <TextField fullWidth label="Weight (oz)" size="small" type="number" value={form.weight} onChange={(e) => onChange('weight', e.target.value)} sx={{ ...inputSx, mb: 2 }} />
                     <TextField fullWidth label="Shipping class" size="small" value={form.shippingClass} onChange={(e) => onChange('shippingClass', e.target.value)} sx={inputSx} />
+                </AccordionDetails>
+            </Accordion>
+
+            <Accordion sx={accordionSx} disableGutters>
+                <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: REPAIRS_UI.textSecondary }} />}>
+                    <Typography sx={{ color: REPAIRS_UI.textHeader, fontSize: '0.9rem', fontWeight: 600 }}>Related</Typography>
+                </AccordionSummary>
+                <AccordionDetails sx={{ pt: 0 }}>
+                    {Array.isArray(form.related) && form.related.length > 0 ? (
+                        <Stack direction="row" flexWrap="wrap" gap={0.75}>
+                            {form.related.map((item, i) => (
+                                <Chip
+                                    key={i}
+                                    label={item.label || `${item.type} ${item.id}`}
+                                    size="small"
+                                    component="a"
+                                    href={`${RELATED_PATHS[item.type] || '/dashboard'}/${item.id}`}
+                                    clickable
+                                    variant="outlined"
+                                    sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
+                                />
+                            ))}
+                        </Stack>
+                    ) : (
+                        <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: '0.8rem' }}>
+                            No linked designs, drops, or repairs.
+                        </Typography>
+                    )}
                 </AccordionDetails>
             </Accordion>
 
