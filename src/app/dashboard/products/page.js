@@ -12,7 +12,6 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import DiamondIcon from '@mui/icons-material/Diamond';
 import SearchIcon from '@mui/icons-material/Search';
-import InboxIcon from '@mui/icons-material/Inbox';
 import GridViewIcon from '@mui/icons-material/GridView';
 import TableRowsIcon from '@mui/icons-material/TableRows';
 import EditIcon from '@mui/icons-material/Edit';
@@ -452,12 +451,7 @@ function CatalogInner() {
         )
       ) : filtered.length === 0 ? (
         <Paper sx={{ p: 6, textAlign: 'center', backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px dashed ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' }}>
-          <DiamondIcon sx={{ fontSize: 48, color: 'transparent', mb: 1, stroke: REPAIRS_UI.accent, filter: `drop-shadow(0 0 4px ${REPAIRS_UI.accent}44)`, WebkitTextStroke: `1px ${REPAIRS_UI.accent}` }} />
-          <DiamondIcon sx={{ fontSize: 48, color: `${REPAIRS_UI.accent}22`, mb: 1, position: 'relative', mt: -8 }} />
-          <Box sx={{ mt: -6, mb: 1 }}>
-            <DiamondIcon sx={{ fontSize: 48, color: 'transparent', filter: `drop-shadow(0 0 6px ${REPAIRS_UI.accent}55)`, WebkitTextStrokeWidth: '1px', WebkitTextStrokeColor: REPAIRS_UI.accent }} />
-          </Box>
-          <InboxIcon sx={{ fontSize: 48, color: REPAIRS_UI.textMuted, mb: 1 }} />
+          <DiamondIcon sx={{ fontSize: 56, color: 'transparent', mb: 2, stroke: REPAIRS_UI.accent, strokeWidth: 1, filter: `drop-shadow(0 0 6px ${REPAIRS_UI.accent}55)` }} />
           <Typography sx={{ color: REPAIRS_UI.textSecondary }}>
             {products.length === 0 ? 'No products yet. Add one to start your catalog.' : 'No products match your filters.'}
           </Typography>
