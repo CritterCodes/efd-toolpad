@@ -25,13 +25,18 @@ function positiveAmount(amount) {
 }
 
 async function upsertCastingExpense(piece, { amount, vendor, invoiceNumber, purchaseOrder, createdBy }) {
+  // Custom receipts reuse addCastingCost(), whose ledger key is the custom order.
+  // Use that same key here so ordering and receiving update one expense instead
+  // of charging the Carrera casting twice.
+  const sourceReferenceType = piece.customOrderID ? 'custom_order' : 'casting_piece';
+  const sourceReferenceID = piece.customOrderID || piece.pieceID;
   const fields = {
     expenseDate: new Date(), vendor, category: 'Materials / Parts', amount,
     invoiceNumber, paymentMethod: 'other', status: 'paid', isDeductible: true,
     notes: `Casting for piece ${piece.pieceID}${purchaseOrder ? ` · PO ${purchaseOrder}` : ''}`,
-    sourceReferenceType: 'casting_piece', sourceReferenceID: piece.pieceID, createdBy,
+    sourceReferenceType, sourceReferenceID, createdBy,
   };
-  const existing = await BusinessExpensesModel.findBySourceReference('casting_piece', piece.pieceID);
+  const existing = await BusinessExpensesModel.findBySourceReference(sourceReferenceType, sourceReferenceID);
   return existing?.expenseID
     ? BusinessExpensesModel.updateByExpenseID(existing.expenseID, fields)
     : BusinessExpensesModel.create(fields);
