@@ -1,5 +1,9 @@
-import { describe, expect, it } from 'vitest';
-import { planQuoteLaborHours, applyQuoteHoursToWorkOrders, reconcileQuoteToWorkOrders, customPieceInput } from '@/services/customs/customProduction';
+import { describe, expect, it, vi } from 'vitest';
+import CustomOrdersModel from '@/app/api/custom-orders/model';
+import DesignsModel from '@/app/api/designs/model';
+import PiecesModel from '@/app/api/pieces/model';
+import { buildProductFromPiece } from '@/services/products/productContract';
+import { planQuoteLaborHours, applyQuoteHoursToWorkOrders, reconcileQuoteToWorkOrders, customPieceInput, ensureCustomPiece } from '@/services/customs/customProduction';
 
 describe('custom piece spawn gemstone thread', () => {
   it('copies the linked Design gemstoneId into the spawned Piece', () => {
@@ -16,6 +20,29 @@ describe('custom piece spawn gemstone thread', () => {
 
   it('preserves legacy behavior for an unlinked Design', () => {
     expect(customPieceInput({}, { designID: 'design-2' }, 'custom-2').gemstoneId).toBeNull();
+  });
+
+  it('threads a linked gemstone through the real custom spawn into the product contract', async () => {
+    const order = { customID: 'custom-1', clientID: 'client-1', designIDs: ['design-1'], pieceIDs: [] };
+    const design = { designID: 'design-1', gemstoneId: 'gem-1' };
+    const findOrder = vi.spyOn(CustomOrdersModel, 'findById').mockResolvedValue(order);
+    const findDesign = vi.spyOn(DesignsModel, 'findById').mockResolvedValue(design);
+    const createPiece = vi.spyOn(PiecesModel, 'create').mockResolvedValue({ pieceID: 'piece-1' });
+    const linkProduction = vi.spyOn(CustomOrdersModel, 'linkProduction').mockResolvedValue({ ...order, pieceIDs: ['piece-1'] });
+
+    try {
+      await ensureCustomPiece('custom-1');
+      const spawnedPiece = { ...createPiece.mock.calls[0][0], pieceID: 'piece-1', totalCOGS: 0 };
+      const product = buildProductFromPiece({ piece: spawnedPiece, design });
+
+      expect(findOrder).toHaveBeenCalledWith('custom-1');
+      expect(findDesign).toHaveBeenCalledWith('design-1');
+      expect(createPiece).toHaveBeenCalledWith(expect.objectContaining({ designID: 'design-1', gemstoneId: 'gem-1' }));
+      expect(linkProduction).toHaveBeenCalledWith('custom-1', { designID: 'design-1', pieceID: 'piece-1' });
+      expect(product.references.gemstoneId).toBe('gem-1');
+    } finally {
+      vi.restoreAllMocks();
+    }
   });
 });
 
