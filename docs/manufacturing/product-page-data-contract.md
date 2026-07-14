@@ -5,6 +5,9 @@
 > between). Therefore this contract *is* the Product schema: the admin product editor (S5) must write
 > documents in exactly this shape. Field names and casing are normative (e.g. `productId`, not
 > `productID`).
+>
+> **Production revision 2026-07-14:** jewelry Products project one Design and its Variants/offers.
+> `concept` is removed. See [catalog-domain.md](./catalog-domain.md).
 
 ---
 
@@ -32,8 +35,7 @@ exposed. The URL handle is `productId` (or Mongo `_id`): `/products/<productId>`
   },
   "price": 1850,                            // optional fallback if pricing.retailPrice absent
 
-  "availability": "ready-to-ship",          // "ready-to-ship" | "made-to-order"
-                                            // (legacy "listingType" with same values)
+  "availability": "ready-to-ship",          // optional derived summary for legacy shop surfaces
 
   "jewelry": {                              // all optional (Details panel)
     "type": "ring",
@@ -44,9 +46,28 @@ exposed. The URL handle is `productId` (or Mongo `_id`): `/products/<productId>`
     "production": { "estimatedLeadTimeDays": 21 }
   },
 
-  "productType": "jewelry",                 // "gemstone" | "concept" | "jewelry" (§2.1; absent → jewelry)
-  "runSize": { "type": "limited", "size": 10, "remaining": 3 },  // edition control (§2.1)
-  "references": { "gemstoneId": "efd-sapphire-loose-014" },      // optional gemstone link (§2.1)
+  "productType": "jewelry",                 // "gemstone" | "jewelry"; absent -> jewelry
+  "designId": "design-amethyst-ring",
+  "defaultVariantId": "amethyst-18k-yellow-7",
+  "edition": { "type": "limited", "limit": 10, "allocated": 7, "remaining": 3 },
+  "variants": [
+    {
+      "variantId": "amethyst-18k-yellow-7",
+      "sku": "AM-RING-18Y-7",
+      "label": "18k Yellow Gold / Size 7",
+      "active": true,
+      "options": { "metal": "gold", "karat": "18k", "finish": "yellow" },
+      "ringSize": "7",
+      "sizingAllowance": { "min": "6", "max": "8" },
+      "pricing": { "retailPrice": 1850 },
+      "offers": {
+        "readyToShip": { "quantity": 1, "pieceIDs": ["piece-amethyst-007"] },
+        "madeToOrder": { "enabled": true, "leadTimeDays": 21, "customizerEnabled": true }
+      },
+      "viewer": { /* base GLB/meshMap; customizable blocks constrain Refrakt choices */ }
+    }
+  ],
+  "references": { "gemstoneId": "efd-sapphire-loose-014" },
 
   "images": [ "https://efd-repair-images.s3.us-east-2.amazonaws.com/products/efd-001/a.jpg" ],
 
@@ -54,20 +75,32 @@ exposed. The URL handle is `productId` (or Mongo `_id`): `/products/<productId>`
 }
 ```
 
-## 2.1 productType, editions (`runSize`), gemstone link — Production Pipeline (decision 0004, accepted)
+## 2.1 Design, Variants, offers, edition, and gemstone link
 
-All three fields are **additive**; existing products omit them and behave exactly as today.
+- **`productType`** — `"gemstone" | "jewelry"`; never `"concept"`. A jewelry Design with no available
+  Piece is represented by a made-to-order offer.
+- **`designId`** — required for Design-backed jewelry Products.
+- **`defaultVariantId`** — required when a jewelry Product has multiple active Variants; drives initial
+  selection and all top-level compatibility summaries.
+- **`variants[]`** — concrete active base SKUs/configurations. Every sellable Design has at least one.
+- **Ring size** — one nominal `ringSize` per Variant. `sizingAllowance.min/max` describes safe resizing;
+  an outside request is a special order requiring a new Piece/production review. Omit for non-rings.
+- **`offers.readyToShip`** — derived only from matching Pieces whose status is `available`. Other Piece
+  states never count.
+- **`offers.madeToOrder`** — enabled while Design-wide edition capacity remains and production gates pass.
+  Refrakt/customizer selections always use this path.
+- **`edition`** — `{ type: "one_of_one" | "limited" | "unlimited", limit?, allocated, remaining? }`,
+  projected from Design and shared across every Variant/custom configuration. Allocation occurs atomically
+  when physical production begins.
+- **`references.gemstoneId`** — optional originating gemstone Product cross-link.
 
-- **`productType`** — `"gemstone" | "concept" | "jewelry"`. Existing field; **`concept` is new** (a design
-  listed with no finished piece — made-to-order, live-metal priced). Does **not** affect visibility (§1);
-  may drive type-specific display.
-- **`runSize`** — `{ type: "one_of_one" | "limited" | "unlimited", size?, remaining? }`. `size` = edition
-  cap (required for `limited`). `remaining` is **admin-computed** (`size − produced`), present for `limited`
-  only. **Render edition language, not stock:** `"One of one"` / `"Edition of N"` / `"Made to order"`; show
-  `"N remaining"` **only** when `remaining` is present. Never imply a finished-goods inventory — the system
-  keeps none (availability derives from piece status). Absent `runSize` → treat as `unlimited`.
-- **`references.gemstoneId`** — the originating gemstone's `productId` (optional). Enables a "cut from this
-  stone" cross-link. Non-stone products omit it.
+The same Variant/Product page may expose an exact ready-to-ship Piece and a separate customize/
+made-to-order path. A Refrakt selection is stored as an immutable order/Piece snapshot and does not
+automatically become another permanent Variant.
+
+Top-level `price`, `availability`, `jewelry.ringSize`, and `viewer` are derived compatibility summaries
+for existing storefront surfaces. For Design-backed jewelry, the primary/default Variant is their source;
+admin editors must not persist conflicting values in those fields.
 
 ## 3. The three media cases (unified `ProductMedia` stage)
 
@@ -151,40 +184,59 @@ it the viewer fails silently (blank).
 - [ ] `productId` present, URL-safe, unique
 - [ ] `title` present
 - [ ] `pricing.retailPrice` (or `price`) is a number
-- [ ] `availability` is `ready-to-ship` or `made-to-order`
+- [ ] jewelry Product has `designId` and at least one active Variant
+- [ ] `defaultVariantId` resolves to an active Variant (required when more than one is active)
+- [ ] each Variant has stable `variantId`, SKU, options, and numeric retail price
+- [ ] ring Variant has one nominal size; sizing allowance (if any) has ordered min/max
+- [ ] ready-to-ship Piece IDs resolve to matching `status: available` Pieces
+- [ ] made-to-order is disabled when edition capacity is exhausted
 - [ ] if `viewer` present: `glbUrl` reachable **and** `meshMap` non-empty
 - [ ] every `meshMap` slot has a valid `finish`/`gemPreset` (§5)
 - [ ] every gem mesh in the GLB covered by a `gem` slot (warn otherwise)
 - [ ] `images[]` reachable
 - [ ] at least one of `viewer` / `images` present
-- [ ] `productType` is `gemstone` \| `concept` \| `jewelry` (absent → `jewelry`)
-- [ ] if `runSize.type` is `limited`, `size` is a positive integer; `remaining` (if present) is `0…size`
+- [ ] `productType` is `gemstone` \| `jewelry` (absent → `jewelry`)
+- [ ] limited edition has positive `limit`; `allocated`/`remaining` agree with Design-wide accounting
 
 ## 9. Examples
 
 **Photos only:**
 ```jsonc
 { "productId": "efd-pendant-007", "status": "published", "title": "Garnet Pendant",
-  "pricing": { "retailPrice": 640 }, "availability": "ready-to-ship",
+  "productType": "jewelry", "designId": "design-pendant-007",
+  "edition": { "type": "one_of_one", "allocated": 1, "remaining": 0 },
+  "variants": [{ "variantId": "pendant-14y", "sku": "PEND-007-14Y", "active": true,
+    "options": { "metal": "gold", "karat": "14k", "finish": "yellow" },
+    "pricing": { "retailPrice": 640 },
+    "offers": { "readyToShip": { "quantity": 1, "pieceIDs": ["piece-pendant-007"] } } }],
   "images": ["https://…/p1.jpg", "https://…/p2.jpg"] }
 ```
 **3D only:**
 ```jsonc
 { "productId": "efd-solitaire-002", "status": "published", "title": "Diamond Solitaire",
-  "pricing": { "retailPrice": 4200 }, "availability": "made-to-order",
-  "viewer": { "glbUrl": "https://…/efd_final_ring.glb",
-    "meshMap": [ { "nameContains": "Mesh_0", "type": "metal", "finish": "whiteGold" },
-                 { "nameContains": "Gem_CenterStone", "type": "gem", "gemPreset": "diamond" } ] } }
+  "productType": "jewelry", "designId": "design-solitaire-002",
+  "edition": { "type": "unlimited", "allocated": 0 },
+  "variants": [{ "variantId": "solitaire-14w-7", "sku": "SOL-002-14W-7", "active": true,
+    "options": { "metal": "gold", "karat": "14k", "finish": "white" }, "ringSize": "7",
+    "sizingAllowance": { "min": "5", "max": "9" }, "pricing": { "retailPrice": 4200 },
+    "offers": { "madeToOrder": { "enabled": true, "leadTimeDays": 28, "customizerEnabled": true } },
+    "viewer": { "glbUrl": "https://…/efd_final_ring.glb",
+      "meshMap": [ { "nameContains": "Mesh_0", "type": "metal", "finish": "whiteGold" },
+                   { "nameContains": "Gem_CenterStone", "type": "gem", "gemPreset": "diamond" } ] } }] }
 ```
 **Both (typical):**
 ```jsonc
 { "productId": "efd-amethyst-ring-001", "status": "published", "title": "Amethyst Solitaire",
-  "vendor": "Engel Fine Design", "pricing": { "retailPrice": 1850, "compareAtPrice": 2100 },
-  "availability": "ready-to-ship",
-  "jewelry": { "type": "ring", "metals": [{ "type":"gold","purity":"18k","color":"yellow" }], "ringSize": "7" },
+  "vendor": "Engel Fine Design", "productType": "jewelry", "designId": "design-amethyst-ring",
+  "edition": { "type": "limited", "limit": 10, "allocated": 1, "remaining": 9 },
   "images": ["https://…/a.jpg", "https://…/b.jpg"],
-  "viewer": { "glbUrl": "https://…/efd_ring.glb", "environment": "city", "orientation": [0.8058, 0, 0],
-    "meshMap": [ { "nameContains": "Ring_Mounting", "type": "metal", "finish": "gold" },
-                 { "nameContains": "Gem_Amethyst", "type": "gem", "gemPreset": "amethyst" },
-                 { "nameContains": "Diamond", "type": "gem", "gemPreset": "diamond" } ] } }
+  "variants": [{ "variantId": "amethyst-18y-7", "sku": "AM-001-18Y-7", "active": true,
+    "options": { "metal": "gold", "karat": "18k", "finish": "yellow" }, "ringSize": "7",
+    "sizingAllowance": { "min": "6", "max": "8" }, "pricing": { "retailPrice": 1850 },
+    "offers": { "readyToShip": { "quantity": 1, "pieceIDs": ["piece-amethyst-001"] },
+                "madeToOrder": { "enabled": true, "leadTimeDays": 21, "customizerEnabled": true } },
+    "viewer": { "glbUrl": "https://…/efd_ring.glb", "environment": "city",
+      "meshMap": [ { "nameContains": "Ring_Mounting", "type": "metal", "finish": "gold" },
+                   { "nameContains": "Gem_Amethyst", "type": "gem", "gemPreset": "amethyst" },
+                   { "nameContains": "Diamond", "type": "gem", "gemPreset": "diamond" } ] } }] }
 ```

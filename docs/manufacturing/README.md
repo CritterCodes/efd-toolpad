@@ -9,6 +9,14 @@ design; code is built sprint-by-sprint (see [sprints.md](./sprints.md)).
 > the same PR**. If a structure isn't in that file, it doesn't exist. Don't invent new shapes
 > mid-sprint — change the doc first, then the code.
 
+> **Catalog-domain rule:** [catalog-domain.md](./catalog-domain.md) is authoritative for Drops,
+> Collections, Designs, Variants, Pieces, Products, availability, edition limits, CAD requests, and
+> admin information architecture. The older Collection-equals-Drop and `concept` terminology is
+> superseded.
+>
+> Current implementation planning: [production-revision-plan.md](./production-revision-plan.md).
+> Smart Collection schema: [smart-collection-data-contract.md](./smart-collection-data-contract.md).
+
 ---
 
 ## The thesis
@@ -42,12 +50,13 @@ relationship and how (or whether) that work is billed.
 
 | Layer | Question it answers | Owns | Customer-facing | Cost concept |
 |---|---|---|---|---|
-| **Design** | *How do we make it?* (CAD, BOM, routing) | the spec / IP | no | **estimated** cost |
+| **Design** | *What may we make and sell?* (variants, CAD, BOM, routing, edition) | the reusable spec / IP | indirectly through Product | **estimated** cost |
 | **Piece** | *Does this physical object exist? what did it cost? where is it?* | the unit + COGS + availability | indirectly (it's what ships) | **actual** COGS |
 | **Product** | *What's for sale, at what price?* | the listing + price | yes | **price** |
 
-- Design **1→N** Pieces. Product **1→N** Pieces. Both links **optional** (custom pieces never
-  list; digital/gemstone products have no piece).
+- Design **1→N** Variants and **1→N** Pieces. A Variant is one concrete base configuration/SKU;
+  every Piece records the Variant and exact resolved configuration that was made. Product **1→N**
+  Pieces. Links remain optional for custom-only Pieces and loose-gemstone Products.
 - **COGS lives on the Piece. Price lives on the Product.**
 - **No finished-goods inventory system.** "In stock" is *derived* from Piece status. The old
   `inventory*` collection **data** is junk and gets dropped in S0. **Materials-inventory** (stock
@@ -74,6 +83,13 @@ relationship and how (or whether) that work is billed.
   work fully hidden. Owner unrestricted; admins assign across lanes.
 - **D10** — **CAD & custom design work are work orders too** (CAD Designer lane). Multi-stage
   routing distributes a piece's work orders across the right disciplines/benches.
+- **D11** — **Drop and Collection are separate.** A Drop owns Designs and coordinates a release;
+  a Collection is a smart merchandising view over Products.
+- **D12** — **No `concept` type.** A Design without an available Piece is sold as made to order.
+- **D13** — **Edition limits live on Design** and span all Variants/custom configurations. Capacity
+  is consumed atomically when physical production begins.
+- **D14** — **Availability is offer-specific.** Ready to ship requires a matching `available` Piece;
+  Refrakt-configured purchases are made to order.
 
 ## Continuity constraints (no regressions)
 
@@ -94,8 +110,10 @@ relationship and how (or whether) that work is billed.
 
 - **Work Order (WO)** — source-agnostic unit of bench work; generates labor logs; has a `discipline`.
 - **Discipline** — skill lane of a WO (`bench_jewelry | cad | engraving | gem_cutting`), matched to `artisanTypes`.
-- **Drop** — a production release/collection grouping designs.
-- **Design** — reusable manufacturing spec + IP (CAD, BOM, routing, estimated cost).
+- **Drop** — a production/release workspace that owns Designs and publishes eligible listings together.
+- **Collection** — a smart/manual merchandising view over Products; not a production container.
+- **Design** — reusable jewelry spec + IP with edition policy, Variants, optional CAD, BOM, and routing.
+- **Variant** — one concrete base configuration/SKU of a Design; ring size is a Variant property.
 - **Piece** — one physical instance; carries actual COGS and availability status.
 - **Billing mode** — how a source is charged: `retail | wholesale | internal | comped`.
 - **Fee pillars** — Storefront / Custody / Fulfillment; compose into consignment↔marketplace fees.
