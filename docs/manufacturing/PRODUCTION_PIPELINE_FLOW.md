@@ -115,11 +115,12 @@ Variant pricing/offers (§6).
    - **No** → sell the concrete Variant as designed.
 4. **Compute offers per Variant/configuration:**
    - A matching `Piece.status: available` creates a **ready-to-ship** offer for that exact configuration.
-   - While Design-wide edition capacity remains, the Variant may also expose **made-to-order**.
+   - While uncommitted Design-wide edition capacity remains, the Variant may also expose **made-to-order**.
    - The same Product page may offer both an exact ready-to-ship Piece and customize/made-to-order.
-5. **Made-to-order purchase** creates a `planned` Piece, copies the Variant and resolved configuration,
-   and threads `gemstoneId`. The guarded transition into physical production atomically allocates the
-   Design-wide edition slot/number and routes the Piece to its production or casting path.
+5. **Paid made-to-order purchase** atomically claims committed capacity, creates a `planned` Piece,
+   copies the Variant and resolved configuration, and threads `gemstoneId`. The guarded transition into
+   physical production converts the commitment into the Design-wide allocation/edition number and routes
+   the Piece to its production or casting path. Cancellation/refund before production releases capacity.
 
 ---
 

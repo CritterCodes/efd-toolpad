@@ -75,12 +75,13 @@ created as a small dependency graph rather than dozens of independent branches.
   inherited defects, commit/deployment/build evidence.
 - BARF dashboard renders the brief and blocks review-ready/merge while it is missing.
 
-## Remaining Policy Decisions
+## Resolved Policy Details
 
-1. Define how a paid MTO commitment holds limited-edition capacity before physical production starts,
-   without counting that hold as an allocated/made Piece.
-2. Decide whether Design collaborator assignments are attribution only or can also carry revenue splits;
-   if splits are supported, define whether they live on the Design or a separate agreement.
+1. Paid MTO checkout atomically claims `committed` limited-edition capacity. Production start converts
+   it to `allocated`; cancellation/refund before start releases it. Remaining sellable capacity subtracts
+   both counters, preventing overselling without counting unstarted Pieces as made.
+2. Design collaborator assignments own roles and visible credit. Revenue splits use a separate,
+   versioned collaboration agreement with independent approval/audit history.
 
 ## Dependency Order
 

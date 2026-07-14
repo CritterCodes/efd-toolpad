@@ -49,7 +49,7 @@ exposed. The URL handle is `productId` (or Mongo `_id`): `/products/<productId>`
   "productType": "jewelry",                 // "gemstone" | "jewelry"; absent -> jewelry
   "designId": "design-amethyst-ring",
   "defaultVariantId": "amethyst-18k-yellow-7",
-  "edition": { "type": "limited", "limit": 10, "allocated": 7, "remaining": 3 },
+  "edition": { "type": "limited", "limit": 10, "allocated": 7, "committed": 1, "remaining": 2 },
   "variants": [
     {
       "variantId": "amethyst-18k-yellow-7",
@@ -87,11 +87,13 @@ exposed. The URL handle is `productId` (or Mongo `_id`): `/products/<productId>`
   an outside request is a special order requiring a new Piece/production review. Omit for non-rings.
 - **`offers.readyToShip`** — derived only from matching Pieces whose status is `available`. Other Piece
   states never count.
-- **`offers.madeToOrder`** — enabled while Design-wide edition capacity remains and production gates pass.
+- **`offers.madeToOrder`** — enabled while uncommitted Design-wide edition capacity remains and
+  production gates pass.
   Refrakt/customizer selections always use this path.
-- **`edition`** — `{ type: "one_of_one" | "limited" | "unlimited", limit?, allocated, remaining? }`,
-  projected from Design and shared across every Variant/custom configuration. Allocation occurs atomically
-  when physical production begins.
+- **`edition`** — `{ type: "one_of_one" | "limited" | "unlimited", limit?, allocated, committed,
+  remaining? }`, projected from Design and shared across every Variant/custom configuration. Paid MTO
+  checkout claims `committed` capacity atomically; `remaining = limit - allocated - committed` prevents
+  overselling. Production start converts the commitment to `allocated` and assigns the edition number.
 - **`references.gemstoneId`** — optional originating gemstone Product cross-link.
 
 The same Variant/Product page may expose an exact ready-to-ship Piece and a separate customize/
@@ -196,7 +198,7 @@ it the viewer fails silently (blank).
 - [ ] `images[]` reachable
 - [ ] at least one of `viewer` / `images` present
 - [ ] `productType` is `gemstone` \| `jewelry` (absent → `jewelry`)
-- [ ] limited edition has positive `limit`; `allocated`/`remaining` agree with Design-wide accounting
+- [ ] limited edition has positive `limit`; `allocated`/`committed`/`remaining` agree with Design-wide accounting
 
 ## 9. Examples
 
@@ -204,7 +206,7 @@ it the viewer fails silently (blank).
 ```jsonc
 { "productId": "efd-pendant-007", "status": "published", "title": "Garnet Pendant",
   "productType": "jewelry", "designId": "design-pendant-007",
-  "edition": { "type": "one_of_one", "allocated": 1, "remaining": 0 },
+  "edition": { "type": "one_of_one", "allocated": 1, "committed": 0, "remaining": 0 },
   "variants": [{ "variantId": "pendant-14y", "sku": "PEND-007-14Y", "active": true,
     "options": { "metal": "gold", "karat": "14k", "finish": "yellow" },
     "pricing": { "retailPrice": 640 },
@@ -215,7 +217,7 @@ it the viewer fails silently (blank).
 ```jsonc
 { "productId": "efd-solitaire-002", "status": "published", "title": "Diamond Solitaire",
   "productType": "jewelry", "designId": "design-solitaire-002",
-  "edition": { "type": "unlimited", "allocated": 0 },
+  "edition": { "type": "unlimited", "allocated": 0, "committed": 0 },
   "variants": [{ "variantId": "solitaire-14w-7", "sku": "SOL-002-14W-7", "active": true,
     "options": { "metal": "gold", "karat": "14k", "finish": "white" }, "ringSize": "7",
     "sizingAllowance": { "min": "5", "max": "9" }, "pricing": { "retailPrice": 4200 },
@@ -228,7 +230,7 @@ it the viewer fails silently (blank).
 ```jsonc
 { "productId": "efd-amethyst-ring-001", "status": "published", "title": "Amethyst Solitaire",
   "vendor": "Engel Fine Design", "productType": "jewelry", "designId": "design-amethyst-ring",
-  "edition": { "type": "limited", "limit": 10, "allocated": 1, "remaining": 9 },
+  "edition": { "type": "limited", "limit": 10, "allocated": 1, "committed": 0, "remaining": 9 },
   "images": ["https://…/a.jpg", "https://…/b.jpg"],
   "variants": [{ "variantId": "amethyst-18y-7", "sku": "AM-001-18Y-7", "active": true,
     "options": { "metal": "gold", "karat": "18k", "finish": "yellow" }, "ringSize": "7",

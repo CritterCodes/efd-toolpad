@@ -197,7 +197,7 @@ Design requires at least one embedded Variant. COGS remains on Piece.
 | `category` / `attributes` / `tags[]` / `metadata` | | controlled fields plus extensible tags/metadata |
 | `primaryArtisanId` | string | primary owner/seller attribution |
 | `collaborators[]` | array | `{ userId, roles[], credit?, addedAt }`; collaboration is encouraged |
-| `edition` | object | `{ type: one_of_one \| limited \| unlimited, limit?, allocated, nextNumber }`; Design-wide across Variants |
+| `edition` | object | `{ type: one_of_one \| limited \| unlimited, limit?, allocated, committed, nextNumber }`; Design-wide across Variants |
 | `productionMethod` | enum | `cad_cast \| handmade \| hybrid` |
 | `intake` | object | brief, target materials/stones/dimensions, budget, desired date, notes |
 | `cadRevisions[]` | array? | revisioned sketches/references/STL/GLB/renders/mesh map + author/QC history |
@@ -226,8 +226,11 @@ Design requires at least one embedded Variant. COGS remains on Piece.
 
 Refrakt selections are immutable order/Piece snapshots, not automatically persisted catalog Variants.
 
-**Edition allocation:** reserve the next Design-wide number atomically when physical production begins.
-Numbers are not consumed by drafts/plans and are never reused after physical work begins, including scrap.
+**Edition commitment/allocation:** paid MTO checkout atomically increments `committed` only when
+`allocated + committed < limit`. Production start converts one commitment to `allocated` and assigns the
+next Design-wide number in the same transaction. Cancellation/refund before start releases the commitment.
+Manual production uses the same cap check. Numbers are never reused after physical work begins, including
+scrap.
 
 **Indexes:** `{designID:1}` unique · `{dropId:1}` · `{primaryArtisanId:1}` · `{status:1}` ·
 `{variants.sku:1}` unique sparse.
@@ -302,7 +305,7 @@ and computed offers are authoritative.
 | `defaultVariantId` | string? | selected active Variant used for initial shop state and derived compatibility summaries |
 | `variants[]` | array | storefront projection of active Design Variants: identity/options/pricing/viewer/sizing and computed offers |
 | `variants[].offers` | object | `readyToShip{ pieceIDs[], quantity }?` plus `madeToOrder{ enabled, leadTimeDays, customizerEnabled }?` |
-| `edition` | object | Design-wide `{ type: one_of_one \| limited \| unlimited, limit?, allocated, remaining? }` across all Variants/configurations |
+| `edition` | object | Design-wide `{ type: one_of_one \| limited \| unlimited, limit?, allocated, committed, remaining? }` across all Variants/configurations; `remaining = limit - allocated - committed` |
 | `references.gemstoneId` | string? | originating gemstone's `productId`, threaded Design → Piece → Product (the flywheel). Optional; shop-read (enables "cut from this stone"). |
 
 The production collections retain their existing `designID`/`pieceID` identifiers. The storefront

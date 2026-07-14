@@ -168,13 +168,14 @@ Offer rules are computed per Variant/configuration:
 
 - `ready_to_ship` exists only when a matching Piece has `status: available`.
 - Planned, in-production, reserved, sold, scrapped, and returned Pieces never count as ready to ship.
-- `made_to_order` is available while the Design has edition capacity and its production requirements
-  pass.
+- `made_to_order` is available while the Design has uncommitted edition capacity and its production
+  requirements pass.
 - Every Refrakt-customized purchase is made to order and stores the resolved selection.
 - The same Product page may offer an exact ready-to-ship Piece and a separate customize/made-to-order
   path.
-- A made-to-order purchase creates a `planned` Piece with the selected configuration. It does not
-  consume an edition slot until that Piece begins physical production.
+- A paid made-to-order purchase atomically claims committed capacity and creates a `planned` Piece with
+  the selected configuration. It does not count as an allocated/made edition until physical production
+  begins.
 
 ## 8. Edition Accounting
 
@@ -189,10 +190,12 @@ created. Starting production and allocating the edition number must be atomic. O
 begun, the number is never reused, including when a Piece is later scrapped. Cancelling before
 production begins releases the unallocated plan without consuming a number.
 
-**Open policy:** limited editions need a separate commitment rule between paid MTO checkout and
-production start so accepted orders cannot exceed the cap while only started Pieces count as allocated.
-The implementation must not overload `edition.allocated` to solve this; define the commitment/hold
-lifecycle before enabling limited-edition MTO checkout.
+Limited editions track `committed` separately from `allocated`. Paid checkout succeeds only when an
+atomic update proves `allocated + committed < limit`; it then increments `committed`. Production start
+atomically converts that commitment into an allocation and edition number. Cancellation/refund before
+production decrements `committed`. Manual production without an order allocates only when the same cap
+check succeeds. Storefront remaining capacity is `limit - allocated - committed`, so the Product cannot
+oversell while only physically started Pieces count as made.
 
 ## 9. CAD Request Workflow
 
@@ -209,8 +212,8 @@ workflow plus CAD work orders on the shared bench.
 Reuse custom-order assignment, upload, QC, labor-credit, and notification behavior. The customer record
 and billing branch remain exclusive to custom orders.
 
-**Open policy:** collaborator roles and visible credit are required. Whether those assignments also
-carry revenue percentages or use a separate collaboration agreement remains undecided.
+Collaborator roles and visible credit live on the Design. Revenue percentages live in a separate,
+versioned collaboration agreement so financial terms have their own approval and audit history.
 
 ## 10. Production Methods
 
