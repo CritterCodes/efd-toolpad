@@ -3,6 +3,9 @@ import { requireRole } from '@/lib/apiAuth';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
 import { awardClientMgmtBonus } from '@/services/customs/customProduction';
 import { NotificationService } from '@/lib/notificationService';
+import DesignsModel from '@/app/api/designs/model';
+import PiecesModel from '@/app/api/pieces/model';
+import { setGemstonePieceStatus } from '@/services/production/gemstoneLifecycle';
 
 const PORTAL_URL = `${process.env.NEXT_PUBLIC_APP_URL || ''}/custom-work/portal`;
 
@@ -65,6 +68,14 @@ export const PUT = async (req, { params }) => {
     } catch (e) {
       console.error('Client-management bonus award failed:', e.message);
     }
+  }
+
+  if (updated.status === 'delivered' && existing?.status !== 'delivered') {
+    const piece = updated.pieceIDs?.[0] ? await PiecesModel.findById(updated.pieceIDs[0]) : null;
+    const design = !piece?.gemstoneId && updated.designIDs?.[0]
+      ? await DesignsModel.findById(updated.designIDs[0])
+      : null;
+    await setGemstonePieceStatus(piece?.gemstoneId ?? design?.gemstoneId ?? null, 'sold');
   }
 
   // X1 — quote published (false→true edge): tell the client their quote is ready to review.

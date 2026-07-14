@@ -21,6 +21,19 @@ const ADMIN_CUSTOM_LINK = (customID) => `${process.env.NEXT_PUBLIC_ADMIN_URL || 
 
 const DEFAULT_CLIENT_MGMT_BONUS_PCT = 0.05;
 
+export function customPieceInput(order, design, customID, opts = {}) {
+  return {
+    designID: design.designID,
+    gemstoneId: design.gemstoneId ?? null,
+    metalType: order.metalType ?? null,
+    karat: order.karat ?? null,
+    customerID: order.clientID ?? null,
+    customOrderID: customID,
+    billing: order.billing ?? { mode: 'retail' },
+    createdBy: opts.createdBy ?? null,
+  };
+}
+
 export async function addProductionToCustomOrder(customID, opts = {}) {
   const order = await CustomOrdersModel.findById(customID);
   if (!order) throw new Error('Custom order not found.');
@@ -62,22 +75,17 @@ export async function ensureCustomPiece(customID, opts = {}) {
   if (!order) throw new Error('Custom order not found.');
   if ((order.pieceIDs || []).length) return { pieceID: order.pieceIDs[0], order };
 
-  const design = await DesignsModel.create({
-    name: order.title || `Custom ${customID}`,
-    description: order.description ?? null,
-    status: DESIGN_STATUS.CAD,
-    routing: [],
-    createdBy: opts.createdBy ?? null,
-  });
-  const piece = await PiecesModel.create({
-    designID: design.designID,
-    metalType: order.metalType ?? null,
-    karat: order.karat ?? null,
-    customerID: order.clientID ?? null,
-    customOrderID: customID,
-    billing: order.billing ?? { mode: 'retail' },
-    createdBy: opts.createdBy ?? null,
-  });
+  let design = order.designIDs?.[0] ? await DesignsModel.findById(order.designIDs[0]) : null;
+  if (!design) {
+    design = await DesignsModel.create({
+      name: order.title || `Custom ${customID}`,
+      description: order.description ?? null,
+      status: DESIGN_STATUS.CAD,
+      routing: [],
+      createdBy: opts.createdBy ?? null,
+    });
+  }
+  const piece = await PiecesModel.create(customPieceInput(order, design, customID, opts));
   const updatedOrder = await CustomOrdersModel.linkProduction(customID, { designID: design.designID, pieceID: piece.pieceID });
   return { pieceID: piece.pieceID, order: updatedOrder };
 }
