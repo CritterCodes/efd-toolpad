@@ -9,6 +9,7 @@ export const DISCIPLINE = {
   CAD: 'cad',                     // CAD / design work
   ENGRAVING: 'engraving',         // hand engraving
   GEM_CUTTING: 'gem_cutting',     // lapidary
+  CASTING: 'casting',             // in-house lost-wax casting
 };
 
 export const ALL_DISCIPLINES = Object.values(DISCIPLINE);
@@ -19,6 +20,8 @@ const ARTISAN_TYPE_TO_DISCIPLINE = {
   'CAD Designer': DISCIPLINE.CAD,
   'Hand Engraver': DISCIPLINE.ENGRAVING,
   'Gem Cutter': DISCIPLINE.GEM_CUTTING,
+  'Caster': DISCIPLINE.CASTING,
+  'Lost Wax Casting': DISCIPLINE.CASTING,
 };
 
 /** Disciplines a user may self-claim, derived from their artisanTypes. */

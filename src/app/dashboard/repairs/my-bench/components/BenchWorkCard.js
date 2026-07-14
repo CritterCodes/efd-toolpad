@@ -8,6 +8,7 @@ import HandymanIcon from '@mui/icons-material/Handyman';
 import DesignServicesIcon from '@mui/icons-material/DesignServices';
 import DiamondIcon from '@mui/icons-material/AutoAwesome';
 import PartsIcon from '@mui/icons-material/Category';
+import FactoryIcon from '@mui/icons-material/Factory';
 import QCIcon from '@mui/icons-material/VerifiedUser';
 import UploadIcon from '@mui/icons-material/UploadFile';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -26,6 +27,7 @@ const LANE = {
   cad: { label: 'CAD', color: 'info', Icon: DesignServicesIcon },
   engraving: { label: 'Engraving', color: 'secondary', Icon: HandymanIcon },
   gem_cutting: { label: 'Gem Cutting', color: 'warning', Icon: DiamondIcon },
+  casting: { label: 'Casting', color: 'success', Icon: FactoryIcon },
 };
 
 const QUEUE_META = {

@@ -16,6 +16,24 @@ export const PIECE_STATUS = {
   RETURNED: 'returned',
 };
 
+export const CASTING_STATE = {
+  NEEDS_ORDERING: 'needs_ordering',
+  ORDERED: 'ordered',
+  RECEIVED: 'received',
+};
+
+const CASTING_RANK = Object.values(CASTING_STATE);
+
+export function assertCastingTransition(from, to) {
+  const fromRank = CASTING_RANK.indexOf(from);
+  const toRank = CASTING_RANK.indexOf(to);
+  if (fromRank < 0 || toRank !== fromRank + 1) {
+    const error = new Error(`Casting can only move forward one step (${CASTING_RANK.join(' → ')}).`);
+    error.code = 'BAD_REQUEST';
+    throw error;
+  }
+}
+
 /**
  * A physical instance produced from a Design. Carries actual COGS (materials at
  * cost + accrued labor from its work orders) and availability status.
@@ -58,6 +76,7 @@ export default class PiecesModel {
       productID: data.productID ?? null,
       customerID: data.customerID ?? null,
       customOrderID: data.customOrderID ?? null,   // present for custom-order pieces (S7)
+      casting: data.casting ?? (data.designID ? { state: CASTING_STATE.NEEDS_ORDERING } : null),
       billing: data.billing ?? null,
       createdAt: now,
       updatedAt: now,
@@ -87,6 +106,16 @@ export default class PiecesModel {
     const col = await this.collection();
     await col.updateOne({ pieceID }, { $set: { ...updateData, updatedAt: new Date() } });
     return this.findById(pieceID);
+  }
+
+  static async transitionCasting(pieceID, nextState, details = {}) {
+    const piece = await this.findById(pieceID);
+    if (!piece) return null;
+    const current = piece.casting?.state || CASTING_STATE.NEEDS_ORDERING;
+    assertCastingTransition(current, nextState);
+    return this.updateById(pieceID, {
+      casting: { ...(piece.casting || {}), ...details, state: nextState, updatedAt: new Date() },
+    });
   }
 
   static async setWorkOrders(pieceID, workOrderIDs) {
