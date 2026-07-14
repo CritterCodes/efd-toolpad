@@ -9,6 +9,7 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
+import { useSession } from 'next-auth/react';
 
 const RELATED_PATHS = { design: '/dashboard/designs', drop: '/dashboard/drops', repair: '/dashboard/repairs' };
 
@@ -44,6 +45,8 @@ const selectInputSx = {
 const labelSx = { color: REPAIRS_UI.textSecondary };
 
 export default function ProductStatusRail({ form, onChange }) {
+    const { data: session } = useSession();
+    const isAdmin = ['admin', 'superadmin', 'dev', 'staff'].includes(session?.user?.role);
     const selectedChannels = Array.isArray(form.channels) ? form.channels : [];
 
     const handleChannelChange = (e) => {
@@ -74,12 +77,13 @@ export default function ProductStatusRail({ form, onChange }) {
                     <Select
                         value={form.status}
                         label="Status"
+                        disabled={!isAdmin}
                         onChange={(e) => onChange('status', e.target.value)}
                         sx={selectInputSx}
                         MenuProps={repairsMenuProps}
                     >
                         <MenuItem value="draft">Draft</MenuItem>
-                        <MenuItem value="active">Active</MenuItem>
+                        <MenuItem value="published" disabled>Active (use Publish)</MenuItem>
                         <MenuItem value="archived">Archived</MenuItem>
                     </Select>
                 </FormControl>
@@ -117,7 +121,7 @@ export default function ProductStatusRail({ form, onChange }) {
                     <Typography sx={{ color: REPAIRS_UI.textHeader, fontSize: '0.9rem', fontWeight: 600 }}>Organization</Typography>
                 </AccordionSummary>
                 <AccordionDetails sx={{ pt: 0 }}>
-                    <TextField fullWidth label="Artisan" size="small" value={form.artisan} onChange={(e) => onChange('artisan', e.target.value)} sx={{ ...inputSx, mb: 2 }} />
+                    <TextField fullWidth disabled={!isAdmin} label="Artisan" size="small" value={form.artisan} onChange={(e) => onChange('artisan', e.target.value)} sx={{ ...inputSx, mb: 2 }} />
                     <Autocomplete
                         multiple
                         freeSolo

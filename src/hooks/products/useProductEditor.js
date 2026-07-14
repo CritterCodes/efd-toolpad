@@ -1,27 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useSession } from 'next-auth/react';
-
-const EMPTY_FORM = {
-    title: '', description: '', sku: '', productType: 'gemstone',
-    species: '', variety: '', cut: '', dimensions: '', carat: '', color: '', clarity: '', origin: '', treatment: '', certNumber: '', certFile: '',
-    jewelryCategory: '', size: '', metalType: '', karat: '', metalWeight: '', linkedGemstones: '', findings: '', hallmark: '',
-    costBasis: '', laborHours: '', laborRate: '', markupPct: '', salePrice: '', compareAtPrice: '',
-    handle: '', metaTitle: '', metaDescription: '', tags: '',
-    status: 'draft',
-    channels: [],
-    artisan: '', collections: [], vendor: '',
-    onHandQty: '', location: '', continueSelling: false,
-    weight: '', shippingClass: '',
-    related: [],
-};
+import { useRouter } from 'next/navigation';
+import { EMPTY_EDITOR_FORM, editorFormToPayload, productToEditorForm } from '@/services/products/productEditorPayload';
 
 export function useProductEditor(productId) {
-    const { data: session } = useSession();
+    const router = useRouter();
     const isNew = productId === 'new';
 
     const [product, setProduct] = useState(null);
-    const [form, setForm] = useState(EMPTY_FORM);
-    const [savedForm, setSavedForm] = useState(EMPTY_FORM);
+    const [form, setForm] = useState({ ...EMPTY_EDITOR_FORM });
+    const [savedForm, setSavedForm] = useState({ ...EMPTY_EDITOR_FORM });
     const [loading, setLoading] = useState(!isNew);
     const [saving, setSaving] = useState('');
     const [saveError, setSaveError] = useState('');
@@ -39,61 +26,7 @@ export function useProductEditor(productId) {
             const p = data.product || data;
             setProduct(p);
 
-            const gem = p.gemstone || {};
-            const jew = p.jewelry || {};
-            const pricing = p.pricing || {};
-            const seo = p.seo || {};
-            const inventory = p.inventory || {};
-            const fulfillment = p.fulfillment || {};
-
-            const mapped = {
-                title: p.title || '',
-                description: p.description || '',
-                sku: p.sku || '',
-                productType: p.productType || 'gemstone',
-                species: gem.species || p.species || '',
-                variety: gem.variety || p.variety || '',
-                cut: gem.cut || p.cut || '',
-                dimensions: gem.dimensions || p.dimensions || '',
-                carat: gem.carat || p.carat || '',
-                color: gem.color || p.color || '',
-                clarity: gem.clarity || p.clarity || '',
-                origin: gem.origin || p.origin || '',
-                treatment: gem.treatment || p.treatment || '',
-                certNumber: gem.certNumber || p.certNumber || '',
-                certFile: gem.certFile || p.certFile || '',
-                jewelryCategory: jew.jewelryCategory || p.jewelryCategory || '',
-                size: jew.size || p.size || '',
-                metalType: jew.metalType || p.metalType || '',
-                karat: jew.karat || p.karat || '',
-                metalWeight: jew.metalWeight || p.metalWeight || '',
-                linkedGemstones: jew.linkedGemstones || p.linkedGemstones || '',
-                findings: jew.findings || p.findings || '',
-                hallmark: jew.hallmark || p.hallmark || '',
-                costBasis: pricing.costBasis || p.costBasis || '',
-                laborHours: pricing.laborHours || p.laborHours || '',
-                laborRate: pricing.laborRate || p.laborRate || '',
-                markupPct: pricing.markupPct || p.markupPct || '',
-                salePrice: pricing.salePrice || p.salePrice || p.price || '',
-                compareAtPrice: pricing.compareAtPrice || p.compareAtPrice || '',
-                handle: seo.handle || p.handle || '',
-                metaTitle: seo.metaTitle || p.metaTitle || '',
-                metaDescription: seo.metaDescription || p.metaDescription || '',
-                tags: Array.isArray(p.tags) ? p.tags.join(', ') : (p.tags || ''),
-                status: p.status || 'draft',
-                channels: p.channels || [],
-                artisan: p.artisan || p.userId || '',
-                collections: p.collections || [],
-                vendor: p.vendor || '',
-                onHandQty: inventory.onHandQty !== undefined ? inventory.onHandQty : (p.onHandQty || ''),
-                location: inventory.location || p.location || '',
-                continueSelling: inventory.continueSelling || p.continueSelling || false,
-                weight: fulfillment.weight || p.weight || '',
-                shippingClass: fulfillment.shippingClass || p.shippingClass || '',
-                related: p.related || [],
-                updatedAt: p.updatedAt || '',
-                createdAt: p.createdAt || '',
-            };
+            const mapped = productToEditorForm(p);
 
             setForm(mapped);
             setSavedForm(mapped);
@@ -122,20 +55,20 @@ export function useProductEditor(productId) {
         setForm(prev => ({ ...prev, [field]: value }));
     }, []);
 
-    const handleSave = useCallback(async (targetStatus) => {
-        setSaving(targetStatus);
+    const clearSaveError = useCallback(() => setSaveError(''), []);
+
+    const handleSave = useCallback(async (action) => {
+        setSaving(action);
         setSaveError('');
 
         try {
-            const resolvedStatus =
-                targetStatus === 'publish' ? 'active'
-                : targetStatus === 'archived' ? 'archived'
-                : form.status;
-
-            const payload = {
+            if (!['gemstone', 'jewelry'].includes(form.productType)) {
+                throw new Error('Choose Gemstone or Jewelry before saving this product.');
+            }
+            const payload = editorFormToPayload({
                 ...form,
-                status: resolvedStatus,
-            };
+                status: action === 'archived' ? 'archived' : (isNew ? 'draft' : form.status),
+            });
 
             const url = isNew ? '/api/products' : `/api/products/${productId}`;
             const method = isNew ? 'POST' : 'PUT';
@@ -151,18 +84,39 @@ export function useProductEditor(productId) {
                 throw new Error(err.error || 'Save failed');
             }
 
-            setForm(prev => ({ ...prev, status: resolvedStatus }));
-            setSavedForm({ ...form, status: resolvedStatus });
-            setSaving('');
+            const saved = await res.json();
+            const savedId = String(saved?._id || saved?.product?._id || productId || '');
+            let resolvedStatus = payload.status;
+
+            if (action === 'publish') {
+                const publish = await fetch(`/api/products/${savedId}/publish`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: '{}',
+                });
+                if (!publish.ok) {
+                    const error = await publish.json().catch(() => ({}));
+                    const details = Array.isArray(error.details) ? `: ${error.details.join(', ')}` : '';
+                    throw new Error(`${error.error || 'Product saved, but publish failed'}${details}`);
+                }
+                resolvedStatus = 'published';
+            }
+
+            const nextForm = { ...form, status: resolvedStatus };
+            setForm(nextForm);
+            setSavedForm(nextForm);
+            setSaving('saved');
+            setTimeout(() => setSaving(''), 1200);
+            if (isNew && savedId) router.replace(`/dashboard/products/${savedId}`);
         } catch (err) {
             setSaving('failed');
             setSaveError(err.message);
         }
-    }, [form, productId, isNew]);
+    }, [form, productId, isNew, router]);
 
     return {
         form, product, loading, saving, saveError, isDirty,
         productImages, refreshImages,
-        handleChange, handleSave,
+        handleChange, handleSave, clearSaveError,
     };
 }

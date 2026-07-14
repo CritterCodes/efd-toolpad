@@ -2,9 +2,11 @@ import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/apiAuth';
 import { db as mongo } from '@/lib/database';
 import { ObjectId } from 'mongodb';
+import { DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { storageClient, STORAGE_BUCKET } from '@/lib/storage';
 
 export const DELETE = async (req, { params }) => {
-  const { session, errorResponse } = await requireRole(['admin', 'dev', 'artisan']);
+  const { session, errorResponse } = await requireRole(['admin', 'superadmin', 'dev', 'staff', 'artisan']);
   if (errorResponse) return errorResponse;
 
   const { id, imageId } = await params;
@@ -15,8 +17,9 @@ export const DELETE = async (req, { params }) => {
   if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
 
   const isArtisan = session.user.role === 'artisan';
-  const isOwner = product.artisanId === (session.user.userID || session.user.id);
-  const isAdminRole = ['admin', 'superadmin', 'dev'].includes(session.user.role);
+  const ownerId = session.user.userID || session.user.id;
+  const isOwner = [product.artisanId, product.userId, product.seller?.userId].filter(Boolean).includes(ownerId);
+  const isAdminRole = ['admin', 'superadmin', 'dev', 'staff'].includes(session.user.role);
 
   if (!isAdminRole && (!isArtisan || !isOwner)) {
     return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
@@ -25,9 +28,22 @@ export const DELETE = async (req, { params }) => {
     return NextResponse.json({ error: 'Can only edit draft products' }, { status: 400 });
   }
 
-  await db.collection('products').updateOne(
-    { _id: new ObjectId(id) },
+  const image = Array.isArray(product.images)
+    ? product.images.find((item) => item && typeof item === 'object' && item.id === imageId)
+    : null;
+  if (!image) return NextResponse.json({ error: 'Image not found' }, { status: 404 });
+
+  const updated = await db.collection('products').updateOne(
+    { _id: new ObjectId(id), 'images.id': imageId },
     { $pull: { images: { id: imageId } }, $set: { updatedAt: new Date() } }
   );
+  if (updated.modifiedCount !== 1) {
+    return NextResponse.json({ error: 'Image changed before it could be removed.' }, { status: 409 });
+  }
+  if (image.key) {
+    await storageClient.send(new DeleteObjectCommand({ Bucket: STORAGE_BUCKET, Key: image.key })).catch((error) => {
+      console.error('Product image object cleanup failed:', { productId: id, imageId, error: error.message });
+    });
+  }
   return NextResponse.json({ ok: true });
 };

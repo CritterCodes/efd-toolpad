@@ -13,6 +13,7 @@ import ProductPricingPanel from './components/ProductPricingPanel';
 import ProductSeoPanel from './components/ProductSeoPanel';
 import ProductStatusRail from './components/ProductStatusRail';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import { editorFormToPayload, productToEditorForm } from '@/services/products/productEditorPayload';
 
 function LeftSkeleton() {
     return (
@@ -42,7 +43,7 @@ export default function ProductEditorPage() {
     const {
         form, loading, saving, saveError, isDirty,
         productImages, refreshImages,
-        handleChange, handleSave,
+        handleChange, handleSave, clearSaveError,
     } = useProductEditor(productId);
 
     useEffect(() => {
@@ -62,12 +63,14 @@ export default function ProductEditorPage() {
 
     const handleArchive = async () => {
         if (!window.confirm('Archive this product?')) return;
-        await handleSave('archived');
+        if (!productId || productId === 'new') return;
+        const res = await fetch(`/api/products/${productId}`, { method: 'DELETE' });
+        if (res.ok) router.push('/dashboard/products');
     };
 
     const handleDelete = async () => {
         if (!productId || productId === 'new') return;
-        if (!window.confirm('Delete this product? This cannot be undone.')) return;
+        if (!window.confirm('Remove this product from the active catalog? The product will be archived.')) return;
         const res = await fetch(`/api/products/${productId}`, { method: 'DELETE' });
         if (res.ok) router.push('/dashboard/products');
     };
@@ -78,7 +81,9 @@ export default function ProductEditorPage() {
         if (!res.ok) return;
         const data = await res.json();
         const src = data.product || data;
-        const payload = { ...src, title: `${src.title} (copy)`, status: 'draft', _id: undefined };
+        const payload = editorFormToPayload({
+            ...productToEditorForm(src), title: `${src.title} (copy)`, status: 'draft',
+        });
         const cr = await fetch('/api/products', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -122,7 +127,7 @@ export default function ProductEditorPage() {
 
             <Box sx={{ p: { xs: 1.5, sm: 2, md: 3 } }}>
                 {saveError && (
-                    <Alert severity="error" sx={{ mb: 2, backgroundColor: '#4A1D1D', color: '#F8BBBB', border: '1px solid #7A2E2E' }} onClose={() => handleChange('_clearError', '')}>
+                    <Alert severity="error" sx={{ mb: 2, backgroundColor: '#4A1D1D', color: '#F8BBBB', border: '1px solid #7A2E2E' }} onClose={clearSaveError}>
                         {saveError}
                     </Alert>
                 )}
@@ -142,7 +147,7 @@ export default function ProductEditorPage() {
                         </Card>
 
                         {form.productType === 'gemstone' ? (
-                            <GemstoneTypePanel form={form} onChange={handleChange} />
+                            <GemstoneTypePanel form={form} onChange={handleChange} productId={productId} />
                         ) : (
                             <JewelryTypePanel form={form} onChange={handleChange} />
                         )}

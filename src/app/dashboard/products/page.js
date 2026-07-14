@@ -7,7 +7,8 @@ import {
   Box, Typography, Button, Grid, Card, CardContent, CardActionArea, Paper, TextField,
   InputAdornment, FormControl, InputLabel, Select, MenuItem, Stack, Chip, CircularProgress,
   Snackbar, Alert, Skeleton, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableRow, IconButton, Tooltip, Slide, ToggleButton, ToggleButtonGroup, Fab,
+  TableRow, IconButton, Tooltip, Slide, ToggleButton, ToggleButtonGroup, Fab, Menu,
+  Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DiamondIcon from '@mui/icons-material/Diamond';
@@ -29,8 +30,9 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 
 import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
 import { filterCatalog, catalogStats, getProductThumb, formatPrice, formatMargin } from '@/services/products/catalogFilter';
+import { editorFormToPayload, productToEditorForm } from '@/services/products/productEditorPayload';
 
-const STATUS_OPTIONS = ['all', 'active', 'draft', 'approved', 'archived', 'pending'];
+const STATUS_OPTIONS = ['all', 'published', 'draft', 'approved', 'archived', 'pending'];
 const SORT_OPTIONS = [
   { value: 'newest', label: 'Newest first' },
   { value: 'title', label: 'Title A–Z' },
@@ -46,6 +48,7 @@ const TYPE_CHIPS = [
 
 const STATUS_COLOR = {
   active: '#66BB6A',
+  published: '#66BB6A',
   approved: '#66BB6A',
   Available: '#66BB6A',
   draft: REPAIRS_UI.textMuted,
@@ -55,6 +58,7 @@ const STATUS_COLOR = {
 
 function getStatusLabel(s) {
   if (!s || s === 'draft') return 'Draft';
+  if (s === 'published' || s === 'active') return 'Active';
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
@@ -264,6 +268,10 @@ function CatalogInner() {
   const [viewMode, setViewMode] = useState('grid');
 
   const [selected, setSelected] = useState(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [moreAnchor, setMoreAnchor] = useState(null);
+  const [reassignOpen, setReassignOpen] = useState(false);
+  const [reassignTo, setReassignTo] = useState('');
 
   const showSnack = (message, severity = 'success') => setSnack({ open: true, message, severity });
   const closeSnack = () => setSnack((s) => ({ ...s, open: false }));
@@ -311,20 +319,94 @@ function CatalogInner() {
   const clearSelection = () => setSelected(new Set());
 
   const handleEdit = (product) => {
-    const subtype = product.productType === 'gemstone' ? 'gemstones' : 'jewelry';
-    router.push(`/dashboard/products/${subtype}/${product._id}`);
+    router.push(`/dashboard/products/${product._id}`);
   };
 
-  const handleDuplicate = (product) => {
-    showSnack(`Duplicate for "${product.title || 'product'}" — coming soon.`, 'info');
+  const responseError = async (response, fallback) => {
+    const body = await response.json().catch(() => ({}));
+    const detail = Array.isArray(body.details) ? `: ${body.details.join(', ')}` : '';
+    return `${body.error || fallback}${detail}`;
   };
 
-  const handleBulkPublish = () => showSnack(`Publish ${selected.size} product(s) — coming soon.`, 'info');
-  const handleBulkArchive = () => showSnack(`Archive ${selected.size} product(s) — coming soon.`, 'info');
-  const handleBulkReassign = () => showSnack(`Reassign ${selected.size} product(s) — coming soon.`, 'info');
-  const handleBulkDelete = () => showSnack(`Delete ${selected.size} product(s) — coming soon.`, 'info');
+  const handleDuplicate = async (product) => {
+    try {
+      const detailResponse = await fetch(`/api/products/${product._id}`);
+      if (!detailResponse.ok) throw new Error(await responseError(detailResponse, 'Failed to load product'));
+      const source = await detailResponse.json();
+      const payload = editorFormToPayload({
+        ...productToEditorForm(source.product || source),
+        title: `${product.title || 'Untitled product'} (copy)`,
+        status: 'draft',
+      });
+      const createResponse = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!createResponse.ok) throw new Error(await responseError(createResponse, 'Duplicate failed'));
+      showSnack('Product duplicated.');
+      await load();
+    } catch (error) {
+      showSnack(error.message, 'error');
+    }
+  };
 
-  const handleNewProduct = () => router.push('/dashboard/products/jewelry/new');
+  const runBulk = async (label, operation, confirmation) => {
+    const ids = [...selected];
+    if (ids.length === 0 || (confirmation && !window.confirm(confirmation))) return;
+    setBulkBusy(true);
+    const failures = [];
+    for (const id of ids) {
+      try {
+        await operation(id);
+      } catch (error) {
+        failures.push(error.message);
+      }
+    }
+    await load();
+    setBulkBusy(false);
+    if (failures.length > 0) {
+      showSnack(`${label}: ${ids.length - failures.length} succeeded, ${failures.length} failed. ${failures[0]}`, 'error');
+      return;
+    }
+    clearSelection();
+    showSnack(`${label}: ${ids.length} product${ids.length === 1 ? '' : 's'} updated.`);
+  };
+
+  const handleBulkPublish = () => runBulk('Publish', async (id) => {
+    const response = await fetch(`/api/products/${id}/publish`, { method: 'POST', body: '{}' });
+    if (!response.ok) throw new Error(await responseError(response, 'Publish failed'));
+  }, `Publish ${selected.size} selected product(s)?`);
+
+  const handleBulkArchive = () => runBulk('Archive', async (id) => {
+    const response = await fetch(`/api/products/${id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'archived' }),
+    });
+    if (!response.ok) throw new Error(await responseError(response, 'Archive failed'));
+  }, `Archive ${selected.size} selected product(s)?`);
+
+  const handleBulkRemove = () => runBulk('Remove', async (id) => {
+    const response = await fetch(`/api/products/${id}`, { method: 'DELETE' });
+    if (!response.ok) throw new Error(await responseError(response, 'Remove failed'));
+  }, `Remove ${selected.size} selected product(s) from the active catalog? They will be archived.`);
+
+  const handleBulkReassign = () => {
+    setReassignTo('');
+    setReassignOpen(true);
+  };
+
+  const confirmBulkReassign = async () => {
+    if (!reassignTo) return;
+    setReassignOpen(false);
+    await runBulk('Reassign', async (id) => {
+      const response = await fetch(`/api/products/${id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ artisanId: reassignTo }),
+      });
+      if (!response.ok) throw new Error(await responseError(response, 'Reassign failed'));
+    });
+  };
+
+  const handleNewProduct = () => router.push('/dashboard/products/new');
 
   return (
     <Box sx={{ pb: 10 }}>
@@ -346,10 +428,19 @@ function CatalogInner() {
               New product
             </Button>
             <Tooltip title="More options">
-              <IconButton sx={{ color: REPAIRS_UI.textSecondary, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 1.5 }}>
+              <IconButton onClick={(event) => setMoreAnchor(event.currentTarget)} sx={{ color: REPAIRS_UI.textSecondary, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 1.5 }}>
                 <MoreVertIcon />
               </IconButton>
             </Tooltip>
+            <Menu anchorEl={moreAnchor} open={Boolean(moreAnchor)} onClose={() => setMoreAnchor(null)} MenuListProps={{ dense: true }}>
+              <MenuItem disabled>Import products</MenuItem>
+              <MenuItem onClick={() => { setSelected(new Set(filtered.map((product) => String(product._id)))); setMoreAnchor(null); }}>
+                Select filtered products
+              </MenuItem>
+              <MenuItem disabled={selected.size === 0} onClick={() => { setMoreAnchor(null); handleBulkArchive(); }}>
+                Archive selected
+              </MenuItem>
+            </Menu>
           </Stack>
         </Stack>
       </Box>
@@ -495,24 +586,24 @@ function CatalogInner() {
             {' '}product{selected.size !== 1 ? 's' : ''} selected
           </Typography>
           <Tooltip title="Publish selected">
-            <IconButton size="small" onClick={handleBulkPublish} sx={{ color: '#66BB6A', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 1 }}>
+            <IconButton size="small" disabled={bulkBusy} onClick={handleBulkPublish} sx={{ color: '#66BB6A', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 1 }}>
               <PublishIcon fontSize="small" />
             </IconButton>
           </Tooltip>
           <Tooltip title="Archive selected">
-            <IconButton size="small" onClick={handleBulkArchive} sx={{ color: REPAIRS_UI.textSecondary, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 1 }}>
+            <IconButton size="small" disabled={bulkBusy} onClick={handleBulkArchive} sx={{ color: REPAIRS_UI.textSecondary, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 1 }}>
               <ArchiveIcon fontSize="small" />
             </IconButton>
           </Tooltip>
           {isAdmin && (
             <Tooltip title="Reassign artisan">
-              <IconButton size="small" onClick={handleBulkReassign} sx={{ color: REPAIRS_UI.textSecondary, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 1 }}>
+              <IconButton size="small" disabled={bulkBusy || artisans.length === 0} onClick={handleBulkReassign} sx={{ color: REPAIRS_UI.textSecondary, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 1 }}>
                 <PersonIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           )}
-          <Tooltip title="Delete selected">
-            <IconButton size="small" onClick={handleBulkDelete} sx={{ color: '#ef5350', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 1 }}>
+          <Tooltip title="Remove selected from catalog">
+            <IconButton size="small" disabled={bulkBusy} onClick={handleBulkRemove} sx={{ color: '#ef5350', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 1 }}>
               <DeleteOutlineIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -523,6 +614,25 @@ function CatalogInner() {
           </Tooltip>
         </Paper>
       </Slide>
+
+      <Dialog open={reassignOpen} onClose={() => setReassignOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Reassign products</DialogTitle>
+        <DialogContent>
+          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+            <InputLabel>Artisan</InputLabel>
+            <Select value={reassignTo} label="Artisan" onChange={(event) => setReassignTo(event.target.value)} MenuProps={repairsMenuProps}>
+              {artisans.map((artisan) => {
+                const id = artisan.userID || artisan.id || artisan._id;
+                return <MenuItem key={String(id)} value={String(id)}>{artisan.businessName || artisan.displayName || artisan.name || artisan.email}</MenuItem>;
+              })}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReassignOpen(false)}>Cancel</Button>
+          <Button variant="contained" disabled={!reassignTo} onClick={confirmBulkReassign}>Reassign</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Mobile FAB */}
       <Fab

@@ -40,6 +40,7 @@ export default function ProductBasicInfo({ form, onChange }) {
 
                 <TextField
                     fullWidth
+                    required
                     label="Description"
                     size="small"
                     multiline

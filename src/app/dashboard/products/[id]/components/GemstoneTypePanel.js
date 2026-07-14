@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { Card, CardContent, Typography, Grid, TextField, Button, Box } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
@@ -21,7 +21,31 @@ const inputSx = {
     '& .MuiInputBase-input': { color: REPAIRS_UI.textPrimary },
 };
 
-export default function GemstoneTypePanel({ form, onChange }) {
+export default function GemstoneTypePanel({ form, onChange, productId }) {
+    const certificateRef = useRef(null);
+    const [certificateBusy, setCertificateBusy] = useState(false);
+    const [certificateError, setCertificateError] = useState('');
+    const isNew = !productId || productId === 'new';
+
+    const uploadCertificate = async (file) => {
+        if (!file || isNew) return;
+        setCertificateBusy(true);
+        setCertificateError('');
+        try {
+            const body = new FormData();
+            body.append('file', file);
+            const response = await fetch(`/api/products/${productId}/certificate`, { method: 'POST', body });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(result.error || 'Certificate upload failed');
+            onChange('certFile', result.url || '');
+        } catch (error) {
+            setCertificateError(error.message);
+        } finally {
+            setCertificateBusy(false);
+            if (certificateRef.current) certificateRef.current.value = '';
+        }
+    };
+
     return (
         <Card sx={cardSx}>
             <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
@@ -66,24 +90,41 @@ export default function GemstoneTypePanel({ form, onChange }) {
                                 Certificate File
                             </Typography>
                             <Button
-                                component="label"
                                 variant="outlined"
                                 size="small"
                                 startIcon={<UploadFileIcon />}
+                                disabled={certificateBusy || isNew}
+                                onClick={() => certificateRef.current?.click()}
                                 sx={{
                                     borderColor: REPAIRS_UI.border,
                                     color: form.certFile ? REPAIRS_UI.accent : REPAIRS_UI.textSecondary,
                                     '&:hover': { borderColor: REPAIRS_UI.accent, color: REPAIRS_UI.accent },
                                 }}
                             >
-                                {form.certFile ? form.certFile : 'Upload cert'}
+                                {certificateBusy ? 'Uploading...' : form.certFile ? 'Replace certificate' : 'Upload certificate'}
                                 <input
+                                    ref={certificateRef}
                                     type="file"
                                     hidden
-                                    accept=".pdf,.jpg,.jpeg,.png"
-                                    onChange={(e) => onChange('certFile', e.target.files[0]?.name || '')}
+                                    accept=".pdf,image/jpeg,image/png,image/webp"
+                                    onChange={(e) => uploadCertificate(e.target.files?.[0])}
                                 />
                             </Button>
+                            {isNew && (
+                                <Typography sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.75rem', mt: 0.75 }}>
+                                    Save the product before uploading its certificate.
+                                </Typography>
+                            )}
+                            {form.certFile && !certificateError && (
+                                <Typography sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.75rem', mt: 0.75 }}>
+                                    Certificate attached
+                                </Typography>
+                            )}
+                            {certificateError && (
+                                <Typography sx={{ color: '#EF5350', fontSize: '0.75rem', mt: 0.75 }}>
+                                    {certificateError}
+                                </Typography>
+                            )}
                         </Box>
                     </Grid>
                 </Grid>

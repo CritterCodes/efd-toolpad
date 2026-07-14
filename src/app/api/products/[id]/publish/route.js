@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import { NotificationService, NOTIFICATION_TYPES } from '@/lib/notificationService';
 import { getUserArtisanTypes, canPublishProduct } from '@/lib/productPermissions';
+import { validateProductContract } from '@/services/products/productContract';
 
 /**
  * POST /api/products/:id/publish
@@ -16,7 +17,7 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     const db = await mongo.connect();
     const body = await request.json().catch(() => ({}));
 
@@ -55,11 +56,32 @@ export async function POST(request, { params }) {
       );
     }
 
+    if (product.status === 'published' && product.publishing?.visible === true) {
+      return NextResponse.json({
+        success: true,
+        product,
+        message: 'Product is already published',
+      });
+    }
+
+    const contract = validateProductContract(product);
+    if (!contract.valid) {
+      return NextResponse.json(
+        { error: 'Product is not ready to publish', details: contract.errors },
+        { status: 400 }
+      );
+    }
+
     const now = new Date();
     const searchCriteria = product._id ? { _id: product._id } : { productId: id };
+    const transitionCriteria = {
+      ...searchCriteria,
+      status: { $in: ['approved', 'published', 'draft'] },
+      'publishing.visible': { $ne: true },
+    };
 
     const result = await db.collection('products').findOneAndUpdate(
-      searchCriteria,
+      transitionCriteria,
       {
         $set: {
           status: 'published',
@@ -82,6 +104,14 @@ export async function POST(request, { params }) {
       { returnDocument: 'after' }
     );
 
+    if (!result) {
+      const current = await db.collection('products').findOne(searchCriteria);
+      if (current?.status === 'published' && current.publishing?.visible === true) {
+        return NextResponse.json({ success: true, product: current, message: 'Product is already published' });
+      }
+      return NextResponse.json({ error: 'Product changed while it was being published' }, { status: 409 });
+    }
+
     // Notify artisan (non-blocking)
     try {
       await NotificationService.createNotification({
@@ -97,7 +127,7 @@ export async function POST(request, { params }) {
           productId: product._id.toString(),
           userRole: 'artisan',
           relatedType: 'product',
-          actionUrl: `/dashboard/products/${product.productType}s/${product._id}`,
+          actionUrl: `/dashboard/products/${product._id}`,
           actionLabel: 'View Product',
         },
       });

@@ -6,6 +6,7 @@ const PRODUCTS = [
   { _id: '2', title: 'Raw Emerald', productType: 'gemstone', status: 'draft', price: 200, artisanId: 'art2', createdAt: '2026-02-01' },
   { _id: '3', title: 'Gold Necklace', productType: 'jewelry', status: 'draft', artisanId: 'art1', createdAt: '2026-03-01' },
   { _id: '4', title: 'Sapphire Loose', productType: 'gemstone', status: 'active', price: 800, artisanId: 'art1', inventory: { available: 0 }, createdAt: '2026-04-01' },
+  { _id: '5', title: 'Parked Concept', productType: 'concept', status: 'draft', createdAt: '2026-05-01' },
 ];
 
 describe('filterCatalog', () => {
@@ -106,8 +107,12 @@ describe('formatPrice', () => {
 });
 
 describe('formatMargin', () => {
-  it('reads pricing.margin', () => {
-    expect(formatMargin({ pricing: { margin: 42 } })).toBe(42);
+  it('reads an explicit percentage margin', () => {
+    expect(formatMargin({ pricing: { marginPct: 42 } })).toBe(42);
+  });
+
+  it('converts the canonical dollar margin to a percentage', () => {
+    expect(formatMargin({ pricing: { retailPrice: 200, margin: 50 } })).toBe(25);
   });
 
   it('returns null when no margin', () => {

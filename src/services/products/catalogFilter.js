@@ -22,17 +22,26 @@ export function formatPrice(product) {
 }
 
 export function formatMargin(product) {
-  const m = product.pricing?.margin ?? product.margin;
-  if (m == null || m === '') return null;
-  return Number(m);
+  const explicitPct = product.pricing?.marginPct ?? product.marginPct;
+  if (explicitPct != null && explicitPct !== '' && Number.isFinite(Number(explicitPct))) {
+    return Number(explicitPct);
+  }
+  const retail = formatPrice(product);
+  const marginAmount = product.pricing?.margin ?? product.margin;
+  if (retail == null || retail <= 0 || marginAmount == null || marginAmount === '') return null;
+  const numericMargin = Number(marginAmount);
+  return Number.isFinite(numericMargin) ? (numericMargin / retail) * 100 : null;
 }
 
+const isSupportedProduct = (product) => !product.productType || ['gemstone', 'jewelry'].includes(product.productType);
+
 export function catalogStats(products) {
+  const supported = products.filter(isSupportedProduct);
   return {
-    total: products.length,
-    active: products.filter((p) => p.status === 'active' || p.status === 'approved' || p.status === 'Available').length,
-    draft: products.filter((p) => !p.status || p.status === 'draft').length,
-    outOfStock: products.filter((p) => {
+    total: supported.length,
+    active: supported.filter((p) => ['active', 'approved', 'published', 'Available'].includes(p.status)).length,
+    draft: supported.filter((p) => !p.status || p.status === 'draft').length,
+    outOfStock: supported.filter((p) => {
       const inv = p.inventory;
       if (!inv) return false;
       return (inv.available ?? inv.quantity ?? 1) === 0;
@@ -45,6 +54,7 @@ export function filterCatalog(products, { search = '', type = 'all', status = 'a
   const normalized = TYPE_MAP[type] ?? null;
 
   let result = products.filter((p) => {
+    if (!isSupportedProduct(p)) return false;
     if (normalized && (p.productType || 'jewelry') !== normalized) return false;
     if (status !== 'all' && (p.status || 'draft') !== status) return false;
     if (artisanId !== 'all' && (p.artisanId || p.artisanInfo?.artisanId) !== artisanId) return false;

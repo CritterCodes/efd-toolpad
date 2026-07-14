@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
-import { ObjectId } from 'mongodb';
+import { mergeProductEditorUpdate } from '@/services/products/productEditorPayload';
+
+const ADMIN_ROLES = new Set(['admin', 'superadmin', 'dev', 'staff']);
 
 /**
  * GET /api/products
@@ -18,21 +20,22 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const artisanId = searchParams.get('artisanId');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(searchParams.get('limit') || '20', 10) || 20));
 
     const db = await mongo.connect();
 
     // Build query based on user role
     let query = {};
     
-    if (session.user.role === 'admin' || session.user.role === 'superadmin') {
+    if (ADMIN_ROLES.has(session.user.role)) {
       // Admins see all products, optionally filtered
       if (status) query.status = status;
       if (artisanId) query.artisanId = artisanId;
     } else if (session.user.role === 'artisan') {
       // Artisans see only their own products
-      query.artisanId = session.user.userID || session.user.id;
+      const id = session.user.userID || session.user.id;
+      query.$or = [{ artisanId: id }, { userId: id }, { 'seller.userId': id }];
       if (status) query.status = status;
     } else {
       // Customers don't have access to this endpoint
@@ -78,7 +81,7 @@ export async function POST(request) {
     }
 
     // Only artisans and admins can create products
-    if (!['artisan', 'admin', 'superadmin'].includes(session.user.role)) {
+    if (session.user.role !== 'artisan' && !ADMIN_ROLES.has(session.user.role)) {
       return NextResponse.json({ error: 'Only artisans and admins can create products' }, { status: 403 });
     }
 
@@ -113,51 +116,63 @@ export async function POST(request) {
       );
     }
 
-    // Create product document
+    const isAdmin = ADMIN_ROLES.has(session.user.role);
+    const editorFields = mergeProductEditorUpdate({}, data, { canAdminister: isAdmin });
+    const ownerId = (isAdmin && editorFields.artisanId) || session.user.userID || session.user.id;
+    const now = new Date();
+    const prefix = data.productType === 'gemstone' ? 'gem' : 'jwl';
+    const productId = `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const quantity = editorFields.inventory?.quantity ?? 1;
+
+    // Create a contract-shaped draft. Publishing is a separate, audited transition.
     const product = {
-      title: data.title,
+      ...editorFields,
+      productId,
       slug,
-      description: data.description,
-      productType: data.productType,
-      artisanId: session.user.userID || session.user.id,
+      artisanId: ownerId,
       artisanInfo: {
-        artisanId: session.user.userID || session.user.id,
+        artisanId: ownerId,
         businessName: session.user.businessName || data.artisanInfo?.businessName,
         businessHandle: session.user.businessHandle || data.artisanInfo?.businessHandle,
         email: session.user.email,
         phone: data.artisanInfo?.phone,
         location: data.artisanInfo?.location
       },
-      status: session.user.role === 'admin' ? 'approved' : 'draft',
+      seller: { ...(data.seller || {}), userId: ownerId },
+      status: 'draft',
+      availability: editorFields.availability || 'ready-to-ship',
       statusHistory: [
         {
-          status: session.user.role === 'admin' ? 'approved' : 'draft',
-          timestamp: new Date(),
+          status: 'draft',
+          timestamp: now,
           changedBy: session.user.userID || session.user.id,
           reason: 'Product created',
           notes: ''
         }
       ],
-      // Copy optional fields if provided
-      gemstone: data.gemstone || {},
-      pricing: data.pricing || {},
+      gemstone: editorFields.gemstone || {},
+      jewelry: editorFields.jewelry || {},
+      pricing: { currency: 'USD', ...(editorFields.pricing || {}) },
       inventory: {
-        quantity: data.inventory?.quantity || 1,
+        ...(editorFields.inventory || {}),
+        quantity,
         reserved: 0,
-        available: data.inventory?.quantity || 1,
-        lowStockThreshold: data.inventory?.lowStockThreshold || 3,
-        sku: data.inventory?.sku || `${slug}-${Date.now()}`
+        available: quantity,
+        lowStockThreshold: data.inventory?.lowStockThreshold ?? 3,
+        sku: editorFields.inventory?.sku || `${slug}-${Date.now()}`
       },
-      images: data.images || [],
-      media: data.media || {},
-      collectionIds: [],
+      fulfillment: editorFields.fulfillment || {},
+      references: editorFields.references || {},
+      images: Array.isArray(data.images) ? data.images : [],
+      media: data.media && typeof data.media === 'object' ? data.media : {},
+      collectionIds: editorFields.collections || [],
       dropIds: [],
       designs: [],
       designOptions: [],
-      seo: data.seo || {},
-      tags: data.tags || [],
-      createdAt: new Date(),
-      updatedAt: new Date()
+      seo: editorFields.seo || {},
+      publishing: { visible: false, featured: false, publishedAt: null },
+      createdAt: now,
+      updatedAt: now,
     };
 
     // Insert product

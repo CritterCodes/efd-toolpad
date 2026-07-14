@@ -4,7 +4,7 @@ import { listAssignableArtisans } from '@/services/customs/customAssignment';
 
 /** GET /api/custom-orders/assignable-artisans — artisans eligible for assignment (+ CAD fee). */
 export const GET = async () => {
-  const { errorResponse } = await requireRole(['admin', 'dev']);
+  const { errorResponse } = await requireRole(['admin', 'superadmin', 'dev', 'staff']);
   if (errorResponse) return errorResponse;
   const artisans = await listAssignableArtisans();
   return NextResponse.json(artisans, { status: 200 });

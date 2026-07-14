@@ -11,7 +11,7 @@ import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 export default function ProductTopBar({ title, isNew, isDirty, saving, onBack, onSaveDraft, onPublish, onDuplicate, onArchive, onDelete }) {
     const [menuAnchor, setMenuAnchor] = useState(null);
 
-    const draftLabel = saving === 'draft' ? 'Saving…' : saving === 'failed' ? 'Save failed — retry' : 'Save Draft';
+    const draftLabel = saving === 'draft' ? 'Saving...' : saving === 'saved' ? 'Saved' : saving === 'failed' ? 'Save failed - retry' : 'Save Draft';
     const isSaving = saving === 'draft' || saving === 'publish';
 
     const handleMenuOpen = (e) => setMenuAnchor(e.currentTarget);
@@ -85,7 +85,7 @@ export default function ProductTopBar({ title, isNew, isDirty, saving, onBack, o
                         '&.Mui-disabled': { backgroundColor: REPAIRS_UI.bgTertiary, color: REPAIRS_UI.textMuted },
                     }}
                 >
-                    {saving === 'publish' ? 'Publishing…' : 'Publish'}
+                    {saving === 'publish' ? 'Publishing...' : 'Publish'}
                 </Button>
 
                 <IconButton onClick={handleMenuOpen} sx={{ color: REPAIRS_UI.textSecondary }}>
@@ -114,7 +114,7 @@ export default function ProductTopBar({ title, isNew, isDirty, saving, onBack, o
                     Archive
                 </MenuItem>
                 <MenuItem onClick={() => handleAction(onDelete)} sx={{ color: '#EF5350', '&:hover': { backgroundColor: REPAIRS_UI.bgPanel } }}>
-                    Delete
+                    Remove from catalog
                 </MenuItem>
             </Menu>
         </Box>

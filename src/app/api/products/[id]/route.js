@@ -2,6 +2,14 @@ import { NextResponse } from 'next/server';
 import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
+import { mergeProductEditorUpdate } from '@/services/products/productEditorPayload';
+
+const ADMIN_ROLES = new Set(['admin', 'superadmin', 'dev', 'staff']);
+const userId = (session) => session?.user?.userID || session?.user?.id;
+const ownsProduct = (product, session) => {
+  const id = userId(session);
+  return Boolean(id && [product.artisanId, product.userId, product.seller?.userId].filter(Boolean).includes(id));
+};
 
 /**
  * GET /api/products/:id
@@ -9,7 +17,12 @@ import { ObjectId } from 'mongodb';
  */
 export async function GET(request, { params }) {
   try {
-    const { id } = params;
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    const { id } = await params;
     const db = await mongo.connect();
 
     // Validate ID
@@ -23,6 +36,10 @@ export async function GET(request, { params }) {
 
     if (!product) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+    }
+
+    if (!ADMIN_ROLES.has(session.user.role) && !ownsProduct(product, session)) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
     return NextResponse.json(product);
@@ -43,7 +60,7 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid product ID' }, { status: 400 });
     }
@@ -62,8 +79,8 @@ export async function PUT(request, { params }) {
 
     // Check permissions
     const isArtisan = session.user.role === 'artisan';
-    const isOwner = product.artisanId === (session.user.userID || session.user.id);
-    const isAdmin = ['admin', 'superadmin'].includes(session.user.role);
+    const isOwner = ownsProduct(product, session);
+    const isAdmin = ADMIN_ROLES.has(session.user.role);
 
     if (!isAdmin && (!isArtisan || !isOwner)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
@@ -78,25 +95,33 @@ export async function PUT(request, { params }) {
     }
 
     // Prepare update
+    const now = new Date();
     const updateData = {
-      ...data,
-      updatedAt: new Date()
+      ...mergeProductEditorUpdate(product, data, { canAdminister: isAdmin }),
+      updatedAt: now,
     };
-
-    // Admins may set status directly; non-admin roles cannot change status or ownership here
-    if (!isAdmin) {
-      delete updateData.status;
+    const update = { $set: updateData };
+    if (updateData.status && updateData.status !== product.status) {
+      update.$set.isPublic = false;
+      update.$set.publishing = { ...(product.publishing || {}), visible: false };
+      if (updateData.status === 'archived') update.$set.archivedAt = now;
+      else update.$unset = { archivedAt: '' };
+      update.$push = { statusHistory: {
+        status: updateData.status,
+        timestamp: now,
+        changedBy: userId(session),
+        reason: 'Product editor update',
+        notes: '',
+      } };
     }
-    delete updateData.artisanId;
-    delete updateData.statusHistory;
 
     const result = await db.collection('products').findOneAndUpdate(
       { _id: new ObjectId(id) },
-      { $set: updateData },
+      update,
       { returnDocument: 'after' }
     );
 
-    return NextResponse.json(result.value);
+    return NextResponse.json(result);
   } catch (error) {
     console.error('❌ Error updating product:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -114,7 +139,7 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid product ID' }, { status: 400 });
     }
@@ -131,11 +156,14 @@ export async function DELETE(request, { params }) {
     }
 
     // Check permissions
-    const isOwner = product.artisanId === (session.user.userID || session.user.id);
-    const isAdmin = ['admin', 'superadmin'].includes(session.user.role);
+    const isOwner = ownsProduct(product, session);
+    const isAdmin = ADMIN_ROLES.has(session.user.role);
 
     if (!isAdmin && !isOwner) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+    }
+    if (!isAdmin && product.status !== 'draft') {
+      return NextResponse.json({ error: 'Can only archive draft products' }, { status: 400 });
     }
 
     // Archive product
@@ -144,6 +172,8 @@ export async function DELETE(request, { params }) {
       {
         $set: {
           status: 'archived',
+          isPublic: false,
+          'publishing.visible': false,
           archivedAt: new Date(),
           updatedAt: new Date()
         },
@@ -160,7 +190,7 @@ export async function DELETE(request, { params }) {
       { returnDocument: 'after' }
     );
 
-    return NextResponse.json(result.value);
+    return NextResponse.json(result);
   } catch (error) {
     console.error('❌ Error archiving product:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
