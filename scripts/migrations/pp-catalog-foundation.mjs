@@ -10,13 +10,14 @@ import { catalogFixtures, FIXTURE_VERSION } from '../../src/services/production/
 
 const fixtureEnvironment = process.env.CATALOG_FIXTURE_ENV || 'dev';
 const fixture = catalogFixtures(fixtureEnvironment);
+export const disposableCatalogFilter = { fixtureVersion: { $exists: true } };
 
 export const steps = [
   {
     title: 'snapshot disposable drops and collections for rollback',
     run: async ({ db, dbName, dryRun }) => {
-      const drops = (await collExists(db, 'drops')) ? await db.collection('drops').find({}).toArray() : [];
-      const collections = (await collExists(db, 'collections')) ? await db.collection('collections').find({}).toArray() : [];
+      const drops = (await collExists(db, 'drops')) ? await db.collection('drops').find(disposableCatalogFilter).toArray() : [];
+      const collections = (await collExists(db, 'collections')) ? await db.collection('collections').find(disposableCatalogFilter).toArray() : [];
       if (dryRun) return `would snapshot ${drops.length} drop(s) and ${collections.length} collection(s); no Product/Design/Piece reads or writes`;
       const snapshotId = `catalog-${dbName}-${Date.now()}-${randomUUID().slice(0, 8)}`;
       await db.collection('_catalogSnapshots').insertOne({ snapshotId, createdAt: new Date(), fixtureVersion: FIXTURE_VERSION, drops, collections });
@@ -27,8 +28,8 @@ export const steps = [
     title: 'reset only drops and collections and install isolated deterministic fixtures',
     run: async ({ db, dryRun }) => {
       if (dryRun) return `would reset only drops/collections and seed ${fixtureEnvironment} fixture ${FIXTURE_VERSION}`;
-      await db.collection('drops').deleteMany({});
-      await db.collection('collections').deleteMany({});
+      await db.collection('drops').deleteMany(disposableCatalogFilter);
+      await db.collection('collections').deleteMany(disposableCatalogFilter);
       const now = new Date();
       await db.collection('drops').insertMany(fixture.drops.map((doc) => ({ ...doc, createdAt: now, updatedAt: now })));
       await db.collection('collections').insertMany(fixture.collections.map((doc) => ({ ...doc, createdAt: now, updatedAt: now })));

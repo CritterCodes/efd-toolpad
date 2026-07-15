@@ -1,10 +1,11 @@
 import { MongoClient } from 'mongodb';
+import { disposableCatalogFilter } from './migrations/pp-catalog-foundation.mjs';
 
 export async function restoreCatalogSnapshot(database, snapshotId) {
   const snapshot = await database.collection('_catalogSnapshots').findOne({ snapshotId });
   if (!snapshot) throw new Error(`snapshot not found: ${snapshotId}`);
-  await database.collection('drops').deleteMany({});
-  await database.collection('collections').deleteMany({});
+  await database.collection('drops').deleteMany(disposableCatalogFilter);
+  await database.collection('collections').deleteMany(disposableCatalogFilter);
   if (snapshot.drops.length) await database.collection('drops').insertMany(snapshot.drops);
   if (snapshot.collections.length) await database.collection('collections').insertMany(snapshot.collections);
   return { drops: snapshot.drops.length, collections: snapshot.collections.length };
