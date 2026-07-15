@@ -54,7 +54,7 @@ class UsersService {
      */
     static updateUser = async (query, updateData) => {
         try {
-            const response = await axiosInstance.put(`/users?query=${query}`, updateData);
+            const response = await axiosInstance.put(`/users/${encodeURIComponent(query)}`, updateData);
             return response.data;
         } catch (error) {
             throw error;
