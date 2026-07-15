@@ -1,9 +1,10 @@
 import React from 'react';
-import { Box, Grid, TextField, FormControl, InputLabel, Select, MenuItem, Button, CircularProgress, Typography } from '@mui/material';
+import { Box, Button, Chip, CircularProgress, FormControl, Grid, IconButton, InputLabel, MenuItem, Select, TextField } from '@mui/material';
+import ClearIcon from '@mui/icons-material/Clear';
 import SearchIcon from '@mui/icons-material/Search';
 
-export default function StullerSearchFilters({ searchParams, setSearchParams, handleSearch, handleClear, loading }) {
-    return () => (
+export default function StullerSearchFilters({ searchParams, setSearchParams, handleSearch, handleClear, loading, suggestions }) {
+    return (
     <Box sx={{ p: 2 }}>
       <Grid container spacing={2}>
         <Grid item xs={12}>

@@ -67,6 +67,10 @@ export const providerMap = providers.map((provider) => {
 export const { handlers, auth, signIn, signOut } = NextAuth({
     providers,
     secret: process.env.NEXTAUTH_SECRET,
+    // Auth.js otherwise rejects ordinary self-hosted/local production requests
+    // unless a platform-specific environment variable implicitly enables this.
+    // Next.js supplies the request URL, and our redirects remain same-origin.
+    trustHost: true,
     pages: {
         signIn: '/auth/signin',
     },
@@ -103,4 +107,3 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }
     
 });
-

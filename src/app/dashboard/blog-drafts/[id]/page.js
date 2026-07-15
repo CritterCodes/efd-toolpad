@@ -329,7 +329,7 @@ export default function BlogDraftChatPage({ params }) {
               <AiBubble key={i} isLast={isLast}>
                 <Box sx={{ backgroundColor: C.successDim, border: `1px solid ${C.success}33`, borderLeft: `3px solid ${C.success}`, borderRadius: '4px 16px 16px 16px', px: 2, py: 1.5 }}>
                   <Typography sx={{ color: C.text, fontSize: '0.925rem', lineHeight: 1.6, mb: 2 }}>
-                    That's everything. I'll weave your answers throughout the article now. Once enriched, you'll review the full article, make any final edits, then publish.
+                    That&apos;s everything. I&apos;ll weave your answers throughout the article now. Once enriched, you&apos;ll review the full article, make any final edits, then publish.
                   </Typography>
                   <Box
                     component="button"

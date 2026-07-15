@@ -288,7 +288,7 @@ export default function BlogsPage() {
         <DialogTitle sx={{ color: C.text }}>Delete post?</DialogTitle>
         <DialogContent>
           <Typography sx={{ color: C.muted, fontSize: '0.9rem' }}>
-            "{deleteTarget?.title}" will be permanently deleted. This cannot be undone.
+            &quot;{deleteTarget?.title}&quot; will be permanently deleted. This cannot be undone.
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>

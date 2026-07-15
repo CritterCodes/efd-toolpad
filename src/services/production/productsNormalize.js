@@ -28,23 +28,22 @@
 
 const PRODUCT_TYPES = Object.freeze({
   GEMSTONE: 'gemstone',
-  CONCEPT: 'concept',
   JEWELRY: 'jewelry',
 });
 
 const PREFIX_MAP = Object.freeze({
   gem: PRODUCT_TYPES.GEMSTONE,
   jwl: PRODUCT_TYPES.JEWELRY,
-  concept: PRODUCT_TYPES.CONCEPT,
+  concept: PRODUCT_TYPES.JEWELRY,
 });
 
 /**
  * Infer `productType` from a `productId` handle. Live create routes mint
- * `gem_*` (gemstones) and `jwl_*` (jewelry); `concept_*` is reserved for
- * concept listings. Any other prefix (or a missing id) falls through to
+ * `gem_*` (gemstones) and `jwl_*` (jewelry); retired speculative prefixes normalize
+ * to jewelry. Any other prefix (or a missing id) falls through to
  * `jewelry` — the contract's default for absent `productType`.
  * @param {string|null|undefined} productId
- * @returns {'gemstone'|'concept'|'jewelry'}
+ * @returns {'gemstone'|'jewelry'}
  */
 export function inferProductType(productId) {
   if (typeof productId === 'string') {
@@ -100,7 +99,7 @@ export function normalizeProduct(doc = {}) {
   }
 
   const inferred = inferProductType(hasStringProductId ? productId : null);
-  if (doc.productType !== inferred && !doc.productType) {
+  if (!doc.productType || !Object.values(PRODUCT_TYPES).includes(doc.productType)) {
     patch.productType = inferred;
   }
 

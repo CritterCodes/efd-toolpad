@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateProductContract, buildProductFromPiece, buildConceptFromDesign, ripenConceptToJewelry, suggestedRetailFromCOGS, normalizeRunSize } from '@/services/products/productContract';
+import { validateProductContract, buildProductFromPiece, buildProductFromDesign, attachPieceToProduct, suggestedRetailFromCOGS, normalizeRunSize } from '@/services/products/productContract';
 
 describe('validateProductContract', () => {
   const base = { productId: 'efd-ring-001', title: 'Ring', pricing: { retailPrice: 100 }, availability: 'ready-to-ship', images: ['https://x/a.jpg'] };
@@ -67,9 +67,9 @@ describe('buildProductFromPiece', () => {
     expect(product.availability).toBe('ready-to-ship');
   });
 
-  it('honors an explicit productType (polymorphism)', () => {
-    const product = buildProductFromPiece({ piece: { pieceID: 'p4', totalCOGS: 0 }, opts: { productType: 'concept' } });
-    expect(product.productType).toBe('concept');
+  it('honors an explicit canonical productType', () => {
+    const product = buildProductFromPiece({ piece: { pieceID: 'p4', totalCOGS: 0 }, opts: { productType: 'jewelry' } });
+    expect(product.productType).toBe('jewelry');
   });
 
   it('threads references.gemstoneId from the piece (flywheel; M1-T2)', () => {
@@ -88,12 +88,12 @@ describe('buildProductFromPiece', () => {
   });
 });
 
-describe('buildConceptFromDesign', () => {
+describe('buildProductFromDesign', () => {
   const design = { designID: 'd1', name: 'Nebula Pendant', gemstoneId: 'gem-7', metalOptions: ['14k_yellow'] };
 
-  it('builds a concept product priced off the estimate with estimated costBasis', () => {
-    const p = buildConceptFromDesign({ design, estCost: 120 });
-    expect(p.productType).toBe('concept');
+  it('builds a made-to-order jewelry product priced off the estimate', () => {
+    const p = buildProductFromDesign({ design, estCost: 120 });
+    expect(p.productType).toBe('jewelry');
     expect(p.availability).toBe('made-to-order');
     expect(p.status).toBe('draft');
     expect(p.pricing.costBasis).toBe(120);
@@ -106,26 +106,26 @@ describe('buildConceptFromDesign', () => {
   });
 
   it('prefers the design suggestedRetail when set', () => {
-    const p = buildConceptFromDesign({ design: { ...design, suggestedRetail: 499 }, estCost: 120 });
+    const p = buildProductFromDesign({ design: { ...design, suggestedRetail: 499 }, estCost: 120 });
     expect(p.pricing.retailPrice).toBe(499);
   });
 
-  it('honors an explicit runSize (limited-edition concept, 0 produced)', () => {
-    const p = buildConceptFromDesign({ design, estCost: 100, opts: { runSize: { type: 'limited', size: 8 } } });
+  it('honors an explicit runSize (limited edition, 0 produced)', () => {
+    const p = buildProductFromDesign({ design, estCost: 100, opts: { runSize: { type: 'limited', size: 8 } } });
     expect(p.runSize).toEqual({ type: 'limited', size: 8, remaining: 8 });
   });
 });
 
-describe('ripenConceptToJewelry', () => {
+describe('attachPieceToProduct', () => {
   const product = {
-    productId: 'x', productType: 'concept',
+    productId: 'x', productType: 'jewelry',
     pricing: { retailPrice: 300, costBasis: 120, costBasisSource: 'estimated' },
     runSize: { type: 'limited', size: 5, remaining: 5 },
     pieceIDs: [], references: { designId: 'd1', pieceID: null, gemstoneId: 'gem-7' },
   };
 
-  it('flips concept→jewelry with actual COGS, margin, and recomputed remaining', () => {
-    const patch = ripenConceptToJewelry({ product, piece: { pieceID: 'p1', totalCOGS: 140, status: 'available' } });
+  it('attaches actual COGS, margin, and recomputed remaining', () => {
+    const patch = attachPieceToProduct({ product, piece: { pieceID: 'p1', totalCOGS: 140, status: 'available' } });
     expect(patch.productType).toBe('jewelry');
     expect(patch['pricing.costBasis']).toBe(140);
     expect(patch['pricing.costBasisSource']).toBe('actual');
@@ -136,8 +136,8 @@ describe('ripenConceptToJewelry', () => {
     expect(patch.availability).toBe('ready-to-ship');
   });
 
-  it('unlimited concept ripens to made-to-order', () => {
-    const patch = ripenConceptToJewelry({ product: { ...product, runSize: { type: 'unlimited' } }, piece: { pieceID: 'p2', totalCOGS: 100, status: 'available' } });
+  it('unlimited product remains made-to-order', () => {
+    const patch = attachPieceToProduct({ product: { ...product, runSize: { type: 'unlimited' } }, piece: { pieceID: 'p2', totalCOGS: 100, status: 'available' } });
     expect(patch.availability).toBe('made-to-order');
     expect(patch.runSize).toEqual({ type: 'unlimited' });
   });

@@ -1,10 +1,9 @@
 import React from 'react';
-import { Box, Typography, Alert, List, ListItem, ListItemText, ListItemIcon } from '@mui/material';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorIcon from '@mui/icons-material/Error';
+import { Accordion, AccordionDetails, AccordionSummary, Alert, Box, Card, CardContent, Grid, Typography } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 export default function StullerImportResults({ importResults }) {
-    return () => (
+    return (
     <Box sx={{ p: 2 }}>
       {importResults && (
         <>
