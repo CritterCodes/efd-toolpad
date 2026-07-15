@@ -9,7 +9,7 @@ describe('inferProductType', () => {
   it('maps live-mint prefixes to canonical types', () => {
     expect(inferProductType('gem_lm3f_ab12cd')).toBe('gemstone');
     expect(inferProductType('jwl_lm3f_ab12cd')).toBe('jewelry');
-    expect(inferProductType('concept_lm3f_ab12cd')).toBe('concept');
+    expect(inferProductType('concept_lm3f_ab12cd')).toBe('jewelry');
   });
 
   it('falls back to jewelry for unknown / missing prefixes (contract §2.1)', () => {
@@ -67,9 +67,9 @@ describe('normalizeProduct', () => {
     expect(normalizeProduct(doc).patch).toEqual({});
   });
 
-  it('preserves existing productType even when the prefix would infer differently', () => {
+  it('replaces a retired productType with the canonical inferred type', () => {
     const doc = { productId: 'jwl_abc_123', productType: 'concept', status: 'draft' };
-    expect(normalizeProduct(doc).patch).toEqual({});
+    expect(normalizeProduct(doc).patch).toEqual({ productType: 'jewelry' });
   });
 
   it('respects a legacy visibility signal (isPublic) as an alternative to status (§1)', () => {

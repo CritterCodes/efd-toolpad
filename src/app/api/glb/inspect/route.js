@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/apiAuth';
-import { VALID_GEM_PRESETS } from '@crittercodes/refrakt';
+import { VALID_GEM_PRESETS } from '@crittercodes/refrakt/server';
 
 // POST /api/glb/inspect  { glbUrl: string }
 //

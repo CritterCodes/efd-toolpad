@@ -1220,7 +1220,7 @@ function LeadDrawer({ lead, open, onClose, onSave, onScore, onOutreach, onFindEm
                 .slice(0, 3)
                 .map((snippet, index) => (
                   <Typography key={`${index}-${snippet.slice(0, 24)}`} variant="body2" sx={{ color: REPAIRS_UI.textSecondary, mt: 0.75 }}>
-                    "{snippet.length > 220 ? `${snippet.slice(0, 220)}...` : snippet}"
+                    &quot;{snippet.length > 220 ? `${snippet.slice(0, 220)}...` : snippet}&quot;
                   </Typography>
                 ))}
             </Box>

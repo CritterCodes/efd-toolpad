@@ -83,7 +83,7 @@ export function ToolsSelectionSection({
 
         {tools.length === 0 && (
           <Alert severity="info" sx={{ py: 0.5 }}>
-            Add machinery to include equipment depreciation in this task's cost.
+            Add machinery to include equipment depreciation in this task&apos;s cost.
           </Alert>
         )}
       </TaskFormSection>

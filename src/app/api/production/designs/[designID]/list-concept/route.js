@@ -3,7 +3,7 @@ import { requireRole } from '@/lib/apiAuth';
 import { db } from '@/lib/database';
 import DesignsModel from '@/app/api/designs/model';
 import { estimateDesignCost } from '@/services/production/designCost';
-import { buildConceptFromDesign, suggestedRetailFromCOGS } from '@/services/products/productContract';
+import { buildProductFromDesign, suggestedRetailFromCOGS } from '@/services/products/productContract';
 
 /** Read the live per-gram metal prices (24k gold / .999 silver basis). */
 async function getMetalPrices() {
@@ -63,7 +63,7 @@ export const POST = async (req, { params }) => {
   const body = await req.json().catch(() => ({}));
   const { estCost, estimate } = await computeConceptEstCost(design, body);
 
-  const productDoc = buildConceptFromDesign({
+  const productDoc = buildProductFromDesign({
     design,
     estCost,
     opts: { ...body, createdBy: session.user.userID || session.user.email || '' },
@@ -96,7 +96,7 @@ export const PUT = async (req, { params }) => {
 
   const dbInstance = await db.connect();
   const product = await dbInstance.collection('products').findOne({ productId: design.productID });
-  if (!product || product.productType !== 'concept' || product?.pricing?.costBasisSource === 'actual') {
+  if (!product || product.productType !== 'jewelry' || product?.pricing?.costBasisSource === 'actual') {
     return NextResponse.json({ error: 'Product has been produced — its cost is actual and not refreshable.' }, { status: 409 });
   }
 

@@ -1,115 +1,66 @@
 import { db } from '@/lib/database';
 import { randomUUID } from 'crypto';
 import Constants from '@/lib/constants';
-import { COLLECTION_STATUS, OWNER_TYPE } from '@/services/production/collectionsUnify';
 
-/**
- * Unified Collection ≡ Drop (Pipeline M1-T5). One `collections` collection holds both
- * house (EFD) drops and artisan collections; a "drop" is a Collection with a release
- * facet (`status`, `releaseAt`). Members are Products (any productType). See
- * docs/manufacturing/data-model.md + collection-page-data-contract.md.
- *
- * NOTE: the legacy `/api/collections/*` routes still read/write this collection with a
- * `_id`/`products[]`/`type` shape; the `pp1-collections-unify` migration normalizes
- * existing docs onto this shape (collectionId/ownerType/status/members[]). Route
- * convergence onto this model is in progress.
- */
-export { COLLECTION_STATUS, OWNER_TYPE };
+export const COLLECTION_STATUS = Object.freeze({ DRAFT: 'draft', PUBLISHED: 'published', ARCHIVED: 'archived' });
+export const COLLECTION_OPERATORS = Object.freeze(['eq', 'not_eq', 'in', 'not_in', 'contains', 'not_contains', 'gte', 'lte', 'between', 'exists']);
+export const COLLECTION_RULE_FIELDS = Object.freeze([
+  'productType', 'jewelry.category', 'primaryArtisanId', 'collaborators', 'dropId', 'edition.type',
+  'offers', 'customizerEnabled', 'variants.metal', 'variants.karat', 'variants.finish', 'retailPrice',
+  'status', 'channels', 'tags', 'metadata',
+]);
 
-function slugify(value) {
-  return String(value || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 60) || 'collection';
+function validateRule(node, errors, path = 'rules') {
+  if (!node || typeof node !== 'object') return errors.push(`${path} must be an object`);
+  if (Object.keys(node).length === 0) return;
+  const group = node.all || node.any;
+  if (group) {
+    if (!Array.isArray(group) || group.length === 0) errors.push(`${path} group must not be empty`);
+    else group.forEach((child, index) => validateRule(child, errors, `${path}[${index}]`));
+    return;
+  }
+  if (!COLLECTION_RULE_FIELDS.includes(node.field)) errors.push(`${path}.field is not registered`);
+  if (!COLLECTION_OPERATORS.includes(node.operator)) errors.push(`${path}.operator is invalid`);
+  if (node.operator !== 'exists' && node.value === undefined) errors.push(`${path}.value is required`);
+}
+
+export function validateCollection(data = {}) {
+  const errors = [];
+  if (!data.name?.trim()) errors.push('name is required');
+  if (!data.slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(data.slug)) errors.push('slug must be URL-safe');
+  if (!Object.values(COLLECTION_STATUS).includes(data.status)) errors.push('invalid collection status');
+  validateRule(data.rules, errors);
+  const pinnedPositions = (data.pinned || []).map((item) => item.position);
+  if (new Set(pinnedPositions).size !== pinnedPositions.length) errors.push('pinned positions must be unique');
+  return { valid: errors.length === 0, errors };
 }
 
 export default class CollectionsModel {
   static COLLECTION = Constants.COLLECTIONS_COLLECTION;
-
-  static async collection() {
-    const dbInstance = await db.connect();
-    return dbInstance.collection(this.COLLECTION);
-  }
-
+  static async collection() { return (await db.connect()).collection(this.COLLECTION); }
   static async ensureIndexes() {
     const col = await this.collection();
     await Promise.all([
-      col.createIndex({ collectionId: 1 }, { unique: true, sparse: true }),
-      col.createIndex({ slug: 1 }),
+      col.createIndex({ collectionId: 1 }, { unique: true }),
+      col.createIndex({ slug: 1 }, { unique: true }),
       col.createIndex({ status: 1 }),
-      col.createIndex({ ownerType: 1 }),
     ]);
   }
-
   static async create(data) {
-    const col = await this.collection();
     const now = new Date();
     const doc = {
-      collectionId: data.collectionId || randomUUID(),
-      name: data.name ?? '',
-      slug: data.slug || slugify(data.name),
-      theme: data.theme ?? null,
-      description: data.description ?? '',
-      ownerType: data.ownerType || OWNER_TYPE.EFD,
-      ownerId: data.ownerId ?? null,
-      ownerInfo: data.ownerInfo ?? null,
-      channel: data.channel ?? null,
-      status: data.status || COLLECTION_STATUS.DRAFT,
-      releaseAt: data.releaseAt ?? null,
-      members: Array.isArray(data.members) ? data.members : [],
-      image: data.image ?? null,
-      thumbnail: data.thumbnail ?? null,
-      seo: data.seo ?? {},
-      createdAt: now,
-      updatedAt: now,
-      createdBy: data.createdBy ?? null,
+      collectionId: data.collectionId || randomUUID(), slug: data.slug, name: data.name,
+      description: data.description ?? '', status: data.status ?? COLLECTION_STATUS.DRAFT,
+      rules: data.rules ?? {}, manualIncludes: [...new Set(data.manualIncludes || [])],
+      manualExcludes: [...new Set(data.manualExcludes || [])], pinned: data.pinned ?? [],
+      media: data.media ?? {}, seo: data.seo ?? {}, createdAt: now, updatedAt: now, createdBy: data.createdBy ?? null,
     };
-    await col.insertOne(doc);
+    const validation = validateCollection(doc);
+    if (!validation.valid) throw new TypeError(validation.errors.join('; '));
+    await (await this.collection()).insertOne(doc);
     return doc;
   }
-
-  static async findById(collectionId) {
-    const col = await this.collection();
-    return col.findOne({ collectionId }, { projection: { _id: 0 } });
-  }
-
-  static async findBySlug(slug) {
-    const col = await this.collection();
-    return col.findOne({ slug }, { projection: { _id: 0 } });
-  }
-
-  static async list(filter = {}) {
-    const col = await this.collection();
-    return col.find(filter, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray();
-  }
-
-  static async updateById(collectionId, updateData) {
-    const col = await this.collection();
-    await col.updateOne({ collectionId }, { $set: { ...updateData, updatedAt: new Date() } });
-    return this.findById(collectionId);
-  }
-
-  /** Add a product member (idempotent by productId; position defaults to append). */
-  static async addMember(collectionId, member) {
-    const col = await this.collection();
-    const doc = await this.findById(collectionId);
-    if (!doc) return null;
-    if ((doc.members || []).some((m) => m.productId === member.productId)) return doc; // no dup
-    const position = member.position ?? (doc.members?.length ?? 0);
-    await col.updateOne(
-      { collectionId },
-      { $push: { members: { productId: member.productId, position, notes: member.notes ?? '', addedAt: new Date() } }, $set: { updatedAt: new Date() } },
-    );
-    return this.findById(collectionId);
-  }
-
-  static async removeMember(collectionId, productId) {
-    const col = await this.collection();
-    await col.updateOne(
-      { collectionId },
-      { $pull: { members: { productId } }, $set: { updatedAt: new Date() } },
-    );
-    return this.findById(collectionId);
-  }
+  static async findById(collectionId) { return (await this.collection()).findOne({ collectionId }, { projection: { _id: 0 } }); }
+  static async findBySlug(slug) { return (await this.collection()).findOne({ slug }, { projection: { _id: 0 } }); }
+  static async list(filter = {}) { return (await this.collection()).find(filter, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray(); }
 }

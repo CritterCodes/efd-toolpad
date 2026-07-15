@@ -3,7 +3,7 @@ import { requireRole } from '@/lib/apiAuth';
 import { db } from '@/lib/database';
 import PiecesModel from '@/app/api/pieces/model';
 import DesignsModel from '@/app/api/designs/model';
-import { buildProductFromPiece, ripenConceptToJewelry } from '@/services/products/productContract';
+import { buildProductFromPiece, attachPieceToProduct } from '@/services/products/productContract';
 
 /**
  * POST /api/production/pieces/[pieceID]/list-product
@@ -32,8 +32,8 @@ export const POST = async (req, { params }) => {
   // real jewelry listing (actual COGS) rather than creating a duplicate. (M1-T3)
   if (design?.productID) {
     const existing = await dbInstance.collection('products').findOne({ productId: design.productID });
-    if (existing && existing.productType === 'concept') {
-      const patch = ripenConceptToJewelry({ product: existing, piece });
+    if (existing && existing.productType === 'jewelry') {
+      const patch = attachPieceToProduct({ product: existing, piece });
       await dbInstance.collection('products').updateOne(
         { productId: existing.productId },
         { $set: { ...patch, updatedAt: now } },
