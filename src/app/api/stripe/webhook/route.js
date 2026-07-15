@@ -42,7 +42,10 @@ export const POST = async (req) => {
       const invoice = event.data?.object || {};
       const meta = invoice.metadata || {};
       if (meta.kind === 'custom_invoice' && meta.customID && meta.invoiceID) {
-        await setCustomInvoiceStatus(meta.customID, meta.invoiceID, CUSTOM_INVOICE_STATUS.CANCELLED, 'stripe');
+        const internalInvoice = await CustomInvoicesModel.findById(meta.invoiceID);
+        if (internalInvoice?.status !== CUSTOM_INVOICE_STATUS.PAID) {
+          await setCustomInvoiceStatus(meta.customID, meta.invoiceID, CUSTOM_INVOICE_STATUS.CANCELLED, 'stripe');
+        }
         await CustomInvoicesModel.updateStripeStatus(meta.invoiceID, invoice.status || 'void');
       }
     } else if (event.type === 'invoice.sent' || event.type === 'invoice.finalized') {
