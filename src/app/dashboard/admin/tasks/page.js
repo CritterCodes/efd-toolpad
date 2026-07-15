@@ -230,7 +230,7 @@ export default function TasksPage() {
           </DialogTitle>
           <DialogContent sx={{ pt: 2.5 }}>
             <Typography sx={{ color: TASKS_UI.textPrimary }}>
-              Are you sure you want to {deleteDialog.hardDelete ? 'permanently delete' : 'archive'} "{deleteDialog.task?.title}"?
+              Are you sure you want to {deleteDialog.hardDelete ? 'permanently delete' : 'archive'} &quot;{deleteDialog.task?.title}&quot;?
             </Typography>
             {!deleteDialog.hardDelete && (
               <Typography variant="body2" sx={{ color: TASKS_UI.textSecondary, mt: 1 }}>

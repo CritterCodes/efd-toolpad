@@ -1,8 +1,12 @@
 import React from 'react';
-import { Box, Grid, Card, CardMedia, CardContent, Typography, Checkbox, FormControlLabel, Select, MenuItem, Button } from '@mui/material';
+import { Accordion, AccordionDetails, AccordionSummary, Box, Button, Card, CardContent, Checkbox, Chip, CircularProgress, FormControlLabel, Grid, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
+import CheckIcon from '@mui/icons-material/Check';
+import ErrorIcon from '@mui/icons-material/Error';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ImportIcon from '@mui/icons-material/Download';
 
-export default function StullerProductGrid({ searchResults, selectedProducts, handleProductSelect }) {
-    return () => (
+export default function StullerProductGrid({ searchResults, selectedProducts, handleProductSelect, handleImport, importing }) {
+    return (
     <Box sx={{ p: 2 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Typography variant="h6">
@@ -12,9 +16,9 @@ export default function StullerProductGrid({ searchResults, selectedProducts, ha
           variant="contained"
           startIcon={<ImportIcon />}
           onClick={handleImport}
-          disabled={selectedProducts.size === 0 || importing}
+          disabled={Object.keys(selectedProducts).length === 0 || importing}
         >
-          {importing ? <CircularProgress size={20} /> : `Import Selected (${selectedProducts.size})`}
+          {importing ? <CircularProgress size={20} /> : `Import Selected (${Object.keys(selectedProducts).length})`}
         </Button>
       </Box>
       
@@ -39,7 +43,7 @@ export default function StullerProductGrid({ searchResults, selectedProducts, ha
                   <FormControlLabel
                     control={
                       <Checkbox
-                        checked={selectedProducts.has(product.id)}
+                        checked={Boolean(selectedProducts[product.id])}
                         onChange={(e) => handleProductSelect(product.id, e.target.checked)}
                       />
                     }

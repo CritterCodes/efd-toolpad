@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { claimMadeToOrder, startProduction, cancelBeforeProduction, EditionCapacityError } from '@/services/production/editionCapacity';
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
+import { MongoClient } from 'mongodb';
+import { claimMadeToOrder, checkoutMadeToOrder, startProduction, cancelBeforeProduction, EditionCapacityError } from '@/services/production/editionCapacity';
 
 function databaseWithEdition(limit = 2) {
   const state = { design: { designID: 'd1', dropId: 'drop', variants: [{ variantId: 'v1', active: true }], edition: { type: 'limited', limit, allocated: 0, committed: 0, nextNumber: 1 } }, pieces: [] };
@@ -34,14 +36,21 @@ function databaseWithEdition(limit = 2) {
 }
 
 describe('transactional edition capacity', () => {
-  it('never lets concurrent paid claims exceed allocated + committed limit', async () => {
-    const { state, database } = databaseWithEdition(2);
-    const attempts = await Promise.allSettled(Array.from({ length: 12 }, () => claimMadeToOrder({ database, designID: 'd1', variantId: 'v1' })));
+  it('never lets concurrent paid checkout transactions exceed allocated + committed limit in MongoDB', async () => {
+    const replicaSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
+    const client = new MongoClient(replicaSet.getUri());
+    await client.connect();
+    const database = client.db('edition-capacity-test');
+    await database.collection('designs').insertOne({ designID: 'd1', variants: [{ variantId: 'v1', active: true }], edition: { type: 'limited', limit: 2, allocated: 0, committed: 0, nextNumber: 1 } });
+    const attempts = await Promise.allSettled(Array.from({ length: 12 }, (_, orderId) => checkoutMadeToOrder({ client, database, designID: 'd1', variantId: 'v1', orderId: String(orderId) })));
     expect(attempts.filter((result) => result.status === 'fulfilled')).toHaveLength(2);
     expect(attempts.filter((result) => result.reason instanceof EditionCapacityError)).toHaveLength(10);
-    expect(state.design.edition.allocated + state.design.edition.committed).toBe(2);
-    expect(state.pieces).toHaveLength(2);
-  });
+    const design = await database.collection('designs').findOne({ designID: 'd1' });
+    expect(design.edition.allocated + design.edition.committed).toBe(2);
+    expect(await database.collection('pieces').countDocuments()).toBe(2);
+    await client.close();
+    await replicaSet.stop();
+  }, 120000);
 
   it('production start converts committed to allocated and assigns a never-reused number', async () => {
     const { state, database } = databaseWithEdition(1);

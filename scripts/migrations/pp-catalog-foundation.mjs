@@ -11,7 +11,7 @@ import { catalogFixtures, FIXTURE_VERSION } from '../../src/services/production/
 const fixtureEnvironment = process.env.CATALOG_FIXTURE_ENV || 'dev';
 const fixture = catalogFixtures(fixtureEnvironment);
 
-const steps = [
+export const steps = [
   {
     title: 'snapshot disposable drops and collections for rollback',
     run: async ({ db, dbName, dryRun }) => {
@@ -53,4 +53,6 @@ const steps = [
   },
 ];
 
-runMigration({ name: 'pp-catalog-foundation', steps }).catch((error) => { console.error(`✖ ${error.stack || error.message}`); process.exit(1); });
+if (import.meta.url === `file://${process.argv[1]}`) {
+  runMigration({ name: 'pp-catalog-foundation', steps }).catch((error) => { console.error(`✖ ${error.stack || error.message}`); process.exit(1); });
+}

@@ -29,8 +29,8 @@ export default function StullerSearchDialog(props) {
                     <Tab label={`Results (${searchResults.length})`} disabled={searchResults.length === 0} />
                     <Tab label="Import Results" disabled={!importResults} />
                 </Tabs>
-                {tabValue === 0 && <StullerSearchFilters searchParams={searchParams} setSearchParams={setSearchParams} handleSearch={handleSearch} handleClear={handleClear} loading={loading} />}
-                {tabValue === 1 && <StullerProductGrid searchResults={searchResults} selectedProducts={selectedProducts} handleProductSelect={handleProductSelect} />}
+                {tabValue === 0 && <StullerSearchFilters searchParams={searchParams} setSearchParams={setSearchParams} handleSearch={handleSearch} handleClear={handleClear} loading={loading} suggestions={{ categories: [], metalTypes: [] }} />}
+                {tabValue === 1 && <StullerProductGrid searchResults={searchResults} selectedProducts={selectedProducts} handleProductSelect={handleProductSelect} handleImport={handleImport} importing={importing} />}
                 {tabValue === 2 && <StullerImportResults importResults={importResults} />}
             </DialogContent>
             <DialogActions>
