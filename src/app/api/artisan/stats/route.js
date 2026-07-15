@@ -16,7 +16,7 @@ export async function GET(request) {
         }
 
         const { searchParams } = new URL(request.url);
-        const timeRange = searchParams.get('timeRange') || 'last_30_days';
+        const timeRange = searchParams.get('timeline') || searchParams.get('timeRange') || 'last_30_days';
 
         console.log('📊 [STATS API] Fetching analytics for:', {
             userID: session.user.userID,
@@ -71,9 +71,6 @@ export async function GET(request) {
             timeRange
         );
 
-        // Generate revenue time series data
-        const revenueTimeSeries = generateMockRevenueData(timeRange);
-
         // Combine analytics data
         const combinedStats = {
             summary: {
@@ -89,7 +86,7 @@ export async function GET(request) {
             },
             timeSeries: {
                 profileViews: profileViewsTimeSeries,
-                revenue: revenueTimeSeries,
+                revenue: [],
                 productsSold: []
             },
             timeRange,
@@ -114,28 +111,4 @@ export async function GET(request) {
             { status: 500 }
         );
     }
-}
-
-// Helper function to generate placeholder revenue data
-function generateMockRevenueData(timeRange) {
-    const dataPoints = timeRange.includes('7') ? 7 : timeRange.includes('30') ? 30 : 90;
-    const data = [];
-    const now = new Date();
-
-    for (let i = dataPoints - 1; i >= 0; i--) {
-        const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-        const dateKey = date.toISOString().split('T')[0];
-        
-        // Generate some mock revenue data
-        const baseRevenue = Math.random() * 500;
-        const revenue = Math.floor(baseRevenue);
-
-        data.push({
-            date: dateKey,
-            value: revenue,
-            label: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-        });
-    }
-
-    return data;
 }
