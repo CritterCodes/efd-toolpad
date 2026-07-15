@@ -1,5 +1,14 @@
 // src/app/api/users/user.model.js
 import { db } from "@/lib/database";
+import { ObjectId } from "mongodb";
+
+export function userIdentityQuery(userId) {
+    const id = String(userId || '').trim();
+    if (ObjectId.isValid(id)) {
+        return { $or: [{ userID: id }, { _id: new ObjectId(id) }] };
+    }
+    return { userID: id };
+}
 
 
 export default class UserModel {
@@ -67,13 +76,10 @@ export default class UserModel {
      */
     static async getUserById(userId) {
         try {
-            const { ObjectId } = require('mongodb');
             const dbInstance = await db.connect();
             console.log(`🔍 Searching user in the database with ID: ${userId}`);
             
-            const user = await dbInstance.collection("users").findOne({
-                _id: new ObjectId(userId)
-            });
+            const user = await dbInstance.collection("users").findOne(userIdentityQuery(userId));
 
             if (!user) {
                 console.warn("⚠️ No user found in database for ID:", userId);
@@ -175,12 +181,11 @@ export default class UserModel {
      */
     static async updateUserById(userId, updateData) {
         try {
-            const { ObjectId } = require('mongodb');
             const dbInstance = await db.connect();
             console.log(`🔄 Updating user in database with ID: ${userId}`);
             
             const result = await dbInstance.collection("users").updateOne(
-                { _id: new ObjectId(userId) },
+                userIdentityQuery(userId),
                 { $set: updateData }
             );
 
@@ -190,9 +195,7 @@ export default class UserModel {
             }
 
             // Fetch and return the updated user
-            const updatedUser = await dbInstance.collection("users").findOne({
-                _id: new ObjectId(userId)
-            });
+            const updatedUser = await dbInstance.collection("users").findOne(userIdentityQuery(userId));
 
             console.log("✅ User updated in database:", updatedUser);
             return updatedUser;
