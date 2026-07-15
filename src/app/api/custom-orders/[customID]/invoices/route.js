@@ -21,9 +21,6 @@ export const POST = async (req, { params }) => {
   if (errorResponse) return errorResponse;
   const { customID } = await params;
   const body = await req.json().catch(() => ({}));
-  if (!body?.amount || Number(body.amount) <= 0) {
-    return NextResponse.json({ error: 'A positive amount is required.' }, { status: 400 });
-  }
   try {
     const result = await createCustomInvoice(customID, { ...body, createdBy: session.user.userID || session.user.email || '' });
     return NextResponse.json(result, { status: 201 });
