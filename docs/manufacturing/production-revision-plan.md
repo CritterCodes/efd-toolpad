@@ -1,7 +1,7 @@
 # Production Revision Delivery Plan
 
-**Status:** planning gate. EFD remains paused. Do not dispatch or merge the production-foundation,
-Shopify-exit, or dependent concept/customizer tasks from this document alone.
+**Status:** owner-reviewed delivery plan. Dispatch only the explicit tasks created from this plan and
+respect their dependency gates. Do not promote a dependent task from this document alone.
 
 ## Existing BARF Task Reconciliation
 
@@ -27,6 +27,18 @@ created as a small dependency graph rather than dozens of independent branches.
 - Add Design Variants, sizing allowance, collaboration, edition counters, and exact Piece configuration.
 - Add guarded, atomic edition allocation at production start.
 - Create deterministic DEV/preview seeds and reset commands.
+
+Delivery boundary: `PCR-A-SCHEMA` owns schemas, migrations, projections, deterministic fixtures, and
+transaction-safe edition-capacity service boundaries. It does not own live shop checkout or admin
+production call sites. Those integrations are separate tasks so each can be verified in its owning app:
+
+- `PCR-E-MTO-CHECKOUT` wires paid checkout, planned Piece creation, pre-production refund/cancellation,
+  and idempotency into the live shop order path.
+- `PCR-E-PRODUCTION-START` wires the real admin production-start transition to committed-to-allocated
+  conversion and Design-wide edition numbering.
+
+**Hard gate:** no revised made-to-order Product may publish until `PCR-E-MTO-CHECKOUT` is merged and
+the server-side publication guard proves that integration is active.
 
 ### B. Products information architecture
 
