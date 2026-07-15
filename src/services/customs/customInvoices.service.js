@@ -11,7 +11,8 @@ import CustomOrdersModel, { CUSTOM_ORDER_STATUS } from '@/app/api/custom-orders/
 import CustomInvoicesModel, { CUSTOM_INVOICE_STATUS } from '@/app/api/custom-orders/invoices/model';
 import { computePaymentProgress } from '@/services/customs/paymentProgress';
 import { NotificationService, NOTIFICATION_TYPES } from '@/lib/notificationService';
-import { createCheckoutSession } from '@/app/api/custom-orders/stripe';
+import { createAndSendStripeInvoice, resendStripeInvoice } from '@/app/api/custom-orders/stripe';
+import { calculateCustomInvoice, isBillableEmail } from '@/services/customs/customInvoicePolicy';
 
 const STATUS_RANK = {
   pending: 0, consultation: 1, design: 2, quote: 3, deposit: 4,
@@ -33,7 +34,9 @@ function notifyInvoiceCreated(order, invoice) {
     type: NOTIFICATION_TYPES.INVOICE_CREATED,
     title: 'New Invoice Created',
     message: `Invoice ${invoice.invoiceNumber} for $${invoice.amount.toFixed(2)} has been created.`,
-    channels: ['inApp', 'email'],
+    // This is only an internal draft. Stripe sends the customer email after the
+    // explicit Send Invoice action creates the hosted invoice.
+    channels: ['inApp'],
     templateName: 'invoice-created',
     recipientEmail: invoice.customerEmail,
     data: { customID: order.customID, invoiceNumber: invoice.invoiceNumber, amount: invoice.amount.toFixed(2), type: invoice.type },
@@ -73,13 +76,31 @@ export async function createCustomInvoice(customID, data) {
   const order = await CustomOrdersModel.findById(customID);
   if (!order) throw new Error('Custom order not found.');
 
+  if (!order.quote?.quotePublished) {
+    throw new Error('Publish the quote before creating an invoice.');
+  }
+  const customerEmail = String(data.customerEmail || order.customerEmail || '').trim();
+  if (!isBillableEmail(customerEmail)) {
+    throw new Error('Add a valid customer email before creating an invoice.');
+  }
+  const current = await progressFor(order);
+  const resolved = calculateCustomInvoice({
+    type: data.type,
+    amount: data.amount,
+    depositPct: data.depositPct,
+    dueDays: data.dueDays,
+    progress: current.progress,
+  });
+
   const invoice = await CustomInvoicesModel.create({
     customID,
-    customerEmail: data.customerEmail || order.customerEmail,
+    ...data,
+    amount: resolved.amount,
+    dueDays: resolved.dueDays,
+    customerEmail,
     // Snapshot the order's effective tax rate so the recorded amount (tax-inclusive)
     // can be decomposed into revenue + sales tax in reporting.
     taxRate: data.taxRate ?? order.quote?.taxRate ?? 0,
-    ...data,
   });
   const { progress } = await progressFor(order);
 
@@ -88,9 +109,8 @@ export async function createCustomInvoice(customID, data) {
 }
 
 /**
- * Create a Stripe Checkout payment link for an invoice and email it to the client.
- * The webhook (checkout.session.completed) marks the invoice paid — this only sends
- * the request. Re-runnable: generates a fresh link if the prior one wasn't paid.
+ * Create and send a hosted Stripe Invoice. The invoice.paid webhook marks the
+ * internal invoice paid and advances the custom order.
  */
 export async function createInvoiceCheckout(customID, invoiceID) {
   const order = await CustomOrdersModel.findById(customID);
@@ -99,32 +119,45 @@ export async function createInvoiceCheckout(customID, invoiceID) {
   if (!invoice || invoice.customID !== customID) throw new Error('Invoice not found.');
   if (invoice.status === CUSTOM_INVOICE_STATUS.PAID) { const e = new Error('Invoice is already paid.'); e.code = 'BAD_REQUEST'; throw e; }
 
-  const base = (process.env.EFD_SHOP_URL || process.env.NEXT_PUBLIC_URL || '').replace(/\/$/, '');
-  const session = await createCheckoutSession({
-    amountInCents: Math.round((Number(invoice.amount) || 0) * 100),
-    invoiceID,
-    customID,
-    customerEmail: invoice.customerEmail || order.customerEmail || '',
-    description: `${order.jewelryType || 'Custom order'} ${customID} — ${invoice.type} payment`,
-    successUrl: `${base}/custom-work/portal?paid=${invoiceID}`,
-    cancelUrl: `${base}/custom-work/portal?cancelled=${invoiceID}`,
-  });
+  const customerEmail = String(invoice.customerEmail || order.customerEmail || '').trim();
+  if (!isBillableEmail(customerEmail)) {
+    const error = new Error('Add a valid customer email before sending the invoice.');
+    error.code = 'BAD_REQUEST';
+    throw error;
+  }
+  const description = `${order.jewelryType || 'Custom order'} ${customID} - ${invoice.type} payment`;
+  const stripeInvoice = invoice.stripeInvoiceID
+    ? await resendStripeInvoice(invoice.stripeInvoiceID, invoiceID, Number(invoice.stripeSendCount || 1) + 1)
+    : await createAndSendStripeInvoice({
+        amountInCents: Math.round((Number(invoice.amount) || 0) * 100),
+        invoiceID,
+        invoiceNumber: invoice.invoiceNumber,
+        customID,
+        customerEmail,
+        customerName: order.customerName || '',
+        description,
+        dueDays: invoice.dueDays,
+      });
 
-  const updated = await CustomInvoicesModel.setCheckout(invoiceID, { sessionID: session.id, checkoutUrl: session.url });
+  const updated = await CustomInvoicesModel.setStripeInvoice(invoiceID, stripeInvoice);
 
-  // Email the payment link to the client (fire-and-forget).
+  // Stripe sends the customer email. Keep the portal notification best-effort.
   NotificationService.createNotification({
     userId: order.clientID,
     type: NOTIFICATION_TYPES.INVOICE_CREATED,
-    title: 'Payment link ready',
-    message: `Your ${invoice.type} payment of $${(Number(invoice.amount) || 0).toFixed(2)} is ready. Pay securely: ${session.url}`,
-    channels: ['inApp', 'email'],
+    title: 'Invoice ready',
+    message: `Your ${invoice.type} invoice for $${(Number(invoice.amount) || 0).toFixed(2)} is ready.`,
+    channels: ['inApp'],
     templateName: 'invoice-created',
-    recipientEmail: invoice.customerEmail || order.customerEmail || '',
-    data: { customID, invoiceNumber: invoice.invoiceNumber, amount: (Number(invoice.amount) || 0).toFixed(2), type: invoice.type, checkoutUrl: session.url },
+    recipientEmail: customerEmail,
+    data: { customID, invoiceNumber: invoice.invoiceNumber, amount: (Number(invoice.amount) || 0).toFixed(2), type: invoice.type, checkoutUrl: stripeInvoice.hostedInvoiceUrl },
   }).catch((e) => console.error('⚠️ payment-link notification failed:', e.message));
 
-  return { url: session.url, invoice: updated };
+  return {
+    url: stripeInvoice.hostedInvoiceUrl,
+    invoice: updated,
+    delivery: stripeInvoice.livemode ? 'emailed' : 'sandbox_no_email',
+  };
 }
 
 export async function getCustomPaymentProgress(customID) {
@@ -136,6 +169,12 @@ export async function getCustomPaymentProgress(customID) {
 export async function setCustomInvoiceStatus(customID, invoiceID, status, paymentMethod = null) {
   const order = await CustomOrdersModel.findById(customID);
   if (!order) throw new Error('Custom order not found.');
+  const existingInvoice = await CustomInvoicesModel.findById(invoiceID);
+  if (!existingInvoice || existingInvoice.customID !== customID) throw new Error('Invoice not found.');
+  if (existingInvoice.status === status) {
+    const { progress } = await progressFor(order);
+    return { invoice: existingInvoice, progress };
+  }
   const invoice = await CustomInvoicesModel.updateStatus(invoiceID, status, paymentMethod);
   if (!invoice) throw new Error('Invoice not found.');
 

@@ -41,6 +41,7 @@ export default class CustomInvoicesModel {
       taxRate: Number(data.taxRate) || 0,
       description: data.description || '',
       customerEmail: data.customerEmail || '',
+      dueDays: Math.max(1, Math.min(90, Number(data.dueDays) || 7)),
       status: CUSTOM_INVOICE_STATUS.PENDING,
       paidAt: null,
       createdAt: now,
@@ -72,13 +73,31 @@ export default class CustomInvoicesModel {
     return this.findById(invoiceID);
   }
 
-  /** Store the Stripe Checkout session + payment link on the invoice. */
-  static async setCheckout(invoiceID, { sessionID, checkoutUrl }) {
+  /** Store the Stripe hosted invoice state and client payment URL. */
+  static async setStripeInvoice(invoiceID, stripeInvoice = {}) {
     const col = await this.collection();
+    const set = {
+      stripeInvoiceID: stripeInvoice.id,
+      stripeCustomerID: stripeInvoice.customerID,
+      stripeInvoiceNumber: stripeInvoice.number,
+      stripeStatus: stripeInvoice.status,
+      checkoutUrl: stripeInvoice.hostedInvoiceUrl,
+      invoicePdf: stripeInvoice.invoicePdf || null,
+      stripeLivemode: Boolean(stripeInvoice.livemode),
+      stripeSentAt: new Date(),
+      updatedAt: new Date(),
+    };
+    for (const key of Object.keys(set)) if (set[key] === undefined) delete set[key];
     await col.updateOne(
       { invoiceID },
-      { $set: { stripeSessionID: sessionID, checkoutUrl, checkoutCreatedAt: new Date(), updatedAt: new Date() } },
+      { $set: set, $inc: { stripeSendCount: 1 } },
     );
+    return this.findById(invoiceID);
+  }
+
+  static async updateStripeStatus(invoiceID, stripeStatus) {
+    const col = await this.collection();
+    await col.updateOne({ invoiceID }, { $set: { stripeStatus, updatedAt: new Date() } });
     return this.findById(invoiceID);
   }
 }

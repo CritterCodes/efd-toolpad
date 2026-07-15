@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/apiAuth';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
 import { syncQuoteToWorkOrders } from '@/services/customs/customProduction';
+import { NotificationService } from '@/lib/notificationService';
+
+const PORTAL_URL = `${process.env.NEXT_PUBLIC_APP_URL || ''}/custom-work/portal`;
 
 /**
  * PUT /api/custom-orders/[customID]/quote
@@ -14,8 +17,24 @@ export const PUT = async (req, { params }) => {
 
   const { customID } = await params;
   const quote = await req.json().catch(() => ({}));
+  const existing = await CustomOrdersModel.findById(customID);
+  if (!existing) return NextResponse.json({ error: 'Custom order not found.' }, { status: 404 });
+
   const updated = await CustomOrdersModel.updateById(customID, { quote });
-  if (!updated) return NextResponse.json({ error: 'Custom order not found.' }, { status: 404 });
+
+  // This is the route used by QuoteTab. Fire only on the unpublished -> published edge.
+  if (!existing.quote?.quotePublished && updated.quote?.quotePublished && updated.clientID) {
+    NotificationService.createNotification({
+      userId: updated.clientID,
+      type: 'custom-quote-ready',
+      title: 'Your quote is ready',
+      message: `Your quote for "${updated.title || 'your custom piece'}" is ready to review.`,
+      channels: ['inApp', 'email'],
+      recipientEmail: updated.customerEmail,
+      priority: 'high',
+      data: { actionUrl: PORTAL_URL, customID },
+    }).catch((e) => console.error('custom-quote-ready notification failed:', e.message));
+  }
 
   // Reconcile any already-generated (pre-QC) bench work orders with the edited plan:
   // update hours, append added tasks, cull removed ones, spawn WOs for new lanes.

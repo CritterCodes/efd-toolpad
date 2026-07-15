@@ -64,7 +64,7 @@ export default function CustomDetailPage() {
   const [busy, setBusy] = useState(false);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   // mode: 'deposit' (depositPct of quote total) | 'full' (remaining balance) | 'custom' (typed amount)
-  const [invoiceForm, setInvoiceForm] = useState({ mode: 'deposit', depositPct: 50, amount: '' });
+  const [invoiceForm, setInvoiceForm] = useState({ mode: 'deposit', depositPct: 50, amount: '', dueDays: 7 });
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
 
   const notify = (message, severity = 'success') => setSnack({ open: true, message, severity });
@@ -108,9 +108,16 @@ export default function CustomDetailPage() {
   // pre-tax quoteTotal for legacy orders quoted before sales tax was applied.
   const quoteTotal = Number(order?.quote?.total ?? order?.quote?.quoteTotal) || 0;
   const remaining = billing.progress ? Number(billing.progress.remainingAmount) || 0 : quoteTotal;
+  const uninvoiced = Math.max(0, remaining - (Number(billing.progress?.totalPending) || 0));
+  const customerEmail = String(order?.customerEmail || '').trim();
+  const emailDomain = customerEmail.split('@')[1]?.toLowerCase() || '';
+  const hasBillableEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)
+    && !['test.com', 'example.com', 'example.test'].includes(emailDomain)
+    && !emailDomain.endsWith('.test');
+  const quotePublished = Boolean(order?.quote?.quotePublished);
   const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
   const invoiceAmount = () => {
-    if (invoiceForm.mode === 'full') return round2(remaining || quoteTotal);
+    if (invoiceForm.mode === 'full') return round2(uninvoiced);
     if (invoiceForm.mode === 'deposit') return round2(quoteTotal * (Number(invoiceForm.depositPct) || 0) / 100);
     return round2(invoiceForm.amount);
   };
@@ -120,20 +127,35 @@ export default function CustomDetailPage() {
     return 'partial';
   };
   const createInvoice = () => call(async () => {
-    const res = await fetch(`/api/custom-orders/${customID}/invoices`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: invoiceType(), amount: invoiceAmount() }) });
+    const res = await fetch(`/api/custom-orders/${customID}/invoices`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: invoiceType(),
+        amount: invoiceForm.mode === 'custom' ? invoiceAmount() : undefined,
+        depositPct: invoiceForm.mode === 'deposit' ? Number(invoiceForm.depositPct) : undefined,
+        dueDays: Number(invoiceForm.dueDays),
+      }),
+    });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Invoice create failed');
-    setInvoiceOpen(false); setInvoiceForm({ mode: 'deposit', depositPct: 50, amount: '' });
+    setInvoiceOpen(false); setInvoiceForm({ mode: 'deposit', depositPct: 50, amount: '', dueDays: 7 });
   }, 'Invoice created');
   const markPaid = (invoiceID, paymentMethod) => call(async () => {
     const res = await fetch(`/api/custom-orders/${customID}/invoices/${invoiceID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'paid', paymentMethod }) });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Mark-paid failed');
   }, `Invoice marked paid (${paymentMethod})`);
-  const sendPaymentLink = (invoiceID) => call(async () => {
+  const sendInvoice = (invoiceID) => call(async () => {
     const res = await fetch(`/api/custom-orders/${customID}/invoices/${invoiceID}/checkout`, { method: 'POST' });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || 'Could not create payment link');
+    if (!res.ok) throw new Error(data.error || 'Could not send invoice');
     if (data.url) { try { await navigator.clipboard.writeText(data.url); } catch { /* clipboard optional */ } }
-  }, 'Payment link sent to client (and copied to clipboard)');
+    notify(
+      data.delivery === 'sandbox_no_email'
+        ? 'Sandbox invoice created; Stripe does not email test invoices. Link copied.'
+        : 'Stripe invoice emailed to client. Link copied.',
+      data.delivery === 'sandbox_no_email' ? 'warning' : 'success',
+    );
+  });
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress sx={{ color: REPAIRS_UI.accent }} /></Box>;
   if (!order) {
     return (
@@ -246,8 +268,9 @@ export default function CustomDetailPage() {
                   <TableCell align="right" sx={{ borderColor: REPAIRS_UI.border }}>
                     {inv.status !== 'paid' && inv.status !== 'cancelled' && (
                       <Stack direction="row" spacing={0.5} justifyContent="flex-end" alignItems="center" flexWrap="wrap" useFlexGap>
-                        <Button size="small" disabled={busy} onClick={() => sendPaymentLink(inv.invoiceID)} sx={{ color: '#64B5F6' }}>{inv.checkoutUrl ? 'Resend link' : 'Send link'}</Button>
+                        <Button size="small" disabled={busy} onClick={() => sendInvoice(inv.invoiceID)} sx={{ color: '#64B5F6' }}>{inv.stripeInvoiceID ? 'Resend invoice' : 'Send invoice'}</Button>
                         {inv.checkoutUrl && <Button size="small" component="a" href={inv.checkoutUrl} target="_blank" rel="noreferrer" sx={{ color: REPAIRS_UI.textSecondary, minWidth: 0 }}>Open</Button>}
+                        {inv.invoicePdf && <Button size="small" component="a" href={inv.invoicePdf} target="_blank" rel="noreferrer" sx={{ color: REPAIRS_UI.textSecondary, minWidth: 0 }}>PDF</Button>}
                         <Button size="small" disabled={busy} onClick={() => markPaid(inv.invoiceID, 'cash')} sx={{ color: '#66BB6A' }}>Cash</Button>
                         <Button size="small" disabled={busy} onClick={() => markPaid(inv.invoiceID, 'card')} sx={{ color: REPAIRS_UI.accent }}>Card</Button>
                       </Stack>
@@ -274,11 +297,13 @@ export default function CustomDetailPage() {
         <DialogTitle>New Invoice</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            {quoteTotal <= 0 ? (
-              <Alert severity="warning" sx={{ backgroundColor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }}>Build and publish the quote first — invoices are based on the quote total.</Alert>
+            {!quotePublished || quoteTotal <= 0 ? (
+              <Alert severity="warning" sx={{ backgroundColor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }}>Build and publish the quote before creating an invoice.</Alert>
+            ) : !hasBillableEmail ? (
+              <Alert severity="warning" sx={{ backgroundColor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }}>Add the customer&rsquo;s real email in Overview before creating an invoice.</Alert>
             ) : (
               <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
-                Quote total <strong style={{ color: REPAIRS_UI.textPrimary }}>{money(quoteTotal)}</strong> · Remaining <strong style={{ color: REPAIRS_UI.textPrimary }}>{money(remaining)}</strong>
+                Quote total <strong style={{ color: REPAIRS_UI.textPrimary }}>{money(quoteTotal)}</strong> · Uninvoiced <strong style={{ color: REPAIRS_UI.textPrimary }}>{money(uninvoiced)}</strong> · {customerEmail}
               </Typography>
             )}
             <TextField select SelectProps={{ native: true }} label="Invoice for" value={invoiceForm.mode} onChange={(e) => setInvoiceForm({ ...invoiceForm, mode: e.target.value })} fullWidth>
@@ -292,6 +317,12 @@ export default function CustomDetailPage() {
             {invoiceForm.mode === 'custom' && (
               <TextField label="Amount" type="number" value={invoiceForm.amount} onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: e.target.value })} fullWidth />
             )}
+            <TextField select SelectProps={{ native: true }} label="Payment due" value={invoiceForm.dueDays} onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDays: Number(e.target.value) })} fullWidth>
+              <option value={1}>Due tomorrow</option>
+              <option value={7}>Due in 7 days</option>
+              <option value={14}>Due in 14 days</option>
+              <option value={30}>Due in 30 days</option>
+            </TextField>
             <Box sx={{ p: 1.5, borderRadius: 1, border: `1px solid ${REPAIRS_UI.border}`, backgroundColor: REPAIRS_UI.bgTertiary }}>
               <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>This invoice</Typography>
               <Typography sx={{ fontWeight: 700, color: REPAIRS_UI.accent, fontSize: '1.2rem' }}>{money(invoiceAmount())}</Typography>
@@ -303,7 +334,7 @@ export default function CustomDetailPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setInvoiceOpen(false)} sx={{ color: REPAIRS_UI.textSecondary }}>Cancel</Button>
-          <Button variant="contained" disabled={busy || invoiceAmount() <= 0} onClick={createInvoice} sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>Create</Button>
+          <Button variant="contained" disabled={busy || !quotePublished || !hasBillableEmail || invoiceAmount() <= 0 || invoiceAmount() > uninvoiced} onClick={createInvoice} sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>Create</Button>
         </DialogActions>
       </Dialog>
 
