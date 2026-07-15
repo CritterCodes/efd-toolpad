@@ -15,14 +15,11 @@ import {
     Select,
     MenuItem,
     FormControl,
-    IconButton,
     Chip,
     CircularProgress,
     Alert
 } from '@mui/material';
 import {
-    ArrowBack as ArrowBackIcon,
-    ArrowForward as ArrowForwardIcon,
     TrendingUp as TrendingUpIcon,
     TrendingDown as TrendingDownIcon
 } from '@mui/icons-material';
@@ -45,22 +42,6 @@ const TIMELINE_OPTIONS = [
 
 const CHART_CONFIGS = [
     {
-        key: 'productsSold',
-        title: 'Products Sold',
-        color: '#2563eb',
-        dataKey: 'value',
-        formatValue: (value) => value?.toString() || '0',
-        formatTooltip: (value) => [`${value} products`, 'Products Sold']
-    },
-    {
-        key: 'revenue',
-        title: 'Revenue',
-        color: '#16a34a',
-        dataKey: 'value',
-        formatValue: (value) => `$${(value || 0).toLocaleString()}`,
-        formatTooltip: (value) => [`$${value?.toLocaleString()}`, 'Revenue']
-    },
-    {
         key: 'profileViews',
         title: 'Profile Views',
         color: '#dc2626',
@@ -71,13 +52,12 @@ const CHART_CONFIGS = [
 ];
 
 export default function AnalyticsCarousel() {
-    const [currentChart, setCurrentChart] = useState(0);
     const [timeline, setTimeline] = useState('last_30_days');
     const [analyticsData, setAnalyticsData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    const currentConfig = CHART_CONFIGS[currentChart];
+    const currentConfig = CHART_CONFIGS[0];
 
     // Fetch analytics data
     const fetchAnalytics = async (selectedTimeline) => {
@@ -106,15 +86,6 @@ export default function AnalyticsCarousel() {
     useEffect(() => {
         fetchAnalytics(timeline);
     }, [timeline]);
-
-    // Navigate between charts
-    const nextChart = () => {
-        setCurrentChart((prev) => (prev + 1) % CHART_CONFIGS.length);
-    };
-
-    const prevChart = () => {
-        setCurrentChart((prev) => (prev - 1 + CHART_CONFIGS.length) % CHART_CONFIGS.length);
-    };
 
     // Calculate percentage change
     const calculateChange = (data) => {
@@ -183,10 +154,6 @@ export default function AnalyticsCarousel() {
                 {/* Header */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <IconButton onClick={prevChart} size="small">
-                            <ArrowBackIcon />
-                        </IconButton>
-                        
                         <Box>
                             <Typography variant="h6" component="h3">
                                 {currentConfig.title}
@@ -207,9 +174,6 @@ export default function AnalyticsCarousel() {
                             </Box>
                         </Box>
                         
-                        <IconButton onClick={nextChart} size="small">
-                            <ArrowForwardIcon />
-                        </IconButton>
                     </Box>
 
                     {/* Timeline Selector */}
@@ -226,23 +190,6 @@ export default function AnalyticsCarousel() {
                             ))}
                         </Select>
                     </FormControl>
-                </Box>
-
-                {/* Chart Indicators */}
-                <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 3 }}>
-                    {CHART_CONFIGS.map((_, index) => (
-                        <Box
-                            key={index}
-                            sx={{
-                                width: 8,
-                                height: 8,
-                                borderRadius: '50%',
-                                backgroundColor: index === currentChart ? 'primary.main' : 'grey.300',
-                                cursor: 'pointer'
-                            }}
-                            onClick={() => setCurrentChart(index)}
-                        />
-                    ))}
                 </Box>
 
                 {/* Chart */}

@@ -37,6 +37,11 @@ const BASE_ARTISAN_NAV = [
     title: 'Payroll',
     icon: <PaymentIcon />,
   },
+  {
+    segment: 'dashboard/artisan/my-work',
+    title: 'My Work',
+    icon: <WorkHistoryIcon />,
+  },
 ];
 
 function buildRepairOpsNavItems(caps = {}) {
@@ -56,7 +61,6 @@ function buildRepairOpsNavItems(caps = {}) {
     { kind: 'header', title: 'Repair Work' },
     { segment: 'dashboard/repairs/new', title: 'New Repair', icon: <AddIcon /> },
     { segment: 'dashboard/repairs/my-bench', title: 'My Bench', icon: <WorkIcon /> },
-    { segment: 'dashboard/artisan/my-work', title: 'My Work', icon: <WorkHistoryIcon /> },
   );
 
   if (caps.receiving === true) {
