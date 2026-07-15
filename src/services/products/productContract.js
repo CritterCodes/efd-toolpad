@@ -9,7 +9,7 @@
  * publish.
  */
 import { randomUUID } from 'crypto';
-import { VALID_FINISHES, VALID_GEM_PRESETS } from '@crittercodes/refrakt';
+import { VALID_FINISHES, VALID_GEM_PRESETS } from '@crittercodes/refrakt/server';
 
 // Material vocabulary is owned by the engine package (refrakt ≥1.2). These are the
 // VALIDATION supersets (incl. cuts like `marquise`) — re-exported under the historical

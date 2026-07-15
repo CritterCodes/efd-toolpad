@@ -19,6 +19,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@crittercodes/refrakt/server': fileURLToPath(new URL('./node_modules/@crittercodes/refrakt/src/server/index.js', import.meta.url)),
       // Tests only need refrakt's material VOCAB (pure data). Alias the package to its
       // lightweight core/library module so importing it doesn't pull JewelryViewer/Studio
       // → @react-three/fiber + drei (which need a DOM) into the node test env. The app
