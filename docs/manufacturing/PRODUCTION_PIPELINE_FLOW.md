@@ -12,9 +12,14 @@
 The pipeline is **source-agnostic**. Two entry sources produce jewelry through **one shared spine**:
 
 - **Custom order** — client-driven. A client commissions a piece; billing/CRM gates (quote → invoice → 50% deposit) precede fabrication.
-- **Production run** — owner-driven. The owner decides to make/sell a product; no client, no deposit gate.
+- **Drop or standalone Design** — owner-driven. A Drop owns a release's Designs; backlog/evergreen
+  Designs may remain outside a Drop. No client or deposit gate.
 
-Both sources converge on the shared core: **Design → CAD (STL/GLB + materials) → price (one engine) → Piece → casting → bench work orders → COGS → listing/delivery.** Work orders are keyed by `sourceType` + `sourceID`, so the *same bench and payroll* serve repairs, custom orders, and production runs.
+Both sources converge on the shared core: **Design → Variant → optional CAD (STL/GLB + materials) →
+price (one engine) → planned Piece → production start/edition allocation → casting/bench → COGS →
+listing/delivery.** A Design
+persists and may produce many Pieces. Work orders are keyed by `sourceType` + `sourceID`, so the same
+bench and payroll serve repairs, customs, CAD requests, and production.
 
 Two jobs run through the whole thing, at fixed points:
 1. **LABOR credit** — who worked, credited into shared `laborLogs`.
@@ -28,7 +33,7 @@ Two jobs run through the whole thing, at fixed points:
 |---|---|
 | **Client / Billing** *(custom only)* | quote publish, invoices, deposit/50% gate, final payment, delivery |
 | **Owner / Admin** | order creation, spec, assignment, quote build, margin, completion |
-| **Design / CAD / Listing** | CAD uploads + QC, material/meshMap assignment, pricing, customizer, concept/handmade listings |
+| **Design / CAD / Listing** | Design intake, Variants, CAD requests/uploads/QC, pricing, Refrakt config, listings |
 | **Casting surface** | needs-ordering board, Carrera vendor orders, casting-received |
 | **Bench + Payroll** | in-house casting WO, bench work orders, QC, completion, payroll |
 
@@ -40,8 +45,9 @@ Legend: **[LABOR]** = labor-credit point · **[PRICE]** = price calc · **[NEW]*
 
 - **Order status** (custom only, forward-only): `pending → consultation → design → quote → deposit → in_production → qc → completed → delivered` (+ `cancelled`).
 - **Work-order status**: `READY FOR WORK → IN PROGRESS → QC → COMPLETED` (reject: `QC → IN PROGRESS`).
-- **Piece status**: `planned → available | reserved | sold`.
-- **Design status**: `concept → cad → approved_for_production → retired`.
+- **Piece status**: `planned → casting_ordered → in_finishing → qc → completed → available → reserved → sold`,
+  with terminal/exception paths `scrapped | returned` where applicable.
+- **Design status**: `draft → cad_requested → cad_in_progress → cad_qc → ready → retired`.
 - **Invoice status** (custom only): `pending_payment → paid | cancelled`.
 - **Casting** [NEW]: `needs_ordering → ordered → received` (backbone had only the single `received` event).
 - **Gemstone link**: `Design.gemstoneId → Piece.gemstoneId → Product.references.gemstoneId`; the stone's own piece flips `reserved` (on sale) → `sold` (on delivery).
@@ -56,12 +62,13 @@ Legend: **[LABOR]** = labor-credit point · **[PRICE]** = price calc · **[NEW]*
 3. **Consultation & spec** → `consultation`. jewelryType, metal/karat, `gemstones[]` (free-form), budget, moodboard.
 4. **Assign CAD designer** → `design`. `assignments[] role:cad` spawns flat-fee CAD WOs. → shared CAD (§4).
 
-### 3b. Production run (owner-driven)
-1. **START** — owner opens a production run. No client.
-2. **Owner designs a product** → `design: concept → cad`. In-house or request a designer.
+### 3b. Drop / standalone Design (owner-driven)
+1. **START** — EFD or an artisan opens a Drop, or creates a backlog/evergreen Design without a Drop.
+2. **Create Design draft** with ownership/collaborators, edition policy, at least one planned Variant,
+   sketches/references, tags/metadata, and production method. Drafts may remain incomplete.
 3. **DECISION — CAD-modeled, or handmade?** [NEW]
-   - **CAD-modeled** → shared CAD steps (§4).
-   - **Handmade** → the handmade sub-flow (§7). No STL/GLB, no work orders.
+   - **CAD-modeled/hybrid** → request CAD from a named artisan or the open CAD queue (§4).
+   - **Handmade** → handmade sub-flow (§7). No STL/GLB or Refrakt requirement.
 
 ---
 
@@ -69,12 +76,21 @@ Legend: **[LABOR]** = labor-credit point · **[PRICE]** = price calc · **[NEW]*
 
 Optional first: **Link gemstone (optional)** [NEW, shared] — pick a `productType:'gemstone'` Product → set `Design.gemstoneId`. Threads forward to Piece and Product.
 
-1. **Upload STL** [shared] — `stlVolumeCm3` → metal weight for pricing. Own CAD work order.
-2. **QC — STL** [shared] — peer review (author can't review own work). Reject → `IN PROGRESS`.
-3. **Upload GLB & assign materials** [shared] — GLB (viewer) + the **meshMap** (validated against `productContract`). *This IS the `designModel`.* The login-free REFRAKT viewer built here is shown to client (custom) or storefront (production). **No meshMap ⇒ no listing later.**
-4. **QC — GLB + materials** [shared, LABOR] → `WO: COMPLETED`. Approval credits the designer's flat `cad_design_fee` + reviewer's flat `cad_qc_review` (once per piece). Reject → `IN PROGRESS`. A passing GLB auto-enables the shared viewer.
+1. **Request CAD** [shared] — a Design brief with sketches/references creates Design-sourced CAD work
+   orders, assigned to a specific CAD artisan or the open queue. Do not create a separate design-request
+   domain record.
+2. **Upload revisioned STL** [shared] — `stlVolumeCm3` → metal weight for pricing.
+3. **QC — STL** [shared] — peer review (author cannot review their own work). Reject → `IN PROGRESS`.
+4. **Upload GLB & assign materials** [shared] — GLB + mesh map validated against `productContract`.
+5. **QC — GLB + materials** [shared, LABOR] → `WO: COMPLETED`. Approval credits the designer's flat
+   `cad_design_fee` + reviewer's `cad_qc_review`; rejection creates another revision cycle.
 
-**After QC-2 the flow splits by source:** Custom → Build quote (§5). Production → Cost estimate (§6).
+Approved artifacts attach to the Design. A CAD-backed Design may be manufactured after STL approval.
+A 3D/customizable listing additionally requires GLB + validated mesh map. Photo-only handmade listings
+do not require either artifact.
+
+**After required CAD gates pass the flow splits by source:** Custom → Build quote (§5). Production →
+Variant pricing/offers (§6).
 
 ---
 
@@ -87,25 +103,40 @@ Optional first: **Link gemstone (optional)** [NEW, shared] — pick a `productTy
 5. **IN PRODUCTION — "order the parts"** → `in_production`.
 6. **Spawn Design + Piece(s)** → `piece: planned`. `piece.customOrderID` back-pointer. With Link-gemstone it now threads through. → shared Casting surface (§8).
 
-## 6. Production pricing + disposition (production only)
+## 6. Production pricing + offers (production only)
 
-1. **Cost estimate = the SAME engine** [PRICE] → `product: priced`. Built exactly like the custom quote (`computeQuote`): metal weight from STL volume × daily metal price, labor × rate, stones, casting, × markup. No customer, no tax line, no deposit gate.
-2. **DECISION — Offer customizer? (optional)** [NEW] — concepts **and** physical pieces alike.
-   - **Yes** → **Set customizer params** [NEW]. A configured purchase becomes a **special order → make-to-order**.
-   - **No** → list as designed.
-3. **DECISION — Concept listing, or physically make?**
-   - **Concept** → **List concept — NOT physically made** [NEW, PRICE LIVE]: sold from the GLB in the REFRAKT viewer, never cast. Requires meshMap (+ params if customizable). **Live price** — recomputed as daily metal price moves. A purchase triggers **make-to-order** → creates a Piece (dashed edge) → Casting surface.
-   - **Physically make** → **Create Design + Piece** → `piece: planned`, threads `gemstoneId` → shared Casting surface (§8).
+1. **Define Variants** — every sellable Design has at least one concrete base SKU/configuration. Ring
+   Variants have one nominal size and may define a safe min/max sizing allowance.
+2. **Cost estimate = the SAME engine** [PRICE] — per Variant: STL/slot volume × daily metal price,
+   labor × rate, stones, casting, × markup. No customer, tax, or deposit gate.
+3. **DECISION — Offer Refrakt customization?** [NEW]
+   - **Yes** → use `ConfiguratorSetup` to constrain options on the base Variant. Every shopper selection
+     is made to order and persists an immutable resolved-configuration snapshot.
+   - **No** → sell the concrete Variant as designed.
+4. **Compute offers per Variant/configuration:**
+   - A matching `Piece.status: available` creates a **ready-to-ship** offer for that exact configuration.
+   - While uncommitted Design-wide edition capacity remains, the Variant may also expose **made-to-order**.
+   - The same Product page may offer both an exact ready-to-ship Piece and customize/made-to-order.
+5. **Paid made-to-order purchase** atomically claims committed capacity, creates a `planned` Piece,
+   copies the Variant and resolved configuration, and threads `gemstoneId`. The guarded transition into
+   physical production converts the commitment into the Design-wide allocation/edition number and routes
+   the Piece to its production or casting path. Cancellation/refund before production releases capacity.
 
 ---
 
 ## 7. Handmade sub-flow (production only) [NEW]
 
-Hand-fabricated / traditional listings with **no CAD and no work orders**.
+Hand-fabricated/traditional Designs skip STL, GLB, Refrakt, and automatic casting requirements. They do
+not skip Design, Variant, Piece, edition, labor, or COGS accounting.
 
-1. **Handmade design — no CAD** → `design: handmade`. No STL/GLB, no bench WOs, no casting. Optional linked stone.
-2. **Price — same engine, NO casting** [PRICE] → `product: priced`. `computeQuote`; materials + labor entered manually; **no casting line**, no STL-derived weight. Live-repriceable.
-3. **List handmade product** *(exit)* → `product: available`. Ready-to-ship. Customizer optional; optional stone flips `reserved → sold`. **Never touches casting or bench.**
+1. **Handmade Design** → `productionMethod: handmade`; sketches/photos and manual specification are valid.
+2. **Define Variant** — concrete material/size/configuration and any safe ring sizing allowance.
+3. **Price — same engine, no automatic casting** [PRICE] — materials + labor entered manually; no
+   STL-derived weight. Manual routing may create normal discipline work orders when labor is required.
+4. **Create Piece** manually or from a made-to-order purchase. The Piece records exact configuration,
+   actual materials/labor/COGS, and edition number when production begins.
+5. **List Product** with ready-to-ship and/or made-to-order offers according to Piece availability and
+   remaining edition capacity.
 
 ---
 
@@ -143,8 +174,11 @@ Replaces the backbone's single after-the-fact `addCastingCost` record with an ex
 4. **DELIVERED** *(exit)* → `status: delivered`.
 
 ### Production
-- **list-product (made exit)** → `piece: available`. `POST /api/production/pieces/[id]/list-product`: finished Piece → store Product carrying `references.gemstoneId`.
-- (Concept and handmade have their own listing exits — §6, §7.)
+- **publish primary Product** — projects the Design and active Variants. A Design may publish before a
+  Piece exists; that produces only made-to-order offers.
+- **complete/list Piece** — finished Piece → `piece: available`; refresh the Product so its exact Variant/
+  configuration gains a ready-to-ship offer and carries `references.gemstoneId`.
+- **Drop release** — validates and publishes all eligible primary Products owned by the Drop atomically.
 
 ---
 
@@ -152,9 +186,10 @@ Replaces the backbone's single after-the-fact `addCastingCost` record with an ex
 
 | Decision | Source | Outcomes |
 |---|---|---|
-| CAD-modeled, or handmade? | production | CAD spine · handmade sub-flow |
-| Offer customizer? | production | yes → set params · no → as designed |
-| Concept listing, or physically make? | production | concept listing · create Piece |
+| Drop or standalone? | production | Drop-owned release Design · backlog/evergreen Design |
+| CAD-modeled, hybrid, or handmade? | production | CAD spine · mixed gates · handmade sub-flow |
+| Offer customizer? | production | yes → constrained Refrakt MTO · no → standard Variant |
+| Ready to ship and/or MTO? | production | derived per Variant from available Pieces + edition capacity |
 | ≥50% of total paid? | custom | in_production · keep invoicing |
 | Order from Carrera, or cast in-house? | shared | vendor PO · in-house casting WO |
 | QC pass? (bench) | shared | proceed · reject → IN PROGRESS |
@@ -162,13 +197,17 @@ Replaces the backbone's single after-the-fact `addCastingCost` record with an ex
 ## 12. Labor & price points (quick index)
 
 - **LABOR:** CAD flat fees at **QC — GLB + materials**; **in-house casting WO**; **move-to-qc** (accrued, held); released at **complete-from-qc**; **client-mgmt bonus** at custom completion.
-- **PRICE:** custom **Build quote** and **Margin reconciliation**; production **Cost estimate**, **List concept** (live), handmade **Price**. All run the one `computeQuote` engine; handmade omits the casting line.
+- **PRICE:** custom **Build quote** and **Margin reconciliation**; production Variant **Cost estimate**
+  and offer pricing; handmade manual-material/labor pricing. All run the one `computeQuote` engine with
+  inapplicable lines omitted.
 
 ## 13. What's NEW vs the backbone (the build scope)
 
-1. **Source-agnostic framing** — production runs reuse the custom spine (Design/Piece/WO/bench/payroll/COGS/list-product), minus client/billing.
+1. **Source-agnostic framing** — Drops/Designs reuse the custom spine (Design/Piece/WO/bench/payroll/COGS/listing), minus client/billing.
 2. **Casting surface** — `needs_ordering → ordered → received` states + a cross-item board + optional in-house casting WO discipline. Backbone had only the single `addCastingCost` "received" event.
-3. **Concept listing** — list & sell a Design before it's cast (live-priced). `list-product` previously required a finished Piece.
-4. **Handmade listing** — no CAD, no WOs, no casting; same pricing engine.
-5. **Customizer** — optional per listing (concept or physical); a configured purchase = special order → make-to-order.
+3. **Made-to-order Design listing** — publish a Design before a Piece exists without inventing a
+   `concept` product type.
+4. **Handmade path** — no CAD/Refrakt/automatic casting; same Design/Variant/Piece/edition spine.
+5. **Customizer** — optional per base Variant; every configured purchase is made to order.
 6. **Gemstone linking** — optional, threaded Design → Piece → Product; fixes the legacy spawn-drop.
+7. **Drop/Collection separation** — Drop owns release production; smart Collection merchandises Products.

@@ -13,9 +13,9 @@ Status legend: 🟢 live · 🆕 new · ♻️ reimagined/rewritten · 🕓 defe
 | `laborLogs` | ♻️ (was `repairLaborLogs`) | per-WO labor credit | S0 |
 | `payrollBatches` | ♻️ (was `repairPayrollBatches`) | frozen weekly payout batches | S0 |
 | `repairs` | ♻️ | a WO source; keeps billing, loses bench/labor fields | S0/S1 |
-| `collections` | ♻️ (absorbs `drops`) | unified Collection ≡ Drop — curated product group + scheduled release (shop-read) | S3/PP |
-| ~~`drops`~~ | ⛔ merged | **deprecated** — folded into `collections` (PP M1-T5 migration) | S3 |
-| `designs` | 🆕 | manufacturing spec + IP; CAD/estimate **optional** | S3 |
+| `drops` | ♻️ | release/production workspace that owns Designs and publishes eligible listings together | PP revision |
+| `collections` | ♻️ | smart/manual merchandising rules resolving Products; independent from Drops | PP revision |
+| `designs` | 🆕 | reusable jewelry spec + edition policy + embedded Variants; CAD optional | S3/PP |
 | `pieces` | 🆕 | physical instances + actual COGS + availability | S4 |
 | `products` | ♻️ | sellable listing + price | S5 |
 | `sales` / orders | 🕓 | sale event + fee resolution + payout | S5/S6 |
@@ -36,10 +36,10 @@ The unit that lands on a bench. Knows nothing about customers or pricing.
 | Field | Type | Notes |
 |---|---|---|
 | `workOrderID` | uuid | unique |
-| `sourceType` | enum | `repair \| production_piece \| custom_piece \| sale_service \| cad_request` |
+| `sourceType` | enum | `repair \| production_piece \| custom_piece \| sale_service \| design` |
 | `sourceID` | string | id of the source doc (repairID / pieceID / saleID …) |
 | `seq` | int | routing order within the source (1, 2, 3 …) |
-| `discipline` | enum | `bench_jewelry \| cad \| engraving \| gem_cutting` — gates claiming |
+| `discipline` | enum | `bench_jewelry \| cad \| casting \| engraving \| gem_cutting` — gates claiming |
 | `title` | string | short label |
 | `description` | string | |
 | `metalType` / `karat` | string | context for process/material pricing |
@@ -56,7 +56,7 @@ The unit that lands on a bench. Knows nothing about customers or pricing.
 | `createdAt` / `updatedAt` / `createdBy` | date/string | |
 
 **Discipline ↔ artisanType map:** `bench_jewelry`→Jeweler, `cad`→CAD Designer,
-`engraving`→Hand Engraver, `gem_cutting`→Gem Cutter.
+`casting`→Caster/Jeweler, `engraving`→Hand Engraver, `gem_cutting`→Gem Cutter.
 
 **Indexes:** `{workOrderID:1}` unique · `{sourceType:1, sourceID:1}` · `{assignedToUserID:1, status:1}` · `{discipline:1, status:1}` · `{status:1}`.
 
@@ -67,8 +67,8 @@ WOs are excluded from My Bench. Owner unrestricted; admins may assign across lan
 
 **Sale-service (S2):** sale-driven service (a resize, etc.) is delivered as a **repair-backed work order**
 (`sourceType: 'repair'`) tagged with `saleContext`, comped via S1, with labor deducted from the seller
-payout — *not* a standalone `sale_service` source. The `sale_service` / `cad_request` sourceType values
-remain reserved for future sources that have no repair record.
+payout — *not* a standalone `sale_service` source. `sale_service` remains reserved. Design CAD work
+uses `sourceType: design` with the Design as the durable source record.
 
 ---
 
@@ -124,83 +124,139 @@ Billing mode is resolved via `src/services/billing/modes.js` (`resolveBillingMod
 
 ---
 
-## `collections` ♻️ (S3 → Production Pipeline goal) — Collection ≡ Drop (**shop-read**)
+## `drops` ♻️ (Production Pipeline revision) — release and production workspace
 
-**Absorbs the legacy `drops` collection.** One object is both a curated product group and a timed release
-("drop"). ⚠ **shop-read shape** for the customer drop page — see the companion
-`collection-page-data-contract.md` (authoritative) + decision 0003.
+A Drop owns Designs and coordinates a shoppable release. It is not a Collection. See
+`catalog-domain.md` and `collection-page-data-contract.md` (retained filename; now the Drop page
+contract). Existing Drop/Collection records are disposable test data and will be reset after snapshot.
 
 | Field | Type | Notes |
 |---|---|---|
-| `collectionId` | uuid | stable internal + cross-ref key |
+| `dropId` | uuid | stable internal + cross-ref key |
 | `slug` | string | **shop URL handle**, unique (drop page) |
-| `name` / `description` / `theme?` | string | |
-| `ownerType` | enum | `efd` (house, collaborative/multi-artist) \| `artisan` (single-owner). Replaces legacy `type: artisan\|admin\|drop`. |
-| `ownerId?` / `ownerInfo?` | string/object | set for `artisan` collections (curator + attribution) |
-| `channel?` | enum | `showcase \| show \| online \| wholesale` (production-planning; from `drops`) |
+| `name` / `description` | string | No required `theme` field. |
+| `ownerType` | enum | `efd` (house/collaborative) \| `artisan` (artisan-created). |
+| `ownerId?` / `ownerInfo?` | string/object | required for artisan-owned Drops |
+| `channels[]` | enum[] | `showcase \| show \| online \| wholesale` |
 | `status` | enum | `draft` (building/staging) \| `scheduled` (releaseAt set) \| `released` (live/dropped) \| `archived`. Replaces legacy `isPublished` + drops' status. |
 | `releaseAt?` | date | scheduled release moment |
 | `releasedAt?` | date | actual release timestamp |
-| `members[]` | array | ordered `{ productId, position, notes?, addedAt? }` — members are **Products** (any `productType`) |
+| `designOrder[]` | string[] | optional ordered Design IDs for the Drop workspace/page |
 | `heroImage?` / `thumbnail?` / `image?` / `seo?` | | merchandising |
 | `createdAt` / `updatedAt` / `createdBy` | | |
 
-**Ownership:** EFD (collaborative) drops group many artisans' products; each member Product keeps its own
-`seller`, and payouts follow the seller via the S6 payout system. The collection `ownerType`/`ownerId` is
-the **curator**, not the revenue owner.
+**Ownership:** EFD Drops may contain Designs from multiple artisans. Artisan-created Drops are owned by
+that artisan. Design collaborators and Product sellers remain the attribution/payout source.
 
-**Release:** members are staged while `status: draft`; at `releaseAt` (or "go live now") the batch publishes
-to the shop at once (`status → released`). The exact publish trigger (admin scheduled job vs. shop
-`releaseAt`-visibility) is **decision 0003** (Lead Shop's call). Shop shows a collection when `released`
-(+ `releaseAt ≤ now` if the visibility-based mechanism is chosen).
+**Release:** resolve the Drop's Designs by `design.dropId`, validate and freeze the eligible Product set,
+then atomically publish that set and mark the Drop released. At least one eligible listing is required.
+Ineligible Designs remain draft and are returned with actionable errors. The shop renders
+`/drops/<slug>`.
 
-> **`drops` deprecated:** folded into `collections` by Pipeline goal M1-T5 (migration). `design.dropID`
-> becomes provenance-only — a design "joins" a drop by having its concept/jewelry Product added to
-> `members[]`, not via `dropID`.
+**Indexes:** `{dropId:1}` unique · `{slug:1}` unique · `{ownerType:1,ownerId:1}` ·
+`{status:1,releaseAt:1}`.
+
+---
+
+## `collections` ♻️ (Production Pipeline revision) — smart merchandising
+
+A Collection resolves Products through rules and manual overrides. It does not own Designs/Pieces and
+has no production or release responsibilities.
+
+| Field | Type | Notes |
+|---|---|---|
+| `collectionId` | uuid | stable internal ID |
+| `slug` | string | unique shop handle |
+| `name` / `description` / `seo` / `media` | | merchandising |
+| `status` | enum | `draft \| published \| archived` |
+| `rules` | object | composable predicates over controlled fields, metadata, and tags |
+| `manualIncludes[]` / `manualExcludes[]` | string[] | Product IDs overriding rule results |
+| `pinned[]` | array | ordered `{ productId, position }` overrides |
+| `createdAt` / `updatedAt` / `createdBy` | | |
+
+Initial rule fields are product type, jewelry category, artisan/collaborators, Drop, edition type,
+offer type, customizer enabled, metal/karat, price range, status/channels, metadata, and tags. Rules are
+evaluated server-side against visible Products. One Product may appear in many Collections.
+
+**Indexes:** `{collectionId:1}` unique · `{slug:1}` unique · `{status:1}`.
 
 ---
 
 ## `designs` 🆕 (S3)
 
-Reusable spec + IP. Absorbs the salvaged CAD estimator (`stlVolumeCalculator` + `metalTypes`).
-**CAD/estimate is optional** (Production Pipeline goal): a design may be **concept-only** (viewer/GLB
-assets for a refrakt listing, no CAD/routing) or a **full manufacturing spec**. `cadFiles`,
-`stlVolumeCm3`, `bom`, `routing`, `estCost` are all nullable; COGS (on the Piece) is what's always recorded.
+Reusable jewelry specification + IP. A Design persists before and after Pieces are made. CAD is optional:
+CAD-cast and hybrid methods use revisioned STL/GLB/QC; handmade may skip those gates. Every sellable
+Design requires at least one embedded Variant. COGS remains on Piece.
 
 | Field | Type | Notes |
 |---|---|---|
 | `designID` | uuid | unique |
-| `dropID` | string? | optional — **provenance only** now; drop membership is via a Product in `collections.members[]` |
+| `dropId` | string? | optional; one Drop owns the Design; null supports backlog/evergreen work |
 | `gemstoneId` | string? | linked stone's `productId` (Pipeline goal) — optional; threads to Piece → Product |
-| `name` / `description` | string | |
-| `designerUserID` | string | |
-| `cadFiles[]` / `renders[]` / `referenceImages[]` | string[]? | storage paths (MinIO); `renders`/GLB feed a concept listing's viewer. **Optional.** |
+| `name` / `description` / `story` | string | merchandising identity |
+| `category` / `attributes` / `tags[]` / `metadata` | | controlled fields plus extensible tags/metadata |
+| `primaryArtisanId` | string | primary owner/seller attribution |
+| `collaborators[]` | array | `{ userId, roles[], credit?, addedAt }`; collaboration is encouraged |
+| `edition` | object | `{ type: one_of_one \| limited \| unlimited, limit?, allocated, committed, nextNumber }`; Design-wide across Variants |
+| `productionMethod` | enum | `cad_cast \| handmade \| hybrid` |
+| `intake` | object | brief, target materials/stones/dimensions, budget, desired date, notes |
+| `cadRevisions[]` | array? | revisioned sketches/references/STL/GLB/renders/mesh map + author/QC history |
+| `referenceImages[]` / `sketches[]` | string[]? | MinIO paths; drafts may save with only these |
 | `stlVolumeCm3` | number? | from `stlVolumeCalculator`. **Optional** (no CAD → no volume). |
-| `metalOptions[]` | array | metal/karat combos it can be made in |
+| `variants[]` | array | concrete base SKUs/configurations; see below; at least one before listing |
 | `bom` | object? | `{ castingEstimate, stones[]{type,shape,size,qty,estUnitCost}, findings[]{materialID,qty}, estMaterialCost }`. **Optional.** |
 | `routing[]` | array? | ordered ops: `{ seq, discipline, process, estLaborHours }` — becomes a piece's WOs. **Optional** (handmade → no routing). |
-| `estCost` | number? | volume × SG × karat-adjusted price × casting markup + labor. **Optional**; for concepts, computed with **live metal rates**. |
+| `estCost` | number? | volume × SG × live material price + casting + stones + labor. Optional until requirements exist. |
 | `suggestedRetail` | number | |
-| `status` | enum | `concept \| cad \| approved_for_production \| retired` (lifecycle; distinct from `productType`) |
+| `primaryProductId` | string? | one storefront Product projection for this Design |
+| `status` | enum | `draft \| cad_requested \| cad_in_progress \| cad_qc \| ready \| retired` |
 
-**Indexes:** `{designID:1}` unique · `{dropID:1}` · `{status:1}`.
+### Embedded Variant
+
+| Field | Type | Notes |
+|---|---|---|
+| `variantId` / `sku` | string | stable unique identifiers |
+| `label` / `active` | | admin/shop presentation and availability gate |
+| `options` | object | concrete metal, karat, finish, stone configuration, etc. |
+| `ringSize?` | number/string | one nominal size; omit for non-rings |
+| `sizingAllowance?` | object | `{ min, max }`; requests outside are special requests/new Piece review |
+| `pricing` / `leadTimeDays` | | base pricing inputs/output and production promise |
+| `viewer` | object? | GLB + base mesh map; may include Refrakt `customizable` constraints |
+| `production` | object | dimensions and configuration-specific manufacturing requirements |
+
+Refrakt selections are immutable order/Piece snapshots, not automatically persisted catalog Variants.
+
+**Edition commitment/allocation:** paid MTO checkout atomically increments `committed` only when
+`allocated + committed < limit`. Production start converts one commitment to `allocated` and assigns the
+next Design-wide number in the same transaction. Cancellation/refund before start releases the commitment.
+Manual production uses the same cap check. Numbers are never reused after physical work begins, including
+scrap.
+
+**Indexes:** `{designID:1}` unique · `{dropId:1}` · `{primaryArtisanId:1}` · `{status:1}` ·
+`{variants.sku:1}` unique sparse.
 
 ---
 
 ## `pieces` 🆕 (S4)
 
-One physical instance. Where real COGS accrues and availability lives. A Piece may be created
-**directly** (handmade / on-hand, with a bare or no Design) — the estimate path is optional, COGS is
-always recorded (Production Pipeline goal).
+One physical instance. Real COGS and ready-to-ship availability live here. Normal Pieces come from a
+Design Variant, automatically after a made-to-order purchase or manually from the Design workspace.
+Handmade/on-hand intake still creates a minimal Design + Variant so provenance and edition rules remain
+consistent; it skips CAD/Refrakt rather than bypassing the domain model.
 
 | Field | Type | Notes |
 |---|---|---|
 | `pieceID` | uuid | unique |
-| `designID` | string? | **optional** — null for a handmade/on-hand piece with no design spec |
+| `designID` | string | parent Design |
+| `variantId` | string | concrete base Variant |
+| `resolvedConfiguration` | object | immutable exact options/Refrakt selection made for this Piece |
+| `editionNumber` | int? | allocated atomically when physical production begins |
 | `gemstoneId` | string? | linked stone's `productId` (Pipeline goal) — carried from the Design; threads to Product |
-| `dropID` | string? | |
+| `dropId` | string? | denormalized Design Drop for reporting |
 | `sku` / `serialNumber` | string | serialization scheme TBD in S4 |
-| `metalType` / `karat` | string | chosen for THIS piece |
+| `metalType` / `karat` / `finish` | string | actual configuration made |
+| `ringSize?` | number/string | exact physical size; omit for non-rings |
+| `dimensions` / `weight` / `stones[]` | | actual as-built facts |
 | `actualMaterials[]` | array | `{ materialID, description, qty, unitCost }` — **at cost, no markup** |
 | `accruedMaterialCost` | number | |
 | `workOrderIDs[]` | string[] | routing steps on benches |
@@ -211,9 +267,14 @@ always recorded (Production Pipeline goal).
 | `customerID` | string? | present when this piece is a custom |
 | `billing` | object? | present when custom (retail/quoted) |
 
-**Indexes:** `{pieceID:1}` unique · `{designID:1}` · `{status:1}` · `{productID:1}`.
+**Production start:** the guarded transition out of planning allocates edition capacity and number in
+the same atomic operation. Cancellation before that transition consumes no edition slot.
 
-**Availability is derived:** a Product's "in stock" = count of its pieces with `status: available`.
+**Indexes:** `{pieceID:1}` unique · `{designID:1,variantId:1}` · `{status:1}` · `{productID:1}` ·
+`{designID:1,editionNumber:1}` unique sparse.
+
+**Availability is exact:** ready-to-ship quantity is the count of `available` Pieces matching the
+Variant/resolved configuration. Other Piece states never count.
 
 ---
 
@@ -226,38 +287,48 @@ casing are normative, e.g. `productId` not `productID`). Admin (S5) writes exact
 
 **Storefront-read fields (must match the contract):** `productId` (string handle), `status` /
 `isPublic`, `title`, `vendor`, `description`, `pricing.retailPrice` (+`compareAtPrice`) or top-level
-`price`, `availability` (`ready-to-ship` | `made-to-order`), `jewelry{ type, metals[], ringSize,
-weight, dimensions, production }`, `images[]`, `viewer{ glbUrl, meshMap[], environment?, orientation?, … }`,
-plus (Production Pipeline goal — decision 0004, **accepted by Lead Shop**): `productType`,
-`runSize{ type, size?, remaining? }`, `references.gemstoneId`.
+`price`, Design-level edition projection, Variant offers (`ready_to_ship` and/or `made_to_order`),
+`jewelry{ type, … }`, `images[]`, `viewer`, `productType`, and provenance references. One Product may
+offer exact ready-to-ship Pieces and a separate made-to-order/customizer path at the same time.
 
-### Polymorphic types + editions + gemstone thread (Production Pipeline goal)
+Top-level `price`, `availability`, `jewelry.ringSize`, and `viewer` remain compatibility summaries for
+existing shop surfaces. For Design-backed jewelry they are derived from the primary/default Variant;
+they are not independently editable sources of truth. Variant pricing, sizing, viewer configuration,
+and computed offers are authoritative.
+
+### Types, Variants, offers, editions, and gemstone thread
 
 | Field | Type | Notes |
 |---|---|---|
-| `productType` | string | `gemstone` \| `concept` \| `jewelry` (existing field; **`concept` is new**). `gemstone` = listed loose stone; `concept` = a Design listed with no finished Piece (made-to-order, live-metal priced); `jewelry` = finished/piece-backed. Absent → treat as `jewelry`. |
-| `runSize` | object | `{ type: one_of_one \| limited \| unlimited, size?, remaining? }`. `size` required for `limited` (edition cap N). `remaining` = **admin-computed, shop-read** = `size − produced` (count of pieces created for this product); present for `limited` only. Shop renders edition **language** ("One of one" / "Edition of N" / "Made to order"), and "N remaining" only when `remaining` is provided — never as a stock/inventory count. A **production cap**, not stock; availability still derives from piece status (D6). Absent → `unlimited`. |
+| `productType` | string | `gemstone` \| `jewelry`; never `concept`. A jewelry Product may be made to order without a Piece. |
+| `designId` | string? | parent Design for jewelry listings |
+| `defaultVariantId` | string? | selected active Variant used for initial shop state and derived compatibility summaries |
+| `variants[]` | array | storefront projection of active Design Variants: identity/options/pricing/viewer/sizing and computed offers |
+| `variants[].offers` | object | `readyToShip{ pieceIDs[], quantity }?` plus `madeToOrder{ enabled, leadTimeDays, customizerEnabled }?` |
+| `edition` | object | Design-wide `{ type: one_of_one \| limited \| unlimited, limit?, allocated, committed, remaining? }` across all Variants/configurations; `remaining = limit - allocated - committed` |
 | `references.gemstoneId` | string? | originating gemstone's `productId`, threaded Design → Piece → Product (the flywheel). Optional; shop-read (enables "cut from this stone"). |
 
-**Concept financials (like customs):** a `concept` product's `pricing.retailPrice` is derived from the
-Design's `estCost` computed with **live metal rates** (stored on the doc, refreshed by admin — the shop
-reads a number, not a live calc). `pricing.costBasis` holds the **estimated** design cost until a Piece is
-produced + linked, then flips to the Piece's **actual** COGS (same as `buildProductFromPiece`); margin =
-`retailPrice − costBasis`. `pricing.costBasisSource` (`estimated | actual`, admin-internal) records which,
-so reported profit is never estimated-as-real.
+The production collections retain their existing `designID`/`pieceID` identifiers. The storefront
+Product projection intentionally uses contract-cased `designId`/`productId`; projection code maps the
+identifiers explicitly at that boundary.
+
+**Made-to-order financials:** Variant pricing is derived from the Design estimate with live material
+rates. A made-to-order offer uses estimated cost until its Piece exists; an exact ready-to-ship offer
+uses that Piece's actual COGS. Keep estimate and actual separate so reported realized profit never treats
+an estimate as actual.
 
 **Admin-internal fields (stripped/ignored by storefront):**
 
 | Field | Notes |
 |---|---|
-| `pricing.costBasis` | **= Piece COGS** (or estimated design cost for a `concept`; stripped by storefront) — our `cost`/margin source |
+| `pricing.costBasis` | Piece COGS for exact ready-to-ship offers or Design/Variant estimate for made-to-order; stripped by storefront |
 | `pricing.costBasisSource` | `estimated` \| `actual` — whether `costBasis` is a live-metal estimate or real produced COGS (Pipeline goal) |
-| `references` | `{ designId?, pieceID?, gemstoneId? }` — provenance links (note existing casing: `designId` / `pieceID`) |
+| `references` | `{ designId?, pieceIDs[]?, gemstoneId? }` — provenance links |
 | `internalNotes` | stripped by storefront |
 | `seller` | `{ type: house \| artisan, artisanId? }` (marketplace, S6) |
 | `custody` | `consignment \| artisan_held` (S6) |
 | `listingSurfaces[]` | `efd_shop \| minisite \| in_store` (S6) |
-| `pieceIDs[]` | backing Piece inventory (optional; availability derived from their status) |
+| `pieceIDs[]` | backing Piece inventory; offers derive only from matching `available` Pieces |
 
 Media has three cases (photos / 3D / both); `viewer.meshMap` is built in admin via the storefront's
 `POST /api/glb/inspect`. `viewer.glbUrl` derives from the Design's exported GLB. Enforce the contract's

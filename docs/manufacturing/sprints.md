@@ -325,11 +325,14 @@ Sequenced sub-phases (value + dependency). Recommended order U1→U6.
   panel (line items, gold total, margin/COGS), Production panel (start → bench), Invoices & Payment panel (themed
   progress bar + table), dark quote/invoice dialogs, snackbar. **Verified live** against DEV (created a test order,
   confirmed list card + detail render).
-- **U2 — Production catalog:** Drops / Designs (+ STL upload + live cost estimate) / Pieces editors.
+- **U2 — Products production workspace:** Drops grid; full-page Drop create/edit; Drop detail with
+  Designs/Pieces tabs; full-page Design intake/CAD/Variant editor and contextual Piece editor. Designs
+  and Pieces remain entities but not top-level navigation pages.
 - **U3 — meshMap builder (shared):** GLB upload → `/api/glb/inspect` → assign meshes → save. **Reused by U4 +
   customs 3D (U6)** — build once. (Trickiest single component; reuse existing STL/GLB viewer components.)
 - **U4 — Product editor:** reimagined product CRUD to the contract shape + publish gate (uses U3).
-- **U5 — Marketplace admin:** fee-schedule editor + artisan-agreement screens (S6).
+- **U5 — Smart Collections + marketplace admin:** rule/manual Collection editor, fee-schedule editor,
+  and artisan-agreement screens (S6).
 - **U6 — Polish:** billing-mode selector (S1), admin "shop board" (all lanes), customs design-model/share
   controls (uses U3).
 

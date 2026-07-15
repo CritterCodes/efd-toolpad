@@ -2,7 +2,8 @@
 
 > **Canonical orientation doc.** Read this BEFORE any production-pipeline / customs / deploy work.
 > Pairs with: `docs/manufacturing/{README.md, data-model.md, sprints.md}` (sprint detail + locked
-> decisions). Last updated 2026-06-30.
+> decisions). Catalog-domain assumptions were revised 2026-07-14; `catalog-domain.md` is authoritative
+> when this historical orientation conflicts with the revised Drop/Collection/Design model.
 
 ---
 
@@ -35,16 +36,16 @@ The EFD loop:
 
 1. A **gem cutter lists a stone** → it becomes a gemstone **Product** in the store (the hub).
 2. A **designer submits a design** against the stone.
-3. A design can be **produced** (→ Piece → Product) **or** just **listed** as a concept linked to
-   that stone (no production yet — a "design-on-a-stone" listing).
+3. A Design can produce Pieces or publish one primary Product with made-to-order offers before any
+   Piece exists. No separate `concept` type is used.
 4. Produced pieces become catalog **Products**; the **gemstone stays linked** through the whole chain.
 
 The **gemstone is the hub**; submitted designs and produced pieces orbit it.
 Custom orders are the *committed* path (a client paid to have something made).
 
 > **Open vision points to refine with the owner** (not yet modeled in code):
-> - **"Listed-only" design concept** — `list-product` today requires a finished Piece; there's no
->   path to list a design *concept* against a stone without producing it.
+> - **Made-to-order Design listing** — `list-product` today requires a finished Piece; the revised model
+>   requires Design → primary Product before production, with Variant offers.
 > - **Gemstone link on the product** — `buildProductFromPiece` keeps `references.{designId,pieceID}`
 >   but drops the originating `gemstoneId`. The flywheel needs that link preserved end-to-end.
 > - **Cutter ownership / "back to the cutter"** exit — no ownership/return model yet.
@@ -93,7 +94,7 @@ Custom orders are the *committed* path (a client paid to have something made).
 - **Sales / payroll / settings / users / affiliates / analytics** — live.
 
 ### Built but UNUSED — no UI yet (the "build UI for these" list)
-**U2 — Production catalog (engine built, zero screens):**
+**U2 — Production catalog engine (built, UI/model revision required):**
 - Drops: `GET·POST /api/production/drops` · `GET·PUT …/[dropID]`
 - Designs: `GET·POST /api/production/designs` · `GET·PUT …/[designID]` ·
   `POST …/[designID]/assets` (CAD/GLB upload→MinIO) · `POST /api/production/designs/estimate` (cost engine)
@@ -103,7 +104,7 @@ Custom orders are the *committed* path (a client paid to have something made).
   (`createPieceFromDesign` → spawns one WO per routing step), `productContract.js`
   (`buildProductFromPiece` + `validateProductContract`).
 
-**U5 — Collections / marketplace grouping:**
+**U5 — Smart Collections / marketplace grouping:**
 - `GET·PUT·DELETE /api/collections/[id]` · `GET·POST·DELETE …/[id]/products` · `POST …/[id]/publish`
 - *No dashboard collections page exists.*
 
@@ -117,14 +118,14 @@ Custom orders are the *committed* path (a client paid to have something made).
 
 | Phase | Screen(s) | Wires these APIs |
 |---|---|---|
-| **U2** | Production catalog: Drops / Designs (STL upload + live cost) / Pieces editors | all `/api/production/*` |
+| **U2** | Products workspace: Drops; Drop detail Designs/Pieces; full-page Design/Piece flows | all `/api/production/*` |
 | **U3** | Shared **meshMap builder** (GLB→`/api/glb/inspect`→assign meshes) | reused by U4 + customs 3D |
 | **U4** | Product editor → contract shape + publish gate | `products/*` + `validateProductContract` |
-| **U5** | Marketplace admin: collections, fee-schedule, cutter ownership/listing | `collections/*` + S6 payouts |
+| **U5** | Smart Collections rules/manual overrides; marketplace fee/agreement screens | `collections/*` + S6 payouts |
 | **U6** | Polish: billing-mode selector, all-lanes shop board, customs design-model/share | — |
 
-Recommended order U2→U6. U2 (design-request + production catalog) is the direct realization of the
-reimagined "CAD request" on the existing production spine.
+Recommended order U2→U6 after the revised contracts land. U2 uses a Design draft + Design-sourced CAD
+work orders; it does not restore a separate design-request collection or top-level Designs/Pieces nav.
 
 ---
 

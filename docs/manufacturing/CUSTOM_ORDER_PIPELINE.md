@@ -94,9 +94,9 @@ Key: `customID` (`CO-<ts36>-<uuid6>`). Grouped by purpose:
 - **`pieces`** — the COGS spine. `pieceID`, `designID`, **`customOrderID`** (back-pointer to the order),
   `gemstoneId` (⚠ null for customs today), `actualMaterials[]` (incl. casting line), `workOrderIDs[]`,
   `accruedLaborCost`, `totalCOGS`, `status`, `productID`.
-- **`designs`** — `designID`, `gemstoneId` (⚠ null for customs today), `designerUserID`, CAD files,
-  `routing[]`, `status: concept|cad|approved_for_production|retired`. One-way: order references it; no
-  back-pointer.
+- **`designs`** — `designID`, `gemstoneId` (⚠ null for customs today), artisan/collaborator credits,
+  CAD revisions, Variants, routing, and revised lifecycle
+  `draft|cad_requested|cad_in_progress|cad_qc|ready|retired`. One-way: order references it.
 - **`laborLogs`** — per-work-order labor credit (shared with repairs). `workOrderID` FK,
   `primaryJewelerUserID`, `creditedLaborHours`, `laborRateSnapshot`, `creditedValue`, `sourceAction`,
   `pendingQc` (held until QC), `payrollBatchID`, `payrollStatus`.
@@ -297,14 +297,15 @@ Production = **this pipeline with NO customer, plus gemstone linking**. Concrete
 - No `clientID`/client snapshot, no **customer invoices / deposit / payment-progress**, no
   quote-published-to-client, no client-mgmt bonus, no client-thread comms.
 - **Trigger differs:** custom starts on a client commitment (deposit → 50% → produce). Production starts
-  on the **owner's decision to make something** — either *concept/make-to-order* (design → list in shop →
-  a shop purchase is the trigger to produce) or *in-hand* (produce up front, then list as ready-to-ship).
+  from a Drop/Design decision. A made-to-order listing may publish before a Piece exists; purchase creates
+  the planned Piece, and the production-start transition allocates its edition slot. An exact available
+  Piece creates a ready-to-ship offer.
 - **Price:** a custom is priced by the `quote` (customer-facing). A production item is priced from the
   **design/piece cost estimate → markup** (there's already `designCost.estimateDesignCost` +
   `pieces.totalCOGS`); it needs a "suggested retail" surfaced on the Design/Product, not a client quote.
-- **Release model** (new dimension): one-of-one (release 1), signature (release N…unlimited, until
-  retired), ready-to-ship (physically made). This rides on the Piece/Design/Product `status` + a
-  release/run-size field — NOT on the make-steps.
+- **Edition and offer model** (new dimension): Design-wide one-of-one, limited, or unlimited capacity;
+  made-to-order and exact Piece-backed ready-to-ship offers. This rides on Design edition policy,
+  Product Variant offers, and Piece status, not on the make-steps.
 
 **The single missing hand-off — gemstone linking:** the fields already exist (`designs.gemstoneId`,
 `pieces.gemstoneId`, `products.references.gemstoneId`) but the custom→spawn path
@@ -316,6 +317,7 @@ so a made piece stays linked to the stone it was cut for.
 1. A **"needs ordering from casting house"** board across open production items (customs records casting
    per-order after the fact; production wants a queue).
 2. Explicit **mounting-ordered → casting-received** tracking (today it's one `addCastingCost` event).
-3. A **list-in-shop / concept-listing** path where a design can be *listed without being physically made*
-   (sold-then-produced), which `list-product` doesn't do yet (it requires a finished Piece).
-4. **Release/run-size** controls (one-of-one / signature / ready-to-ship) + retire.
+3. A **Design-to-Product made-to-order** path where a Design can list without a physical Piece;
+   `concept` is not a type or customer label.
+4. Design-wide **edition controls** (one-of-one / limited / unlimited), Variants, and exact Piece-backed
+   ready-to-ship offers.
