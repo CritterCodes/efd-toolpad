@@ -2,6 +2,7 @@
 
 import User from "./class.js";
 import UserModel from "./model.js";
+import { syncLinkedCustomOrderContact } from '@/services/customs/customerContactSync';
 
 export default class UserService {
     /**
@@ -111,6 +112,7 @@ export default class UserService {
     static async updateUser(query, updateData) {
         try {
             const updatedUser = await UserModel.updateUser(query, updateData);
+            if (updatedUser) await syncLinkedCustomOrderContact(updatedUser);
             return updatedUser;
         } catch (error) {
             console.error("Error in UserService.updateUser:", error);
@@ -143,6 +145,7 @@ export default class UserService {
         try {
             console.log(`🔄 Updating user with ID: ${userId}`);
             const updatedUser = await UserModel.updateUserById(userId, updateData);
+            if (updatedUser) await syncLinkedCustomOrderContact(updatedUser);
             if (updatedUser) {
                 console.log("✅ User updated successfully:", updatedUser._id);
             } else {
