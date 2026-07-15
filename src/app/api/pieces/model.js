@@ -14,7 +14,18 @@ export const PIECE_STATUS = {
   SOLD: 'sold',
   SCRAPPED: 'scrapped',
   RETURNED: 'returned',
+  CANCELLED: 'cancelled',
 };
+
+export function validatePiece(data = {}) {
+  const errors = [];
+  if (!data.designID) errors.push('designID is required');
+  if (!data.variantId) errors.push('variantId is required');
+  if (!data.resolvedConfiguration || typeof data.resolvedConfiguration !== 'object') errors.push('resolvedConfiguration is required');
+  if (!Object.values(PIECE_STATUS).includes(data.status)) errors.push('invalid piece status');
+  if (data.editionNumber !== null && data.editionNumber !== undefined && (!Number.isInteger(data.editionNumber) || data.editionNumber < 1)) errors.push('editionNumber must be a positive integer');
+  return { valid: errors.length === 0, errors };
+}
 
 /**
  * A physical instance produced from a Design. Carries actual COGS (materials at
@@ -33,9 +44,10 @@ export default class PiecesModel {
     const col = await this.collection();
     await Promise.all([
       col.createIndex({ pieceID: 1 }, { unique: true }),
-      col.createIndex({ designID: 1 }),
+      col.createIndex({ designID: 1, variantId: 1 }),
       col.createIndex({ status: 1 }),
       col.createIndex({ productID: 1 }),
+      col.createIndex({ designID: 1, editionNumber: 1 }, { unique: true, sparse: true }),
     ]);
   }
 
@@ -46,12 +58,20 @@ export default class PiecesModel {
     const piece = {
       pieceID: data.pieceID || randomUUID(),
       designID: data.designID ?? null,
+      variantId: data.variantId ?? null,
+      resolvedConfiguration: structuredClone(data.resolvedConfiguration ?? {}),
+      editionNumber: data.editionNumber ?? null,
       gemstoneId: data.gemstoneId ?? null,   // originating gemstone (flywheel; Pipeline M1-T2)
-      dropID: data.dropID ?? null,
+      dropId: data.dropId ?? null,
       sku: data.sku ?? null,
       serialNumber: data.serialNumber ?? null,
       metalType: data.metalType ?? null,
       karat: data.karat ?? null,
+      finish: data.finish ?? null,
+      ringSize: data.ringSize ?? null,
+      dimensions: data.dimensions ?? null,
+      weight: data.weight ?? null,
+      stones: Array.isArray(data.stones) ? data.stones : [],
       actualMaterials,
       workOrderIDs: Array.isArray(data.workOrderIDs) ? data.workOrderIDs : [],
       status: data.status || PIECE_STATUS.PLANNED,
@@ -64,6 +84,8 @@ export default class PiecesModel {
       createdBy: data.createdBy ?? null,
       ...computePieceCosts({ actualMaterials, laborLogs: [] }),
     };
+    const validation = validatePiece(piece);
+    if (!validation.valid) throw new TypeError(validation.errors.join('; '));
     await col.insertOne(piece);
     return piece;
   }

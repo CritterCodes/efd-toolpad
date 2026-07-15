@@ -73,6 +73,7 @@ export function validateProductContract(doc = {}) {
     errors.push('productId is required and must be URL-safe');
   }
   if (!doc.title) errors.push('title is required');
+  if (!['gemstone', 'jewelry'].includes(doc.productType ?? 'jewelry')) errors.push('productType must be gemstone or jewelry');
 
   const price = doc?.pricing?.retailPrice ?? doc.price;
   if (typeof price !== 'number' || Number.isNaN(price)) {
@@ -106,6 +107,24 @@ export function validateProductContract(doc = {}) {
   const hasImages = Array.isArray(doc.images) && doc.images.length > 0;
   if (!doc.viewer && !hasImages) {
     errors.push('at least one of viewer or images is required');
+  }
+
+  if ((doc.productType ?? 'jewelry') === 'jewelry' && doc.designId) {
+    const active = (doc.variants || []).filter((variant) => variant.active);
+    if (active.length === 0) errors.push('Design-backed jewelry requires an active variant');
+    if (active.length > 1 && !active.some((variant) => variant.variantId === doc.defaultVariantId)) errors.push('defaultVariantId must resolve to an active variant');
+    active.forEach((variant, index) => {
+      if (!variant.variantId || !variant.sku || typeof variant?.pricing?.retailPrice !== 'number') errors.push(`variants[${index}] requires variantId, sku, and numeric retail price`);
+      if (doc?.jewelry?.type === 'ring' && (variant.ringSize === undefined || variant.ringSize === null || variant.ringSize === '')) errors.push(`variants[${index}] requires one nominal ringSize`);
+      if (variant.sizingAllowance && Number(variant.sizingAllowance.min) > Number(variant.sizingAllowance.max)) errors.push(`variants[${index}] sizingAllowance min must not exceed max`);
+    });
+  }
+  if (doc.edition) {
+    const { type, limit, allocated = 0, committed = 0, remaining } = doc.edition;
+    const cap = type === 'one_of_one' ? 1 : limit;
+    if (!['one_of_one', 'limited', 'unlimited'].includes(type)) errors.push('invalid edition type');
+    if (type === 'limited' && (!Number.isInteger(limit) || limit < 1)) errors.push('limited edition requires a positive integer limit');
+    if (type !== 'unlimited' && (allocated + committed > cap || remaining !== cap - allocated - committed)) errors.push('edition counters are inconsistent');
   }
 
   return { valid: errors.length === 0, errors };
@@ -160,16 +179,16 @@ export function buildProductFromPiece({ piece, design = null, opts = {} }) {
 }
 
 /**
- * Build a contract-shaped `concept` product from a Design with NO finished Piece
- * (the speculative "list a design" path; Pipeline M1-T3). Priced off a LIVE-metal
+ * Build a contract-shaped made-to-order jewelry Product from a Design with no finished Piece.
+ * Priced off a LIVE-metal
  * estimate — the caller passes `estCost` computed from current `metalPrices` — so
  * `pricing.costBasis` is the ESTIMATE and `pricing.costBasisSource` is `'estimated'`
  * until a Piece is produced + linked (which ripens it to jewelry/actual). The
  * gemstone thread is preserved via `references.gemstoneId` (the flywheel).
  */
-export function buildConceptFromDesign({ design = {}, estCost = 0, opts = {} }) {
+export function buildProductFromDesign({ design = {}, estCost = 0, opts = {} }) {
   const cost = round(Number(estCost) || 0);
-  const title = opts.title || design.name || 'Untitled Concept';
+  const title = opts.title || design.name || 'Untitled Design';
   const productId = opts.productId || `${slugify(title)}-${randomUUID().slice(0, 6)}`;
   const runSize = opts.runSize ? normalizeRunSize(opts.runSize, 0) : null;
   const metals = Array.isArray(design.metalOptions)
@@ -178,10 +197,10 @@ export function buildConceptFromDesign({ design = {}, estCost = 0, opts = {} }) 
 
   return {
     productId,
-    productType: 'concept',
+    productType: 'jewelry',
     title,
     description: opts.description ?? design.description ?? '',
-    availability: 'made-to-order', // a concept has no finished piece yet
+    availability: 'made-to-order',
     ...(runSize ? { runSize } : {}),
     status: 'draft',
     pricing: {
@@ -203,13 +222,13 @@ export function buildConceptFromDesign({ design = {}, estCost = 0, opts = {} }) 
 }
 
 /**
- * Field patch to RIPEN a `concept` product into a real `jewelry` listing once a
- * Piece is produced + linked (M1-T3). `costBasis` flips from the live-metal ESTIMATE
+ * Patch a made-to-order jewelry Product once a Piece is produced and linked.
+ * `costBasis` flips from the live-metal ESTIMATE
  * to the Piece's ACTUAL COGS (`costBasisSource:'actual'`), `margin` is recorded, and
  * `runSize.remaining` re-derives from the backing pieces. Returns a `$set`-ready patch
  * (dot-notation for the nested `pricing`/`references` fields it touches).
  */
-export function ripenConceptToJewelry({ product = {}, piece = {} }) {
+export function attachPieceToProduct({ product = {}, piece = {} }) {
   const cogs = round(Number(piece?.totalCOGS) || 0);
   const retail = Number(product?.pricing?.retailPrice) || 0;
   const pieceIDs = Array.from(new Set([...(product.pieceIDs || []), piece?.pieceID].filter(Boolean)));

@@ -47,7 +47,7 @@ export async function createPieceFromDesign(designID, opts = {}) {
   const piece = await PiecesModel.create({
     designID,
     gemstoneId: opts.gemstoneId ?? design.gemstoneId ?? null,   // carry the originating gemstone (M1-T2)
-    dropID: opts.dropID ?? design.dropID ?? null,
+    dropId: opts.dropId ?? design.dropId ?? null,
     metalType: opts.metalType ?? null,
     karat: opts.karat ?? null,
     sku: opts.sku ?? null,
@@ -83,7 +83,7 @@ export async function createDirectPiece(opts = {}) {
   const piece = await PiecesModel.create({
     designID: opts.designID ?? null,
     gemstoneId: opts.gemstoneId ?? design?.gemstoneId ?? null,
-    dropID: opts.dropID ?? design?.dropID ?? null,
+    dropId: opts.dropId ?? design?.dropId ?? null,
     metalType: opts.metalType ?? null,
     karat: opts.karat ?? null,
     sku: opts.sku ?? null,
