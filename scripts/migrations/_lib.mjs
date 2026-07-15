@@ -25,6 +25,7 @@ import { existsSync } from 'node:fs';
 
 const PROD_DB = 'efd-database';
 const KNOWN_NONPROD = new Set(['efd-database-DEV', 'efd-db-migrate']);
+const PREVIEW_DB = /^efd-preview-[a-z0-9][a-z0-9-]{0,79}$/;
 
 export function parseArgs(argv = process.argv.slice(2)) {
   const flags = new Set(argv.filter((a) => a.startsWith('--')));
@@ -48,8 +49,8 @@ function resolveTargetDb() {
     }
     return { db, isProd: true };
   }
-  if (!KNOWN_NONPROD.has(db)) {
-    throw new Error(`Unknown target DB "${db}". Allowed: ${[...KNOWN_NONPROD].join(', ')}, or ${PROD_DB} (with override).`);
+  if (!KNOWN_NONPROD.has(db) && !PREVIEW_DB.test(db)) {
+    throw new Error(`Unknown target DB "${db}". Allowed: ${[...KNOWN_NONPROD].join(', ')}, efd-preview-<feature>, or ${PROD_DB} (with override).`);
   }
   return { db, isProd: false };
 }

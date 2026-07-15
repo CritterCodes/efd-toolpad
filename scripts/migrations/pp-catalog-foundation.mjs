@@ -6,7 +6,7 @@
  */
 import { randomUUID } from 'crypto';
 import { runMigration, collExists } from './_lib.mjs';
-import { catalogFixtures, FIXTURE_VERSION } from '../../src/services/production/catalogFixtures.js';
+import { catalogFixtures, FIXTURE_VERSION, resetCatalogFixtures } from '../../src/services/production/catalogFixtures.js';
 
 const fixtureEnvironment = process.env.CATALOG_FIXTURE_ENV || 'dev';
 const fixture = catalogFixtures(fixtureEnvironment);
@@ -30,9 +30,7 @@ export const steps = [
       if (dryRun) return `would reset only drops/collections and seed ${fixtureEnvironment} fixture ${FIXTURE_VERSION}`;
       await db.collection('drops').deleteMany(disposableCatalogFilter);
       await db.collection('collections').deleteMany(disposableCatalogFilter);
-      const now = new Date();
-      await db.collection('drops').insertMany(fixture.drops.map((doc) => ({ ...doc, createdAt: now, updatedAt: now })));
-      await db.collection('collections').insertMany(fixture.collections.map((doc) => ({ ...doc, createdAt: now, updatedAt: now })));
+      await resetCatalogFixtures(db, fixtureEnvironment);
       return `reset only drops/collections; seeded ${fixtureEnvironment} fixture ${FIXTURE_VERSION}`;
     },
   },

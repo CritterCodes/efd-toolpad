@@ -3,6 +3,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import { MongoClient } from 'mongodb';
 import { steps } from '../../../scripts/migrations/pp-catalog-foundation.mjs';
 import { restoreCatalogSnapshot } from '../../../scripts/restore-catalog-snapshot.mjs';
+import { catalogFixtureDigest, catalogFixtures, readCatalogFixtureDigest } from './catalogFixtures.js';
 
 describe('catalog migration snapshot and restore', () => {
   let server;
@@ -45,6 +46,12 @@ describe('catalog migration snapshot and restore', () => {
     expect(await database.collection('collections').findOne({ collectionId: productionCollection.collectionId })).toMatchObject(productionCollection);
     expect(await database.collection('designs').findOne({ designID: protectedDesign.designID })).toMatchObject(protectedDesign);
 
+    const previewState = await database.collection('_previewFixtureState').findOne({ _id: 'catalog-foundation' });
+    expect(previewState.fixtureVersion).toBe('catalog-foundation-v1');
+    expect(previewState.fixtureDigest).toBe(await readCatalogFixtureDigest(database, 'dev'));
+    expect(previewState.resetDigest).toBe(previewState.fixtureDigest);
+    expect(previewState.resetPath).toBe('/api/preview-context/reset');
+
     const restored = await restoreCatalogSnapshot(database, snapshot.snapshotId);
     expect(restored).toEqual({ drops: 1, collections: 1 });
     expect(await database.collection('drops').findOne({ dropId: originalDrop.dropId })).toMatchObject(originalDrop);
@@ -53,4 +60,11 @@ describe('catalog migration snapshot and restore', () => {
     expect(await database.collection('collections').findOne({ collectionId: productionCollection.collectionId })).toMatchObject(productionCollection);
     expect(await database.collection('designs').findOne({ designID: protectedDesign.designID })).toMatchObject(protectedDesign);
   }, 120000);
+
+  it('uses a stable digest that changes when fixture data changes', () => {
+    const fixture = catalogFixtures('preview');
+    const digest = catalogFixtureDigest(fixture);
+    expect(catalogFixtureDigest({ collections: fixture.collections, drops: fixture.drops })).toBe(digest);
+    expect(catalogFixtureDigest({ ...fixture, drops: [{ ...fixture.drops[0], name: 'Changed' }] })).not.toBe(digest);
+  });
 });

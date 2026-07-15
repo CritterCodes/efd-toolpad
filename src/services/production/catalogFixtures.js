@@ -1,4 +1,7 @@
+import { createHash } from 'node:crypto';
+
 const FIXTURE_VERSION = 'catalog-foundation-v1';
+const PREVIEW_STATE_ID = 'catalog-foundation';
 
 export function catalogFixtures(environment = 'dev') {
   if (!['dev', 'preview'].includes(environment)) throw new Error('catalog fixtures are restricted to dev or preview');
@@ -20,4 +23,62 @@ export function catalogFixtures(environment = 'dev') {
   };
 }
 
-export { FIXTURE_VERSION };
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]));
+  }
+  return value;
+}
+
+function fixtureRecord(record) {
+  const { _id, createdAt, updatedAt, ...fixture } = record;
+  return fixture;
+}
+
+export function catalogFixtureDigest(fixtures) {
+  const stable = {
+    drops: fixtures.drops.map(fixtureRecord).sort((a, b) => a.dropId.localeCompare(b.dropId)),
+    collections: fixtures.collections.map(fixtureRecord).sort((a, b) => a.collectionId.localeCompare(b.collectionId)),
+  };
+  return `sha256:${createHash('sha256').update(JSON.stringify(canonicalize(stable))).digest('hex')}`;
+}
+
+export async function readCatalogFixtureDigest(database, environment = 'preview') {
+  const prefix = environment === 'preview' ? 'preview-' : 'dev-';
+  const [drops, collections] = await Promise.all([
+    database.collection('drops').find({ fixtureVersion: FIXTURE_VERSION, dropId: { $regex: `^${prefix}` } }).toArray(),
+    database.collection('collections').find({ fixtureVersion: FIXTURE_VERSION, collectionId: { $regex: `^${prefix}` } }).toArray(),
+  ]);
+  return catalogFixtureDigest({ drops, collections });
+}
+
+export async function resetCatalogFixtures(database, environment = 'preview') {
+  const fixture = catalogFixtures(environment);
+  const prefix = environment === 'preview' ? 'preview-' : 'dev-';
+  await database.collection('drops').deleteMany({ fixtureVersion: FIXTURE_VERSION, dropId: { $regex: `^${prefix}` } });
+  await database.collection('collections').deleteMany({ fixtureVersion: FIXTURE_VERSION, collectionId: { $regex: `^${prefix}` } });
+  const now = new Date();
+  await database.collection('drops').insertMany(fixture.drops.map((record) => ({ ...record, createdAt: now, updatedAt: now })));
+  await database.collection('collections').insertMany(fixture.collections.map((record) => ({ ...record, createdAt: now, updatedAt: now })));
+
+  const fixtureDigest = await readCatalogFixtureDigest(database, environment);
+  await database.collection('_previewFixtureState').updateOne(
+    { _id: PREVIEW_STATE_ID },
+    {
+      $set: {
+        fixtureVersion: FIXTURE_VERSION,
+        fixtureDigest,
+        resetDigest: fixtureDigest,
+        resetVerifiedAt: now,
+        resetPath: '/api/preview-context/reset',
+        updatedAt: now,
+      },
+      $setOnInsert: { seededAt: now },
+    },
+    { upsert: true },
+  );
+  return { fixtureVersion: FIXTURE_VERSION, fixtureDigest, resetVerifiedAt: now };
+}
+
+export { FIXTURE_VERSION, PREVIEW_STATE_ID };
