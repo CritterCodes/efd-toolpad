@@ -86,3 +86,35 @@ export function beginPieceProduction({ client, database, ...input }) {
 export function cancelPlannedPiece({ client, database, ...input }) {
   return withEditionTransaction(client, (session) => cancelBeforeProduction({ database, ...input, session }));
 }
+
+/**
+ * Manual production start: no committed slot exists (piece was not created via MTO
+ * checkout). Checks edition capacity directly — allocated + committed < limit — then
+ * atomically increments allocated and assigns the next edition number. Same atomicity
+ * guarantee as startProduction; the difference is that committed is not decremented.
+ */
+export async function startManualProduction({ database, pieceID, session = null }) {
+  const pieces = database.collection(Constants.PIECES_COLLECTION);
+  const piece = await pieces.findOne({ pieceID, status: 'planned' }, { session });
+  if (!piece) throw new EditionCapacityError('piece is not awaiting production');
+  const designs = database.collection(Constants.DESIGNS_COLLECTION);
+  const design = await designs.findOneAndUpdate(
+    { designID: piece.designID, $or: [{ 'edition.type': 'unlimited' }, cappedFilter] },
+    { $inc: { 'edition.allocated': 1, 'edition.nextNumber': 1 }, $set: { updatedAt: new Date() } },
+    { returnDocument: 'before', session },
+  );
+  if (!design) throw new EditionCapacityError('edition capacity exhausted');
+  const editionNumber = design.edition?.nextNumber ?? 1;
+  const updated = await pieces.findOneAndUpdate(
+    { pieceID, status: 'planned' },
+    { $set: { status: 'casting_ordered', editionNumber, productionStartedAt: new Date(), updatedAt: new Date() } },
+    { returnDocument: 'after', session },
+  );
+  if (!updated) throw new EditionCapacityError('piece production was already started');
+  return updated;
+}
+
+/** Public manual production boundary: direct cap allocation and Piece state commit together. */
+export function beginManualPieceProduction({ client, database, ...input }) {
+  return withEditionTransaction(client, (session) => startManualProduction({ database, ...input, session }));
+}
