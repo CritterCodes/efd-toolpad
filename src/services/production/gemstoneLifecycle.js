@@ -30,3 +30,38 @@ export async function propagateGemstoneStatus(piece, database) {
   );
   return result ?? null;
 }
+
+/**
+ * When a sales invoice is finalized (products sold), reserve the gemstone piece
+ * linked to each sold product's backing piece.
+ * Called from finalizePaidInvoice; database is injected for testability.
+ *
+ * @param {object} invoice - The finalized invoice (lineItems array)
+ * @param {import('mongodb').Db} database - Connected MongoDB database instance
+ */
+export async function reserveLinkedGemstones(invoice, database) {
+  const piecesCol = database.collection(Constants.PIECES_COLLECTION);
+  const productLines = (invoice.lineItems || []).filter((l) => l.type === 'product' && l.productID);
+  await Promise.all(productLines.map(async (line) => {
+    const piece = await piecesCol.findOne({ productID: line.productID }, { projection: { _id: 0 } });
+    if (!piece?.gemstoneId) return;
+    await propagateGemstoneStatus({ ...piece, status: 'reserved' }, database);
+  }));
+}
+
+/**
+ * When a custom order is delivered, mark the gemstone pieces for all linked
+ * jewelry pieces as sold. Called from the custom-order delivered transition.
+ *
+ * @param {string} customOrderID - The custom order ID
+ * @param {import('mongodb').Db} database - Connected MongoDB database instance
+ */
+export async function sellOrderGemstones(customOrderID, database) {
+  const piecesCol = database.collection(Constants.PIECES_COLLECTION);
+  const orderPieces = await piecesCol.find({ customOrderID }, { projection: { _id: 0 } }).toArray();
+  await Promise.all(
+    orderPieces.filter((p) => p.gemstoneId).map((p) =>
+      propagateGemstoneStatus({ ...p, status: 'sold' }, database)
+    )
+  );
+}

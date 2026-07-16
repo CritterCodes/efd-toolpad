@@ -7,6 +7,7 @@ import { db } from '@/lib/database';
 import { deriveRepairItemMetadata } from '@/lib/productRepairMetadata';
 import { resolveFee } from '@/services/billing/feeResolver';
 import { loadFeeSchedule } from '@/services/billing/feeSchedule';
+import { reserveLinkedGemstones } from '@/services/production/gemstoneLifecycle';
 
 const DEFAULT_CONSIGNMENT_RATE = 0.20;
 
@@ -464,6 +465,12 @@ export async function finalizePaidInvoice(invoice) {
     payoutStatus: payout.lineItems.some((line) => line.payoutStatus === 'labor_pending') ? 'labor_pending' : 'payable',
   });
   await markProductsSold(updated);
+  try {
+    const database = await db.connect();
+    await reserveLinkedGemstones(updated, database);
+  } catch (e) {
+    console.error('Gemstone reservation failed on invoice finalization:', e.message);
+  }
   return updated;
 }
 
