@@ -71,3 +71,43 @@ export const POST = async (req, { params }) => {
   }
   return NextResponse.json(image, { status: 201 });
 };
+
+export const PATCH = async (req, { params }) => {
+  const { session, errorResponse } = await requireRole(['admin', 'superadmin', 'dev', 'staff', 'artisan']);
+  if (errorResponse) return errorResponse;
+
+  const { id } = await params;
+  if (!ObjectId.isValid(id)) return NextResponse.json({ error: 'Invalid product ID' }, { status: 400 });
+
+  let body;
+  try { body = await req.json(); } catch {
+    return NextResponse.json({ error: 'Expected JSON body.' }, { status: 400 });
+  }
+  const { order } = body;
+  if (!Array.isArray(order)) return NextResponse.json({ error: '`order` must be an array of image IDs.' }, { status: 400 });
+
+  const db = await mongo.connect();
+  const product = await db.collection('products').findOne({ _id: new ObjectId(id) });
+  if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+
+  const isArtisan = session.user.role === 'artisan';
+  const ownerId = session.user.userID || session.user.id;
+  const isOwner = [product.artisanId, product.userId, product.seller?.userId].filter(Boolean).includes(ownerId);
+  const isAdminRole = ['admin', 'superadmin', 'dev', 'staff'].includes(session.user.role);
+
+  if (!isAdminRole && (!isArtisan || !isOwner)) {
+    return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+  }
+
+  const current = Array.isArray(product.images) ? product.images : [];
+  const byId = Object.fromEntries(current.map(img => [img.id, img]));
+  const reordered = order.map(imgId => byId[imgId]).filter(Boolean);
+  const missing = current.filter(img => !order.includes(img.id));
+  const newImages = [...reordered, ...missing];
+
+  await db.collection('products').updateOne(
+    { _id: new ObjectId(id) },
+    { $set: { images: newImages, updatedAt: new Date() } }
+  );
+  return NextResponse.json({ ok: true, images: newImages });
+};
