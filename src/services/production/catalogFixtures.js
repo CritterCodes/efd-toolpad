@@ -78,7 +78,7 @@ export async function resetCatalogFixtures(database, environment = 'preview') {
     },
     { upsert: true },
   );
-  return { fixtureVersion: FIXTURE_VERSION, fixtureDigest, resetVerifiedAt: now };
+  return { fixtureVersion: FIXTURE_VERSION, fixtureDigest, resetDigest: fixtureDigest, resetVerifiedAt: now };
 }
 
 export { FIXTURE_VERSION, PREVIEW_STATE_ID };
