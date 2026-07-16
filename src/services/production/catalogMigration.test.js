@@ -3,7 +3,12 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import { MongoClient } from 'mongodb';
 import { steps } from '../../../scripts/migrations/pp-catalog-foundation.mjs';
 import { restoreCatalogSnapshot } from '../../../scripts/restore-catalog-snapshot.mjs';
-import { catalogFixtureDigest, catalogFixtures, readCatalogFixtureDigest } from './catalogFixtures.js';
+import {
+  catalogFixtureDigest,
+  catalogFixtures,
+  readCatalogFixtureDigest,
+  resetCatalogFixtures,
+} from './catalogFixtures.js';
 
 describe('catalog migration snapshot and restore', () => {
   let server;
@@ -66,5 +71,13 @@ describe('catalog migration snapshot and restore', () => {
     const digest = catalogFixtureDigest(fixture);
     expect(catalogFixtureDigest({ collections: fixture.collections, drops: fixture.drops })).toBe(digest);
     expect(catalogFixtureDigest({ ...fixture, drops: [{ ...fixture.drops[0], name: 'Changed' }] })).not.toBe(digest);
+  });
+
+  it('returns the persisted digest used to verify a preview reset', async () => {
+    const result = await resetCatalogFixtures(database, 'preview');
+    const previewState = await database.collection('_previewFixtureState').findOne({ _id: 'catalog-foundation' });
+
+    expect(result.resetDigest).toBe(result.fixtureDigest);
+    expect(previewState.resetDigest).toBe(result.resetDigest);
   });
 });
