@@ -20,6 +20,17 @@ export const PUT = async (req, { params }) => {
 
   const { pieceID } = await params;
   const body = await req.json().catch(() => ({}));
+
+  // Edition allocation must happen atomically through the production-start route.
+  // Reject any direct status update that would set casting_ordered, which is the
+  // status assigned by that guarded transition.
+  if (body.status === 'casting_ordered') {
+    return NextResponse.json(
+      { error: 'Use POST /api/production/pieces/:id/start to begin production; direct status updates to casting_ordered are not permitted.' },
+      { status: 409 },
+    );
+  }
+
   const updated = await PiecesModel.updateById(pieceID, body);
   if (!updated) return NextResponse.json({ error: 'Piece not found.' }, { status: 404 });
   return NextResponse.json(updated, { status: 200 });
