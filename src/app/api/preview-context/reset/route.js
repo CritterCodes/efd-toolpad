@@ -14,5 +14,5 @@ export async function POST(request) {
   }
 
   const result = await resetCatalogFixtures(await db.connect(), 'preview');
-  return NextResponse.json(result);
+  return NextResponse.json({ databaseIdentity: dbName, ...result });
 }
