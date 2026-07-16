@@ -10,6 +10,7 @@
 import CollectionsModel from '@/app/api/collections/model';
 import { db } from '@/lib/database';
 import { COLLECTION_STATUS } from '@/services/production/collectionsUnify';
+import { isRevisedMtoProduct, isHandmadeDesign, loadMtoCapabilityRecord, checkMtoCapabilityRecord } from '@/lib/mtoCapabilityGate';
 
 /** A collection is due when it's scheduled and its releaseAt has arrived. */
 export function isDue(collection = {}, now = new Date()) {
@@ -43,6 +44,44 @@ export async function releaseCollection(collectionId, { now = new Date() } = {})
 
   const { memberProductIds, collectionUpdate } = releasePlan(collection, now);
   const dbInstance = await db.connect();
+
+  // MTO capability gate: before publishing any products, check whether any are revised
+  // made-to-order (Design-backed, non-handmade, with an active MTO offer). If so, the
+  // mtoCheckoutCapacity capability must be active or the release is blocked outright.
+  if (memberProductIds.length) {
+    const mtoProducts = await dbInstance.collection('products').find(
+      {
+        productId: { $in: memberProductIds },
+        designId: { $exists: true, $ne: null },
+        variants: { $elemMatch: { active: true, 'offers.madeToOrder.enabled': true } },
+      },
+      { projection: { productId: 1, designId: 1, variants: 1 } },
+    ).toArray();
+
+    const mtoProductsFiltered = mtoProducts.filter(isRevisedMtoProduct);
+
+    if (mtoProductsFiltered.length > 0) {
+      const designIds = [...new Set(mtoProductsFiltered.map((p) => p.designId).filter(Boolean))];
+      const designs = await dbInstance.collection('designs').find(
+        { designID: { $in: designIds } },
+        { projection: { designID: 1, productionMethod: 1 } },
+      ).toArray();
+      const designByID = Object.fromEntries(designs.map((d) => [d.designID, d]));
+
+      const hasNonHandmadeMTO = mtoProductsFiltered.some(
+        (p) => !isHandmadeDesign(designByID[p.designId]),
+      );
+
+      if (hasNonHandmadeMTO) {
+        const capabilityRecord = await loadMtoCapabilityRecord(dbInstance);
+        const { allowed, reason } = checkMtoCapabilityRecord(capabilityRecord);
+        if (!allowed) {
+          throw new Error(`Collection release blocked: made-to-order products cannot be published — ${reason}`);
+        }
+      }
+    }
+  }
+
   if (memberProductIds.length) {
     await dbInstance.collection('products').updateMany(
       { productId: { $in: memberProductIds } },

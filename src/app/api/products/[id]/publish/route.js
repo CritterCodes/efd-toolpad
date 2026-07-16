@@ -5,6 +5,7 @@ import { ObjectId } from 'mongodb';
 import { NotificationService, NOTIFICATION_TYPES } from '@/lib/notificationService';
 import { getUserArtisanTypes, canPublishProduct } from '@/lib/productPermissions';
 import { validateProductContract } from '@/services/products/productContract';
+import { isRevisedMtoProduct, isHandmadeDesign, loadMtoCapabilityRecord, checkMtoCapabilityRecord } from '@/lib/mtoCapabilityGate';
 
 /**
  * POST /api/products/:id/publish
@@ -70,6 +71,24 @@ export async function POST(request, { params }) {
         { error: 'Product is not ready to publish', details: contract.errors },
         { status: 400 }
       );
+    }
+
+    // MTO capability gate: revised made-to-order products require the durable
+    // mtoCheckoutCapacity capability from efd-shop to be active.
+    if (isRevisedMtoProduct(product)) {
+      const design = product.designId
+        ? await db.collection('designs').findOne({ designID: product.designId })
+        : null;
+      if (!isHandmadeDesign(design)) {
+        const capabilityRecord = await loadMtoCapabilityRecord(db);
+        const { allowed, reason } = checkMtoCapabilityRecord(capabilityRecord);
+        if (!allowed) {
+          return NextResponse.json(
+            { error: 'Made-to-order publication requires active checkout capability', reason },
+            { status: 422 }
+          );
+        }
+      }
     }
 
     const now = new Date();
