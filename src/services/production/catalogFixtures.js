@@ -20,6 +20,34 @@ export function catalogFixtures(environment = 'dev') {
       rules: { all: [{ field: 'offers', operator: 'contains', value: 'made_to_order' }] },
       manualIncludes: [], manualExcludes: [], pinned: [], media: {}, seo: {}, fixtureVersion: FIXTURE_VERSION,
     }],
+    // Casting-board seed: one needs_ordering piece so the board is non-empty in preview/dev.
+    pieces: [{
+      pieceID: `${prefix}piece-casting-sample`,
+      designID: `${prefix}design-signature-ring`,
+      variantId: `${prefix}variant-sig-ring-01`,
+      resolvedConfiguration: { metalType: '14k', karat: '14k', color: 'yellow' },
+      editionNumber: null,
+      gemstoneId: null,
+      dropId: null,
+      sku: `${prefix.toUpperCase()}CAST-DEMO`,
+      metalType: '14k',
+      karat: '14k',
+      finish: null,
+      ringSize: null,
+      status: 'planned',
+      casting: 'needs_ordering',
+      castingReceivedAt: null,
+      actualMaterials: [],
+      workOrderIDs: [],
+      accruedMaterialCost: 0,
+      accruedLaborCost: 0,
+      totalCOGS: 0,
+      productID: null,
+      customerID: null,
+      customOrderID: null,
+      billing: null,
+      fixtureVersion: FIXTURE_VERSION,
+    }],
   };
 }
 
@@ -58,9 +86,11 @@ export async function resetCatalogFixtures(database, environment = 'preview') {
   const prefix = environment === 'preview' ? 'preview-' : 'dev-';
   await database.collection('drops').deleteMany({ fixtureVersion: FIXTURE_VERSION, dropId: { $regex: `^${prefix}` } });
   await database.collection('collections').deleteMany({ fixtureVersion: FIXTURE_VERSION, collectionId: { $regex: `^${prefix}` } });
+  await database.collection('pieces').deleteMany({ fixtureVersion: FIXTURE_VERSION, pieceID: { $regex: `^${prefix}` } });
   const now = new Date();
   await database.collection('drops').insertMany(fixture.drops.map((record) => ({ ...record, createdAt: now, updatedAt: now })));
   await database.collection('collections').insertMany(fixture.collections.map((record) => ({ ...record, createdAt: now, updatedAt: now })));
+  await database.collection('pieces').insertMany(fixture.pieces.map((record) => ({ ...record, createdAt: now, updatedAt: now })));
 
   const fixtureDigest = await readCatalogFixtureDigest(database, environment);
   await database.collection('_previewFixtureState').updateOne(
