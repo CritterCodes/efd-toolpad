@@ -41,7 +41,7 @@ export default function ProductEditorPage() {
     const productId = params?.id;
 
     const {
-        form, loading, saving, saveError, isDirty,
+        form, product, loading, saving, saveError, isDirty,
         productImages, refreshImages,
         handleChange, handleSave, clearSaveError,
     } = useProductEditor(productId);
@@ -142,6 +142,8 @@ export default function ProductEditorPage() {
                                     productId={productId}
                                     images={productImages}
                                     onChanged={refreshImages}
+                                    productType={form.productType}
+                                    salesMedia={product?.salesMedia}
                                 />
                             </CardContent>
                         </Card>
