@@ -69,15 +69,21 @@ describe('catalog migration snapshot and restore', () => {
   it('uses a stable digest that changes when fixture data changes', () => {
     const fixture = catalogFixtures('preview');
     const digest = catalogFixtureDigest(fixture);
-    expect(catalogFixtureDigest({ collections: fixture.collections, drops: fixture.drops })).toBe(digest);
+    expect(catalogFixtureDigest({ ...fixture })).toBe(digest);
     expect(catalogFixtureDigest({ ...fixture, drops: [{ ...fixture.drops[0], name: 'Changed' }] })).not.toBe(digest);
   });
 
   it('returns the persisted digest used to verify a preview reset', async () => {
     const result = await resetCatalogFixtures(database, 'preview');
     const previewState = await database.collection('_previewFixtureState').findOne({ _id: 'catalog-foundation' });
+    const mediaProduct = await database.collection('products').findOne({ productId: 'preview-media-ring' });
 
     expect(result.resetDigest).toBe(result.fixtureDigest);
     expect(previewState.resetDigest).toBe(result.resetDigest);
+    expect(mediaProduct).toMatchObject({
+      title: 'Preview Media Ring',
+      productType: 'jewelry',
+      images: [{ id: 'preview-media-1' }, { id: 'preview-media-2' }],
+    });
   });
 });
