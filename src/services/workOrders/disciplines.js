@@ -7,6 +7,7 @@
 export const DISCIPLINE = {
   BENCH_JEWELRY: 'bench_jewelry', // repairs, production finishing, stone setting, resizes
   CAD: 'cad',                     // CAD / design work
+  CASTING: 'casting',             // in-house casting work (labor-credited)
   ENGRAVING: 'engraving',         // hand engraving
   GEM_CUTTING: 'gem_cutting',     // lapidary
 };
@@ -17,6 +18,7 @@ export const ALL_DISCIPLINES = Object.values(DISCIPLINE);
 const ARTISAN_TYPE_TO_DISCIPLINE = {
   'Jeweler': DISCIPLINE.BENCH_JEWELRY,
   'CAD Designer': DISCIPLINE.CAD,
+  'Caster': DISCIPLINE.CASTING,
   'Hand Engraver': DISCIPLINE.ENGRAVING,
   'Gem Cutter': DISCIPLINE.GEM_CUTTING,
 };
