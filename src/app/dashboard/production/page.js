@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 
-/** Production catalog has no index of its own — land on Collections (Drops). */
+/** Production index lands on Casting — the only primary production board. */
 export default function ProductionIndexPage() {
-  redirect('/dashboard/production/collections');
+  redirect('/dashboard/production/casting');
 }

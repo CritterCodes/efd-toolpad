@@ -3,7 +3,7 @@ import { requireRole } from '@/lib/apiAuth';
 import PiecesModel from '@/app/api/pieces/model';
 import { createPieceFromDesign, createDirectPiece } from '@/services/production/pieceRouting';
 
-/** GET /api/production/pieces — list (optional ?designID= / ?status=) */
+/** GET /api/production/pieces — list (optional ?designID= / ?dropId= / ?status=) */
 export const GET = async (req) => {
   const { errorResponse } = await requireRole(['admin', 'dev']);
   if (errorResponse) return errorResponse;
@@ -11,8 +11,10 @@ export const GET = async (req) => {
   const { searchParams } = new URL(req.url);
   const filter = {};
   const designID = searchParams.get('designID');
+  const dropId = searchParams.get('dropId');
   const status = searchParams.get('status');
   if (designID) filter.designID = designID;
+  if (dropId) filter.dropId = dropId;
   if (status) filter.status = status;
   const pieces = await PiecesModel.list(filter);
   return NextResponse.json(pieces, { status: 200 });
