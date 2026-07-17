@@ -51,9 +51,13 @@ export default function ProductMediaPanel({ productId, images = [], onChanged, p
   const [menuImg, setMenuImg] = useState(null);
   const [pendingReplace, setPendingReplace] = useState(null);
   const [altDialog, setAltDialog] = useState({ open: false, imageId: '', value: '' });
+  const touchDragRef = useRef(null);
+  const localImagesRef = useRef(localImages);
+  const reorderRef = useRef(null);
 
   useEffect(() => setLocalImages(images), [images]);
   useEffect(() => setLocalSalesMedia(salesMedia || {}), [salesMedia]);
+  useEffect(() => { localImagesRef.current = localImages; }, [localImages]);
 
   const isNew = !productId || productId === 'new';
 
@@ -96,6 +100,40 @@ export default function ProductMediaPanel({ productId, images = [], onChanged, p
       else await onChanged();
     } catch { setLocalImages(images); }
   }, [productId, images, onChanged]);
+
+  useEffect(() => { reorderRef.current = reorder; }, [reorder]);
+
+  useEffect(() => {
+    const onTouchMove = (e) => {
+      if (!touchDragRef.current) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      const tile = el?.closest('[data-media-panel-idx]');
+      const overIdx = tile ? parseInt(tile.dataset.mediaPanelIdx, 10) : null;
+      touchDragRef.current.lastOverIdx = overIdx;
+      setDragOverIdx(overIdx);
+    };
+    const onTouchEnd = () => {
+      if (!touchDragRef.current) return;
+      const { fromIdx, lastOverIdx } = touchDragRef.current;
+      touchDragRef.current = null;
+      setDragIdx(null);
+      setDragOverIdx(null);
+      if (lastOverIdx === null || lastOverIdx === fromIdx) return;
+      const imgs = localImagesRef.current;
+      const next = [...imgs];
+      const [moved] = next.splice(fromIdx, 1);
+      next.splice(lastOverIdx, 0, moved);
+      reorderRef.current(next);
+    };
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchend', onTouchEnd);
+    return () => {
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+    };
+  }, []);
 
   const handleDrop = (e, dropIdx) => {
     e.preventDefault();
@@ -230,11 +268,13 @@ export default function ProductMediaPanel({ productId, images = [], onChanged, p
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 1 }}>
           {localImages.map((img, idx) => (
             <Box key={img.id || idx}
+              data-media-panel-idx={idx}
               draggable
               onDragStart={() => setDragIdx(idx)}
               onDragOver={(e) => { e.preventDefault(); setDragOverIdx(idx); }}
               onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
               onDrop={(e) => handleDrop(e, idx)}
+              onTouchStart={() => { touchDragRef.current = { fromIdx: idx, lastOverIdx: null }; setDragIdx(idx); }}
               sx={{
                 position: 'relative', borderRadius: 1, overflow: 'hidden', cursor: 'grab',
                 border: `2px solid ${dragOverIdx === idx && dragIdx !== idx ? SX.accent : SX.border}`,

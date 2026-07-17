@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { ObjectId } from 'mongodb';
 
 const FIXTURE_VERSION = 'catalog-foundation-v1';
 const PREVIEW_STATE_ID = 'catalog-foundation';
@@ -6,6 +7,7 @@ const PREVIEW_STATE_ID = 'catalog-foundation';
 export function catalogFixtures(environment = 'dev') {
   if (!['dev', 'preview'].includes(environment)) throw new Error('catalog fixtures are restricted to dev or preview');
   const prefix = environment === 'preview' ? 'preview-' : 'dev-';
+  const previewOnly = environment === 'preview';
   return {
     drops: [{
       dropId: `${prefix}drop-signature`, slug: `${prefix}signature`, name: `${environment.toUpperCase()} Signature Drop`,
@@ -20,6 +22,45 @@ export function catalogFixtures(environment = 'dev') {
       rules: { all: [{ field: 'offers', operator: 'contains', value: 'made_to_order' }] },
       manualIncludes: [], manualExcludes: [], pinned: [], media: {}, seo: {}, fixtureVersion: FIXTURE_VERSION,
     }],
+    designs: previewOnly ? [{
+      designID: `${prefix}design-casting-ring`, name: 'Preview Casting Ring',
+      description: 'Deterministic design used by the casting and media review flows.',
+      status: 'approved_for_production', dropId: `${prefix}drop-signature`,
+      variants: [{ variantId: `${prefix}variant-yellow-gold`, sku: 'PREVIEW-RING-14KY', active: true, ringSize: 7 }],
+      routing: [{ seq: 1, discipline: 'bench_jewelry', process: 'Finish and polish', estLaborHours: 1.5 }],
+      fixtureVersion: FIXTURE_VERSION,
+    }] : [],
+    pieces: previewOnly ? [
+      {
+        pieceID: `${prefix}piece-production-casting`, designID: `${prefix}design-casting-ring`,
+        variantId: `${prefix}variant-yellow-gold`, resolvedConfiguration: { ringSize: 7 },
+        sku: 'PREVIEW-PROD-CAST', metalType: 'yellow_gold', karat: '14k', status: 'planned',
+        casting: 'needs_ordering', workOrderIDs: [], actualMaterials: [], fixtureVersion: FIXTURE_VERSION,
+      },
+      {
+        pieceID: `${prefix}piece-custom-casting`, designID: `${prefix}design-casting-ring`,
+        variantId: `${prefix}variant-yellow-gold`, resolvedConfiguration: { ringSize: 6.5 },
+        sku: 'PREVIEW-CUSTOM-CAST', metalType: 'yellow_gold', karat: '14k', status: 'planned',
+        customOrderID: `${prefix}custom-order-casting`, casting: 'needs_ordering', workOrderIDs: [],
+        actualMaterials: [], fixtureVersion: FIXTURE_VERSION,
+      },
+    ] : [],
+    products: previewOnly ? [{
+      _id: new ObjectId('66f000000000000000000000'),
+      productId: `${prefix}media-ring`, productType: 'jewelry', title: 'Preview Media Ring',
+      description: 'Deterministic jewelry product for reviewing photo and sales-media controls.',
+      availability: 'made-to-order', status: 'draft', isPublic: false,
+      pricing: { retailPrice: 2400, compareAtPrice: null, costBasis: 800, currency: 'USD' },
+      jewelry: { type: 'ring', metals: [{ type: 'yellow_gold', purity: '14k' }] },
+      references: { designId: `${prefix}design-casting-ring`, pieceID: null, gemstoneId: null },
+      pieceIDs: [], tags: ['preview', 'media-review'],
+      images: [
+        { id: `${prefix}media-1`, url: 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=800&q=80', alt: 'Gold ring on a neutral surface' },
+        { id: `${prefix}media-2`, url: 'https://images.unsplash.com/photo-1603561596112-db1d19d140b0?auto=format&fit=crop&w=800&q=80', alt: 'Gold ring detail' },
+      ],
+      salesMedia: {}, publishing: { visible: false, featured: false, publishedAt: null },
+      fixtureVersion: FIXTURE_VERSION,
+    }] : [],
   };
 }
 
@@ -38,29 +79,41 @@ function fixtureRecord(record) {
 
 export function catalogFixtureDigest(fixtures) {
   const stable = {
-    drops: fixtures.drops.map(fixtureRecord).sort((a, b) => a.dropId.localeCompare(b.dropId)),
-    collections: fixtures.collections.map(fixtureRecord).sort((a, b) => a.collectionId.localeCompare(b.collectionId)),
+    drops: (fixtures.drops || []).map(fixtureRecord).sort((a, b) => a.dropId.localeCompare(b.dropId)),
+    collections: (fixtures.collections || []).map(fixtureRecord).sort((a, b) => a.collectionId.localeCompare(b.collectionId)),
+    designs: (fixtures.designs || []).map(fixtureRecord).sort((a, b) => a.designID.localeCompare(b.designID)),
+    pieces: (fixtures.pieces || []).map(fixtureRecord).sort((a, b) => a.pieceID.localeCompare(b.pieceID)),
+    products: (fixtures.products || []).map(fixtureRecord).sort((a, b) => a.productId.localeCompare(b.productId)),
   };
   return `sha256:${createHash('sha256').update(JSON.stringify(canonicalize(stable))).digest('hex')}`;
 }
 
 export async function readCatalogFixtureDigest(database, environment = 'preview') {
   const prefix = environment === 'preview' ? 'preview-' : 'dev-';
-  const [drops, collections] = await Promise.all([
+  const [drops, collections, designs, pieces, products] = await Promise.all([
     database.collection('drops').find({ fixtureVersion: FIXTURE_VERSION, dropId: { $regex: `^${prefix}` } }).toArray(),
     database.collection('collections').find({ fixtureVersion: FIXTURE_VERSION, collectionId: { $regex: `^${prefix}` } }).toArray(),
+    database.collection('designs').find({ fixtureVersion: FIXTURE_VERSION, designID: { $regex: `^${prefix}` } }).toArray(),
+    database.collection('pieces').find({ fixtureVersion: FIXTURE_VERSION, pieceID: { $regex: `^${prefix}` } }).toArray(),
+    database.collection('products').find({ fixtureVersion: FIXTURE_VERSION, productId: { $regex: `^${prefix}` } }).toArray(),
   ]);
-  return catalogFixtureDigest({ drops, collections });
+  return catalogFixtureDigest({ drops, collections, designs, pieces, products });
 }
 
 export async function resetCatalogFixtures(database, environment = 'preview') {
   const fixture = catalogFixtures(environment);
   const prefix = environment === 'preview' ? 'preview-' : 'dev-';
-  await database.collection('drops').deleteMany({ fixtureVersion: FIXTURE_VERSION, dropId: { $regex: `^${prefix}` } });
-  await database.collection('collections').deleteMany({ fixtureVersion: FIXTURE_VERSION, collectionId: { $regex: `^${prefix}` } });
+  await database.collection('drops').deleteMany({ dropId: { $regex: `^${prefix}` } });
+  await database.collection('collections').deleteMany({ collectionId: { $regex: `^${prefix}` } });
+  await database.collection('designs').deleteMany({ fixtureVersion: FIXTURE_VERSION, designID: { $regex: `^${prefix}` } });
+  await database.collection('pieces').deleteMany({ fixtureVersion: FIXTURE_VERSION, pieceID: { $regex: `^${prefix}` } });
+  await database.collection('products').deleteMany({ fixtureVersion: FIXTURE_VERSION, productId: { $regex: `^${prefix}` } });
   const now = new Date();
   await database.collection('drops').insertMany(fixture.drops.map((record) => ({ ...record, createdAt: now, updatedAt: now })));
   await database.collection('collections').insertMany(fixture.collections.map((record) => ({ ...record, createdAt: now, updatedAt: now })));
+  if (fixture.designs.length) await database.collection('designs').insertMany(fixture.designs.map((record) => ({ ...record, createdAt: now, updatedAt: now })));
+  if (fixture.pieces.length) await database.collection('pieces').insertMany(fixture.pieces.map((record) => ({ ...record, createdAt: now, updatedAt: now })));
+  if (fixture.products.length) await database.collection('products').insertMany(fixture.products.map((record) => ({ ...record, createdAt: now, updatedAt: now })));
 
   const fixtureDigest = await readCatalogFixtureDigest(database, environment);
   await database.collection('_previewFixtureState').updateOne(

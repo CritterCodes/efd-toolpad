@@ -99,4 +99,15 @@ describe('PATCH /api/products/[id]/images — reorder', () => {
     );
     expect(response._status).toBe(400);
   });
+
+  it('moves the second photo to the first position', async () => {
+    const response = await PATCH(
+      { json: async () => ({ order: ['img-2', 'img-1', 'img-3'] }) },
+      { params: Promise.resolve({ id: PRODUCT_ID }) },
+    );
+    expect(response._status).toBe(200);
+    const [, update] = mocks.updateOne.mock.calls[0];
+    expect(update.$set.images[0].id).toBe('img-2');
+    expect(update.$set.images.map((img) => img.id)).toEqual(['img-2', 'img-1', 'img-3']);
+  });
 });
