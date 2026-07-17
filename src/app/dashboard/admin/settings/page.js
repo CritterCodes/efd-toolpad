@@ -15,12 +15,14 @@ import {
     Store as StoreIcon,
     Extension as IntegrationIcon,
     PhoneIphone as PWAIcon,
-    Diamond as DesignIcon
+    Diamond as DesignIcon,
+    Whatshot as WhatshotIcon,
 } from '@mui/icons-material';
 import StoreSettingsTab from '@/components/admin/StoreSettingsTab';
 import IntegrationsTab from '@/components/admin/IntegrationsTab';
 import PWASettingsTab from '@/components/admin/PWASettingsTab';
 import CustomDesignPricingTab from '@/components/admin/CustomDesignPricingTab';
+import CastingSettingsPanel from './CastingSettingsPanel';
 
 function TabPanel({ children, value, index, ...other }) {
     return (
@@ -105,6 +107,12 @@ export default function AdminSettingsPage() {
                                 id="admin-tab-3"
                                 aria-controls="admin-tabpanel-3"
                             />
+                            <Tab
+                                icon={<WhatshotIcon />}
+                                label="Casting"
+                                id="admin-tab-4"
+                                aria-controls="admin-tabpanel-4"
+                            />
                         </Tabs>
                     </Box>
                     
@@ -122,6 +130,10 @@ export default function AdminSettingsPage() {
 
                     <TabPanel value={tabValue} index={3}>
                         <CustomDesignPricingTab />
+                    </TabPanel>
+
+                    <TabPanel value={tabValue} index={4}>
+                        <CastingSettingsPanel />
                     </TabPanel>
                 </Box>
             </Box>

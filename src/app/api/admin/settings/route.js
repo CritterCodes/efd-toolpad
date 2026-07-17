@@ -34,6 +34,10 @@ export async function GET(request) {
       pricing: settings.pricing,
       financial: settings.financial,
       business: settings.business,
+      casting: {
+        castingMarkup: settings.casting?.castingMarkup ?? 1.3,
+        castingLaborFee: settings.casting?.castingLaborFee ?? 15,
+      },
       version: settings.version,
       updatedAt: settings.updatedAt,
       // Add labor rates structure for process calculations
@@ -241,10 +245,10 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { financial } = body;
+    const { financial, casting } = body;
 
-    if (!financial) {
-      return NextResponse.json({ error: 'Financial settings required' }, { status: 400 });
+    if (!financial && !casting) {
+      return NextResponse.json({ error: 'Financial or casting settings required' }, { status: 400 });
     }
 
     await db.connect();
@@ -257,32 +261,44 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Settings not found' }, { status: 404 });
     }
 
-    // Validate financial inputs (custom-quote formula v2 — see docs §9)
-    const {
-      cogMarkup,
-      designFeeMarkup,
-      rushMultiplier,
-      commissionPercentage,
-      targetMarginFloor,
-      defaultDesignerFee
-    } = financial;
+    if (financial) {
+      const {
+        cogMarkup,
+        designFeeMarkup,
+        rushMultiplier,
+        commissionPercentage,
+        targetMarginFloor,
+        defaultDesignerFee
+      } = financial;
 
-    const invalidFinancial =
-      (cogMarkup != null && (cogMarkup < 1 || cogMarkup > 10)) ||
-      (designFeeMarkup != null && (designFeeMarkup < 1 || designFeeMarkup > 5)) ||
-      (rushMultiplier != null && rushMultiplier < 1) ||
-      (commissionPercentage != null && (commissionPercentage < 0 || commissionPercentage > 1)) ||
-      (targetMarginFloor != null && (targetMarginFloor < 0 || targetMarginFloor > 1)) ||
-      (defaultDesignerFee != null && defaultDesignerFee < 0);
+      const invalidFinancial =
+        (cogMarkup != null && (cogMarkup < 1 || cogMarkup > 10)) ||
+        (designFeeMarkup != null && (designFeeMarkup < 1 || designFeeMarkup > 5)) ||
+        (rushMultiplier != null && rushMultiplier < 1) ||
+        (commissionPercentage != null && (commissionPercentage < 0 || commissionPercentage > 1)) ||
+        (targetMarginFloor != null && (targetMarginFloor < 0 || targetMarginFloor > 1)) ||
+        (defaultDesignerFee != null && defaultDesignerFee < 0);
 
-    if (invalidFinancial) {
-      return NextResponse.json({ error: 'Invalid financial values' }, { status: 400 });
+      if (invalidFinancial) {
+        return NextResponse.json({ error: 'Invalid financial values' }, { status: 400 });
+      }
+    }
+
+    if (casting) {
+      const { castingMarkup, castingLaborFee } = casting;
+      const invalidCasting =
+        (castingMarkup != null && (castingMarkup < 1 || castingMarkup > 5)) ||
+        (castingLaborFee != null && (castingLaborFee < 0 || castingLaborFee > 500));
+      if (invalidCasting) {
+        return NextResponse.json({ error: 'Invalid casting values' }, { status: 400 });
+      }
     }
 
     // Update the settings
     const updatedSettings = {
       ...adminSettings,
-      financial: financial,
+      ...(financial ? { financial } : {}),
+      ...(casting ? { casting } : {}),
       updatedAt: new Date(),
       version: (adminSettings.version || 0) + 1
     };
@@ -304,9 +320,10 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      message: 'Financial settings updated successfully',
+      message: 'Settings updated successfully',
       data: {
         financial: updatedSettings.financial,
+        casting: updatedSettings.casting,
         updatedAt: updatedSettings.updatedAt
       }
     });
