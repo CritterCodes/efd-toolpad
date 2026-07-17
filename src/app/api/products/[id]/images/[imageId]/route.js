@@ -47,3 +47,37 @@ export const DELETE = async (req, { params }) => {
   }
   return NextResponse.json({ ok: true });
 };
+
+export const PATCH = async (req, { params }) => {
+  const { session, errorResponse } = await requireRole(['admin', 'superadmin', 'dev', 'staff', 'artisan']);
+  if (errorResponse) return errorResponse;
+
+  const { id, imageId } = await params;
+  if (!ObjectId.isValid(id)) return NextResponse.json({ error: 'Invalid product ID' }, { status: 400 });
+
+  let body;
+  try { body = await req.json(); } catch {
+    return NextResponse.json({ error: 'Expected JSON body.' }, { status: 400 });
+  }
+  const alt = String(body.alt ?? '').slice(0, 500);
+
+  const db = await mongo.connect();
+  const product = await db.collection('products').findOne({ _id: new ObjectId(id) });
+  if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+
+  const isArtisan = session.user.role === 'artisan';
+  const ownerId = session.user.userID || session.user.id;
+  const isOwner = [product.artisanId, product.userId, product.seller?.userId].filter(Boolean).includes(ownerId);
+  const isAdminRole = ['admin', 'superadmin', 'dev', 'staff'].includes(session.user.role);
+
+  if (!isAdminRole && (!isArtisan || !isOwner)) {
+    return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+  }
+
+  const updated = await db.collection('products').updateOne(
+    { _id: new ObjectId(id), 'images.id': imageId },
+    { $set: { 'images.$.alt': alt, updatedAt: new Date() } }
+  );
+  if (updated.matchedCount === 0) return NextResponse.json({ error: 'Image not found' }, { status: 404 });
+  return NextResponse.json({ ok: true });
+};
