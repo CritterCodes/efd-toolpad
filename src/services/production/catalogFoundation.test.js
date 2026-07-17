@@ -48,4 +48,41 @@ describe('catalog foundation contracts', () => {
     expect(catalogFixtures('dev').drops[0].dropId).toMatch(/^dev-/);
     expect(() => catalogFixtures('production')).toThrow();
   });
+
+  it('fixtures include one drop with two designs (MTO + RTS) and at least one piece for Designs/Pieces tab review', () => {
+    const f = catalogFixtures('preview');
+    expect(f.drops).toHaveLength(1);
+    expect(f.designs.length).toBeGreaterThanOrEqual(2);
+    expect(f.pieces.length).toBeGreaterThanOrEqual(1);
+    expect(f.collections).toHaveLength(2);
+
+    const drop = f.drops[0];
+    expect(drop.designOrder).toHaveLength(2);
+
+    const mto = f.designs.find((d) => d.edition?.type === 'limited');
+    expect(mto).toBeDefined();
+    expect(mto.category).toBe('ring');
+    expect(mto.variants[0].ringSize).toBeTruthy();
+    expect(mto.dropId).toBe(drop.dropId);
+    expect(validateDesign(mto).valid).toBe(true);
+
+    const rts = f.designs.find((d) => d.edition?.type === 'one_of_one');
+    expect(rts).toBeDefined();
+    expect(rts.status).toBe('ready');
+    expect(rts.dropId).toBe(drop.dropId);
+    expect(validateDesign(rts).valid).toBe(true);
+
+    const piece = f.pieces[0];
+    expect(piece.dropId).toBe(drop.dropId);
+    expect(piece.designID).toBe(rts.designID);
+    expect(piece.status).toBe('available');
+    expect(validatePiece(piece).valid).toBe(true);
+
+    const oneOfOne = f.collections.find((c) => c.rules?.all?.[0]?.field === 'edition.type');
+    expect(oneOfOne).toBeDefined();
+    expect(oneOfOne.rules.all[0].value).toBe('one_of_one');
+
+    const mtoCollection = f.collections.find((c) => c.rules?.all?.[0]?.field === 'offers');
+    expect(mtoCollection).toBeDefined();
+  });
 });
