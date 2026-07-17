@@ -29,6 +29,12 @@ describe('estimateMetalCost', () => {
     const r = estimateMetalCost({ volumeCm3: 1, metalKey: 'GOLD_14K_YELLOW', metalPrices: {} });
     expect(r.metalCost).toBe(0);
   });
+
+  it('uses configurable castingMarkup instead of hardcoded 1.3', () => {
+    // 1 cm³ → 13.07 g gold × $35/g × 1.5 = 686.175
+    const r = estimateMetalCost({ volumeCm3: 1.0, metalKey: 'GOLD_14K_YELLOW', metalPrices: { gold: 60 }, castingMarkup: 1.5 });
+    expect(r.metalCost).toBeCloseTo(686.18, 1);
+  });
 });
 
 describe('estimateDesignCost', () => {
@@ -57,5 +63,19 @@ describe('estimateDesignCost', () => {
     expect(r.stonesCost).toBe(0);
     expect(r.estMaterialCost).toBeCloseTo(594.69, 1);
     expect(r.estCost).toBeCloseTo(594.69, 1);
+  });
+
+  it('castingLaborFee param adds flat per-casting fee to estMaterialCost', () => {
+    // metal(594.69) + castingLaborFee(15) = 609.69; no additional labor → estCost = 609.69
+    const r = estimateDesignCost({ stlVolumeCm3: 1.0, metalKey: 'GOLD_14K_YELLOW', metalPrices: { gold: 60 }, castingLaborFee: 15 });
+    expect(r.castingLaborFee).toBe(15);
+    expect(r.estMaterialCost).toBeCloseTo(609.69, 1);
+    expect(r.estCost).toBeCloseTo(609.69, 1);
+  });
+
+  it('defaults castingLaborFee to 0 (backward compat)', () => {
+    const r = estimateDesignCost({ stlVolumeCm3: 1.0, metalKey: 'GOLD_14K_YELLOW', metalPrices: { gold: 60 } });
+    expect(r.castingLaborFee).toBe(0);
+    expect(r.estMaterialCost).toBeCloseTo(594.69, 1);
   });
 });

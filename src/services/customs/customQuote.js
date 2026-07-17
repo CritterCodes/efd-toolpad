@@ -44,8 +44,12 @@ export function computeQuote(quote = {}, settings = {}) {
   const designTotal = n(quote.designFee);
   const glbTotal = n(quote.glbFee);
   const qcTotal = n(quote.qcReviewFee);
+  // Flat per-casting labor fee from admin settings (supports both flat and nested forms).
+  const castingLaborFee = castingTotal > 0
+    ? n(settings.castingLaborFee) || n(settings.casting?.castingLaborFee) || 0
+    : 0;
 
-  const cog = materialsTotal + laborTotal + shippingTotal + castingTotal + designTotal + glbTotal + qcTotal;
+  const cog = materialsTotal + laborTotal + shippingTotal + castingTotal + castingLaborFee + designTotal + glbTotal + qcTotal;
 
   // Per-quote markup OVERRIDE wins over the admin-settings default (0/unset → use the
   // settings default, then the hard default). Lets the quote builder set a markup per job.
@@ -70,6 +74,7 @@ export function computeQuote(quote = {}, settings = {}) {
     laborTotal: round(laborTotal),
     shippingTotal: round(shippingTotal),
     castingTotal: round(castingTotal),
+    castingLaborFee: round(castingLaborFee),
     designTotal: round(designTotal),
     glbTotal: round(glbTotal),
     qcTotal: round(qcTotal),

@@ -60,6 +60,36 @@ describe('computeQuote (structured single-COG bucket)', () => {
   });
 });
 
+describe('castingLaborFee from settings', () => {
+  it('adds castingLaborFee from settings.castingLaborFee when castingCost > 0', () => {
+    // castingCost=60, castingLaborFee=15 → cog = 60+15=75 × 2.5 = 187.5
+    const q = computeQuote({ castingCost: 60 }, { cogMarkup: 2.5, castingLaborFee: 15 });
+    expect(q.castingLaborFee).toBe(15);
+    expect(q.cog).toBeCloseTo(75, 2);
+    expect(q.quoteTotal).toBeCloseTo(187.5, 2);
+  });
+
+  it('adds castingLaborFee from settings.casting.castingLaborFee (nested form)', () => {
+    const q = computeQuote({ castingCost: 60 }, { cogMarkup: 2.5, casting: { castingLaborFee: 15 } });
+    expect(q.castingLaborFee).toBe(15);
+    expect(q.cog).toBeCloseTo(75, 2);
+  });
+
+  it('does NOT add castingLaborFee when castingCost is 0', () => {
+    const q = computeQuote({ laborTasks: [{ cost: 100, quantity: 1 }] }, { cogMarkup: 2, castingLaborFee: 15 });
+    expect(q.castingLaborFee).toBe(0);
+    expect(q.cog).toBeCloseTo(100, 2);
+    expect(q.quoteTotal).toBeCloseTo(200, 2);
+  });
+
+  it('defaults castingLaborFee to 0 when not in settings (backward compat)', () => {
+    const q = computeQuote({ castingCost: 60 }, { cogMarkup: 2.5 });
+    expect(q.castingLaborFee).toBe(0);
+    expect(q.cog).toBeCloseTo(60, 2);
+    expect(q.quoteTotal).toBeCloseTo(150, 2);
+  });
+});
+
 describe('computeMargin', () => {
   it('computes margin and % against summed piece COGS', () => {
     const m = computeMargin(1000, [170, 30]);
