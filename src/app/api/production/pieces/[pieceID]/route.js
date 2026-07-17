@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/apiAuth';
+import { db } from '@/lib/database';
 import PiecesModel from '@/app/api/pieces/model';
+import { propagateGemstoneStatus } from '@/services/production/gemstoneLifecycle';
 
 /** GET /api/production/pieces/[pieceID] */
 export const GET = async (req, { params }) => {
@@ -33,5 +35,11 @@ export const PUT = async (req, { params }) => {
 
   const updated = await PiecesModel.updateById(pieceID, body);
   if (!updated) return NextResponse.json({ error: 'Piece not found.' }, { status: 404 });
+
+  if (updated.gemstoneId && (body.status === 'reserved' || body.status === 'sold')) {
+    const database = await db.connect();
+    await propagateGemstoneStatus(updated, database);
+  }
+
   return NextResponse.json(updated, { status: 200 });
 };

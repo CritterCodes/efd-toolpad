@@ -3,6 +3,8 @@ import { requireRole } from '@/lib/apiAuth';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
 import { awardClientMgmtBonus } from '@/services/customs/customProduction';
 import { NotificationService } from '@/lib/notificationService';
+import { db } from '@/lib/database';
+import { sellOrderGemstones } from '@/services/production/gemstoneLifecycle';
 
 const PORTAL_URL = `${process.env.NEXT_PUBLIC_APP_URL || ''}/custom-work/portal`;
 
@@ -64,6 +66,16 @@ export const PUT = async (req, { params }) => {
       updated = await CustomOrdersModel.findById(customID);
     } catch (e) {
       console.error('Client-management bonus award failed:', e.message);
+    }
+  }
+
+  // On delivery, flip linked gemstone pieces to sold (Pipeline M1-T2, §2) — best-effort.
+  if (updated.status === 'delivered' && existing?.status !== 'delivered') {
+    try {
+      const database = await db.connect();
+      await sellOrderGemstones(customID, database);
+    } catch (e) {
+      console.error('Gemstone sold wiring failed on delivery:', e.message);
     }
   }
 

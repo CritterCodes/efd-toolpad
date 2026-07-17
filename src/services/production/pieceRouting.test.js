@@ -76,4 +76,31 @@ describe('createPieceFromDesign (unchanged production path)', () => {
     expect(WorkOrdersModel.create).toHaveBeenCalledTimes(3);
     expect(PiecesModel.create).toHaveBeenCalledWith(expect.objectContaining({ designID: 'd1', gemstoneId: 'gem-1' }));
   });
+
+  it('regression: spawn does not drop gemstoneId — variantId and gemstoneId both reach PiecesModel.create', async () => {
+    DesignsModel.findById.mockResolvedValue({
+      designID: 'd2', name: 'Halo Ring', gemstoneId: 'gem-42',
+      routing: [{ seq: 1, discipline: 'bench_jewelry' }],
+    });
+    await createPieceFromDesign('d2', { variantId: 'v-yellow-14k', resolvedConfiguration: { metal: '14k_yellow' } });
+    expect(PiecesModel.create).toHaveBeenCalledWith(expect.objectContaining({
+      designID: 'd2',
+      variantId: 'v-yellow-14k',
+      resolvedConfiguration: { metal: '14k_yellow' },
+      gemstoneId: 'gem-42',
+    }));
+  });
+
+  it('passes variantId and resolvedConfiguration from opts through to PiecesModel.create', async () => {
+    DesignsModel.findById.mockResolvedValue({
+      designID: 'd3', name: 'Solitaire', gemstoneId: null,
+      routing: [],
+    });
+    await createPieceFromDesign('d3', { variantId: 'v-rose-18k', resolvedConfiguration: { metal: '18k_rose' } });
+    expect(PiecesModel.create).toHaveBeenCalledWith(expect.objectContaining({
+      variantId: 'v-rose-18k',
+      resolvedConfiguration: { metal: '18k_rose' },
+      gemstoneId: null,
+    }));
+  });
 });
