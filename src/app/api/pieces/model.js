@@ -17,6 +17,14 @@ export const PIECE_STATUS = {
   CANCELLED: 'cancelled',
 };
 
+/** Casting sub-state: forward-only needs_ordering → ordered → received. */
+export const CASTING_STATE = {
+  NEEDS_ORDERING: 'needs_ordering',
+  ORDERED: 'ordered',
+  RECEIVED: 'received',
+};
+const CASTING_STATE_RANK = { needs_ordering: 0, ordered: 1, received: 2 };
+
 export function validatePiece(data = {}) {
   const errors = [];
   if (!data.designID) errors.push('designID is required');
@@ -78,6 +86,8 @@ export default class PiecesModel {
       productID: data.productID ?? null,
       customerID: data.customerID ?? null,
       customOrderID: data.customOrderID ?? null,   // present for custom-order pieces (S7)
+      casting: data.casting ?? null,               // casting sub-state (needs_ordering|ordered|received)
+      castingReceivedAt: data.castingReceivedAt ?? null,
       billing: data.billing ?? null,
       createdAt: now,
       updatedAt: now,
@@ -135,6 +145,33 @@ export default class PiecesModel {
       { $push: { actualMaterials: { ...material, category } }, $set: { updatedAt: new Date() } },
     );
     return this.recomputeCosts(pieceID);
+  }
+
+  /**
+   * Forward-only casting state transition (needs_ordering → ordered → received).
+   * Throws if the transition would be a repeat or backwards move.
+   */
+  static async updateCasting(pieceID, newState, extraFields = {}) {
+    const piece = await this.findById(pieceID);
+    if (!piece) throw Object.assign(new Error('Piece not found.'), { code: 'NOT_FOUND' });
+    const currentRank = CASTING_STATE_RANK[piece.casting] ?? -1;
+    const newRank = CASTING_STATE_RANK[newState];
+    if (newRank === undefined) throw Object.assign(new Error(`Invalid casting state: ${newState}`), { code: 'BAD_REQUEST' });
+    if (newRank <= currentRank) {
+      throw Object.assign(
+        new Error(`Casting state is forward-only: cannot move from '${piece.casting}' to '${newState}'.`),
+        { code: 'BAD_REQUEST' },
+      );
+    }
+    return this.updateById(pieceID, { casting: newState, ...extraFields });
+  }
+
+  /** All pieces whose casting sub-state is needs_ordering (the casting board queue). */
+  static async listCastingQueue() {
+    const col = await this.collection();
+    return col.find({ casting: CASTING_STATE.NEEDS_ORDERING }, { projection: { _id: 0 } })
+      .sort({ createdAt: 1 })
+      .toArray();
   }
 
   /** Re-roll COGS from the piece's actual materials + the labor logged on its work orders. */
