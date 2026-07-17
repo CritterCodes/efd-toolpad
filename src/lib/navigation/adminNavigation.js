@@ -18,6 +18,8 @@ import PaymentIcon from "@mui/icons-material/Payment";
 import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 import PrecisionManufacturingIcon from "@mui/icons-material/PrecisionManufacturing";
 import CollectionsBookmarkIcon from "@mui/icons-material/CollectionsBookmark";
+import ViewListIcon from "@mui/icons-material/ViewList";
+import RocketLaunchIcon from "@mui/icons-material/RocketLaunch";
 import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
 import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 import LeadsIcon from "@mui/icons-material/ChatBubbleOutline";
@@ -46,19 +48,24 @@ export const adminNavigation = {
       icon: <InventoryIcon />,
       children: [
         {
-          segment: 'jewelry',
-          title: 'Jewelry',
-          icon: <RingIcon />
+          segment: '',
+          title: 'Catalog',
+          icon: <ViewListIcon />
+        },
+        {
+          segment: 'drops',
+          title: 'Drops',
+          icon: <RocketLaunchIcon />
+        },
+        {
+          segment: 'collections',
+          title: 'Collections',
+          icon: <CollectionsBookmarkIcon />
         },
         {
           segment: 'gemstones',
           title: 'Gemstones',
           icon: <DiamondIcon />
-        },
-        {
-          segment: 'awaiting-approval',
-          title: 'Awaiting Approval',
-          icon: <AssignmentIcon />
         }
       ]
     },
@@ -78,19 +85,9 @@ export const adminNavigation = {
       icon: <PrecisionManufacturingIcon />,
       children: [
         {
-          segment: 'collections',
-          title: 'Drops & Collections',
-          icon: <CollectionsBookmarkIcon />
-        },
-        {
-          segment: 'designs',
-          title: 'Designs',
-          icon: <DiamondIcon />
-        },
-        {
-          segment: 'pieces',
-          title: 'Pieces',
-          icon: <RingIcon />
+          segment: 'casting',
+          title: 'Casting',
+          icon: <BuildIcon />
         }
       ]
     },
