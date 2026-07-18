@@ -1,7 +1,8 @@
 /**
  * Tests for the source-agnostic casting service (Production Pipeline §8).
  * Covers: guard function, Carrera ordering path, in-house casting WO path,
- * custom-piece received path, production-piece received path, and idempotency.
+ * custom-piece received path, production-piece received path, idempotency,
+ * moveCastingWOToQc (flat-fee payout model), and completeCastingWOFromQc.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { guardedCastingTransition } from '@/services/casting/castingService';
@@ -49,6 +50,16 @@ describe('guardedCastingTransition (pure state guard)', () => {
 
 // ─── service functions — mocked dependencies ───────────────────────────────
 
+vi.mock('@/lib/database', () => ({
+  db: {
+    connect: vi.fn(async () => ({
+      collection: vi.fn(() => ({
+        findOne: vi.fn(async () => ({ casting: { castingLaborFee: 20 } })),
+      })),
+    })),
+  },
+}));
+
 vi.mock('@/app/api/pieces/model', () => {
   const CASTING_STATE = { NEEDS_ORDERING: 'needs_ordering', ORDERED: 'ordered', RECEIVED: 'received' };
   const mockPiece = (overrides = {}) => ({
@@ -82,6 +93,7 @@ vi.mock('@/app/api/pieces/model', () => {
 vi.mock('@/app/api/workOrders/model', () => ({
   default: {
     create: vi.fn(async (data) => ({ workOrderID: 'wo-cast-001', ...data })),
+    updateByID: vi.fn(async (id, data) => ({ workOrderID: id, ...data })),
   },
   WORK_ORDER_SOURCE: { PRODUCTION_PIECE: 'production_piece' },
 }));
@@ -91,6 +103,13 @@ vi.mock('@/app/api/businessExpenses/model', () => ({
     create: vi.fn(async (data) => ({ expenseID: 'exp-001', ...data })),
     updateByExpenseID: vi.fn(async (id, data) => ({ expenseID: id, ...data })),
     findBySourceReference: vi.fn(async () => null),
+  },
+}));
+
+vi.mock('@/app/api/repairLaborLogs/model', () => ({
+  default: {
+    create: vi.fn(async (data) => ({ logID: 'log-001', ...data })),
+    releasePendingQc: vi.fn(async () => 1),
   },
 }));
 
@@ -109,13 +128,18 @@ vi.mock('@/services/customs/customProduction', () => ({
 }));
 
 // Import after mocks are registered
-const { markCastingOrdered, createInHouseCastingWO, markCastingReceived, listCastingQueue } =
-  await import('@/services/casting/castingService');
+const {
+  markCastingOrdered, createInHouseCastingWO, markCastingReceived, listCastingQueue,
+  moveCastingWOToQc, completeCastingWOFromQc,
+} = await import('@/services/casting/castingService');
 
 const PiecesModel = (await import('@/app/api/pieces/model')).default;
 const WorkOrdersModel = (await import('@/app/api/workOrders/model')).default;
 const BusinessExpensesModel = (await import('@/app/api/businessExpenses/model')).default;
+const RepairLaborLogsModel = (await import('@/app/api/repairLaborLogs/model')).default;
 const { generateWorkOrdersFromQuote } = await import('@/services/customs/customProduction');
+
+const mockSession = { user: { userID: 'user-001', name: 'Test User' } };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -130,11 +154,10 @@ beforeEach(() => {
 // ─── Carrera ordering path ─────────────────────────────────────────────────
 
 describe('markCastingOrdered (Carrera path)', () => {
-  it('books a businessExpenses entry', async () => {
+  it('does NOT create a businessExpenses entry at order time (estimate only)', async () => {
     await markCastingOrdered('piece-001', { vendor: 'Carrera', amount: 320, invoiceNumber: 'INV-999' });
-    expect(BusinessExpensesModel.create).toHaveBeenCalledWith(
-      expect.objectContaining({ vendor: 'Carrera', amount: 320, invoiceNumber: 'INV-999', sourceReferenceType: 'piece', sourceReferenceID: 'piece-001' }),
-    );
+    expect(BusinessExpensesModel.create).not.toHaveBeenCalled();
+    expect(BusinessExpensesModel.updateByExpenseID).not.toHaveBeenCalled();
   });
 
   it('advances casting to ordered', async () => {
@@ -152,13 +175,6 @@ describe('markCastingOrdered (Carrera path)', () => {
       pieceID: 'piece-001', casting: 'ordered', workOrderIDs: [], customOrderID: null,
     });
     await expect(markCastingOrdered('piece-001', { amount: 100 })).rejects.toThrow(/forward-only/);
-  });
-
-  it('updates existing expense instead of creating duplicate', async () => {
-    BusinessExpensesModel.findBySourceReference.mockResolvedValueOnce({ expenseID: 'exp-existing' });
-    await markCastingOrdered('piece-001', { vendor: 'Carrera', amount: 400 });
-    expect(BusinessExpensesModel.updateByExpenseID).toHaveBeenCalledWith('exp-existing', expect.objectContaining({ amount: 400 }));
-    expect(BusinessExpensesModel.create).not.toHaveBeenCalled();
   });
 });
 
@@ -194,6 +210,134 @@ describe('createInHouseCastingWO (in-house path)', () => {
   });
 });
 
+// ─── moveCastingWOToQc — flat-fee payout model ────────────────────────────
+
+describe('moveCastingWOToQc (casting payout model)', () => {
+  const castingWO = {
+    workOrderID: 'wo-cast-001',
+    discipline: 'casting',
+    sourceType: 'production_piece',
+    sourceID: 'piece-001',
+    assignedToUserID: 'artisan-007',
+    assignedJeweler: 'Vernon',
+    status: 'IN PROGRESS',
+  };
+
+  it('creates a labor log with creditedValue = castingLaborFee (flat fee from settings)', async () => {
+    await moveCastingWOToQc({ session: mockSession, workOrderID: 'wo-cast-001', wo: castingWO });
+    expect(RepairLaborLogsModel.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workOrderID: 'wo-cast-001',
+        creditedValue: 20, // from the mocked adminSettings (castingLaborFee: 20)
+        creditedLaborHours: 0,
+        pendingQc: true,
+        requiresAdminReview: false,
+        sourceAction: 'casting_wo_move_to_qc',
+      }),
+    );
+  });
+
+  it('credits the ASSIGNED jeweler, not the session user', async () => {
+    await moveCastingWOToQc({ session: mockSession, workOrderID: 'wo-cast-001', wo: castingWO });
+    expect(RepairLaborLogsModel.create).toHaveBeenCalledWith(
+      expect.objectContaining({ primaryJewelerUserID: 'artisan-007', primaryJewelerName: 'Vernon' }),
+    );
+  });
+
+  it('advances WO status to QC', async () => {
+    await moveCastingWOToQc({ session: mockSession, workOrderID: 'wo-cast-001', wo: castingWO });
+    expect(WorkOrdersModel.updateByID).toHaveBeenCalledWith(
+      'wo-cast-001', expect.objectContaining({ status: 'QC' }),
+    );
+  });
+
+  it('does NOT use hours × rate (no business expense, no hourly log)', async () => {
+    await moveCastingWOToQc({ session: mockSession, workOrderID: 'wo-cast-001', wo: castingWO });
+    expect(BusinessExpensesModel.create).not.toHaveBeenCalled();
+    const log = RepairLaborLogsModel.create.mock.calls[0][0];
+    expect(log.laborRateSnapshot).toBe(0);
+  });
+});
+
+// ─── completeCastingWOFromQc — in-house received + bench WO generation ────
+
+describe('completeCastingWOFromQc (in-house path)', () => {
+  const castingWO = {
+    workOrderID: 'wo-cast-001',
+    discipline: 'casting',
+    sourceType: 'production_piece',
+    sourceID: 'piece-001',
+    assignedToUserID: 'artisan-007',
+    assignedJeweler: 'Vernon',
+    status: 'QC',
+  };
+
+  beforeEach(() => {
+    PiecesModel.findById.mockResolvedValue({
+      pieceID: 'piece-001', designID: 'design-001', casting: 'ordered',
+      customOrderID: null, castingReceivedAt: null, workOrderIDs: ['wo-cast-001'],
+    });
+  });
+
+  it('releases pending QC labor log (makes it payable)', async () => {
+    await completeCastingWOFromQc({ session: mockSession, workOrderID: 'wo-cast-001', wo: castingWO });
+    expect(RepairLaborLogsModel.releasePendingQc).toHaveBeenCalledWith('wo-cast-001');
+  });
+
+  it('marks WO COMPLETED', async () => {
+    await completeCastingWOFromQc({ session: mockSession, workOrderID: 'wo-cast-001', wo: castingWO });
+    expect(WorkOrdersModel.updateByID).toHaveBeenCalledWith(
+      'wo-cast-001', expect.objectContaining({ status: 'COMPLETED' }),
+    );
+  });
+
+  it('advances piece casting to received', async () => {
+    await completeCastingWOFromQc({ session: mockSession, workOrderID: 'wo-cast-001', wo: castingWO });
+    expect(PiecesModel.updateCasting).toHaveBeenCalledWith(
+      'piece-001', 'received', expect.objectContaining({ castingReceivedAt: expect.any(Date) }),
+    );
+  });
+
+  it('generates bench WOs from design routing (production piece)', async () => {
+    await completeCastingWOFromQc({ session: mockSession, workOrderID: 'wo-cast-001', wo: castingWO });
+    expect(WorkOrdersModel.create).toHaveBeenCalledWith(
+      expect.objectContaining({ discipline: 'bench_jewelry', status: 'READY FOR WORK' }),
+    );
+  });
+
+  it('creates NO business expense (in-house labor is paid via labor log, not invoice)', async () => {
+    await completeCastingWOFromQc({ session: mockSession, workOrderID: 'wo-cast-001', wo: castingWO });
+    expect(BusinessExpensesModel.create).not.toHaveBeenCalled();
+  });
+
+  it('is idempotent: skips bench WO spawn if castingReceivedAt is already set', async () => {
+    PiecesModel.findById.mockResolvedValueOnce({
+      pieceID: 'piece-001', casting: 'ordered', customOrderID: null,
+      castingReceivedAt: new Date(), workOrderIDs: ['wo-cast-001'], designID: 'design-001',
+    });
+    await completeCastingWOFromQc({ session: mockSession, workOrderID: 'wo-cast-001', wo: castingWO });
+    // spawnBenchWOsFromDesign exits early because castingReceivedAt is set
+    expect(WorkOrdersModel.create).not.toHaveBeenCalled();
+  });
+
+  it('delegates bench WO generation to generateWorkOrdersFromQuote for custom pieces', async () => {
+    PiecesModel.findById.mockResolvedValueOnce({
+      pieceID: 'piece-001', casting: 'ordered', customOrderID: 'CO-abc',
+      castingReceivedAt: null, workOrderIDs: ['wo-cast-001'], designID: null,
+    });
+    await completeCastingWOFromQc({ session: mockSession, workOrderID: 'wo-cast-001', wo: castingWO });
+    expect(generateWorkOrdersFromQuote).toHaveBeenCalledWith(
+      expect.objectContaining({ customID: 'CO-abc' }),
+    );
+    expect(BusinessExpensesModel.create).not.toHaveBeenCalled();
+  });
+
+  it('recomputes piece COGS after completion', async () => {
+    await completeCastingWOFromQc({ session: mockSession, workOrderID: 'wo-cast-001', wo: castingWO });
+    expect(PiecesModel.recomputeCosts).toHaveBeenCalledWith('piece-001');
+  });
+});
+
 // ─── Received path — production piece ─────────────────────────────────────
 
 describe('markCastingReceived — production piece (no customOrderID)', () => {
@@ -204,7 +348,7 @@ describe('markCastingReceived — production piece (no customOrderID)', () => {
     );
   });
 
-  it('books a businessExpenses entry', async () => {
+  it('books a businessExpenses entry (finalized invoice at received time)', async () => {
     await markCastingReceived('piece-001', { amount: 280, vendor: 'Carrera', invoiceNumber: 'INV-42' });
     expect(BusinessExpensesModel.create).toHaveBeenCalledWith(
       expect.objectContaining({ amount: 280, sourceReferenceType: 'piece', sourceReferenceID: 'piece-001' }),

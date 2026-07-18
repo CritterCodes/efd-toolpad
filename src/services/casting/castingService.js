@@ -7,6 +7,22 @@
 import PiecesModel, { CASTING_STATE } from '@/app/api/pieces/model';
 import WorkOrdersModel, { WORK_ORDER_SOURCE } from '@/app/api/workOrders/model';
 import { DISCIPLINE } from '@/services/workOrders/disciplines';
+import { db } from '@/lib/database';
+
+/** Read castingLaborFee from admin settings (flat per-casting artisan payout). */
+async function getCastingLaborFee() {
+  try {
+    const dbInstance = await db.connect();
+    const settings = await dbInstance.collection('adminSettings').findOne(
+      { _id: 'repair_task_admin_settings' },
+      { projection: { _id: 0, casting: 1 } },
+    );
+    const fee = Number(settings?.casting?.castingLaborFee);
+    return fee >= 0 ? fee : 15;
+  } catch {
+    return 15;
+  }
+}
 
 /** Pure guard: is this casting state transition forward-only and valid? */
 export function guardedCastingTransition(currentState, newState) {
@@ -19,13 +35,14 @@ export function guardedCastingTransition(currentState, newState) {
 }
 
 /**
- * Carrera (external vendor) path. Books a businessExpenses entry for the PO,
- * sets casting=ordered on the piece (piece status → casting_ordered). No WO,
- * no labor credit — casting is a purchased material.
+ * Carrera (external vendor) path. Records the PO/estimate on the piece and
+ * sets casting=ordered (piece status → casting_ordered). No WO, no labor
+ * credit, NO finalized business expense — the expense is booked only when
+ * the casting is received and the final invoice amount is confirmed.
  */
 export async function markCastingOrdered(pieceID, {
   vendor = 'Carrera', vendorPO = '', invoiceNumber = '', amount = 0,
-  paymentMethod = 'other', status = 'paid', notes = '', createdBy = null,
+  notes = '', createdBy = null,
 } = {}) {
   const amt = Number(amount);
   if (!(amt >= 0)) throw Object.assign(new Error('amount must be >= 0'), { code: 'BAD_REQUEST' });
@@ -36,33 +53,17 @@ export async function markCastingOrdered(pieceID, {
   const guard = guardedCastingTransition(piece.casting, CASTING_STATE.ORDERED);
   if (!guard.ok) throw Object.assign(new Error(guard.reason), { code: 'BAD_REQUEST' });
 
-  const { default: BusinessExpensesModel } = await import('@/app/api/businessExpenses/model');
-  const expenseFields = {
-    expenseDate: new Date(),
-    vendor,
-    category: 'Materials / Parts',
-    amount: amt,
-    invoiceNumber: invoiceNumber || vendorPO || '',
-    paymentMethod,
-    status,
-    notes: notes || `Casting order for piece ${pieceID}`,
-    isDeductible: true,
-    sourceReferenceType: 'piece',
-    sourceReferenceID: pieceID,
-    createdBy,
-  };
-  // Idempotent: update existing expense for this piece rather than double-writing.
-  const existing = await BusinessExpensesModel.findBySourceReference('piece', pieceID);
-  const expense = existing?.expenseID
-    ? await BusinessExpensesModel.updateByExpenseID(existing.expenseID, expenseFields)
-    : await BusinessExpensesModel.create(expenseFields);
-
   const updatedPiece = await PiecesModel.updateCasting(
     pieceID,
     CASTING_STATE.ORDERED,
-    { status: 'casting_ordered' },
+    {
+      status: 'casting_ordered',
+      castingOrderEstimate: amt || null,
+      castingVendor: vendor || null,
+      castingVendorPO: vendorPO || null,
+    },
   );
-  return { piece: updatedPiece, expense };
+  return { piece: updatedPiece };
 }
 
 /**
@@ -216,6 +217,82 @@ async function spawnBenchWOsFromDesign(piece, createdBy = 'system') {
 
   await PiecesModel.setWorkOrders(piece.pieceID, [...currentWOIDs, ...newWOIDs]);
   return { generated: newWOIDs.length };
+}
+
+/**
+ * Move a casting-discipline WO to QC, crediting the flat castingLaborFee from
+ * admin settings (NOT hours × rate). Labor is held as pendingQc until QC passes.
+ * Called from the bench work-orders action route for casting-discipline piece WOs
+ * to override the generic hourly-rate path in movePieceToQc.
+ */
+export async function moveCastingWOToQc({ session, workOrderID, wo }) {
+  const castingLaborFee = await getCastingLaborFee();
+  const jewelerUserID = wo.assignedToUserID || session.user.userID;
+  const jewelerName = wo.assignedJeweler || session.user.name;
+
+  const { default: RepairLaborLogsModel } = await import('@/app/api/repairLaborLogs/model');
+  await RepairLaborLogsModel.create({
+    workOrderID,
+    sourceType: wo.sourceType,
+    sourceID: wo.sourceID,
+    primaryJewelerUserID: jewelerUserID,
+    primaryJewelerName: jewelerName,
+    creditedLaborHours: 0,
+    laborRateSnapshot: 0,
+    creditedValue: castingLaborFee,
+    sourceAction: 'casting_wo_move_to_qc',
+    pendingQc: true,
+    requiresAdminReview: false,
+    notes: `In-house casting flat fee ($${castingLaborFee})`,
+  });
+
+  return WorkOrdersModel.updateByID(workOrderID, {
+    status: 'QC',
+    completedBy: session.user.name,
+    completedAt: new Date(),
+  });
+}
+
+/**
+ * Complete a casting-discipline WO from QC. Releases the held labor log
+ * (making it payable), finalizes the WO, then advances the piece to
+ * casting=received and generates the downstream bench work orders exactly
+ * once (guarded by castingReceivedAt / productionGeneratedAt). No expense
+ * is booked here — for in-house casting, the artisan is paid via the labor
+ * log, not a business expense.
+ */
+export async function completeCastingWOFromQc({ session, workOrderID, wo }) {
+  const { default: RepairLaborLogsModel } = await import('@/app/api/repairLaborLogs/model');
+  await RepairLaborLogsModel.releasePendingQc(workOrderID);
+
+  const workOrder = await WorkOrdersModel.updateByID(workOrderID, {
+    status: 'COMPLETED',
+    qcDate: new Date(),
+  });
+
+  // Advance piece to received + generate bench WOs (no expense — in-house labor is
+  // credited via the labor log, not a vendor invoice).
+  const piece = await PiecesModel.findById(wo.sourceID);
+  let generation = { generated: 0, skipped: 'piece-not-found' };
+  if (piece) {
+    const guard = guardedCastingTransition(piece.casting, CASTING_STATE.RECEIVED);
+    if (guard.ok) {
+      if (piece.customOrderID) {
+        const { generateWorkOrdersFromQuote } = await import('@/services/customs/customProduction');
+        generation = await generateWorkOrdersFromQuote({
+          customID: piece.customOrderID, createdBy: session.user.userID || 'system',
+        });
+      } else {
+        generation = await spawnBenchWOsFromDesign(piece, session.user.userID || 'system');
+      }
+      await PiecesModel.updateCasting(wo.sourceID, CASTING_STATE.RECEIVED, { castingReceivedAt: new Date() });
+    } else {
+      generation = { generated: 0, skipped: guard.reason };
+    }
+  }
+
+  const updatedPiece = await PiecesModel.recomputeCosts(wo.sourceID);
+  return { workOrder, piece: updatedPiece, generation };
 }
 
 /** All pieces with casting=needs_ordering, joined with their design name for the board. */
