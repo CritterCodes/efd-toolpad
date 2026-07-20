@@ -57,6 +57,7 @@ function newVariantForm() {
     // composed from both for the pricing estimate engine.
     finish: 'gold', karat: '14', metalKey: composeMetalKey('gold', '14'), viewerConfig: null,
     ringSize: '', sizingMin: '', sizingMax: '',
+    gemstones: [], // [{ slot, role, qty, gemstoneId, stullerSku, label, unitCost, source }]
     retailPrice: '', leadTimeDays: '', active: true,
   };
 }
@@ -89,6 +90,9 @@ const panelSx = { p: { xs: 2, md: 2.5 }, mb: 2, backgroundColor: REPAIRS_UI.bgPa
 const cap = (s) => String(s || '').replace(/_/g, ' ');
 const money = (x) => `$${(Number(x) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const sumLines = (arr) => (arr || []).reduce((s, r) => s + (Number(r.cost) || 0) * (Number(r.quantity) || 1), 0);
+// Per-variant stone cost = Σ(unit cost × qty). Accents are priced per-stone × quantity.
+const sumStones = (arr) => (arr || []).reduce((s, r) => s + (Number(r.unitCost) || 0) * (Number(r.qty) || 1), 0);
+const GEM_ROLES = [{ value: 'center', label: 'Center' }, { value: 'accent', label: 'Accent' }];
 const artisanLabel = (a) => [a.firstName, a.lastName].filter(Boolean).join(' ') || a.email || a.userID || '';
 const artisanId = (a) => a.userID || a._id?.toString();
 
@@ -142,8 +146,18 @@ function toForm(d) {
       retailPrice: v.pricing?.retailPrice != null ? String(v.pricing.retailPrice) : '',
       leadTimeDays: v.leadTimeDays != null ? String(v.leadTimeDays) : '',
       active: v.active !== false,
-      // Per-variant pricing controls (the variant "owns" its stones + optional markup).
-      stonesCost: v.stonesCost != null ? String(v.stonesCost) : '',
+      // The variant "owns" its stones (center + accents) and an optional markup override.
+      // Each stone row links a catalog gemstone; cost = unitCost × qty (per-stone).
+      gemstones: (v.gemstones || []).map((g) => ({
+        slot: g.slot || '',
+        role: g.role || 'accent',
+        qty: g.qty != null ? String(g.qty) : '1',
+        gemstoneId: g.gemstoneId || '',
+        stullerSku: g.stullerSku || '',
+        label: g.label || '',
+        unitCost: g.unitCost != null ? String(g.unitCost) : '',
+        source: g.source || '',
+      })),
       markupOverride: v.markupOverride != null && v.markupOverride !== '' ? String(v.markupOverride) : '',
       };
     }),
@@ -439,6 +453,7 @@ function VariantRow({ index, variant, isRing, hasGlb, onUpdate, onRemove, onConf
             <TextField label="Size range max" value={variant.sizingMax} onChange={(e) => set('sizingMax', e.target.value)} size="small" sx={{ flex: 1 }} helperText="resizable high" />
           </Stack>
         )}
+        <VariantStones gemstones={variant.gemstones} viewerConfig={variant.viewerConfig} onChange={(rows) => set('gemstones', rows)} />
       </Stack>
     </Paper>
   );
@@ -502,7 +517,8 @@ function PriceLineEditor({ rows, onChange, withQty, addLabel, emptyText }) {
 }
 
 function VariantPriceCard({ variant, mounting, sharedCosts, baseMarkup, hasVolume, loading, onChange }) {
-  const stones = Number(variant.stonesCost) || 0;
+  const stones = sumStones(variant.gemstones);
+  const stoneCount = (variant.gemstones || []).reduce((n, g) => n + (Number(g.qty) || 1), 0);
   const markup = Number(variant.markupOverride) > 0 ? Number(variant.markupOverride) : baseMarkup;
   const cog = mounting + stones + sharedCosts;
   const retail = cog * markup;
@@ -527,7 +543,10 @@ function VariantPriceCard({ variant, mounting, sharedCosts, baseMarkup, hasVolum
             {loading ? '…' : hasVolume ? money(mounting) : 'needs STL'}
           </Typography>
         </Box>
-        <TextField size="small" label="Stones $" type="number" value={variant.stonesCost} onChange={(e) => onChange({ stonesCost: e.target.value })} sx={{ width: 120 }} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} />
+        <Box sx={{ minWidth: 110 }}>
+          <Typography sx={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: REPAIRS_UI.textSecondary }}>Stones{stoneCount ? ` (${stoneCount})` : ''}</Typography>
+          <Typography sx={{ fontSize: '0.9rem', color: REPAIRS_UI.textPrimary, fontWeight: 500 }}>{money(stones)}</Typography>
+        </Box>
         <Box sx={{ minWidth: 110 }}>
           <Typography sx={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: REPAIRS_UI.textSecondary }}>Shared</Typography>
           <Typography sx={{ fontSize: '0.9rem', color: REPAIRS_UI.textPrimary, fontWeight: 500 }}>{money(sharedCosts)}</Typography>
@@ -577,6 +596,106 @@ function TaskAutocomplete({ value, onText, onPick }) {
       )}
       renderInput={(params) => <TextField {...params} label="Task" placeholder="set stones, polish…" />}
     />
+  );
+}
+
+/** Gemstone picker sourced from the gemstone catalog (products / productType:gemstone).
+ *  On pick, links the catalog stone + prefills its acquisition cost. (Stuller sourcing +
+ *  live pricing is a later slice — the linked SKU is where that will plug in.) */
+const gemLabel = (g) => [g.title || g.species, g.carat ? `${g.carat}ct` : null, g.dimensions].filter(Boolean).join(' · ') || 'Gemstone';
+const gemCost = (g) => Number(g.pricing?.costBasis ?? g.pricing?.retailPrice ?? g.retailPrice ?? g.price) || 0;
+function GemstoneAutocomplete({ value, onPick }) {
+  const [options, setOptions] = useState([]);
+  const [input, setInput] = useState(value || '');
+  useEffect(() => { setInput(value || ''); }, [value]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch('/api/products/gemstones');
+        const d = await r.json().catch(() => ({}));
+        if (!cancelled && r.ok) setOptions(Array.isArray(d) ? d : (d.gemstones || d.data || []));
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+  return (
+    <Autocomplete
+      freeSolo size="small" options={options}
+      value={null} inputValue={input}
+      getOptionLabel={(o) => (typeof o === 'string' ? o : gemLabel(o))}
+      onInputChange={(_, v) => setInput(v)}
+      onChange={(_, v) => { if (v && typeof v !== 'string') onPick({ gemstoneId: v.productId, label: gemLabel(v), unitCost: gemCost(v), stullerSku: v.stullerSku || '', source: 'catalog' }); }}
+      renderOption={(props, o) => (
+        <Box component="li" {...props} sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
+          <span>{gemLabel(o)}</span>
+          {gemCost(o) > 0 && <Typography variant="caption" sx={{ color: 'text.secondary' }}>${gemCost(o)}</Typography>}
+        </Box>
+      )}
+      renderInput={(params) => <TextField {...params} label="Stone (catalog)" placeholder="search gemstones…" />}
+    />
+  );
+}
+
+/** Per-variant stones: center + accents, seeded from the variant's REFRAKT gem slots and
+ *  linked to the gemstone catalog. Cost = unit × qty (accents priced per-stone). */
+function VariantStones({ gemstones, viewerConfig, onChange }) {
+  const rows = gemstones || [];
+  const set = (i, patch) => onChange(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  const remove = (i) => onChange(rows.filter((_, idx) => idx !== i));
+  const add = () => onChange([...rows, { slot: '', role: 'accent', qty: '1', gemstoneId: '', stullerSku: '', label: '', unitCost: '', source: '' }]);
+  const gemSlots = (viewerConfig?.meshMap || []).filter((s) => s.type === 'gem');
+  // REFRAKT stores one meshMap entry per gem mesh; group identical gems (same preset) into
+  // a single row with a quantity (18 melee diamonds → one accent row × 18).
+  const gemGroups = (() => {
+    const m = new Map();
+    for (const s of gemSlots) {
+      const key = s.gemPreset || s.nameContains || 'gem';
+      const g = m.get(key) || { slot: s.nameContains || '', preset: s.gemPreset || '', qty: 0 };
+      g.qty += 1;
+      m.set(key, g);
+    }
+    return [...m.values()];
+  })();
+  const seed = () => onChange(gemGroups.map((g) => ({
+    // A lone stone is almost always the center; multiples are accents. Name hints win.
+    slot: g.slot, role: /accent|melee|pave|pavé|side/i.test(g.slot) ? 'accent' : (g.qty > 1 ? 'accent' : 'center'),
+    qty: String(g.qty), gemstoneId: '', stullerSku: '', label: '', unitCost: '', source: '', preset: g.preset,
+  })));
+  const subtotal = sumStones(rows);
+  return (
+    <Box sx={{ p: 1.5, backgroundColor: REPAIRS_UI.bgCard, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 1.5 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+        <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textSecondary, fontSize: '0.8rem' }}>Gemstones</Typography>
+        {gemGroups.length > 0 && rows.length === 0 && (
+          <Button size="small" onClick={seed} sx={{ color: REPAIRS_UI.accent, textTransform: 'none' }}>Seed from REFRAKT ({gemGroups.length})</Button>
+        )}
+      </Stack>
+      {rows.length === 0
+        ? <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted, py: 0.5 }}>{gemGroups.length ? 'Seed from REFRAKT or add stones manually.' : 'No stones. Add the stones this variant is set with.'}</Typography>
+        : (
+          <Stack spacing={1}>
+            {rows.map((r, i) => (
+              <Stack key={i} direction="row" spacing={1} alignItems="flex-start" flexWrap="wrap" useFlexGap>
+                <TextField select size="small" label="Role" value={r.role || 'accent'} onChange={(e) => set(i, { role: e.target.value })} sx={{ width: 92 }}>
+                  {GEM_ROLES.map((g) => <MenuItem key={g.value} value={g.value}>{g.label}</MenuItem>)}
+                </TextField>
+                <Box sx={{ flex: 1, minWidth: 170 }}>
+                  <GemstoneAutocomplete value={r.label} onPick={(p) => set(i, p)} />
+                  {(r.slot || r.preset) && <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{[r.slot, r.preset].filter(Boolean).join(' · ')}</Typography>}
+                </Box>
+                <TextField size="small" label="Qty" type="number" value={r.qty ?? '1'} onChange={(e) => set(i, { qty: e.target.value })} sx={{ width: 60 }} inputProps={{ min: 1 }} />
+                <TextField size="small" label="Unit $" type="number" value={r.unitCost ?? ''} onChange={(e) => set(i, { unitCost: e.target.value })} sx={{ width: 96 }} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} />
+                <IconButton size="small" onClick={() => remove(i)} sx={{ color: REPAIRS_UI.textMuted, mt: 0.5 }}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton>
+              </Stack>
+            ))}
+          </Stack>
+        )}
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
+        <Button size="small" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={add} sx={{ color: REPAIRS_UI.accent }}>Add stone</Button>
+        <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>Stones subtotal: <b style={{ color: REPAIRS_UI.textHeader }}>{money(subtotal)}</b></Typography>
+      </Stack>
+    </Box>
   );
 }
 
@@ -865,7 +984,18 @@ export default function DesignDetailPage({ params }) {
             : {}),
           pricing: { retailPrice: v.retailPrice ? Number(v.retailPrice) : null },
           leadTimeDays: v.leadTimeDays ? Number(v.leadTimeDays) : null,
-          stonesCost: v.stonesCost ? Number(v.stonesCost) : 0,
+          gemstones: (v.gemstones || []).map((g) => ({
+            slot: g.slot || null,
+            role: g.role || 'accent',
+            qty: Number(g.qty) || 1,
+            gemstoneId: g.gemstoneId || null,
+            stullerSku: g.stullerSku || null,
+            label: g.label || '',
+            unitCost: Number(g.unitCost) || 0,
+            source: g.source || null,
+          })),
+          // Snapshot the stone total (Σ unit × qty) so external readers don't recompute.
+          stonesCost: sumStones(v.gemstones),
           markupOverride: v.markupOverride ? Number(v.markupOverride) : null,
         })),
       };
