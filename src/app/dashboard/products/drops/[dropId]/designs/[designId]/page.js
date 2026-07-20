@@ -3,12 +3,13 @@
 import React, { useEffect, useState, useCallback, useMemo, use } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Box, Typography, Button, Chip, Stack, Paper, CircularProgress,
-  TextField, FormControl, InputLabel, Select, MenuItem, Autocomplete, Snackbar, Alert,
+  Box, Typography, Button, Chip, Stack, Paper, CircularProgress, IconButton,
+  TextField, FormControl, InputLabel, Select, MenuItem, Autocomplete, Snackbar, Alert, InputAdornment,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DesignServicesIcon from '@mui/icons-material/DesignServices';
-import StyleIcon from '@mui/icons-material/Style';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
@@ -26,6 +27,25 @@ const EDITION_TYPES = [
   { value: 'unlimited', label: 'No Limit (unlimited)' },
 ];
 const CATEGORIES = ['ring', 'necklace', 'bracelet', 'earrings', 'pendant', 'brooch', 'other'];
+const METAL_KEYS = [
+  { key: 'GOLD_14K_YELLOW', label: '14K Yellow Gold' },
+  { key: 'GOLD_14K_WHITE', label: '14K White Gold' },
+  { key: 'GOLD_18K_YELLOW', label: '18K Yellow Gold' },
+  { key: 'GOLD_10K_YELLOW', label: '10K Yellow Gold' },
+  { key: 'SILVER_STERLING', label: 'Sterling Silver' },
+  { key: 'PLATINUM_IRIDIUM', label: 'Platinum' },
+];
+
+let variantSeq = 0;
+function newVariantForm() {
+  variantSeq += 1;
+  return {
+    variantId: `v-${Date.now().toString(36)}-${variantSeq}`,
+    sku: '', label: '', metalKey: 'GOLD_14K_YELLOW',
+    ringSize: '', sizingMin: '', sizingMax: '',
+    retailPrice: '', leadTimeDays: '', active: true, customizable: false,
+  };
+}
 
 const STATUS_COLOR = {
   draft: REPAIRS_UI.textMuted, cad_requested: '#FFB74D', cad_in_progress: '#64B5F6',
@@ -34,6 +54,8 @@ const STATUS_COLOR = {
 
 const panelSx = { p: { xs: 2, md: 2.5 }, mb: 2, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' };
 const cap = (s) => String(s || '').replace(/_/g, ' ');
+const money = (x) => `$${(Number(x) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const sumLines = (arr) => (arr || []).reduce((s, r) => s + (Number(r.cost) || 0) * (Number(r.quantity) || 1), 0);
 const artisanLabel = (a) => [a.firstName, a.lastName].filter(Boolean).join(' ') || a.email || a.userID || '';
 const artisanId = (a) => a.userID || a._id?.toString();
 
@@ -53,6 +75,30 @@ function toForm(d) {
     editionLimit: d.edition?.limit != null ? String(d.edition.limit) : '',
     primaryArtisanId: d.primaryArtisanId || '',
     tags: Array.isArray(d.tags) ? d.tags : [],
+    // Pricing recipe — SHARED across variants; cascades. Retail is computed live from
+    // market metal rates, never stored, so we only persist these inputs.
+    pricing: {
+      markup: d.pricing?.markup != null && d.pricing.markup !== '' ? String(d.pricing.markup) : '',
+      laborTasks: (d.pricing?.laborTasks || []).map((t) => ({ description: t.description || '', quantity: t.quantity != null ? String(t.quantity) : '1', cost: t.cost != null ? String(t.cost) : '' })),
+      shipping: (d.pricing?.shipping || []).map((s) => ({ description: s.description || '', cost: s.cost != null ? String(s.cost) : '' })),
+      designFees: (d.pricing?.designFees || []).map((f) => ({ description: f.description || '', cost: f.cost != null ? String(f.cost) : '' })),
+    },
+    variants: (Array.isArray(d.variants) ? d.variants : []).map((v) => ({
+      variantId: v.variantId || '',
+      sku: v.sku || '',
+      label: v.label || v.title || '',
+      metalKey: v.metalKey || '',
+      ringSize: v.ringSize != null ? String(v.ringSize) : '',
+      sizingMin: v.sizingAllowance?.min != null ? String(v.sizingAllowance.min) : '',
+      sizingMax: v.sizingAllowance?.max != null ? String(v.sizingAllowance.max) : '',
+      retailPrice: v.pricing?.retailPrice != null ? String(v.pricing.retailPrice) : '',
+      leadTimeDays: v.leadTimeDays != null ? String(v.leadTimeDays) : '',
+      active: v.active !== false,
+      customizable: Boolean(v.viewer?.customizable),
+      // Per-variant pricing controls (the variant "owns" its stones + optional markup).
+      stonesCost: v.stonesCost != null ? String(v.stonesCost) : '',
+      markupOverride: v.markupOverride != null && v.markupOverride !== '' ? String(v.markupOverride) : '',
+    })),
   };
 }
 
@@ -245,13 +291,240 @@ function CadTab({ design, dropId, designId, onReload, notify }) {
   );
 }
 
-function PlaceholderPanel({ icon: Icon, title, lines }) {
+function VariantRow({ index, variant, isRing, hasGlb, onUpdate, onRemove }) {
+  const set = (k, v) => onUpdate(index, { [k]: v });
   return (
-    <Paper sx={{ ...panelSx, textAlign: 'center', py: 6 }}>
-      <Icon sx={{ fontSize: 44, color: REPAIRS_UI.textMuted, mb: 1 }} />
-      <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 1 }}>{title}</Typography>
-      {lines.map((l, i) => <Typography key={i} variant="body2" sx={{ color: REPAIRS_UI.textSecondary, maxWidth: 540, mx: 'auto', lineHeight: 1.6 }}>{l}</Typography>)}
+    <Paper sx={{ p: 2, mb: 1.5, backgroundColor: REPAIRS_UI.bgTertiary, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+        <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader, fontSize: '0.9rem' }}>Variant {index + 1}</Typography>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Chip
+            size="small" label={variant.active ? 'Active' : 'Inactive'} onClick={() => set('active', !variant.active)}
+            sx={{ cursor: 'pointer', backgroundColor: variant.active ? '#66BB6A22' : REPAIRS_UI.bgCard, color: variant.active ? '#66BB6A' : REPAIRS_UI.textMuted, fontWeight: 700, fontSize: '0.72rem' }}
+          />
+          <IconButton size="small" onClick={() => onRemove(index)} sx={{ color: REPAIRS_UI.textMuted }}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton>
+        </Stack>
+      </Stack>
+      <Stack spacing={1.5}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+          <TextField label="SKU" value={variant.sku} onChange={(e) => set('sku', e.target.value)} size="small" fullWidth required error={!variant.sku.trim()} />
+          <TextField label="Label (optional)" value={variant.label} onChange={(e) => set('label', e.target.value)} size="small" fullWidth />
+        </Stack>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+          <FormControl size="small" sx={{ flex: 1 }}>
+            <InputLabel>Metal</InputLabel>
+            <Select value={variant.metalKey || ''} label="Metal" onChange={(e) => set('metalKey', e.target.value)} MenuProps={repairsMenuProps}>
+              {METAL_KEYS.map((m) => <MenuItem key={m.key} value={m.key}>{m.label}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <TextField label="Retail price ($)" type="number" value={variant.retailPrice} onChange={(e) => set('retailPrice', e.target.value)} size="small" sx={{ flex: 1 }} />
+          <TextField label="Lead time (days)" type="number" value={variant.leadTimeDays} onChange={(e) => set('leadTimeDays', e.target.value)} size="small" sx={{ flex: 1 }} />
+        </Stack>
+        {isRing && (
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+            <TextField label="Nominal ring size" value={variant.ringSize} onChange={(e) => set('ringSize', e.target.value)} size="small" sx={{ flex: 1 }} required error={!variant.ringSize.trim()} helperText="e.g. 7" />
+            <TextField label="Size range min" value={variant.sizingMin} onChange={(e) => set('sizingMin', e.target.value)} size="small" sx={{ flex: 1 }} helperText="resizable low" />
+            <TextField label="Size range max" value={variant.sizingMax} onChange={(e) => set('sizingMax', e.target.value)} size="small" sx={{ flex: 1 }} helperText="resizable high" />
+          </Stack>
+        )}
+        <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
+          <Chip
+            size="small"
+            icon={<AutoAwesomeIcon sx={{ fontSize: 14 }} />}
+            label={variant.customizable ? 'REFRAKT customization: ON' : 'REFRAKT customization: OFF'}
+            onClick={() => set('customizable', !variant.customizable)}
+            sx={{ cursor: 'pointer', backgroundColor: variant.customizable ? `${REPAIRS_UI.accent}22` : REPAIRS_UI.bgCard, color: variant.customizable ? REPAIRS_UI.accent : REPAIRS_UI.textSecondary, border: `1px solid ${variant.customizable ? REPAIRS_UI.accent : REPAIRS_UI.border}`, fontWeight: 700, '& .MuiChip-icon': { color: variant.customizable ? REPAIRS_UI.accent : REPAIRS_UI.textSecondary } }}
+          />
+          {variant.customizable && (
+            <Typography variant="caption" sx={{ color: hasGlb ? REPAIRS_UI.textMuted : '#FFB74D' }}>
+              {hasGlb
+                ? 'Shoppers customize via the design’s REFRAKT model — every customized order is made-to-order.'
+                : 'Upload a GLB on the CAD & 3D tab to power the customizer.'}
+            </Typography>
+          )}
+        </Stack>
+      </Stack>
     </Paper>
+  );
+}
+
+function VariantsTab({ variants, category, hasGlb, onAdd, onUpdate, onRemove }) {
+  const isRing = category === 'ring';
+  return (
+    <Paper sx={panelSx}>
+      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
+        <Box>
+          <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader }}>Variants</Typography>
+          <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
+            Each variant is one sellable configuration (metal, size…). A sellable design needs at least one.
+          </Typography>
+        </Box>
+        <Button size="small" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={onAdd} sx={{ color: REPAIRS_UI.accent, flexShrink: 0 }}>Add variant</Button>
+      </Stack>
+      {variants.length === 0 ? (
+        <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: '0.85rem', textAlign: 'center', py: 3 }}>
+          No variants yet. Add one (metal / size / price) to make this design sellable.
+        </Typography>
+      ) : variants.map((v, i) => (
+        <VariantRow key={v.variantId || i} index={i} variant={v} isRing={isRing} hasGlb={hasGlb} onUpdate={onUpdate} onRemove={onRemove} />
+      ))}
+    </Paper>
+  );
+}
+
+function PriceLineEditor({ rows, onChange, withQty, addLabel, emptyText }) {
+  const set = (i, k, v) => onChange(rows.map((r, idx) => (idx === i ? { ...r, [k]: v } : r)));
+  const remove = (i) => onChange(rows.filter((_, idx) => idx !== i));
+  const add = () => onChange([...rows, withQty ? { description: '', quantity: '1', cost: '' } : { description: '', cost: '' }]);
+  return (
+    <Box>
+      {rows.length === 0
+        ? <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted, py: 0.5 }}>{emptyText}</Typography>
+        : (
+          <Stack spacing={1}>
+            {rows.map((r, i) => (
+              <Stack key={i} direction="row" spacing={1} alignItems="center">
+                <TextField size="small" label="Description" value={r.description || ''} onChange={(e) => set(i, 'description', e.target.value)} sx={{ flex: 1 }} />
+                {withQty && <TextField size="small" label="Qty" type="number" value={r.quantity ?? '1'} onChange={(e) => set(i, 'quantity', e.target.value)} sx={{ width: 72 }} />}
+                <TextField size="small" label="Cost" type="number" value={r.cost ?? ''} onChange={(e) => set(i, 'cost', e.target.value)} sx={{ width: 120 }} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} />
+                <IconButton size="small" onClick={() => remove(i)} sx={{ color: REPAIRS_UI.textMuted }}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton>
+              </Stack>
+            ))}
+          </Stack>
+        )}
+      <Button size="small" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={add} sx={{ color: REPAIRS_UI.accent, mt: 1 }}>{addLabel}</Button>
+    </Box>
+  );
+}
+
+function VariantPriceCard({ variant, mounting, sharedCosts, baseMarkup, hasVolume, loading, onChange }) {
+  const stones = Number(variant.stonesCost) || 0;
+  const markup = Number(variant.markupOverride) > 0 ? Number(variant.markupOverride) : baseMarkup;
+  const cog = mounting + stones + sharedCosts;
+  const retail = cog * markup;
+  const label = variant.label?.trim() || variant.sku?.trim() || variant.variantId;
+  const metal = METAL_KEYS.find((m) => m.key === variant.metalKey)?.label || variant.metalKey || 'No metal';
+  return (
+    <Paper sx={{ p: 2, mb: 1.5, backgroundColor: REPAIRS_UI.bgTertiary, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader, fontSize: '0.9rem' }}>{label}</Typography>
+          <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{metal}</Typography>
+        </Box>
+        <Box sx={{ textAlign: 'right' }}>
+          <Typography sx={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: REPAIRS_UI.textSecondary }}>Live retail</Typography>
+          <Typography sx={{ fontWeight: 700, fontSize: '1.35rem', color: REPAIRS_UI.accent, lineHeight: 1.1 }}>{money(retail)}</Typography>
+        </Box>
+      </Stack>
+      <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 1.5 }} flexWrap="wrap" useFlexGap>
+        <Box sx={{ minWidth: 130 }}>
+          <Typography sx={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: REPAIRS_UI.textSecondary }}>Mounting (live)</Typography>
+          <Typography sx={{ fontSize: '0.9rem', color: hasVolume ? REPAIRS_UI.textPrimary : '#FFB74D', fontWeight: 500 }}>
+            {loading ? '…' : hasVolume ? money(mounting) : 'needs STL'}
+          </Typography>
+        </Box>
+        <TextField size="small" label="Stones $" type="number" value={variant.stonesCost} onChange={(e) => onChange({ stonesCost: e.target.value })} sx={{ width: 120 }} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} />
+        <Box sx={{ minWidth: 110 }}>
+          <Typography sx={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: REPAIRS_UI.textSecondary }}>Shared</Typography>
+          <Typography sx={{ fontSize: '0.9rem', color: REPAIRS_UI.textPrimary, fontWeight: 500 }}>{money(sharedCosts)}</Typography>
+        </Box>
+        <TextField size="small" label="Markup ×" type="number" value={variant.markupOverride} onChange={(e) => onChange({ markupOverride: e.target.value })} placeholder={String(baseMarkup)} sx={{ width: 110 }} helperText={variant.markupOverride ? ' ' : `default ×${baseMarkup}`} FormHelperTextProps={{ sx: { mx: 0, fontSize: '0.6rem' } }} />
+      </Stack>
+      <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, mt: 1, display: 'block' }}>
+        ({money(mounting)} mounting + {money(stones)} stones + {money(sharedCosts)} shared) × {markup} = {money(retail)}
+      </Typography>
+    </Paper>
+  );
+}
+
+function PricingTab({ pricing, variants, stlVolumeCm3, defaultMarkup, onChange, onVariantChange }) {
+  const [metalCosts, setMetalCosts] = useState({});
+  const [loadingCosts, setLoadingCosts] = useState(false);
+  const hasVolume = Number(stlVolumeCm3) > 0;
+  const metalsKey = [...new Set(variants.map((v) => v.metalKey).filter(Boolean))].sort().join(',');
+
+  useEffect(() => {
+    if (!hasVolume || !metalsKey) { setMetalCosts({}); return undefined; }
+    let cancelled = false;
+    setLoadingCosts(true);
+    (async () => {
+      const out = {};
+      for (const metalKey of metalsKey.split(',')) {
+        try {
+          const res = await fetch('/api/production/designs/estimate', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ stlVolumeCm3: Number(stlVolumeCm3), metalKey }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok) out[metalKey] = Number(data.estimate?.metal?.metalCost) || 0;
+        } catch { /* ignore per-metal failures */ }
+      }
+      if (!cancelled) { setMetalCosts(out); setLoadingCosts(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [hasVolume, metalsKey, stlVolumeCm3]);
+
+  const set = (k, v) => onChange({ ...pricing, [k]: v });
+  const sharedCosts = sumLines(pricing.laborTasks) + sumLines(pricing.shipping) + sumLines(pricing.designFees);
+  const baseMarkup = Number(pricing.markup) > 0 ? Number(pricing.markup) : defaultMarkup;
+
+  return (
+    <Stack direction={{ xs: 'column', md: 'row' }} spacing={{ xs: 0, md: 3 }} alignItems="flex-start">
+      {/* Shared recipe */}
+      <Box sx={{ flex: 1, minWidth: 0, width: '100%' }}>
+        <Paper sx={panelSx}>
+          <PanelTitle>Shared costs</PanelTitle>
+          <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 2 }}>
+            These cascade to every variant. Change one and all variant prices update.
+          </Typography>
+          <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textSecondary, fontSize: '0.8rem', mb: 0.5 }}>Labor tasks</Typography>
+          <PriceLineEditor rows={pricing.laborTasks} onChange={(rows) => set('laborTasks', rows)} withQty addLabel="Add task" emptyText="No labor tasks." />
+          <Box sx={{ borderTop: `1px solid ${REPAIRS_UI.border}`, my: 2 }} />
+          <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textSecondary, fontSize: '0.8rem', mb: 0.5 }}>Shipping</Typography>
+          <PriceLineEditor rows={pricing.shipping} onChange={(rows) => set('shipping', rows)} addLabel="Add shipping" emptyText="No shipping costs." />
+          <Box sx={{ borderTop: `1px solid ${REPAIRS_UI.border}`, my: 2 }} />
+          <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textSecondary, fontSize: '0.8rem', mb: 0.5 }}>Design fees</Typography>
+          <PriceLineEditor rows={pricing.designFees} onChange={(rows) => set('designFees', rows)} addLabel="Add fee" emptyText="No design fees." />
+          <Box sx={{ borderTop: `1px solid ${REPAIRS_UI.border}`, my: 2 }} />
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <TextField size="small" label="COG markup" type="number" value={pricing.markup} onChange={(e) => set('markup', e.target.value)} placeholder={String(defaultMarkup)} InputProps={{ startAdornment: <InputAdornment position="start">×</InputAdornment> }} helperText={`Blank = default (×${defaultMarkup})`} sx={{ width: 200 }} />
+            <Box sx={{ textAlign: 'right' }}>
+              <Typography sx={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: REPAIRS_UI.textSecondary }}>Shared subtotal</Typography>
+              <Typography sx={{ fontWeight: 700, color: REPAIRS_UI.textHeader }}>{money(sharedCosts)}</Typography>
+            </Box>
+          </Stack>
+        </Paper>
+      </Box>
+
+      {/* Live per-variant retail */}
+      <Box sx={{ width: { xs: '100%', md: 380 }, flexShrink: 0 }}>
+        <Paper sx={panelSx}>
+          <PanelTitle>Variant retail (live)</PanelTitle>
+          {!hasVolume && (
+            <Typography variant="caption" sx={{ color: '#FFB74D', display: 'block', mb: 1.5 }}>
+              Upload an STL on the CAD &amp; 3D tab to price the mounting from metal.
+            </Typography>
+          )}
+          {variants.length === 0 ? (
+            <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: '0.85rem', py: 1 }}>Add variants (on the Variants tab) to price them.</Typography>
+          ) : variants.map((v, i) => (
+            <VariantPriceCard
+              key={v.variantId || i}
+              variant={v}
+              mounting={metalCosts[v.metalKey] || 0}
+              sharedCosts={sharedCosts}
+              baseMarkup={baseMarkup}
+              hasVolume={hasVolume}
+              loading={loadingCosts}
+              onChange={(patch) => onVariantChange(i, patch)}
+            />
+          ))}
+          <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mt: 1 }}>
+            Retail is calculated live from today’s metal rates — never stored. The storefront recomputes the same way.
+          </Typography>
+        </Paper>
+      </Box>
+    </Stack>
   );
 }
 
@@ -263,6 +536,7 @@ export default function DesignDetailPage({ params }) {
   const [artisans, setArtisans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [defaultMarkup, setDefaultMarkup] = useState(2.5);
   const [tab, setTab] = useState(0);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
   const notify = (message, severity = 'success') => setSnack({ open: true, message, severity });
@@ -284,9 +558,17 @@ export default function DesignDetailPage({ params }) {
     fetch('/api/users?role=artisan').then((r) => r.json())
       .then((d) => setArtisans(Array.isArray(d) ? d : (d.data || d.users || [])))
       .catch(() => {});
+    fetch('/api/admin/settings').then((r) => (r.ok ? r.json() : null)).then((s) => {
+      const m = Number(s?.financial?.cogMarkup ?? s?.data?.financial?.cogMarkup);
+      if (m > 0) setDefaultMarkup(m);
+    }).catch(() => {});
   }, [load]);
 
   const setField = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const setPricing = (v) => setForm((f) => ({ ...f, pricing: v }));
+  const addVariant = () => setForm((f) => ({ ...f, variants: [...f.variants, newVariantForm()] }));
+  const updateVariant = (i, patch) => setForm((f) => ({ ...f, variants: f.variants.map((v, idx) => (idx === i ? { ...v, ...patch } : v)) }));
+  const removeVariant = (i) => setForm((f) => ({ ...f, variants: f.variants.filter((_, idx) => idx !== i) }));
 
   const dirty = useMemo(() => {
     if (!design || !form) return false;
@@ -298,6 +580,12 @@ export default function DesignDetailPage({ params }) {
   const save = async () => {
     if (!form.name.trim()) { notify('Name is required.', 'error'); return; }
     if (!form.primaryArtisanId) { notify('A primary artisan is required.', 'error'); return; }
+    for (const v of form.variants) {
+      if (!v.sku.trim()) { notify('Every variant needs a SKU.', 'error'); return; }
+      if (form.category === 'ring' && !v.ringSize.trim()) { notify('Ring variants need a nominal ring size.', 'error'); return; }
+    }
+    const skus = form.variants.map((v) => v.sku.trim());
+    if (new Set(skus).size !== skus.length) { notify('Variant SKUs must be unique.', 'error'); return; }
     setSaving(true);
     try {
       const body = {
@@ -309,6 +597,27 @@ export default function DesignDetailPage({ params }) {
         tags: form.tags,
         primaryArtisanId: form.primaryArtisanId || null,
         edition: { type: form.editionType, ...(form.editionType === 'limited' ? { limit: Number(form.editionLimit) || 1 } : {}) },
+        pricing: {
+          markup: form.pricing.markup ? Number(form.pricing.markup) : null,
+          laborTasks: form.pricing.laborTasks.map((t) => ({ description: t.description || '', quantity: Number(t.quantity) || 1, cost: Number(t.cost) || 0 })),
+          shipping: form.pricing.shipping.map((s) => ({ description: s.description || '', cost: Number(s.cost) || 0 })),
+          designFees: form.pricing.designFees.map((f) => ({ description: f.description || '', cost: Number(f.cost) || 0 })),
+        },
+        variants: form.variants.map((v) => ({
+          variantId: v.variantId,
+          sku: v.sku.trim(),
+          ...(v.label.trim() ? { label: v.label.trim() } : {}),
+          active: !!v.active,
+          metalKey: v.metalKey || null,
+          ...(form.category === 'ring'
+            ? { ringSize: v.ringSize.trim() || null, ...((v.sizingMin || v.sizingMax) ? { sizingAllowance: { min: v.sizingMin, max: v.sizingMax } } : {}) }
+            : {}),
+          pricing: { retailPrice: v.retailPrice ? Number(v.retailPrice) : null },
+          leadTimeDays: v.leadTimeDays ? Number(v.leadTimeDays) : null,
+          viewer: { customizable: !!v.customizable },
+          stonesCost: v.stonesCost ? Number(v.stonesCost) : 0,
+          markupOverride: v.markupOverride ? Number(v.markupOverride) : null,
+        })),
       };
       const res = await fetch(`/api/production/designs/${designId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Save failed');
@@ -374,14 +683,31 @@ export default function DesignDetailPage({ params }) {
         <Tab label="Details" />
         <Tab label="CAD & 3D" />
         <Tab label="Variants" />
+        <Tab label="Pricing" />
       </Tabs>
 
       {tab === 0 && <DetailsTab form={form} setField={setField} artisans={artisans} />}
       {tab === 1 && <CadTab design={design} dropId={dropId} designId={designId} onReload={load} notify={notify} />}
-      {tab === 2 && <PlaceholderPanel icon={StyleIcon} title="Variants — coming next" lines={[
-        'Create one or many variants, each with a REFRAKT material configuration.',
-        'Optionally expose a REFRAKT customizer so shoppers can personalize (made-to-order).',
-      ]} />}
+      {tab === 2 && (
+        <VariantsTab
+          variants={form.variants}
+          category={form.category}
+          hasGlb={!!design.designModel?.glbUrl}
+          onAdd={addVariant}
+          onUpdate={updateVariant}
+          onRemove={removeVariant}
+        />
+      )}
+      {tab === 3 && (
+        <PricingTab
+          pricing={form.pricing}
+          variants={form.variants}
+          stlVolumeCm3={design.stlVolumeCm3}
+          defaultMarkup={defaultMarkup}
+          onChange={setPricing}
+          onVariantChange={updateVariant}
+        />
+      )}
 
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={closeSnack} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert onClose={closeSnack} severity={snack.severity} sx={{ backgroundColor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }}>{snack.message}</Alert>
