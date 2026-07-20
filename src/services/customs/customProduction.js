@@ -4,6 +4,7 @@
  * custom's fabrication work hits the unified bench, pays the artisan/owner via payroll
  * (owner draw), and accrues COGS → the order's margin. THIS is "customs on the bench".
  */
+import { randomUUID } from 'crypto';
 import { db } from '@/lib/database';
 import Constants from '@/lib/constants';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
@@ -21,6 +22,17 @@ const ADMIN_CUSTOM_LINK = (customID) => `${process.env.NEXT_PUBLIC_ADMIN_URL || 
 
 const DEFAULT_CLIENT_MGMT_BONUS_PCT = 0.05;
 
+/**
+ * A custom order is a bespoke one-off with no catalog variant, but a Design still needs
+ * ≥1 Variant and a Piece must reference a real variantId (catalog contract §6/§7). Give
+ * the custom's design a single default variant with a unique SKU so the piece references
+ * an actual variant (not a dangling synthetic id).
+ */
+function defaultCustomVariant(customID) {
+  const suffix = randomUUID().slice(0, 8);
+  return { variantId: `custom-${customID}-${suffix}`, sku: `CUSTOM-${customID}-${suffix}`, active: true };
+}
+
 export async function addProductionToCustomOrder(customID, opts = {}) {
   const order = await CustomOrdersModel.findById(customID);
   if (!order) throw new Error('Custom order not found.');
@@ -34,6 +46,7 @@ export async function addProductionToCustomOrder(customID, opts = {}) {
       description: order.description ?? null,
       status: DESIGN_STATUS.CAD,
       routing: Array.isArray(opts.routing) ? opts.routing : [],
+      variants: [defaultCustomVariant(customID)],
       createdBy: opts.createdBy ?? null,
     });
     designID = design.designID;
@@ -62,19 +75,20 @@ export async function ensureCustomPiece(customID, opts = {}) {
   if (!order) throw new Error('Custom order not found.');
   if ((order.pieceIDs || []).length) return { pieceID: order.pieceIDs[0], order };
 
+  const variant = defaultCustomVariant(customID);
   const design = await DesignsModel.create({
     name: order.title || `Custom ${customID}`,
     description: order.description ?? null,
     status: DESIGN_STATUS.CAD,
     routing: [],
+    variants: [variant],
     createdBy: opts.createdBy ?? null,
   });
   const piece = await PiecesModel.create({
     designID: design.designID,
-    // Custom orders are bespoke one-offs with no catalog variant; a Piece still
-    // requires a variantId + resolvedConfiguration (pieces model / contract §7), so
-    // synthesize a stable per-design default from the order's spec.
-    variantId: `${design.designID}::custom`,
+    // References the design's real default variant (created above). Config carries the
+    // order's spec since a custom is bespoke.
+    variantId: variant.variantId,
     resolvedConfiguration: { metalType: order.metalType ?? null, karat: order.karat ?? null, size: order.size ?? null },
     metalType: order.metalType ?? null,
     karat: order.karat ?? null,
