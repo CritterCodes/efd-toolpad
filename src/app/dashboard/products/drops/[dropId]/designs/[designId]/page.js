@@ -57,7 +57,7 @@ function newVariantForm() {
     // composed from both for the pricing estimate engine.
     finish: 'gold', karat: '14', metalKey: composeMetalKey('gold', '14'), viewerConfig: null,
     ringSize: '', sizingMin: '', sizingMax: '',
-    gemstones: [], // [{ slot, role, qty, gemstoneId, stullerSku, label, unitCost, source }]
+    gemstones: [], // [{ slot, role, qty, stoneSkuId, stullerSku, label, unitCost, source }]
     retailPrice: '', leadTimeDays: '', active: true,
   };
 }
@@ -152,7 +152,7 @@ function toForm(d) {
         slot: g.slot || '',
         role: g.role || 'accent',
         qty: g.qty != null ? String(g.qty) : '1',
-        gemstoneId: g.gemstoneId || '',
+        stoneSkuId: g.stoneSkuId || '',
         stullerSku: g.stullerSku || '',
         label: g.label || '',
         unitCost: g.unitCost != null ? String(g.unitCost) : '',
@@ -648,41 +648,68 @@ function TaskAutocomplete({ value, onText, onPick }) {
   );
 }
 
-/** Gemstone picker sourced from the gemstone catalog (products / productType:gemstone).
- *  On pick, links the catalog stone + prefills its acquisition cost. (Stuller sourcing +
- *  live pricing is a later slice — the linked SKU is where that will plug in.) */
-const gemLabel = (g) => [g.title || g.species, g.carat ? `${g.carat}ct` : null, g.dimensions].filter(Boolean).join(' · ') || 'Gemstone';
-const gemCost = (g) => Number(g.pricing?.costBasis ?? g.pricing?.retailPrice ?? g.retailPrice ?? g.price) || 0;
-function GemstoneAutocomplete({ value, onPick }) {
+/** Stone picker for a variant stone row. Searches the reorderable stone-SKU catalog
+ *  (/api/products/stones) for reuse, plus a Stuller SKU lookup that sources the stone
+ *  (wholesale cost + specs) into the catalog and links it. */
+function StonePicker({ value, onPick }) {
   const [options, setOptions] = useState([]);
   const [input, setInput] = useState(value || '');
+  const [sku, setSku] = useState('');
+  const [looking, setLooking] = useState(false);
+  const [err, setErr] = useState('');
   useEffect(() => { setInput(value || ''); }, [value]);
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    const t = setTimeout(async () => {
       try {
-        const r = await fetch('/api/products/gemstones');
+        const r = await fetch(`/api/products/stones?search=${encodeURIComponent(input || '')}`);
         const d = await r.json().catch(() => ({}));
-        if (!cancelled && r.ok) setOptions(Array.isArray(d) ? d : (d.gemstones || d.data || []));
+        if (!cancelled && r.ok) setOptions(d.stones || []);
       } catch { /* ignore */ }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+    }, 250);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [input]);
+  const pick = (s) => onPick({ stoneSkuId: s.stoneSkuId || '', stullerSku: s.stullerSku || '', label: s.label || '', unitCost: s.cost != null ? s.cost : '', source: s.source || 'catalog' });
+  const lookup = async () => {
+    const n = sku.trim();
+    if (!n) return;
+    setLooking(true); setErr('');
+    try {
+      const r = await fetch('/api/products/stones/from-stuller', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ itemNumber: n }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || 'Lookup failed');
+      pick(d.stone);
+      setSku('');
+    } catch (e) { setErr(e.message); } finally { setLooking(false); }
+  };
   return (
-    <Autocomplete
-      freeSolo size="small" options={options}
-      value={null} inputValue={input}
-      getOptionLabel={(o) => (typeof o === 'string' ? o : gemLabel(o))}
-      onInputChange={(_, v) => setInput(v)}
-      onChange={(_, v) => { if (v && typeof v !== 'string') onPick({ gemstoneId: v.productId, label: gemLabel(v), unitCost: gemCost(v), stullerSku: v.stullerSku || '', source: 'catalog' }); }}
-      renderOption={(props, o) => (
-        <Box component="li" {...props} sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
-          <span>{gemLabel(o)}</span>
-          {gemCost(o) > 0 && <Typography variant="caption" sx={{ color: 'text.secondary' }}>${gemCost(o)}</Typography>}
-        </Box>
-      )}
-      renderInput={(params) => <TextField {...params} label="Stone (catalog)" placeholder="search gemstones…" />}
-    />
+    <Box>
+      <Autocomplete
+        freeSolo size="small" options={options} filterOptions={(x) => x}
+        value={null} inputValue={input}
+        getOptionLabel={(o) => (typeof o === 'string' ? o : o.label || '')}
+        onInputChange={(_, v) => setInput(v)}
+        onChange={(_, v) => { if (v && typeof v !== 'string') pick(v); }}
+        renderOption={(props, o) => (
+          <Box component="li" {...props} sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
+            <span>{o.label}</span>
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              {o.cost > 0 && <Typography variant="caption" sx={{ color: 'text.secondary' }}>${o.cost}</Typography>}
+              {o.stullerSku && <Chip size="small" label="Stuller" variant="outlined" sx={{ height: 18 }} />}
+            </Stack>
+          </Box>
+        )}
+        renderInput={(params) => <TextField {...params} label="Stone (catalog)" placeholder="search saved stones…" />}
+      />
+      <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: 0.5 }}>
+        <TextField size="small" label="Stuller SKU" value={sku} onChange={(e) => setSku(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); lookup(); } }} sx={{ flex: 1 }} />
+        <Button size="small" onClick={lookup} disabled={looking || !sku.trim()} sx={{ color: REPAIRS_UI.accent, textTransform: 'none', whiteSpace: 'nowrap', minWidth: 0 }}>
+          {looking ? '…' : 'Look up'}
+        </Button>
+      </Stack>
+      {err && <Typography variant="caption" sx={{ color: '#EF5350', display: 'block' }}>{err}</Typography>}
+    </Box>
   );
 }
 
@@ -692,7 +719,7 @@ function VariantStones({ gemstones, viewerConfig, onChange }) {
   const rows = gemstones || [];
   const set = (i, patch) => onChange(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   const remove = (i) => onChange(rows.filter((_, idx) => idx !== i));
-  const add = () => onChange([...rows, { slot: '', role: 'accent', qty: '1', gemstoneId: '', stullerSku: '', label: '', unitCost: '', source: '' }]);
+  const add = () => onChange([...rows, { slot: '', role: 'accent', qty: '1', stoneSkuId: '', stullerSku: '', label: '', unitCost: '', source: '' }]);
   const gemSlots = (viewerConfig?.meshMap || []).filter((s) => s.type === 'gem');
   // REFRAKT stores one meshMap entry per gem mesh; group identical gems (same preset) into
   // a single row with a quantity (18 melee diamonds → one accent row × 18).
@@ -709,7 +736,7 @@ function VariantStones({ gemstones, viewerConfig, onChange }) {
   const seed = () => onChange(gemGroups.map((g) => ({
     // A lone stone is almost always the center; multiples are accents. Name hints win.
     slot: g.slot, role: /accent|melee|pave|pavé|side/i.test(g.slot) ? 'accent' : (g.qty > 1 ? 'accent' : 'center'),
-    qty: String(g.qty), gemstoneId: '', stullerSku: '', label: '', unitCost: '', source: '', preset: g.preset,
+    qty: String(g.qty), stoneSkuId: '', stullerSku: '', label: '', unitCost: '', source: '', preset: g.preset,
   })));
   const subtotal = sumStones(rows);
   return (
@@ -729,8 +756,8 @@ function VariantStones({ gemstones, viewerConfig, onChange }) {
                 <TextField select size="small" label="Role" value={r.role || 'accent'} onChange={(e) => set(i, { role: e.target.value })} sx={{ width: 92 }}>
                   {GEM_ROLES.map((g) => <MenuItem key={g.value} value={g.value}>{g.label}</MenuItem>)}
                 </TextField>
-                <Box sx={{ flex: 1, minWidth: 170 }}>
-                  <GemstoneAutocomplete value={r.label} onPick={(p) => set(i, p)} />
+                <Box sx={{ flex: 1, minWidth: 200 }}>
+                  <StonePicker value={r.label} onPick={(p) => set(i, p)} />
                   {(r.slot || r.preset) && <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{[r.slot, r.preset].filter(Boolean).join(' · ')}</Typography>}
                 </Box>
                 <TextField size="small" label="Qty" type="number" value={r.qty ?? '1'} onChange={(e) => set(i, { qty: e.target.value })} sx={{ width: 60 }} inputProps={{ min: 1 }} />
@@ -1037,7 +1064,7 @@ export default function DesignDetailPage({ params }) {
             slot: g.slot || null,
             role: g.role || 'accent',
             qty: Number(g.qty) || 1,
-            gemstoneId: g.gemstoneId || null,
+            stoneSkuId: g.stoneSkuId || null,
             stullerSku: g.stullerSku || null,
             label: g.label || '',
             unitCost: Number(g.unitCost) || 0,
