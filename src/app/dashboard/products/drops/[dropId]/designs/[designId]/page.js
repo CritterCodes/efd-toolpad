@@ -459,8 +459,53 @@ function VariantRow({ index, variant, isRing, hasGlb, onUpdate, onRemove, onConf
   );
 }
 
+// Summary card in the variants grid — click to open the variant's full editor.
+function VariantCard({ index, variant, isRing, onOpen }) {
+  const configured = !!variant.viewerConfig;
+  const metal = configured
+    ? [finishUsesKarat(variant.finish) ? `${variant.karat}K` : null, finishLabel(variant.finish)].filter(Boolean).join(' ')
+    : 'Look not configured';
+  const stones = sumStones(variant.gemstones);
+  const stoneCount = (variant.gemstones || []).reduce((n, g) => n + (Number(g.qty) || 1), 0);
+  const title = variant.label?.trim() || variant.sku?.trim() || `Variant ${index + 1}`;
+  return (
+    <Paper onClick={onOpen}
+      sx={{ p: 2, cursor: 'pointer', backgroundColor: REPAIRS_UI.bgTertiary, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none', transition: 'border-color .15s', '&:hover': { borderColor: REPAIRS_UI.accent } }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader, fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</Typography>
+          {variant.sku?.trim() && variant.label?.trim() && <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{variant.sku.trim()}</Typography>}
+        </Box>
+        <Chip size="small" label={variant.active ? 'Active' : 'Inactive'}
+          sx={{ flexShrink: 0, backgroundColor: variant.active ? '#66BB6A22' : REPAIRS_UI.bgCard, color: variant.active ? '#66BB6A' : REPAIRS_UI.textMuted, fontWeight: 700, fontSize: '0.68rem' }} />
+      </Stack>
+      <Stack spacing={0.25} sx={{ mt: 1 }}>
+        <Typography variant="caption" sx={{ color: configured ? REPAIRS_UI.textSecondary : '#FFB74D' }}>{metal}</Typography>
+        {isRing && variant.ringSize && <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>Size {variant.ringSize}</Typography>}
+        <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{stoneCount ? `${stoneCount} stone${stoneCount === 1 ? '' : 's'} · ${money(stones)}` : 'No stones'}</Typography>
+      </Stack>
+    </Paper>
+  );
+}
+
 function VariantsTab({ variants, category, hasGlb, onAdd, onUpdate, onRemove, onConfigure }) {
   const isRing = category === 'ring';
+  const [selected, setSelected] = useState(null);
+  // Fall back to the grid if the open variant disappears (removed) or index drifts.
+  useEffect(() => { if (selected != null && selected >= variants.length) setSelected(null); }, [selected, variants.length]);
+
+  // Detail view — the full editor for one variant, still inside the Variants tab.
+  if (selected != null && variants[selected]) {
+    return (
+      <Box>
+        <Button startIcon={<ArrowBackIcon />} onClick={() => setSelected(null)} sx={{ color: REPAIRS_UI.textSecondary, mb: 1.5, textTransform: 'none' }}>All variants</Button>
+        <VariantRow index={selected} variant={variants[selected]} isRing={isRing} hasGlb={hasGlb} onUpdate={onUpdate}
+          onRemove={(i) => { onRemove(i); setSelected(null); }} onConfigure={onConfigure} />
+      </Box>
+    );
+  }
+
+  // Grid view — one card per variant.
   return (
     <Paper sx={panelSx}>
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
@@ -484,9 +529,13 @@ function VariantsTab({ variants, category, hasGlb, onAdd, onUpdate, onRemove, on
         <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: '0.85rem', textAlign: 'center', py: 3 }}>
           No variants yet. “Add variant” opens the REFRAKT studio to build the look.
         </Typography>
-      ) : variants.map((v, i) => (
-        <VariantRow key={v.variantId || i} index={i} variant={v} isRing={isRing} hasGlb={hasGlb} onUpdate={onUpdate} onRemove={onRemove} onConfigure={onConfigure} />
-      ))}
+      ) : (
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 1.5 }}>
+          {variants.map((v, i) => (
+            <VariantCard key={v.variantId || i} index={i} variant={v} isRing={isRing} onOpen={() => setSelected(i)} />
+          ))}
+        </Box>
+      )}
     </Paper>
   );
 }
