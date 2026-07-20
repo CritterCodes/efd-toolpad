@@ -229,14 +229,15 @@ function CadUploadRow({ label, accept, hint, done, uploading, onPick }) {
   );
 }
 
-function CadTab({ design, designId, onReload, notify }) {
+function CadTab({ design, designId, onReload, notify, onCreateFirstVariant }) {
   const [busyStl, setBusyStl] = useState(false);
   const [busyGlb, setBusyGlb] = useState(false);
   const dm = design.designModel || {};
   const glbUrl = dm.glbUrl || null;
-  // Preview the look of the first configured variant (materials live on variants now);
-  // fall back to the raw GLB (REFRAKT auto-detects gems/metals from mesh names).
-  const previewConfig = (design.variants || []).find((v) => v.viewerConfig)?.viewerConfig || {};
+  // The preview shows the FIRST variant's look — that first variant is the design's
+  // default. Materials live on variants (built in REFRAKT), so there's nothing to preview
+  // until a variant has been configured.
+  const firstConfigured = (design.variants || []).find((v) => v.viewerConfig);
 
   const uploadAsset = async (file) => {
     const fd = new FormData();
@@ -294,21 +295,34 @@ function CadTab({ design, designId, onReload, notify }) {
       <Box sx={{ width: { xs: '100%', md: 420 }, flexShrink: 0 }}>
         <Paper sx={panelSx}>
           <PanelTitle>3D preview</PanelTitle>
-          {!glbUrl ? (
-            <Box sx={{ height: 360, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: REPAIRS_UI.bgTertiary, border: `1px dashed ${REPAIRS_UI.border}`, borderRadius: 2 }}>
-              <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted, textAlign: 'center', px: 2 }}>
-                Upload a GLB to preview the model.<br />Drag to orbit · scroll to zoom.
-              </Typography>
-            </Box>
-          ) : (
+          {firstConfigured ? (
             <>
               <Box sx={{ height: 360, borderRadius: 2, overflow: 'hidden', border: `1px solid ${REPAIRS_UI.border}` }}>
-                <JewelryViewer glbUrl={glbUrl} config={previewConfig} style={{ width: '100%', height: '100%' }} />
+                <JewelryViewer glbUrl={glbUrl} config={firstConfigured.viewerConfig} style={{ width: '100%', height: '100%' }} />
               </Box>
               <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mt: 1 }}>
-                Drag to orbit · scroll to zoom. Showing {Object.keys(previewConfig).length ? 'a configured variant’s look' : 'the raw mesh'} — build each variant’s look on the Variants tab.
+                Drag to orbit · scroll to zoom. Showing the default (first) variant — build every look on the Variants tab.
               </Typography>
             </>
+          ) : (
+            <Box sx={{ minHeight: 360, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1.5, backgroundColor: REPAIRS_UI.bgTertiary, border: `1px dashed ${REPAIRS_UI.border}`, borderRadius: 2, p: 3, textAlign: 'center' }}>
+              <ViewInArIcon sx={{ fontSize: 40, color: REPAIRS_UI.textMuted }} />
+              {!glbUrl ? (
+                <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted }}>
+                  Upload a GLB, then build your first variant in REFRAKT to set the default look.
+                </Typography>
+              ) : (
+                <>
+                  <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
+                    No variant yet. Build your first one in REFRAKT — it becomes this design’s default look.
+                  </Typography>
+                  <Button variant="contained" startIcon={<ViewInArIcon sx={{ fontSize: 16 }} />} onClick={onCreateFirstVariant}
+                    sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, textTransform: 'none', '&:hover': { backgroundColor: '#C19B2E' } }}>
+                    Create first variant
+                  </Button>
+                </>
+              )}
+            </Box>
           )}
         </Paper>
       </Box>
@@ -750,6 +764,10 @@ export default function DesignDetailPage({ params }) {
     if (ok) router.push(configurePath(v.variantId));
   };
 
+  // CAD tab's "Create first variant": configure the first EXISTING variant if there is one
+  // (avoid piling up stubs when a studio session was abandoned); otherwise create + open one.
+  const configureFirstVariant = () => (form.variants.length ? configureVariant(0) : addAndConfigureVariant());
+
   const dirty = useMemo(() => {
     if (!design || !form) return false;
     return JSON.stringify(form) !== JSON.stringify(toForm(design));
@@ -871,7 +889,7 @@ export default function DesignDetailPage({ params }) {
       </Tabs>
 
       {tab === 0 && <DetailsTab form={form} setField={setField} artisans={artisans} />}
-      {tab === 1 && <CadTab design={design} designId={designId} onReload={load} notify={notify} />}
+      {tab === 1 && <CadTab design={design} designId={designId} onReload={load} notify={notify} onCreateFirstVariant={configureFirstVariant} />}
       {tab === 2 && (
         <VariantsTab
           variants={form.variants}
