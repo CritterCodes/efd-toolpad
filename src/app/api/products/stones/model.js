@@ -34,6 +34,26 @@ export const StonesModel = {
     return col.findOne({ stullerSku });
   },
 
+  async findById(stoneSkuId) {
+    if (!stoneSkuId) return null;
+    const col = await collection();
+    return col.findOne({ stoneSkuId });
+  },
+
+  /** Every stone that carries a Stuller SKU (candidates for a price refresh). */
+  async allWithSku() {
+    const col = await collection();
+    return col.find({ stullerSku: { $exists: true, $nin: [null, ''] } }).toArray();
+  },
+
+  /** Update just the cached wholesale cost + refresh timestamp. */
+  async updateCost(stoneSkuId, cost, costCurrency) {
+    const col = await collection();
+    const now = new Date();
+    await col.updateOne({ stoneSkuId }, { $set: { cost: Number(cost) || 0, costCurrency: costCurrency || 'USD', costUpdatedAt: now, updatedAt: now } });
+    return col.findOne({ stoneSkuId });
+  },
+
   async deleteById(stoneSkuId) {
     if (!stoneSkuId) return false;
     const col = await collection();

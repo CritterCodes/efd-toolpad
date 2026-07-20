@@ -717,6 +717,7 @@ function StonePicker({ value, onPick }) {
  *  linked to the gemstone catalog. Cost = unit × qty (accents priced per-stone). */
 function VariantStones({ gemstones, viewerConfig, onChange }) {
   const rows = gemstones || [];
+  const [refreshing, setRefreshing] = useState(false);
   const set = (i, patch) => onChange(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   const remove = (i) => onChange(rows.filter((_, idx) => idx !== i));
   const add = () => onChange([...rows, { slot: '', role: 'accent', qty: '1', stoneSkuId: '', stullerSku: '', label: '', unitCost: '', source: '' }]);
@@ -739,13 +740,37 @@ function VariantStones({ gemstones, viewerConfig, onChange }) {
     qty: String(g.qty), stoneSkuId: '', stullerSku: '', label: '', unitCost: '', source: '', preset: g.preset,
   })));
   const subtotal = sumStones(rows);
+  const hasStuller = rows.some((r) => r.stullerSku);
+  // Re-pull the current Stuller wholesale for every linked row (also refreshes the catalog).
+  const refreshPrices = async () => {
+    setRefreshing(true);
+    try {
+      const next = [...rows];
+      for (let i = 0; i < next.length; i += 1) {
+        if (!next[i].stullerSku) continue;
+        try {
+          const res = await fetch('/api/products/stones/from-stuller', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ itemNumber: next[i].stullerSku }) });
+          const d = await res.json().catch(() => ({}));
+          if (res.ok && d.stone && d.stone.cost != null) next[i] = { ...next[i], unitCost: d.stone.cost };
+        } catch { /* skip this row */ }
+      }
+      onChange(next);
+    } finally { setRefreshing(false); }
+  };
   return (
     <Box sx={{ p: 1.5, backgroundColor: REPAIRS_UI.bgCard, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 1.5 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
         <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textSecondary, fontSize: '0.8rem' }}>Gemstones</Typography>
-        {gemGroups.length > 0 && rows.length === 0 && (
-          <Button size="small" onClick={seed} sx={{ color: REPAIRS_UI.accent, textTransform: 'none' }}>Seed from REFRAKT ({gemGroups.length})</Button>
-        )}
+        <Stack direction="row" spacing={1} alignItems="center">
+          {hasStuller && (
+            <Button size="small" onClick={refreshPrices} disabled={refreshing} sx={{ color: REPAIRS_UI.textSecondary, textTransform: 'none' }}>
+              {refreshing ? 'Refreshing…' : 'Refresh Stuller prices'}
+            </Button>
+          )}
+          {gemGroups.length > 0 && rows.length === 0 && (
+            <Button size="small" onClick={seed} sx={{ color: REPAIRS_UI.accent, textTransform: 'none' }}>Seed from REFRAKT ({gemGroups.length})</Button>
+          )}
+        </Stack>
       </Stack>
       {rows.length === 0
         ? <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted, py: 0.5 }}>{gemGroups.length ? 'Seed from REFRAKT or add stones manually.' : 'No stones. Add the stones this variant is set with.'}</Typography>
