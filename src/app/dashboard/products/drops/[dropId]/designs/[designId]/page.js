@@ -96,6 +96,35 @@ const stoneUnit = (r, stoneCosts = {}) => (r?.stoneSkuId && stoneCosts[r.stoneSk
 // Per-variant stone cost = Σ(unit × qty). Accents are priced per-stone × quantity.
 const sumStones = (arr, stoneCosts = {}) => (arr || []).reduce((s, r) => s + stoneUnit(r, stoneCosts) * (Number(r.qty) || 1), 0);
 const GEM_ROLES = [{ value: 'center', label: 'Center' }, { value: 'accent', label: 'Accent' }];
+
+// Stone-setting labor is inferred from carat band × count (gem type is irrelevant). Labels
+// match the task catalog; `fallback` is used if the catalog lookup misses.
+const SETTING_BANDS = [
+  { key: '1plus', min: 1, label: 'Set Stone 1ct or larger', fallback: 40 },
+  { key: 'mid', min: 0.5, label: 'Set Stone 0.5ct to 0.99ct', fallback: 20 },
+  { key: 'small', min: 0.0001, label: 'Set Stone less than 0.49ct', fallback: 10 },
+];
+const caratBand = (ct) => { const c = Number(ct) || 0; return SETTING_BANDS.find((b) => c >= b.min) || null; };
+const sumLaborLines = (lines) => (lines || []).reduce((s, l) => s + (Number(l.cost) || 0) * (Number(l.qty) || 1), 0);
+
+// Per-piece labor inferred automatically: casting defaults (by production method) +
+// stone-setting tasks tallied by carat band × count. taskCosts overrides the fallbacks.
+function autoLaborLines(variant, productionMethod, taskCosts = {}) {
+  const lines = [];
+  if (productionMethod === 'cad_cast') {
+    lines.push({ key: 'cleanup', label: 'Clean up Casting', qty: 1, cost: taskCosts['Clean up Casting'] ?? 40, auto: 'casting' });
+  }
+  const tally = new Map();
+  for (const g of (variant.gemstones || [])) {
+    const band = caratBand(g.caratEach);
+    if (!band) continue;
+    const cur = tally.get(band.key) || { key: band.key, label: band.label, qty: 0, cost: taskCosts[band.label] ?? band.fallback, auto: 'setting' };
+    cur.qty += Number(g.qty) || 1;
+    tally.set(band.key, cur);
+  }
+  for (const l of tally.values()) lines.push(l);
+  return lines;
+}
 const artisanLabel = (a) => [a.firstName, a.lastName].filter(Boolean).join(' ') || a.email || a.userID || '';
 const artisanId = (a) => a.userID || a._id?.toString();
 
@@ -159,6 +188,7 @@ function toForm(d) {
         stullerSku: g.stullerSku || '',
         label: g.label || '',
         unitCost: g.unitCost != null ? String(g.unitCost) : '',
+        caratEach: g.caratEach != null ? String(g.caratEach) : '',
         source: g.source || '',
       })),
       markupOverride: v.markupOverride != null && v.markupOverride !== '' ? String(v.markupOverride) : '',
@@ -568,11 +598,14 @@ function PriceLineEditor({ rows, onChange, withQty, addLabel, emptyText }) {
   );
 }
 
-function VariantPriceCard({ variant, mounting, sharedCosts, baseMarkup, hasVolume, loading, stoneCosts, onChange }) {
+function VariantPriceCard({ variant, mounting, sharedCosts, baseMarkup, hasVolume, loading, stoneCosts, productionMethod, taskCosts, onChange }) {
   const stones = sumStones(variant.gemstones, stoneCosts);
   const stoneCount = (variant.gemstones || []).reduce((n, g) => n + (Number(g.qty) || 1), 0);
   const markup = Number(variant.markupOverride) > 0 ? Number(variant.markupOverride) : baseMarkup;
-  const cog = mounting + stones + sharedCosts;
+  // Per-piece labor inferred automatically (casting + carat-band setting × counts).
+  const autoLines = autoLaborLines(variant, productionMethod, taskCosts);
+  const autoLabor = sumLaborLines(autoLines);
+  const cog = mounting + stones + autoLabor + sharedCosts;
   const retail = cog * markup;
   const label = variant.label?.trim() || variant.sku?.trim() || variant.variantId;
   const metal = [finishUsesKarat(variant.finish) ? `${variant.karat}K` : null, finishLabel(variant.finish)].filter(Boolean).join(' ');
@@ -600,13 +633,22 @@ function VariantPriceCard({ variant, mounting, sharedCosts, baseMarkup, hasVolum
           <Typography sx={{ fontSize: '0.9rem', color: REPAIRS_UI.textPrimary, fontWeight: 500 }}>{money(stones)}</Typography>
         </Box>
         <Box sx={{ minWidth: 110 }}>
+          <Typography sx={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: REPAIRS_UI.textSecondary }}>Labor (auto)</Typography>
+          <Typography sx={{ fontSize: '0.9rem', color: REPAIRS_UI.textPrimary, fontWeight: 500 }}>{money(autoLabor)}</Typography>
+        </Box>
+        <Box sx={{ minWidth: 110 }}>
           <Typography sx={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: REPAIRS_UI.textSecondary }}>Shared</Typography>
           <Typography sx={{ fontSize: '0.9rem', color: REPAIRS_UI.textPrimary, fontWeight: 500 }}>{money(sharedCosts)}</Typography>
         </Box>
         <TextField size="small" label="Markup ×" type="number" value={variant.markupOverride} onChange={(e) => onChange({ markupOverride: e.target.value })} placeholder={String(baseMarkup)} sx={{ width: 110 }} helperText={variant.markupOverride ? ' ' : `default ×${baseMarkup}`} FormHelperTextProps={{ sx: { mx: 0, fontSize: '0.6rem' } }} />
       </Stack>
-      <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, mt: 1, display: 'block' }}>
-        ({money(mounting)} mounting + {money(stones)} stones + {money(sharedCosts)} shared) × {markup} = {money(retail)}
+      {autoLines.length > 0 && (
+        <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, mt: 0.75, display: 'block' }}>
+          Auto labor: {autoLines.map((l) => `${l.label}${l.qty > 1 ? ` ×${l.qty}` : ''}`).join(' · ')}
+        </Typography>
+      )}
+      <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, mt: 0.5, display: 'block' }}>
+        ({money(mounting)} mounting + {money(stones)} stones + {money(autoLabor)} labor + {money(sharedCosts)} shared) × {markup} = {money(retail)}
       </Typography>
     </Paper>
   );
@@ -672,7 +714,7 @@ function StonePicker({ value, onPick }) {
     }, 250);
     return () => { cancelled = true; clearTimeout(t); };
   }, [input]);
-  const pick = (s) => onPick({ stoneSkuId: s.stoneSkuId || '', stullerSku: s.stullerSku || '', label: s.label || '', unitCost: s.cost != null ? s.cost : '', source: s.source || 'catalog' });
+  const pick = (s) => onPick({ stoneSkuId: s.stoneSkuId || '', stullerSku: s.stullerSku || '', label: s.label || '', unitCost: s.cost != null ? s.cost : '', caratEach: s.caratEach != null ? s.caratEach : '', source: s.source || 'catalog' });
   const lookup = async () => {
     const n = sku.trim();
     if (!n) return;
@@ -722,7 +764,7 @@ function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, onChange }) {
   const rows = gemstones || [];
   const set = (i, patch) => onChange(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   const remove = (i) => onChange(rows.filter((_, idx) => idx !== i));
-  const add = () => onChange([...rows, { slot: '', role: 'accent', qty: '1', stoneSkuId: '', stullerSku: '', label: '', unitCost: '', source: '' }]);
+  const add = () => onChange([...rows, { slot: '', role: 'accent', qty: '1', stoneSkuId: '', stullerSku: '', label: '', unitCost: '', caratEach: '', source: '' }]);
   const gemSlots = (viewerConfig?.meshMap || []).filter((s) => s.type === 'gem');
   // REFRAKT stores one meshMap entry per gem mesh; group identical gems (same preset) into
   // a single row with a quantity (18 melee diamonds → one accent row × 18).
@@ -739,7 +781,7 @@ function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, onChange }) {
   const seed = () => onChange(gemGroups.map((g) => ({
     // A lone stone is almost always the center; multiples are accents. Name hints win.
     slot: g.slot, role: /accent|melee|pave|pavé|side/i.test(g.slot) ? 'accent' : (g.qty > 1 ? 'accent' : 'center'),
-    qty: String(g.qty), stoneSkuId: '', stullerSku: '', label: '', unitCost: '', source: '', preset: g.preset,
+    qty: String(g.qty), stoneSkuId: '', stullerSku: '', label: '', unitCost: '', caratEach: '', source: '', preset: g.preset,
   })));
   const subtotal = sumStones(rows, stoneCosts);
   return (
@@ -761,9 +803,12 @@ function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, onChange }) {
                 </TextField>
                 <Box sx={{ flex: 1, minWidth: 200 }}>
                   <StonePicker value={r.label} onPick={(p) => set(i, p)} />
-                  {(r.slot || r.preset) && <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{[r.slot, r.preset].filter(Boolean).join(' · ')}</Typography>}
+                  {(() => { const b = caratBand(r.caratEach); return (r.slot || r.preset || b) ? (
+                    <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{[r.slot, r.preset, b ? `→ ${b.label}` : null].filter(Boolean).join(' · ')}</Typography>
+                  ) : null; })()}
                 </Box>
-                <TextField size="small" label="Qty" type="number" value={r.qty ?? '1'} onChange={(e) => set(i, { qty: e.target.value })} sx={{ width: 60 }} inputProps={{ min: 1 }} />
+                <TextField size="small" label="Qty" type="number" value={r.qty ?? '1'} onChange={(e) => set(i, { qty: e.target.value })} sx={{ width: 56 }} inputProps={{ min: 1 }} />
+                <TextField size="small" label="ct ea" type="number" value={r.caratEach ?? ''} onChange={(e) => set(i, { caratEach: e.target.value })} sx={{ width: 64 }} inputProps={{ step: 0.01, min: 0 }} />
                 {r.stoneSkuId ? (
                   <TextField size="small" label="Unit $ (live)" value={money(stoneUnit(r, stoneCosts))} sx={{ width: 110 }}
                     InputProps={{ readOnly: true }} helperText="from Stuller" FormHelperTextProps={{ sx: { mx: 0, fontSize: '0.58rem' } }} />
@@ -820,11 +865,29 @@ function LaborTaskEditor({ rows, onChange }) {
   );
 }
 
-function PricingTab({ pricing, variants, stlVolumeCm3, defaultMarkup, artisanFee, artisanName, editionType, editionLimit, stoneCosts, onChange, onVariantChange }) {
+function PricingTab({ pricing, variants, stlVolumeCm3, defaultMarkup, artisanFee, artisanName, editionType, editionLimit, productionMethod, stoneCosts, onChange, onVariantChange }) {
   const [metalCosts, setMetalCosts] = useState({});
   const [loadingCosts, setLoadingCosts] = useState(false);
+  const [taskCosts, setTaskCosts] = useState({}); // { catalog task label: cost } for auto labor
   const hasVolume = Number(stlVolumeCm3) > 0;
   const metalsKey = [...new Set(variants.map((v) => v.metalKey).filter(Boolean))].sort().join(',');
+
+  // Pull current costs for the auto-labor tasks (casting cleanup + carat-band settings).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const out = {};
+      for (const q of ['casting', 'set stone']) {
+        try {
+          const r = await fetch(`/api/custom-orders/task-suggestions?context=custom&search=${encodeURIComponent(q)}`);
+          const d = await r.json().catch(() => []);
+          for (const t of (Array.isArray(d) ? d : [])) if (t.label && t.cost != null) out[t.label] = Number(t.cost);
+        } catch { /* fall back to defaults */ }
+      }
+      if (!cancelled) setTaskCosts(out);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (!hasVolume || !metalsKey) { setMetalCosts({}); return undefined; }
@@ -928,6 +991,8 @@ function PricingTab({ pricing, variants, stlVolumeCm3, defaultMarkup, artisanFee
               hasVolume={hasVolume}
               loading={loadingCosts}
               stoneCosts={stoneCosts}
+              productionMethod={productionMethod}
+              taskCosts={taskCosts}
               onChange={(patch) => onVariantChange(i, patch)}
             />
           ))}
@@ -1085,6 +1150,7 @@ export default function DesignDetailPage({ params }) {
             label: g.label || '',
             // Store the resolved unit (SKU-linked → current catalog wholesale; else manual).
             unitCost: stoneUnit(g, stoneCosts),
+            caratEach: g.caratEach ? Number(g.caratEach) : null,
             source: g.source || null,
           })),
           // Snapshot the stone total (Σ unit × qty) so external readers don't recompute.
@@ -1184,6 +1250,7 @@ export default function DesignDetailPage({ params }) {
           artisanName={form.primaryArtisanId ? artisanName(form.primaryArtisanId) : ''}
           editionType={form.editionType}
           editionLimit={form.editionLimit}
+          productionMethod={form.productionMethod}
           stoneCosts={stoneCosts}
           onChange={setPricing}
           onVariantChange={updateVariant}
