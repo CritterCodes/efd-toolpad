@@ -13,11 +13,13 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import ViewInArIcon from '@mui/icons-material/ViewInAr';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 
 import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
 import { getSTLVolume } from '@/lib/stlParser';
+import { KARAT_OPTIONS, finishUsesKarat, finishLabel, composeMetalKey } from '@/services/production/variantMetal';
 
 const DESIGN_STATUSES = ['draft', 'cad_requested', 'cad_in_progress', 'cad_qc', 'ready', 'retired'];
 const PRODUCTION_METHODS = ['cad_cast', 'handmade'];
@@ -27,21 +29,29 @@ const EDITION_TYPES = [
   { value: 'unlimited', label: 'No Limit (unlimited)' },
 ];
 const CATEGORIES = ['ring', 'necklace', 'bracelet', 'earrings', 'pendant', 'brooch', 'other'];
-const METAL_KEYS = [
-  { key: 'GOLD_14K_YELLOW', label: '14K Yellow Gold' },
-  { key: 'GOLD_14K_WHITE', label: '14K White Gold' },
-  { key: 'GOLD_18K_YELLOW', label: '18K Yellow Gold' },
-  { key: 'GOLD_10K_YELLOW', label: '10K Yellow Gold' },
-  { key: 'SILVER_STERLING', label: 'Sterling Silver' },
-  { key: 'PLATINUM_IRIDIUM', label: 'Platinum' },
+
+const DISCIPLINE_OPTS = [
+  { value: 'bench_jewelry', label: 'Bench' }, { value: 'cad', label: 'CAD' },
+  { value: 'engraving', label: 'Engraving' }, { value: 'gem_cutting', label: 'Gem Cutting' },
 ];
+// Map a task-catalog category to a bench discipline (mirrors the customs quote builder).
+function categoryToDiscipline(category = '') {
+  const c = String(category).toLowerCase();
+  if (/cad|design/.test(c)) return 'cad';
+  if (/engrav/.test(c)) return 'engraving';
+  if (/gem|cut|lapidar|ston.*cut/.test(c)) return 'gem_cutting';
+  return 'bench_jewelry';
+}
 
 let variantSeq = 0;
 function newVariantForm() {
   variantSeq += 1;
   return {
     variantId: `v-${Date.now().toString(36)}-${variantSeq}`,
-    sku: '', label: '', metalKey: 'GOLD_14K_YELLOW',
+    sku: '', label: '',
+    // Finish comes from REFRAKT (studio-driven); karat is a separate spec; metalKey is
+    // composed from both for the pricing estimate engine.
+    finish: 'gold', karat: '14', metalKey: composeMetalKey('gold', '14'), viewerConfig: null,
     ringSize: '', sizingMin: '', sizingMax: '',
     retailPrice: '', leadTimeDays: '', active: true, customizable: false,
   };
@@ -79,15 +89,21 @@ function toForm(d) {
     // market metal rates, never stored, so we only persist these inputs.
     pricing: {
       markup: d.pricing?.markup != null && d.pricing.markup !== '' ? String(d.pricing.markup) : '',
-      laborTasks: (d.pricing?.laborTasks || []).map((t) => ({ description: t.description || '', quantity: t.quantity != null ? String(t.quantity) : '1', cost: t.cost != null ? String(t.cost) : '' })),
+      laborTasks: (d.pricing?.laborTasks || []).map((t) => ({ description: t.description || '', quantity: t.quantity != null ? String(t.quantity) : '1', hours: t.hours != null ? String(t.hours) : '', discipline: t.discipline || 'bench_jewelry', cost: t.cost != null ? String(t.cost) : '' })),
       shipping: (d.pricing?.shipping || []).map((s) => ({ description: s.description || '', cost: s.cost != null ? String(s.cost) : '' })),
-      designFees: (d.pricing?.designFees || []).map((f) => ({ description: f.description || '', cost: f.cost != null ? String(f.cost) : '' })),
     },
-    variants: (Array.isArray(d.variants) ? d.variants : []).map((v) => ({
+    variants: (Array.isArray(d.variants) ? d.variants : []).map((v) => {
+      const finish = v.finish || 'gold';
+      const karat = v.karat != null ? String(v.karat) : '14';
+      return {
       variantId: v.variantId || '',
       sku: v.sku || '',
       label: v.label || v.title || '',
-      metalKey: v.metalKey || '',
+      finish,
+      karat,
+      // metalKey is always derived from finish+karat (kept only for the pricing estimate).
+      metalKey: composeMetalKey(finish, karat),
+      viewerConfig: v.viewerConfig || null,
       ringSize: v.ringSize != null ? String(v.ringSize) : '',
       sizingMin: v.sizingAllowance?.min != null ? String(v.sizingAllowance.min) : '',
       sizingMax: v.sizingAllowance?.max != null ? String(v.sizingAllowance.max) : '',
@@ -98,7 +114,8 @@ function toForm(d) {
       // Per-variant pricing controls (the variant "owns" its stones + optional markup).
       stonesCost: v.stonesCost != null ? String(v.stonesCost) : '',
       markupOverride: v.markupOverride != null && v.markupOverride !== '' ? String(v.markupOverride) : '',
-    })),
+      };
+    }),
   };
 }
 
@@ -291,8 +308,10 @@ function CadTab({ design, dropId, designId, onReload, notify }) {
   );
 }
 
-function VariantRow({ index, variant, isRing, hasGlb, onUpdate, onRemove }) {
+function VariantRow({ index, variant, isRing, hasGlb, onUpdate, onRemove, onConfigure }) {
   const set = (k, v) => onUpdate(index, { [k]: v });
+  const configured = !!variant.viewerConfig;
+  const usesKarat = finishUsesKarat(variant.finish);
   return (
     <Paper sx={{ p: 2, mb: 1.5, backgroundColor: REPAIRS_UI.bgTertiary, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
@@ -310,14 +329,43 @@ function VariantRow({ index, variant, isRing, hasGlb, onUpdate, onRemove }) {
           <TextField label="SKU" value={variant.sku} onChange={(e) => set('sku', e.target.value)} size="small" fullWidth required error={!variant.sku.trim()} />
           <TextField label="Label (optional)" value={variant.label} onChange={(e) => set('label', e.target.value)} size="small" fullWidth />
         </Stack>
+        {/* Look = built in REFRAKT (finish comes from the config); karat is a separate spec. */}
+        <Box sx={{ p: 1.5, backgroundColor: REPAIRS_UI.bgCard, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 1.5 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1.5} flexWrap="wrap" useFlexGap>
+            <Box>
+              <Typography sx={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: REPAIRS_UI.textSecondary }}>Finish (from REFRAKT)</Typography>
+              <Typography sx={{ fontWeight: 600, color: configured ? REPAIRS_UI.textHeader : REPAIRS_UI.textMuted }}>
+                {configured ? finishLabel(variant.finish) : 'Not configured yet'}
+              </Typography>
+            </Box>
+            <Button
+              size="small"
+              variant={configured ? 'text' : 'contained'}
+              startIcon={<ViewInArIcon sx={{ fontSize: 16 }} />}
+              onClick={() => onConfigure(index)}
+              disabled={!hasGlb}
+              sx={configured
+                ? { color: REPAIRS_UI.accent, textTransform: 'none' }
+                : { backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, textTransform: 'none', '&:hover': { backgroundColor: '#C19B2E' } }}
+            >
+              {configured ? 'Edit look in REFRAKT' : 'Configure look in REFRAKT'}
+            </Button>
+          </Stack>
+          {!hasGlb && (
+            <Typography variant="caption" sx={{ color: '#FFB74D', display: 'block', mt: 0.75 }}>
+              Upload a GLB on the CAD &amp; 3D tab first — variant looks are built in REFRAKT.
+            </Typography>
+          )}
+        </Box>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-          <FormControl size="small" sx={{ flex: 1 }}>
-            <InputLabel>Metal</InputLabel>
-            <Select value={variant.metalKey || ''} label="Metal" onChange={(e) => set('metalKey', e.target.value)} MenuProps={repairsMenuProps}>
-              {METAL_KEYS.map((m) => <MenuItem key={m.key} value={m.key}>{m.label}</MenuItem>)}
+          <FormControl size="small" sx={{ flex: 1 }} disabled={!usesKarat}>
+            <InputLabel>Karat</InputLabel>
+            <Select value={usesKarat ? variant.karat : ''} label="Karat" onChange={(e) => set('karat', e.target.value)} MenuProps={repairsMenuProps}>
+              {usesKarat
+                ? KARAT_OPTIONS.map((k) => <MenuItem key={k} value={k}>{k}K</MenuItem>)
+                : <MenuItem value="">N/A</MenuItem>}
             </Select>
           </FormControl>
-          <TextField label="Retail price ($)" type="number" value={variant.retailPrice} onChange={(e) => set('retailPrice', e.target.value)} size="small" sx={{ flex: 1 }} />
           <TextField label="Lead time (days)" type="number" value={variant.leadTimeDays} onChange={(e) => set('leadTimeDays', e.target.value)} size="small" sx={{ flex: 1 }} />
         </Stack>
         {isRing && (
@@ -348,7 +396,7 @@ function VariantRow({ index, variant, isRing, hasGlb, onUpdate, onRemove }) {
   );
 }
 
-function VariantsTab({ variants, category, hasGlb, onAdd, onUpdate, onRemove }) {
+function VariantsTab({ variants, category, hasGlb, onAdd, onUpdate, onRemove, onConfigure }) {
   const isRing = category === 'ring';
   return (
     <Paper sx={panelSx}>
@@ -356,17 +404,25 @@ function VariantsTab({ variants, category, hasGlb, onAdd, onUpdate, onRemove }) 
         <Box>
           <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader }}>Variants</Typography>
           <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
-            Each variant is one sellable configuration (metal, size…). A sellable design needs at least one.
+            Each variant is one sellable configuration, its look built in REFRAKT. A sellable design needs at least one.
           </Typography>
         </Box>
-        <Button size="small" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={onAdd} sx={{ color: REPAIRS_UI.accent, flexShrink: 0 }}>Add variant</Button>
+        <Button size="small" variant="contained" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={onAdd} disabled={!hasGlb}
+          sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, textTransform: 'none', flexShrink: 0, '&:hover': { backgroundColor: '#C19B2E' } }}>
+          Add variant
+        </Button>
       </Stack>
+      {!hasGlb && (
+        <Typography variant="caption" sx={{ color: '#FFB74D', display: 'block', mb: 2 }}>
+          Upload a GLB on the CAD &amp; 3D tab first — variants are built in the REFRAKT studio.
+        </Typography>
+      )}
       {variants.length === 0 ? (
         <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: '0.85rem', textAlign: 'center', py: 3 }}>
-          No variants yet. Add one (metal / size / price) to make this design sellable.
+          No variants yet. “Add variant” opens the REFRAKT studio to build the look.
         </Typography>
       ) : variants.map((v, i) => (
-        <VariantRow key={v.variantId || i} index={i} variant={v} isRing={isRing} hasGlb={hasGlb} onUpdate={onUpdate} onRemove={onRemove} />
+        <VariantRow key={v.variantId || i} index={i} variant={v} isRing={isRing} hasGlb={hasGlb} onUpdate={onUpdate} onRemove={onRemove} onConfigure={onConfigure} />
       ))}
     </Paper>
   );
@@ -403,7 +459,7 @@ function VariantPriceCard({ variant, mounting, sharedCosts, baseMarkup, hasVolum
   const cog = mounting + stones + sharedCosts;
   const retail = cog * markup;
   const label = variant.label?.trim() || variant.sku?.trim() || variant.variantId;
-  const metal = METAL_KEYS.find((m) => m.key === variant.metalKey)?.label || variant.metalKey || 'No metal';
+  const metal = [finishUsesKarat(variant.finish) ? `${variant.karat}K` : null, finishLabel(variant.finish)].filter(Boolean).join(' ');
   return (
     <Paper sx={{ p: 2, mb: 1.5, backgroundColor: REPAIRS_UI.bgTertiary, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' }}>
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
@@ -437,7 +493,83 @@ function VariantPriceCard({ variant, mounting, sharedCosts, baseMarkup, hasVolum
   );
 }
 
-function PricingTab({ pricing, variants, stlVolumeCm3, defaultMarkup, onChange, onVariantChange }) {
+/** Task autocomplete sourced from the repair catalog + custom history — same source as
+ *  the customs quote builder (/api/custom-orders/task-suggestions). On pick, fills the
+ *  cost, hours, and lane. */
+function TaskAutocomplete({ value, onText, onPick }) {
+  const [options, setOptions] = useState([]);
+  const [input, setInput] = useState(value || '');
+  useEffect(() => { setInput(value || ''); }, [value]);
+  useEffect(() => {
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/custom-orders/task-suggestions?context=custom&search=${encodeURIComponent(input || '')}`);
+        if (r.ok && !cancelled) setOptions(await r.json());
+      } catch { /* ignore */ }
+    }, 250);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [input]);
+  return (
+    <Autocomplete
+      freeSolo size="small" options={options} filterOptions={(x) => x}
+      value={null} inputValue={input}
+      getOptionLabel={(o) => (typeof o === 'string' ? o : o.label || '')}
+      isOptionEqualToValue={(o, v) => o.label === v.label}
+      onInputChange={(_, v) => { setInput(v); onText(v); }}
+      onChange={(_, v) => { if (v && typeof v !== 'string') onPick({ description: v.label, cost: v.cost, hours: v.hours, category: v.category }); }}
+      renderOption={(props, o) => (
+        <Box component="li" {...props} sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
+          <span>{o.label}</span>
+          <Stack direction="row" spacing={0.75} alignItems="center">
+            {o.cost > 0 && <Typography variant="caption" sx={{ color: 'text.secondary' }}>${o.cost}</Typography>}
+            <Chip size="small" label={o.source === 'custom' ? 'custom' : 'repair'} variant="outlined" sx={{ height: 18 }} />
+          </Stack>
+        </Box>
+      )}
+      renderInput={(params) => <TextField {...params} label="Task" placeholder="set stones, polish…" />}
+    />
+  );
+}
+
+/** Labor-task editor with catalog-linked descriptions + lane/qty/hours/cost (mirrors the quote). */
+function LaborTaskEditor({ rows, onChange }) {
+  const set = (i, k, v) => onChange(rows.map((r, idx) => (idx === i ? { ...r, [k]: v } : r)));
+  const patch = (i, obj) => onChange(rows.map((r, idx) => (idx === i ? { ...r, ...obj } : r)));
+  const remove = (i) => onChange(rows.filter((_, idx) => idx !== i));
+  const add = () => onChange([...rows, { description: '', quantity: '1', hours: '', discipline: 'bench_jewelry', cost: '' }]);
+  return (
+    <Box>
+      {rows.length === 0
+        ? <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted, py: 0.5 }}>No labor tasks.</Typography>
+        : (
+          <Stack spacing={1.25}>
+            {rows.map((r, i) => (
+              <Stack key={i} direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                <Box sx={{ flex: 1, minWidth: 180 }}>
+                  <TaskAutocomplete
+                    value={r.description}
+                    onText={(v) => set(i, 'description', v)}
+                    onPick={({ description, cost, hours, category }) => patch(i, { description, cost: cost != null ? String(cost) : r.cost, hours: hours != null ? String(hours) : r.hours, ...(category ? { discipline: categoryToDiscipline(category) } : {}) })}
+                  />
+                </Box>
+                <TextField select size="small" label="Lane" value={r.discipline || 'bench_jewelry'} onChange={(e) => set(i, 'discipline', e.target.value)} sx={{ width: 120 }}>
+                  {DISCIPLINE_OPTS.map((d) => <MenuItem key={d.value} value={d.value}>{d.label}</MenuItem>)}
+                </TextField>
+                <TextField size="small" label="Qty" type="number" value={r.quantity ?? '1'} onChange={(e) => set(i, 'quantity', e.target.value)} sx={{ width: 64 }} />
+                <TextField size="small" label="Hrs" type="number" value={r.hours ?? ''} onChange={(e) => set(i, 'hours', e.target.value)} sx={{ width: 68 }} inputProps={{ step: 0.25, min: 0 }} />
+                <TextField size="small" label="Cost" type="number" value={r.cost ?? ''} onChange={(e) => set(i, 'cost', e.target.value)} sx={{ width: 110 }} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} />
+                <IconButton size="small" onClick={() => remove(i)} sx={{ color: REPAIRS_UI.textMuted }}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton>
+              </Stack>
+            ))}
+          </Stack>
+        )}
+      <Button size="small" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={add} sx={{ color: REPAIRS_UI.accent, mt: 1 }}>Add task</Button>
+    </Box>
+  );
+}
+
+function PricingTab({ pricing, variants, stlVolumeCm3, defaultMarkup, designFee, artisanName, onChange, onVariantChange }) {
   const [metalCosts, setMetalCosts] = useState({});
   const [loadingCosts, setLoadingCosts] = useState(false);
   const hasVolume = Number(stlVolumeCm3) > 0;
@@ -465,7 +597,8 @@ function PricingTab({ pricing, variants, stlVolumeCm3, defaultMarkup, onChange, 
   }, [hasVolume, metalsKey, stlVolumeCm3]);
 
   const set = (k, v) => onChange({ ...pricing, [k]: v });
-  const sharedCosts = sumLines(pricing.laborTasks) + sumLines(pricing.shipping) + sumLines(pricing.designFees);
+  const feeAmt = Number(designFee) || 0;
+  const sharedCosts = sumLines(pricing.laborTasks) + sumLines(pricing.shipping) + feeAmt;
   const baseMarkup = Number(pricing.markup) > 0 ? Number(pricing.markup) : defaultMarkup;
 
   return (
@@ -478,13 +611,18 @@ function PricingTab({ pricing, variants, stlVolumeCm3, defaultMarkup, onChange, 
             These cascade to every variant. Change one and all variant prices update.
           </Typography>
           <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textSecondary, fontSize: '0.8rem', mb: 0.5 }}>Labor tasks</Typography>
-          <PriceLineEditor rows={pricing.laborTasks} onChange={(rows) => set('laborTasks', rows)} withQty addLabel="Add task" emptyText="No labor tasks." />
+          <LaborTaskEditor rows={pricing.laborTasks} onChange={(rows) => set('laborTasks', rows)} />
           <Box sx={{ borderTop: `1px solid ${REPAIRS_UI.border}`, my: 2 }} />
           <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textSecondary, fontSize: '0.8rem', mb: 0.5 }}>Shipping</Typography>
           <PriceLineEditor rows={pricing.shipping} onChange={(rows) => set('shipping', rows)} addLabel="Add shipping" emptyText="No shipping costs." />
           <Box sx={{ borderTop: `1px solid ${REPAIRS_UI.border}`, my: 2 }} />
-          <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textSecondary, fontSize: '0.8rem', mb: 0.5 }}>Design fees</Typography>
-          <PriceLineEditor rows={pricing.designFees} onChange={(rows) => set('designFees', rows)} addLabel="Add fee" emptyText="No design fees." />
+          <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textSecondary, fontSize: '0.8rem', mb: 0.5 }}>Design fee</Typography>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ py: 0.5 }}>
+            <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
+              {artisanName ? `From ${artisanName}’s profile` : 'Set a primary artisan (Details tab) to pull the design fee.'}
+            </Typography>
+            <Typography sx={{ fontWeight: 600, color: feeAmt > 0 ? REPAIRS_UI.textPrimary : REPAIRS_UI.textMuted }}>{money(feeAmt)}</Typography>
+          </Stack>
           <Box sx={{ borderTop: `1px solid ${REPAIRS_UI.border}`, my: 2 }} />
           <Stack direction="row" justifyContent="space-between" alignItems="center">
             <TextField size="small" label="COG markup" type="number" value={pricing.markup} onChange={(e) => set('markup', e.target.value)} placeholder={String(defaultMarkup)} InputProps={{ startAdornment: <InputAdornment position="start">×</InputAdornment> }} helperText={`Blank = default (×${defaultMarkup})`} sx={{ width: 200 }} />
@@ -566,9 +704,43 @@ export default function DesignDetailPage({ params }) {
 
   const setField = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const setPricing = (v) => setForm((f) => ({ ...f, pricing: v }));
-  const addVariant = () => setForm((f) => ({ ...f, variants: [...f.variants, newVariantForm()] }));
-  const updateVariant = (i, patch) => setForm((f) => ({ ...f, variants: f.variants.map((v, idx) => (idx === i ? { ...v, ...patch } : v)) }));
+  const updateVariant = (i, patch) => setForm((f) => ({
+    ...f,
+    variants: f.variants.map((v, idx) => {
+      if (idx !== i) return v;
+      const merged = { ...v, ...patch };
+      // Keep the pricing metalKey in sync whenever finish or karat changes.
+      if ('finish' in patch || 'karat' in patch) merged.metalKey = composeMetalKey(merged.finish, merged.karat);
+      return merged;
+    }),
+  }));
   const removeVariant = (i) => setForm((f) => ({ ...f, variants: f.variants.filter((_, idx) => idx !== i) }));
+
+  const configurePath = (variantId) => `/dashboard/products/drops/${dropId}/designs/${designId}/variants/${variantId}/configure`;
+
+  // "Configure look" needs the variant persisted first (the studio is a separate route
+  // that reads from the DB). Save pending edits, then navigate.
+  const configureVariant = async (i) => {
+    if (!design.designModel?.glbUrl) { notify('Upload a GLB on the CAD & 3D tab first.', 'error'); return; }
+    const v = form.variants[i];
+    if (dirty) { const ok = await save(); if (!ok) return; }
+    router.push(configurePath(v.variantId));
+  };
+
+  // "Add variant" (studio-driven): append a stub with an auto-SKU, persist, then open the
+  // studio to build the look.
+  const addAndConfigureVariant = async () => {
+    if (!design.designModel?.glbUrl) { notify('Upload a GLB on the CAD & 3D tab first — variants are built in REFRAKT.', 'error'); return; }
+    const v = newVariantForm();
+    const base = (form.name || design.name || 'VAR').toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 12) || 'VAR';
+    v.sku = `${base}-${v.variantId.split('-').pop()}`;
+    if (form.category === 'ring') v.ringSize = '7'; // sensible default so the stub can persist; editable on the row
+    v.active = false; // stub starts inactive until its look is built + specs confirmed
+    const nextForm = { ...form, variants: [...form.variants, v] };
+    setForm(nextForm);
+    const ok = await save(nextForm);
+    if (ok) router.push(configurePath(v.variantId));
+  };
 
   const dirty = useMemo(() => {
     if (!design || !form) return false;
@@ -577,15 +749,16 @@ export default function DesignDetailPage({ params }) {
 
   const discard = () => setForm(toForm(design));
 
-  const save = async () => {
-    if (!form.name.trim()) { notify('Name is required.', 'error'); return; }
-    if (!form.primaryArtisanId) { notify('A primary artisan is required.', 'error'); return; }
-    for (const v of form.variants) {
-      if (!v.sku.trim()) { notify('Every variant needs a SKU.', 'error'); return; }
-      if (form.category === 'ring' && !v.ringSize.trim()) { notify('Ring variants need a nominal ring size.', 'error'); return; }
+  const save = async (f = form) => {
+    if (!f.name.trim()) { notify('Name is required.', 'error'); return false; }
+    if (!f.primaryArtisanId) { notify('A primary artisan is required.', 'error'); return false; }
+    for (const v of f.variants) {
+      if (!v.sku.trim()) { notify('Every variant needs a SKU.', 'error'); return false; }
+      if (f.category === 'ring' && !v.ringSize.trim()) { notify('Ring variants need a nominal ring size.', 'error'); return false; }
     }
-    const skus = form.variants.map((v) => v.sku.trim());
-    if (new Set(skus).size !== skus.length) { notify('Variant SKUs must be unique.', 'error'); return; }
+    const skus = f.variants.map((v) => v.sku.trim());
+    if (new Set(skus).size !== skus.length) { notify('Variant SKUs must be unique.', 'error'); return false; }
+    const form = f; // subsequent body-building reads from the form being saved
     setSaving(true);
     try {
       const body = {
@@ -599,16 +772,18 @@ export default function DesignDetailPage({ params }) {
         edition: { type: form.editionType, ...(form.editionType === 'limited' ? { limit: Number(form.editionLimit) || 1 } : {}) },
         pricing: {
           markup: form.pricing.markup ? Number(form.pricing.markup) : null,
-          laborTasks: form.pricing.laborTasks.map((t) => ({ description: t.description || '', quantity: Number(t.quantity) || 1, cost: Number(t.cost) || 0 })),
+          laborTasks: form.pricing.laborTasks.map((t) => ({ description: t.description || '', quantity: Number(t.quantity) || 1, hours: Number(t.hours) || 0, discipline: t.discipline || 'bench_jewelry', cost: Number(t.cost) || 0 })),
           shipping: form.pricing.shipping.map((s) => ({ description: s.description || '', cost: Number(s.cost) || 0 })),
-          designFees: form.pricing.designFees.map((f) => ({ description: f.description || '', cost: Number(f.cost) || 0 })),
         },
         variants: form.variants.map((v) => ({
           variantId: v.variantId,
           sku: v.sku.trim(),
           ...(v.label.trim() ? { label: v.label.trim() } : {}),
           active: !!v.active,
-          metalKey: v.metalKey || null,
+          finish: v.finish || 'gold',
+          karat: finishUsesKarat(v.finish) ? (v.karat || '14') : null,
+          metalKey: composeMetalKey(v.finish, v.karat),
+          viewerConfig: v.viewerConfig || null,
           ...(form.category === 'ring'
             ? { ringSize: v.ringSize.trim() || null, ...((v.sizingMin || v.sizingMax) ? { sizingAllowance: { min: v.sizingMin, max: v.sizingMax } } : {}) }
             : {}),
@@ -623,7 +798,8 @@ export default function DesignDetailPage({ params }) {
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Save failed');
       notify('Saved', 'success');
       await load();
-    } catch (e) { notify(e.message, 'error'); } finally { setSaving(false); }
+      return true;
+    } catch (e) { notify(e.message, 'error'); return false; } finally { setSaving(false); }
   };
 
   const backToDrop = () => router.push(`/dashboard/products/drops/${dropId}`);
@@ -693,9 +869,10 @@ export default function DesignDetailPage({ params }) {
           variants={form.variants}
           category={form.category}
           hasGlb={!!design.designModel?.glbUrl}
-          onAdd={addVariant}
+          onAdd={addAndConfigureVariant}
           onUpdate={updateVariant}
           onRemove={removeVariant}
+          onConfigure={configureVariant}
         />
       )}
       {tab === 3 && (
@@ -704,6 +881,8 @@ export default function DesignDetailPage({ params }) {
           variants={form.variants}
           stlVolumeCm3={design.stlVolumeCm3}
           defaultMarkup={defaultMarkup}
+          designFee={Number(artisans.find((a) => artisanId(a) === form.primaryArtisanId)?.artisanApplication?.customDesignFee) || 0}
+          artisanName={form.primaryArtisanId ? artisanName(form.primaryArtisanId) : ''}
           onChange={setPricing}
           onVariantChange={updateVariant}
         />
