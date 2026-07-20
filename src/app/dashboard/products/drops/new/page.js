@@ -1,18 +1,16 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box, Typography, Button, Paper, TextField, FormControl, InputLabel, Select, MenuItem,
-  Stack, Chip, CircularProgress, Snackbar, Alert, Autocomplete, Divider,
+  Stack, Chip, CircularProgress, Snackbar, Alert, Divider,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
-import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 
 import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
 
-const CHANNEL_OPTIONS = ['online', 'showcase', 'show', 'wholesale'];
 const STATUS_OPTIONS = ['draft', 'scheduled', 'released', 'archived'];
 
 function toSlug(s) {
@@ -22,28 +20,15 @@ function toSlug(s) {
 export default function NewDropPage() {
   const router = useRouter();
   const [form, setForm] = useState({
-    name: '', slug: '', description: '', ownerType: 'efd', ownerId: '',
+    name: '', slug: '', description: '',
     channels: ['online'], status: 'draft', releaseAt: '',
   });
   const [slugDirty, setSlugDirty] = useState(false);
-  const [artisans, setArtisans] = useState([]);
-  const [artisansLoading, setArtisansLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'error' });
 
   const showSnack = (message, severity = 'error') => setSnack({ open: true, message, severity });
   const closeSnack = () => setSnack((s) => ({ ...s, open: false }));
-
-  useEffect(() => {
-    let cancelled = false;
-    setArtisansLoading(true);
-    fetch('/api/users?role=artisan')
-      .then((r) => r.json())
-      .then((data) => { if (!cancelled) setArtisans(Array.isArray(data) ? data : []); })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setArtisansLoading(false); });
-    return () => { cancelled = true; };
-  }, []);
 
   const set = (k) => (e) => {
     const v = e.target ? e.target.value : e;
@@ -59,28 +44,20 @@ export default function NewDropPage() {
     setForm((f) => ({ ...f, slug: e.target.value }));
   };
 
-  const toggleChannel = (ch) => {
-    setForm((f) => ({
-      ...f,
-      channels: f.channels.includes(ch) ? f.channels.filter((c) => c !== ch) : [...f.channels, ch],
-    }));
-  };
-
   const submit = async () => {
     if (!form.name.trim()) { showSnack('Name is required.'); return; }
     if (!form.slug.trim()) { showSnack('Slug is required.'); return; }
-    if (form.ownerType === 'artisan' && !form.ownerId) { showSnack('Select an artisan owner.'); return; }
     if (form.status === 'scheduled' && !form.releaseAt) { showSnack('Release date is required when status is scheduled.'); return; }
     setSaving(true);
     try {
-      const selectedArtisan = artisans.find((a) => (a.userID || a._id?.toString()) === form.ownerId);
       const body = {
         name: form.name.trim(),
         slug: form.slug.trim(),
         description: form.description.trim() || '',
-        ownerType: form.ownerType,
-        ownerId: form.ownerType === 'artisan' ? form.ownerId : null,
-        ownerInfo: selectedArtisan ? { name: [selectedArtisan.firstName, selectedArtisan.lastName].filter(Boolean).join(' '), email: selectedArtisan.email } : null,
+        // Admin-created drops are EFD (house); artisan credit is derived from the designs.
+        ownerType: 'efd',
+        ownerId: null,
+        ownerInfo: null,
         channels: form.channels,
         status: form.status,
         releaseAt: form.releaseAt || null,
@@ -146,26 +123,6 @@ export default function NewDropPage() {
             </Stack>
           </Paper>
 
-          <Paper sx={{ p: 3, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none', mb: 2 }}>
-            <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 2 }}>Channels</Typography>
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-              {CHANNEL_OPTIONS.map((ch) => (
-                <Chip
-                  key={ch}
-                  label={ch}
-                  onClick={() => toggleChannel(ch)}
-                  sx={{
-                    cursor: 'pointer',
-                    textTransform: 'capitalize',
-                    backgroundColor: form.channels.includes(ch) ? `${REPAIRS_UI.accent}33` : REPAIRS_UI.bgTertiary,
-                    color: form.channels.includes(ch) ? REPAIRS_UI.accent : REPAIRS_UI.textSecondary,
-                    border: `1px solid ${form.channels.includes(ch) ? REPAIRS_UI.accent : REPAIRS_UI.border}`,
-                    fontWeight: form.channels.includes(ch) ? 700 : 400,
-                  }}
-                />
-              ))}
-            </Stack>
-          </Paper>
         </Box>
 
         <Box sx={{ width: { xs: '100%', md: 280 } }}>
@@ -192,28 +149,14 @@ export default function NewDropPage() {
           </Paper>
 
           <Paper sx={{ p: 3, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none', mb: 2 }}>
-            <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 2 }}>Ownership</Typography>
-            <Stack spacing={2}>
-              <FormControl size="small" fullWidth>
-                <InputLabel>Owner type</InputLabel>
-                <Select value={form.ownerType} label="Owner type" onChange={set('ownerType')} MenuProps={repairsMenuProps}>
-                  <MenuItem value="efd">EFD (house)</MenuItem>
-                  <MenuItem value="artisan">Artisan</MenuItem>
-                </Select>
-              </FormControl>
-              {form.ownerType === 'artisan' && (
-                <Autocomplete
-                  size="small"
-                  options={artisans}
-                  loading={artisansLoading}
-                  getOptionLabel={(a) => [a.firstName, a.lastName].filter(Boolean).join(' ') || a.email || a.userID || ''}
-                  isOptionEqualToValue={(o, v) => (o.userID || o._id?.toString()) === (v.userID || v._id?.toString())}
-                  value={artisans.find((a) => (a.userID || a._id?.toString()) === form.ownerId) || null}
-                  onChange={(_, opt) => setForm((f) => ({ ...f, ownerId: opt ? (opt.userID || opt._id?.toString() || '') : '' }))}
-                  renderInput={(params) => <TextField {...params} label="Artisan" required />}
-                />
-              )}
-            </Stack>
+            <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 0.5 }}>Ownership &amp; credit</Typography>
+            <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: '0.78rem', mb: 2, lineHeight: 1.5 }}>
+              This will be an EFD drop. Artisan credit is derived automatically from each design’s primary artisan once you add designs.
+            </Typography>
+            <Chip
+              label="EFD · House"
+              sx={{ backgroundColor: `${REPAIRS_UI.accent}22`, color: REPAIRS_UI.accent, border: `1px solid ${REPAIRS_UI.accent}55`, fontWeight: 700 }}
+            />
           </Paper>
 
           <Divider sx={{ borderColor: REPAIRS_UI.border, mb: 2 }} />

@@ -4,8 +4,7 @@ import React, { useEffect, useState, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box, Typography, Button, Paper, Stack, Chip, CircularProgress, Snackbar, Alert,
-  Tab, Tabs, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  IconButton, Tooltip,
+  Tab, Tabs,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
@@ -36,8 +35,28 @@ const PIECE_STATUS_COLOR = {
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 
-function DesignsTab({ dropId, designs, loading, onNewDesign }) {
+function DesignsTab({ dropId, designs, loading, onError }) {
   const router = useRouter();
+  const [creating, setCreating] = useState(false);
+  const openDesign = (designID) => router.push(`/dashboard/products/drops/${dropId}/designs/${designID}`);
+
+  // "Add Design" creates a draft stub, then opens its detail page (edit-in-place there).
+  const createDesign = async () => {
+    setCreating(true);
+    try {
+      const res = await fetch('/api/production/designs', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Untitled design', dropId, status: 'draft' }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to create design');
+      const created = await res.json();
+      openDesign(created.designID);
+    } catch (e) {
+      onError?.(e.message);
+      setCreating(false);
+    }
+  };
+
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress sx={{ color: REPAIRS_UI.accent }} /></Box>;
 
   return (
@@ -49,11 +68,12 @@ function DesignsTab({ dropId, designs, loading, onNewDesign }) {
         <Button
           variant="contained"
           size="small"
-          startIcon={<AddIcon />}
-          onClick={() => router.push(`/dashboard/products/drops/${dropId}/designs/new`)}
+          startIcon={creating ? <CircularProgress size={14} sx={{ color: '#1A1A1A' }} /> : <AddIcon />}
+          disabled={creating}
+          onClick={createDesign}
           sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}
         >
-          Add Design
+          {creating ? 'Creating…' : 'Add Design'}
         </Button>
       </Stack>
       {designs.length === 0 ? (
@@ -62,62 +82,59 @@ function DesignsTab({ dropId, designs, loading, onNewDesign }) {
           <Typography sx={{ color: REPAIRS_UI.textSecondary }}>No designs yet. Add one to this drop.</Typography>
         </Paper>
       ) : (
-        <TableContainer component={Paper} sx={{ backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow sx={{ '& th': { color: REPAIRS_UI.textSecondary, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: `1px solid ${REPAIRS_UI.border}`, fontWeight: 600 } }}>
-                <TableCell>Name</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Edition</TableCell>
-                <TableCell>Variants</TableCell>
-                <TableCell>CAD</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {designs.map((d) => (
-                <TableRow
-                  key={d.designID}
-                  hover
-                  sx={{ cursor: 'pointer', '& td': { borderBottom: `1px solid ${REPAIRS_UI.border}`, color: REPAIRS_UI.textPrimary }, '&:hover': { backgroundColor: REPAIRS_UI.bgTertiary } }}
-                  onClick={() => router.push(`/dashboard/products/drops/${dropId}/designs/${d.designID}/edit`)}
-                >
-                  <TableCell>
-                    <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader, fontSize: '0.9rem' }}>{d.name || 'Untitled'}</Typography>
-                    {d.category && <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: '0.75rem' }}>{d.category}</Typography>}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      label={(d.status || 'draft').replace(/_/g, ' ')}
-                      sx={{ backgroundColor: `${STATUS_COLOR[d.status] || REPAIRS_UI.textMuted}22`, color: STATUS_COLOR[d.status] || REPAIRS_UI.textMuted, textTransform: 'capitalize', fontWeight: 700, fontSize: '0.72rem' }}
-                    />
-                  </TableCell>
-                  <TableCell sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.85rem' }}>
-                    {d.edition?.type?.replace(/_/g, ' ') || 'unlimited'}
-                  </TableCell>
-                  <TableCell sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.85rem' }}>
-                    {Array.isArray(d.variants) ? d.variants.length : 0}
-                  </TableCell>
-                  <TableCell>
-                    {d.cadRevisions?.length || d.stlVolumeCm3 ? (
-                      <CheckCircleIcon sx={{ fontSize: 16, color: '#66BB6A' }} />
-                    ) : (
-                      <RadioButtonUncheckedIcon sx={{ fontSize: 16, color: REPAIRS_UI.textMuted }} />
-                    )}
-                  </TableCell>
-                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                    <Tooltip title="Edit design">
-                      <IconButton size="small" onClick={() => router.push(`/dashboard/products/drops/${dropId}/designs/${d.designID}/edit`)} sx={{ color: REPAIRS_UI.textSecondary }}>
-                        <EditIcon sx={{ fontSize: 16 }} />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }, gap: 1.5 }}>
+          {designs.map((d) => {
+            const hasCad = Boolean(d.cadRevisions?.length || d.stlVolumeCm3);
+            return (
+              <Paper
+                key={d.designID}
+                onClick={() => openDesign(d.designID)}
+                sx={{
+                  display: 'flex', flexDirection: 'column',
+                  p: 2, cursor: 'pointer', backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none',
+                  border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none',
+                  transition: 'border-color 0.15s, background-color 0.15s',
+                  '&:hover': { borderColor: REPAIRS_UI.accent, backgroundColor: REPAIRS_UI.bgTertiary },
+                }}
+              >
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader, fontSize: '0.95rem', lineHeight: 1.3 }}>{d.name || 'Untitled'}</Typography>
+                    {d.category && <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: '0.75rem', textTransform: 'capitalize' }}>{d.category}</Typography>}
+                  </Box>
+                  <Chip
+                    size="small"
+                    label={(d.status || 'draft').replace(/_/g, ' ')}
+                    sx={{ backgroundColor: `${STATUS_COLOR[d.status] || REPAIRS_UI.textMuted}22`, color: STATUS_COLOR[d.status] || REPAIRS_UI.textMuted, textTransform: 'capitalize', fontWeight: 700, fontSize: '0.72rem', flexShrink: 0 }}
+                  />
+                </Stack>
+                <Stack direction="row" spacing={3} sx={{ mt: 1.75 }}>
+                  <Box>
+                    <Typography sx={{ fontSize: '0.62rem', color: REPAIRS_UI.textSecondary, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Edition</Typography>
+                    <Typography sx={{ fontSize: '0.85rem', color: REPAIRS_UI.textPrimary, fontWeight: 500, textTransform: 'capitalize' }}>{d.edition?.type?.replace(/_/g, ' ') || 'unlimited'}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography sx={{ fontSize: '0.62rem', color: REPAIRS_UI.textSecondary, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Variants</Typography>
+                    <Typography sx={{ fontSize: '0.85rem', color: REPAIRS_UI.textPrimary, fontWeight: 500 }}>{Array.isArray(d.variants) ? d.variants.length : 0}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography sx={{ fontSize: '0.62rem', color: REPAIRS_UI.textSecondary, textTransform: 'uppercase', letterSpacing: '0.06em' }}>CAD</Typography>
+                    <Box sx={{ height: 20, display: 'flex', alignItems: 'center' }}>
+                      {hasCad ? <CheckCircleIcon sx={{ fontSize: 16, color: '#66BB6A' }} /> : <RadioButtonUncheckedIcon sx={{ fontSize: 16, color: REPAIRS_UI.textMuted }} />}
+                    </Box>
+                  </Box>
+                </Stack>
+                <Stack direction="row" sx={{ mt: 2, pt: 1.75, borderTop: `1px solid ${REPAIRS_UI.border}` }}>
+                  <Button
+                    size="small" variant="outlined" startIcon={<EditIcon sx={{ fontSize: 15 }} />}
+                    onClick={(e) => { e.stopPropagation(); openDesign(d.designID); }}
+                    sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border, textTransform: 'none', flex: 1, '&:hover': { borderColor: REPAIRS_UI.accent } }}
+                  >Open design</Button>
+                </Stack>
+              </Paper>
+            );
+          })}
+        </Box>
       )}
     </Box>
   );
@@ -144,57 +161,52 @@ function PiecesTab({ pieces, loading, designs }) {
           </Typography>
         </Paper>
       ) : (
-        <TableContainer component={Paper} sx={{ backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow sx={{ '& th': { color: REPAIRS_UI.textSecondary, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: `1px solid ${REPAIRS_UI.border}`, fontWeight: 600 } }}>
-                <TableCell>SKU / ID</TableCell>
-                <TableCell>Design</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Fulfillment</TableCell>
-                <TableCell>Metal</TableCell>
-                <TableCell>Edition #</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {pieces.map((p) => {
-                const design = designMap[p.designID];
-                const isRTS = p.status === 'available' || p.status === 'completed' || p.status === 'qc';
-                return (
-                  <TableRow key={p.pieceID} sx={{ '& td': { borderBottom: `1px solid ${REPAIRS_UI.border}`, color: REPAIRS_UI.textPrimary } }}>
-                    <TableCell>
-                      <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader, fontSize: '0.85rem' }}>{p.sku || p.pieceID?.slice(0, 12)}</Typography>
-                    </TableCell>
-                    <TableCell sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.85rem' }}>
-                      {design?.name || p.designID?.slice(0, 8) || '—'}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        label={(p.status || 'planned').replace(/_/g, ' ')}
-                        sx={{ backgroundColor: `${PIECE_STATUS_COLOR[p.status] || REPAIRS_UI.textMuted}22`, color: PIECE_STATUS_COLOR[p.status] || REPAIRS_UI.textMuted, textTransform: 'capitalize', fontWeight: 700, fontSize: '0.72rem' }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        label={isRTS ? 'Ready to Ship' : 'Made to Order'}
-                        icon={isRTS ? <CheckCircleIcon sx={{ fontSize: 14 }} /> : undefined}
-                        sx={{ backgroundColor: isRTS ? '#66BB6A22' : `${REPAIRS_UI.accent}22`, color: isRTS ? '#66BB6A' : REPAIRS_UI.accent, fontWeight: 700, fontSize: '0.72rem' }}
-                      />
-                    </TableCell>
-                    <TableCell sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.85rem' }}>
-                      {[p.metalType, p.karat].filter(Boolean).join(' ') || '—'}
-                    </TableCell>
-                    <TableCell sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.85rem' }}>
-                      {p.editionNumber ?? '—'}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }, gap: 1.5 }}>
+          {pieces.map((p) => {
+            const design = designMap[p.designID];
+            const isRTS = p.status === 'available' || p.status === 'completed' || p.status === 'qc';
+            return (
+              <Paper
+                key={p.pieceID}
+                sx={{
+                  display: 'flex', flexDirection: 'column',
+                  p: 2, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none',
+                  border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none',
+                }}
+              >
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader, fontSize: '0.9rem' }} noWrap>{p.sku || p.pieceID?.slice(0, 12)}</Typography>
+                    <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: '0.75rem' }} noWrap>{design?.name || p.designID?.slice(0, 8) || '—'}</Typography>
+                  </Box>
+                  <Chip
+                    size="small"
+                    label={(p.status || 'planned').replace(/_/g, ' ')}
+                    sx={{ backgroundColor: `${PIECE_STATUS_COLOR[p.status] || REPAIRS_UI.textMuted}22`, color: PIECE_STATUS_COLOR[p.status] || REPAIRS_UI.textMuted, textTransform: 'capitalize', fontWeight: 700, fontSize: '0.72rem', flexShrink: 0 }}
+                  />
+                </Stack>
+                <Box sx={{ mt: 1.5 }}>
+                  <Chip
+                    size="small"
+                    label={isRTS ? 'Ready to Ship' : 'Made to Order'}
+                    icon={isRTS ? <CheckCircleIcon sx={{ fontSize: 14 }} /> : undefined}
+                    sx={{ backgroundColor: isRTS ? '#66BB6A22' : `${REPAIRS_UI.accent}22`, color: isRTS ? '#66BB6A' : REPAIRS_UI.accent, fontWeight: 700, fontSize: '0.72rem', '& .MuiChip-icon': { color: '#66BB6A' } }}
+                  />
+                </Box>
+                <Stack direction="row" spacing={3} sx={{ mt: 1.75 }}>
+                  <Box>
+                    <Typography sx={{ fontSize: '0.62rem', color: REPAIRS_UI.textSecondary, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Metal</Typography>
+                    <Typography sx={{ fontSize: '0.85rem', color: REPAIRS_UI.textPrimary, fontWeight: 500, textTransform: 'capitalize' }}>{[p.metalType, p.karat].filter(Boolean).join(' ') || '—'}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography sx={{ fontSize: '0.62rem', color: REPAIRS_UI.textSecondary, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Edition #</Typography>
+                    <Typography sx={{ fontSize: '0.85rem', color: REPAIRS_UI.textPrimary, fontWeight: 500 }}>{p.editionNumber ?? '—'}</Typography>
+                  </Box>
+                </Stack>
+              </Paper>
+            );
+          })}
+        </Box>
       )}
     </Box>
   );
@@ -327,12 +339,6 @@ export default function DropDetailPage({ params }) {
                   <Typography sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.9rem' }}>{fmtDate(drop.releaseAt)}</Typography>
                 </Box>
               )}
-              {Array.isArray(drop.channels) && drop.channels.length > 0 && (
-                <Box>
-                  <Typography sx={{ fontSize: '0.72rem', color: REPAIRS_UI.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Channels</Typography>
-                  <Typography sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.9rem' }}>{drop.channels.join(', ')}</Typography>
-                </Box>
-              )}
             </Stack>
           </Box>
           <Button
@@ -362,7 +368,7 @@ export default function DropDetailPage({ params }) {
       </Box>
 
       {tab === 0 && (
-        <DesignsTab dropId={dropId} designs={designs} loading={designsLoading} />
+        <DesignsTab dropId={dropId} designs={designs} loading={designsLoading} onError={showSnack} />
       )}
       {tab === 1 && (
         <PiecesTab pieces={pieces} loading={piecesLoading} designs={designs} />
