@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useMemo, use } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import {
   Box, Typography, Button, Chip, Stack, Paper, CircularProgress, IconButton,
@@ -20,6 +21,9 @@ import Tab from '@mui/material/Tab';
 import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
 import { getSTLVolume } from '@/lib/stlParser';
 import { KARAT_OPTIONS, finishUsesKarat, finishLabel, composeMetalKey } from '@/services/production/variantMetal';
+
+// Read-only WebGL product viewer (client-only — must be dynamically imported, ssr:false).
+const JewelryViewer = dynamic(() => import('@crittercodes/refrakt').then((m) => m.JewelryViewer), { ssr: false });
 
 const DESIGN_STATUSES = ['draft', 'cad_requested', 'cad_in_progress', 'cad_qc', 'ready', 'retired'];
 const PRODUCTION_METHODS = ['cad_cast', 'handmade'];
@@ -225,12 +229,14 @@ function CadUploadRow({ label, accept, hint, done, uploading, onPick }) {
   );
 }
 
-function CadTab({ design, dropId, designId, onReload, notify }) {
-  const router = useRouter();
+function CadTab({ design, designId, onReload, notify }) {
   const [busyStl, setBusyStl] = useState(false);
   const [busyGlb, setBusyGlb] = useState(false);
   const dm = design.designModel || {};
-  const hasMesh = dm.meshMap && Object.keys(dm.meshMap).length > 0;
+  const glbUrl = dm.glbUrl || null;
+  // Preview the look of the first configured variant (materials live on variants now);
+  // fall back to the raw GLB (REFRAKT auto-detects gems/metals from mesh names).
+  const previewConfig = (design.variants || []).find((v) => v.viewerConfig)?.viewerConfig || {};
 
   const uploadAsset = async (file) => {
     const fd = new FormData();
@@ -281,26 +287,28 @@ function CadTab({ design, dropId, designId, onReload, notify }) {
             <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>Calculated automatically from the uploaded STL — never typed.</Typography>
           </Box>
           <Box sx={{ borderTop: `1px solid ${REPAIRS_UI.border}`, my: 1.5 }} />
-          <CadUploadRow label="GLB" accept=".glb" hint="Needed for the 3D viewer & material assignment." done={!!dm.glbUrl} uploading={busyGlb} onPick={onGlb} />
+          <CadUploadRow label="GLB" accept=".glb" hint="The 3D mesh every variant renders — build each look on the Variants tab." done={!!glbUrl} uploading={busyGlb} onPick={onGlb} />
         </Paper>
       </Box>
 
-      <Box sx={{ width: { xs: '100%', md: 300 }, flexShrink: 0 }}>
+      <Box sx={{ width: { xs: '100%', md: 420 }, flexShrink: 0 }}>
         <Paper sx={panelSx}>
-          <PanelTitle>Materials (REFRAKT)</PanelTitle>
-          {!dm.glbUrl ? (
-            <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted }}>Upload a GLB to assign materials.</Typography>
+          <PanelTitle>3D preview</PanelTitle>
+          {!glbUrl ? (
+            <Box sx={{ height: 360, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: REPAIRS_UI.bgTertiary, border: `1px dashed ${REPAIRS_UI.border}`, borderRadius: 2 }}>
+              <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted, textAlign: 'center', px: 2 }}>
+                Upload a GLB to preview the model.<br />Drag to orbit · scroll to zoom.
+              </Typography>
+            </Box>
           ) : (
-            <Stack spacing={1.5} alignItems="flex-start">
-              <Chip size="small" label={hasMesh ? 'Materials assigned' : 'Not assigned yet'}
-                sx={{ backgroundColor: hasMesh ? '#66BB6A22' : REPAIRS_UI.bgTertiary, color: hasMesh ? '#66BB6A' : REPAIRS_UI.textSecondary, border: `1px solid ${hasMesh ? '#66BB6A' : REPAIRS_UI.border}`, fontWeight: 700 }} />
-              <Button variant="contained" startIcon={<AutoAwesomeIcon sx={{ fontSize: 16 }} />}
-                onClick={() => router.push(`/dashboard/products/drops/${dropId}/designs/${designId}/assign-materials`)}
-                sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, textTransform: 'none', '&:hover': { backgroundColor: '#C19B2E' } }}>
-                {hasMesh ? 'Edit materials' : 'Assign materials'}
-              </Button>
-              <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>Opens the REFRAKT studio to map metals &amp; gems onto the GLB.</Typography>
-            </Stack>
+            <>
+              <Box sx={{ height: 360, borderRadius: 2, overflow: 'hidden', border: `1px solid ${REPAIRS_UI.border}` }}>
+                <JewelryViewer glbUrl={glbUrl} config={previewConfig} style={{ width: '100%', height: '100%' }} />
+              </Box>
+              <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mt: 1 }}>
+                Drag to orbit · scroll to zoom. Showing {Object.keys(previewConfig).length ? 'a configured variant’s look' : 'the raw mesh'} — build each variant’s look on the Variants tab.
+              </Typography>
+            </>
           )}
         </Paper>
       </Box>
@@ -863,7 +871,7 @@ export default function DesignDetailPage({ params }) {
       </Tabs>
 
       {tab === 0 && <DetailsTab form={form} setField={setField} artisans={artisans} />}
-      {tab === 1 && <CadTab design={design} dropId={dropId} designId={designId} onReload={load} notify={notify} />}
+      {tab === 1 && <CadTab design={design} designId={designId} onReload={load} notify={notify} />}
       {tab === 2 && (
         <VariantsTab
           variants={form.variants}
