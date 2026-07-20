@@ -66,6 +66,25 @@ const STATUS_COLOR = {
   cad_qc: '#FFB74D', ready: '#66BB6A', retired: REPAIRS_UI.textMuted,
 };
 
+// How the artisan/admin applies the design fee to each piece's cost recipe.
+const DESIGN_FEE_MODES = [
+  { value: 'flat', label: 'Full fee per piece' },
+  { value: 'split', label: 'Split across the edition' },
+  { value: 'waived', label: 'Waived' },
+];
+// The per-piece design fee that cascades into shared costs. `split` divides the fee across
+// a limited edition's run; unlimited editions can only be flat (custom amount) or waived.
+function effectiveDesignFee(fee, artisanFee, editionType, editionLimit) {
+  const mode = fee?.mode || 'flat';
+  if (mode === 'waived') return 0;
+  const base = fee?.amount != null && fee.amount !== '' ? Number(fee.amount) : (Number(artisanFee) || 0);
+  if (mode === 'split' && editionType === 'limited') {
+    const n = Number(editionLimit) || 1;
+    return n > 0 ? base / n : base;
+  }
+  return base;
+}
+
 const panelSx = { p: { xs: 2, md: 2.5 }, mb: 2, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' };
 const cap = (s) => String(s || '').replace(/_/g, ' ');
 const money = (x) => `$${(Number(x) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -98,6 +117,12 @@ function toForm(d) {
       markup: d.pricing?.markup != null && d.pricing.markup !== '' ? String(d.pricing.markup) : '',
       laborTasks: (d.pricing?.laborTasks || []).map((t) => ({ description: t.description || '', quantity: t.quantity != null ? String(t.quantity) : '1', hours: t.hours != null ? String(t.hours) : '', discipline: t.discipline || 'bench_jewelry', cost: t.cost != null ? String(t.cost) : '' })),
       shipping: (d.pricing?.shipping || []).map((s) => ({ description: s.description || '', cost: s.cost != null ? String(s.cost) : '' })),
+      // Design-fee policy: how the artisan's fee is applied per piece (flat/split/waived)
+      // + an optional custom amount (blank = the artisan's profile fee).
+      designFee: {
+        mode: d.pricing?.designFee?.mode || 'flat',
+        amount: d.pricing?.designFee?.amount != null && d.pricing.designFee.amount !== '' ? String(d.pricing.designFee.amount) : '',
+      },
     },
     variants: (Array.isArray(d.variants) ? d.variants : []).map((v) => {
       const finish = v.finish || 'gold';
@@ -592,7 +617,7 @@ function LaborTaskEditor({ rows, onChange }) {
   );
 }
 
-function PricingTab({ pricing, variants, stlVolumeCm3, defaultMarkup, designFee, artisanName, onChange, onVariantChange }) {
+function PricingTab({ pricing, variants, stlVolumeCm3, defaultMarkup, artisanFee, artisanName, editionType, editionLimit, onChange, onVariantChange }) {
   const [metalCosts, setMetalCosts] = useState({});
   const [loadingCosts, setLoadingCosts] = useState(false);
   const hasVolume = Number(stlVolumeCm3) > 0;
@@ -620,7 +645,11 @@ function PricingTab({ pricing, variants, stlVolumeCm3, defaultMarkup, designFee,
   }, [hasVolume, metalsKey, stlVolumeCm3]);
 
   const set = (k, v) => onChange({ ...pricing, [k]: v });
-  const feeAmt = Number(designFee) || 0;
+  const fee = pricing.designFee || { mode: 'flat', amount: '' };
+  const setFee = (patch) => set('designFee', { ...fee, ...patch });
+  const isLimited = editionType === 'limited';
+  const feeBase = fee.amount !== '' && fee.amount != null ? Number(fee.amount) : (Number(artisanFee) || 0);
+  const feeAmt = effectiveDesignFee(fee, artisanFee, editionType, editionLimit);
   const sharedCosts = sumLines(pricing.laborTasks) + sumLines(pricing.shipping) + feeAmt;
   const baseMarkup = Number(pricing.markup) > 0 ? Number(pricing.markup) : defaultMarkup;
 
@@ -640,11 +669,29 @@ function PricingTab({ pricing, variants, stlVolumeCm3, defaultMarkup, designFee,
           <PriceLineEditor rows={pricing.shipping} onChange={(rows) => set('shipping', rows)} addLabel="Add shipping" emptyText="No shipping costs." />
           <Box sx={{ borderTop: `1px solid ${REPAIRS_UI.border}`, my: 2 }} />
           <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textSecondary, fontSize: '0.8rem', mb: 0.5 }}>Design fee</Typography>
+          <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 1 }}>
+            {artisanName ? `Base fee from ${artisanName}’s profile — blank amount uses it.` : 'Set a primary artisan (Details tab) to pull the base fee.'}
+          </Typography>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 1 }}>
+            <FormControl size="small" sx={{ flex: 1 }}>
+              <InputLabel>Apply as</InputLabel>
+              <Select value={fee.mode || 'flat'} label="Apply as" onChange={(e) => setFee({ mode: e.target.value })} MenuProps={repairsMenuProps}>
+                {DESIGN_FEE_MODES.filter((m) => m.value !== 'split' || isLimited).map((m) => <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>)}
+              </Select>
+            </FormControl>
+            <TextField size="small" label="Fee amount" type="number" value={fee.amount ?? ''} onChange={(e) => setFee({ amount: e.target.value })}
+              placeholder={String(Number(artisanFee) || 0)} disabled={fee.mode === 'waived'}
+              InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} sx={{ width: { xs: '100%', sm: 160 } }} />
+          </Stack>
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ py: 0.5 }}>
-            <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
-              {artisanName ? `From ${artisanName}’s profile` : 'Set a primary artisan (Details tab) to pull the design fee.'}
+            <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
+              {fee.mode === 'waived'
+                ? 'Waived — no design fee in the price.'
+                : fee.mode === 'split' && isLimited
+                  ? `${money(feeBase)} ÷ ${Number(editionLimit) || 1} editions`
+                  : 'Flat, per piece'}
             </Typography>
-            <Typography sx={{ fontWeight: 600, color: feeAmt > 0 ? REPAIRS_UI.textPrimary : REPAIRS_UI.textMuted }}>{money(feeAmt)}</Typography>
+            <Typography sx={{ fontWeight: 600, color: feeAmt > 0 ? REPAIRS_UI.textPrimary : REPAIRS_UI.textMuted }}>{money(feeAmt)}<Typography component="span" variant="caption" sx={{ color: REPAIRS_UI.textMuted }}> / piece</Typography></Typography>
           </Stack>
           <Box sx={{ borderTop: `1px solid ${REPAIRS_UI.border}`, my: 2 }} />
           <Stack direction="row" justifyContent="space-between" alignItems="center">
@@ -802,6 +849,7 @@ export default function DesignDetailPage({ params }) {
           markup: form.pricing.markup ? Number(form.pricing.markup) : null,
           laborTasks: form.pricing.laborTasks.map((t) => ({ description: t.description || '', quantity: Number(t.quantity) || 1, hours: Number(t.hours) || 0, discipline: t.discipline || 'bench_jewelry', cost: Number(t.cost) || 0 })),
           shipping: form.pricing.shipping.map((s) => ({ description: s.description || '', cost: Number(s.cost) || 0 })),
+          designFee: { mode: form.pricing.designFee?.mode || 'flat', amount: form.pricing.designFee?.amount ? Number(form.pricing.designFee.amount) : null },
         },
         variants: form.variants.map((v) => ({
           variantId: v.variantId,
@@ -908,8 +956,10 @@ export default function DesignDetailPage({ params }) {
           variants={form.variants}
           stlVolumeCm3={design.stlVolumeCm3}
           defaultMarkup={defaultMarkup}
-          designFee={Number(artisans.find((a) => artisanId(a) === form.primaryArtisanId)?.artisanApplication?.customDesignFee) || 0}
+          artisanFee={Number(artisans.find((a) => artisanId(a) === form.primaryArtisanId)?.artisanApplication?.customDesignFee) || 0}
           artisanName={form.primaryArtisanId ? artisanName(form.primaryArtisanId) : ''}
+          editionType={form.editionType}
+          editionLimit={form.editionLimit}
           onChange={setPricing}
           onVariantChange={updateVariant}
         />
