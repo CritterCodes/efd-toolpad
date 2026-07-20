@@ -71,6 +71,11 @@ export async function ensureCustomPiece(customID, opts = {}) {
   });
   const piece = await PiecesModel.create({
     designID: design.designID,
+    // Custom orders are bespoke one-offs with no catalog variant; a Piece still
+    // requires a variantId + resolvedConfiguration (pieces model / contract §7), so
+    // synthesize a stable per-design default from the order's spec.
+    variantId: `${design.designID}::custom`,
+    resolvedConfiguration: { metalType: order.metalType ?? null, karat: order.karat ?? null, size: order.size ?? null },
     metalType: order.metalType ?? null,
     karat: order.karat ?? null,
     customerID: order.clientID ?? null,

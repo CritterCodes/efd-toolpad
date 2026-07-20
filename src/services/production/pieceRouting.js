@@ -16,6 +16,20 @@ import { DISCIPLINE } from '@/services/workOrders/disciplines';
 
 const DEFAULT_ROUTING = [{ seq: 1, discipline: DISCIPLINE.BENCH_JEWELRY }];
 
+/**
+ * A Piece must reference a variantId (pieces model / catalog contract §7). Prefer an
+ * explicit variant, else the design's active/first variant. One-off pieces (custom
+ * orders, handmade) have no catalog variant, so fall back to a stable synthetic id
+ * derived from the design — this keeps the piece valid without inventing a SKU.
+ */
+function resolveVariantId(design, opts = {}) {
+  return opts.variantId
+    || design?.variants?.find((v) => v.active)?.variantId
+    || design?.variants?.[0]?.variantId
+    || `${design?.designID || opts.designID || 'piece'}::default`;
+}
+const configFromOpts = (opts = {}) => opts.resolvedConfiguration ?? { metalType: opts.metalType ?? null, karat: opts.karat ?? null };
+
 /** Spawn one work order per routing step for a piece; returns the new WO ids. */
 async function spawnPieceWorkOrders(piece, routing, { label = 'Piece', metalType = null, karat = null, createdBy = null } = {}) {
   const steps = (Array.isArray(routing) && routing.length) ? routing : DEFAULT_ROUTING;
@@ -46,6 +60,8 @@ export async function createPieceFromDesign(designID, opts = {}) {
 
   const piece = await PiecesModel.create({
     designID,
+    variantId: resolveVariantId(design, opts),
+    resolvedConfiguration: configFromOpts(opts),
     gemstoneId: opts.gemstoneId ?? design.gemstoneId ?? null,   // carry the originating gemstone (M1-T2)
     dropId: opts.dropId ?? design.dropId ?? null,
     metalType: opts.metalType ?? null,
@@ -82,6 +98,8 @@ export async function createDirectPiece(opts = {}) {
 
   const piece = await PiecesModel.create({
     designID: opts.designID ?? null,
+    variantId: resolveVariantId(design, opts),
+    resolvedConfiguration: configFromOpts(opts),
     gemstoneId: opts.gemstoneId ?? design?.gemstoneId ?? null,
     dropId: opts.dropId ?? design?.dropId ?? null,
     metalType: opts.metalType ?? null,

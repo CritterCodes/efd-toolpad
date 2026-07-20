@@ -50,6 +50,14 @@ describe('createDirectPiece (M1-T4 — handmade / no design, no estimate)', () =
     expect(PiecesModel.create).toHaveBeenCalledWith(expect.objectContaining({ designID: 'd1', gemstoneId: 'gem-5' }));
     expect(WorkOrdersModel.create).toHaveBeenCalledTimes(1); // empty design routing → default bench step
   });
+
+  it('always gives the piece a variantId + resolvedConfiguration (pieces contract §7)', async () => {
+    await createDirectPiece({ metalType: 'gold', karat: '14k' });
+    expect(PiecesModel.create).toHaveBeenCalledWith(expect.objectContaining({
+      variantId: expect.any(String),
+      resolvedConfiguration: expect.objectContaining({ metalType: 'gold', karat: '14k' }),
+    }));
+  });
 });
 
 describe('createPieceFromDesign (unchanged production path)', () => {
@@ -75,5 +83,20 @@ describe('createPieceFromDesign (unchanged production path)', () => {
     await createPieceFromDesign('d1', { metalType: 'gold' });
     expect(WorkOrdersModel.create).toHaveBeenCalledTimes(3);
     expect(PiecesModel.create).toHaveBeenCalledWith(expect.objectContaining({ designID: 'd1', gemstoneId: 'gem-1' }));
+  });
+
+  it('uses the design’s active variant for the piece variantId', async () => {
+    DesignsModel.findById.mockResolvedValue({ designID: 'd1', name: 'Ring', variants: [{ variantId: 'v-active', active: true }], routing: [] });
+    await createPieceFromDesign('d1', {});
+    expect(PiecesModel.create).toHaveBeenCalledWith(expect.objectContaining({ variantId: 'v-active' }));
+  });
+
+  it('falls back to a synthetic variantId for a variant-less (custom/handmade) design', async () => {
+    DesignsModel.findById.mockResolvedValue({ designID: 'd2', name: 'Custom', variants: [], routing: [] });
+    await createPieceFromDesign('d2', { metalType: 'gold' });
+    expect(PiecesModel.create).toHaveBeenCalledWith(expect.objectContaining({
+      variantId: 'd2::default',
+      resolvedConfiguration: expect.objectContaining({ metalType: 'gold' }),
+    }));
   });
 });
