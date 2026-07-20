@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   Box, Typography, Button, Chip, Stack, Paper, CircularProgress, IconButton,
   TextField, FormControl, InputLabel, Select, MenuItem, Autocomplete, Snackbar, Alert, InputAdornment,
+  Switch, FormControlLabel,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DesignServicesIcon from '@mui/icons-material/DesignServices';
@@ -13,7 +14,6 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import ViewInArIcon from '@mui/icons-material/ViewInAr';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
@@ -57,7 +57,7 @@ function newVariantForm() {
     // composed from both for the pricing estimate engine.
     finish: 'gold', karat: '14', metalKey: composeMetalKey('gold', '14'), viewerConfig: null,
     ringSize: '', sizingMin: '', sizingMax: '',
-    retailPrice: '', leadTimeDays: '', active: true, customizable: false,
+    retailPrice: '', leadTimeDays: '', active: true,
   };
 }
 
@@ -89,6 +89,9 @@ function toForm(d) {
     editionLimit: d.edition?.limit != null ? String(d.edition.limit) : '',
     primaryArtisanId: d.primaryArtisanId || '',
     tags: Array.isArray(d.tags) ? d.tags : [],
+    // Customization is a DESIGN-level capability (shoppers open REFRAKT and customize the
+    // design's model), not a per-variant flag.
+    customizable: Boolean(d.customizable),
     // Pricing recipe — SHARED across variants; cascades. Retail is computed live from
     // market metal rates, never stored, so we only persist these inputs.
     pricing: {
@@ -114,7 +117,6 @@ function toForm(d) {
       retailPrice: v.pricing?.retailPrice != null ? String(v.pricing.retailPrice) : '',
       leadTimeDays: v.leadTimeDays != null ? String(v.leadTimeDays) : '',
       active: v.active !== false,
-      customizable: Boolean(v.viewer?.customizable),
       // Per-variant pricing controls (the variant "owns" its stones + optional markup).
       stonesCost: v.stonesCost != null ? String(v.stonesCost) : '',
       markupOverride: v.markupOverride != null && v.markupOverride !== '' ? String(v.markupOverride) : '',
@@ -229,7 +231,7 @@ function CadUploadRow({ label, accept, hint, done, uploading, onPick }) {
   );
 }
 
-function CadTab({ design, designId, onReload, notify, onCreateFirstVariant }) {
+function CadTab({ design, designId, onReload, notify, onCreateFirstVariant, form, setField }) {
   const [busyStl, setBusyStl] = useState(false);
   const [busyGlb, setBusyGlb] = useState(false);
   const dm = design.designModel || {};
@@ -325,6 +327,21 @@ function CadTab({ design, designId, onReload, notify, onCreateFirstVariant }) {
             </Box>
           )}
         </Paper>
+
+        {/* Customization is a DESIGN-level capability (not per-variant): can shoppers open
+            REFRAKT and customize this design's model? Runs on the GLB above. */}
+        <Paper sx={panelSx}>
+          <PanelTitle>Customization</PanelTitle>
+          <FormControlLabel
+            control={<Switch checked={!!form?.customizable} disabled={!glbUrl} onChange={(e) => setField('customizable', e.target.checked)} sx={{ '& .Mui-checked': { color: REPAIRS_UI.accent }, '& .Mui-checked + .MuiSwitch-track': { backgroundColor: REPAIRS_UI.accent } }} />}
+            label={<Typography sx={{ color: REPAIRS_UI.textPrimary, fontWeight: 600, fontSize: '0.9rem' }}>Allow customization in REFRAKT</Typography>}
+          />
+          <Typography variant="caption" sx={{ color: glbUrl ? REPAIRS_UI.textMuted : '#FFB74D', display: 'block', mt: 0.5 }}>
+            {glbUrl
+              ? 'Shoppers open REFRAKT and customize this design (finish, gems) starting from its default look — every customized order is made-to-order.'
+              : 'Upload a GLB to enable the customizer.'}
+          </Typography>
+        </Paper>
       </Box>
     </Stack>
   );
@@ -397,22 +414,6 @@ function VariantRow({ index, variant, isRing, hasGlb, onUpdate, onRemove, onConf
             <TextField label="Size range max" value={variant.sizingMax} onChange={(e) => set('sizingMax', e.target.value)} size="small" sx={{ flex: 1 }} helperText="resizable high" />
           </Stack>
         )}
-        <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
-          <Chip
-            size="small"
-            icon={<AutoAwesomeIcon sx={{ fontSize: 14 }} />}
-            label={variant.customizable ? 'REFRAKT customization: ON' : 'REFRAKT customization: OFF'}
-            onClick={() => set('customizable', !variant.customizable)}
-            sx={{ cursor: 'pointer', backgroundColor: variant.customizable ? `${REPAIRS_UI.accent}22` : REPAIRS_UI.bgCard, color: variant.customizable ? REPAIRS_UI.accent : REPAIRS_UI.textSecondary, border: `1px solid ${variant.customizable ? REPAIRS_UI.accent : REPAIRS_UI.border}`, fontWeight: 700, '& .MuiChip-icon': { color: variant.customizable ? REPAIRS_UI.accent : REPAIRS_UI.textSecondary } }}
-          />
-          {variant.customizable && (
-            <Typography variant="caption" sx={{ color: hasGlb ? REPAIRS_UI.textMuted : '#FFB74D' }}>
-              {hasGlb
-                ? 'Shoppers customize via the design’s REFRAKT model — every customized order is made-to-order.'
-                : 'Upload a GLB on the CAD & 3D tab to power the customizer.'}
-            </Typography>
-          )}
-        </Stack>
       </Stack>
     </Paper>
   );
@@ -795,6 +796,7 @@ export default function DesignDetailPage({ params }) {
         status: form.status,
         tags: form.tags,
         primaryArtisanId: form.primaryArtisanId || null,
+        customizable: !!form.customizable,
         edition: { type: form.editionType, ...(form.editionType === 'limited' ? { limit: Number(form.editionLimit) || 1 } : {}) },
         pricing: {
           markup: form.pricing.markup ? Number(form.pricing.markup) : null,
@@ -815,7 +817,6 @@ export default function DesignDetailPage({ params }) {
             : {}),
           pricing: { retailPrice: v.retailPrice ? Number(v.retailPrice) : null },
           leadTimeDays: v.leadTimeDays ? Number(v.leadTimeDays) : null,
-          viewer: { customizable: !!v.customizable },
           stonesCost: v.stonesCost ? Number(v.stonesCost) : 0,
           markupOverride: v.markupOverride ? Number(v.markupOverride) : null,
         })),
@@ -851,7 +852,7 @@ export default function DesignDetailPage({ params }) {
               <Typography sx={{ color: REPAIRS_UI.textPrimary, fontWeight: 600, fontSize: '0.9rem' }}>Unsaved changes</Typography>
               <Stack direction="row" spacing={1}>
                 <Button size="small" onClick={discard} disabled={saving} sx={{ color: REPAIRS_UI.textSecondary, textTransform: 'none' }}>Discard</Button>
-                <Button size="small" variant="contained" onClick={save} disabled={saving || !form.name.trim() || !form.primaryArtisanId}
+                <Button size="small" variant="contained" onClick={() => save()} disabled={saving || !form.name.trim() || !form.primaryArtisanId}
                   startIcon={saving ? <CircularProgress size={14} sx={{ color: '#1A1A1A' }} /> : null}
                   sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, textTransform: 'none', '&:hover': { backgroundColor: '#C19B2E' } }}>
                   {saving ? 'Saving…' : 'Save'}
@@ -889,7 +890,7 @@ export default function DesignDetailPage({ params }) {
       </Tabs>
 
       {tab === 0 && <DetailsTab form={form} setField={setField} artisans={artisans} />}
-      {tab === 1 && <CadTab design={design} designId={designId} onReload={load} notify={notify} onCreateFirstVariant={configureFirstVariant} />}
+      {tab === 1 && <CadTab design={design} designId={designId} onReload={load} notify={notify} onCreateFirstVariant={configureFirstVariant} form={form} setField={setField} />}
       {tab === 2 && (
         <VariantsTab
           variants={form.variants}
