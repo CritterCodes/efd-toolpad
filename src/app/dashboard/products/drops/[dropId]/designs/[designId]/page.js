@@ -90,8 +90,11 @@ const panelSx = { p: { xs: 2, md: 2.5 }, mb: 2, backgroundColor: REPAIRS_UI.bgPa
 const cap = (s) => String(s || '').replace(/_/g, ' ');
 const money = (x) => `$${(Number(x) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const sumLines = (arr) => (arr || []).reduce((s, r) => s + (Number(r.cost) || 0) * (Number(r.quantity) || 1), 0);
-// Per-variant stone cost = Σ(unit cost × qty). Accents are priced per-stone × quantity.
-const sumStones = (arr) => (arr || []).reduce((s, r) => s + (Number(r.unitCost) || 0) * (Number(r.qty) || 1), 0);
+// A stone row's unit cost. SKU-linked rows read the CURRENT catalog (Stuller wholesale,
+// kept fresh by the cron) so pricing stays live like metal; manual rows use their own cost.
+const stoneUnit = (r, stoneCosts = {}) => (r?.stoneSkuId && stoneCosts[r.stoneSkuId] != null ? Number(stoneCosts[r.stoneSkuId]) : Number(r?.unitCost) || 0);
+// Per-variant stone cost = Σ(unit × qty). Accents are priced per-stone × quantity.
+const sumStones = (arr, stoneCosts = {}) => (arr || []).reduce((s, r) => s + stoneUnit(r, stoneCosts) * (Number(r.qty) || 1), 0);
 const GEM_ROLES = [{ value: 'center', label: 'Center' }, { value: 'accent', label: 'Accent' }];
 const artisanLabel = (a) => [a.firstName, a.lastName].filter(Boolean).join(' ') || a.email || a.userID || '';
 const artisanId = (a) => a.userID || a._id?.toString();
@@ -386,7 +389,7 @@ function CadTab({ design, designId, onReload, notify, onCreateFirstVariant, form
   );
 }
 
-function VariantRow({ index, variant, isRing, hasGlb, onUpdate, onRemove, onConfigure }) {
+function VariantRow({ index, variant, isRing, hasGlb, stoneCosts, onUpdate, onRemove, onConfigure }) {
   const set = (k, v) => onUpdate(index, { [k]: v });
   const configured = !!variant.viewerConfig;
   const usesKarat = finishUsesKarat(variant.finish);
@@ -453,19 +456,19 @@ function VariantRow({ index, variant, isRing, hasGlb, onUpdate, onRemove, onConf
             <TextField label="Size range max" value={variant.sizingMax} onChange={(e) => set('sizingMax', e.target.value)} size="small" sx={{ flex: 1 }} helperText="resizable high" />
           </Stack>
         )}
-        <VariantStones gemstones={variant.gemstones} viewerConfig={variant.viewerConfig} onChange={(rows) => set('gemstones', rows)} />
+        <VariantStones gemstones={variant.gemstones} viewerConfig={variant.viewerConfig} stoneCosts={stoneCosts} onChange={(rows) => set('gemstones', rows)} />
       </Stack>
     </Paper>
   );
 }
 
 // Summary card in the variants grid — click to open the variant's full editor.
-function VariantCard({ index, variant, isRing, onOpen }) {
+function VariantCard({ index, variant, isRing, stoneCosts, onOpen }) {
   const configured = !!variant.viewerConfig;
   const metal = configured
     ? [finishUsesKarat(variant.finish) ? `${variant.karat}K` : null, finishLabel(variant.finish)].filter(Boolean).join(' ')
     : 'Look not configured';
-  const stones = sumStones(variant.gemstones);
+  const stones = sumStones(variant.gemstones, stoneCosts);
   const stoneCount = (variant.gemstones || []).reduce((n, g) => n + (Number(g.qty) || 1), 0);
   const title = variant.label?.trim() || variant.sku?.trim() || `Variant ${index + 1}`;
   return (
@@ -488,7 +491,7 @@ function VariantCard({ index, variant, isRing, onOpen }) {
   );
 }
 
-function VariantsTab({ variants, category, hasGlb, onAdd, onUpdate, onRemove, onConfigure }) {
+function VariantsTab({ variants, category, hasGlb, stoneCosts, onAdd, onUpdate, onRemove, onConfigure }) {
   const isRing = category === 'ring';
   const [selected, setSelected] = useState(null);
   // Fall back to the grid if the open variant disappears (removed) or index drifts.
@@ -499,7 +502,7 @@ function VariantsTab({ variants, category, hasGlb, onAdd, onUpdate, onRemove, on
     return (
       <Box>
         <Button startIcon={<ArrowBackIcon />} onClick={() => setSelected(null)} sx={{ color: REPAIRS_UI.textSecondary, mb: 1.5, textTransform: 'none' }}>All variants</Button>
-        <VariantRow index={selected} variant={variants[selected]} isRing={isRing} hasGlb={hasGlb} onUpdate={onUpdate}
+        <VariantRow index={selected} variant={variants[selected]} isRing={isRing} hasGlb={hasGlb} stoneCosts={stoneCosts} onUpdate={onUpdate}
           onRemove={(i) => { onRemove(i); setSelected(null); }} onConfigure={onConfigure} />
       </Box>
     );
@@ -532,7 +535,7 @@ function VariantsTab({ variants, category, hasGlb, onAdd, onUpdate, onRemove, on
       ) : (
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 1.5 }}>
           {variants.map((v, i) => (
-            <VariantCard key={v.variantId || i} index={i} variant={v} isRing={isRing} onOpen={() => setSelected(i)} />
+            <VariantCard key={v.variantId || i} index={i} variant={v} isRing={isRing} stoneCosts={stoneCosts} onOpen={() => setSelected(i)} />
           ))}
         </Box>
       )}
@@ -565,8 +568,8 @@ function PriceLineEditor({ rows, onChange, withQty, addLabel, emptyText }) {
   );
 }
 
-function VariantPriceCard({ variant, mounting, sharedCosts, baseMarkup, hasVolume, loading, onChange }) {
-  const stones = sumStones(variant.gemstones);
+function VariantPriceCard({ variant, mounting, sharedCosts, baseMarkup, hasVolume, loading, stoneCosts, onChange }) {
+  const stones = sumStones(variant.gemstones, stoneCosts);
   const stoneCount = (variant.gemstones || []).reduce((n, g) => n + (Number(g.qty) || 1), 0);
   const markup = Number(variant.markupOverride) > 0 ? Number(variant.markupOverride) : baseMarkup;
   const cog = mounting + stones + sharedCosts;
@@ -715,9 +718,8 @@ function StonePicker({ value, onPick }) {
 
 /** Per-variant stones: center + accents, seeded from the variant's REFRAKT gem slots and
  *  linked to the gemstone catalog. Cost = unit × qty (accents priced per-stone). */
-function VariantStones({ gemstones, viewerConfig, onChange }) {
+function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, onChange }) {
   const rows = gemstones || [];
-  const [refreshing, setRefreshing] = useState(false);
   const set = (i, patch) => onChange(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   const remove = (i) => onChange(rows.filter((_, idx) => idx !== i));
   const add = () => onChange([...rows, { slot: '', role: 'accent', qty: '1', stoneSkuId: '', stullerSku: '', label: '', unitCost: '', source: '' }]);
@@ -739,38 +741,14 @@ function VariantStones({ gemstones, viewerConfig, onChange }) {
     slot: g.slot, role: /accent|melee|pave|pavé|side/i.test(g.slot) ? 'accent' : (g.qty > 1 ? 'accent' : 'center'),
     qty: String(g.qty), stoneSkuId: '', stullerSku: '', label: '', unitCost: '', source: '', preset: g.preset,
   })));
-  const subtotal = sumStones(rows);
-  const hasStuller = rows.some((r) => r.stullerSku);
-  // Re-pull the current Stuller wholesale for every linked row (also refreshes the catalog).
-  const refreshPrices = async () => {
-    setRefreshing(true);
-    try {
-      const next = [...rows];
-      for (let i = 0; i < next.length; i += 1) {
-        if (!next[i].stullerSku) continue;
-        try {
-          const res = await fetch('/api/products/stones/from-stuller', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ itemNumber: next[i].stullerSku }) });
-          const d = await res.json().catch(() => ({}));
-          if (res.ok && d.stone && d.stone.cost != null) next[i] = { ...next[i], unitCost: d.stone.cost };
-        } catch { /* skip this row */ }
-      }
-      onChange(next);
-    } finally { setRefreshing(false); }
-  };
+  const subtotal = sumStones(rows, stoneCosts);
   return (
     <Box sx={{ p: 1.5, backgroundColor: REPAIRS_UI.bgCard, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 1.5 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
         <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textSecondary, fontSize: '0.8rem' }}>Gemstones</Typography>
-        <Stack direction="row" spacing={1} alignItems="center">
-          {hasStuller && (
-            <Button size="small" onClick={refreshPrices} disabled={refreshing} sx={{ color: REPAIRS_UI.textSecondary, textTransform: 'none' }}>
-              {refreshing ? 'Refreshing…' : 'Refresh Stuller prices'}
-            </Button>
-          )}
-          {gemGroups.length > 0 && rows.length === 0 && (
-            <Button size="small" onClick={seed} sx={{ color: REPAIRS_UI.accent, textTransform: 'none' }}>Seed from REFRAKT ({gemGroups.length})</Button>
-          )}
-        </Stack>
+        {gemGroups.length > 0 && rows.length === 0 && (
+          <Button size="small" onClick={seed} sx={{ color: REPAIRS_UI.accent, textTransform: 'none' }}>Seed from REFRAKT ({gemGroups.length})</Button>
+        )}
       </Stack>
       {rows.length === 0
         ? <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted, py: 0.5 }}>{gemGroups.length ? 'Seed from REFRAKT or add stones manually.' : 'No stones. Add the stones this variant is set with.'}</Typography>
@@ -786,7 +764,12 @@ function VariantStones({ gemstones, viewerConfig, onChange }) {
                   {(r.slot || r.preset) && <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{[r.slot, r.preset].filter(Boolean).join(' · ')}</Typography>}
                 </Box>
                 <TextField size="small" label="Qty" type="number" value={r.qty ?? '1'} onChange={(e) => set(i, { qty: e.target.value })} sx={{ width: 60 }} inputProps={{ min: 1 }} />
-                <TextField size="small" label="Unit $" type="number" value={r.unitCost ?? ''} onChange={(e) => set(i, { unitCost: e.target.value })} sx={{ width: 96 }} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} />
+                {r.stoneSkuId ? (
+                  <TextField size="small" label="Unit $ (live)" value={money(stoneUnit(r, stoneCosts))} sx={{ width: 110 }}
+                    InputProps={{ readOnly: true }} helperText="from Stuller" FormHelperTextProps={{ sx: { mx: 0, fontSize: '0.58rem' } }} />
+                ) : (
+                  <TextField size="small" label="Unit $" type="number" value={r.unitCost ?? ''} onChange={(e) => set(i, { unitCost: e.target.value })} sx={{ width: 96 }} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} />
+                )}
                 <IconButton size="small" onClick={() => remove(i)} sx={{ color: REPAIRS_UI.textMuted, mt: 0.5 }}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton>
               </Stack>
             ))}
@@ -837,7 +820,7 @@ function LaborTaskEditor({ rows, onChange }) {
   );
 }
 
-function PricingTab({ pricing, variants, stlVolumeCm3, defaultMarkup, artisanFee, artisanName, editionType, editionLimit, onChange, onVariantChange }) {
+function PricingTab({ pricing, variants, stlVolumeCm3, defaultMarkup, artisanFee, artisanName, editionType, editionLimit, stoneCosts, onChange, onVariantChange }) {
   const [metalCosts, setMetalCosts] = useState({});
   const [loadingCosts, setLoadingCosts] = useState(false);
   const hasVolume = Number(stlVolumeCm3) > 0;
@@ -944,6 +927,7 @@ function PricingTab({ pricing, variants, stlVolumeCm3, defaultMarkup, artisanFee
               baseMarkup={baseMarkup}
               hasVolume={hasVolume}
               loading={loadingCosts}
+              stoneCosts={stoneCosts}
               onChange={(patch) => onVariantChange(i, patch)}
             />
           ))}
@@ -965,6 +949,7 @@ export default function DesignDetailPage({ params }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [defaultMarkup, setDefaultMarkup] = useState(2.5);
+  const [stoneCosts, setStoneCosts] = useState({}); // { stoneSkuId: current wholesale cost }
   const [tab, setTab] = useState(0);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
   const notify = (message, severity = 'success') => setSnack({ open: true, message, severity });
@@ -989,6 +974,12 @@ export default function DesignDetailPage({ params }) {
     fetch('/api/admin/settings').then((r) => (r.ok ? r.json() : null)).then((s) => {
       const m = Number(s?.financial?.cogMarkup ?? s?.data?.financial?.cogMarkup);
       if (m > 0) setDefaultMarkup(m);
+    }).catch(() => {});
+    // Current wholesale cost per stone SKU (kept fresh by the cron) — read live into pricing.
+    fetch('/api/products/stones').then((r) => (r.ok ? r.json() : null)).then((d) => {
+      const map = {};
+      for (const s of (d?.stones || [])) if (s.stoneSkuId) map[s.stoneSkuId] = Number(s.cost) || 0;
+      setStoneCosts(map);
     }).catch(() => {});
   }, [load]);
 
@@ -1092,11 +1083,12 @@ export default function DesignDetailPage({ params }) {
             stoneSkuId: g.stoneSkuId || null,
             stullerSku: g.stullerSku || null,
             label: g.label || '',
-            unitCost: Number(g.unitCost) || 0,
+            // Store the resolved unit (SKU-linked → current catalog wholesale; else manual).
+            unitCost: stoneUnit(g, stoneCosts),
             source: g.source || null,
           })),
           // Snapshot the stone total (Σ unit × qty) so external readers don't recompute.
-          stonesCost: sumStones(v.gemstones),
+          stonesCost: sumStones(v.gemstones, stoneCosts),
           markupOverride: v.markupOverride ? Number(v.markupOverride) : null,
         })),
       };
@@ -1175,6 +1167,7 @@ export default function DesignDetailPage({ params }) {
           variants={form.variants}
           category={form.category}
           hasGlb={!!design.designModel?.glbUrl}
+          stoneCosts={stoneCosts}
           onAdd={addAndConfigureVariant}
           onUpdate={updateVariant}
           onRemove={removeVariant}
@@ -1191,6 +1184,7 @@ export default function DesignDetailPage({ params }) {
           artisanName={form.primaryArtisanId ? artisanName(form.primaryArtisanId) : ''}
           editionType={form.editionType}
           editionLimit={form.editionLimit}
+          stoneCosts={stoneCosts}
           onChange={setPricing}
           onVariantChange={updateVariant}
         />
