@@ -22,10 +22,14 @@ const steps = [
         return `would ensure drop/design indexes (drops has ${dropIdx}, designs has ${designIdx})`;
       }
 
-      await drops.createIndex({ dropID: 1 }, { unique: true });
+      // NOTE: original S3 created these on `dropID` (uppercase) — a field the models
+      // never write (DropsModel/DesignsModel use `dropId`). That drift is fixed here
+      // and remediated on already-migrated DBs by pp3-drops-index-fix.mjs.
+      await drops.createIndex({ dropId: 1 }, { unique: true });
+      await drops.createIndex({ slug: 1 }, { unique: true });
       await drops.createIndex({ status: 1 });
       await designs.createIndex({ designID: 1 }, { unique: true });
-      await designs.createIndex({ dropID: 1 });
+      await designs.createIndex({ dropId: 1 });
       await designs.createIndex({ status: 1 });
       return 'ensured drop/design indexes';
     },
