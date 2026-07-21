@@ -15,7 +15,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ViewInArIcon from '@mui/icons-material/ViewInAr';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import EditIcon from '@mui/icons-material/Edit';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 
@@ -774,118 +774,166 @@ function StonePicker({ value, onPick }) {
   );
 }
 
-// Measured spec (from REFRAKT geometry) that drives auto-match + Stuller search for a stone row.
-const measuredOf = (r) => ({ gemType: r.preset || '', cut: r.cut || '', creation: r.creation || 'natural', carat: r.caratEach || '', lengthMm: r.lengthMm || '', widthMm: r.widthMm || '' });
 const CONF_COLOR = { exact: '#66BB6A', close: '#FFA726', loose: REPAIRS_UI.textMuted };
+// Trade shapes (REFRAKT's cut vocabulary) offered when entering a stone by hand.
+const SHAPE_OPTS = ['round', 'oval', 'princess', 'cushion', 'radiant', 'emerald', 'asscher', 'baguette', 'pear', 'marquise', 'heart', 'trillion'];
+// Diamond-equivalent carat from a footprint (matches REFRAKT: 0.00364·L·W²) — for manual entry.
+const caratFromMm = (l, w) => { const L = Number(l); const W = Number(w); return (L > 0 && W > 0) ? Math.round(0.00364 * L * W * W * 1000) / 1000 : null; };
+// One-line attribute summary for the (uncluttered) inline stone row; details live in the modal.
+const stoneSummary = (r) => {
+  const size = stoneSizeLabel({ l: Number(r.lengthMm) || null, w: Number(r.widthMm) || null }) || r.sizeMm || (r.caratEach ? `${r.caratEach}ct` : '');
+  return [cap(r.role), r.creation, size, r.cut, r.preset].filter(Boolean).join(' · ');
+};
 
-/** Match a measured stone to a reusable SKU: the curated catalog (instant) + live Stuller loose
- *  stones (sized to fit). Catalog picks link directly; Stuller picks are saved to the catalog first. */
-function StoneMatchDialog({ open, measured, onClose, onPick }) {
-  const [loading, setLoading] = useState(false);
+/** Full stone-line editor (modal). Holds all the per-line detail that used to clutter the row —
+ *  role, origin, and the geometry REFRAKT stamps for a CAD design (type/cut/mm), entered by HAND
+ *  for a handmade design (no GLB) — plus the catalog + live Stuller match driven by those fields.
+ *  Edits a local copy; commits on Done. */
+function StoneEditorModal({ open, row, onClose, onSave }) {
+  const [r, setR] = useState(row || {});
   const [data, setData] = useState({ catalog: [], stuller: [], stullerError: null });
-  const [lab, setLab] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState('');
-  const isDiamond = !measured?.gemType || String(measured.gemType).toLowerCase() === 'diamond';
-  // Default the creation toggle from the row; the toggle previews the other option.
-  useEffect(() => { setLab(measured?.creation === 'lab'); }, [measured?.creation, open]);
-  const creation = lab ? 'lab' : 'natural';
+  // Seed the working copy when the modal OPENS (not on every row identity change, which would
+  // discard in-progress edits).
+  useEffect(() => { if (open) { setR(row || {}); setErr(''); } }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  const f = (patch) => setR((x) => ({ ...x, ...patch }));
+  const creation = r.creation || 'natural';
+  const linked = Boolean(r.stoneSkuId);
+  const compCarat = caratFromMm(r.lengthMm, r.widthMm);
 
-  const run = useCallback(async () => {
-    if (!open || !measured) return;
-    setLoading(true); setErr('');
+  // Find catalog + Stuller matches from the current attributes (debounced as the user types mm).
+  const find = useCallback(async () => {
+    if (!open) return;
+    if (!r.preset && !r.lengthMm && !r.caratEach) { setData({ catalog: [], stuller: [], stullerError: null }); return; }
+    setLoading(true);
     try {
-      const r = await fetch('/api/products/stones/match', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...measured, creation }) });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(d.error || 'Match failed');
+      const res = await fetch('/api/products/stones/match', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gemType: r.preset, cut: r.cut, creation, carat: r.caratEach, lengthMm: r.lengthMm, widthMm: r.widthMm }) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || 'Match failed');
       setData({ catalog: d.catalog || [], stuller: d.stuller || [], stullerError: d.stullerError });
-    } catch (e) { setErr(e.message); } finally { setLoading(false); }
-  }, [open, measured, creation]);
-  useEffect(() => { run(); }, [run]);
+    } catch (e) { setData({ catalog: [], stuller: [], stullerError: e.message }); } finally { setLoading(false); }
+  }, [open, r.preset, r.cut, creation, r.caratEach, r.lengthMm, r.widthMm]);
+  useEffect(() => { const t = setTimeout(find, 300); return () => clearTimeout(t); }, [find]);
 
-  const link = (patch) => { onPick({ creation, ...patch }); onClose(); };
-  const pickCatalog = (s) => link({ stoneSkuId: s.stoneSkuId || '', stullerSku: s.stullerSku || '', label: s.label || '', unitCost: s.cost != null ? s.cost : '', caratEach: s.caratEach != null ? s.caratEach : (measured.carat ?? ''), creation: s.naturalSynthetic || creation, source: 'catalog' });
-  const cid = (c) => c.itemNumber || c.serialNumber || 'x';
-  const pickStuller = async (c) => {
-    setBusy(cid(c)); setErr('');
+  const applyCatalog = (s) => f({ stoneSkuId: s.stoneSkuId || '', stullerSku: s.stullerSku || '', label: s.label || '', unitCost: s.cost != null ? String(s.cost) : '', creation: s.naturalSynthetic || creation, caratEach: r.caratEach || (s.caratEach != null ? String(s.caratEach) : ''), source: 'catalog' });
+  const applyStuller = async (c) => {
+    const id = c.itemNumber || c.serialNumber || 'x';
+    setBusy(id); setErr('');
     try {
       // Melee = a real /v2/products SKU → persist (+ cron-refresh) via from-stuller. Serialized
       // certified stones = point-in-time capture via from-gem.
       const req = c.kind === 'melee'
         ? { url: '/api/products/stones/from-stuller', payload: { itemNumber: c.itemNumber } }
         : { url: '/api/products/stones/from-gem', payload: { candidate: c } };
-      const r = await fetch(req.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req.payload) });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(d.error || 'Save failed');
+      const res = await fetch(req.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req.payload) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || 'Save failed');
       const s = d.stone || {};
-      link({ stoneSkuId: s.stoneSkuId || '', stullerSku: s.stullerSku || '', label: s.label || '', unitCost: s.cost != null ? s.cost : '', caratEach: s.caratEach != null ? s.caratEach : (measured.carat ?? ''), creation: c.creation || s.naturalSynthetic || creation, source: 'stuller' });
+      f({ stoneSkuId: s.stoneSkuId || '', stullerSku: s.stullerSku || '', label: s.label || '', unitCost: s.cost != null ? String(s.cost) : '', creation: c.creation || s.naturalSynthetic || creation, caratEach: r.caratEach || (s.caratEach != null ? String(s.caratEach) : ''), source: 'stuller' });
     } catch (e) { setErr(e.message); } finally { setBusy(''); }
   };
+  const unlink = () => f({ stoneSkuId: '', stullerSku: '', source: '' });
 
-  const sizeStr = measured ? (stoneSizeLabel({ l: Number(measured.lengthMm) || null, w: Number(measured.widthMm) || null }) || (measured.carat ? `${measured.carat}ct` : '')) : '';
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}` } }}>
-      <DialogTitle sx={{ color: REPAIRS_UI.textHeader, pb: 0.5 }}>
-        Match stone
-        <Typography variant="caption" sx={{ display: 'block', color: REPAIRS_UI.textMuted }}>
-          {[measured?.gemType, measured?.cut, sizeStr].filter(Boolean).join(' · ') || 'measured spec unknown'}
-        </Typography>
-      </DialogTitle>
+      <DialogTitle sx={{ color: REPAIRS_UI.textHeader, pb: 0.5 }}>Stone details</DialogTitle>
       <DialogContent sx={{ pt: 1 }}>
-        {isDiamond && (
-          <FormControlLabel sx={{ mb: 1 }} control={<Switch size="small" checked={lab} onChange={(e) => setLab(e.target.checked)} />}
-            label={<Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>Lab-grown</Typography>} />
-        )}
-        {err && <Alert severity="error" sx={{ mb: 1 }}>{err}</Alert>}
-        {loading ? (
-          <Stack alignItems="center" sx={{ py: 3 }}><CircularProgress size={22} sx={{ color: REPAIRS_UI.accent }} /></Stack>
-        ) : (
-          <Stack spacing={1.5}>
+        <Stack spacing={1.5}>
+          {/* Attributes — for CAD these come prefilled from REFRAKT; for handmade, entered here. */}
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <TextField select size="small" label="Role" value={r.role || 'accent'} onChange={(e) => f({ role: e.target.value })} sx={{ width: 110 }}>
+              {GEM_ROLES.map((g) => <MenuItem key={g.value} value={g.value}>{g.label}</MenuItem>)}
+            </TextField>
+            <TextField select size="small" label="Origin" value={creation} onChange={(e) => f({ creation: e.target.value })} sx={{ width: 110 }}>
+              {CREATION_OPTS.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+            </TextField>
+            <TextField size="small" label="Qty" type="number" value={r.qty ?? '1'} onChange={(e) => f({ qty: e.target.value })} sx={{ width: 72 }} inputProps={{ min: 1 }} />
+          </Stack>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <TextField size="small" label="Gem type" value={r.preset || ''} onChange={(e) => f({ preset: e.target.value })} placeholder="diamond, amethyst…" sx={{ width: 150 }} />
+            <TextField select size="small" label="Cut / shape" value={r.cut || ''} onChange={(e) => f({ cut: e.target.value })} sx={{ width: 140 }}>
+              <MenuItem value="">—</MenuItem>
+              {SHAPE_OPTS.map((s) => <MenuItem key={s} value={s}>{cap(s)}</MenuItem>)}
+            </TextField>
+          </Stack>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="flex-start">
+            <TextField size="small" label="Length (mm)" type="number" value={r.lengthMm ?? ''} onChange={(e) => f({ lengthMm: e.target.value })} sx={{ width: 110 }} inputProps={{ step: 0.05, min: 0 }} />
+            <TextField size="small" label="Width (mm)" type="number" value={r.widthMm ?? ''} onChange={(e) => f({ widthMm: e.target.value })} sx={{ width: 110 }} inputProps={{ step: 0.05, min: 0 }} />
             <Box>
-              <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary, fontWeight: 600 }}>From your catalog</Typography>
-              {data.catalog.length === 0
-                ? <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted, py: 0.5 }}>No catalog match yet.</Typography>
-                : <Stack spacing={0.5} sx={{ mt: 0.5 }}>
-                    {data.catalog.map((c) => (
-                      <Stack key={c.stone.stoneSkuId} direction="row" alignItems="center" spacing={1} onClick={() => pickCatalog(c.stone)}
-                        sx={{ p: 0.75, borderRadius: 1, cursor: 'pointer', border: `1px solid ${REPAIRS_UI.border}`, '&:hover': { borderColor: REPAIRS_UI.accent } }}>
-                        <Chip size="small" label={c.confidence} sx={{ height: 18, bgcolor: 'transparent', color: CONF_COLOR[c.confidence], border: `1px solid ${CONF_COLOR[c.confidence]}` }} />
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography variant="body2" sx={{ color: REPAIRS_UI.textHeader, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.stone.label}</Typography>
-                          <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{[c.stone.dimensions, c.stone.shape, c.stone.stullerSku].filter(Boolean).join(' · ')}</Typography>
-                        </Box>
-                        <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>{money(c.stone.cost)}</Typography>
-                      </Stack>
-                    ))}
-                  </Stack>}
-            </Box>
-            <Divider sx={{ borderColor: REPAIRS_UI.border }} />
-            <Box>
-              <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary, fontWeight: 600 }}>From Stuller (live, by mm)</Typography>
-              {data.stuller.length === 0
-                ? <Typography variant="body2" sx={{ color: data.stullerError ? '#EF5350' : REPAIRS_UI.textMuted, py: 0.5 }}>{data.stullerError || 'No matching stones on Stuller for this size.'}</Typography>
-                : <Stack spacing={0.5} sx={{ mt: 0.5 }}>
-                    {data.stullerError && <Typography variant="caption" sx={{ color: '#EF5350' }}>{data.stullerError}</Typography>}
-                    {data.stuller.map((c) => { const id = c.itemNumber || c.serialNumber; return (
-                      <Stack key={id} direction="row" alignItems="center" spacing={1} onClick={() => !busy && pickStuller(c)}
-                        sx={{ p: 0.75, borderRadius: 1, cursor: 'pointer', border: `1px solid ${REPAIRS_UI.border}`, opacity: busy && busy !== id ? 0.5 : 1, '&:hover': { borderColor: REPAIRS_UI.accent } }}>
-                        <Chip size="small" label={c.kind === 'melee' ? 'melee' : 'certified'} sx={{ height: 18, bgcolor: 'transparent', color: c.kind === 'melee' ? '#66BB6A' : '#42A5F5', border: `1px solid ${c.kind === 'melee' ? '#66BB6A' : '#42A5F5'}` }} />
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography variant="body2" sx={{ color: REPAIRS_UI.textHeader, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</Typography>
-                          <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
-                            {[c.lengthMm && c.widthMm ? stoneSizeLabel({ l: c.lengthMm, w: c.widthMm }) : null, c.color, c.clarity, id, c.deviationMm != null ? `±${c.deviationMm}mm` : null].filter(Boolean).join(' · ')}
-                          </Typography>
-                        </Box>
-                        {busy === id ? <CircularProgress size={16} sx={{ color: REPAIRS_UI.accent }} /> : <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>{money(c.price)}{c.kind === 'melee' ? '/ea' : ''}</Typography>}
-                      </Stack>
-                    ); })}
-                  </Stack>}
+              <TextField size="small" label="Carat (ct ea)" type="number" value={r.caratEach ?? ''} onChange={(e) => f({ caratEach: e.target.value })} sx={{ width: 120 }} inputProps={{ step: 0.01, min: 0 }} />
+              {compCarat != null && String(r.caratEach || '') !== String(compCarat) && (
+                <Button size="small" onClick={() => f({ caratEach: String(compCarat) })} sx={{ color: REPAIRS_UI.accent, textTransform: 'none', fontSize: '0.62rem', p: 0, minWidth: 0, mt: 0.25 }}>≈ {compCarat}ct from mm — use</Button>
+              )}
             </Box>
           </Stack>
-        )}
+
+          {linked ? (
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ p: 0.75, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 1 }}>
+              <Chip size="small" label={r.source === 'stuller' ? 'Stuller' : 'catalog'} variant="outlined" sx={{ height: 18 }} />
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="body2" noWrap sx={{ color: REPAIRS_UI.textHeader }}>{r.label}</Typography>
+                <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{r.stullerSku}</Typography>
+              </Box>
+              <Button size="small" onClick={unlink} sx={{ color: REPAIRS_UI.textMuted, textTransform: 'none' }}>Unlink</Button>
+            </Stack>
+          ) : (
+            <TextField size="small" label="Unit cost (manual, $/stone)" type="number" value={r.unitCost ?? ''} onChange={(e) => f({ unitCost: e.target.value })} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} sx={{ maxWidth: 240 }} />
+          )}
+
+          <Divider sx={{ borderColor: REPAIRS_UI.border }} />
+          <StonePicker value={r.label} onPick={(p) => f(p)} />
+          {err && <Alert severity="error">{err}</Alert>}
+
+          {loading ? (
+            <Stack alignItems="center" sx={{ py: 2 }}><CircularProgress size={20} sx={{ color: REPAIRS_UI.accent }} /></Stack>
+          ) : (
+            <Stack spacing={1.5}>
+              <Box>
+                <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary, fontWeight: 600 }}>From your catalog</Typography>
+                {data.catalog.length === 0
+                  ? <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted, py: 0.5 }}>No catalog match yet.</Typography>
+                  : <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                      {data.catalog.map((c) => (
+                        <Stack key={c.stone.stoneSkuId} direction="row" alignItems="center" spacing={1} onClick={() => applyCatalog(c.stone)}
+                          sx={{ p: 0.75, borderRadius: 1, cursor: 'pointer', border: `1px solid ${REPAIRS_UI.border}`, '&:hover': { borderColor: REPAIRS_UI.accent } }}>
+                          <Chip size="small" label={c.confidence} sx={{ height: 18, bgcolor: 'transparent', color: CONF_COLOR[c.confidence], border: `1px solid ${CONF_COLOR[c.confidence]}` }} />
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography variant="body2" noWrap sx={{ color: REPAIRS_UI.textHeader }}>{c.stone.label}</Typography>
+                            <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{[c.stone.dimensions, c.stone.shape, c.stone.stullerSku].filter(Boolean).join(' · ')}</Typography>
+                          </Box>
+                          <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>{money(c.stone.cost)}</Typography>
+                        </Stack>
+                      ))}
+                    </Stack>}
+              </Box>
+              <Box>
+                <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary, fontWeight: 600 }}>From Stuller (live, by mm)</Typography>
+                {data.stuller.length === 0
+                  ? <Typography variant="body2" sx={{ color: data.stullerError ? '#EF5350' : REPAIRS_UI.textMuted, py: 0.5 }}>{data.stullerError || 'No matching stones on Stuller for this size.'}</Typography>
+                  : <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                      {data.stuller.map((c) => { const id = c.itemNumber || c.serialNumber; return (
+                        <Stack key={id} direction="row" alignItems="center" spacing={1} onClick={() => !busy && applyStuller(c)}
+                          sx={{ p: 0.75, borderRadius: 1, cursor: 'pointer', border: `1px solid ${REPAIRS_UI.border}`, opacity: busy && busy !== id ? 0.5 : 1, '&:hover': { borderColor: REPAIRS_UI.accent } }}>
+                          <Chip size="small" label={c.kind === 'melee' ? 'melee' : 'certified'} sx={{ height: 18, bgcolor: 'transparent', color: c.kind === 'melee' ? '#66BB6A' : '#42A5F5', border: `1px solid ${c.kind === 'melee' ? '#66BB6A' : '#42A5F5'}` }} />
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography variant="body2" noWrap sx={{ color: REPAIRS_UI.textHeader }}>{c.title}</Typography>
+                            <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{[c.lengthMm && c.widthMm ? stoneSizeLabel({ l: c.lengthMm, w: c.widthMm }) : null, c.color, c.clarity, id, c.deviationMm != null ? `±${c.deviationMm}mm` : null].filter(Boolean).join(' · ')}</Typography>
+                          </Box>
+                          {busy === id ? <CircularProgress size={16} sx={{ color: REPAIRS_UI.accent }} /> : <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>{money(c.price)}{c.kind === 'melee' ? '/ea' : ''}</Typography>}
+                        </Stack>
+                      ); })}
+                    </Stack>}
+              </Box>
+            </Stack>
+          )}
+        </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} sx={{ color: REPAIRS_UI.textMuted, textTransform: 'none' }}>Close</Button>
+        <Button onClick={onClose} sx={{ color: REPAIRS_UI.textMuted, textTransform: 'none' }}>Cancel</Button>
+        <Button onClick={() => { onSave(r); onClose(); }} variant="contained" sx={{ bgcolor: REPAIRS_UI.accent, color: '#1a1205', textTransform: 'none', '&:hover': { bgcolor: REPAIRS_UI.accent } }}>Done</Button>
       </DialogActions>
     </Dialog>
   );
@@ -895,11 +943,14 @@ function StoneMatchDialog({ open, measured, onClose, onPick }) {
  *  linked to the gemstone catalog. Cost = unit × qty (accents priced per-stone). */
 function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, onChange }) {
   const rows = gemstones || [];
-  const [matchIdx, setMatchIdx] = useState(null);
+  const [editIdx, setEditIdx] = useState(null);
   const [seeding, setSeeding] = useState(false);
   const set = (i, patch) => onChange(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  const saveRow = (i, updated) => onChange(rows.map((r, idx) => (idx === i ? updated : r)));
   const remove = (i) => onChange(rows.filter((_, idx) => idx !== i));
-  const add = () => onChange([...rows, { slot: '', role: 'accent', qty: '1', stoneSkuId: '', stullerSku: '', label: '', unitCost: '', caratEach: '', sizeMm: '', cut: '', creation: 'natural', preset: '', lengthMm: '', widthMm: '', source: '' }]);
+  // Add opens the editor immediately — for handmade (no REFRAKT geometry) that's where type/cut/mm
+  // get entered by hand so the catalog + Stuller match can run.
+  const add = () => { onChange([...rows, { slot: '', role: 'accent', qty: '1', stoneSkuId: '', stullerSku: '', label: '', unitCost: '', caratEach: '', sizeMm: '', cut: '', creation: 'natural', preset: '', lengthMm: '', widthMm: '', source: '' }]); setEditIdx(rows.length); };
   const gemSlots = (viewerConfig?.meshMap || []).filter((s) => s.type === 'gem');
   // REFRAKT (1.11+) stamps each gem slot with its measured size (lengthMm/widthMm/carat) + cut.
   // Group by gem type + cut + size so mixed accent sizes/shapes split into sourceable rows.
@@ -955,45 +1006,35 @@ function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, onChange }) {
       {rows.length === 0
         ? <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted, py: 0.5 }}>{gemGroups.length ? 'Seed from REFRAKT or add stones manually.' : 'No stones. Add the stones this variant is set with.'}</Typography>
         : (
-          <Stack spacing={1}>
-            {rows.map((r, i) => (
-              <Stack key={i} direction="row" spacing={1} alignItems="flex-start" flexWrap="wrap" useFlexGap>
-                <TextField select size="small" label="Role" value={r.role || 'accent'} onChange={(e) => set(i, { role: e.target.value })} sx={{ width: 92 }}>
-                  {GEM_ROLES.map((g) => <MenuItem key={g.value} value={g.value}>{g.label}</MenuItem>)}
-                </TextField>
-                <TextField select size="small" label="Origin" value={r.creation || 'natural'} onChange={(e) => set(i, { creation: e.target.value })} sx={{ width: 96 }}>
-                  {CREATION_OPTS.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
-                </TextField>
-                <Box sx={{ flex: 1, minWidth: 200 }}>
-                  <StonePicker value={r.label} onPick={(p) => set(i, p)} />
-                  {(() => { const b = caratBand(r.caratEach); return (r.sizeMm || r.cut || r.preset || b || r.source) ? (
-                    <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
-                      <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{[r.sizeMm, r.cut, r.preset, b ? `→ ${b.label}` : null].filter(Boolean).join(' · ')}</Typography>
-                      {r.source && <Chip size="small" label={r.source === 'stuller' ? 'Stuller' : 'catalog'} sx={{ height: 16, fontSize: '0.6rem' }} variant="outlined" />}
+          <Stack spacing={0.75}>
+            {rows.map((r, i) => {
+              const band = caratBand(r.caratEach);
+              const summary = [stoneSummary(r), band ? band.label : null].filter(Boolean).join(' · ');
+              return (
+                <Stack key={i} direction="row" spacing={1} alignItems="center" sx={{ p: 0.75, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 1 }}>
+                  <Box sx={{ flex: 1, minWidth: 0 }} onClick={() => setEditIdx(i)} style={{ cursor: 'pointer' }}>
+                    <Stack direction="row" spacing={0.75} alignItems="center">
+                      <Typography variant="body2" noWrap sx={{ color: r.label ? REPAIRS_UI.textHeader : REPAIRS_UI.textMuted }}>{r.label || 'No stone linked'}</Typography>
+                      {r.source && <Chip size="small" label={r.source === 'stuller' ? 'Stuller' : 'catalog'} variant="outlined" sx={{ height: 15, fontSize: '0.58rem' }} />}
                     </Stack>
-                  ) : null; })()}
-                </Box>
-                <TextField size="small" label="Qty" type="number" value={r.qty ?? '1'} onChange={(e) => set(i, { qty: e.target.value })} sx={{ width: 56 }} inputProps={{ min: 1 }} />
-                <TextField size="small" label="ct ea" type="number" value={r.caratEach ?? ''} onChange={(e) => set(i, { caratEach: e.target.value })} sx={{ width: 64 }} inputProps={{ step: 0.01, min: 0 }} />
-                {r.stoneSkuId ? (
-                  <TextField size="small" label="Unit $ (live)" value={money(stoneUnit(r, stoneCosts))} sx={{ width: 110 }}
-                    InputProps={{ readOnly: true }} helperText="from Stuller" FormHelperTextProps={{ sx: { mx: 0, fontSize: '0.58rem' } }} />
-                ) : (
-                  <TextField size="small" label="Unit $" type="number" value={r.unitCost ?? ''} onChange={(e) => set(i, { unitCost: e.target.value })} sx={{ width: 96 }} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} />
-                )}
-                <Tooltip title="Match to a stone (catalog + Stuller)">
-                  <IconButton size="small" onClick={() => setMatchIdx(i)} sx={{ color: REPAIRS_UI.accent, mt: 0.5 }}><AutoAwesomeIcon sx={{ fontSize: 16 }} /></IconButton>
-                </Tooltip>
-                <IconButton size="small" onClick={() => remove(i)} sx={{ color: REPAIRS_UI.textMuted, mt: 0.5 }}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton>
-              </Stack>
-            ))}
+                    <Typography variant="caption" noWrap sx={{ color: REPAIRS_UI.textMuted, display: 'block' }}>{summary || 'Add details →'}</Typography>
+                  </Box>
+                  <TextField size="small" label="Qty" type="number" value={r.qty ?? '1'} onChange={(e) => set(i, { qty: e.target.value })} sx={{ width: 62 }} inputProps={{ min: 1 }} />
+                  <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, width: 76, textAlign: 'right' }}>{money(stoneUnit(r, stoneCosts) * (Number(r.qty) || 1))}</Typography>
+                  <Tooltip title="Edit stone details + match">
+                    <IconButton size="small" onClick={() => setEditIdx(i)} sx={{ color: REPAIRS_UI.accent }}><EditIcon sx={{ fontSize: 16 }} /></IconButton>
+                  </Tooltip>
+                  <IconButton size="small" onClick={() => remove(i)} sx={{ color: REPAIRS_UI.textMuted }}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton>
+                </Stack>
+              );
+            })}
           </Stack>
         )}
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
         <Button size="small" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={add} sx={{ color: REPAIRS_UI.accent }}>Add stone</Button>
         <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>Stones subtotal: <b style={{ color: REPAIRS_UI.textHeader }}>{money(subtotal)}</b></Typography>
       </Stack>
-      <StoneMatchDialog open={matchIdx != null} measured={matchIdx != null ? measuredOf(rows[matchIdx]) : null} onClose={() => setMatchIdx(null)} onPick={(p) => set(matchIdx, p)} />
+      <StoneEditorModal open={editIdx != null} row={editIdx != null ? rows[editIdx] : null} onClose={() => setEditIdx(null)} onSave={(u) => saveRow(editIdx, u)} />
     </Box>
   );
 }
