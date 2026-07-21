@@ -27,9 +27,15 @@ function unitToMm(longestModelDim) {
   return 1;                             // already millimeters
 }
 
-function caratFromDiameterMm(mm) {
-  const snapped = Math.round(mm / 0.25) * 0.25; // 0.25mm trade increment → clean size buckets
-  return Math.round((snapped / 6.5) ** 3 * 1000) / 1000;
+// Carat from the face-up footprint (length × width), shape-agnostic. The two largest bbox
+// dims ARE the shape (a baguette's box is long+thin, a princess's is square), so no need to
+// know the cut. Depth is estimated from the width (~0.62×W, the usual proportion) rather than
+// the raw mesh z, which is noisy (bezel seats, orientation). Factor calibrated so a 6.5mm
+// round ≈ 1.00ct; matches the trade's L×W×depth×factor rule. Dims snapped to 0.25mm.
+function caratFromFootprintMm(lengthMm, widthMm) {
+  const l = Math.round(lengthMm / 0.25) * 0.25;
+  const w = Math.round(widthMm / 0.25) * 0.25;
+  return Math.round(0.00364 * l * w * w * 1000) / 1000; // 0.00364 = 0.62 depth-ratio × 0.00587
 }
 
 function Probe({ glbUrl, meshMap, onMeasure }) {
@@ -53,9 +59,9 @@ function Probe({ glbUrl, meshMap, onMeasure }) {
         const slot = gemSlots.find((s) => meshMatchesSlot(o.name, s));
         if (!slot) return;
         box.setFromObject(o); box.getSize(sz);
-        // Median bbox dimension = girdle spread (round: diameter; fancy: width).
-        const dims = [sz.x, sz.y, sz.z].sort((a, b) => a - b);
-        carats[slot.nameContains] = caratFromDiameterMm(dims[1] * toMm);
+        // Two largest bbox dims (mm) = the face-up footprint: length ≥ width.
+        const dims = [sz.x, sz.y, sz.z].map((v) => v * toMm).sort((a, b) => b - a);
+        carats[slot.nameContains] = caratFromFootprintMm(dims[0], dims[1]);
       });
       onMeasure({ carats, unitToMm: toMm });
     } catch (e) {
