@@ -132,6 +132,12 @@ export default class DesignsModel {
     return this.findById(designID);
   }
 
+  static async deleteById(designID) {
+    const col = await this.collection();
+    const res = await col.deleteOne({ designID });
+    return res.deletedCount > 0;
+  }
+
   static ASSET_FIELDS = ['referenceImages', 'sketches'];
 
   /** Append an uploaded asset URL to one of the design's asset arrays. */
