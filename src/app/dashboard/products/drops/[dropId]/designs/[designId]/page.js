@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   Box, Typography, Button, Chip, Stack, Paper, CircularProgress, IconButton,
   TextField, FormControl, InputLabel, Select, MenuItem, Autocomplete, Snackbar, Alert, InputAdornment,
-  Switch, FormControlLabel,
+  Switch, FormControlLabel, Dialog, DialogTitle, DialogContent, DialogActions, Divider, Tooltip,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DesignServicesIcon from '@mui/icons-material/DesignServices';
@@ -15,6 +15,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ViewInArIcon from '@mui/icons-material/ViewInAr';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 
@@ -24,7 +25,6 @@ import { KARAT_OPTIONS, finishUsesKarat, finishLabel, composeMetalKey } from '@/
 
 // Read-only WebGL product viewer (client-only — must be dynamically imported, ssr:false).
 const JewelryViewer = dynamic(() => import('@crittercodes/refrakt').then((m) => m.JewelryViewer), { ssr: false });
-// Headless GLB probe → diamond-equivalent carat per gem mesh (drives stone-setting labor).
 
 const DESIGN_STATUSES = ['draft', 'cad_requested', 'cad_in_progress', 'cad_qc', 'ready', 'retired'];
 const PRODUCTION_METHODS = ['cad_cast', 'handmade'];
@@ -197,6 +197,10 @@ function toForm(d) {
         caratEach: g.caratEach != null ? String(g.caratEach) : '',
         sizeMm: g.sizeMm || '',
         cut: g.cut || '',
+        // Measured geometry (from REFRAKT) — kept so auto-match/Stuller search stays precise on reload.
+        preset: g.preset || g.gemType || '',
+        lengthMm: g.lengthMm != null ? String(g.lengthMm) : '',
+        widthMm: g.widthMm != null ? String(g.widthMm) : '',
         source: g.source || '',
       })),
       markupOverride: v.markupOverride != null && v.markupOverride !== '' ? String(v.markupOverride) : '',
@@ -766,13 +770,129 @@ function StonePicker({ value, onPick }) {
   );
 }
 
+// Measured spec (from REFRAKT geometry) that drives auto-match + Stuller search for a stone row.
+const measuredOf = (r) => ({ gemType: r.preset || '', cut: r.cut || '', carat: r.caratEach || '', lengthMm: r.lengthMm || '', widthMm: r.widthMm || '' });
+const CONF_COLOR = { exact: '#66BB6A', close: '#FFA726', loose: REPAIRS_UI.textMuted };
+
+/** Match a measured stone to a reusable SKU: the curated catalog (instant) + live Stuller loose
+ *  stones (sized to fit). Catalog picks link directly; Stuller picks are saved to the catalog first. */
+function StoneMatchDialog({ open, measured, onClose, onPick }) {
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState({ catalog: [], stuller: [], stullerError: null });
+  const [lab, setLab] = useState(false);
+  const [busy, setBusy] = useState('');
+  const [err, setErr] = useState('');
+  const isDiamond = !measured?.gemType || String(measured.gemType).toLowerCase() === 'diamond';
+
+  const run = useCallback(async () => {
+    if (!open || !measured) return;
+    setLoading(true); setErr('');
+    try {
+      const r = await fetch('/api/products/stones/match', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...measured, lab }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || 'Match failed');
+      setData({ catalog: d.catalog || [], stuller: d.stuller || [], stullerError: d.stullerError });
+    } catch (e) { setErr(e.message); } finally { setLoading(false); }
+  }, [open, measured, lab]);
+  useEffect(() => { run(); }, [run]);
+
+  const link = (patch) => { onPick(patch); onClose(); };
+  const pickCatalog = (s) => link({ stoneSkuId: s.stoneSkuId || '', stullerSku: s.stullerSku || '', label: s.label || '', unitCost: s.cost != null ? s.cost : '', caratEach: s.caratEach != null ? s.caratEach : (measured.carat ?? ''), source: 'catalog' });
+  const cid = (c) => c.itemNumber || c.serialNumber || 'x';
+  const pickStuller = async (c) => {
+    setBusy(cid(c)); setErr('');
+    try {
+      // Melee = a real /v2/products SKU → persist (+ cron-refresh) via from-stuller. Serialized
+      // certified stones = point-in-time capture via from-gem.
+      const req = c.kind === 'melee'
+        ? { url: '/api/products/stones/from-stuller', payload: { itemNumber: c.itemNumber } }
+        : { url: '/api/products/stones/from-gem', payload: { candidate: c } };
+      const r = await fetch(req.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req.payload) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || 'Save failed');
+      const s = d.stone || {};
+      link({ stoneSkuId: s.stoneSkuId || '', stullerSku: s.stullerSku || '', label: s.label || '', unitCost: s.cost != null ? s.cost : '', caratEach: s.caratEach != null ? s.caratEach : (measured.carat ?? ''), source: 'stuller' });
+    } catch (e) { setErr(e.message); } finally { setBusy(''); }
+  };
+
+  const sizeStr = measured ? (stoneSizeLabel({ l: Number(measured.lengthMm) || null, w: Number(measured.widthMm) || null }) || (measured.carat ? `${measured.carat}ct` : '')) : '';
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}` } }}>
+      <DialogTitle sx={{ color: REPAIRS_UI.textHeader, pb: 0.5 }}>
+        Match stone
+        <Typography variant="caption" sx={{ display: 'block', color: REPAIRS_UI.textMuted }}>
+          {[measured?.gemType, measured?.cut, sizeStr].filter(Boolean).join(' · ') || 'measured spec unknown'}
+        </Typography>
+      </DialogTitle>
+      <DialogContent sx={{ pt: 1 }}>
+        {isDiamond && (
+          <FormControlLabel sx={{ mb: 1 }} control={<Switch size="small" checked={lab} onChange={(e) => setLab(e.target.checked)} />}
+            label={<Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>Lab-grown</Typography>} />
+        )}
+        {err && <Alert severity="error" sx={{ mb: 1 }}>{err}</Alert>}
+        {loading ? (
+          <Stack alignItems="center" sx={{ py: 3 }}><CircularProgress size={22} sx={{ color: REPAIRS_UI.accent }} /></Stack>
+        ) : (
+          <Stack spacing={1.5}>
+            <Box>
+              <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary, fontWeight: 600 }}>From your catalog</Typography>
+              {data.catalog.length === 0
+                ? <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted, py: 0.5 }}>No catalog match yet.</Typography>
+                : <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                    {data.catalog.map((c) => (
+                      <Stack key={c.stone.stoneSkuId} direction="row" alignItems="center" spacing={1} onClick={() => pickCatalog(c.stone)}
+                        sx={{ p: 0.75, borderRadius: 1, cursor: 'pointer', border: `1px solid ${REPAIRS_UI.border}`, '&:hover': { borderColor: REPAIRS_UI.accent } }}>
+                        <Chip size="small" label={c.confidence} sx={{ height: 18, bgcolor: 'transparent', color: CONF_COLOR[c.confidence], border: `1px solid ${CONF_COLOR[c.confidence]}` }} />
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography variant="body2" sx={{ color: REPAIRS_UI.textHeader, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.stone.label}</Typography>
+                          <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{[c.stone.dimensions, c.stone.shape, c.stone.stullerSku].filter(Boolean).join(' · ')}</Typography>
+                        </Box>
+                        <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>{money(c.stone.cost)}</Typography>
+                      </Stack>
+                    ))}
+                  </Stack>}
+            </Box>
+            <Divider sx={{ borderColor: REPAIRS_UI.border }} />
+            <Box>
+              <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary, fontWeight: 600 }}>From Stuller (live, by mm)</Typography>
+              {data.stuller.length === 0
+                ? <Typography variant="body2" sx={{ color: data.stullerError ? '#EF5350' : REPAIRS_UI.textMuted, py: 0.5 }}>{data.stullerError || 'No matching stones on Stuller for this size.'}</Typography>
+                : <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                    {data.stullerError && <Typography variant="caption" sx={{ color: '#EF5350' }}>{data.stullerError}</Typography>}
+                    {data.stuller.map((c) => { const id = c.itemNumber || c.serialNumber; return (
+                      <Stack key={id} direction="row" alignItems="center" spacing={1} onClick={() => !busy && pickStuller(c)}
+                        sx={{ p: 0.75, borderRadius: 1, cursor: 'pointer', border: `1px solid ${REPAIRS_UI.border}`, opacity: busy && busy !== id ? 0.5 : 1, '&:hover': { borderColor: REPAIRS_UI.accent } }}>
+                        <Chip size="small" label={c.kind === 'melee' ? 'melee' : 'certified'} sx={{ height: 18, bgcolor: 'transparent', color: c.kind === 'melee' ? '#66BB6A' : '#42A5F5', border: `1px solid ${c.kind === 'melee' ? '#66BB6A' : '#42A5F5'}` }} />
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography variant="body2" sx={{ color: REPAIRS_UI.textHeader, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</Typography>
+                          <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
+                            {[c.lengthMm && c.widthMm ? stoneSizeLabel({ l: c.lengthMm, w: c.widthMm }) : null, c.color, c.clarity, id, c.deviationMm != null ? `±${c.deviationMm}mm` : null].filter(Boolean).join(' · ')}
+                          </Typography>
+                        </Box>
+                        {busy === id ? <CircularProgress size={16} sx={{ color: REPAIRS_UI.accent }} /> : <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>{money(c.price)}{c.kind === 'melee' ? '/ea' : ''}</Typography>}
+                      </Stack>
+                    ); })}
+                  </Stack>}
+            </Box>
+          </Stack>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} sx={{ color: REPAIRS_UI.textMuted, textTransform: 'none' }}>Close</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 /** Per-variant stones: center + accents, seeded from the variant's REFRAKT gem slots and
  *  linked to the gemstone catalog. Cost = unit × qty (accents priced per-stone). */
 function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, onChange }) {
   const rows = gemstones || [];
+  const [matchIdx, setMatchIdx] = useState(null);
+  const [seeding, setSeeding] = useState(false);
   const set = (i, patch) => onChange(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   const remove = (i) => onChange(rows.filter((_, idx) => idx !== i));
-  const add = () => onChange([...rows, { slot: '', role: 'accent', qty: '1', stoneSkuId: '', stullerSku: '', label: '', unitCost: '', caratEach: '', sizeMm: '', cut: '', source: '' }]);
+  const add = () => onChange([...rows, { slot: '', role: 'accent', qty: '1', stoneSkuId: '', stullerSku: '', label: '', unitCost: '', caratEach: '', sizeMm: '', cut: '', preset: '', lengthMm: '', widthMm: '', source: '' }]);
   const gemSlots = (viewerConfig?.meshMap || []).filter((s) => s.type === 'gem');
   // REFRAKT (1.11+) stamps each gem slot with its measured size (lengthMm/widthMm/carat) + cut.
   // Group by gem type + cut + size so mixed accent sizes/shapes split into sourceable rows.
@@ -780,25 +900,49 @@ function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, onChange }) {
     const m = new Map();
     for (const s of gemSlots) {
       const key = `${s.gemPreset || 'gem'}|${s.cut || 'na'}|${s.carat != null ? s.carat : 'na'}`;
-      const g = m.get(key) || { slot: s.nameContains || '', preset: s.gemPreset || '', cut: s.cut || '', qty: 0, carat: s.carat != null ? s.carat : '', size: stoneSizeLabel({ l: s.lengthMm, w: s.widthMm }) };
+      const g = m.get(key) || { slot: s.nameContains || '', preset: s.gemPreset || '', cut: s.cut || '', qty: 0, carat: s.carat != null ? s.carat : '', lengthMm: s.lengthMm != null ? s.lengthMm : '', widthMm: s.widthMm != null ? s.widthMm : '', size: stoneSizeLabel({ l: s.lengthMm, w: s.widthMm }) };
       g.qty += 1;
       m.set(key, g);
     }
     return [...m.values()];
   })();
-  const seed = () => onChange(gemGroups.map((g) => ({
+  const baseRow = (g) => ({
     // A lone stone is almost always the center; multiples are accents. Name hints win.
     slot: g.slot, role: /accent|melee|pave|pavé|side/i.test(g.slot) ? 'accent' : (g.qty > 1 ? 'accent' : 'center'),
     qty: String(g.qty), stoneSkuId: '', stullerSku: '', label: '', unitCost: '',
-    caratEach: g.carat !== '' && g.carat != null ? String(g.carat) : '', sizeMm: g.size || '', cut: g.cut || '', source: '', preset: g.preset,
-  })));
+    caratEach: g.carat !== '' && g.carat != null ? String(g.carat) : '', sizeMm: g.size || '', cut: g.cut || '',
+    preset: g.preset, lengthMm: g.lengthMm !== '' && g.lengthMm != null ? String(g.lengthMm) : '', widthMm: g.widthMm !== '' && g.widthMm != null ? String(g.widthMm) : '', source: '',
+  });
+  // Seed the rows, then auto-link any that EXACTLY match a curated catalog stone (owner's choice).
+  const seed = async () => {
+    const base = gemGroups.map(baseRow);
+    setSeeding(true);
+    try {
+      const linked = await Promise.all(base.map(async (row) => {
+        try {
+          const r = await fetch('/api/products/stones/match', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ gemType: row.preset, cut: row.cut, carat: row.caratEach, lengthMm: row.lengthMm, widthMm: row.widthMm, includeStuller: false }) });
+          const d = await r.json().catch(() => ({}));
+          const top = r.ok && (d.catalog || [])[0];
+          if (top && top.confidence === 'exact') {
+            const s = top.stone;
+            return { ...row, stoneSkuId: s.stoneSkuId || '', stullerSku: s.stullerSku || '', label: s.label || '', unitCost: s.cost != null ? String(s.cost) : '', source: 'catalog' };
+          }
+        } catch { /* leave unlinked */ }
+        return row;
+      }));
+      onChange(linked);
+    } finally { setSeeding(false); }
+  };
   const subtotal = sumStones(rows, stoneCosts);
   return (
     <Box sx={{ p: 1.5, backgroundColor: REPAIRS_UI.bgCard, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 1.5 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
         <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textSecondary, fontSize: '0.8rem' }}>Gemstones</Typography>
         {gemGroups.length > 0 && rows.length === 0 && (
-          <Button size="small" onClick={seed} sx={{ color: REPAIRS_UI.accent, textTransform: 'none' }}>Seed from REFRAKT ({gemGroups.length})</Button>
+          <Button size="small" onClick={seed} disabled={seeding} startIcon={seeding ? <CircularProgress size={12} sx={{ color: REPAIRS_UI.accent }} /> : null} sx={{ color: REPAIRS_UI.accent, textTransform: 'none' }}>
+            {seeding ? 'Matching…' : `Seed from REFRAKT (${gemGroups.length})`}
+          </Button>
         )}
       </Stack>
       {rows.length === 0
@@ -812,8 +956,11 @@ function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, onChange }) {
                 </TextField>
                 <Box sx={{ flex: 1, minWidth: 200 }}>
                   <StonePicker value={r.label} onPick={(p) => set(i, p)} />
-                  {(() => { const b = caratBand(r.caratEach); return (r.sizeMm || r.cut || r.preset || b) ? (
-                    <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{[r.sizeMm, r.cut, r.preset, b ? `→ ${b.label}` : null].filter(Boolean).join(' · ')}</Typography>
+                  {(() => { const b = caratBand(r.caratEach); return (r.sizeMm || r.cut || r.preset || b || r.source) ? (
+                    <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
+                      <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{[r.sizeMm, r.cut, r.preset, b ? `→ ${b.label}` : null].filter(Boolean).join(' · ')}</Typography>
+                      {r.source && <Chip size="small" label={r.source === 'stuller' ? 'Stuller' : 'catalog'} sx={{ height: 16, fontSize: '0.6rem' }} variant="outlined" />}
+                    </Stack>
                   ) : null; })()}
                 </Box>
                 <TextField size="small" label="Qty" type="number" value={r.qty ?? '1'} onChange={(e) => set(i, { qty: e.target.value })} sx={{ width: 56 }} inputProps={{ min: 1 }} />
@@ -824,6 +971,9 @@ function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, onChange }) {
                 ) : (
                   <TextField size="small" label="Unit $" type="number" value={r.unitCost ?? ''} onChange={(e) => set(i, { unitCost: e.target.value })} sx={{ width: 96 }} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} />
                 )}
+                <Tooltip title="Match to a stone (catalog + Stuller)">
+                  <IconButton size="small" onClick={() => setMatchIdx(i)} sx={{ color: REPAIRS_UI.accent, mt: 0.5 }}><AutoAwesomeIcon sx={{ fontSize: 16 }} /></IconButton>
+                </Tooltip>
                 <IconButton size="small" onClick={() => remove(i)} sx={{ color: REPAIRS_UI.textMuted, mt: 0.5 }}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton>
               </Stack>
             ))}
@@ -833,6 +983,7 @@ function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, onChange }) {
         <Button size="small" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={add} sx={{ color: REPAIRS_UI.accent }}>Add stone</Button>
         <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>Stones subtotal: <b style={{ color: REPAIRS_UI.textHeader }}>{money(subtotal)}</b></Typography>
       </Stack>
+      <StoneMatchDialog open={matchIdx != null} measured={matchIdx != null ? measuredOf(rows[matchIdx]) : null} onClose={() => setMatchIdx(null)} onPick={(p) => set(matchIdx, p)} />
     </Box>
   );
 }
@@ -1162,6 +1313,9 @@ export default function DesignDetailPage({ params }) {
             caratEach: g.caratEach ? Number(g.caratEach) : null,
             sizeMm: g.sizeMm || null,
             cut: g.cut || null,
+            preset: g.preset || g.gemType || null,
+            lengthMm: g.lengthMm ? Number(g.lengthMm) : null,
+            widthMm: g.widthMm ? Number(g.widthMm) : null,
             source: g.source || null,
           })),
           // Snapshot the stone total (Σ unit × qty) so external readers don't recompute.

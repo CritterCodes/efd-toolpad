@@ -34,6 +34,21 @@ export const StonesModel = {
     return col.findOne({ stullerSku });
   },
 
+  /**
+   * Candidate pool for auto-matching a measured stone. Narrows to the same species when a
+   * gemType is given (a diamond row never matches an amethyst SKU) but stays generous so the
+   * pure ranker in matcher.js does the fine scoring. Capped — the catalog is owner-curated.
+   */
+  async matchCandidates({ gemType } = {}) {
+    const col = await collection();
+    const q = {};
+    if (gemType && String(gemType).trim()) {
+      const rx = new RegExp(escapeRx(String(gemType).trim()), 'i');
+      q.$or = [{ gemType: rx }, { species: rx }];
+    }
+    return col.find(q).sort({ updatedAt: -1 }).limit(200).toArray();
+  },
+
   async findById(stoneSkuId) {
     if (!stoneSkuId) return null;
     const col = await collection();
@@ -120,3 +135,42 @@ export function stoneFromStullerItem(item = {}) {
     imageUrl: Array.isArray(item.images) ? (item.images[0]?.url || item.images[0] || null) : null,
   };
 }
+
+/**
+ * Map a loose-stone SEARCH candidate (from services/stuller/stoneSearch.js — the /v2/gem/* API)
+ * into a stone-SKU record. These are serialized stones (one physical unit, identified by
+ * SerialNumber), so `serialized: true` + `sourceApi: 'gem'` mark them so the /v2/products price
+ * cron skips them — the price is a point-in-time capture of that specific stone.
+ */
+export function stoneFromGemCandidate(c = {}) {
+  const lab = c.source === 'lab_grown_diamond';
+  const isDiamond = c.source === 'diamond' || lab;
+  const l = Number(c.lengthMm) || null;
+  const w = Number(c.widthMm) || null;
+  const dims = l ? (w && Math.abs(l - w) >= 0.1 ? `${l} x ${w} mm` : `${l} mm`) : null;
+  return {
+    stullerSku: c.serialNumber ? String(c.serialNumber) : '',
+    serialized: true,
+    sourceApi: 'gem',
+    source: 'stuller',
+    label: c.title || c.stoneType || c.serialNumber || 'Stone',
+    gemType: isDiamond ? 'diamond' : lc(c.stoneType),
+    species: c.stoneType || (isDiamond ? 'Diamond' : null),
+    shape: c.shape || null,
+    cut: c.cut || null,
+    color: c.color || null,
+    clarity: c.clarity || null,
+    caratEach: c.caratWeight != null ? Number(c.caratWeight) : null,
+    naturalSynthetic: lab ? 'lab' : (isDiamond ? 'natural' : null),
+    dimensions: dims,
+    cost: Number(c.price) || 0,
+    costCurrency: c.currency || 'USD',
+    costUpdatedAt: new Date(),
+    certification: c.certification || null,
+    certificationNumber: c.certificationNumber || null,
+    stullerUrl: c.stullerUrl || (c.serialNumber ? `https://www.stuller.com/products/${c.serialNumber}` : null),
+    imageUrl: c.primaryImage || null,
+  };
+}
+
+const lc = (s) => String(s || '').trim().toLowerCase();

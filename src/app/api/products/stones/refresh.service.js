@@ -4,6 +4,9 @@ import { StonesModel, stoneFromStullerItem } from './model';
 /** Re-fetch one stone's wholesale cost from Stuller and update the cached cost. */
 export async function refreshStonePrice(stone) {
   if (!stone?.stullerSku) return { stoneSkuId: stone?.stoneSkuId, skipped: true };
+  // Serialized loose stones (sourced via the /v2/gem API) aren't in the /v2/products catalog and
+  // their SKU is a one-off serial — the price was captured at source time; leave it as-is.
+  if (stone.serialized || stone.sourceApi === 'gem') return { stoneSkuId: stone.stoneSkuId, skipped: 'serialized' };
   const item = await StullerItemService.fetchItemData(stone.stullerSku);
   const mapped = stoneFromStullerItem(item);
   const updated = await StonesModel.updateCost(stone.stoneSkuId, mapped.cost, mapped.costCurrency);
