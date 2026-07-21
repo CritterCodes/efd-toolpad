@@ -41,6 +41,9 @@ function typeMatches(mType, sType) {
 export function scoreCatalogMatch(measured = {}, stone = {}) {
   const sType = stone.gemType || stone.species;
   if (!typeMatches(measured.gemType, sType)) return null;
+  // Creation is a hard gate: a natural row must never link a lab SKU (or vice-versa). Only
+  // excludes when BOTH sides are known.
+  if (measured.creation && stone.naturalSynthetic && measured.creation !== stone.naturalSynthetic) return null;
 
   const mShape = normShape(measured.cut);
   const sShape = normShape(stone.shape || stone.cut);

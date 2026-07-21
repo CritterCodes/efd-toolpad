@@ -102,6 +102,8 @@ const stoneSizeLabel = ({ l, w } = {}) => {
   return Math.abs(l - w) < 0.26 ? `${w}mm` : `${l}×${w}mm`;
 };
 const GEM_ROLES = [{ value: 'center', label: 'Center' }, { value: 'accent', label: 'Accent' }];
+// Stone creation is PER STONE (a variant/piece can mix natural + lab) — binary, no simulant.
+const CREATION_OPTS = [{ value: 'natural', label: 'Natural' }, { value: 'lab', label: 'Lab' }];
 
 // Stone-setting labor is inferred from carat band × count (gem type is irrelevant). Labels
 // match the task catalog; `fallback` is used if the catalog lookup misses.
@@ -197,6 +199,8 @@ function toForm(d) {
         caratEach: g.caratEach != null ? String(g.caratEach) : '',
         sizeMm: g.sizeMm || '',
         cut: g.cut || '',
+        // Per-stone creation (natural | lab) — sourcing key, defaults natural.
+        creation: g.creation || 'natural',
         // Measured geometry (from REFRAKT) — kept so auto-match/Stuller search stays precise on reload.
         preset: g.preset || g.gemType || '',
         lengthMm: g.lengthMm != null ? String(g.lengthMm) : '',
@@ -771,7 +775,7 @@ function StonePicker({ value, onPick }) {
 }
 
 // Measured spec (from REFRAKT geometry) that drives auto-match + Stuller search for a stone row.
-const measuredOf = (r) => ({ gemType: r.preset || '', cut: r.cut || '', carat: r.caratEach || '', lengthMm: r.lengthMm || '', widthMm: r.widthMm || '' });
+const measuredOf = (r) => ({ gemType: r.preset || '', cut: r.cut || '', creation: r.creation || 'natural', carat: r.caratEach || '', lengthMm: r.lengthMm || '', widthMm: r.widthMm || '' });
 const CONF_COLOR = { exact: '#66BB6A', close: '#FFA726', loose: REPAIRS_UI.textMuted };
 
 /** Match a measured stone to a reusable SKU: the curated catalog (instant) + live Stuller loose
@@ -783,21 +787,24 @@ function StoneMatchDialog({ open, measured, onClose, onPick }) {
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState('');
   const isDiamond = !measured?.gemType || String(measured.gemType).toLowerCase() === 'diamond';
+  // Default the creation toggle from the row; the toggle previews the other option.
+  useEffect(() => { setLab(measured?.creation === 'lab'); }, [measured?.creation, open]);
+  const creation = lab ? 'lab' : 'natural';
 
   const run = useCallback(async () => {
     if (!open || !measured) return;
     setLoading(true); setErr('');
     try {
-      const r = await fetch('/api/products/stones/match', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...measured, lab }) });
+      const r = await fetch('/api/products/stones/match', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...measured, creation }) });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error || 'Match failed');
       setData({ catalog: d.catalog || [], stuller: d.stuller || [], stullerError: d.stullerError });
     } catch (e) { setErr(e.message); } finally { setLoading(false); }
-  }, [open, measured, lab]);
+  }, [open, measured, creation]);
   useEffect(() => { run(); }, [run]);
 
-  const link = (patch) => { onPick(patch); onClose(); };
-  const pickCatalog = (s) => link({ stoneSkuId: s.stoneSkuId || '', stullerSku: s.stullerSku || '', label: s.label || '', unitCost: s.cost != null ? s.cost : '', caratEach: s.caratEach != null ? s.caratEach : (measured.carat ?? ''), source: 'catalog' });
+  const link = (patch) => { onPick({ creation, ...patch }); onClose(); };
+  const pickCatalog = (s) => link({ stoneSkuId: s.stoneSkuId || '', stullerSku: s.stullerSku || '', label: s.label || '', unitCost: s.cost != null ? s.cost : '', caratEach: s.caratEach != null ? s.caratEach : (measured.carat ?? ''), creation: s.naturalSynthetic || creation, source: 'catalog' });
   const cid = (c) => c.itemNumber || c.serialNumber || 'x';
   const pickStuller = async (c) => {
     setBusy(cid(c)); setErr('');
@@ -811,7 +818,7 @@ function StoneMatchDialog({ open, measured, onClose, onPick }) {
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error || 'Save failed');
       const s = d.stone || {};
-      link({ stoneSkuId: s.stoneSkuId || '', stullerSku: s.stullerSku || '', label: s.label || '', unitCost: s.cost != null ? s.cost : '', caratEach: s.caratEach != null ? s.caratEach : (measured.carat ?? ''), source: 'stuller' });
+      link({ stoneSkuId: s.stoneSkuId || '', stullerSku: s.stullerSku || '', label: s.label || '', unitCost: s.cost != null ? s.cost : '', caratEach: s.caratEach != null ? s.caratEach : (measured.carat ?? ''), creation: c.creation || s.naturalSynthetic || creation, source: 'stuller' });
     } catch (e) { setErr(e.message); } finally { setBusy(''); }
   };
 
@@ -892,7 +899,7 @@ function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, onChange }) {
   const [seeding, setSeeding] = useState(false);
   const set = (i, patch) => onChange(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   const remove = (i) => onChange(rows.filter((_, idx) => idx !== i));
-  const add = () => onChange([...rows, { slot: '', role: 'accent', qty: '1', stoneSkuId: '', stullerSku: '', label: '', unitCost: '', caratEach: '', sizeMm: '', cut: '', preset: '', lengthMm: '', widthMm: '', source: '' }]);
+  const add = () => onChange([...rows, { slot: '', role: 'accent', qty: '1', stoneSkuId: '', stullerSku: '', label: '', unitCost: '', caratEach: '', sizeMm: '', cut: '', creation: 'natural', preset: '', lengthMm: '', widthMm: '', source: '' }]);
   const gemSlots = (viewerConfig?.meshMap || []).filter((s) => s.type === 'gem');
   // REFRAKT (1.11+) stamps each gem slot with its measured size (lengthMm/widthMm/carat) + cut.
   // Group by gem type + cut + size so mixed accent sizes/shapes split into sourceable rows.
@@ -910,7 +917,7 @@ function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, onChange }) {
     // A lone stone is almost always the center; multiples are accents. Name hints win.
     slot: g.slot, role: /accent|melee|pave|pavé|side/i.test(g.slot) ? 'accent' : (g.qty > 1 ? 'accent' : 'center'),
     qty: String(g.qty), stoneSkuId: '', stullerSku: '', label: '', unitCost: '',
-    caratEach: g.carat !== '' && g.carat != null ? String(g.carat) : '', sizeMm: g.size || '', cut: g.cut || '',
+    caratEach: g.carat !== '' && g.carat != null ? String(g.carat) : '', sizeMm: g.size || '', cut: g.cut || '', creation: 'natural',
     preset: g.preset, lengthMm: g.lengthMm !== '' && g.lengthMm != null ? String(g.lengthMm) : '', widthMm: g.widthMm !== '' && g.widthMm != null ? String(g.widthMm) : '', source: '',
   });
   // Seed the rows, then auto-link any that EXACTLY match a curated catalog stone (owner's choice).
@@ -921,7 +928,7 @@ function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, onChange }) {
       const linked = await Promise.all(base.map(async (row) => {
         try {
           const r = await fetch('/api/products/stones/match', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ gemType: row.preset, cut: row.cut, carat: row.caratEach, lengthMm: row.lengthMm, widthMm: row.widthMm, includeStuller: false }) });
+            body: JSON.stringify({ gemType: row.preset, cut: row.cut, creation: row.creation, carat: row.caratEach, lengthMm: row.lengthMm, widthMm: row.widthMm, includeStuller: false }) });
           const d = await r.json().catch(() => ({}));
           const top = r.ok && (d.catalog || [])[0];
           if (top && top.confidence === 'exact') {
@@ -953,6 +960,9 @@ function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, onChange }) {
               <Stack key={i} direction="row" spacing={1} alignItems="flex-start" flexWrap="wrap" useFlexGap>
                 <TextField select size="small" label="Role" value={r.role || 'accent'} onChange={(e) => set(i, { role: e.target.value })} sx={{ width: 92 }}>
                   {GEM_ROLES.map((g) => <MenuItem key={g.value} value={g.value}>{g.label}</MenuItem>)}
+                </TextField>
+                <TextField select size="small" label="Origin" value={r.creation || 'natural'} onChange={(e) => set(i, { creation: e.target.value })} sx={{ width: 96 }}>
+                  {CREATION_OPTS.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
                 </TextField>
                 <Box sx={{ flex: 1, minWidth: 200 }}>
                   <StonePicker value={r.label} onPick={(p) => set(i, p)} />
@@ -1313,6 +1323,7 @@ export default function DesignDetailPage({ params }) {
             caratEach: g.caratEach ? Number(g.caratEach) : null,
             sizeMm: g.sizeMm || null,
             cut: g.cut || null,
+            creation: g.creation || 'natural',
             preset: g.preset || g.gemType || null,
             lengthMm: g.lengthMm ? Number(g.lengthMm) : null,
             widthMm: g.widthMm ? Number(g.widthMm) : null,

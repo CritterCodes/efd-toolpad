@@ -113,7 +113,12 @@ export function stoneFromStullerItem(item = {}) {
   const specs = item.specifications || {};
   const species = pickSpec(specs, ['Gemstone', 'Stone Type', 'Gem Type', 'Material']) || '';
   const creation = pickSpec(specs, ['Stone Creation Method', 'Creation Method', 'Origin']) || '';
-  const naturalSynthetic = /lab|created|synth|grown/i.test(creation) ? 'lab' : (creation ? 'natural' : null);
+  // Melee carries no creation spec — fall back to the SKU prefix (LAB-…) + description
+  // ("Lab-Grown" / "Natural"), the same signals the loose-stone search classifies on.
+  const labText = /lab|created|synth|grown/i.test(creation)
+    || /^lab[-_]/i.test(item.itemNumber || '')
+    || /lab[\s-]?grown|lab[\s-]?created/i.test(item.description || '');
+  const naturalSynthetic = labText ? 'lab' : ((creation || /natural/i.test(item.description || '')) ? 'natural' : null);
   const caratRaw = pickSpec(specs, ['Carat Weight', 'Total Carat Weight', 'Carat']);
   return {
     stullerSku: item.itemNumber || '',

@@ -292,16 +292,25 @@ function parseFacetSizeMm(label) {
   return { l, w };
 }
 
+// Creation (natural | lab) of a melee product — read from its SKU prefix + description. Melee
+// carries NO creation descriptive element, so these are the only reliable signals: natural melee
+// is DIAMOND-GEN:… "…Natural", lab is LAB-DIAMOND:… "…Lab-Grown Diamond".
+const isLabStone = (sku, desc) => /^lab[-_]/i.test(String(sku || '')) || /lab[\s-]?grown|lab[\s-]?created/i.test(String(desc || ''));
+const isSimStone = (sku, desc) => /simulat|moissanite|imitation|cubic\s*zirconia|\bcz\b/i.test(`${sku || ''} ${desc || ''}`);
+export function stoneCreation(sku, desc) { return isLabStone(sku, desc) ? 'lab' : 'natural'; }
+
 function facetProductToCandidate(p = {}, mm, gemType) {
   const price = num(p.Price?.Value ?? p.Price);
   const sku = p.SKU || p.itemNumber || p.Sku || null;
+  const desc = p.Description || p.description || null;
   const imgs = p.Images || p.images;
   return {
     kind: 'melee',
     source: 'products',
     itemNumber: sku ? String(sku) : null,   // real products SKU → persist via from-stuller, cron-refreshable
-    title: p.Description || p.description || sku,
+    title: desc || sku,
     gemType: gemType || null,
+    creation: stoneCreation(sku, desc),
     shape: mm?.shape || null,
     lengthMm: mm ? mm.l : null,
     widthMm: mm ? mm.w : null,
@@ -324,16 +333,21 @@ function facetProductToCandidate(p = {}, mm, gemType) {
  * @returns {Promise<{ target, count, matches, note? }>}
  */
 export async function searchStonesByMm(opts = {}) {
-  const { gemType, cut, lengthMm, widthMm, tolerance = 0.2, maxSizes = 2, maxResults = 12 } = opts;
+  const { gemType, cut, lengthMm, widthMm, creation = 'natural', tolerance = 0.2, maxSizes = 2, maxResults = 12 } = opts;
   if (!lengthMm) throw new Error('lengthMm is required.');
   const targetL = Number(lengthMm);
   const targetW = widthMm != null ? Number(widthMm) : targetL;
   const tol = Math.min(Number(tolerance) || 0.2, MAX_FIT_TOLERANCE_MM);
+  const wantLab = creation === 'lab';
 
   const vocab = await getFacetVocab();
   const family = matchFacetValue(vocab.StoneFamily, gemType || 'Diamond');
   const shape = matchFacetValue(vocab.StoneShape, cut);
   if (!family) return { target: { gemType, lengthMm: targetL, widthMm: targetW }, count: 0, matches: [], note: `No Stuller StoneFamily for "${gemType}".` };
+  // Lab: narrow server-side to the lab-grown StoneUniqueness values (precise). Natural: don't
+  // rely on a single facet value (natural melee is tagged inconsistently) — search unfiltered and
+  // exclude lab/simulant client-side.
+  const labUniq = wantLab ? (vocab.StoneUniqueness || []).filter((v) => /lab[\s-]?grown/i.test(v.displayValue)) : [];
 
   // Scope the StoneSize facet to this family+shape so we rank only the sizes that actually
   // exist for it, then pick the closest calibrated size(s) to the measured footprint.
@@ -358,14 +372,21 @@ export async function searchStonesByMm(opts = {}) {
   const matches = [];
   for (const size of chosen) {
     const filters = [...scopeFilters, { Type: 'StoneSize', Values: [{ DisplayValue: size.displayValue, Value: size.value }] }];
-    const payload = await stullerRequest(PRODUCTS_PATH, { method: 'POST', body: { AdvancedProductFilters: filters, Filter: ['Orderable'], Include: ['All'], PageSize: Math.min(maxResults, MAX_PAGE_SIZE) } });
+    if (labUniq.length) filters.push({ Type: 'StoneUniqueness', Values: labUniq.map((v) => ({ DisplayValue: v.displayValue, Value: v.value })) });
+    const payload = await stullerRequest(PRODUCTS_PATH, { method: 'POST', body: { AdvancedProductFilters: filters, Filter: ['Orderable'], Include: ['All'], PageSize: Math.min(maxResults * 2, MAX_PAGE_SIZE) } });
     const prods = payload?.Products || payload?.products || [];
-    for (const p of prods) matches.push(facetProductToCandidate(p, { l: size.l, w: size.w, dev: Number(size.dev.toFixed(2)), shape: shape?.displayValue }, family.displayValue));
+    for (const p of prods) {
+      const c = facetProductToCandidate(p, { l: size.l, w: size.w, dev: Number(size.dev.toFixed(2)), shape: shape?.displayValue }, family.displayValue);
+      if (c.price == null) continue;
+      if (isSimStone(c.itemNumber, c.title)) continue;      // never source simulant
+      if (c.creation !== creation) continue;                // hold the requested creation (natural excludes lab)
+      matches.push(c);
+    }
     if (matches.length >= maxResults) break;
   }
 
   return {
-    target: { gemType: family.displayValue, cut: shape?.displayValue || cut || null, lengthMm: targetL, widthMm: targetW, toleranceMm: tol },
+    target: { gemType: family.displayValue, cut: shape?.displayValue || cut || null, lengthMm: targetL, widthMm: targetW, toleranceMm: tol, creation },
     count: matches.length,
     matches: matches.slice(0, maxResults),
   };
