@@ -773,10 +773,10 @@ function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, gemCarats = {
   const gemGroups = (() => {
     const m = new Map();
     for (const s of gemSlots) {
+      // Split by gem type AND measured size (carat) so 3 accent sizes → 3 sourceable rows.
       const carat = gemCarats[s.nameContains];
-      const band = caratBand(carat);
-      const key = `${s.gemPreset || 'gem'}|${band ? band.key : 'na'}`;
-      const g = m.get(key) || { slot: s.nameContains || '', preset: s.gemPreset || '', qty: 0, carat: carat || '' };
+      const key = `${s.gemPreset || 'gem'}|${carat != null ? carat : 'na'}`;
+      const g = m.get(key) || { slot: s.nameContains || '', preset: s.gemPreset || '', qty: 0, carat: carat != null ? carat : '' };
       g.qty += 1;
       m.set(key, g);
     }
@@ -1191,7 +1191,7 @@ export default function DesignDetailPage({ params }) {
     <Box sx={{ pb: 6 }}>
       {/* Headless: measure gem sizes from the GLB → diamond-equivalent carats (once). */}
       {design.designModel?.glbUrl && measureConfig?.meshMap?.length > 0 && (
-        <GemMeasurer glbUrl={design.designModel.glbUrl} meshMap={measureConfig.meshMap} stlVolumeCm3={design.stlVolumeCm3} onMeasure={onMeasure} />
+        <GemMeasurer glbUrl={design.designModel.glbUrl} meshMap={measureConfig.meshMap} onMeasure={onMeasure} />
       )}
       {/* Sticky unsaved-changes bar (Shopify-style) */}
       {dirty && (
