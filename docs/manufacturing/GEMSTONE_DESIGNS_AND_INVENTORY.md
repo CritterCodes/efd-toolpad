@@ -2,7 +2,9 @@
 
 **Status:** draft for review (architecture-first; no code until this settles)
 **Owner decisions captured:** gemstone = a Design (reuse the engine); reserve-on-paid; only finite
-gems impose caps; **concept is a status, not an edition type**; simulated never used (natural | lab).
+gems impose caps; **"concept" is the EXISTING listing state (a Design with no finished Piece, listed
+MTO and priced off estimate — ripens to RTS when a Piece exists), NOT a new status or edition**;
+simulated never used (natural | lab).
 
 ---
 
@@ -47,15 +49,27 @@ and (the point) availability accounting. Differences from a jewelry design:
 - `limited` → supply N
 - `unlimited` → no cap (∞)
 
-### Status — the LIFECYCLE (orthogonal to edition; a concept can be any edition type)
-- `concept` — **not yet cut.** Nothing physical exists; everything is made-to-order (lead time).
-  A concept can be 1-of-1, limited, or unlimited — status ≠ cap.
-- `cut` / `ready` — physical stone(s) exist / cuttable now.
-- (mirrors jewelry design statuses: draft → … → ready → retired)
+### Status — the SHARED design vocabulary (no gemstone-specific status)
+Gemstone designs use the **same statuses as jewelry**: `draft, cad_requested, cad_in_progress,
+cad_qc, ready, retired`. We do **not** add a "concept" status.
 
-> **Key clarification:** "concept" does **not** change the cap. A `limited(5)` concept still caps at 5;
-> it just means those 5 aren't cut yet (made-to-order with lead time). Availability math keys on
-> **edition type**; status only affects in-stock-vs-made-to-order and lead time.
+### "Concept" = an existing LISTING state (reuse it), not a status
+The catalog already models this: `list-concept` lists a Design that has **no finished Piece** as a
+`concept` product, priced off a LIVE estimate (metal for jewelry; carat/rate for a gem). When a Piece
+is actually produced, `list-product` **ripens** that concept product into a real (ready-to-ship) one.
+That's the **made-to-order → ready-to-ship** lifecycle (`availability: 'made-to-order'`).
+
+So for gemstones:
+- **"Not yet cut" = a gem design with no cut Piece = listed as concept/MTO** (priced off estimate).
+  Cutting it (creating a Piece) ripens it to RTS. No new vocabulary.
+- This is **orthogonal to edition type**: a `limited(5)` gem can be a concept (0 cut yet, all 5 MTO)
+  or partially cut (2 Pieces in stock + 3 MTO). Availability math keys on **edition cap**; concept vs
+  ripened only affects **in-stock (RTS) vs made-to-order (lead time)**, never the cap.
+
+> **Key clarification:** "concept" never changes the cap. A `limited(5)` concept still caps at 5; it
+> just means none are cut yet (all made-to-order). Availability = edition cap − reserved − consumed;
+> concept-vs-RTS is a fulfillment/lead-time distinction, handled by the existing list-concept → ripen
+> machinery — identical to an MTO jewelry design.
 
 ## 4. Three stone sources, reconciled
 
@@ -104,10 +118,12 @@ And the shared-cap invariant across every consumer:
 - **Production/QC:** **consume** — reservation converts to consumed; the physical stone is set.
 - **Cancel/refund:** release reservation back to available.
 
-### Concept (not-yet-cut) gems
-`gemAvailable` still = edition cap − reserved. A paid order on a `limited(5)` concept reserves one of
-the 5 and creates a **cut work-order** for the artisan (made-to-order). Unlimited concept = pure
-made-to-order, no cap, just lead time.
+### Concept / made-to-order (not-yet-cut) gems
+`gemAvailable` still = edition cap − reserved − consumed, regardless of whether stones are cut. A
+paid order on a `limited(5)` gem with 0 cut (concept/MTO) reserves one of the 5 and creates a **cut
+work-order** (a Piece) for the artisan — this is exactly the concept→ripen path. A gem with cut
+Pieces in stock (RTS) fills from stock. Unlimited + not-cut = pure made-to-order, no cap, just lead
+time. Concept-vs-RTS changes fulfillment/lead-time, not the cap.
 
 ### Where the guard bites
 - **Add-to-cart / configure:** show `buildable(D)`; block quantities above it.
@@ -130,7 +146,8 @@ configuration inside a jewelry configuration, emitting both selections. → REFR
 3. **Soft-hold at checkout** — implement the TTL hold, or rely solely on the paid-time atomic reserve?
 4. **Gem pricing recipe** — flat retail to start, or model carat×rate + cut labor now?
 5. **Migration** — convert existing `products/gemstone` listings into gemstone Designs (each current
-   listing = a `one_of_one`, status `cut`, its physical stone = the single piece).
+   listing = a `one_of_one` Design, status `ready`, its physical stone = one already-cut **RTS Piece**
+   — i.e. a ripened product, not a concept).
 
 ## 9. Phased plan
 
