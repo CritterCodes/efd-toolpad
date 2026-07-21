@@ -39,10 +39,33 @@ The gemstone listing is implicitly a **1-of-1 with boolean availability**. The v
 Reuse the Design engine with `category: 'gemstone'`. It inherits editions, variants, pieces, status,
 and (the point) availability accounting. Differences from a jewelry design:
 
-- **Pricing** is gem-appropriate (by carat / rarity / cut labor), not metal-volume + bench labor.
-  Kept as a distinct pricing recipe; can start simple (flat retail) and grow.
-- **No mounting/metal**; its "variants" are cut/size/quality variants of the stone.
+- **Pricing = carat × rate + cut labor** (DECIDED). Per-carat rate by material/quality, plus a cut-
+  labor line — computed LIVE at the chosen size (like metal, like the existing concept estimate).
+- **No mounting/metal.**
 - **REFRAKT**: a gem may have its own GLB (for the viewer/customizer) or none (concept).
+
+### Variants = ROUGH inventory (the supply) — DECIDED
+A gem design's **variants are the rough we actually hold** — this is what keeps us from selling a
+stone the rough can't yield. Each variant describes one lot of rough:
+
+- `quality` (clarity/color grade), `material` (matches the design),
+- `sizeRange` — the min/max finished size **cuttable from that rough** (carat and/or mm),
+- `roughQty` — how many stones that lot can yield (usually 1 per rough piece → effectively 1-of-1;
+  a matched lot → limited(N)).
+
+Examples the owner gave: *"5 pieces of rough, same material, 5 different qualities/sizes"* → 5 variants
+(or grouped by spec); *"3 can cut 1ct flawless, 2 can cut 2ct slightly-included"* → variant A
+`{1ct, VVS, qty 3}`, variant B `{2ct, SI, qty 2}`.
+
+**Customization within range.** The customer picks a target size (e.g. "3ct"); the system routes it to
+a variant whose `sizeRange` covers it, prices it at that carat (§ pricing), and on order cuts a **Piece**
+to that size from that rough. A requested size **no variant can cut = a special request** — a gem-cutter
+must source rough for it (a new variant / MTO with lead time), NOT an instant buy. The design-level
+offered range = the union of its variant ranges; the customizer surfaces that.
+
+> This is why variants (not a piece-only field) are the right home: supply and cuttability live on the
+> rough, so availability can never promise a size the rough doesn't exist for. The finished size the
+> customer chose is captured on the **Piece** when it's cut.
 
 ### Edition type (same vocabulary as jewelry) — this is the CAP
 - `one_of_one` → supply 1
@@ -92,31 +115,36 @@ ranked alongside catalog + Stuller, tagged `kind: 'gemDesign'`.
 ## 5. BOM link
 
 On a jewelry variant stone row, when linked to a gem design:
-- `gemDesignId` (+ variantId if the gem has variants) replaces the SKU link.
+- `gemDesignId` (+ **`variantId`** = the rough lot) replaces the SKU link. A jewelry design may pin a
+  specific size, or defer size to customization within the gem's offered range.
 - `gemsPerPiece` = qty of that gem consumed by ONE finished piece (usually 1; 3 for a 3-stone).
-- Cost flows from the gem design's price (like SKU-linked rows flow from catalog cost).
+- **Cost flows live** from the gem: chosen carat × material/quality rate + cut labor.
+- The customer's **chosen finished size** is captured on the jewelry order → the gem **Piece** cut for it.
 
 ## 6. Availability — the "available-to-promise" engine
 
-### The rule
+### The rule (supply lives on the VARIANT = rough lot)
 ```
-gemAvailable(G)      = supply(G) − reserved(G) − consumed(G)          // ∞ if unlimited
-buildableFromGem(D)  = ⌊ gemAvailable(Gd) ÷ gemsPerPiece(D→Gd) ⌋       // per finite gem the design needs
+variantAvailable(V)  = roughQty(V) − reserved(V) − consumed(V)        // ∞ only for the unlimited case
+// which rough lots can satisfy a requested finished size s:
+satisfying(G, s)     = variants V of G where s ∈ sizeRange(V)
+gemAvailable(G, s)   = Σ variantAvailable(V) for V in satisfying(G, s)
+buildableFromGem(D)  = ⌊ gemAvailable(Gd, sizeD) ÷ gemsPerPiece(D→Gd) ⌋
 buildable(D)         = min( editionRemaining(D), min over finite gems Gd of buildableFromGem(D) )
 ```
-And the shared-cap invariant across every consumer:
+A size with `satisfying(G, s) = ∅` is a **special request** (source rough), not a buyable quantity.
+Shared-cap invariant across every consumer, per rough lot:
 ```
-Σ reserved(G) over all jewelry pieces  ≤  supply(G)
+Σ reserved(V) over all jewelry pieces  ≤  roughQty(V)
 ```
 
-### Lifecycle of a unit (reserve-on-paid)
-- **Checkout (unpaid):** soft-hold (short TTL) so two carts don't race the last stone. Optional but
-  recommended; not the hard guard.
-- **Paid order:** **reserve** — decrement gemAvailable atomically. This is where oversell is prevented.
-  A paid order that can't reserve its gem fails/queues (shouldn't happen if buildable was enforced at
-  add-to-cart, but the atomic check at payment is the source of truth).
-- **Production/QC:** **consume** — reservation converts to consumed; the physical stone is set.
-- **Cancel/refund:** release reservation back to available.
+### Lifecycle of a unit — soft-hold + reserve-on-paid (DECIDED)
+- **Checkout / configure:** **45-minute soft-hold** on the chosen rough lot (Carvana-style) — TTL
+  auto-releases if the order isn't paid. Prevents two carts racing the last rough while one checks out.
+- **Paid order:** **reserve** — atomically decrement the rough lot. This is the hard oversell guard
+  (source of truth; handles races + multiple designs contending for one lot). Converts the soft-hold.
+- **Production/QC:** **consume** — the rough is cut into a Piece at the ordered size; reservation → consumed.
+- **Cancel / refund / hold-expiry:** release back to available.
 
 ### Concept / made-to-order (not-yet-cut) gems
 `gemAvailable` still = edition cap − reserved − consumed, regardless of whether stones are cut. A
@@ -138,16 +166,21 @@ variant, or customize a made-to-order gem). This is a REFRAKT `<Customizer>` con
 configuration inside a jewelry configuration, emitting both selections. → REFRAKT feature request
 (sibling to the size/cut and natural/lab FRs). Availability shown in the customizer comes from §6.
 
-## 8. Open decisions
+## 8. Decisions — RESOLVED (2026-07-21)
 
-1. **Melee as a gem design?** Assumed no (commodity only). Confirm.
-2. **Gem variants** — do gem designs need variants (e.g. one design, multiple sizes/qualities), or is
-   each size/quality its own design? Affects the BOM link granularity.
-3. **Soft-hold at checkout** — implement the TTL hold, or rely solely on the paid-time atomic reserve?
-4. **Gem pricing recipe** — flat retail to start, or model carat×rate + cut labor now?
-5. **Migration** — convert existing `products/gemstone` listings into gemstone Designs (each current
-   listing = a `one_of_one` Design, status `ready`, its physical stone = one already-cut **RTS Piece**
-   — i.e. a ripened product, not a concept).
+1. **Melee is never a finite gem design** — commodity only (`stoneSkus`/Stuller), never capped. ✓
+2. **Gem variants = rough lots** (§3). One gem design; its variants are the rough we hold (quality +
+   cuttable size range + qty). Customer customizes size within range; out-of-range = special request.
+   Finished size is captured on the Piece. ✓
+3. **Soft-hold = 45-min TTL** (Carvana-style) at checkout/configure, plus the paid-time atomic reserve
+   as the hard guard. ✓
+4. **Pricing = carat × (material/quality) rate + cut labor**, computed live at the chosen size. ✓
+5. **Migration** — each existing `products/gemstone` listing → a `one_of_one` Design, status `ready`,
+   its physical stone = one already-cut **RTS Piece** (ripened, not a concept). ✓
+
+Remaining to nail down during build: exact per-carat rate table (by material/quality) + which cut-labor
+task(s); how a "special request" (out-of-range size) enters the pipeline (custom-order intake vs a new
+rough variant); whether one rough lot can ever yield >1 stone (assume 1 for now).
 
 ## 9. Phased plan
 
