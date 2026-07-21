@@ -17,12 +17,16 @@ export function projectDesignProduct({ product = {}, design, pieces = [] }) {
   const defaultVariantId = product.defaultVariantId && variants.some((variant) => variant.variantId === product.defaultVariantId)
     ? product.defaultVariantId : variants[0]?.variantId ?? null;
   const primary = variants.find((variant) => variant.variantId === defaultVariantId);
+  // A gemstone Design projects as a gemstone product (gem-native spec), not jewelry (metal/ringSize).
+  const isGem = design.category === 'gemstone';
   return {
-    ...product, productType: 'jewelry', designId: design.designID, defaultVariantId, variants,
+    ...product, productType: isGem ? 'gemstone' : 'jewelry', designId: design.designID, defaultVariantId, variants,
     edition: { ...design.edition, ...(remaining === undefined ? {} : { remaining }) },
     price: primary?.pricing?.retailPrice, viewer: primary?.viewer ?? null,
     availability: primary?.offers?.readyToShip ? 'ready-to-ship' : 'made-to-order',
-    jewelry: { ...(product.jewelry || {}), ringSize: primary?.ringSize },
+    ...(isGem
+      ? { gemstone: design.gemstone ?? product.gemstone ?? null }
+      : { jewelry: { ...(product.jewelry || {}), ringSize: primary?.ringSize } }),
     references: { ...(product.references || {}), designId: design.designID, gemstoneId: design.gemstoneId ?? null },
   };
 }

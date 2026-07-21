@@ -96,3 +96,29 @@ export function estimateDesignCost({
     estCost,
   };
 }
+
+/**
+ * Gemstone-design estimate (owner's recipe): **carat × per-carat rate + cut labor**. A cut stone is
+ * not volume/metal-driven, so a `category:'gemstone'` Design prices with this instead of
+ * estimateDesignCost. The per-carat rate is by material/quality and supplied by the caller (a rate
+ * table lands during the pricing slice); labor is cut-hours × rate. `extraCost` covers any explicit
+ * per-stone add (cert fee, etc.).
+ *
+ * @param {{ carat:number, ratePerCarat:number, cutLaborHours?:number, laborRate?:number, extraCost?:number }} args
+ */
+export function estimateGemstoneCost({ carat, ratePerCarat, cutLaborHours = 0, laborRate = 0, extraCost = 0 }) {
+  const ct = Number(carat) || 0;
+  const rate = Number(ratePerCarat) || 0;
+  const roughCost = ct * rate;
+  const laborCost = (Number(cutLaborHours) || 0) * (Number(laborRate) || 0);
+  const estMaterialCost = round(roughCost + (Number(extraCost) || 0));
+  const estCost = round(estMaterialCost + laborCost);
+  return {
+    carat: ct,
+    ratePerCarat: rate,
+    roughCost: round(roughCost),
+    laborCost: round(laborCost),
+    estMaterialCost,
+    estCost,
+  };
+}

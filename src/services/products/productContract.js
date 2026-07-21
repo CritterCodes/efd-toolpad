@@ -194,10 +194,14 @@ export function buildProductFromDesign({ design = {}, estCost = 0, opts = {} }) 
   const metals = Array.isArray(design.metalOptions)
     ? design.metalOptions.map((m) => (typeof m === 'string' ? { type: m, purity: null } : m))
     : [];
+  // A gemstone Design (a cut stone) lists as a gemstone product carrying the gem-native spec,
+  // not the jewelry metal shape.
+  const isGem = design.category === 'gemstone';
 
   return {
     productId,
-    productType: 'jewelry',
+    productType: isGem ? 'gemstone' : 'jewelry',
+    ...(isGem ? { listingType: 'gemstone' } : {}),
     title,
     description: opts.description ?? design.description ?? '',
     availability: 'made-to-order',
@@ -210,7 +214,7 @@ export function buildProductFromDesign({ design = {}, estCost = 0, opts = {} }) 
       costBasisSource: 'estimated',
       currency: 'USD',
     },
-    jewelry: { type: opts.jewelryType ?? null, metals },
+    ...(isGem ? { gemstone: design.gemstone ?? null } : { jewelry: { type: opts.jewelryType ?? null, metals } }),
     references: { designId: design.designID ?? null, pieceID: null, gemstoneId: design.gemstoneId ?? null },
     pieceIDs: [],
     seller: opts.seller ?? null,

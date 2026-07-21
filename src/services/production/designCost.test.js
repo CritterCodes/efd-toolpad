@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { estimateMetalCost, estimateDesignCost } from '@/services/production/designCost';
+import { estimateMetalCost, estimateDesignCost, estimateGemstoneCost } from '@/services/production/designCost';
+import { validateDesign, EDITION_TYPE, PRODUCTION_METHOD } from '@/app/api/designs/model';
 
 describe('estimateMetalCost', () => {
   it('computes 14k yellow gold metal cost from volume', () => {
@@ -57,5 +58,44 @@ describe('estimateDesignCost', () => {
     expect(r.stonesCost).toBe(0);
     expect(r.estMaterialCost).toBeCloseTo(594.69, 1);
     expect(r.estCost).toBeCloseTo(594.69, 1);
+  });
+});
+
+describe('estimateGemstoneCost (carat × rate + cut labor)', () => {
+  it('prices a 2ct stone at $100/ct + 1.5h cut labor @ $40', () => {
+    const r = estimateGemstoneCost({ carat: 2, ratePerCarat: 100, cutLaborHours: 1.5, laborRate: 40 });
+    expect(r.roughCost).toBeCloseTo(200, 2);   // 2ct × $100
+    expect(r.laborCost).toBeCloseTo(60, 2);     // 1.5h × $40
+    expect(r.estMaterialCost).toBeCloseTo(200, 2);
+    expect(r.estCost).toBeCloseTo(260, 2);
+  });
+
+  it('adds an explicit extra (e.g. cert fee) into material, no labor', () => {
+    const r = estimateGemstoneCost({ carat: 1, ratePerCarat: 50, extraCost: 25 });
+    expect(r.estMaterialCost).toBeCloseTo(75, 2);
+    expect(r.estCost).toBeCloseTo(75, 2);
+  });
+
+  it('handles missing inputs → 0', () => {
+    const r = estimateGemstoneCost({});
+    expect(r.estCost).toBe(0);
+  });
+});
+
+describe('validateDesign — gemstone category', () => {
+  const base = { status: 'ready', productionMethod: PRODUCTION_METHOD.HANDMADE, edition: { type: EDITION_TYPE.ONE_OF_ONE, allocated: 0, committed: 0 } };
+  it('accepts a gemstone design with a species + non-ring variant', () => {
+    const r = validateDesign({ ...base, category: 'gemstone', gemstone: { species: 'Amethyst' }, variants: [{ variantId: 'v1', sku: 'GEM-1', active: true }] });
+    expect(r.valid).toBe(true);
+  });
+  it('rejects a gemstone design missing gemstone.species', () => {
+    const r = validateDesign({ ...base, category: 'gemstone', variants: [{ variantId: 'v1', sku: 'GEM-1', active: true }] });
+    expect(r.valid).toBe(false);
+    expect(r.errors.join(' ')).toMatch(/species/);
+  });
+  it('rejects a gemstone variant that carries ringSize (non-ring branch)', () => {
+    const r = validateDesign({ ...base, category: 'gemstone', gemstone: { species: 'Sapphire' }, variants: [{ variantId: 'v1', sku: 'GEM-1', active: true, ringSize: 7 }] });
+    expect(r.valid).toBe(false);
+    expect(r.errors.join(' ')).toMatch(/ring sizing is only valid for rings/);
   });
 });
