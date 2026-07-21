@@ -957,8 +957,11 @@ function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, onChange }) {
   const gemGroups = (() => {
     const m = new Map();
     for (const s of gemSlots) {
-      const key = `${s.gemPreset || 'gem'}|${s.cut || 'na'}|${s.carat != null ? s.carat : 'na'}`;
-      const g = m.get(key) || { slot: s.nameContains || '', preset: s.gemPreset || '', cut: s.cut || '', qty: 0, carat: s.carat != null ? s.carat : '', lengthMm: s.lengthMm != null ? s.lengthMm : '', widthMm: s.widthMm != null ? s.widthMm : '', size: stoneSizeLabel({ l: s.lengthMm, w: s.widthMm }) };
+      // REFRAKT 1.12+ stamps per-stone `creation` (natural|lab); group by it too so a natural center
+      // + lab melee of the same size split into separate sourceable rows. Missing → natural.
+      const creation = s.creation || 'natural';
+      const key = `${s.gemPreset || 'gem'}|${s.cut || 'na'}|${s.carat != null ? s.carat : 'na'}|${creation}`;
+      const g = m.get(key) || { slot: s.nameContains || '', preset: s.gemPreset || '', cut: s.cut || '', creation, qty: 0, carat: s.carat != null ? s.carat : '', lengthMm: s.lengthMm != null ? s.lengthMm : '', widthMm: s.widthMm != null ? s.widthMm : '', size: stoneSizeLabel({ l: s.lengthMm, w: s.widthMm }) };
       g.qty += 1;
       m.set(key, g);
     }
@@ -982,7 +985,7 @@ function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, onChange }) {
   const baseRow = (g, role) => ({
     slot: g.slot, role,
     qty: String(g.qty), stoneSkuId: '', stullerSku: '', label: '', unitCost: '',
-    caratEach: g.carat !== '' && g.carat != null ? String(g.carat) : '', sizeMm: g.size || '', cut: g.cut || '', creation: 'natural',
+    caratEach: g.carat !== '' && g.carat != null ? String(g.carat) : '', sizeMm: g.size || '', cut: g.cut || '', creation: g.creation || 'natural',
     preset: g.preset, lengthMm: g.lengthMm !== '' && g.lengthMm != null ? String(g.lengthMm) : '', widthMm: g.widthMm !== '' && g.widthMm != null ? String(g.widthMm) : '', source: '',
   });
   // Seed the rows, then auto-link any that EXACTLY match a curated catalog stone (owner's choice).
