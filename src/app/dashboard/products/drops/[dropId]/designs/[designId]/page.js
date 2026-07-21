@@ -964,16 +964,31 @@ function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, onChange }) {
     }
     return [...m.values()];
   })();
-  const baseRow = (g) => ({
-    // A lone stone is almost always the center; multiples are accents. Name hints win.
-    slot: g.slot, role: /accent|melee|pave|pavé|side/i.test(g.slot) ? 'accent' : (g.qty > 1 ? 'accent' : 'center'),
+  // Assign a role per group. Name hints win; otherwise there is AT MOST ONE center — the single
+  // largest (by carat) qty-1 stone — and everything else is an accent. (A design usually has one
+  // focal stone or none; multiple distinct melee groups must not all read as "center".)
+  const rolesFor = (groups) => {
+    const byName = groups.map((g) => (
+      /center|centre|main|feature|solitaire/i.test(g.slot) ? 'center'
+        : /accent|melee|pave|pavé|side|halo/i.test(g.slot) ? 'accent' : null
+    ));
+    let centerIdx = -1;
+    if (!byName.includes('center')) {
+      let maxCt = -1;
+      groups.forEach((g, i) => { const c = Number(g.carat) || 0; if (Number(g.qty) === 1 && c > maxCt) { maxCt = c; centerIdx = i; } });
+    }
+    return groups.map((g, i) => byName[i] || (i === centerIdx ? 'center' : 'accent'));
+  };
+  const baseRow = (g, role) => ({
+    slot: g.slot, role,
     qty: String(g.qty), stoneSkuId: '', stullerSku: '', label: '', unitCost: '',
     caratEach: g.carat !== '' && g.carat != null ? String(g.carat) : '', sizeMm: g.size || '', cut: g.cut || '', creation: 'natural',
     preset: g.preset, lengthMm: g.lengthMm !== '' && g.lengthMm != null ? String(g.lengthMm) : '', widthMm: g.widthMm !== '' && g.widthMm != null ? String(g.widthMm) : '', source: '',
   });
   // Seed the rows, then auto-link any that EXACTLY match a curated catalog stone (owner's choice).
   const seed = async () => {
-    const base = gemGroups.map(baseRow);
+    const roles = rolesFor(gemGroups);
+    const base = gemGroups.map((g, i) => baseRow(g, roles[i]));
     setSeeding(true);
     try {
       const linked = await Promise.all(base.map(async (row) => {
