@@ -28,7 +28,11 @@
  *                        This is the `viewer.customizable` block the admin persists + the
  *                        Customizer's config-in. Since 1.10.0, every METAL slot (customizable or
  *                        fixed) also carries a computed `volumeCm3` — the per-part metal volume
- *                        admin's live-pricing endpoint (decisions/0005 §6) prices from.
+ *                        admin's live-pricing endpoint (decisions/0005 §6) prices from. Since
+ *                        1.11.0, every GEM slot also carries `lengthMm`/`widthMm`/`depthMm?`/
+ *                        `carat` + a `cut` guess (round|square|fancy), measured off the GLB with
+ *                        the unit auto-detected. A `cut` already on the slot (a Studio human
+ *                        override) is preserved over the guess.
  *   modelUnit  {string}  'mm' | 'cm' | 'm' — the unit the source GLB is authored in (default 'cm',
  *                        matching admin's STL pipeline so an omitted unit stays consistent with the
  *                        whole-piece fallback — thread #137). Sets the model-unit³ → cm³ factor for
@@ -41,7 +45,7 @@ import { useGLTF } from '@react-three/drei'
 
 import JewelryViewer from '../JewelryViewer'
 import { createRegistry } from '../core/registry'
-import { computeSlotVolumes } from '../core/geometry'
+import { computeSlotVolumes, measureGems } from '../core/geometry'
 import { optionId } from './selection'
 
 // A slot is authorable when it targets a material (metal or gem); `ignore` slots are skipped.
@@ -71,20 +75,37 @@ function seedState(meshMap) {
 }
 
 // Build the emitted meshMap: each authored-on slot gets a `customizable` block; off slots are
-// returned untouched (no `customizable` key). Options preserve the slot's material kind. Every
-// METAL slot (customizable or fixed) also carries a computed `volumeCm3` when known — decisions/
-// 0005 §6 prices per-part metal from it (fixed parts too), letting admin drop the whole-piece fallback.
-function buildCustomizableMeshMap(meshMap, state, volumes = {}) {
+// returned untouched (no `customizable` key). Options preserve the slot's material kind. Slots
+// also carry geometry-derived fields, independent of the appearance choice:
+//   - METAL slots: a computed `volumeCm3` (decisions/0005 §6 prices per-part metal from it).
+//   - GEM slots: `lengthMm`/`widthMm`/`depthMm?`/`carat` + a `cut` class (round|square|fancy).
+//     mm is the trade spec; carat feeds setting-labor bands. An existing `cut` (a human override
+//     authored in Studio) is preserved over the geometry guess; mm/carat are re-measured (stable).
+function buildCustomizableMeshMap(meshMap, state, volumes = {}, gems = {}) {
   return meshMap.map((s) => {
-    if (!isMaterialSlot(s)) return s
-    // Geometry-derived; independent of the finish choice. Only meaningful for metal (gems price by stone).
     const vol = s.type === 'metal' ? volumes[s.nameContains] : undefined
-    const withVol = (slot) => (typeof vol === 'number' ? { ...slot, volumeCm3: vol } : slot)
+    const gem = s.type === 'gem' ? gems[s.nameContains] : undefined
+    const withGeom = (slot) => {
+      let o = slot
+      if (typeof vol === 'number') o = { ...o, volumeCm3: vol }
+      if (gem) {
+        o = { ...o }
+        if (gem.lengthMm != null) o.lengthMm = gem.lengthMm
+        if (gem.widthMm != null) o.widthMm = gem.widthMm
+        if (gem.depthMm != null) o.depthMm = gem.depthMm
+        else delete o.depthMm // a re-measure that can't trust depth shouldn't keep a stale one
+        if (gem.carat != null) o.carat = gem.carat
+        const cut = slot.cut ?? gem.cut // preserve a Studio-authored cut over the guess
+        if (cut) o.cut = cut
+      }
+      return o
+    }
+    if (!isMaterialSlot(s)) return s
     const cur = state[s.nameContains]
     if (!cur || !cur.on || cur.allowed.size === 0) {
-      // Not customizable → strip any prior block so the output is clean (but keep volumeCm3).
-      if (s.customizable) { const { customizable, ...rest } = s; return withVol(rest) } // eslint-disable-line no-unused-vars
-      return withVol(s)
+      // Not customizable → strip any prior block so the output is clean (but keep geometry fields).
+      if (s.customizable) { const { customizable, ...rest } = s; return withGeom(rest) } // eslint-disable-line no-unused-vars
+      return withGeom(s)
     }
     const key = s.type === 'gem' ? 'gemPreset' : 'finish'
     const options = [...cur.allowed].map((id) => ({ [key]: id }))
@@ -92,27 +113,32 @@ function buildCustomizableMeshMap(meshMap, state, volumes = {}) {
     const block = { options }
     if (cur.label && cur.label.trim()) block.label = cur.label.trim()
     if (def != null) block.default = def
-    return withVol({ ...s, customizable: block })
+    return withGeom({ ...s, customizable: block })
   })
 }
 
 // Reads the (drei-cached) GLB scene JewelryViewer already loaded — no extra fetch — and reports
-// signed per-slot volume up. Suspends on load, so it's mounted under its own <Suspense>.
-function VolumeProbe({ glbUrl, meshMap, modelUnit, unitScale, onVolumes }) {
+// per-slot geometry up: signed metal VOLUME (unit stated by the admin) and gem SIZE + CUT (unit
+// auto-detected). Suspends on load, so it's mounted under its own <Suspense>.
+function GeometryProbe({ glbUrl, meshMap, modelUnit, unitScale, onVolumes, onGems }) {
   const { scene } = useGLTF(glbUrl)
   useEffect(() => {
     if (!scene) return
     try { onVolumes(computeSlotVolumes(scene, meshMap, { modelUnit, unitScale })) }
     catch { /* geometry read is best-effort; pricing has a whole-piece fallback (0005 §6) */ }
-  }, [scene, meshMap, modelUnit, unitScale, onVolumes])
+    try { onGems(measureGems(scene, meshMap)) }
+    catch { /* best-effort; gem size/cut are additive hints, host has the linked SKU as ground truth */ }
+  }, [scene, meshMap, modelUnit, unitScale, onVolumes, onGems])
   return null
 }
 
 export default function ConfiguratorSetup({ glbUrl, config = {}, materials, onChange, modelUnit = 'cm', unitScale, style, className }) {
   const registry = useMemo(() => createRegistry(materials), [materials])
   const meshMap = useMemo(() => config.meshMap ?? [], [config])
-  // Per-slot geometry volume (cm³), measured from the loaded GLB by <VolumeProbe> below.
+  // Per-slot geometry, measured from the loaded GLB by <GeometryProbe> below: metal volume (cm³)
+  // and gem size/cut ({ lengthMm, widthMm, depthMm?, carat, cut }).
   const [volumes, setVolumes] = useState({})
+  const [gems, setGems] = useState({})
   // Dedupe slots by nameContains for the authoring list (a base config may repeat a slot per mesh).
   const slots = useMemo(() => {
     const seen = new Set()
@@ -127,8 +153,8 @@ export default function ConfiguratorSetup({ glbUrl, config = {}, materials, onCh
   // Re-seed if a different base config arrives.
   useEffect(() => { setState(seedState(meshMap)) }, [meshMap])
 
-  // Emit the full customizable meshMap on every authoring change (+ when volumes resolve).
-  useEffect(() => { onChange?.(buildCustomizableMeshMap(meshMap, state, volumes)) }, [state, meshMap, volumes]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Emit the full customizable meshMap on every authoring change (+ when geometry resolves).
+  useEffect(() => { onChange?.(buildCustomizableMeshMap(meshMap, state, volumes, gems)) }, [state, meshMap, volumes, gems]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const patch = (slot, fn) => setState((st) => ({ ...st, [slot]: fn(st[slot]) }))
   const toggleOn = (slot) => patch(slot, (s) => ({ ...s, on: !s.on }))
@@ -146,9 +172,9 @@ export default function ConfiguratorSetup({ glbUrl, config = {}, materials, onCh
 
   return (
     <div className={className} style={{ display: 'flex', gap: 20, width: '100%', minHeight: 560, color: '#f4f4f5', fontFamily: "'Geist', system-ui, sans-serif", ...style }}>
-      {/* measure per-slot volume off the (cached) GLB — no render, no extra fetch */}
+      {/* measure per-slot geometry (metal volume + gem size/cut) off the (cached) GLB — no render, no extra fetch */}
       <Suspense fallback={null}>
-        {src && <VolumeProbe glbUrl={src} meshMap={meshMap} modelUnit={modelUnit} unitScale={unitScale} onVolumes={setVolumes} />}
+        {src && <GeometryProbe glbUrl={src} meshMap={meshMap} modelUnit={modelUnit} unitScale={unitScale} onVolumes={setVolumes} onGems={setGems} />}
       </Suspense>
       {/* live preview */}
       <div style={{ flex: '1 1 55%', minWidth: 0, borderRadius: 16, overflow: 'hidden', background: '#080808', minHeight: 560 }}>

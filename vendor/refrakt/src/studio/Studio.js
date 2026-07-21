@@ -15,6 +15,7 @@ import StudioViewer from './StudioViewer';
 import MaterialOrb from './MaterialOrb';
 import { GemBaker, GEM_SNAP, gemSnapKey } from './MaterialPreview';
 import { createRegistry } from '../core/registry';
+import { detectUnitScaleMm, measureMesh, CUTS } from '../core/geometry';
 import { buildSelectionFromCustomize } from '../customizer/selection';
 // Baseline label maps — only the module-level tree-seed fallback uses these; the
 // component derives everything else (pickers, labels, eff params) from the registry
@@ -171,7 +172,9 @@ function fmtTris(n) { return n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) 
 
 // Tree (via derived per-mesh assign) → JewelryViewer config. This is the artifact
 // the Studio produces: save it, feed it to <JewelryViewer config={...} />.
-function buildConfig(meshes, assign, env, bg, oriDeg, glbUrl) {
+// Gem slots also carry geometry-derived size (`lengthMm`/`widthMm`/`depthMm?`/`carat`, from the
+// per-mesh `geo` MeshProbe measured) + a `cut` (the human override in `cutByMesh`, else the guess).
+function buildConfig(meshes, assign, env, bg, oriDeg, glbUrl, cutByMesh = {}) {
   const orientation = oriDeg.map((d) => (d * Math.PI) / 180);
   const meshMap = meshes.map((m) => {
     const a = assign[m.name] || { role: 'metal', finish: 'gold' };
@@ -192,6 +195,15 @@ function buildConfig(meshes, assign, env, bg, oriDeg, glbUrl) {
     if (a.density != null) s.density = r4(a.density);
     if (a.velvet != null) s.velvet = r4(a.velvet);
     if (a.opacity != null) s.opacity = r4(a.opacity);
+    const geo = m.geo;
+    if (geo) {
+      if (geo.lengthMm != null) s.lengthMm = geo.lengthMm;
+      if (geo.widthMm != null) s.widthMm = geo.widthMm;
+      if (geo.depthMm != null) s.depthMm = geo.depthMm;
+      if (geo.carat != null) s.carat = geo.carat;
+    }
+    const cut = cutByMesh[m.name] ?? geo?.cut;
+    if (cut) s.cut = cut;
     return s;
   });
   const cfg = { environment: env, background: bg, orientation, meshMap };
@@ -215,14 +227,22 @@ function readMat(mesh) {
 function MeshProbe({ url, onMeshes }) {
   const { scene } = useGLTF(url);
   useEffect(() => {
+    scene.updateMatrixWorld(true);
+    // Unit auto-detected once from the whole model, then reused per mesh for gem sizing.
+    const unitScaleMm = detectUnitScaleMm(scene);
     const byName = new Map();
     scene.traverse((o) => {
       if (!o.isMesh) return;
       const nm = o.name || '(unnamed)';
       const geo = o.geometry;
       const tris = Math.round((geo?.index ? geo.index.count : geo?.attributes?.position?.count ?? 0) / 3);
-      if (!byName.has(nm)) byName.set(nm, { name: nm, tris: 0, mat: readMat(o) });
-      byName.get(nm).tris += tris;
+      if (!byName.has(nm)) byName.set(nm, { name: nm, tris: 0, mat: readMat(o), geo: null });
+      const rec = byName.get(nm);
+      rec.tris += tris;
+      // Measure every mesh's footprint (size + cut guess); buildConfig uses it for gem slots only.
+      // When a name repeats across objects, keep the largest footprint (representative stone).
+      const m = measureMesh(o, unitScaleMm);
+      if (m && (!rec.geo || m.footprintArea > rec.geo.footprintArea)) rec.geo = m;
     });
     onMeshes([...byName.values()]);
   }, [scene, url, onMeshes]);
@@ -288,6 +308,9 @@ export default function Studio({ glbUrl = null, initialConfig = null, materials 
   const [meshes, setMeshes] = useState([]);
   // tree state
   const [tree, setTree] = useState([]);
+  // Per-gem-mesh cut OVERRIDE ({ [meshName]: 'round'|'square'|'fancy' }). Effective cut =
+  // override ?? the MeshProbe geometry guess; persisted onto the gem slot's `cut` in buildConfig.
+  const [cutByMesh, setCutByMesh] = useState({});
   const [sel, setSel] = useState([]);
   const [expanded, setExpanded] = useState({});
   const [renaming, setRenaming] = useState(null);
@@ -348,12 +371,16 @@ export default function Studio({ glbUrl = null, initialConfig = null, materials 
 
   const handleMeshes = useCallback((list) => {
     const cfg = initialConfigRef.current;
+    const cuts = {};
     const withSeed = list.map((info) => {
       const slot = cfg && cfg.meshMap ? findSlot(info.name, cfg.meshMap) : null;
+      // Re-opening a saved piece: restore its authoritative (possibly human-overridden) cut.
+      if (slot && slot.type === 'gem' && slot.cut) cuts[info.name] = slot.cut;
       return { ...info, seed: slot ? slotToSeed(slot) : autoToSeed(classify(info)) };
     });
     setMeshes(withSeed);
     setTree(buildTreeFromMeshes(withSeed));
+    setCutByMesh(cuts);
     setSel([]);
     setExpanded({});
     if (cfg) {
@@ -410,8 +437,10 @@ export default function Studio({ glbUrl = null, initialConfig = null, materials 
 
   // The Studio's output: the JewelryViewer config. Emitted live via onChange so a
   // host (efd-admin) can persist/preview it; saved explicitly via the toolbar.
-  const config = useMemo(() => (meshes.length ? buildConfig(meshes, assign, env, bg, oriDeg, glbUrl) : null), [meshes, assign, env, bg, oriDeg, glbUrl]);
+  const config = useMemo(() => (meshes.length ? buildConfig(meshes, assign, env, bg, oriDeg, glbUrl, cutByMesh) : null), [meshes, assign, env, bg, oriDeg, glbUrl, cutByMesh]);
   useEffect(() => { if (config) onChange?.(config); }, [config]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Measured gem size/cut-guess by mesh name (from MeshProbe) — drives the inspector's Cut & size panel.
+  const geoByMesh = useMemo(() => { const o = {}; for (const m of meshes) if (m.geo) o[m.name] = m.geo; return o; }, [meshes]);
 
   // ── customize mode: emit the LIVE RefraktSelection (decisions/0002 v2) ──
   // Fires on EVERY selection change so the host (efd-shop) can re-price against admin's
@@ -476,6 +505,8 @@ export default function Studio({ glbUrl = null, initialConfig = null, materials 
   const assignMetal = (finish) => mapParts(selPartNodes.map((p) => p.id), (p) => ({ ...p, kind: 'metal', finish, over: {} }));
   const setOver = (k, v) => mapParts(selPartNodes.map((p) => p.id), (p) => ({ ...p, over: { ...p.over, [k]: v } }));
   const resetShader = () => mapParts(selPartNodes.map((p) => p.id), (p) => ({ ...p, over: {} }));
+  // Override the cut for every selected GEM part (persists into each slot's `cut`; see buildConfig).
+  const setCut = (cut) => setCutByMesh((prev) => { const next = { ...prev }; for (const p of selPartNodes) if (p.kind === 'gem') next[p.meshName] = cut; return next; });
 
   // Save the selected part's current (tuned) look as a reusable material descriptor.
   // The package only EMITS it via onSaveMaterial — the host app persists it to its DB and
@@ -549,6 +580,9 @@ export default function Studio({ glbUrl = null, initialConfig = null, materials 
   // advanced shader effective values
   const advGem = firstPart && firstPart.kind === 'gem' ? gemEff(firstPart.over, firstPart.preset) : null;
   const advMetal = firstPart && firstPart.kind === 'metal' ? metalEff(firstPart.over, firstPart.finish) : null;
+  // Gem size/cut for the inspector panel: measured spec + effective cut (override ?? guess).
+  const firstGeo = firstPart && firstPart.kind === 'gem' ? geoByMesh[firstPart.meshName] : null;
+  const effCut = firstPart && firstPart.kind === 'gem' ? (cutByMesh[firstPart.meshName] ?? firstGeo?.cut ?? null) : null;
 
   const themeDark = theme === 'dark';
 
@@ -895,6 +929,31 @@ export default function Studio({ glbUrl = null, initialConfig = null, materials 
                               <button className="rfk-soft" onClick={() => setInspPage('library')} style={{ flexShrink: 0, fontSize: 12.5, color: 'var(--fg)', background: 'transparent', border: '1px solid var(--line2)', borderRadius: 8, padding: '7px 14px', cursor: 'pointer' }}>Change</button>
                             </div>
                           </>
+                        )}
+                        {/* Cut & size — authoring only. mm/carat are measured off the model; the cut is a
+                            geometry guess the admin can override (the override is what's saved). */}
+                        {!customize && firstPart && firstPart.kind === 'gem' && (
+                          <div style={{ marginBottom: 20 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg)', marginBottom: 9 }}>Cut &amp; size</div>
+                            {firstGeo ? (
+                              <div style={{ ...mono, fontSize: 11, color: 'var(--muted)', marginBottom: 10 }}>
+                                {firstGeo.lengthMm} × {firstGeo.widthMm}{firstGeo.depthMm != null ? ` × ${firstGeo.depthMm}` : ''} mm · {firstGeo.carat} ct
+                                {selPartNodes.length > 1 && <span> · applies to {selPartNodes.filter((p) => p.kind === 'gem').length} stones</span>}
+                              </div>
+                            ) : (
+                              <div style={{ ...mono, fontSize: 11, color: 'var(--muted)', marginBottom: 10 }}>Size unavailable for this mesh.</div>
+                            )}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                              {CUTS.map((c) => {
+                                const on = effCut === c;
+                                const guess = firstGeo?.cut === c && !cutByMesh[firstPart.meshName];
+                                return (
+                                  <button key={c} onClick={() => setCut(c)} title={guess ? 'Auto-detected' : undefined} style={{ position: 'relative', textTransform: 'capitalize', fontSize: 11.5, borderRadius: 7, padding: '7px 4px', cursor: 'pointer', border: '1px solid ' + (on ? acc : 'var(--line2)'), background: on ? `rgba(${accRgb},0.14)` : 'transparent', color: on ? acc : 'var(--fg2)' }}>{c}{guess && !on ? ' ·' : ''}</button>
+                                );
+                              })}
+                            </div>
+                            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 7, lineHeight: 1.5 }}>Auto-detected from the model — override if the guess is off.</div>
+                          </div>
                         )}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 14, borderTop: '1px solid var(--line)' }}>
                           <button onClick={onHideSel} style={{ fontSize: 11.5, border: '1px solid var(--line2)', background: 'transparent', color: 'var(--fg2)', borderRadius: 7, padding: '6px 12px', cursor: 'pointer' }}>{selNodes.every((n) => n.hidden) && selNodes.length ? 'Show' : 'Hide'}</button>

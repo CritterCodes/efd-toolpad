@@ -14,11 +14,8 @@
  */
 
 import { RENDER_SCENES, DEFAULT_SCENE, sceneFragment } from '../core/renderScenes.js';
-import { VALID_FINISHES, VALID_GEM_PRESETS } from '../core/library.js';
 
-// Pure-data vocabulary is exposed here for API routes that must not pull the
-// client component barrel (and its React hooks) into a server bundle.
-export { RENDER_SCENES, DEFAULT_SCENE, VALID_FINISHES, VALID_GEM_PRESETS };
+export { RENDER_SCENES, DEFAULT_SCENE };
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const DEFAULT_MODEL = 'gemini-3-pro-image';

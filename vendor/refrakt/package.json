@@ -1,6 +1,6 @@
 {
   "name": "@crittercodes/refrakt",
-  "version": "1.10.1",
+  "version": "1.11.0",
   "description": "REFRAKT — real-time BVH ray-marching gemstone rendering engine for the web (React Three Fiber).",
   "type": "module",
   "license": "UNLICENSED",

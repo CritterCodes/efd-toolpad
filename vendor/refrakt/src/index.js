@@ -25,6 +25,10 @@ export { METALS, GEMS, MATERIAL_LIBRARY, METAL_LABEL, GEM_LABEL, METAL_FINISH_WO
 // prop. `createRegistry`/`validateMaterial` for non-component use (e.g. server validation).
 export { createRegistry, defaultRegistry, validateMaterial } from './core/registry';
 export { BASELINE } from './core/baseline';
+// Geometry measurement (pure, engine-agnostic) — read off the already-loaded GLB so a host never
+// re-parses it. `computeSlotVolumes` (metal volume, cm³) + `measureGems` (gem size/cut: mm, carat,
+// cut) with unit auto-detection. See docs/INTEGRATION_GUIDE.md §6.
+export { computeSlotVolumes, measureGems, measureMesh, detectUnitScaleMm, CUTS, isCut, UNIT_CM, UNIT_MM } from './core/geometry';
 // Render scene vocabulary (client-safe data) — the settings a generated render can be
 // placed in. The viewer's scene picker reads these; the server helper (@crittercodes/
 // refrakt/server) turns the chosen id into prompt text. Pure data, no secrets.
