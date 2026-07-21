@@ -16,7 +16,6 @@ export { default as ConfiguratorSetup } from './customizer/ConfiguratorSetup';
 export { GEM_CONFIGS, GOLD_MAT, SATIN_MAT, SILVER_MAT } from './core/materials';
 export { VERT, buildFrag } from './core/shaders';
 export { makeMat, syncBVH } from './core/helpers';
-export { signedVolumeOfMesh, computeSlotVolumes, UNIT_CM } from './core/geometry';
 export { Lights, GlowLight } from './core/lights';
 export { METAL_DEFAULTS, METAL_MATS, makeMetalMat, resolveGemCfg, gemDefaults, gemEff, metalEff } from './core/finishes';
 // Material vocabulary — the single source apps import instead of hardcoding their
