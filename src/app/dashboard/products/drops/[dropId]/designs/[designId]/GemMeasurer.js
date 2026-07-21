@@ -52,18 +52,21 @@ function Probe({ glbUrl, meshMap, onMeasure }) {
       const toMm = unitToMm(Math.max(wsz.x, wsz.y, wsz.z));
 
       const carats = {};
+      const dims = {}; // { name: { l, w } } snapped mm — the physical trade spec
       const box = new THREE.Box3();
       const sz = new THREE.Vector3();
+      const snap = (v) => Math.round(v / 0.25) * 0.25;
       scene.traverse((o) => {
         if (!o.isMesh || o.userData?.__outline) return;
         const slot = gemSlots.find((s) => meshMatchesSlot(o.name, s));
         if (!slot) return;
         box.setFromObject(o); box.getSize(sz);
         // Two largest bbox dims (mm) = the face-up footprint: length ≥ width.
-        const dims = [sz.x, sz.y, sz.z].map((v) => v * toMm).sort((a, b) => b - a);
-        carats[slot.nameContains] = caratFromFootprintMm(dims[0], dims[1]);
+        const d = [sz.x, sz.y, sz.z].map((v) => v * toMm).sort((a, b) => b - a);
+        carats[slot.nameContains] = caratFromFootprintMm(d[0], d[1]);
+        dims[slot.nameContains] = { l: snap(d[0]), w: snap(d[1]) };
       });
-      onMeasure({ carats, unitToMm: toMm });
+      onMeasure({ carats, dims, unitToMm: toMm });
     } catch (e) {
       onMeasure({ carats: {}, error: e.message });
     }

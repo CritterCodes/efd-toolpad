@@ -8,16 +8,17 @@
 
 ## 1. What we need
 
-For every **gem mesh** in a GLB, REFRAKT should determine and store two things:
+For every **gem mesh** in a GLB, REFRAKT should determine and store three things:
 
-- **`carat`** — a diamond-equivalent carat weight from the stone's measured size.
+- **`mm`** — the measured **physical dimensions** (`lengthMm` × `widthMm`, and `depthMm` if reliable). This is the primary trade spec — melee/stones are ordered and matched to SKUs by mm — so it must be surfaced, not just the derived carat.
+- **`carat`** — a diamond-equivalent carat weight derived from `mm` (for setting-labor bands).
 - **`cut`** — a shape class (at least `round | square | fancy`; more is welcome).
 
 …and write them onto the gem slot in the saved config, e.g.:
 
 ```js
 { nameContains: 'Diamond_00', match: 'exact', type: 'gem', gemPreset: 'diamond',
-  carat: 0.01, cut: 'round' }        // ← the two new fields
+  lengthMm: 1.5, widthMm: 1.5, carat: 0.01, cut: 'round' }   // ← the new fields
 ```
 
 Additive fields only — viewers/customizer ignore unknown keys.
@@ -32,10 +33,9 @@ Requirements, learned the hard way on real assets:
 
 1. **Use the girdle FOOTPRINT (bounding-box length × width), NOT signed volume.** Cut-stone meshes are **not watertight**, so `signedVolumeOfMesh` over-reports — on our sample a 1.3 mm melee "measured" a volume larger than its own bounding box. The bbox footprint is reliable and is how the trade sizes stones.
 2. **Treat every stone as a diamond** (diamond-equivalent carat). This matches how the bench eyeballs colored stones ("a 5.5 mm amethyst ≈ the 0.5 ct diamond I'd charge for").
-3. **Formula we validated** (L, W = the two largest bbox dims, in mm):
-   - `carat = 0.00364 × L × W²`  (depth taken as ~0.62 × width; factor calibrated so a 6.5 mm round ≈ 1.00 ct)
+3. **Surface the mm first, derive carat from it.** L, W = the two largest bbox dims (mm); depth = smallest (report only if it looks real). Snap L and W to **0.25 mm** (trade increment) before anything, so near-identical stones bucket together and the reported size reads like a real spec ("1.5 mm", "5.0 × 3.0 mm").
+   - `carat = 0.00364 × L × W²`  (depth taken as ~0.62 × width; factor calibrated so a 6.5 mm round ≈ 1.00 ct).
    - For a round this reduces to the standard `(diameter / 6.5)³`.
-   - Snap L and W to **0.25 mm** (trade increment) before computing, so near-identical stones bucket together.
 4. **Auto-detect units — do not require the caller to state them.** glTF's standard unit is meters, and our CAD exports come through that way (a ring's overall bbox ≈ `0.028` model units = 28 mm). Detect from the overall model size: `<1 → meters`, `<5 → cm`, else `mm`. (This supersedes the units-punt in the existing `core/geometry.js` `computeSlotVolumes` doc — thread #133/#137 — at least for gems.)
 
 **Validation target (sample `efd_ring.glb`):** melee read `0.009 / 0.012 / 0.02 / 0.04 ct`, center amethyst `~4.5 ct`. Owner's bench reference: 1.25 mm ≈ 0.0085 ct, 1.5 mm ≈ 0.013 ct, 2 mm ≈ 0.03 ct — matched.
@@ -57,7 +57,7 @@ Requirements, learned the hard way on real assets:
 
 Either (or both):
 - **Config-embedded (preferred):** gem slots carry `carat` + `cut` in the saved config (§1). Host reads from `variant.viewerConfig.meshMap`.
-- **Pure helper:** export from `core/geometry.js` something like `measureGems(root, meshMap) → { [slotName]: { carat, cut, lengthMm, widthMm } }`, with internal unit auto-detection, so non-studio callers can measure a loaded scene directly.
+- **Pure helper:** export from `core/geometry.js` something like `measureGems(root, meshMap) → { [slotName]: { lengthMm, widthMm, carat, cut } }`, with internal unit auto-detection, so non-studio callers can measure a loaded scene directly.
 
 ## 7. Host stopgap you'll be replacing
 
@@ -65,6 +65,6 @@ The admin currently measures size itself in `GemMeasurer.js` (a headless drei `<
 
 ## 8. Acceptance
 
-- Sample `efd_ring.glb`: gems report the carats in §3 and a `cut` per stone.
+- Sample `efd_ring.glb`: gems report mm dimensions, the carats in §3, and a `cut` per stone.
 - Values are **stable across variants** (same GLB → same numbers), so downstream setting-labor lines up regardless of the metal/gem-type chosen.
 - Studio cut override persists into the saved config.

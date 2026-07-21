@@ -97,6 +97,11 @@ const sumLines = (arr) => (arr || []).reduce((s, r) => s + (Number(r.cost) || 0)
 const stoneUnit = (r, stoneCosts = {}) => (r?.stoneSkuId && stoneCosts[r.stoneSkuId] != null ? Number(stoneCosts[r.stoneSkuId]) : Number(r?.unitCost) || 0);
 // Per-variant stone cost = Σ(unit × qty). Accents are priced per-stone × quantity.
 const sumStones = (arr, stoneCosts = {}) => (arr || []).reduce((s, r) => s + stoneUnit(r, stoneCosts) * (Number(r.qty) || 1), 0);
+// Physical size label from measured mm — one number for round/square, L×W for fancy.
+const stoneSizeLabel = ({ l, w } = {}) => {
+  if (l == null || w == null) return '';
+  return Math.abs(l - w) < 0.26 ? `${w}mm` : `${l}×${w}mm`;
+};
 const GEM_ROLES = [{ value: 'center', label: 'Center' }, { value: 'accent', label: 'Accent' }];
 
 // Stone-setting labor is inferred from carat band × count (gem type is irrelevant). Labels
@@ -191,6 +196,7 @@ function toForm(d) {
         label: g.label || '',
         unitCost: g.unitCost != null ? String(g.unitCost) : '',
         caratEach: g.caratEach != null ? String(g.caratEach) : '',
+        sizeMm: g.sizeMm || '',
         source: g.source || '',
       })),
       markupOverride: v.markupOverride != null && v.markupOverride !== '' ? String(v.markupOverride) : '',
@@ -421,7 +427,7 @@ function CadTab({ design, designId, onReload, notify, onCreateFirstVariant, form
   );
 }
 
-function VariantRow({ index, variant, isRing, hasGlb, stoneCosts, gemCarats, onUpdate, onRemove, onConfigure }) {
+function VariantRow({ index, variant, isRing, hasGlb, stoneCosts, gemInfo, onUpdate, onRemove, onConfigure }) {
   const set = (k, v) => onUpdate(index, { [k]: v });
   const configured = !!variant.viewerConfig;
   const usesKarat = finishUsesKarat(variant.finish);
@@ -488,7 +494,7 @@ function VariantRow({ index, variant, isRing, hasGlb, stoneCosts, gemCarats, onU
             <TextField label="Size range max" value={variant.sizingMax} onChange={(e) => set('sizingMax', e.target.value)} size="small" sx={{ flex: 1 }} helperText="resizable high" />
           </Stack>
         )}
-        <VariantStones gemstones={variant.gemstones} viewerConfig={variant.viewerConfig} stoneCosts={stoneCosts} gemCarats={gemCarats} onChange={(rows) => set('gemstones', rows)} />
+        <VariantStones gemstones={variant.gemstones} viewerConfig={variant.viewerConfig} stoneCosts={stoneCosts} gemInfo={gemInfo} onChange={(rows) => set('gemstones', rows)} />
       </Stack>
     </Paper>
   );
@@ -523,7 +529,7 @@ function VariantCard({ index, variant, isRing, stoneCosts, onOpen }) {
   );
 }
 
-function VariantsTab({ variants, category, hasGlb, stoneCosts, gemCarats, onAdd, onUpdate, onRemove, onConfigure }) {
+function VariantsTab({ variants, category, hasGlb, stoneCosts, gemInfo, onAdd, onUpdate, onRemove, onConfigure }) {
   const isRing = category === 'ring';
   const [selected, setSelected] = useState(null);
   // Fall back to the grid if the open variant disappears (removed) or index drifts.
@@ -534,7 +540,7 @@ function VariantsTab({ variants, category, hasGlb, stoneCosts, gemCarats, onAdd,
     return (
       <Box>
         <Button startIcon={<ArrowBackIcon />} onClick={() => setSelected(null)} sx={{ color: REPAIRS_UI.textSecondary, mb: 1.5, textTransform: 'none' }}>All variants</Button>
-        <VariantRow index={selected} variant={variants[selected]} isRing={isRing} hasGlb={hasGlb} stoneCosts={stoneCosts} gemCarats={gemCarats} onUpdate={onUpdate}
+        <VariantRow index={selected} variant={variants[selected]} isRing={isRing} hasGlb={hasGlb} stoneCosts={stoneCosts} gemInfo={gemInfo} onUpdate={onUpdate}
           onRemove={(i) => { onRemove(i); setSelected(null); }} onConfigure={onConfigure} />
       </Box>
     );
@@ -762,21 +768,20 @@ function StonePicker({ value, onPick }) {
 
 /** Per-variant stones: center + accents, seeded from the variant's REFRAKT gem slots and
  *  linked to the gemstone catalog. Cost = unit × qty (accents priced per-stone). */
-function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, gemCarats = {}, onChange }) {
+function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, gemInfo = {}, onChange }) {
   const rows = gemstones || [];
   const set = (i, patch) => onChange(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   const remove = (i) => onChange(rows.filter((_, idx) => idx !== i));
-  const add = () => onChange([...rows, { slot: '', role: 'accent', qty: '1', stoneSkuId: '', stullerSku: '', label: '', unitCost: '', caratEach: '', source: '' }]);
+  const add = () => onChange([...rows, { slot: '', role: 'accent', qty: '1', stoneSkuId: '', stullerSku: '', label: '', unitCost: '', caratEach: '', sizeMm: '', source: '' }]);
   const gemSlots = (viewerConfig?.meshMap || []).filter((s) => s.type === 'gem');
-  // REFRAKT stores one meshMap entry per gem mesh. Group by gem type AND carat band (from the
-  // GLB measurement) so mixed sizes split into their own rows (18 melee + 4 mid → two rows).
+  // REFRAKT stores one meshMap entry per gem mesh. Group by gem type + measured size so mixed
+  // accent sizes split into their own sourceable rows (18 melee + 4 mid → two rows).
   const gemGroups = (() => {
     const m = new Map();
     for (const s of gemSlots) {
-      // Split by gem type AND measured size (carat) so 3 accent sizes → 3 sourceable rows.
-      const carat = gemCarats[s.nameContains];
-      const key = `${s.gemPreset || 'gem'}|${carat != null ? carat : 'na'}`;
-      const g = m.get(key) || { slot: s.nameContains || '', preset: s.gemPreset || '', qty: 0, carat: carat != null ? carat : '' };
+      const info = gemInfo[s.nameContains] || {};
+      const key = `${s.gemPreset || 'gem'}|${info.carat != null ? info.carat : 'na'}`;
+      const g = m.get(key) || { slot: s.nameContains || '', preset: s.gemPreset || '', qty: 0, carat: info.carat != null ? info.carat : '', size: stoneSizeLabel(info) };
       g.qty += 1;
       m.set(key, g);
     }
@@ -786,7 +791,7 @@ function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, gemCarats = {
     // A lone stone is almost always the center; multiples are accents. Name hints win.
     slot: g.slot, role: /accent|melee|pave|pavé|side/i.test(g.slot) ? 'accent' : (g.qty > 1 ? 'accent' : 'center'),
     qty: String(g.qty), stoneSkuId: '', stullerSku: '', label: '', unitCost: '',
-    caratEach: g.carat !== '' && g.carat != null ? String(g.carat) : '', source: '', preset: g.preset,
+    caratEach: g.carat !== '' && g.carat != null ? String(g.carat) : '', sizeMm: g.size || '', source: '', preset: g.preset,
   })));
   const subtotal = sumStones(rows, stoneCosts);
   return (
@@ -808,8 +813,8 @@ function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, gemCarats = {
                 </TextField>
                 <Box sx={{ flex: 1, minWidth: 200 }}>
                   <StonePicker value={r.label} onPick={(p) => set(i, p)} />
-                  {(() => { const b = caratBand(r.caratEach); return (r.slot || r.preset || b) ? (
-                    <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{[r.slot, r.preset, b ? `→ ${b.label}` : null].filter(Boolean).join(' · ')}</Typography>
+                  {(() => { const b = caratBand(r.caratEach); return (r.sizeMm || r.preset || b) ? (
+                    <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{[r.sizeMm, r.preset, b ? `→ ${b.label}` : null].filter(Boolean).join(' · ')}</Typography>
                   ) : null; })()}
                 </Box>
                 <TextField size="small" label="Qty" type="number" value={r.qty ?? '1'} onChange={(e) => set(i, { qty: e.target.value })} sx={{ width: 56 }} inputProps={{ min: 1 }} />
@@ -1020,9 +1025,13 @@ export default function DesignDetailPage({ params }) {
   const [saving, setSaving] = useState(false);
   const [defaultMarkup, setDefaultMarkup] = useState(2.5);
   const [stoneCosts, setStoneCosts] = useState({}); // { stoneSkuId: current wholesale cost }
-  const [gemCarats, setGemCarats] = useState({}); // { gem mesh name: diamond-equivalent carat } from the GLB
+  const [gemInfo, setGemInfo] = useState({}); // { gem mesh name: { carat, l, w } } measured from the GLB
   const [tab, setTab] = useState(0);
-  const onMeasure = useCallback(({ carats }) => setGemCarats(carats || {}), []);
+  const onMeasure = useCallback(({ carats = {}, dims = {} }) => {
+    const info = {};
+    for (const name of new Set([...Object.keys(carats), ...Object.keys(dims)])) info[name] = { carat: carats[name], ...(dims[name] || {}) };
+    setGemInfo(info);
+  }, []);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
   const notify = (message, severity = 'success') => setSnack({ open: true, message, severity });
   const closeSnack = () => setSnack((s) => ({ ...s, open: false }));
@@ -1158,6 +1167,7 @@ export default function DesignDetailPage({ params }) {
             // Store the resolved unit (SKU-linked → current catalog wholesale; else manual).
             unitCost: stoneUnit(g, stoneCosts),
             caratEach: g.caratEach ? Number(g.caratEach) : null,
+            sizeMm: g.sizeMm || null,
             source: g.source || null,
           })),
           // Snapshot the stone total (Σ unit × qty) so external readers don't recompute.
@@ -1246,7 +1256,7 @@ export default function DesignDetailPage({ params }) {
           category={form.category}
           hasGlb={!!design.designModel?.glbUrl}
           stoneCosts={stoneCosts}
-          gemCarats={gemCarats}
+          gemInfo={gemInfo}
           onAdd={addAndConfigureVariant}
           onUpdate={updateVariant}
           onRemove={removeVariant}
