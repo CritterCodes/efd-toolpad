@@ -4,7 +4,9 @@
 **Owner decisions captured:** gemstone = a Design (reuse the engine); reserve-on-paid; only finite
 gems impose caps; **"concept" is the EXISTING listing state (a Design with no finished Piece, listed
 MTO and priced off estimate — ripens to RTS when a Piece exists), NOT a new status or edition**;
-simulated never used (natural | lab).
+simulated never used (natural | lab); **shop selection is DISCRETE — jewelry setting sizes are fixed
+(swap species/creation only), gem purchase = pick an in-stock rough variant, off-menu = special
+request → quote; NO continuous size customization and NO new REFRAKT FR (existing customizer covers it).**
 
 ---
 
@@ -57,15 +59,15 @@ Examples the owner gave: *"5 pieces of rough, same material, 5 different qualiti
 (or grouped by spec); *"3 can cut 1ct flawless, 2 can cut 2ct slightly-included"* → variant A
 `{1ct, VVS, qty 3}`, variant B `{2ct, SI, qty 2}`.
 
-**Customization within range.** The customer picks a target size (e.g. "3ct"); the system routes it to
-a variant whose `sizeRange` covers it, prices it at that carat (§ pricing), and on order cuts a **Piece**
-to that size from that rough. A requested size **no variant can cut = a special request** — a gem-cutter
-must source rough for it (a new variant / MTO with lead time), NOT an instant buy. The design-level
-offered range = the union of its variant ranges; the customizer surfaces that.
+**Buying a gem design = picking an available rough variant** (DECIDED — the customer does NOT slide a
+continuous size). The shop lists the design's in-stock rough variants, each an **immediately-buyable**
+cut (its size + quality). Selecting one cuts a **Piece** from that rough. A species/size/clarity with
+**no matching rough in stock = a special request** — a gem-cutter sources rough for it → quote/MTO,
+NOT an instant buy. `sizeRange` on a variant describes what that rough *can* be cut to (capability),
+but the shopper's choice is **discrete** (this variant), not a free number.
 
-> This is why variants (not a piece-only field) are the right home: supply and cuttability live on the
-> rough, so availability can never promise a size the rough doesn't exist for. The finished size the
-> customer chose is captured on the **Piece** when it's cut.
+> Variants (not a piece-only field) are the right home: supply + cuttability live on the rough, so we
+> never promise a stone the rough can't yield. The finished size is captured on the **Piece** when cut.
 
 ### Edition type (same vocabulary as jewelry) — this is the CAP
 - `one_of_one` → supply 1
@@ -114,25 +116,28 @@ ranked alongside catalog + Stuller, tagged `kind: 'gemDesign'`.
 
 ## 5. BOM link
 
-On a jewelry variant stone row, when linked to a gem design:
-- `gemDesignId` (+ **`variantId`** = the rough lot) replaces the SKU link. A jewelry design may pin a
-  specific size, or defer size to customization within the gem's offered range.
-- `gemsPerPiece` = qty of that gem consumed by ONE finished piece (usually 1; 3 for a 3-stone).
-- **Cost flows live** from the gem: chosen carat × material/quality rate + cut labor.
-- The customer's **chosen finished size** is captured on the jewelry order → the gem **Piece** cut for it.
+A jewelry design's **setting size is FIXED** (it's in the CAD). So a stone slot needs a gem of *that*
+size — the shopper never changes the carat/dimensions. On a jewelry variant stone row linked to gems:
+- the slot pins a **`sizeMm`/carat** (the setting) + an **allowed species set** (e.g. amethyst, peridot,
+  sapphire) the shopper may swap between. Each allowed species resolves to gem designs / rough variants
+  **of that fixed size**.
+- `gemsPerPiece` = qty consumed by ONE finished piece (usually 1; 3 for a 3-stone).
+- **Cost flows live** from the chosen gem: carat (the fixed setting size) × material/quality rate + cut labor.
+- Wanting a **different size, or a gem the design doesn't offer, = a CAD edit → special request → quote**
+  (§ customization), not a self-serve swap.
 
 ## 6. Availability — the "available-to-promise" engine
 
 ### The rule (supply lives on the VARIANT = rough lot)
 ```
 variantAvailable(V)  = roughQty(V) − reserved(V) − consumed(V)        // ∞ only for the unlimited case
-// which rough lots can satisfy a requested finished size s:
+// rough lots that can be cut to the slot's FIXED setting size s (+ chosen species):
 satisfying(G, s)     = variants V of G where s ∈ sizeRange(V)
 gemAvailable(G, s)   = Σ variantAvailable(V) for V in satisfying(G, s)
-buildableFromGem(D)  = ⌊ gemAvailable(Gd, sizeD) ÷ gemsPerPiece(D→Gd) ⌋
+buildableFromGem(D)  = ⌊ gemAvailable(Gd, sizeD) ÷ gemsPerPiece(D→Gd) ⌋   // sizeD = the design's setting size
 buildable(D)         = min( editionRemaining(D), min over finite gems Gd of buildableFromGem(D) )
 ```
-A size with `satisfying(G, s) = ∅` is a **special request** (source rough), not a buyable quantity.
+No rough can cut the setting size (`satisfying(G, s) = ∅`) → **special request** (source rough), not buyable.
 Shared-cap invariant across every consumer, per rough lot:
 ```
 Σ reserved(V) over all jewelry pieces  ≤  roughQty(V)
@@ -159,19 +164,31 @@ time. Concept-vs-RTS changes fulfillment/lead-time, not the cap.
   contention on a shared gem).
 - **Admin edition edit:** can't set a jewelry edition higher than the gem allows if already committed.
 
-## 7. Customizer tandem (REFRAKT)
+## 7. Customization — NO new REFRAKT FR needed
 
-The shop customizer must let a shopper configure the jewelry **and** its gem (pick a gem design /
-variant, or customize a made-to-order gem). This is a REFRAKT `<Customizer>` concern — nesting a gem
-configuration inside a jewelry configuration, emitting both selections. → REFRAKT feature request
-(sibling to the size/cut and natural/lab FRs). Availability shown in the customizer comes from §6.
+The shop customization rules (owner, DECIDED):
+
+- **Jewelry:** setting sizes are **fixed in the CAD**. A shopper may swap the gem's **species**
+  (amethyst ↔ peridot) and **natural/lab**, but **never** the carat/dimensions. → This is *exactly*
+  what REFRAKT's customizer already does: pick from admin-allowed **presets** (species/finish, 1.9) +
+  **creation** (natural/lab, 1.12). **Nothing new required from REFRAKT.**
+- **Different gem the design doesn't offer, or a different size = a CAD edit → special request → quote.**
+  Not a self-serve customizer path.
+- **Buying a gem design:** the shopper **picks an available rough variant** (a discrete, in-stock cut).
+  That's a **product variant selector + special-request** flow — plain commerce, app-side, using the
+  gem's own GLB in the viewer. Not a REFRAKT 3D-customization primitive.
+
+So there is **no size-slider and no gem-swap-on-a-piece** to build into REFRAKT. The earlier assumption
+(continuous size customization / nesting gem config in jewelry) is dropped. Availability (§6) is shown
+in the shop from the host, not the engine.
 
 ## 8. Decisions — RESOLVED (2026-07-21)
 
 1. **Melee is never a finite gem design** — commodity only (`stoneSkus`/Stuller), never capped. ✓
 2. **Gem variants = rough lots** (§3). One gem design; its variants are the rough we hold (quality +
-   cuttable size range + qty). Customer customizes size within range; out-of-range = special request.
-   Finished size is captured on the Piece. ✓
+   cuttable size + qty). **Shop selection is DISCRETE** — buying a gem = pick an in-stock rough variant;
+   jewelry setting size is FIXED (shopper swaps species/creation only). Off-menu size or gem = CAD edit /
+   special request → quote. **No continuous size customization, no new REFRAKT FR** (§7). ✓
 3. **Soft-hold = 45-min TTL** (Carvana-style) at checkout/configure, plus the paid-time atomic reserve
    as the hard guard. ✓
 4. **Pricing = carat × (material/quality) rate + cut labor**, computed live at the chosen size. ✓
@@ -184,13 +201,16 @@ rough variant); whether one rough lot can ever yield >1 stone (assume 1 for now)
 
 ## 9. Phased plan
 
-1. **Unify the model** — gemstone Design (`category:'gemstone'`), edition types + `concept` status,
-   gem pricing recipe. Migrate existing listings (§8.5). *No jewelry coupling yet.*
-2. **BOM link + match lane** — jewelry stone row can link a gem design; match engine searches gem
-   designs (the amethyst appears); cost flows from the gem.
-3. **Availability engine** — buildable rollup, reserve-on-paid (atomic), consume-at-production,
-   release-on-cancel, shared-cap invariant across consumers; surface `buildable` in admin + storefront.
-4. **Customizer tandem** — REFRAKT FR + wiring so shoppers configure jewelry + gem together.
+1. **Unify the model** — gemstone Design (`category:'gemstone'`), edition types, rough-variant supply,
+   gem pricing recipe (carat×rate+labor). Migrate existing listings (§8.5). *No jewelry coupling yet.*
+2. **BOM link + match lane** — jewelry stone slot pins size + allowed species → resolves to gem designs;
+   match engine searches gem designs (the amethyst appears); cost flows from the gem.
+3. **Availability engine** — buildable rollup, 45-min soft-hold, reserve-on-paid (atomic),
+   consume-at-production, release-on-cancel, shared-cap invariant; surface `buildable` in admin + shop.
+4. **Shop surfaces** — gem-design variant selector (pick an in-stock cut) + species/creation swap on
+   jewelry (REFRAKT already does this — no engine FR) + the special-request → quote path for off-menu.
+
+None of Phases 1–3 depend on REFRAKT. Phase 4 uses REFRAKT's EXISTING customizer (no new FR, §7).
 
 Related: [[production-pipeline-vision-doc]], the stone-match system in
 `src/app/api/products/stones/*` + `src/services/stuller/stoneSearch.js`, and
