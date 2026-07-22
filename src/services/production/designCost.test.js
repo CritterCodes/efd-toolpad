@@ -82,19 +82,21 @@ describe('estimateGemstoneCost (carat × rate + cut labor)', () => {
   });
 });
 
-describe('validateDesign — gemstone category', () => {
+describe('validateDesign — gemstone category (gem spec is PER-VARIANT)', () => {
   const base = { status: 'ready', productionMethod: PRODUCTION_METHOD.HANDMADE, edition: { type: EDITION_TYPE.ONE_OF_ONE, allocated: 0, committed: 0 } };
-  it('accepts a gemstone design with a species + non-ring variant', () => {
-    const r = validateDesign({ ...base, category: 'gemstone', gemstone: { species: 'Amethyst' }, variants: [{ variantId: 'v1', sku: 'GEM-1', active: true }] });
+  it('accepts a gemstone design; the gem spec lives on the variant', () => {
+    const r = validateDesign({ ...base, category: 'gemstone', variants: [{ variantId: 'v1', sku: 'GEM-1', active: true, gemstone: { species: 'Amethyst', carat: 2 } }] });
     expect(r.valid).toBe(true);
   });
-  it('rejects a gemstone design missing gemstone.species', () => {
-    const r = validateDesign({ ...base, category: 'gemstone', variants: [{ variantId: 'v1', sku: 'GEM-1', active: true }] });
-    expect(r.valid).toBe(false);
-    expect(r.errors.join(' ')).toMatch(/species/);
+  it('accepts a gemstone design whose variants are DIFFERENT species (a design can offer many)', () => {
+    const r = validateDesign({ ...base, category: 'gemstone', variants: [
+      { variantId: 'v1', sku: 'GEM-1', active: true, gemstone: { species: 'Amethyst' } },
+      { variantId: 'v2', sku: 'GEM-2', active: true, gemstone: { species: 'Citrine' } },
+    ] });
+    expect(r.valid).toBe(true);
   });
   it('rejects a gemstone variant that carries ringSize (non-ring branch)', () => {
-    const r = validateDesign({ ...base, category: 'gemstone', gemstone: { species: 'Sapphire' }, variants: [{ variantId: 'v1', sku: 'GEM-1', active: true, ringSize: 7 }] });
+    const r = validateDesign({ ...base, category: 'gemstone', variants: [{ variantId: 'v1', sku: 'GEM-1', active: true, ringSize: 7 }] });
     expect(r.valid).toBe(false);
     expect(r.errors.join(' ')).toMatch(/ring sizing is only valid for rings/);
   });

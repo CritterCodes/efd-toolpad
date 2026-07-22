@@ -33,12 +33,11 @@ export function validateDesign(data = {}, { requireSellable = false } = {}) {
     if (data.category !== 'ring' && (variant.ringSize !== undefined || variant.sizingAllowance !== undefined)) errors.push(`${variant.variantId || 'variant'} ring sizing is only valid for rings`);
     if (variant.sizingAllowance && Number(variant.sizingAllowance.min) > Number(variant.sizingAllowance.max)) errors.push(`${variant.variantId || 'variant'} sizingAllowance min must not exceed max`);
   });
-  // Gemstone designs (a cut stone, not jewelry) carry a gem-native spec instead of metal/mounting.
-  // Its variants are ROUGH lots (quality + cuttable size); ring-sizing branch above already excludes
-  // ringSize (category !== 'ring'). Availability/BOM coupling arrives in later pipeline phases.
-  if (data.category === 'gemstone' && (!data.gemstone || !data.gemstone.species)) {
-    errors.push('gemstone design requires gemstone.species');
-  }
+  // Gemstone designs (a cut stone, not jewelry) carry the gem spec on their VARIANTS, not the
+  // design — a gemstone design can offer multiple species (each a variant), exactly like a jewelry
+  // design offers multiple metals. So there's no design-level gem requirement here; a variant holds
+  // { gemstone: { species, carat, cut, color, clarity, treatment, naturalSynthetic, dimensions },
+  // roughQty }. The ring-sizing branch above already excludes ringSize for non-ring categories.
   return { valid: errors.length === 0, errors };
 }
 
@@ -79,10 +78,6 @@ export default class DesignsModel {
       name: data.name ?? '',
       description: data.description ?? null,
       story: data.story ?? '', category: data.category ?? null, attributes: data.attributes ?? {},
-      // Gem-native spec — populated only when category==='gemstone' (species/color/clarity/cut/
-      // treatment/cert/naturalSynthetic). null for jewelry designs. Mirrors the products gemstone
-      // sub-doc so listing projection + migration map 1:1.
-      gemstone: data.gemstone ?? null,
       tags: Array.isArray(data.tags) ? data.tags : [], metadata: data.metadata ?? {},
       primaryArtisanId: data.primaryArtisanId ?? null,
       collaborators: Array.isArray(data.collaborators) ? data.collaborators : [],

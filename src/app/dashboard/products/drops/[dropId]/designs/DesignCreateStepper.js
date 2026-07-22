@@ -40,7 +40,7 @@ export default function DesignCreateStepper({ dropId, onSave, onCancel }) {
   const [artisans, setArtisans] = useState([]);
   const [saving, setSaving] = useState(false);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'error' });
-  const [f, setF] = useState({ name: '', species: '', category: '', editionType: 'unlimited', editionLimit: '', primaryArtisanId: '', tags: [], status: 'draft' });
+  const [f, setF] = useState({ name: '', category: '', editionType: 'unlimited', editionLimit: '', primaryArtisanId: '', tags: [], status: 'draft' });
   const [tagInput, setTagInput] = useState('');
   const set = (patch) => setF((x) => ({ ...x, ...patch }));
   const showSnack = (message, severity = 'error') => setSnack({ open: true, message, severity });
@@ -53,12 +53,11 @@ export default function DesignCreateStepper({ dropId, onSave, onCancel }) {
   const addTag = () => { const t = tagInput.trim().toLowerCase().replace(/\s+/g, '-'); if (t && !f.tags.includes(t)) set({ tags: [...f.tags, t] }); setTagInput(''); };
 
   const create = async () => {
-    if (isGem && !f.species.trim()) { showSnack('Species is required for a gemstone.'); return; }
-    if (!isGem && !f.name.trim()) { showSnack('Name is required.'); return; }
+    if (!f.name.trim()) { showSnack('Name is required.'); return; }
     setSaving(true);
     try {
       const body = {
-        name: (f.name.trim() || (isGem ? f.species.trim() : '')),
+        name: f.name.trim(),
         category: isGem ? 'gemstone' : (f.category || null),
         tags: f.tags,
         status: f.status,
@@ -68,7 +67,8 @@ export default function DesignCreateStepper({ dropId, onSave, onCancel }) {
         edition: { type: f.editionType, ...(f.editionType === 'limited' ? { limit: Number(f.editionLimit) || 1 } : {}), allocated: 0, committed: 0, nextNumber: 1 },
         dropId: dropId || null,
         metadata: { hasModel: Boolean(hasModel) },
-        ...(isGem ? { gemstone: { species: f.species.trim() } } : {}),
+        // Gem spec (species/carat/cut/…) is authored PER VARIANT on the design page — a gemstone
+        // design can offer multiple species, like jewelry offers multiple metals.
       };
       const res = await fetch('/api/production/designs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to create design');
@@ -136,10 +136,8 @@ export default function DesignCreateStepper({ dropId, onSave, onCancel }) {
         <Paper sx={panelSx}>
           <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 600, mb: 2 }}>{isGem ? 'Gemstone basics' : 'Design basics'}</Typography>
           <Stack spacing={2}>
-            {isGem && (
-              <TextField label="Species" value={f.species} onChange={(e) => set({ species: e.target.value })} size="small" fullWidth required placeholder="Amethyst, Sapphire…" helperText="Full gem spec (carat, cut, color…) comes next, on the design page." />
-            )}
-            <TextField label={isGem ? 'Name (optional)' : 'Name'} value={f.name} onChange={(e) => set({ name: e.target.value })} size="small" fullWidth required={!isGem} placeholder={isGem ? 'defaults to species' : ''} />
+            <TextField label="Name" value={f.name} onChange={(e) => set({ name: e.target.value })} size="small" fullWidth required
+              helperText={isGem ? 'The gem spec (species, carat, cut, color…) is set per variant on the design page — a design can offer multiple species.' : undefined} />
             <Stack direction="row" spacing={1.5}>
               {!isGem && (
                 <FormControl size="small" sx={{ flex: 1 }}>

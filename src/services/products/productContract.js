@@ -195,8 +195,10 @@ export function buildProductFromDesign({ design = {}, estCost = 0, opts = {} }) 
     ? design.metalOptions.map((m) => (typeof m === 'string' ? { type: m, purity: null } : m))
     : [];
   // A gemstone Design (a cut stone) lists as a gemstone product carrying the gem-native spec,
-  // not the jewelry metal shape.
+  // not the jewelry metal shape. The spec lives on a VARIANT (a design can offer several species);
+  // the listing surfaces the first variant's spec as representative.
   const isGem = design.category === 'gemstone';
+  const gemSpec = isGem ? ((design.variants || []).find((v) => v.gemstone)?.gemstone ?? null) : null;
 
   return {
     productId,
@@ -214,7 +216,7 @@ export function buildProductFromDesign({ design = {}, estCost = 0, opts = {} }) 
       costBasisSource: 'estimated',
       currency: 'USD',
     },
-    ...(isGem ? { gemstone: design.gemstone ?? null } : { jewelry: { type: opts.jewelryType ?? null, metals } }),
+    ...(isGem ? { gemstone: gemSpec } : { jewelry: { type: opts.jewelryType ?? null, metals } }),
     references: { designId: design.designID ?? null, pieceID: null, gemstoneId: design.gemstoneId ?? null },
     pieceIDs: [],
     seller: opts.seller ?? null,
