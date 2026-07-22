@@ -10,6 +10,7 @@ import DesignServicesIcon from '@mui/icons-material/DesignServices';
 import CheckIcon from '@mui/icons-material/Check';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
+import { fetchArtisans, hasArtisanType, ARTISAN_TYPE } from '@/lib/artisans';
 
 const CATEGORIES = ['ring', 'necklace', 'bracelet', 'earrings', 'pendant', 'brooch', 'other'];
 const EDITION_TYPES = [
@@ -46,10 +47,14 @@ export default function DesignCreateStepper({ dropId, onSave, onCancel }) {
   const showSnack = (message, severity = 'error') => setSnack({ open: true, message, severity });
 
   useEffect(() => {
-    fetch('/api/users?role=artisan').then((r) => r.json()).then((d) => setArtisans(Array.isArray(d) ? d : [])).catch(() => {});
+    fetchArtisans().then(setArtisans).catch(() => {});
   }, []);
 
   const isGem = designType === 'gemstone';
+  // Route the work to the right hands: gemstone designs → gem cutters; jewelry → jewelers/designers.
+  const eligibleArtisans = artisans.filter((a) => hasArtisanType(a, isGem
+    ? [ARTISAN_TYPE.GEM_CUTTER]
+    : [ARTISAN_TYPE.JEWELER, ARTISAN_TYPE.DESIGNER, ARTISAN_TYPE.CAD_DESIGNER]));
   const addTag = () => { const t = tagInput.trim().toLowerCase().replace(/\s+/g, '-'); if (t && !f.tags.includes(t)) set({ tags: [...f.tags, t] }); setTagInput(''); };
 
   const create = async () => {
@@ -159,12 +164,12 @@ export default function DesignCreateStepper({ dropId, onSave, onCancel }) {
               )}
             </Stack>
             <Autocomplete
-              size="small" options={artisans}
+              size="small" options={eligibleArtisans}
               getOptionLabel={(a) => [a.firstName, a.lastName].filter(Boolean).join(' ') || a.email || a.userID || ''}
               isOptionEqualToValue={(o, v) => (o.userID || o._id?.toString()) === (v.userID || v._id?.toString())}
-              value={artisans.find((a) => (a.userID || a._id?.toString()) === f.primaryArtisanId) || null}
+              value={eligibleArtisans.find((a) => (a.userID || a._id?.toString()) === f.primaryArtisanId) || null}
               onChange={(_, opt) => set({ primaryArtisanId: opt ? (opt.userID || opt._id?.toString() || '') : '' })}
-              renderInput={(params) => <TextField {...params} label="Primary artisan (optional)" />}
+              renderInput={(params) => <TextField {...params} label="Primary artisan (optional)" helperText={isGem ? 'Gem cutters only' : 'Jewelers & designers'} FormHelperTextProps={{ sx: { mx: 0, fontSize: '0.65rem' } }} />}
             />
             <Box>
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>

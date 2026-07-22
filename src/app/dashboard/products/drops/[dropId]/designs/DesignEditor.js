@@ -69,9 +69,10 @@ export default function DesignEditor({ dropId, designId, onSave, onCancel }) {
 
   useEffect(() => {
     loadDesign();
+    // /api/users returns a {success, data} envelope — unwrap it or the list is always empty.
     fetch('/api/users?role=artisan')
       .then((r) => r.json())
-      .then((data) => setArtisans(Array.isArray(data) ? data : []))
+      .then((data) => setArtisans(Array.isArray(data) ? data : (data.data || data.users || [])))
       .catch(() => {});
   }, [loadDesign]);
 
