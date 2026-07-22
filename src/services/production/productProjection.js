@@ -25,7 +25,8 @@ export function projectDesignProduct({ product = {}, design, pieces = [] }) {
     price: primary?.pricing?.retailPrice, viewer: primary?.viewer ?? null,
     availability: primary?.offers?.readyToShip ? 'ready-to-ship' : 'made-to-order',
     ...(isGem
-      ? { gemstone: primary?.gemstone ?? product.gemstone ?? null } // gem spec lives on the variant
+      // Cut/technique are DESIGN details; the material spec (species/carat/…) is per-variant.
+      ? { gemstone: { ...(design.gemstone || {}), ...(primary?.gemstone || product.gemstone || {}) } }
       : { jewelry: { ...(product.jewelry || {}), ringSize: primary?.ringSize } }),
     references: { ...(product.references || {}), designId: design.designID, gemstoneId: design.gemstoneId ?? null },
   };

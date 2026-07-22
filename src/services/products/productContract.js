@@ -195,10 +195,13 @@ export function buildProductFromDesign({ design = {}, estCost = 0, opts = {} }) 
     ? design.metalOptions.map((m) => (typeof m === 'string' ? { type: m, purity: null } : m))
     : [];
   // A gemstone Design (a cut stone) lists as a gemstone product carrying the gem-native spec,
-  // not the jewelry metal shape. The spec lives on a VARIANT (a design can offer several species);
-  // the listing surfaces the first variant's spec as representative.
+  // not the jewelry metal shape. Cut/technique are DESIGN details (the cut IS the design); the
+  // material spec (species/carat/…) lives per VARIANT — surface the first variant's as
+  // representative.
   const isGem = design.category === 'gemstone';
-  const gemSpec = isGem ? ((design.variants || []).find((v) => v.gemstone)?.gemstone ?? null) : null;
+  const gemSpec = isGem
+    ? { ...(design.gemstone || {}), ...((design.variants || []).find((v) => v.gemstone)?.gemstone || {}) }
+    : null;
 
   return {
     productId,
