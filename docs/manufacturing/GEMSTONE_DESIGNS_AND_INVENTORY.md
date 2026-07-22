@@ -48,9 +48,14 @@ and (the point) availability accounting. Differences from a jewelry design:
 
 ### Variants = ROUGH inventory (the supply) — DECIDED
 A gem design's **variants are the rough we actually hold** — this is what keeps us from selling a
-stone the rough can't yield. Each variant describes one lot of rough:
+stone the rough can't yield. **The full gem spec lives on the VARIANT, never the design** (owner:
+"species isn't part of the design — a design can have multiple species"; a gemstone design offers
+species variants exactly like a jewelry design offers metal variants). Each variant describes one
+lot of rough:
 
-- `quality` (clarity/color grade), `material` (matches the design),
+- `gemstone` — the spec: **species**, carat, cut, color, clarity, treatment, naturalSynthetic,
+  dimensions (this is what the shopper picks between),
+- `quality` (clarity/color grade),
 - `sizeRange` — the min/max finished size **cuttable from that rough** (carat and/or mm),
 - `roughQty` — how many stones that lot can yield (usually 1 per rough piece → effectively 1-of-1;
   a matched lot → limited(N)).
