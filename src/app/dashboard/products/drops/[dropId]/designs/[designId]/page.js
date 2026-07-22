@@ -60,10 +60,17 @@ function newVariantForm() {
     ringSize: '', sizingMin: '', sizingMax: '',
     gemstones: [], // [{ slot, role, qty, stoneSkuId, stullerSku, label, unitCost, source }]
     retailPrice: '', leadTimeDays: '', active: true,
-    // Gemstone-design variants: the material spec (species/carat/…) + rough supply.
-    gem: { species: '', carat: '', length: '', width: '', height: '', color: '', clarity: '', treatment: '', creation: 'natural', ratePerCarat: '', cutLaborCost: '' },
-    roughQty: '',
+    // Gemstone-design variants: a SPECIES the cut is offered in (capability, not inventory).
+    // colors = quality buckets, each with size-TIERED $/ct (rates non-linear in size).
+    gem: { species: '', availability: 'purchase', caratMin: '', caratMax: '', creation: 'natural', clarity: '', treatment: '', cutLaborCost: '', lotQty: '', colors: [] },
   };
+}
+// Resolve a color bucket's $/ct for a carat: first tier whose upToCt covers it; else the last tier.
+function tierRate(rates = [], carat) {
+  const tiers = rates.map((t) => ({ upToCt: Number(t.upToCt) || 0, ratePerCarat: Number(t.ratePerCarat) || 0 })).filter((t) => t.upToCt > 0).sort((a, b) => a.upToCt - b.upToCt);
+  if (!tiers.length) return 0;
+  const c = Number(carat) || 0;
+  return (tiers.find((t) => c <= t.upToCt) || tiers[tiers.length - 1]).ratePerCarat;
 }
 
 const STATUS_COLOR = {
@@ -215,22 +222,23 @@ function toForm(d) {
         source: g.source || '',
       })),
       markupOverride: v.markupOverride != null && v.markupOverride !== '' ? String(v.markupOverride) : '',
-      // Gemstone-design variants: the MATERIAL the cut is executed in (species/carat/…) + supply.
+      // Gemstone-design variants: a SPECIES offering — availability toggle, carat range guard,
+      // color quality-buckets with size-tiered $/ct. No fixed carat, no typed dimensions.
       gem: {
         species: v.gemstone?.species || '',
-        carat: v.gemstone?.carat != null ? String(v.gemstone.carat) : '',
-        length: v.gemstone?.dimensions?.length != null ? String(v.gemstone.dimensions.length) : '',
-        width: v.gemstone?.dimensions?.width != null ? String(v.gemstone.dimensions.width) : '',
-        height: v.gemstone?.dimensions?.height != null ? String(v.gemstone.dimensions.height) : '',
-        color: (v.gemstone?.color || []).join(', '),
-        clarity: v.gemstone?.clarity || '',
-        treatment: (v.gemstone?.treatment || []).join(', '),
+        availability: v.gemstone?.availability === 'special_request' ? 'special_request' : 'purchase',
+        caratMin: v.gemstone?.caratMin != null ? String(v.gemstone.caratMin) : '',
+        caratMax: v.gemstone?.caratMax != null ? String(v.gemstone.caratMax) : '',
         creation: v.gemstone?.naturalSynthetic === 'lab' ? 'lab' : 'natural',
-        // Pricing recipe inputs (owner: carat × rate + cut labor) — rate is material/quality-specific.
-        ratePerCarat: v.gemstone?.ratePerCarat != null ? String(v.gemstone.ratePerCarat) : '',
+        clarity: v.gemstone?.clarity || '',
+        treatment: Array.isArray(v.gemstone?.treatment) ? v.gemstone.treatment.join(', ') : (v.gemstone?.treatment || ''),
         cutLaborCost: v.gemstone?.cutLaborCost != null ? String(v.gemstone.cutLaborCost) : '',
+        lotQty: v.gemstone?.lotQty != null ? String(v.gemstone.lotQty) : '',
+        colors: (v.gemstone?.colors || []).map((c) => ({
+          label: c.label || '',
+          rates: (c.rates || []).map((t) => ({ upToCt: t.upToCt != null ? String(t.upToCt) : '', ratePerCarat: t.ratePerCarat != null ? String(t.ratePerCarat) : '' })),
+        })),
       },
-      roughQty: v.roughQty != null ? String(v.roughQty) : '',
       };
     }),
   };
@@ -474,6 +482,48 @@ function CadTab({ design, designId, onReload, notify, onCreateFirstVariant, form
   );
 }
 
+/** Color quality-buckets for a gem species, each with size-TIERED $/ct — $/ct is not linear in
+ *  size (a 4ct clean stone costs far more per carat than a 1ct), so each bucket is a small tier
+ *  table: "up to X ct → $Y/ct". Label buckets with quality baked in ("chrome red AAA"). */
+function GemColorRates({ colors, onChange }) {
+  const setColor = (i, patch) => onChange(colors.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
+  const removeColor = (i) => onChange(colors.filter((_, idx) => idx !== i));
+  const addColor = () => onChange([...colors, { label: '', rates: [{ upToCt: '', ratePerCarat: '' }] }]);
+  const setTier = (ci, ti, patch) => setColor(ci, { rates: colors[ci].rates.map((t, idx) => (idx === ti ? { ...t, ...patch } : t)) });
+  const removeTier = (ci, ti) => setColor(ci, { rates: colors[ci].rates.filter((_, idx) => idx !== ti) });
+  const addTier = (ci) => setColor(ci, { rates: [...(colors[ci].rates || []), { upToCt: '', ratePerCarat: '' }] });
+  return (
+    <Box>
+      <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textSecondary, fontSize: '0.72rem', mb: 0.75 }}>Colors &amp; rates ($/ct by size — quality in the label)</Typography>
+      {colors.length === 0 && (
+        <Typography variant="body2" sx={{ color: '#FFB74D', mb: 0.5 }}>Add at least one color bucket — it carries the price.</Typography>
+      )}
+      <Stack spacing={1}>
+        {colors.map((c, ci) => (
+          <Box key={ci} sx={{ p: 1, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 1 }}>
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.75 }}>
+              <TextField size="small" label="Color / quality" value={c.label || ''} onChange={(e) => setColor(ci, { label: e.target.value })} sx={{ flex: 1 }} placeholder="chrome red AAA" />
+              <IconButton size="small" onClick={() => removeColor(ci)} sx={{ color: REPAIRS_UI.textMuted }}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton>
+            </Stack>
+            <Stack spacing={0.75}>
+              {(c.rates || []).map((t, ti) => (
+                <Stack key={ti} direction="row" spacing={1} alignItems="center">
+                  <TextField size="small" label="Up to ct" type="number" value={t.upToCt ?? ''} onChange={(e) => setTier(ci, ti, { upToCt: e.target.value })} sx={{ width: 100 }} inputProps={{ step: 0.5, min: 0 }} />
+                  <TextField size="small" label="$/ct" type="number" value={t.ratePerCarat ?? ''} onChange={(e) => setTier(ci, ti, { ratePerCarat: e.target.value })} sx={{ width: 110 }}
+                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} />
+                  <IconButton size="small" onClick={() => removeTier(ci, ti)} sx={{ color: REPAIRS_UI.textMuted }} disabled={(c.rates || []).length <= 1}><DeleteIcon sx={{ fontSize: 14 }} /></IconButton>
+                </Stack>
+              ))}
+              <Button size="small" startIcon={<AddIcon sx={{ fontSize: 14 }} />} onClick={() => addTier(ci)} sx={{ color: REPAIRS_UI.accent, alignSelf: 'flex-start', textTransform: 'none', py: 0 }}>Add size tier</Button>
+            </Stack>
+          </Box>
+        ))}
+      </Stack>
+      <Button size="small" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={addColor} sx={{ color: REPAIRS_UI.accent, mt: 0.75, textTransform: 'none' }}>Add color</Button>
+    </Box>
+  );
+}
+
 function VariantRow({ index, variant, isRing, isGem, hasGlb, stoneCosts, onUpdate, onRemove, onConfigure }) {
   const set = (k, v) => onUpdate(index, { [k]: v });
   const gem = variant.gem || {};
@@ -545,34 +595,42 @@ function VariantRow({ index, variant, isRing, isGem, hasGlb, stoneCosts, onUpdat
             <TextField label="Size range max" value={variant.sizingMax} onChange={(e) => set('sizingMax', e.target.value)} size="small" sx={{ flex: 1 }} helperText="resizable high" />
           </Stack>
         )}
-        {/* Gemstone variant = the MATERIAL the cut is executed in + the rough supply. The cut
-            itself (shape/technique) is a design detail on the Details tab. */}
+        {/* Gemstone variant = a SPECIES this cut is offered in (capability, not inventory): buy-vs-
+            request toggle, carat range guard, color quality-buckets with size-tiered $/ct. The cut
+            itself (shape/technique) is a design detail on the Details tab; dimensions derive from
+            the GLB + carat (via species SG), never typed. */}
         {isGem && (
           <Box sx={{ p: 1.5, backgroundColor: REPAIRS_UI.bgCard, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 1.5 }}>
-            <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textSecondary, fontSize: '0.8rem', mb: 1 }}>Stone (this variant&apos;s material)</Typography>
+            <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textSecondary, fontSize: '0.8rem', mb: 1 }}>Species offering</Typography>
             <Stack spacing={1.5}>
               <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
-                <TextField label="Species" value={gem.species || ''} onChange={(e) => setGem({ species: e.target.value })} size="small" sx={{ flex: 1, minWidth: 160 }} required error={!String(gem.species || '').trim()} placeholder="Amethyst, Sapphire…" />
-                <FormControl size="small" sx={{ width: 120 }}>
+                <TextField label="Species" value={gem.species || ''} onChange={(e) => setGem({ species: e.target.value })} size="small" sx={{ flex: 1, minWidth: 150 }} required error={!String(gem.species || '').trim()} placeholder="Garnet, Sapphire…" />
+                <FormControl size="small" sx={{ width: 168 }}>
+                  <InputLabel>Availability</InputLabel>
+                  <Select value={gem.availability || 'purchase'} label="Availability" onChange={(e) => setGem({ availability: e.target.value })} MenuProps={repairsMenuProps}>
+                    <MenuItem value="purchase">Purchase (buy now)</MenuItem>
+                    <MenuItem value="special_request">Special request</MenuItem>
+                  </Select>
+                </FormControl>
+                <FormControl size="small" sx={{ width: 110 }}>
                   <InputLabel>Origin</InputLabel>
                   <Select value={gem.creation || 'natural'} label="Origin" onChange={(e) => setGem({ creation: e.target.value })} MenuProps={repairsMenuProps}>
                     {CREATION_OPTS.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
                   </Select>
                 </FormControl>
-                <TextField label="Rough qty" type="number" value={variant.roughQty ?? ''} onChange={(e) => set('roughQty', e.target.value)} size="small" sx={{ width: 100 }}
-                  helperText="lots on hand" FormHelperTextProps={{ sx: { mx: 0, fontSize: '0.6rem' } }} inputProps={{ min: 0 }} />
               </Stack>
               <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
-                <TextField label="Carat" type="number" value={gem.carat || ''} onChange={(e) => setGem({ carat: e.target.value })} size="small" sx={{ width: 90 }} inputProps={{ step: 0.01, min: 0 }} />
-                <TextField label="L (mm)" type="number" value={gem.length || ''} onChange={(e) => setGem({ length: e.target.value })} size="small" sx={{ width: 84 }} inputProps={{ step: 0.1 }} />
-                <TextField label="W (mm)" type="number" value={gem.width || ''} onChange={(e) => setGem({ width: e.target.value })} size="small" sx={{ width: 84 }} inputProps={{ step: 0.1 }} />
-                <TextField label="H (mm)" type="number" value={gem.height || ''} onChange={(e) => setGem({ height: e.target.value })} size="small" sx={{ width: 84 }} inputProps={{ step: 0.1 }} />
+                <TextField label="Carat min" type="number" value={gem.caratMin || ''} onChange={(e) => setGem({ caratMin: e.target.value })} size="small" sx={{ width: 100 }} inputProps={{ step: 0.1, min: 0 }}
+                  helperText="cuttable range" FormHelperTextProps={{ sx: { mx: 0, fontSize: '0.6rem' } }} />
+                <TextField label="Carat max" type="number" value={gem.caratMax || ''} onChange={(e) => setGem({ caratMax: e.target.value })} size="small" sx={{ width: 100 }} inputProps={{ step: 0.1, min: 0 }}
+                  error={Number(gem.caratMax) > 0 && Number(gem.caratMin) > Number(gem.caratMax)} />
+                <TextField label="Treatment" value={gem.treatment || ''} onChange={(e) => setGem({ treatment: e.target.value })} size="small" sx={{ flex: 1, minWidth: 120 }} placeholder="unheated…"
+                  helperText="different treatment = its own variant; shown on the listing" FormHelperTextProps={{ sx: { mx: 0, fontSize: '0.6rem' } }} />
+                <TextField label="Clarity" value={gem.clarity || ''} onChange={(e) => setGem({ clarity: e.target.value })} size="small" sx={{ width: 100 }} />
+                <TextField label="Lot qty" type="number" value={gem.lotQty ?? ''} onChange={(e) => setGem({ lotQty: e.target.value })} size="small" sx={{ width: 92 }} inputProps={{ min: 0 }}
+                  helperText="special rough only" FormHelperTextProps={{ sx: { mx: 0, fontSize: '0.6rem' } }} />
               </Stack>
-              <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
-                <TextField label="Color(s)" value={gem.color || ''} onChange={(e) => setGem({ color: e.target.value })} size="small" sx={{ flex: 1, minWidth: 120 }} placeholder="Purple" />
-                <TextField label="Clarity" value={gem.clarity || ''} onChange={(e) => setGem({ clarity: e.target.value })} size="small" sx={{ width: 110 }} />
-                <TextField label="Treatment(s)" value={gem.treatment || ''} onChange={(e) => setGem({ treatment: e.target.value })} size="small" sx={{ flex: 1, minWidth: 130 }} placeholder="heat…" />
-              </Stack>
+              <GemColorRates colors={gem.colors || []} onChange={(colors) => setGem({ colors })} />
             </Stack>
           </Box>
         )}
@@ -586,8 +644,10 @@ function VariantRow({ index, variant, isRing, isGem, hasGlb, stoneCosts, onUpdat
 // Summary card in the variants grid — click to open the variant's full editor.
 function VariantCard({ index, variant, isRing, isGem, stoneCosts, onOpen }) {
   const configured = !!variant.viewerConfig;
+  const gemRange = variant.gem?.caratMin || variant.gem?.caratMax
+    ? `${variant.gem?.caratMin || '?'}–${variant.gem?.caratMax || '?'}ct` : null;
   const metal = isGem
-    ? ([variant.gem?.species, variant.gem?.carat ? `${variant.gem.carat}ct` : null, variant.gem?.creation === 'lab' ? 'lab' : null].filter(Boolean).join(' · ') || 'Stone not specified')
+    ? ([variant.gem?.species, gemRange, variant.gem?.creation === 'lab' ? 'lab' : null, variant.gem?.treatment || null].filter(Boolean).join(' · ') || 'Species not specified')
     : configured
       ? [finishUsesKarat(variant.finish) ? `${variant.karat}K` : null, finishLabel(variant.finish)].filter(Boolean).join(' ')
       : 'Look not configured';
@@ -609,7 +669,11 @@ function VariantCard({ index, variant, isRing, isGem, stoneCosts, onOpen }) {
         <Typography variant="caption" sx={{ color: (isGem ? variant.gem?.species : configured) ? REPAIRS_UI.textSecondary : '#FFB74D' }}>{metal}</Typography>
         {isRing && variant.ringSize && <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>Size {variant.ringSize}</Typography>}
         {isGem
-          ? <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{Number(variant.roughQty) > 0 ? `${variant.roughQty} rough on hand` : 'No rough on hand'}</Typography>
+          ? <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
+              {[variant.gem?.availability === 'special_request' ? 'special request' : 'buy now',
+                Number(variant.gem?.lotQty) > 0 ? `lot of ${variant.gem.lotQty}` : null,
+                (variant.gem?.colors || []).length ? `${variant.gem.colors.length} color${variant.gem.colors.length === 1 ? '' : 's'}` : 'no colors/rates'].filter(Boolean).join(' · ')}
+            </Typography>
           : <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{stoneCount ? `${stoneCount} stone${stoneCount === 1 ? '' : 's'} · ${money(stones)}` : 'No stones'}</Typography>}
       </Stack>
     </Paper>
@@ -752,37 +816,51 @@ function VariantPriceCard({ variant, mounting, sharedCosts, baseMarkup, hasVolum
   );
 }
 
-/** Gemstone variant retail (owner's recipe): carat × $/carat + cut labor, + shared costs,
- *  × markup. The rate is material/quality-specific so it lives on the variant. */
+/** Gemstone variant retail (owner's recipe): carat × tiered $/ct (per color) + cut labor +
+ *  shared, × markup. The customer picks the carat at order time, so the card shows each color
+ *  bucket's retail RANGE across the variant's cuttable carat span. */
 function GemVariantPriceCard({ variant, sharedCosts, baseMarkup, onChange }) {
   const gem = variant.gem || {};
   const setGem = (patch) => onChange({ gem: { ...gem, ...patch } });
-  const carat = Number(gem.carat) || 0;
-  const rate = Number(gem.ratePerCarat) || 0;
   const cutLabor = Number(gem.cutLaborCost) || 0;
   const markup = Number(variant.markupOverride) > 0 ? Number(variant.markupOverride) : baseMarkup;
-  const cog = carat * rate + cutLabor + sharedCosts;
-  const retail = cog * markup;
+  const lo = Number(gem.caratMin) || 0;
+  const hi = Number(gem.caratMax) || lo;
+  const retailAt = (rates, ct) => (ct * tierRate(rates, ct) + cutLabor + sharedCosts) * markup;
   const label = variant.label?.trim() || variant.sku?.trim() || variant.variantId;
-  const stone = [gem.species, carat ? `${carat}ct` : null, gem.creation === 'lab' ? 'lab' : null].filter(Boolean).join(' · ');
+  const colors = (gem.colors || []).filter((c) => String(c.label || '').trim());
+  const stone = [gem.species, lo || hi ? `${lo}–${hi}ct` : null, gem.creation === 'lab' ? 'lab' : null, gem.treatment || null].filter(Boolean).join(' · ');
+  const ready = colors.length > 0 && hi > 0;
   return (
     <Paper sx={{ p: 2, mb: 1.5, backgroundColor: REPAIRS_UI.bgTertiary, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' }}>
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
         <Box sx={{ minWidth: 0 }}>
           <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader, fontSize: '0.9rem' }}>{label}</Typography>
-          <Typography variant="caption" sx={{ color: stone ? REPAIRS_UI.textMuted : '#FFB74D' }}>{stone || 'Stone not specified (Variants tab)'}</Typography>
+          <Typography variant="caption" sx={{ color: stone ? REPAIRS_UI.textMuted : '#FFB74D' }}>{stone || 'Species not specified (Variants tab)'}</Typography>
         </Box>
-        <Box sx={{ textAlign: 'right' }}>
-          <Typography sx={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: REPAIRS_UI.textSecondary }}>Live retail</Typography>
-          <Typography sx={{ fontWeight: 700, fontSize: '1.35rem', color: REPAIRS_UI.accent, lineHeight: 1.1 }}>{money(retail)}</Typography>
-        </Box>
+        <Chip size="small" label={gem.availability === 'special_request' ? 'special request' : 'buy now'} variant="outlined"
+          sx={{ height: 20, color: gem.availability === 'special_request' ? '#FFB74D' : '#66BB6A', borderColor: 'currentColor' }} />
       </Stack>
+      {!ready ? (
+        <Typography variant="caption" sx={{ color: '#FFB74D', display: 'block', mt: 1 }}>
+          Set the carat range and at least one color bucket with rates (Variants tab) to price this.
+        </Typography>
+      ) : (
+        <Stack spacing={0.5} sx={{ mt: 1.25 }}>
+          {colors.map((c, i) => (
+            <Stack key={i} direction="row" justifyContent="space-between" alignItems="center">
+              <Typography variant="body2" sx={{ color: REPAIRS_UI.textPrimary }}>{c.label}</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: REPAIRS_UI.accent }}>
+                {money(retailAt(c.rates, lo))}{hi > lo ? ` – ${money(retailAt(c.rates, hi))}` : ''}
+              </Typography>
+            </Stack>
+          ))}
+        </Stack>
+      )}
       <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mt: 1.5 }} flexWrap="wrap" useFlexGap>
-        <TextField size="small" label="$/carat" type="number" value={gem.ratePerCarat ?? ''} onChange={(e) => setGem({ ratePerCarat: e.target.value })} sx={{ width: 110 }}
-          InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} />
         <TextField size="small" label="Cut labor" type="number" value={gem.cutLaborCost ?? ''} onChange={(e) => setGem({ cutLaborCost: e.target.value })} sx={{ width: 110 }}
           InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} />
-        <Box sx={{ minWidth: 100 }}>
+        <Box sx={{ minWidth: 90 }}>
           <Typography sx={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: REPAIRS_UI.textSecondary }}>Shared</Typography>
           <Typography sx={{ fontSize: '0.9rem', color: REPAIRS_UI.textPrimary, fontWeight: 500 }}>{money(sharedCosts)}</Typography>
         </Box>
@@ -790,7 +868,7 @@ function GemVariantPriceCard({ variant, sharedCosts, baseMarkup, onChange }) {
           helperText={variant.markupOverride ? ' ' : `default ×${baseMarkup}`} FormHelperTextProps={{ sx: { mx: 0, fontSize: '0.6rem' } }} />
       </Stack>
       <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, mt: 0.5, display: 'block' }}>
-        ({carat || 0}ct × {money(rate)} + {money(cutLabor)} cut labor + {money(sharedCosts)} shared) × {markup} = {money(retail)}
+        retail = (carat × color&apos;s tier rate + {money(cutLabor)} cut labor + {money(sharedCosts)} shared) × {markup}; customer picks the carat.
       </Typography>
     </Paper>
   );
@@ -1534,22 +1612,30 @@ export default function DesignDetailPage({ params }) {
           // Snapshot the stone total (Σ unit × qty) so external readers don't recompute.
           stonesCost: sumStones(v.gemstones, stoneCosts),
           markupOverride: v.markupOverride ? Number(v.markupOverride) : null,
-          // Gemstone-design variants: the material spec + supply (rough lot).
+          // Gemstone-design variants: a species offering (capability) — toggle, carat range,
+          // tiered color rates. lotQty only for special-rough variants (fixed quantity).
           ...(form.category === 'gemstone' ? {
             gemstone: {
               species: v.gem?.species?.trim() || null,
-              carat: v.gem?.carat ? Number(v.gem.carat) : null,
-              dimensions: (v.gem?.length || v.gem?.width || v.gem?.height)
-                ? { length: v.gem.length ? Number(v.gem.length) : null, width: v.gem.width ? Number(v.gem.width) : null, height: v.gem.height ? Number(v.gem.height) : null }
-                : null,
-              color: csvArr(v.gem?.color),
-              clarity: v.gem?.clarity?.trim() || null,
-              treatment: csvArr(v.gem?.treatment),
+              availability: v.gem?.availability === 'special_request' ? 'special_request' : 'purchase',
+              caratMin: v.gem?.caratMin ? Number(v.gem.caratMin) : null,
+              caratMax: v.gem?.caratMax ? Number(v.gem.caratMax) : null,
               naturalSynthetic: v.gem?.creation === 'lab' ? 'lab' : 'natural',
-              ratePerCarat: v.gem?.ratePerCarat ? Number(v.gem.ratePerCarat) : null,
+              clarity: v.gem?.clarity?.trim() || null,
+              treatment: v.gem?.treatment?.trim() || null,
               cutLaborCost: v.gem?.cutLaborCost ? Number(v.gem.cutLaborCost) : null,
+              lotQty: v.gem?.lotQty ? Number(v.gem.lotQty) : null,
+              colors: (v.gem?.colors || [])
+                .filter((c) => String(c.label || '').trim())
+                .map((c) => ({
+                  label: c.label.trim(),
+                  rates: (c.rates || [])
+                    .filter((t) => Number(t.upToCt) > 0 && Number(t.ratePerCarat) > 0)
+                    .map((t) => ({ upToCt: Number(t.upToCt), ratePerCarat: Number(t.ratePerCarat) }))
+                    .sort((a, b) => a.upToCt - b.upToCt),
+                })),
+              ratesUpdatedAt: new Date().toISOString(), // staleness nag reads this
             },
-            roughQty: v.roughQty ? Number(v.roughQty) : null,
           } : {}),
         })),
       };
