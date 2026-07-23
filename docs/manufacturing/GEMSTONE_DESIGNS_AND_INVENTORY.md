@@ -52,8 +52,11 @@ the customer-facing look, not the per-species cutting spec.
 
 ## 2. Ordering a gem
 
-pick **species** (variant) → pick **color** (quality bucket) → pick **carat** within [min, max] in
-**0.25ct steps** →
+pick **species** (variant) → pick **color** (quality bucket) → pick **size** within [min, max] —
+**carat (0.25ct steps) OR dimensions (~0.25mm steps), linked two ways**: the design's ratios are
+locked, so size is one uniform scale; mm ⇄ carat converts via the design's base weight × scale³
+(SG per species; see `docs/refrakt/FR-gem-size-customizer.md` — the live model-scaling control is
+a REFRAKT feature request; NOT volume×SG on the raw mesh, which over-reports on open gem meshes) →
 `price = (carat ÷ yield × roughRate(color, carat) + cutLaborCost + shared) × markup`, live →
 - variant is `purchase` → buy now (made-to-order cut, lead time). **MTO stones carry a ± cut
   tolerance** — the cutter shoots for the target (e.g. 1.5ct) but may land a bit over/under.
@@ -132,7 +135,8 @@ gem's cap. No lot math; it's edition counters all the way down.
   colors[{label, ratePerCarat}] + cutLaborCost + clarity/treatment; drop carat/L/W/H/roughQty.
   Pricing card picks up the selected color's rate and a carat within range.
 - **Later phases (unchanged in spirit, simpler now):** jewelry stone slots link gem designs
-  (match-lane); buildable rollup off edition counters; shop surfaces (species/color/carat picker +
+  (match-lane); buildable rollup off edition counters; shop surfaces (species/color picker + the
+  REFRAKT carat⇄mm size control, FR-gem-size-customizer +
   special-request path).
 
 ## 6. Committed follow-ups (decided, not yet built)
