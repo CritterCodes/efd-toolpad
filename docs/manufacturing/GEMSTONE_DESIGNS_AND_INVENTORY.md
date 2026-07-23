@@ -159,6 +159,11 @@ gem's cap. No lot math; it's edition counters all the way down.
 - Wiring gem sale lines → salePayouts (consignment); deposit/true-up billing per §2.
 - Cert upload on the Piece; price-at-carat endpoint for the shop; rate-staleness nag surface
   (`ratesUpdatedAt` is stamped only when rates actually change).
+- **STL → auto-GLB for gem designs** (gems ONLY, never jewelry): one STL upload computes volume
+  (carat₀ calibration) AND generates the viewer GLB client-side (three STLLoader → single mesh
+  named `Gemstone`, flat facet normals, mm→m scale → GLTFExporter). Works because a gem is one
+  mesh whose look is the variant's preset; jewelry needs authored named parts. Manual GLB stays
+  as an override.
 - Species → default-toggle list (precious vs semi) to prefill new variants.
 - Tier boundaries should sit at trade-magic weights on purpose (price cliffs at 1ct/2ct are
   trade-real, but set them deliberately).
