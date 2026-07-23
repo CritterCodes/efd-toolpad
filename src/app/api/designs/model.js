@@ -141,9 +141,9 @@ export default class DesignsModel {
     return col.find({ designID: { $exists: true }, ...filter }, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray();
   }
 
-  static async findByDrop(dropId) {
+  static async findByDrop(dropId, extraFilter = {}) {
     const col = await this.collection();
-    return col.find({ designID: { $exists: true }, dropId }, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray();
+    return col.find({ designID: { $exists: true }, dropId, ...extraFilter }, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray();
   }
 
   static async updateById(designID, updateData) {

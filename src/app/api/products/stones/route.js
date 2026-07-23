@@ -4,7 +4,8 @@ import { StonesModel } from './model';
 
 /** GET /api/products/stones?search= — search the reorderable stone-SKU catalog. */
 export const GET = async (req) => {
-  const { errorResponse } = await requireRole(['admin', 'dev']);
+  // Read-only catalog search — artisans price their designs' stones from it.
+  const { errorResponse } = await requireRole(['admin', 'dev', 'staff', 'artisan']);
   if (errorResponse) return errorResponse;
   const search = new URL(req.url).searchParams.get('search') || '';
   const stones = await StonesModel.list({ search });

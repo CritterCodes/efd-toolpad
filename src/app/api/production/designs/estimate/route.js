@@ -21,7 +21,8 @@ async function getMetalPrices() {
  * Returns the design cost estimate using live metal prices.
  */
 export const POST = async (req) => {
-  const { errorResponse } = await requireRole(['admin', 'dev']);
+  // Pure pricing estimate (no writes) — artisans price their own designs with it.
+  const { errorResponse } = await requireRole(['admin', 'dev', 'staff', 'artisan']);
   if (errorResponse) return errorResponse;
 
   const body = await req.json().catch(() => ({}));
