@@ -35,27 +35,13 @@ const PIECE_STATUS_COLOR = {
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 
-function DesignsTab({ dropId, designs, loading, onError }) {
+function DesignsTab({ dropId, designs, loading }) {
   const router = useRouter();
-  const [creating, setCreating] = useState(false);
   const openDesign = (designID) => router.push(`/dashboard/products/drops/${dropId}/designs/${designID}`);
-
-  // "Add Design" creates a draft stub, then opens its detail page (edit-in-place there).
-  const createDesign = async () => {
-    setCreating(true);
-    try {
-      const res = await fetch('/api/production/designs', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: 'Untitled design', dropId, status: 'draft' }),
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to create design');
-      const created = await res.json();
-      openDesign(created.designID);
-    } catch (e) {
-      onError?.(e.message);
-      setCreating(false);
-    }
-  };
+  // "Add Design" → the guided create stepper (design type → model? → basics), which creates the
+  // Design and opens its detail page. (Previously this POSTed an "Untitled design" stub and skipped
+  // the stepper entirely — that's why the stepper never appeared.)
+  const startNewDesign = () => router.push(`/dashboard/products/drops/${dropId}/designs/new`);
 
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress sx={{ color: REPAIRS_UI.accent }} /></Box>;
 
@@ -68,12 +54,11 @@ function DesignsTab({ dropId, designs, loading, onError }) {
         <Button
           variant="contained"
           size="small"
-          startIcon={creating ? <CircularProgress size={14} sx={{ color: '#1A1A1A' }} /> : <AddIcon />}
-          disabled={creating}
-          onClick={createDesign}
+          startIcon={<AddIcon />}
+          onClick={startNewDesign}
           sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}
         >
-          {creating ? 'Creating…' : 'Add Design'}
+          Add Design
         </Button>
       </Stack>
       {designs.length === 0 ? (

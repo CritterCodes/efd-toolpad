@@ -1,7 +1,10 @@
 export function getUserArtisanTypes(userProfile) {
   const raw = userProfile?.artisanApplication?.artisanType;
   if (!raw) return [];
-  return Array.isArray(raw) ? raw : raw.split(',').map((s) => s.trim()).filter(Boolean);
+  const arr = Array.isArray(raw) ? raw : raw.split(',');
+  // Real data stores Title Case labels ("Gem Cutter"); normalize to kebab-case so the
+  // canManage* checks ('gem-cutter', 'jeweler') actually match.
+  return arr.map((s) => String(s).trim().toLowerCase().replace(/[\s_]+/g, '-')).filter(Boolean);
 }
 
 export function canManageGemstones(role, artisanTypes) {

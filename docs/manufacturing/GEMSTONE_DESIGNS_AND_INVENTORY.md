@@ -1,197 +1,176 @@
-# Gemstone Designs & Inventory Coupling — architecture
+# Gemstone Designs — the trimmed model
 
-**Status:** draft for review (architecture-first; no code until this settles)
-**Owner decisions captured:** gemstone = a Design (reuse the engine); reserve-on-paid; only finite
-gems impose caps; **"concept" is the EXISTING listing state (a Design with no finished Piece, listed
-MTO and priced off estimate — ripens to RTS when a Piece exists), NOT a new status or edition**;
-simulated never used (natural | lab).
+**Status:** drawing-board rewrite (2026-07-22), after gem-cutter input. Replaces the earlier
+rough-lot/inventory model wholesale. One page on purpose — if it can't fit here, it's too complex.
+
+**The shift that killed the murk:** gems are **capability, not inventory**. The cutter doesn't
+track rough lots — "reasonable sizes of a given species are reasonable to source; the min/max is
+the guard." Inventory only exists for stones that are already cut, and those are just Pieces.
 
 ---
 
-## 1. Problem
+## 1. The model
 
-A jewelry design can be set with a gemstone that **we** produce (an artisan cuts it), not just a
-commodity Stuller stone. That gem is itself a product with its own supply. Two things must hold:
+**Design = the cut** (unchanged from what's built)
+- GLB (the faceting design — fixes all proportions), cut + cutting technique, gem cutter (artisan),
+  **edition cap**. No jewelry category, no metal, no ring sizing.
 
-1. A jewelry design that "calls for" a gem design must be **linked** to it (BOM), price from it, and
-   let the customizer configure both.
-2. **No overselling.** If a jewelry design can make 10 but the gem it needs has only 5 left, only 5
-   are buildable. If two jewelry designs each say 10 but share one gem capped at 10, the *combined*
-   builds can't exceed 10.
+**Variant = a species the cut is offered in** *(per the cutter, 2026-07-22)*
+- `species` — garnet, amethyst, sapphire…
+- `availability` **toggle**: `purchase` (semi-precious — buy now) | `special_request` (precious — goes
+  to quote). The cutter sets it per variant.
+- `caratMin` / `caratMax` — the only sourcing guard ("reasonable sizes of a species are reasonable
+  to source"). In range = orderable; out of range = special request.
+- `colors[]` — **sub-variant**: each color is a *quality bucket* ("chrome red AAA") carrying
+  **size-tiered ROUGH rates** — `rates: [{ upToCt, ratePerCarat }]` — the $/ct the cutter pays for
+  rough (NOT a retail rate; see §2b pricing). Tiers exist because rough $/ct is NOT linear in size.
+  Resolution is STRICT: first tier whose `upToCt` ≥ the chosen carat; beyond the last tier = special
+  request — never a silent fallback (validated: a purchasable variant's tiers must cover caratMax).
+- `yield` — finished ÷ rough carats, default **0.25** (1ct finished needs ~4ct rough); per-variant
+  override.
+- `maxPieces` (optional) — **this variant's slice of the design edition**: "10 total, but only 2 of
+  this species." Design edition = the total cap; maxPieces sub-caps a variant within it.
+- `creation` — natural | lab (a lab sapphire is its own variant).
+- `treatment` — **a different treatment is a different variant** (unheated ≠ heated); the field is
+  the variant's descriptor and MUST surface on the listing (FTC disclosure).
+- `clarity` — descriptor (or baked into the color-bucket label).
+- `cutLaborCost` — flat per stone (facet count is fixed by the design; varies only by species
+  hardness, which is why it's per-variant).
+- `lotQty` (optional) — **special rough is its own variant with a fixed quantity** ("this one
+  Oregon sunstone lot: 3"). Blank = capability (uncapped by material). Already-cut stones are RTS
+  Pieces, which belong to a variant anyway.
+- `leadTimeDays` — shelf rough ≠ dealer-sourced; overridable on a quote.
 
-## 2. Where we are today (the seam)
+**No typed dimensions anywhere** — the GLB fixes proportions, the chosen carat fixes scale, and
+**specific gravity converts carat ↔ mm** (per-species SG lookup + per-variant override; a 2ct
+amethyst is much larger than a 2ct sapphire). SG is required for size display AND the jewelry
+coupling (settings are sized in mm).
 
-There are **two disconnected "stone" concepts**:
+**STL on gem designs — required for the size machinery, NOT for pricing.** Pricing is pure
+carat-driven math (no geometry). But the carat⇄mm control and mm display need the design's exact
+base weight, and the **STL (a watertight CAD solid) gives it precisely**:
+`carat₀ = stlVolumeCm3 × SG × 5` (1ct = 0.2g) — reusing the existing CAD-upload volume machinery.
+The GLB's display mesh must never be volume-measured (open meshes over-report). Practical rule: a
+gem design lists and sells without an STL, but the shop's size customizer / "≈ mm" display only
+lights up once the STL is uploaded.
 
-| Concept | Collection | Nature | Used by |
-|---|---|---|---|
-| **Component stone** | `stoneSkus` | commodity melee/calibrated, Stuller wholesale, cron-priced | jewelry variant stone rows (built) |
-| **Gemstone listing** | `products` (`productType:'gemstone'`) | ONE physical stone — carat/cut/cert/acquisition, `inventory:{available,reserved,usedInProductId}` | storefront listing, gem-cutter created |
+**RI / angles:** the same outline needs different pavilion angles per refractive index — that's
+exactly what variants gate. The cutter lists only species the design is optimized for; the GLB is
+the customer-facing look, not the per-species cutting spec.
 
-The stone-match engine (just shipped) searches `stoneSkus` + live Stuller. It does **not** search the
-gemstone listings — which is why an artisan-cut amethyst can't be found from a jewelry design yet.
+## 2. Ordering a gem
 
-The gemstone listing is implicitly a **1-of-1 with boolean availability**. The vision needs supply
-(1 / N / ∞), lifecycle (cut vs concept), and consumption accounting — i.e. it needs to be a Design.
+pick **species** (variant) → pick **color** (quality bucket) → pick **size** within [min, max] —
+**carat (0.25ct steps) OR dimensions (~0.25mm steps), linked two ways**: the design's ratios are
+locked, so size is one uniform scale; mm ⇄ carat converts via the design's base weight × scale³
+(SG per species; see `docs/refrakt/FR-gem-size-customizer.md` — the live model-scaling control is
+a REFRAKT feature request; NOT volume×SG on the raw mesh, which over-reports on open gem meshes) →
+`price = (carat ÷ yield × roughRate(color, carat) + cutLaborCost + shared) × markup`, live →
+- variant is `purchase` → buy now (made-to-order cut, lead time). **MTO stones carry a ± cut
+  tolerance** — the cutter shoots for the target (e.g. 1.5ct) but may land a bit over/under.
+  **Payment: 50% deposit on the estimate at order; the balance is charged at the FINAL carat
+  weight** once cut (price recomputed at actual ct).
+- variant is `special_request`, carat out of range/beyond tiers, or `lotQty`/`maxPieces`
+  exhausted → **special request through the EXISTING customs pipeline** (customOrders intake →
+  quote → deposit), never a second quote flow.
 
-## 3. Model — gemstone as a Design
+**Size is chosen by carat OR dimensions — snapping applies only to the edited field**, the other
+floats as a labeled estimate ("1.25ct → ≈ 8.6 × 4.3mm" or "8.5 × 4.25mm → ≈ 1.2ct"). **The edited
+field is the order's PRIMARY spec — the cutter's target**: ordered by carat, hit the carat (dims
+approximate); ordered by dims, hit the dims (carat approximate; billing still trues up at final
+carat weight).
 
-Reuse the Design engine with `category: 'gemstone'`. It inherits editions, variants, pieces, status,
-and (the point) availability accounting. Differences from a jewelry design:
+The **Piece** records `resolvedConfiguration: { sizeMode: 'carat'|'dimensions', species, color,
+carat (target), finalCarat, targetMm?, tolerance? }` — color is the rate key and sizeMode is the
+cutter's target, so payout math and the cut WO both depend on them being captured.
 
-- **Pricing = carat × rate + cut labor** (DECIDED). Per-carat rate by material/quality, plus a cut-
-  labor line — computed LIVE at the chosen size (like metal, like the existing concept estimate).
-- **No mounting/metal.**
-- **REFRAKT**: a gem may have its own GLB (for the viewer/customizer) or none (concept).
+Already-cut stones in stock are **Pieces** (`status: available`, RTS) — the existing piece engine,
+nothing new. A **cert** (lab report) attaches to the Piece (needed for precious; upload support
+planned).
 
-### Variants = ROUGH inventory (the supply) — DECIDED
-A gem design's **variants are the rough we actually hold** — this is what keeps us from selling a
-stone the rough can't yield. Each variant describes one lot of rough:
+**Work orders** (Phase 2/3): a gem order routes to the **`gem_cutting` discipline** (not
+bench_jewelry) with the design attached, species/color, and target carat — or, when the stone is
+for a jewelry setting, **target mm + tolerance** (cut-to-fit is its own, slower job and may carry a
+premium). Cut labor credits to the cutter at QC, same as repairs. Stones break — a WO can be
+re-sourced/recut (lead time slips) or refunded (the edition slot releases); note most dealers sell
+LOTS not single rough, which softens but doesn't eliminate the re-source case.
 
-- `quality` (clarity/color grade), `material` (matches the design),
-- `sizeRange` — the min/max finished size **cuttable from that rough** (carat and/or mm),
-- `roughQty` — how many stones that lot can yield (usually 1 per rough piece → effectively 1-of-1;
-  a matched lot → limited(N)).
+## 2b. Money — the cutter owns the stone (consignment)
 
-Examples the owner gave: *"5 pieces of rough, same material, 5 different qualities/sizes"* → 5 variants
-(or grouped by spec); *"3 can cut 1ct flawless, 2 can cut 2ct slightly-included"* → variant A
-`{1ct, VVS, qty 3}`, variant B `{2ct, SI, qty 2}`.
+The cutter owns the rough and the finished stone; **EFD keeps a portion of the sale**, exactly like
+artisan jewelry sold through the shop. The machinery ALREADY EXISTS: `salePayouts` (per sale line:
+`grossSale`, `consignmentRate`, `consignmentAmount`, labor holdback → `payoutAmount` to
+`sellerUserID`, into payroll batches) + `settings.financial.commissionPercentage`. Gem sales create
+salePayouts with the cutter as seller — no new model.
 
-**Customization within range.** The customer picks a target size (e.g. "3ct"); the system routes it to
-a variant whose `sizeRange` covers it, prices it at that carat (§ pricing), and on order cuts a **Piece**
-to that size from that rough. A requested size **no variant can cut = a special request** — a gem-cutter
-must source rough for it (a new variant / MTO with lead time), NOT an instant buy. The design-level
-offered range = the union of its variant ranges; the customizer surfaces that.
+**Pricing recipe = jewelry's (cutter's revision, 2026-07-22): material + labor, × markup.**
+Material = rough cost: `(finished ct ÷ yield) × rough $/ct` — the tiered color rates are what the
+cutter PAYS for rough, with yield ≥ 25% converting finished→rough carats (1ct finished ⇒ ~4ct
+rough). Three money streams, named: **rough $/ct × rough ct = material · cutLaborCost = the
+cutter's bench time · design fee = the cutter's IP royalty.** Retail = (material + labor + shared)
+× markup; at sale, the payout nets out EFD's consignment portion via salePayouts.
 
-> This is why variants (not a piece-only field) are the right home: supply and cuttability live on the
-> rough, so availability can never promise a size the rough doesn't exist for. The finished size the
-> customer chose is captured on the **Piece** when it's cut.
+A gem **listing** shows a computed **"from $X"** (cheapest color at caratMin) — variants carry no
+fixed retail; the true price is a function of the shopper's carat, served by a pricing endpoint
+(Phase 4). The public product doc **never carries the rate table** — `publicGemstoneSpec` strips
+rough rates, cut labor, lots (colors become bare labels), like `costBasis` is stripped on jewelry.
 
-### Edition type (same vocabulary as jewelry) — this is the CAP
-- `one_of_one` → supply 1
-- `limited` → supply N
-- `unlimited` → no cap (∞)
+**Rates go stale** (no live gem market feed like metal): show "rates last updated" on each variant
+and nag the cutter — that's the whole fix for now.
 
-### Status — the SHARED design vocabulary (no gemstone-specific status)
-Gemstone designs use the **same statuses as jewelry**: `draft, cad_requested, cad_in_progress,
-cad_qc, ready, retired`. We do **not** add a "concept" status.
+## 3. Caps — editions matter, and they flow to jewelry
 
-### "Concept" = an existing LISTING state (reuse it), not a status
-The catalog already models this: `list-concept` lists a Design that has **no finished Piece** as a
-`concept` product, priced off a LIVE estimate (metal for jewelry; carat/rate for a gem). When a Piece
-is actually produced, `list-product` **ripens** that concept product into a real (ready-to-ship) one.
-That's the **made-to-order → ready-to-ship** lifecycle (`availability: 'made-to-order'`).
+A cutter can say "I'm only cutting 10 of these" or "one of these": the design's **edition**
+(`one_of_one` / `limited N` / `unlimited`) caps how many Pieces will ever be cut — same engine as
+jewelry (`edition.allocated + committed < cap`).
 
-So for gemstones:
-- **"Not yet cut" = a gem design with no cut Piece = listed as concept/MTO** (priced off estimate).
-  Cutting it (creating a Piece) ripens it to RTS. No new vocabulary.
-- This is **orthogonal to edition type**: a `limited(5)` gem can be a concept (0 cut yet, all 5 MTO)
-  or partially cut (2 Pieces in stock + 3 MTO). Availability math keys on **edition cap**; concept vs
-  ripened only affects **in-stock (RTS) vs made-to-order (lead time)**, never the cap.
+**Reserve-on-paid already exists:** `editionCapacity.claimMadeToOrder` atomically takes a committed
+slot at checkout and mints the planned Piece — that IS the oversell guard, transactional, shipped.
+Gems reuse it as-is.
 
-> **Key clarification:** "concept" never changes the cap. A `limited(5)` concept still caps at 5; it
-> just means none are cut yet (all made-to-order). Availability = edition cap − reserved − consumed;
-> concept-vs-RTS is a fulfillment/lead-time distinction, handled by the existing list-concept → ripen
-> machinery — identical to an MTO jewelry design.
-
-## 4. Three stone sources, reconciled
-
-A jewelry variant stone row can resolve to one of three sources. The row already carries the measured
-spec (type/cut/mm/carat/creation); the *source* is what it links to:
-
-1. **Commodity SKU** (`stoneSkus`, Stuller-backed) — melee/calibrated. Effectively **unlimited** → no
-   cap, no BOM node. This is the common case (pavé, melee).
-2. **Live Stuller** — sourced then saved as a commodity SKU. Same as (1) for accounting.
-3. **Gem design** (`category:'gemstone'`) — an in-house/finite stone. **This is the only source that
-   imposes a cap** and creates a BOM edge.
-
-**Principle:** only **finite gem designs** (1-of-1 / limited) create inventory coupling. Melee and
-Stuller stay uncapped. This keeps the dependency graph tiny — typically just the center stone.
-*(Assumption to confirm: melee is never a finite in-house gem design.)*
-
-The match engine gains a fourth lane: search **gem designs** too (so the artisan amethyst appears),
-ranked alongside catalog + Stuller, tagged `kind: 'gemDesign'`.
-
-## 5. BOM link
-
-On a jewelry variant stone row, when linked to a gem design:
-- `gemDesignId` (+ **`variantId`** = the rough lot) replaces the SKU link. A jewelry design may pin a
-  specific size, or defer size to customization within the gem's offered range.
-- `gemsPerPiece` = qty of that gem consumed by ONE finished piece (usually 1; 3 for a 3-stone).
-- **Cost flows live** from the gem: chosen carat × material/quality rate + cut labor.
-- The customer's **chosen finished size** is captured on the jewelry order → the gem **Piece** cut for it.
-
-## 6. Availability — the "available-to-promise" engine
-
-### The rule (supply lives on the VARIANT = rough lot)
+**Jewelry coupling (Phase 2/3):** a jewelry design whose stone slot consumes a gem design is bounded
+by that gem's edition:
 ```
-variantAvailable(V)  = roughQty(V) − reserved(V) − consumed(V)        // ∞ only for the unlimited case
-// which rough lots can satisfy a requested finished size s:
-satisfying(G, s)     = variants V of G where s ∈ sizeRange(V)
-gemAvailable(G, s)   = Σ variantAvailable(V) for V in satisfying(G, s)
-buildableFromGem(D)  = ⌊ gemAvailable(Gd, sizeD) ÷ gemsPerPiece(D→Gd) ⌋
-buildable(D)         = min( editionRemaining(D), min over finite gems Gd of buildableFromGem(D) )
+buildable(jewelry) = min( jewelryEditionRemaining,
+                          ⌊ gemEditionRemaining ÷ gemsPerPiece ⌋  per finite gem it consumes )
 ```
-A size with `satisfying(G, s) = ∅` is a **special request** (source rough), not a buyable quantity.
-Shared-cap invariant across every consumer, per rough lot:
-```
-Σ reserved(V) over all jewelry pieces  ≤  roughQty(V)
-```
+Shared across every jewelry design consuming the same gem — two designs can't jointly exceed the
+gem's cap. No lot math; it's edition counters all the way down.
 
-### Lifecycle of a unit — soft-hold + reserve-on-paid (DECIDED)
-- **Checkout / configure:** **45-minute soft-hold** on the chosen rough lot (Carvana-style) — TTL
-  auto-releases if the order isn't paid. Prevents two carts racing the last rough while one checks out.
-- **Paid order:** **reserve** — atomically decrement the rough lot. This is the hard oversell guard
-  (source of truth; handles races + multiple designs contending for one lot). Converts the soft-hold.
-- **Production/QC:** **consume** — the rough is cut into a Piece at the ordered size; reservation → consumed.
-- **Cancel / refund / hold-expiry:** release back to available.
+## 4. What's deleted (from the old doc + PR)
+- Rough-lot tracking (`roughQty`), 45-min soft-holds on lots, lot-level reserve/consume/release.
+- Per-variant fixed carat + manually-entered L/W/H dimensions.
+- The "variants = rough we hold" framing. Variants = species offerings.
 
-### Concept / made-to-order (not-yet-cut) gems
-`gemAvailable` still = edition cap − reserved − consumed, regardless of whether stones are cut. A
-paid order on a `limited(5)` gem with 0 cut (concept/MTO) reserves one of the 5 and creates a **cut
-work-order** (a Piece) for the artisan — this is exactly the concept→ripen path. A gem with cut
-Pieces in stock (RTS) fills from stock. Unlimited + not-cut = pure made-to-order, no cap, just lead
-time. Concept-vs-RTS changes fulfillment/lead-time, not the cap.
+## 5. Built vs. to-reshape (branch `feat/gemstone-designs-p1`)
+- **Keeps as-is:** stepper create (type → model? → basics); design-level cut/technique; no jewelry
+  category for gems; gem-cutter artisan filtering; carat×rate+labor price card; `productType:
+  'gemstone'` listing projection; GLB on the design.
+- **Reshape (small):** variant editor — species + availability toggle + caratMin/caratMax +
+  colors[{label, ratePerCarat}] + cutLaborCost + clarity/treatment; drop carat/L/W/H/roughQty.
+  Pricing card picks up the selected color's rate and a carat within range.
+- **Later phases (unchanged in spirit, simpler now):** jewelry stone slots link gem designs
+  (match-lane); buildable rollup off edition counters; shop surfaces (species/color picker + the
+  REFRAKT carat⇄mm size control, FR-gem-size-customizer +
+  special-request path).
 
-### Where the guard bites
-- **Add-to-cart / configure:** show `buildable(D)`; block quantities above it.
-- **Payment:** atomic reserve on each finite gem (the real guard; handles races + multi-design
-  contention on a shared gem).
-- **Admin edition edit:** can't set a jewelry edition higher than the gem allows if already committed.
-
-## 7. Customizer tandem (REFRAKT)
-
-The shop customizer must let a shopper configure the jewelry **and** its gem (pick a gem design /
-variant, or customize a made-to-order gem). This is a REFRAKT `<Customizer>` concern — nesting a gem
-configuration inside a jewelry configuration, emitting both selections. → REFRAKT feature request
-(sibling to the size/cut and natural/lab FRs). Availability shown in the customizer comes from §6.
-
-## 8. Decisions — RESOLVED (2026-07-21)
-
-1. **Melee is never a finite gem design** — commodity only (`stoneSkus`/Stuller), never capped. ✓
-2. **Gem variants = rough lots** (§3). One gem design; its variants are the rough we hold (quality +
-   cuttable size range + qty). Customer customizes size within range; out-of-range = special request.
-   Finished size is captured on the Piece. ✓
-3. **Soft-hold = 45-min TTL** (Carvana-style) at checkout/configure, plus the paid-time atomic reserve
-   as the hard guard. ✓
-4. **Pricing = carat × (material/quality) rate + cut labor**, computed live at the chosen size. ✓
-5. **Migration** — each existing `products/gemstone` listing → a `one_of_one` Design, status `ready`,
-   its physical stone = one already-cut **RTS Piece** (ripened, not a concept). ✓
-
-Remaining to nail down during build: exact per-carat rate table (by material/quality) + which cut-labor
-task(s); how a "special request" (out-of-range size) enters the pipeline (custom-order intake vs a new
-rough variant); whether one rough lot can ever yield >1 stone (assume 1 for now).
-
-## 9. Phased plan
-
-1. **Unify the model** — gemstone Design (`category:'gemstone'`), edition types + `concept` status,
-   gem pricing recipe. Migrate existing listings (§8.5). *No jewelry coupling yet.*
-2. **BOM link + match lane** — jewelry stone row can link a gem design; match engine searches gem
-   designs (the amethyst appears); cost flows from the gem.
-3. **Availability engine** — buildable rollup, reserve-on-paid (atomic), consume-at-production,
-   release-on-cancel, shared-cap invariant across consumers; surface `buildable` in admin + storefront.
-4. **Customizer tandem** — REFRAKT FR + wiring so shoppers configure jewelry + gem together.
-
-Related: [[production-pipeline-vision-doc]], the stone-match system in
-`src/app/api/products/stones/*` + `src/services/stuller/stoneSearch.js`, and
-`docs/refrakt/FR-gem-creation-natural-lab.md`.
+## 6. Committed follow-ups (decided, not yet built)
+- **Artisan self-service access** (owner, 2026-07-22): jewelers/engravers/CAD designers create
+  jewelry + see customs they're assigned; **gem cutters create/manage their gemstone designs**
+  (today the design page + API are admin/dev-only — the cutter can't set his own rates); onsite
+  jewelers get repairs. Route by `artisanApplication.artisanType` (lib/artisans.js).
+- **Species SG table** — REQUIRED for Phase 4 shop UX: "2ct amethyst" means nothing without
+  "≈ 8.1mm"; carat↔mm also drives the jewelry-slot coupling. Per-species SG + per-variant override.
+- **Jewelry slot linking (Phase 2) pins species + COLOR** — color is the rate; species alone can't
+  price. WOs for jewelry-consumed gems carry target mm + tolerance (cut-to-fit).
+- Wiring gem sale lines → salePayouts (consignment); deposit/true-up billing per §2.
+- Cert upload on the Piece; price-at-carat endpoint for the shop; rate-staleness nag surface
+  (`ratesUpdatedAt` is stamped only when rates actually change).
+- **STL → auto-GLB for gem designs** (gems ONLY, never jewelry): one STL upload computes volume
+  (carat₀ calibration) AND generates the viewer GLB client-side (three STLLoader → single mesh
+  named `Gemstone`, flat facet normals, mm→m scale → GLTFExporter). Works because a gem is one
+  mesh whose look is the variant's preset; jewelry needs authored named parts. Manual GLB stays
+  as an override.
+- Species → default-toggle list (precious vs semi) to prefill new variants.
+- Tier boundaries should sit at trade-magic weights on purpose (price cliffs at 1ct/2ct are
+  trade-real, but set them deliberately).

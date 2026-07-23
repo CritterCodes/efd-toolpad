@@ -33,6 +33,33 @@ export function validateDesign(data = {}, { requireSellable = false } = {}) {
     if (data.category !== 'ring' && (variant.ringSize !== undefined || variant.sizingAllowance !== undefined)) errors.push(`${variant.variantId || 'variant'} ring sizing is only valid for rings`);
     if (variant.sizingAllowance && Number(variant.sizingAllowance.min) > Number(variant.sizingAllowance.max)) errors.push(`${variant.variantId || 'variant'} sizingAllowance min must not exceed max`);
   });
+  // Gemstone designs (a cut stone, not jewelry): the CUT is the design (design-level
+  // `gemstone: { cut, cutStyle }`); each VARIANT is a species OFFERING (capability, not
+  // inventory): species + purchase/special_request toggle + caratMin/Max guard + color quality
+  // buckets with size-tiered rough $/ct. Enforce the invariants the UI promises — a purchasable
+  // variant must actually be priceable across its whole advertised range.
+  if (data.category === 'gemstone') {
+    variants.forEach((variant) => {
+      const g = variant.gemstone;
+      const id = variant.variantId || 'variant';
+      if (!g || !String(g.species || '').trim()) { errors.push(`${id}: gemstone variant requires a species`); return; }
+      const lo = Number(g.caratMin) || 0;
+      const hi = Number(g.caratMax) || 0;
+      if (lo && hi && lo > hi) errors.push(`${id}: caratMin exceeds caratMax`);
+      if (g.yield != null && !(Number(g.yield) > 0 && Number(g.yield) <= 1)) errors.push(`${id}: yield must be between 0 and 1`);
+      if (g.maxPieces != null && (!Number.isInteger(g.maxPieces) || g.maxPieces < 1)) errors.push(`${id}: maxPieces must be a positive integer`);
+      if (g.availability !== 'special_request') {
+        const colors = Array.isArray(g.colors) ? g.colors.filter((c) => String(c.label || '').trim()) : [];
+        if (!colors.length) errors.push(`${id}: a purchasable gemstone variant needs at least one color bucket with rates`);
+        // Tiers must cover the advertised range — a carat past the last tier is a special
+        // request, never a silent fallback rate.
+        colors.forEach((c) => {
+          const cover = Math.max(0, ...(c.rates || []).map((t) => Number(t.upToCt) || 0));
+          if (hi && cover < hi) errors.push(`${id} · ${c.label}: rate tiers only cover up to ${cover}ct but caratMax is ${hi}ct`);
+        });
+      }
+    });
+  }
   return { valid: errors.length === 0, errors };
 }
 
@@ -73,6 +100,9 @@ export default class DesignsModel {
       name: data.name ?? '',
       description: data.description ?? null,
       story: data.story ?? '', category: data.category ?? null, attributes: data.attributes ?? {},
+      // Gemstone designs only: the cut IS the design — { cut: [], cutStyle: [] } (shape + cutting
+      // technique). Material spec (species/carat/color/…) lives per-variant. null for jewelry.
+      gemstone: data.gemstone ?? null,
       tags: Array.isArray(data.tags) ? data.tags : [], metadata: data.metadata ?? {},
       primaryArtisanId: data.primaryArtisanId ?? null,
       collaborators: Array.isArray(data.collaborators) ? data.collaborators : [],
@@ -120,6 +150,12 @@ export default class DesignsModel {
     const col = await this.collection();
     await col.updateOne({ designID }, { $set: { ...updateData, updatedAt: new Date() } });
     return this.findById(designID);
+  }
+
+  static async deleteById(designID) {
+    const col = await this.collection();
+    const res = await col.deleteOne({ designID });
+    return res.deletedCount > 0;
   }
 
   static ASSET_FIELDS = ['referenceImages', 'sketches'];
