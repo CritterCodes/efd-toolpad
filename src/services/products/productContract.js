@@ -10,6 +10,7 @@
  */
 import { randomUUID } from 'crypto';
 import { VALID_FINISHES, VALID_GEM_PRESETS } from '@crittercodes/refrakt/server';
+import { gemstoneFromPrice, publicGemstoneSpec } from '@/services/production/designCost';
 
 // Material vocabulary is owned by the engine package (refrakt ≥1.2). These are the
 // VALIDATION supersets (incl. cuts like `marquise`) — re-exported under the historical
@@ -196,12 +197,14 @@ export function buildProductFromDesign({ design = {}, estCost = 0, opts = {} }) 
     : [];
   // A gemstone Design (a cut stone) lists as a gemstone product carrying the gem-native spec,
   // not the jewelry metal shape. Cut/technique are DESIGN details (the cut IS the design); the
-  // material spec (species/carat/…) lives per VARIANT — surface the first variant's as
-  // representative.
+  // material spec lives per VARIANT — surface the first variant's, STRIPPED of the cutter's
+  // pricing internals (rough-rate tiers, cut labor, lot qty): the public doc never carries the
+  // rate table. Price = a computed "from $X" floor (cheapest orderable configuration).
   const isGem = design.category === 'gemstone';
   const gemSpec = isGem
-    ? { ...(design.gemstone || {}), ...((design.variants || []).find((v) => v.gemstone)?.gemstone || {}) }
+    ? publicGemstoneSpec({ ...(design.gemstone || {}), ...((design.variants || []).find((v) => v.gemstone)?.gemstone || {}) })
     : null;
+  const gemFrom = isGem ? gemstoneFromPrice(design) : null;
 
   return {
     productId,
@@ -213,7 +216,9 @@ export function buildProductFromDesign({ design = {}, estCost = 0, opts = {} }) 
     ...(runSize ? { runSize } : {}),
     status: 'draft',
     pricing: {
-      retailPrice: opts.retailPrice ?? design.suggestedRetail ?? suggestedRetailFromCOGS(cost),
+      // Gem designs price per-carat at order time — the listing carries the "from" floor.
+      retailPrice: opts.retailPrice ?? (isGem ? (gemFrom ?? design.suggestedRetail ?? null) : (design.suggestedRetail ?? suggestedRetailFromCOGS(cost))),
+      ...(isGem && gemFrom != null ? { priceIsFrom: true } : {}),
       compareAtPrice: opts.compareAtPrice ?? null,
       costBasis: cost, // estimated; storefront strips this
       costBasisSource: 'estimated',

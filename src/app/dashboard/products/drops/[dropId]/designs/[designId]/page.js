@@ -62,16 +62,22 @@ function newVariantForm() {
     retailPrice: '', leadTimeDays: '', active: true,
     // Gemstone-design variants: a SPECIES the cut is offered in (capability, not inventory).
     // colors = quality buckets, each with size-TIERED $/ct (rates non-linear in size).
-    gem: { species: '', availability: 'purchase', caratMin: '', caratMax: '', creation: 'natural', clarity: '', treatment: '', cutLaborCost: '', lotQty: '', colors: [] },
+    gem: { species: '', availability: 'purchase', caratMin: '', caratMax: '', creation: 'natural', clarity: '', treatment: '', cutLaborCost: '', lotQty: '', maxPieces: '', yield: '', colors: [] },
   };
 }
-// Resolve a color bucket's $/ct for a carat: first tier whose upToCt covers it; else the last tier.
+// Resolve a color bucket's rough $/ct for a carat — STRICT: null beyond the last tier (that's a
+// special request, never a silent fallback to the big-stone-cheap rate). Mirrors gemTierRate in
+// services/production/designCost.js.
 function tierRate(rates = [], carat) {
-  const tiers = rates.map((t) => ({ upToCt: Number(t.upToCt) || 0, ratePerCarat: Number(t.ratePerCarat) || 0 })).filter((t) => t.upToCt > 0).sort((a, b) => a.upToCt - b.upToCt);
-  if (!tiers.length) return 0;
+  const tiers = rates.map((t) => ({ upToCt: Number(t.upToCt) || 0, ratePerCarat: Number(t.ratePerCarat) || 0 })).filter((t) => t.upToCt > 0 && t.ratePerCarat > 0).sort((a, b) => a.upToCt - b.upToCt);
+  if (!tiers.length) return null;
   const c = Number(carat) || 0;
-  return (tiers.find((t) => c <= t.upToCt) || tiers[tiers.length - 1]).ratePerCarat;
+  const tier = tiers.find((t) => c <= t.upToCt);
+  return tier ? tier.ratePerCarat : null;
 }
+// Finished carats ÷ rough carats. Cutter's floor: ~25% (1ct finished needs 4ct rough).
+const GEM_YIELD_DEFAULT = 0.25;
+const gemYield = (g) => (Number(g?.yield) > 0 && Number(g?.yield) <= 1 ? Number(g.yield) : GEM_YIELD_DEFAULT);
 
 const STATUS_COLOR = {
   draft: REPAIRS_UI.textMuted, cad_requested: '#FFB74D', cad_in_progress: '#64B5F6',
@@ -234,6 +240,8 @@ function toForm(d) {
         treatment: Array.isArray(v.gemstone?.treatment) ? v.gemstone.treatment.join(', ') : (v.gemstone?.treatment || ''),
         cutLaborCost: v.gemstone?.cutLaborCost != null ? String(v.gemstone.cutLaborCost) : '',
         lotQty: v.gemstone?.lotQty != null ? String(v.gemstone.lotQty) : '',
+        maxPieces: v.gemstone?.maxPieces != null ? String(v.gemstone.maxPieces) : '',
+        yield: v.gemstone?.yield != null ? String(v.gemstone.yield) : '',
         colors: (v.gemstone?.colors || []).map((c) => ({
           label: c.label || '',
           rates: (c.rates || []).map((t) => ({ upToCt: t.upToCt != null ? String(t.upToCt) : '', ratePerCarat: t.ratePerCarat != null ? String(t.ratePerCarat) : '' })),
@@ -482,9 +490,11 @@ function CadTab({ design, designId, onReload, notify, onCreateFirstVariant, form
   );
 }
 
-/** Color quality-buckets for a gem species, each with size-TIERED $/ct — $/ct is not linear in
- *  size (a 4ct clean stone costs far more per carat than a 1ct), so each bucket is a small tier
- *  table: "up to X ct → $Y/ct". Label buckets with quality baked in ("chrome red AAA"). */
+/** Color quality-buckets for a gem species, each with size-TIERED **rough** $/ct (what the cutter
+ *  pays for rough — retail = (rough cost + labor) × markup, like jewelry). $/ct is not linear in
+ *  size, so each bucket is a small tier table: "up to X finished ct → $Y/ct rough". Tiers must
+ *  cover caratMax (validated); beyond them = special request. Label buckets with quality baked in
+ *  ("chrome red AAA"). */
 function GemColorRates({ colors, onChange }) {
   const setColor = (i, patch) => onChange(colors.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
   const removeColor = (i) => onChange(colors.filter((_, idx) => idx !== i));
@@ -494,7 +504,7 @@ function GemColorRates({ colors, onChange }) {
   const addTier = (ci) => setColor(ci, { rates: [...(colors[ci].rates || []), { upToCt: '', ratePerCarat: '' }] });
   return (
     <Box>
-      <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textSecondary, fontSize: '0.72rem', mb: 0.75 }}>Colors &amp; rates ($/ct by size — quality in the label)</Typography>
+      <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textSecondary, fontSize: '0.72rem', mb: 0.75 }}>Colors &amp; ROUGH rates ($/ct of rough, tiered by finished size — quality in the label)</Typography>
       {colors.length === 0 && (
         <Typography variant="body2" sx={{ color: '#FFB74D', mb: 0.5 }}>Add at least one color bucket — it carries the price.</Typography>
       )}
@@ -629,6 +639,13 @@ function VariantRow({ index, variant, isRing, isGem, hasGlb, stoneCosts, onUpdat
                 <TextField label="Clarity" value={gem.clarity || ''} onChange={(e) => setGem({ clarity: e.target.value })} size="small" sx={{ width: 100 }} />
                 <TextField label="Lot qty" type="number" value={gem.lotQty ?? ''} onChange={(e) => setGem({ lotQty: e.target.value })} size="small" sx={{ width: 92 }} inputProps={{ min: 0 }}
                   helperText="special rough only" FormHelperTextProps={{ sx: { mx: 0, fontSize: '0.6rem' } }} />
+              </Stack>
+              <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
+                <TextField label="Yield" type="number" value={gem.yield ?? ''} onChange={(e) => setGem({ yield: e.target.value })} size="small" sx={{ width: 100 }}
+                  placeholder={String(GEM_YIELD_DEFAULT)} inputProps={{ step: 0.05, min: 0.05, max: 1 }}
+                  helperText="finished ÷ rough ct" FormHelperTextProps={{ sx: { mx: 0, fontSize: '0.6rem' } }} />
+                <TextField label="Max pieces" type="number" value={gem.maxPieces ?? ''} onChange={(e) => setGem({ maxPieces: e.target.value })} size="small" sx={{ width: 104 }} inputProps={{ min: 1 }}
+                  helperText="this variant's slice of the edition" FormHelperTextProps={{ sx: { mx: 0, fontSize: '0.6rem' } }} />
               </Stack>
               <GemColorRates colors={gem.colors || []} onChange={(colors) => setGem({ colors })} />
             </Stack>
@@ -816,17 +833,22 @@ function VariantPriceCard({ variant, mounting, sharedCosts, baseMarkup, hasVolum
   );
 }
 
-/** Gemstone variant retail (owner's recipe): carat × tiered $/ct (per color) + cut labor +
- *  shared, × markup. The customer picks the carat at order time, so the card shows each color
- *  bucket's retail RANGE across the variant's cuttable carat span. */
+/** Gemstone variant retail (cutter's recipe): material (rough $/ct × rough carats via yield) +
+ *  cut labor + shared, × markup — like jewelry. The customer picks the carat at order time, so
+ *  the card shows each color bucket's retail RANGE across the variant's cuttable carat span. */
 function GemVariantPriceCard({ variant, sharedCosts, baseMarkup, onChange }) {
   const gem = variant.gem || {};
   const setGem = (patch) => onChange({ gem: { ...gem, ...patch } });
   const cutLabor = Number(gem.cutLaborCost) || 0;
   const markup = Number(variant.markupOverride) > 0 ? Number(variant.markupOverride) : baseMarkup;
+  const y = gemYield(gem);
   const lo = Number(gem.caratMin) || 0;
   const hi = Number(gem.caratMax) || lo;
-  const retailAt = (rates, ct) => (ct * tierRate(rates, ct) + cutLabor + sharedCosts) * markup;
+  // Strict: null when the color's tiers don't cover the carat (special request / fix the tiers).
+  const retailAt = (rates, ct) => {
+    const rate = tierRate(rates, ct);
+    return rate == null ? null : ((ct / y) * rate + cutLabor + sharedCosts) * markup;
+  };
   const label = variant.label?.trim() || variant.sku?.trim() || variant.variantId;
   const colors = (gem.colors || []).filter((c) => String(c.label || '').trim());
   const stone = [gem.species, lo || hi ? `${lo}–${hi}ct` : null, gem.creation === 'lab' ? 'lab' : null, gem.treatment || null].filter(Boolean).join(' · ');
@@ -847,14 +869,22 @@ function GemVariantPriceCard({ variant, sharedCosts, baseMarkup, onChange }) {
         </Typography>
       ) : (
         <Stack spacing={0.5} sx={{ mt: 1.25 }}>
-          {colors.map((c, i) => (
-            <Stack key={i} direction="row" justifyContent="space-between" alignItems="center">
-              <Typography variant="body2" sx={{ color: REPAIRS_UI.textPrimary }}>{c.label}</Typography>
-              <Typography variant="body2" sx={{ fontWeight: 700, color: REPAIRS_UI.accent }}>
-                {money(retailAt(c.rates, lo))}{hi > lo ? ` – ${money(retailAt(c.rates, hi))}` : ''}
-              </Typography>
-            </Stack>
-          ))}
+          {colors.map((c, i) => {
+            const rLo = retailAt(c.rates, lo);
+            const rHi = retailAt(c.rates, hi);
+            return (
+              <Stack key={i} direction="row" justifyContent="space-between" alignItems="center">
+                <Typography variant="body2" sx={{ color: REPAIRS_UI.textPrimary }}>{c.label}</Typography>
+                {rLo == null || rHi == null ? (
+                  <Typography variant="caption" sx={{ color: '#EF5350' }}>tiers don&apos;t cover {rLo == null ? `${lo}ct` : `${hi}ct`}</Typography>
+                ) : (
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: REPAIRS_UI.accent }}>
+                    {money(rLo)}{hi > lo ? ` – ${money(rHi)}` : ''}
+                  </Typography>
+                )}
+              </Stack>
+            );
+          })}
         </Stack>
       )}
       <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mt: 1.5 }} flexWrap="wrap" useFlexGap>
@@ -868,7 +898,7 @@ function GemVariantPriceCard({ variant, sharedCosts, baseMarkup, onChange }) {
           helperText={variant.markupOverride ? ' ' : `default ×${baseMarkup}`} FormHelperTextProps={{ sx: { mx: 0, fontSize: '0.6rem' } }} />
       </Stack>
       <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, mt: 0.5, display: 'block' }}>
-        retail = (carat × color&apos;s tier rate + {money(cutLabor)} cut labor + {money(sharedCosts)} shared) × {markup}; customer picks the carat.
+        retail = (carat ÷ {y} yield × rough $/ct + {money(cutLabor)} cut labor + {money(sharedCosts)} shared) × {markup}; customer picks the carat (0.25ct steps, ± cut tolerance).
       </Typography>
     </Paper>
   );
@@ -1613,30 +1643,40 @@ export default function DesignDetailPage({ params }) {
           stonesCost: sumStones(v.gemstones, stoneCosts),
           markupOverride: v.markupOverride ? Number(v.markupOverride) : null,
           // Gemstone-design variants: a species offering (capability) — toggle, carat range,
-          // tiered color rates. lotQty only for special-rough variants (fixed quantity).
-          ...(form.category === 'gemstone' ? {
-            gemstone: {
-              species: v.gem?.species?.trim() || null,
-              availability: v.gem?.availability === 'special_request' ? 'special_request' : 'purchase',
-              caratMin: v.gem?.caratMin ? Number(v.gem.caratMin) : null,
-              caratMax: v.gem?.caratMax ? Number(v.gem.caratMax) : null,
-              naturalSynthetic: v.gem?.creation === 'lab' ? 'lab' : 'natural',
-              clarity: v.gem?.clarity?.trim() || null,
-              treatment: v.gem?.treatment?.trim() || null,
-              cutLaborCost: v.gem?.cutLaborCost ? Number(v.gem.cutLaborCost) : null,
-              lotQty: v.gem?.lotQty ? Number(v.gem.lotQty) : null,
-              colors: (v.gem?.colors || [])
-                .filter((c) => String(c.label || '').trim())
-                .map((c) => ({
-                  label: c.label.trim(),
-                  rates: (c.rates || [])
-                    .filter((t) => Number(t.upToCt) > 0 && Number(t.ratePerCarat) > 0)
-                    .map((t) => ({ upToCt: Number(t.upToCt), ratePerCarat: Number(t.ratePerCarat) }))
-                    .sort((a, b) => a.upToCt - b.upToCt),
-                })),
-              ratesUpdatedAt: new Date().toISOString(), // staleness nag reads this
-            },
-          } : {}),
+          // tiered color ROUGH rates (+ yield). lotQty = special-rough fixed quantity; maxPieces =
+          // optional per-variant slice of the design edition ("10 total, 2 of this species").
+          ...(form.category === 'gemstone' ? (() => {
+            const colors = (v.gem?.colors || [])
+              .filter((c) => String(c.label || '').trim())
+              .map((c) => ({
+                label: c.label.trim(),
+                rates: (c.rates || [])
+                  .filter((t) => Number(t.upToCt) > 0 && Number(t.ratePerCarat) > 0)
+                  .map((t) => ({ upToCt: Number(t.upToCt), ratePerCarat: Number(t.ratePerCarat) }))
+                  .sort((a, b) => a.upToCt - b.upToCt),
+              }));
+            // Stamp ratesUpdatedAt ONLY when the rates actually changed — the staleness nag must
+            // not be reset by unrelated edits.
+            const prev = (design.variants || []).find((x) => x.variantId === v.variantId)?.gemstone;
+            const ratesChanged = JSON.stringify(colors) !== JSON.stringify(prev?.colors || []);
+            return {
+              gemstone: {
+                species: v.gem?.species?.trim() || null,
+                availability: v.gem?.availability === 'special_request' ? 'special_request' : 'purchase',
+                caratMin: v.gem?.caratMin ? Number(v.gem.caratMin) : null,
+                caratMax: v.gem?.caratMax ? Number(v.gem.caratMax) : null,
+                naturalSynthetic: v.gem?.creation === 'lab' ? 'lab' : 'natural',
+                clarity: v.gem?.clarity?.trim() || null,
+                treatment: v.gem?.treatment?.trim() || null,
+                cutLaborCost: v.gem?.cutLaborCost ? Number(v.gem.cutLaborCost) : null,
+                lotQty: v.gem?.lotQty ? Number(v.gem.lotQty) : null,
+                maxPieces: v.gem?.maxPieces ? Number(v.gem.maxPieces) : null,
+                yield: v.gem?.yield ? Number(v.gem.yield) : null, // null → default 0.25 at price time
+                colors,
+                ratesUpdatedAt: ratesChanged ? new Date().toISOString() : (prev?.ratesUpdatedAt ?? null),
+              },
+            };
+          })() : {}),
         })),
       };
       const res = await fetch(`/api/production/designs/${designId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
