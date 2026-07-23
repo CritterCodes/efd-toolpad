@@ -73,6 +73,36 @@ export function gemDesignCandidates(measured = {}, design = {}) {
   return out;
 }
 
+/** Edition slots left on a design (null = unlimited). */
+export function editionRemaining(design = {}) {
+  const e = design.edition || {};
+  if (e.type === 'unlimited' || !e.type) return null;
+  const cap = e.type === 'one_of_one' ? 1 : Number(e.limit) || 0;
+  return Math.max(0, cap - (Number(e.allocated) || 0) - (Number(e.committed) || 0));
+}
+
+/**
+ * The no-oversell rollup (display now; Phase-3 enforces at claim): how many pieces of a jewelry
+ * variant its gem-linked stone rows allow — min over finite gems of ⌊gem remaining ÷ qty⌋.
+ * @param {Array} rows      the variant's stone rows (gemDesignId + qty)
+ * @param {Object} gemDocs  { [designID]: gem Design doc }
+ * @returns {{ cap: number|null, limiting: string|null }} cap null = uncapped by gems
+ */
+export function gemBuildableForRows(rows = [], gemDocs = {}) {
+  let cap = null;
+  let limiting = null;
+  for (const r of rows) {
+    if (!r?.gemDesignId) continue;
+    const doc = gemDocs[r.gemDesignId];
+    if (!doc) continue;
+    const remaining = editionRemaining(doc);
+    if (remaining == null) continue; // unlimited gem never caps
+    const per = Math.floor(remaining / Math.max(1, Number(r.qty) || 1));
+    if (cap == null || per < cap) { cap = per; limiting = doc.name || r.gemDesignId; }
+  }
+  return { cap, limiting };
+}
+
 /** Rank candidates: in-range purchasable first, then in-range requests, then out-of-range. */
 export function rankGemDesignCandidates(measured, designs = [], { limit = 6 } = {}) {
   const all = designs.flatMap((d) => gemDesignCandidates(measured, d));

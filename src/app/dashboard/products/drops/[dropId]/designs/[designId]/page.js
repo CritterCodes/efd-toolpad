@@ -22,6 +22,7 @@ import Tab from '@mui/material/Tab';
 import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
 import { getSTLVolume } from '@/lib/stlParser';
 import { KARAT_OPTIONS, finishUsesKarat, finishLabel, composeMetalKey } from '@/services/production/variantMetal';
+import { gemBuildableForRows } from '@/services/production/gemDesignMatch';
 
 // Read-only WebGL product viewer (client-only — must be dynamically imported, ssr:false).
 const JewelryViewer = dynamic(() => import('@crittercodes/refrakt').then((m) => m.JewelryViewer), { ssr: false });
@@ -221,6 +222,10 @@ function toForm(d) {
         cut: g.cut || '',
         // Per-stone creation (natural | lab) — sourcing key, defaults natural.
         creation: g.creation || 'natural',
+        // Gem-design link (Phase 2): design + variant + COLOR (the rate key).
+        gemDesignId: g.gemDesignId || '',
+        gemVariantId: g.gemVariantId || '',
+        gemColor: g.gemColor || '',
         // Measured geometry (from REFRAKT) — kept so auto-match/Stuller search stays precise on reload.
         preset: g.preset || g.gemType || '',
         lengthMm: g.lengthMm != null ? String(g.lengthMm) : '',
@@ -795,7 +800,7 @@ function PriceLineEditor({ rows, onChange, withQty, addLabel, emptyText }) {
   );
 }
 
-function VariantPriceCard({ variant, mounting, sharedCosts, baseMarkup, hasVolume, loading, stoneCosts, productionMethod, taskCosts, onChange }) {
+function VariantPriceCard({ variant, mounting, sharedCosts, baseMarkup, hasVolume, loading, stoneCosts, gemDocs = {}, productionMethod, taskCosts, onChange }) {
   const stones = sumStones(variant.gemstones, stoneCosts);
   const stoneCount = (variant.gemstones || []).reduce((n, g) => n + (Number(g.qty) || 1), 0);
   const markup = Number(variant.markupOverride) > 0 ? Number(variant.markupOverride) : baseMarkup;
@@ -847,6 +852,11 @@ function VariantPriceCard({ variant, mounting, sharedCosts, baseMarkup, hasVolum
       <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, mt: 0.5, display: 'block' }}>
         ({money(mounting)} mounting + {money(stones)} stones + {money(autoLabor)} labor + {money(sharedCosts)} shared) × {markup} = {money(retail)}
       </Typography>
+      {(() => { const b = gemBuildableForRows(variant.gemstones, gemDocs); return b.cap != null ? (
+        <Typography variant="caption" sx={{ color: b.cap > 0 ? '#CE93D8' : '#EF5350', display: 'block', mt: 0.25 }}>
+          Gem-capped: {b.cap} buildable — limited by “{b.limiting}”’s edition.
+        </Typography>
+      ) : null; })()}
     </Paper>
   );
 }
@@ -1043,7 +1053,7 @@ const stoneSummary = (r) => {
  *  Edits a local copy; commits on Done. */
 function StoneEditorModal({ open, row, onClose, onSave }) {
   const [r, setR] = useState(row || {});
-  const [data, setData] = useState({ catalog: [], stuller: [], stullerError: null });
+  const [data, setData] = useState({ catalog: [], gemDesigns: [], stuller: [], stullerError: null });
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState('');
@@ -1052,21 +1062,21 @@ function StoneEditorModal({ open, row, onClose, onSave }) {
   useEffect(() => { if (open) { setR(row || {}); setErr(''); } }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const f = (patch) => setR((x) => ({ ...x, ...patch }));
   const creation = r.creation || 'natural';
-  const linked = Boolean(r.stoneSkuId);
+  const linked = Boolean(r.stoneSkuId || r.gemDesignId);
   const compCarat = caratFromMm(r.lengthMm, r.widthMm);
 
   // Find catalog + Stuller matches from the current attributes (debounced as the user types mm).
   const find = useCallback(async () => {
     if (!open) return;
-    if (!r.preset && !r.lengthMm && !r.caratEach) { setData({ catalog: [], stuller: [], stullerError: null }); return; }
+    if (!r.preset && !r.lengthMm && !r.caratEach) { setData({ catalog: [], gemDesigns: [], stuller: [], stullerError: null }); return; }
     setLoading(true);
     try {
       const res = await fetch('/api/products/stones/match', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ gemType: r.preset, cut: r.cut, creation, carat: r.caratEach, lengthMm: r.lengthMm, widthMm: r.widthMm }) });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error || 'Match failed');
-      setData({ catalog: d.catalog || [], stuller: d.stuller || [], stullerError: d.stullerError });
-    } catch (e) { setData({ catalog: [], stuller: [], stullerError: e.message }); } finally { setLoading(false); }
+      setData({ catalog: d.catalog || [], gemDesigns: d.gemDesigns || [], stuller: d.stuller || [], stullerError: d.stullerError });
+    } catch (e) { setData({ catalog: [], gemDesigns: [], stuller: [], stullerError: e.message }); } finally { setLoading(false); }
   }, [open, r.preset, r.cut, creation, r.caratEach, r.lengthMm, r.widthMm]);
   useEffect(() => { const t = setTimeout(find, 300); return () => clearTimeout(t); }, [find]);
 
@@ -1087,7 +1097,18 @@ function StoneEditorModal({ open, row, onClose, onSave }) {
       f({ stoneSkuId: s.stoneSkuId || '', stullerSku: s.stullerSku || '', label: s.label || '', unitCost: s.cost != null ? String(s.cost) : '', creation: c.creation || s.naturalSynthetic || creation, caratEach: r.caratEach || (s.caratEach != null ? String(s.caratEach) : ''), source: 'stuller' });
     } catch (e) { setErr(e.message); } finally { setBusy(''); }
   };
-  const unlink = () => f({ stoneSkuId: '', stullerSku: '', source: '' });
+  // Link an EFD gem design (Phase 2): pins design + variant + COLOR — the color is the rate
+  // key, so payouts and Phase-3 enforcement depend on it. unitCost is the snapshot at the row's
+  // carat; reselect the color after a size change to reprice (authoritative price = claim time).
+  const applyGemDesign = (c, color) => f({
+    stoneSkuId: '', stullerSku: '',
+    gemDesignId: c.designID, gemVariantId: c.variantId, gemColor: color.label,
+    label: `${c.designName} · ${c.species} · ${color.label}`,
+    unitCost: color.price != null ? String(color.price) : '',
+    creation: c.creation || creation,
+    source: 'gemDesign',
+  });
+  const unlink = () => f({ stoneSkuId: '', stullerSku: '', gemDesignId: '', gemVariantId: '', gemColor: '', source: '' });
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}` } }}>
@@ -1124,10 +1145,10 @@ function StoneEditorModal({ open, row, onClose, onSave }) {
 
           {linked ? (
             <Stack direction="row" spacing={1} alignItems="center" sx={{ p: 0.75, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 1 }}>
-              <Chip size="small" label={r.source === 'stuller' ? 'Stuller' : 'catalog'} variant="outlined" sx={{ height: 18 }} />
+              <Chip size="small" label={r.source === 'gemDesign' ? 'gem design' : r.source === 'stuller' ? 'Stuller' : 'catalog'} variant="outlined" sx={{ height: 18 }} />
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography variant="body2" noWrap sx={{ color: REPAIRS_UI.textHeader }}>{r.label}</Typography>
-                <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{r.stullerSku}</Typography>
+                <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{r.gemDesignId ? `cut to order · ${r.gemColor}` : r.stullerSku}</Typography>
               </Box>
               <Button size="small" onClick={unlink} sx={{ color: REPAIRS_UI.textMuted, textTransform: 'none' }}>Unlink</Button>
             </Stack>
@@ -1158,6 +1179,35 @@ function StoneEditorModal({ open, row, onClose, onSave }) {
                           </Box>
                           <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>{money(c.stone.cost)}</Typography>
                         </Stack>
+                      ))}
+                    </Stack>}
+              </Box>
+              <Box>
+                <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary, fontWeight: 600 }}>From EFD gem designs (cut to order)</Typography>
+                {(data.gemDesigns || []).length === 0
+                  ? <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted, py: 0.5 }}>No in-house gem design fits.</Typography>
+                  : <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                      {data.gemDesigns.map((c) => (
+                        <Box key={`${c.designID}:${c.variantId}`} sx={{ p: 0.75, borderRadius: 1, border: `1px solid ${REPAIRS_UI.border}` }}>
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <Chip size="small" label={c.availability === 'special_request' ? 'request' : 'cut to order'} sx={{ height: 18, bgcolor: 'transparent', color: c.availability === 'special_request' ? '#FFB74D' : '#CE93D8', border: '1px solid currentColor' }} />
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Typography variant="body2" noWrap sx={{ color: REPAIRS_UI.textHeader }}>{c.designName} · {c.species}</Typography>
+                              <Typography variant="caption" sx={{ color: c.inRange ? REPAIRS_UI.textMuted : '#EF5350' }}>
+                                {[c.caratMin || c.caratMax ? `${c.caratMin ?? '?'}–${c.caratMax ?? '?'}ct` : null, c.creation === 'lab' ? 'lab' : null, c.treatment, c.remaining != null ? `${c.remaining} left` : null, c.inRange ? null : 'out of range'].filter(Boolean).join(' · ')}
+                              </Typography>
+                            </Box>
+                          </Stack>
+                          <Stack spacing={0.25} sx={{ mt: 0.5, pl: 0.5 }}>
+                            {(c.colors || []).map((col) => (
+                              <Stack key={col.label} direction="row" justifyContent="space-between" alignItems="center" onClick={() => c.inRange && col.price != null && applyGemDesign(c, col)}
+                                sx={{ px: 0.5, py: 0.25, borderRadius: 0.75, cursor: c.inRange && col.price != null ? 'pointer' : 'default', '&:hover': c.inRange && col.price != null ? { backgroundColor: REPAIRS_UI.bgCard } : {} }}>
+                                <Typography variant="body2" sx={{ color: REPAIRS_UI.textPrimary }}>{col.label}</Typography>
+                                <Typography variant="body2" sx={{ fontWeight: 600, color: col.price != null ? REPAIRS_UI.accent : REPAIRS_UI.textMuted }}>{col.price != null ? money(col.price) : 'request'}</Typography>
+                              </Stack>
+                            ))}
+                          </Stack>
+                        </Box>
                       ))}
                     </Stack>}
               </Box>
@@ -1285,7 +1335,7 @@ function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, onChange }) {
                   <Box sx={{ flex: 1, minWidth: 0 }} onClick={() => setEditIdx(i)} style={{ cursor: 'pointer' }}>
                     <Stack direction="row" spacing={0.75} alignItems="center">
                       <Typography variant="body2" noWrap sx={{ color: r.label ? REPAIRS_UI.textHeader : REPAIRS_UI.textMuted }}>{r.label || 'No stone linked'}</Typography>
-                      {r.source && <Chip size="small" label={r.source === 'stuller' ? 'Stuller' : 'catalog'} variant="outlined" sx={{ height: 15, fontSize: '0.58rem' }} />}
+                      {r.source && <Chip size="small" label={r.source === 'gemDesign' ? 'gem design' : r.source === 'stuller' ? 'Stuller' : 'catalog'} variant="outlined" sx={{ height: 15, fontSize: '0.58rem' }} />}
                     </Stack>
                     <Typography variant="caption" noWrap sx={{ color: REPAIRS_UI.textMuted, display: 'block' }}>{summary || 'Add details →'}</Typography>
                   </Box>
@@ -1346,7 +1396,7 @@ function LaborTaskEditor({ rows, onChange }) {
   );
 }
 
-function PricingTab({ pricing, variants, category, stlVolumeCm3, defaultMarkup, artisanFee, artisanName, editionType, editionLimit, productionMethod, stoneCosts, onChange, onVariantChange }) {
+function PricingTab({ pricing, variants, category, stlVolumeCm3, defaultMarkup, artisanFee, artisanName, editionType, editionLimit, productionMethod, stoneCosts, gemDocs = {}, onChange, onVariantChange }) {
   const isGem = category === 'gemstone';
   const [metalCosts, setMetalCosts] = useState({});
   const [loadingCosts, setLoadingCosts] = useState(false);
@@ -1483,6 +1533,7 @@ function PricingTab({ pricing, variants, category, stlVolumeCm3, defaultMarkup, 
               hasVolume={hasVolume}
               loading={loadingCosts}
               stoneCosts={stoneCosts}
+              gemDocs={gemDocs}
               productionMethod={productionMethod}
               taskCosts={taskCosts}
               onChange={(patch) => onVariantChange(i, patch)}
@@ -1513,6 +1564,7 @@ export function DesignDetail({ dropId, designId, backHref, backLabel }) {
   const [saving, setSaving] = useState(false);
   const [defaultMarkup, setDefaultMarkup] = useState(2.5);
   const [stoneCosts, setStoneCosts] = useState({}); // { stoneSkuId: current wholesale cost }
+  const [gemDocs, setGemDocs] = useState({}); // { gemDesignId: gem Design doc } — linked in-house gems
   const [tab, setTab] = useState(0);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
   const notify = (message, severity = 'success') => setSnack({ open: true, message, severity });
@@ -1660,6 +1712,9 @@ export function DesignDetail({ dropId, designId, backHref, backLabel }) {
             sizeMm: g.sizeMm || null,
             cut: g.cut || null,
             creation: g.creation || 'natural',
+            gemDesignId: g.gemDesignId || null,
+            gemVariantId: g.gemVariantId || null,
+            gemColor: g.gemColor || null,
             preset: g.preset || g.gemType || null,
             lengthMm: g.lengthMm ? Number(g.lengthMm) : null,
             widthMm: g.widthMm ? Number(g.widthMm) : null,
@@ -1712,6 +1767,17 @@ export function DesignDetail({ dropId, designId, backHref, backLabel }) {
       return true;
     } catch (e) { notify(e.message, 'error'); return false; } finally { setSaving(false); }
   };
+
+  // Load the gem Designs this jewelry's stone rows link to (Phase 2) — powers the buildable
+  // rollup caption; enforcement lands in Phase 3.
+  useEffect(() => {
+    const ids = [...new Set((design?.variants || []).flatMap((v) => (v.gemstones || []).map((g) => g.gemDesignId)).filter(Boolean))];
+    if (!ids.length) { setGemDocs({}); return; }
+    let cancelled = false;
+    Promise.all(ids.map((id) => fetch(`/api/production/designs/${id}`).then((r) => (r.ok ? r.json() : null)).catch(() => null)))
+      .then((docs) => { if (!cancelled) setGemDocs(Object.fromEntries(docs.filter(Boolean).map((d) => [d.designID, d]))); });
+    return () => { cancelled = true; };
+  }, [design]);
 
   const backToDrop = () => router.push(backHref || `/dashboard/products/drops/${dropId}`);
   const backText = backLabel || 'Back to drop';
@@ -1793,6 +1859,7 @@ export function DesignDetail({ dropId, designId, backHref, backLabel }) {
           pricing={form.pricing}
           variants={form.variants}
           category={form.category}
+          gemDocs={gemDocs}
           stlVolumeCm3={design.stlVolumeCm3}
           defaultMarkup={defaultMarkup}
           artisanFee={Number(artisans.find((a) => artisanId(a) === form.primaryArtisanId)?.artisanApplication?.customDesignFee) || 0}

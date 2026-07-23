@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gemDesignCandidates, rankGemDesignCandidates } from '@/services/production/gemDesignMatch';
+import { gemDesignCandidates, rankGemDesignCandidates, editionRemaining, gemBuildableForRows } from '@/services/production/gemDesignMatch';
 
 const design = {
   designID: 'g1', name: 'Solstice Cut', category: 'gemstone', primaryArtisanId: 'cutter-1',
@@ -36,6 +36,36 @@ describe('gemDesignCandidates', () => {
     const inactive = { ...design, variants: [{ ...design.variants[0], active: false }] };
     expect(gemDesignCandidates({ gemType: 'garnet', carat: 1 }, inactive)).toHaveLength(0);
     expect(gemDesignCandidates({ gemType: 'garnet', carat: 1 }, { ...design, category: 'ring' })).toHaveLength(0);
+  });
+});
+
+describe('gemBuildableForRows — the no-oversell rollup (display)', () => {
+  const gemA = { designID: 'gA', name: 'Solstice Cut', edition: { type: 'limited', limit: 5, allocated: 1, committed: 0 } }; // 4 left
+  const gemB = { designID: 'gB', name: 'Ember Cut', edition: { type: 'one_of_one', allocated: 0, committed: 0 } };           // 1 left
+  const unlimited = { designID: 'gU', name: 'Open Cut', edition: { type: 'unlimited' } };
+  const docs = { gA: gemA, gB: gemB, gU: unlimited };
+
+  it('caps by the scarcest gem ÷ qty', () => {
+    const rows = [
+      { gemDesignId: 'gA', qty: 2 },  // ⌊4/2⌋ = 2
+      { gemDesignId: 'gB', qty: 1 },  // ⌊1/1⌋ = 1  ← limiting
+      { stoneSkuId: 's1', qty: 18 },  // commodity — never caps
+    ];
+    const b = gemBuildableForRows(rows, docs);
+    expect(b.cap).toBe(1);
+    expect(b.limiting).toBe('Ember Cut');
+  });
+  it('unlimited gems and unlinked rows never cap', () => {
+    expect(gemBuildableForRows([{ gemDesignId: 'gU', qty: 3 }, { stoneSkuId: 's1' }], docs).cap).toBeNull();
+    expect(gemBuildableForRows([], docs).cap).toBeNull();
+  });
+  it('sold-out gem → 0 buildable', () => {
+    const soldOut = { gS: { designID: 'gS', name: 'Gone', edition: { type: 'one_of_one', allocated: 1, committed: 0 } } };
+    expect(gemBuildableForRows([{ gemDesignId: 'gS', qty: 1 }], soldOut).cap).toBe(0);
+  });
+  it('editionRemaining basics', () => {
+    expect(editionRemaining(gemA)).toBe(4);
+    expect(editionRemaining(unlimited)).toBeNull();
   });
 });
 
