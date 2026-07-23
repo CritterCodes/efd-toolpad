@@ -74,8 +74,15 @@ a REFRAKT feature request; NOT volume×SG on the raw mesh, which over-reports on
   exhausted → **special request through the EXISTING customs pipeline** (customOrders intake →
   quote → deposit), never a second quote flow.
 
-The **Piece** records `resolvedConfiguration: { species, color, carat (target), finalCarat,
-targetMm?, tolerance? }` — color is the rate key, so payout math depends on it being captured.
+**Size is chosen by carat OR dimensions — snapping applies only to the edited field**, the other
+floats as a labeled estimate ("1.25ct → ≈ 8.6 × 4.3mm" or "8.5 × 4.25mm → ≈ 1.2ct"). **The edited
+field is the order's PRIMARY spec — the cutter's target**: ordered by carat, hit the carat (dims
+approximate); ordered by dims, hit the dims (carat approximate; billing still trues up at final
+carat weight).
+
+The **Piece** records `resolvedConfiguration: { sizeMode: 'carat'|'dimensions', species, color,
+carat (target), finalCarat, targetMm?, tolerance? }` — color is the rate key and sizeMode is the
+cutter's target, so payout math and the cut WO both depend on them being captured.
 
 Already-cut stones in stock are **Pieces** (`status: available`, RTS) — the existing piece engine,
 nothing new. A **cert** (lab report) attaches to the Piece (needed for precious; upload support
