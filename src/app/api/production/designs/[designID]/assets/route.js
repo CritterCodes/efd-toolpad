@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { requireRole } from '@/lib/apiAuth';
+import { requireAuth } from '@/lib/apiAuth';
 import DesignsModel from '@/app/api/designs/model';
+import { canManageDesign } from '@/lib/designPermissions';
 import { uploadDesignAsset } from '@/utils/s3.util';
 
 /**
@@ -9,12 +10,15 @@ import { uploadDesignAsset } from '@/utils/s3.util';
  * Uploads a CAD/STL/GLB/render to S3 and appends the URL to the design.
  */
 export const POST = async (req, { params }) => {
-  const { errorResponse } = await requireRole(['admin', 'dev']);
+  const { session, errorResponse } = await requireAuth();
   if (errorResponse) return errorResponse;
 
   const { designID } = await params;
   const design = await DesignsModel.findById(designID);
   if (!design) return NextResponse.json({ error: 'Design not found.' }, { status: 404 });
+  if (!canManageDesign(session, design)) {
+    return NextResponse.json({ error: 'Access denied — not your design.' }, { status: 403 });
+  }
 
   const formData = await req.formData();
   const file = formData.get('file');
