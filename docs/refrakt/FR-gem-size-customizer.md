@@ -45,19 +45,23 @@ mm    → scale:  s = chosenLength / baseLengthMm
 
 Everything hinges on one good **carat₀** (the stone's weight at scale 1) for the shopper's species.
 
-**⚠ Do NOT compute carat₀ as signedVolume × SG.** Cut-stone meshes are not watertight — we proved
-on a real asset that `signedVolumeOfMesh` over-reports (a 1.3 mm melee "measured" a volume larger
-than its own bounding box; it's why 1.11's `measureGems` uses the girdle footprint). Two robust
-options, either is fine:
+**The host supplies `baseCarat` — computed from the design's STL, not the GLB.** Gem designs
+upload an STL alongside the GLB (the same CAD-volume machinery jewelry uses): the STL is a
+watertight CAD solid, so its volume is exact —
 
-1. **Footprint calibration (recommended — reuses 1.11):** `measureGems` already yields a
-   diamond-equivalent carat from `0.00364 × L × W²` (diamond SG 3.52). Rescale by species density:
-   `carat₀ = caratDiamondEq × (SG_species / 3.52)`. Zero new geometry code.
-2. **Convex-hull volume × SG** — the hull is stable on open meshes (slight over-estimate on the
-   pavilion, acceptable for ordering; the cutter trues up at final weight anyway).
+```
+carat₀ = stlVolumeCm3 × SG_species × 5        // 1 ct = 0.2 g
+```
+
+**⚠ Never compute carat₀ as signedVolume × SG of the GLB's display mesh.** GLB gem meshes are not
+watertight — we proved on a real asset that `signedVolumeOfMesh` over-reports (a 1.3 mm melee
+"measured" a volume larger than its own bounding box; it's why 1.11's `measureGems` uses the
+girdle footprint). Fallback when no STL exists: footprint calibration —
+`carat₀ = caratDiamondEq (1.11 measureGems) × (SG_species / 3.52)`.
 
 **SG is per-species and host-supplied** (a 2 ct amethyst is much larger than a 2 ct sapphire —
-SG 2.65 vs 4.0). REFRAKT should treat SG as an opaque config input, not maintain a species table.
+SG 2.65 vs 4.0). REFRAKT should treat `baseCarat`/SG as opaque config inputs, not maintain a
+species table or measure volume itself.
 
 ## 4. Suggested API surface
 
@@ -66,6 +70,7 @@ Config (per gem slot, or design-level for a whole-model stone; additive — view
 ```js
 sizing: {
   enabled: true,
+  baseCarat: 2.84,             // host-computed: STL volume × SG × 5 (the model's weight at scale 1)
   sg: 2.65,                    // host-supplied specific gravity (species/variant)
   caratMin: 1, caratMax: 4,    // host bounds (the cutter's range)
   stepCt: 0.25, stepMm: 0.25,  // picker granularity

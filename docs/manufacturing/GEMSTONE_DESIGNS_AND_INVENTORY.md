@@ -46,6 +46,14 @@ the guard." Inventory only exists for stones that are already cut, and those are
 amethyst is much larger than a 2ct sapphire). SG is required for size display AND the jewelry
 coupling (settings are sized in mm).
 
+**STL on gem designs — required for the size machinery, NOT for pricing.** Pricing is pure
+carat-driven math (no geometry). But the carat⇄mm control and mm display need the design's exact
+base weight, and the **STL (a watertight CAD solid) gives it precisely**:
+`carat₀ = stlVolumeCm3 × SG × 5` (1ct = 0.2g) — reusing the existing CAD-upload volume machinery.
+The GLB's display mesh must never be volume-measured (open meshes over-report). Practical rule: a
+gem design lists and sells without an STL, but the shop's size customizer / "≈ mm" display only
+lights up once the STL is uploaded.
+
 **RI / angles:** the same outline needs different pavilion angles per refractive index — that's
 exactly what variants gate. The cutter lists only species the design is optimized for; the GLB is
 the customer-facing look, not the per-species cutting spec.
