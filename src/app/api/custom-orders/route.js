@@ -1,14 +1,20 @@
 import { NextResponse } from 'next/server';
-import { requireRole } from '@/lib/apiAuth';
+import { requireRole, requireAuth } from '@/lib/apiAuth';
+import { isStaff } from '@/lib/designPermissions';
+import { customsListFilter } from '@/lib/customsPermissions';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
 
 /** GET /api/custom-orders — list (optional ?status= / ?clientID=) */
 export const GET = async (req) => {
-  const { errorResponse } = await requireRole(['admin', 'dev']);
+  // Staff see everything; artisans see the custom orders they're ASSIGNED to (full visibility).
+  const { session, errorResponse } = await requireAuth();
   if (errorResponse) return errorResponse;
+  if (!isStaff(session) && session.user.role !== 'artisan') {
+    return NextResponse.json({ error: 'Access denied.' }, { status: 403 });
+  }
 
   const { searchParams } = new URL(req.url);
-  const filter = {};
+  const filter = { ...customsListFilter(session) };
   const status = searchParams.get('status');
   const clientID = searchParams.get('clientID');
   if (status) filter.status = status;

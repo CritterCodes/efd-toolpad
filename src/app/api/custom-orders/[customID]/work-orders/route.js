@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/apiAuth';
+import { requireCustomsRead } from '@/lib/customsPermissions';
 import { getCustomWorkOrders, spawnCustomWorkOrder } from '@/services/customs/customProduction';
 
 /** GET /api/custom-orders/[customID]/work-orders — the custom's child work orders + labor. */
 export const GET = async (req, { params }) => {
-  const { errorResponse } = await requireRole(['admin', 'dev']);
-  if (errorResponse) return errorResponse;
   const { customID } = await params;
+  // Read access: staff, or an artisan ASSIGNED to this order (full visibility — owner 2026-07-22).
+  const { errorResponse } = await requireCustomsRead(customID);
+  if (errorResponse) return errorResponse;
+
   const workOrders = await getCustomWorkOrders(customID);
   return NextResponse.json(workOrders, { status: 200 });
 };
