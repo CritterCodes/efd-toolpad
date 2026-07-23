@@ -40,6 +40,9 @@ export default class DropsModel {
       dropId: data.dropId || randomUUID(), slug: data.slug, name: data.name,
       description: data.description ?? '', ownerType: data.ownerType ?? DROP_OWNER_TYPE.EFD,
       ownerId: data.ownerId ?? null, ownerInfo: data.ownerInfo ?? null,
+      // Collaborative artisans (userIDs) — they can see the drop and add THEIR designs to it.
+      // Control (name/slug/curation) stays with the owner; releasing stays with EFD staff.
+      collaborators: Array.isArray(data.collaborators) ? data.collaborators : [],
       channels: Array.isArray(data.channels) ? data.channels : [], status: data.status ?? DROP_STATUS.DRAFT,
       releaseAt: data.releaseAt ?? null, releasedAt: data.releasedAt ?? null,
       designOrder: Array.isArray(data.designOrder) ? data.designOrder : [], heroImage: data.heroImage ?? null,

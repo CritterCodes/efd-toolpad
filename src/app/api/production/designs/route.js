@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/apiAuth';
 import DesignsModel from '@/app/api/designs/model';
+import DropsModel from '@/app/api/drops/model';
 import { isStaff, canCreateDesignCategory, designListFilter, sessionArtisanTypes } from '@/lib/designPermissions';
+import { canViewDrop } from '@/lib/dropPermissions';
 
 /** GET /api/production/designs — list designs (optional ?dropID=).
  *  Staff see everything; artisans see ONLY their own designs (primaryArtisanId). */
@@ -35,6 +37,14 @@ export const POST = async (req) => {
       { error: `Access denied — ${body.category === 'gemstone' ? 'gemstone' : 'jewelry'} designs can be created by ${need} (and staff). Your artisan types: ${sessionArtisanTypes(session).join(', ') || 'none'}.` },
       { status: 403 },
     );
+  }
+
+  // An artisan may only attach a design to a drop they own or collaborate on.
+  if (!isStaff(session) && body.dropId) {
+    const drop = await DropsModel.findById(body.dropId);
+    if (!drop || !canViewDrop(session, drop)) {
+      return NextResponse.json({ error: 'Access denied — you are not an owner or collaborator on that drop.' }, { status: 403 });
+    }
   }
 
   const design = await DesignsModel.create({
