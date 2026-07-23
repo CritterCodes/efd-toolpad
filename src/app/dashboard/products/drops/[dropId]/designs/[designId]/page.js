@@ -377,6 +377,7 @@ function CadUploadRow({ label, accept, hint, done, uploading, onPick }) {
 function CadTab({ design, designId, onReload, notify, onCreateFirstVariant, form, setField }) {
   const [busyStl, setBusyStl] = useState(false);
   const [busyGlb, setBusyGlb] = useState(false);
+  const isGem = form.category === 'gemstone';
   const dm = design.designModel || {};
   const glbUrl = dm.glbUrl || null;
   // The preview shows the FIRST variant's look — that first variant is the design's
@@ -404,8 +405,25 @@ function CadTab({ design, designId, onReload, notify, onCreateFirstVariant, form
       // CAD volume is calculated from the STL, never typed (same math as customs CAD upload).
       let volume = null;
       try { const mm3 = await getSTLVolume(file); if (mm3 > 0) volume = Math.round((mm3 / 1000) * 1000) / 1000; } catch { /* best-effort */ }
-      await patch({ stlUrl: url, stlVolumeCm3: volume });
-      notify(volume ? `STL uploaded · volume ${volume} cm³` : 'STL uploaded', 'success');
+      const fields = { stlUrl: url, stlVolumeCm3: volume };
+
+      // GEMSTONE designs: one STL powers everything — the volume calibrates carat (× SG), and the
+      // viewer GLB is GENERATED from the same solid (one mesh named 'Gemstone', flat facet normals,
+      // mm→m; the look comes from the variant's REFRAKT preset). Jewelry never auto-generates —
+      // its GLBs need authored, named parts. A manually-uploaded GLB can still replace this after.
+      let generatedGlb = false;
+      if (isGem) {
+        try {
+          const { stlToGlb } = await import('@/lib/stlToGlb');
+          const blob = await stlToGlb(file);
+          const glbFile = new File([blob], `${(form.name || 'gemstone').replace(/[^a-z0-9-]+/gi, '-').toLowerCase()}.glb`, { type: 'model/gltf-binary' });
+          fields.designModel = { ...dm, glbUrl: await uploadAsset(glbFile), generatedFromStl: true };
+          generatedGlb = true;
+        } catch { /* best-effort — STL still lands; GLB can be uploaded manually */ }
+      }
+
+      await patch(fields);
+      notify([volume ? `STL uploaded · volume ${volume} cm³` : 'STL uploaded', generatedGlb ? '· viewer GLB generated' : null].filter(Boolean).join(' '), 'success');
       onReload();
     } catch (e) { notify(e.message, 'error'); } finally { setBusyStl(false); }
   };
@@ -424,7 +442,7 @@ function CadTab({ design, designId, onReload, notify, onCreateFirstVariant, form
       <Box sx={{ flex: 1, minWidth: 0, width: '100%' }}>
         <Paper sx={panelSx}>
           <PanelTitle>CAD files</PanelTitle>
-          <CadUploadRow label="STL" accept=".stl" hint="Volume is calculated from the STL." done={!!design.stlUrl} uploading={busyStl} onPick={onStl} />
+          <CadUploadRow label="STL" accept=".stl" hint={isGem ? 'Volume calibrates carat (× SG) AND the viewer GLB is generated from this solid.' : 'Volume is calculated from the STL.'} done={!!design.stlUrl} uploading={busyStl} onPick={onStl} />
           <Box sx={{ pl: 0.5, mt: 1 }}>
             <Typography sx={{ fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: REPAIRS_UI.textSecondary, mb: 0.25 }}>CAD volume</Typography>
             <Typography sx={{ color: design.stlVolumeCm3 != null ? REPAIRS_UI.textHeader : REPAIRS_UI.textMuted, fontSize: '1rem', fontWeight: 600 }}>
@@ -433,7 +451,7 @@ function CadTab({ design, designId, onReload, notify, onCreateFirstVariant, form
             <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>Calculated automatically from the uploaded STL — never typed.</Typography>
           </Box>
           <Box sx={{ borderTop: `1px solid ${REPAIRS_UI.border}`, my: 1.5 }} />
-          <CadUploadRow label="GLB" accept=".glb" hint="The 3D mesh every variant renders — build each look on the Variants tab." done={!!glbUrl} uploading={busyGlb} onPick={onGlb} />
+          <CadUploadRow label="GLB" accept=".glb" hint={isGem ? 'Optional override — the GLB is auto-generated from the STL; upload only for a hand-tuned model.' : 'The 3D mesh every variant renders — build each look on the Variants tab.'} done={!!glbUrl} uploading={busyGlb} onPick={onGlb} />
         </Paper>
       </Box>
 
