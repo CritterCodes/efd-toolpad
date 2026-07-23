@@ -1480,8 +1480,14 @@ function PricingTab({ pricing, variants, category, stlVolumeCm3, defaultMarkup, 
 }
 
 export default function DesignDetailPage({ params }) {
-  const router = useRouter();
   const { dropId, designId } = use(params);
+  return <DesignDetail dropId={dropId} designId={designId} />;
+}
+
+/** The full design editor, reusable outside the drop route (e.g. the artisan "My Designs"
+ *  surface passes its own back target). `backHref`/`backLabel` default to the drop. */
+export function DesignDetail({ dropId, designId, backHref, backLabel }) {
+  const router = useRouter();
   const [design, setDesign] = useState(null);
   const [form, setForm] = useState(null);
   const [artisans, setArtisans] = useState([]);
@@ -1536,7 +1542,9 @@ export default function DesignDetailPage({ params }) {
   }));
   const removeVariant = (i) => setForm((f) => ({ ...f, variants: f.variants.filter((_, idx) => idx !== i) }));
 
-  const configurePath = (variantId) => `/dashboard/products/drops/${dropId}/designs/${designId}/variants/${variantId}/configure`;
+  // Prefer the design's real drop for nested routes — the artisan surface mounts this component
+  // with a placeholder dropId, but the design may genuinely belong to a drop.
+  const configurePath = (variantId) => `/dashboard/products/drops/${design?.dropId || dropId}/designs/${designId}/variants/${variantId}/configure`;
 
   // "Configure look" needs the variant persisted first (the studio is a separate route
   // that reads from the DB). Save pending edits, then navigate.
@@ -1687,14 +1695,15 @@ export default function DesignDetailPage({ params }) {
     } catch (e) { notify(e.message, 'error'); return false; } finally { setSaving(false); }
   };
 
-  const backToDrop = () => router.push(`/dashboard/products/drops/${dropId}`);
+  const backToDrop = () => router.push(backHref || `/dashboard/products/drops/${dropId}`);
+  const backText = backLabel || 'Back to drop';
   const artisanName = (id) => { const a = artisans.find((x) => artisanId(x) === id); return a ? artisanLabel(a) : id; };
 
   if (loading || !form) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress sx={{ color: REPAIRS_UI.accent }} /></Box>;
   if (!design) {
     return (
       <Box sx={{ p: 3 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={backToDrop} sx={{ color: REPAIRS_UI.textSecondary, mb: 2 }}>Back to drop</Button>
+        <Button startIcon={<ArrowBackIcon />} onClick={backToDrop} sx={{ color: REPAIRS_UI.textSecondary, mb: 2 }}>{backText}</Button>
         <Typography color="error">Design not found.</Typography>
       </Box>
     );
@@ -1723,7 +1732,7 @@ export default function DesignDetailPage({ params }) {
 
       {/* Header */}
       <Box sx={{ backgroundColor: { xs: 'transparent', sm: REPAIRS_UI.bgPanel }, border: { xs: 'none', sm: `1px solid ${REPAIRS_UI.border}` }, borderRadius: { xs: 0, sm: 3 }, boxShadow: { xs: 'none', sm: REPAIRS_UI.shadow }, p: { xs: 0.5, sm: 2.5, md: 3 }, mb: 3 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={backToDrop} sx={{ color: REPAIRS_UI.textSecondary, mb: 1.5, pl: 0 }}>Back to drop</Button>
+        <Button startIcon={<ArrowBackIcon />} onClick={backToDrop} sx={{ color: REPAIRS_UI.textSecondary, mb: 1.5, pl: 0 }}>{backText}</Button>
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
           <Box sx={{ minWidth: 0 }}>
             <Typography sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, px: 1.25, py: 0.5, mb: 1.5, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', color: REPAIRS_UI.textPrimary, backgroundColor: REPAIRS_UI.bgCard, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, textTransform: 'uppercase' }}>
