@@ -154,6 +154,25 @@ gem's cap. No lot math; it's edition counters all the way down.
   REFRAKT carat⇄mm size control, FR-gem-size-customizer +
   special-request path).
 
+## 5b. Gem links — design-level coupling (BUILT, 2026-07-23)
+
+A jewelry design declares, **before variants exist**, that a mesh slot in its GLB IS a linked
+gemstone design: `gemLinks: [{ slot: {nameContains, match}, gemDesignId, allowedVariantIds }]`.
+The cutter's variants are the single source of truth; downstream only narrows:
+
+- **Automated identification** — the jeweler picks the gem design; the system fingerprints both
+  GLBs (scale-invariant: aspect ratio, depth ratio, cut class — REFRAKT `measureMesh`) and
+  proposes the matching mesh; low confidence falls back to a measured-size picker. No mesh names
+  typed, ever.
+- **Seeding pre-links** stone rows for linked slots (variant resolved by the slot's species;
+  single-color variants link fully with a live price).
+- **Save-time backstop** (`validateGemLinkPresets`): a variant look using a species the linked gem
+  doesn't offer is rejected with the offered list. Verified live: sapphire on a linked
+  amethyst-only slot → 400.
+- **Prevention layer** = REFRAKT `slotConstraints` (FR-slot-preset-constraints): the Studio picker
+  only offers the cutter's species; same constraint feeds the Phase-4 shopper customizer.
+- Claim-time re-validation (drift guard) lands with Phase 3.
+
 ## 6. Committed follow-ups (decided, not yet built)
 - **Artisan self-service access** (owner, 2026-07-22): jewelers/engravers/CAD designers create
   jewelry + see customs they're assigned; **gem cutters create/manage their gemstone designs**

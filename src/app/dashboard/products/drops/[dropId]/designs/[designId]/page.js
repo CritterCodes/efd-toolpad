@@ -23,6 +23,8 @@ import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components
 import { getSTLVolume } from '@/lib/stlParser';
 import { KARAT_OPTIONS, finishUsesKarat, finishLabel, composeMetalKey } from '@/services/production/variantMetal';
 import { gemBuildableForRows } from '@/services/production/gemDesignMatch';
+import { slotMatchesLink, allowedSpeciesForLink } from '@/services/production/gemLinks';
+import GemLinksPanel from './GemLinksPanel';
 
 // Read-only WebGL product viewer (client-only — must be dynamically imported, ssr:false).
 const JewelryViewer = dynamic(() => import('@crittercodes/refrakt').then((m) => m.JewelryViewer), { ssr: false });
@@ -458,6 +460,9 @@ function CadTab({ design, designId, onReload, notify, onCreateFirstVariant, form
           <Box sx={{ borderTop: `1px solid ${REPAIRS_UI.border}`, my: 1.5 }} />
           <CadUploadRow label="GLB" accept=".glb" hint={isGem ? 'Optional override — the GLB is auto-generated from the STL; upload only for a hand-tuned model.' : 'The 3D mesh every variant renders — build each look on the Variants tab.'} done={!!glbUrl} uploading={busyGlb} onPick={onGlb} />
         </Paper>
+        {/* Design-level gem links (jewelry only): declared BEFORE variants so seeding pre-links
+            stone rows and the studio can constrain the slot's species to the cutter's variants. */}
+        {!isGem && <GemLinksPanel design={design} designId={designId} notify={notify} onReload={onReload} />}
       </Box>
 
       <Box sx={{ width: { xs: '100%', md: 420 }, flexShrink: 0 }}>
@@ -557,7 +562,7 @@ function GemColorRates({ colors, onChange }) {
   );
 }
 
-function VariantRow({ index, variant, isRing, isGem, hasGlb, stoneCosts, onUpdate, onRemove, onConfigure }) {
+function VariantRow({ index, variant, isRing, isGem, hasGlb, stoneCosts, gemLinks = [], gemDocs = {}, onUpdate, onRemove, onConfigure }) {
   const set = (k, v) => onUpdate(index, { [k]: v });
   const gem = variant.gem || {};
   const setGem = (patch) => set('gem', { ...gem, ...patch });
@@ -675,7 +680,7 @@ function VariantRow({ index, variant, isRing, isGem, hasGlb, stoneCosts, onUpdat
           </Box>
         )}
         {/* Stone rows apply to JEWELRY consuming stones — a gemstone design IS the stone. */}
-        {!isGem && <VariantStones gemstones={variant.gemstones} viewerConfig={variant.viewerConfig} stoneCosts={stoneCosts} onChange={(rows) => set('gemstones', rows)} />}
+        {!isGem && <VariantStones gemstones={variant.gemstones} viewerConfig={variant.viewerConfig} stoneCosts={stoneCosts} gemLinks={gemLinks} gemDocs={gemDocs} onChange={(rows) => set('gemstones', rows)} />}
       </Stack>
     </Paper>
   );
@@ -720,7 +725,7 @@ function VariantCard({ index, variant, isRing, isGem, stoneCosts, onOpen }) {
   );
 }
 
-function VariantsTab({ variants, category, hasGlb, stoneCosts, onAdd, onUpdate, onRemove, onConfigure }) {
+function VariantsTab({ variants, category, hasGlb, stoneCosts, gemLinks = [], gemDocs = {}, onAdd, onUpdate, onRemove, onConfigure }) {
   const isRing = category === 'ring';
   const isGem = category === 'gemstone';
   const [selected, setSelected] = useState(null);
@@ -732,7 +737,7 @@ function VariantsTab({ variants, category, hasGlb, stoneCosts, onAdd, onUpdate, 
     return (
       <Box>
         <Button startIcon={<ArrowBackIcon />} onClick={() => setSelected(null)} sx={{ color: REPAIRS_UI.textSecondary, mb: 1.5, textTransform: 'none' }}>All variants</Button>
-        <VariantRow index={selected} variant={variants[selected]} isRing={isRing} isGem={isGem} hasGlb={hasGlb} stoneCosts={stoneCosts} onUpdate={onUpdate}
+        <VariantRow index={selected} variant={variants[selected]} isRing={isRing} isGem={isGem} hasGlb={hasGlb} stoneCosts={stoneCosts} gemLinks={gemLinks} gemDocs={gemDocs} onUpdate={onUpdate}
           onRemove={(i) => { onRemove(i); setSelected(null); }} onConfigure={onConfigure} />
       </Box>
     );
@@ -1243,7 +1248,7 @@ function StoneEditorModal({ open, row, onClose, onSave }) {
 
 /** Per-variant stones: center + accents, seeded from the variant's REFRAKT gem slots and
  *  linked to the gemstone catalog. Cost = unit × qty (accents priced per-stone). */
-function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, onChange }) {
+function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, gemLinks = [], gemDocs = {}, onChange }) {
   const rows = gemstones || [];
   const [editIdx, setEditIdx] = useState(null);
   const [seeding, setSeeding] = useState(false);
@@ -1290,13 +1295,43 @@ function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, onChange }) {
     caratEach: g.carat !== '' && g.carat != null ? String(g.carat) : '', sizeMm: g.size || '', cut: g.cut || '', creation: g.creation || 'natural',
     preset: g.preset, lengthMm: g.lengthMm !== '' && g.lengthMm != null ? String(g.lengthMm) : '', widthMm: g.widthMm !== '' && g.widthMm != null ? String(g.widthMm) : '', source: '',
   });
-  // Seed the rows, then auto-link any that EXACTLY match a curated catalog stone (owner's choice).
+  // Pre-link a seeded row when its slot falls under a design-level gem link: the row inherits the
+  // linked gem design (variant resolved by the slot's configured species; single color links fully
+  // with a live price, multiple colors leave the pick to the modal).
+  const gemLinkRow = (row) => {
+    const link = gemLinks.find((l) => slotMatchesLink(row.slot, l.slot || {}));
+    if (!link) return null;
+    const doc = gemDocs[link.gemDesignId];
+    if (!doc) return null;
+    const allowed = allowedSpeciesForLink(link, doc);
+    const species = String(row.preset || '').toLowerCase();
+    const variant = (doc.variants || []).find((v) => v.active !== false && String(v.gemstone?.species || '').toLowerCase() === species)
+      || (doc.variants || []).find((v) => v.active !== false && allowed.includes(String(v.gemstone?.species || '').toLowerCase()));
+    if (!variant) return null;
+    const g = variant.gemstone || {};
+    const colors = (g.colors || []).filter((c) => String(c.label || '').trim());
+    const one = colors.length === 1 ? colors[0] : null;
+    const ct = Number(row.caratEach) || 0;
+    const rate = one && ct > 0 ? tierRate(one.rates, ct) : null;
+    const price = rate != null ? ((ct / gemYield(g)) * rate + (Number(g.cutLaborCost) || 0)) : null;
+    return {
+      ...row,
+      gemDesignId: doc.designID, gemVariantId: variant.variantId, gemColor: one ? one.label : '',
+      label: `${doc.name} · ${g.species}${one ? ` · ${one.label}` : ''}`,
+      unitCost: price != null ? String(Math.round(price * 100) / 100) : '',
+      source: 'gemDesign',
+    };
+  };
+
+  // Seed the rows, then auto-link: design gem links FIRST (the declared coupling), then any row
+  // that EXACTLY matches a curated catalog stone (owner's choice).
   const seed = async () => {
     const roles = rolesFor(gemGroups);
-    const base = gemGroups.map((g, i) => baseRow(g, roles[i]));
+    const base = gemGroups.map((g, i) => gemLinkRow(baseRow(g, roles[i])) || baseRow(g, roles[i]));
     setSeeding(true);
     try {
       const linked = await Promise.all(base.map(async (row) => {
+        if (row.source === 'gemDesign') return row; // already linked by the design's gem link
         try {
           const r = await fetch('/api/products/stones/match', { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ gemType: row.preset, cut: row.cut, creation: row.creation, carat: row.caratEach, lengthMm: row.lengthMm, widthMm: row.widthMm, includeStuller: false }) });
@@ -1771,7 +1806,10 @@ export function DesignDetail({ dropId, designId, backHref, backLabel }) {
   // Load the gem Designs this jewelry's stone rows link to (Phase 2) — powers the buildable
   // rollup caption; enforcement lands in Phase 3.
   useEffect(() => {
-    const ids = [...new Set((design?.variants || []).flatMap((v) => (v.gemstones || []).map((g) => g.gemDesignId)).filter(Boolean))];
+    const ids = [...new Set([
+      ...(design?.variants || []).flatMap((v) => (v.gemstones || []).map((g) => g.gemDesignId)),
+      ...(design?.gemLinks || []).map((l) => l.gemDesignId),
+    ].filter(Boolean))];
     if (!ids.length) { setGemDocs({}); return; }
     let cancelled = false;
     Promise.all(ids.map((id) => fetch(`/api/production/designs/${id}`).then((r) => (r.ok ? r.json() : null)).catch(() => null)))
@@ -1848,6 +1886,8 @@ export function DesignDetail({ dropId, designId, backHref, backLabel }) {
           category={form.category}
           hasGlb={!!design.designModel?.glbUrl}
           stoneCosts={stoneCosts}
+          gemLinks={design.gemLinks || []}
+          gemDocs={gemDocs}
           onAdd={addAndConfigureVariant}
           onUpdate={updateVariant}
           onRemove={removeVariant}

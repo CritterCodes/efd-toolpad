@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/apiAuth';
 import DesignsModel, { validateDesign } from '@/app/api/designs/model';
 import { isStaff, canManageDesign } from '@/lib/designPermissions';
+import { validateGemLinkPresets } from '@/services/production/gemLinks';
 
 /** GET /api/production/designs/[designID] — staff, or the artisan who owns it. */
 export const GET = async (req, { params }) => {
@@ -40,6 +41,15 @@ export const PUT = async (req, { params }) => {
   if (merged.category === 'gemstone' && (body.variants || body.category || body.edition || body.status)) {
     const validation = validateDesign(merged);
     if (!validation.valid) return NextResponse.json({ error: validation.errors.join('; ') }, { status: 400 });
+  }
+  // Gem-linked JEWELRY backstop: variant looks may only use species the linked gem design offers
+  // (the studio constraint is the preventive layer — FR-slot-preset-constraints; this catches
+  // drift and pre-FR saves).
+  if ((merged.gemLinks || []).length && (body.variants || body.gemLinks)) {
+    const ids = [...new Set(merged.gemLinks.map((l) => l.gemDesignId).filter(Boolean))];
+    const docs = Object.fromEntries((await Promise.all(ids.map(async (id) => [id, await DesignsModel.findById(id)]))).filter(([, d]) => d));
+    const linkErrors = validateGemLinkPresets(merged, docs);
+    if (linkErrors.length) return NextResponse.json({ error: linkErrors.join('; ') }, { status: 400 });
   }
   const updated = await DesignsModel.updateById(designID, body);
   if (!updated) return NextResponse.json({ error: 'Design not found.' }, { status: 404 });
