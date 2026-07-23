@@ -12,6 +12,7 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import PaymentIcon from '@mui/icons-material/Payment';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import DesignServicesIcon from '@mui/icons-material/DesignServices';
+import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import { SHARED_NAVIGATION } from './sharedNavigation';
 import { normalizeArtisanType, ARTISAN_TYPE } from '@/lib/artisans';
 
@@ -107,6 +108,9 @@ export function generateArtisanNavigation(artisanTypes = [], staffCapabilities =
     base.push(
       { kind: 'header', title: 'Designs' },
       { segment: 'dashboard/artisan/designs', title: 'My Designs', icon: <DesignServicesIcon /> },
+      // The drops surface is role-agnostic — the drops APIs scope artisans to drops they own or
+      // collaborate on, and force artisan creations self-owned + draft (releasing stays with EFD).
+      { segment: 'dashboard/products/drops', title: 'My Drops', icon: <RocketLaunchIcon /> },
     );
   }
 

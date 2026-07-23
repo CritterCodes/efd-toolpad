@@ -25,14 +25,19 @@ describe('artisan navigation', () => {
     expect(repairArtisan.filter((segment) => segment === 'dashboard/artisan/my-work')).toHaveLength(1);
   });
 
-  it('shows My Designs to design-authoring types (raw Title Case labels normalized)', () => {
+  it('shows My Designs + My Drops to design-authoring types (raw Title Case labels normalized)', () => {
     for (const type of ['Gem Cutter', 'Jeweler', 'Engraver', 'CAD Designer']) {
-      expect(navigationSegments(generateArtisanNavigation([type]))).toContain('dashboard/artisan/designs');
+      const segments = navigationSegments(generateArtisanNavigation([type]));
+      expect(segments).toContain('dashboard/artisan/designs');
+      expect(segments).toContain('dashboard/products/drops');
     }
   });
 
-  it('hides My Designs from artisans without a design-authoring type', () => {
-    expect(navigationSegments(generateArtisanNavigation([]))).not.toContain('dashboard/artisan/designs');
-    expect(navigationSegments(generateArtisanNavigation(['Photographer']))).not.toContain('dashboard/artisan/designs');
+  it('hides My Designs/My Drops from artisans without a design-authoring type', () => {
+    for (const types of [[], ['Photographer']]) {
+      const segments = navigationSegments(generateArtisanNavigation(types));
+      expect(segments).not.toContain('dashboard/artisan/designs');
+      expect(segments).not.toContain('dashboard/products/drops');
+    }
   });
 });
