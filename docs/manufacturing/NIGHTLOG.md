@@ -120,6 +120,43 @@ tiny-cost/high-count inputs (sum still exact) — clamp+redistribute if that eve
 `markCastingPaid` hook is where S5's Stripe webhook will land; `markCastingReceived`'s charge is
 where S5 generates the actual invoice.
 
+## S5 — Artisan billing rail ✅ VERIFIED (2026-07-24)
+
+**Shipped:**
+- `src/app/api/artisanInvoices/model.js` (+ constant) — canonical artisan-owes-EFD invoice
+  (`billedUserID`, kind wo/casting, `dueAt`, `listOverdue`). Distinct from customInvoices
+  (customer receivables) and salePayouts (money out).
+- `src/services/production/artisanBilling.js` (+ test, 12 tests) — pure `workOrderCharge`
+  (labor+materials ×1.20; shipping+gems passthrough at cost; self=$0), `hasOverdueInvoices`,
+  `isArtisanFrozen` (fail-open), `assertArtisanNotFrozen`, `billCastingBatch`/`billWorkOrder`
+  (idempotent), `markArtisanInvoicePaid` (clears the linked casting ship-gate),
+  `pushArtisanInvoiceToStripe` (reuses the shared rail with an artisan `kind`).
+- **Freeze enforcement** at mintRun (now async), requestDesignCad, and the casting-create route —
+  an overdue bill blocks all new work.
+- **Self-labor payroll exclusion (closes the S2 gap)** — `buildUnbatchedMatch` gains owner-aware
+  `ownerUserIDs`; non-owner `payer:'self'` labor drops out of payroll (realizes at sale), the
+  owner's stays (his draw). Backward-compatible (`$ne:'self'` includes pre-S2 logs; no param =
+  legacy filter). Payroll service resolves owners via `compensationProfile.isOwnerOperator`.
+- **Stripe rail generalized** — `createAndSendStripeInvoice` gains a backward-compatible `kind`
+  param; webhook gains an additive `artisan_wo_invoice`/`casting_charge` → markArtisanInvoicePaid
+  branch (custom_invoice path byte-identical).
+
+**Verifier verdict:** PASS. artisanBilling 12/12; full suite 468 passed / 5 skipped / 3 failed
+(same 3 pre-existing refrakt; zero new); **stripe.test.js 3/3, webhook 4/4, payroll all pass**
+(regression-critical); `pnpm build` clean (no cycle). Independent math + payroll $and/$or coexistence
++ async-mintRun caller audit all confirmed.
+
+**NEEDS-OWNER / follow-up:**
+- Live Stripe webhook signature path can't be verified offline — needs a human `stripe trigger
+  invoice.paid` smoke against the artisan `kind` metadata.
+- Markup source: uses `WORK_ORDER_MARKUP_RATE=0.20` (owner's stated 20%); the S5 explore flagged a
+  `financial.cogMarkup` setting that may be a DIFFERENT number for custom quotes — owner to confirm
+  whether artisan-WO markup should read from settings or stay the fixed 20%.
+- `billWorkOrder`/`billCastingBatch` + `pushArtisanInvoiceToStripe` exist but aren't yet CALLED from
+  a WO-completion hook — wiring them into the bench complete + casting-received flows is the
+  remaining integration (S7 run UI / a thin hook). The freeze + gate + math + payroll exclusion are
+  live now.
+
 ## S1 — Transactional core (continued)
 
 **Boundary (deliberate):** WorkOrder spawning is NOT inside the mint transaction (WorkOrdersModel

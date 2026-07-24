@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import Constants from '@/lib/constants';
 import { computePieceCosts } from '@/services/production/pieceCost';
 import { EditionCapacityError, withEditionTransaction } from '@/services/production/editionCapacity';
+import { assertArtisanNotFrozen } from '@/services/production/artisanBilling';
 import { buildRun, RUN_STATUS } from '@/app/api/runs/model';
 
 /**
@@ -191,8 +192,9 @@ export async function mintRunTx({ database, designID, items, createdBy, solo = t
   return { run, pieces: pieceDocs };
 }
 
-/** Public boundary: mint a run all-or-nothing. */
-export function mintRun({ client, database, ...input }) {
+/** Public boundary: mint a run all-or-nothing. Frozen artisans (overdue bill) can't start new work. */
+export async function mintRun({ client, database, ...input }) {
+  await assertArtisanNotFrozen(input.createdBy, EditionCapacityError);
   return withEditionTransaction(client, (session) => mintRunTx({ database, ...input, session }));
 }
 

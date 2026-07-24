@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/apiAuth';
 import { isStaff } from '@/lib/designPermissions';
 import CastingBatchesModel from '@/app/api/castingBatches/model';
 import { createCastingBatch, CastingError } from '@/services/production/castingBoard';
+import { isArtisanFrozen } from '@/services/production/artisanBilling';
 
 /**
  * GET /api/production/casting — the ownership-scoped casting board. Staff see every batch; an
@@ -30,6 +31,10 @@ export const POST = async (req) => {
   if (errorResponse) return errorResponse;
   const body = await req.json().catch(() => ({}));
   const ownerId = isStaff(session) && body.ownerId ? body.ownerId : session.user.userID;
+  // Freeze: an artisan with an overdue bill can't open new castings (nothing new until paid).
+  if (await isArtisanFrozen(ownerId)) {
+    return NextResponse.json({ error: 'Account frozen — pay the overdue invoice before ordering casting.' }, { status: 402 });
+  }
   try {
     const batch = await createCastingBatch({
       runId: body.runId ?? null,

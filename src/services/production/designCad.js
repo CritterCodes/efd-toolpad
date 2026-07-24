@@ -4,6 +4,7 @@ import DesignsModel, { DESIGN_STATUS } from '@/app/api/designs/model';
 import RepairLaborLogsModel from '@/app/api/repairLaborLogs/model';
 import { DISCIPLINE, canClaimDiscipline } from '@/services/workOrders/disciplines';
 import { resolveDesignLaborScope } from '@/services/production/laborPayer';
+import { assertArtisanNotFrozen } from '@/services/production/artisanBilling';
 
 /**
  * Request-CAD on-ramp (PRODUCTION_RUNS.md §2 stage 1). A `cad`-discipline work order spawned FROM a
@@ -56,6 +57,7 @@ async function loadDesignCadWorkOrder(workOrderID) {
  * (defaults to the assigned designer's profile fee); it's stamped with who/when for the audit.
  */
 export async function requestDesignCad({ designID, createdBy, solo = true, assignToUserID = null, sketchUrl = null, acceptedFee = null, notes = null }) {
+  await assertArtisanNotFrozen(createdBy, DesignCadError);
   const design = await DesignsModel.findById(designID);
   if (!design) throw new DesignCadError('Design not found.');
   const existing = await WorkOrdersModel.findOneBySource(WORK_ORDER_SOURCE.CAD_REQUEST, designID);

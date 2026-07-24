@@ -304,7 +304,7 @@ export default class RepairLaborLogsModel {
       .findOne({ logID }, { projection: { _id: 0 } });
   }
 
-  static buildUnbatchedMatch({ weekStart, weekEnd, userID } = {}) {
+  static buildUnbatchedMatch({ weekStart, weekEnd, userID, ownerUserIDs } = {}) {
     const match = {
       requiresAdminReview: false,
       pendingQc: { $ne: true }, // labor held until QC passes is not yet a payroll candidate
@@ -314,6 +314,14 @@ export default class RepairLaborLogsModel {
         { payrollStatus: '' },
       ],
     };
+
+    // Self-labor (payer:'self') is NOT payroll-payable for a non-owner artisan — it realizes at
+    // sale via consignment (§4.4). The OWNER's self-labor IS his payroll draw (self≈efd), so it
+    // stays. Logs with no `payer` field (pre-S2, repairs) are `$ne 'self'` → always included.
+    // Backward-compatible: without ownerUserIDs the clause is omitted (legacy behavior).
+    if (Array.isArray(ownerUserIDs)) {
+      match.$and = [{ $or: [{ payer: { $ne: 'self' } }, { primaryJewelerUserID: { $in: ownerUserIDs } }] }];
+    }
 
     if (weekStart || weekEnd) {
       match.weekStart = {};
@@ -328,9 +336,9 @@ export default class RepairLaborLogsModel {
     return match;
   }
 
-  static async listPayrollCandidates({ weekStart, weekEnd, userID } = {}) {
+  static async listPayrollCandidates({ weekStart, weekEnd, userID, ownerUserIDs } = {}) {
     const dbInstance = await db.connect();
-    const match = this.buildUnbatchedMatch({ weekStart, weekEnd, userID });
+    const match = this.buildUnbatchedMatch({ weekStart, weekEnd, userID, ownerUserIDs });
 
     return await dbInstance.collection(this.COLLECTION).aggregate([
       { $match: match },
