@@ -127,9 +127,19 @@ Stages (each optional — skip what you don't need):
    purchasing artisan) rides the shipments model: **one shipment per caster→artisan handoff covers
    all their pieces = one shipping charge**, regardless of how many jobs. Edge: a caster who can't
    do every metal in a run can't claim the atomic job — the purchasing artisan may then deliberately
-   split/assign (accepting the extra shipping). **OPEN money sub-q:** does EFD's wholesale markup
-   apply ON TOP of the 1.3 casting markup + labor for OUTSOURCED casting (double markup), or is
-   casting billed at 1.3+labor with EFD's cut coming only from the eventual sale consignment?
+   split/assign (accepting the extra shipping).
+   **MARKUP — DECIDED (owner, 2026-07-24): EFD's wholesale markup APPLIES to outsourced casting
+   (Option B).** The reasoning generalizes to ALL fulfilled WOs and is WHY the WO markup exists:
+   two separate revenue streams — **WO markup = EFD's INFRASTRUCTURE fee** (charged at the work
+   order every time the pipeline fulfills work, regardless of whether/where the piece sells) vs
+   **consignment = EFD's SALES fee** (only when sold through EFD's shop). The consignment is
+   avoidable (artisan sells in person → EFD never sees it), so EFD must capture its infra fee at
+   the WO. For a PEER/VENDOR casting: the **caster receives the full `1.3 metal markup + casting
+   labor fee`** (their margin + work); **EFD's wholesale markup applies on top** (artisan pays
+   `casterCharge × wholesaleMarkup`; caster keeps casterCharge; EFD keeps the delta). Not double-
+   dipping — caster and platform are distinct providers. **Self-cast is the exception (no bill):**
+   you're the caster paying yourself `1.3 + labor`, and EFD forgoes its infra fee on your own solo
+   work per solo-first (the owner is the degenerate self≈efd case).
    **Casting liability — DECIDED (owner, 2026-07-23):** casting failures are the CASTER's
    liability — "they paid for 10, they get 10"; how many casting sessions that takes is the
    caster's business (vendor and in-house casting WO alike). After delivery the ordering artisan
