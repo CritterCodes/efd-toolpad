@@ -6,20 +6,42 @@ next slice starts. Audit verdict (whole-diff) goes at the top when the night end
 
 ---
 
-## AUDIT VERDICT
-_(pending — filled by the final whole-diff audit agent)_
+## AUDIT VERDICT (whole-diff, 2026-07-24)
+
+**The S1–S7 production-runs work PASSED the audit** — all six inviolable axioms hold (nothing
+fronted; title passes at payment; WOs private by self-assignment; solo-first; pieces always carry a
+variantId; 20% markup on labor+materials only, self=$0, shipping/gems excluded); every modified
+shared file (labor logs, salePayouts, payroll service, bench actions, Stripe helper, webhook,
+pieceRouting) is backward-compatible/additive with zero repairs/customs/drops regression; the
+systemic action-route IDOR fix holds across all production routes; and the full suite is 479 passed
+/ 5 skipped / 3 failed with `pnpm build` succeeding.
+
+**BUT the audit returned FAIL on ONE blocking, PRE-EXISTING issue (not from S1–S7):** the branch
+base (gemstone PRs #22–24) switched refrakt from the vendored copy to the published package and the
+`/server` subpath import of `VALID_FINISHES`/`VALID_GEM_PRESETS` (in `productContract.js` +
+`customViewer.js`) resolves to `undefined` in the installed tree. **Confirmed: none of the 7 S1–S7
+slice commits touch either file.** This must be resolved before the branch merges — see MUST-KNOW #1.
 
 ---
 
-## Pre-existing issues found (NOT introduced this session — for morning review)
+## Blocking issue for the human (PRE-EXISTING — not S1–S7)
 
-- **3 vitest failures from a deleted vendored refrakt server module.** `productContract.test.js`
-  and `customViewer.test.js` (×2) all fail with `METAL_FINISHES.includes` on undefined — both
-  transitively import `VALID_FINISHES` from `@crittercodes/refrakt/server`, and
-  `vendor/refrakt/src/server/index.js` was deleted on this branch by an earlier gemstone commit.
-  **`pnpm build` PASSES** (the published package resolves in the real build), so this is a
-  test-env-only issue — but it should be fixed to restore a clean suite. Not touched this session
-  (out of scope). NEEDS-OWNER / follow-up.
+- **Refrakt `/server` exports (HIGH — resolve before merge).** `src/services/products/productContract.js:12`
+  and `src/services/customs/customViewer.js` import `{ VALID_FINISHES, VALID_GEM_PRESETS }` from
+  `@crittercodes/refrakt/server`; the on-disk pnpm-linked package is **1.11.0** (not the pinned
+  `^1.14.0`), and its `/server` surface lacks those exports → `METAL_FINISHES`/`GEM_PRESETS` are
+  `undefined`, which throws in `validateProductContract`/`validateDesignModel` for any metal-slot
+  meshMap, AND causes the 3 vitest failures. This is a branch-base/dependency-drift artifact, NOT
+  S1–S7. **Correction to the earlier "test-env-only" note below:** build passing does NOT prove
+  runtime resolution — the audit confirmed the symbol is undefined at real Node resolution against
+  1.11.0. The open question is whether the PINNED 1.14.0 `/server` re-exports these symbols (in
+  which case prod is fine and only the stale local install fails) or not (in which case product-
+  publish + customs-viewer validation are broken in prod too). Resolve by: (a) a clean authenticated
+  `pnpm install` to get 1.14.0 on disk, then re-run the 3 tests; (b) if 1.14.0 `/server` still
+  lacks them, retarget the imports to the package root `@crittercodes/refrakt`. NOT changed
+  overnight — retargeting blind against the stale 1.11.0 could itself break prod if 1.14.0 `/server`
+  does export them. This was pre-existing on the branch before S1 and is documented in memory
+  ([efd-admin-pnpm-workspace], [variant-refrakt-build]).
 
 ---
 
