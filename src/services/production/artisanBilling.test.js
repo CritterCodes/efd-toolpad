@@ -1,15 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { workOrderCharge, hasOverdueInvoices, WORK_ORDER_MARKUP_RATE } from '@/services/production/artisanBilling';
+import { workOrderCharge, hasOverdueInvoices } from '@/services/production/artisanBilling';
 import RepairLaborLogsModel from '@/app/api/repairLaborLogs/model';
 
-describe('workOrderCharge (pure money rule)', () => {
-  it('marks up labor + materials by 20%, passes shipping + gems at cost', () => {
-    expect(WORK_ORDER_MARKUP_RATE).toBe(0.20);
+describe('workOrderCharge (pure money rule — markup = wholesale multiplier from settings)', () => {
+  it('marks up labor + materials by the multiplier, passes shipping + gems at cost', () => {
     // (100 labor + 50 materials) × 1.2 = 180; + 15 shipping + 200 gems at cost = 395
-    const c = workOrderCharge({ labor: 100, materials: 50, shipping: 15, gems: 200 });
+    const c = workOrderCharge({ labor: 100, materials: 50, shipping: 15, gems: 200, markupMultiplier: 1.2 });
     expect(c.markedUp).toBe(180);
     expect(c.passthrough).toBe(215);
     expect(c.total).toBe(395);
+  });
+  it('honors a different multiplier (e.g. the 1.5 default)', () => {
+    // (100 + 50) × 1.5 = 225; + 15 + 200 = 440
+    const c = workOrderCharge({ labor: 100, materials: 50, shipping: 15, gems: 200, markupMultiplier: 1.5 });
+    expect(c.markedUp).toBe(225);
+    expect(c.total).toBe(440);
   });
   it('self-fulfilled work bills NOTHING', () => {
     const c = workOrderCharge({ labor: 100, materials: 50, shipping: 15, gems: 200, selfFulfilled: true });
@@ -18,14 +23,14 @@ describe('workOrderCharge (pure money rule)', () => {
     expect(c.passthrough).toBe(0);
   });
   it('gems are never double-marked (passthrough only)', () => {
-    // A 1000 gem alone: charge is exactly 1000, not 1200.
-    expect(workOrderCharge({ gems: 1000 }).total).toBe(1000);
+    // A 1000 gem alone: charge is exactly 1000, never marked up.
+    expect(workOrderCharge({ gems: 1000, markupMultiplier: 1.5 }).total).toBe(1000);
   });
   it('no shipping markup', () => {
-    expect(workOrderCharge({ shipping: 100 }).total).toBe(100);
+    expect(workOrderCharge({ shipping: 100, markupMultiplier: 1.5 }).total).toBe(100);
   });
-  it('labor-only marks up', () => {
-    expect(workOrderCharge({ labor: 100 }).total).toBe(120);
+  it('labor-only marks up by the multiplier', () => {
+    expect(workOrderCharge({ labor: 100, markupMultiplier: 1.2 }).total).toBe(120);
   });
 });
 

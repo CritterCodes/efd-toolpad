@@ -1,6 +1,7 @@
 import ArtisanInvoicesModel, { ARTISAN_INVOICE_KIND } from '@/app/api/artisanInvoices/model';
 import CastingBatchesModel from '@/app/api/castingBatches/model';
 import { markCastingPaid } from '@/services/production/castingBoard';
+import { getWorkOrderMarkupMultiplier, applyWorkOrderMarkup, DEFAULT_WO_MARKUP } from '@/services/production/workOrderPricing';
 
 /**
  * Artisan billing rail (PRODUCTION_RUNS.md §4c). Bills an artisan for fulfilled work — labor +
@@ -12,21 +13,20 @@ import { markCastingPaid } from '@/services/production/castingBoard';
 
 export class ArtisanBillingError extends Error {}
 
-/** EFD's markup on fulfilled work (owner: "20% on all COGs"). Kept in sync with castingBoard. */
-export const WORK_ORDER_MARKUP_RATE = 0.20;
-
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 const num = (n) => Number(n) || 0;
 
 /**
  * The artisan charge for a work order. PURE.
- * Markup applies ONLY to labor + materials; shipping/insurance and gems pass through at cost.
- * Self-fulfilled work bills $0.
+ * `markupMultiplier` is the wholesale markup from admin settings (sourced by the caller; owner:
+ * use the wholesale markup setting, not a hardcoded number). Markup applies ONLY to labor +
+ * materials (charge = (labor+materials) × multiplier); shipping/insurance and gems pass through at
+ * cost. Self-fulfilled work bills $0.
  */
-export function workOrderCharge({ labor = 0, materials = 0, shipping = 0, gems = 0, markupRate = WORK_ORDER_MARKUP_RATE, selfFulfilled = false } = {}) {
-  const breakdown = { labor: num(labor), materials: num(materials), shipping: num(shipping), gems: num(gems), markupRate, selfFulfilled: Boolean(selfFulfilled) };
+export function workOrderCharge({ labor = 0, materials = 0, shipping = 0, gems = 0, markupMultiplier = DEFAULT_WO_MARKUP, selfFulfilled = false } = {}) {
+  const breakdown = { labor: num(labor), materials: num(materials), shipping: num(shipping), gems: num(gems), markupMultiplier, selfFulfilled: Boolean(selfFulfilled) };
   if (selfFulfilled) return { total: 0, markedUp: 0, passthrough: 0, breakdown };
-  const markedUp = round2((num(labor) + num(materials)) * (1 + markupRate));
+  const markedUp = applyWorkOrderMarkup(num(labor) + num(materials), markupMultiplier);
   const passthrough = round2(num(shipping) + num(gems));   // at cost, never × markup
   return { total: round2(markedUp + passthrough), markedUp, passthrough, breakdown };
 }
@@ -75,7 +75,7 @@ export async function billCastingBatch({ batchId, billedEmail = null, createdBy 
     sourceID: batchId,
     runId: batch.runId,
     amount: batch.charge.amount,
-    breakdown: { casting: batch.actualCost, markupRate: batch.charge.markupRate },
+    breakdown: { casting: batch.actualCost, markupMultiplier: batch.charge.markupMultiplier },
     description: `Casting${batch.vendor ? ` — ${batch.vendor}` : ''}`,
     createdBy,
   });
@@ -83,7 +83,8 @@ export async function billCastingBatch({ batchId, billedEmail = null, createdBy 
 
 /** Bill an artisan for a fulfilled work order (labor+materials×1.20, shipping/gems passthrough). */
 export async function billWorkOrder({ workOrderID, billedUserID, billedEmail = null, runId = null, labor = 0, materials = 0, shipping = 0, gems = 0, selfFulfilled = false, description = '', createdBy = null }) {
-  const charge = workOrderCharge({ labor, materials, shipping, gems, selfFulfilled });
+  const markupMultiplier = await getWorkOrderMarkupMultiplier();   // wholesale markup from admin settings
+  const charge = workOrderCharge({ labor, materials, shipping, gems, markupMultiplier, selfFulfilled });
   if (charge.total <= 0) return null;   // self-fulfilled / nothing owed → no invoice
   const existing = await ArtisanInvoicesModel.findOneBySource('work_order', workOrderID);
   if (existing) return existing;

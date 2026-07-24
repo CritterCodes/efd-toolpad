@@ -9,15 +9,11 @@ import CastingBatchesModel from '@/app/api/castingBatches/model';
 
 export class ShippingError extends Error {}
 
-/** Declared-value insurance rate (placeholder — owner to set the real carrier rate). */
-export const DECLARED_VALUE_INSURANCE_RATE = 0.01;
-
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
-/** Insurance line for a declared value (billed through at cost). PURE. */
-export function insuranceForDeclaredValue(declaredValue, rate = DECLARED_VALUE_INSURANCE_RATE) {
-  return round2((Number(declaredValue) || 0) * rate);
-}
+// Declared-value insurance is billed through AT COST — it's the carrier's ACTUAL charge for the
+// declared value, entered per shipment (like the casting actual cost), not a computed % of our own.
+// So there is no hardcoded rate and no setting: `insuranceAmount` is the pass-through amount.
 
 const ALLOWED = {
   pending: ['shipped', 'cancelled'],
@@ -36,11 +32,12 @@ export function isClearToShip({ castingBatch = null } = {}) {
   return true;
 }
 
-export async function createShipment({ from, to, ownerId = null, runId = null, pieceIDs, castingBatchId = null, carrier = null, tracking = null, declaredValue = null, createdBy = null }) {
-  const insuranceAmount = declaredValue != null ? insuranceForDeclaredValue(declaredValue) : null;
+export async function createShipment({ from, to, ownerId = null, runId = null, pieceIDs, castingBatchId = null, carrier = null, tracking = null, declaredValue = null, insuranceAmount = null, createdBy = null }) {
   return ShipmentsModel.create({
     from, to, ownerId, runId, pieceIDs, castingBatchId, carrier, tracking,
-    declaredValue, insuranceRate: declaredValue != null ? DECLARED_VALUE_INSURANCE_RATE : null, insuranceAmount,
+    declaredValue: declaredValue != null ? Number(declaredValue) : null,
+    // Pass-through at cost: the carrier's actual insurance charge, entered by whoever books it.
+    insuranceAmount: insuranceAmount != null ? round2(insuranceAmount) : null,
     createdBy,
   });
 }

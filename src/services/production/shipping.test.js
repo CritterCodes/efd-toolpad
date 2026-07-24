@@ -1,17 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { insuranceForDeclaredValue, canShipTransition, isClearToShip, DECLARED_VALUE_INSURANCE_RATE } from '@/services/production/shipping';
+import { canShipTransition, isClearToShip } from '@/services/production/shipping';
 
-describe('insuranceForDeclaredValue (pure)', () => {
-  it('applies the declared-value rate', () => {
-    expect(DECLARED_VALUE_INSURANCE_RATE).toBe(0.01);
-    expect(insuranceForDeclaredValue(1000)).toBe(10);
-    expect(insuranceForDeclaredValue(2500, 0.02)).toBe(50);
-  });
-  it('zero/garbage safe', () => {
-    expect(insuranceForDeclaredValue(0)).toBe(0);
-    expect(insuranceForDeclaredValue(null)).toBe(0);
-  });
-});
+// Insurance is a pass-through of the carrier's ACTUAL charge (entered per shipment at cost), not a
+// computed rate — so there's no pure insurance function to test here; createShipment stores the
+// entered `insuranceAmount` verbatim (covered by the DB/route layer).
 
 describe('canShipTransition (pure)', () => {
   it('pending → shipped → delivered', () => {

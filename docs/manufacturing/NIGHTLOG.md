@@ -226,9 +226,10 @@ where S5 generates the actual invoice.
 **NEEDS-OWNER / follow-up:**
 - Live Stripe webhook signature path can't be verified offline — needs a human `stripe trigger
   invoice.paid` smoke against the artisan `kind` metadata.
-- Markup source: uses `WORK_ORDER_MARKUP_RATE=0.20` (owner's stated 20%); the S5 explore flagged a
-  `financial.cogMarkup` setting that may be a DIFFERENT number for custom quotes — owner to confirm
-  whether artisan-WO markup should read from settings or stay the fixed 20%.
+- ~~Markup source~~ **RESOLVED (owner, 2026-07-24):** WO markup now reads the admin **wholesale
+  markup** setting (`pricing.wholesaleMarkup`, a multiplier, default 1.5×) via
+  `getWorkOrderMarkupMultiplier` — no hardcoded number. Casting charge + workOrderCharge = COGS ×
+  that multiplier. Set the wholesale markup in admin settings to whatever the WO markup should be.
 - `billWorkOrder`/`billCastingBatch` + `pushArtisanInvoiceToStripe` exist but aren't yet CALLED from
   a WO-completion hook — wiring them into the bench complete + casting-received flows is the
   remaining integration (S7 run UI / a thin hook). The freeze + gate + math + payroll exclusion are
@@ -262,8 +263,9 @@ where S5 generates the actual invoice.
 fixed in shipments (S6), casting (S4), and cad-request (S3) routes. Worth a lint rule to prevent
 regressions (authoritative values must follow the body spread).
 
-**PROPOSED (overnight):** declared-value insurance rate = 1% placeholder (`DECLARED_VALUE_INSURANCE_RATE`)
-— owner to set the real carrier rate.
+**RESOLVED (owner, 2026-07-24):** declared-value insurance is NOT a rate/setting — it's a
+PASS-THROUGH of the carrier's ACTUAL charge, entered per shipment (`insuranceAmount`), billed at
+cost. The hardcoded 1% and the rate helper were removed.
 
 ## S7 — Artisan run UI (+ run API) ✅ VERIFIED (2026-07-24)
 

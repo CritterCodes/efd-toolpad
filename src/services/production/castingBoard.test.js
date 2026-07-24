@@ -1,21 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import {
   castingChargeFromCost, splitCastingCost, disputeDeadlineFrom, isPastDisputeWindow, canTransition,
-  WORK_ORDER_MARKUP_RATE,
 } from '@/services/production/castingBoard';
 
-describe('castingChargeFromCost (pure)', () => {
-  it('applies the 20% work-order markup', () => {
-    expect(WORK_ORDER_MARKUP_RATE).toBe(0.20);
-    expect(castingChargeFromCost(100)).toBe(120);
-    expect(castingChargeFromCost(83.33)).toBe(100);   // 83.33 * 1.2 = 99.996 → 100.00
+describe('castingChargeFromCost (pure — charge = cost × wholesale markup multiplier)', () => {
+  it('multiplies cost by the wholesale markup multiplier from settings', () => {
+    expect(castingChargeFromCost(100, 1.5)).toBe(150);   // default wholesale markup 1.5×
+    expect(castingChargeFromCost(100, 1.2)).toBe(120);   // if the setting were 1.2×
+    expect(castingChargeFromCost(80, 1.5)).toBe(120);
   });
-  it('honors a custom markup rate', () => {
-    expect(castingChargeFromCost(100, 0.5)).toBe(150);
+  it('defaults to the settings default (1.5) when no multiplier passed', () => {
+    expect(castingChargeFromCost(100)).toBe(150);
   });
   it('handles zero/garbage safely', () => {
-    expect(castingChargeFromCost(0)).toBe(0);
-    expect(castingChargeFromCost(null)).toBe(0);
+    expect(castingChargeFromCost(0, 1.5)).toBe(0);
+    expect(castingChargeFromCost(null, 1.5)).toBe(0);
   });
 });
 

@@ -1,5 +1,6 @@
 import PiecesModel from '@/app/api/pieces/model';
 import CastingBatchesModel, { CASTING_STATUS } from '@/app/api/castingBatches/model';
+import { getWorkOrderMarkupMultiplier, applyWorkOrderMarkup } from '@/services/production/workOrderPricing';
 
 /**
  * Casting board (PRODUCTION_RUNS.md §4.1). Ownership-scoped batch lifecycle with invoice-at-receipt
@@ -10,14 +11,14 @@ import CastingBatchesModel, { CASTING_STATUS } from '@/app/api/castingBatches/mo
 
 export class CastingError extends Error {}
 
-/** EFD's markup on fulfilled work (owner: "20% on all COGs"). S5 may source this from settings. */
-export const WORK_ORDER_MARKUP_RATE = 0.20;
-
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
-/** The artisan's casting charge = actual vendor cost + EFD markup. PURE. */
-export function castingChargeFromCost(actualCost, markupRate = WORK_ORDER_MARKUP_RATE) {
-  return round2((Number(actualCost) || 0) * (1 + markupRate));
+/**
+ * The artisan's casting charge = actual vendor cost × the wholesale markup MULTIPLIER (sourced from
+ * admin settings by the caller; owner: use the wholesale markup setting, not a hardcoded number). PURE.
+ */
+export function castingChargeFromCost(actualCost, markupMultiplier) {
+  return applyWorkOrderMarkup(actualCost, markupMultiplier);
 }
 
 /**
@@ -106,10 +107,11 @@ export async function markCastingReceived({ batchId, actualCost }) {
   const patch = { status: CASTING_STATUS.RECEIVED, actualCost: round2(cost), receivedAt: new Date() };
   if (batch.inHouse) {
     // In-house self-cast: no vendor invoice, no gate (settled via the casting WO / self-labor).
-    patch.charge = { amount: null, markupRate: null, paid: true, paidAt: new Date(), invoiceID: null };
+    patch.charge = { amount: null, markupMultiplier: null, paid: true, paidAt: new Date(), invoiceID: null };
     patch.shippingGated = false;
   } else {
-    patch.charge = { amount: castingChargeFromCost(cost), markupRate: WORK_ORDER_MARKUP_RATE, paid: false, paidAt: null, invoiceID: null };
+    const markupMultiplier = await getWorkOrderMarkupMultiplier();   // wholesale markup from admin settings
+    patch.charge = { amount: castingChargeFromCost(cost, markupMultiplier), markupMultiplier, paid: false, paidAt: null, invoiceID: null };
     patch.shippingGated = true;   // nothing ships to the artisan until this is paid
   }
   return CastingBatchesModel.updateById(batchId, patch);

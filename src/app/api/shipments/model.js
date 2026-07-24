@@ -37,7 +37,7 @@ export function buildShipment(data = {}) {
     carrier: data.carrier ?? null,
     tracking: data.tracking ?? null,
     declaredValue: data.declaredValue != null ? Number(data.declaredValue) : null,
-    insuranceRate: data.insuranceRate ?? null,
+    // Pass-through at cost — the carrier's actual insurance charge entered per shipment (no rate).
     insuranceAmount: data.insuranceAmount != null ? Number(data.insuranceAmount) : null,
     status: data.status || SHIPMENT_STATUS.PENDING,
     shippedAt: data.shippedAt ?? null,

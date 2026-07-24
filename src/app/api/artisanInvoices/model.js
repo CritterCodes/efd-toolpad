@@ -40,7 +40,7 @@ export function buildArtisanInvoice(data = {}) {
     sourceID: data.sourceID ?? null,               // workOrderID | batchId
     runId: data.runId ?? null,
     amount: Number(data.amount) || 0,              // total owed (incl. markup, excl. tax handled by Stripe Tax)
-    breakdown: data.breakdown ?? null,             // { labor, materials, shipping, gems, markupRate }
+    breakdown: data.breakdown ?? null,             // { labor, materials, shipping, gems, markupMultiplier }
     description: data.description ?? '',
     status: data.status || ARTISAN_INVOICE_STATUS.PENDING,
     dueDays,
