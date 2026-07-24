@@ -93,6 +93,33 @@ confirms pieceWorkOrderActions/benchActions/benchQuery unchanged.
 - Solo-created CAD WOs log `primaryJewelerName: null` (userID + payeeUserID correct; payroll groups
   on userID so no functional impact). Cosmetic — pass the creator's display name through if surfaced.
 
+## S4 — Casting board ✅ VERIFIED (2026-07-24)
+
+**Shipped:** ownership-scoped casting-batch lifecycle (backend; UI is S7).
+- `src/lib/constants.js` — `CASTING_BATCHES_COLLECTION`.
+- `src/app/api/castingBatches/model.js` — model + `CASTING_STATUS` + pure `buildCastingBatch`.
+- `src/services/production/castingBoard.js` (+ test, 12 pure tests) — `castingChargeFromCost`
+  (×1.20 markup), `splitCastingCost` (equal, remainder-exact), `disputeDeadlineFrom`/
+  `isPastDisputeWindow` (48h), `canTransition` (lifecycle guard), and the DB lifecycle:
+  create → markOrdered → markReceived (splits COGS onto pieces via upsertMaterialByCategory +
+  fires charge cost×1.20 + gates shipping) → markPaid (clears gate) → markDelivered (refused while
+  unpaid; sets 48h deadline) → dispute/accept (auto-accept after window) / cancel. In-house batches
+  skip the vendor charge/gate.
+- Routes: `casting/route.js` (scoped GET + POST) + `casting/[batchId]/[action]/route.js`
+  (order/receive/pay/deliver/dispute/accept/cancel), ownership-enforced; `pay` staff-only.
+
+**Verifier verdict:** PASS. castingBoard 12/12; full suite 456 passed / 5 skipped / 3 failed (same
+3 pre-existing refrakt failures, zero new); `pnpm build` compiles the nested route; split math
+independently confirmed exact; `git` scope confirms only-additive (+1 constant line, no regressions).
+
+**PROPOSED (overnight):** casting metal → COGS split = EQUAL per-piece division (the §4g open probe).
+Documented in the code; owner to confirm vs weight-proportional.
+
+**Follow-ups (non-blocking):** `splitCastingCost` can yield a negative last part for pathological
+tiny-cost/high-count inputs (sum still exact) — clamp+redistribute if that ever becomes real. The
+`markCastingPaid` hook is where S5's Stripe webhook will land; `markCastingReceived`'s charge is
+where S5 generates the actual invoice.
+
 ## S1 — Transactional core (continued)
 
 **Boundary (deliberate):** WorkOrder spawning is NOT inside the mint transaction (WorkOrdersModel
