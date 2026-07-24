@@ -38,6 +38,12 @@ export default class RepairLaborLogsModel {
       repairID: data.repairID,
       primaryJewelerUserID: data.primaryJewelerUserID,
       primaryJewelerName: data.primaryJewelerName,
+      // Connect-compat (S2): who bears this labor cost, and the per-artisan payee identity.
+      // `payer` defaults to 'efd' (repairs + all legacy labor are EFD-paid); production/run labor
+      // passes 'self' when the laborer owns the piece. `payeeUserID` defaults to the existing payee
+      // field so it's backfill-safe and payroll can group on one field going forward.
+      payer: data.payer === 'self' ? 'self' : 'efd',
+      payeeUserID: data.payeeUserID ?? data.primaryJewelerUserID ?? null,
       creditedLaborHours: data.creditedLaborHours ?? 0,
       laborRateSnapshot: data.laborRateSnapshot ?? 0,
       // Flat-fee labor (CAD design fee, CAD QC review fee) passes creditedValue

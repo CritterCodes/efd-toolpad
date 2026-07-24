@@ -47,6 +47,31 @@ numbering uniqueness, gem-coupling rollback, scrap-retire, and concurrency all h
   This is faithful to PRODUCTION_RUNS.md §4.1 ("number retired, replacement gets a fresh number")
   but the ">N numbering" optics are worth an explicit owner confirm.
 
+## S2 — Ledger fields (Connect-compat) ✅ VERIFIED (2026-07-24)
+
+**Shipped:**
+- `src/services/production/laborPayer.js` (+ test, 10 pure tests) — `LABOR_PAYER`,
+  `owningArtisanForPiece` (artisan drop > design primaryArtisanId > null), `resolveLaborPayer`
+  (mechanical self/efd rule), `resolvePieceLaborScope` (impure, lazy model imports, fail-safe to efd).
+- `src/app/api/repairLaborLogs/model.js` — `payer` (strict 'self'|'efd' guard, default efd) +
+  `payeeUserID` (defaults to primaryJewelerUserID). Backfill-safe.
+- `src/app/api/salePayouts/model.js` — `payeeUserID` (defaults to sellerUserID). Backfill-safe.
+- `src/services/bench/pieceWorkOrderActions.js` — scope wired into piece move-to-QC + CAD design
+  fee; CAD QC-review fee stays payer:efd, payee=reviewer (standards QC is EFD's).
+
+**Verifier verdict:** PASS. laborPayer 10/10; full suite 441 passed / 5 skipped / 3 failed
+(same 3 pre-existing refrakt failures, zero new); `pnpm build` clean. Backfill-safety, fail-safe
+wrapper, DB-free purity, and no import cycle all confirmed.
+
+**→ S5 REQUIREMENT (flagged by the S2 verifier):** `payer:'self'` labor logs still flow into
+payroll today (grouping intentionally unchanged in S2 per AC3). Per §4.4 a NON-OWNER artisan's
+self-labor should NOT be payroll-payable (it realizes at sale via consignment), while the OWNER's
+self-labor IS his payroll draw (self≈efd degenerate case). So the payroll exclusion is
+laborer-identity-aware, not a blanket `payer!='self'` — S5 (billing rail + consignment
+realization) must implement it correctly without breaking the owner's draw.
+
+## S1 — Transactional core (continued)
+
 **Boundary (deliberate):** WorkOrder spawning is NOT inside the mint transaction (WorkOrdersModel
 isn't session-aware and WOs aren't capacity-critical) — the route spawns routing WOs post-commit,
 matching how `createPieceFromDesign` already separates piece creation from edition claiming. The

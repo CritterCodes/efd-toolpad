@@ -18,6 +18,8 @@ export default class SalePayoutsModel {
       lineID: data.lineID,
       productID: data.productID || '',
       sellerUserID: data.sellerUserID,
+      // Connect-compat (S2): per-artisan payee identity, defaulted from sellerUserID (backfill-safe).
+      payeeUserID: data.payeeUserID ?? data.sellerUserID ?? null,
       sellerName: data.sellerName || '',
       saleDescription: data.saleDescription || '',
       grossSale: Number(data.grossSale || 0),
