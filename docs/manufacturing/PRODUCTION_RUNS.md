@@ -159,9 +159,19 @@ but **build the money model Connect-compatible from day one**:
   payment** — an unpaid deliverable was never the artisan's property, so nothing is ever seized.
   When a bill dies, EFD liquidates the withheld deliverable; what EFD owes the artisan depends
   on what of THEIRS is embedded in it:
-  - **Their paid-for property embedded** (e.g. they paid CAD + casting, stiffed the BENCH bill —
-    the finished piece contains their casting): the true lien case — EFD sells, recovers the
-    debt + reasonable costs, and their paid-in equity + surplus returns to them.
+  - **Their paid-for property embedded** (e.g. they paid CAD + casting + their stone, stiffed
+    the BENCH bill): the lien case. **On ANY liquidation sale EFD's consignment cut applies
+    first** (EFD is selling — same as always), then the unpaid bills (markup-inclusive) +
+    direct costs are recovered. What of the remainder goes back is the DETERRENT question
+    (owner, round 4: giving them equity + surplus makes stiffing strictly better than paying —
+    same net, zero cash up front, EFD floats everything). **PROPOSED (recommended): remainder
+    capped at DOCUMENTED PAID-IN EQUITY** — the artisan gets back what they can prove they paid
+    (casting, stones), never more; all profit from the liquidation sale is EFD's as liquidated
+    damages. Honest path = profit; stiffing = at best break-even minus fees. EFD prices the
+    liquidation sale at its sole discretion. (Alternative shape if equity-cap feels too harsh:
+    equity + surplus, minus late fees + a liquidation fee of ~25% of the outstanding bill.)
+    Serial stiffing is already structurally impossible: FREEZE at first overdue bill stops all
+    new runs/WOs/listings, and a repeat after liquidation = expulsion (strikes policy).
   - **Their design IP embedded** (design paid-for and theirs, physical asset EFD's — e.g.
     stiffed CASTING bill): EFD finishes/sells at its own expense and **keeps all profit on the
     physical asset it owned from the beginning, but pays them the design fee/royalty on the
@@ -179,10 +189,10 @@ but **build the money model Connect-compatible from day one**:
   billed at **COGS × 1.20** (labor + materials, incl. vendor costs like the casting-house
   invoice — same 20% markup wholesale repair carries today). "We are fulfilling everything —
   it's just like wholesaler repair work." **Exception: self-fulfilled WOs** (`self` payer scope)
-  bill nothing at all, so no markup. Quotes shown at WO creation are markup-inclusive. Edges to
-  confirm: shipping/insurance legs passthrough at cost (assumed); a consumed gem stone is billed
-  at the cutter's gem price via the consignment rail — NOT price × 1.2 again (assumed — the gem
-  price already carries its own markup).
+  bill nothing at all, so no markup. Quotes shown at WO creation are markup-inclusive.
+  **Edges CONFIRMED (owner, 2026-07-23):** shipping/insurance legs pass through at cost (no 20%
+  on postage); a consumed gem stone is billed at the cutter's gem price via the consignment rail
+  ONLY — never × 1.2 again (the gem price already carries its own markup).
 
 ## 4d. Gems inside jewelry production (owner, 2026-07-23)
 
@@ -221,10 +231,11 @@ Stripe customer; artisan invoices run through Stripe Tax.
 
 ## 4g. Remaining open probes (updated 2026-07-23, round 3)
 
-1. Liquidation timing: X days + reminder cadence (suggested 60d, reminders at 7/30, freeze
+1. Liquidation remainder shape: equity-cap (recommended — all liquidation profit is EFD's,
+   artisan gets documented paid-in equity back at most) vs equity + surplus − late/liquidation
+   fees. (§4c)
+2. Liquidation timing: X days + reminder cadence (suggested 60d, reminders at 7/30, freeze
    immediate). (§4c)
-2. 20% markup edges: shipping/insurance passthrough at cost? consumed gem stones billed via the
-   consignment rail only, never × 1.2 again? (§4c — assumed yes on both)
 3. Casting metal cost → piece COGS split. (§4.3)
 4. Artisan agreement drafting (legal, not software): title-passes-at-payment + liquidation
    clauses, bailee liability, self-certification terms. (§4c, §4.2, §3)
