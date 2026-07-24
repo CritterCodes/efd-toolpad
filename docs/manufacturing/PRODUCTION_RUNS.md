@@ -4,6 +4,24 @@
 **Owner scenario:** an artisan has a sketch, wants a limited run of 10: request CAD → get it back →
 build variants → cast X of each variant → bench work (self or someone else) → sellable pieces.
 
+## 0a. Mission & monetization (owner, 2026-07-24) — the "why" behind every money rule
+
+**EFD is a business, but the platform is FREE to use for artisans.** The tracking + management
+software (designs, runs, drops, bench, WOs-as-bookkeeping, listings) is provided free — the mission
+is to help artisans run their business smoothly and GROW. EFD profits **only when it directly
+provides logistics or facilitates infra for the artisan's business** — i.e.:
+- **WO markup** on work EFD facilitates for them (a peer/vendor/EFD-employee does the work) — the
+  infra fee, captured at the WO regardless of sale.
+- **Consignment** on pieces sold *through EFD's shop* — the sales fee.
+
+**Self-fulfilled work is never billed, and there is NO platform/listing/membership fee.** A fully
+solo artisan who sells in person pays EFD nothing — that's intentional, the free tier of the
+mission, not a leak. EFD earns by *adding value* (doing work for them / selling for them), never by
+charging rent on the tools.
+
+**The platform is CURATED — invite / approval only** (`artisanApplication`). "Free to use" is
+sustainable because it's a vetted community of real artisans, not an open marketplace.
+
 ## 0. First axiom — SOLO-FIRST (owner, 2026-07-23)
 
 **The pipeline must be fully usable without outsourcing anything.** If one person does their own
@@ -137,9 +155,10 @@ Stages (each optional — skip what you don't need):
    the WO. For a PEER/VENDOR casting: the **caster receives the full `1.3 metal markup + casting
    labor fee`** (their margin + work); **EFD's wholesale markup applies on top** (artisan pays
    `casterCharge × wholesaleMarkup`; caster keeps casterCharge; EFD keeps the delta). Not double-
-   dipping — caster and platform are distinct providers. **Self-cast is the exception (no bill):**
-   you're the caster paying yourself `1.3 + labor`, and EFD forgoes its infra fee on your own solo
-   work per solo-first (the owner is the degenerate self≈efd case).
+   dipping — caster and platform are distinct providers. **Self-cast is the exception (no bill, no
+   markup):** you ARE the caster, paying yourself `1.3 + labor`; EFD charges no infra fee on your
+   own solo work (§0a — the platform is free; EFD only earns when it does work for you or sells for
+   you). The owner is the degenerate self≈efd case.
    **Casting liability — DECIDED (owner, 2026-07-23):** casting failures are the CASTER's
    liability — "they paid for 10, they get 10"; how many casting sessions that takes is the
    caster's business (vendor and in-house casting WO alike). After delivery the ordering artisan
