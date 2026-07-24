@@ -44,7 +44,8 @@ export const POST = async (req, { params }) => {
 
   const body = await req.json().catch(() => ({}));
   try {
-    const result = await handler({ batchId, ...body });
+    // Path param LAST so a body-supplied batchId can't override the ownership-checked id (IDOR).
+    const result = await handler({ ...body, batchId });
     return NextResponse.json(result, { status: 200 });
   } catch (e) {
     if (e instanceof CastingError) return NextResponse.json({ error: e.message }, { status: 409 });

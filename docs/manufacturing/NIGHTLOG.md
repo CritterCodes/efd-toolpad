@@ -157,6 +157,37 @@ where S5 generates the actual invoice.
   remaining integration (S7 run UI / a thin hook). The freeze + gate + math + payroll exclusion are
   live now.
 
+## S6 — Shipments ✅ VERIFIED (2026-07-24) — surfaced + fixed a systemic IDOR
+
+**Shipped:**
+- `src/app/api/shipments/model.js` (+ constant) — per-handoff record {from,to,pieceIDs,castingBatchId,
+  carrier,tracking,declaredValue,insurance,status,ownerId}.
+- `src/services/production/shipping.js` (+ test, 8 tests) — `insuranceForDeclaredValue` (declared-value
+  line, billed through at cost), `canShipTransition`, `isClearToShip` (nothing-ships-unpaid gate off the
+  casting charge), and the DB lifecycle (create/markShipped[gated]/markDelivered/cancel).
+- Routes: `shipments/route.js` (scoped GET + POST) + `[shipmentId]/[action]/route.js`, ownership-enforced.
+
+**Verification (3 rounds — the discipline caught real bugs):**
+- Round 1 FAIL: **cross-tenant IDOR** — the action route spread `handler({ shipmentId, ...body })` (path
+  id BEFORE `...body`), so a body-supplied `shipmentId` overrode the ownership-checked one; artisan A
+  could cancel/deliver artisan B's shipment. The verifier flagged the SAME pattern in the S4 casting
+  route (`{ batchId, ...body }`) — a systemic bug missed by S4's verifier — and a related WO-scoping gap
+  in the S3 CAD route.
+- Fix: path/authoritative ids placed AFTER `...body` in all three routes; S3 CAD route also gained a
+  `wo.sourceID === designID` 404 guard.
+- Round 2 FAIL: my S3 fix closed the id override but left `session` BEFORE `...body` → body-supplied
+  `session` could spoof role/lane (privilege escalation). Fixed → `handler({ ...body, session, workOrderID })`.
+- Round 3 PASS: all four override vectors (shipmentId/batchId/workOrderID/session) closed; a
+  codebase-wide grep of `src/app/api` confirmed NO other instances of the anti-pattern. Full suite
+  476 passed / 5 skipped / 3 failed (same 3 pre-existing refrakt; zero new); `pnpm build` clean.
+
+**Security note for morning:** the `handler({ pathId, ...body })` ordering bug was systemic; it's now
+fixed in shipments (S6), casting (S4), and cad-request (S3) routes. Worth a lint rule to prevent
+regressions (authoritative values must follow the body spread).
+
+**PROPOSED (overnight):** declared-value insurance rate = 1% placeholder (`DECLARED_VALUE_INSURANCE_RATE`)
+— owner to set the real carrier rate.
+
 ## S1 — Transactional core (continued)
 
 **Boundary (deliberate):** WorkOrder spawning is NOT inside the mint transaction (WorkOrdersModel

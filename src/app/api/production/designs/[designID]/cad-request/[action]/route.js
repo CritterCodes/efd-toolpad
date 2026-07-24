@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/apiAuth';
 import DesignsModel from '@/app/api/designs/model';
+import WorkOrdersModel, { WORK_ORDER_SOURCE } from '@/app/api/workOrders/model';
 import { canManageDesign } from '@/lib/designPermissions';
 import {
   claimDesignCad, submitDesignCadToQc, approveDesignCad, rejectDesignCad, DesignCadError,
@@ -30,12 +31,18 @@ export const POST = async (req, { params }) => {
   if (!canManageDesign(session, design)) return NextResponse.json({ error: 'Access denied — not your design.' }, { status: 403 });
 
   const body = await req.json().catch(() => ({}));
-  // The WO for this design; the action resolves it by workOrderID (passed or looked up on the design).
   const workOrderID = body.workOrderID;
   if (!workOrderID) return NextResponse.json({ error: 'workOrderID is required.' }, { status: 400 });
+  // Scope the WO to THIS design — a manager of design X must not act on design Y's CAD WO (IDOR).
+  const wo = await WorkOrdersModel.findByID(workOrderID);
+  if (!wo || wo.sourceID !== designID || wo.sourceType !== WORK_ORDER_SOURCE.CAD_REQUEST) {
+    return NextResponse.json({ error: 'CAD work order not found for this design.' }, { status: 404 });
+  }
 
   try {
-    const result = await handler({ session, workOrderID, ...body });
+    // Trusted values (session + path-scoped WO) LAST so NOTHING in the body can override the
+    // authenticated session or the authorized workOrderID (IDOR / privilege escalation).
+    const result = await handler({ ...body, session, workOrderID });
     return NextResponse.json(result, { status: 200 });
   } catch (e) {
     if (e instanceof DesignCadError) return NextResponse.json({ error: e.message }, { status: 400 });
