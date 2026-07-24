@@ -68,8 +68,16 @@ Stages (each optional — skip what you don't need):
 ## 4. Open decisions
 1. **Casting: a WO lane or a vendor order?** In-house casters want a `casting` discipline WO
    (claim/QC/labor like any lane). Outsourced casting is a purchase (vendor, invoice →
-   businessExpenses, received-date) — probably BOTH, chosen per run. This also finally decides
-   what the placeholder Production→Casting board shows.
+   businessExpenses, received-date) — probably BOTH, chosen per run.
+   **The casting board is ownership-scoped (owner, 2026-07-23)** — same pattern as My Designs/
+   My Drops/My Bench: ONE board, API-scoped. An artisan sees THEIR runs' casting queue —
+   `needs_ordering → ordered (vendor, est) → received` per batch/piece — "what castings they have
+   and haven't ordered"; EFD/staff see everything. Solo self-casting = an in-house `casting` WO
+   (no vendor entry). This finally defines the placeholder Production→Casting board.
+   **Payment-timing sub-question (nothing-is-fronted applied to castings):** when an artisan uses
+   EFD's casting-house account, does the artisan pay EFD (a) UP FRONT at order placement (EFD
+   never fronts the vendor invoice) or (b) at receipt, with the casting GATED before it ships to
+   them (EFD fronts vendor cost for days)? Strict reading of the axiom says (a). Owner call.
 2. **Shipping legs:** minimum viable = a `shipments` record per handoff `{ from, to, carrier,
    tracking, pieceIDs, status }` + "piece is physically at X". How much more?
 3. **Materials for runs:** casting metal cost lands on piece COGS how (per-piece split of the
