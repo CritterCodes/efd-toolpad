@@ -188,6 +188,37 @@ regressions (authoritative values must follow the body spread).
 **PROPOSED (overnight):** declared-value insurance rate = 1% placeholder (`DECLARED_VALUE_INSURANCE_RATE`)
 — owner to set the real carrier rate.
 
+## S7 — Artisan run UI (+ run API) ✅ VERIFIED (2026-07-24)
+
+**Shipped — the run API finally gives S1's `mintRun` a caller:**
+- `src/services/production/productionRun.js` — refactored to a shared `mintPiecesTx` core;
+  `mintRunTx` (create+mint, behavior-preserved) + new `mintPlannedRunTx`/`mintPlannedRun` (mint into
+  an existing planned run — the collab path), `spawnRunWorkOrders` (post-commit routing WOs; solo
+  pre-assigns to creator per §0), pure `allCollaboratorsSigned` (§4e gate).
+- `src/services/production/pieceRouting.js` — `spawnPieceWorkOrders` exported + `assignedToUserID`.
+- `src/app/api/runs/model.js` — `signatures[]`.
+- Routes: `production/runs` (scoped GET + POST plan/mint), `runs/[runId]` (GET), `runs/[runId]/[action]`
+  (sign/mint/cancel/scrap) — ownership-scoped, IDOR-clean (path/session win over body).
+- `src/app/dashboard/artisan/runs/page.js` — My Runs list + create wizard (solo mints immediately;
+  collab plans + awaits signatures).
+- `productionRunCollab.test.js` (3 pure tests).
+
+**Flow:** solo design → POST mints immediately + spawns creator-assigned WOs. Collab design → POST
+creates a PLANNED run (creator signed); collaborators POST /sign; POST /mint succeeds only when
+`allCollaboratorsSigned`. Freeze-guarded throughout.
+
+**Verifier verdict:** PASS. S1's 12 tests all still pass (refactor behavior-preserving); collab 3/3;
+full suite 479 passed / 5 skipped / 3 failed (same 3 pre-existing refrakt; zero new); `pnpm build`
+compiles all routes + the page; no module cycle; IDOR trace clean.
+
+**Follow-ups (non-blocking):**
+- Solo POST writes the planned run doc non-transactionally before minting — a failed mint (frozen/
+  capacity) leaves a retriable orphaned `planned` run. Cosmetic data-hygiene.
+- My Runs page has a Mint button but no collaborator "sign" UI yet — a collab run can't be driven to
+  minted from the page alone (the /sign API + gate exist). UX follow-up.
+- Live preview verification of the My Runs page (auth to dev harness) — deferred; verified
+  structurally + by build here.
+
 ## S1 — Transactional core (continued)
 
 **Boundary (deliberate):** WorkOrder spawning is NOT inside the mint transaction (WorkOrdersModel

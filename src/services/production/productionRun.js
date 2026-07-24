@@ -135,16 +135,16 @@ function buildPieceDoc({ designID, design, variantId, editionNumber, resolvedCon
   };
 }
 
-/** Internal worker: mint the run + pieces + gem reservations inside a caller-provided session. */
-export async function mintRunTx({ database, designID, items, createdBy, solo = true, resolvedConfigurations = {}, session }) {
+/**
+ * Shared piece-minting core: expand items → pieces, reserve linked-gem editions, block-allocate
+ * edition numbers on the design, and build the piece docs (NOT yet inserted). Used by both the
+ * create-and-mint path (mintRunTx) and the plan-then-mint path (mintPlannedRunTx).
+ */
+async function mintPiecesTx({ database, designID, items, createdBy, resolvedConfigurations = {}, runId, session }) {
   const designs = database.collection(Constants.DESIGNS_COLLECTION);
-  const pieces = database.collection(Constants.PIECES_COLLECTION);
-  const runs = database.collection(Constants.RUNS_COLLECTION);
-
   const design = await designs.findOne({ designID }, { session });
   if (!design) throw new EditionCapacityError(`design ${designID} not found`);
 
-  // Expand items → one variantId per piece, and compute each piece's gem claims from its variant.
   const variantById = new Map((design.variants || []).map((v) => [v.variantId, v]));
   const pieceSpecs = [];
   for (const item of items || []) {
@@ -159,11 +159,11 @@ export async function mintRunTx({ database, designID, items, createdBy, solo = t
   const total = pieceSpecs.length;
   if (total === 0) throw new EditionCapacityError('run has no pieces to mint');
 
-  // 1) Reserve linked-gem editions FIRST (aggregate) — fail fast before touching jewelry capacity.
+  // Reserve linked-gem editions FIRST (aggregate) — fail fast before touching jewelry capacity.
   const aggregateClaims = aggregateGemClaims(pieceSpecs.map((p) => p.gemClaims));
   await reserveGemEditions({ database, gemClaims: aggregateClaims, session });
 
-  // 2) Block-allocate `total` edition numbers on the design, atomically under the cap.
+  // Block-allocate `total` edition numbers on the design, atomically under the cap.
   const before = await designs.findOneAndUpdate(
     canFitFilter(designID, total),
     { $inc: { 'edition.allocated': total, 'edition.nextNumber': total }, $set: { updatedAt: new Date() } },
@@ -172,24 +172,56 @@ export async function mintRunTx({ database, designID, items, createdBy, solo = t
   if (!before) throw new EditionCapacityError(`design ${designID} edition cannot absorb ${total} pieces`);
   const startNumber = before.edition?.nextNumber ?? 1;
 
-  // 3) Insert the pieces with their assigned edition numbers.
   const pieceDocs = pieceSpecs.map((spec, i) => buildPieceDoc({
     designID, design, variantId: spec.variantId, editionNumber: startNumber + i,
-    resolvedConfiguration: spec.resolvedConfiguration, gemClaims: spec.gemClaims, runId: null, createdBy,
+    resolvedConfiguration: spec.resolvedConfiguration, gemClaims: spec.gemClaims, runId: runId ?? null, createdBy,
   }));
+  return { pieceDocs, aggregateClaims };
+}
 
-  // 4) Build + insert the run doc, then stamp runId onto the pieces.
-  const run = buildRun({
-    designID, createdBy, solo, items,
-    status: RUN_STATUS.CASTING,   // pieces are casting_ordered → run enters the casting stage
-    pieceIDs: pieceDocs.map((p) => p.pieceID),
-    gemClaims: aggregateClaims,
-  });
-  for (const p of pieceDocs) p.runId = run.runId;
+/** Internal worker: create a run + mint its pieces + gem reservations in one session (solo/direct). */
+export async function mintRunTx({ database, designID, items, createdBy, solo = true, resolvedConfigurations = {}, session }) {
+  const pieces = database.collection(Constants.PIECES_COLLECTION);
+  const runs = database.collection(Constants.RUNS_COLLECTION);
+
+  const run = buildRun({ designID, createdBy, solo, items, status: RUN_STATUS.CASTING, gemClaims: [] });
+  const { pieceDocs, aggregateClaims } = await mintPiecesTx({ database, designID, items, createdBy, resolvedConfigurations, runId: run.runId, session });
+  run.pieceIDs = pieceDocs.map((p) => p.pieceID);
+  run.gemClaims = aggregateClaims;
 
   await pieces.insertMany(pieceDocs, { session });
   await runs.insertOne(run, { session });
   return { run, pieces: pieceDocs };
+}
+
+/**
+ * Internal worker: mint pieces INTO an existing PLANNED run (the collab plan-then-mint path). The
+ * run must be planned and — if collaborative — fully signed (§4e). Uses the run's own designID/items.
+ */
+export async function mintPlannedRunTx({ database, runId, resolvedConfigurations = {}, session }) {
+  const pieces = database.collection(Constants.PIECES_COLLECTION);
+  const runs = database.collection(Constants.RUNS_COLLECTION);
+  const run = await runs.findOne({ runId }, { session });
+  if (!run) throw new EditionCapacityError('run not found');
+  if (run.status !== RUN_STATUS.PLANNED) throw new EditionCapacityError('run is not in planned status');
+  if (!allCollaboratorsSigned(run)) throw new EditionCapacityError('all collaborators must sign before minting');
+
+  const { pieceDocs, aggregateClaims } = await mintPiecesTx({
+    database, designID: run.designID, items: run.items, createdBy: run.createdBy, resolvedConfigurations, runId: run.runId, session,
+  });
+  await pieces.insertMany(pieceDocs, { session });
+  await runs.updateOne(
+    { runId: run.runId },
+    { $set: { status: RUN_STATUS.CASTING, pieceIDs: pieceDocs.map((p) => p.pieceID), gemClaims: aggregateClaims, updatedAt: new Date() } },
+    { session },
+  );
+  return { run: { ...run, status: RUN_STATUS.CASTING, pieceIDs: pieceDocs.map((p) => p.pieceID) }, pieces: pieceDocs };
+}
+
+/** Public boundary: mint pieces into an existing planned (collab-signed) run. Freeze-guarded. */
+export async function mintPlannedRun({ client, database, runId, createdByForFreeze = null, ...input }) {
+  if (createdByForFreeze) await assertArtisanNotFrozen(createdByForFreeze, EditionCapacityError);
+  return withEditionTransaction(client, (session) => mintPlannedRunTx({ database, runId, ...input, session }));
 }
 
 /** Public boundary: mint a run all-or-nothing. Frozen artisans (overdue bill) can't start new work. */
@@ -279,4 +311,37 @@ export async function cancelRunTx({ database, runId, session }) {
 /** Public boundary: cancel a run. */
 export function cancelRun({ client, database, ...input }) {
   return withEditionTransaction(client, (session) => cancelRunTx({ database, ...input, session }));
+}
+
+/**
+ * Spawn the routing work orders for a run's minted pieces (post-commit — WOs aren't
+ * capacity-critical and WorkOrdersModel isn't session-aware). Solo runs pre-assign every WO to the
+ * creator (private by self-assignment, §0); a non-solo run leaves them in the lane queue.
+ */
+export async function spawnRunWorkOrders(run, { assignToUserID = null } = {}) {
+  const { default: DesignsModel } = await import('@/app/api/designs/model');
+  const { default: PiecesModel } = await import('@/app/api/pieces/model');
+  const { spawnPieceWorkOrders } = await import('@/services/production/pieceRouting');
+  const design = await DesignsModel.findById(run.designID);
+  const routing = design?.routing || [];
+  const assignedToUserID = run.solo ? (assignToUserID || run.createdBy) : null;
+  for (const pieceID of run.pieceIDs || []) {
+    const piece = await PiecesModel.findById(pieceID);
+    if (!piece) continue;
+    const workOrderIDs = await spawnPieceWorkOrders(piece, routing, {
+      label: design?.name || 'Run piece', createdBy: run.createdBy, assignedToUserID,
+    });
+    await PiecesModel.setWorkOrders(pieceID, workOrderIDs);
+  }
+}
+
+/**
+ * A collaborative run needs EVERY collaborator's signature before it mints (§4e — the funder's risk
+ * changes the split, so all must agree). PURE. Solo runs (no collaborators) are always satisfied.
+ */
+export function allCollaboratorsSigned(run = {}) {
+  const collaborators = run.collaborators || [];
+  if (collaborators.length === 0) return true;
+  const signed = new Set((run.signatures || []).map((s) => s.userID));
+  return collaborators.every((c) => signed.has(c)) && signed.has(run.createdBy);
 }

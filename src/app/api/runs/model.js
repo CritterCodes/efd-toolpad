@@ -43,7 +43,8 @@ export function buildRun(data = {}) {
     gemClaims: Array.isArray(data.gemClaims) ? data.gemClaims : [],   // aggregate reservation, for audit
     solo: data.solo !== false,   // default private/self-assigned (§0)
     collaborators: Array.isArray(data.collaborators) ? data.collaborators : [],
-    payoutSplit: data.payoutSplit ?? null,   // set by S7 for collab runs (dual-signed)
+    payoutSplit: data.payoutSplit ?? null,   // collab runs: the dual-signed declared split (§4e)
+    signatures: Array.isArray(data.signatures) ? data.signatures : [],   // [{ userID, at }] — collab dual-sign
     createdAt: now,
     updatedAt: now,
   };
