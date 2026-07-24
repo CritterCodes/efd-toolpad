@@ -6,8 +6,21 @@ next slice starts. Audit verdict (whole-diff) goes at the top when the night end
 
 ---
 
-## AUDIT VERDICT (whole-diff, 2026-07-24)
+## AUDIT VERDICT (whole-diff, 2026-07-24) — ALL 10 SLICES COMPLETE
 
+**The full S1–S10 queue was built and adversarially verified** (each slice by a fresh subagent,
+re-verified after every fix; two whole-diff audits — one after S7, a delta audit after S10). Both
+audits: **the production-runs work PASSES all six axioms + regression + security.** Final suite
+**505 passed / 5 skipped / 3 failed** (the 3 = the pre-existing refrakt issue below), `pnpm build`
+clean. S8 gem claim-time, S9 policy acceptance, S10 drop collaborators all PASS, all only-additive
+(S8's single shared-file edit is byte-identical for gemless runs); both new routes IDOR-clean.
+
+**The SOLE merge blocker is the same PRE-EXISTING refrakt `/server` issue (not from any slice)** —
+see below. Everything S1–S10 is clean.
+
+---
+
+### (historical) After-S7 audit note
 **The S1–S7 production-runs work PASSED the audit** — all six inviolable axioms hold (nothing
 fronted; title passes at payment; WOs private by self-assignment; solo-first; pieces always carry a
 variantId; 20% markup on labor+materials only, self=$0, shipping/gems excluded); every modified
