@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/apiAuth';
+import { requireCustomsRead } from '@/lib/customsPermissions';
 import { createCustomInvoice, getCustomPaymentProgress } from '@/services/customs/customInvoices.service';
 
 /** GET /api/custom-orders/[customID]/invoices — invoices + payment progress */
 export const GET = async (req, { params }) => {
-  const { errorResponse } = await requireRole(['admin', 'dev']);
-  if (errorResponse) return errorResponse;
   const { customID } = await params;
+  // Read access: staff, or an artisan ASSIGNED to this order (full visibility — owner 2026-07-22).
+  const { errorResponse } = await requireCustomsRead(customID);
+  if (errorResponse) return errorResponse;
+
   try {
     const result = await getCustomPaymentProgress(customID);
     return NextResponse.json(result, { status: 200 });

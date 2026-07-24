@@ -3,6 +3,8 @@ import { requireRole } from '@/lib/apiAuth';
 import { StonesModel } from '../model';
 import { rankCatalogMatches } from '../matcher';
 import { searchStonesByMm, findStonesByDimensions } from '@/services/stuller/stoneSearch';
+import DesignsModel from '@/app/api/designs/model';
+import { rankGemDesignCandidates } from '@/services/production/gemDesignMatch';
 
 // Below this footprint a stone is melee/calibrated (sold by mm, per stone). Above it, offer
 // serialized certified center stones too (a little grace on size).
@@ -44,6 +46,17 @@ export const POST = async (req) => {
     catalog = [];
   }
 
+  // Gem-design lane (Phase 2): the shop's OWN gemstone Designs compete — species match + carat
+  // range guard, priced per color at the row's carat. Linking pins species + COLOR and couples
+  // the jewelry to the gem's edition (enforcement in Phase 3).
+  let gemDesigns = [];
+  try {
+    const pool = await DesignsModel.list({ category: 'gemstone', status: { $nin: ['retired'] } });
+    gemDesigns = rankGemDesignCandidates(measured, pool, { limit: body.limit || 6 });
+  } catch (e) {
+    gemDesigns = [];
+  }
+
   // Live Stuller (best-effort). Only when a size is known and the caller opts in.
   const stuller = [];
   const stullerErrors = [];
@@ -72,5 +85,5 @@ export const POST = async (req) => {
   // Melee (exact-mm) first, then serialized, each by closeness of fit.
   stuller.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'melee' ? -1 : 1) || (a.deviationMm ?? 9) - (b.deviationMm ?? 9));
 
-  return NextResponse.json({ success: true, measured, catalog, stuller, stullerError: stullerErrors[0] || null }, { status: 200 });
+  return NextResponse.json({ success: true, measured, catalog, gemDesigns, stuller, stullerError: stullerErrors[0] || null }, { status: 200 });
 };

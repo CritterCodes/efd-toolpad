@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/apiAuth';
+import { requireCustomsRead } from '@/lib/customsPermissions';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
 import { awardClientMgmtBonus } from '@/services/customs/customProduction';
 import { NotificationService } from '@/lib/notificationService';
@@ -33,10 +34,11 @@ const CUSTOM_STATUS_NOTIFICATIONS = {
 
 /** GET /api/custom-orders/[customID] — returns the order + live margin (quote − piece COGS) */
 export const GET = async (req, { params }) => {
-  const { errorResponse } = await requireRole(['admin', 'dev']);
+  const { customID } = await params;
+  // Read access: staff, or an artisan ASSIGNED to this order (full visibility — owner 2026-07-22).
+  const { errorResponse } = await requireCustomsRead(customID);
   if (errorResponse) return errorResponse;
 
-  const { customID } = await params;
   const order = await CustomOrdersModel.findById(customID);
   if (!order) return NextResponse.json({ error: 'Custom order not found.' }, { status: 404 });
   const margin = await CustomOrdersModel.marginFor(customID);

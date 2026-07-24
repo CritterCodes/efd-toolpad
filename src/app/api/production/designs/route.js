@@ -16,7 +16,10 @@ export const GET = async (req) => {
 
   const { searchParams } = new URL(req.url);
   const dropID = searchParams.get('dropID');
-  const scope = designListFilter(session);
+  const category = searchParams.get('category');
+  // Gem designs are the shop's internal MENU — any design-authoring artisan may browse them to
+  // link one into their jewelry (they still can't edit designs they don't own).
+  const scope = category === 'gemstone' ? { category: 'gemstone' } : designListFilter(session);
   const designs = dropID ? await DesignsModel.findByDrop(dropID, scope) : await DesignsModel.list(scope);
   return NextResponse.json(designs, { status: 200 });
 };

@@ -111,6 +111,9 @@ export function generateArtisanNavigation(artisanTypes = [], staffCapabilities =
       // The drops surface is role-agnostic — the drops APIs scope artisans to drops they own or
       // collaborate on, and force artisan creations self-owned + draft (releasing stays with EFD).
       { segment: 'dashboard/products/drops', title: 'My Drops', icon: <RocketLaunchIcon /> },
+      // Customs: full visibility of orders the artisan is ASSIGNED to (owner, 2026-07-22);
+      // the customs APIs scope the list + reads by assignments.userID.
+      { segment: 'dashboard/customs', title: 'My Customs', icon: <WorkIcon /> },
     );
   }
 

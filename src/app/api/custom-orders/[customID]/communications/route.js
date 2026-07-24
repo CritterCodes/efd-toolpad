@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/apiAuth';
+import { requireCustomsRead } from '@/lib/customsPermissions';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
 import { NotificationService } from '@/lib/notificationService';
 
 /** GET /api/custom-orders/[customID]/communications — list messages (both threads). */
 export const GET = async (req, { params }) => {
-  const { errorResponse } = await requireRole(['admin', 'dev']);
+  const { customID } = await params;
+  // Read access: staff, or an artisan ASSIGNED to this order (full visibility — owner 2026-07-22).
+  const { errorResponse } = await requireCustomsRead(customID);
   if (errorResponse) return errorResponse;
 
-  const { customID } = await params;
   const order = await CustomOrdersModel.findById(customID);
   if (!order) return NextResponse.json({ error: 'Custom order not found.' }, { status: 404 });
   return NextResponse.json(order.communications || [], { status: 200 });

@@ -103,6 +103,10 @@ export default class DesignsModel {
       // Gemstone designs only: the cut IS the design — { cut: [], cutStyle: [] } (shape + cutting
       // technique). Material spec (species/carat/color/…) lives per-variant. null for jewelry.
       gemstone: data.gemstone ?? null,
+      // JEWELRY designs only: design-level gem links — a mesh slot in this GLB IS a linked
+      // gemstone design; downstream (seeding, studio constraints, validation) derives from it.
+      // [{ slot: { nameContains, match }, gemDesignId, allowedVariantIds: null|string[] }]
+      gemLinks: Array.isArray(data.gemLinks) ? data.gemLinks : [],
       tags: Array.isArray(data.tags) ? data.tags : [], metadata: data.metadata ?? {},
       primaryArtisanId: data.primaryArtisanId ?? null,
       collaborators: Array.isArray(data.collaborators) ? data.collaborators : [],
