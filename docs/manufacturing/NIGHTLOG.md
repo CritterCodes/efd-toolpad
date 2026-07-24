@@ -37,7 +37,33 @@ slice commits touch either file.** This must be resolved before the branch merge
 
 ---
 
-## Blocking issue for the human (PRE-EXISTING — not S1–S7)
+## ✅ RESOLVED (2026-07-24) — the refrakt `/server` blocker is FIXED
+
+**Root cause (investigated to the canonical source):** refrakt 1.14.0's `/server` subpath exports
+ONLY render helpers (`generateRender`/`RENDER_SCENES`/…); the material vocab
+(`VALID_FINISHES`/`VALID_GEM_PRESETS`) lives on the package ROOT (`src/index.js` ← `core/library.js`).
+Two files imported the vocab from `/server` — so it was `undefined` in prod AND tests, not merely a
+local artifact: `productContract.js` (→ 3 test failures + `validateProductContract`/`validateDesignModel`
+threw on metal-slot meshMaps) and `src/app/api/glb/inspect/route.js` (`new Set(undefined)` → gem
+detection silently fell back to `diamond`).
+
+**Fix:** retargeted both imports to the package ROOT `@crittercodes/refrakt`. Safe because the root
+barrel is `sideEffects:false` (the Next build tree-shakes the client components — JewelryViewer/Studio —
+out of the server import) and the vitest config already aliases the root → the lightweight
+`core/library` vocab module. Verified the correct target against the canonical refrakt source
+(`../refrakt/packages/refrakt`, v1.14.0) — NOT a blind retarget.
+
+**Verified (fresh subagent):** full suite **508 passed / 5 skipped / 0 failed** (was 3 failing),
+`pnpm build` exits 0 with the import warning gone, no `/server` vocab imports remain repo-wide (only
+the legitimate `generateRender`). **THE MERGE BLOCKER IS CLEARED.**
+
+_(The local pnpm install is still stale — a dangling 1.11.0 file-link — but that's a local-env
+artifact; Vercel does a clean `pnpm install` → 1.14.0, and the fix is correct against both the vitest
+alias and the real 1.14.0 barrel. No forced worktree install needed.)_
+
+---
+
+### (historical) Blocking issue as first flagged — PRE-EXISTING, now RESOLVED above
 
 - **Refrakt `/server` exports (HIGH — resolve before merge).** `src/services/products/productContract.js:12`
   and `src/services/customs/customViewer.js` import `{ VALID_FINISHES, VALID_GEM_PRESETS }` from

@@ -9,7 +9,11 @@
  * publish.
  */
 import { randomUUID } from 'crypto';
-import { VALID_FINISHES, VALID_GEM_PRESETS } from '@crittercodes/refrakt/server';
+// Vocab (VALID_FINISHES/VALID_GEM_PRESETS) is exported from the package ROOT, not /server — the
+// server subpath only carries the render helpers (refrakt 1.14 `/server` = generateRender etc.).
+// The root barrel is `sideEffects:false`, so the Next build tree-shakes the client components out
+// of this import; the vitest alias maps the root to the lightweight core/library vocab module.
+import { VALID_FINISHES, VALID_GEM_PRESETS } from '@crittercodes/refrakt';
 import { gemstoneFromPrice, publicGemstoneSpec } from '@/services/production/designCost';
 
 // Material vocabulary is owned by the engine package (refrakt ≥1.2). These are the
