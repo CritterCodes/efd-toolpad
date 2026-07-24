@@ -74,10 +74,12 @@ Stages (each optional — skip what you don't need):
    `needs_ordering → ordered (vendor, est) → received` per batch/piece — "what castings they have
    and haven't ordered"; EFD/staff see everything. Solo self-casting = an in-house `casting` WO
    (no vendor entry). This finally defines the placeholder Production→Casting board.
-   **Payment-timing sub-question (nothing-is-fronted applied to castings):** when an artisan uses
-   EFD's casting-house account, does the artisan pay EFD (a) UP FRONT at order placement (EFD
-   never fronts the vendor invoice) or (b) at receipt, with the casting GATED before it ships to
-   them (EFD fronts vendor cost for days)? Strict reading of the axiom says (a). Owner call.
+   **Payment timing — DECIDED (owner, 2026-07-23): (b) pay at RECEIPT.** When an artisan orders a
+   casting through EFD's casting-house account, the invoice to the artisan fires when the casting
+   is RECEIVED (actual vendor cost known — no estimating at order time), and the casting is
+   **gated from shipping to them until paid**. EFD floats the vendor cost only for the
+   order→receipt window; the deliverable gate keeps the nothing-is-fronted guarantee where it
+   matters (nothing leaves EFD's hands unpaid).
 2. **Shipping legs:** minimum viable = a `shipments` record per handoff `{ from, to, carrier,
    tracking, pieceIDs, status }` + "piece is physically at X". How much more?
 3. **Materials for runs:** casting metal cost lands on piece COGS how (per-piece split of the
@@ -100,6 +102,21 @@ Stages (each optional — skip what you don't need):
      pay-himself-via-WOs flow already works without the field.
    - `salePayouts.estimatedLaborHoldback`/`actualLaborDeduction` remain what they are today (the
      repair/sales context) — they are NOT used for run labor; runs settle at completion.
+
+## 4b. Settlement direction — Stripe Connect (owner, 2026-07-23)
+
+**Stripe Connect is the designated settlement layer** — adopt when consignment volume warrants,
+but **build the money model Connect-compatible from day one**:
+- Every ledger row that pays a person (`laborLogs`, `salePayouts`, artisan invoices) carries a
+  **per-artisan payee identity** (`payeeUserID` today; a `stripeAccountId` alongside it when
+  Connect onboards) — so flipping to Connect is a settlement swap, not a re-architecture.
+- Target flows: consignment sales = destination charge with EFD's cut as the application fee
+  (automates salePayouts→payroll and gets 1099s handled); laborer payouts = optional transfers
+  at QC-release; **artisan billing at WO completion stays plain Stripe invoices** (the customs
+  rail generalized) — Connect not required there.
+- `laborLogs`/`salePayouts` remain the SOURCE OF TRUTH; Connect only moves the money. Release
+  gates (pay-at-completion, casting-at-receipt) are enforced by the pipeline, never assumed of
+  Stripe.
 
 ## 5. Sequencing vs gemstone Phase 3
 Both need the same core: **hardened non-order production entry + claim-time gem coupling**.
