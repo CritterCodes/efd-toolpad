@@ -266,6 +266,26 @@ skipped / 3 failed (same 3 pre-existing refrakt; zero new); `pnpm build` clean, 
   shop customizer + at-sale payout are their consumers).
 - `spawnRunWorkOrders` isn't idempotent w.r.t. gem claims (pre-existing non-idempotency).
 
+## S9 — Policy pages + versioned acceptance ✅ VERIFIED (2026-07-24)
+
+**Shipped (all-additive):**
+- `src/services/policies/policyRegistry.js` (+ test, 8 pure tests) — `POLICIES` (artisan-terms v0.1,
+  11 faithful section summaries), `currentVersion`, `needsAcceptance` (re-prompts on version bump),
+  `applyAcceptance` (idempotent per docId), `publicPolicy` (strips sourceDoc).
+- `src/app/api/policies/route.js` (GET — current policies + per-user acceptance state).
+- `src/app/api/policies/[docId]/accept/route.js` (POST — records `users.agreements[]`; 404 unknown,
+  409 stale version).
+- `src/app/dashboard/policies/page.js` — renders sections + version/draft badges; Accept / "Accept
+  updated terms" only when needed.
+
+**Verifier verdict:** PASS. registry 8/8; full suite 498 passed / 5 skipped / 3 failed (same 3
+pre-existing refrakt; zero new); `pnpm build` compiles routes + page; only-additive.
+
+**Follow-up (non-blocking):** the acceptance GATE (`needsAcceptance`) is exposed via GET + the page
+but not yet enforced as a hard server gate on every artisan mutation — wiring it into the artisan
+feature guards (like the freeze check) is the integration step. Terms doc is `status:'draft'` —
+version-bump to 1.0 after the attorney review.
+
 ## S1 — Transactional core (continued)
 
 **Boundary (deliberate):** WorkOrder spawning is NOT inside the mint transaction (WorkOrdersModel
