@@ -16,6 +16,8 @@ import { deriveFinish, composeMetalKey } from '@/services/production/variantMeta
 
 const Studio = dynamic(() => import('@crittercodes/refrakt').then((m) => m.Studio), { ssr: false });
 
+import { allowedSpeciesForLink } from '@/services/production/gemLinks';
+
 export default function VariantConfigurePage() {
   const { dropId, designId, variantId } = useParams();
   const router = useRouter();
@@ -45,6 +47,37 @@ export default function VariantConfigurePage() {
   const variant = (design?.variants || []).find((v) => v.variantId === variantId) || null;
   const glbUrl = design?.designModel?.glbUrl || null;
   const initialConfig = variant?.viewerConfig || design?.designModel || null;
+
+  // REFRAKT 1.14 slot constraints (the PREVENTION layer): for each design gem link, the linked
+  // slot's species picker is limited to the cutter's active variants — the jeweler cannot assign
+  // a species the gem design doesn't offer. Host computes; REFRAKT stays ignorant of gem designs.
+  const [slotConstraints, setSlotConstraints] = useState([]);
+  useEffect(() => {
+    const links = design?.gemLinks || [];
+    if (!links.length) { setSlotConstraints([]); return; }
+    let cancelled = false;
+    (async () => {
+      const out = [];
+      for (const link of links) {
+        try {
+          const r = await fetch(`/api/production/designs/${link.gemDesignId}`);
+          if (!r.ok) continue;
+          const gem = await r.json();
+          const allowed = allowedSpeciesForLink(link, gem);
+          if (allowed.length) {
+            out.push({
+              nameContains: link.slot?.nameContains,
+              match: link.slot?.match || 'exact',
+              allowedGemPresets: allowed,
+              reason: `Linked to gem design “${gem.name}” — species come from its active variants`,
+            });
+          }
+        } catch { /* constraint stays off for this link; the save backstop still guards */ }
+      }
+      if (!cancelled) setSlotConstraints(out);
+    })();
+    return () => { cancelled = true; };
+  }, [design]);
 
   // Studio emits the full viewer config on Save → store it on THIS variant, and derive
   // finish → recompose the pricing metalKey (karat stays whatever the variant has).
@@ -86,6 +119,7 @@ export default function VariantConfigurePage() {
     <Studio
       glbUrl={glbUrl}
       initialConfig={initialConfig}
+      slotConstraints={slotConstraints}
       saveLabel="Save variant look"
       onClose={back}
       onSave={onSave}
