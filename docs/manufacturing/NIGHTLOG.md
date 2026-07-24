@@ -286,6 +286,20 @@ but not yet enforced as a hard server gate on every artisan mutation — wiring 
 feature guards (like the freeze check) is the integration step. Terms doc is `status:'draft'` —
 version-bump to 1.0 after the attorney review.
 
+## S10 (stretch) — My Drops collaborator management ✅ VERIFIED (2026-07-24)
+
+**Shipped (all-additive):** `src/services/production/dropCollaborators.js` (+ test, 7 pure tests) —
+`applyCollaboratorChange` (add idempotent/dedup/drop-falsy, never adds the owner, remove no-op);
+`POST /api/production/drops/[dropID]/collaborators` (canManageDrop — owner/staff; only touches
+`collaborators`, never release/ownership; IDOR-clean); `src/app/dashboard/artisan/drops/page.js`
+(My Drops list + collaborator add/remove for owned drops).
+
+**Verifier verdict:** PASS. dropCollaborators 7/7; full suite 505 passed / 5 skipped / 3 failed
+(same 3 pre-existing refrakt; zero new); `pnpm build` compiles route + page; only-additive.
+
+**Follow-up (non-blocking):** the helper drops falsy ids but doesn't trim whitespace (the page
+guards it; a direct API caller could insert a blank-looking collaborator).
+
 ## S1 — Transactional core (continued)
 
 **Boundary (deliberate):** WorkOrder spawning is NOT inside the mint transaction (WorkOrdersModel
