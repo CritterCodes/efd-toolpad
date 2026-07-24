@@ -97,8 +97,13 @@ Stages (each optional — skip what you don't need):
    gets a **48-hour dispute window** (a delivered casting that fails their inspection can be
    disputed; auto-accept when the window lapses). Once accepted, damage during later work is the
    OWNING artisan's liability — with a built-in avenue to **scrap the piece, RELEASING its
-   edition slot (number retired, replacement gets a fresh number), and order another**.
-   → the edition engine needs scrap-releases-slot (pre-sale scrap only).
+   edition slot and REUSING its number, and order another**.
+   **Numbering — DECIDED (owner, 2026-07-24, supersedes the earlier "fresh number"):** a pre-sale
+   scrap never reached a customer (it was a manufacturing failure), so its number goes back into a
+   reuse pool and the replacement takes it — a limited-N edition stays numbered **1..N forever**
+   (no "#11 of 10" in anyone's collection). → the edition engine frees the number on scrap/cancel
+   (nulls it on the scrapped piece, keeps `scrappedEditionNumber` for audit) and the next mint
+   draws freed numbers (lowest first) before a fresh one. Pre-sale scrap only. **SHIPPED (S1).**
 2. **Shipping legs:** minimum viable = a `shipments` record per handoff `{ from, to, carrier,
    tracking, pieceIDs, status }` + "piece is physically at X".
    **Billing — DECIDED (owner, 2026-07-23):** the owning artisan pays shipping as a line on

@@ -50,6 +50,14 @@ describe('production run transactional core (real MongoDB)', () => {
     client = new MongoClient(replicaSet.getUri());
     await client.connect();
     database = client.db('production-run-test');
+    // Create the REAL pieces index (PiecesModel.ensureIndexes) so numbering collisions surface in
+    // tests: unique {designID, editionNumber} PARTIAL on editionNumber being a number. Partial (not
+    // sparse) is required — a compound sparse index still collides on {designID, null} for every
+    // unnumbered piece (scrapped/cancelled/planned), because designID is always present.
+    await database.collection('pieces').createIndex(
+      { designID: 1, editionNumber: 1 },
+      { unique: true, partialFilterExpression: { editionNumber: { $type: 'number' } } },
+    );
   }, 120000);
 
   afterAll(async () => {
@@ -127,7 +135,7 @@ describe('production run transactional core (real MongoDB)', () => {
     expect(gemAfter.edition.allocated).toBe(0);
   });
 
-  it('AC4 scrap releases the slot + gem, retires the number; replacement gets a FRESH number', async () => {
+  it('AC4 scrap releases the slot + gem + frees the number; replacement REUSES the scrapped number', async () => {
     await database.collection('designs').insertOne({
       designID: 'gem-x', variants: [{ variantId: 'gv', active: true }],
       edition: { type: 'limited', limit: 5, allocated: 0, committed: 0, nextNumber: 1 },
@@ -145,17 +153,44 @@ describe('production run transactional core (real MongoDB)', () => {
     await scrapPiece({ client, database, pieceID: victim.pieceID, reason: 'casting failed' });
     const scrapped = await database.collection('pieces').findOne({ pieceID: victim.pieceID });
     expect(scrapped.status).toBe('scrapped');
+    expect(scrapped.editionNumber).toBeUndefined();         // field REMOVED (not null) — sparse-index-safe
+    expect(scrapped.scrappedEditionNumber).toBe(2);         // retained for audit
     const design = await readDesign('d-scrap');
     expect(design.edition.allocated).toBe(2);               // slot released
-    expect(design.edition.nextNumber).toBe(4);              // number NOT reused — retired
+    expect(design.edition.freedNumbers).toEqual([2]);       // #2 back in the reuse pool
+    expect(design.edition.nextNumber).toBe(4);              // fresh counter untouched
     expect(await readDesign('gem-x').then((d) => d.edition.committed)).toBe(2);  // gem released
 
-    // Replacement mint draws nextNumber (4), never the retired #2.
+    // Replacement mint REUSES #2 (a limited-3 edition stays 1..3, never #4-of-3).
     const { pieces: repl } = await mintRun({
       client, database, designID: 'd-scrap', createdBy: 'a', items: [{ variantId: 'v1', qty: 1 }],
     });
-    expect(repl[0].editionNumber).toBe(4);
-    expect(await readDesign('d-scrap').then((d) => d.edition)).toMatchObject({ allocated: 3, nextNumber: 5 });
+    expect(repl[0].editionNumber).toBe(2);
+    const after = await readDesign('d-scrap');
+    expect(after.edition).toMatchObject({ allocated: 3, nextNumber: 4 });  // no fresh number drawn
+    expect(after.edition.freedNumbers).toEqual([]);          // pool drained
+    // The three live pieces are exactly {1,2,3} — no gaps, no >N numbers.
+    const live = await database.collection('pieces').find({ designID: 'd-scrap', status: 'casting_ordered' }).toArray();
+    expect(live.map((p) => p.editionNumber).sort((x, y) => x - y)).toEqual([1, 2, 3]);
+  });
+
+  it('AC4 scraps MULTIPLE pieces of one design without dup-keying the sparse index, both reused', async () => {
+    await seedDesign('d-multiscrap', { limit: 4 });
+    const { pieces } = await mintRun({ client, database, designID: 'd-multiscrap', createdBy: 'a', items: [{ variantId: 'v1', qty: 4 }] });
+    const p2 = pieces.find((p) => p.editionNumber === 2);
+    const p3 = pieces.find((p) => p.editionNumber === 3);
+    // Two scraps of the SAME design — the bug was a 2nd {designID, editionNumber:null} dup-key.
+    await scrapPiece({ client, database, pieceID: p2.pieceID, reason: 'a' });
+    await scrapPiece({ client, database, pieceID: p3.pieceID, reason: 'b' });
+    const design = await readDesign('d-multiscrap');
+    expect(design.edition.allocated).toBe(2);
+    expect([...design.edition.freedNumbers].sort((x, y) => x - y)).toEqual([2, 3]);
+    // Both freed numbers are reused by replacements (lowest first) — still a clean 1..4.
+    const { pieces: r1 } = await mintRun({ client, database, designID: 'd-multiscrap', createdBy: 'a', items: [{ variantId: 'v1', qty: 2 }] });
+    expect(r1.map((p) => p.editionNumber).sort((x, y) => x - y)).toEqual([2, 3]);
+    const live = await database.collection('pieces').find({ designID: 'd-multiscrap', status: 'casting_ordered' }).toArray();
+    expect(live.map((p) => p.editionNumber).sort((x, y) => x - y)).toEqual([1, 2, 3, 4]);
+    expect(await readDesign('d-multiscrap').then((d) => d.edition.nextNumber)).toBe(5);  // never exceeded N+1
   });
 
   it('AC4 refuses to scrap a sold piece', async () => {

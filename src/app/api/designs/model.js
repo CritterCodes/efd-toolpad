@@ -110,7 +110,7 @@ export default class DesignsModel {
       tags: Array.isArray(data.tags) ? data.tags : [], metadata: data.metadata ?? {},
       primaryArtisanId: data.primaryArtisanId ?? null,
       collaborators: Array.isArray(data.collaborators) ? data.collaborators : [],
-      edition: data.edition ?? { type: EDITION_TYPE.UNLIMITED, allocated: 0, committed: 0, nextNumber: 1 },
+      edition: data.edition ?? { type: EDITION_TYPE.UNLIMITED, allocated: 0, committed: 0, nextNumber: 1, freedNumbers: [] },
       productionMethod: data.productionMethod ?? PRODUCTION_METHOD.CAD_CAST,
       intake: data.intake ?? {}, cadRevisions: Array.isArray(data.cadRevisions) ? data.cadRevisions : [],
       referenceImages: Array.isArray(data.referenceImages) ? data.referenceImages : [],

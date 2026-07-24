@@ -100,13 +100,29 @@ alias and the real 1.14.0 barrel. No forced worktree install needed.)_
 the pre-existing refrakt issue above); `pnpm build` clean. Adversarial probes on atomicity,
 numbering uniqueness, gem-coupling rollback, scrap-retire, and concurrency all held.
 
-**PROPOSED (overnight) — flagged for morning:**
-- **Scrap numbering consequence:** scrap releases the edition SLOT (allocated−1) but never rewinds
-  `nextNumber`, so the retired number is never reused and replacements draw fresh higher numbers.
-  For a limited-N edition this means edition *numbers* can exceed N over time (e.g. a scrapped #3
-  in a limited-10 yields a live set …,#10,#11), while the live *quantity* still never exceeds N.
-  This is faithful to PRODUCTION_RUNS.md §4.1 ("number retired, replacement gets a fresh number")
-  but the ">N numbering" optics are worth an explicit owner confirm.
+**SCRAP NUMBERING — REVISED (owner, 2026-07-24): scrap REUSES the number.** The original
+fresh-number design produced ">N numbering" (a scrapped #3 → replacement #11 in a limited-10),
+which reads as "#11 of 10" in a collection — the owner rightly rejected it. Now: scrap/cancel frees
+the number into `edition.freedNumbers` (and `$unset`s it on the scrapped piece, keeping
+`scrappedEditionNumber` for audit); the next mint draws freed numbers (lowest first) before a fresh
+one, so a limited-N edition stays **1..N forever**. Concurrency-safe under the transaction (a raced
+freed-pool consume hits a write conflict → withTransaction re-runs).
+
+**Two verifier rounds hardened this (the discipline paid off again):**
+- Round 1 caught that `editionNumber: null` collided with the `{designID, editionNumber}` unique
+  index on the 2nd scrap/cancel of a design.
+- Round 2 caught that `$unset` alone was ALSO inert: the index was **compound sparse**, and a
+  compound sparse index only omits a doc missing EVERY key — `designID` is always present, so an
+  unset/null `editionNumber` still indexed as `{designID, null}` and collided.
+- **Real fix:** the index is now **PARTIAL** — `unique` scoped to `partialFilterExpression:
+  { editionNumber: { $type: 'number' } }` (in `PiecesModel.ensureIndexes`). Uniqueness holds only
+  among numbered pieces; scrapped/cancelled/planned pieces are excluded. The `$unset` stays (clean).
+  Migration `scripts/migrations/pp4-piece-edition-partial-index.mjs` reshapes sparse→partial
+  (idempotent, dry-run capable). The test harness now creates the REAL partial index so this class
+  of bug can't hide again, + a double-scrap test.
+- **Bonus fix:** this ALSO closes a latent PRE-EXISTING collision — `claimMadeToOrder` inserts
+  planned MTO pieces with `editionNumber: null`, which would have dup-keyed two concurrent MTO
+  claims on one design under the old sparse index. The partial index excludes them too.
 
 ## S2 — Ledger fields (Connect-compat) ✅ VERIFIED (2026-07-24)
 

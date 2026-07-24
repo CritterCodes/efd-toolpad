@@ -163,17 +163,31 @@ async function mintPiecesTx({ database, designID, items, createdBy, resolvedConf
   const aggregateClaims = aggregateGemClaims(pieceSpecs.map((p) => p.gemClaims));
   await reserveGemEditions({ database, gemClaims: aggregateClaims, session });
 
-  // Block-allocate `total` edition numbers on the design, atomically under the cap.
+  // Edition numbering: REUSE numbers freed by pre-sale scraps/cancels first (lowest first), then
+  // draw fresh from nextNumber. This keeps a limited-N edition numbered 1..N forever — a scrapped
+  // #3's replacement becomes #3 again, never #11 (§4.1). Under the transaction, a concurrent mint
+  // that raced on the same freed pool hits a write conflict and withTransaction re-runs this.
+  const freed = (design.edition?.freedNumbers || []).map(Number).filter((n) => n > 0).sort((a, b) => a - b);
+  const reuseCount = Math.min(total, freed.length);
+  const reusedNums = freed.slice(0, reuseCount);
+  const leftoverFreed = freed.slice(reuseCount);
+  const remaining = total - reuseCount;
+
   const before = await designs.findOneAndUpdate(
     canFitFilter(designID, total),
-    { $inc: { 'edition.allocated': total, 'edition.nextNumber': total }, $set: { updatedAt: new Date() } },
+    {
+      $inc: { 'edition.allocated': total, 'edition.nextNumber': remaining },
+      $set: { 'edition.freedNumbers': leftoverFreed, updatedAt: new Date() },
+    },
     { returnDocument: 'before', session },
   );
   if (!before) throw new EditionCapacityError(`design ${designID} edition cannot absorb ${total} pieces`);
   const startNumber = before.edition?.nextNumber ?? 1;
+  const freshNums = Array.from({ length: remaining }, (_, i) => startNumber + i);
+  const editionNumbers = [...reusedNums, ...freshNums];   // length === total
 
   const pieceDocs = pieceSpecs.map((spec, i) => buildPieceDoc({
-    designID, design, variantId: spec.variantId, editionNumber: startNumber + i,
+    designID, design, variantId: spec.variantId, editionNumber: editionNumbers[i],
     resolvedConfiguration: spec.resolvedConfiguration, gemClaims: spec.gemClaims, runId: runId ?? null, createdBy,
   }));
   return { pieceDocs, aggregateClaims };
@@ -239,17 +253,25 @@ export async function scrapPieceTx({ database, pieceID, reason = null, session }
   const TERMINAL = ['sold', 'reserved', 'scrapped', 'cancelled'];
   if (TERMINAL.includes(piece.status)) throw new EditionCapacityError(`cannot scrap a ${piece.status} piece (pre-sale only)`);
 
+  // REMOVE the scrapped piece's editionNumber (keeping it as `scrappedEditionNumber` for audit).
+  // Must `$unset`, not set null: the {designID, editionNumber} index is SPARSE-unique, which only
+  // exempts docs that OMIT the field — a present `null` is still indexed, so a 2nd scrap of the
+  // same design would collide. Removing the field frees the number for reuse (a pre-sale scrap
+  // never reached a customer, so its number is REUSED by the replacement; edition stays 1..N §4.1).
   await pieces.updateOne(
     { pieceID },
-    { $set: { status: 'scrapped', scrappedAt: new Date(), scrapReason: reason, updatedAt: new Date() } },
+    {
+      $set: { status: 'scrapped', scrappedEditionNumber: piece.editionNumber ?? null, scrappedAt: new Date(), scrapReason: reason, updatedAt: new Date() },
+      $unset: { editionNumber: '' },
+    },
     { session },
   );
-  // Release the edition SLOT (frees the cap so a replacement can be minted) but NOT nextNumber —
-  // the scrapped number is retired; a replacement mint draws a fresh, higher number (§4.1).
+  // Release the edition SLOT (frees the cap) and return the number to the design's reuse pool so
+  // the next mint draws it before a fresh one.
   if (piece.editionNumber != null) {
     await designs.updateOne(
       { designID: piece.designID, 'edition.allocated': { $gte: 1 } },
-      { $inc: { 'edition.allocated': -1 }, $set: { updatedAt: new Date() } },
+      { $inc: { 'edition.allocated': -1 }, $addToSet: { 'edition.freedNumbers': piece.editionNumber }, $set: { updatedAt: new Date() } },
       { session },
     );
   } else {
@@ -285,13 +307,17 @@ export async function cancelRunTx({ database, runId, session }) {
     if (TERMINAL.includes(piece.status)) { skipped.push(pieceID); continue; }
     await pieces.updateOne(
       { pieceID },
-      { $set: { status: 'cancelled', cancelledAt: new Date(), updatedAt: new Date() } },
+      {
+        // $unset (not null) — same sparse-unique-index reason as scrapPieceTx.
+        $set: { status: 'cancelled', cancelledEditionNumber: piece.editionNumber ?? null, cancelledAt: new Date(), updatedAt: new Date() },
+        $unset: { editionNumber: '' },
+      },
       { session },
     );
     if (piece.editionNumber != null) {
       await designs.updateOne(
         { designID: piece.designID, 'edition.allocated': { $gte: 1 } },
-        { $inc: { 'edition.allocated': -1 }, $set: { updatedAt: new Date() } },
+        { $inc: { 'edition.allocated': -1 }, $addToSet: { 'edition.freedNumbers': piece.editionNumber }, $set: { updatedAt: new Date() } },
         { session },
       );
     } else {
