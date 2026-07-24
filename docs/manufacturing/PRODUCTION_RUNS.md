@@ -85,12 +85,28 @@ Stages (each optional — skip what you don't need):
    `needs_ordering → ordered (vendor, est) → received` per batch/piece — "what castings they have
    and haven't ordered"; EFD/staff see everything. Solo self-casting = an in-house `casting` WO
    (no vendor entry). This finally defines the placeholder Production→Casting board.
-   **Payment timing — DECIDED (owner, 2026-07-23): (b) pay at RECEIPT.** When an artisan orders a
-   casting through EFD's casting-house account, the invoice to the artisan fires when the casting
-   is RECEIVED (actual vendor cost known — no estimating at order time), and the casting is
-   **gated from shipping to them until paid**. EFD floats the vendor cost only for the
-   order→receipt window; the deliverable gate keeps the nothing-is-fronted guarantee where it
-   matters (nothing leaves EFD's hands unpaid).
+   **CASTING MODEL — REFINED (owner, 2026-07-24, supersedes the single-batch model built in S4):**
+   Casting is **per-DESIGN-order, per-VARIANT/METAL work orders** — NOT one batch over the whole
+   run. Each casting WO carries its **metal type** (so ordering 1× each of 5 variants in 5 metals
+   = 5 casting WOs, each stamped 925/10kYG/10kWG/14kYG/14kWG — the caster can't accidentally make
+   5× silver). The WOs **compile into ONE invoice at completion, exactly like repairs** (itemized
+   list of WOs → billed to the purchasing artisan).
+   - **PRICE LOCK (new decision):** the caster **locks the price when they've ordered the material
+     OR are otherwise ready to fulfill** (covers "need to order the gold" and "already have the
+     gold, ready to lock"). Until the lock, the purchasing peer's number is an **ESTIMATE with
+     explicit up/down variance — the UI must label it as such.** After lock it's firm and is what
+     the completion invoice bills. (This supersedes the earlier "actual cost known at receipt" —
+     the lock, not receipt, is when the price becomes firm.)
+   - **COGS routing:** each casting WO routes to the VARIANT it matches; its cost splits **per
+     piece within that WO's variant group** (2× 925 silver at $200 → $100 COGS on each of those
+     two pieces). Not split across the whole run.
+   - Casting still **gated from shipping to the artisan until the compiled invoice is paid**
+     (nothing-is-fronted).
+   **OPEN SUB-QUESTIONS (2026-07-24, for build):** (a) model casting as a `casting`-discipline WO
+   on the existing workOrders spine (compiled like repairs) — replacing the S4 `castingBatches`
+   collection? (b) caster assignment — a casting queue the remote casting artisan claims (lane),
+   or the purchasing artisan assigns a specific caster/vendor, or both per WO? (c) solo self-cast
+   bills nothing (self scope), confirmed?
    **Casting liability — DECIDED (owner, 2026-07-23):** casting failures are the CASTER's
    liability — "they paid for 10, they get 10"; how many casting sessions that takes is the
    caster's business (vendor and in-house casting WO alike). After delivery the ordering artisan
