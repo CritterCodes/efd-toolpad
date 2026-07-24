@@ -62,11 +62,15 @@ Stages (each optional — skip what you don't need):
   thickness, settings the right size") to protect the EFD name — it does NOT judge whether the
   job meets the design request. The WO's *customer* (the client, or the run-owning artisan) is
   the ACCEPTANCE gate ("yes, this LOOKS like what I expected"). Two distinct gates.
-  PROPOSED (pending owner): for solo runs the standards gate moves to RELEASE — drop release is
-  already staff-only, so solo work self-certifies at the WO and gets its standards review before
-  it can go live in the shop; EFD-paid (outsourced) work keeps peer QC on the WO itself, and the
-  completion invoice fires at standards-QC pass (acceptance is covered by the post-delivery
-  dispute window, §4.1).
+  **DECIDED (owner, 2026-07-23):** for solo runs the standards gate moves to RELEASE — drop
+  release is already staff-only, so solo work self-certifies at the WO and gets its standards
+  review before it can go live in the shop; EFD-paid (outsourced) work keeps peer QC on the WO,
+  and the completion invoice fires at standards-QC pass (acceptance = the post-delivery dispute
+  window, §4.1). **Remote-worker refinement (owner):** EFD's inhouse jewelers don't cast — the
+  one casting artisan works remote in his own shop and must QC his own work; same for a remote
+  jeweler benching in his own studio. For remote solo-discipline work, peer standards-QC is
+  replaced by **self-certification + the PURCHASING artisan's acceptance/dispute window** as the
+  check.
 - **Piece labor QC:** move-to-QC → someone completes QC. Same question, lighter stakes (the
   pendingQc release just needs a clicker — self-complete with an audit stamp is probably fine).
 - **Gem coupling:** run minting must also claim linked gem editions (same transaction) — this is
@@ -100,13 +104,15 @@ Stages (each optional — skip what you don't need):
    **Billing — DECIDED (owner, 2026-07-23):** the owning artisan pays shipping as a line on
    their invoice; the person doing the packing/shipping gets that labor via payroll like any
    other labor. **NOTHING SHIPS UNPAID** — every deliverable ships only after its invoice is
-   paid ("you order a casting, invoice paid, then shipped"). Insurance / custody liability while
-   a piece sits at another artisan's bench: OPEN (owner unsure — recommendation in probes).
-3. **Materials — DECIDED (owner, 2026-07-23):** OFFSITE artisan laborers buy their own bench
-   materials and are reimbursed through payroll; ONSITE EFD jewelers are supplied materials (no
-   reimbursement). Probe pending: does the material cost pass through to the owning artisan's
-   completion bill in both cases, or is onsite-supplied material EFD overhead? Casting metal →
-   piece COGS split still open.
+   paid ("you order a casting, invoice paid, then shipped").
+   **Insurance/custody — DECIDED (owner, 2026-07-23):** declared-value insurance on every leg,
+   billed through like the postage; while a piece sits at another artisan's bench, that artisan
+   is the bailee (liable for it). Both go in the artisan agreement.
+3. **Materials — DECIDED (owner, 2026-07-23):** the owning artisan pays for ALL bench materials
+   their piece consumes (solder, gemstones, anything) — **EFD collects labor + materials on the
+   completion invoice**. ONSITE EFD jewelers are supplied from EFD stock (EFD keeps the
+   materials money); OFFSITE jewelers buy their own materials and are paid for them through
+   payroll. Casting metal → piece COGS split still open.
 4. ~~Who pays whom~~ **DECIDED (owner, 2026-07-23) — the ledger split + PAY-AT-COMPLETION.**
    Every labor log gains a `payer` scope; the rule is mechanical (laborer == the piece's owning
    artisan → `self`, else → `efd`):
@@ -148,12 +154,19 @@ but **build the money model Connect-compatible from day one**:
   designer's profile, bench = est. hours × rate) and the artisan ACCEPTS that quote at creation;
   the completion bill is the actuals, anchored to the accepted estimate.
 - **Unpaid bill ⇒ FREEZE:** all run/WO activity for that artisan halts until the bill is paid.
-- **Unpaid past X days ⇒ FORFEITURE:** the work is forfeited — EFD gains the right to produce
-  the design / sell the piece to recover funds. Recommended shape: the classic **artisan's-lien
-  model** — recovery is DEBT-SCOPED (sale proceeds cover the bill + reasonable costs; surplus is
-  credited back to the artisan), and the whole clause lives in the signed artisan agreement so
-  it's contractually enforceable. X + reminder cadence: open (suggested 60 days, reminders at
-  7/30, freeze immediate).
+- **Unpaid past X days ⇒ FORFEITURE — TWO-TIER rule (owner scenario, 2026-07-23):**
+  - **Forfeited PIECE (a physical asset exists):** classic artisan's-lien sale — EFD sells the
+    piece AS-IS; proceeds cover the bill + reasonable costs; surplus credited back to the
+    artisan. The surplus rule exists here because the artisan owned the piece and its embedded
+    value.
+  - **Forfeited DESIGN RIGHTS (e.g. a stiffed CAD bill):** the design transfers to EFD **in
+    satisfaction of the debt** — debt wiped, no further claims in either direction. Everything
+    downstream is EFD's own venture: EFD lists it as a concept, funds casting/bench from sale
+    proceeds, keeps ALL profit (this is just §4e EFD-owned-run economics). The surplus-back rule
+    applies ONLY to liquidating the artisan's own forfeited asset — NEVER to profits from
+    production EFD later funds at its own risk.
+  Both clauses live in the signed artisan agreement. X + cadence: open (suggested 60 days,
+  reminders at 7/30, freeze immediate).
 
 ## 4d. Gems inside jewelry production (owner, 2026-07-23)
 
@@ -163,16 +176,16 @@ on-ramp), casting to the casting board (vendor order or a casting WO the artisan
 themself). **Production run:** identical flow, triggered by the run instead of a sale. In both:
 **EFD fronts the ROUGH if needed; the owning jeweler pays EFD for the stone when the cut is
 COMPLETED** (pay-at-completion; stone gated until paid); the cutter is paid through the gem
-sale. Probe pending: cutter's payout = their gem price via the consignment rail (EFD cut
-applies), net of any EFD-fronted rough?
+sale — **DECIDED (owner, 2026-07-23): the cutter's payout runs through the consignment rail NET
+of any EFD-fronted rough** ("deduct the fronted rough").
 
 ## 4e. Who can start a run (owner, 2026-07-23)
 
 - **Own design:** the design's owning artisan (or staff).
 - **Collab design:** **dual-signature** of the collaborators — a collab run NEEDS an agreement,
-  because *who funds it changes the split* (the funder took on more risk). Probe pending:
-  v1 = single payer (the run creator) + a dual-signed declared payout split stored on the run
-  record; defer any contribution-weighted formula.
+  because *who funds it changes the split* (the funder took on more risk). **DECIDED (owner,
+  2026-07-23): v1 = single payer (the run creator) + a dual-signed declared payout split stored
+  on the run record**; contribution-weighted formulas deferred.
 - **EFD-owned drops:** EFD can run a design in its drops — EFD funds it, **owns the product**,
   and pays the designing artisan for their inputs (e.g. CAD labor) plus the **right to the bench
   labor** (first refusal on the bench WOs before they hit the queue). On sale EFD "pays out the
@@ -186,22 +199,14 @@ per-customer **exemption certificates** and computes per-state rates/registratio
 (and Connect handles 1099s). Build: permit on the artisan profile → exemption flag on their
 Stripe customer; artisan invoices run through Stripe Tax.
 
-## 4g. Remaining open probes (2026-07-23)
+## 4g. Remaining open probes (updated 2026-07-23, round 2)
 
-1. Materials pass-through: does material cost land on the owning artisan's completion bill in
-   both cases (offsite reimbursed→billed through; onsite supplied→billed), or is onsite-supplied
-   material EFD overhead? (§4.3)
-2. Cutter's payout when another artisan consumes the gem: gem price via consignment rail (EFD
-   cut applies), net of EFD-fronted rough? (§4d)
-3. Standards-gate placement for solo work: at drop release (already staff-only) vs on every WO;
-   invoice fires at standards-QC pass. (§3)
-4. EFD-run pieces: designing artisan gets labor only, or also a per-piece design royalty? (§4e)
-5. Collab-run v1 shape: single payer + dual-signed declared split on the run record. (§4e)
-6. Forfeiture X days + lien scope (debt-scoped recovery, surplus credited back) + artisan
-   agreement language. (§4c)
-7. Transit insurance + bench custody liability (proposal: declared-value insurance per leg,
-   billed through; a piece at another artisan's bench = that artisan is the bailee/liable). (§4.2)
-8. Casting metal cost → piece COGS split. (§4.3)
+1. EFD-run pieces: designing artisan gets labor only, or also a per-piece design royalty? (§4e)
+2. Forfeiture timing: X days + reminder cadence (suggested 60d, reminders at 7/30, freeze
+   immediate). (§4c)
+3. Casting metal cost → piece COGS split. (§4.3)
+4. Artisan agreement drafting (legal, not software): lien/forfeiture clauses, bailee liability,
+   self-certification terms. (§4c, §4.2, §3)
 
 ## 5. Sequencing vs gemstone Phase 3
 Both need the same core: **hardened non-order production entry + claim-time gem coupling**.
