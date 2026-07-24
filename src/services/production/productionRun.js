@@ -322,16 +322,30 @@ export async function spawnRunWorkOrders(run, { assignToUserID = null } = {}) {
   const { default: DesignsModel } = await import('@/app/api/designs/model');
   const { default: PiecesModel } = await import('@/app/api/pieces/model');
   const { spawnPieceWorkOrders } = await import('@/services/production/pieceRouting');
+  const { claimGemsForPiece } = await import('@/services/production/gemClaim');
+  const { db } = await import('@/lib/database');
+  const database = await db.connect();
   const design = await DesignsModel.findById(run.designID);
   const routing = design?.routing || [];
   const assignedToUserID = run.solo ? (assignToUserID || run.createdBy) : null;
+
+  // Load the linked gem designs this run's pieces consume (for gem_cutting targets).
+  const gemIds = [...new Set((run.gemClaims || []).map((c) => c.gemDesignId).filter(Boolean))];
+  const gemDocs = Object.fromEntries(
+    (await Promise.all(gemIds.map(async (id) => [id, await DesignsModel.findById(id)]))).filter(([, d]) => d),
+  );
+
   for (const pieceID of run.pieceIDs || []) {
     const piece = await PiecesModel.findById(pieceID);
     if (!piece) continue;
     const workOrderIDs = await spawnPieceWorkOrders(piece, routing, {
       label: design?.name || 'Run piece', createdBy: run.createdBy, assignedToUserID,
     });
-    await PiecesModel.setWorkOrders(pieceID, workOrderIDs);
+    // Gemstone Phase 3: for gem-linked pieces, claim each gem edition + spawn its gem_cutting WO.
+    const gemWoIDs = (piece.gemClaims || []).length
+      ? await claimGemsForPiece({ database, piece, gemDocs, createdBy: run.createdBy })
+      : [];
+    await PiecesModel.setWorkOrders(pieceID, [...workOrderIDs, ...gemWoIDs]);
   }
 }
 

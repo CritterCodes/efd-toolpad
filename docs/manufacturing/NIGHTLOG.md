@@ -241,6 +241,31 @@ compiles all routes + the page; no module cycle; IDOR trace clean.
 - Live preview verification of the My Runs page (auth to dev harness) — deferred; verified
   structurally + by build here.
 
+## S8 — Gemstone Phase 3 claim-time ✅ VERIFIED (2026-07-24)
+
+**Shipped:** `src/services/production/gemClaim.js` (+ test, 11 pure tests) —
+- Pure: `repriceGemAtClaim` (authoritative reprice at actual carat, strict tiers → special request
+  beyond), `gemClaimWithinCaps` (min of maxPieces/lotQty), `cutterPayoutNetOfRough` (§4d — gross −
+  consignment − fronted rough, floored), `gemCutTarget` (species/color/sizeMode/carat/mm/treatment).
+- DB: `claimGemEdition` (atomic committed→allocated, guarded — the reservation-to-cut conversion),
+  `spawnGemCuttingWO` (first spawner into the `gem_cutting` lane; target in a task; assigned to the
+  cutter), `claimGemsForPiece`.
+- Wired into `spawnRunWorkOrders` (S7): gem-linked run pieces now claim each gem edition + spawn a
+  gem_cutting WO at production start. Additive — runs with no gems unaffected.
+
+**Verifier verdict:** PASS. gemClaim 11/11; S1+S7 run tests still pass; full suite 490 passed / 5
+skipped / 3 failed (same 3 pre-existing refrakt; zero new); `pnpm build` clean, no cycle; reprice
+(648) + payout (500) math independently confirmed.
+
+**Follow-ups (non-blocking, flagged by the S8 verifier):**
+- **Scrap-after-claim gem leak (real, cross-phase):** S1's `releaseGemEditions` decrements gem
+  `committed`; once S8 converts a gem committed→allocated, a later scrap of its jewelry piece finds
+  committed=0 and no-ops, leaving the gem's `allocated` inflated. Needs a claim-aware release
+  (release from allocated if the gem was already claimed) — a later phase closes it.
+- Pure reprice/caps/payout are tested but not yet invoked from the claim path (by design — Phase 4
+  shop customizer + at-sale payout are their consumers).
+- `spawnRunWorkOrders` isn't idempotent w.r.t. gem claims (pre-existing non-idempotency).
+
 ## S1 — Transactional core (continued)
 
 **Boundary (deliberate):** WorkOrder spawning is NOT inside the mint transaction (WorkOrdersModel
