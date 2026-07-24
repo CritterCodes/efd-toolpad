@@ -14,6 +14,10 @@ const Constants = {
     DROPS_COLLECTION: 'drops',
     DESIGNS_COLLECTION: 'designs',
     PIECES_COLLECTION: 'pieces',
+    RUNS_COLLECTION: 'runs',                       // Production Runs — artisan-initiated production (no shop order)
+    CASTING_BATCHES_COLLECTION: 'castingBatches',  // Casting board — one batch per run's casting order
+    ARTISAN_INVOICES_COLLECTION: 'artisanInvoices', // Artisan billing — what an artisan owes EFD for fulfilled WOs/castings
+    SHIPMENTS_COLLECTION: 'shipments',              // Production shipping legs — one record per handoff
     COLLECTIONS_COLLECTION: 'collections',   // smart merchandising, separate from Drops
     CUSTOM_ORDERS_COLLECTION: 'customOrders',  // S7 — new customs (legacy customTickets frozen)
 

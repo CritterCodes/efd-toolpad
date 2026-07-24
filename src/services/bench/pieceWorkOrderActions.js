@@ -20,6 +20,7 @@ import CustomOrdersModel from '@/app/api/custom-orders/model';
 import RepairLaborLogsModel from '@/app/api/repairLaborLogs/model';
 import { getLaborRateSnapshotForUser } from '@/app/api/repairLaborLogs/utils';
 import { canClaimDiscipline, DISCIPLINE } from '@/services/workOrders/disciplines';
+import { resolvePieceLaborScope } from '@/services/production/laborPayer';
 import { storageClient, STORAGE_BUCKET, storageUrl } from '@/lib/storage';
 import SettingsManagerService from '@/app/api/admin/settings/services/settingsManager.service';
 import { getSTLVolume } from '@/lib/stlParser';
@@ -146,6 +147,9 @@ export async function movePieceToQc({ session, workOrderID }) {
   });
   const requiresAdminReview = creditedLaborHours <= 0 || laborRateSnapshot <= 0;
 
+  // Connect-compat (S2): mark self vs efd from the piece's owning artisan (fails safe to efd).
+  const { payer, payeeUserID } = await resolvePieceLaborScope({ pieceID: wo.sourceID, laborerUserID: jewelerUserID });
+
   await RepairLaborLogsModel.create({
     workOrderID,
     sourceType: wo.sourceType,
@@ -157,6 +161,8 @@ export async function movePieceToQc({ session, workOrderID }) {
     sourceAction: 'piece_move_to_qc',
     pendingQc: true, // held until QC approves (labor-payable-on-QC)
     requiresAdminReview,
+    payer,
+    payeeUserID,
     notes: requiresAdminReview ? 'Confirm piece labor hours/rate before payout.' : '',
   });
 
@@ -416,13 +422,15 @@ export async function approveCadQc({ session, workOrderID }) {
     const e = new Error('A CAD designer cannot peer-review their own work.'); e.code = 'FORBIDDEN'; throw e;
   }
 
-  // Author's CAD design fee → payable now that QC passed.
+  // Author's CAD design fee → payable now that QC passed. Payer scope from the piece's owner.
   if (Number(wo.flatFee) > 0) {
+    const cadScope = await resolvePieceLaborScope({ pieceID: wo.sourceID, laborerUserID: wo.assignedToUserID });
     await RepairLaborLogsModel.create({
       workOrderID, sourceType: wo.sourceType, sourceID: wo.sourceID,
       primaryJewelerUserID: wo.assignedToUserID, primaryJewelerName: wo.assignedJeweler,
       creditedLaborHours: 0, creditedValue: Number(wo.flatFee),
       sourceAction: 'cad_design_fee', requiresAdminReview: false,
+      payer: cadScope.payer, payeeUserID: cadScope.payeeUserID,
     });
   }
   // Reviewer's flat QC review fee — charged ONCE per piece, not per CAD work order.
