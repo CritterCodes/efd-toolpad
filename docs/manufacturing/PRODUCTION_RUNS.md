@@ -162,16 +162,14 @@ but **build the money model Connect-compatible from day one**:
   - **Their paid-for property embedded** (e.g. they paid CAD + casting + their stone, stiffed
     the BENCH bill): the lien case. **On ANY liquidation sale EFD's consignment cut applies
     first** (EFD is selling — same as always), then the unpaid bills (markup-inclusive) +
-    direct costs are recovered. What of the remainder goes back is the DETERRENT question
-    (owner, round 4: giving them equity + surplus makes stiffing strictly better than paying —
-    same net, zero cash up front, EFD floats everything). **PROPOSED (recommended): remainder
-    capped at DOCUMENTED PAID-IN EQUITY** — the artisan gets back what they can prove they paid
-    (casting, stones), never more; all profit from the liquidation sale is EFD's as liquidated
-    damages. Honest path = profit; stiffing = at best break-even minus fees. EFD prices the
-    liquidation sale at its sole discretion. (Alternative shape if equity-cap feels too harsh:
-    equity + surplus, minus late fees + a liquidation fee of ~25% of the outstanding bill.)
-    Serial stiffing is already structurally impossible: FREEZE at first overdue bill stops all
-    new runs/WOs/listings, and a repeat after liquidation = expulsion (strikes policy).
+    direct costs are recovered. **EQUITY-CAP — DECIDED (owner, 2026-07-23):** the remainder
+    returned to the artisan is capped at their **documented paid-in equity** (what they can
+    prove they paid — casting, stones); **all profit from the liquidation sale is EFD's** as
+    liquidated damages, and EFD prices the liquidation sale at its sole discretion. This kills
+    the stiffing arbitrage (equity+surplus-back had made stiffing net-identical to paying
+    honestly with zero cash up front): honest = profit; stiffing = break-even at best.
+    Serial stiffing is structurally impossible: FREEZE at first overdue bill stops all new
+    runs/WOs/listings, and a repeat after liquidation = expulsion (two-strike policy).
   - **Their design IP embedded** (design paid-for and theirs, physical asset EFD's — e.g.
     stiffed CASTING bill): EFD finishes/sells at its own expense and **keeps all profit on the
     physical asset it owned from the beginning, but pays them the design fee/royalty on the
@@ -231,14 +229,13 @@ Stripe customer; artisan invoices run through Stripe Tax.
 
 ## 4g. Remaining open probes (updated 2026-07-23, round 3)
 
-1. Liquidation remainder shape: equity-cap (recommended — all liquidation profit is EFD's,
-   artisan gets documented paid-in equity back at most) vs equity + surplus − late/liquidation
-   fees. (§4c)
-2. Liquidation timing: X days + reminder cadence (suggested 60d, reminders at 7/30, freeze
+1. Liquidation timing: X days + reminder cadence (suggested 60d, reminders at 7/30, freeze
    immediate). (§4c)
-3. Casting metal cost → piece COGS split. (§4.3)
-4. Artisan agreement drafting (legal, not software): title-passes-at-payment + liquidation
-   clauses, bailee liability, self-certification terms. (§4c, §4.2, §3)
+2. Casting metal cost → piece COGS split. (§4.3)
+3. Artisan agreement: plain-language draft lives at `docs/policies/ARTISAN_TERMS_AND_POLICIES.md`
+   (owner directive 2026-07-23: "we need to be writing all this in policy pages and user
+   agreements") — needs attorney review, then an in-app policy surface + versioned acceptance
+   tracking at artisan onboarding (`users.agreements[] { docId, version, acceptedAt }`).
 
 ## 5. Sequencing vs gemstone Phase 3
 Both need the same core: **hardened non-order production entry + claim-time gem coupling**.
