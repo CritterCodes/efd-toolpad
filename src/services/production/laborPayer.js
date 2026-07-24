@@ -66,3 +66,26 @@ export async function resolvePieceLaborScope({ pieceID, laborerUserID }) {
     return safe;
   }
 }
+
+/**
+ * Resolve `{ payer, payeeUserID }` for labor on a DESIGN work order (e.g. the CAD design fee on a
+ * design-level Request-CAD). Impure (loads design + its drop). Fails safe to EFD. Same rule as
+ * pieces — the owning artisan is the design's drop owner (if artisan-owned) or its primary artisan.
+ */
+export async function resolveDesignLaborScope({ designID, laborerUserID }) {
+  const safe = { payer: LABOR_PAYER.EFD, payeeUserID: laborerUserID ?? null };
+  if (!designID) return safe;
+  try {
+    const [{ default: DesignsModel }, { default: DropsModel }] = await Promise.all([
+      import('@/app/api/designs/model'),
+      import('@/app/api/drops/model'),
+    ]);
+    const design = await DesignsModel.findById(designID);
+    if (!design) return safe;
+    const drop = design.dropId ? await DropsModel.findById(design.dropId) : null;
+    const owningArtisanUserID = owningArtisanForPiece({ drop, design });
+    return { payer: resolveLaborPayer({ laborerUserID, owningArtisanUserID }), payeeUserID: laborerUserID ?? null };
+  } catch {
+    return safe;
+  }
+}

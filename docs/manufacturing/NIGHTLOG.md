@@ -70,6 +70,29 @@ self-labor IS his payroll draw (self≈efd degenerate case). So the payroll excl
 laborer-identity-aware, not a blanket `payer!='self'` — S5 (billing rail + consignment
 realization) must implement it correctly without breaking the owner's draw.
 
+## S3 — Request-CAD on-ramp ✅ VERIFIED (2026-07-24)
+
+**Shipped:** a design-sourced `cad_request` WO drives cad_requested→cad_in_progress→cad_qc→ready.
+- `src/services/production/designCad.js` (+ test) — `requestDesignCad` (spawn + quote-accepted-at-
+  creation + solo/queue assignment via pure `cadRequestPlan`), `claimDesignCad` (lane-enforced),
+  `submitDesignCadToQc` (lands STL/GLB on the DESIGN via dotted `$set`, no clobber), `approveDesignCad`
+  (pays the flat fee with S2 payer scope; self-certifies when approver==author per §3, else peer QC),
+  `rejectDesignCad`. Built as a PARALLEL module — the piece/customs CAD flow is untouched.
+- `src/services/production/laborPayer.js` — `resolveDesignLaborScope` (design-owner payer scope).
+- Routes: `cad-request/route.js` (GET fee preview + POST create) and `cad-request/[action]/route.js`
+  (claim | submit-qc | approve | reject), both `requireAuth` + `canManageDesign`.
+
+**Verifier verdict:** PASS. designCad 3/3; full suite 444 passed / 5 skipped / 3 failed (same 3
+pre-existing refrakt failures, zero new); `pnpm build` compiles both dynamic routes; `git` scope
+confirms pieceWorkOrderActions/benchActions/benchQuery unchanged.
+
+**Follow-ups (non-blocking, flagged by the S3 verifier):**
+- When a CAD-request CANCEL path lands (S4+), harden `requestDesignCad`'s duplicate guard to a
+  status-scoped query (`findOneBySource` has no sort, so a stale CANCELLED WO could slip past the
+  `!== 'CANCELLED'` check). Unreachable in S3 (no cancel action exists yet).
+- Solo-created CAD WOs log `primaryJewelerName: null` (userID + payeeUserID correct; payroll groups
+  on userID so no functional impact). Cosmetic — pass the creator's display name through if surfaced.
+
 ## S1 — Transactional core (continued)
 
 **Boundary (deliberate):** WorkOrder spawning is NOT inside the mint transaction (WorkOrdersModel
