@@ -154,19 +154,35 @@ but **build the money model Connect-compatible from day one**:
   designer's profile, bench = est. hours × rate) and the artisan ACCEPTS that quote at creation;
   the completion bill is the actuals, anchored to the accepted estimate.
 - **Unpaid bill ⇒ FREEZE:** all run/WO activity for that artisan halts until the bill is paid.
-- **Unpaid past X days ⇒ FORFEITURE — TWO-TIER rule (owner scenario, 2026-07-23):**
-  - **Forfeited PIECE (a physical asset exists):** classic artisan's-lien sale — EFD sells the
-    piece AS-IS; proceeds cover the bill + reasonable costs; surplus credited back to the
-    artisan. The surplus rule exists here because the artisan owned the piece and its embedded
-    value.
-  - **Forfeited DESIGN RIGHTS (e.g. a stiffed CAD bill):** the design transfers to EFD **in
-    satisfaction of the debt** — debt wiped, no further claims in either direction. Everything
-    downstream is EFD's own venture: EFD lists it as a concept, funds casting/bench from sale
-    proceeds, keeps ALL profit (this is just §4e EFD-owned-run economics). The surplus-back rule
-    applies ONLY to liquidating the artisan's own forfeited asset — NEVER to profits from
-    production EFD later funds at its own risk.
-  Both clauses live in the signed artisan agreement. X + cadence: open (suggested 60 days,
-  reminders at 7/30, freeze immediate).
+- **Unpaid past X days ⇒ LIQUIDATION — REFRAMED (owner, round 3, 2026-07-23): "forfeiture" is
+  just EFD monetizing what it ALREADY OWNS.** Under nothing-is-fronted, **title passes at
+  payment** — an unpaid deliverable was never the artisan's property, so nothing is ever seized.
+  When a bill dies, EFD liquidates the withheld deliverable; what EFD owes the artisan depends
+  on what of THEIRS is embedded in it:
+  - **Their paid-for property embedded** (e.g. they paid CAD + casting, stiffed the BENCH bill —
+    the finished piece contains their casting): the true lien case — EFD sells, recovers the
+    debt + reasonable costs, and their paid-in equity + surplus returns to them.
+  - **Their design IP embedded** (design paid-for and theirs, physical asset EFD's — e.g.
+    stiffed CASTING bill): EFD finishes/sells at its own expense and **keeps all profit on the
+    physical asset it owned from the beginning, but pays them the design fee/royalty on the
+    recovery sale** — the artisan RETAINS design rights; the recovery sale is one-off, and
+    continued production of their design still requires an EFD-run agreement (§4e).
+  - **Nothing of theirs embedded** (stiffed the CAD bill itself; stiffed a gem-cut bill): the
+    deliverable never became theirs. Stiffed CAD ⇒ the design was never paid for, never theirs
+    — EFD owns it outright and may list/produce; artisan gets nothing. Stiffed stone ⇒ the stone
+    returns to the cutter's sellable listing pool (cutter paid via consignment on its eventual
+    sale, net of fronted rough); the jeweler gets nothing.
+  Liquidation extinguishes the debt up to the recovered amount; account-standing consequences
+  persist. All clauses live in the signed artisan agreement. X + cadence: open (suggested 60
+  days, reminders at 7/30, freeze immediate).
+- **EFD's cut on fulfilled WOs — 20% (owner, 2026-07-23):** every EFD-fulfilled work order is
+  billed at **COGS × 1.20** (labor + materials, incl. vendor costs like the casting-house
+  invoice — same 20% markup wholesale repair carries today). "We are fulfilling everything —
+  it's just like wholesaler repair work." **Exception: self-fulfilled WOs** (`self` payer scope)
+  bill nothing at all, so no markup. Quotes shown at WO creation are markup-inclusive. Edges to
+  confirm: shipping/insurance legs passthrough at cost (assumed); a consumed gem stone is billed
+  at the cutter's gem price via the consignment rail — NOT price × 1.2 again (assumed — the gem
+  price already carries its own markup).
 
 ## 4d. Gems inside jewelry production (owner, 2026-07-23)
 
@@ -188,8 +204,12 @@ of any EFD-fronted rough** ("deduct the fronted rough").
   on the run record**; contribution-weighted formulas deferred.
 - **EFD-owned drops:** EFD can run a design in its drops — EFD funds it, **owns the product**,
   and pays the designing artisan for their inputs (e.g. CAD labor) plus the **right to the bench
-  labor** (first refusal on the bench WOs before they hit the queue). On sale EFD "pays out the
-  artisan." Probe pending: is that payout labor-only, or also a per-piece design royalty?
+  labor** (first refusal on the bench WOs before they hit the queue).
+  **Royalty — DECIDED (owner, 2026-07-23): open negotiation with the design owner, per run.**
+  Guaranteed floor = any labor they did + associated design fees; a per-piece royalty on top is
+  "reasonably fair" — default shape: **REVERSED CONSIGNMENT** (EFD owns the product and keeps
+  the gross; the designing artisan receives the commission-side percentage EFD would have taken
+  as its cut had the artisan owned the product). Negotiated + signed at run creation.
 
 ## 4f. Sales tax on artisan invoices (owner, 2026-07-23)
 
@@ -199,14 +219,15 @@ per-customer **exemption certificates** and computes per-state rates/registratio
 (and Connect handles 1099s). Build: permit on the artisan profile → exemption flag on their
 Stripe customer; artisan invoices run through Stripe Tax.
 
-## 4g. Remaining open probes (updated 2026-07-23, round 2)
+## 4g. Remaining open probes (updated 2026-07-23, round 3)
 
-1. EFD-run pieces: designing artisan gets labor only, or also a per-piece design royalty? (§4e)
-2. Forfeiture timing: X days + reminder cadence (suggested 60d, reminders at 7/30, freeze
+1. Liquidation timing: X days + reminder cadence (suggested 60d, reminders at 7/30, freeze
    immediate). (§4c)
+2. 20% markup edges: shipping/insurance passthrough at cost? consumed gem stones billed via the
+   consignment rail only, never × 1.2 again? (§4c — assumed yes on both)
 3. Casting metal cost → piece COGS split. (§4.3)
-4. Artisan agreement drafting (legal, not software): lien/forfeiture clauses, bailee liability,
-   self-certification terms. (§4c, §4.2, §3)
+4. Artisan agreement drafting (legal, not software): title-passes-at-payment + liquidation
+   clauses, bailee liability, self-certification terms. (§4c, §4.2, §3)
 
 ## 5. Sequencing vs gemstone Phase 3
 Both need the same core: **hardened non-order production entry + claim-time gem coupling**.
