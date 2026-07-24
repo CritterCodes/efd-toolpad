@@ -102,11 +102,34 @@ Stages (each optional — skip what you don't need):
      two pieces). Not split across the whole run.
    - Casting still **gated from shipping to the artisan until the compiled invoice is paid**
      (nothing-is-fronted).
-   **OPEN SUB-QUESTIONS (2026-07-24, for build):** (a) model casting as a `casting`-discipline WO
-   on the existing workOrders spine (compiled like repairs) — replacing the S4 `castingBatches`
-   collection? (b) caster assignment — a casting queue the remote casting artisan claims (lane),
-   or the purchasing artisan assigns a specific caster/vendor, or both per WO? (c) solo self-cast
-   bills nothing (self scope), confirmed?
+   **DECIDED (owner, 2026-07-24) — the full casting build spec (retire the S4 `castingBatches`
+   collection; casting is a first-class WO discipline on the bench spine):**
+   - **(a) Casting is a `casting`-discipline WORK ORDER on the existing workOrders spine** — lands
+     on the bench like everything else, compiled into an invoice at completion like repairs.
+   - **(b) New artisan type `caster`.** Unassigned casting WOs are **claimable in the bench** (lane,
+     caster-gated). The purchasing artisan may instead **assign a WO to a specific caster**, **use
+     an outside vendor**, or **cast it themselves**.
+   - **(c) Price lock = the METAL PRICE PER WEIGHT, locked when the caster orders material / confirms
+     ready.** The WO total is NOT fully fixed at lock — it uses the **FINAL WEIGHT weighed at QC**:
+     `invoiceLine = recordedWeightAtQc × lockedPricePerUnit × 1.3 (casting markup) + castingLaborFee`.
+     Before lock, the purchaser's number is a labeled ESTIMATE (up/down variance). The caster eats
+     variance in the *price* (locked) but the *weight* is the actual casting's weight at QC.
+   - **(d) Solo self-cast: still lock, still weigh, but NO bill.** COGS is still recorded (weight ×
+     locked price × 1.3 + casting labor fee); the casting labor fee is what the artisan "pays
+     themselves" — accrues as earned labor (self scope, realized at sale), never invoiced.
+   - **COGS routing:** each casting WO → its variant's pieces, split per-piece within that WO's group.
+   **THE SHIPPING-FRAGMENTATION HOLE (owner flagged, 2026-07-24) + PROPOSED fix:** if a run's 5
+   per-metal casting WOs are claimed by 5 different casters, that's 5× shipping. Fix = **the
+   claimable unit is the RUN's casting JOB (all its per-metal WOs), claimed ATOMICALLY — no partial
+   claims.** One caster takes the whole run's casting or none → one caster, one shipment per run.
+   The per-metal WOs remain (metal instructions + per-variant COGS + per-WO price-lock/weigh) as
+   line items of the job. Cross-run consolidation (one caster holding several runs for one
+   purchasing artisan) rides the shipments model: **one shipment per caster→artisan handoff covers
+   all their pieces = one shipping charge**, regardless of how many jobs. Edge: a caster who can't
+   do every metal in a run can't claim the atomic job — the purchasing artisan may then deliberately
+   split/assign (accepting the extra shipping). **OPEN money sub-q:** does EFD's wholesale markup
+   apply ON TOP of the 1.3 casting markup + labor for OUTSOURCED casting (double markup), or is
+   casting billed at 1.3+labor with EFD's cut coming only from the eventual sale consignment?
    **Casting liability — DECIDED (owner, 2026-07-23):** casting failures are the CASTER's
    liability — "they paid for 10, they get 10"; how many casting sessions that takes is the
    caster's business (vendor and in-house casting WO alike). After delivery the ordering artisan
