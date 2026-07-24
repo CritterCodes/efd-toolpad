@@ -74,9 +74,20 @@ Stages (each optional — skip what you don't need):
    tracking, pieceIDs, status }` + "piece is physically at X". How much more?
 3. **Materials for runs:** casting metal cost lands on piece COGS how (per-piece split of the
    vendor invoice, like customs' inline recorder)?
-4. **Who pays whom:** run labor by OTHER artisans = normal labor logs (they get paid at payroll).
-   The run creator's economics = consignment on eventual sale minus those labor costs — no new
-   money model needed, but worth stating.
+4. ~~Who pays whom~~ **DECIDED (owner, 2026-07-23) — the ledger split.** Every labor log gains a
+   `payer` scope; the rule is mechanical (laborer == the piece's owning artisan → `self`, else →
+   `efd`):
+   - **`efd` (today's default):** EFD owes the laborer → payroll pays them. When the piece is an
+     artisan's consignment piece, EFD recovers it from the artisan's sale payout — the
+     `salePayouts.estimatedLaborHoldback`/`actualLaborDeduction` fields ALREADY model this
+     ("artisan pays EFD, EFD pays the laborer"); it just isn't wired for production pieces yet.
+   - **`self`:** solo work on your OWN piece. NEVER payroll-payable (EFD billed nobody) — instead
+     it accrues into the piece's COGS, surfaces in my-work as earned-but-unrealized value, and is
+     REALIZED at sale through the consignment payout (gross − EFD cut). This is the owner's
+     draw-guard pattern generalized per-artisan: a true "what have I actually earned/put in"
+     number for everyone, realized via payroll for EFD work and via consignment for own work.
+   - The owner himself is the degenerate case where self ≈ efd (he IS EFD), which is why his
+     pay-himself-via-WOs flow already works without the field.
 
 ## 5. Sequencing vs gemstone Phase 3
 Both need the same core: **hardened non-order production entry + claim-time gem coupling**.
