@@ -74,20 +74,24 @@ Stages (each optional — skip what you don't need):
    tracking, pieceIDs, status }` + "piece is physically at X". How much more?
 3. **Materials for runs:** casting metal cost lands on piece COGS how (per-piece split of the
    vendor invoice, like customs' inline recorder)?
-4. ~~Who pays whom~~ **DECIDED (owner, 2026-07-23) — the ledger split.** Every labor log gains a
-   `payer` scope; the rule is mechanical (laborer == the piece's owning artisan → `self`, else →
-   `efd`):
-   - **`efd` (today's default):** EFD owes the laborer → payroll pays them. When the piece is an
-     artisan's consignment piece, EFD recovers it from the artisan's sale payout — the
-     `salePayouts.estimatedLaborHoldback`/`actualLaborDeduction` fields ALREADY model this
-     ("artisan pays EFD, EFD pays the laborer"); it just isn't wired for production pieces yet.
-   - **`self`:** solo work on your OWN piece. NEVER payroll-payable (EFD billed nobody) — instead
-     it accrues into the piece's COGS, surfaces in my-work as earned-but-unrealized value, and is
-     REALIZED at sale through the consignment payout (gross − EFD cut). This is the owner's
-     draw-guard pattern generalized per-artisan: a true "what have I actually earned/put in"
-     number for everyone, realized via payroll for EFD work and via consignment for own work.
+4. ~~Who pays whom~~ **DECIDED (owner, 2026-07-23) — the ledger split + PAY-AT-COMPLETION.**
+   Every labor log gains a `payer` scope; the rule is mechanical (laborer == the piece's owning
+   artisan → `self`, else → `efd`):
+   - **`efd` (outsourced run work):** the laborer is credited at QC and paid by EFD payroll as
+     normal — but **the owning artisan is billed AT COMPLETION, not at sale. NOTHING IS FRONTED**
+     (owner, verbatim intent): no product, digital or physical, is released to the artisan on
+     credit. WO fulfilled → invoice the artisan (the Stripe customs-invoice rail generalizes to
+     artisan billing) → **the deliverable is gated on payment** — CAD files don't unlock, castings
+     don't ship, finished pieces don't hand off until the bill is paid. "They make a work order
+     and it is fulfilled; they are liable for paying that bill." EFD's exposure is bounded by the
+     release gate, and consignment payouts stay clean (pure gross − EFD cut; no labor clawbacks).
+   - **`self`:** solo work on your OWN piece. Never payroll-payable and never billed (you don't
+     invoice yourself) — accrues into the piece's COGS and my-work as earned-but-unrealized value,
+     realized at sale through the consignment payout.
    - The owner himself is the degenerate case where self ≈ efd (he IS EFD), which is why his
      pay-himself-via-WOs flow already works without the field.
+   - `salePayouts.estimatedLaborHoldback`/`actualLaborDeduction` remain what they are today (the
+     repair/sales context) — they are NOT used for run labor; runs settle at completion.
 
 ## 5. Sequencing vs gemstone Phase 3
 Both need the same core: **hardened non-order production entry + claim-time gem coupling**.
