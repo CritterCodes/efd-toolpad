@@ -95,9 +95,30 @@ Stages (each optional — skip what you don't need):
   the same guard as gemstone Phase 3; build once, both use it.
 
 ## 4. Open decisions
-1. **Casting: a WO lane or a vendor order?** In-house casters want a `casting` discipline WO
-   (claim/QC/labor like any lane). Outsourced casting is a purchase (vendor, invoice →
-   businessExpenses, received-date) — probably BOTH, chosen per run.
+1. **Casting — SETTLED (owner, 2026-07-24): CASTING WOs ARE SCRAPPED. Carrera (vendor) is the ONLY
+   casting path for now.**
+   **Why (the math that killed peer casting):** the economic unit of casting is the FLASK, not the
+   piece, and Carrera's marginal cost for one more small piece is ~zero (they fill flasks daily
+   across hundreds of customers). A peer caster pays the WHOLE flask cost against a handful of
+   pieces. On $12 silver, a peer needs ~20 pieces in one flask just to TIE Carrera's $65.60
+   all-in — before any EFD markup. Worse, 5 artisans in 5 locations = 5 shipments, so shipping
+   can't be consolidated on the outbound leg. Fragmented claims make it worse still (2 casters
+   splitting 5 jobs → $92/$82 per ring). No pricing shape fixes a structural cost gap.
+   **Therefore SCRAPPED:** the `caster` artisan type, `casting`-discipline WOs, the
+   lock-price-per-weight + weigh-at-QC machinery, compile-WOs-to-invoice, and the atomic run-job
+   claim. Revisit peer casting only if/when volume makes EFD the flask aggregator.
+   **What SURVIVES = the S4 casting board (already built + verified):** a vendor casting ORDER per
+   run — `needs_ordering → ordered → received (actual cost) → delivered → dispute/accept`,
+   ownership-scoped, invoice at receipt, gated from shipping until paid, 48h dispute window.
+   **Only refinement needed:** COGS routing splits per-piece WITHIN a variant/metal group (not a
+   run-wide equal split), since one order can cover several metals.
+   **Rate posture:** do NOT approach Carrera for a better rate yet — too hypothetical without
+   volume. Revisit once aggregate volume is real leverage (or once published volume tiers are hit
+   naturally, which is not a negotiation).
+   **OPEN: how EFD earns on the Carrera path** without marking up above market and without asking
+   Carrera for a discount — see §4h.
+
+   _(historical, superseded — the peer-casting design that the math above killed:)_
    **The casting board is ownership-scoped (owner, 2026-07-23)** — same pattern as My Designs/
    My Drops/My Bench: ONE board, API-scoped. An artisan sees THEIR runs' casting queue —
    `needs_ordering → ordered (vendor, est) → received` per batch/piece — "what castings they have
@@ -299,6 +320,48 @@ exempt, none ⇒ they pay tax where liable. Stripe supports this directly — St
 per-customer **exemption certificates** and computes per-state rates/registrations on invoices
 (and Connect handles 1099s). Build: permit on the artisan profile → exemption flag on their
 Stripe customer; artisan invoices run through Stripe Tax.
+
+## 4h. Earning on the Carrera casting path (OPEN — options, 2026-07-24)
+
+Constraints: can't mark up above market (the artisan can price-check Carrera), can't ask Carrera for
+a discount yet, no platform/membership fee (§0a — the platform is free). So EFD must earn by doing
+REAL work in the chain. Ranked by impact × feasibility × mission-fit:
+
+1. **In-house wax/model printing (STRONGEST).** If Carrera's per-item fee covers producing the model
+   from the STL, EFD prints the waxes instead (resin + printer time it likely already owns) and
+   Carrera casts a supplied model at a lower per-item fee. EFD charges BELOW Carrera's print fee, so
+   the artisan saves and EFD books a real service margin. Scales with volume, makes the CAD→print→
+   cast pipeline sticky, and is unambiguously value-add rather than rent. **GATE: does Carrera accept
+   customer-supplied waxes/models, and what's their per-item fee with vs without the model?**
+2. **Metal supply (biggest absolute dollars, needs capital).** EFD buys casting grain at volume
+   (spot + small) and supplies it; the artisan sends metal to Carrera, skipping Carrera's 1.3 metal
+   markup entirely. Illustrative: 10g of 14k (~$500 metal) → Carrera bills $650; EFD-supplied at
+   1.15 = $575 → artisan saves $75, EFD earns ~$35. **A gold/platinum play — negligible on silver**
+   ($12 silver saves ~$1.80). **GATE: does Carrera accept customer-supplied metal, and what's their
+   loss allowance?**
+3. **Freight aggregation with EFD as the hub (the surviving version of consolidation).** Carrera
+   ships ONE box to EFD covering many artisans' pieces (one $35 freight = ~$7/piece at 5), then EFD
+   forwards each artisan insured small-parcel (~$10). Artisan pays ~$17 vs $35 direct; EFD takes a
+   flat handling fee out of the saving and the artisan still nets a win. Costs an extra hop + a few
+   days, and EFD does the repack labor — offer it as the artisan's choice: **rush (direct, full
+   freight)** vs **hub (consolidated, cheaper, slower)**.
+4. **Flat order-handling fee (baseline, honest).** A disclosed flat fee per casting order for work
+   EFD genuinely performs: placing/tracking the order, receiving + QC, COGS entry, dispute handling,
+   invoicing. Flat, NOT a percentage of metal (§4c — percentage on metal invites adverse selection).
+5. **Finishing as bench WOs (natural attach).** Carrera delivers raw castings; someone must sprue-cut,
+   tumble, pre-polish. Offer finishing as normal bench WOs — legitimate labor margin at the standard
+   WO markup, attached to nearly every casting order.
+6. **Scrap/sweeps aggregation + refining (separate business, real margin).** Collect bench scrap,
+   filings and polishing sweeps across artisans, refine at volume, keep the spread. Genuine logistics
+   no individual artisan can do alone. Independent of Carrera.
+7. **Volume tiers reached naturally (free upside).** Qualifying for Carrera's PUBLISHED volume tiers
+   by aggregating demand is not a negotiation — track aggregate volume so the tier is claimed the
+   moment it's hit.
+
+**Two factual gates block the top two options** (questions for Carrera, not for us): (a) do they cast
+customer-supplied waxes/models, and at what per-item fee? (b) do they cast customer-supplied metal,
+and at what loss allowance? Also worth pinning: EFD's real insured shipping cost for a single small
+piece (the $35 may be a Carrera rate, not physics).
 
 ## 4g. Remaining open probes (updated 2026-07-23, round 3)
 
