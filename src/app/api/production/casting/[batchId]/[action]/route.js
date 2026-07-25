@@ -6,9 +6,11 @@ import {
   markCastingOrdered, markCastingReceived, markCastingPaid, markCastingDelivered,
   disputeCasting, acceptCasting, cancelCastingBatch, CastingError,
 } from '@/services/production/castingBoard';
+import { placeVendorCastingOrder, CastingOrderError } from '@/services/production/castingVendorOrder';
 
 const HANDLERS = {
-  order: markCastingOrdered,
+  order: markCastingOrdered,           // record an order placed out-of-band (manual)
+  'place-order': placeVendorCastingOrder, // EMAIL the vendor (Carrera) + drop-ship snapshot, then order
   receive: markCastingReceived,
   pay: markCastingPaid,
   deliver: markCastingDelivered,
@@ -18,12 +20,15 @@ const HANDLERS = {
 };
 
 // Paying (receive/pay) and staff-only transitions are gated tighter than owner-visible ones.
-const STAFF_ONLY = new Set(['pay']);
+// `pay` = settlement is EFD/Stripe's to record. `place-order` = it sends an order on EFD's vendor
+// account (and EFD floats the cost), so only staff may fire it — artisans open the batch, EFD places it.
+const STAFF_ONLY = new Set(['pay', 'place-order']);
 
 /**
  * POST /api/production/casting/[batchId]/[action] — drive a casting batch:
- * order | receive | pay | deliver | dispute | accept | cancel. Staff, or the batch's owning
- * artisan (their own runs' castings). `pay` is staff-only (settlement is recorded by EFD/Stripe).
+ * place-order | order | receive | pay | deliver | dispute | accept | cancel. Staff, or the batch's
+ * owning artisan (their own runs' castings). STAFF-ONLY: `pay` (settlement is recorded by
+ * EFD/Stripe) and `place-order` (it emails EFD's vendor account manager and EFD floats the cost).
  */
 export const POST = async (req, { params }) => {
   const { session, errorResponse } = await requireAuth();
@@ -39,16 +44,19 @@ export const POST = async (req, { params }) => {
     return NextResponse.json({ error: 'Access denied — not your casting batch.' }, { status: 403 });
   }
   if (STAFF_ONLY.has(action) && !staff) {
-    return NextResponse.json({ error: 'Only staff can record casting payment.' }, { status: 403 });
+    return NextResponse.json({ error: `Only staff can ${action === 'pay' ? 'record casting payment' : 'place a vendor casting order'}.` }, { status: 403 });
   }
 
   const body = await req.json().catch(() => ({}));
   try {
-    // Path param LAST so a body-supplied batchId can't override the ownership-checked id (IDOR).
-    const result = await handler({ ...body, batchId });
+    // Path param + session-derived identity LAST so nothing in the body can override the
+    // ownership-checked batchId or spoof who placed the order (IDOR / attribution).
+    const result = await handler({ ...body, batchId, sentBy: session.user.userID });
     return NextResponse.json(result, { status: 200 });
   } catch (e) {
-    if (e instanceof CastingError) return NextResponse.json({ error: e.message }, { status: 409 });
+    if (e instanceof CastingError || e instanceof CastingOrderError) {
+      return NextResponse.json({ error: e.message }, { status: 409 });
+    }
     throw e;
   }
 };

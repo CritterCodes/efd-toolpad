@@ -88,4 +88,29 @@ export default class CastingBatchesModel {
     await (await this.collection()).updateOne({ batchId }, { $set: { ...updateData, updatedAt: new Date() } });
     return this.findById(batchId);
   }
+
+  /**
+   * Atomically CLAIM a needs_ordering batch for vendor ordering (single-doc, no transaction needed).
+   * Returns the claimed doc, or null if someone already claimed it — this is what makes placing a
+   * real vendor order at-most-once under a double-click or client retry.
+   */
+  static async claimForVendorOrder(batchId) {
+    const col = await this.collection();
+    const res = await col.findOneAndUpdate(
+      { batchId, status: CASTING_STATUS.NEEDS_ORDERING },
+      { $set: { status: CASTING_STATUS.ORDERED, orderedAt: new Date(), updatedAt: new Date() } },
+      { returnDocument: 'after', projection: { _id: 0 } },
+    );
+    return res || null;
+  }
+
+  /** Release a claim (the vendor send failed) so the order can be retried. */
+  static async releaseVendorOrderClaim(batchId) {
+    const col = await this.collection();
+    await col.updateOne(
+      { batchId, status: CASTING_STATUS.ORDERED },
+      { $set: { status: CASTING_STATUS.NEEDS_ORDERING, orderedAt: null, updatedAt: new Date() } },
+    );
+    return this.findById(batchId);
+  }
 }

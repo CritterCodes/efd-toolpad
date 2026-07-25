@@ -62,6 +62,18 @@ export default function LocationInfoSection({ profileData, handleInputChange }) 
                             size="small"
                         />
                     </Grid>
+                    {/* Country — this address is the DROP-SHIP destination for castings, so a
+                        non-US artisan must be able to state their real country. */}
+                    <Grid item xs={12} md={4}>
+                        <TextField
+                            fullWidth
+                            label="Country"
+                            value={profileData.businessCountry || ''}
+                            onChange={(e) => handleInputChange('businessCountry', e.target.value)}
+                            size="small"
+                            helperText="Where castings and shipments are sent"
+                        />
+                    </Grid>
                 </Grid>
             </CardContent>
         </Card>
