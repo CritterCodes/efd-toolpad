@@ -285,7 +285,6 @@ export async function resolveArtisanShipTo(userIDOrEmail) {
 export async function placeVendorCastingOrder({ batchId, sentBy = null, modelSource = null, notes = null, estCost = null }) {
   const batch = await CastingBatchesModel.findById(batchId);
   if (!batch) throw new CastingOrderError('casting batch not found');
-  if (batch.inHouse) throw new CastingOrderError('in-house batches are not vendor-ordered');
   if (batch.status !== CASTING_STATUS.NEEDS_ORDERING) {
     throw new CastingOrderError(`casting batch is already ${batch.status} — only a needs_ordering batch can be sent to the vendor`);
   }

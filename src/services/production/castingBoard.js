@@ -64,8 +64,8 @@ export function canTransition(from, to) {
 
 // ── DB lifecycle ────────────────────────────────────────────────────────────
 
-export async function createCastingBatch({ runId = null, ownerId, designID, pieceIDs, inHouse = false, vendor = null, estCost = null, createdBy = null }) {
-  return CastingBatchesModel.create({ runId, ownerId, designID, pieceIDs, inHouse, vendor, estCost, createdBy });
+export async function createCastingBatch({ runId = null, ownerId, designID, pieceIDs, vendor = null, estCost = null, createdBy = null }) {
+  return CastingBatchesModel.create({ runId, ownerId, designID, pieceIDs, vendor, estCost, createdBy });
 }
 
 async function transition(batchId, to) {
@@ -77,10 +77,15 @@ async function transition(batchId, to) {
 
 export async function markCastingOrdered({ batchId, vendor = null, estCost = null }) {
   const batch = await transition(batchId, CASTING_STATUS.ORDERED);
+  // Same shape guard as actualCost (below): only a genuine finite non-negative number may overwrite
+  // the estimate. `Number('abc')` would otherwise store NaN and `1e999` would store Infinity, which
+  // renders as "∞" on the board. Anything else keeps the existing estimate.
+  const est = typeof estCost === 'number' ? estCost
+    : (typeof estCost === 'string' && estCost.trim() !== '' ? Number(estCost) : NaN);
   return CastingBatchesModel.updateById(batchId, {
     status: CASTING_STATUS.ORDERED,
     vendor: vendor ?? batch.vendor,
-    estCost: estCost != null ? Number(estCost) : batch.estCost,
+    estCost: Number.isFinite(est) && est >= 0 ? est : batch.estCost,
     orderedAt: new Date(),
   });
 }
@@ -92,8 +97,12 @@ export async function markCastingOrdered({ batchId, vendor = null, estCost = nul
  */
 export async function markCastingReceived({ batchId, actualCost }) {
   const batch = await transition(batchId, CASTING_STATUS.RECEIVED);
-  const cost = Number(actualCost);
-  if (!(cost >= 0)) throw new CastingError('actualCost must be a non-negative number');
+  // Must be an explicit FINITE non-negative number. `Number(null) === 0` and `Number(undefined)` is
+  // NaN, so a missing/Infinity-serialized-to-null actualCost would otherwise receive the casting at
+  // $0 — zero COGS on every piece and a $0 charge — and report success.
+  const cost = typeof actualCost === 'number' ? actualCost
+    : (typeof actualCost === 'string' && actualCost.trim() !== '' ? Number(actualCost) : NaN);
+  if (!Number.isFinite(cost) || cost < 0) throw new CastingError('actualCost must be an explicit non-negative number');
 
   const parts = splitCastingCost(cost, batch.pieceIDs.length);
   for (let i = 0; i < batch.pieceIDs.length; i += 1) {
@@ -104,16 +113,16 @@ export async function markCastingReceived({ batchId, actualCost }) {
     });
   }
 
-  const patch = { status: CASTING_STATUS.RECEIVED, actualCost: round2(cost), receivedAt: new Date() };
-  if (batch.inHouse) {
-    // In-house self-cast: no vendor invoice, no gate (settled via the casting WO / self-labor).
-    patch.charge = { amount: null, markupMultiplier: null, paid: true, paidAt: new Date(), invoiceID: null };
-    patch.shippingGated = false;
-  } else {
-    const markupMultiplier = await getWorkOrderMarkupMultiplier();   // wholesale markup from admin settings
-    patch.charge = { amount: castingChargeFromCost(cost, markupMultiplier), markupMultiplier, paid: false, paidAt: null, invoiceID: null };
-    patch.shippingGated = true;   // nothing ships to the artisan until this is paid
-  }
+  // Every batch is a VENDOR batch (peer/in-house casting was scrapped), so a receipt always mints a
+  // charge and always gates shipping until it's settled.
+  const markupMultiplier = await getWorkOrderMarkupMultiplier();   // wholesale markup from admin settings
+  const patch = {
+    status: CASTING_STATUS.RECEIVED,
+    actualCost: round2(cost),
+    receivedAt: new Date(),
+    charge: { amount: castingChargeFromCost(cost, markupMultiplier), markupMultiplier, paid: false, paidAt: null, invoiceID: null },
+    shippingGated: true,   // nothing ships to the artisan until this is settled
+  };
   return CastingBatchesModel.updateById(batchId, patch);
 }
 

@@ -22,20 +22,49 @@ const HANDLERS = {
 // Paying (receive/pay) and staff-only transitions are gated tighter than owner-visible ones.
 // `pay` = settlement is EFD/Stripe's to record. `place-order` = it sends an order on EFD's vendor
 // account (and EFD floats the cost), so only staff may fire it — artisans open the batch, EFD places it.
-const STAFF_ONLY = new Set(['pay', 'place-order']);
+// `receive` = it records the ACTUAL vendor cost, which sets the artisan's charge (cost × markup) AND
+// their pieces' COGS. EFD placed the order and holds the vendor invoice, so EFD reports the number —
+// the debtor must never set their own debt (receiving at $0.01 would ship the casting for free).
+const STAFF_ONLY = new Set(['pay', 'place-order', 'receive']);
+
+/**
+ * Actions a non-staff owner may NOT take on THIS batch, decided from the batch's own state.
+ * Returns a reason string to refuse with, or null to allow. These mirror rules the UI also enforces —
+ * the UI is convenience; THIS is the gate.
+ */
+function ownerRefusalReason(action, batch) {
+  // `receive` sets the actual vendor cost → the artisan's charge + their pieces' COGS, so the debtor
+  // must not report it. Unconditional: Carrera (vendor) is the ONLY casting path — artisan/in-house
+  // casting was scrapped (PRODUCTION_RUNS.md §4.1), so every batch is a vendor batch EFD receives.
+  if (action === 'receive') {
+    return 'record a casting as received (it sets the actual vendor cost you’ll be billed for)';
+  }
+  // Cancelling leaves the charge unpaid but drops the batch off the board, so once a charge exists
+  // only staff may cancel. (Pre-charge — needs_ordering/ordered — the owner may cancel freely.)
+  if (action === 'cancel' && batch.charge?.amount != null && !batch.charge.paid) {
+    return 'cancel a casting that still has an unpaid charge';
+  }
+  return null;
+}
 
 /**
  * POST /api/production/casting/[batchId]/[action] — drive a casting batch:
  * place-order | order | receive | pay | deliver | dispute | accept | cancel. Staff, or the batch's
- * owning artisan (their own runs' castings). STAFF-ONLY: `pay` (settlement is recorded by
- * EFD/Stripe) and `place-order` (it emails EFD's vendor account manager and EFD floats the cost).
+ * owning artisan (their own runs' castings). Always staff-only: `pay` (settlement is EFD/Stripe's to
+ * record) and `place-order` (it orders on EFD's vendor account, which EFD floats). Conditionally
+ * staff-only from the batch's state: `receive` (unless in-house) and `cancel` (once a charge is
+ * outstanding) — see `ownerRefusalReason`.
  */
 export const POST = async (req, { params }) => {
   const { session, errorResponse } = await requireAuth();
   if (errorResponse) return errorResponse;
   const { batchId, action } = await params;
+  // Object.hasOwn, not a truthiness test: `HANDLERS['constructor']` etc. are inherited and truthy,
+  // which would clear an `if (!handler)` check and dispatch a non-handler.
+  if (!Object.hasOwn(HANDLERS, action)) {
+    return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
+  }
   const handler = HANDLERS[action];
-  if (!handler) return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
 
   const batch = await CastingBatchesModel.findById(batchId);
   if (!batch) return NextResponse.json({ error: 'Casting batch not found.' }, { status: 404 });
@@ -43,8 +72,11 @@ export const POST = async (req, { params }) => {
   if (!staff && batch.ownerId !== session.user.userID) {
     return NextResponse.json({ error: 'Access denied — not your casting batch.' }, { status: 403 });
   }
-  if (STAFF_ONLY.has(action) && !staff) {
-    return NextResponse.json({ error: `Only staff can ${action === 'pay' ? 'record casting payment' : 'place a vendor casting order'}.` }, { status: 403 });
+  if (!staff) {
+    const always = { pay: 'record casting payment', 'place-order': 'place a vendor casting order' }[action];
+    const conditional = ownerRefusalReason(action, batch);
+    const what = always || conditional;
+    if (what) return NextResponse.json({ error: `Only staff can ${what}.` }, { status: 403 });
   }
 
   const body = await req.json().catch(() => ({}));
