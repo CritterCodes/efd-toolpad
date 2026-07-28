@@ -27,3 +27,5 @@ Ensure these are present in your Vercel Project Settings:
 | `NEXTAUTH_SECRET` | Copy from `.env.local` |
 | `MONGODB_URI` | Copy from `.env.local` |
 | `SHOPIFY_PRIVATE_ACCESS_TOKEN` | Copy from `.env.local` |
+| `META_CAPI_ACCESS_TOKEN` | Events Manager → Conversions API (optional — see `.env.meta-capi.example`) |
+| `META_PIXEL_ID` | Same pixel id efd-shop uses (optional — see `.env.meta-capi.example`) |
