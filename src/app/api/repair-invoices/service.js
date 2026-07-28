@@ -2,6 +2,7 @@ import { db } from '@/lib/database';
 import RepairsModel from '@/app/api/repairs/model';
 import RepairInvoicesModel from './model';
 import { isCustomerCharged, resolveBillingMode } from '@/services/billing/modes';
+import { reportPaidInvoiceToMeta } from '@/services/repairs/paidRepairReporting';
 
 const DEFAULT_DELIVERY_FEE = 5;
 
@@ -300,6 +301,14 @@ export async function syncPaidRepairs(invoice) {
         updatedAt: new Date(),
       })
     )
+  );
+
+  // Report the revenue to Meta so ad spend optimises for paying customers.
+  // Deliberately NOT awaited — see the note at src/app/api/repairs/route.js
+  // about awaited side effects pushing requests past Vercel's limit. A Meta
+  // outage must never fail taking a payment.
+  reportPaidInvoiceToMeta(invoice).catch((err) =>
+    console.error('[meta-capi] report failed (non-fatal):', err.message)
   );
 
   return invoice;
