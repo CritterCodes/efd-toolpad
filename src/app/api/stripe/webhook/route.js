@@ -32,6 +32,11 @@ export const POST = async (req) => {
       if (meta.kind === 'custom_invoice' && meta.customID && meta.invoiceID && invoice.status === 'paid') {
         await setCustomInvoiceStatus(meta.customID, meta.invoiceID, CUSTOM_INVOICE_STATUS.PAID, 'stripe');
         await CustomInvoicesModel.updateStripeStatus(meta.invoiceID, invoice.status);
+      } else if ((meta.kind === 'artisan_wo_invoice' || meta.kind === 'casting_charge') && meta.invoiceID && invoice.status === 'paid') {
+        // Artisan billing rail (S5): mark the artisan invoice paid → lifts the freeze and clears
+        // the linked casting shipping gate. Lazy import to keep the customs webhook path independent.
+        const { markArtisanInvoicePaid } = await import('@/services/production/artisanBilling');
+        await markArtisanInvoicePaid(meta.invoiceID);
       }
     } else if (event.type === 'invoice.payment_failed') {
       const invoice = event.data?.object || {};

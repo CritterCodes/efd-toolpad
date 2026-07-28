@@ -4,6 +4,24 @@
 **Owner scenario:** an artisan has a sketch, wants a limited run of 10: request CAD → get it back →
 build variants → cast X of each variant → bench work (self or someone else) → sellable pieces.
 
+## 0a. Mission & monetization (owner, 2026-07-24) — the "why" behind every money rule
+
+**EFD is a business, but the platform is FREE to use for artisans.** The tracking + management
+software (designs, runs, drops, bench, WOs-as-bookkeeping, listings) is provided free — the mission
+is to help artisans run their business smoothly and GROW. EFD profits **only when it directly
+provides logistics or facilitates infra for the artisan's business** — i.e.:
+- **WO markup** on work EFD facilitates for them (a peer/vendor/EFD-employee does the work) — the
+  infra fee, captured at the WO regardless of sale.
+- **Consignment** on pieces sold *through EFD's shop* — the sales fee.
+
+**Self-fulfilled work is never billed, and there is NO platform/listing/membership fee.** A fully
+solo artisan who sells in person pays EFD nothing — that's intentional, the free tier of the
+mission, not a leak. EFD earns by *adding value* (doing work for them / selling for them), never by
+charging rent on the tools.
+
+**The platform is CURATED — invite / approval only** (`artisanApplication`). "Free to use" is
+sustainable because it's a vetted community of real artisans, not an open marketplace.
+
 ## 0. First axiom — SOLO-FIRST (owner, 2026-07-23)
 
 **The pipeline must be fully usable without outsourcing anything.** If one person does their own
@@ -77,28 +95,104 @@ Stages (each optional — skip what you don't need):
   the same guard as gemstone Phase 3; build once, both use it.
 
 ## 4. Open decisions
-1. **Casting: a WO lane or a vendor order?** In-house casters want a `casting` discipline WO
-   (claim/QC/labor like any lane). Outsourced casting is a purchase (vendor, invoice →
-   businessExpenses, received-date) — probably BOTH, chosen per run.
+1. **Casting — SETTLED (owner, 2026-07-24): CASTING WOs ARE SCRAPPED. Carrera (vendor) is the ONLY
+   casting path for now.**
+   **Why (the math that killed peer casting):** the economic unit of casting is the FLASK, not the
+   piece, and Carrera's marginal cost for one more small piece is ~zero (they fill flasks daily
+   across hundreds of customers). A peer caster pays the WHOLE flask cost against a handful of
+   pieces. On $12 silver, a peer needs ~20 pieces in one flask just to TIE Carrera's $65.60
+   all-in — before any EFD markup. Worse, 5 artisans in 5 locations = 5 shipments, so shipping
+   can't be consolidated on the outbound leg. Fragmented claims make it worse still (2 casters
+   splitting 5 jobs → $92/$82 per ring). No pricing shape fixes a structural cost gap.
+   **Therefore SCRAPPED:** the `caster` artisan type, `casting`-discipline WOs, the
+   lock-price-per-weight + weigh-at-QC machinery, compile-WOs-to-invoice, and the atomic run-job
+   claim. Revisit peer casting only if/when volume makes EFD the flask aggregator.
+   **What SURVIVES = the S4 casting board (already built + verified):** a vendor casting ORDER per
+   run — `needs_ordering → ordered → received (actual cost) → delivered → dispute/accept`,
+   ownership-scoped, invoice at receipt, gated from shipping until paid, 48h dispute window.
+   **Only refinement needed:** COGS routing splits per-piece WITHIN a variant/metal group (not a
+   run-wide equal split), since one order can cover several metals.
+   **Rate posture:** do NOT approach Carrera for a better rate yet — too hypothetical without
+   volume. Revisit once aggregate volume is real leverage (or once published volume tiers are hit
+   naturally, which is not a negotiation).
+   **OPEN: how EFD earns on the Carrera path** without marking up above market and without asking
+   Carrera for a discount — see §4h.
+
+   _(historical, superseded — the peer-casting design that the math above killed:)_
    **The casting board is ownership-scoped (owner, 2026-07-23)** — same pattern as My Designs/
    My Drops/My Bench: ONE board, API-scoped. An artisan sees THEIR runs' casting queue —
    `needs_ordering → ordered (vendor, est) → received` per batch/piece — "what castings they have
    and haven't ordered"; EFD/staff see everything. Solo self-casting = an in-house `casting` WO
    (no vendor entry). This finally defines the placeholder Production→Casting board.
-   **Payment timing — DECIDED (owner, 2026-07-23): (b) pay at RECEIPT.** When an artisan orders a
-   casting through EFD's casting-house account, the invoice to the artisan fires when the casting
-   is RECEIVED (actual vendor cost known — no estimating at order time), and the casting is
-   **gated from shipping to them until paid**. EFD floats the vendor cost only for the
-   order→receipt window; the deliverable gate keeps the nothing-is-fronted guarantee where it
-   matters (nothing leaves EFD's hands unpaid).
+   **CASTING MODEL — REFINED (owner, 2026-07-24, supersedes the single-batch model built in S4):**
+   Casting is **per-DESIGN-order, per-VARIANT/METAL work orders** — NOT one batch over the whole
+   run. Each casting WO carries its **metal type** (so ordering 1× each of 5 variants in 5 metals
+   = 5 casting WOs, each stamped 925/10kYG/10kWG/14kYG/14kWG — the caster can't accidentally make
+   5× silver). The WOs **compile into ONE invoice at completion, exactly like repairs** (itemized
+   list of WOs → billed to the purchasing artisan).
+   - **PRICE LOCK (new decision):** the caster **locks the price when they've ordered the material
+     OR are otherwise ready to fulfill** (covers "need to order the gold" and "already have the
+     gold, ready to lock"). Until the lock, the purchasing peer's number is an **ESTIMATE with
+     explicit up/down variance — the UI must label it as such.** After lock it's firm and is what
+     the completion invoice bills. (This supersedes the earlier "actual cost known at receipt" —
+     the lock, not receipt, is when the price becomes firm.)
+   - **COGS routing:** each casting WO routes to the VARIANT it matches; its cost splits **per
+     piece within that WO's variant group** (2× 925 silver at $200 → $100 COGS on each of those
+     two pieces). Not split across the whole run.
+   - Casting still **gated from shipping to the artisan until the compiled invoice is paid**
+     (nothing-is-fronted).
+   **DECIDED (owner, 2026-07-24) — the full casting build spec (retire the S4 `castingBatches`
+   collection; casting is a first-class WO discipline on the bench spine):**
+   - **(a) Casting is a `casting`-discipline WORK ORDER on the existing workOrders spine** — lands
+     on the bench like everything else, compiled into an invoice at completion like repairs.
+   - **(b) New artisan type `caster`.** Unassigned casting WOs are **claimable in the bench** (lane,
+     caster-gated). The purchasing artisan may instead **assign a WO to a specific caster**, **use
+     an outside vendor**, or **cast it themselves**.
+   - **(c) Price lock = the METAL PRICE PER WEIGHT, locked when the caster orders material / confirms
+     ready.** The WO total is NOT fully fixed at lock — it uses the **FINAL WEIGHT weighed at QC**:
+     `invoiceLine = recordedWeightAtQc × lockedPricePerUnit × 1.3 (casting markup) + castingLaborFee`.
+     Before lock, the purchaser's number is a labeled ESTIMATE (up/down variance). The caster eats
+     variance in the *price* (locked) but the *weight* is the actual casting's weight at QC.
+   - **(d) Solo self-cast: still lock, still weigh, but NO bill.** COGS is still recorded (weight ×
+     locked price × 1.3 + casting labor fee); the casting labor fee is what the artisan "pays
+     themselves" — accrues as earned labor (self scope, realized at sale), never invoiced.
+   - **COGS routing:** each casting WO → its variant's pieces, split per-piece within that WO's group.
+   **THE SHIPPING-FRAGMENTATION HOLE (owner flagged, 2026-07-24) + PROPOSED fix:** if a run's 5
+   per-metal casting WOs are claimed by 5 different casters, that's 5× shipping. Fix = **the
+   claimable unit is the RUN's casting JOB (all its per-metal WOs), claimed ATOMICALLY — no partial
+   claims.** One caster takes the whole run's casting or none → one caster, one shipment per run.
+   The per-metal WOs remain (metal instructions + per-variant COGS + per-WO price-lock/weigh) as
+   line items of the job. Cross-run consolidation (one caster holding several runs for one
+   purchasing artisan) rides the shipments model: **one shipment per caster→artisan handoff covers
+   all their pieces = one shipping charge**, regardless of how many jobs. Edge: a caster who can't
+   do every metal in a run can't claim the atomic job — the purchasing artisan may then deliberately
+   split/assign (accepting the extra shipping).
+   **MARKUP — DECIDED (owner, 2026-07-24): EFD's wholesale markup APPLIES to outsourced casting
+   (Option B).** The reasoning generalizes to ALL fulfilled WOs and is WHY the WO markup exists:
+   two separate revenue streams — **WO markup = EFD's INFRASTRUCTURE fee** (charged at the work
+   order every time the pipeline fulfills work, regardless of whether/where the piece sells) vs
+   **consignment = EFD's SALES fee** (only when sold through EFD's shop). The consignment is
+   avoidable (artisan sells in person → EFD never sees it), so EFD must capture its infra fee at
+   the WO. For a PEER/VENDOR casting: the **caster receives the full `1.3 metal markup + casting
+   labor fee`** (their margin + work); **EFD's wholesale markup applies on top** (artisan pays
+   `casterCharge × wholesaleMarkup`; caster keeps casterCharge; EFD keeps the delta). Not double-
+   dipping — caster and platform are distinct providers. **Self-cast is the exception (no bill, no
+   markup):** you ARE the caster, paying yourself `1.3 + labor`; EFD charges no infra fee on your
+   own solo work (§0a — the platform is free; EFD only earns when it does work for you or sells for
+   you). The owner is the degenerate self≈efd case.
    **Casting liability — DECIDED (owner, 2026-07-23):** casting failures are the CASTER's
    liability — "they paid for 10, they get 10"; how many casting sessions that takes is the
    caster's business (vendor and in-house casting WO alike). After delivery the ordering artisan
    gets a **48-hour dispute window** (a delivered casting that fails their inspection can be
    disputed; auto-accept when the window lapses). Once accepted, damage during later work is the
    OWNING artisan's liability — with a built-in avenue to **scrap the piece, RELEASING its
-   edition slot (number retired, replacement gets a fresh number), and order another**.
-   → the edition engine needs scrap-releases-slot (pre-sale scrap only).
+   edition slot and REUSING its number, and order another**.
+   **Numbering — DECIDED (owner, 2026-07-24, supersedes the earlier "fresh number"):** a pre-sale
+   scrap never reached a customer (it was a manufacturing failure), so its number goes back into a
+   reuse pool and the replacement takes it — a limited-N edition stays numbered **1..N forever**
+   (no "#11 of 10" in anyone's collection). → the edition engine frees the number on scrap/cancel
+   (nulls it on the scrapped piece, keeps `scrappedEditionNumber` for audit) and the next mint
+   draws freed numbers (lowest first) before a fresh one. Pre-sale scrap only. **SHIPPED (S1).**
 2. **Shipping legs:** minimum viable = a `shipments` record per handoff `{ from, to, carrier,
    tracking, pieceIDs, status }` + "piece is physically at X".
    **Billing — DECIDED (owner, 2026-07-23):** the owning artisan pays shipping as a line on
@@ -226,6 +320,48 @@ exempt, none ⇒ they pay tax where liable. Stripe supports this directly — St
 per-customer **exemption certificates** and computes per-state rates/registrations on invoices
 (and Connect handles 1099s). Build: permit on the artisan profile → exemption flag on their
 Stripe customer; artisan invoices run through Stripe Tax.
+
+## 4h. Earning on the Carrera casting path (OPEN — options, 2026-07-24)
+
+Constraints: can't mark up above market (the artisan can price-check Carrera), can't ask Carrera for
+a discount yet, no platform/membership fee (§0a — the platform is free). So EFD must earn by doing
+REAL work in the chain. Ranked by impact × feasibility × mission-fit:
+
+1. **In-house wax/model printing (STRONGEST).** If Carrera's per-item fee covers producing the model
+   from the STL, EFD prints the waxes instead (resin + printer time it likely already owns) and
+   Carrera casts a supplied model at a lower per-item fee. EFD charges BELOW Carrera's print fee, so
+   the artisan saves and EFD books a real service margin. Scales with volume, makes the CAD→print→
+   cast pipeline sticky, and is unambiguously value-add rather than rent. **GATE: does Carrera accept
+   customer-supplied waxes/models, and what's their per-item fee with vs without the model?**
+2. **Metal supply (biggest absolute dollars, needs capital).** EFD buys casting grain at volume
+   (spot + small) and supplies it; the artisan sends metal to Carrera, skipping Carrera's 1.3 metal
+   markup entirely. Illustrative: 10g of 14k (~$500 metal) → Carrera bills $650; EFD-supplied at
+   1.15 = $575 → artisan saves $75, EFD earns ~$35. **A gold/platinum play — negligible on silver**
+   ($12 silver saves ~$1.80). **GATE: does Carrera accept customer-supplied metal, and what's their
+   loss allowance?**
+3. **Freight aggregation with EFD as the hub (the surviving version of consolidation).** Carrera
+   ships ONE box to EFD covering many artisans' pieces (one $35 freight = ~$7/piece at 5), then EFD
+   forwards each artisan insured small-parcel (~$10). Artisan pays ~$17 vs $35 direct; EFD takes a
+   flat handling fee out of the saving and the artisan still nets a win. Costs an extra hop + a few
+   days, and EFD does the repack labor — offer it as the artisan's choice: **rush (direct, full
+   freight)** vs **hub (consolidated, cheaper, slower)**.
+4. **Flat order-handling fee (baseline, honest).** A disclosed flat fee per casting order for work
+   EFD genuinely performs: placing/tracking the order, receiving + QC, COGS entry, dispute handling,
+   invoicing. Flat, NOT a percentage of metal (§4c — percentage on metal invites adverse selection).
+5. **Finishing as bench WOs (natural attach).** Carrera delivers raw castings; someone must sprue-cut,
+   tumble, pre-polish. Offer finishing as normal bench WOs — legitimate labor margin at the standard
+   WO markup, attached to nearly every casting order.
+6. **Scrap/sweeps aggregation + refining (separate business, real margin).** Collect bench scrap,
+   filings and polishing sweeps across artisans, refine at volume, keep the spread. Genuine logistics
+   no individual artisan can do alone. Independent of Carrera.
+7. **Volume tiers reached naturally (free upside).** Qualifying for Carrera's PUBLISHED volume tiers
+   by aggregating demand is not a negotiation — track aggregate volume so the tier is claimed the
+   moment it's hit.
+
+**Two factual gates block the top two options** (questions for Carrera, not for us): (a) do they cast
+customer-supplied waxes/models, and at what per-item fee? (b) do they cast customer-supplied metal,
+and at what loss allowance? Also worth pinning: EFD's real insured shipping cost for a single small
+piece (the $35 may be a Carrera rate, not physics).
 
 ## 4g. Remaining open probes (updated 2026-07-23, round 3)
 

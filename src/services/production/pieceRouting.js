@@ -30,8 +30,12 @@ function resolveVariantId(design, opts = {}) {
 }
 const configFromOpts = (opts = {}) => opts.resolvedConfiguration ?? { metalType: opts.metalType ?? null, karat: opts.karat ?? null };
 
-/** Spawn one work order per routing step for a piece; returns the new WO ids. */
-async function spawnPieceWorkOrders(piece, routing, { label = 'Piece', metalType = null, karat = null, createdBy = null } = {}) {
+/**
+ * Spawn one work order per routing step for a piece; returns the new WO ids.
+ * `assignedToUserID` pre-assigns the WOs (solo runs: pre-assigned to the creator, so they're
+ * private by self-assignment per §0; leave null to drop them into the lane queue = outsourcing).
+ */
+export async function spawnPieceWorkOrders(piece, routing, { label = 'Piece', metalType = null, karat = null, createdBy = null, assignedToUserID = null } = {}) {
   const steps = (Array.isArray(routing) && routing.length) ? routing : DEFAULT_ROUTING;
   const workOrderIDs = [];
   for (let i = 0; i < steps.length; i += 1) {
@@ -45,7 +49,9 @@ async function spawnPieceWorkOrders(piece, routing, { label = 'Piece', metalType
       description: step.description ?? null,
       metalType,
       karat,
-      status: 'READY FOR WORK',
+      status: assignedToUserID ? 'IN PROGRESS' : 'READY FOR WORK',
+      assignedToUserID: assignedToUserID || null,
+      claimedAt: assignedToUserID ? new Date() : null,
       tasks: step.process ? [{ process: step.process, estLaborHours: step.estLaborHours ?? 0 }] : [],
       createdBy,
     });

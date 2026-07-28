@@ -82,10 +82,23 @@ async function enrichBatch(batch) {
   };
 }
 
+/**
+ * Owner-operators whose SELF labor stays payroll-payable (their draw). Everyone else's `payer:'self'`
+ * labor is excluded from payroll — it realizes at sale via consignment (§4.4).
+ */
+async function getOwnerOperatorUserIDs() {
+  const dbInstance = await db.connect();
+  const owners = await dbInstance.collection('users')
+    .find({ 'compensationProfile.isOwnerOperator': true })
+    .project({ _id: 0, userID: 1 }).toArray();
+  return owners.map((o) => o.userID).filter(Boolean);
+}
+
 export async function listPayrollCandidates({ weekStart, weekEnd, userID } = {}) {
   await syncSalesPayoutDeductions();
+  const ownerUserIDs = await getOwnerOperatorUserIDs();
   const [laborCandidates, saleCandidates] = await Promise.all([
-    RepairLaborLogsModel.listPayrollCandidates({ weekStart, weekEnd, userID }),
+    RepairLaborLogsModel.listPayrollCandidates({ weekStart, weekEnd, userID, ownerUserIDs }),
     SalePayoutsModel.weeklyReport({ weekStart, weekEnd, userID }),
   ]);
   const candidatesByKey = new Map();

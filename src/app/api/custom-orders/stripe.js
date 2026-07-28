@@ -88,6 +88,8 @@ export async function createAndSendStripeInvoice({
   customerName,
   description,
   dueDays = 7,
+  kind = 'custom_invoice',   // generalized: artisan WO/casting bills pass their own kind (webhook routes on it)
+  projectLabel = 'Project',
 }) {
   const cents = Math.round(Number(amountInCents) || 0);
   if (cents <= 0) {
@@ -111,10 +113,10 @@ export async function createAndSendStripeInvoice({
     description: description || `Custom order ${customID}`,
     footer: 'Thank you for choosing Engel Fine Design.',
   });
-  invoiceBody.set('custom_fields[0][name]', 'Project');
-  invoiceBody.set('custom_fields[0][value]', customID);
+  invoiceBody.set('custom_fields[0][name]', projectLabel);
+  invoiceBody.set('custom_fields[0][value]', String(customID ?? invoiceID));
   metadata(invoiceBody, {
-    kind: 'custom_invoice',
+    kind,
     invoiceID,
     invoiceNumber,
     customID,
@@ -132,7 +134,7 @@ export async function createAndSendStripeInvoice({
     currency: 'usd',
     description: description || `Custom order ${customID}`,
   });
-  metadata(itemBody, { kind: 'custom_invoice', invoiceID, customID });
+  metadata(itemBody, { kind, invoiceID, customID });
   await stripeRequest('/invoiceitems', {
     method: 'POST',
     body: itemBody,

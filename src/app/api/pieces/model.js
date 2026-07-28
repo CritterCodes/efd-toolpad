@@ -47,7 +47,16 @@ export default class PiecesModel {
       col.createIndex({ designID: 1, variantId: 1 }),
       col.createIndex({ status: 1 }),
       col.createIndex({ productID: 1 }),
-      col.createIndex({ designID: 1, editionNumber: 1 }, { unique: true, sparse: true }),
+      // Unique edition number PER DESIGN — but only for pieces that actually HOLD a number.
+      // Must be PARTIAL (not sparse): a compound sparse index still indexes a doc when ANY key is
+      // present (designID always is), so scrapped/cancelled (editionNumber unset) and planned MTO
+      // (editionNumber null) pieces would all collide as {designID, null}. `$type:'number'` scopes
+      // the constraint to numbered pieces only, so freed numbers can be reused and unnumbered
+      // pieces coexist. See docs/manufacturing/NIGHTLOG.md (scrap-reuse) + migration note.
+      col.createIndex(
+        { designID: 1, editionNumber: 1 },
+        { unique: true, partialFilterExpression: { editionNumber: { $type: 'number' } } },
+      ),
     ]);
   }
 

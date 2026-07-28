@@ -4,16 +4,21 @@
  */
 
 export const METAL_TYPES = {
-  // Gold Variants (10K, 14K, 18K in Red, White, Yellow)
-  GOLD_10K_RED: { label: '10K Red Gold', sg: 11.59, category: 'gold', karats: 10, color: 'red' },
+  // Gold Variants (10K, 14K, 18K in Rose, White, Yellow).
+  // NOTE the `_RED` KEY vs the "Rose Gold" LABEL: the keys are persisted on variant docs
+  // (`variant.metalKey`) and are the lookup used by designCost.estimateMetalCost, so renaming them
+  // would be a data migration for zero user-visible gain. Retail vocabulary is "Rose Gold" (matches
+  // REFRAKT's `roseGold` finish label). Never surface "Red Gold" to a human. If a casting vendor
+  // uses a different word for it (e.g. "Pink"), translate at that vendor's boundary, not here.
+  GOLD_10K_RED: { label: '10K Rose Gold', sg: 11.59, category: 'gold', karats: 10, color: 'rose' },
   GOLD_10K_WHITE: { label: '10K White Gold', sg: 11.07, category: 'gold', karats: 10, color: 'white' },
   GOLD_10K_YELLOW: { label: '10K Yellow Gold', sg: 11.57, category: 'gold', karats: 10, color: 'yellow' },
-  
-  GOLD_14K_RED: { label: '14K Red Gold', sg: 13.26, category: 'gold', karats: 14, color: 'red' },
+
+  GOLD_14K_RED: { label: '14K Rose Gold', sg: 13.26, category: 'gold', karats: 14, color: 'rose' },
   GOLD_14K_WHITE: { label: '14K White Gold', sg: 12.61, category: 'gold', karats: 14, color: 'white' },
   GOLD_14K_YELLOW: { label: '14K Yellow Gold', sg: 13.07, category: 'gold', karats: 14, color: 'yellow' },
-  
-  GOLD_18K_RED: { label: '18K Red Gold', sg: 15.18, category: 'gold', karats: 18, color: 'red' },
+
+  GOLD_18K_RED: { label: '18K Rose Gold', sg: 15.18, category: 'gold', karats: 18, color: 'rose' },
   GOLD_18K_WHITE: { label: '18K White Gold', sg: 14.64, category: 'gold', karats: 18, color: 'white' },
   GOLD_18K_YELLOW: { label: '18K Yellow Gold', sg: 15.58, category: 'gold', karats: 18, color: 'yellow' },
   

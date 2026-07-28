@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/apiAuth';
-import { VALID_GEM_PRESETS } from '@crittercodes/refrakt/server';
+// Vocab lives on the package ROOT, not /server (which is render helpers only). Importing from
+// /server left VALID_GEM_PRESETS undefined → `new Set(undefined)` → gem detection silently fell
+// back to 'diamond' for every mesh. Root barrel is sideEffects:false so the build tree-shakes it.
+import { VALID_GEM_PRESETS } from '@crittercodes/refrakt';
 
 // POST /api/glb/inspect  { glbUrl: string }
 //

@@ -67,6 +67,16 @@ export default class SettingsManagerService {
         hasPassword: !!settings.stuller?.password,
         apiUrl: settings.stuller?.apiUrl || 'https://api.stuller.com',
         updateFrequency: settings.stuller?.updateFrequency || 'daily'
+      },
+      // Casting vendor (Carrera) — where automated casting-order emails are sent. Read-through so
+      // castingVendorOrder.getCastingVendorConfig() can prefer settings over env. No UI yet: seed the
+      // doc directly or set CASTING_VENDOR_EMAIL / _NAME / _CONTACT / _CC.
+      castingVendor: {
+        // Empty (not a default) when unset, so the service's env fallback can still win.
+        name: settings.castingVendor?.name || '',
+        email: settings.castingVendor?.email || '',
+        accountManager: settings.castingVendor?.accountManager || '',
+        cc: Array.isArray(settings.castingVendor?.cc) ? settings.castingVendor.cc : []
       }
     };
 
