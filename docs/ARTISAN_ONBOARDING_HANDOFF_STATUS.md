@@ -11,7 +11,8 @@ wrong or understated, noted inline.
 | **A2** | `requireRole(STAFF_ROLES)` on GET/PATCH/DELETE of `/api/admin/artisans` and `/api/admin/artisans/[applicationId]`; `status` validated against `['pending','approved','rejected']`; `reviewedBy` taken from the session, not the body. 17 tests. |
 | **A8** | Deleted `/api/artisan/[applicationId]/route.js` + `src/lib/emailService.js`. **The handoff filed this as dead-code cleanup; it was actually a second copy of A2's vulnerability** — same missing auth, same `updateArtisanApplicationStatus` call that sets `role: 'artisan'`. Guarding only the `admin` route would have left self-approval fully open. No callers in either app. |
 | **A1** | Registered `artisan-approved` / `artisan-rejected` in `lib/email.js` + added both `.hbs` templates (inline-table house style, matching `generic-notification.hbs`). Approval CTA → `${adminUrl}/auth/signin?callbackUrl=%2Fdashboard`, absolute; body names the admin host and says to use the existing shop password. Rejection no longer links `/artisan-application` (a 404 in this app) — it points at the shop. |
-| **A3** | Fixed the three `engel**s**finedesign.com` fallbacks in `lib/email.js` (+ one in `users/controller.js`). **None of `SUPPORT_EMAIL` / `NEXT_PUBLIC_ADMIN_URL` / `NEXT_PUBLIC_SHOP_URL` is set, so the fallback is what actually rendered** — every email carried a dead support address and dead links. Env var still needs setting in Vercel (below). |
+| **A3** | Fixed the `engel**s**finedesign.com` fallbacks (an extra "s" — a domain EFD does not own) in `lib/email.js` + `users/controller.js`. **None of those env vars is set, so the fallback is what actually rendered** — every email carried a dead support address and dead links. **Then it turned out to be systemic (see below).** |
+| **A3+** | **`NEXT_PUBLIC_ADMIN_URL` was interpolated unguarded at ~26 sites** — 19 with `\|\| ''` (yielding a RELATIVE href, inert in an email client) and 7 with no fallback at all (yielding the literal string `"undefined/products/abc"`). Every repair, payroll, product-submission, drop, collection, custom and bench notification carried one. All 20 files now route through `lib/appUrls.js` (`adminBase()` / `shopBase()` / `adminLink()` / `shopLink()`), which is absolute-or-nothing. 12 tests. |
 | **A4** (partial) | Middleware now gates `/dashboard/admin/*` to `STAFF_ROLES` — the page-level twin of A2. **Deliberately scoped to that one prefix**; see "Needs a decision". 19 tests. |
 | **A5** | `role: user.role \|\| 'admin'` → defaults to `USER_ROLES.CLIENT`. The JWT now signs the *resolved* role (it signed raw `user.role`, so a role-less account got `undefined` in its token while its session said `admin`). |
 
@@ -41,9 +42,16 @@ and not another.
 
 ## Yours to do (outside the codebase)
 
-- **Set `NEXT_PUBLIC_ADMIN_URL=https://admin.engelfinedesign.com` in Vercel** for efd-admin (A3).
-  Code fallbacks now cover its absence, but the env var should be right regardless. Same for
-  `NEXT_PUBLIC_SHOP_URL` and `SUPPORT_EMAIL`.
+- ~~Set `NEXT_PUBLIC_ADMIN_URL` in Vercel~~ **NOT NEEDED** (owner, 2026-07-29: "don't we already have
+  a similar secret"). Correct — `NEXTAUTH_URL` already IS this app's canonical base URL, NextAuth
+  requires it in production so it is always set, and the repo already used it this way in
+  `users/controller.js`. The chains are now
+  `NEXT_PUBLIC_ADMIN_URL || NEXTAUTH_URL || <hardcoded>` and
+  `NEXT_PUBLIC_SHOP_URL || EFD_SHOP_URL || <hardcoded>` — both middle terms already exist everywhere,
+  so **no new env var is required to deploy this**. Setting `SUPPORT_EMAIL` is still optional if
+  `critter@engelfinedesign.com` isn't the address you want on outbound mail.
+  (`NEXTAUTH_URL` is server-only — these render server-side, so don't move them into a client
+  component.)
 - **A7, local dev DBs.** `efd-admin/.env.local` has `MONGO_DB_NAME=efd-db-migrate` while
   `efd-shop/.env.local` has `efd-database-DEV`. The apps share `users` in production but not locally,
   so an application submitted on a local shop is invisible to a local admin ("User not found"). Point

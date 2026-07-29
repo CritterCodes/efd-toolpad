@@ -3,6 +3,7 @@ import Database from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import { notifyAllAdmins } from '@/lib/notificationService';
+import { adminBase } from '@/lib/appUrls';
 
 /**
  * POST /api/products/:id/submit
@@ -122,7 +123,7 @@ export async function POST(request, { params }) {
         type: 'product-submitted-for-review',
         title: 'New Product Awaiting Approval',
         message: `${artisanEmail} submitted "${title}"`,
-        actionUrl: `${process.env.NEXT_PUBLIC_ADMIN_URL || ''}/dashboard/products/pending`,
+        actionUrl: `${adminBase()}/dashboard/products/pending`,
         priority: 'normal',
         relatedData: {
           productId: result.productId || result._id?.toString() || id,

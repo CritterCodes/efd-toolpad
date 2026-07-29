@@ -3,6 +3,7 @@ import RepairsModel from '../../model';
 import { requireRepairOps } from '@/lib/apiAuth';
 import { buildMarkWaitingPartsUpdate } from '@/services/repairWorkflow';
 import { NotificationService } from '@/lib/notificationService';
+import { adminBase } from '@/lib/appUrls';
 
 function toNumber(value, fallback = 0) {
   const parsed = Number(value);
@@ -81,7 +82,7 @@ export const POST = async (req, { params }) => {
       const customerID = updated.userID;
       const customerEmail = updated.email || updated.clientEmail || updated.customerEmail || '';
       if (customerID || customerEmail) {
-        const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || '';
+        const adminUrl = adminBase();
         await NotificationService.createNotification({
           userId: customerID,
           type: 'repair-status',

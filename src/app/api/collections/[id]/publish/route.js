@@ -8,6 +8,7 @@ import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import { NotificationService, notifyAllAdmins } from '@/lib/notificationService';
+import { adminBase } from '@/lib/appUrls';
 
 /**
  * POST /api/collections/:id/publish
@@ -110,7 +111,7 @@ export async function POST(request, { params }) {
     // Best-effort: never fail the publish if notifications error.
     try {
       const collectionName = collection.name || collection.title || collection.drop?.theme || 'a collection';
-      const actionUrl = `${process.env.NEXT_PUBLIC_ADMIN_URL || ''}/dashboard/collections/${id}`;
+      const actionUrl = `${adminBase()}/dashboard/collections/${id}`;
 
       // Resolve the owning artisans of the products in this collection.
       const productObjectIds = (collection.products || [])

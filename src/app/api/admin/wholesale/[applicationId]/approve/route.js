@@ -6,6 +6,7 @@ import {
 } from '@/lib/wholesaleService.js';
 import { requireRole } from '@/lib/apiAuth';
 import { NotificationService } from '@/lib/notificationService';
+import { adminBase } from '@/lib/appUrls';
 
 // Best-effort approval notification to the wholesaler (never blocks the response).
 async function notifyWholesaleApproved(application) {
@@ -13,7 +14,7 @@ async function notifyWholesaleApproved(application) {
     const recipientUserId = application.accountUserID || application.userID || '';
     const recipientEmail = application.email || '';
     const businessName = application.businessName || `${application.firstName || ''} ${application.lastName || ''}`.trim();
-    const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || '';
+    const adminUrl = adminBase();
 
     await NotificationService.createNotification({
       userId: recipientUserId,

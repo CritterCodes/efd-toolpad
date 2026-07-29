@@ -2,6 +2,7 @@
 
 import UserService from "./service";
 import { NotificationService, NOTIFICATION_TYPES, CHANNELS } from "@/lib/notificationService.js";
+import { adminBase } from '@/lib/appUrls';
 
 export default class UserController {
     /**
@@ -217,7 +218,7 @@ export default class UserController {
                     updatedUser.role !== previousRole
                 ) {
                     const recipientUserId = updatedUser.userID || (updatedUser._id ? updatedUser._id.toString() : '');
-                    const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || '';
+                    const adminUrl = adminBase();
                     await NotificationService.createNotification({
                         userId: recipientUserId,
                         type: 'role-changed',

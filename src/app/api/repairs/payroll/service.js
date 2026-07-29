@@ -9,6 +9,7 @@ import {
   canVoidPayrollBatch,
   getMondayOfWeek,
 } from '@/services/payrollUtils';
+import { adminBase } from '@/lib/appUrls';
 
 function normalizeWeekStart(value) {
   return getMondayOfWeek(value || new Date());
@@ -287,7 +288,7 @@ export async function markPayrollBatchPaid(batchID, {
         recipientEmail: user?.email || '',
         priority: 'high',
         data: {
-          actionUrl: `${process.env.NEXT_PUBLIC_ADMIN_URL || ''}/dashboard/payroll`,
+          actionUrl: `${adminBase()}/dashboard/payroll`,
           relatedType: 'payroll-batch',
           batchID,
           amount,

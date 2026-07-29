@@ -3,6 +3,7 @@
 
 import { db } from './database.js';
 import { NotificationService } from '@/lib/notificationService';
+import { adminBase, shopBase } from '@/lib/appUrls';
 
 /**
  * Get all artisan applications with optional filters
@@ -168,12 +169,12 @@ export async function updateArtisanApplicationStatus(applicationId, status, revi
         const recipientUserId = user.userID || (user._id ? user._id.toString() : '');
         const recipientEmail = user.email || '';
         const artisanName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Artisan';
-        // ABSOLUTE URLs only — these land in an email client, where a relative path is dead. NEXT_PUBLIC_ADMIN_URL
-        // is set in .env.local but NOT in .env.production, so `|| ''` previously produced the bare
-        // relative href "/dashboard". Hardcoded fallbacks, not empty strings: a missing env var must
-        // degrade to the right host, not to a broken link.
-        const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.engelfinedesign.com';
-        const shopUrl = process.env.NEXT_PUBLIC_SHOP_URL || process.env.EFD_SHOP_URL || 'https://shop.engelfinedesign.com';
+        // ABSOLUTE URLs only — these land in an email client, where a relative path is dead. This was
+        // `NEXT_PUBLIC_ADMIN_URL || ''`, which rendered the bare relative href "/dashboard" whenever
+        // that var was unset (it is not set in production). See lib/appUrls.js — the same bug was at
+        // ~26 sites, so the resolution lives in one place now.
+        const adminUrl = adminBase();
+        const shopUrl = shopBase();
 
         if (status === 'approved') {
           // Approved artisans work out of the ADMIN app, not the shop they applied on, so the CTA

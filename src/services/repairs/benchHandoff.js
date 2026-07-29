@@ -22,6 +22,7 @@ import {
   calculateRepairLaborHours,
   calculateRepairChargeTotal,
 } from '@/app/api/repairLaborLogs/utils';
+import { adminBase } from '@/lib/appUrls';
 
 const QC_PASS_ACTION = 'repair_qc_pass';
 
@@ -94,7 +95,7 @@ export async function signOffAndHandoffRepair({ session, repairID, completedTask
   // (best-effort, in-app + push). Only fires when a specific target jeweler was set.
   if (handoffTarget?.userID) {
     try {
-      const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || '';
+      const adminUrl = adminBase();
       await NotificationService.createNotification({
         userId: handoffTarget.userID,
         type: 'repair-handoff',

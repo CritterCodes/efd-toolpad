@@ -4,6 +4,7 @@ import { setCustomInvoiceStatus } from '@/services/customs/customInvoices.servic
 import CustomInvoicesModel, { CUSTOM_INVOICE_STATUS } from '@/app/api/custom-orders/invoices/model';
 import { db as mongo } from '@/lib/database';
 import { NotificationService } from '@/lib/notificationService';
+import { adminBase } from '@/lib/appUrls';
 
 // Stripe must reach the raw body; never cache.
 export const dynamic = 'force-dynamic';
@@ -99,7 +100,7 @@ export const POST = async (req) => {
               recipientEmail: user.email || '',
               priority: 'high',
               data: {
-                actionUrl: `${process.env.NEXT_PUBLIC_ADMIN_URL || ''}/dashboard/payroll`,
+                actionUrl: `${adminBase()}/dashboard/payroll`,
                 relatedType: 'stripe-connect',
                 stripeAccountId: account.id,
               },
