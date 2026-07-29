@@ -179,17 +179,20 @@ export async function acceptCasting({ batchId, auto = false }) {
 }
 
 /**
- * Cancel a casting batch (pre-acceptance). Clears the ship gate: a cancelled batch will never ship,
- * so leaving `shippingGated` set only renders a dead "gated from shipping" warning with no action
- * behind it. Safe because `cancelled` has no onward transitions — `markCastingDelivered` still
- * refuses. If the batch was already invoiced, the ROUTE voids that invoice (voidCastingInvoice);
- * it can't be called from here without an import cycle through artisanBilling.
+ * Cancel a casting batch (pre-acceptance). If the batch was already invoiced, the ROUTE voids that
+ * invoice (`castingSettlement.voidCastingInvoice`) — it can't be called from here without an import
+ * cycle through artisanBilling.
+ *
+ * DELIBERATELY LEAVES `shippingGated` SET. Clearing it looks tidy (a cancelled batch will never
+ * ship, so the board's warning is dead) but `shipping.isClearToShip` reads the flag and NOT the
+ * status, so clearing it opens the gate for any shipment linked to this batch — including a legacy
+ * batch whose charge was never actually settled. The dead warning is suppressed in the UI instead,
+ * where it costs nothing. Money gates only ever get stricter here.
  */
 export async function cancelCastingBatch({ batchId }) {
   const batch = await transition(batchId, CASTING_STATUS.CANCELLED);
   return CastingBatchesModel.updateById(batchId, {
     status: CASTING_STATUS.CANCELLED,
     cancelledAt: new Date(),
-    shippingGated: false,
   });
 }

@@ -60,6 +60,7 @@ export function buildCastingBatch(data = {}) {
     disputedAt: data.disputedAt ?? null,
     disputeReason: data.disputeReason ?? null,
     acceptedAt: data.acceptedAt ?? null,
+    cancelledAt: data.cancelledAt ?? null,
     createdBy: data.createdBy ?? null,
     createdAt: now,
     updatedAt: now,

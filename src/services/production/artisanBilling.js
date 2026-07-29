@@ -8,7 +8,8 @@ import { getWorkOrderMarkupMultiplier, applyWorkOrderMarkup, DEFAULT_WO_MARKUP }
  * materials × 1.20 (EFD's markup), with shipping/insurance and consumed gems passed through at
  * cost (no markup — §4c), and self-fulfilled work billing NOTHING (own labor realizes at sale, not
  * a bill to yourself). An overdue unpaid invoice FREEZES the artisan (no new runs/WOs/listings).
- * The Stripe hosted invoice is generated via the shared rail; this owns the amount policy + freeze.
+ * This owns the amount policy + the freeze. `pushArtisanInvoiceToStripe` (below) would make it a
+ * hosted Stripe invoice, but nothing calls it yet — staff record payment by hand until U-BILL-2.
  */
 
 export class ArtisanBillingError extends Error {}
@@ -66,8 +67,14 @@ export async function assertArtisanNotFrozen(userID, ErrorClass = ArtisanBilling
  * raw vendor cost would silently hand EFD's infra fee back to the artisan. The raw cost + multiplier
  * are kept in `breakdown` for the audit trail.
  *
- * Called from the casting `receive` route, NOT from castingBoard: this module already imports
- * castingBoard (markCastingPaid), so the reverse import would be a cycle.
+ * Called from the casting `receive` route (via castingSettlement), NOT from castingBoard: this module
+ * already imports castingBoard (markCastingPaid), so the reverse import would be a cycle.
+ *
+ * "Idempotent per batch" doubles as the RE-CAST POLICY: after `disputed → ordered → receive` the
+ * batch mints a NEW `charge.amount`, but this returns the ORIGINAL invoice — so a failed casting is
+ * never billed twice and EFD/the vendor eats the re-cast (§4.1 casting-failure liability). Known
+ * consequence: `invoice.amount` then diverges from `batch.charge.amount`, and the second casting has
+ * no invoice of its own. If that policy changes, key idempotency on the charge, not the batch.
  */
 export async function billCastingBatch({ batchId, billedEmail = null, createdBy = null }) {
   const batch = await CastingBatchesModel.findById(batchId);

@@ -69,8 +69,13 @@ const whenExact = (d) => (d ? new Date(d).toLocaleString(undefined, { month: 'sh
 /** Past-tense wording per action (never string-concat "ed" — that yields "payed"/"disputeed"). */
 const DONE_WORD = { order: 'recorded as ordered', receive: 'received', pay: 'marked paid', deliver: 'marked delivered', dispute: 'disputed', accept: 'accepted', cancel: 'cancelled' };
 
-/** An unpaid charge outstanding on this batch? (the ship gate + the debt indicator) */
-const isGated = (b) => Boolean(b.shippingGated && !b.charge?.paid);
+/**
+ * An unpaid charge outstanding on this batch? (the ship gate + the debt indicator)
+ * A CANCELLED batch keeps its `shippingGated` flag on purpose (see cancelCastingBatch — the flag is
+ * what `isClearToShip` reads), but the warning is dead there: nothing is coming and there is no
+ * action behind it. Suppress the badge in the UI rather than mutating the money gate.
+ */
+const isGated = (b) => Boolean(b.shippingGated && !b.charge?.paid && b.status !== 'cancelled');
 /** Has the 48h dispute window lapsed? Mirrors castingBoard.isPastDisputeWindow. */
 const disputeClosed = (b) => Boolean(b.disputeDeadline && Date.now() >= new Date(b.disputeDeadline).getTime());
 /**
@@ -166,6 +171,11 @@ export default function CastingBoardPage() {
         notify(side.reason, 'warning');
       } else if (d.billing?.invoiced) {
         notify(`Casting received — invoiced ${money(d.billing.amount)}.`);
+      } else if (d.settlement?.settled && d.settlement?.alreadyPaid) {
+        // Don't claim a settlement that didn't happen. Reachable on a re-cast after a dispute: the
+        // batch mints a NEW charge but billCastingBatch is idempotent per batch, so the (already
+        // paid) original invoice is reused and no money moves for the second casting.
+        notify('Casting released. Its invoice was already paid — no new charge was billed for this casting.', 'info');
       } else if (d.settlement?.settled) {
         notify('Payment recorded — invoice settled and the casting released.');
       } else if (d.settlement?.voided) {
