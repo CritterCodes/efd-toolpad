@@ -13,7 +13,12 @@ import { normalizeArtisanType, ARTISAN_TYPE } from '@/lib/artisans';
  * labels — normalize before comparing; see lib/artisans.js).
  */
 
-const STAFF_ROLES = ['admin', 'dev', 'staff'];
+/**
+ * The canonical EFD-staff role set. EXPORTED so every staff gate resolves membership from one place —
+ * `isStaff` (session-based), `requireRole([...STAFF_ROLES])` on API routes, and `isEfdSelf` (DB-based,
+ * artisanBilling). Divergent inline copies are how a role ends up staff in one gate and not another.
+ */
+export const STAFF_ROLES = ['admin', 'dev', 'staff'];
 const JEWELRY_TYPES = [ARTISAN_TYPE.JEWELER, ARTISAN_TYPE.ENGRAVER, ARTISAN_TYPE.CAD_DESIGNER, ARTISAN_TYPE.DESIGNER];
 const GEM_TYPES = [ARTISAN_TYPE.GEM_CUTTER];
 

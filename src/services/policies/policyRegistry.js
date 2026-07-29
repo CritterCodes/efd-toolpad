@@ -13,7 +13,12 @@ export const POLICIES = Object.freeze({
   'artisan-terms': {
     docId: 'artisan-terms',
     // 0.2 (2026-07-29): casting is billed AT COST — the markup no longer applies to Carrera orders.
-    // A money term changed, so this bump deliberately re-prompts everyone who accepted 0.1.
+    // A money term changed, so the version moves and every 0.1 acceptance is now stale.
+    // HONEST LIMIT: `needsAcceptance` is computed but ENFORCED NOWHERE — its only consumer is
+    // GET /api/policies, which drives a chip + Accept button on /dashboard/policies. So the bump
+    // makes the "accepted" badge go stale on a page the artisan has to choose to visit; it does not
+    // block work. Wiring a real gate (natural home: alongside assertArtisanNotFrozen's callers) is
+    // still open — until then, don't describe a version bump as re-prompting anyone.
     version: '0.2',
     title: 'Engel Fine Design — Artisan Terms & Policies',
     status: 'draft',   // not yet legally reviewed (see the canonical doc banner)

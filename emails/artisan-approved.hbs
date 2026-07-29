@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your artisan application was approved</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#18181b;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
+          <tr>
+            <td style="background:#0a0a0a;padding:20px 28px;">
+              <span style="color:#D4AF37;font-size:18px;font-weight:600;letter-spacing:0.5px;">Engel Fine Design</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px;">
+              <p style="margin:0 0 16px;font-size:15px;">Hi {{#if artisanName}}{{artisanName}}{{else}}{{recipientName}}{{/if}},</p>
+              <h1 style="margin:0 0 12px;font-size:20px;font-weight:600;color:#18181b;">Welcome to the Engel Fine Design artisan network</h1>
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#3f3f46;">
+                Your artisan application has been approved. Your public profile is live on the shop, and your artisan
+                dashboard is now open.
+              </p>
+
+              <!-- The approved artisan works out of the ADMIN app, not the shop they applied on, with their
+                   existing shop credentials. Saying so explicitly is the whole point of this template: without it
+                   artisans try to sign in on the shop, or assume they need a new account. -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;border:1px solid #e4e4e7;border-radius:8px;margin:0 0 24px;">
+                <tr>
+                  <td style="padding:18px 20px;">
+                    <p style="margin:0 0 10px;font-size:13px;font-weight:600;letter-spacing:0.4px;text-transform:uppercase;color:#71717a;">How to sign in</p>
+                    <p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:#3f3f46;">
+                      Your artisan dashboard is a separate site from the shop:
+                      <br /><a href="{{signInUrl}}" style="color:#0a0a0a;font-weight:600;">{{adminUrl}}</a>
+                    </p>
+                    <p style="margin:0;font-size:15px;line-height:1.6;color:#3f3f46;">
+                      Sign in with <strong>{{recipientEmail}}</strong> and the same password you use on the shop.
+                      There's no new account to create. If you don't remember your password, use
+                      &ldquo;Forgot password&rdquo; on the sign-in page.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 8px;font-size:13px;font-weight:600;letter-spacing:0.4px;text-transform:uppercase;color:#71717a;">First steps in the dashboard</p>
+              <ul style="margin:0 0 24px;padding-left:20px;font-size:15px;line-height:1.7;color:#3f3f46;">
+                <li>Finish your profile — photo, cover image, and bio</li>
+                <li>Upload gallery pieces so customers can see your work</li>
+                <li>Connect your payout account so we can pay you for commissions</li>
+              </ul>
+
+              {{#if reviewNotes}}
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;margin:0 0 24px;">
+                <tr>
+                  <td style="padding:16px 20px;">
+                    <p style="margin:0 0 6px;font-size:13px;font-weight:600;letter-spacing:0.4px;text-transform:uppercase;color:#92400e;">A note from our team</p>
+                    <p style="margin:0;font-size:15px;line-height:1.6;color:#3f3f46;">{{reviewNotes}}</p>
+                  </td>
+                </tr>
+              </table>
+              {{/if}}
+
+              <table role="presentation" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="border-radius:8px;background:#0a0a0a;">
+                    <a href="{{signInUrl}}" style="display:inline-block;padding:12px 28px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;">Sign in to your artisan dashboard</a>
+                  </td>
+                </tr>
+              </table>
+
+              {{#if profileUrl}}
+              <p style="margin:24px 0 0;font-size:14px;line-height:1.6;color:#71717a;">
+                Your public profile: <a href="{{profileUrl}}" style="color:#71717a;">{{profileUrl}}</a>
+              </p>
+              {{/if}}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 28px;border-top:1px solid #e4e4e7;background:#fafafa;">
+              <p style="margin:0;font-size:12px;color:#a1a1aa;">Engel Fine Design &middot; <a href="{{shopUrl}}" style="color:#a1a1aa;">Shop</a> &middot; Questions? <a href="mailto:{{supportEmail}}" style="color:#a1a1aa;">{{supportEmail}}</a></p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

@@ -38,7 +38,7 @@ export default class UserController {
                     artisanName: artisanName || 'Artisan',
                     email: createdUser.email,
                     business: createdUser.business || 'N/A',
-                    loginUrl: process.env.NEXTAUTH_URL || 'https://admin.engelsfinedesign.com'
+                    loginUrl: process.env.NEXTAUTH_URL || 'https://admin.engelfinedesign.com'   // engelfinedesign, no extra "s"
                   },
                   templateName: 'artisan_added',
                   recipientEmail: createdUser.email

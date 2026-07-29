@@ -3,7 +3,9 @@
 > **STATUS: DRAFT v0.2 (2026-07-29) — NOT YET LEGALLY REVIEWED.**
 > **v0.2 change (money term):** casting ordered through EFD's vendor is billed **at cost, no
 > markup** (§3, §4). v0.1 said the platform markup applied to vendor casting invoices; it does not.
-> Version bumped in `policyRegistry` so everyone who accepted v0.1 re-accepts.
+> Version bumped in `policyRegistry`, so every v0.1 acceptance is now stale. NOTE: acceptance is not
+> yet enforced anywhere (`needsAcceptance` gates nothing), so the bump does not by itself re-prompt
+> anyone — it only makes the badge on `/dashboard/policies` stale.
 > This is the plain-language draft of the artisan agreement, assembled from the owner's
 > decisions in `docs/manufacturing/PRODUCTION_RUNS.md` (each section notes its source).
 > It must be reviewed by an attorney before any artisan signs it. Once finalized it becomes
