@@ -30,7 +30,8 @@ export async function billReceivedCasting({ batchId, ownerId, createdBy = null }
       billedEmail = user?.email || null;
     }
     const invoice = await billCastingBatch({ batchId, billedEmail, createdBy });
-    if (!invoice) return { invoiced: false, reason: 'no charge on this batch to bill' };
+    // Null = deliberately not billable: no charge yet, or the run is EFD's own (EFD doesn't bill EFD).
+    if (!invoice) return { invoiced: false, reason: 'nothing to bill on this batch (no charge, or it is EFD’s own run)' };
     // Dotted $set — never overwrite the whole `charge` subdocument, which would clobber a concurrent
     // paid/paidAt write and silently reopen a settled charge.
     await CastingBatchesModel.updateById(batchId, { 'charge.invoiceID': invoice.invoiceID }).catch(() => {});

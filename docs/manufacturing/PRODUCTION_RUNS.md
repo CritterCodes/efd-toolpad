@@ -116,7 +116,8 @@ Stages (each optional — skip what you don't need):
    volume. Revisit once aggregate volume is real leverage (or once published volume tiers are hit
    naturally, which is not a negotiation).
    **OPEN: how EFD earns on the Carrera path** without marking up above market and without asking
-   Carrera for a discount — see §4h.
+   Carrera for a discount — see §4h. **Narrowed (owner, 2026-07-29): casting itself is billed AT COST,
+   no markup** (see the MARKUP note below), so the answer must come from the §4h value-add lanes.
 
    _(historical, superseded — the peer-casting design that the math above killed:)_
    **The casting board is ownership-scoped (owner, 2026-07-23)** — same pattern as My Designs/
@@ -167,8 +168,22 @@ Stages (each optional — skip what you don't need):
    all their pieces = one shipping charge**, regardless of how many jobs. Edge: a caster who can't
    do every metal in a run can't claim the atomic job — the purchasing artisan may then deliberately
    split/assign (accepting the extra shipping).
-   **MARKUP — DECIDED (owner, 2026-07-24): EFD's wholesale markup APPLIES to outsourced casting
-   (Option B).** The reasoning generalizes to ALL fulfilled WOs and is WHY the WO markup exists:
+   **MARKUP — REVERSED FOR CARRERA (owner, 2026-07-29): NO MARKUP ON CARRERA CASTING ORDERS.**
+   The artisan's casting charge is the vendor cost AT COST — a reimbursement of the invoice EFD
+   floats, not a sale. Rationale: the artisan can price-check Carrera directly, so a markup here is
+   visible rent rather than value (§4h's own opening constraint), and it would undercut the free-to-use
+   posture in §0a. The nothing-ships-unpaid gate stays exactly as it is — it guarantees EFD is made
+   whole on money it fronted, which is its actual purpose. EFD earns on casting through the §4h
+   value-add lanes instead (in-house wax/model printing, finishing bench WOs, freight aggregation),
+   still open pending the Carrera call. **Implemented in `castingChargeFromCost` — one place.**
+   Also: **EFD does not bill EFD** (same date). Casting on an owner/staff-owned run creates no
+   invoice at all; the cost still lands on piece COGS. Otherwise an unpaid self-invoice would trip
+   `isArtisanFrozen` and lock the owner out of his own platform. Mirrors WOs' `selfFulfilled` = $0.
+
+   **SUPERSEDED (owner, 2026-07-24): "EFD's wholesale markup APPLIES to outsourced casting
+   (Option B)."** Kept for the reasoning, which still governs WORK ORDERS — it was written for the
+   peer/vendor casting WOs scrapped the same day, and the paragraph below describes a caster-margin
+   split that no longer has a caster in it. The two-revenue-stream logic is why the WO markup exists:
    two separate revenue streams — **WO markup = EFD's INFRASTRUCTURE fee** (charged at the work
    order every time the pipeline fulfills work, regardless of whether/where the piece sells) vs
    **consignment = EFD's SALES fee** (only when sold through EFD's shop). The consignment is

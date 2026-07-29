@@ -59,12 +59,14 @@ describe('markCastingReceived — actualCost shape guard', () => {
     expect(state.updates).toHaveLength(0);
   });
 
-  it('charges cost × the wholesale markup and gates shipping', async () => {
+  it('charges the vendor cost AT COST (no markup) and gates shipping', async () => {
     const { markCastingReceived } = await load();
     await markCastingReceived({ batchId: 'b1', actualCost: 100 });
     const patch = state.updates.at(-1);
     expect(patch.actualCost).toBe(100);
-    expect(patch.charge).toMatchObject({ amount: 150, paid: false });   // 100 × 1.5
+    // Reimbursement, not a sale: charge === cost. The wholesale-markup mock in this file is 1.5, so
+    // a marked-up amount would read 150 — this pins the 2026-07-29 no-markup-on-Carrera decision.
+    expect(patch.charge).toMatchObject({ amount: 100, paid: false, passthrough: true, markupMultiplier: null });
     expect(patch.shippingGated).toBe(true);
   });
 });

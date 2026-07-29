@@ -14,7 +14,20 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
  *  2. it can never double-bill.
  */
 
-const state = { batch: null, invoices: [], created: [] };
+const state = { batch: null, invoices: [], created: [], users: {} };
+
+// `isEfdSelf` looks the batch owner up to decide whether this is EFD billing itself. Mocked so the
+// test never opens a real connection — and so the lookup FILTER can be asserted (see below).
+const userQueries = [];
+vi.mock('@/lib/database', () => ({
+  db: {
+    connect: async () => ({
+      collection: () => ({
+        findOne: async (filter) => { userQueries.push(filter); return state.users[filter?.userID] || null; },
+      }),
+    }),
+  },
+}));
 
 vi.mock('@/app/api/castingBatches/model', () => ({
   default: { findById: async () => state.batch },
@@ -44,23 +57,35 @@ vi.mock('@/services/production/workOrderPricing', () => ({
 const load = async () => import('@/services/production/artisanBilling');
 
 beforeEach(() => {
-  // A received vendor batch: $200 actual vendor cost, charged at 1.5× = $300.
+  // A received vendor batch: $200 actual vendor cost, billed AT COST (no markup on Carrera orders).
   state.batch = {
     batchId: 'b1', ownerId: 'artisan-1', runId: 'r1', vendor: 'Carrera',
     status: 'received', actualCost: 200,
-    charge: { amount: 300, markupMultiplier: 1.5, paid: false, paidAt: null, invoiceID: null },
+    charge: { amount: 200, passthrough: true, markupMultiplier: null, paid: false, paidAt: null, invoiceID: null },
   };
   state.invoices = [];
   state.created = [];
+  state.users = { 'artisan-1': { role: 'artisan' } };   // an outside artisan → billable
+  userQueries.length = 0;
 });
 
 describe('billCastingBatch', () => {
-  it('bills the MARKED-UP charge, not the raw vendor cost', async () => {
+  it('bills what the board RECORDED as the charge — at cost, no markup', async () => {
     const { billCastingBatch } = await load();
     const inv = await billCastingBatch({ batchId: 'b1', billedEmail: 'a@t.test', createdBy: 'staff-9' });
-    expect(inv.amount).toBe(300);            // charge.amount
-    expect(inv.amount).not.toBe(200);        // NOT actualCost — that would forfeit EFD's markup
-    expect(inv.breakdown).toEqual({ casting: 200, markupMultiplier: 1.5 });
+    expect(inv.amount).toBe(200);            // charge.amount === actualCost (reimbursement)
+    expect(inv.breakdown).toEqual({ casting: 200, passthrough: true, markupMultiplier: null });
+  });
+
+  it('bills charge.amount VERBATIM, never a figure it recomputes', async () => {
+    // A legacy marked-up row (billed before the 2026-07-29 at-cost decision) must still bill what it
+    // says — the pricing policy lives in castingChargeFromCost, not here, so this module must not
+    // reinterpret an amount it didn't set.
+    state.batch.charge = { amount: 300, passthrough: false, markupMultiplier: 1.5, paid: false };
+    const { billCastingBatch } = await load();
+    const inv = await billCastingBatch({ batchId: 'b1' });
+    expect(inv.amount).toBe(300);
+    expect(inv.breakdown).toEqual({ casting: 200, passthrough: false, markupMultiplier: 1.5 });
   });
 
   it('bills the OWNING artisan and carries the run + kind + email', async () => {
@@ -92,8 +117,44 @@ describe('billCastingBatch', () => {
     expect(state.created).toHaveLength(0);
   });
 
+  // EFD DOESN'T BILL EFD (owner, 2026-07-29). Staff use the same rails as artisans, but invoicing
+  // yourself is fake money — and an unpaid self-invoice would trip isArtisanFrozen and lock the owner
+  // out of his own platform. Mirrors the selfFulfilled=$0 rule work orders already had.
+  describe('EFD self-billing exemption', () => {
+    it.each([['admin'], ['dev'], ['staff']])('creates NO invoice when the run owner is %s', async (role) => {
+      state.users['artisan-1'] = { role };
+      const { billCastingBatch } = await load();
+      expect(await billCastingBatch({ batchId: 'b1' })).toBeNull();
+      expect(state.created).toHaveLength(0);
+    });
+
+    it('still bills an outside artisan, and a wholesaler', async () => {
+      const { billCastingBatch } = await load();
+      expect(await billCastingBatch({ batchId: 'b1' })).toBeTruthy();
+      state.users['artisan-1'] = { role: 'wholesaler' };
+      state.invoices = []; state.created = [];
+      expect(await billCastingBatch({ batchId: 'b1' })).toBeTruthy();
+    });
+
+    it('looks the owner up by a PLAIN STRING userID — an operator object cannot match a staff user', async () => {
+      // A `{$ne:null}` ownerId reaching the lookup would match an arbitrary user; if that user were
+      // staff, the exemption would hand out free casting.
+      state.batch.ownerId = { $ne: null };
+      const { billCastingBatch } = await load();
+      await billCastingBatch({ batchId: 'b1' });
+      expect(userQueries.at(-1).userID).toBe('[object Object]');   // stringified, never an operator
+      expect(typeof userQueries.at(-1).userID).toBe('string');
+    });
+
+    it('FAILS CLOSED — a lookup error bills the artisan rather than silently comping the casting', async () => {
+      state.users = new Proxy({}, { get() { throw new Error('mongo down'); } });
+      const { billCastingBatch } = await load();
+      expect(await billCastingBatch({ batchId: 'b1' })).toBeTruthy();
+    });
+  });
+
   it('a $0 charge bills nothing (a comped casting creates no debt)', async () => {
-    state.batch.charge = { amount: 0, markupMultiplier: 1.5, paid: false };
+    state.batch.charge = { amount: 0, passthrough: true, markupMultiplier: null, paid: false };
     const { billCastingBatch } = await load();
     expect(await billCastingBatch({ batchId: 'b1' })).toBeNull();
     expect(state.created).toHaveLength(0);

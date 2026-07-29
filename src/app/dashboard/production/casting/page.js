@@ -325,7 +325,7 @@ function BatchCard({ batch: b, staff, onAction, onSimple, busy }) {
               Record order
             </Button>
           )}
-          {/* Receiving sets the ACTUAL cost, which becomes the artisan's charge (cost × markup) and
+          {/* Receiving sets the ACTUAL cost, which IS the artisan's charge (at cost, no markup) and
               their pieces' COGS. EFD placed the order and holds the vendor invoice, so EFD records
               it — the debtor must not set the number that bills them. Enforced server-side too:
               `receive` is in the route's STAFF_ONLY set, so this is a real gate, not just a hidden

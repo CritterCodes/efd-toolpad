@@ -23,7 +23,7 @@ const HANDLERS = {
 // Paying (receive/pay) and staff-only transitions are gated tighter than owner-visible ones.
 // `pay` = settlement is EFD/Stripe's to record. `place-order` = it sends an order on EFD's vendor
 // account (and EFD floats the cost), so only staff may fire it — artisans open the batch, EFD places it.
-// `receive` = it records the ACTUAL vendor cost, which sets the artisan's charge (cost × markup) AND
+// `receive` = it records the ACTUAL vendor cost, which IS the artisan's charge (at cost, no markup) AND
 // their pieces' COGS. EFD placed the order and holds the vendor invoice, so EFD reports the number —
 // the debtor must never set their own debt (receiving at $0.01 would ship the casting for free).
 const STAFF_ONLY = new Set(['pay', 'place-order', 'receive']);
@@ -88,7 +88,8 @@ export const POST = async (req, { params }) => {
 
     // RECEIPT BILLS THE ARTISAN. Until this call existed, casting debt never reached
     // `artisanInvoices`, so `isArtisanFrozen` (which reads that collection) could never fire for a
-    // casting — the ship gate was a staff click and nothing else. Invoiced at the MARKED-UP charge.
+    // casting — the ship gate was a staff click and nothing else. Invoiced AT COST (a reimbursement
+    // of Carrera's invoice, which EFD floats), and not at all when the run is EFD's own.
     //
     // Deliberately NOT rolled back on failure: markCastingReceived has already split COGS onto the
     // pieces and set charge + shippingGated, so the nothing-ships-unpaid guarantee holds either way.

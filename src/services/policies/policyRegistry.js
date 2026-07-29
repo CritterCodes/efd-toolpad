@@ -12,7 +12,9 @@
 export const POLICIES = Object.freeze({
   'artisan-terms': {
     docId: 'artisan-terms',
-    version: '0.1',
+    // 0.2 (2026-07-29): casting is billed AT COST — the markup no longer applies to Carrera orders.
+    // A money term changed, so this bump deliberately re-prompts everyone who accepted 0.1.
+    version: '0.2',
     title: 'Engel Fine Design — Artisan Terms & Policies',
     status: 'draft',   // not yet legally reviewed (see the canonical doc banner)
     sourceDoc: 'docs/policies/ARTISAN_TERMS_AND_POLICIES.md',
@@ -20,8 +22,8 @@ export const POLICIES = Object.freeze({
     sections: [
       { heading: 'The one rule', body: 'Nothing is fronted, and title passes at payment. Any work product becomes yours when you pay for it — CAD files, castings, cut stones, finished pieces do not release until the bill is paid.' },
       { heading: 'Your designs & IP', body: 'A design you create or paid for is yours. A design whose creation bill you never paid was never yours. Collaborative designs and runs require every collaborator’s signature and a declared payout split.' },
-      { heading: 'Work orders & the platform fee', body: 'You see and accept the price before work starts. EFD-fulfilled work orders carry a 20% markup on labor + materials (self-fulfilled work is never billed). Shipping and insurance are billed at cost.' },
-      { heading: 'Casting', body: 'Castings are invoiced when received (actual cost) and do not ship until paid. Casting failures are the caster’s liability. You have 48 hours after delivery to dispute; after that, delivery is accepted.' },
+      { heading: 'Work orders & the platform fee', body: 'You see and accept the price before work starts. EFD-fulfilled work orders carry EFD’s wholesale markup on labor + materials (self-fulfilled work is never billed). Shipping, insurance, and casting are billed at cost.' },
+      { heading: 'Casting', body: 'Casting is billed AT COST — EFD orders from the casting house on its own account and bills you exactly what it was charged, adding nothing. Castings are invoiced when received (actual cost) and do not ship until paid, since EFD fronted the money. Casting failures are the caster’s liability and a re-cast is not billed again. You have 48 hours after delivery to dispute; after that, delivery is accepted.' },
       { heading: 'Materials', body: 'Your piece’s materials are yours to pay. Onsite EFD jewelers work from EFD stock; offsite jewelers buy their own and are reimbursed via payroll.' },
       { heading: 'Gemstones cut in-house', body: 'EFD may front the rough; you pay for the stone when the cut is completed, and it is gated until paid. The cutter is paid via consignment, net of any fronted rough.' },
       { heading: 'Quality control', body: 'EFD standards QC protects the EFD name; acceptance (does it look right) is yours via the dispute window. Remote and solo work self-certifies, with your acceptance as the check.' },

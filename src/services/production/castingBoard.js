@@ -1,11 +1,14 @@
 import PiecesModel from '@/app/api/pieces/model';
 import CastingBatchesModel, { CASTING_STATUS } from '@/app/api/castingBatches/model';
-import { getWorkOrderMarkupMultiplier, applyWorkOrderMarkup } from '@/services/production/workOrderPricing';
 
 /**
  * Casting board (PRODUCTION_RUNS.md §4.1). Ownership-scoped batch lifecycle with invoice-at-receipt
  * and the nothing-ships-unpaid gate. This service records the amount owed, the paid state, and the
  * shipping gate, and splits the actual casting cost onto the run's piece COGS at receipt.
+ *
+ * The amount owed is the vendor cost AT COST — no markup on Carrera orders (owner, 2026-07-29). EFD
+ * floats Carrera's invoice and is reimbursed exactly; the gate exists to guarantee that reimbursement,
+ * not to collect a margin.
  *
  * The `artisanInvoices` row is created/settled/voided by `castingSettlement` at the route layer
  * (import cycle: artisanBilling → castingBoard). A HOSTED Stripe invoice is NOT yet sent —
@@ -18,11 +21,21 @@ export class CastingError extends Error {}
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 /**
- * The artisan's casting charge = actual vendor cost × the wholesale markup MULTIPLIER (sourced from
- * admin settings by the caller; owner: use the wholesale markup setting, not a hardcoded number). PURE.
+ * The artisan's casting charge = the actual vendor cost, AT COST. PURE.
+ *
+ * NO MARKUP ON CARRERA ORDERS (owner, 2026-07-29, supersedes the 2026-07-24 "wholesale markup applies
+ * to outsourced casting" line in §4.1). That decision was written for peer/vendor casting WOs, which
+ * were scrapped the same day, and it contradicts §4h's own constraint: the artisan can price-check
+ * Carrera, so marking up above market is visible rent, not value. This charge is a REIMBURSEMENT —
+ * EFD floats the vendor invoice and gets back exactly what it paid. Same posture as shipping and
+ * gems, which already pass through at cost.
+ *
+ * EFD earns on casting through value-add instead (§4h: in-house wax/model printing, finishing bench
+ * WOs, freight aggregation) — still open pending the Carrera call. If that ever changes, change it
+ * HERE, in one place.
  */
-export function castingChargeFromCost(actualCost, markupMultiplier) {
-  return applyWorkOrderMarkup(actualCost, markupMultiplier);
+export function castingChargeFromCost(actualCost) {
+  return round2(actualCost);
 }
 
 /**
@@ -96,7 +109,7 @@ export async function markCastingOrdered({ batchId, vendor = null, estCost = nul
 
 /**
  * Receive the casting: the ACTUAL vendor cost is now known. Split it onto the run's piece COGS, fire
- * the artisan charge (actual × the wholesale markup), and gate the batch from shipping until that
+ * the artisan charge (the vendor cost, at cost — no markup), and gate the batch from shipping until that
  * charge is settled. Every batch is a vendor batch (peer/in-house casting was scrapped), so this is
  * unconditional. The route additionally turns the charge into an `artisanInvoices` row so the debt
  * reaches the freeze — see `castingSettlement.billReceivedCasting`; it can't be called from here
@@ -121,13 +134,18 @@ export async function markCastingReceived({ batchId, actualCost }) {
   }
 
   // Every batch is a VENDOR batch (peer/in-house casting was scrapped), so a receipt always mints a
-  // charge and always gates shipping until it's settled.
-  const markupMultiplier = await getWorkOrderMarkupMultiplier();   // wholesale markup from admin settings
+  // charge and always gates shipping until it's settled. The charge is AT COST — a reimbursement of
+  // what EFD paid Carrera, not a marked-up sale (see castingChargeFromCost).
   const patch = {
     status: CASTING_STATUS.RECEIVED,
     actualCost: round2(cost),
     receivedAt: new Date(),
-    charge: { amount: castingChargeFromCost(cost, markupMultiplier), markupMultiplier, paid: false, paidAt: null, invoiceID: null },
+    charge: {
+      amount: castingChargeFromCost(cost),
+      passthrough: true,        // at cost, no markup — recorded so a marked-up legacy row is legible
+      markupMultiplier: null,
+      paid: false, paidAt: null, invoiceID: null,
+    },
     shippingGated: true,   // nothing ships to the artisan until this is settled
   };
   return CastingBatchesModel.updateById(batchId, patch);
