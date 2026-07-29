@@ -95,6 +95,15 @@ export default class ArtisanInvoicesModel {
     return this.updateById(invoiceID, { status: ARTISAN_INVOICE_STATUS.PAID, paidAt: new Date() });
   }
 
+  /**
+   * VOID a debt that will never be collected (e.g. EFD cancels/writes off the casting it billed).
+   * Essential counterpart to markPaid: `listOverdue` only ignores non-PENDING invoices, so an
+   * abandoned `pending_payment` row would freeze the artisan forever with no way to clear it.
+   */
+  static async markVoid(invoiceID, reason = null) {
+    return this.updateById(invoiceID, { status: ARTISAN_INVOICE_STATUS.VOID, voidedAt: new Date(), voidReason: reason });
+  }
+
   /** Unpaid invoices for an artisan that are past due — the freeze signal. */
   static async listOverdue(billedUserID, now = new Date()) {
     return (await this.collection())

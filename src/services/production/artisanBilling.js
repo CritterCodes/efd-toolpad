@@ -58,8 +58,16 @@ export async function assertArtisanNotFrozen(userID, ErrorClass = ArtisanBilling
 }
 
 /**
- * Turn a RECEIVED casting batch's vendor charge into a canonical artisan invoice (so it enters the
- * freeze + Stripe rail). Idempotent per batch. In-house batches (no vendor charge) are skipped.
+ * Turn a RECEIVED casting batch's vendor charge into a canonical artisan invoice — this is what puts
+ * casting debt on the `artisanInvoices` rail, which is what makes `isArtisanFrozen` (and therefore
+ * the whole nothing-is-fronted freeze) actually fire for casting. Idempotent per batch.
+ *
+ * `amount` is the MARKED-UP charge (`batch.charge.amount`), never the raw `actualCost` — billing the
+ * raw vendor cost would silently hand EFD's infra fee back to the artisan. The raw cost + multiplier
+ * are kept in `breakdown` for the audit trail.
+ *
+ * Called from the casting `receive` route, NOT from castingBoard: this module already imports
+ * castingBoard (markCastingPaid), so the reverse import would be a cycle.
  */
 export async function billCastingBatch({ batchId, billedEmail = null, createdBy = null }) {
   const batch = await CastingBatchesModel.findById(batchId);

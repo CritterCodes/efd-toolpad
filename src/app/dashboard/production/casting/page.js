@@ -34,12 +34,13 @@ import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components
  *     defensible if "delivered" means *the artisan confirms arrival* (their 48h inspection window
  *     starts on their own say-so), but it reads against the reasoning behind staff-only receive (EFD
  *     holds and ships the parcel). Decide it deliberately rather than by omission.
- *  2. NO CASTING INVOICE IS EVER CREATED: `artisanBilling.billCastingBatch` exists but has no call
- *     site, so the charge minted at receipt lives only on the batch. Settlement is a staff
- *     "Mark paid" click, casting debt never reaches `artisanInvoices`, and therefore never freezes
- *     an artisan (the freeze reads artisanInvoices). Wiring receipt → billCastingBatch →
- *     pushArtisanInvoiceToStripe is the missing link; note artisanBilling already imports
- *     castingBoard, so the call belongs at the ROUTE layer to avoid an import cycle.
+ *  2. Receipt now BILLS the artisan (`castingSettlement`), so casting debt reaches `artisanInvoices`
+ *     and an overdue casting freezes the artisan like any other bill. Because the debt is real, every
+ *     exit from it resolves it: `pay` marks the invoice paid, `cancel` VOIDS it. Still open: nothing
+ *     pushes the invoice to Stripe — `pushArtisanInvoiceToStripe` has no caller, so today settlement
+ *     is a staff "Mark paid" click rather than the artisan paying a hosted invoice (U-BILL-2).
+ *  3. There is no `artisanInvoices` admin surface at all (no route, no page), so a stranded invoice
+ *     can only be fixed through the board's own actions. Worth building alongside U-BILL-2.
  */
 
 const STATUS_LABEL = {
@@ -157,7 +158,24 @@ export default function CastingBoardPage() {
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) { notify(d.error || `Could not ${action} this casting.`, 'error'); return false; }
-      notify(`Casting ${DONE_WORD[action] || action}.`);
+      // Receipt bills the artisan and payment settles that bill. Either half can fail while the
+      // primary transition stands, so report the SIDE-EFFECT failure explicitly — keyed off a
+      // structured `error` flag, never by pattern-matching the prose.
+      const side = d.billing || d.settlement;
+      if (side?.error) {
+        notify(side.reason, 'warning');
+      } else if (d.billing?.invoiced) {
+        notify(`Casting received — invoiced ${money(d.billing.amount)}.`);
+      } else if (d.settlement?.settled) {
+        notify('Payment recorded — invoice settled and the casting released.');
+      } else if (d.settlement?.voided) {
+        notify('Casting cancelled — the artisan’s invoice was voided.');
+      } else if (d.settlement?.alreadyPaid) {
+        // Cancelling a PAID casting doesn't refund it; say so rather than implying it's squared away.
+        notify(d.settlement.reason, 'warning');
+      } else {
+        notify(`Casting ${DONE_WORD[action] || action}.`);
+      }
       setDialog(null); setForm({});
       await load();
       return true;
@@ -281,8 +299,8 @@ function BatchCard({ batch: b, staff, onAction, onSimple, busy }) {
           {gated && (
             <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 1 }}>
               <LockIcon sx={{ fontSize: 15, color: '#EF5350' }} />
-              {/* "charge", not "invoice": billCastingBatch (which would mint an artisanInvoice) has no
-                  call site yet, so a Stripe invoice does not exist — settlement is staff Mark-paid. */}
+              {/* An artisanInvoice now exists (billed at receipt), but nothing pushes it to Stripe
+                  yet, so "settled" = staff Mark-paid rather than the artisan paying online. */}
               <Typography variant="caption" sx={{ color: '#EF5350' }}>
                 Gated from shipping until this charge is settled
               </Typography>
