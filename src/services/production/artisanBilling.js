@@ -64,7 +64,7 @@ export async function assertArtisanNotFrozen(userID, ErrorClass = ArtisanBilling
 export async function billCastingBatch({ batchId, billedEmail = null, createdBy = null }) {
   const batch = await CastingBatchesModel.findById(batchId);
   if (!batch) throw new ArtisanBillingError('casting batch not found');
-  if (batch.inHouse || !batch.charge?.amount) return null;   // nothing to bill
+  if (!batch.charge?.amount) return null;   // nothing to bill (not yet received)
   const existing = await ArtisanInvoicesModel.findOneBySource('casting_batch', batchId);
   if (existing) return existing;
   return ArtisanInvoicesModel.create({

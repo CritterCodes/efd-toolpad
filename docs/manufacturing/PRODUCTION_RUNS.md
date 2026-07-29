@@ -248,7 +248,7 @@ but **build the money model Connect-compatible from day one**:
   designer's profile, bench = est. hours × rate) and the artisan ACCEPTS that quote at creation;
   the completion bill is the actuals, anchored to the accepted estimate.
 - **Unpaid bill ⇒ FREEZE:** all run/WO activity for that artisan halts until the bill is paid.
-- **Unpaid past X days ⇒ LIQUIDATION — REFRAMED (owner, round 3, 2026-07-23): "forfeiture" is
+- **Unpaid past 60 DAYS ⇒ LIQUIDATION — REFRAMED (owner, round 3, 2026-07-23): "forfeiture" is
   just EFD monetizing what it ALREADY OWNS.** Under nothing-is-fronted, **title passes at
   payment** — an unpaid deliverable was never the artisan's property, so nothing is ever seized.
   When a bill dies, EFD liquidates the withheld deliverable; what EFD owes the artisan depends
@@ -275,8 +275,8 @@ but **build the money model Connect-compatible from day one**:
     returns to the cutter's sellable listing pool (cutter paid via consignment on its eventual
     sale, net of fronted rough); the jeweler gets nothing.
   Liquidation extinguishes the debt up to the recovered amount; account-standing consequences
-  persist. All clauses live in the signed artisan agreement. X + cadence: open (suggested 60
-  days, reminders at 7/30, freeze immediate).
+  persist. All clauses live in the signed artisan agreement. **TIMING DECIDED (owner,
+  2026-07-28): 60 days**, reminders at 7 and 30 days, freeze immediate on the first overdue bill.
 - **EFD's cut on fulfilled WOs — 20% (owner, 2026-07-23):** every EFD-fulfilled work order is
   billed at **COGS × 1.20** (labor + materials, incl. vendor costs like the casting-house
   invoice — same 20% markup wholesale repair carries today). "We are fulfilling everything —
@@ -365,8 +365,8 @@ piece (the $35 may be a Carrera rate, not physics).
 
 ## 4g. Remaining open probes (updated 2026-07-23, round 3)
 
-1. Liquidation timing: X days + reminder cadence (suggested 60d, reminders at 7/30, freeze
-   immediate). (§4c)
+1. ~~Liquidation timing~~ **DECIDED (owner, 2026-07-28): 60 days**, reminders at 7/30, freeze
+   immediate. (§4c)
 2. Casting metal cost → piece COGS split. (§4.3)
 3. Artisan agreement: plain-language draft lives at `docs/policies/ARTISAN_TERMS_AND_POLICIES.md`
    (owner directive 2026-07-23: "we need to be writing all this in policy pages and user
