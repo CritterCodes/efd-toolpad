@@ -100,7 +100,7 @@ that bill.
 
 - **Immediate freeze:** an overdue bill freezes all of your run, work-order, and listing
   activity until it is paid. (§4c)
-- **Liquidation after [X] days:** EFD may sell the unpaid work product. Remember §1 — an unpaid
+- **Liquidation after 60 days:** EFD may sell the unpaid work product. Remember §1 — an unpaid
   deliverable is EFD's property, because title never passed to you. What you receive from a
   liquidation sale depends on what of *yours* is embedded in it:
   - EFD's consignment cut applies first (EFD is selling), then the unpaid bills and direct
@@ -146,5 +146,5 @@ are published; your acceptance (version + timestamp) is recorded on your account
 *Implementation notes (not part of the agreement):* in-app policy surface + acceptance
 tracking to build: render these sections as policy pages (admin + shop artisan portal), record
 `users.agreements[] { docId, version, acceptedAt }`, gate artisan features on current-version
-acceptance, and re-prompt on version bump. Open values: liquidation timer **[X] days**
-(suggested 60, reminders at 7/30).
+acceptance, and re-prompt on version bump. Liquidation timer: **60 days** (owner, 2026-07-28),
+with reminders at 7 and 30 days and an immediate freeze on the first overdue bill.
