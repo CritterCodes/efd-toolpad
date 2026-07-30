@@ -53,6 +53,17 @@ export const USER_PRIVILEGE_FIELDS = Object.freeze([
 // `employment` would break a real staff workflow for no additional protection.
 
 /**
+ * Privileged LEAVES inside otherwise-editable subdocuments. Stripped at any depth.
+ *
+ * `compensationProfile.isOwnerOperator` is what makes a user's own labor payroll-PAYABLE
+ * (`getOwnerOperatorUserIDs`), and it has a dedicated route restricted to `['admin','dev']`
+ * (`PATCH /api/repairs/payroll/owner-operators` → `setOwnerOperatorFlag`). Since the generic user PUT
+ * is open to all of `STAFF_ROLES`, leaving this leaf writable let a `staff` account put ITSELF in the
+ * payable set — the same escalation shape as `role`, through the field the list above waives.
+ */
+export const USER_PRIVILEGE_SUBPATHS = Object.freeze(['compensationProfile.isOwnerOperator']);
+
+/**
  * Remove privilege fields from an update payload. Returns a NEW object.
  *
  * Also drops DOTTED keys whose first segment is privileged (`{"staffCapabilities.repairOps": true}`),
@@ -63,10 +74,25 @@ export const USER_PRIVILEGE_FIELDS = Object.freeze([
 export function stripPrivilegeFields(updateData = {}) {
     const out = {};
     for (const [key, value] of Object.entries(updateData || {})) {
-        const head = String(key).split('.')[0];
+        const path = String(key);
+        const head = path.split('.')[0];
         if (USER_PRIVILEGE_FIELDS.includes(head)) continue;
-        if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
-        out[key] = value;
+        if (path === '__proto__' || path === 'constructor' || path === 'prototype') continue;
+        // Dotted form: `{"compensationProfile.isOwnerOperator": true}`
+        if (USER_PRIVILEGE_SUBPATHS.includes(path)) continue;
+        // Nested form: `{compensationProfile: { isOwnerOperator: true, rate: 25 }}` — keep the
+        // subdocument (staff legitimately edit it) but drop the privileged leaf. Both shapes reach
+        // Mongo as the same write, so guarding only one of them guards neither.
+        const nested = USER_PRIVILEGE_SUBPATHS
+            .filter((p) => p.split('.')[0] === head && p.includes('.'))
+            .map((p) => p.slice(head.length + 1));
+        if (nested.length && value && typeof value === 'object' && !Array.isArray(value)) {
+            const clone = { ...value };
+            for (const leaf of nested) delete clone[leaf];
+            out[path] = clone;
+            continue;
+        }
+        out[path] = value;
     }
     return out;
 }
@@ -147,7 +173,7 @@ export default class UserModel {
             if (!user) {
                 console.warn("⚠️ No user found in database for ID:", userId);
             } else {
-                console.log("✅ User found in database:", user);
+                console.log("✅ User found in database:", user?.userID || user?.email);
             }
 
             return user;
@@ -258,7 +284,7 @@ export default class UserModel {
             // Fetch and return the updated user
             const updatedUser = await dbInstance.collection("users").findOne(userIdentityQuery(userId), { projection: USER_SECRET_FIELDS });
 
-            console.log("✅ User updated in database:", updatedUser);
+            console.log("✅ User updated in database:", updatedUser?.userID || updatedUser?.email);
             return updatedUser;
         } catch (error) {
             console.error("❌ Error updating user in database:", error);

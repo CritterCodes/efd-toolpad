@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { USER_ROLES, USER_STATUS, ROLE_PERMISSIONS } from './user.constants.js';
 import { UserQueryService } from './user.query.service.js';
 import { UserNotificationService } from './user.notification.service.js';
+import { USER_SECRET_FIELDS } from '@/app/api/users/model';
 
 export class UserRoleService {
   static getDefaultStatusForRole(role) {
@@ -83,7 +84,12 @@ export class UserRoleService {
   static async getPendingUsers() {
     try {
       const db = await mongo.connect();
-      return await db.collection('users').find({ status: USER_STATUS.PENDING }).toArray();
+      // Projected: GET /api/users/approve returns these documents to the caller, and a users doc
+      // carries the bcrypt password + any live resetToken. Admin-gated, but the fix belongs here
+      // anyway — an unprojected read is a leak waiting for the next caller.
+      return await db.collection('users')
+        .find({ status: USER_STATUS.PENDING }, { projection: USER_SECRET_FIELDS })
+        .toArray();
     } catch (error) {
       console.error('Error getting pending users:', error);
       throw error;

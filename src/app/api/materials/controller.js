@@ -2,6 +2,12 @@
 
 import MaterialService from "./service";
 import { auth } from "@/lib/auth";
+import { STAFF_ROLES } from '@/lib/designPermissions';
+// STAFF-ONLY. Every gate in this file was `session.user?.email?.includes('@')` — i.e. ANY
+// authenticated user with a plausible email, including an artisan or a client, passed it. These
+// endpoints carry pricing/catalog/credential data. The idiom appeared at 24 sites across 12 files;
+// swept together rather than one at a time, which is how the last round's fix landed on the wrong
+// sibling of this very file.
 
 export default class MaterialController {
     /**
@@ -13,7 +19,7 @@ export default class MaterialController {
         try {
             // Authentication check
             const session = await auth();
-            if (!session || !session.user?.email?.includes('@')) {
+            if (!session?.user || !STAFF_ROLES.includes(session.user.role)) {
                 return new Response(
                     JSON.stringify({ error: 'Unauthorized' }),
                     { status: 401 }
@@ -68,7 +74,7 @@ export default class MaterialController {
         try {
             // Authentication check
             const session = await auth();
-            if (!session || !session.user?.email?.includes('@')) {
+            if (!session?.user || !STAFF_ROLES.includes(session.user.role)) {
                 return new Response(
                     JSON.stringify({ error: 'Unauthorized' }),
                     { status: 401 }
@@ -121,7 +127,7 @@ export default class MaterialController {
         try {
             // Authentication check
             const session = await auth();
-            if (!session || !session.user?.email?.includes('@')) {
+            if (!session?.user || !STAFF_ROLES.includes(session.user.role)) {
                 return new Response(
                     JSON.stringify({ error: 'Unauthorized' }),
                     { status: 401 }
@@ -197,7 +203,7 @@ export default class MaterialController {
         try {
             // Authentication check
             const session = await auth();
-            if (!session || !session.user?.email?.includes('@')) {
+            if (!session?.user || !STAFF_ROLES.includes(session.user.role)) {
                 return new Response(
                     JSON.stringify({ error: 'Unauthorized' }),
                     { status: 401 }
@@ -270,7 +276,7 @@ export default class MaterialController {
         try {
             // Authentication check
             const session = await auth();
-            if (!session || !session.user?.email?.includes('@')) {
+            if (!session?.user || !STAFF_ROLES.includes(session.user.role)) {
                 return new Response(
                     JSON.stringify({ error: 'Unauthorized' }),
                     { status: 401 }

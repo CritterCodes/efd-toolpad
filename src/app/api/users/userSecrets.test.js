@@ -76,6 +76,36 @@ describe('stripPrivilegeFields', () => {
     expect({}.role).toBeUndefined();   // nothing leaked onto Object.prototype
   });
 
+  // compensationProfile.isOwnerOperator makes a user's own labor payroll-PAYABLE and has a dedicated
+  // route restricted to ['admin','dev']. The generic PUT is open to all STAFF_ROLES, so leaving this
+  // leaf writable let a `staff` account put ITSELF in the payable set — same shape as the `role`
+  // escalation, through the field the privilege list deliberately waives.
+  it('strips compensationProfile.isOwnerOperator in DOTTED form', () => {
+    const out = stripPrivilegeFields({ 'compensationProfile.isOwnerOperator': true, 'compensationProfile.rate': 30 });
+    expect(out['compensationProfile.isOwnerOperator']).toBeUndefined();
+    expect(out['compensationProfile.rate']).toBe(30);
+  });
+
+  it('strips it in NESTED form while keeping the rest of the subdocument', () => {
+    // Both shapes reach Mongo as the same write, so guarding one guards neither.
+    const out = stripPrivilegeFields({
+      compensationProfile: { isOwnerOperator: true, rate: 25, hourly: true },
+    });
+    expect(out.compensationProfile.isOwnerOperator).toBeUndefined();
+    expect(out.compensationProfile).toEqual({ rate: 25, hourly: true });
+  });
+
+  it('does not mutate the caller\'s nested object while stripping the leaf', () => {
+    const input = { compensationProfile: { isOwnerOperator: true, rate: 1 } };
+    stripPrivilegeFields(input);
+    expect(input.compensationProfile.isOwnerOperator).toBe(true);
+  });
+
+  it('leaves an array-valued subdocument alone rather than corrupting it', () => {
+    const out = stripPrivilegeFields({ compensationProfile: [{ isOwnerOperator: true }] });
+    expect(Array.isArray(out.compensationProfile)).toBe(true);
+  });
+
   it('KEEPS employment and compensationProfile — real staff workflows edit them', () => {
     // Repair-ops access needs employment.isOnsite AND staffCapabilities.repairOps, so stripping the
     // capability already blocks the grant; listing `employment` would break the admin user-management

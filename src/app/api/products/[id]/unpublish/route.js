@@ -55,7 +55,9 @@ export async function POST(request, { params }) {
     }
 
     // Only artisan who created the product can unpublish it
-    if (product.userId !== session.user.userID && product.userId !== session.user.userID) {
+    // Was `!== userID && !== session.user.id`; `session.user.id` doesn't exist in this app's session
+    // (auth.js sets `userID`), so the second clause always held and the check already rested on userID.
+    if (product.userId !== session.user.userID) {
       return NextResponse.json(
         { error: 'You can only manage your own products' },
         { status: 403 }

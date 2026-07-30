@@ -63,7 +63,10 @@ export const useJewelryEditor = (jewelryId) => {
             if (session?.user) {
                 setFormData(prev => ({
                     ...prev,
-                    userId: session.user.id || session.user.email,
+                    // `session.user.id` does not exist (auth.js sets `userID`), so this always fell
+                    // through to the email branch — stamping jewelry drafts with an email while every
+                    // other surface stores a userID, which broke ownership comparisons.
+                    userId: session.user.userID || session.user.email,
                     vendor: session.user.businessName || session.user.slug || session.user.name || 'Current Artisan'
                 }));
             }
