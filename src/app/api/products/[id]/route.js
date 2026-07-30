@@ -181,7 +181,7 @@ export async function DELETE(request, { params }) {
           statusHistory: {
             status: 'archived',
             timestamp: new Date(),
-            changedBy: session.user.userID || session.user.id,
+            changedBy: session.user.userID,
             reason: 'Product archived',
             notes: ''
           }

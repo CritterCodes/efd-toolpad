@@ -69,7 +69,7 @@ export async function POST(request, { params }) {
         $set: {
           status: 'open',
           publishedAt: new Date(),
-          publishedBy: session.user.id,
+          publishedBy: session.user.userID,
           updatedAt: new Date()
         }
       },

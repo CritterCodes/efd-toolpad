@@ -1,6 +1,7 @@
 // src/app/api/users/user.controller.js
 
 import UserService from "./service";
+import { stripPrivilegeFields } from "./model";
 import { NotificationService, NOTIFICATION_TYPES, CHANNELS } from "@/lib/notificationService.js";
 import { adminBase } from '@/lib/appUrls';
 
@@ -182,8 +183,14 @@ export default class UserController {
         try {
             const { searchParams } = new URL(req.url);
             const query = searchParams.get("query");
-            const updateData = await req.json();
-    
+            const rawUpdate = await req.json();
+            // SAME STRIP AS /api/users/[userID] — this sibling had none, so a `staff` account (which
+            // ROLE_PERMISSIONS deny `adminSettings`, the check create-admin uses to refuse a
+            // staff-issued admin grant) could promote ITSELF to admin here. Role changes belong to the
+            // dedicated guarded routes; the role-change notification below is now unreachable from this
+            // path by design.
+            const updateData = stripPrivilegeFields(rawUpdate);
+
             if (!query) {
                 return new Response(
                     JSON.stringify({ error: "Query parameter is required." }),

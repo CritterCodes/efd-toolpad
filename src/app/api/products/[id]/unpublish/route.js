@@ -55,7 +55,7 @@ export async function POST(request, { params }) {
     }
 
     // Only artisan who created the product can unpublish it
-    if (product.userId !== session.user.userID && product.userId !== session.user.id) {
+    if (product.userId !== session.user.userID && product.userId !== session.user.userID) {
       return NextResponse.json(
         { error: 'You can only manage your own products' },
         { status: 403 }
@@ -89,7 +89,7 @@ export async function POST(request, { params }) {
         statusHistory: {
           status: targetStatus,
           timestamp: now,
-          changedBy: session.user.userID || session.user.id,
+          changedBy: session.user.userID,
           reason: targetStatus === 'archived' 
             ? 'Product archived by artisan' 
             : 'Product moved back to draft by artisan',

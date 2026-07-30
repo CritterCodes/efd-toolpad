@@ -14,7 +14,7 @@ import { ObjectId } from 'mongodb';
  */
 export async function POST(request, { params }) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
@@ -90,7 +90,7 @@ export async function POST(request, { params }) {
 
     // Check artisan hasn't already submitted
     const existingSubmission = dropRequest.submissions?.find(
-      s => s.artisanId === session.user.id
+      s => s.artisanId === session.user.userID
     );
 
     if (existingSubmission) {
@@ -108,7 +108,7 @@ export async function POST(request, { params }) {
       .toArray();
 
     for (const product of products) {
-      if (product.artisanId !== session.user.id) {
+      if (product.artisanId !== session.user.userID) {
         return NextResponse.json(
           { success: false, error: 'You can only submit your own products' },
           { status: 403 }
@@ -125,7 +125,7 @@ export async function POST(request, { params }) {
 
     // Create submission
     const submission = {
-      artisanId: session.user.id,
+      artisanId: session.user.userID,
       artisanName: session.user.businessName || session.user.name,
       artisanEmail: session.user.email,
       productIds: productIds,

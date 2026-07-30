@@ -56,8 +56,11 @@ export async function POST(request, { params }) {
     }
 
     // Only artisan who created the product can submit it
-    if (product.userId !== session.user.userID && product.userId !== session.user.id) {
-      console.error(`❌ Permission denied: product.userId=${product.userId}, session.user.userID=${session.user.userID}, session.user.id=${session.user.id}`);
+    // Was `!== session.user.userID && !== session.user.id`. `session.user.id` does not exist in this
+    // app's session (auth.js sets `userID`), so the second clause compared against undefined and was
+    // always true — the check already rested entirely on `userID`. Now it says so.
+    if (product.userId !== session.user.userID) {
+      console.error(`❌ Permission denied: product.userId=${product.userId}, session.user.userID=${session.user.userID}`);
       return NextResponse.json(
         { error: 'You can only submit your own products' },
         { status: 403 }
@@ -93,14 +96,14 @@ export async function POST(request, { params }) {
         $set: {
           status: 'pending-approval',
           submittedAt: now,
-          submittedBy: session.user.userID || session.user.id,
+          submittedBy: session.user.userID,
           updatedAt: now
         },
         $push: {
           statusHistory: {
             status: 'pending-approval',
             timestamp: now,
-            changedBy: session.user.userID || session.user.id,
+            changedBy: session.user.userID,
             reason: 'Submitted by artisan for admin approval',
             notes: body.notes || ''
           }

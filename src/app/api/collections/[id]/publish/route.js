@@ -47,7 +47,7 @@ export async function POST(request, { params }) {
     // Authorization check
     if (session.user.role === 'artisan') {
       // Artisans can publish own artisan collections
-      if (collection.type !== 'artisan' || collection.ownerId !== session.user.id) {
+      if (collection.type !== 'artisan' || collection.ownerId !== session.user.userID) {
         return NextResponse.json(
           { success: false, error: 'You can only publish your own artisan collections' },
           { status: 403 }
@@ -100,7 +100,7 @@ export async function POST(request, { params }) {
           status: 'active',
           isPublished: true,
           publishedAt: new Date(),
-          publishedBy: session.user.id,
+          publishedBy: session.user.userID,
           updatedAt: new Date()
         }
       },

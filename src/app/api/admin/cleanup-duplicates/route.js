@@ -1,6 +1,15 @@
+import { requireRole } from '@/lib/apiAuth';
+import { STAFF_ROLES } from '@/lib/designPermissions';
 import UnifiedUserService from '../../../../lib/unifiedUserService.js';
 
+/**
+ * STAFF ONLY. `middleware.js` skips `/api/*`, so this route owns its auth — and it had none, which
+ * made a GET both DESTRUCTIVE and a PII dump: `initializeDatabase()` deletes duplicate user rows, and
+ * the response body lists emails, full names, userIDs and providers. Anyone could have triggered it.
+ */
 export async function GET(request) {
+  const { errorResponse } = await requireRole(STAFF_ROLES);
+  if (errorResponse) return errorResponse;
   try {
     console.log('🚀 Starting duplicate user cleanup via API...');
     

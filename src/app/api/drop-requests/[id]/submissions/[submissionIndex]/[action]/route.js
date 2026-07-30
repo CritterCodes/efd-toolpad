@@ -106,7 +106,7 @@ export async function POST(request, { params }) {
               artisanEmail: submission.artisanEmail,
               productIds: submission.productIds,
               approvedAt: new Date(),
-              approvedBy: session.user.id
+              approvedBy: session.user.userID
             },
             selectedProducts: {
               $each: submission.productIds.map(pid => ({

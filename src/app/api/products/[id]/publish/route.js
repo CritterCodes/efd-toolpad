@@ -42,7 +42,7 @@ export async function POST(request, { params }) {
       artisanTypes = getUserArtisanTypes(userProfile);
     }
 
-    const userId = session.user.userID || session.user.id;
+    const userId = session.user.userID;
     if (!canPublishProduct(session.user.role, artisanTypes, product, userId)) {
       return NextResponse.json(
         { error: 'You do not have permission to publish this product' },

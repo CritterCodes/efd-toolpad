@@ -34,7 +34,7 @@ export async function GET(request) {
       if (artisanId) query.artisanId = artisanId;
     } else if (session.user.role === 'artisan') {
       // Artisans see only their own products
-      const id = session.user.userID || session.user.id;
+      const id = session.user.userID;
       query.$or = [{ artisanId: id }, { userId: id }, { 'seller.userId': id }];
       if (status) query.status = status;
     } else {
@@ -118,7 +118,7 @@ export async function POST(request) {
 
     const isAdmin = ADMIN_ROLES.has(session.user.role);
     const editorFields = mergeProductEditorUpdate({}, data, { canAdminister: isAdmin });
-    const ownerId = (isAdmin && editorFields.artisanId) || session.user.userID || session.user.id;
+    const ownerId = (isAdmin && editorFields.artisanId) || session.user.userID;
     const now = new Date();
     const prefix = data.productType === 'gemstone' ? 'gem' : 'jwl';
     const productId = `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -145,7 +145,7 @@ export async function POST(request) {
         {
           status: 'draft',
           timestamp: now,
-          changedBy: session.user.userID || session.user.id,
+          changedBy: session.user.userID,
           reason: 'Product created',
           notes: ''
         }

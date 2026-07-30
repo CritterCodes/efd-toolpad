@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuth, requireRole } from '@/lib/apiAuth';
 import { STAFF_ROLES } from '@/lib/designPermissions';
+import { stripPrivilegeFields } from '../model';
 import UserService from '../service.js';
 
 /**
@@ -20,8 +21,6 @@ import UserService from '../service.js';
  * adminSettings) and `promote-affiliate` has its own. A blanket `$set` must not be a way around them.
  */
 
-/** Fields no caller may set through the generic update, regardless of role. */
-const PRIVILEGE_FIELDS = ['role', 'password', 'status', 'emailVerified', 'staffCapabilities', 'mustChangePassword'];
 
 export async function GET(request, { params }) {
   // Any signed-in user may read a user record (the dashboard shows artisan/client detail pages);
@@ -78,11 +77,13 @@ export async function PUT(request, { params }) {
     }
 
     // Remove fields that shouldn't be updated directly
-    const { _id, userID: userId, createdAt, ...safeUpdateData } = updateData;
-    // PRIVILEGE FIELDS ARE STRIPPED even for staff — see the file header. The admin pages re-send the
-    // record they just fetched, so dropping an unchanged `role` is a no-op for every real caller;
-    // what it stops is this generic `$set` becoming a side door around the guarded role-granting routes.
-    for (const field of PRIVILEGE_FIELDS) delete safeUpdateData[field];
+    const { _id, userID: userId, createdAt, ...rest } = updateData;
+    // PRIVILEGE FIELDS ARE STRIPPED even for staff — see the file header. Shared with the `?query=`
+    // sibling via stripPrivilegeFields so the two can't drift (they did: this one stripped and that one
+    // didn't, leaving a staff→admin self-promotion open). Also handles dotted keys, which an exact-key
+    // delete misses. The admin pages re-send the record they just fetched, so dropping an unchanged
+    // `role` is a no-op for every real caller.
+    const safeUpdateData = stripPrivilegeFields(rest);
 
     // Add updatedAt timestamp
     safeUpdateData.updatedAt = new Date();

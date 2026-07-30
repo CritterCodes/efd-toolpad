@@ -168,7 +168,7 @@ export const POST = async (request) => {
       };
     }
 
-    repairData.createdBy = session.user.userID || session.user.id;
+    repairData.createdBy = session.user.userID;
     repairData.submittedBy = session.user.email;
 
     if (

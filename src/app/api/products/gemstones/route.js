@@ -298,7 +298,7 @@ export async function PUT(request) {
       productType: 'gemstone',
       title,
       description: description || '',
-      userId: data.userId || session.user.userID || session.user.id,
+      userId: data.userId || session.user.userID,
       status,
       isPublic,
       images,

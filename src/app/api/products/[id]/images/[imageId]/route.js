@@ -17,7 +17,7 @@ export const DELETE = async (req, { params }) => {
   if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
 
   const isArtisan = session.user.role === 'artisan';
-  const ownerId = session.user.userID || session.user.id;
+  const ownerId = session.user.userID;
   const isOwner = [product.artisanId, product.userId, product.seller?.userId].filter(Boolean).includes(ownerId);
   const isAdminRole = ['admin', 'superadmin', 'dev', 'staff'].includes(session.user.role);
 
@@ -66,7 +66,7 @@ export const PATCH = async (req, { params }) => {
   if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
 
   const isArtisan = session.user.role === 'artisan';
-  const ownerId = session.user.userID || session.user.id;
+  const ownerId = session.user.userID;
   const isOwner = [product.artisanId, product.userId, product.seller?.userId].filter(Boolean).includes(ownerId);
   const isAdminRole = ['admin', 'superadmin', 'dev', 'staff'].includes(session.user.role);
 

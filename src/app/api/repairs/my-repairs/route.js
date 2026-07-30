@@ -11,7 +11,7 @@ export async function GET(request) {
     }
 
     // Use userID for lookup (falls back to email for legacy data)
-    const userId = session.user.userID || session.user.id;
+    const userId = session.user.userID;
     const userEmail = session.user.email;
     
     // Get status filter from query parameters

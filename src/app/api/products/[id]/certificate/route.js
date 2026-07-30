@@ -22,7 +22,7 @@ export const POST = async (request, { params }) => {
   const product = await db.collection('products').findOne({ _id: new ObjectId(id) });
   if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
 
-  const actorId = session.user.userID || session.user.id;
+  const actorId = session.user.userID;
   const isOwner = [product.artisanId, product.userId, product.seller?.userId]
     .filter(Boolean)
     .includes(actorId);

@@ -13,6 +13,13 @@ import { ObjectId } from 'mongodb';
  * Get drop request details with submission counts
  */
 export async function GET(request, { params }) {
+  // Was ANONYMOUS: any caller could read this document, including unpublished/vault
+  // release state and drop submissions. Authenticated rather than staff-only — artisans
+  // legitimately view drops and collections they participate in.
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+  }
   try {
     const { id } = params;
 
@@ -59,7 +66,7 @@ export async function GET(request, { params }) {
  */
 export async function PUT(request, { params }) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
@@ -156,7 +163,7 @@ export async function PUT(request, { params }) {
  */
 export async function DELETE(request, { params }) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
@@ -208,7 +215,7 @@ export async function DELETE(request, { params }) {
           status: 'archived',
           updatedAt: new Date(),
           archivedAt: new Date(),
-          archivedBy: session.user.id
+          archivedBy: session.user.userID
         }
       },
       { returnDocument: 'after' }

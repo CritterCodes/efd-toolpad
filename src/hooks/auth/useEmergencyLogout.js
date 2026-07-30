@@ -81,81 +81,10 @@ export const useEmergencyLogout = () => {
     window.location.href = window.location.href + '?nuclear=' + Date.now();
   }, []);
 
-  const checkDatabaseRole = useCallback(async (session) => {
-    console.log('🔍 Checking user role in database...');
-    try {
-      const email = session?.user?.email || 'jacobaengel55@gmail.com';
-      console.log('📧 Checking role for email:', email);
-      
-      const response = await fetch(`/api/auth/fix-role?email=${encodeURIComponent(email)}`, {
-        credentials: 'include'
-      });
-      
-      const data = await response.json();
-      console.log('📊 Database user data:', data);
-      
-      if (data.success) {
-        console.log('👤 Current user in database:');
-        console.log('  📧 Email:', data.user.email);
-        console.log('  🎭 Role:', data.user.role);
-        console.log('  📋 Status:', data.user.status);
-        console.log('  👤 Name:', data.user.firstName, data.user.lastName);
-        
-        alert(`Database Role Check:\n\nEmail: ${data.user.email}\nRole: ${data.user.role}\nStatus: ${data.user.status}\n\nIf role is wrong, use the Fix Role button.`);
-      } else {
-        console.error('❌ Error:', data.error);
-        alert(`Error checking role: ${data.error}`);
-      }
-    } catch (error) {
-      console.error('❌ Failed to check role:', error);
-      alert(`Failed to check role: ${error.message}`);
-    }
-  }, []);
-
-  const fixRoleToAdmin = useCallback(async (session) => {
-    console.log('🔧 Fixing user role in database...');
-    const confirmFix = window.confirm('This will change your database role from "client" to "admin".\n\nAre you sure you want to proceed?');
-    if (!confirmFix) {
-      console.log('ℹ️ Role fix cancelled by user');
-      return;
-    }
-    
-    try {
-      const email = session?.user?.email || 'jacobaengel55@gmail.com';
-      console.log('📧 Fixing role for email:', email);
-      
-      const response = await fetch('/api/auth/fix-role', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          email: email,
-          newRole: 'admin'
-        })
-      });
-      
-      const data = await response.json();
-      console.log('📊 Role fix response:', data);
-      
-      if (data.success) {
-        console.log('✅ Role fixed successfully!');
-        alert(`✅ Role Fixed Successfully!\n\nEmail: ${data.user.email}\nOld Role: ${data.user.oldRole}\nNew Role: ${data.user.newRole}\n\nPlease logout and login again to see the changes.`);
-        
-        const shouldLogout = window.confirm('Role has been fixed in the database.\n\nWould you like to logout now so you can login with the new admin role?');
-        if (shouldLogout) {
-          window.location.href = '/api/auth/signout';
-        }
-      } else {
-        console.error('❌ Role fix failed:', data.error);
-        alert(`❌ Role Fix Failed: ${data.error}`);
-      }
-    } catch (error) {
-      console.error('❌ Failed to fix role:', error);
-      alert(`Failed to fix role: ${error.message}`);
-    }
-  }, []);
+  // REMOVED: checkDatabaseRole / fixRoleToAdmin. They called POST /api/auth/fix-role, an
+  // UNAUTHENTICATED endpoint that set an arbitrary role from the request body — a self-service
+  // "make me admin" button on a page listed in middleware's publicRoutes. The route is deleted;
+  // role changes go through the guarded /api/users/create-admin path.
 
   return {
     handleForceLogout,
@@ -163,8 +92,6 @@ export const useEmergencyLogout = () => {
     handleDebugAuth,
     handleComprehensiveDebug,
     clearRoleOverride,
-    executeNuclearLogout,
-    checkDatabaseRole,
-    fixRoleToAdmin
+    executeNuclearLogout
   };
 };

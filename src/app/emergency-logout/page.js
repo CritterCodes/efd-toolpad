@@ -16,7 +16,6 @@ import { useEmergencyLogout } from '@/hooks/auth/useEmergencyLogout';
 import SessionStatusAlert from './components/SessionStatusAlert';
 import LogoutOptionsList from './components/LogoutOptionsList';
 import DebugToolsList from './components/DebugToolsList';
-import DatabaseRoleFixTools from './components/DatabaseRoleFixTools';
 
 export default function EmergencyLogoutPage() {
   const sessionState = useSession() || {};
@@ -27,9 +26,7 @@ export default function EmergencyLogoutPage() {
     handleDebugAuth,
     handleComprehensiveDebug,
     clearRoleOverride,
-    executeNuclearLogout,
-    checkDatabaseRole,
-    fixRoleToAdmin
+    executeNuclearLogout
   } = useEmergencyLogout();
 
   return (
@@ -64,13 +61,10 @@ export default function EmergencyLogoutPage() {
             executeNuclearLogout={executeNuclearLogout}
           />
 
-          <Divider sx={{ my: 3 }} />
-
-          <DatabaseRoleFixTools 
-            checkDatabaseRole={checkDatabaseRole}
-            fixRoleToAdmin={fixRoleToAdmin}
-            session={session}
-          />
+          {/* The "Database Role Fix" tools were REMOVED: a self-service "make me admin" button backed
+              by an unauthenticated POST /api/auth/fix-role, on a page listed in middleware's
+              publicRoutes. Anyone who could load this page — or curl the endpoint — could grant
+              themselves admin. Role changes belong to the guarded /api/users/create-admin path. */}
         </CardContent>
       </Card>
     </Container>

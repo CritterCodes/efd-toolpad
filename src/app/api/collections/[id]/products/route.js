@@ -120,7 +120,7 @@ export async function POST(request, { params }) {
     }
 
     // Authorization check
-    if (session.user.role === 'artisan' && collection.ownerId !== session.user.id) {
+    if (session.user.role === 'artisan' && collection.ownerId !== session.user.userID) {
       return NextResponse.json(
         { success: false, error: 'You can only edit your own collections' },
         { status: 403 }
@@ -220,7 +220,7 @@ export async function DELETE(request, { params }) {
     }
 
     // Authorization check
-    if (session.user.role === 'artisan' && collection.ownerId !== session.user.id) {
+    if (session.user.role === 'artisan' && collection.ownerId !== session.user.userID) {
       return NextResponse.json(
         { success: false, error: 'You can only edit your own collections' },
         { status: 403 }

@@ -2,9 +2,19 @@
 // API to sync artisan users with vendor profiles in efd-shop
 
 import { NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/apiAuth';
 import UserService from '../../users/service.js';
 
+/**
+ * Sync an artisan user to a shop vendor profile. Requires a session: this WRITES to `users`, and it
+ * previously returned the updated document verbatim — which, before the model gained a projection,
+ * meant handing out that user's bcrypt `password` and any live `resetToken` to an anonymous caller who
+ * knew a userID. Both halves are fixed (session here, projection in the model); the response is also
+ * narrowed below so this route can't leak a field a future schema change adds.
+ */
 export async function POST(request) {
+  const { errorResponse } = await requireAuth();
+  if (errorResponse) return errorResponse;
   try {
     const { userId, artisanData } = await request.json();
 
@@ -101,7 +111,16 @@ export async function POST(request) {
       data: {
         vendorProfileId: vendorProfileId,
         vendorSlug: vendorSlug,
-        user: updatedUser
+        // Explicit allowlist, not the whole document — a user doc is not a safe response shape.
+        user: updatedUser && {
+          userID: updatedUser.userID,
+          email: updatedUser.email,
+          firstName: updatedUser.firstName,
+          lastName: updatedUser.lastName,
+          role: updatedUser.role,
+          vendorProfileId: updatedUser.vendorProfileId,
+          vendorSlug: updatedUser.vendorSlug,
+        }
       }
     });
 

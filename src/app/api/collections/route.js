@@ -142,7 +142,7 @@ export async function POST(request) {
       drop: drop || null,
       // For artisan collections, set owner
       ...(type === 'artisan' && {
-        ownerId: session.user.id,
+        ownerId: session.user.userID,
         ownerInfo: {
           businessName: session.user.businessName || session.user.name,
           businessHandle: session.user.businessHandle,

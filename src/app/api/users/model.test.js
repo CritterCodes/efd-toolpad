@@ -4,7 +4,7 @@ const { connect } = vi.hoisted(() => ({ connect: vi.fn() }));
 
 vi.mock('@/lib/database', () => ({ db: { connect } }));
 
-import UserModel, { userIdentityQuery } from './model';
+import UserModel, { userIdentityQuery, USER_SECRET_FIELDS } from './model';
 
 describe('user identifier lookup', () => {
   beforeEach(() => {
@@ -37,6 +37,11 @@ describe('user identifier lookup', () => {
       { userID: 'user-8e8f2790' },
       { $set: { email: 'ronda@customer.com' } },
     );
-    expect(users.findOne).toHaveBeenCalledWith({ userID: 'user-8e8f2790' });
+    // The reload MUST pass the credential projection — a user doc carries the bcrypt password and any
+    // live resetToken, and this value is returned to the caller.
+    expect(users.findOne).toHaveBeenCalledWith(
+      { userID: 'user-8e8f2790' },
+      { projection: USER_SECRET_FIELDS },
+    );
   });
 });

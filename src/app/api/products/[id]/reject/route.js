@@ -70,7 +70,7 @@ export async function POST(request, { params }) {
           statusHistory: {
             status: newStatus,
             timestamp: new Date(),
-            changedBy: session.user.userID || session.user.id,
+            changedBy: session.user.userID,
             reason: body.reason,
             notes: body.notes || ''
           }

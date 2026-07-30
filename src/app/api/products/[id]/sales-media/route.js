@@ -11,7 +11,7 @@ const MAX_GLB_BYTES = 50 * 1024 * 1024;
 
 async function checkAccess(session, product) {
   const isArtisan = session.user.role === 'artisan';
-  const ownerId = session.user.userID || session.user.id;
+  const ownerId = session.user.userID;
   const isOwner = [product.artisanId, product.userId, product.seller?.userId].filter(Boolean).includes(ownerId);
   const isAdminRole = ['admin', 'superadmin', 'dev', 'staff'].includes(session.user.role);
   if (!isAdminRole && (!isArtisan || !isOwner)) return false;
