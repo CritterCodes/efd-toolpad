@@ -63,7 +63,9 @@ const ArtisanVendorProfile = ({ artisan, onFieldChange }) => {
                             <Button
                                 variant="outlined"
                                 startIcon={<LaunchIcon />}
-                                href={`${process.env.NEXT_PUBLIC_SHOP_URL || 'http://localhost:3001'}/vendors/${artisan.vendorSlug}`}
+                                // Fallback was http://localhost:3001 — the ADMIN dev port, not the shop.
+                                // Client component, so only NEXT_PUBLIC_* is readable here (no shopBase()).
+                                href={`${process.env.NEXT_PUBLIC_SHOP_URL || 'https://shop.engelfinedesign.com'}/vendors/${artisan.vendorSlug}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                             >

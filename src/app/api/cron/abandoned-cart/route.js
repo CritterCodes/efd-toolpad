@@ -10,6 +10,7 @@
  */
 import { db as mongo } from '@/lib/database.js';
 import { NotificationService } from '@/lib/notificationService';
+import { shopBase } from '@/lib/appUrls';
 
 const IDLE_HOURS = 4;
 
@@ -56,7 +57,7 @@ export async function GET(req) {
           channels: userID ? ['inApp', 'email'] : ['email'],
           recipientEmail: email,
           priority: 'normal',
-          data: { actionUrl: `${process.env.NEXT_PUBLIC_SHOP_URL || ''}/cart` },
+          data: { actionUrl: `${shopBase()}/cart` },
           tags: ['marketing', 'abandoned-cart'],
         });
         notified += 1;

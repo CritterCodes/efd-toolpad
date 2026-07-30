@@ -11,6 +11,7 @@ import { randomBytes } from 'crypto';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
 import { METAL_FINISHES, GEM_PRESETS } from '@/services/products/productContract';
 import { NotificationService } from '@/lib/notificationService';
+import { shopBase, shopLink } from '@/lib/appUrls';
 
 export function validateDesignModel(designModel = {}) {
   const errors = [];
@@ -34,8 +35,9 @@ export function validateDesignModel(designModel = {}) {
 }
 
 export function shareUrl(token) {
-  const base = process.env.NEXT_PUBLIC_SHOP_URL || '';
-  return `${base}/d/${token}`;
+  // Absolute, always: this link is COPIED AND SENT to a customer. `|| ''` returned "/d/<token>",
+  // which is useless the moment it leaves the app. See lib/appUrls.js.
+  return shopLink(`/d/${token}`);
 }
 
 /** Attach/replace the 3D model on a custom order (validated). MERGES with the existing
@@ -86,7 +88,7 @@ export async function createShareLink(customID, shareTitle) {
         channels: ['inApp', 'email'],
         recipientEmail: updated.customerEmail,
         priority: 'high',
-        data: { actionUrl: `${process.env.NEXT_PUBLIC_APP_URL || ''}/custom-work/portal`, customID },
+        data: { actionUrl: `${shopBase()}/custom-work/portal`, customID },
       });
     } catch (e) {
       console.error('⚠️ custom-design-ready notification failed:', e.message);

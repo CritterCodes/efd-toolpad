@@ -10,6 +10,7 @@
  */
 import { db as mongo } from '@/lib/database.js';
 import { NotificationService } from '@/lib/notificationService';
+import { shopBase } from '@/lib/appUrls';
 
 export async function GET(req) {
   const secret = req.nextUrl.searchParams.get('secret');
@@ -55,7 +56,7 @@ export async function GET(req) {
           channels: ['inApp', 'email'],
           recipientEmail: user.email,
           priority: 'normal',
-          data: { actionUrl: `${process.env.NEXT_PUBLIC_SHOP_URL || ''}/collections`, recipientName: user.firstName || '' },
+          data: { actionUrl: `${shopBase()}/collections`, recipientName: user.firstName || '' },
           tags: ['marketing', 'birthday'],
         });
         notified += 1;

@@ -24,9 +24,15 @@ const STAFF_ONLY_PREFIXES = ["/dashboard/admin"];
 export default async function middleware(req) {
     const { pathname } = req.nextUrl;
     
-    // Skip middleware completely for static assets 
-    if (pathname.startsWith('/_next') || 
-        pathname.includes('.') || 
+    // Skip middleware completely for static assets.
+    // `pathname.includes('.')` USED TO BE IN THIS LIST and was a full auth bypass: it returns before
+    // the session check AND before the staff gate below, so any path containing a dot went through
+    // unauthenticated. Dynamic segments live under the gated prefix
+    // (admin/affiliates/[affiliateId], admin/repair-tasks/edit/[taskId], admin/tasks/edit/[id]), so
+    // `/dashboard/admin/affiliates/x.y` skipped middleware entirely. The explicit prefixes below are
+    // sufficient — `config.matcher` already limits this middleware to /, /dashboard, /auth and
+    // /emergency-logout, so real static assets never reach it.
+    if (pathname.startsWith('/_next') ||
         pathname.startsWith('/favicon') ||
         pathname.startsWith('/logos')) {
         return NextResponse.next();

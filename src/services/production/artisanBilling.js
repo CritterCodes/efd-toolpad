@@ -2,6 +2,7 @@ import ArtisanInvoicesModel, { ARTISAN_INVOICE_KIND } from '@/app/api/artisanInv
 import CastingBatchesModel from '@/app/api/castingBatches/model';
 import { markCastingPaid } from '@/services/production/castingBoard';
 import { getWorkOrderMarkupMultiplier, applyWorkOrderMarkup, DEFAULT_WO_MARKUP } from '@/services/production/workOrderPricing';
+import { STAFF_ROLES } from '@/lib/designPermissions';
 
 /**
  * Artisan billing rail (PRODUCTION_RUNS.md §4c). Bills an artisan for fulfilled work — labor +
@@ -55,7 +56,9 @@ export async function isEfdSelf(userID) {
       { userID: String(userID) },
       { projection: { _id: 0, role: 1 } },
     );
-    return ['admin', 'dev', 'staff'].includes(user?.role);
+    // STAFF_ROLES, not an inline copy — an earlier commit claimed this shared the canonical set while
+    // still hardcoding its own. The values matched, so nothing broke; the drift was the hazard.
+    return STAFF_ROLES.includes(user?.role);
   } catch {
     return false;
   }

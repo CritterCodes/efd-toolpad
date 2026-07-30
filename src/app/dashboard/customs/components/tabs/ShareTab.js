@@ -13,7 +13,9 @@ import JewelryViewerClient from '@/components/viewers/JewelryViewerClient';
 const Studio = dynamic(() => import('@crittercodes/refrakt').then((m) => m.Studio), { ssr: false });
 
 const panelSx = { p: 2.5, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' };
-const SHOP_BASE = process.env.NEXT_PUBLIC_SHOP_URL || '';
+// Absolute: this URL is COPIED AND SENT to a customer, so `|| ''` produced a share link that was
+// useless outside the app. Client component, so only NEXT_PUBLIC_* is readable (no shopBase()).
+const SHOP_BASE = process.env.NEXT_PUBLIC_SHOP_URL || 'https://shop.engelfinedesign.com';
 
 export default function ShareTab({ customID, order, onChanged, notify }) {
   const [glbUrl, setGlbUrl] = useState(order.designModel?.glbUrl || '');

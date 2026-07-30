@@ -18,7 +18,27 @@ wrong or understated, noted inline.
 
 `STAFF_ROLES` is now exported from `lib/designPermissions.js` and consumed by `isStaff`, these routes,
 the middleware, and `artisanBilling.isEfdSelf` — one definition, so a role can't be staff in one gate
-and not another.
+and not another. It includes `superadmin` to match the ~20 incumbent sites that already treat it as
+staff; omitting it would have made the new gates the only ones denying it.
+
+## Found by review AFTER the first pass — the audit's scope was not the vulnerability's scope
+
+A 5th-round adversarial review falsified the A2 claim ("GET no longer serves the applicant pool
+unauthenticated") in one anonymous request, and found something worse that no audit had named:
+
+| | |
+|---|---|
+| **`GET /api/artisan`** | **Still served the entire applicant pool + stats anonymously.** The same `getAllArtisanApplications` as the guarded route. The first pass deleted the `[applicationId]` CHILD as an unauthenticated duplicate and **left the parent**. Zero callers in either repo → deleted, same precedent. |
+| **`PUT /api/users/[userID]`** and **`PUT /api/users?query=`** | **Unauthenticated privilege escalation to `admin`.** Stripped only `_id`/`userID`/`createdAt` before a raw `$set`, so `PUT /api/users/<anyone> {"role":"admin"}` succeeded with no session. Strictly worse than the artisan hole (which granted only `artisan`) and it **defeated every other gate in the app** — an escalated account then passes them legitimately. GET leaked any user record; DELETE removed accounts. Now: reads require a session, writes require staff, and privilege fields (`role`, `password`, `status`, `emailVerified`, `staffCapabilities`, `mustChangePassword`) are stripped even for staff, so this generic `$set` can't be a side door around `create-admin` / `promote-affiliate`. 17 tests. |
+| **Middleware auth bypass** | `pathname.includes('.')` returned `next()` **before** the session check and before the new staff gate, so `/dashboard/admin/affiliates/x.y` skipped middleware entirely, unauthenticated. Removed — `config.matcher` already limits this middleware to `/`, `/dashboard`, `/auth`, `/emergency-logout`, so real static assets never reach it. |
+
+**The lesson, recorded because it cost two rounds:** guarding the routes an audit *names* is not the
+same as guarding every route that can reach the privileged operation. Both misses were duplicate paths
+into an already-identified sink. Grep the SERVICE function, not the route.
+
+Reads on `/api/users` are deliberately authenticated-only rather than staff-only: `?role=artisan` feeds
+the collaborator pickers artisans use in the drops design editor, so staff-gating reads would break
+their own surfaces. That narrowing belongs with the access matrix below.
 
 ## Needs a decision (not changed unilaterally)
 
