@@ -27,9 +27,10 @@ import { getSTLVolume } from '@/lib/stlParser';
 import { createShareLink, setShareEnabled } from '@/services/customs/customViewer';
 import { db } from '@/lib/database';
 import { NotificationService, notifyAllAdmins } from '@/lib/notificationService';
+import { adminBase } from '@/lib/appUrls';
 
-const BENCH_ACTION_URL = `${process.env.NEXT_PUBLIC_ADMIN_URL || ''}/dashboard/bench`;
-const customLink = (customID) => `${process.env.NEXT_PUBLIC_ADMIN_URL || ''}/dashboard/customs/${customID}`;
+const BENCH_ACTION_URL = `${adminBase()}/dashboard/bench`;
+const customLink = (customID) => `${adminBase()}/dashboard/customs/${customID}`;
 
 /** Resolve the linked customID (if any) for a piece work order, for notification links. */
 async function customIDForWorkOrder(wo) {

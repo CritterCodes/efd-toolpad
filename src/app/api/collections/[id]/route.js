@@ -13,6 +13,13 @@ import { ObjectId } from 'mongodb';
  * Get collection details
  */
 export async function GET(request, { params }) {
+  // Was ANONYMOUS: any caller could read this document, including unpublished/vault
+  // release state and drop submissions. Authenticated rather than staff-only — artisans
+  // legitimately view drops and collections they participate in.
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+  }
   try {
     const { id } = params;
 
@@ -52,7 +59,7 @@ export async function GET(request, { params }) {
  */
 export async function PUT(request, { params }) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
@@ -81,7 +88,7 @@ export async function PUT(request, { params }) {
     }
 
     // Authorization check
-    if (session.user.role === 'artisan' && collection.ownerId !== session.user.id) {
+    if (session.user.role === 'artisan' && collection.ownerId !== session.user.userID) {
       return NextResponse.json(
         { success: false, error: 'You can only edit your own collections' },
         { status: 403 }
@@ -151,7 +158,7 @@ export async function PUT(request, { params }) {
  */
 export async function DELETE(request, { params }) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
@@ -180,7 +187,7 @@ export async function DELETE(request, { params }) {
     }
 
     // Authorization check
-    if (session.user.role === 'artisan' && collection.ownerId !== session.user.id) {
+    if (session.user.role === 'artisan' && collection.ownerId !== session.user.userID) {
       return NextResponse.json(
         { success: false, error: 'You can only delete your own collections' },
         { status: 403 }
@@ -196,7 +203,7 @@ export async function DELETE(request, { params }) {
           isPublished: false,
           updatedAt: new Date(),
           archivedAt: new Date(),
-          archivedBy: session.user.id
+          archivedBy: session.user.userID
         }
       },
       { returnDocument: 'after' }

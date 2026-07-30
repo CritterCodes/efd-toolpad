@@ -1,7 +1,16 @@
 import { NextResponse } from 'next/server';
 import { runMaterialPriceSync } from './service';
+import { requireRole } from '@/lib/apiAuth';
+import { STAFF_ROLES } from '@/lib/designPermissions';
+
+/**
+ * STAFF ONLY. Unauthenticated, this was a catalog-wide MONEY WRITE: runMaterialPriceSync()
+ * re-prices every active material and spends EFD's stored Stuller credentials to do it.
+ */
 
 export async function POST(request) {
+  const { errorResponse } = await requireRole(STAFF_ROLES);
+  if (errorResponse) return errorResponse;
   try {
     let adminSettings;
     try {

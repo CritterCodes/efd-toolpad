@@ -26,9 +26,24 @@ export function canShipTransition(from, to) {
   return Boolean(ALLOWED[from]?.includes(to));
 }
 
-/** Whether a shipment is clear to ship given its gate source's paid state. PURE. */
+/**
+ * Whether a shipment is clear to ship given its gate source's state. PURE.
+ *
+ * Two independent refusals, deliberately NOT collapsed into one:
+ *  1. the ship gate is up and the charge is unpaid (nothing ships unpaid), and
+ *  2. an OUTSTANDING recorded charge — a charge amount that was never paid — regardless of the
+ *     `shippingGated` flag. The flag is mutable bookkeeping; the unpaid amount is the actual fact.
+ *     Without (2), any future code path that clears the flag without settling the money silently
+ *     opens the gate. That is not hypothetical: cancelling a batch used to clear it, and legacy
+ *     batches received before invoicing existed carry a charge with no invoice behind it.
+ * A CANCELLED batch is never clear to ship either — nothing is coming.
+ */
 export function isClearToShip({ castingBatch = null } = {}) {
-  if (castingBatch && castingBatch.shippingGated && !castingBatch.charge?.paid) return false;
+  if (!castingBatch) return true;
+  if (castingBatch.status === 'cancelled') return false;
+  const owes = castingBatch.charge?.amount != null && !castingBatch.charge?.paid;
+  if (owes) return false;
+  if (castingBatch.shippingGated && !castingBatch.charge?.paid) return false;
   return true;
 }
 

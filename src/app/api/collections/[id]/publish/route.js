@@ -8,6 +8,7 @@ import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import { NotificationService, notifyAllAdmins } from '@/lib/notificationService';
+import { adminBase } from '@/lib/appUrls';
 
 /**
  * POST /api/collections/:id/publish
@@ -46,7 +47,7 @@ export async function POST(request, { params }) {
     // Authorization check
     if (session.user.role === 'artisan') {
       // Artisans can publish own artisan collections
-      if (collection.type !== 'artisan' || collection.ownerId !== session.user.id) {
+      if (collection.type !== 'artisan' || collection.ownerId !== session.user.userID) {
         return NextResponse.json(
           { success: false, error: 'You can only publish your own artisan collections' },
           { status: 403 }
@@ -99,7 +100,7 @@ export async function POST(request, { params }) {
           status: 'active',
           isPublished: true,
           publishedAt: new Date(),
-          publishedBy: session.user.id,
+          publishedBy: session.user.userID,
           updatedAt: new Date()
         }
       },
@@ -110,7 +111,7 @@ export async function POST(request, { params }) {
     // Best-effort: never fail the publish if notifications error.
     try {
       const collectionName = collection.name || collection.title || collection.drop?.theme || 'a collection';
-      const actionUrl = `${process.env.NEXT_PUBLIC_ADMIN_URL || ''}/dashboard/collections/${id}`;
+      const actionUrl = `${adminBase()}/dashboard/collections/${id}`;
 
       // Resolve the owning artisans of the products in this collection.
       const productObjectIds = (collection.products || [])

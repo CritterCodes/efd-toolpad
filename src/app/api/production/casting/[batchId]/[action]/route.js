@@ -7,6 +7,7 @@ import {
   disputeCasting, acceptCasting, cancelCastingBatch, CastingError,
 } from '@/services/production/castingBoard';
 import { placeVendorCastingOrder, CastingOrderError } from '@/services/production/castingVendorOrder';
+import { billReceivedCasting, settleCastingInvoice, voidCastingInvoice } from '@/services/production/castingSettlement';
 
 const HANDLERS = {
   order: markCastingOrdered,           // record an order placed out-of-band (manual)
@@ -22,7 +23,7 @@ const HANDLERS = {
 // Paying (receive/pay) and staff-only transitions are gated tighter than owner-visible ones.
 // `pay` = settlement is EFD/Stripe's to record. `place-order` = it sends an order on EFD's vendor
 // account (and EFD floats the cost), so only staff may fire it — artisans open the batch, EFD places it.
-// `receive` = it records the ACTUAL vendor cost, which sets the artisan's charge (cost × markup) AND
+// `receive` = it records the ACTUAL vendor cost, which IS the artisan's charge (at cost, no markup) AND
 // their pieces' COGS. EFD placed the order and holds the vendor invoice, so EFD reports the number —
 // the debtor must never set their own debt (receiving at $0.01 would ship the casting for free).
 const STAFF_ONLY = new Set(['pay', 'place-order', 'receive']);
@@ -52,7 +53,7 @@ function ownerRefusalReason(action, batch) {
  * place-order | order | receive | pay | deliver | dispute | accept | cancel. Staff, or the batch's
  * owning artisan (their own runs' castings). Always staff-only: `pay` (settlement is EFD/Stripe's to
  * record) and `place-order` (it orders on EFD's vendor account, which EFD floats). Conditionally
- * staff-only from the batch's state: `receive` (unless in-house) and `cancel` (once a charge is
+ * staff-only: `receive` (always — it sets the debt) and `cancel` (once a charge is
  * outstanding) — see `ownerRefusalReason`.
  */
 export const POST = async (req, { params }) => {
@@ -84,6 +85,32 @@ export const POST = async (req, { params }) => {
     // Path param + session-derived identity LAST so nothing in the body can override the
     // ownership-checked batchId or spoof who placed the order (IDOR / attribution).
     const result = await handler({ ...body, batchId, sentBy: session.user.userID });
+
+    // RECEIPT BILLS THE ARTISAN. Until this call existed, casting debt never reached
+    // `artisanInvoices`, so `isArtisanFrozen` (which reads that collection) could never fire for a
+    // casting — the ship gate was a staff click and nothing else. Invoiced AT COST (a reimbursement
+    // of Carrera's invoice, which EFD floats), and not at all when the run is EFD's own.
+    //
+    // Deliberately NOT rolled back on failure: markCastingReceived has already split COGS onto the
+    // pieces and set charge + shippingGated, so the nothing-ships-unpaid guarantee holds either way.
+    // A billing failure is reported on the response instead of 500-ing or silently vanishing.
+    if (action === 'receive') {
+      const billing = await billReceivedCasting({ batchId, ownerId: batch.ownerId, createdBy: session.user.userID });
+      return NextResponse.json({ ...result, billing }, { status: 200 });
+    }
+    // Recording payment must settle BOTH sides: markCastingPaid clears the ship gate, this clears the
+    // debt. Without it the invoice goes overdue and freezes an artisan who already paid.
+    if (action === 'pay') {
+      const settlement = await settleCastingInvoice({ batchId });
+      return NextResponse.json({ ...result, settlement }, { status: 200 });
+    }
+    // Cancelling an INVOICED batch must void the debt — same invariant as `pay`, other direction.
+    // EFD is writing the casting off; leaving the invoice `pending_payment` would freeze the artisan
+    // ~2 weeks later for a casting they never received, with nothing on the board left to click.
+    if (action === 'cancel') {
+      const settlement = await voidCastingInvoice({ batchId, reason: `casting batch ${batchId} cancelled` });
+      return NextResponse.json({ ...result, settlement }, { status: 200 });
+    }
     return NextResponse.json(result, { status: 200 });
   } catch (e) {
     if (e instanceof CastingError || e instanceof CastingOrderError) {

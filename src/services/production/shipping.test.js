@@ -29,7 +29,18 @@ describe('isClearToShip (pure — nothing-ships-unpaid gate)', () => {
     expect(isClearToShip({})).toBe(true);
     expect(isClearToShip({ castingBatch: null })).toBe(true);
   });
-  it('an in-house batch (gated false) is clear', () => {
-    expect(isClearToShip({ castingBatch: { shippingGated: false, charge: { paid: true } } })).toBe(true);
+  // THE FLAG IS NOT THE FACT. `shippingGated` is mutable bookkeeping; an unpaid charge AMOUNT is the
+  // actual debt. These cover the cases where the two disagree — the gate must follow the money.
+  it('blocked by an OUTSTANDING charge even if the gate flag was cleared', () => {
+    expect(isClearToShip({ castingBatch: { shippingGated: false, charge: { amount: 150, paid: false } } })).toBe(false);
+  });
+  it('blocked on a legacy received batch that carries a charge but no invoice behind it', () => {
+    expect(isClearToShip({ castingBatch: { status: 'received', shippingGated: true, charge: { amount: 90, paid: false, invoiceID: null } } })).toBe(false);
+  });
+  it('a CANCELLED batch is never clear to ship — nothing is coming', () => {
+    expect(isClearToShip({ castingBatch: { status: 'cancelled', shippingGated: false, charge: { amount: 150, paid: true } } })).toBe(false);
+  });
+  it('clear on a paid, accepted batch', () => {
+    expect(isClearToShip({ castingBatch: { status: 'accepted', shippingGated: false, charge: { amount: 150, paid: true } } })).toBe(true);
   });
 });

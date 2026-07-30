@@ -1,7 +1,9 @@
 // src/app/api/users/user.controller.js
 
 import UserService from "./service";
+import { stripPrivilegeFields } from "./model";
 import { NotificationService, NOTIFICATION_TYPES, CHANNELS } from "@/lib/notificationService.js";
+import { adminBase } from '@/lib/appUrls';
 
 export default class UserController {
     /**
@@ -38,7 +40,7 @@ export default class UserController {
                     artisanName: artisanName || 'Artisan',
                     email: createdUser.email,
                     business: createdUser.business || 'N/A',
-                    loginUrl: process.env.NEXTAUTH_URL || 'https://admin.engelsfinedesign.com'
+                    loginUrl: process.env.NEXTAUTH_URL || 'https://admin.engelfinedesign.com'   // engelfinedesign, no extra "s"
                   },
                   templateName: 'artisan_added',
                   recipientEmail: createdUser.email
@@ -181,8 +183,14 @@ export default class UserController {
         try {
             const { searchParams } = new URL(req.url);
             const query = searchParams.get("query");
-            const updateData = await req.json();
-    
+            const rawUpdate = await req.json();
+            // SAME STRIP AS /api/users/[userID] — this sibling had none, so a `staff` account (which
+            // ROLE_PERMISSIONS deny `adminSettings`, the check create-admin uses to refuse a
+            // staff-issued admin grant) could promote ITSELF to admin here. Role changes belong to the
+            // dedicated guarded routes; the role-change notification below is now unreachable from this
+            // path by design.
+            const updateData = stripPrivilegeFields(rawUpdate);
+
             if (!query) {
                 return new Response(
                     JSON.stringify({ error: "Query parameter is required." }),
@@ -217,7 +225,7 @@ export default class UserController {
                     updatedUser.role !== previousRole
                 ) {
                     const recipientUserId = updatedUser.userID || (updatedUser._id ? updatedUser._id.toString() : '');
-                    const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || '';
+                    const adminUrl = adminBase();
                     await NotificationService.createNotification({
                         userId: recipientUserId,
                         type: 'role-changed',

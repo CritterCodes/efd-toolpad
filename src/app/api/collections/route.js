@@ -13,6 +13,14 @@ import { ObjectId } from 'mongodb';
  * List collections with filters
  */
 export async function GET(request) {
+  // Was ANONYMOUS. Guarding /api/collections/[id] GET last round achieved nothing while this
+  // sibling returned the same documents — unpublished and vault-state collections, and their
+  // product docs — to any caller. Authenticated rather than staff: artisans legitimately view
+  // collections and drops they participate in, and the per-record scoping lives below.
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+  }
   try {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
@@ -142,7 +150,7 @@ export async function POST(request) {
       drop: drop || null,
       // For artisan collections, set owner
       ...(type === 'artisan' && {
-        ownerId: session.user.id,
+        ownerId: session.user.userID,
         ownerInfo: {
           businessName: session.user.businessName || session.user.name,
           businessHandle: session.user.businessHandle,

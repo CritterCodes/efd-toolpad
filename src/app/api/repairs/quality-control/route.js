@@ -4,6 +4,7 @@ import RepairsController from "../controller";
 import { requireRepairOps } from "@/lib/apiAuth";
 import { NotificationService } from "@/lib/notificationService";
 import { normalizeRepairStatus, QC_COMPLETION_STATUSES } from "@/services/repairWorkflow";
+import { adminBase } from '@/lib/appUrls';
 
 /**
  * POST Route for Quality Control updates including status, notes, checklist, and image uploads
@@ -52,7 +53,7 @@ export const POST = async (req) => {
             const isCompletion = QC_COMPLETION_STATUSES.includes(canonicalStatus);
             const assigneeID = updatedRepair?.assignedTo;
             if (!isCompletion && assigneeID) {
-                const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || "";
+                const adminUrl = adminBase();
                 await NotificationService.createNotification({
                     userId: assigneeID,
                     type: "repair-qc-failed",

@@ -14,7 +14,7 @@ import { ObjectId } from 'mongodb';
  */
 export async function GET(request) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
@@ -79,7 +79,7 @@ export async function GET(request) {
  */
 export async function POST(request) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
@@ -135,7 +135,7 @@ export async function POST(request) {
       requirements: requirements || {},
       status: 'draft',
       createdAt: new Date(),
-      createdBy: session.user.id,
+      createdBy: session.user.userID,
       opensAt: openDate,
       closesAt: closeDate,
       targetQuantity: targetQuantity || null,

@@ -13,6 +13,14 @@ import { ObjectId } from 'mongodb';
  * Get all products in a collection
  */
 export async function GET(request, { params }) {
+  // Was ANONYMOUS. Guarding /api/collections/[id] GET last round achieved nothing while this
+  // sibling returned the same documents — unpublished and vault-state collections, and their
+  // product docs — to any caller. Authenticated rather than staff: artisans legitimately view
+  // collections and drops they participate in, and the per-record scoping lives below.
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+  }
   try {
     const { id } = params;
     if (!ObjectId.isValid(id)) {
@@ -120,7 +128,7 @@ export async function POST(request, { params }) {
     }
 
     // Authorization check
-    if (session.user.role === 'artisan' && collection.ownerId !== session.user.id) {
+    if (session.user.role === 'artisan' && collection.ownerId !== session.user.userID) {
       return NextResponse.json(
         { success: false, error: 'You can only edit your own collections' },
         { status: 403 }
@@ -220,7 +228,7 @@ export async function DELETE(request, { params }) {
     }
 
     // Authorization check
-    if (session.user.role === 'artisan' && collection.ownerId !== session.user.id) {
+    if (session.user.role === 'artisan' && collection.ownerId !== session.user.userID) {
       return NextResponse.json(
         { success: false, error: 'You can only edit your own collections' },
         { status: 403 }

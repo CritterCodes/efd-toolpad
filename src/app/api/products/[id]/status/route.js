@@ -63,7 +63,7 @@ export async function POST(req, { params }) {
 
     // Verify authorization - user must be artisan owner or admin
     const isAdmin = session.user.role === 'admin';
-    const isArtisan = product.artisanId === session.user.id;
+    const isArtisan = product.artisanId === session.user.userID;
 
     if (!isAdmin && !isArtisan) {
       return NextResponse.json(
@@ -95,7 +95,7 @@ export async function POST(req, { params }) {
       // Track when first approved
       if (isApproved && !product.isApproved) {
         updateData.approvedAt = new Date();
-        updateData.approvedBy = session.user.id;
+        updateData.approvedBy = session.user.userID;
       }
     }
 
@@ -113,7 +113,7 @@ export async function POST(req, { params }) {
       status: newStatus,
       isApproved: updateData.isApproved !== undefined ? updateData.isApproved : product.isApproved,
       timestamp: new Date(),
-      changedBy: session.user.id,
+      changedBy: session.user.userID,
       changedByEmail: session.user.email
     };
 

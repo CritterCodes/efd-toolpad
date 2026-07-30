@@ -2,6 +2,7 @@
 import { updateWholesaleApplicationStatus, getWholesaleApplicationById } from '@/lib/wholesaleService.js';
 import { requireRole } from '@/lib/apiAuth';
 import { NotificationService } from '@/lib/notificationService';
+import { adminBase } from '@/lib/appUrls';
 
 export async function POST(request, { params }) {
   try {
@@ -48,7 +49,7 @@ export async function POST(request, { params }) {
       const recipientUserId = application.accountUserID || application.userID || '';
       const recipientEmail = application.email || '';
       const businessName = application.businessName || `${application.firstName || ''} ${application.lastName || ''}`.trim();
-      const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || '';
+      const adminUrl = adminBase();
 
       await NotificationService.createNotification({
         userId: recipientUserId,

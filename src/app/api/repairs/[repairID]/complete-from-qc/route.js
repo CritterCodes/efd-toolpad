@@ -4,6 +4,7 @@ import { requireRepairOps } from '@/lib/apiAuth';
 import { buildCompleteFromQcUpdate } from '@/services/repairWorkflow';
 import { creditRepairLaborAtQc } from '@/services/repairs/benchHandoff';
 import { NotificationService } from '@/lib/notificationService';
+import { adminBase } from '@/lib/appUrls';
 
 export const POST = async (req, { params }) => {
   try {
@@ -32,7 +33,7 @@ export const POST = async (req, { params }) => {
       const customerID = updated.userID;
       const customerEmail = updated.email || updated.clientEmail || updated.customerEmail || '';
       if (customerID || customerEmail) {
-        const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || '';
+        const adminUrl = adminBase();
         await NotificationService.createNotification({
           userId: customerID,
           type: 'repair-ready-pickup',

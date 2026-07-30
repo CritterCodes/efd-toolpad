@@ -3,6 +3,7 @@
 
 import { db } from './database.js';
 import { NotificationService } from '@/lib/notificationService';
+import { adminBase, shopBase } from '@/lib/appUrls';
 
 /**
  * Get all artisan applications with optional filters
@@ -168,18 +169,39 @@ export async function updateArtisanApplicationStatus(applicationId, status, revi
         const recipientUserId = user.userID || (user._id ? user._id.toString() : '');
         const recipientEmail = user.email || '';
         const artisanName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Artisan';
-        const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || '';
+        // ABSOLUTE URLs only — these land in an email client, where a relative path is dead. This was
+        // `NEXT_PUBLIC_ADMIN_URL || ''`, which rendered the bare relative href "/dashboard" whenever
+        // that var was unset (it is not set in production). See lib/appUrls.js — the same bug was at
+        // ~26 sites, so the resolution lives in one place now.
+        const adminUrl = adminBase();
+        const shopUrl = shopBase();
 
         if (status === 'approved') {
+          // Approved artisans work out of the ADMIN app, not the shop they applied on, so the CTA
+          // points at admin sign-in with a callback (signin honours ?callbackUrl=).
+          const signInUrl = `${adminUrl}/auth/signin?callbackUrl=%2Fdashboard`;
+          const slug = updateData['artisanApplication.slug'] || user.artisanApplication?.slug || '';
           await NotificationService.createNotification({
             userId: recipientUserId,
             type: 'artisan-approved',
             title: 'Your artisan application was approved',
-            message: `Congratulations ${artisanName}! Your artisan application has been approved. You can now sign in and start building your profile.`,
+            message: `Congratulations ${artisanName}! Your artisan application has been approved. Your artisan dashboard is at ${adminUrl} — sign in with ${recipientEmail} and the same password you use on the shop.`,
             channels: ['inApp', 'email', 'push'],
             recipientEmail,
             priority: 'high',
-            data: { artisanName, actionUrl: `${adminUrl}/dashboard` },
+            data: {
+              artisanName,
+              recipientName: artisanName,
+              recipientEmail,
+              adminUrl,
+              signInUrl,
+              shopUrl,
+              profileUrl: slug ? `${shopUrl}/vendors/${slug}` : '',
+              reviewNotes: reviewNotes || '',
+              // actionUrl/actionLabel keep the in-app + generic-notification fallback correct too.
+              actionUrl: signInUrl,
+              actionLabel: 'Sign in to your artisan dashboard',
+            },
           });
         } else {
           await NotificationService.createNotification({
@@ -192,7 +214,17 @@ export async function updateArtisanApplicationStatus(applicationId, status, revi
             channels: ['inApp', 'email', 'push'],
             recipientEmail,
             priority: 'high',
-            data: { artisanName, reason: reviewNotes || '', actionUrl: `${adminUrl}/artisan-application` },
+            // Was `${adminUrl}/artisan-application` — a route that does not exist in this app and
+            // isn't in the middleware matcher, so it 404'd. A rejected applicant has no admin
+            // dashboard; send them back to the shop, where their account still works.
+            data: {
+              artisanName,
+              recipientName: artisanName,
+              reason: reviewNotes || '',
+              shopUrl,
+              actionUrl: shopUrl,
+              actionLabel: 'Visit the shop',
+            },
           });
         }
       } catch (notificationError) {

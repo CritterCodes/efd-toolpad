@@ -1,11 +1,19 @@
 import { NextResponse } from 'next/server';
 import { db } from '../../../../lib/database';
 import { ObjectId } from 'mongodb';
+import { requireRole } from '@/lib/apiAuth';
+import { STAFF_ROLES } from '@/lib/designPermissions';
+
+/**
+ * STAFF ONLY. Process definitions are EFD's labor/material recipes — internal costing data.
+ */
 
 /**
  * Find processes that use specific materials
  */
 export async function POST(request) {
+  const { errorResponse } = await requireRole(STAFF_ROLES);
+  if (errorResponse) return errorResponse;
   try {
     const { materialIds } = await request.json();
     

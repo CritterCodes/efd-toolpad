@@ -1,6 +1,11 @@
 # Engel Fine Design — Artisan Terms & Policies
 
-> **STATUS: DRAFT v0.1 (2026-07-23) — NOT YET LEGALLY REVIEWED.**
+> **STATUS: DRAFT v0.2 (2026-07-29) — NOT YET LEGALLY REVIEWED.**
+> **v0.2 change (money term):** casting ordered through EFD's vendor is billed **at cost, no
+> markup** (§3, §4). v0.1 said the platform markup applied to vendor casting invoices; it does not.
+> Version bumped in `policyRegistry`, so every v0.1 acceptance is now stale. NOTE: acceptance is not
+> yet enforced anywhere (`needsAcceptance` gates nothing), so the bump does not by itself re-prompt
+> anyone — it only makes the badge on `/dashboard/policies` stale.
 > This is the plain-language draft of the artisan agreement, assembled from the owner's
 > decisions in `docs/manufacturing/PRODUCTION_RUNS.md` (each section notes its source).
 > It must be reviewed by an attorney before any artisan signs it. Once finalized it becomes
@@ -37,21 +42,26 @@ that bill.
   actual cost, anchored to the estimate you accepted. (§4c)
 - **You are billed when the work is completed** (passes quality control) — not when your piece
   sells. (§4.4)
-- **Platform fee: EFD-fulfilled work orders carry a 20% markup on cost** (labor + materials,
-  including vendor costs such as casting-house invoices) — the same markup EFD's wholesale
-  repair work carries. Quotes always show the markup-inclusive number. (§4c)
+- **Platform fee: EFD-fulfilled work orders carry EFD's wholesale markup on cost** (labor +
+  materials) — the same markup EFD's wholesale repair work carries. Quotes always show the
+  markup-inclusive number. (§4c)
+- **Casting ordered through EFD's vendor carries no markup** — you are billed exactly what the
+  casting house charged. See §4. (§4.1)
 - **Work you do yourself on your own pieces is never billed** — self-fulfilled work orders are
   bookkeeping (your earnings ledger), not invoices, and carry no fee. (§0, §4.4)
 - Shipping and insurance are billed **at cost** — no markup on postage. (§4c)
 
 ## 4. Casting
 
-- Castings ordered through EFD's casting vendor are **invoiced to you when the casting is
-  received** (so the bill is the actual vendor cost, not an estimate) and **do not ship to you
-  until that invoice is paid**. (§4.1)
+- **Billed at cost — no markup on casting.** EFD orders from the casting house on its own account,
+  pays that invoice up front, and bills you exactly what the casting house charged. EFD adds nothing.
+  You are free to price-check the vendor. (§4.1)
+- Castings are **invoiced to you when the casting is received** (so the bill is the actual vendor
+  cost, not an estimate) and **do not ship to you until that invoice is paid** — EFD fronted the
+  money, and this is how it is made whole. (§4.1)
 - **Casting failures are the caster's liability** — you paid for ten castings, you receive ten;
-  how many casting sessions that takes is the caster's business. This applies equally to vendor
-  casting and in-house casting work orders. (§4.1)
+  how many casting sessions that takes is the caster's business. A re-cast after a failed casting is
+  not billed to you again. (§4.1)
 - **48-hour inspection window:** after a casting is delivered to you, you have 48 hours to
   dispute any casting that fails your inspection. After 48 hours, delivery is accepted. (§4.1)
 - **After you accept, it's yours:** damage during your subsequent work is your liability. You

@@ -2,6 +2,12 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db as dbService } from '@/lib/database';
 import pricingEngine from '@/services/PricingEngine';
+import { STAFF_ROLES } from '@/lib/designPermissions';
+// STAFF-ONLY. Every gate in this file was `session.user?.email?.includes('@')` — i.e. ANY
+// authenticated user with a plausible email, including an artisan or a client, passed it. These
+// endpoints carry pricing/catalog/credential data. The idiom appeared at 24 sites across 12 files;
+// swept together rather than one at a time, which is how the last round's fix landed on the wrong
+// sibling of this very file.
 
 /**
  * POST /api/admin/settings/pricing-impact
@@ -11,7 +17,7 @@ export async function POST(request) {
   try {
     const session = await auth();
     
-    if (!session || !session.user?.email?.includes('@')) {
+    if (!session?.user || !STAFF_ROLES.includes(session.user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

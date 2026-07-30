@@ -3,8 +3,9 @@ import { requireRole } from '@/lib/apiAuth';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
 import { syncQuoteToWorkOrders } from '@/services/customs/customProduction';
 import { NotificationService } from '@/lib/notificationService';
+import { shopBase } from '@/lib/appUrls';
 
-const PORTAL_URL = `${process.env.NEXT_PUBLIC_APP_URL || ''}/custom-work/portal`;
+const PORTAL_URL = `${shopBase()}/custom-work/portal`;
 
 /**
  * PUT /api/custom-orders/[customID]/quote

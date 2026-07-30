@@ -50,7 +50,7 @@ export async function POST(request, { params }) {
       {
         $set: {
           status: 'approved',
-          approvedBy: session.user.userID || session.user.id,
+          approvedBy: session.user.userID,
           approvalDate: new Date(),
           updatedAt: new Date()
         },
@@ -58,7 +58,7 @@ export async function POST(request, { params }) {
           statusHistory: {
             status: 'approved',
             timestamp: new Date(),
-            changedBy: session.user.userID || session.user.id,
+            changedBy: session.user.userID,
             reason: 'Admin approval',
             notes: body.notes || ''
           }

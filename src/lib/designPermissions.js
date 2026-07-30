@@ -13,7 +13,20 @@ import { normalizeArtisanType, ARTISAN_TYPE } from '@/lib/artisans';
  * labels — normalize before comparing; see lib/artisans.js).
  */
 
-const STAFF_ROLES = ['admin', 'dev', 'staff'];
+/**
+ * The canonical EFD-staff role set. EXPORTED so every staff gate resolves membership from one place —
+ * `isStaff` (session-based), `requireRole([...STAFF_ROLES])` on API routes, the `/dashboard/admin/*`
+ * middleware gate, and `isEfdSelf` (DB-based, artisanBilling). Divergent inline copies are how a role
+ * ends up staff in one gate and not another.
+ *
+ * `superadmin` is included even though it is NOT in `USER_ROLES` and is never assigned in code: ~20
+ * existing sites already treat it as staff (`['admin','superadmin','dev','staff']` — drop publish,
+ * product approve, admin notifications). Omitting it here would make the newer gates the only ones
+ * that deny it, so a legacy row carrying that role could publish a drop but be locked out of
+ * /dashboard/admin. Matching the incumbent set is the safe direction; removing it everywhere at once
+ * is a separate cleanup.
+ */
+export const STAFF_ROLES = ['admin', 'superadmin', 'dev', 'staff'];
 const JEWELRY_TYPES = [ARTISAN_TYPE.JEWELER, ARTISAN_TYPE.ENGRAVER, ARTISAN_TYPE.CAD_DESIGNER, ARTISAN_TYPE.DESIGNER];
 const GEM_TYPES = [ARTISAN_TYPE.GEM_CUTTER];
 

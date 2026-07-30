@@ -4,8 +4,9 @@ import { requireCustomsRead } from '@/lib/customsPermissions';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
 import { awardClientMgmtBonus } from '@/services/customs/customProduction';
 import { NotificationService } from '@/lib/notificationService';
+import { shopBase } from '@/lib/appUrls';
 
-const PORTAL_URL = `${process.env.NEXT_PUBLIC_APP_URL || ''}/custom-work/portal`;
+const PORTAL_URL = `${shopBase()}/custom-work/portal`;
 
 // Milestone statuses that warrant a customer notification, with friendly copy.
 // Cosmetic / intermediate writes (pending, consultation, quote, deposit) are skipped.

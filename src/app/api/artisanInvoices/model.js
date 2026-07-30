@@ -7,7 +7,10 @@ import Constants from '@/lib/constants';
  * (PRODUCTION_RUNS.md §4c). Money flows IN from the artisan (nothing is fronted). Distinct from
  * `customInvoices` (customer receivables) and `salePayouts` (money OUT to artisans). The billed
  * party is `billedUserID`. Unpaid + past `dueAt` = overdue → the artisan FREEZES (no new
- * runs/WOs/listings) until paid. The Stripe hosted invoice is generated via the shared rail.
+ * runs/WOs/listings) until paid — so every invoice MUST eventually reach `paid` or `void`; a
+ * forgotten `pending_payment` row is an indefinite freeze with no in-product way to clear it (there
+ * is no artisanInvoices route or admin UI yet). `pushArtisanInvoiceToStripe` can turn a row into a
+ * hosted Stripe invoice but has NO CALLER — today staff record payment by hand (U-BILL-2).
  */
 export const ARTISAN_INVOICE_STATUS = Object.freeze({
   PENDING: 'pending_payment',
@@ -46,6 +49,9 @@ export function buildArtisanInvoice(data = {}) {
     dueDays,
     dueAt: data.dueAt ?? new Date(now.getTime() + dueDays * 24 * 3600 * 1000),
     paidAt: data.paidAt ?? null,
+    // Set by markVoid when the debt is written off (e.g. EFD cancels the casting it billed).
+    voidedAt: data.voidedAt ?? null,
+    voidReason: data.voidReason ?? null,
     // Stripe linkage (set by the rail after push).
     stripeInvoiceID: data.stripeInvoiceID ?? null,
     stripeCustomerID: data.stripeCustomerID ?? null,
@@ -93,6 +99,15 @@ export default class ArtisanInvoicesModel {
 
   static async markPaid(invoiceID) {
     return this.updateById(invoiceID, { status: ARTISAN_INVOICE_STATUS.PAID, paidAt: new Date() });
+  }
+
+  /**
+   * VOID a debt that will never be collected (e.g. EFD cancels/writes off the casting it billed).
+   * Essential counterpart to markPaid: `listOverdue` only ignores non-PENDING invoices, so an
+   * abandoned `pending_payment` row would freeze the artisan forever with no way to clear it.
+   */
+  static async markVoid(invoiceID, reason = null) {
+    return this.updateById(invoiceID, { status: ARTISAN_INVOICE_STATUS.VOID, voidedAt: new Date(), voidReason: reason });
   }
 
   /** Unpaid invoices for an artisan that are past due — the freeze signal. */

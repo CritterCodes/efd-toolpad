@@ -11,6 +11,7 @@ import {
 import { REPAIR_STATUS } from "@/services/repairWorkflow";
 import { resolveBillingMode } from "@/services/billing/modes";
 import { NotificationService, notifyAllAdmins } from "@/lib/notificationService";
+import { adminBase } from '@/lib/appUrls';
 
 async function createWhileYouWaitLaborLog(repair, session) {
   if (!repair?.repairID || repair.whileYouWait !== true || repair.status !== "COMPLETED" || !repair.assignedTo) {
@@ -167,7 +168,7 @@ export const POST = async (request) => {
       };
     }
 
-    repairData.createdBy = session.user.userID || session.user.id;
+    repairData.createdBy = session.user.userID;
     repairData.submittedBy = session.user.email;
 
     if (
@@ -195,7 +196,7 @@ export const POST = async (request) => {
     // function limit → 504 on create (the repair saved, but the client errored before the
     // print redirect). Notifications must never block intake.
     const notifyRepairLead = async () => {
-      const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || "";
+      const adminUrl = adminBase();
       const customerID = newRepair.userID;
       const customerEmail = newRepair.email || newRepair.clientEmail || newRepair.customerEmail || "";
       // Customer may be a partial lead (no shop account) — only notify if we have an identifier.

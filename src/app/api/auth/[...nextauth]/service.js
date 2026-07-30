@@ -6,6 +6,7 @@ import crypto, { hash } from 'crypto';
 import User from '../../users/class';
 import UserModel from './model';
 import { sendVerificationEmail, sendInviteEmail, sendPasswordResetEmail } from '@/app/utils/email.util.js';
+import { USER_ROLES } from '@/lib/user/user.constants';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRATION = '7d'; // Token expiration for JWT tokens
@@ -83,8 +84,28 @@ export default class AuthService {
                 throw new Error("Please verify your email before logging in.");
             }
 
+            /**
+             * Resolve the role ONCE, least-privilege by default.
+             *
+             * This was `user.role || 'admin'`: any account that reached login without a `role` field
+             * was granted ADMIN. Latent rather than live (shop registration always sets a role), but
+             * a missing field must never fail upward into full access. Defaults to `client` now.
+             *
+             * The jacobaengel55@gmail.com override is kept ONLY as an access safety net while the
+             * default changes — with least-privilege defaulting, an owner row missing `role` would
+             * otherwise lock the owner out of his own admin app. TO RETIRE IT: confirm that row has
+             * `role: 'admin'` in PROD, then delete the ternary. It is a hardcoded identity in an
+             * authorization path and should not outlive that check.
+             */
+            const resolvedRole = user.email === 'jacobaengel55@gmail.com'
+                ? 'admin'
+                : (user.role || USER_ROLES.CLIENT);
+
             // ✅ Generate JWT Token for the authenticated user
-            const token = jwt.sign({ userID: user.userID, role: user.role }, JWT_SECRET, {
+            // Signs the RESOLVED role — previously this signed the raw `user.role`, so a role-less
+            // account got `undefined` in the token while its session said 'admin': two answers to
+            // "who is this" from one login.
+            const token = jwt.sign({ userID: user.userID, role: resolvedRole }, JWT_SECRET, {
                 expiresIn: JWT_EXPIRATION
             });
 
@@ -98,10 +119,7 @@ export default class AuthService {
                 lastName: user.lastName,
                 email: user.email,
 
-                // 🔥 EMERGENCY FIX: Force admin role for jacobaengel55@gmail.com
-                role: user.email === 'jacobaengel55@gmail.com'
-                    ? 'admin'
-                    : (user.role || 'admin'),
+                role: resolvedRole,
 
                 artisanTypes: (() => {
                     const artisanType = user.artisanApplication?.artisanType;

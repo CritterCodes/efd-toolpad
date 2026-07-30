@@ -1,14 +1,28 @@
 import { NextResponse } from 'next/server';
 import { auth } from "@/lib/auth";
+import { STAFF_ROLES } from "@/lib/designPermissions";
 import AdminSettingsService from "./service.js";
+
+/**
+ * Admin settings — STAFF ONLY on every handler.
+ *
+ * All three gates were `session.user?.email?.includes('@')`: any authenticated user with a
+ * plausible email, INCLUDING AN ARTISAN, could read and write the GLOBAL pricing/financial settings
+ * (wage, markups, taxRate). The wholesale markup written here is what bills every artisan on the
+ * platform. A downstream securityCode was the only thing between an artisan and repricing the
+ * business.
+ */
 
 export default class AdminSettingsController {
   static async getSettings(request) {
     try {
       const session = await auth();
       
-      if (!session || !session.user?.email?.includes('@')) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      if (!session?.user) {
+        return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      }
+      if (!STAFF_ROLES.includes(session.user.role)) {
+        return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
       }
 
       const publicSettings = await AdminSettingsService.getSettings();
@@ -27,8 +41,11 @@ export default class AdminSettingsController {
     try {
       const session = await auth();
       
-      if (!session || !session.user?.email?.includes('@')) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      if (!session?.user) {
+        return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      }
+      if (!STAFF_ROLES.includes(session.user.role)) {
+        return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
       }
 
       const body = await request.json();
@@ -50,8 +67,11 @@ export default class AdminSettingsController {
     try {
       const session = await auth();
       
-      if (!session || !session.user?.email?.includes('@')) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      if (!session?.user) {
+        return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      }
+      if (!STAFF_ROLES.includes(session.user.role)) {
+        return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
       }
 
       const body = await request.json();

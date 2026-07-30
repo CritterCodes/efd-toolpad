@@ -3,18 +3,22 @@ import {
   castingChargeFromCost, splitCastingCost, disputeDeadlineFrom, isPastDisputeWindow, canTransition,
 } from '@/services/production/castingBoard';
 
-describe('castingChargeFromCost (pure — charge = cost × wholesale markup multiplier)', () => {
-  it('multiplies cost by the wholesale markup multiplier from settings', () => {
-    expect(castingChargeFromCost(100, 1.5)).toBe(150);   // default wholesale markup 1.5×
-    expect(castingChargeFromCost(100, 1.2)).toBe(120);   // if the setting were 1.2×
-    expect(castingChargeFromCost(80, 1.5)).toBe(120);
+describe('castingChargeFromCost (pure — AT COST, no markup on Carrera orders)', () => {
+  it('charges exactly the vendor cost', () => {
+    expect(castingChargeFromCost(100)).toBe(100);
+    expect(castingChargeFromCost(80)).toBe(80);
+    expect(castingChargeFromCost(65.6)).toBe(65.6);
   });
-  it('defaults to the settings default (1.5) when no multiplier passed', () => {
-    expect(castingChargeFromCost(100)).toBe(150);
+  // The regression guard for the 2026-07-29 decision. The artisan can price-check Carrera, so any
+  // markup here is visible rent — if this test starts failing, the pricing policy changed silently.
+  it('IGNORES a markup multiplier if one is passed (no accidental re-introduction)', () => {
+    expect(castingChargeFromCost(100, 1.5)).toBe(100);
+    expect(castingChargeFromCost(100, 999)).toBe(100);
   });
-  it('handles zero/garbage safely', () => {
-    expect(castingChargeFromCost(0, 1.5)).toBe(0);
-    expect(castingChargeFromCost(null, 1.5)).toBe(0);
+  it('rounds to cents and handles zero/garbage safely', () => {
+    expect(castingChargeFromCost(33.333)).toBe(33.33);
+    expect(castingChargeFromCost(0)).toBe(0);
+    expect(castingChargeFromCost(null)).toBe(0);
   });
 });
 

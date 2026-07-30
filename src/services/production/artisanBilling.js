@@ -2,13 +2,16 @@ import ArtisanInvoicesModel, { ARTISAN_INVOICE_KIND } from '@/app/api/artisanInv
 import CastingBatchesModel from '@/app/api/castingBatches/model';
 import { markCastingPaid } from '@/services/production/castingBoard';
 import { getWorkOrderMarkupMultiplier, applyWorkOrderMarkup, DEFAULT_WO_MARKUP } from '@/services/production/workOrderPricing';
+import { STAFF_ROLES } from '@/lib/designPermissions';
 
 /**
  * Artisan billing rail (PRODUCTION_RUNS.md §4c). Bills an artisan for fulfilled work — labor +
- * materials × 1.20 (EFD's markup), with shipping/insurance and consumed gems passed through at
- * cost (no markup — §4c), and self-fulfilled work billing NOTHING (own labor realizes at sale, not
- * a bill to yourself). An overdue unpaid invoice FREEZES the artisan (no new runs/WOs/listings).
- * The Stripe hosted invoice is generated via the shared rail; this owns the amount policy + freeze.
+ * materials × the WHOLESALE MARKUP from admin settings (a multiplier; never a hardcoded number —
+ * see workOrderPricing), with shipping/insurance and consumed gems passed through at cost (no
+ * markup — §4c), and self-fulfilled work billing NOTHING (own labor realizes at sale, not a bill to
+ * yourself). An overdue unpaid invoice FREEZES the artisan (no new runs/WOs/listings).
+ * This owns the amount policy + the freeze. `pushArtisanInvoiceToStripe` (below) would make it a
+ * hosted Stripe invoice, but nothing calls it yet — staff record payment by hand until U-BILL-2.
  */
 
 export class ArtisanBillingError extends Error {}
@@ -29,6 +32,36 @@ export function workOrderCharge({ labor = 0, materials = 0, shipping = 0, gems =
   const markedUp = applyWorkOrderMarkup(num(labor) + num(materials), markupMultiplier);
   const passthrough = round2(num(shipping) + num(gems));   // at cost, never × markup
   return { total: round2(markedUp + passthrough), markedUp, passthrough, breakdown };
+}
+
+/**
+ * Is this user EFD itself (staff/owner) rather than an outside artisan? Impure (reads `users`).
+ *
+ * EFD DOES NOT BILL EFD (owner's call, 2026-07-29). Staff use the same rails as artisans — the owner
+ * creates runs and orders casting like anyone else — but invoicing yourself is fake money, and an
+ * unpaid one would trip `isArtisanFrozen` and lock the owner out of his own platform.
+ * Mirrors the rule work orders already had (`selfFulfilled` bills $0), which casting never got.
+ *
+ * FAILS CLOSED (returns false ⇒ "bill them") on a DB error: wrongly skipping a bill silently loses
+ * real revenue and hands out free casting, while a wrong bill is visible and clearable by staff.
+ */
+export async function isEfdSelf(userID) {
+  if (!userID) return false;
+  try {
+    const { db } = await import('@/lib/database');
+    const dbInstance = await db.connect();
+    const user = await dbInstance.collection('users').findOne(
+      // A plain string only — an operator object ({$ne:null}) would match an arbitrary user and turn
+      // this into a free-casting exemption for whoever can reach the caller.
+      { userID: String(userID) },
+      { projection: { _id: 0, role: 1 } },
+    );
+    // STAFF_ROLES, not an inline copy — an earlier commit claimed this shared the canonical set while
+    // still hardcoding its own. The values matched, so nothing broke; the drift was the hazard.
+    return STAFF_ROLES.includes(user?.role);
+  } catch {
+    return false;
+  }
 }
 
 /** Whether any invoice in a set is overdue (unpaid + past due). PURE. */
@@ -58,13 +91,32 @@ export async function assertArtisanNotFrozen(userID, ErrorClass = ArtisanBilling
 }
 
 /**
- * Turn a RECEIVED casting batch's vendor charge into a canonical artisan invoice (so it enters the
- * freeze + Stripe rail). Idempotent per batch. In-house batches (no vendor charge) are skipped.
+ * Turn a RECEIVED casting batch's vendor charge into a canonical artisan invoice — this is what puts
+ * casting debt on the `artisanInvoices` rail, which is what makes `isArtisanFrozen` (and therefore
+ * the whole nothing-is-fronted freeze) actually fire for casting. Idempotent per batch.
+ *
+ * `amount` is always `batch.charge.amount` — the charge the board recorded — never a figure this
+ * module derives. Casting is billed AT COST (no markup on Carrera orders, owner 2026-07-29), so today
+ * that equals `actualCost`; reading the charge rather than recomputing means the pricing policy lives
+ * in exactly one place (castingChargeFromCost) and legacy marked-up rows still bill what they say.
+ *
+ * Called from the casting `receive` route (via castingSettlement), NOT from castingBoard: this module
+ * already imports castingBoard (markCastingPaid), so the reverse import would be a cycle.
+ *
+ * "Idempotent per batch" doubles as the RE-CAST POLICY: after `disputed → ordered → receive` the
+ * batch mints a NEW `charge.amount`, but this returns the ORIGINAL invoice — so a failed casting is
+ * never billed twice and EFD/the vendor eats the re-cast (§4.1 casting-failure liability). Known
+ * consequence: `invoice.amount` then diverges from `batch.charge.amount`, and the second casting has
+ * no invoice of its own. If that policy changes, key idempotency on the charge, not the batch.
  */
 export async function billCastingBatch({ batchId, billedEmail = null, createdBy = null }) {
   const batch = await CastingBatchesModel.findById(batchId);
   if (!batch) throw new ArtisanBillingError('casting batch not found');
   if (!batch.charge?.amount) return null;   // nothing to bill (not yet received)
+  // EFD doesn't bill EFD. The actual casting cost is still split onto the pieces' COGS by
+  // markCastingReceived (a separate path), so owner-owned runs keep correct costing — they just
+  // don't get a receivable that could freeze the owner out of his own platform.
+  if (await isEfdSelf(batch.ownerId)) return null;
   const existing = await ArtisanInvoicesModel.findOneBySource('casting_batch', batchId);
   if (existing) return existing;
   return ArtisanInvoicesModel.create({
@@ -75,13 +127,19 @@ export async function billCastingBatch({ batchId, billedEmail = null, createdBy 
     sourceID: batchId,
     runId: batch.runId,
     amount: batch.charge.amount,
-    breakdown: { casting: batch.actualCost, markupMultiplier: batch.charge.markupMultiplier },
+    breakdown: {
+      casting: batch.actualCost,
+      // Pass-through = billed at cost. Kept explicit so a marked-up legacy row (multiplier set) is
+      // still legible in the audit trail rather than silently reinterpreted as at-cost.
+      passthrough: batch.charge.passthrough === true,
+      markupMultiplier: batch.charge.markupMultiplier ?? null,
+    },
     description: `Casting${batch.vendor ? ` — ${batch.vendor}` : ''}`,
     createdBy,
   });
 }
 
-/** Bill an artisan for a fulfilled work order (labor+materials×1.20, shipping/gems passthrough). */
+/** Bill an artisan for a fulfilled work order (labor+materials × wholesale markup, shipping/gems at cost). */
 export async function billWorkOrder({ workOrderID, billedUserID, billedEmail = null, runId = null, labor = 0, materials = 0, shipping = 0, gems = 0, selfFulfilled = false, description = '', createdBy = null }) {
   const markupMultiplier = await getWorkOrderMarkupMultiplier();   // wholesale markup from admin settings
   const charge = workOrderCharge({ labor, materials, shipping, gems, markupMultiplier, selfFulfilled });

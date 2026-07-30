@@ -17,8 +17,9 @@ import { DISCIPLINE } from '@/services/workOrders/disciplines';
 import { createPieceFromDesign } from '@/services/production/pieceRouting';
 import { getCustomTaskLine, mergeAutoLaborLine } from '@/services/customs/customTasks';
 import { NotificationService, notifyAllAdmins } from '@/lib/notificationService';
+import { adminBase } from '@/lib/appUrls';
 
-const ADMIN_CUSTOM_LINK = (customID) => `${process.env.NEXT_PUBLIC_ADMIN_URL || ''}/dashboard/customs/${customID}`;
+const ADMIN_CUSTOM_LINK = (customID) => `${adminBase()}/dashboard/customs/${customID}`;
 
 const DEFAULT_CLIENT_MGMT_BONUS_PCT = 0.05;
 
