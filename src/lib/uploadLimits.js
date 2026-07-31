@@ -12,8 +12,10 @@
  * available and MinIO supports it with `forcePathStyle`. That also needs MinIO CORS to allow PUT from
  * the admin origin.
  *
- * CAD files are the reason this hurts: an ASCII STL is roughly 5× the size of the same geometry as
- * BINARY STL, so re-exporting as binary is often enough on its own.
+ * CAD files are the reason this hurts. Shapr3D — the CAD tool in use here — exports BINARY STL and
+ * offers no ASCII option, so the lever is the EXPORT RESOLUTION (tessellation quality), not the format.
+ * Binary STL runs ~50 bytes per triangle, so the reported 91 MB file is ~1.8 MILLION triangles for a
+ * wedding band; 50k–200k is ample. Advice has to point at export quality, or it isn't actionable.
  */
 
 /** Vercel's serverless request-body ceiling. Real limit is ~4.5 MB; leave headroom for the multipart envelope. */
@@ -28,6 +30,17 @@ export function formatBytes(bytes) {
 }
 
 /**
+ * Rough triangle count of a BINARY STL from its byte size — 84-byte header + 50 bytes per triangle.
+ * Turns an unhelpful "too big" into the number the CAD author can actually act on. PURE.
+ */
+export function estimateStlTriangles(bytes) {
+  const n = Math.max(0, Math.round(((Number(bytes) || 0) - 84) / 50));
+  if (n >= 1_000_000) return `${Math.round((n / 1_000_000) * 10) / 10}M`;
+  if (n >= 1_000) return `${Math.round(n / 1_000)}k`;
+  return String(n);
+}
+
+/**
  * Reject a file that cannot survive the serverless body limit, with a message that explains the cause
  * and the way out. Returns null when the file is fine. PURE.
  */
@@ -38,7 +51,9 @@ export function uploadSizeError(file, { max = MAX_UPLOAD_BYTES } = {}) {
   return [
     `${file?.name || 'This file'} is ${formatBytes(size)} — over the ${formatBytes(max)} upload limit.`,
     isStl
-      ? 'If it was exported as ASCII STL, re-exporting as BINARY STL usually cuts it about 5×.'
+      // Shapr3D writes binary STL and has no ASCII option, so format is not the lever — export
+      // resolution is. ~50 bytes/triangle means this size is a triangle-count problem.
+      ? `That's roughly ${estimateStlTriangles(size)} triangles. Re-export at a lower resolution — a ring needs well under 200k.`
       : 'Try exporting a smaller or more compressed version.',
     'Direct large-file upload is coming; for now the file has to fit under the limit.',
   ].join(' ');

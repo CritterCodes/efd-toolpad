@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { uploadSizeError, formatBytes, MAX_UPLOAD_BYTES } from '@/lib/uploadLimits';
+import { uploadSizeError, formatBytes, estimateStlTriangles, MAX_UPLOAD_BYTES } from '@/lib/uploadLimits';
 
 /**
  * Reported 2026-07-31: a 91 MB `tireRing.stl` failed to upload on the design CAD/3D tab AND on the CAD
@@ -18,10 +18,15 @@ describe('uploadSizeError', () => {
     expect(msg).toContain('4 MB');
   });
 
-  it('tells an STL author the ASCII→binary trick (the actionable fix)', () => {
-    expect(uploadSizeError(file('ring.STL', 20))).toContain('BINARY STL');
-    // …and does not give STL advice for a file that isn't one.
-    expect(uploadSizeError(file('render.png', 20))).not.toContain('BINARY STL');
+  it('points an STL author at export RESOLUTION, the only lever Shapr3D actually offers', () => {
+    // Shapr3D writes binary STL with no ASCII option, so "re-export as binary" is not actionable —
+    // the triangle count is. Owner corrected this on 2026-07-31.
+    const msg = uploadSizeError(file('tireRing.stl', 89.2));
+    expect(msg).toMatch(/1\.9M|1\.8M/);        // ~50 bytes/triangle
+    expect(msg).toContain('lower resolution');
+    expect(msg).not.toMatch(/ASCII|BINARY/i);
+    // …and no CAD advice for a file that isn't a model.
+    expect(uploadSizeError(file('render.png', 20))).not.toContain('resolution');
   });
 
   it('passes files at or under the limit', () => {
@@ -34,6 +39,18 @@ describe('uploadSizeError', () => {
     for (const f of [undefined, null, {}, { name: 'x.stl' }, { name: 'x.stl', size: 'abc' }, { size: NaN }]) {
       expect(uploadSizeError(f)).toBeNull();
     }
+  });
+});
+
+describe('estimateStlTriangles', () => {
+  it('converts binary-STL bytes to a triangle count the CAD author can act on', () => {
+    expect(estimateStlTriangles(91355 * 1024)).toBe('1.9M');   // the reported file
+    expect(estimateStlTriangles(84 + 50 * 150_000)).toBe('150k');
+    expect(estimateStlTriangles(84 + 50 * 12)).toBe('12');
+  });
+  it('never goes negative on a tiny or junk size', () => {
+    expect(estimateStlTriangles(0)).toBe('0');
+    expect(estimateStlTriangles(undefined)).toBe('0');
   });
 });
 
