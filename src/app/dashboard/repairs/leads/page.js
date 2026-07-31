@@ -25,6 +25,7 @@ import {
     Email as EmailIcon,
     ChatBubble as ChatIcon,
     MoveUp as ConvertIcon,
+    RequestQuote as QuoteIcon,
     SmartToy as BotIcon,
     Inventory2 as InventoryIcon,
     Today as TodayIcon,
@@ -40,6 +41,7 @@ import { useSession } from 'next-auth/react';
 import { useRepairs } from '@/app/context/repairs.context';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import BulkMoveDialog from '@/components/repairs/BulkMoveDialog';
+import QuoteDialog from './QuoteDialog';
 
 const formatDate = (d) => {
     if (!d) return 'Unknown';
@@ -48,7 +50,7 @@ const formatDate = (d) => {
 
 const isEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || ''));
 
-const LeadCard = ({ lead, onConvert, converting, isSelected, onToggleSelect }) => {
+const LeadCard = ({ lead, onConvert, onQuote, converting, isSelected, onToggleSelect }) => {
     const contact = lead.leadContact || lead.notes?.replace('Contact: ', '') || '';
     const contactIsEmail = isEmail(contact);
 
@@ -195,7 +197,32 @@ const LeadCard = ({ lead, onConvert, converting, isSelected, onToggleSelect }) =
                     )}
                 </Box>
 
+                {lead.quote?.status && lead.quote.status !== 'draft' && (
+                    <Chip
+                        size="small"
+                        label={lead.quote.status === 'sent'
+                            ? `Quoted $${Number(lead.quote.total || 0).toFixed(0)} · awaiting reply`
+                            : `Estimate ${lead.quote.status}`}
+                        sx={{
+                            mb: 1, height: 22, fontSize: 11,
+                            backgroundColor: 'transparent', border: '1px solid',
+                            borderColor: lead.quote.status === 'declined' ? '#B4736A' : REPAIRS_UI.accent,
+                            color: lead.quote.status === 'declined' ? '#B4736A' : REPAIRS_UI.accent,
+                        }}
+                    />
+                )}
+
                 <Stack direction="row" spacing={1}>
+                    <Button
+                        size="small"
+                        variant="outlined"
+                        fullWidth
+                        startIcon={<QuoteIcon sx={{ fontSize: 14 }} />}
+                        onClick={(e) => { e.stopPropagation(); onQuote(lead); }}
+                        sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border, backgroundColor: REPAIRS_UI.bgCard }}
+                    >
+                        {lead.quote ? 'Estimate' : 'Quote'}
+                    </Button>
                     <Button
                         size="small"
                         variant="outlined"
@@ -246,6 +273,7 @@ export default function LeadsPage() {
     const [snackbar, setSnackbar] = useState({ open: false, message: '' });
     const [selected, setSelected] = useState(new Set());
     const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+    const [quoteLead, setQuoteLead] = useState(null);
 
     if (authStatus === 'loading') return null;
     if (!session?.user || session.user.role !== 'admin') {
@@ -282,6 +310,22 @@ export default function LeadsPage() {
         if (typeof fetchRepairs === 'function') fetchRepairs();
     };
     const allFilteredSelected = filteredLeads.length > 0 && filteredLeads.every((r) => selected.has(r.repairID));
+
+    // Sending is best-effort on the mail side, so say plainly when the customer
+    // was not actually emailed — otherwise staff assume the quote is with them.
+    const handleQuoteSaved = (action, json) => {
+        if (action === 'save') {
+            setSnackbar({ open: true, message: 'Estimate saved as a draft.' });
+        } else if (json?.notified?.sent) {
+            setSnackbar({ open: true, message: 'Estimate emailed to the customer.' });
+        } else {
+            setSnackbar({
+                open: true,
+                message: `Estimate saved, but the email did NOT go (${json?.notified?.reason || 'unknown'}). Call them.`,
+            });
+        }
+        if (typeof fetchRepairs === 'function') fetchRepairs();
+    };
 
     const handleConvert = async (repairID) => {
         setConverting(repairID);
@@ -458,6 +502,7 @@ export default function LeadsPage() {
                             <LeadCard
                                 lead={lead}
                                 onConvert={handleConvert}
+                                onQuote={setQuoteLead}
                                 converting={converting}
                                 isSelected={selected.has(lead.repairID)}
                                 onToggleSelect={toggleSelect}
@@ -521,9 +566,16 @@ export default function LeadsPage() {
                 onSuccess={handleMoveSuccess}
             />
 
+            <QuoteDialog
+                open={Boolean(quoteLead)}
+                lead={quoteLead}
+                onClose={() => setQuoteLead(null)}
+                onSaved={handleQuoteSaved}
+            />
+
             <Snackbar
                 open={snackbar.open}
-                autoHideDuration={3500}
+                autoHideDuration={7000}
                 onClose={() => setSnackbar({ open: false, message: '' })}
                 message={snackbar.message}
             />
