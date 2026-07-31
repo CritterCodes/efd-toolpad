@@ -22,6 +22,7 @@ import { useSession } from 'next-auth/react';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import ContinuousBarcodeScanner from '@/components/repairs/ContinuousBarcodeScanner';
 import { BENCH_QUEUE, BENCH_TABS, isWorkOrderInTab } from '@/services/workOrders/workOrderWorkflow';
+import { uploadSizeError } from '@/lib/uploadLimits';
 import BenchWorkCard from './components/BenchWorkCard';
 
 const DEFAULT_PARTS_FORM = { source: 'stuller', stullerSku: '', name: '', description: '', quantity: '1', price: '' };
@@ -148,6 +149,11 @@ export default function BenchPage() {
     setBusyID(wo.workOrderID);
     setCardErrors((m) => ({ ...m, [wo.workOrderID]: '' }));
     try {
+      // The whole file posts through a serverless route whose body is capped at ~4.5 MB. Without this
+      // an oversized STL failed here with an opaque message (a 91 MB one did), and because the upload
+      // also transitions the work order, it looked like the WO had jammed.
+      const tooBig = uploadSizeError(file);
+      if (tooBig) throw new Error(tooBig);
       const fd = new FormData();
       fd.append('file', file);
       const res = await fetch(`/api/bench/work-orders/${wo.workOrderID}/upload-${kind}`, { method: 'POST', body: fd });

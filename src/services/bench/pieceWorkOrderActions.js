@@ -198,7 +198,17 @@ export async function uploadCadStl({ session, workOrderID, file }) {
     Bucket: STORAGE_BUCKET, Key: key, Body: buffer, ContentType: file.type || 'model/stl',
   }));
   // Compute the model volume so the quote's Mounting "Estimate from model" can price metal.
-  const volumeCm3 = await stlVolumeCm3(arrayBuffer);
+  // BEST-EFFORT, like the design tab's equivalent. This used to be unguarded, so a parser failure on
+  // one file threw AFTER the STL had already landed in storage — a 500 that left the work order
+  // stranded mid-upload with no way forward. The volume is a convenience for pricing; losing it must
+  // not cost the upload. `printVolumeCm3` is only written when a real number comes back.
+  let volumeCm3 = null;
+  try {
+    volumeCm3 = await stlVolumeCm3(arrayBuffer);
+  } catch (e) {
+    console.error(`[bench] STL volume parse failed for ${workOrderID}:`, e?.message || e);
+  }
+  if (!Number.isFinite(volumeCm3)) volumeCm3 = null;
   const stl = {
     url: storageUrl(key), key, originalName: file.name || null,
     volumeCm3,
