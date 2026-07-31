@@ -49,6 +49,7 @@ export async function POST(request, { params }) {
   try {
     const quote = await saveQuote(repairID, {
       items: body?.items,
+      submission: body?.submission,
       note: body?.note,
       createdBy: session?.user?.email || session?.user?.name || null,
     });
