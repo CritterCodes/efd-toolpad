@@ -181,7 +181,8 @@ export async function movePieceToQc({ session, workOrderID }) {
  * the CAD designer is paid the flat design fee captured in the quote (C4/C5),
  * not hours × rate. Stored to MinIO via lib/storage; mirrored onto the piece.
  */
-export async function uploadCadStl({ session, workOrderID, file }) {
+/** Shared gate for both STL paths: CAD discipline, and the assigned designer or staff. */
+async function assertCadStlAllowed({ session, workOrderID }) {
   const wo = await loadPieceWorkOrder(workOrderID);
   if (wo.discipline !== DISCIPLINE.CAD) {
     const e = new Error('STL upload is only for CAD work orders.'); e.code = 'BAD_REQUEST'; throw e;
@@ -189,6 +190,45 @@ export async function uploadCadStl({ session, workOrderID, file }) {
   if (!isAdminRole(session) && wo.assignedToUserID && wo.assignedToUserID !== session.user.userID) {
     const e = new Error('Only the assigned designer can upload the STL.'); e.code = 'FORBIDDEN'; throw e;
   }
+  return wo;
+}
+
+/**
+ * Record an STL that the browser already PUT straight to storage, then move the work order to QC.
+ *
+ * This is the DIRECT-UPLOAD path (see lib/presign.js). A CAD STL is the manufacturing file Carrera
+ * casts from — a real one is 91 MB — and a serverless request body caps at ~4.5 MB, so the file cannot
+ * travel through `uploadCadStl` below. Same effects as that function minus the storage write.
+ *
+ * `volumeCm3` is CLIENT-REPORTED here, because the server never sees the bytes. It only feeds the
+ * quote's "estimate from model" mounting figure, and is validated as a finite non-negative number
+ * before being stored. FOLLOW-UP: recompute it server-side by streaming the stored object, so a
+ * pricing input isn't taken on trust.
+ */
+export async function attachCadStl({ session, workOrderID, url, key, originalName, volumeCm3 = null }) {
+  const wo = await assertCadStlAllowed({ session, workOrderID });
+  if (!url || !key) {
+    const e = new Error('The uploaded file reference is incomplete.'); e.code = 'BAD_REQUEST'; throw e;
+  }
+  // Refuse a key outside this piece's own prefix — the presign route chooses keys, so a mismatch means
+  // the client is trying to attach someone else's object.
+  const expectedPrefix = `production/pieces/${wo.sourceID}/`;
+  if (!String(key).startsWith(expectedPrefix)) {
+    const e = new Error('That file does not belong to this work order.'); e.code = 'FORBIDDEN'; throw e;
+  }
+  const vol = Number(volumeCm3);
+  const stl = {
+    url, key, originalName: originalName || null,
+    volumeCm3: Number.isFinite(vol) && vol >= 0 ? vol : null,
+    volumeSource: Number.isFinite(vol) && vol >= 0 ? 'client' : null,
+    uploadedBy: session.user.name || session.user.email || session.user.userID,
+    uploadedAt: new Date(),
+  };
+  return finalizeCadStl({ session, wo, workOrderID, stl });
+}
+
+export async function uploadCadStl({ session, workOrderID, file }) {
+  const wo = await assertCadStlAllowed({ session, workOrderID });
 
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
@@ -212,9 +252,20 @@ export async function uploadCadStl({ session, workOrderID, file }) {
   const stl = {
     url: storageUrl(key), key, originalName: file.name || null,
     volumeCm3,
+    volumeSource: volumeCm3 != null ? 'server' : null,
     uploadedBy: session.user.name || session.user.email || session.user.userID, uploadedAt: new Date(),
   };
+  return finalizeCadStl({ session, wo, workOrderID, stl });
+}
 
+/**
+ * Everything that happens once an STL exists in storage: stamp it on the piece, surface the volume on
+ * any linked custom order, move the work order to QC, and alert admins for peer review. Shared by the
+ * direct-upload path (`attachCadStl`) and the legacy multipart path (`uploadCadStl`) so the two can
+ * never drift — the QC transition in particular must happen identically either way.
+ */
+async function finalizeCadStl({ session, wo, workOrderID, stl }) {
+  const volumeCm3 = stl.volumeCm3;
   const piece = await PiecesModel.findById(wo.sourceID);
   if (piece) {
     const updates = { files: { ...(piece.files || {}), stl } };

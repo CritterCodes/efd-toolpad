@@ -18,15 +18,14 @@ describe('uploadSizeError', () => {
     expect(msg).toContain('4 MB');
   });
 
-  it('points an STL author at export RESOLUTION, the only lever Shapr3D actually offers', () => {
-    // Shapr3D writes binary STL with no ASCII option, so "re-export as binary" is not actionable —
-    // the triangle count is. Owner corrected this on 2026-07-31.
+  it('NEVER tells an STL author to shrink the file — it is the manufacturing file Carrera casts from', () => {
+    // Owner corrected this twice on 2026-07-31: first that Shapr3D offers no ASCII/binary choice, then
+    // that this STL is the MANUFACTURING file sent to Carrera. Advising a smaller re-export risks a
+    // degraded physical piece, so the message must own the limit as ours.
     const msg = uploadSizeError(file('tireRing.stl', 89.2));
-    expect(msg).toMatch(/1\.9M|1\.8M/);        // ~50 bytes/triangle
-    expect(msg).toContain('lower resolution');
-    expect(msg).not.toMatch(/ASCII|BINARY/i);
-    // …and no CAD advice for a file that isn't a model.
-    expect(uploadSizeError(file('render.png', 20))).not.toContain('resolution');
+    expect(msg).toMatch(/server limit/i);
+    expect(msg).toMatch(/not a problem with your file/i);
+    expect(msg).not.toMatch(/ASCII|BINARY|lower resolution|re-export at|decimat/i);
   });
 
   it('passes files at or under the limit', () => {

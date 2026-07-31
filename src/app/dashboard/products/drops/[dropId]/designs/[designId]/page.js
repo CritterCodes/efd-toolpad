@@ -22,6 +22,7 @@ import Tab from '@mui/material/Tab';
 import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
 import { getSTLVolume } from '@/lib/stlParser';
 import { uploadSizeError } from '@/lib/uploadLimits';
+import { directUpload } from '@/lib/directUpload';
 import { KARAT_OPTIONS, finishUsesKarat, finishLabel, composeMetalKey, isTwoTone, metalFinishes } from '@/services/production/variantMetal';
 import { gemBuildableForRows } from '@/services/production/gemDesignMatch';
 import { slotMatchesLink, allowedSpeciesForLink } from '@/services/production/gemLinks';
@@ -393,20 +394,14 @@ function CadTab({ design, designId, onReload, notify, onCreateFirstVariant, form
   // until a variant has been configured.
   const firstConfigured = (design.variants || []).find((v) => v.viewerConfig);
 
-  const uploadAsset = async (file) => {
-    // Fail fast and explain why. Every upload here posts the whole file through a serverless route,
-    // whose body is capped at ~4.5 MB — a 91 MB STL used to die with an opaque error while the much
-    // smaller GLB of the same model succeeded, which read as "STL upload is broken".
-    const tooBig = uploadSizeError(file);
-    if (tooBig) throw new Error(tooBig);
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('field', 'referenceImages'); // storage sink; CAD urls are tracked on the design fields below
-    const res = await fetch(`/api/production/designs/${designId}/assets`, { method: 'POST', body: fd });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || 'Upload failed');
-    return data.url;
-  };
+  /**
+   * DIRECT to MinIO via a signed PUT — the bytes never pass through a serverless function, whose
+   * request body is capped at ~4.5 MB. That cap is why a 91 MB manufacturing STL failed here while the
+   * far smaller GLB of the same model succeeded. The STL is what Carrera casts from, so it can't be
+   * shrunk to fit; the transport had to change.
+   */
+  const uploadAsset = async (file) => directUpload(file, { scope: 'design', id: designId });
+
   const patch = async (fields) => {
     const res = await fetch(`/api/production/designs/${designId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields) });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Save failed');

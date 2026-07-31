@@ -23,6 +23,7 @@ import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import ContinuousBarcodeScanner from '@/components/repairs/ContinuousBarcodeScanner';
 import { BENCH_QUEUE, BENCH_TABS, isWorkOrderInTab } from '@/services/workOrders/workOrderWorkflow';
 import { uploadSizeError } from '@/lib/uploadLimits';
+import { directUpload } from '@/lib/directUpload';
 import BenchWorkCard from './components/BenchWorkCard';
 
 const DEFAULT_PARTS_FORM = { source: 'stuller', stullerSku: '', name: '', description: '', quantity: '1', price: '' };
@@ -74,6 +75,8 @@ export default function BenchPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState(0);
   const [busyID, setBusyID] = useState('');
+  // Per-work-order upload progress — a 91 MB STL with no feedback is indistinguishable from a hang.
+  const [uploadPct, setUploadPct] = useState({});
   const [cardErrors, setCardErrors] = useState({});
   const [jewelers, setJewelers] = useState([]);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
@@ -149,22 +152,45 @@ export default function BenchPage() {
     setBusyID(wo.workOrderID);
     setCardErrors((m) => ({ ...m, [wo.workOrderID]: '' }));
     try {
-      // The whole file posts through a serverless route whose body is capped at ~4.5 MB. Without this
-      // an oversized STL failed here with an opaque message (a 91 MB one did), and because the upload
-      // also transitions the work order, it looked like the WO had jammed.
-      const tooBig = uploadSizeError(file);
-      if (tooBig) throw new Error(tooBig);
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await fetch(`/api/bench/work-orders/${wo.workOrderID}/upload-${kind}`, { method: 'POST', body: fd });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `${kind.toUpperCase()} upload failed`);
-      showSnack(`${kind.toUpperCase()} uploaded — work order moved to QC`, 'success');
+      if (kind === 'stl') {
+        // DIRECT to storage. A CAD STL is the manufacturing file Carrera casts from — a real one is
+        // 91 MB — and a serverless request body caps at ~4.5 MB, so it cannot go through upload-stl.
+        // The browser PUTs it straight to MinIO, then we record the reference and move the WO to QC.
+        const url = await directUpload(file, {
+          scope: 'work-order', id: wo.workOrderID,
+          onProgress: (pct) => setUploadPct((m) => ({ ...m, [wo.workOrderID]: pct })),
+        });
+        // Volume feeds the quote's "estimate from model" mounting figure. Best-effort: the server never
+        // sees the bytes now, and a very dense model can defeat the browser parser.
+        let volumeCm3 = null;
+        try {
+          const { getSTLVolume } = await import('@/lib/stlParser');
+          const mm3 = await getSTLVolume(file);
+          if (mm3 > 0) volumeCm3 = Math.round((mm3 / 1000) * 1000) / 1000;
+        } catch { /* pricing convenience only — never block the upload */ }
+        const key = new URL(url).pathname.split('/').slice(2).join('/');   // strip /<bucket>/
+        const res = await fetch(`/api/bench/work-orders/${wo.workOrderID}/attach-stl`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, key, originalName: file.name, volumeCm3 }),
+        });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Could not attach the STL');
+        showSnack('STL uploaded — work order moved to QC', 'success');
+      } else {
+        const tooBig = uploadSizeError(file);
+        if (tooBig) throw new Error(tooBig);
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await fetch(`/api/bench/work-orders/${wo.workOrderID}/upload-${kind}`, { method: 'POST', body: fd });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `${kind.toUpperCase()} upload failed`);
+        showSnack(`${kind.toUpperCase()} uploaded — work order moved to QC`, 'success');
+      }
       await fetchWorkOrders();
     } catch (e) {
       setCardErrors((m) => ({ ...m, [wo.workOrderID]: e.message }));
       showSnack(e.message, 'error');
     } finally {
       setBusyID('');
+      setUploadPct((m) => { const n = { ...m }; delete n[wo.workOrderID]; return n; });
     }
   };
   const uploadStl = (wo, file) => uploadCadFile(wo, file, 'stl');

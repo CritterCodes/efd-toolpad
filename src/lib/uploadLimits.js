@@ -12,10 +12,15 @@
  * available and MinIO supports it with `forcePathStyle`. That also needs MinIO CORS to allow PUT from
  * the admin origin.
  *
- * CAD files are the reason this hurts. Shapr3D — the CAD tool in use here — exports BINARY STL and
- * offers no ASCII option, so the lever is the EXPORT RESOLUTION (tessellation quality), not the format.
- * Binary STL runs ~50 bytes per triangle, so the reported 91 MB file is ~1.8 MILLION triangles for a
- * wedding band; 50k–200k is ample. Advice has to point at export quality, or it isn't actionable.
+ * DO NOT ADVISE SHRINKING AN STL HERE (owner, 2026-07-31). The STL on a design or a CAD work order is
+ * the MANUFACTURING file — it is uploaded here and then sent to Carrera to cast from. Its resolution is
+ * a product-quality decision, not a transport one, and telling someone to re-export it smaller to fit
+ * an upload limit risks a degraded physical piece. The viewer already has its own small file
+ * (`designModel.glbUrl`); the STL is manufacturing + volume math only.
+ *
+ * So there is NO user-side workaround: a 91 MB manufacturing STL is legitimate and must upload as-is.
+ * Presigned PUT straight to MinIO is the required fix, not an optimisation. Until it lands this guard
+ * exists only to explain the wall instead of failing opaquely — it must not imply the file is wrong.
  */
 
 /** Vercel's serverless request-body ceiling. Real limit is ~4.5 MB; leave headroom for the multipart envelope. */
@@ -49,12 +54,11 @@ export function uploadSizeError(file, { max = MAX_UPLOAD_BYTES } = {}) {
   if (!Number.isFinite(size) || size <= max) return null;
   const isStl = /\.stl$/i.test(file?.name || '');
   return [
-    `${file?.name || 'This file'} is ${formatBytes(size)} — over the ${formatBytes(max)} upload limit.`,
+    `${file?.name || 'This file'} is ${formatBytes(size)} — over the current ${formatBytes(max)} upload limit.`,
+    // NEVER suggest re-exporting an STL smaller: it's the manufacturing file Carrera casts from, so its
+    // resolution is a product decision. The limit is our transport problem, not the file's fault.
     isStl
-      // Shapr3D writes binary STL and has no ASCII option, so format is not the lever — export
-      // resolution is. ~50 bytes/triangle means this size is a triangle-count problem.
-      ? `That's roughly ${estimateStlTriangles(size)} triangles. Re-export at a lower resolution — a ring needs well under 200k.`
-      : 'Try exporting a smaller or more compressed version.',
-    'Direct large-file upload is coming; for now the file has to fit under the limit.',
+      ? 'This is a server limit, not a problem with your file — a manufacturing STL is meant to be this size. Direct upload for large CAD files is being built; until then it can\'t go through this form.'
+      : 'Try a smaller or more compressed version, or wait for direct upload.',
   ].join(' ');
 }
