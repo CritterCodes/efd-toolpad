@@ -28,6 +28,7 @@ import { createShareLink, setShareEnabled } from '@/services/customs/customViewe
 import { db } from '@/lib/database';
 import { NotificationService, notifyAllAdmins } from '@/lib/notificationService';
 import { adminBase } from '@/lib/appUrls';
+import { stlVolumeCm3FromStorage } from '@/lib/stlVolumeStream';
 
 const BENCH_ACTION_URL = `${adminBase()}/dashboard/bench`;
 const customLink = (customID) => `${adminBase()}/dashboard/customs/${customID}`;
@@ -181,7 +182,8 @@ export async function movePieceToQc({ session, workOrderID }) {
  * the CAD designer is paid the flat design fee captured in the quote (C4/C5),
  * not hours × rate. Stored to MinIO via lib/storage; mirrored onto the piece.
  */
-export async function uploadCadStl({ session, workOrderID, file }) {
+/** Shared gate for both STL paths: CAD discipline, and the assigned designer or staff. */
+async function assertCadStlAllowed({ session, workOrderID }) {
   const wo = await loadPieceWorkOrder(workOrderID);
   if (wo.discipline !== DISCIPLINE.CAD) {
     const e = new Error('STL upload is only for CAD work orders.'); e.code = 'BAD_REQUEST'; throw e;
@@ -189,6 +191,49 @@ export async function uploadCadStl({ session, workOrderID, file }) {
   if (!isAdminRole(session) && wo.assignedToUserID && wo.assignedToUserID !== session.user.userID) {
     const e = new Error('Only the assigned designer can upload the STL.'); e.code = 'FORBIDDEN'; throw e;
   }
+  return wo;
+}
+
+/**
+ * Record an STL that the browser already PUT straight to storage, then move the work order to QC.
+ *
+ * This is the DIRECT-UPLOAD path (see lib/presign.js). A CAD STL is the manufacturing file Carrera
+ * casts from — a real one is 91 MB — and a serverless request body caps at ~4.5 MB, so the file cannot
+ * travel through `uploadCadStl` below. Same effects as that function minus the storage write.
+ *
+ * VOLUME IS COMPUTED SERVER-SIDE, never taken from the client (owner: "we cant rely on the client to
+ * enter the volume, it has to be calculated"). It feeds `estimateMetalCost`, so it sets the mounting
+ * cost and therefore the retail price — a browser-supplied figure would be both untrustworthy (an
+ * artisan could understate it to lower their own cost) and unreliable (the parser can fail on a very
+ * dense model). Since the request no longer carries the bytes, the server streams them back out of
+ * storage: see `stlVolumeCm3FromStorage`. Any `volumeCm3` a caller sends is ignored.
+ */
+export async function attachCadStl({ session, workOrderID, url, key, originalName }) {
+  const wo = await assertCadStlAllowed({ session, workOrderID });
+  if (!url || !key) {
+    const e = new Error('The uploaded file reference is incomplete.'); e.code = 'BAD_REQUEST'; throw e;
+  }
+  // Refuse a key outside this piece's own prefix — the presign route chooses keys, so a mismatch means
+  // the client is trying to attach someone else's object.
+  const expectedPrefix = `production/pieces/${wo.sourceID}/`;
+  if (!String(key).startsWith(expectedPrefix)) {
+    const e = new Error('That file does not belong to this work order.'); e.code = 'FORBIDDEN'; throw e;
+  }
+  // Stream the object back out of storage and measure it ourselves. Best-effort by contract: returns
+  // null on any failure so a pricing convenience can never strand the work order.
+  const volumeCm3 = await stlVolumeCm3FromStorage(key);
+  const stl = {
+    url, key, originalName: originalName || null,
+    volumeCm3,
+    volumeSource: volumeCm3 != null ? 'server' : null,
+    uploadedBy: session.user.name || session.user.email || session.user.userID,
+    uploadedAt: new Date(),
+  };
+  return finalizeCadStl({ session, wo, workOrderID, stl });
+}
+
+export async function uploadCadStl({ session, workOrderID, file }) {
+  const wo = await assertCadStlAllowed({ session, workOrderID });
 
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
@@ -198,13 +243,34 @@ export async function uploadCadStl({ session, workOrderID, file }) {
     Bucket: STORAGE_BUCKET, Key: key, Body: buffer, ContentType: file.type || 'model/stl',
   }));
   // Compute the model volume so the quote's Mounting "Estimate from model" can price metal.
-  const volumeCm3 = await stlVolumeCm3(arrayBuffer);
+  // BEST-EFFORT, like the design tab's equivalent. This used to be unguarded, so a parser failure on
+  // one file threw AFTER the STL had already landed in storage — a 500 that left the work order
+  // stranded mid-upload with no way forward. The volume is a convenience for pricing; losing it must
+  // not cost the upload. `printVolumeCm3` is only written when a real number comes back.
+  let volumeCm3 = null;
+  try {
+    volumeCm3 = await stlVolumeCm3(arrayBuffer);
+  } catch (e) {
+    console.error(`[bench] STL volume parse failed for ${workOrderID}:`, e?.message || e);
+  }
+  if (!Number.isFinite(volumeCm3)) volumeCm3 = null;
   const stl = {
     url: storageUrl(key), key, originalName: file.name || null,
     volumeCm3,
+    volumeSource: volumeCm3 != null ? 'server' : null,
     uploadedBy: session.user.name || session.user.email || session.user.userID, uploadedAt: new Date(),
   };
+  return finalizeCadStl({ session, wo, workOrderID, stl });
+}
 
+/**
+ * Everything that happens once an STL exists in storage: stamp it on the piece, surface the volume on
+ * any linked custom order, move the work order to QC, and alert admins for peer review. Shared by the
+ * direct-upload path (`attachCadStl`) and the legacy multipart path (`uploadCadStl`) so the two can
+ * never drift — the QC transition in particular must happen identically either way.
+ */
+async function finalizeCadStl({ session, wo, workOrderID, stl }) {
+  const volumeCm3 = stl.volumeCm3;
   const piece = await PiecesModel.findById(wo.sourceID);
   if (piece) {
     const updates = { files: { ...(piece.files || {}), stl } };
@@ -531,7 +597,7 @@ export async function rejectCadQc({ session, workOrderID, notes = '' }) {
 }
 
 /** Approve a piece work order out of QC — release held labor, finalize, re-roll COGS. */
-export async function completePieceWorkOrderFromQc({ workOrderID }) {
+export async function completePieceWorkOrderFromQc({ workOrderID, completedBy = null }) {
   const wo = await loadPieceWorkOrder(workOrderID);
   await RepairLaborLogsModel.releasePendingQc(workOrderID); // QC passed → labor now payable
   const workOrder = await WorkOrdersModel.updateByID(workOrderID, {
@@ -539,6 +605,28 @@ export async function completePieceWorkOrderFromQc({ workOrderID }) {
     qcDate: new Date(),
   });
   const piece = await PiecesModel.recomputeCosts(wo.sourceID);
+
+  // QC PASS BILLS THE OWNING ARTISAN — EFD's infrastructure fee (§4c). Until this call existed,
+  // `billWorkOrder` had zero callers: labor became payroll-payable here and nobody was ever charged
+  // for it. Ordered AFTER the status write and never throwing, because QC pass is itself a committed
+  // money event (labor is now credited) — a billing failure must not undo it. Solo work, EFD-owned
+  // pieces, and staff-owned pieces all correctly bill nothing; see workOrderBilling.
+  // DELIBERATELY NOT ENABLED YET. `billCompletedWorkOrder` is written, tested and mutation-proven, but
+  // a `work_order` invoice currently has NO path to `paid` or `void`: markPaid/markVoid are both
+  // hard-keyed to `casting_batch` (castingSettlement) and there is no artisanInvoices route or admin
+  // UI. So every invoice raised here would go overdue at +14 days and freeze the artisan out of
+  // mintRun / requestDesignCad / casting-create, with nothing in-product to clear it. That is the
+  // invariant this repo states in its own words (castingSettlement.js): "every exit from an invoiced
+  // state must resolve the invoice... Getting this wrong is worse than never billing at all." Casting
+  // ships all three sides (bill on receive, settle on pay, void on cancel); this would ship one.
+  //
+  // TO ENABLE: build the invoice resolution surface (mark-paid/void route + admin view — U-BILL-2's
+  // foundation), restore the two lines below, and ALSO call it from `approveCadQc`, which likewise
+  // completes a piece WO with billable EFD-paid labor (cad_design_fee + cad_qc_review) and bills
+  // nothing — otherwise whether an artisan is charged depends on which button staff clicks.
+  //   const { billCompletedWorkOrder } = await import('@/services/production/workOrderBilling');
+  //   const billing = await billCompletedWorkOrder({ workOrderID, createdBy: completedBy });
+  const billing = { billed: false, reason: 'work-order billing is not enabled yet' };
 
   // W3: piece work order passed QC → held labor is now payable. Notify the assigned artisan.
   try {
@@ -557,7 +645,7 @@ export async function completePieceWorkOrderFromQc({ workOrderID }) {
     console.error('[bench] wo-completed notify failed:', e?.message || e);
   }
 
-  return { workOrder, piece };
+  return { workOrder, piece, billing };
 }
 
 export { DISCIPLINE };

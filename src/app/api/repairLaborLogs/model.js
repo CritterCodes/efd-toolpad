@@ -284,6 +284,19 @@ export default class RepairLaborLogsModel {
     };
   }
 
+  /**
+   * All labor logs for one work order. Used by WO-completion billing, which must charge only THIS
+   * work order's labor — `computePieceCosts` sums the whole PIECE, so billing from that would charge
+   * the full piece once per work order on it.
+   */
+  static async findByWorkOrder(workOrderID) {
+    if (!workOrderID) return [];
+    const dbInstance = await db.connect();
+    return dbInstance.collection(this.COLLECTION)
+      .find({ workOrderID: String(workOrderID) }, { projection: { _id: 0 } })
+      .toArray();
+  }
+
   /** Release QC-held labor for a work order → payable (called when QC approves). */
   static async releasePendingQc(workOrderID) {
     const dbInstance = await db.connect();

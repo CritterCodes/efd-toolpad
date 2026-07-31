@@ -37,6 +37,11 @@ export const PUT = async (req, { params }) => {
   }
   // Gemstone designs get merged-doc validation on update (the UI promises priceable variants;
   // hold the API to it). Jewelry keeps the historical raw-$set behavior for partial updates.
+  // `stlVolumeCm3` is SERVER-MEASURED ONLY (see attach-stl). It drives estimateMetalCost → mounting
+  // cost → the customer's retail price, so it must never arrive from a client. Stripped rather than
+  // rejected so an older client sending it still saves its other fields.
+  if (body.stlVolumeCm3 !== undefined) delete body.stlVolumeCm3;
+
   const merged = { ...existing, ...body };
   if (merged.category === 'gemstone' && (body.variants || body.category || body.edition || body.status)) {
     const validation = validateDesign(merged);

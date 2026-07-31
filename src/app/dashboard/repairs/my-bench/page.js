@@ -22,6 +22,8 @@ import { useSession } from 'next-auth/react';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import ContinuousBarcodeScanner from '@/components/repairs/ContinuousBarcodeScanner';
 import { BENCH_QUEUE, BENCH_TABS, isWorkOrderInTab } from '@/services/workOrders/workOrderWorkflow';
+import { uploadSizeError } from '@/lib/uploadLimits';
+import { directUpload } from '@/lib/directUpload';
 import BenchWorkCard from './components/BenchWorkCard';
 
 const DEFAULT_PARTS_FORM = { source: 'stuller', stullerSku: '', name: '', description: '', quantity: '1', price: '' };
@@ -73,6 +75,8 @@ export default function BenchPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState(0);
   const [busyID, setBusyID] = useState('');
+  // Per-work-order upload progress — a 91 MB STL with no feedback is indistinguishable from a hang.
+  const [uploadPct, setUploadPct] = useState({});
   const [cardErrors, setCardErrors] = useState({});
   const [jewelers, setJewelers] = useState([]);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
@@ -148,17 +152,40 @@ export default function BenchPage() {
     setBusyID(wo.workOrderID);
     setCardErrors((m) => ({ ...m, [wo.workOrderID]: '' }));
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await fetch(`/api/bench/work-orders/${wo.workOrderID}/upload-${kind}`, { method: 'POST', body: fd });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `${kind.toUpperCase()} upload failed`);
-      showSnack(`${kind.toUpperCase()} uploaded — work order moved to QC`, 'success');
+      if (kind === 'stl') {
+        // DIRECT to storage. A CAD STL is the manufacturing file Carrera casts from — a real one is
+        // 91 MB — and a serverless request body caps at ~4.5 MB, so it cannot go through upload-stl.
+        // The browser PUTs it straight to MinIO, then we record the reference and move the WO to QC.
+        const url = await directUpload(file, {
+          scope: 'work-order', id: wo.workOrderID,
+          onProgress: (pct) => setUploadPct((m) => ({ ...m, [wo.workOrderID]: pct })),
+        });
+        // NOTE: no client-side volume. The server streams the stored object and measures it
+        // itself (attachCadStl -> stlVolumeCm3FromStorage) — volume sets the mounting cost and
+        // therefore the retail price, so it must not be a number the browser supplies.
+        const key = new URL(url).pathname.split('/').slice(2).join('/');   // strip /<bucket>/
+        const res = await fetch(`/api/bench/work-orders/${wo.workOrderID}/attach-stl`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, key, originalName: file.name }),
+        });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Could not attach the STL');
+        showSnack('STL uploaded — work order moved to QC', 'success');
+      } else {
+        const tooBig = uploadSizeError(file);
+        if (tooBig) throw new Error(tooBig);
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await fetch(`/api/bench/work-orders/${wo.workOrderID}/upload-${kind}`, { method: 'POST', body: fd });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `${kind.toUpperCase()} upload failed`);
+        showSnack(`${kind.toUpperCase()} uploaded — work order moved to QC`, 'success');
+      }
       await fetchWorkOrders();
     } catch (e) {
       setCardErrors((m) => ({ ...m, [wo.workOrderID]: e.message }));
       showSnack(e.message, 'error');
     } finally {
       setBusyID('');
+      setUploadPct((m) => { const n = { ...m }; delete n[wo.workOrderID]; return n; });
     }
   };
   const uploadStl = (wo, file) => uploadCadFile(wo, file, 'stl');
