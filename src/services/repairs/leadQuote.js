@@ -8,14 +8,18 @@
  * and nothing acted on it. So every web lead was either worked without a price
  * or chased by phone off-system.
  *
- * WHY THE REPAIR STATUS DOES NOT CHANGE
- * -------------------------------------
- * A quote has its own lifecycle — drafted, sent, accepted, declined — and that
- * does not map onto the repair pipeline. Introducing a "QUOTED" repair status
- * would mean every board, filter and report in admin silently gains a bucket it
- * does not know how to render. So the repair stays `lead` until the customer
- * accepts, and `repair.quote.status` carries the rest. Acceptance moves it to
- * READY FOR WORK, exactly what the old Accept button did.
+ * A LEAD STAYS A LEAD UNTIL THE PIECE ARRIVES
+ * -------------------------------------------
+ * Accepting an estimate is not the same as handing over the jewellery. Nothing
+ * can be worked on until the piece is physically on the counter, so acceptance
+ * only records agreement — it does not create a repair or move the pipeline.
+ * The conversion happens at drop-off: "Arrived" on Bench Day for a booked slot,
+ * or "Dropped off" on the leads list for someone who just walks in.
+ *
+ * A quote's own lifecycle — drafted, sent, accepted, declined — is carried on
+ * `repair.quote.status`. Introducing a "QUOTED" repair status would mean every
+ * board, filter and report in admin silently gains a bucket it does not know
+ * how to render.
  *
  * PRICES ARE ESTIMATES
  * --------------------
@@ -27,7 +31,6 @@
 
 import crypto from 'node:crypto';
 import { db as database } from '@/lib/database';
-import { REPAIR_STATUS } from '@/services/repairWorkflow';
 
 const REPAIRS = 'repairs';
 
@@ -49,11 +52,69 @@ export function quoteTotal(items = []) {
   );
 }
 
+const titleOf = (t) =>
+  String(t?.title || t?.displayName || t?.name || t?.description || 'Repair work').slice(0, 160);
+
+/**
+ * Flatten a NewRepairForm submission into the lines a customer should read.
+ *
+ * The form thinks in tasks, materials and custom items; the customer just wants
+ * to know what they are paying for. Fees are folded in as their own lines so the
+ * emailed total always reconciles with the figure the jeweler saw — a quote
+ * whose parts do not add up to its total is the fastest way to lose trust.
+ */
+export function itemsFromSubmission(submission = {}) {
+  const lines = [];
+
+  for (const t of submission.tasks || []) {
+    lines.push({
+      taskId: t?.sku || t?._id || null,
+      sku: t?.sku ? String(t.sku).slice(0, 40) : null,
+      title: titleOf(t),
+      qty: Math.max(1, Number(t?.quantity) || 1),
+      unitPrice: round2(t?.price ?? t?.retailPrice ?? 0),
+    });
+  }
+
+  for (const m of submission.materials || []) {
+    lines.push({
+      taskId: null,
+      sku: m?.sku ? String(m.sku).slice(0, 40) : null,
+      title: titleOf(m),
+      qty: Math.max(1, Number(m?.quantity) || 1),
+      unitPrice: round2(m?.price ?? m?.retailPrice ?? 0),
+    });
+  }
+
+  for (const c of submission.customLineItems || []) {
+    if (!c?.description && !Number(c?.price)) continue;
+    lines.push({
+      taskId: null,
+      sku: null,
+      title: String(c?.description || 'Additional work').slice(0, 160),
+      qty: Math.max(1, Number(c?.quantity) || 1),
+      unitPrice: round2(c?.price ?? 0),
+    });
+  }
+
+  if (Number(submission.rushFee) > 0) {
+    lines.push({ taskId: null, sku: null, title: 'Rush service', qty: 1, unitPrice: round2(submission.rushFee) });
+  }
+  if (Number(submission.deliveryFee) > 0) {
+    lines.push({ taskId: null, sku: null, title: 'Delivery', qty: 1, unitPrice: round2(submission.deliveryFee) });
+  }
+  if (Number(submission.taxAmount) > 0) {
+    lines.push({ taskId: null, sku: null, title: 'Sales tax', qty: 1, unitPrice: round2(submission.taxAmount) });
+  }
+
+  return lines;
+}
+
 function sanitiseItems(items) {
   if (!Array.isArray(items)) return [];
   return items
     .filter((i) => i && (i.title || i.taskId))
-    .slice(0, 40)
+    .slice(0, 60)
     .map((i) => ({
       taskId: i.taskId ? String(i.taskId) : null,
       sku: i.sku ? String(i.sku).slice(0, 40) : null,
@@ -63,13 +124,20 @@ function sanitiseItems(items) {
     }));
 }
 
-/** Save (or replace) the draft quote on a lead. Does not contact the customer. */
-export async function saveQuote(repairID, { items, note, createdBy }) {
+/**
+ * Save (or replace) the draft quote on a lead. Does not contact the customer.
+ *
+ * Accepts either an explicit `items` array or a whole NewRepairForm submission.
+ * The submission is kept alongside the flattened lines so that when the piece is
+ * finally dropped off, the repair can be created from exactly what was quoted
+ * rather than rebuilt from memory.
+ */
+export async function saveQuote(repairID, { items, submission, note, createdBy }) {
   const db = await database.connect();
   const repair = await db.collection(REPAIRS).findOne({ repairID });
   if (!repair) throw new Error('Repair not found.');
 
-  const clean = sanitiseItems(items);
+  const clean = sanitiseItems(items?.length ? items : itemsFromSubmission(submission || {}));
   if (!clean.length) throw new Error('A quote needs at least one line.');
 
   // Keep the token across re-saves so a link already in someone's inbox still
@@ -78,7 +146,10 @@ export async function saveQuote(repairID, { items, note, createdBy }) {
 
   const quote = {
     items: clean,
-    total: quoteTotal(clean),
+    // Trust the form's own total when we have it: it is what the jeweler saw,
+    // and it accounts for rounding the flattened lines cannot reproduce exactly.
+    total: Number(submission?.totalCost) > 0 ? round2(submission.totalCost) : quoteTotal(clean),
+    submission: submission || repair.quote?.submission || null,
     note: String(note || '').slice(0, 600),
     status: repair.quote?.status === 'accepted' ? 'accepted' : 'draft',
     token,
@@ -162,9 +233,9 @@ export async function findQuoteByToken(token) {
 /**
  * The customer answered.
  *
- * Accepting is the moment a lead becomes work, so it moves the repair to READY
- * FOR WORK — the same destination the old Accept button used, reached with a
- * price both sides agreed to.
+ * Accepting records agreement and nothing more. The lead stays a lead: we do not
+ * have the piece yet, and a repair sitting in READY FOR WORK that nobody can
+ * touch would clog the bench list and distort every promise date on the board.
  *
  * The update is guarded on the quote still being `sent`, so two taps on the
  * email link cannot accept twice or resurrect a quote that was just declined.
@@ -185,7 +256,6 @@ export async function respondToQuote(token, { accept, name }) {
             'quote.status': 'accepted',
             'quote.acceptedAt': now,
             'quote.acceptedBy': String(name || '').slice(0, 120) || null,
-            status: REPAIR_STATUS.READY_FOR_WORK,
             updatedAt: now,
           }
         : {
@@ -198,4 +268,41 @@ export async function respondToQuote(token, { accept, name }) {
 
   if (result.matchedCount === 0) return { ok: false, reason: 'already-answered' };
   return { ok: true, repair: found.repair, quote: found.quote, accepted: Boolean(accept) };
+}
+
+/**
+ * The piece arrived. Turn the lead into a real repair.
+ *
+ * This is the only place a lead becomes work. Accepting an estimate does not do
+ * it, because agreeing a price is not the same as handing over the jewellery,
+ * and a repair nobody can touch would clog the bench list and distort every
+ * promise date on the board.
+ *
+ * When there is a quote, the repair is built from exactly what was quoted —
+ * tasks, materials, custom lines and totals — so the bench works to the same
+ * figure the customer agreed to rather than someone rebuilding it from memory.
+ * Without a quote it is a plain status change, which is what the old Accept
+ * button did and remains right for a lead nobody priced.
+ */
+export async function convertLeadToRepair(repairID, { status = 'READY FOR WORK' } = {}) {
+  const db = await database.connect();
+  const repair = await db.collection(REPAIRS).findOne({ repairID });
+  if (!repair) throw new Error('Lead not found.');
+
+  const set = { status, droppedOffAt: new Date(), updatedAt: new Date() };
+  const submission = repair.quote?.submission;
+
+  if (submission) {
+    // Identity and history stay with the lead record. Everything else is the
+    // priced work, and that is what we want on the repair.
+    const {
+      _id, repairID: _rid, quote: _q, status: _s, createdAt: _c, ...priced
+    } = submission;
+    Object.assign(set, priced);
+    set.status = status;
+    set.quotedTotal = repair.quote.total;
+  }
+
+  await db.collection(REPAIRS).updateOne({ repairID }, { $set: set });
+  return { repairID, status: set.status, fromQuote: Boolean(submission) };
 }

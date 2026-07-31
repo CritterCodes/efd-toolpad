@@ -1,6 +1,11 @@
 // lib/apiAuth.js - Authentication & authorization helpers for API routes
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
+// Pure predicates live in a client-safe module so pages can share them rather
+// than retyping the same role test. See lib/repairAccess.js.
+import { canAccessLeads, isAdminRole, isOnsiteRepairOps } from "@/lib/repairAccess";
+
+export { canAccessLeads, isOnsiteRepairOps };
 
 /**
  * Require authentication on an API route.
@@ -52,7 +57,7 @@ export async function requireRole(allowedRoles = []) {
  * Check if the current user is an admin
  */
 export function isAdmin(session) {
-    return ['admin', 'dev'].includes(session?.user?.role);
+    return isAdminRole(session);
 }
 
 /**
@@ -70,15 +75,6 @@ export function canAccessRepairs(session) {
     return isAdmin(session)
         || isWholesaler(session)
         || isOnsiteRepairOps(session);
-}
-
-/**
- * Check if the current user is an onsite artisan with repairOps capability
- */
-export function isOnsiteRepairOps(session) {
-    return session?.user?.role === 'artisan'
-        && session?.user?.employment?.isOnsite === true
-        && session?.user?.staffCapabilities?.repairOps === true;
 }
 
 /**

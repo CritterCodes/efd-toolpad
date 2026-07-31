@@ -1,26 +1,28 @@
 "use client";
 
 /**
- * Build and send a repair estimate for a lead.
+ * Quote a lead using the real repair form.
  *
- * Deliberately a focused dialog rather than a reuse of NewRepairForm. That form
- * is built for a piece sitting on the counter — client lookup, promise dates,
- * photos, metal detection. Quoting a web lead is a smaller job: pick the work,
- * agree a number, send it.
+ * WHY THE FULL FORM
+ * -----------------
+ * A first attempt used a cut-down task picker. That was wrong: quoting needs
+ * everything building a repair needs — metal and karat, sizing, materials,
+ * custom lines, rush, delivery, tax — because the number sent to the customer
+ * has to be the number the bench will actually charge. Anything the simplified
+ * picker could not express would have quietly produced a wrong quote.
  *
- * Line prices come from the catalogue but stay editable. Nobody has seen the
- * piece yet, and a jeweler reading a photo knows things the task list does not.
+ * So this is NewRepairForm with `persistOnSubmit={false}`: identical to writing
+ * a repair, except submitting saves and sends an estimate instead of creating
+ * one. The lead stays a lead. It only becomes a repair when the piece is
+ * physically dropped off.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
-  Autocomplete,
   Box,
-  Button,
-  CircularProgress,
+  Chip,
   Dialog,
-  DialogActions,
   DialogContent,
   DialogTitle,
   IconButton,
@@ -28,63 +30,27 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { Delete as DeleteIcon, Send as SendIcon, Save as SaveIcon } from '@mui/icons-material';
+import { Close as CloseIcon } from '@mui/icons-material';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
-import tasksService from '@/services/tasks.service';
+import NewRepairForm from '@/app/components/repairs/NewRepairForm';
 
 const money = (n) => `$${(Number(n) || 0).toFixed(2)}`;
 
-const field = {
-  '& .MuiInputBase-root': { color: REPAIRS_UI.textPrimary, backgroundColor: REPAIRS_UI.bgCard },
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: REPAIRS_UI.border },
-  '& .MuiInputLabel-root': { color: REPAIRS_UI.textMuted },
-};
-
 export default function QuoteDialog({ open, lead, onClose, onSaved }) {
-  const [items, setItems] = useState([]);
-  const [note, setNote] = useState('');
-  const [tasks, setTasks] = useState([]);
-  const [loadingTasks, setLoadingTasks] = useState(false);
   const [existing, setExisting] = useState(null);
-  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState('');
   const [error, setError] = useState('');
 
-  const total = useMemo(
-    () => items.reduce((s, i) => s + (Number(i.unitPrice) || 0) * (Number(i.qty) || 1), 0),
-    [items]
-  );
-
-  // Load the catalogue once the dialog opens, not on mount — the leads page
-  // renders many cards and none of them need the task list until asked.
   useEffect(() => {
-    if (!open) return;
+    if (!open || !lead?.repairID) return undefined;
     let live = true;
-    setLoadingTasks(true);
-    tasksService
-      .getActiveTasks()
-      .then((res) => {
-        if (!live) return;
-        setTasks(Array.isArray(res?.data) ? res.data : []);
-      })
-      .catch(() => live && setError('Could not load the task catalogue.'))
-      .finally(() => live && setLoadingTasks(false));
-    return () => {
-      live = false;
-    };
-  }, [open]);
-
-  // Pick up a quote already on this lead so re-opening edits rather than
-  // silently starting over.
-  useEffect(() => {
-    if (!open || !lead?.repairID) return;
-    let live = true;
+    setError('');
     fetch(`/api/repairs/${lead.repairID}/quote`)
       .then((r) => r.json())
       .then((json) => {
-        if (!live || !json?.success || !json.quote) return;
-        setExisting(json.quote);
-        setItems(json.quote.items || []);
-        setNote(json.quote.note || '');
+        if (!live || !json?.success) return;
+        setExisting(json.quote || null);
+        setNote(json.quote?.note || '');
       })
       .catch(() => {});
     return () => {
@@ -92,217 +58,150 @@ export default function QuoteDialog({ open, lead, onClose, onSaved }) {
     };
   }, [open, lead?.repairID]);
 
-  const reset = useCallback(() => {
-    setItems([]);
-    setNote('');
-    setExisting(null);
-    setError('');
-  }, []);
+  /**
+   * NewRepairForm hands back exactly what it would have written as a repair.
+   * Turn that into an estimate instead.
+   */
+  const handleSubmit = useCallback(
+    async (submission) => {
+      setError('');
+      try {
+        const res = await fetch(`/api/repairs/${lead.repairID}/quote`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'send', note, submission }),
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'That did not work.');
+        onSaved?.('send', json);
+        onClose();
+      } catch (e) {
+        setError(e.message);
+      }
+    },
+    [lead?.repairID, note, onSaved, onClose]
+  );
 
-  const addTask = (task) => {
-    if (!task) return;
-    setItems((prev) => [
-      ...prev,
-      {
-        taskId: task.id || task._id || null,
-        sku: task.sku || null,
-        title: task.title || task.displayName || task.name || 'Repair work',
-        qty: 1,
-        unitPrice: Number(task.price ?? task.basePrice ?? 0),
-      },
-    ]);
-  };
-
-  const patch = (idx, key, value) =>
-    setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, [key]: value } : it)));
-
-  const submit = async (action) => {
-    setBusy(true);
-    setError('');
-    try {
-      const res = await fetch(`/api/repairs/${lead.repairID}/quote`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, items, note }),
-      });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error || 'That did not work.');
-      onSaved?.(action, json);
-      reset();
-      onClose();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const alreadyAccepted = existing?.status === 'accepted';
+  // Carry what the lead already told us into the form so nobody retypes it.
+  const initialData = lead
+    ? {
+        clientName: lead.clientName || '',
+        clientEmail: lead.clientEmail || lead.leadContact || '',
+        clientPhone: lead.clientPhone || '',
+        description: lead.description || '',
+        userID: lead.userID || null,
+        picture: lead.picture || null,
+        ...(existing?.submission || {}),
+      }
+    : null;
 
   return (
     <Dialog
       open={open}
-      onClose={() => !busy && onClose()}
-      maxWidth="sm"
+      onClose={onClose}
+      maxWidth="lg"
       fullWidth
       PaperProps={{
-        sx: { backgroundColor: REPAIRS_UI.bgPanel, color: REPAIRS_UI.textPrimary, backgroundImage: 'none' },
+        sx: {
+          backgroundColor: REPAIRS_UI.bgPanel,
+          color: REPAIRS_UI.textPrimary,
+          backgroundImage: 'none',
+          height: '92vh',
+        },
       }}
     >
-      <DialogTitle sx={{ pb: 0.5 }}>
+      <DialogTitle sx={{ pb: 0.5, pr: 6 }}>
         Estimate for {lead?.clientName || 'this lead'}
-        <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: 13 }}>
-          {lead?.repairID}
-          {existing?.status && existing.status !== 'draft' ? ` · quote ${existing.status}` : ''}
-        </Typography>
-      </DialogTitle>
-
-      <DialogContent>
-        {lead?.description && (
-          <Box
-            sx={{
-              p: 1.5,
-              mb: 2,
-              borderRadius: 1.5,
-              backgroundColor: REPAIRS_UI.bgCard,
-              border: '1px solid',
-              borderColor: REPAIRS_UI.border,
-            }}
-          >
-            <Typography sx={{ color: REPAIRS_UI.textSecondary, fontSize: 13, whiteSpace: 'pre-wrap' }}>
-              {lead.description}
-            </Typography>
-          </Box>
-        )}
-
-        {alreadyAccepted && (
-          <Alert severity="info" sx={{ mb: 2 }}>
-            The customer already accepted this estimate. Editing it will not change what they agreed to —
-            call them if the price needs to move.
-          </Alert>
-        )}
-
-        <Autocomplete
-          options={tasks}
-          loading={loadingTasks}
-          value={null}
-          blurOnSelect
-          clearOnBlur
-          getOptionLabel={(t) => t.title || t.displayName || t.name || ''}
-          onChange={(_e, task) => addTask(task)}
-          renderOption={(props, t) => (
-            <li {...props} key={t.id || t._id}>
-              <Stack direction="row" justifyContent="space-between" sx={{ width: '100%' }}>
-                <span>{t.title || t.displayName || t.name}</span>
-                <span style={{ color: REPAIRS_UI.textMuted }}>{money(t.price ?? t.basePrice)}</span>
-              </Stack>
-            </li>
-          )}
-          renderInput={(p) => (
-            <TextField
-              {...p}
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+          <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: 13 }}>{lead?.repairID}</Typography>
+          {existing?.status && existing.status !== 'draft' && (
+            <Chip
               size="small"
-              label="Add a repair task"
-              placeholder="Search the catalogue…"
-              sx={field}
-              InputProps={{
-                ...p.InputProps,
-                endAdornment: (
-                  <>
-                    {loadingTasks ? <CircularProgress size={16} sx={{ color: REPAIRS_UI.accent }} /> : null}
-                    {p.InputProps.endAdornment}
-                  </>
-                ),
+              label={`${existing.status} · ${money(existing.total)}`}
+              sx={{
+                height: 20,
+                fontSize: 11,
+                backgroundColor: 'transparent',
+                border: '1px solid',
+                borderColor: existing.status === 'declined' ? '#B4736A' : REPAIRS_UI.accent,
+                color: existing.status === 'declined' ? '#B4736A' : REPAIRS_UI.accent,
               }}
             />
           )}
-          sx={{ mb: 2 }}
-        />
+        </Stack>
+        <IconButton onClick={onClose} sx={{ position: 'absolute', top: 12, right: 12, color: REPAIRS_UI.textMuted }}>
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
 
-        {items.length === 0 ? (
-          <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: 14, py: 2, textAlign: 'center' }}>
-            No lines yet. Add the work you'd quote for.
-          </Typography>
-        ) : (
-          items.map((item, idx) => (
-            <Stack key={`${item.taskId || item.title}-${idx}`} direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-              <TextField
-                size="small"
-                value={item.title}
-                onChange={(e) => patch(idx, 'title', e.target.value)}
-                sx={{ ...field, flex: 1 }}
-              />
-              <TextField
-                size="small"
-                type="number"
-                label="Qty"
-                value={item.qty}
-                onChange={(e) => patch(idx, 'qty', Math.max(1, Number(e.target.value) || 1))}
-                sx={{ ...field, width: 74 }}
-              />
-              <TextField
-                size="small"
-                type="number"
-                label="Price"
-                value={item.unitPrice}
-                onChange={(e) => patch(idx, 'unitPrice', Math.max(0, Number(e.target.value) || 0))}
-                sx={{ ...field, width: 108 }}
-              />
-              <IconButton
-                onClick={() => setItems((p) => p.filter((_, i) => i !== idx))}
-                sx={{ color: REPAIRS_UI.textMuted }}
-              >
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            </Stack>
-          ))
+      <DialogContent dividers sx={{ borderColor: REPAIRS_UI.border }}>
+        {existing?.status === 'accepted' && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            The customer already accepted this estimate at {money(existing.total)}. Re-sending is blocked —
+            if the price needs to move, call them.
+          </Alert>
         )}
 
-        <Stack direction="row" justifyContent="space-between" sx={{ mt: 2, mb: 2 }}>
-          <Typography sx={{ color: REPAIRS_UI.textSecondary }}>Total</Typography>
-          <Typography sx={{ color: REPAIRS_UI.accent, fontWeight: 600, fontSize: 20 }}>{money(total)}</Typography>
-        </Stack>
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+        <Box
+          sx={{
+            p: 1.5,
+            mb: 2,
+            borderRadius: 1.5,
+            backgroundColor: REPAIRS_UI.bgCard,
+            border: '1px solid',
+            borderColor: REPAIRS_UI.border,
+          }}
+        >
+          <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            What they told us
+          </Typography>
+          <Typography sx={{ color: REPAIRS_UI.textSecondary, fontSize: 13.5, whiteSpace: 'pre-wrap', mt: 0.5 }}>
+            {lead?.description || '—'}
+          </Typography>
+        </Box>
 
         <TextField
           fullWidth
           multiline
-          rows={3}
+          rows={2}
           size="small"
-          label="Note to the customer (optional)"
-          placeholder="Anything they should know before agreeing."
+          label="Note to the customer (appears in the email)"
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          sx={field}
+          sx={{
+            mb: 2,
+            '& .MuiInputBase-root': { color: REPAIRS_UI.textPrimary, backgroundColor: REPAIRS_UI.bgCard },
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: REPAIRS_UI.border },
+            '& .MuiInputLabel-root': { color: REPAIRS_UI.textMuted },
+          }}
         />
 
-        <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: 12, mt: 1.5 }}>
-          The email says this is subject to inspection, and the link expires after 30 days.
+        <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: 12, mb: 2 }}>
+          Price it exactly as you would the real repair. Nothing is created until they drop the piece off —
+          this only saves and emails the estimate. The link expires after 30 days.
         </Typography>
 
-        {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+        <NewRepairForm
+          onSubmit={handleSubmit}
+          initialData={initialData}
+          submitMode="create"
+          persistOnSubmit={false}
+          submitLabel="Save & send estimate"
+          clientInfo={
+            lead
+              ? {
+                  userID: lead.userID || null,
+                  firstName: (lead.clientName || '').split(/\s+/)[0] || '',
+                  lastName: (lead.clientName || '').split(/\s+/).slice(1).join(' '),
+                  email: lead.clientEmail || lead.leadContact || '',
+                  phoneNumber: lead.clientPhone || '',
+                }
+              : null
+          }
+        />
       </DialogContent>
-
-      <DialogActions>
-        <Button disabled={busy} onClick={onClose} sx={{ color: REPAIRS_UI.textSecondary }}>
-          Back
-        </Button>
-        <Button
-          disabled={busy || items.length === 0}
-          startIcon={<SaveIcon fontSize="small" />}
-          onClick={() => submit('save')}
-          sx={{ color: REPAIRS_UI.textPrimary }}
-        >
-          Save draft
-        </Button>
-        <Button
-          disabled={busy || items.length === 0}
-          startIcon={busy ? <CircularProgress size={14} sx={{ color: REPAIRS_UI.accent }} /> : <SendIcon fontSize="small" />}
-          onClick={() => submit('send')}
-          sx={{ color: REPAIRS_UI.accent }}
-        >
-          {busy ? 'Working…' : 'Send to customer'}
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 }

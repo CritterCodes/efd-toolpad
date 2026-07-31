@@ -42,6 +42,7 @@ import { useRepairs } from '@/app/context/repairs.context';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import BulkMoveDialog from '@/components/repairs/BulkMoveDialog';
 import QuoteDialog from './QuoteDialog';
+import { canAccessLeads } from '@/lib/repairAccess';
 
 const formatDate = (d) => {
     if (!d) return 'Unknown';
@@ -247,7 +248,7 @@ const LeadCard = ({ lead, onConvert, onQuote, converting, isSelected, onToggleSe
                             '&:hover': { backgroundColor: REPAIRS_UI.bgTertiary }
                         }}
                     >
-                        {converting === lead.repairID ? 'Converting...' : 'Accept'}
+                        {converting === lead.repairID ? 'Converting…' : 'Dropped off'}
                     </Button>
                 </Stack>
             </Box>
@@ -276,7 +277,7 @@ export default function LeadsPage() {
     const [quoteLead, setQuoteLead] = useState(null);
 
     if (authStatus === 'loading') return null;
-    if (!session?.user || session.user.role !== 'admin') {
+    if (!canAccessLeads(session)) {
         router.push('/dashboard');
         return null;
     }
@@ -330,16 +331,25 @@ export default function LeadsPage() {
     const handleConvert = async (repairID) => {
         setConverting(repairID);
         try {
-            const res = await fetch(`/api/repairs?repairID=${repairID}`, {
-                method: 'PUT',
+            // The dedicated endpoint carries the accepted quote's tasks and
+            // totals onto the repair, so the bench works to the figure the
+            // customer agreed to rather than an empty shell.
+            const res = await fetch(`/api/repairs/${repairID}/dropoff`, {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: 'READY FOR WORK' }),
+                body: JSON.stringify({}),
             });
-            if (!res.ok) throw new Error('Update failed');
+            const json = await res.json();
+            if (!json.success) throw new Error(json.error || 'Update failed');
             updateRepair(repairID, { status: 'READY FOR WORK' });
-            setSnackbar({ open: true, message: 'Lead converted to Ready for Work' });
+            setSnackbar({
+                open: true,
+                message: json.fromQuote
+                    ? 'Dropped off — the quoted work is on the repair.'
+                    : 'Dropped off — now on the bench list.',
+            });
         } catch {
-            setSnackbar({ open: true, message: 'Failed to convert lead. Try again.' });
+            setSnackbar({ open: true, message: 'Could not convert that lead. Try again.' });
         } finally {
             setConverting(null);
         }
