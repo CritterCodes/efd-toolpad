@@ -20,7 +20,6 @@ import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 
 import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
-import { getSTLVolume } from '@/lib/stlParser';
 import { uploadSizeError } from '@/lib/uploadLimits';
 import { directUpload } from '@/lib/directUpload';
 import { KARAT_OPTIONS, finishUsesKarat, finishLabel, composeMetalKey, isTwoTone, metalFinishes } from '@/services/production/variantMetal';
@@ -409,29 +408,39 @@ function CadTab({ design, designId, onReload, notify, onCreateFirstVariant, form
   const onStl = async (file) => {
     setBusyStl(true);
     try {
+      // Direct to MinIO — this is the MANUFACTURING file Carrera casts from (a real one is 91 MB) and a
+      // serverless request body caps at ~4.5 MB.
       const url = await uploadAsset(file);
-      // CAD volume is calculated from the STL, never typed (same math as customs CAD upload).
-      let volume = null;
-      try { const mm3 = await getSTLVolume(file); if (mm3 > 0) volume = Math.round((mm3 / 1000) * 1000) / 1000; } catch { /* best-effort */ }
-      const fields = { stlUrl: url, stlVolumeCm3: volume };
+      const key = new URL(url).pathname.split('/').slice(2).join('/');   // strip /<bucket>/
 
-      // GEMSTONE designs: one STL powers everything — the volume calibrates carat (× SG), and the
-      // viewer GLB is GENERATED from the same solid (one mesh named 'Gemstone', flat facet normals,
-      // mm→m; the look comes from the variant's REFRAKT preset). Jewelry never auto-generates —
-      // its GLBs need authored, named parts. A manually-uploaded GLB can still replace this after.
-      let generatedGlb = false;
+      // GEMSTONE designs: the viewer GLB is GENERATED from the same solid (one mesh named 'Gemstone',
+      // flat facet normals, mm→m; the look comes from the variant's REFRAKT preset). Jewelry never
+      // auto-generates — its GLBs need authored, named parts. A GLB is a rendering asset with no
+      // bearing on price, so generating it in the browser is fine.
+      let glbUrl = null;
       if (isGem) {
         try {
           const { stlToGlb } = await import('@/lib/stlToGlb');
           const blob = await stlToGlb(file);
           const glbFile = new File([blob], `${(form.name || 'gemstone').replace(/[^a-z0-9-]+/gi, '-').toLowerCase()}.glb`, { type: 'model/gltf-binary' });
-          fields.designModel = { ...dm, glbUrl: await uploadAsset(glbFile), generatedFromStl: true };
-          generatedGlb = true;
-        } catch { /* best-effort — STL still lands; GLB can be uploaded manually */ }
+          glbUrl = await uploadAsset(glbFile);
+        } catch { /* best-effort — the STL still lands; a GLB can be uploaded by hand */ }
       }
 
-      await patch(fields);
-      notify([volume ? `STL uploaded · volume ${volume} cm³` : 'STL uploaded', generatedGlb ? '· viewer GLB generated' : null].filter(Boolean).join(' '), 'success');
+      // VOLUME IS MEASURED SERVER-SIDE from the stored object. It sets the mounting cost and therefore
+      // the retail price, so it must not be a number this browser computed — and the parser would
+      // struggle on a 1.9M-triangle model anyway. The generic design PUT refuses stlVolumeCm3.
+      const res = await fetch(`/api/production/designs/${designId}/attach-stl`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, key, glbUrl }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not attach the STL');
+
+      notify([
+        data.stlVolumeCm3 != null ? `STL uploaded · volume ${data.stlVolumeCm3} cm³` : 'STL uploaded · volume not calculated',
+        glbUrl ? '· viewer GLB generated' : null,
+      ].filter(Boolean).join(' '), 'success');
       onReload();
     } catch (e) { notify(e.message, 'error'); } finally { setBusyStl(false); }
   };
