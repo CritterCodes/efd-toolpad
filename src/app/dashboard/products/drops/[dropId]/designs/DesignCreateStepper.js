@@ -9,6 +9,7 @@ import DiamondIcon from '@mui/icons-material/Diamond';
 import DesignServicesIcon from '@mui/icons-material/DesignServices';
 import CheckIcon from '@mui/icons-material/Check';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { useSession } from 'next-auth/react';
 import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
 import { fetchArtisans, hasArtisanType, ARTISAN_TYPE } from '@/lib/artisans';
 
@@ -39,6 +40,7 @@ export default function DesignCreateStepper({ dropId, onSave, onCancel }) {
   const [designType, setDesignType] = useState(''); // 'jewelry' | 'gemstone'
   const [hasModel, setHasModel] = useState(null);    // true | false
   const [artisans, setArtisans] = useState([]);
+  const { data: session } = useSession();
   const [saving, setSaving] = useState(false);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'error' });
   const [f, setF] = useState({ name: '', category: '', editionType: 'unlimited', editionLimit: '', primaryArtisanId: '', tags: [], status: 'draft' });
@@ -49,6 +51,19 @@ export default function DesignCreateStepper({ dropId, onSave, onCancel }) {
   useEffect(() => {
     fetchArtisans().then(setArtisans).catch(() => {});
   }, []);
+
+  // An ARTISAN creating a design is the artisan — don't make them pick themselves out of a list.
+  // The API agrees: PUT /api/production/designs/[designID] refuses to let a non-staff caller change
+  // `primaryArtisanId`, so for them this was never really a choice. Staff still choose, because they
+  // create on someone else's behalf.
+  // FUTURE (owner): this slot becomes a COLLABORATOR picker — credit stays with the owner, and
+  // collaborators are added alongside rather than instead.
+  const isArtisanAuthor = session?.user?.role === 'artisan';
+  useEffect(() => {
+    if (isArtisanAuthor && !f.primaryArtisanId && session?.user?.userID) {
+      set({ primaryArtisanId: session.user.userID });
+    }
+  }, [isArtisanAuthor, f.primaryArtisanId, session?.user?.userID]);
 
   const isGem = designType === 'gemstone';
   // Route the work to the right hands: gemstone designs → gem cutters; jewelry → jewelers/designers.
@@ -163,14 +178,24 @@ export default function DesignCreateStepper({ dropId, onSave, onCancel }) {
                 <TextField label="Limit" type="number" value={f.editionLimit} onChange={(e) => set({ editionLimit: e.target.value })} size="small" sx={{ width: 90 }} inputProps={{ min: 1 }} />
               )}
             </Stack>
-            <Autocomplete
-              size="small" options={eligibleArtisans}
-              getOptionLabel={(a) => [a.firstName, a.lastName].filter(Boolean).join(' ') || a.email || a.userID || ''}
-              isOptionEqualToValue={(o, v) => (o.userID || o._id?.toString()) === (v.userID || v._id?.toString())}
-              value={eligibleArtisans.find((a) => (a.userID || a._id?.toString()) === f.primaryArtisanId) || null}
-              onChange={(_, opt) => set({ primaryArtisanId: opt ? (opt.userID || opt._id?.toString() || '') : '' })}
-              renderInput={(params) => <TextField {...params} label="Primary artisan (optional)" helperText={isGem ? 'Gem cutters only' : 'Jewelers & designers'} FormHelperTextProps={{ sx: { mx: 0, fontSize: '0.65rem' } }} />}
-            />
+            {isArtisanAuthor ? (
+              // You are the artisan. Shown, not asked — and not editable, because the API refuses a
+              // non-staff reassignment anyway. A collaborator picker belongs here later.
+              <TextField
+                size="small" label="Primary artisan" value={session?.user?.name || session?.user?.email || 'You'}
+                InputProps={{ readOnly: true }} helperText="Your design — credit is yours"
+                FormHelperTextProps={{ sx: { mx: 0, fontSize: '0.65rem' } }}
+              />
+            ) : (
+              <Autocomplete
+                size="small" options={eligibleArtisans}
+                getOptionLabel={(a) => [a.firstName, a.lastName].filter(Boolean).join(' ') || a.email || a.userID || ''}
+                isOptionEqualToValue={(o, v) => (o.userID || o._id?.toString()) === (v.userID || v._id?.toString())}
+                value={eligibleArtisans.find((a) => (a.userID || a._id?.toString()) === f.primaryArtisanId) || null}
+                onChange={(_, opt) => set({ primaryArtisanId: opt ? (opt.userID || opt._id?.toString() || '') : '' })}
+                renderInput={(params) => <TextField {...params} label="Primary artisan (optional)" helperText={isGem ? 'Gem cutters only' : 'Jewelers & designers'} FormHelperTextProps={{ sx: { mx: 0, fontSize: '0.65rem' } }} />}
+              />
+            )}
             <Box>
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
                 {f.tags.map((t) => <Chip key={t} label={t} size="small" onDelete={() => set({ tags: f.tags.filter((x) => x !== t) })} sx={{ backgroundColor: REPAIRS_UI.bgTertiary, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }} />)}

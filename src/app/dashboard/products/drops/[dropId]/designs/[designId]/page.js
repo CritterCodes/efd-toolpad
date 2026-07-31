@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useMemo, use } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef, use } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import {
@@ -52,11 +52,27 @@ function categoryToDiscipline(category = '') {
   return 'bench_jewelry';
 }
 
-let variantSeq = 0;
+/**
+ * Next sequence number for a design's variants, derived from the variants that ALREADY EXIST.
+ *
+ * This used to be a module-level `let variantSeq = 0`, which reset to 0 on every page load — so the
+ * first variant added after a reload was numbered 1 again and got the SAME auto-SKU as an existing one
+ * (owner report: "it gives it the same name as the last variant"). Save then rejected it for duplicate
+ * SKUs, or the row simply looked like a copy. Deriving from the data can't drift with page lifecycle.
+ * PURE.
+ */
+export function nextVariantSeq(variants = []) {
+  const used = (variants || [])
+    .map((v) => String(v?.sku || '').match(/-(\d+)$/)?.[1])
+    .map(Number)
+    .filter((n) => Number.isFinite(n));
+  return (used.length ? Math.max(...used) : 0) + 1;
+}
+
 function newVariantForm() {
-  variantSeq += 1;
   return {
-    variantId: `v-${Date.now().toString(36)}-${variantSeq}`,
+    // Random suffix, not a counter: two adds inside the same millisecond would otherwise collide.
+    variantId: `v-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
     sku: '', label: '',
     // Finish comes from REFRAKT (studio-driven); karat is a separate spec; metalKey is
     // composed from both for the pricing estimate engine.
@@ -1357,11 +1373,28 @@ function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, gemLinks = []
       onChange(linked);
     } finally { setSeeding(false); }
   };
+  // AUTO-SEED (owner: "i dont like having to click the seed from refrakt on the variant to get the
+  // gemstones, should be automatic"). REFRAKT already knows every gem slot's type, cut and size — there
+  // is nothing for the user to decide, so asking was pure friction.
+  //
+  // Runs at most ONCE per mounted variant, tracked in a ref rather than derived from `rows`: seeding
+  // calls onChange, and if a match returned nothing the rows would still be empty and the effect would
+  // fire forever. The ref also means deleting every row by hand is respected instead of instantly undone.
+  const autoSeeded = useRef(false);
+  useEffect(() => {
+    if (autoSeeded.current) return;
+    if (!gemGroups.length || rows.length > 0 || seeding) return;
+    autoSeeded.current = true;
+    seed();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gemGroups.length, rows.length, seeding]);
+
   const subtotal = sumStones(rows, stoneCosts);
   return (
     <Box sx={{ p: 1.5, backgroundColor: REPAIRS_UI.bgCard, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 1.5 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
         <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textSecondary, fontSize: '0.8rem' }}>Gemstones</Typography>
+        {/* Kept as a manual RE-seed: after deleting rows, or if the auto pass matched nothing. */}
         {gemGroups.length > 0 && rows.length === 0 && (
           <Button size="small" onClick={seed} disabled={seeding} startIcon={seeding ? <CircularProgress size={12} sx={{ color: REPAIRS_UI.accent }} /> : null} sx={{ color: REPAIRS_UI.accent, textTransform: 'none' }}>
             {seeding ? 'Matching…' : `Seed from REFRAKT (${gemGroups.length})`}
@@ -1369,7 +1402,7 @@ function VariantStones({ gemstones, viewerConfig, stoneCosts = {}, gemLinks = []
         )}
       </Stack>
       {rows.length === 0
-        ? <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted, py: 0.5 }}>{gemGroups.length ? 'Seed from REFRAKT or add stones manually.' : 'No stones. Add the stones this variant is set with.'}</Typography>
+        ? <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted, py: 0.5 }}>{seeding ? 'Reading stones from REFRAKT…' : gemGroups.length ? 'Seed from REFRAKT or add stones manually.' : 'No stones. Add the stones this variant is set with.'}</Typography>
         : (
           <Stack spacing={0.75}>
             {rows.map((r, i) => {
@@ -1624,7 +1657,14 @@ export function DesignDetail({ dropId, designId, backHref, backLabel }) {
   const [defaultMarkup, setDefaultMarkup] = useState(2.5);
   const [stoneCosts, setStoneCosts] = useState({}); // { stoneSkuId: current wholesale cost }
   const [gemDocs, setGemDocs] = useState({}); // { gemDesignId: gem Design doc } — linked in-house gems
-  const [tab, setTab] = useState(0);
+  // Tab order: 0 Details · 1 CAD & 3D · 2 Variants · 3 Pricing.
+  // Honour ?tab= so a round trip can return where it started — the REFRAKT studio comes back here after
+  // saving a variant, and used to dump the user on Details, which read as the save not registering.
+  const [tab, setTab] = useState(() => {
+    if (typeof window === 'undefined') return 0;
+    const want = new URLSearchParams(window.location.search).get('tab');
+    return { details: 0, cad: 1, variants: 2, pricing: 3 }[want] ?? 0;
+  });
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
   const notify = (message, severity = 'success') => setSnack({ open: true, message, severity });
   const closeSnack = () => setSnack((s) => ({ ...s, open: false }));
@@ -1693,7 +1733,9 @@ export function DesignDetail({ dropId, designId, backHref, backLabel }) {
     if (!isGem && !design.designModel?.glbUrl) { notify('Upload a GLB on the CAD & 3D tab first — variants are built in REFRAKT.', 'error'); return; }
     const v = newVariantForm();
     const base = (form.name || design.name || 'VAR').toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 12) || 'VAR';
-    v.sku = `${base}-${v.variantId.split('-').pop()}`;
+    // Sequence comes from the EXISTING variants, so it keeps counting across page reloads instead of
+    // restarting at 1 and colliding with a SKU that's already there.
+    v.sku = `${base}-${nextVariantSeq(form.variants)}`;
     if (form.category === 'ring') v.ringSize = '7'; // sensible default so the stub can persist; editable on the row
     v.active = false; // stub starts inactive until its look is built + specs confirmed
     const nextForm = { ...form, variants: [...form.variants, v] };

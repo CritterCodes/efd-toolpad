@@ -42,7 +42,12 @@ export default function VariantConfigurePage() {
     return () => { cancelled = true; };
   }, [designId]);
 
-  const back = useCallback(() => router.push(`/dashboard/products/drops/${dropId}/designs/${designId}`), [router, dropId, designId]);
+  // Return to the VARIANTS tab, not the design's default tab. The user came FROM there to build this
+  // variant's look, and landing back on Details made it look like the save hadn't registered.
+  const back = useCallback(
+    () => router.push(`/dashboard/products/drops/${dropId}/designs/${designId}?tab=variants`),
+    [router, dropId, designId],
+  );
 
   const variant = (design?.variants || []).find((v) => v.variantId === variantId) || null;
   const glbUrl = design?.designModel?.glbUrl || null;
