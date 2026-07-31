@@ -76,6 +76,61 @@ describe('claimForAutoInvoice', () => {
   });
 });
 
+describe('appendAfterPhotos', () => {
+  it('merges with $addToSet instead of overwriting the array (#48)', async () => {
+    updateOne.mockResolvedValue({ matchedCount: 1 });
+    await RepairsModel.appendAfterPhotos('R-1', ['a.jpg', 'b.jpg']);
+    // Last call is the append; the first is the malformed-field normalize (see below).
+    const [filter, update] = updateOne.mock.calls.at(-1);
+
+    expect(filter).toEqual({ repairID: 'R-1' });
+    // A $set here is the bug: it discards a photo a concurrent confirm just added.
+    expect(update).not.toHaveProperty('$set');
+    expect(update).toEqual({ $addToSet: { afterPhotos: { $each: ['a.jpg', 'b.jpg'] } } });
+  });
+
+  it('normalizes a malformed afterPhotos first, targeting ONLY non-array values', async () => {
+    // $addToSet errors on a field that exists with a non-array type. The old read-modify-write coerced
+    // such a value away silently; without this, a malformed field would 500 on every retry and
+    // permanently block attaching a photo to that repair — after the upload already hit MinIO.
+    updateOne.mockResolvedValue({ matchedCount: 1 });
+    await RepairsModel.appendAfterPhotos('R-1', ['a.jpg']);
+
+    expect(updateOne).toHaveBeenCalledTimes(2);
+    const [filter, update] = updateOne.mock.calls[0];
+    expect(filter).toEqual({ repairID: 'R-1', afterPhotos: { $exists: true, $not: { $type: 'array' } } });
+    expect(update).toEqual({ $set: { afterPhotos: [] } });
+    // $exists is what keeps this from blanking a healthy doc: a MISSING field must fall through to
+    // $addToSet (which creates the array), not be pre-set here.
+    expect(filter.afterPhotos.$exists).toBe(true);
+  });
+
+  it('is a no-op for an empty, missing or all-falsy list — never an empty write', async () => {
+    for (const input of [[], undefined, null, [null, '', undefined]]) {
+      updateOne.mockReset();
+      await RepairsModel.appendAfterPhotos('R-1', input);
+      expect(updateOne).not.toHaveBeenCalled();
+    }
+  });
+
+  it('accepts a bare string as well as an array', async () => {
+    updateOne.mockResolvedValue({ matchedCount: 1 });
+    await RepairsModel.appendAfterPhotos('R-1', 'only.jpg');
+    expect(updateOne.mock.calls.at(-1)[1]).toEqual({ $addToSet: { afterPhotos: { $each: ['only.jpg'] } } });
+  });
+
+  it('drops falsy entries rather than storing them', async () => {
+    updateOne.mockResolvedValue({ matchedCount: 1 });
+    await RepairsModel.appendAfterPhotos('R-1', ['a.jpg', '', null, 'b.jpg']);
+    expect(updateOne.mock.calls.at(-1)[1].$addToSet.afterPhotos.$each).toEqual(['a.jpg', 'b.jpg']);
+  });
+
+  it('throws when the repair does not exist', async () => {
+    updateOne.mockResolvedValue({ matchedCount: 0 });
+    await expect(RepairsModel.appendAfterPhotos('nope', ['a.jpg'])).rejects.toThrow('Repair not found.');
+  });
+});
+
 describe('releaseAutoInvoiceClaim', () => {
   it('hands the claim back so the billing can be retried', async () => {
     updateOne.mockResolvedValue({ modifiedCount: 1 });

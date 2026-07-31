@@ -4,6 +4,29 @@ import { v4 as uuidv4 } from 'uuid';
 export default class RepairInvoicesModel {
   static COLLECTION = 'repairInvoices';
 
+  /**
+   * `repairIDs` became a correctness-path lookup, not just a convenience: the closeout route asks
+   * "does an invoice already exist for this repair?" before handing back the auto-invoice claim
+   * (releaseClaimIfUninvoiced), because createRepairInvoice inserts the invoice BEFORE writing
+   * repair.invoiceID — so the repair row alone cannot answer it. Unindexed, that query collection-scans.
+   *
+   * Multikey index (repairIDs is an array of repair ID strings), so `{ repairIDs: 'repair-x' }` matches
+   * by element. `invoiceID` is looked up on nearly every invoice operation and is unique by
+   * construction, but it is NOT declared unique here — an accidental historical duplicate would make
+   * index creation fail and take the whole call down with it.
+   *
+   * Run via `node scripts/ensure-repair-invoice-indexes.mjs --apply` (nothing in this app calls
+   * ensureIndexes at runtime — the other models that define one are decorative).
+   */
+  static async ensureIndexes() {
+    const dbInstance = await db.connect();
+    const col = dbInstance.collection(this.COLLECTION);
+    await Promise.all([
+      col.createIndex({ repairIDs: 1 }, { name: 'repairIDs_1' }),
+      col.createIndex({ invoiceID: 1 }, { name: 'invoiceID_1' }),
+    ]);
+  }
+
   static async create(data) {
     const dbInstance = await db.connect();
     const now = new Date();

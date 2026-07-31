@@ -22,6 +22,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const claimForAutoInvoice = vi.fn();
 const releaseAutoInvoiceClaim = vi.fn();
 const updateById = vi.fn();
+const appendAfterPhotos = vi.fn();
 const findById = vi.fn();
 const createRepairInvoice = vi.fn();
 const invoicesFindAll = vi.fn();
@@ -36,6 +37,7 @@ vi.mock('@/app/api/repairs/model', () => ({
   default: {
     findById: (...a) => { callLog.push('findById'); return findById(...a); },
     updateById: (...a) => { callLog.push('updateById'); return updateById(...a); },
+    appendAfterPhotos: (...a) => { callLog.push('appendAfterPhotos'); return appendAfterPhotos(...a); },
     claimForAutoInvoice: (...a) => { callLog.push('claim'); return claimForAutoInvoice(...a); },
     releaseAutoInvoiceClaim: (...a) => { callLog.push('release'); return releaseAutoInvoiceClaim(...a); },
   },
@@ -46,7 +48,9 @@ vi.mock('@/app/api/repair-invoices/service', () => ({
 vi.mock('@/app/api/repair-invoices/model', () => ({
   default: { findAll: (...a) => { callLog.push('invoicesFindAll'); return invoicesFindAll(...a); } },
 }));
-vi.mock('@/utils/s3.util', () => ({ uploadRepairImage: vi.fn() }));
+vi.mock('@/utils/s3.util', () => ({
+  uploadRepairImage: vi.fn(async () => 'https://minio.test/after.jpg'),
+}));
 vi.mock('@/services/repairLaborReviewSync', () => ({ syncLaborLogAfterRepairChange: vi.fn() }));
 vi.mock('@/lib/apiAuth', () => ({
   requireRole: async () => ({ errorResponse: { status: 403 } }),
@@ -84,6 +88,7 @@ beforeEach(() => {
   updateById.mockResolvedValue({ ...COMPLETED, invoiceID: '' });
   claimForAutoInvoice.mockResolvedValue(true);
   releaseAutoInvoiceClaim.mockResolvedValue(undefined);
+  appendAfterPhotos.mockResolvedValue(undefined);
   createRepairInvoice.mockResolvedValue({ invoiceID: 'INV-1', status: 'open' });
   invoicesFindAll.mockResolvedValue([]);
 });
@@ -194,6 +199,62 @@ describe('closeout route — auto-invoice claim ordering', () => {
     // Releasing here would hand back a token this request never held — i.e. free the winner's claim.
     expect(releaseAutoInvoiceClaim).not.toHaveBeenCalled();
     expect(invoicesFindAll).not.toHaveBeenCalled();
+  });
+
+  /**
+   * After photos must MERGE, never overwrite (#48).
+   *
+   * The route used to read `afterPhotos`, push the newly uploaded URLs onto that snapshot, and $set the
+   * whole array back. Two staff confirming the same repair each read before the other wrote, so the
+   * second $set silently discarded the first's photo and orphaned the uploaded object in MinIO. Now that
+   * photos don't gate invoicing, BOTH requests always reach this write, so the race is always live.
+   */
+  it('never $sets afterPhotos on the multipart path — uploads are appended', async () => {
+    const form = new FormData();
+    form.append('closeoutNotes', 'done');
+    form.append('afterPhotos', new File([new Uint8Array([1, 2, 3])], 'after.jpg', { type: 'image/jpeg' }));
+    const req = new Request('http://localhost/api/repairs/R-1/closeout', { method: 'POST', body: form });
+
+    await POST(req, { params });
+
+    // The uploaded URL goes through the $addToSet path...
+    expect(appendAfterPhotos).toHaveBeenCalledTimes(1);
+    expect(appendAfterPhotos.mock.calls[0][0]).toBe('R-1');
+    expect(appendAfterPhotos.mock.calls[0][1]).toEqual(['https://minio.test/after.jpg']);
+    // ...and the whole-array overwrite is gone. A $set here is the bug.
+    for (const [, update] of updateById.mock.calls) {
+      expect(update).not.toHaveProperty('afterPhotos');
+    }
+  });
+
+  it('appends BEFORE the main update, so the response includes the new photo', async () => {
+    const form = new FormData();
+    form.append('afterPhotos', new File([new Uint8Array([1])], 'a.jpg', { type: 'image/jpeg' }));
+    await POST(new Request('http://localhost/x', { method: 'POST', body: form }), { params });
+
+    // updateById re-reads the repair, so appending first is what makes the returned doc current.
+    expect(callLog.indexOf('appendAfterPhotos')).toBeLessThan(callLog.indexOf('updateById'));
+  });
+
+  it('a notes-only confirm never touches afterPhotos at all', async () => {
+    await POST(request(), { params });
+
+    // An omitted photo must not blank what's already stored — the failure mode of a blanket $set.
+    expect(appendAfterPhotos).toHaveBeenCalledWith('R-1', []);
+    for (const [, update] of updateById.mock.calls) {
+      expect(update).not.toHaveProperty('afterPhotos');
+    }
+  });
+
+  it('releases the claim when the photo append fails', async () => {
+    appendAfterPhotos.mockRejectedValue(new Error('mongo blip'));
+    const form = new FormData();
+    form.append('afterPhotos', new File([new Uint8Array([1])], 'a.jpg', { type: 'image/jpeg' }));
+
+    await POST(new Request('http://localhost/x', { method: 'POST', body: form }), { params });
+
+    expect(releaseAutoInvoiceClaim).toHaveBeenCalledWith('R-1');
+    expect(createRepairInvoice).not.toHaveBeenCalled();
   });
 
   it('still refuses a repair that is not COMPLETED, and claims nothing', async () => {

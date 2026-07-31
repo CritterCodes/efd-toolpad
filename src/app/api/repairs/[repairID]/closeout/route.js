@@ -22,9 +22,13 @@ async function requireCloseoutAccess() {
  * Releasing on the repair's own field alone would free it and let the next confirm raise a SECOND
  * invoice for work already billed.
  *
- * Fails CLOSED: if the invoices collection can't be reached, the claim is kept. A stuck claim is
- * recoverable by an admin (remove the repair from its invoice, or reset closeoutStatus); a duplicate
- * bill reaches the customer.
+ * Fails CLOSED: if the invoices collection can't be reached, the claim is kept. A duplicate bill reaches
+ * the customer; a kept claim does not.
+ *
+ * Recovering a stuck claim: use the "Create Invoice Batch" button on Payment & Pickup —
+ * ensureRepairsCanBatch never reads closeoutStatus, so it bills the repair regardless. (NOT "remove from
+ * invoice": a leaked claim has no invoice by definition, so removeRepairsFromInvoice would just throw.)
+ * Failing that, reset closeoutStatus on the repair by hand.
  *
  * Returns true when an invoice already exists, so callers can say so.
  */
@@ -70,7 +74,15 @@ export const POST = async (req, { params }) => {
     }
     const contentType = req.headers.get('content-type') || '';
 
-    let nextAfterPhotos = Array.isArray(repair.afterPhotos) ? [...repair.afterPhotos] : [];
+    // Two DIFFERENT operations, kept apart on purpose:
+    //   uploadedPhotoUrls  — photos to APPEND (multipart). Merged with $addToSet so a concurrent confirm
+    //                        can't overwrite a photo this request added. Read-modify-write on the whole
+    //                        array silently dropped one of two photos uploaded at the same moment.
+    //   replacementPhotos  — an EXPLICIT full replacement (JSON `afterPhotos`), which is a deliberate
+    //                        overwrite (e.g. deleting a photo) and must stay a $set. `null` means the
+    //                        caller said nothing about the array, so it must be left alone entirely.
+    const uploadedPhotoUrls = [];
+    let replacementPhotos = null;
     let closeoutNotes = repair.closeoutNotes || '';
     const closeoutUpdate = {};
 
@@ -82,12 +94,12 @@ export const POST = async (req, { params }) => {
       const files = formData.getAll('afterPhotos').filter((value) => value && typeof value === 'object' && typeof value.arrayBuffer === 'function');
       for (const file of files) {
         const url = await uploadRepairImage(file, `${repairID}/after`);
-        nextAfterPhotos.push(url);
+        uploadedPhotoUrls.push(url);
       }
     } else {
       const body = await req.json().catch(() => ({}));
       if (Array.isArray(body.afterPhotos)) {
-        nextAfterPhotos = body.afterPhotos.filter(Boolean);
+        replacementPhotos = body.afterPhotos.filter(Boolean);
       }
       if (typeof body.closeoutNotes === 'string') {
         closeoutNotes = body.closeoutNotes;
@@ -130,8 +142,13 @@ export const POST = async (req, { params }) => {
     // could never be billed at all. Silent, permanent, and worse than the race the claim prevents.
     let updated;
     try {
+      // Append first, so updateById's own re-read returns the repair WITH the new photos.
+      await RepairsModel.appendAfterPhotos(repairID, uploadedPhotoUrls);
+
       updated = await RepairsModel.updateById(repairID, {
-        afterPhotos: nextAfterPhotos,
+        // Only when the caller explicitly supplied a replacement array — otherwise the field is left to
+        // the $addToSet above, and an omitted `afterPhotos` never blanks what's already stored.
+        ...(replacementPhotos !== null ? { afterPhotos: replacementPhotos } : {}),
         closeoutNotes,
         ...closeoutUpdate,
         closeoutBy: session.user.name || session.user.email || '',
@@ -150,7 +167,7 @@ export const POST = async (req, { params }) => {
     // Auto-invoice keys off the CLOSEOUT BEING CONFIRMED, not off a photo existing (owner,
     // 2026-07-31: photos no longer gate invoicing). This was the deciding gate of the three: the
     // button that reaches this route is literally labelled "Confirm / Move to Invoice", so while this
-    // read `nextAfterPhotos.length > 0` a photo-less confirm returned 200 and silently left the repair
+    // read the uploaded-photo count a photo-less confirm returned 200 and silently left the repair
     // un-invoiced in the closeout queue — the exact symptom the other two gates were removed to fix.
     //
     // The JSON branch above (tasks/materials/line items) has no live caller in this app; if one is ever

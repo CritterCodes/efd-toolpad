@@ -58,6 +58,52 @@ export default class RepairsModel {
     };
 
     /**
+     * Append after-photo URLs without touching the rest of the array.
+     *
+     * The closeout route used to read `afterPhotos`, push the new URLs onto that snapshot, and $set the
+     * whole array back — a read-modify-write that loses photos under concurrency: two staff confirming
+     * the same repair each read the array before the other wrote, and the second $set overwrites the
+     * first's photo (leaving the uploaded object orphaned in MinIO). Every confirm now reaches this
+     * write, since photos no longer gate invoicing, so both requests always race.
+     *
+     * `$addToSet` also makes a retried request idempotent — re-appending the same URL is a no-op rather
+     * than a duplicate thumbnail. It cannot swallow a legitimate second photo, because upload keys embed
+     * Date.now() (utils/s3.util.js), so two uploads of the same file get different URLs.
+     *
+     * Safe on legacy docs. $addToSet creates the array when the field is ABSENT, but errors when the
+     * field exists with a non-array type ("Cannot apply $addToSet to non-array field"). The old
+     * read-modify-write coerced such a value away silently; without the normalize below, a malformed
+     * field would instead 500 on every retry and permanently block attaching a photo to that repair —
+     * after the object had already been uploaded to MinIO. Verified 2026-07-31 against prod and DEV:
+     * 180 repairs per DB have no `afterPhotos` field and ZERO have it as a non-array or explicit null,
+     * so the normalize is belt-and-braces — but `PUT /api/repairs` applies its body with no field
+     * whitelist, so a bad value is writable in principle.
+     *
+     * Deliberately does NOT run WorkOrdersModel.syncFromRepair: the work-order mirror carries no photo
+     * fields (see workOrders/model.js), so there is nothing to sync.
+     */
+    static async appendAfterPhotos(repairID, urls = []) {
+        const additions = (Array.isArray(urls) ? urls : [urls]).filter(Boolean);
+        if (additions.length === 0) return;
+
+        const dbInstance = await db.connect();
+        const col = dbInstance.collection("repairs");
+
+        // Matches ONLY a doc whose afterPhotos exists and isn't an array — a missing field is left alone
+        // for $addToSet to create, so the normal path writes nothing here.
+        await col.updateOne(
+            { repairID, afterPhotos: { $exists: true, $not: { $type: 'array' } } },
+            { $set: { afterPhotos: [] } }
+        );
+
+        const result = await col.updateOne(
+            { repairID },
+            { $addToSet: { afterPhotos: { $each: additions } } }
+        );
+        if (result.matchedCount === 0) throw new Error("Repair not found.");
+    }
+
+    /**
      * Atomically claim a repair for auto-invoicing. Returns true only for the caller that won.
      *
      * Why this exists: the closeout route decides whether to raise an invoice by READING
