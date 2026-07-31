@@ -169,6 +169,33 @@ function autoLaborLines(variant, productionMethod, taskCosts = {}) {
   for (const l of tally.values()) lines.push(l);
   return lines;
 }
+
+/**
+ * Turn auto-derived labor into real, editable SHARED labor-task rows. PURE.
+ *
+ * A design has ONE CAD file, so its stone count is a property of the DESIGN — every variant is the same
+ * geometry in a different metal. Auto labor is therefore identical across variants and genuinely
+ * shared, which is why it belongs in the Shared costs panel rather than being recomputed per card.
+ * (Owner, 2026-07-31: "all variants have the same stone count… that would make it a different design.")
+ *
+ * Before this, the Labor tasks box read "No labor tasks." while hundreds of dollars of auto labor sat in
+ * every variant's price with no way to see or adjust it.
+ *
+ * Shape matches LaborTaskEditor: `quantity` (not qty) and string fields, and `sumLines` multiplies
+ * cost × quantity — so the seeded rows total exactly what `autoLaborLines` totalled. That equality is
+ * what makes seeding price-neutral.
+ */
+export function autoLaborAsSharedRows(variant, productionMethod, taskCosts = {}) {
+  return autoLaborLines(variant || {}, productionMethod, taskCosts).map((l) => ({
+    description: l.label,
+    quantity: String(l.qty || 1),
+    hours: '',
+    // Casting cleanup is bench work; stone setting is bench work too — both default to the bench lane.
+    discipline: 'bench_jewelry',
+    cost: String(l.cost ?? ''),
+    autoSeeded: true,   // provenance, so it's clear these came from the CAD rather than being typed
+  }));
+}
 const artisanLabel = (a) => [a.firstName, a.lastName].filter(Boolean).join(' ') || a.email || a.userID || '';
 const artisanId = (a) => a.userID || a._id?.toString();
 
@@ -831,13 +858,15 @@ function PriceLineEditor({ rows, onChange, withQty, addLabel, emptyText }) {
   );
 }
 
-function VariantPriceCard({ variant, mounting, sharedCosts, baseMarkup, hasVolume, loading, stoneCosts, gemDocs = {}, productionMethod, taskCosts, onChange }) {
+function VariantPriceCard({ variant, mounting, sharedCosts, hasSharedLabor = false, baseMarkup, hasVolume, loading, stoneCosts, gemDocs = {}, productionMethod, taskCosts, onChange }) {
   const stones = sumStones(variant.gemstones, stoneCosts);
   const stoneCount = (variant.gemstones || []).reduce((n, g) => n + (Number(g.qty) || 1), 0);
   const markup = Number(variant.markupOverride) > 0 ? Number(variant.markupOverride) : baseMarkup;
   // Per-piece labor inferred automatically (casting + carat-band setting × counts).
   const autoLines = autoLaborLines(variant, productionMethod, taskCosts);
-  const autoLabor = sumLaborLines(autoLines);
+  // Once auto labor has been materialised into the SHARED labor rows it arrives via `sharedCosts`;
+  // adding it here as well would charge the same setting and cleanup twice.
+  const autoLabor = hasSharedLabor ? 0 : sumLaborLines(autoLines);
   const cog = mounting + stones + autoLabor + sharedCosts;
   const retail = cog * markup;
   const label = variant.label?.trim() || variant.sku?.trim() || variant.variantId;
@@ -865,17 +894,21 @@ function VariantPriceCard({ variant, mounting, sharedCosts, baseMarkup, hasVolum
           <Typography sx={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: REPAIRS_UI.textSecondary }}>Stones{stoneCount ? ` (${stoneCount})` : ''}</Typography>
           <Typography sx={{ fontSize: '0.9rem', color: REPAIRS_UI.textPrimary, fontWeight: 500 }}>{money(stones)}</Typography>
         </Box>
-        <Box sx={{ minWidth: 110 }}>
-          <Typography sx={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: REPAIRS_UI.textSecondary }}>Labor (auto)</Typography>
-          <Typography sx={{ fontSize: '0.9rem', color: REPAIRS_UI.textPrimary, fontWeight: 500 }}>{money(autoLabor)}</Typography>
-        </Box>
+        {/* Hidden once labor lives in the shared rows — it's counted under Shared then, and showing a
+            second "Labor" column reading $0.00 next to a Shared total that contains it is confusing. */}
+        {!hasSharedLabor && (
+          <Box sx={{ minWidth: 110 }}>
+            <Typography sx={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: REPAIRS_UI.textSecondary }}>Labor (auto)</Typography>
+            <Typography sx={{ fontSize: '0.9rem', color: REPAIRS_UI.textPrimary, fontWeight: 500 }}>{money(autoLabor)}</Typography>
+          </Box>
+        )}
         <Box sx={{ minWidth: 110 }}>
           <Typography sx={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: REPAIRS_UI.textSecondary }}>Shared</Typography>
           <Typography sx={{ fontSize: '0.9rem', color: REPAIRS_UI.textPrimary, fontWeight: 500 }}>{money(sharedCosts)}</Typography>
         </Box>
         <TextField size="small" label="Markup ×" type="number" value={variant.markupOverride} onChange={(e) => onChange({ markupOverride: e.target.value })} placeholder={String(baseMarkup)} sx={{ width: 110 }} helperText={variant.markupOverride ? ' ' : `default ×${baseMarkup}`} FormHelperTextProps={{ sx: { mx: 0, fontSize: '0.6rem' } }} />
       </Stack>
-      {autoLines.length > 0 && (
+      {autoLines.length > 0 && !hasSharedLabor && (
         <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, mt: 0.75, display: 'block' }}>
           Auto labor: {autoLines.map((l) => `${l.label}${l.qty > 1 ? ` ×${l.qty}` : ''}`).join(' · ')}
         </Typography>
@@ -1483,6 +1516,37 @@ function PricingTab({ pricing, variants, category, stlVolumeCm3, defaultMarkup, 
   // Gem pricing is carat × rate (no metal/mounting) — skip the live metal-cost fetches entirely.
   const metalsKey = isGem ? '' : [...new Set(variants.map((v) => v.metalKey).filter(Boolean))].sort().join(',');
 
+  /**
+   * MATERIALISE auto labor into the shared Labor tasks rows, once, when there are none.
+   *
+   * The stone count belongs to the DESIGN (one CAD file), so auto labor is the same for every variant
+   * and is genuinely shared. Seeding makes it visible and editable instead of an invisible addition to
+   * each variant's price.
+   *
+   * PRICE-NEUTRAL BY CONSTRUCTION: `sumLines` (cost × quantity) over the seeded rows equals
+   * `sumLaborLines` over the auto lines, and the variant cards stop adding auto labor as soon as shared
+   * labor rows exist (see `hasSharedLabor` below). Without that switch the same labor would be counted
+   * twice — once in sharedCosts and again per card.
+   *
+   * Waits for taskCosts so the rows carry real catalog prices rather than the hardcoded fallbacks.
+   */
+  const seededLabor = useRef(false);
+  useEffect(() => {
+    if (seededLabor.current || isGem) return;
+    if ((pricing.laborTasks || []).length > 0) return;
+    if (!Object.keys(taskCosts).length) return;          // catalog not loaded yet
+    const first = variants.find((v) => (v.gemstones || []).length) || variants[0];
+    if (!first) return;
+    const rows = autoLaborAsSharedRows(first, productionMethod, taskCosts);
+    if (!rows.length) return;
+    seededLabor.current = true;
+    set('laborTasks', rows);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGem, pricing.laborTasks, taskCosts, variants, productionMethod]);
+
+  // Once shared labor rows exist they ARE the labor; the cards must not add it again.
+  const hasSharedLabor = (pricing.laborTasks || []).length > 0;
+
   // TWO-TONE GUARD. Mounting cost = the full stl volume × ONE metal (the variant's metalKey, derived
   // from the FIRST metal slot). A variant whose config mixes finishes is therefore priced as if it
   // were entirely the first one. Pricing it correctly needs per-mesh volume, which we don't capture —
@@ -1621,6 +1685,8 @@ function PricingTab({ pricing, variants, category, stlVolumeCm3, defaultMarkup, 
               variant={v}
               mounting={metalCosts[v.metalKey] || 0}
               sharedCosts={sharedCosts}
+              // Auto labor has been materialised into the shared rows — don't add it a second time.
+              hasSharedLabor={hasSharedLabor}
               baseMarkup={baseMarkup}
               hasVolume={hasVolume}
               loading={loadingCosts}
