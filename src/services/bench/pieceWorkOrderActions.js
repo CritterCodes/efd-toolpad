@@ -28,6 +28,7 @@ import { createShareLink, setShareEnabled } from '@/services/customs/customViewe
 import { db } from '@/lib/database';
 import { NotificationService, notifyAllAdmins } from '@/lib/notificationService';
 import { adminBase } from '@/lib/appUrls';
+import { stlVolumeCm3FromStorage } from '@/lib/stlVolumeStream';
 
 const BENCH_ACTION_URL = `${adminBase()}/dashboard/bench`;
 const customLink = (customID) => `${adminBase()}/dashboard/customs/${customID}`;
@@ -200,12 +201,14 @@ async function assertCadStlAllowed({ session, workOrderID }) {
  * casts from — a real one is 91 MB — and a serverless request body caps at ~4.5 MB, so the file cannot
  * travel through `uploadCadStl` below. Same effects as that function minus the storage write.
  *
- * `volumeCm3` is CLIENT-REPORTED here, because the server never sees the bytes. It only feeds the
- * quote's "estimate from model" mounting figure, and is validated as a finite non-negative number
- * before being stored. FOLLOW-UP: recompute it server-side by streaming the stored object, so a
- * pricing input isn't taken on trust.
+ * VOLUME IS COMPUTED SERVER-SIDE, never taken from the client (owner: "we cant rely on the client to
+ * enter the volume, it has to be calculated"). It feeds `estimateMetalCost`, so it sets the mounting
+ * cost and therefore the retail price — a browser-supplied figure would be both untrustworthy (an
+ * artisan could understate it to lower their own cost) and unreliable (the parser can fail on a very
+ * dense model). Since the request no longer carries the bytes, the server streams them back out of
+ * storage: see `stlVolumeCm3FromStorage`. Any `volumeCm3` a caller sends is ignored.
  */
-export async function attachCadStl({ session, workOrderID, url, key, originalName, volumeCm3 = null }) {
+export async function attachCadStl({ session, workOrderID, url, key, originalName }) {
   const wo = await assertCadStlAllowed({ session, workOrderID });
   if (!url || !key) {
     const e = new Error('The uploaded file reference is incomplete.'); e.code = 'BAD_REQUEST'; throw e;
@@ -216,11 +219,13 @@ export async function attachCadStl({ session, workOrderID, url, key, originalNam
   if (!String(key).startsWith(expectedPrefix)) {
     const e = new Error('That file does not belong to this work order.'); e.code = 'FORBIDDEN'; throw e;
   }
-  const vol = Number(volumeCm3);
+  // Stream the object back out of storage and measure it ourselves. Best-effort by contract: returns
+  // null on any failure so a pricing convenience can never strand the work order.
+  const volumeCm3 = await stlVolumeCm3FromStorage(key);
   const stl = {
     url, key, originalName: originalName || null,
-    volumeCm3: Number.isFinite(vol) && vol >= 0 ? vol : null,
-    volumeSource: Number.isFinite(vol) && vol >= 0 ? 'client' : null,
+    volumeCm3,
+    volumeSource: volumeCm3 != null ? 'server' : null,
     uploadedBy: session.user.name || session.user.email || session.user.userID,
     uploadedAt: new Date(),
   };

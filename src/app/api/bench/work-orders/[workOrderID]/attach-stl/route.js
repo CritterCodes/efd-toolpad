@@ -6,7 +6,7 @@ const CODE_STATUS = { FORBIDDEN: 403, BAD_REQUEST: 400, NOT_FOUND: 404 };
 
 /**
  * POST /api/bench/work-orders/[workOrderID]/attach-stl  (JSON, not multipart)
- * Body: { url, key, originalName?, volumeCm3? }
+ * Body: { url, key, originalName? }
  *
  * The direct-upload counterpart to `upload-stl`. The browser has already PUT the STL straight to MinIO
  * via a presigned URL (see /api/uploads/presign), so this route only records the reference and moves
@@ -22,8 +22,9 @@ export const POST = async (req, { params }) => {
 
   const { workOrderID } = await params;
   try {
-    const { url, key, originalName, volumeCm3 } = await req.json().catch(() => ({}));
-    const wo = await attachCadStl({ session, workOrderID, url, key, originalName, volumeCm3 });
+    const { url, key, originalName } = await req.json().catch(() => ({}));
+    // Volume is measured server-side from the stored object — see attachCadStl.
+    const wo = await attachCadStl({ session, workOrderID, url, key, originalName });
     return NextResponse.json(wo, { status: 200 });
   } catch (error) {
     const status = CODE_STATUS[error.code] || 500;

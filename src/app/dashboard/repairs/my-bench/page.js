@@ -160,18 +160,13 @@ export default function BenchPage() {
           scope: 'work-order', id: wo.workOrderID,
           onProgress: (pct) => setUploadPct((m) => ({ ...m, [wo.workOrderID]: pct })),
         });
-        // Volume feeds the quote's "estimate from model" mounting figure. Best-effort: the server never
-        // sees the bytes now, and a very dense model can defeat the browser parser.
-        let volumeCm3 = null;
-        try {
-          const { getSTLVolume } = await import('@/lib/stlParser');
-          const mm3 = await getSTLVolume(file);
-          if (mm3 > 0) volumeCm3 = Math.round((mm3 / 1000) * 1000) / 1000;
-        } catch { /* pricing convenience only — never block the upload */ }
+        // NOTE: no client-side volume. The server streams the stored object and measures it
+        // itself (attachCadStl -> stlVolumeCm3FromStorage) — volume sets the mounting cost and
+        // therefore the retail price, so it must not be a number the browser supplies.
         const key = new URL(url).pathname.split('/').slice(2).join('/');   // strip /<bucket>/
         const res = await fetch(`/api/bench/work-orders/${wo.workOrderID}/attach-stl`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url, key, originalName: file.name, volumeCm3 }),
+          body: JSON.stringify({ url, key, originalName: file.name }),
         });
         if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Could not attach the STL');
         showSnack('STL uploaded — work order moved to QC', 'success');
