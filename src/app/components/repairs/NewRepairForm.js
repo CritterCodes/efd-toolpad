@@ -923,6 +923,11 @@ export default function NewRepairForm({
   initialData = null,
   submitMode = 'create',
   persistOnSubmit = true,
+  // Quoting reuses this whole form, but a quote is not a commitment: the piece
+  // is still on the customer's finger and they have not agreed to anything yet,
+  // so there is no honest promise date to give. It is asked for at drop-off,
+  // when the work is real and the queue is known.
+  isQuote = false,
   submitLabel = '',
   repairID = null,
   clientInfo = null,
@@ -2058,8 +2063,9 @@ export default function NewRepairForm({
       if (formData.metalType === 'gold' && !formData.goldColor) {
         throw new Error('Gold color is required when metal type is Gold');
       }
-      // Promise date is only required for non-wholesale submissions
-      if (!formData.isWholesale && !formData.promiseDate) {
+      // Promise date is only required for non-wholesale submissions, and never
+      // for a quote — see the isQuote prop.
+      if (!isQuote && !formData.isWholesale && !formData.promiseDate) {
         throw new Error('Promise date is required');
       }
       
@@ -2146,7 +2152,9 @@ export default function NewRepairForm({
       const submissionData = {
         ...sanitizedFormData,
         // For wholesalers, set a placeholder promise date if none provided (admin will update it)
-        promiseDate: formData.isWholesale && !formData.promiseDate 
+        promiseDate: isQuote
+          ? ''
+          : formData.isWholesale && !formData.promiseDate
           ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 7 days from now
           : formData.promiseDate,
         totalCost,
@@ -2960,7 +2968,7 @@ export default function NewRepairForm({
                 />
               </Grid>
               
-              {!isWholesale && (
+              {!isWholesale && !isQuote && (
                 <Grid item xs={12}>
                   <TextField
                     fullWidth
