@@ -28,6 +28,7 @@ export async function POST(request, { params }) {
   try {
     const result = await convertLeadToRepair(repairID, {
       status: body?.status || 'READY FOR WORK',
+      promiseDate: body?.promiseDate || null,
     });
     return NextResponse.json({ success: true, ...result });
   } catch (error) {

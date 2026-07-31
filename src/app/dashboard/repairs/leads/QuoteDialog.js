@@ -180,7 +180,8 @@ export default function QuoteDialog({ open, lead, onClose, onSaved }) {
 
         <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: 12, mb: 2 }}>
           Price it exactly as you would the real repair. Nothing is created until they drop the piece off —
-          this only saves and emails the estimate. The link expires after 30 days.
+          this only saves and emails the estimate. No promise date yet: they have not agreed to anything and
+          the piece is not here, so you are asked for one at drop-off. The link expires after 30 days.
         </Typography>
 
         <NewRepairForm
@@ -188,6 +189,7 @@ export default function QuoteDialog({ open, lead, onClose, onSaved }) {
           initialData={initialData}
           submitMode="create"
           persistOnSubmit={false}
+          isQuote
           submitLabel="Save & send estimate"
           clientInfo={
             lead

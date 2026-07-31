@@ -284,7 +284,7 @@ export async function respondToQuote(token, { accept, name }) {
  * Without a quote it is a plain status change, which is what the old Accept
  * button did and remains right for a lead nobody priced.
  */
-export async function convertLeadToRepair(repairID, { status = 'READY FOR WORK' } = {}) {
+export async function convertLeadToRepair(repairID, { status = 'READY FOR WORK', promiseDate = null } = {}) {
   const db = await database.connect();
   const repair = await db.collection(REPAIRS).findOne({ repairID });
   if (!repair) throw new Error('Lead not found.');
@@ -302,6 +302,10 @@ export async function convertLeadToRepair(repairID, { status = 'READY FOR WORK' 
     set.status = status;
     set.quotedTotal = repair.quote.total;
   }
+
+  // Quotes deliberately carry no promise date — nothing could be promised
+  // before the piece existed on the counter. This is where it gets set.
+  if (promiseDate) set.promiseDate = promiseDate;
 
   await db.collection(REPAIRS).updateOne({ repairID }, { $set: set });
   return { repairID, status: set.status, fromQuote: Boolean(submission) };

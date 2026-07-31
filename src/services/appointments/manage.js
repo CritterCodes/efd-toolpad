@@ -23,6 +23,7 @@
 
 import { db as database } from '@/lib/database';
 import { REPAIR_STATUS } from '@/services/repairWorkflow';
+import { convertLeadToRepair } from '@/services/repairs/leadQuote';
 import {
   APPOINTMENTS,
   DEFAULT_CONFIG,
@@ -224,11 +225,19 @@ export async function markArrived(appointmentID, { assignedTo = null } = {}) {
   const repair = await db.collection(REPAIRS).findOne({ repairID: appt.repairID });
   if (!repair) throw new Error('The repair for this booking no longer exists.');
 
+  // Same conversion the leads list uses, so an accepted estimate's tasks and
+  // totals land on the repair here too rather than only on the walk-in path.
+  // While-you-wait is same-day by definition, so today is the promise date.
+  const config = await loadAppointmentConfig(db);
+  await convertLeadToRepair(appt.repairID, {
+    status: REPAIR_STATUS.READY_FOR_WORK,
+    promiseDate: isoDateInZone(new Date(), config.timeZone),
+  });
+
   await db.collection(REPAIRS).updateOne(
     { repairID: appt.repairID },
     {
       $set: {
-        status: REPAIR_STATUS.READY_FOR_WORK,
         whileYouWait: true,
         ...(assignedTo ? { assignedTo } : {}),
         arrivedAt: new Date(),

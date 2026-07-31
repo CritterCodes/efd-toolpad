@@ -16,6 +16,10 @@ import {
     Checkbox,
     Slide,
     Paper,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
     IconButton,
     Tooltip,
 } from '@mui/material';
@@ -239,7 +243,7 @@ const LeadCard = ({ lead, onConvert, onQuote, converting, isSelected, onToggleSe
                         variant="outlined"
                         fullWidth
                         startIcon={converting === lead.repairID ? <CircularProgress size={12} sx={{ color: REPAIRS_UI.accent }} /> : <ConvertIcon />}
-                        onClick={() => onConvert(lead.repairID)}
+                        onClick={() => onConvert(lead)}
                         disabled={!!converting}
                         sx={{
                             color: REPAIRS_UI.accent,
@@ -275,6 +279,9 @@ export default function LeadsPage() {
     const [selected, setSelected] = useState(new Set());
     const [moveDialogOpen, setMoveDialogOpen] = useState(false);
     const [quoteLead, setQuoteLead] = useState(null);
+    // Drop-off is the first moment a promise date can honestly be given: the
+    // piece is on the counter and the queue is known. Quotes carry none.
+    const [dropoff, setDropoff] = useState(null);
 
     if (authStatus === 'loading') return null;
     if (!canAccessLeads(session)) {
@@ -328,7 +335,12 @@ export default function LeadsPage() {
         if (typeof fetchRepairs === 'function') fetchRepairs();
     };
 
-    const handleConvert = async (repairID) => {
+    const openDropoff = (lead) => {
+        const inAWeek = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+        setDropoff({ lead, promiseDate: inAWeek });
+    };
+
+    const handleConvert = async (repairID, promiseDate) => {
         setConverting(repairID);
         try {
             // The dedicated endpoint carries the accepted quote's tasks and
@@ -337,7 +349,7 @@ export default function LeadsPage() {
             const res = await fetch(`/api/repairs/${repairID}/dropoff`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({}),
+                body: JSON.stringify({ promiseDate }),
             });
             const json = await res.json();
             if (!json.success) throw new Error(json.error || 'Update failed');
@@ -352,6 +364,7 @@ export default function LeadsPage() {
             setSnackbar({ open: true, message: 'Could not convert that lead. Try again.' });
         } finally {
             setConverting(null);
+            setDropoff(null);
         }
     };
 
@@ -511,7 +524,7 @@ export default function LeadsPage() {
                         <Grid item xs={12} sm={6} md={4} lg={3} key={lead.repairID}>
                             <LeadCard
                                 lead={lead}
-                                onConvert={handleConvert}
+                                onConvert={openDropoff}
                                 onQuote={setQuoteLead}
                                 converting={converting}
                                 isSelected={selected.has(lead.repairID)}
@@ -575,6 +588,43 @@ export default function LeadsPage() {
                 repairIDs={Array.from(selected)}
                 onSuccess={handleMoveSuccess}
             />
+
+            <Dialog
+                open={Boolean(dropoff)}
+                onClose={() => !converting && setDropoff(null)}
+                PaperProps={{ sx: { backgroundColor: REPAIRS_UI.bgPanel, color: REPAIRS_UI.textPrimary, backgroundImage: 'none' } }}
+            >
+                <DialogTitle>Taking in {dropoff?.lead?.clientName || 'this piece'}</DialogTitle>
+                <DialogContent sx={{ minWidth: 340 }}>
+                    <Typography sx={{ color: REPAIRS_UI.textSecondary, fontSize: 14, mb: 2 }}>
+                        {dropoff?.lead?.quote?.status === 'accepted'
+                            ? `They accepted $${Number(dropoff.lead.quote.total || 0).toFixed(2)} — that work carries onto the repair.`
+                            : 'No accepted estimate on this lead, so it converts as-is.'}
+                    </Typography>
+                    <TextField
+                        fullWidth
+                        size="small"
+                        type="date"
+                        label="Promise date"
+                        InputLabelProps={{ shrink: true }}
+                        value={dropoff?.promiseDate || ''}
+                        onChange={(e) => setDropoff((d) => ({ ...d, promiseDate: e.target.value }))}
+                        sx={{ '& .MuiInputBase-root': { color: REPAIRS_UI.textPrimary } }}
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button disabled={Boolean(converting)} onClick={() => setDropoff(null)} sx={{ color: REPAIRS_UI.textSecondary }}>
+                        Back
+                    </Button>
+                    <Button
+                        disabled={Boolean(converting) || !dropoff?.promiseDate}
+                        onClick={() => handleConvert(dropoff.lead.repairID, dropoff.promiseDate)}
+                        sx={{ color: REPAIRS_UI.accent }}
+                    >
+                        {converting ? 'Working…' : 'Take it in'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             <QuoteDialog
                 open={Boolean(quoteLead)}
