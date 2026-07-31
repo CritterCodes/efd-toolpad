@@ -23,6 +23,7 @@ import RocketLaunchIcon from "@mui/icons-material/RocketLaunch";
 import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
 import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 import LeadsIcon from "@mui/icons-material/ChatBubbleOutline";
+import BenchDayIcon from "@mui/icons-material/EventAvailable";
 import LinkIcon from "@mui/icons-material/Link";
 import TravelExploreIcon from "@mui/icons-material/TravelExplore";
 import ArticleIcon from "@mui/icons-material/Article";
@@ -101,6 +102,11 @@ export const adminNavigation = {
       segment: 'dashboard/repairs/pick-up',
       title: 'Payment & Pickup',
       icon: <PickupIcon />
+    },
+    {
+      segment: 'dashboard/appointments',
+      title: 'Bench Day',
+      icon: <BenchDayIcon />
     },
     {
       segment: 'dashboard/repairs/leads',
