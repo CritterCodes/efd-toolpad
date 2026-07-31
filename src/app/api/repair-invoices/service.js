@@ -181,7 +181,9 @@ async function appendRepairsToInvoice(invoice, repairs, repairSnapshots, created
   return updatedInvoice;
 }
 
-async function ensureRepairsCanBatch(repairs) {
+// Exported for tests: this is the server-side gate on what may be billed, and the after-photo
+// requirement was removed from it (owner, 2026-07-31). Worth pinning so the removal can't creep back.
+export async function ensureRepairsCanBatch(repairs) {
   if (repairs.length === 0) throw new Error('At least one repair is required.');
 
   const baseContext = getRepairAccountContext(repairs[0]);
@@ -190,9 +192,9 @@ async function ensureRepairsCanBatch(repairs) {
     if (repair.status !== 'COMPLETED') {
       throw new Error(`Repair ${repair.repairID} must be COMPLETED before closeout batching.`);
     }
-    if (!Array.isArray(repair.afterPhotos) || repair.afterPhotos.length === 0) {
-      throw new Error(`Repair ${repair.repairID} requires at least one after photo before batching.`);
-    }
+    // After photos are NO LONGER REQUIRED to invoice (owner, 2026-07-31). They're still captured at
+    // closeout and still worth having — they just no longer block billing a finished repair, because a
+    // missing photo was stopping money from going out the door.
     if (repair.invoiceID) {
       throw new Error(`Repair ${repair.repairID} is already attached to invoice ${repair.invoiceID}.`);
     }

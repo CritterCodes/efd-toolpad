@@ -11,6 +11,7 @@ import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import PaymentIcon from '@mui/icons-material/Payment';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
+import ChecklistIcon from '@mui/icons-material/Checklist';
 import DesignServicesIcon from '@mui/icons-material/DesignServices';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import { SHARED_NAVIGATION } from './sharedNavigation';
@@ -74,7 +75,23 @@ function buildRepairOpsNavItems(caps = {}) {
     });
   }
 
-  if (caps.closeoutBilling === true) {
+  // QC lives on the Move surface (/dashboard/repairs/quality-control just redirects there). That page
+  // ALREADY admits onsite repair-ops by its own guard, but no artisan navigation item pointed at it, so
+  // it was a room with no door: capable staff could only reach QC by typing the URL. Entry is gated on
+  // repairOps to match the page guard; the individual destinations carry their own capability checks
+  // (benchWork to send INTO QC, qualityControl to complete OUT of it), so a repairOps-only user gets a
+  // working page with a correspondingly shorter status list rather than buttons that 403.
+  items.push({
+    segment: 'dashboard/repairs/move',
+    title: 'Move & QC',
+    icon: <ChecklistIcon />,
+  });
+
+  // Payment & Pickup: match the rule the page (canAccessCloseout) and the /api/repair-invoices/* action
+  // routes enforce — closeoutBilling OR qualityControl. Gating the LINK on closeoutBilling alone left
+  // anyone holding only qualityControl authorized by the API but unable to navigate there. (Reopen is
+  // the lone admin-only action on that page; the page hides it from non-admins.)
+  if (caps.closeoutBilling === true || caps.qualityControl === true) {
     items.push({
       segment: 'dashboard/repairs/pick-up',
       title: 'Payment & Pickup',

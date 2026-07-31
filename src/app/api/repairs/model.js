@@ -58,6 +58,53 @@ export default class RepairsModel {
     };
 
     /**
+     * Atomically claim a repair for auto-invoicing. Returns true only for the caller that won.
+     *
+     * Why this exists: the closeout route decides whether to raise an invoice by READING
+     * `invoiceID` and then writing it, which is not atomic. Two staff confirming the same repair
+     * from two devices could both read it empty and both call createRepairInvoice — the same repair
+     * billed twice, with one orphan draft invoice holding a priced snapshot of it. Since photos
+     * stopped gating invoicing (owner, 2026-07-31) EVERY confirm invoices, so every confirm is in
+     * that race rather than only the ones that happened to carry a photo.
+     *
+     * `closeoutStatus: 'batched'` is the claim token because it is what a successful invoice sets
+     * anyway, and it is already in the schema enum — so winning the claim never writes a state the
+     * repair wasn't about to reach. The filter demands BOTH an unbatched closeout and an empty
+     * invoiceID, so it is a true compare-and-swap: MongoDB applies the update to at most one caller.
+     *
+     * Callers MUST releaseAutoInvoiceClaim() if invoicing then fails, or the repair is left claiming
+     * to be batched with no invoice behind it and no way to retry.
+     */
+    static async claimForAutoInvoice(repairID) {
+        const dbInstance = await db.connect();
+        const result = await dbInstance.collection("repairs").updateOne(
+            {
+                repairID,
+                closeoutStatus: { $ne: 'batched' },
+                $or: [{ invoiceID: '' }, { invoiceID: null }, { invoiceID: { $exists: false } }],
+            },
+            { $set: { closeoutStatus: 'batched' } }
+        );
+        return result.modifiedCount === 1;
+    }
+
+    /**
+     * Undo claimForAutoInvoice when the invoice could not be created.
+     *
+     * The invoiceID condition only protects against releasing a repair whose invoiceID was already
+     * written — it CANNOT tell whether an invoice document exists, because createRepairInvoice inserts
+     * the invoice before it writes repair.invoiceID. Callers are responsible for checking the invoices
+     * collection first; the closeout route does this before calling here.
+     */
+    static async releaseAutoInvoiceClaim(repairID) {
+        const dbInstance = await db.connect();
+        await dbInstance.collection("repairs").updateOne(
+            { repairID, closeoutStatus: 'batched', $or: [{ invoiceID: '' }, { invoiceID: null }, { invoiceID: { $exists: false } }] },
+            { $set: { closeoutStatus: 'in_review' } }
+        );
+    }
+
+    /**
      * ✅ Update a repair by repairID and return the updated object
      */
     static async updateById(repairID, updateData) {

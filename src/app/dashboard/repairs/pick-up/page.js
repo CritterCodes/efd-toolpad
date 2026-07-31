@@ -462,7 +462,14 @@ function getRepairDisplayTotal(repair) {
   return subtotal + parseFloat(repair.taxAmount || 0) + parseFloat(repair.deliveryFee || 0);
 }
 
-function isReadyForInvoice(repair) {
+/**
+ * After photos NO LONGER GATE INVOICING (owner, 2026-07-31). This is now purely a display signal —
+ * staff still see at a glance whether a photo is on file, because they're still worth capturing, but a
+ * missing one no longer stops a finished repair from being billed. The server-side twin of this gate
+ * came out of ensureRepairsCanBatch in api/repair-invoices/service.js; both halves were needed, since
+ * this one alone kept the Create Invoice button refusing.
+ */
+function hasAfterPhoto(repair) {
   const afterPhotoCount = Array.isArray(repair.afterPhotos) ? repair.afterPhotos.length : 0;
   return afterPhotoCount > 0;
 }
@@ -495,7 +502,7 @@ function RepairCloseoutCard({
   const fileInputRef = useRef(null);
   const afterPhotoCount = Array.isArray(repair.afterPhotos) ? repair.afterPhotos.length : 0;
   const flaggedForReview = repair.requiresLaborReview === true;
-  const batchReady = isReadyForInvoice(repair);
+  const photoOnFile = hasAfterPhoto(repair);
 
   useEffect(() => {
     return () => {
@@ -549,7 +556,25 @@ function RepairCloseoutCard({
   };
 
   const handleConfirmCloseout = async () => {
-    if (!pendingPhoto || photoState.loading) return;
+    // NO precondition beyond not-already-saving. Confirm means "this repair is finished, bill it" —
+    // a photo and notes are both optional. (Requiring notes instead of a photo would just be the same
+    // block wearing a different hat, which is not what was asked for.)
+    if (photoState.loading) return;
+
+    // Confirming now ALWAYS raises the invoice, which moves the repair out of this queue — and the
+    // closeout route is the only writer of afterPhotos, so a photo can't be attached afterwards without
+    // pulling the repair back off the invoice first. The photo requirement used to make a mis-tap
+    // structurally impossible; with it gone, these cards sit one per grid tile next to "Edit Repair", so
+    // an explicit confirm takes its place. Same pattern as Grace Close below.
+    const withoutPhoto = !pendingPhoto && !hasAfterPhoto(repair);
+    const confirmed = window.confirm(
+      `Close out and invoice ${repair.repairID}?\n\n`
+      + `This bills the repair and moves it out of Payment & Pickup.`
+      + (withoutPhoto
+        ? `\n\nThere is no after photo. That's allowed — but to add one later you'd have to remove the repair from its invoice first.`
+        : '')
+    );
+    if (!confirmed) return;
     const saved = await onConfirmCloseout(repair.repairID, pendingPhoto, noteValue);
     if (saved) {
       clearPendingCloseoutPhoto(repair.repairID).catch((error) => {
@@ -614,7 +639,8 @@ function RepairCloseoutCard({
 
           {afterPhotoCount === 0 && (
             <Alert severity="info" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
-              Take an after photo, add any closeout notes, then confirm to move this repair to an invoice.
+              No after photo yet. One is still worth taking, but it&apos;s optional — confirm whenever
+              you&apos;re ready to move this repair to an invoice.
             </Alert>
           )}
 
@@ -696,16 +722,16 @@ function RepairCloseoutCard({
             </Button>
             <Button
               variant="contained"
-              disabled={!pendingPhoto || photoState.loading}
+              disabled={photoState.loading}
               onClick={handleConfirmCloseout}
               sx={{ backgroundColor: REPAIRS_UI.accent, color: "#111" }}
             >
               {photoState.loading ? "Saving..." : "Confirm / Move to Invoice"}
             </Button>
             <Chip
-              label={batchReady ? "Already invoice-ready" : pendingPhoto ? "Ready to confirm" : "Needs closeout work"}
-              color={batchReady ? "success" : "default"}
-              variant={batchReady ? "filled" : "outlined"}
+              label={photoOnFile ? "Photo on file" : pendingPhoto ? "Ready to confirm" : "No after photo"}
+              color={photoOnFile ? "success" : "default"}
+              variant={photoOnFile ? "filled" : "outlined"}
             />
           </Stack>
         </Stack>
@@ -1110,11 +1136,12 @@ export default function PaymentPickupPage() {
     () => closeoutRepairs.filter((repair) => selectedRepairIDs.includes(repair.repairID)),
     [closeoutRepairs, selectedRepairIDs]
   );
-  const selectedReadyRepairs = useMemo(
-    () => selectedRepairs.filter(isReadyForInvoice),
+  // Informational only — how many selected repairs lack an after photo. Previously this drove a hard
+  // refusal in handleCreateInvoice; it now just surfaces a reminder banner.
+  const selectedMissingPhotoCount = useMemo(
+    () => selectedRepairs.filter((repair) => !hasAfterPhoto(repair)).length,
     [selectedRepairs]
   );
-  const hasSelectedNotReadyForInvoice = selectedRepairs.length > selectedReadyRepairs.length;
   const scannedRepair = useMemo(
     () => closeoutRepairs.find((r) => r.repairID === scannedRepairID) || null,
     [closeoutRepairs, scannedRepairID]
@@ -1241,7 +1268,9 @@ export default function PaymentPickupPage() {
     try {
       setSavingPhotoRepairID(repairID);
       const formData = new FormData();
-      formData.append("afterPhotos", photoFile);
+      // Photo is optional now — appending a null would post the string "null" as a file part, which the
+      // closeout route would try to upload. Only send the part when there's an actual file.
+      if (photoFile) formData.append("afterPhotos", photoFile);
       formData.append("closeoutNotes", noteValue || "");
 
       const response = await fetch(`/api/repairs/${repairID}/closeout`, {
@@ -1253,17 +1282,22 @@ export default function PaymentPickupPage() {
         throw new Error(data.error || "Failed to save closeout.");
       }
 
+      // Say what actually happened. A photo is optional now, so these strings can no longer claim one was
+      // saved — and since auto-invoice fires on every confirm, the invoice branch is the NORMAL path here,
+      // not the exception.
+      const savedWhat = photoFile ? "Closed out with photo" : "Closed out";
+
       if (data.autoInvoiceError) {
         setCloseoutRepairs((prev) => prev.map((repair) => (repair.repairID === repairID ? data : repair)));
-        showMessage(`Saved photos for ${repairID}, but invoice was not created: ${data.autoInvoiceError}`, "warning");
+        showMessage(`${savedWhat} ${repairID}, but invoice was not created: ${data.autoInvoiceError}`, "warning");
         return true;
       }
 
       await loadData();
       showMessage(
         data.autoInvoice?.invoiceID
-          ? `Saved photos and added ${repairID} to invoice ${data.autoInvoice.invoiceID}.`
-          : `Saved closeout data for ${repairID}.`,
+          ? `${savedWhat} — ${repairID} added to invoice ${data.autoInvoice.invoiceID}.`
+          : `${savedWhat} ${repairID}.`,
         "success"
       );
       setSessionValue(CLOSEOUT_ACTIVE_REPAIR_KEY, "");
@@ -1283,10 +1317,25 @@ export default function PaymentPickupPage() {
         showMessage("Select at least one completed repair to batch.", "warning");
         return;
       }
-      if (hasSelectedNotReadyForInvoice) {
-        showMessage("Only repairs with after photos and no pending labor review can be batched into an invoice.", "warning");
-        return;
-      }
+      // The after-photo precondition was removed here (owner, 2026-07-31): a missing photo was stopping
+      // finished work from being billed. Nothing else was ever enforced at this point — the old warning
+      // also claimed to check labor review, but requiresLaborReview is not a batching blocker anywhere.
+      //
+      // That warning was also the only thing standing between a stray tap and a batch of bills. Grace
+      // Close beside it confirms; this bills real money for N repairs and now does too. Same one-way door
+      // as the per-card confirm: invoiced repairs leave this queue and their after photos become
+      // unwritable without pulling them back off the invoice.
+      const count = selectedRepairIDs.length;
+      const missingPhotos = selectedMissingPhotoCount;
+      const confirmed = window.confirm(
+        `Create an invoice batch for ${count} repair${count !== 1 ? "s" : ""}?\n\n`
+        + `This bills them and moves them out of Payment & Pickup.`
+        + (missingPhotos > 0
+          ? `\n\n${missingPhotos} of them ${missingPhotos !== 1 ? "have" : "has"} no after photo. That's allowed — but to add one later you'd have to remove that repair from its invoice first.`
+          : '')
+      );
+      if (!confirmed) return;
+
       setSubmittingInvoice(true);
       const response = await fetch("/api/repair-invoices", {
         method: "POST",
@@ -1383,6 +1432,13 @@ export default function PaymentPickupPage() {
       showMessage(error.message, "error");
     }
   };
+
+  // Reopen is the ONE action on this page whose route requires role admin —
+  // api/repair-invoices/[invoiceID]/reopen uses requireRole(['admin']), while every other action here
+  // uses requireRepairOpsAny(['qualityControl','closeoutBilling']). Non-admins must not be offered it;
+  // the card renders the block behind `onReopen &&`, so withholding the prop hides it rather than
+  // handing onsite staff a button that 403s.
+  const canReopenInvoices = session?.user?.role === "admin";
 
   const handleReopenInvoice = async (invoiceID) => {
     try {
@@ -1804,9 +1860,9 @@ export default function PaymentPickupPage() {
                     {legacyClosing ? "Closing..." : `Grace Close Selected (${selectedRepairIDs.length})`}
                   </Button>
                 </Stack>
-                {hasSelectedNotReadyForInvoice && (
+                {selectedMissingPhotoCount > 0 && (
                   <Alert severity="info" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
-                    {selectedReadyRepairs.length} selected repair{selectedReadyRepairs.length !== 1 ? "s are" : " is"} invoice-ready. Non-ready selections can still be grace closed.
+                    {selectedMissingPhotoCount} selected repair{selectedMissingPhotoCount !== 1 ? "s have" : " has"} no after photo. They can still be invoiced — this is a reminder, not a block.
                   </Alert>
                 )}
               </Stack>
@@ -1937,7 +1993,7 @@ export default function PaymentPickupPage() {
                 onSplitInvoice={handleSplitInvoice}
                 onMergeInvoice={handleMergeInvoice}
                 onRemoveRepairs={handleRemoveRepairsFromInvoice}
-                onReopen={handleReopenInvoice}
+                onReopen={canReopenInvoices ? handleReopenInvoice : undefined}
               />
             ))
           )}

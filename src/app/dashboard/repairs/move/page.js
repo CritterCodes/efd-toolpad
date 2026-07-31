@@ -24,6 +24,21 @@ import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import ContinuousBarcodeScanner from '@/components/repairs/ContinuousBarcodeScanner';
 import { BENCH_QUEUE, QC_COMPLETION_STATUSES, REPAIR_STATUS, normalizeRepairWorkflow } from '@/services/repairWorkflow';
 
+/**
+ * Destinations on this page whose ROUTE demands a capability beyond the repairOps needed to open the
+ * page. Offering one to someone who lacks it produced a 403 on Move rather than a hidden option:
+ *   QC            → /api/repairs/[repairID]/move-to-qc  requires 'benchWork'
+ *   PARTS ORDERED → /api/repairs/move                   requires 'parts'
+ *
+ * This map is the ONLY thing consulted (via canUseStatus), so adding an entry here is sufficient — and
+ * required. Anything given a capability check on its route and left out of this map silently becomes the
+ * next 403.
+ */
+const CAPABILITY_GATED_STATUSES = {
+    [REPAIR_STATUS.QC]: 'benchWork',
+    [REPAIR_STATUS.PARTS_ORDERED]: 'parts',
+};
+
 const MoveRepairsPage = () => {
     const { data: session, status: authStatus } = useSession();
     const { repairs, setRepairs } = useRepairs();
@@ -69,15 +84,28 @@ const MoveRepairsPage = () => {
         && session?.user?.staffCapabilities?.repairOps === true;
     const hasSelectedRepairs = selectedRepairs.length > 0;
     const allSelectedInQc = hasSelectedRepairs && selectedRepairs.every((repair) => repair.benchQueue === BENCH_QUEUE.QC);
-    const canCompleteFromQc = isAdmin || session?.user?.staffCapabilities?.qualityControl === true;
+    // Mirror of the server's hasStaffCapability (lib/apiAuth.js): admin/dev bypass, otherwise the
+    // capability must be held. Used for EVERY capability decision on this page so two role rules can't
+    // disagree three lines apart.
+    const hasCapability = (capability) => ['admin', 'dev'].includes(session?.user?.role)
+        || session?.user?.staffCapabilities?.[capability] === true;
+    const canCompleteFromQc = hasCapability('qualityControl');
+    const canUseStatus = (status) => {
+        const required = CAPABILITY_GATED_STATUSES[status];
+        return !required || hasCapability(required);
+    };
     const availableStatuses = React.useMemo(() => {
-        const genericStatusOptions = REPAIR_STATUSES.filter((status) => ![REPAIR_STATUS.QC, REPAIR_STATUS.COMPLETED].includes(status));
+        const genericStatusOptions = REPAIR_STATUSES
+            .filter((status) => ![REPAIR_STATUS.QC, REPAIR_STATUS.COMPLETED].includes(status))
+            .filter(canUseStatus);
         return allSelectedInQc
             ? (canCompleteFromQc
                 ? QC_COMPLETION_STATUSES
                 : [])
-            : [...genericStatusOptions, REPAIR_STATUS.QC];
-    }, [allSelectedInQc, canCompleteFromQc]);
+            : (canUseStatus(REPAIR_STATUS.QC) ? [...genericStatusOptions, REPAIR_STATUS.QC] : genericStatusOptions);
+        // canUseStatus is derived from the session; recompute when the capability answers change.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [allSelectedInQc, canCompleteFromQc, session?.user?.role, session?.user?.staffCapabilities]);
 
     useEffect(() => {
         if (location && !availableStatuses.includes(location)) {
