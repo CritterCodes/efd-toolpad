@@ -531,7 +531,7 @@ export async function rejectCadQc({ session, workOrderID, notes = '' }) {
 }
 
 /** Approve a piece work order out of QC — release held labor, finalize, re-roll COGS. */
-export async function completePieceWorkOrderFromQc({ workOrderID }) {
+export async function completePieceWorkOrderFromQc({ workOrderID, completedBy = null }) {
   const wo = await loadPieceWorkOrder(workOrderID);
   await RepairLaborLogsModel.releasePendingQc(workOrderID); // QC passed → labor now payable
   const workOrder = await WorkOrdersModel.updateByID(workOrderID, {
@@ -539,6 +539,14 @@ export async function completePieceWorkOrderFromQc({ workOrderID }) {
     qcDate: new Date(),
   });
   const piece = await PiecesModel.recomputeCosts(wo.sourceID);
+
+  // QC PASS BILLS THE OWNING ARTISAN — EFD's infrastructure fee (§4c). Until this call existed,
+  // `billWorkOrder` had zero callers: labor became payroll-payable here and nobody was ever charged
+  // for it. Ordered AFTER the status write and never throwing, because QC pass is itself a committed
+  // money event (labor is now credited) — a billing failure must not undo it. Solo work, EFD-owned
+  // pieces, and staff-owned pieces all correctly bill nothing; see workOrderBilling.
+  const { billCompletedWorkOrder } = await import('@/services/production/workOrderBilling');
+  const billing = await billCompletedWorkOrder({ workOrderID, createdBy: completedBy });
 
   // W3: piece work order passed QC → held labor is now payable. Notify the assigned artisan.
   try {
@@ -557,7 +565,7 @@ export async function completePieceWorkOrderFromQc({ workOrderID }) {
     console.error('[bench] wo-completed notify failed:', e?.message || e);
   }
 
-  return { workOrder, piece };
+  return { workOrder, piece, billing };
 }
 
 export { DISCIPLINE };

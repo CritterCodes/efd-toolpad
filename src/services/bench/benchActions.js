@@ -214,7 +214,8 @@ async function runPieceAction({ session, workOrderID, action, body }) {
     case 'move-to-qc':
       return movePieceToQc({ session, workOrderID });
     case 'complete-from-qc':
-      return completePieceWorkOrderFromQc({ session, workOrderID });
+      // completedBy attributes the invoice this raises to whoever passed QC.
+      return completePieceWorkOrderFromQc({ session, workOrderID, completedBy: session?.user?.userID ?? null });
     case 'cad-submit-qc':
       return submitCadGlbToQc({ session, workOrderID });
     case 'split-task':
