@@ -43,3 +43,32 @@ export function deriveFinish(viewerConfig) {
   const metal = slots.find((s) => s.type === 'metal' && s.finish);
   return metal?.finish || 'gold';
 }
+
+/** Distinct metal finishes across a config's meshMap slots, in first-seen order. PURE. */
+export function metalFinishes(viewerConfig) {
+  const slots = viewerConfig?.meshMap || [];
+  const found = slots.filter((s) => s?.type === 'metal' && s?.finish).map((s) => s.finish);
+  return [...new Set(found)];
+}
+
+/**
+ * Is this config TWO-TONE — more than one distinct metal finish across its meshes? PURE.
+ *
+ * WHY THIS GUARD EXISTS. `deriveFinish` above takes the FIRST metal slot and the pricing path
+ * (designCost.estimateMetalCost) applies that single metal to the design's ENTIRE stl volume. That is
+ * correct for a design offered in several metal OPTIONS — each variant is wholly one metal, and the
+ * Pricing tab prices the full volume once per distinct `variant.metalKey`. It is wrong for a single
+ * piece made of two metals: a yellow band with a white head is priced as 100% of whichever finish
+ * happens to be listed first, silently under- or over-charging depending on which is cheaper.
+ *
+ * Pricing two-tone properly needs volume attributed PER MESH, which we don't capture — only a total
+ * `stlVolumeCm3`. So this deliberately does NOT try to price it; it exists so the case cannot pass
+ * unnoticed. Two slots sharing one finish is still single-metal and prices fine, which is why this
+ * counts DISTINCT finishes rather than slots.
+ *
+ * As of 2026-07-31 no design in production has a meshMap at all, so this is a latent case, not a
+ * live mispricing.
+ */
+export function isTwoTone(viewerConfig) {
+  return metalFinishes(viewerConfig).length > 1;
+}
