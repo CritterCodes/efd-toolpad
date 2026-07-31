@@ -21,7 +21,7 @@ import Tab from '@mui/material/Tab';
 
 import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
 import { getSTLVolume } from '@/lib/stlParser';
-import { KARAT_OPTIONS, finishUsesKarat, finishLabel, composeMetalKey } from '@/services/production/variantMetal';
+import { KARAT_OPTIONS, finishUsesKarat, finishLabel, composeMetalKey, isTwoTone, metalFinishes } from '@/services/production/variantMetal';
 import { gemBuildableForRows } from '@/services/production/gemDesignMatch';
 import { slotMatchesLink, allowedSpeciesForLink } from '@/services/production/gemLinks';
 import GemLinksPanel from './GemLinksPanel';
@@ -1440,6 +1440,12 @@ function PricingTab({ pricing, variants, category, stlVolumeCm3, defaultMarkup, 
   // Gem pricing is carat × rate (no metal/mounting) — skip the live metal-cost fetches entirely.
   const metalsKey = isGem ? '' : [...new Set(variants.map((v) => v.metalKey).filter(Boolean))].sort().join(',');
 
+  // TWO-TONE GUARD. Mounting cost = the full stl volume × ONE metal (the variant's metalKey, derived
+  // from the FIRST metal slot). A variant whose config mixes finishes is therefore priced as if it
+  // were entirely the first one. Pricing it correctly needs per-mesh volume, which we don't capture —
+  // so warn rather than silently produce a wrong number. See variantMetal.isTwoTone.
+  const twoToneVariants = isGem ? [] : variants.filter((v) => isTwoTone(v.viewerConfig));
+
   // Pull current costs for the auto-labor tasks (casting cleanup + carat-band settings).
   useEffect(() => {
     let cancelled = false;
@@ -1491,6 +1497,14 @@ function PricingTab({ pricing, variants, category, stlVolumeCm3, defaultMarkup, 
     <Stack direction={{ xs: 'column', md: 'row' }} spacing={{ xs: 0, md: 3 }} alignItems="flex-start">
       {/* Shared recipe */}
       <Box sx={{ flex: 1, minWidth: 0, width: '100%' }}>
+        {twoToneVariants.length > 0 && (
+          <Alert severity="warning" sx={{ mb: 2, backgroundColor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }}>
+            <strong>Two-tone mounting isn’t priced yet.</strong> {twoToneVariants.length === 1 ? 'One variant mixes' : `${twoToneVariants.length} variants mix`} metal finishes
+            ({twoToneVariants.map((v) => metalFinishes(v.viewerConfig).map(finishLabel).join(' + ')).join('; ')}),
+            but mounting cost is the full volume × a single metal — the first finish in the config. Treat the
+            mounting figure below as an estimate for that one metal and set the price manually.
+          </Alert>
+        )}
         <Paper sx={panelSx}>
           <PanelTitle>Shared costs</PanelTitle>
           <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 2 }}>
