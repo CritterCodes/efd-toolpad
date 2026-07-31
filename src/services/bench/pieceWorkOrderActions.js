@@ -545,8 +545,22 @@ export async function completePieceWorkOrderFromQc({ workOrderID, completedBy = 
   // for it. Ordered AFTER the status write and never throwing, because QC pass is itself a committed
   // money event (labor is now credited) — a billing failure must not undo it. Solo work, EFD-owned
   // pieces, and staff-owned pieces all correctly bill nothing; see workOrderBilling.
-  const { billCompletedWorkOrder } = await import('@/services/production/workOrderBilling');
-  const billing = await billCompletedWorkOrder({ workOrderID, createdBy: completedBy });
+  // DELIBERATELY NOT ENABLED YET. `billCompletedWorkOrder` is written, tested and mutation-proven, but
+  // a `work_order` invoice currently has NO path to `paid` or `void`: markPaid/markVoid are both
+  // hard-keyed to `casting_batch` (castingSettlement) and there is no artisanInvoices route or admin
+  // UI. So every invoice raised here would go overdue at +14 days and freeze the artisan out of
+  // mintRun / requestDesignCad / casting-create, with nothing in-product to clear it. That is the
+  // invariant this repo states in its own words (castingSettlement.js): "every exit from an invoiced
+  // state must resolve the invoice... Getting this wrong is worse than never billing at all." Casting
+  // ships all three sides (bill on receive, settle on pay, void on cancel); this would ship one.
+  //
+  // TO ENABLE: build the invoice resolution surface (mark-paid/void route + admin view — U-BILL-2's
+  // foundation), restore the two lines below, and ALSO call it from `approveCadQc`, which likewise
+  // completes a piece WO with billable EFD-paid labor (cad_design_fee + cad_qc_review) and bills
+  // nothing — otherwise whether an artisan is charged depends on which button staff clicks.
+  //   const { billCompletedWorkOrder } = await import('@/services/production/workOrderBilling');
+  //   const billing = await billCompletedWorkOrder({ workOrderID, createdBy: completedBy });
+  const billing = { billed: false, reason: 'work-order billing is not enabled yet' };
 
   // W3: piece work order passed QC → held labor is now payable. Notify the assigned artisan.
   try {

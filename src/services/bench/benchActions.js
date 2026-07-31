@@ -12,6 +12,7 @@
  * sub-capability), enforced here so the one bench endpoint stays consistent.
  */
 import { db } from '@/lib/database';
+import { STAFF_ROLES } from '@/lib/designPermissions';
 import WorkOrdersModel, { WORK_ORDER_SOURCE } from '@/app/api/workOrders/model';
 import RepairsModel from '@/app/api/repairs/model';
 import { moveRepairToQc } from '@/app/api/repairs/[repairID]/send-to-qc/route';
@@ -207,7 +208,32 @@ async function runRepairAction({ session, repairID, action, body }) {
 }
 
 /* ------------------------------ piece actions ---------------------------- */
+
+/**
+ * Piece/CAD bench work is for ARTISANS and STAFF. The route is `requireAuth()` only and this branch
+ * previously authorized NOTHING, so any authenticated session — a `client`, a `wholesaler` customer —
+ * could drive another artisan's work order. That was already wrong when these actions only flipped a
+ * status; it became materially worse once `complete-from-qc` started raising a real invoice, which
+ * turns it into a way to mint a receivable against someone else and freeze them.
+ *
+ * Deliberately role-level and no finer:
+ *  - NOT `assertRepairOps` — that demands `employment.isOnsite`, and piece/CAD work is legitimately
+ *    remote (an offsite CAD designer must be able to submit and claim).
+ *  - NOT staff-only — PEER QC is intended (an artisan attests that another followed EFD standards),
+ *    so artisans must be able to run the QC actions.
+ * Finer rules that are POLICY, not security, and deliberately left to the owner: whether QC must be a
+ * different person than the worker, and whether `qualityControl` capability should gate it.
+ */
+function assertPieceWork(session) {
+  // STAFF_ROLES, not the local isAdminRole — that one is ['admin','dev'] only and would lock `staff`
+  // out of piece work they legitimately do.
+  const role = session?.user?.role;
+  if (STAFF_ROLES.includes(role) || role === 'artisan') return;
+  throw err('Access denied. Piece and CAD work orders are for artisans and staff.', 'FORBIDDEN');
+}
+
 async function runPieceAction({ session, workOrderID, action, body }) {
+  assertPieceWork(session);
   switch (action) {
     case 'claim':
       return claimPieceWorkOrder({ session, workOrderID });
