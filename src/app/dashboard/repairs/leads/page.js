@@ -16,6 +16,10 @@ import {
     Checkbox,
     Slide,
     Paper,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
     IconButton,
     Tooltip,
 } from '@mui/material';
@@ -25,6 +29,7 @@ import {
     Email as EmailIcon,
     ChatBubble as ChatIcon,
     MoveUp as ConvertIcon,
+    RequestQuote as QuoteIcon,
     SmartToy as BotIcon,
     Inventory2 as InventoryIcon,
     Today as TodayIcon,
@@ -40,6 +45,8 @@ import { useSession } from 'next-auth/react';
 import { useRepairs } from '@/app/context/repairs.context';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import BulkMoveDialog from '@/components/repairs/BulkMoveDialog';
+import QuoteDialog from './QuoteDialog';
+import { canAccessLeads } from '@/lib/repairAccess';
 
 const formatDate = (d) => {
     if (!d) return 'Unknown';
@@ -48,7 +55,7 @@ const formatDate = (d) => {
 
 const isEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || ''));
 
-const LeadCard = ({ lead, onConvert, converting, isSelected, onToggleSelect }) => {
+const LeadCard = ({ lead, onConvert, onQuote, converting, isSelected, onToggleSelect }) => {
     const contact = lead.leadContact || lead.notes?.replace('Contact: ', '') || '';
     const contactIsEmail = isEmail(contact);
 
@@ -195,7 +202,32 @@ const LeadCard = ({ lead, onConvert, converting, isSelected, onToggleSelect }) =
                     )}
                 </Box>
 
+                {lead.quote?.status && lead.quote.status !== 'draft' && (
+                    <Chip
+                        size="small"
+                        label={lead.quote.status === 'sent'
+                            ? `Quoted $${Number(lead.quote.total || 0).toFixed(0)} · awaiting reply`
+                            : `Estimate ${lead.quote.status}`}
+                        sx={{
+                            mb: 1, height: 22, fontSize: 11,
+                            backgroundColor: 'transparent', border: '1px solid',
+                            borderColor: lead.quote.status === 'declined' ? '#B4736A' : REPAIRS_UI.accent,
+                            color: lead.quote.status === 'declined' ? '#B4736A' : REPAIRS_UI.accent,
+                        }}
+                    />
+                )}
+
                 <Stack direction="row" spacing={1}>
+                    <Button
+                        size="small"
+                        variant="outlined"
+                        fullWidth
+                        startIcon={<QuoteIcon sx={{ fontSize: 14 }} />}
+                        onClick={(e) => { e.stopPropagation(); onQuote(lead); }}
+                        sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border, backgroundColor: REPAIRS_UI.bgCard }}
+                    >
+                        {lead.quote ? 'Estimate' : 'Quote'}
+                    </Button>
                     <Button
                         size="small"
                         variant="outlined"
@@ -211,7 +243,7 @@ const LeadCard = ({ lead, onConvert, converting, isSelected, onToggleSelect }) =
                         variant="outlined"
                         fullWidth
                         startIcon={converting === lead.repairID ? <CircularProgress size={12} sx={{ color: REPAIRS_UI.accent }} /> : <ConvertIcon />}
-                        onClick={() => onConvert(lead.repairID)}
+                        onClick={() => onConvert(lead)}
                         disabled={!!converting}
                         sx={{
                             color: REPAIRS_UI.accent,
@@ -220,7 +252,7 @@ const LeadCard = ({ lead, onConvert, converting, isSelected, onToggleSelect }) =
                             '&:hover': { backgroundColor: REPAIRS_UI.bgTertiary }
                         }}
                     >
-                        {converting === lead.repairID ? 'Converting...' : 'Accept'}
+                        {converting === lead.repairID ? 'Converting…' : 'Dropped off'}
                     </Button>
                 </Stack>
             </Box>
@@ -246,9 +278,13 @@ export default function LeadsPage() {
     const [snackbar, setSnackbar] = useState({ open: false, message: '' });
     const [selected, setSelected] = useState(new Set());
     const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+    const [quoteLead, setQuoteLead] = useState(null);
+    // Drop-off is the first moment a promise date can honestly be given: the
+    // piece is on the counter and the queue is known. Quotes carry none.
+    const [dropoff, setDropoff] = useState(null);
 
     if (authStatus === 'loading') return null;
-    if (!session?.user || session.user.role !== 'admin') {
+    if (!canAccessLeads(session)) {
         router.push('/dashboard');
         return null;
     }
@@ -283,21 +319,52 @@ export default function LeadsPage() {
     };
     const allFilteredSelected = filteredLeads.length > 0 && filteredLeads.every((r) => selected.has(r.repairID));
 
-    const handleConvert = async (repairID) => {
+    // Sending is best-effort on the mail side, so say plainly when the customer
+    // was not actually emailed — otherwise staff assume the quote is with them.
+    const handleQuoteSaved = (action, json) => {
+        if (action === 'save') {
+            setSnackbar({ open: true, message: 'Estimate saved as a draft.' });
+        } else if (json?.notified?.sent) {
+            setSnackbar({ open: true, message: 'Estimate emailed to the customer.' });
+        } else {
+            setSnackbar({
+                open: true,
+                message: `Estimate saved, but the email did NOT go (${json?.notified?.reason || 'unknown'}). Call them.`,
+            });
+        }
+        if (typeof fetchRepairs === 'function') fetchRepairs();
+    };
+
+    const openDropoff = (lead) => {
+        const inAWeek = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+        setDropoff({ lead, promiseDate: inAWeek });
+    };
+
+    const handleConvert = async (repairID, promiseDate) => {
         setConverting(repairID);
         try {
-            const res = await fetch(`/api/repairs?repairID=${repairID}`, {
-                method: 'PUT',
+            // The dedicated endpoint carries the accepted quote's tasks and
+            // totals onto the repair, so the bench works to the figure the
+            // customer agreed to rather than an empty shell.
+            const res = await fetch(`/api/repairs/${repairID}/dropoff`, {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: 'READY FOR WORK' }),
+                body: JSON.stringify({ promiseDate }),
             });
-            if (!res.ok) throw new Error('Update failed');
+            const json = await res.json();
+            if (!json.success) throw new Error(json.error || 'Update failed');
             updateRepair(repairID, { status: 'READY FOR WORK' });
-            setSnackbar({ open: true, message: 'Lead converted to Ready for Work' });
+            setSnackbar({
+                open: true,
+                message: json.fromQuote
+                    ? 'Dropped off — the quoted work is on the repair.'
+                    : 'Dropped off — now on the bench list.',
+            });
         } catch {
-            setSnackbar({ open: true, message: 'Failed to convert lead. Try again.' });
+            setSnackbar({ open: true, message: 'Could not convert that lead. Try again.' });
         } finally {
             setConverting(null);
+            setDropoff(null);
         }
     };
 
@@ -457,7 +524,8 @@ export default function LeadsPage() {
                         <Grid item xs={12} sm={6} md={4} lg={3} key={lead.repairID}>
                             <LeadCard
                                 lead={lead}
-                                onConvert={handleConvert}
+                                onConvert={openDropoff}
+                                onQuote={setQuoteLead}
                                 converting={converting}
                                 isSelected={selected.has(lead.repairID)}
                                 onToggleSelect={toggleSelect}
@@ -521,9 +589,53 @@ export default function LeadsPage() {
                 onSuccess={handleMoveSuccess}
             />
 
+            <Dialog
+                open={Boolean(dropoff)}
+                onClose={() => !converting && setDropoff(null)}
+                PaperProps={{ sx: { backgroundColor: REPAIRS_UI.bgPanel, color: REPAIRS_UI.textPrimary, backgroundImage: 'none' } }}
+            >
+                <DialogTitle>Taking in {dropoff?.lead?.clientName || 'this piece'}</DialogTitle>
+                <DialogContent sx={{ minWidth: 340 }}>
+                    <Typography sx={{ color: REPAIRS_UI.textSecondary, fontSize: 14, mb: 2 }}>
+                        {dropoff?.lead?.quote?.status === 'accepted'
+                            ? `They accepted $${Number(dropoff.lead.quote.total || 0).toFixed(2)} — that work carries onto the repair.`
+                            : 'No accepted estimate on this lead, so it converts as-is.'}
+                    </Typography>
+                    <TextField
+                        fullWidth
+                        size="small"
+                        type="date"
+                        label="Promise date"
+                        InputLabelProps={{ shrink: true }}
+                        value={dropoff?.promiseDate || ''}
+                        onChange={(e) => setDropoff((d) => ({ ...d, promiseDate: e.target.value }))}
+                        sx={{ '& .MuiInputBase-root': { color: REPAIRS_UI.textPrimary } }}
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button disabled={Boolean(converting)} onClick={() => setDropoff(null)} sx={{ color: REPAIRS_UI.textSecondary }}>
+                        Back
+                    </Button>
+                    <Button
+                        disabled={Boolean(converting) || !dropoff?.promiseDate}
+                        onClick={() => handleConvert(dropoff.lead.repairID, dropoff.promiseDate)}
+                        sx={{ color: REPAIRS_UI.accent }}
+                    >
+                        {converting ? 'Working…' : 'Take it in'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <QuoteDialog
+                open={Boolean(quoteLead)}
+                lead={quoteLead}
+                onClose={() => setQuoteLead(null)}
+                onSaved={handleQuoteSaved}
+            />
+
             <Snackbar
                 open={snackbar.open}
-                autoHideDuration={3500}
+                autoHideDuration={7000}
                 onClose={() => setSnackbar({ open: false, message: '' })}
                 message={snackbar.message}
             />
