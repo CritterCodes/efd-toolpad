@@ -11,6 +11,7 @@ import {
 import { REPAIR_STATUS } from "@/services/repairWorkflow";
 import { resolveBillingMode } from "@/services/billing/modes";
 import { NotificationService, notifyAllAdmins } from "@/lib/notificationService";
+import { blockSlotForWalkIn } from "@/services/appointments/benchSlots";
 import { adminBase } from '@/lib/appUrls';
 
 async function createWhileYouWaitLaborLog(repair, session) {
@@ -189,6 +190,24 @@ export const POST = async (request) => {
       await createWhileYouWaitLaborLog(newRepair, session);
     } catch (laborError) {
       console.error("while-you-wait labor log failed (non-fatal):", laborError.message);
+    }
+
+    // A walk-in occupies the bench but books nothing, so efd-shop's /repair/wait
+    // would keep selling this hour and send someone to a busy jeweler. Hold the
+    // slot so web availability stays honest. Same guarantee as the labor log:
+    // never let calendar bookkeeping undo a repair that already exists.
+    let benchSlot = null;
+    try {
+      benchSlot = await blockSlotForWalkIn(newRepair);
+      if (benchSlot?.conflict) {
+        // Someone already holds this hour — likely a web booking about to walk
+        // through the door. Worth seeing at the counter, not just in logs.
+        console.warn(
+          `bench slot already held while creating ${newRepair.repairID} — check for a web booking arriving now`
+        );
+      }
+    } catch (slotError) {
+      console.error("walk-in bench block failed (non-fatal):", slotError.message);
     }
 
     // R1 — repair lead received: customer ack (best-effort) + admin alert. FIRE-AND-FORGET:
