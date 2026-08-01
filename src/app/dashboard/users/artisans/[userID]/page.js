@@ -144,7 +144,39 @@ const ViewArtisanPage = ({ params }) => {
                 throw new Error('Failed to update artisan');
             }
 
-            setSnackbarMessage("✅ Artisan saved successfully!");
+            // staffCapabilities is a PRIVILEGED field: the generic PUT above strips it
+            // (users/model.js stripPrivilegeFields), so capability switches used to save silently as
+            // no-ops — 200, "saved", then the refetch snapped every switch back. Granting capabilities
+            // goes through its own admin-only route.
+            //
+            // Only when they actually CHANGED. `updatedArtisan` is seeded with the whole fetched record,
+            // so `updatedArtisan.staffCapabilities` is present for any artisan who has the field at all
+            // (and `{}` is truthy) — testing presence would re-write capabilities on every unrelated
+            // edit, e.g. changing a phone number.
+            const capabilitiesChanged = JSON.stringify(updatedArtisan?.staffCapabilities ?? null)
+                !== JSON.stringify(artisan?.staffCapabilities ?? null);
+            let capabilitiesApplyOnNextLogin = false;
+
+            if (capabilitiesChanged) {
+                const capsResponse = await fetch(`/api/users/${userID}/staff-capabilities`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ staffCapabilities: updatedArtisan.staffCapabilities || {} })
+                });
+                if (!capsResponse.ok) {
+                    const capsError = await capsResponse.json().catch(() => ({}));
+                    // Loud, not silent: the rest of the profile saved, the capabilities did not.
+                    throw new Error(capsError.error || 'Profile saved, but capabilities did not.');
+                }
+                const capsBody = await capsResponse.json().catch(() => ({}));
+                capabilitiesApplyOnNextLogin = capsBody?.appliesOnNextLogin === true;
+            }
+
+            // The session bakes capabilities at login, so say so rather than implying it took effect —
+            // otherwise an admin grants QC, tells the jeweler, and neither can work out why it's absent.
+            setSnackbarMessage(capabilitiesApplyOnNextLogin
+                ? "✅ Artisan saved. Capability changes take effect at their next sign-in."
+                : "✅ Artisan saved successfully!");
             setSnackbarSeverity('success');
             setSnackbarOpen(true);
             setHasChanges(false);

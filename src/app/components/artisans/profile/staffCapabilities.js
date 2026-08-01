@@ -37,12 +37,34 @@ export default function ArtisanStaffCapabilities({ artisan, onFieldChange }) {
     onFieldChange('compensationProfile', { ...compensationProfile, [field]: value });
   };
 
+  /**
+   * Turning someone off-site does NOT erase their capabilities.
+   *
+   * It used to blank staffCapabilities to {}. That looked like a safety measure but bought nothing:
+   * EVERY gate in the app requires `employment.isOnsite === true` AND the capability — the API guards
+   * (lib/repairAccess.js isOnsiteRepairOps, consumed by apiAuth's requireRepairOps* and
+   * benchActions.assertRepairOps), the artisan navigation, and every /dashboard/repairs page guard.
+   * So a stored capability is already inert while off-site; clearing it only destroyed the record of
+   * what this person is trusted to do.
+   *
+   * What it cost: the capability switches are hidden while off-site, so flipping this toggle off and
+   * back on — even by accident — left all six switches showing off, with no warning and no way to see
+   * what had been there. The component is fed the DRAFT (`artisan={updatedArtisan}`), so the blanking
+   * was immediate and looked exactly like a revocation.
+   *
+   * It never reached the database: staffCapabilities is a privileged field, so the wipe was stripped on
+   * save like any other value and the refetch restored the stored state. So no jeweler actually lost a
+   * capability this way — the damage was an admin being shown, convincingly, that six capabilities had
+   * just been revoked.
+   *
+   * If a capability should ever be revocable independently of on-site status, revoke it on its own
+   * switch. That is an explicit act; this toggle is not.
+   */
   const setOnsite = (value) => {
     onFieldChange('employment', { ...employment, isOnsite: value });
-    if (!value) {
-      onFieldChange('staffCapabilities', {});
-    }
   };
+
+  const dormantCapabilityCount = CAPABILITIES.filter(({ key }) => caps[key] === true).length;
 
   return (
     <Box>
@@ -116,6 +138,15 @@ export default function ArtisanStaffCapabilities({ artisan, onFieldChange }) {
                 inputProps={{ min: 0, step: 0.5 }}
               />
             </Box>
+          )}
+
+          {/* The capability switches are hidden while off-site, so without this the retained
+              capabilities would be invisible — and an admin could reasonably assume they were lost. */}
+          {!isOnsite && dormantCapabilityCount > 0 && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
+              {dormantCapabilityCount} repair {dormantCapabilityCount === 1 ? 'capability is' : 'capabilities are'} still
+              on file and currently inactive. Setting this artisan back on-site restores them exactly as they were.
+            </Typography>
           )}
         </CardContent>
       </Card>
