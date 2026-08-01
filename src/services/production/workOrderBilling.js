@@ -122,6 +122,16 @@ async function deliverInvoiceToArtisan(invoice) {
   const result = { sent: false, notified: false };
   if (!invoice?.invoiceID) return result;
 
+  // ALREADY DELIVERED — do nothing. billWorkOrder returns the EXISTING invoice when the work order
+  // already has one (that's its dedupe), and approveCadQc has no status guard, so a second Approve
+  // re-enters this path with an invoice that was sent days ago. The route's resend guard doesn't cover
+  // this caller, and pushArtisanInvoiceToStripe has none of its own: past Stripe's 24h idempotency
+  // window that mints a SECOND Stripe invoice for one debt, overwrites checkoutUrl, and leaves the
+  // first one open and payable. The notify half has no protection at all, so without this the artisan
+  // also gets a duplicate "New invoice" every time. Resending is a deliberate act — it lives on the
+  // admin page.
+  if (invoice.checkoutUrl) return { ...result, alreadyDelivered: true };
+
   let checkoutUrl = null;
   try {
     const { pushArtisanInvoiceToStripe } = await import('@/services/production/artisanBilling');
@@ -135,17 +145,23 @@ async function deliverInvoiceToArtisan(invoice) {
   }
 
   try {
-    const { NotificationService } = await import('@/lib/notificationService');
+    const { NotificationService, NOTIFICATION_TYPES } = await import('@/lib/notificationService');
     await NotificationService.createNotification({
       userId: invoice.billedUserID,
-      type: 'invoice-raised',
+      // The canonical type, not an ad-hoc string — notificationService already defines
+      // INVOICE_CREATED, and types map to templates and categories.
+      type: NOTIFICATION_TYPES.INVOICE_CREATED,
       title: 'New invoice from Engel Fine Design',
       message: `${invoice.description || 'Work order'} — $${Number(invoice.amount).toFixed(2)}, due ${new Date(invoice.dueAt).toLocaleDateString()}.`
         + (checkoutUrl ? ' Pay online using the link.' : ' Contact EFD to pay.')
         + ' Unpaid past the due date, new runs and work orders are paused.',
       channels: ['inApp'],
       priority: 'normal',
-      data: { actionUrl: checkoutUrl || '/dashboard/production/invoices', invoiceID: invoice.invoiceID },
+      // No actionUrl without a pay link. The obvious fallback — /dashboard/production/invoices — is the
+      // STAFF page: an artisan can load it (it has no client-side role guard) and would see their own
+      // correctly-scoped ledger behind three buttons that all 403. A notification that reads "contact
+      // EFD to pay" is more honest than one that leads somewhere useless.
+      data: { ...(checkoutUrl ? { actionUrl: checkoutUrl } : {}), invoiceID: invoice.invoiceID },
     });
     result.notified = true;
   } catch (e) {
