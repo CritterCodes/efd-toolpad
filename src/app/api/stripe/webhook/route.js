@@ -10,6 +10,18 @@ import { adminBase } from '@/lib/appUrls';
 export const dynamic = 'force-dynamic';
 
 /**
+ * Metadata `kind` values that belong to the artisan billing rail rather than customs.
+ *
+ * Listed literally rather than imported from artisanInvoices/model so this route keeps its lazy-import
+ * shape (the customs path must not drag the production models in). `artisanKinds.test.js` asserts this
+ * equals Object.values(ARTISAN_INVOICE_KIND), so the copy cannot drift silently.
+ *
+ * ONE list, used by every branch: the paid branch spelled these out inline and the voided branch simply
+ * didn't have them, which is exactly how an artisan invoice ended up with a paid path and no void path.
+ */
+export const ARTISAN_KINDS = Object.freeze(['artisan_wo_invoice', 'casting_charge']);
+
+/**
  * POST /api/stripe/webhook — Stripe event sink.
  * Stripe Invoice events are authoritative for custom-order billing. The legacy
  * Checkout event remains supported for links created before this migration.
@@ -33,7 +45,7 @@ export const POST = async (req) => {
       if (meta.kind === 'custom_invoice' && meta.customID && meta.invoiceID && invoice.status === 'paid') {
         await setCustomInvoiceStatus(meta.customID, meta.invoiceID, CUSTOM_INVOICE_STATUS.PAID, 'stripe');
         await CustomInvoicesModel.updateStripeStatus(meta.invoiceID, invoice.status);
-      } else if ((meta.kind === 'artisan_wo_invoice' || meta.kind === 'casting_charge') && meta.invoiceID && invoice.status === 'paid') {
+      } else if (ARTISAN_KINDS.includes(meta.kind) && meta.invoiceID && invoice.status === 'paid') {
         // Artisan billing rail (S5): mark the artisan invoice paid → lifts the freeze and clears
         // the linked casting shipping gate. Lazy import to keep the customs webhook path independent.
         const { markArtisanInvoicePaid } = await import('@/services/production/artisanBilling');
@@ -53,6 +65,23 @@ export const POST = async (req) => {
           await setCustomInvoiceStatus(meta.customID, meta.invoiceID, CUSTOM_INVOICE_STATUS.CANCELLED, 'stripe');
         }
         await CustomInvoicesModel.updateStripeStatus(meta.invoiceID, invoice.status || 'void');
+      } else if (ARTISAN_KINDS.includes(meta.kind) && meta.invoiceID) {
+        // The artisan rail's missing half. `invoice.paid` has routed artisan kinds since S5, but voiding
+        // in Stripe left our row at `pending_payment` — so it went overdue at +14 days and FROZE the
+        // artisan out of new runs/WOs/listings, with the invoice that caused it already cancelled and
+        // unpayable. That is the failure castingSettlement names in its own words: "every exit from an
+        // invoiced state must resolve the invoice… Getting this wrong is worse than never billing."
+        //
+        // Never walks back a PAID invoice: Stripe cannot void a paid invoice, but a late/replayed event
+        // must not un-pay one either — and markPaid already cleared the casting shipping gate.
+        // Only a PENDING row is voided — not merely "not paid". Stripe replays events, and admitting an
+        // already-void row would overwrite voidedAt and replace a deliberate reason ("duplicate — billed
+        // in error (a@efd.com)") with the generic one, destroying the audit trail for no gain.
+        const { default: ArtisanInvoicesModel, ARTISAN_INVOICE_STATUS } = await import('@/app/api/artisanInvoices/model');
+        const existing = await ArtisanInvoicesModel.findById(meta.invoiceID);
+        if (existing && existing.status === ARTISAN_INVOICE_STATUS.PENDING) {
+          await ArtisanInvoicesModel.markVoid(meta.invoiceID, 'voided in Stripe');
+        }
       }
     } else if (event.type === 'invoice.sent' || event.type === 'invoice.finalized') {
       const invoice = event.data?.object || {};

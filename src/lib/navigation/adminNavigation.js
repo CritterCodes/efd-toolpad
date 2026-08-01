@@ -2,6 +2,7 @@ import React from "react";
 import { USER_ROLES } from "../unifiedUserService";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import BuildIcon from "@mui/icons-material/Handyman";
+import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import BarChartIcon from "@mui/icons-material/Insights";
 import PeopleIcon from "@mui/icons-material/People";
 import InventoryIcon from "@mui/icons-material/Inventory2";
@@ -89,6 +90,13 @@ export const adminNavigation = {
           segment: 'casting',
           title: 'Casting',
           icon: <BuildIcon />
+        },
+        {
+          // The resolution surface for the artisan billing rail. Without a door to this, an overdue
+          // invoice freezes an artisan out of new work with nothing in-product able to clear it.
+          segment: 'invoices',
+          title: 'Artisan Invoices',
+          icon: <ReceiptLongIcon />
         }
       ]
     },

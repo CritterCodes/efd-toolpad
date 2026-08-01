@@ -86,7 +86,18 @@ export async function billCompletedWorkOrder({ workOrderID, createdBy = null }) 
       createdBy,
     });
     if (!invoice) return { billed: false, reason: 'nothing owed after markup' };
-    return { billed: true, invoiceID: invoice.invoiceID, amount: invoice.amount };
+
+    // DELIVER THE INVOICE. Raising one silently is how the freeze this whole rail was gated on comes
+    // back: at +14 days `isArtisanFrozen` blocks mintRun / requestDesignCad / casting-create with
+    // "an overdue invoice must be paid before starting new work" — for a bill the artisan was never
+    // shown and cannot pay unless staff happen to open the admin page and press Send. An exit that
+    // only staff know about is not an exit.
+    //
+    // Non-throwing, and deliberately AFTER the invoice exists: a Stripe or notification failure must
+    // leave the receivable standing (staff can send it by hand from /dashboard/production/invoices),
+    // never roll back a QC pass whose labor is already credited.
+    const delivery = await deliverInvoiceToArtisan(invoice);
+    return { billed: true, invoiceID: invoice.invoiceID, amount: invoice.amount, ...delivery };
   } catch (e) {
     console.error('[bench] work-order billing failed:', e?.message || e);
     return {
@@ -95,6 +106,53 @@ export async function billCompletedWorkOrder({ workOrderID, createdBy = null }) 
       reason: `The work order passed QC and labor was credited, but its invoice could not be created: ${e?.message || e}.`,
     };
   }
+}
+
+/**
+ * Put a freshly raised invoice in front of the artisan who owes it: a hosted Stripe invoice they can
+ * pay themselves, plus an in-app notification carrying the link.
+ *
+ * Both halves are best-effort and neither throws. The invoice is already real at this point — the
+ * worst case here is an undelivered bill that staff send by hand, which is recoverable. Throwing would
+ * propagate into a QC pass that has already credited labor.
+ *
+ * Returns flags the caller can surface so a delivery failure is visible to staff rather than silent.
+ */
+async function deliverInvoiceToArtisan(invoice) {
+  const result = { sent: false, notified: false };
+  if (!invoice?.invoiceID) return result;
+
+  let checkoutUrl = null;
+  try {
+    const { pushArtisanInvoiceToStripe } = await import('@/services/production/artisanBilling');
+    const stripe = await pushArtisanInvoiceToStripe(invoice.invoiceID);
+    checkoutUrl = stripe?.hostedInvoiceUrl || null;
+    result.sent = true;
+  } catch (e) {
+    // Most commonly "artisan has no billing email on file" — a data problem staff must fix, not a bug.
+    console.error('[bench] could not send artisan invoice to Stripe:', e?.message || e);
+    result.sendError = e?.message || String(e);
+  }
+
+  try {
+    const { NotificationService } = await import('@/lib/notificationService');
+    await NotificationService.createNotification({
+      userId: invoice.billedUserID,
+      type: 'invoice-raised',
+      title: 'New invoice from Engel Fine Design',
+      message: `${invoice.description || 'Work order'} — $${Number(invoice.amount).toFixed(2)}, due ${new Date(invoice.dueAt).toLocaleDateString()}.`
+        + (checkoutUrl ? ' Pay online using the link.' : ' Contact EFD to pay.')
+        + ' Unpaid past the due date, new runs and work orders are paused.',
+      channels: ['inApp'],
+      priority: 'normal',
+      data: { actionUrl: checkoutUrl || '/dashboard/production/invoices', invoiceID: invoice.invoiceID },
+    });
+    result.notified = true;
+  } catch (e) {
+    console.error('[bench] could not notify artisan of invoice:', e?.message || e);
+  }
+
+  return result;
 }
 
 /** The artisan whose ledger this work order's piece belongs to (null = EFD-owned). */
