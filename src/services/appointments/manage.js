@@ -24,6 +24,7 @@
 import { db as database } from '@/lib/database';
 import { REPAIR_STATUS } from '@/services/repairWorkflow';
 import { convertLeadToRepair } from '@/services/repairs/leadQuote';
+import RepairsModel from '@/app/api/repairs/model';
 import {
   APPOINTMENTS,
   DEFAULT_CONFIG,
@@ -234,17 +235,15 @@ export async function markArrived(appointmentID, { assignedTo = null } = {}) {
     promiseDate: isoDateInZone(new Date(), config.timeZone),
   });
 
-  await db.collection(REPAIRS).updateOne(
-    { repairID: appt.repairID },
-    {
-      $set: {
-        whileYouWait: true,
-        ...(assignedTo ? { assignedTo } : {}),
-        arrivedAt: new Date(),
-        updatedAt: new Date(),
-      },
-    }
-  );
+  // Through the model, so the work-order mirror picks up assignedTo — writing
+  // this raw would leave the bench showing the job as unclaimed after someone
+  // had already been put on it.
+  await RepairsModel.updateById(appt.repairID, {
+    whileYouWait: true,
+    ...(assignedTo ? { assignedTo } : {}),
+    arrivedAt: new Date(),
+    updatedAt: new Date(),
+  });
 
   await db.collection(APPOINTMENTS).updateOne(
     { appointmentID },

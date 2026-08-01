@@ -31,6 +31,7 @@
 
 import crypto from 'node:crypto';
 import { db as database } from '@/lib/database';
+import RepairsModel from '@/app/api/repairs/model';
 
 const REPAIRS = 'repairs';
 
@@ -283,6 +284,15 @@ export async function respondToQuote(token, { accept, name }) {
  * figure the customer agreed to rather than someone rebuilding it from memory.
  * Without a quote it is a plain status change, which is what the old Accept
  * button did and remains right for a lead nobody priced.
+ *
+ * GOES THROUGH RepairsModel, NOT THE DRIVER
+ * -----------------------------------------
+ * The bench does not read `repairs` — it reads the `workOrders` mirror, and a
+ * repair only appears there once WorkOrdersModel.syncFromRepair has run.
+ * RepairsModel.updateById does that for us. Writing to the collection directly
+ * (as this first did) sets the status correctly and still leaves the job
+ * invisible to every jeweler, which is the worst kind of failure: the record
+ * looks right and the work never happens.
  */
 export async function convertLeadToRepair(repairID, { status = 'READY FOR WORK', promiseDate = null } = {}) {
   const db = await database.connect();
@@ -307,6 +317,6 @@ export async function convertLeadToRepair(repairID, { status = 'READY FOR WORK',
   // before the piece existed on the counter. This is where it gets set.
   if (promiseDate) set.promiseDate = promiseDate;
 
-  await db.collection(REPAIRS).updateOne({ repairID }, { $set: set });
+  await RepairsModel.updateById(repairID, set);
   return { repairID, status: set.status, fromQuote: Boolean(submission) };
 }
