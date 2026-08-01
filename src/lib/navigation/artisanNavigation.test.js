@@ -64,6 +64,30 @@ describe('artisan navigation', () => {
     expect(neither).not.toContain('dashboard/repairs/pick-up');
   });
 
+  /**
+   * An overdue invoice PAUSES an artisan's new work (isArtisanFrozen blocks mintRun,
+   * requestDesignCad and casting-create). Until this entry existed the rail was staff-only: the
+   * artisan got the freeze message with no page telling them what they owed or how to clear it.
+   * Deliberately ungated — any artisan can incur a casting or work-order bill, so the way out must
+   * always be reachable, not conditional on a capability or an artisan type.
+   */
+  it('always gives every artisan a way to see and pay what they owe', () => {
+    const plain = navigationSegments(generateArtisanNavigation());
+    expect(plain).toContain('dashboard/artisan/invoices');
+
+    for (const type of ['Jeweler', 'Photographer', 'Gem Cutter']) {
+      expect(navigationSegments(generateArtisanNavigation([type]))).toContain('dashboard/artisan/invoices');
+    }
+    // Present for onsite repair staff too, who reach it alongside the repair entries.
+    expect(navigationSegments(generateArtisanNavigation([], { repairOps: true }, { isOnsite: true })))
+      .toContain('dashboard/artisan/invoices');
+  });
+
+  it('does not point artisans at the staff invoices page', () => {
+    // That page resolves invoices (send/mark-paid/void) and is admin/dev server-side.
+    expect(navigationSegments(generateArtisanNavigation())).not.toContain('dashboard/production/invoices');
+  });
+
   it('shows My Designs + My Drops to design-authoring types (raw Title Case labels normalized)', () => {
     for (const type of ['Gem Cutter', 'Jeweler', 'Engraver', 'CAD Designer']) {
       const segments = navigationSegments(generateArtisanNavigation([type]));

@@ -12,6 +12,7 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import PaymentIcon from '@mui/icons-material/Payment';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import ChecklistIcon from '@mui/icons-material/Checklist';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import DesignServicesIcon from '@mui/icons-material/DesignServices';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import { SHARED_NAVIGATION } from './sharedNavigation';
@@ -40,6 +41,14 @@ const BASE_ARTISAN_NAV = [
     segment: 'dashboard/artisan/payroll',
     title: 'Payroll',
     icon: <PaymentIcon />,
+  },
+  {
+    // What the artisan OWES, as against Payroll (what they're owed). Shown to every artisan, not
+    // gated on a capability: any artisan can incur a casting or work-order bill, and an overdue one
+    // pauses their new work — so the page that explains and clears it must always be reachable.
+    segment: 'dashboard/artisan/invoices',
+    title: 'My Invoices',
+    icon: <ReceiptLongIcon />,
   },
   {
     segment: 'dashboard/artisan/my-work',

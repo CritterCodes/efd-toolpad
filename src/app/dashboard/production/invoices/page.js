@@ -1,10 +1,13 @@
 "use client";
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import {
   Box, Typography, Card, CardContent, Chip, Button, Stack, Tabs, Tab,
   CircularProgress, Snackbar, Alert, Link as MuiLink,
 } from '@mui/material';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import { STAFF_ROLES } from '@/lib/designPermissions';
 
 /**
  * Artisan invoices — the resolution surface for the artisan billing rail (U-BILL-2).
@@ -29,6 +32,8 @@ const when = (d) => (d ? new Date(d).toLocaleDateString() : '—');
 const isOverdue = (inv) => inv.status === 'pending_payment' && new Date(inv.dueAt).getTime() < Date.now();
 
 export default function ArtisanInvoicesPage() {
+  const router = useRouter();
+  const { data: session, status: authStatus } = useSession();
   const [tab, setTab] = useState(0);
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -53,7 +58,18 @@ export default function ArtisanInvoicesPage() {
     }
   }, [status]);
 
-  useEffect(() => { load(); }, [load]);
+  // Staff only. Without this an artisan could open the staff page directly and find their own
+  // (correctly scoped) ledger behind Send/Mark-paid/Void buttons that all 403 server-side. They have
+  // their own read-and-pay view at /dashboard/artisan/invoices; send them there rather than to a wall
+  // of dead buttons.
+  const isStaff = STAFF_ROLES.includes(session?.user?.role);
+  useEffect(() => {
+    if (authStatus === 'loading') return;
+    if (!session?.user) { router.push('/dashboard'); return; }
+    if (!isStaff) router.push('/dashboard/artisan/invoices');
+  }, [authStatus, session, isStaff, router]);
+
+  useEffect(() => { if (isStaff) load(); }, [load, isStaff]);
 
   const act = async (invoiceID, url, body, successMessage) => {
     setBusyID(invoiceID);
@@ -78,6 +94,8 @@ export default function ArtisanInvoicesPage() {
     () => invoices.reduce((sum, i) => sum + (Number(i.amount) || 0), 0),
     [invoices],
   );
+
+  if (authStatus === 'loading' || !session?.user || !isStaff) return null;
 
   return (
     <Box sx={{ p: 3 }}>
