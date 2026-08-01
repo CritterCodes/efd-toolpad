@@ -56,7 +56,7 @@ export const POST = async (req) => {
   const ownerId = isStaff(session) && body.ownerId ? body.ownerId : session.user.userID;
   // Freeze: an artisan with an overdue bill can't open new castings (nothing new until paid).
   if (await isArtisanFrozen(ownerId)) {
-    return NextResponse.json({ error: 'Account frozen — pay the overdue invoice before ordering casting.' }, { status: 402 });
+    return NextResponse.json({ error: 'Account frozen — pay the overdue invoice before ordering casting. See My Invoices under Finance.' }, { status: 402 });
   }
   try {
     const batch = await createCastingBatch({

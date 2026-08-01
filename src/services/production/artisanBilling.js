@@ -86,7 +86,9 @@ export async function isArtisanFrozen(userID) {
 /** Guard helper: throw if the artisan is frozen. Guards pass their own Error class for a typed throw. */
 export async function assertArtisanNotFrozen(userID, ErrorClass = ArtisanBillingError) {
   if (await isArtisanFrozen(userID)) {
-    throw new ErrorClass('Account frozen — an overdue invoice must be paid before starting new work.');
+    // Name the way out. This message is the artisan's whole experience of the freeze, and until
+    // /dashboard/artisan/invoices existed it left them stuck with no stated next step.
+    throw new ErrorClass('Account frozen — an overdue invoice must be paid before starting new work. See My Invoices under Finance to pay it.');
   }
 }
 
