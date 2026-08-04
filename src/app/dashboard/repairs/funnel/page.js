@@ -211,6 +211,7 @@ export default function FunnelPage() {
               ['Leads', done],
               ['Conversion', top ? `${Math.round((done / top) * 1000) / 10}%` : '—'],
               ['Saw a price', data?.totals?.quotedSessions ?? 0],
+              ['Called / texted', data?.contactTotal ?? 0],
             ].map(([label, value]) => (
               <Box key={label}>
                 <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
@@ -246,6 +247,26 @@ export default function FunnelPage() {
           {steps.map((row) => (
             <StepRow key={row.step} row={row} topSessions={top} isWorst={row.label === worstStep && data.biggestDropOff.lost > 0} />
           ))}
+
+          {data?.contactActions?.some((a) => a.sessions > 0) && (
+            <Box sx={{ mt: 4 }}>
+              <Typography sx={{ color: REPAIRS_UI.textPrimary, fontWeight: 600, mb: 0.5 }}>
+                Skipped the form and got in touch anyway
+              </Typography>
+              <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: 12.5, mb: 1.5 }}>
+                These are conversions the funnel above never sees — for a local shop they may be the
+                ones that matter most.
+              </Typography>
+              <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+                {data.contactActions.filter((a) => a.sessions > 0).map((a) => (
+                  <Box key={a.action} sx={{ px: 2, py: 1, borderRadius: 1.5, border: '1px solid', borderColor: REPAIRS_UI.accent, backgroundColor: REPAIRS_UI.bgCard }}>
+                    <Typography sx={{ color: REPAIRS_UI.textSecondary, fontSize: 12 }}>{a.label}</Typography>
+                    <Typography sx={{ color: REPAIRS_UI.accent, fontSize: 20, fontWeight: 600 }}>{a.sessions}</Typography>
+                  </Box>
+                ))}
+              </Stack>
+            </Box>
+          )}
 
           {data?.abandonsByQuote?.length > 0 && (
             <Box sx={{ mt: 4 }}>
