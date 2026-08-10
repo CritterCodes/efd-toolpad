@@ -41,3 +41,26 @@ export function isOnsiteRepairOps(session) {
 export function canAccessLeads(session) {
   return isAdminRole(session) || isStaffRole(session) || isOnsiteRepairOps(session);
 }
+
+/**
+ * Who may READ the pricing catalogs a repair is quoted from: the task list, the material list, the
+ * admin pricing settings (wage, markups, tax rate) and Stuller item lookups.
+ *
+ * WHY THIS EXISTS. Those reads were gated to STAFF_ROLES while closing a genuine hole — the same
+ * endpoints let any authenticated user WRITE global pricing. But `STAFF_ROLES` excludes `artisan`,
+ * and an onsite repair-ops artisan IS the person standing at the counter writing up a repair. The
+ * result: `getMaterials` returned 401 for them, which rejected the intake form's `Promise.all` and
+ * silently discarded the task list and the wholesale-account list that had both loaded fine. Two
+ * empty dropdowns, no error, no way to take in a job.
+ *
+ * READ IS NOT WRITE. This admits nobody to changing a price: every create/update/delete on these
+ * catalogs still requires STAFF_ROLES, and the settings POST keeps its security code. Quoting a
+ * repair from the catalog is the job; repricing the business is not.
+ *
+ * Use this for catalog READS only. Anything that mutates pricing stays on STAFF_ROLES.
+ */
+export function canReadPricingCatalog(session) {
+  return isAdminRole(session) || isStaffRole(session) || isOnsiteRepairOps(session)
+    // Wholesalers quote their own intake through the same form and already read the task catalog.
+    || session?.user?.role === 'wholesaler';
+}

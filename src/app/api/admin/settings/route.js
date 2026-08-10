@@ -8,6 +8,7 @@ import {
   maskSensitiveData 
 } from '@/utils/encryption';
 import { STAFF_ROLES } from '@/lib/designPermissions';
+import { canReadPricingCatalog } from '@/lib/repairAccess';
 // STAFF-ONLY. Every gate in this file was `session.user?.email?.includes('@')` — i.e. ANY
 // authenticated user with a plausible email, including an artisan or a client, passed it. These
 // endpoints carry pricing/catalog/credential data. The idiom appeared at 24 sites across 12 files;
@@ -22,7 +23,10 @@ export async function GET(request) {
   try {
     const session = await auth();
     
-    if (!session?.user || !STAFF_ROLES.includes(session.user.role)) {
+    // READ is open to anyone who quotes a repair (canReadPricingCatalog) — an onsite repair-ops
+    // artisan or a wholesaler needs the wage/markup/tax values to price a job. WRITES below stay
+    // STAFF_ROLES, and POST keeps its security code: reading the numbers is not setting them.
+    if (!session?.user || !canReadPricingCatalog(session)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -79,6 +83,34 @@ export async function GET(request) {
         updateFrequency: settings.stuller?.updateFrequency || 'daily'
       }
     };
+
+    // NON-STAFF GET A QUOTING SUBSET, not the whole settings document.
+    //
+    // Opening read access so an onsite artisan (or a wholesaler) can price a job does not mean handing
+    // them EFD's books. `business` is internal operating config, `security` describes the pricing-code
+    // state, and `stuller` describes an integration credential — none are needed to quote.
+    //
+    // `financial` is SPLIT rather than dropped: `cogMarkup` and `targetMarginFloor` are quoting inputs
+    // (the customs QuoteTab reads both to price a custom order and show the margin guardrail, and
+    // artisans reach customs they're assigned to), while `openingBalance` is bookkeeping. Dropping the
+    // whole object would have broken customs quoting for artisans — trading one outage for another.
+    //
+    // Still narrower than the pre-sweep behaviour, where `email.includes('@')` handed the entire
+    // payload to any authenticated caller, clients included.
+    if (!STAFF_ROLES.includes(session.user.role)) {
+      const { financial, business, security, stuller, ...rest } = publicSettings;
+      // A WHOLESALER GETS NO `financial` AT ALL. They are an outside business — a competing retail
+      // jeweler — and they never quote customs, so cogMarkup and the target margin floor tell them
+      // EFD's markup structure and buy them nothing. Only the artisan side needs those, and only
+      // because QuoteTab prices custom orders with them.
+      const quotesCustoms = session.user.role !== 'wholesaler';
+      return NextResponse.json({
+        ...rest,
+        ...(quotesCustoms
+          ? { financial: { cogMarkup: financial?.cogMarkup, targetMarginFloor: financial?.targetMarginFloor } }
+          : {}),
+      });
+    }
 
     return NextResponse.json(publicSettings);
 

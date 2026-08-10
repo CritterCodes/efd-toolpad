@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
+import { STAFF_ROLES } from '@/lib/designPermissions';
 import {
   ANALYTICS_BASELINE_NOTE,
   DEFAULT_FEDERAL_TAX_RESERVE_RATE,
@@ -290,12 +291,21 @@ export const AdminSettingsProvider = ({ children }) => {
     return baseWage + adminFee + bizFee + consumablesFee;
   };
 
-  // Load settings on mount and when session changes
+  // Load settings on mount and when session changes.
+  //
+  // STAFF ONLY, because /api/admin/settings/manage is staff-gated. This provider is mounted in the
+  // ROOT layout, so without this check every artisan and wholesaler fired a guaranteed 403 on every
+  // page load — noise in the console that made a real incident harder to read, and a silent fall back
+  // to hardcoded defaults (wage 50, materialMarkup 1.5) that would quietly produce wrong numbers if a
+  // non-staff surface ever consumed this context. Don't request what you're not allowed to have.
+  //
+  // The repair intake form doesn't rely on this: it reads /api/admin/settings directly, which now
+  // serves a quoting subset to non-staff.
   useEffect(() => {
-    if (session?.user) {
+    if (session?.user && STAFF_ROLES.includes(session.user.role)) {
       fetchAdminSettings();
     } else {
-      // Use defaults when not authenticated
+      // Defaults when unauthenticated, or when this caller isn't entitled to the real settings.
       setAdminSettings(defaultSettings);
       setLoading(false);
     }

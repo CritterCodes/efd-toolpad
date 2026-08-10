@@ -25,6 +25,7 @@ import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
 import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 import LeadsIcon from "@mui/icons-material/ChatBubbleOutline";
 import BenchDayIcon from "@mui/icons-material/EventAvailable";
+import FunnelIcon from "@mui/icons-material/FilterAlt";
 import LinkIcon from "@mui/icons-material/Link";
 import TravelExploreIcon from "@mui/icons-material/TravelExplore";
 import ArticleIcon from "@mui/icons-material/Article";
@@ -120,6 +121,11 @@ export const adminNavigation = {
       segment: 'dashboard/repairs/leads',
       title: 'Leads',
       icon: <LeadsIcon />
+    },
+    {
+      segment: 'dashboard/repairs/funnel',
+      title: 'Where People Bail',
+      icon: <FunnelIcon />
     },
     {
       segment: 'dashboard/repairs/pending-wholesale',

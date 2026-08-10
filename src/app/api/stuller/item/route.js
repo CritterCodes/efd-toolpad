@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from "@/lib/auth";
 import StullerItemService from './service';
-import { STAFF_ROLES } from '@/lib/designPermissions';
+import { canReadPricingCatalog } from '@/lib/repairAccess';
 // STAFF-ONLY. Every gate in this file was `session.user?.email?.includes('@')` — i.e. ANY
 // authenticated user with a plausible email, including an artisan or a client, passed it. These
 // endpoints carry pricing/catalog/credential data. The idiom appeared at 24 sites across 12 files;
@@ -10,7 +10,9 @@ import { STAFF_ROLES } from '@/lib/designPermissions';
 
 async function requireAdminSession() {
   const session = await auth();
-  if (!session?.user || !STAFF_ROLES.includes(session.user.role)) {
+  // Repair intake looks up a Stuller part to add as a material (NewRepairForm), so the person
+  // writing up the job must be able to run the lookup. Read-only: it fetches catalog data.
+  if (!session?.user || !canReadPricingCatalog(session)) {
     return null;
   }
   return session;
