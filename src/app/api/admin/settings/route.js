@@ -8,6 +8,7 @@ import {
   maskSensitiveData 
 } from '@/utils/encryption';
 import { STAFF_ROLES } from '@/lib/designPermissions';
+import { canReadPricingCatalog } from '@/lib/repairAccess';
 // STAFF-ONLY. Every gate in this file was `session.user?.email?.includes('@')` — i.e. ANY
 // authenticated user with a plausible email, including an artisan or a client, passed it. These
 // endpoints carry pricing/catalog/credential data. The idiom appeared at 24 sites across 12 files;
@@ -22,7 +23,10 @@ export async function GET(request) {
   try {
     const session = await auth();
     
-    if (!session?.user || !STAFF_ROLES.includes(session.user.role)) {
+    // READ is open to anyone who quotes a repair (canReadPricingCatalog) — an onsite repair-ops
+    // artisan or a wholesaler needs the wage/markup/tax values to price a job. WRITES below stay
+    // STAFF_ROLES, and POST keeps its security code: reading the numbers is not setting them.
+    if (!session?.user || !canReadPricingCatalog(session)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

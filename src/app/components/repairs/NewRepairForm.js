@@ -1237,11 +1237,24 @@ export default function NewRepairForm({
         // For wholesalers, load their clients and item catalogs
         if (isWholesale) {
           console.log('Ã°Å¸â€˜Â¤ Wholesale mode: Loading wholesaler clients and item catalogs...');
-          const [users, tasks, materials] = await Promise.all([
+          // allSettled for the same reason as the admin branch below: one failing catalog must not
+          // discard the two that loaded. This is the wholesaler's intake form — a wholesaler hit the
+          // same materials 401, so this branch had the identical failure waiting.
+          const wsSettled = await Promise.allSettled([
             wholesaleClientsAPIClient.fetchMyClients(),
             tasksService.getTasks(),
             materialsService.getMaterials()
           ]);
+          const [users, tasks, materials] = wsSettled.map((r) => (r.status === 'fulfilled' ? r.value : null));
+          const wsFailed = ['clients', 'tasks', 'materials'].filter((_, i) => wsSettled[i].status === 'rejected');
+          if (wsFailed.length > 0) {
+            console.error('[wholesale intake] failed to load:', wsFailed.join(', '),
+              wsSettled.filter((r) => r.status === 'rejected').map((r) => r.reason?.message || r.reason));
+            setErrors((prev) => ({
+              ...prev,
+              submit: `Could not load ${wsFailed.join(' and ')}. Those options will be missing — reload the page, and tell an admin if it keeps happening.`,
+            }));
+          }
           const usersData = users?.data || [];
           setAvailableUsers(usersData);
           setAvailableTasks(tasks?.data || tasks || []);
@@ -1267,21 +1280,42 @@ export default function NewRepairForm({
           console.log('Ã¢Å“â€¦ Wholesale clients and item catalogs loaded');
         } else {
           console.log('Ã°Å¸â€Â§ Admin mode: Loading all data...');
-          const [tasks, materials, users, wholesalers] = await Promise.all([
+          // allSettled, NOT all. One failing catalog must not blank the others.
+          //
+          // This is how a single 401 took out the whole intake form: getMaterials started returning 401
+          // for onsite artisans, Promise.all rejected, and the task list and wholesale-account list —
+          // both of which had returned 200 with data — were thrown away with it. Two empty dropdowns,
+          // no error on screen, and no way to write up a repair. The failure was in materials; the
+          // symptom was everywhere else, which is what made it hard to find.
+          const settled = await Promise.allSettled([
             tasksService.getTasks(),
             materialsService.getMaterials(),
             UsersService.getAllUsers(),
             fetch('/api/users?role=wholesaler').then((res) => res.ok ? res.json() : { data: [] }),
-            // Temporarily disable rush jobs API call due to MongoDB import issues
-            // fetch('/api/rush-jobs?action=canCreate').then(res => res.json())
           ]);
+          const [tasks, materials, users, wholesalers] = settled.map((r) => (r.status === 'fulfilled' ? r.value : null));
+
+          // Say which one broke, ON SCREEN. Silence is what turned a 401 into a mystery: two empty
+          // dropdowns and nothing to indicate the form hadn't finished loading.
+          const failedLoads = ['tasks', 'materials', 'clients', 'wholesale accounts']
+            .filter((_, i) => settled[i].status === 'rejected');
+          if (failedLoads.length > 0) {
+            console.error('[repair intake] failed to load:', failedLoads.join(', '),
+              settled.filter((r) => r.status === 'rejected').map((r) => r.reason?.message || r.reason));
+            setErrors((prev) => ({
+              ...prev,
+              submit: `Could not load ${failedLoads.join(' and ')}. Those options will be missing — reload the page, and tell an admin if it keeps happening.`,
+            }));
+          }
           
           console.log('Ã°Å¸â€œâ€¹ Tasks loaded:', tasks);
           console.log('Ã°Å¸â€œÂ¦ Materials loaded:', materials);
           console.log('Ã°Å¸â€˜Â¥ Users loaded:', users);
           
-          setAvailableTasks(tasks.data || tasks || []);
-          setAvailableMaterials(materials.data || materials || []);
+          // Optional-chained: a rejected load is null now, and `null.data` would throw a TypeError
+          // here — trading a silent empty list for a crashed form.
+          setAvailableTasks(tasks?.data || tasks || []);
+          setAvailableMaterials(materials?.data || materials || []);
           
           const usersData = users?.users || users?.data || users || [];
           setAvailableUsers(usersData.filter((user) => String(user?.role || '').toLowerCase() !== 'wholesaler'));
