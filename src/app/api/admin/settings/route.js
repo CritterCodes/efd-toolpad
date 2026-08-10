@@ -84,6 +84,30 @@ export async function GET(request) {
       }
     };
 
+    // NON-STAFF GET A QUOTING SUBSET, not the whole settings document.
+    //
+    // Opening read access so an onsite artisan (or a wholesaler) can price a job does not mean handing
+    // them EFD's books. `business` is internal operating config, `security` describes the pricing-code
+    // state, and `stuller` describes an integration credential — none are needed to quote.
+    //
+    // `financial` is SPLIT rather than dropped: `cogMarkup` and `targetMarginFloor` are quoting inputs
+    // (the customs QuoteTab reads both to price a custom order and show the margin guardrail, and
+    // artisans reach customs they're assigned to), while `openingBalance` is bookkeeping. Dropping the
+    // whole object would have broken customs quoting for artisans — trading one outage for another.
+    //
+    // Still narrower than the pre-sweep behaviour, where `email.includes('@')` handed the entire
+    // payload to any authenticated caller, clients included.
+    if (!STAFF_ROLES.includes(session.user.role)) {
+      const { financial, business, security, stuller, ...rest } = publicSettings;
+      return NextResponse.json({
+        ...rest,
+        financial: {
+          cogMarkup: financial?.cogMarkup,
+          targetMarginFloor: financial?.targetMarginFloor,
+        },
+      });
+    }
+
     return NextResponse.json(publicSettings);
 
   } catch (error) {
