@@ -37,7 +37,14 @@ vi.mock('@/lib/database', () => ({
 const pushToStripe = vi.fn();
 const createNotification = vi.fn();
 vi.mock('@/services/production/artisanBilling', () => ({
-  isEfdSelf: async (id) => ['admin', 'dev', 'staff'].includes(state.users[id]?.role),
+  // FAITHFUL to the real isEfdSelf: it THROWS when it can't tell (lookup failure, or a userID that
+  // resolves to no user) rather than returning false ⇒ "bill them". A lenient mock here would let a
+  // test pass green while production skipped the bill — mock-boundary blindness on a money path.
+  isEfdSelf: async (id) => {
+    if (state.efdSelfThrows) throw new Error('mongo down');
+    if (!state.users[id]) throw new Error(`No user found for ${id}, so nothing was billed.`);
+    return ['admin', 'dev', 'staff'].includes(state.users[id].role);
+  },
   pushArtisanInvoiceToStripe: (...a) => pushToStripe(...a),
   billWorkOrder: async (args) => {
     state.billed.push(args);
@@ -188,6 +195,58 @@ describe('never throws — QC pass has already committed', () => {
  * or notification failure must leave it standing for staff to send by hand, never roll back a QC pass
  * whose labor is already credited.
  */
+/**
+ * #52 — the ownership lookup must not GUESS.
+ *
+ * isEfdSelf used to return false ⇒ "bill them" on a DB error. Defensible once per casting receipt;
+ * not once work-order billing turned on and it began running at EVERY piece-WO QC pass. A transient
+ * blip while billing an OWNER-owned piece raises a real receivable against the owner, which at +14
+ * days trips isArtisanFrozen and locks him out of mintRun / requestDesignCad / casting-create —
+ * self-inflicted downtime on his own platform.
+ *
+ * It now throws, and billCompletedWorkOrder (which never throws) turns that into a reported
+ * non-billing. An unbilled WO is recoverable; a wrong receivable against the owner isn't.
+ */
+describe('when ownership cannot be determined (#52)', () => {
+  const billable = () => {
+    state.wo = { workOrderID: 'wo-1', sourceType: 'production_piece', sourceID: 'p-1' };
+    state.piece = { pieceID: 'p-1', designID: 'd-1' };
+    state.design = { designID: 'd-1', primaryArtisanId: 'u-artisan' };
+    state.drop = null;
+    state.users = { 'u-artisan': { role: 'artisan', email: 'a@example.com' } };
+    state.logs = [log({ creditedValue: 100 })];
+  };
+
+  it('raises NO invoice when the lookup fails, and reports why', async () => {
+    billable();
+    state.efdSelfThrows = true;
+    const res = await billCompletedWorkOrder({ workOrderID: 'wo-1' });
+    state.efdSelfThrows = false;
+
+    expect(res.billed).toBe(false);
+    expect(res.error).toBe(true);
+    expect(res.reason).toMatch(/mongo down/);
+    expect(state.billed).toHaveLength(0);   // billWorkOrder never reached
+  });
+
+  it('does not throw into the QC pass — labor is already credited', async () => {
+    billable();
+    state.efdSelfThrows = true;
+    await expect(billCompletedWorkOrder({ workOrderID: 'wo-1' })).resolves.toBeDefined();
+    state.efdSelfThrows = false;
+  });
+
+  it('raises no invoice when the owner resolves to no user', async () => {
+    billable();
+    state.users = {};   // owner userID present on the design, but no such user
+    const res = await billCompletedWorkOrder({ workOrderID: 'wo-1' });
+
+    expect(res.billed).toBe(false);
+    expect(res.reason).toMatch(/No user found/);
+    expect(state.billed).toHaveLength(0);
+  });
+});
+
 describe('delivering the invoice to the artisan', () => {
   beforeEach(() => {
     pushToStripe.mockReset();
