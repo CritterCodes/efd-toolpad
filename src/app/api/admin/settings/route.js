@@ -99,12 +99,16 @@ export async function GET(request) {
     // payload to any authenticated caller, clients included.
     if (!STAFF_ROLES.includes(session.user.role)) {
       const { financial, business, security, stuller, ...rest } = publicSettings;
+      // A WHOLESALER GETS NO `financial` AT ALL. They are an outside business — a competing retail
+      // jeweler — and they never quote customs, so cogMarkup and the target margin floor tell them
+      // EFD's markup structure and buy them nothing. Only the artisan side needs those, and only
+      // because QuoteTab prices custom orders with them.
+      const quotesCustoms = session.user.role !== 'wholesaler';
       return NextResponse.json({
         ...rest,
-        financial: {
-          cogMarkup: financial?.cogMarkup,
-          targetMarginFloor: financial?.targetMarginFloor,
-        },
+        ...(quotesCustoms
+          ? { financial: { cogMarkup: financial?.cogMarkup, targetMarginFloor: financial?.targetMarginFloor } }
+          : {}),
       });
     }
 
