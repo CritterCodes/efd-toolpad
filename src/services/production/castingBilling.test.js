@@ -141,15 +141,60 @@ describe('billCastingBatch', () => {
       // staff, the exemption would hand out free casting.
       state.batch.ownerId = { $ne: null };
       const { billCastingBatch } = await load();
-      await billCastingBatch({ batchId: 'b1' });
+      // Stringified it matches nobody, which is now uncertainty rather than "bill them" — so it
+      // refuses. Either way the security property holds: the operator never reaches Mongo.
+      await expect(billCastingBatch({ batchId: 'b1' })).rejects.toThrow();
       expect(userQueries.at(-1).userID).toBe('[object Object]');   // stringified, never an operator
       expect(typeof userQueries.at(-1).userID).toBe('string');
     });
 
-    it('FAILS CLOSED — a lookup error bills the artisan rather than silently comping the casting', async () => {
+    /**
+     * POLICY REVERSED, 2026-08-10. This used to assert the opposite — that a lookup error BILLS the
+     * artisan — on the reasoning that a skipped bill silently loses revenue while a wrong bill is
+     * visible and clearable.
+     *
+     * That held while this ran once per casting receipt. It stopped holding when work-order billing
+     * turned on (U-BILL-2) and isEfdSelf began running at EVERY piece-WO QC pass: a transient blip
+     * while billing an OWNER-owned piece raises a real receivable against the owner, and at +14 days
+     * isArtisanFrozen locks him out of mintRun / requestDesignCad / casting-create — self-inflicted
+     * downtime on his own platform, the exact thing "EFD does not bill EFD" exists to prevent.
+     *
+     * An unbilled work order is recoverable. A wrong receivable against the owner isn't, until
+     * somebody works out why the platform locked him out.
+     */
+    it('REFUSES TO GUESS — a lookup error bills nobody and says why', async () => {
       state.users = new Proxy({}, { get() { throw new Error('mongo down'); } });
       const { billCastingBatch } = await load();
-      expect(await billCastingBatch({ batchId: 'b1' })).toBeTruthy();
+      await expect(billCastingBatch({ batchId: 'b1' })).rejects.toThrow(/Could not determine whether/);
+      expect(state.created).toHaveLength(0);   // no invoice, not even a wrong one
+    });
+
+    it('retries once before giving up, so a single blip does not skip a real bill', async () => {
+      // The cost of giving up is revenue that never gets invoiced, so one retry is worth it.
+      let calls = 0;
+      state.users = new Proxy({}, {
+        get(_t, key) {
+          if (key === 'artisan-1') {
+            calls += 1;
+            if (calls === 1) throw new Error('transient');
+            return { role: 'artisan' };
+          }
+          return undefined;
+        },
+      });
+      const { billCastingBatch } = await load();
+      expect(await billCastingBatch({ batchId: 'b1' })).toBeTruthy();  // billed on the retry
+      expect(calls).toBeGreaterThanOrEqual(2);
+    });
+
+    it('refuses when the owner resolves to no user — a receivable against a ghost is not a bill', async () => {
+      // Ownership comes from drop.ownerId / design.primaryArtisanId, both real userIDs, so a miss
+      // means the data is wrong. Billing it would invoice someone with no account and no email.
+      state.users = {};
+      state.batch.ownerId = 'user-does-not-exist';
+      const { billCastingBatch } = await load();
+      await expect(billCastingBatch({ batchId: 'b1' })).rejects.toThrow(/No user found/);
+      expect(state.created).toHaveLength(0);
     });
   });
 

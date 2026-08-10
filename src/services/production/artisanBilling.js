@@ -42,26 +42,63 @@ export function workOrderCharge({ labor = 0, materials = 0, shipping = 0, gems =
  * unpaid one would trip `isArtisanFrozen` and lock the owner out of his own platform.
  * Mirrors the rule work orders already had (`selfFulfilled` bills $0), which casting never got.
  *
- * FAILS CLOSED (returns false ⇒ "bill them") on a DB error: wrongly skipping a bill silently loses
- * real revenue and hands out free casting, while a wrong bill is visible and clearable by staff.
+ * THROWS when it cannot tell — it does not guess. Both callers already convert a throw into
+ * "not billed, here is why" (billCompletedWorkOrder → {billed:false, error:true, reason},
+ * billReceivedCasting → {invoiced:false, error:true, reason}), so no bill is raised and staff get a
+ * message. The safe outcome is the default and cannot be reached by forgetting to check a return value.
+ *
+ * IT USED TO FAIL CLOSED, returning false ⇒ "bill them", on the reasoning that a skipped bill silently
+ * loses revenue while a wrong bill is visible and clearable. That was defensible when this ran once per
+ * casting receipt. It stopped being defensible when work-order billing turned on (U-BILL-2) and this
+ * began running at EVERY piece-WO QC pass: a transient blip while billing an OWNER-owned piece raises a
+ * real receivable against the owner, and at +14 days `isArtisanFrozen` locks him out of mintRun /
+ * requestDesignCad / casting-create — self-inflicted downtime on his own platform, which is the exact
+ * outcome the "EFD does not bill EFD" rule exists to prevent.
+ *
+ * An unbilled work order is recoverable: it shows up as a missing invoice and can be billed again. A
+ * wrong receivable against the owner is not, until someone notices why the platform locked him out.
+ * One retry first, because the loss case is real revenue and the realistic failure is transient.
  */
 export async function isEfdSelf(userID) {
   if (!userID) return false;
-  try {
+
+  const lookup = async () => {
     const { db } = await import('@/lib/database');
     const dbInstance = await db.connect();
-    const user = await dbInstance.collection('users').findOne(
+    return dbInstance.collection('users').findOne(
       // A plain string only — an operator object ({$ne:null}) would match an arbitrary user and turn
       // this into a free-casting exemption for whoever can reach the caller.
       { userID: String(userID) },
       { projection: { _id: 0, role: 1 } },
     );
-    // STAFF_ROLES, not an inline copy — an earlier commit claimed this shared the canonical set while
-    // still hardcoding its own. The values matched, so nothing broke; the drift was the hazard.
-    return STAFF_ROLES.includes(user?.role);
-  } catch {
-    return false;
+  };
+
+  // One retry, because the realistic failure is a transient blip and the cost of giving up is a bill
+  // that never gets raised — real revenue quietly lost.
+  let user;
+  try {
+    user = await lookup();
+  } catch (firstError) {
+    try {
+      user = await lookup();
+    } catch (secondError) {
+      throw new ArtisanBillingError(
+        `Could not determine whether ${userID} is EFD staff, so nothing was billed: ${secondError?.message || secondError}`,
+      );
+    }
   }
+
+  // A userID that resolves to no user is ALSO uncertainty, not a licence to bill. Ownership comes from
+  // drop.ownerId / design.primaryArtisanId, both real userIDs, so a miss means the data is wrong —
+  // and billing it would create a receivable against a ghost, with no one to invoice and no email to
+  // send it to.
+  if (!user) {
+    throw new ArtisanBillingError(`No user found for ${userID}, so nothing was billed.`);
+  }
+
+  // STAFF_ROLES, not an inline copy — an earlier commit claimed this shared the canonical set while
+  // still hardcoding its own. The values matched, so nothing broke; the drift was the hazard.
+  return STAFF_ROLES.includes(user.role);
 }
 
 /** Whether any invoice in a set is overdue (unpaid + past due). PURE. */
