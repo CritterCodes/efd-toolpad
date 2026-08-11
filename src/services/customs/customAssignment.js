@@ -98,6 +98,26 @@ export async function assignArtisan({ customID, userID, role = ASSIGNMENT_ROLE.C
     assignedAt: new Date(),
     assignedBy,
   };
+  // ONE CAD DESIGNER PER ORDER. Assigning a second silently spawned a SECOND CAD work order on the
+  // same piece and overwrote the quote's designFee with the new designer's — which is exactly what
+  // happened on CO-msp2z3jx-b313c5: the second assignment set designFee to 0, deleting it left the
+  // zero behind, and the order was left billing nothing for a $100 designer who was still assigned.
+  //
+  // One design is one CAD file (the same invariant that keeps a wedding set as two orders), so a
+  // second CAD designer is always a mistake. Refusing is better than reconciling: the operator gets
+  // told, rather than discovering an orphan work order later.
+  if (assignment.role === ASSIGNMENT_ROLE.CAD) {
+    const existingCad = (order.assignments || []).find((a) => a.role === ASSIGNMENT_ROLE.CAD);
+    if (existingCad) {
+      const err = new Error(
+        `${existingCad.name || 'A designer'} is already assigned to CAD on this order. `
+        + 'Remove that assignment first if you are changing designer.',
+      );
+      err.code = 'CONFLICT';
+      throw err;
+    }
+  }
+
   await CustomOrdersModel.addAssignment(customID, assignment);
 
   if (assignment.role === ASSIGNMENT_ROLE.CAD) {
@@ -119,14 +139,88 @@ export async function assignArtisan({ customID, userID, role = ASSIGNMENT_ROLE.C
     await spawnCustomWorkOrder({
       customID, discipline: DISCIPLINE.CAD, cadStage: 'design', title: `${order.title || `Custom ${customID}`} — CAD (STL)`,
       assignedToUserID: userID, assignedJeweler: assignment.name, flatFee: feeSnapshot, createdBy: assignedBy,
+      // Stamp the assignment on the work order. Without it the two are unpairable — removing an
+      // assignment had no way to find the work order it created, which is how an orphan CAD WO
+      // survived a deleted assignment on CO-msp2z3jx-b313c5.
+      assignmentId: assignment.id,
     });
   }
   return CustomOrdersModel.findById(customID);
 }
 
+/**
+ * Remove an assignment AND everything assigning created.
+ *
+ * This used to `$pull` the assignment and stop. Assigning a CAD designer does three things — spawns a
+ * CAD work order, snapshots the design fee into the quote, and adds a "CAD QC Review" labor line — and
+ * none of them were reversed. The order kept billing a designer who was no longer on it, and the
+ * orphaned work order sat on somebody's bench with no assignment behind it.
+ *
+ * The work order is CANCELLED rather than deleted when it already carries work (files, completion, a
+ * QC verdict): the assignment was a mistake, but the work wasn't, and destroying the record of it
+ * would lose the labor. An untouched one is deleted outright, since it never should have existed.
+ */
 export async function removeAssignment({ customID, assignmentID }) {
   const order = await CustomOrdersModel.findById(customID);
   if (!order) throw notFound('Custom order not found.');
+
+  const assignment = (order.assignments || []).find((a) => a.id === assignmentID);
   await CustomOrdersModel.removeAssignment(customID, assignmentID);
+
+  if (assignment?.role === ASSIGNMENT_ROLE.CAD) {
+    const cleanup = await releaseCadWorkOrder(order, assignment);
+
+    // Reverse the quote edits assigning made. Another CAD designer should never exist (assignCustom
+    // refuses one), so there is nothing to fall back to: the fee goes to zero and the auto QC line
+    // goes with it, because QC exists to review THAT designer's CAD.
+    const quote = order.quote || {};
+    const laborTasks = (quote.laborTasks || []).filter((t) => t?.autoKey !== 'custom-qc');
+    await CustomOrdersModel.updateById(
+      customID,
+      { quote: { ...quote, designFee: 0, includeCustomDesign: false, laborTasks } },
+      { changedBy: 'system', reason: `cad designer unassigned (${cleanup})` },
+    );
+  }
+
   return CustomOrdersModel.findById(customID);
+}
+
+/** Cancel or delete the CAD work order this assignment spawned. Returns what it did. */
+async function releaseCadWorkOrder(order, assignment) {
+  try {
+    const [{ default: WorkOrdersModel, WORK_ORDER_SOURCE }, { default: PiecesModel }] = await Promise.all([
+      import('@/app/api/workOrders/model'),
+      import('@/app/api/pieces/model'),
+    ]);
+    const pieceID = (order.pieceIDs || [])[0];
+    if (!pieceID) return 'no piece';
+
+    const all = await WorkOrdersModel.findBySource(WORK_ORDER_SOURCE.PRODUCTION_PIECE, pieceID);
+    // Prefer the stamped link; fall back to the CAD design stage for work orders created before the
+    // stamp existed — otherwise this fix cannot clean up the very orders that caused it.
+    const wo = all.find((w) => w.assignmentId && w.assignmentId === assignment.id)
+      || all.find((w) => w.discipline === 'cad' && w.cadStage === 'design' && w.status !== 'CANCELLED'
+        && (w.assignedToUserID === assignment.userID));
+    if (!wo) return 'no work order';
+
+    const hasWork = Boolean(wo.completedAt) || Boolean(wo.qcBy)
+      || Object.keys(wo.files || {}).length > 0 || (wo.tasks || []).length > 0;
+    if (hasWork) {
+      await WorkOrdersModel.updateByID(wo.workOrderID, {
+        status: 'CANCELLED',
+        cancelledReason: 'CAD assignment removed',
+      });
+      return `work order ${wo.workOrderID} cancelled (had work)`;
+    }
+
+    const dbi = await db.connect();
+    await dbi.collection('workOrders').deleteOne({ workOrderID: wo.workOrderID });
+    await dbi.collection('pieces').updateOne({ pieceID }, { $pull: { workOrderIDs: wo.workOrderID } });
+    return `work order ${wo.workOrderID} removed`;
+  } catch (e) {
+    // Never block removing the assignment on cleanup: a stuck work order is visible and fixable, an
+    // assignment you cannot remove is not.
+    console.error('[customs] CAD work-order cleanup failed:', e?.message || e);
+    return `cleanup failed: ${e?.message || e}`;
+  }
 }

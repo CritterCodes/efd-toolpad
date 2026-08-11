@@ -110,6 +110,7 @@ export async function ensureCustomPiece(customID, opts = {}) {
 export async function spawnCustomWorkOrder({
   customID, discipline = DISCIPLINE.BENCH_JEWELRY, title = null, cadStage = null,
   assignedToUserID = null, assignedJeweler = null, estLaborHours = 0, process = null, tasks = null, flatFee = 0, createdBy = null,
+  assignmentId = null,
 }) {
   const { pieceID } = await ensureCustomPiece(customID, { createdBy });
   const piece = await PiecesModel.findById(pieceID);
@@ -146,6 +147,9 @@ export async function spawnCustomWorkOrder({
       ? tasks.map((t) => ({ process: t.process || discipline, estLaborHours: Number(t.estLaborHours) || 0 }))
       : ((process || Number(estLaborHours) > 0) ? [{ process: process || discipline, estLaborHours: Number(estLaborHours) || 0 }] : []),
     createdBy,
+    // Which assignment spawned this. Without it an assignment and its work order are unpairable,
+    // so removing the assignment leaves an orphan on somebody's bench.
+    assignmentId,
   });
   await PiecesModel.setWorkOrders(pieceID, [...(piece.workOrderIDs || []), wo.workOrderID]);
 

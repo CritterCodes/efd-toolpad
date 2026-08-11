@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/apiAuth';
 import { assignArtisan } from '@/services/customs/customAssignment';
 
-const CODE_STATUS = { NOT_FOUND: 404, BAD_REQUEST: 400 };
+// CONFLICT: a second CAD designer on one order. Without it that refusal returns a 500 and the UI
+// shows "server error" instead of the sentence explaining what to do.
+const CODE_STATUS = { NOT_FOUND: 404, BAD_REQUEST: 400, CONFLICT: 409 };
 
 /** POST /api/custom-orders/[customID]/assignments — assign an artisan to a role. */
 export const POST = async (req, { params }) => {

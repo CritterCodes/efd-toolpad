@@ -65,6 +65,10 @@ export default class WorkOrdersModel {
       tasks: Array.isArray(data.tasks) ? data.tasks : [],
       // File deliverables (C6): { stl: {url,key,…}, glb: {…} }. STL = casting (metal-only); GLB = web viewer.
       files: (data.files && typeof data.files === 'object') ? data.files : {},
+      // The custom-order assignment that spawned this, when there was one. Removing an assignment has
+      // to be able to find the work order it created; without this link the two are unpairable and a
+      // deleted assignment leaves an orphan work order on somebody's bench.
+      assignmentId: data.assignmentId ?? null,
       createdAt: now,
       updatedAt: now,
       createdBy: data.createdBy ?? null,
