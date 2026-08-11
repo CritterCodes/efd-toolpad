@@ -144,18 +144,19 @@ export default function CustomDetailPage() {
     const res = await fetch(`/api/custom-orders/${customID}/invoices/${invoiceID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'paid', paymentMethod }) });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Mark-paid failed');
   }, `Invoice marked paid (${paymentMethod})`);
+  // Emails EFD's own printable invoice. No Stripe hosted invoice is created — a card payer follows the
+  // link in the email to the shop portal and checks out there.
   const sendInvoice = (invoiceID) => call(async () => {
-    const res = await fetch(`/api/custom-orders/${customID}/invoices/${invoiceID}/checkout`, { method: 'POST' });
+    const res = await fetch(`/api/custom-orders/${customID}/invoices/${invoiceID}/send`, { method: 'POST' });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || 'Could not send invoice');
-    if (data.url) { try { await navigator.clipboard.writeText(data.url); } catch { /* clipboard optional */ } }
-    notify(
-      data.delivery === 'sandbox_no_email'
-        ? 'Sandbox invoice created; Stripe does not email test invoices. Link copied.'
-        : 'Stripe invoice emailed to client. Link copied.',
-      data.delivery === 'sandbox_no_email' ? 'warning' : 'success',
-    );
+    // A failed send is surfaced, never hidden behind a success toast: staff need to know to print it.
+    notify(data.warning || 'Invoice emailed to the client.', data.warning ? 'warning' : 'success');
   });
+
+  const printDoc = (invoiceID, kind) => {
+    window.open(`/dashboard/customs/${customID}/invoices/${invoiceID}/print?kind=${kind}`, '_blank');
+  };
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress sx={{ color: REPAIRS_UI.accent }} /></Box>;
   if (!order) {
     return (
@@ -266,15 +267,27 @@ export default function CustomDetailPage() {
                   <TableCell align="right" sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>{money(inv.amount)}</TableCell>
                   <TableCell sx={{ borderColor: REPAIRS_UI.border }}><Chip size="small" label={inv.status === 'paid' && inv.paymentMethod ? `paid · ${inv.paymentMethod}` : inv.status} color={inv.status === 'paid' ? 'success' : inv.status === 'cancelled' ? 'default' : 'warning'} /></TableCell>
                   <TableCell align="right" sx={{ borderColor: REPAIRS_UI.border }}>
-                    {inv.status !== 'paid' && inv.status !== 'cancelled' && (
-                      <Stack direction="row" spacing={0.5} justifyContent="flex-end" alignItems="center" flexWrap="wrap" useFlexGap>
-                        <Button size="small" disabled={busy} onClick={() => sendInvoice(inv.invoiceID)} sx={{ color: '#64B5F6' }}>{inv.stripeInvoiceID ? 'Resend invoice' : 'Send invoice'}</Button>
-                        {inv.checkoutUrl && <Button size="small" component="a" href={inv.checkoutUrl} target="_blank" rel="noreferrer" sx={{ color: REPAIRS_UI.textSecondary, minWidth: 0 }}>Open</Button>}
-                        {inv.invoicePdf && <Button size="small" component="a" href={inv.invoicePdf} target="_blank" rel="noreferrer" sx={{ color: REPAIRS_UI.textSecondary, minWidth: 0 }}>PDF</Button>}
-                        <Button size="small" disabled={busy} onClick={() => markPaid(inv.invoiceID, 'cash')} sx={{ color: '#66BB6A' }}>Cash</Button>
-                        <Button size="small" disabled={busy} onClick={() => markPaid(inv.invoiceID, 'card')} sx={{ color: REPAIRS_UI.accent }}>Card</Button>
-                      </Stack>
-                    )}
+                    <Stack direction="row" spacing={0.5} justifyContent="flex-end" alignItems="center" flexWrap="wrap" useFlexGap>
+                      {inv.status !== 'paid' && inv.status !== 'cancelled' && (
+                        <>
+                          <Button size="small" disabled={busy} onClick={() => sendInvoice(inv.invoiceID)} sx={{ color: '#64B5F6' }}>{inv.invoiceEmail?.sent ? 'Resend invoice' : 'Send invoice'}</Button>
+                          <Button size="small" onClick={() => printDoc(inv.invoiceID, 'invoice')} sx={{ color: REPAIRS_UI.textSecondary }}>Print</Button>
+                          <Button size="small" disabled={busy} onClick={() => markPaid(inv.invoiceID, 'cash')} sx={{ color: '#66BB6A' }}>Cash</Button>
+                          {/* Zelle is a real method now, not "other": staff verify the transfer by hand,
+                              mark it here, and the customer's receipt goes out on that action. */}
+                          <Button size="small" disabled={busy} onClick={() => markPaid(inv.invoiceID, 'zelle')} sx={{ color: '#66BB6A' }}>Zelle</Button>
+                          <Button size="small" disabled={busy} onClick={() => markPaid(inv.invoiceID, 'card')} sx={{ color: REPAIRS_UI.accent }}>Card</Button>
+                        </>
+                      )}
+                      {/* Once paid, the receipt is the document staff need — printable at the counter. */}
+                      {inv.status === 'paid' && (
+                        <Button size="small" onClick={() => printDoc(inv.invoiceID, 'receipt')} sx={{ color: '#66BB6A' }}>Print receipt</Button>
+                      )}
+                      {/* A silent email failure is what let a $5,500 cash receipt go missing. Say so. */}
+                      {inv.status === 'paid' && inv.receiptEmail && !inv.receiptEmail.sent && (
+                        <Chip size="small" color="warning" variant="outlined" label="receipt not emailed" />
+                      )}
+                    </Stack>
                   </TableCell>
                 </TableRow>
               ))}

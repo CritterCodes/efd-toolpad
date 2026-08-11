@@ -64,13 +64,14 @@ export function paymentInstructions({ portalUrl, zelleHandle, balanceDue }) {
       actionLabel: 'Pay online',
     });
   }
-  if (zelleHandle) {
-    options.push({
-      method: 'Zelle',
-      detail: `Send to ${zelleHandle}. Zelle payments are verified by hand — once a member of staff `
-        + 'confirms it, we will email your receipt. Please include your order number so we can match it.',
-    });
-  }
+  // Zelle is ALWAYS offered: the QR panel in the header is the instruction, exactly as on the repair
+  // invoice, so it works whether or not a handle string is configured in settings.
+  options.push({
+    method: 'Zelle',
+    detail: `${zelleHandle ? `Send to ${zelleHandle}, or scan` : 'Scan'} the QR code on this document. `
+      + 'Zelle payments are verified by hand — once a member of staff confirms yours, we will email '
+      + 'your receipt. Please put your order number in the memo so we can match it.',
+  });
   options.push({ method: 'Cash or card in store', detail: 'Pay in person and we will print your receipt on the spot.' });
   return options;
 }

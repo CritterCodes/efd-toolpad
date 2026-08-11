@@ -73,6 +73,30 @@ export default class CustomInvoicesModel {
     return this.findById(invoiceID);
   }
 
+  /**
+   * Record an emailed invoice/receipt and whether it ACTUALLY went out.
+   *
+   * Stored per kind and never overwritten across kinds, so "we sent the invoice" and "we sent the
+   * receipt" are separate facts. `sent: false` plus the reason is recorded deliberately — the whole
+   * reason a customer's $5,500 cash receipt went missing unnoticed is that the old notification path
+   * recorded every email as delivered whether or not it was.
+   */
+  static async recordDelivery(invoiceID, { kind, sent, error = null, to = null } = {}) {
+    const col = await this.collection();
+    const key = kind === 'receipt' ? 'receiptEmail' : 'invoiceEmail';
+    await col.updateOne(
+      { invoiceID },
+      {
+        $set: {
+          [key]: { sent: Boolean(sent), error: sent ? null : (error || 'unknown error'), to, at: new Date() },
+          updatedAt: new Date(),
+        },
+        $inc: { [`${key}Count`]: 1 },
+      },
+    );
+    return this.findById(invoiceID);
+  }
+
   /** Store the Stripe hosted invoice state and client payment URL. */
   static async setStripeInvoice(invoiceID, stripeInvoice = {}) {
     const col = await this.collection();

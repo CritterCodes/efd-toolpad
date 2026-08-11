@@ -11,8 +11,12 @@ import CustomOrdersModel, { CUSTOM_ORDER_STATUS } from '@/app/api/custom-orders/
 import CustomInvoicesModel, { CUSTOM_INVOICE_STATUS } from '@/app/api/custom-orders/invoices/model';
 import { computePaymentProgress } from '@/services/customs/paymentProgress';
 import { NotificationService, NOTIFICATION_TYPES } from '@/lib/notificationService';
-import { createAndSendStripeInvoice, resendStripeInvoice } from '@/app/api/custom-orders/stripe';
 import { calculateCustomInvoice, isBillableEmail } from '@/services/customs/customInvoicePolicy';
+import { shopBase } from '@/lib/appUrls';
+
+// Where a customer pays a balance by card. Admin never handles the card; the shop portal owns checkout.
+// The Stripe hosted-invoice helpers this file used to import are gone — see sendInvoiceToCustomer.
+const PORTAL_URL = `${shopBase()}/custom-work/portal`;
 
 const STATUS_RANK = {
   pending: 0, consultation: 1, design: 2, quote: 3, deposit: 4,
@@ -109,15 +113,25 @@ export async function createCustomInvoice(customID, data) {
 }
 
 /**
- * Create and send a hosted Stripe Invoice. The invoice.paid webhook marks the
- * internal invoice paid and advances the custom order.
+ * SEND THE INVOICE TO THE CUSTOMER as an EFD document. No Stripe hosted invoice.
+ *
+ * Stripe hosted invoices are retired for custom orders (owner, 2026-08-11). They made Stripe the
+ * owner of the customer relationship: the invoice email was a Stripe side effect, which is why
+ * `invoice-created` was `channels: ['inApp']` and EFD never sent an invoice of its own. The customer
+ * got Stripe's template, EFD had no printable copy, and a cash payment produced no document at all.
+ *
+ * Now EFD sends its own printable invoice, and a card payer follows a link to the shop portal to check
+ * out there. The invoice.paid webhook stays wired so the two already-paid Stripe invoices on
+ * CO-mrcaads7-e5e581 still reconcile; nothing creates a NEW hosted invoice.
  */
-export async function createInvoiceCheckout(customID, invoiceID) {
+export async function sendInvoiceToCustomer(customID, invoiceID) {
   const order = await CustomOrdersModel.findById(customID);
   if (!order) throw new Error('Custom order not found.');
   const invoice = await CustomInvoicesModel.findById(invoiceID);
   if (!invoice || invoice.customID !== customID) throw new Error('Invoice not found.');
-  if (invoice.status === CUSTOM_INVOICE_STATUS.PAID) { const e = new Error('Invoice is already paid.'); e.code = 'BAD_REQUEST'; throw e; }
+  if (invoice.status === CUSTOM_INVOICE_STATUS.PAID) {
+    const e = new Error('Invoice is already paid — send a receipt instead.'); e.code = 'BAD_REQUEST'; throw e;
+  }
 
   const customerEmail = String(invoice.customerEmail || order.customerEmail || '').trim();
   if (!isBillableEmail(customerEmail)) {
@@ -125,23 +139,11 @@ export async function createInvoiceCheckout(customID, invoiceID) {
     error.code = 'BAD_REQUEST';
     throw error;
   }
-  const description = `${order.jewelryType || 'Custom order'} ${customID} - ${invoice.type} payment`;
-  const stripeInvoice = invoice.stripeInvoiceID
-    ? await resendStripeInvoice(invoice.stripeInvoiceID, invoiceID, Number(invoice.stripeSendCount || 1) + 1)
-    : await createAndSendStripeInvoice({
-        amountInCents: Math.round((Number(invoice.amount) || 0) * 100),
-        invoiceID,
-        invoiceNumber: invoice.invoiceNumber,
-        customID,
-        customerEmail,
-        customerName: order.customerName || '',
-        description,
-        dueDays: invoice.dueDays,
-      });
 
-  const updated = await CustomInvoicesModel.setStripeInvoice(invoiceID, stripeInvoice);
+  const { sendCustomInvoiceEmail } = await import('@/services/customs/customInvoiceDelivery');
+  const { doc, delivery } = await sendCustomInvoiceEmail(customID, invoiceID);
 
-  // Stripe sends the customer email. Keep the portal notification best-effort.
+  // In-app/push notice alongside the emailed document, pointing at the portal where they can pay.
   NotificationService.createNotification({
     userId: order.clientID,
     type: NOTIFICATION_TYPES.INVOICE_CREATED,
@@ -150,14 +152,11 @@ export async function createInvoiceCheckout(customID, invoiceID) {
     channels: ['inApp'],
     templateName: 'invoice-created',
     recipientEmail: customerEmail,
-    data: { customID, invoiceNumber: invoice.invoiceNumber, amount: (Number(invoice.amount) || 0).toFixed(2), type: invoice.type, checkoutUrl: stripeInvoice.hostedInvoiceUrl },
-  }).catch((e) => console.error('⚠️ payment-link notification failed:', e.message));
+    data: { customID, invoiceNumber: invoice.invoiceNumber, amount: (Number(invoice.amount) || 0).toFixed(2), type: invoice.type, actionUrl: PORTAL_URL },
+  }).catch((e) => console.error('⚠️ invoice notification failed:', e.message));
 
-  return {
-    url: stripeInvoice.hostedInvoiceUrl,
-    invoice: updated,
-    delivery: stripeInvoice.livemode ? 'emailed' : 'sandbox_no_email',
-  };
+  // The caller surfaces this: a failed send must be VISIBLE, not swallowed behind a success toast.
+  return { invoice: await CustomInvoicesModel.findById(invoiceID), delivery, balanceDue: doc.balanceDue };
 }
 
 export async function getCustomPaymentProgress(customID) {
@@ -179,6 +178,7 @@ export async function setCustomInvoiceStatus(customID, invoiceID, status, paymen
   if (!invoice) throw new Error('Invoice not found.');
 
   const { progress } = await progressFor(order);
+  let receiptDelivery = null;
 
   if (status === CUSTOM_INVOICE_STATUS.PAID) {
     // Critical path: advance the order forward-only (first paid → deposit; 50% → in_production).
@@ -189,7 +189,18 @@ export async function setCustomInvoiceStatus(customID, invoiceID, status, paymen
       // can't do in-house bench work until the cast metal is in hand. See customProduction.recordCastingReceived.
     }
     notifyPayment(order, invoice, progress); // fire-and-forget
+
+    // EMAIL THE RECEIPT, whatever the payment method. Cash and Zelle used to produce no customer
+    // document at all: only Stripe-paid invoices got anything, because only Stripe sent email. The
+    // receipt states the remaining balance, since a custom job is paid in instalments.
+    //
+    // Awaited, unlike the notification, so the mark-paid response can tell staff whether it actually
+    // reached the customer — they are standing at the counter and can print it instead. It cannot throw.
+    const { sendCustomReceiptEmail } = await import('@/services/customs/customInvoiceDelivery');
+    receiptDelivery = await sendCustomReceiptEmail(customID, invoiceID)
+      .then((r) => r.delivery)
+      .catch((e) => ({ sent: false, error: e?.message || String(e) }));
   }
 
-  return { invoice, progress };
+  return { invoice, progress, receiptDelivery };
 }
