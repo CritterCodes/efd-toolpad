@@ -162,8 +162,13 @@ export default class CustomOrdersModel {
       const cogMarkup = Number(s?.financial?.cogMarkup);
       const rushMultiplier = Number(s?.financial?.rushMultiplier);
       const taxRate = Number(s?.pricing?.taxRate); // sales tax rate (fraction) — same source repairs/sales use
+      // Centre-stone markup: a significant stone doesn't carry mounting keystone. Deliberately NOT
+      // defaulted here — left undefined, computeQuote falls back to cogMarkup, so nothing reprices
+      // until this is actually set.
+      const centerstoneMarkup = Number(s?.financial?.centerstoneMarkup);
       return {
         cogMarkup: cogMarkup > 0 ? cogMarkup : 2.5,
+        centerstoneMarkup: centerstoneMarkup > 0 ? centerstoneMarkup : undefined,
         rushMultiplier: rushMultiplier > 1 ? rushMultiplier : 1.5,
         taxRate: taxRate >= 0 ? taxRate : 0,
       };
@@ -185,6 +190,9 @@ export default class CustomOrdersModel {
       ...quote,
       cog: computed.cog,
       cogMarkup: computed.cogMarkup,
+      // Snapshotted like cogMarkup: the price the customer agreed to must stay reconstructable even if
+      // the settings default changes later.
+      centerstoneMarkup: computed.centerstoneMarkup,
       quoteTotal: computed.quoteTotal,
       taxRate: computed.taxRate,
       taxAmount: computed.taxAmount,

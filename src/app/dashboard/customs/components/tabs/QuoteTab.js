@@ -191,6 +191,8 @@ function AnalyticsCard({ cog, total, designerPayout, margin, bonus, floorPct }) 
 
 const blankForm = (q = {}) => ({
   centerstone: { item: q.centerstone?.item || q.centerstone?.description || '', cost: q.centerstone?.cost ?? 0 },
+  // '' = no override; falls back to the settings centre-stone default, then to the COG markup.
+  centerstoneMarkup: n(q.centerstoneMarkup) > 0 ? q.centerstoneMarkup : '',
   mounting: { item: q.mounting?.item || q.mounting?.description || '', cost: q.mounting?.cost ?? 0 },
   accentStones: Array.isArray(q.accentStones) ? q.accentStones : [],
   additionalMaterials: Array.isArray(q.additionalMaterials) ? q.additionalMaterials : [],
@@ -209,6 +211,7 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
   const [form, setForm] = useState(() => blankForm(q));
   const [floorPct, setFloorPct] = useState(45);
   const [defaultMarkup, setDefaultMarkup] = useState(2.5); // admin-settings cogMarkup (fallback when no per-quote override)
+  const [defaultStoneMarkup, setDefaultStoneMarkup] = useState(0); // 0 = unset ⇒ centre stone uses the COG markup
   const [taxRate, setTaxRate] = useState(0); // admin-settings pricing.taxRate (fraction)
 
   // Always-editable (no Edit toggle). Re-sync from the order whenever it reloads
@@ -219,6 +222,8 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
     fetch('/api/admin/settings').then((r) => r.ok ? r.json() : null).then((s) => {
       const f = Number(s?.financial?.targetMarginFloor);
       if (f >= 0 && f <= 1) setFloorPct(f * 100);
+      const cs = Number(s?.financial?.centerstoneMarkup);
+      if (cs > 0) setDefaultStoneMarkup(cs);
       const m = Number(s?.financial?.cogMarkup);
       if (m > 0) setDefaultMarkup(m);
       const t = Number(s?.pricing?.taxRate);
@@ -255,13 +260,23 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
   const castingCost = n(q.castingCost); const glbFee = n(q.glbFee); const qcFee = n(q.qcReviewFee);
   // Per-quote markup override (form) wins over the admin-settings default — mirrors computeQuote.
   const cogMarkup = n(form.cogMarkup) > 0 ? n(form.cogMarkup) : defaultMarkup;
-  const matTotal = n(form.centerstone.cost) + n(form.mounting.cost) + lineSum(form.accentStones) + lineSum(form.additionalMaterials);
+  // The CENTRE STONE is marked up separately — it doesn't carry mounting keystone. Mirrors
+  // computeQuote; if these two ever disagree the preview quotes a price the save won't produce.
+  const centerstoneMarkup = n(form.centerstoneMarkup) > 0
+    ? n(form.centerstoneMarkup)
+    : (defaultStoneMarkup > 0 ? defaultStoneMarkup : cogMarkup);
+  const stoneCost = n(form.centerstone.cost);
+  const otherMatTotal = n(form.mounting.cost) + lineSum(form.accentStones) + lineSum(form.additionalMaterials);
+  const matTotal = stoneCost + otherMatTotal;
   const laborTotal = lineSum(form.laborTasks);
   const shipTotal = lineSum(form.shippingCosts);
   const designTotal = form.includeCustomDesign ? n(form.designFee) : n(form.designFee);
-  const cog = matTotal + laborTotal + shipTotal + castingCost + designTotal + glbFee + qcFee;
+  const cogExStone = otherMatTotal + laborTotal + shipTotal + castingCost + designTotal + glbFee + qcFee;
+  const cog = cogExStone + stoneCost;
   const rush = form.isRush ? (n(q.rushMultiplier) > 1 ? n(q.rushMultiplier) : 1.5) : 1;
-  const subtotal = cog * cogMarkup * rush; // pre-tax marked-up price (revenue/margin basis)
+  // Rush multiplies the RING only — it prices EFD's capacity, and a bought-in stone costs the same
+  // whether it's set tomorrow or in three weeks. Mirrors computeQuote.
+  const subtotal = (cogExStone * cogMarkup * rush) + (stoneCost * centerstoneMarkup); // pre-tax
   const effTaxRate = form.taxExempt ? 0 : taxRate;
   const taxAmount = subtotal * effTaxRate;
   const total = subtotal + taxAmount; // tax-inclusive grand total the customer is billed
@@ -282,6 +297,7 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
         shippingCosts: form.shippingCosts.map((r) => ({ description: r.description || '', cost: n(r.cost) })),
         isRush: form.isRush, includeCustomDesign: form.includeCustomDesign, designFee: n(form.designFee),
         cogMarkup: n(form.cogMarkup) || 0, // 0 = revert to the admin-settings default
+        centerstoneMarkup: n(form.centerstoneMarkup) || 0, // 0 = settings default, else the COG markup
         taxExempt: !!form.taxExempt,
 
         // clear legacy flats so they don't double-count
@@ -333,8 +349,23 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
       <Paper sx={cardSx}>
         <CardHead icon={DiamondIcon} title="Materials" />
         <Grid container spacing={2} sx={{ mb: 1.5 }}>
-          <Grid item xs={12} sm={8}><TextField fullWidth size="small" label="Centerstone" value={form.centerstone.item} disabled={busy} onChange={(e) => setNested('centerstone', 'item', e.target.value)} /></Grid>
-          <Grid item xs={12} sm={4}><TextField fullWidth size="small" label="Cost" type="number" value={form.centerstone.cost} disabled={busy} onChange={(e) => setNested('centerstone', 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
+          <Grid item xs={12} sm={6}><TextField fullWidth size="small" label="Centerstone" value={form.centerstone.item} disabled={busy} onChange={(e) => setNested('centerstone', 'item', e.target.value)} /></Grid>
+          <Grid item xs={12} sm={3}><TextField fullWidth size="small" label="Cost" type="number" value={form.centerstone.cost} disabled={busy} onChange={(e) => setNested('centerstone', 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
+          {/* A significant stone doesn't carry mounting keystone — a natural diamond can't take the
+              2.5× the ring around it takes. Blank keeps whatever the default is, so nothing changes
+              unless it's set here. */}
+          <Grid item xs={12} sm={3}>
+            <TextField
+              fullWidth size="small" label="Stone markup" type="number"
+              value={form.centerstoneMarkup} disabled={busy}
+              onChange={(e) => setField('centerstoneMarkup', e.target.value)}
+              placeholder={String(defaultStoneMarkup > 0 ? defaultStoneMarkup : cogMarkup)}
+              helperText={n(form.centerstoneMarkup) > 0
+                ? `Stone × ${n(form.centerstoneMarkup)}, rest × ${cogMarkup}`
+                : `Default × ${defaultStoneMarkup > 0 ? defaultStoneMarkup : cogMarkup}`}
+              InputProps={{ startAdornment: <InputAdornment position="start">×</InputAdornment> }}
+            />
+          </Grid>
           <Grid item xs={12} sm={8}><TextField fullWidth size="small" label="Mounting" value={form.mounting.item} disabled={busy} onChange={(e) => setNested('mounting', 'item', e.target.value)} /></Grid>
           <Grid item xs={12} sm={4}><TextField fullWidth size="small" label="Cost" type="number" value={form.mounting.cost} disabled={busy} onChange={(e) => setNested('mounting', 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
           <Grid item xs={12}>

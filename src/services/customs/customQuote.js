@@ -34,10 +34,16 @@ function legacyLine(m) {
 }
 
 export function computeQuote(quote = {}, settings = {}) {
-  const materialsTotal =
-    n(quote.centerstone?.cost) + n(quote.mounting?.cost)
+  // The CENTER STONE is separated out because it does not carry mounting keystone. A natural diamond
+  // bought at cost cannot take the 2.5× that the ring around it takes — the trade prices significant
+  // stones far nearer cost (~1.3×), and applying the full markup either loses the sale or overcharges.
+  // Everything else in the quote still folds into the single COG bucket.
+  const centerstoneCost = n(quote.centerstone?.cost);
+  const otherMaterialsTotal =
+    n(quote.mounting?.cost)
     + lineSum(quote.accentStones) + lineSum(quote.additionalMaterials)
     + (quote.materialCosts || []).reduce((s, m) => s + legacyLine(m), 0); // legacy fallback
+  const materialsTotal = centerstoneCost + otherMaterialsTotal;
   const laborTotal = lineSum(quote.laborTasks) + n(quote.laborCost);       // + legacy flat
   const shippingTotal = lineSum(quote.shippingCosts) + n(quote.shippingCost);
   const castingTotal = n(quote.castingCost);
@@ -45,16 +51,35 @@ export function computeQuote(quote = {}, settings = {}) {
   const glbTotal = n(quote.glbFee);
   const qcTotal = n(quote.qcReviewFee);
 
-  const cog = materialsTotal + laborTotal + shippingTotal + castingTotal + designTotal + glbTotal + qcTotal;
+  // `cog` remains the FULL cost of the job (centre stone included) — it is the cost basis every margin
+  // figure and the margin-floor guardrail are measured against, so its meaning must not change.
+  const cogExCenterstone = otherMaterialsTotal + laborTotal + shippingTotal + castingTotal + designTotal + glbTotal + qcTotal;
+  const cog = cogExCenterstone + centerstoneCost;
 
   // Per-quote markup OVERRIDE wins over the admin-settings default (0/unset → use the
   // settings default, then the hard default). Lets the quote builder set a markup per job.
   const cogMarkup = n(quote.cogMarkup) > 0 ? n(quote.cogMarkup) : (n(settings.cogMarkup) > 0 ? n(settings.cogMarkup) : DEFAULT_COG_MARKUP);
+  // Falls back to cogMarkup, NOT to a stone-specific default. That keeps every quote written before
+  // this existed priced exactly as it was — the split only changes a number once someone sets it.
+  const centerstoneMarkup = n(quote.centerstoneMarkup) > 0
+    ? n(quote.centerstoneMarkup)
+    : (n(settings.centerstoneMarkup) > 0 ? n(settings.centerstoneMarkup) : cogMarkup);
   let rushMultiplier = 1;
   if (quote.isRush) rushMultiplier = n(quote.rushMultiplier) > 1 ? n(quote.rushMultiplier) : (n(settings.rushMultiplier) > 1 ? n(settings.rushMultiplier) : DEFAULT_RUSH);
   else if (n(quote.rushMultiplier) > 1) rushMultiplier = n(quote.rushMultiplier); // legacy flat rush
 
-  const quoteTotal = cog * cogMarkup * rushMultiplier;
+  // RUSH DOES NOT TOUCH THE CENTRE STONE (owner, 2026-08-11). A rush premium prices EFD's capacity —
+  // reordering the bench queue, overtime, bumping other clients. A bought-in stone costs the same
+  // whether it's set tomorrow or in three weeks, so rushing it buys the customer nothing.
+  //
+  // The magnitude is what settles it: on a $4,000 stone in a $1,000 ring at 1.5× rush, $2,600 of the
+  // $3,850 uplift came from the stone — two thirds of the rush fee charged on the one line that took no
+  // extra work, and more than the entire marked-up mounting. It's the same reasoning that keeps the
+  // stone out of keystone: EFD didn't add that value.
+  //
+  // Real rush costs on a stone (paying up to source fast, air freight) belong where they land — a
+  // higher stone cost, or the shipping bucket — not in a blanket 50%.
+  const quoteTotal = (cogExCenterstone * cogMarkup * rushMultiplier) + (centerstoneCost * centerstoneMarkup);
 
   // Sales tax sits ON TOP of the marked-up price (it's a pass-through liability, not
   // revenue/margin). Rate comes from admin settings (settings.taxRate, a fraction);
@@ -67,6 +92,11 @@ export function computeQuote(quote = {}, settings = {}) {
 
   return {
     materialsTotal: round(materialsTotal),
+    // Broken out so the quote UI can show the two markups side by side, and so the snapshot on the
+    // order records WHICH markup the centre stone was actually charged at.
+    centerstoneCost: round(centerstoneCost),
+    otherMaterialsTotal: round(otherMaterialsTotal),
+    cogExCenterstone: round(cogExCenterstone),
     laborTotal: round(laborTotal),
     shippingTotal: round(shippingTotal),
     castingTotal: round(castingTotal),
@@ -75,6 +105,7 @@ export function computeQuote(quote = {}, settings = {}) {
     qcTotal: round(qcTotal),
     cog: round(cog),
     cogMarkup,
+    centerstoneMarkup,
     rushMultiplier,
     quoteTotal: round(quoteTotal),
     taxRate,
