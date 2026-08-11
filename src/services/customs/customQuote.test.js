@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeQuote, computeMargin } from '@/services/customs/customQuote';
+import { computeQuote, computeMargin, assertMarkupsSane } from '@/services/customs/customQuote';
 
 describe('computeQuote (structured single-COG bucket)', () => {
   it('folds structured materials/labor/shipping + fees into COG and marks up', () => {
@@ -257,5 +257,72 @@ describe('per-line material markup', () => {
   it('effectiveMarkup equals cogMarkup when nothing is overridden and there is no rush', () => {
     const q = { mounting: { item: 'band', cost: 400 }, laborTasks: [{ cost: 100, quantity: 1 }] };
     expect(computeQuote(q, base).effectiveMarkup).toBe(2.5);
+  });
+});
+
+/**
+ * THE BELOW-COST TYPO. Per-line markups made a decimal slip cheap: `0.13` for `1.3` on a $4,000 stone
+ * quotes it at $520 and the order publishes $1,980 under cost with nothing flagging it. The margin row
+ * wouldn't stand out either — a quote holding a pass-through stone already reads low.
+ */
+describe('assertMarkupsSane', () => {
+  const base = { cogMarkup: 2.5, rushMultiplier: 1.5, taxRate: 0 };
+
+  it('rejects the decimal-slip that would quote below cost, and names the field', () => {
+    expect(() => assertMarkupsSane({ centerstoneMarkup: 0.13 })).toThrow(/Centre-stone markup of 0\.13/);
+    expect(() => assertMarkupsSane({ centerstoneMarkup: 0.13 })).toThrow(/decimal point/);
+  });
+
+  it('proves what the typo would have cost: a quote $1,980 under cost, silently', () => {
+    // Exactly the owner's ring, with the slip.
+    const q = { centerstone: { cost: 4000 }, centerstoneMarkup: 0.13, mounting: { cost: 1000 } };
+    const bad = computeQuote(q, base);
+    expect(bad.quoteTotal).toBe(3020);
+    expect(bad.projectedMargin).toBe(-1980);   // computeQuote itself is happy to price this
+    expect(() => assertMarkupsSane(q)).toThrow();  // the guard is what stops it
+  });
+
+  it('rejects a stray extra digit on the high side too (25 for 2.5)', () => {
+    expect(() => assertMarkupsSane({ cogMarkup: 25 })).toThrow(/COG markup of 25/);
+  });
+
+  it('accepts the real values in use, and the bounds themselves', () => {
+    for (const v of [1, 1.3, 2.5, 10]) {
+      expect(() => assertMarkupsSane({ centerstoneMarkup: v, cogMarkup: v })).not.toThrow();
+    }
+  });
+
+  it('treats unset/blank/zero as "no override", not as an error', () => {
+    for (const v of [undefined, null, '', 0]) {
+      expect(() => assertMarkupsSane({ centerstoneMarkup: v, cogMarkup: v })).not.toThrow();
+    }
+    expect(() => assertMarkupsSane({})).not.toThrow();
+    expect(() => assertMarkupsSane()).not.toThrow();
+  });
+
+  it('catches a typo on a per-line override and says WHICH line', () => {
+    const q = {
+      accentStones: [{ item: 'melee', cost: 50, markup: 2.5 }, { item: 'sapphire', cost: 900, markup: 0.12 }],
+    };
+    expect(() => assertMarkupsSane(q)).toThrow(/Accent stone #2 markup \(sapphire\)/);
+  });
+
+  it('checks additional-material lines as well as accent stones', () => {
+    expect(() => assertMarkupsSane({ additionalMaterials: [{ item: 'clasp', cost: 900, markup: 0.15 }] }))
+      .toThrow(/Material #1 markup \(clasp\)/);
+  });
+
+  it('rejects junk that Number() cannot make sense of', () => {
+    expect(() => assertMarkupsSane({ cogMarkup: 'two point five' })).toThrow(/must be a number/);
+  });
+
+  it('a valid quote with per-line overrides still passes end to end', () => {
+    const q = {
+      centerstone: { cost: 4000 }, centerstoneMarkup: 1.3,
+      mounting: { cost: 1000 },
+      accentStones: [{ cost: 200, markup: 1.4 }],
+    };
+    expect(() => assertMarkupsSane(q)).not.toThrow();
+    expect(computeQuote(q, base).projectedMargin).toBeGreaterThan(0);
   });
 });

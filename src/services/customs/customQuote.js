@@ -50,6 +50,46 @@ function legacyLine(m) {
   return Math.max(n(m.quantity) || 1, 0) * n(m.unitPrice);
 }
 
+/** Same bounds the settings route already enforces on `financial.cogMarkup`. */
+export const MARKUP_MIN = 1;
+export const MARKUP_MAX = 10;
+
+/**
+ * Reject markup values that can only be typos. THROWS with a field-named message.
+ *
+ * Per-line markups made a decimal-point slip cheap: typing `0.13` instead of `1.3` on a $4,000 stone
+ * quotes it at $520, and since nothing else in the quote moves, the order publishes $1,980 BELOW cost
+ * with no error anywhere. The margin row is the only thing that would have shown it, and a quote
+ * containing a pass-through stone already sits low, so it doesn't stand out.
+ *
+ * Bounds, not a schema: below 1 is selling under cost, above 10 is a stray digit (`25` for `2.5`).
+ * Deliberate below-cost pricing — a loss leader, goodwill on a remake — should be a discount line, not
+ * a markup under 1, precisely so it's visible as a decision rather than looking like arithmetic.
+ *
+ * 0/blank/absent is NOT an error: that's "no override", and every fallback below treats it that way.
+ */
+export function assertMarkupsSane(quote = {}) {
+  const check = (label, raw) => {
+    if (raw === undefined || raw === null || raw === '' || Number(raw) === 0) return; // unset
+    const v = Number(raw);
+    if (!Number.isFinite(v)) throw new Error(`${label} must be a number (got "${raw}").`);
+    if (v < MARKUP_MIN || v > MARKUP_MAX) {
+      throw new Error(
+        `${label} of ${v} is outside the allowed ${MARKUP_MIN}–${MARKUP_MAX}× range. `
+        + `A markup below ${MARKUP_MIN} would price the job under cost — check for a misplaced decimal point.`,
+      );
+    }
+  };
+
+  check('COG markup', quote.cogMarkup);
+  check('Centre-stone markup', quote.centerstoneMarkup);
+  // Per-line overrides are the ones a typo is most likely to hide in — there can be a dozen rows and
+  // no single line is big enough to make the total look obviously wrong.
+  for (const [field, rows] of [['Accent stone', quote.accentStones], ['Material', quote.additionalMaterials]]) {
+    (rows || []).forEach((row, i) => check(`${field} #${i + 1} markup${row?.item ? ` (${row.item})` : ''}`, row?.markup));
+  }
+}
+
 export function computeQuote(quote = {}, settings = {}) {
   // The CENTER STONE is separated out because it does not carry mounting keystone. A natural diamond
   // bought at cost cannot take the 2.5× that the ring around it takes — the trade prices significant

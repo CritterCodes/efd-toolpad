@@ -188,10 +188,22 @@ function QuoteSummaryCard({ lines, cog, cogMarkup, rush, subtotal, taxRate, taxA
     </Paper>
   );
 }
-function AnalyticsCard({ cog, total, designerPayout, margin, bonus, floorPct }) {
+function AnalyticsCard({ cog, total, designerPayout, margin, bonus, floorPct, workRevenue, workCog }) {
   const grossProfit = total - cog;
   const grossMargin = total > 0 ? (grossProfit / total) * 100 : 0;
-  const belowFloor = grossMargin < floorPct;
+
+  // THE FLOOR IS CHECKED ON EFD'S OWN WORK, not on the blended total.
+  //
+  // The floor exists to catch under-pricing EFD's labour and mounting. A centre stone resold at near
+  // cost is not EFD's work, and leaving it in the denominator turns this metric into "how much of this
+  // sale was pass-through" — which drags a correctly-priced diamond ring under the floor. Concretely:
+  // a $4,000 stone at 1.3× in a $1,000 ring at 2.5× blends to 35.1% and would trip a 45% floor, while
+  // the ring itself is at a healthy 60%. A warning that fires on every diamond sale is one nobody
+  // reads, which costs us the cases it should actually catch.
+  const workMargin = workRevenue > 0 ? ((workRevenue - workCog) / workRevenue) * 100 : grossMargin;
+  const belowFloor = workMargin < floorPct;
+  // Worth surfacing separately when a pass-through line pulls the blend well below the work margin.
+  const blendDiffers = Math.abs(workMargin - grossMargin) > 0.05;
   return (
     <Paper sx={{ ...cardSx, backgroundColor: REPAIRS_UI.bgCard }}>
       <CardHead icon={InsightsIcon} title="Financial Analytics" color="#64B5F6" />
@@ -200,7 +212,19 @@ function AnalyticsCard({ cog, total, designerPayout, margin, bonus, floorPct }) 
         <Row label="COG (materials + labor + fees)" value={money(cog)} />
         <Row label="Quote total" value={money(total)} />
         <Row label="Gross profit" value={money(grossProfit)} color="#66BB6A" />
-        <Row label="Gross margin" value={`${grossMargin.toFixed(1)}%${belowFloor ? ` (below ${floorPct.toFixed(0)}% floor)` : ''}`} warn={belowFloor} strong={belowFloor} />
+        {/* Blended margin, shown for information — it's what the sale actually yields, but a
+            pass-through stone legitimately drags it down, so it is NOT what the floor judges. */}
+        <Row label="Gross margin (blended)" value={`${grossMargin.toFixed(1)}%`} />
+        {blendDiffers && (
+          <Row
+            label="Margin on EFD's work"
+            value={`${workMargin.toFixed(1)}%${belowFloor ? ` (below ${floorPct.toFixed(0)}% floor)` : ''}`}
+            warn={belowFloor} strong={belowFloor}
+          />
+        )}
+        {!blendDiffers && belowFloor && (
+          <Row label="Margin floor" value={`below ${floorPct.toFixed(0)}%`} warn strong />
+        )}
       </Box>
       <Divider sx={{ my: 1.25, borderColor: REPAIRS_UI.border }} />
       <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Actuals (from production)</Typography>
@@ -238,6 +262,7 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
   const [defaultMarkup, setDefaultMarkup] = useState(2.5); // admin-settings cogMarkup (fallback when no per-quote override)
   const [defaultStoneMarkup, setDefaultStoneMarkup] = useState(0); // 0 = unset ⇒ centre stone uses the COG markup
   const [taxRate, setTaxRate] = useState(0); // admin-settings pricing.taxRate (fraction)
+  const [defaultRush, setDefaultRush] = useState(1.5); // admin-settings rushMultiplier; mirrors DEFAULT_RUSH
 
   // Always-editable (no Edit toggle). Re-sync from the order whenever it reloads
   // (after save / casting / status changes — the only times `order.quote` changes
@@ -253,6 +278,8 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
       if (m > 0) setDefaultMarkup(m);
       const t = Number(s?.pricing?.taxRate);
       if (t >= 0) setTaxRate(t);
+      const r = Number(s?.financial?.rushMultiplier);
+      if (r > 1) setDefaultRush(r);
     }).catch(() => {});
   }, []);
 
@@ -298,7 +325,10 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
   const designTotal = form.includeCustomDesign ? n(form.designFee) : n(form.designFee);
   const cogExStone = otherMatTotal + laborTotal + shipTotal + castingCost + designTotal + glbFee + qcFee;
   const cog = cogExStone + stoneCost;
-  const rush = form.isRush ? (n(q.rushMultiplier) > 1 ? n(q.rushMultiplier) : 1.5) : 1;
+  // Fallback chain must match computeQuote's: per-quote override → admin settings → hard default. It
+  // used to jump straight to 1.5, so a shop with settings.rushMultiplier = 2.0 previewed a rush ring at
+  // 2.5×1.5 and SAVED it at 2.5×2.0 — a $1,250 gap on a $1,000 ring between the screen and the invoice.
+  const rush = form.isRush ? (n(q.rushMultiplier) > 1 ? n(q.rushMultiplier) : defaultRush) : 1;
   // Rush multiplies the RING only — it prices EFD's capacity, and a bought-in stone costs the same
   // whether it's set tomorrow or in three weeks. Material lines may each override the markup.
   // MIRRORS computeQuote — if these drift the preview quotes a price the save won't produce.
@@ -478,7 +508,7 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
       {/* Two-panel summary */}
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}><QuoteSummaryCard lines={summaryLines} cog={cog} cogMarkup={cogMarkup} rush={rush} subtotal={subtotal} taxRate={effTaxRate} taxAmount={taxAmount} total={total} effectiveMarkup={effectiveMarkup} /></Grid>
-        <Grid item xs={12} md={6}><AnalyticsCard cog={cog} total={subtotal} designerPayout={designTotal} margin={margin} bonus={n(order.clientMgmtBonus)} floorPct={floorPct} /></Grid>
+        <Grid item xs={12} md={6}><AnalyticsCard cog={cog} total={subtotal} designerPayout={designTotal} margin={margin} bonus={n(order.clientMgmtBonus)} floorPct={floorPct} workRevenue={rushable * rush} workCog={cogExStone} /></Grid>
       </Grid>
     </Stack>
   );

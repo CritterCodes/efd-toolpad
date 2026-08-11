@@ -21,7 +21,15 @@ export const PUT = async (req, { params }) => {
   const existing = await CustomOrdersModel.findById(customID);
   if (!existing) return NextResponse.json({ error: 'Custom order not found.' }, { status: 404 });
 
-  const updated = await CustomOrdersModel.updateById(customID, { quote });
+  // A rejected markup is the quoter's typo, not a server fault — it has to come back as a message they
+  // can read and fix, or a mistyped decimal point turns into an opaque 500.
+  let updated;
+  try {
+    updated = await CustomOrdersModel.updateById(customID, { quote });
+  } catch (e) {
+    if (/markup/i.test(e?.message || '')) return NextResponse.json({ error: e.message }, { status: 400 });
+    throw e;
+  }
 
   // This is the route used by QuoteTab. Fire only on the unpublished -> published edge.
   if (!existing.quote?.quotePublished && updated.quote?.quotePublished && updated.clientID) {

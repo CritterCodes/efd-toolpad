@@ -1,7 +1,7 @@
 import { db } from '@/lib/database';
 import { randomUUID } from 'crypto';
 import Constants from '@/lib/constants';
-import { computeQuote, computeMargin } from '@/services/customs/customQuote';
+import { computeQuote, computeMargin, assertMarkupsSane } from '@/services/customs/customQuote';
 import PiecesModel from '@/app/api/pieces/model';
 import SettingsManagerService from '@/app/api/admin/settings/services/settingsManager.service';
 
@@ -184,6 +184,9 @@ export default class CustomOrdersModel {
    * `total` is the tax-inclusive amount the customer is billed.
    */
   static async normalizeQuote(quote = {}) {
+    // Guarded HERE, not in the route, because both writers (create and update) come through this one
+    // function — a validator on the PUT alone would leave the create path able to store a typo'd markup.
+    assertMarkupsSane(quote);
     const settings = await this.pricingSettings();
     const computed = computeQuote(quote, settings);
     return {

@@ -107,7 +107,19 @@ export async function GET(request) {
       return NextResponse.json({
         ...rest,
         ...(quotesCustoms
-          ? { financial: { cogMarkup: financial?.cogMarkup, targetMarginFloor: financial?.targetMarginFloor } }
+          // EVERY PRICING TERM QuoteTab USES MUST BE HERE. The subset is curated to withhold EFD's
+          // internals, but anything the client-side preview reads and doesn't receive silently falls
+          // back to a different number than the server saves — so the screen quotes one price and the
+          // stored quote is another. `centerstoneMarkup` and `rushMultiplier` are here for that reason,
+          // not because an artisan needs to know them.
+          ? {
+            financial: {
+              cogMarkup: financial?.cogMarkup,
+              targetMarginFloor: financial?.targetMarginFloor,
+              centerstoneMarkup: financial?.centerstoneMarkup,
+              rushMultiplier: financial?.rushMultiplier,
+            },
+          }
           : {}),
       });
     }
