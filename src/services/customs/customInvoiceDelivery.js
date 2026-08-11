@@ -1,7 +1,7 @@
 import CustomOrdersModel from '@/app/api/custom-orders/model';
-import CustomInvoicesModel from '@/app/api/custom-orders/invoices/model';
+import CustomInvoicesModel, { invoiceCovers } from '@/app/api/custom-orders/invoices/model';
 import SettingsManagerService from '@/app/api/admin/settings/services/settingsManager.service';
-import { buildInvoiceDocument, DOC_KIND, money } from '@/services/customs/customInvoiceDocument';
+import { buildInvoiceDocument, buildCombinedInvoiceDocument, assertNoCostBasis, DOC_KIND, money } from '@/services/customs/customInvoiceDocument';
 import { renderCustomInvoiceHtml } from '@/services/customs/customInvoiceHtml';
 import { adminBase, shopBase } from '@/lib/appUrls';
 import { sendEmailWithRetry } from '../../../lib/email.js';
@@ -27,29 +27,48 @@ const ASSET = (path) => `${adminBase()}${path}`;
 
 /** Everything the document needs, loaded once. */
 export async function loadInvoiceContext(customID, invoiceID) {
-  const [order, invoice, allInvoices, settings] = await Promise.all([
+  const [order, invoice, settings] = await Promise.all([
     CustomOrdersModel.findById(customID),
     CustomInvoicesModel.findById(invoiceID),
-    CustomInvoicesModel.listByCustom(customID),
     SettingsManagerService.getSettings().catch(() => ({})),
   ]);
   if (!order) throw new Error('Custom order not found.');
-  if (!invoice || invoice.customID !== customID) throw new Error('Invoice not found.');
-  return { order, invoice, allInvoices, settings };
+  // A combined invoice's `customID` is its PRIMARY order, but it legitimately belongs to every order in
+  // `customIDs` — so accept either, or printing a combined invoice from the second order 404s.
+  const covers = Array.isArray(invoice?.customIDs) && invoice.customIDs.length
+    ? invoice.customIDs
+    : [invoice?.customID];
+  if (!invoiceCovers(invoice, customID)) throw new Error('Invoice not found.');
+
+  // COMBINED: load every covered order, and every invoice touching any of them, so the document can
+  // state the balance across the group rather than just this order's slice.
+  const isCombined = covers.length > 1;
+  const orders = isCombined
+    ? (await Promise.all(covers.map((id) => CustomOrdersModel.findById(id)))).filter(Boolean)
+    : [order];
+  const invoiceLists = await Promise.all(orders.map((o) => CustomInvoicesModel.listByCustom(o.customID)));
+  // De-duplicate: a combined invoice appears in every covered order's list.
+  const allInvoices = [...new Map(invoiceLists.flat().map((i) => [i.invoiceID, i])).values()]
+    .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+
+  return { order, orders, invoice, allInvoices, settings, isCombined };
 }
 
 /**
  * Build the document model + rendered HTML for one invoice.
  * @param {'invoice'|'receipt'} kind
  */
-export function composeDocument({ order, invoice, allInvoices, settings }, kind, { standalone = true } = {}) {
-  const doc = buildInvoiceDocument(order, invoice, allInvoices, {
+export function composeDocument({ order, orders, invoice, allInvoices, settings, isCombined }, kind, { standalone = true } = {}) {
+  const opts = {
     kind,
     businessName: settings?.business?.name || 'Engel Fine Design',
     // The customer pays a balance by card in the shop portal — admin never takes the card.
     portalUrl: `${shopBase()}/custom-work/portal`,
     zelleHandle: settings?.business?.zelleHandle || '',
-  });
+  };
+  const doc = isCombined
+    ? buildCombinedInvoiceDocument(orders || [order], invoice, allInvoices, opts)
+    : buildInvoiceDocument(order, invoice, allInvoices, opts);
   const html = renderCustomInvoiceHtml(doc, {
     standalone,
     logoSrc: ASSET('/logos/%5Befd%5DLogoBlack.png'),
@@ -57,6 +76,12 @@ export function composeDocument({ order, invoice, allInvoices, settings }, kind,
     // Passing the order arms assertNoCostBasis — a leak throws here rather than reaching a customer.
     order,
   });
+
+  // EVERY covered order, not just the primary. The renderer only ever sees one, so on a combined
+  // invoice the second order's stone cost and markups would otherwise go unchecked — and that is the
+  // document listing both pieces, so it is exactly where a second order's figures could surface.
+  for (const o of (orders || [order]).filter(Boolean)) assertNoCostBasis(html, o);
+
   return { doc, html };
 }
 

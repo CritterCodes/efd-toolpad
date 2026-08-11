@@ -140,6 +140,14 @@ export function buildInvoiceDocument(order = {}, invoice = {}, allInvoices = [],
     description: describePiece(quote),
     // Kept vague on purpose — it names the WORK, not the cost lines behind it.
     descriptionDetail: 'Design, casting, bench work and stone setting.',
+    // ONE line here; a combined invoice supplies several. The renderer iterates this, so both shapes
+    // go through the same table and cannot drift apart.
+    lineItems: [{
+      label: describePiece(quote),
+      detail: 'Design, casting, bench work and stone setting.',
+      amount: subtotal,
+    }],
+    isCombined: false,
 
     subtotal,
     taxRate,
@@ -167,6 +175,117 @@ export function buildInvoiceDocument(order = {}, invoice = {}, allInvoices = [],
       balanceDue: kind === DOC_KIND.RECEIPT && balanceDue <= 0 ? 0 : balanceDue,
     }),
     portalUrl: opts.portalUrl || '',
+  };
+}
+
+/**
+ * THE DOCUMENT FOR A COMBINED INVOICE — one invoice covering several custom orders.
+ *
+ * Shaped differently from a single-order document on purpose. A single-order invoice is a statement
+ * about one project: its full price, tax, everything paid, what remains. A combined invoice is a
+ * statement about ONE PAYMENT spanning projects, so the body lists what is being billed for each order
+ * and totals to the amount the customer actually pays. Showing each order's full project price here
+ * would put four large numbers on a page whose point is a single figure to settle.
+ *
+ * Amounts on an invoice are TAX-INCLUSIVE (see customInvoices model), so the subtotal and tax lines are
+ * backed OUT of them: tax = amount × rate / (1 + rate). Presenting the billed amount as a pre-tax
+ * subtotal and then adding tax on top would overstate the total by the tax on the tax.
+ *
+ * @param {object[]} orders    every order the invoice covers
+ * @param {object}   invoice   the combined invoice
+ * @param {object[]} invoices  every invoice touching any of those orders — for the group balance
+ */
+export function buildCombinedInvoiceDocument(orders = [], invoice = {}, invoices = [], opts = {}) {
+  const kind = opts.kind === DOC_KIND.RECEIPT ? DOC_KIND.RECEIPT : DOC_KIND.INVOICE;
+  const byId = new Map(orders.map((o) => [o.customID, o]));
+  const snapshots = Array.isArray(invoice.orderSnapshots) ? invoice.orderSnapshots : [];
+
+  const lineItems = snapshots.map((s) => {
+    const order = byId.get(s.customID);
+    return {
+      label: s.description || (order ? describePiece(order.quote) : 'Custom piece'),
+      detail: `Order ${s.customID}`,
+      amount: round(s.amount),
+      orderNumber: s.customID,
+    };
+  });
+
+  const documentAmount = round(invoice.amount);
+  // Back the tax out of the tax-inclusive amounts, per line, so mixed rates stay correct.
+  const taxAmount = round(snapshots.reduce((sum, s) => {
+    const rate = n(s.taxRate ?? invoice.taxRate);
+    return sum + (n(s.amount) * rate) / (1 + rate);
+  }, 0));
+  const subtotal = round(documentAmount - taxAmount);
+  const blendedRate = subtotal > 0 ? taxAmount / subtotal : n(invoice.taxRate);
+
+  // What remains across ALL the covered orders once this invoice is settled — the customer's real
+  // position. Each order's own share of every invoice, summed.
+  const groupBalance = round(orders.reduce((sum, order) => {
+    const projectTotal = n(order.quote?.total ?? order.quote?.quoteTotal);
+    const p = computePaymentProgress(projectTotal, invoicesForOrder(invoices, order.customID));
+    return sum + p.remainingAmount;
+  }, 0));
+
+  const paymentsApplied = (invoices || [])
+    .filter((i) => i && i.status === 'paid' && orders.some((o) => amountForOrder(i, o.customID) > 0))
+    .sort((a, b) => new Date(a.paidAt || a.createdAt || 0) - new Date(b.paidAt || b.createdAt || 0))
+    .map((i) => ({
+      invoiceNumber: i.invoiceNumber,
+      amount: round(orders.reduce((sum, o) => sum + amountForOrder(i, o.customID), 0)),
+      method: i.paymentMethod || null,
+      paidOn: docDate(i.paidAt),
+      isCombined: Array.isArray(i.orderSnapshots) && i.orderSnapshots.length > 1,
+      isThisDocument: i.invoiceID === invoice.invoiceID,
+    }));
+
+  const primary = orders[0] || {};
+  return {
+    kind,
+    isReceipt: kind === DOC_KIND.RECEIPT,
+    isCombined: true,
+    title: kind === DOC_KIND.RECEIPT ? 'Receipt' : 'Invoice',
+    businessName: opts.businessName || 'Engel Fine Design',
+
+    invoiceNumber: invoice.invoiceNumber || invoice.invoiceID || '',
+    // Several orders, so no single order number heads the document.
+    orderNumber: orders.map((o) => o.customID).join(', '),
+    orderNumbers: orders.map((o) => o.customID),
+    issuedOn: docDate(invoice.createdAt),
+    paidOn: docDate(invoice.paidAt),
+    isPaid: invoice.status === 'paid',
+    paymentMethod: invoice.paymentMethod || null,
+
+    customerName: primary.customerName || '',
+    customerEmail: invoice.customerEmail || primary.customerEmail || '',
+
+    description: lineItems.map((l) => l.label).join(' + '),
+    descriptionDetail: `Covers ${orders.length} custom orders.`,
+    lineItems,
+
+    subtotal,
+    taxRate: blendedRate,
+    taxRateLabel: `${(blendedRate * 100).toFixed(3).replace(/0+$/, '').replace(/\.$/, '')}%`,
+    taxAmount,
+    // For a combined invoice the "project total" IS this payment: the document exists to state one
+    // figure to settle, not to restate the price of every project it touches.
+    projectTotal: documentAmount,
+    documentAmount,
+
+    paymentsApplied,
+    totalPaid: round(paymentsApplied.reduce((s, p) => s + p.amount, 0)),
+    balanceDue: kind === DOC_KIND.RECEIPT ? groupBalance : documentAmount,
+    groupBalance,
+    isFullyPaid: groupBalance <= 0,
+    paymentProgress: 0,
+
+    paymentOptions: paymentInstructions({
+      portalUrl: opts.portalUrl,
+      zelleHandle: opts.zelleHandle,
+      balanceDue: kind === DOC_KIND.RECEIPT ? groupBalance : documentAmount,
+    }),
+    portalUrl: opts.portalUrl || '',
+    coversOrders: lineItems.map((l) => ({ orderNumber: l.orderNumber, description: l.label, amount: l.amount })),
   };
 }
 

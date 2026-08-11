@@ -8,7 +8,7 @@
  * over the legacy flow, which awaited it.
  */
 import CustomOrdersModel, { CUSTOM_ORDER_STATUS } from '@/app/api/custom-orders/model';
-import CustomInvoicesModel, { CUSTOM_INVOICE_STATUS, CUSTOM_INVOICE_TYPE } from '@/app/api/custom-orders/invoices/model';
+import CustomInvoicesModel, { CUSTOM_INVOICE_STATUS, CUSTOM_INVOICE_TYPE, invoiceCovers } from '@/app/api/custom-orders/invoices/model';
 import { computePaymentProgress, invoicesForOrder } from '@/services/customs/paymentProgress';
 import { NotificationService, NOTIFICATION_TYPES } from '@/lib/notificationService';
 import { calculateCustomInvoice, isBillableEmail } from '@/services/customs/customInvoicePolicy';
@@ -221,7 +221,7 @@ export async function sendInvoiceToCustomer(customID, invoiceID) {
   const order = await CustomOrdersModel.findById(customID);
   if (!order) throw new Error('Custom order not found.');
   const invoice = await CustomInvoicesModel.findById(invoiceID);
-  if (!invoice || invoice.customID !== customID) throw new Error('Invoice not found.');
+  if (!invoiceCovers(invoice, customID)) throw new Error('Invoice not found.');
   if (invoice.status === CUSTOM_INVOICE_STATUS.PAID) {
     const e = new Error('Invoice is already paid — send a receipt instead.'); e.code = 'BAD_REQUEST'; throw e;
   }
@@ -262,7 +262,7 @@ export async function setCustomInvoiceStatus(customID, invoiceID, status, paymen
   const order = await CustomOrdersModel.findById(customID);
   if (!order) throw new Error('Custom order not found.');
   const existingInvoice = await CustomInvoicesModel.findById(invoiceID);
-  if (!existingInvoice || existingInvoice.customID !== customID) throw new Error('Invoice not found.');
+  if (!invoiceCovers(existingInvoice, customID)) throw new Error('Invoice not found.');
   if (existingInvoice.status === status) {
     const { progress } = await progressFor(order);
     return { invoice: existingInvoice, progress };
@@ -274,12 +274,27 @@ export async function setCustomInvoiceStatus(customID, invoiceID, status, paymen
   let receiptDelivery = null;
 
   if (status === CUSTOM_INVOICE_STATUS.PAID) {
-    // Critical path: advance the order forward-only (first paid → deposit; 50% → in_production).
-    const target = progress.hasReached50 ? CUSTOM_ORDER_STATUS.IN_PRODUCTION : CUSTOM_ORDER_STATUS.DEPOSIT;
-    if ((STATUS_RANK[order.status] ?? 0) < (STATUS_RANK[target] ?? 0)) {
-      await CustomOrdersModel.updateById(customID, { status: target }, { changedBy: 'system', reason: `payment ${progress.paymentProgress}%` });
-      // Note: bench work orders are generated at CASTING RECEIVED (not deposit) — you
-      // can't do in-house bench work until the cast metal is in hand. See customProduction.recordCastingReceived.
+    // ADVANCE EVERY ORDER THE INVOICE COVERS, each on its own share.
+    //
+    // A combined invoice pays down two projects at once. Advancing only `customID` would leave the
+    // other order sitting at `quote` with its money already collected — no deposit status, no
+    // progression to production — while the customer believes both rings are underway. Each order is
+    // evaluated against ITS OWN progress, so one may reach production while the other does not.
+    const covered = Array.isArray(invoice.customIDs) && invoice.customIDs.length
+      ? invoice.customIDs
+      : [customID];
+    for (const id of covered) {
+      const o = id === customID ? order : await CustomOrdersModel.findById(id); // eslint-disable-line no-await-in-loop
+      if (!o) continue;
+      const { progress: p } = await progressFor(o); // eslint-disable-line no-await-in-loop
+      // Forward-only (first paid → deposit; 50% → in_production).
+      const target = p.hasReached50 ? CUSTOM_ORDER_STATUS.IN_PRODUCTION : CUSTOM_ORDER_STATUS.DEPOSIT;
+      if ((STATUS_RANK[o.status] ?? 0) < (STATUS_RANK[target] ?? 0)) {
+        // eslint-disable-next-line no-await-in-loop
+        await CustomOrdersModel.updateById(o.customID, { status: target }, { changedBy: 'system', reason: `payment ${p.paymentProgress}%` });
+        // Note: bench work orders are generated at CASTING RECEIVED (not deposit) — you
+        // can't do in-house bench work until the cast metal is in hand. See customProduction.recordCastingReceived.
+      }
     }
     notifyPayment(order, invoice, progress); // fire-and-forget
 

@@ -7,6 +7,19 @@ import { randomUUID } from 'crypto';
  * final / partial; payment progress is derived from these + the order's quoteTotal.
  */
 export const CUSTOM_INVOICE_TYPE = { DEPOSIT: 'deposit', PROGRESS: 'progress', FINAL: 'final', PARTIAL: 'partial' };
+
+/**
+ * Does this invoice belong to this order?
+ *
+ * `customID` is only the PRIMARY order of a combined invoice, so comparing it alone makes the invoice
+ * invisible from every other order it covers — sending or printing it from the second order would 404
+ * on an invoice that is genuinely theirs. Shared so the three call sites cannot drift.
+ */
+export function invoiceCovers(invoice, customID) {
+  if (!invoice || !customID) return false;
+  if (Array.isArray(invoice.customIDs) && invoice.customIDs.length) return invoice.customIDs.includes(customID);
+  return invoice.customID === customID;
+}
 export const CUSTOM_INVOICE_STATUS = { PENDING: 'pending_payment', PAID: 'paid', CANCELLED: 'cancelled' };
 
 export default class CustomInvoicesModel {

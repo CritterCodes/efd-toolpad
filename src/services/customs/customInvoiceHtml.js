@@ -102,6 +102,18 @@ export function renderCustomInvoiceHtml(doc, opts = {}) {
       <td class="money">${money(p.amount)}</td>
     </tr>`).join('');
 
+  // One row for a single-order invoice, one per order for a combined one — same table either way, so
+  // the two shapes cannot drift into looking like different documents. Falls back to the flat
+  // description/subtotal fields for any caller still building a doc without lineItems.
+  const items = (doc.lineItems && doc.lineItems.length)
+    ? doc.lineItems
+    : [{ label: doc.description, detail: doc.descriptionDetail, amount: doc.subtotal }];
+  const lineRows = items.map((l) => `
+    <tr>
+      <td><span class="strong">${esc(l.label)}</span>${l.detail ? `<div class="muted">${esc(l.detail)}</div>` : ''}</td>
+      <td class="money">${money(l.amount)}</td>
+    </tr>`).join('');
+
   const payOptions = (doc.paymentOptions || []).map((o) => `
     <div class="opt">
       <strong>${esc(o.method)}</strong> &mdash; ${esc(o.detail)}
@@ -149,19 +161,27 @@ export function renderCustomInvoiceHtml(doc, opts = {}) {
     <div class="section">
       <table class="items">
         <thead><tr><th>Description</th><th class="money">Amount</th></tr></thead>
-        <tbody><tr>
-          <td><span class="strong">${esc(doc.description)}</span><div class="muted">${esc(doc.descriptionDetail)}</div></td>
-          <td class="money">${money(doc.subtotal)}</td>
-        </tr></tbody>
+        <tbody>${lineRows}</tbody>
       </table>
     </div>
 
     <table class="totals" cellpadding="0" cellspacing="0">
       <tr><td>Subtotal</td><td class="money">${money(doc.subtotal)}</td></tr>
       <tr><td>Sales tax (${esc(doc.taxRateLabel)})</td><td class="money">${money(doc.taxAmount)}</td></tr>
+      ${doc.isCombined ? `
+      <!-- A combined invoice is a statement about ONE PAYMENT spanning projects, so the headline is
+           the figure to settle, not the price of every project it touches. Running each order's full
+           project total through here would put four large numbers on a page whose point is one. -->
+      <tr class="due"><td>${isReceipt ? 'Amount paid' : 'Amount due'}</td><td class="money">${money(doc.documentAmount)}</td></tr>
+      ${doc.groupBalance > 0 ? `
+      <tr><td>Remaining on these orders${isReceipt ? '' : ' after this payment'}</td>
+          <td class="money">${money(isReceipt ? doc.groupBalance : Math.max(0, doc.groupBalance - doc.documentAmount))}</td></tr>` : `
+      <tr><td>These orders are paid in full</td><td class="money">${money(0)}</td></tr>`}
+      ` : `
       <tr class="grand"><td>Project total</td><td class="money">${money(doc.projectTotal)}</td></tr>
       ${doc.totalPaid > 0 ? `<tr class="credit"><td>Payments received</td><td class="money">&minus;${money(doc.totalPaid)}</td></tr>` : ''}
       <tr class="due"><td>${doc.balanceDue > 0 ? 'Balance due' : 'Paid in full'}</td><td class="money">${money(doc.balanceDue)}</td></tr>
+      `}
     </table>
 
     ${paymentRows ? `

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/apiAuth';
 import { sendCustomReceiptEmail } from '@/services/customs/customInvoiceDelivery';
-import CustomInvoicesModel from '@/app/api/custom-orders/invoices/model';
+import CustomInvoicesModel, { invoiceCovers } from '@/app/api/custom-orders/invoices/model';
 
 /**
  * POST /api/custom-orders/[customID]/invoices/[invoiceID]/receipt — (re)send the receipt.
@@ -18,7 +18,7 @@ export const POST = async (_req, { params }) => {
   const { customID, invoiceID } = await params;
   try {
     const invoice = await CustomInvoicesModel.findById(invoiceID);
-    if (!invoice || invoice.customID !== customID) {
+    if (!invoiceCovers(invoice, customID)) {
       return NextResponse.json({ error: 'Invoice not found.' }, { status: 404 });
     }
     // A receipt for an unpaid invoice would be a false record.

@@ -6,6 +6,7 @@ import {
   Box, Typography, Button, Chip, Stack, Paper, Grid, Divider, CircularProgress,
   Table, TableHead, TableRow, TableCell, TableBody, Tabs, Tab, LinearProgress,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, Snackbar, Alert,
+  Checkbox, FormControlLabel,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
@@ -65,6 +66,10 @@ export default function CustomDetailPage() {
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   // mode: 'deposit' (depositPct of quote total) | 'full' (remaining balance) | 'custom' (typed amount)
   const [invoiceForm, setInvoiceForm] = useState({ mode: 'deposit', depositPct: 50, amount: '', dueDays: 7 });
+  // Other orders for the SAME CLIENT that could go on this invoice, so a client with two pieces in
+  // pays once. Fetched when the dialog opens rather than on every page load.
+  const [billCandidates, setBillCandidates] = useState([]);
+  const [alsoBill, setAlsoBill] = useState([]);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
 
   const notify = (message, severity = 'success') => setSnack({ open: true, message, severity });
@@ -126,19 +131,36 @@ export default function CustomDetailPage() {
     if (invoiceForm.mode === 'deposit') return 'deposit';
     return 'partial';
   };
+  const openInvoiceDialog = async () => {
+    setInvoiceOpen(true);
+    setAlsoBill([]);
+    try {
+      const res = await fetch(`/api/custom-orders/groups?customID=${customID}`);
+      const data = await res.json().catch(() => ({}));
+      setBillCandidates(res.ok ? (data.candidates || []) : []);
+    } catch { setBillCandidates([]); }
+  };
+
   const createInvoice = () => call(async () => {
-    const res = await fetch(`/api/custom-orders/${customID}/invoices`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: invoiceType(),
-        amount: invoiceForm.mode === 'custom' ? invoiceAmount() : undefined,
-        depositPct: invoiceForm.mode === 'deposit' ? Number(invoiceForm.depositPct) : undefined,
-        dueDays: Number(invoiceForm.dueDays),
-      }),
-    });
+    const body = {
+      type: invoiceType(),
+      amount: invoiceForm.mode === 'custom' ? invoiceAmount() : undefined,
+      depositPct: invoiceForm.mode === 'deposit' ? Number(invoiceForm.depositPct) : undefined,
+      dueDays: Number(invoiceForm.dueDays),
+    };
+    // COMBINED when other orders are ticked: one invoice, one balance, one swipe. The per-order split
+    // is computed server-side from each order's own quote, never by dividing this total.
+    const res = alsoBill.length
+      ? await fetch('/api/custom-orders/invoices/combined', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...body, customIDs: [customID, ...alsoBill] }),
+      })
+      : await fetch(`/api/custom-orders/${customID}/invoices`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Invoice create failed');
-    setInvoiceOpen(false); setInvoiceForm({ mode: 'deposit', depositPct: 50, amount: '', dueDays: 7 });
+    setInvoiceOpen(false); setAlsoBill([]);
+    setInvoiceForm({ mode: 'deposit', depositPct: 50, amount: '', dueDays: 7 });
   }, 'Invoice created');
   const markPaid = (invoiceID, paymentMethod) => call(async () => {
     const res = await fetch(`/api/custom-orders/${customID}/invoices/${invoiceID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'paid', paymentMethod }) });
@@ -229,7 +251,7 @@ export default function CustomDetailPage() {
       {/* Invoices */}
       {tab === 2 && (
         <Paper sx={{ ...panelSx, height: 'auto' }}>
-          <PanelHeader icon={ReceiptLongIcon} title="Invoices & Payment" action={<Button size="small" variant="contained" onClick={() => setInvoiceOpen(true)} sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>New Invoice</Button>} />
+          <PanelHeader icon={ReceiptLongIcon} title="Invoices & Payment" action={<Button size="small" variant="contained" onClick={openInvoiceDialog} sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>New Invoice</Button>} />
           {progress && (
             <Box sx={{ mb: 2 }}>
               <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
@@ -342,6 +364,43 @@ export default function CustomDetailPage() {
             {invoiceForm.mode === 'custom' && (
               <TextField label="Amount" type="number" value={invoiceForm.amount} onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: e.target.value })} fullWidth />
             )}
+            {billCandidates.length > 0 && (
+              <Box sx={{ p: 1.5, borderRadius: 1, border: `1px solid ${REPAIRS_UI.border}`, backgroundColor: REPAIRS_UI.bgTertiary }}>
+                <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>
+                  Bill together &mdash; this client has other open orders
+                </Typography>
+                {billCandidates.map((c) => (
+                  <FormControlLabel
+                    key={c.customID}
+                    sx={{ display: 'block', color: REPAIRS_UI.textPrimary }}
+                    control={(
+                      <Checkbox
+                        size="small"
+                        checked={alsoBill.includes(c.customID)}
+                        onChange={(e) => setAlsoBill((prev) => (
+                          e.target.checked ? [...prev, c.customID] : prev.filter((x) => x !== c.customID)
+                        ))}
+                        sx={{ color: REPAIRS_UI.textMuted, '&.Mui-checked': { color: REPAIRS_UI.accent } }}
+                      />
+                    )}
+                    label={(
+                      <Typography variant="body2">
+                        {c.title || c.customID}
+                        <span style={{ color: REPAIRS_UI.textMuted }}>
+                          {' '}&middot; {c.customID} &middot; {money(c.quote?.total ?? c.quote?.quoteTotal ?? 0)}
+                        </span>
+                      </Typography>
+                    )}
+                  />
+                ))}
+                {alsoBill.length > 0 && (
+                  <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>
+                    One invoice, one balance, one payment. Each order is billed its own share &mdash;
+                    the amount above applies per order, not split between them.
+                  </Typography>
+                )}
+              </Box>
+            )}
             <TextField select SelectProps={{ native: true }} label="Payment due" value={invoiceForm.dueDays} onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDays: Number(e.target.value) })} fullWidth>
               <option value={1}>Due tomorrow</option>
               <option value={7}>Due in 7 days</option>
@@ -349,7 +408,9 @@ export default function CustomDetailPage() {
               <option value={30}>Due in 30 days</option>
             </TextField>
             <Box sx={{ p: 1.5, borderRadius: 1, border: `1px solid ${REPAIRS_UI.border}`, backgroundColor: REPAIRS_UI.bgTertiary }}>
-              <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>This invoice</Typography>
+              <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>
+                {alsoBill.length ? `Per order (× ${alsoBill.length + 1} orders)` : 'This invoice'}
+              </Typography>
               <Typography sx={{ fontWeight: 700, color: REPAIRS_UI.accent, fontSize: '1.2rem' }}>{money(invoiceAmount())}</Typography>
               {invoiceForm.mode === 'deposit' && Number(invoiceForm.depositPct) >= 50 && (
                 <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>At 50%+, parts (gemstones &amp; mounting) can be ordered.</Typography>
