@@ -95,10 +95,25 @@ describe('assigning a CAD designer', () => {
     expect(order.assignments).toHaveLength(1);
   });
 
-  it('a bench assignment is unaffected by the CAD guard', async () => {
+  it('a bench assignment is unaffected by the CAD guard — different roles coexist', async () => {
     const { assignArtisan } = await load();
     await assignArtisan({ customID: 'CO-x', userID: 'user-cad', role: 'cad' });
     await expect(assignArtisan({ customID: 'CO-x', userID: 'user-cad', role: 'bench' })).resolves.toBeTruthy();
+  });
+
+  it('REFUSES a second BENCH jeweler too — one artisan per role', async () => {
+    // Owner: "I'm not sure there's ever really a case I would need to assign a second jeweler."
+    const { assignArtisan } = await load();
+    await assignArtisan({ customID: 'CO-x', userID: 'user-cad', role: 'bench' });
+    await expect(assignArtisan({ customID: 'CO-x', userID: 'user-cad', role: 'bench' }))
+      .rejects.toThrow(/already assigned to the bench/);
+  });
+
+  it('the refusal says how to proceed rather than being a dead end', async () => {
+    const { assignArtisan } = await load();
+    await assignArtisan({ customID: 'CO-x', userID: 'user-cad', role: 'cad' });
+    await expect(assignArtisan({ customID: 'CO-x', userID: 'user-cad', role: 'cad' }))
+      .rejects.toThrow(/Remove that assignment first/);
   });
 });
 

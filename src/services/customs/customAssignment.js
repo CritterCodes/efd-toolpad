@@ -98,24 +98,29 @@ export async function assignArtisan({ customID, userID, role = ASSIGNMENT_ROLE.C
     assignedAt: new Date(),
     assignedBy,
   };
-  // ONE CAD DESIGNER PER ORDER. Assigning a second silently spawned a SECOND CAD work order on the
-  // same piece and overwrote the quote's designFee with the new designer's — which is exactly what
-  // happened on CO-msp2z3jx-b313c5: the second assignment set designFee to 0, deleting it left the
-  // zero behind, and the order was left billing nothing for a $100 designer who was still assigned.
+  // ONE ARTISAN PER ROLE PER ORDER (owner, 2026-08-11: "I'm not sure there's ever really a case I
+  // would need to assign a second jeweler"). A custom order can still have a CAD designer AND a bench
+  // jeweler — those are different roles — but not two of either.
   //
-  // One design is one CAD file (the same invariant that keeps a wedding set as two orders), so a
-  // second CAD designer is always a mistake. Refusing is better than reconciling: the operator gets
-  // told, rather than discovering an orphan work order later.
-  if (assignment.role === ASSIGNMENT_ROLE.CAD) {
-    const existingCad = (order.assignments || []).find((a) => a.role === ASSIGNMENT_ROLE.CAD);
-    if (existingCad) {
-      const err = new Error(
-        `${existingCad.name || 'A designer'} is already assigned to CAD on this order. `
-        + 'Remove that assignment first if you are changing designer.',
-      );
-      err.code = 'CONFLICT';
-      throw err;
-    }
+  // For CAD this is a correctness guard, not just tidiness: a second CAD assignment silently spawned a
+  // SECOND CAD work order on the same piece and overwrote the quote's designFee with the new
+  // designer's. That is exactly what happened on CO-msp2z3jx-b313c5 — the second assignment set
+  // designFee to 0, deleting it left the zero behind, and the order billed nothing for a $100 designer
+  // who was still assigned. One design is one CAD file, the same invariant that keeps a wedding set as
+  // two orders.
+  //
+  // Refusing beats reconciling: the operator is told at the point of the mistake instead of finding an
+  // orphaned work order later. It is not a dead end either — the message says to remove the existing
+  // assignment, which is how you change artisan.
+  const existing = (order.assignments || []).find((a) => a.role === assignment.role);
+  if (existing) {
+    const label = assignment.role === ASSIGNMENT_ROLE.CAD ? 'CAD' : 'the bench';
+    const err = new Error(
+      `${existing.name || 'Someone'} is already assigned to ${label} on this order. `
+      + 'Remove that assignment first if you are changing who works it.',
+    );
+    err.code = 'CONFLICT';
+    throw err;
   }
 
   await CustomOrdersModel.addAssignment(customID, assignment);
