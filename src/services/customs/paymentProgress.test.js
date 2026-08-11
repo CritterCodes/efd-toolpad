@@ -28,3 +28,44 @@ describe('computePaymentProgress', () => {
     expect(r.totalPending).toBe(0);
   });
 });
+
+/**
+ * FLOATING-POINT MONEY. Summing decimal amounts in binary leaves a fraction of a cent behind, so an
+ * order paid to the penny reported itself unpaid: 5500 + 1617.56 === 7117.5599999999995, which is not
+ * >= 7117.56. The customer's receipt then refuses to say "paid in full" on a settled account, and
+ * canStartProduction (hasReached50 && !isFullyPaid) stays true after the final payment.
+ */
+describe('exact-cent boundaries', () => {
+  const paidRows = (...amounts) => amounts.map((amount, i) => ({ amount, status: 'paid', invoiceID: `i${i}` }));
+
+  it('an order paid EXACTLY to its total is fully paid', () => {
+    const p = computePaymentProgress(7117.56, paidRows(5500, 1617.56));
+    expect(p.isFullyPaid).toBe(true);
+    expect(p.remainingAmount).toBe(0);
+    expect(p.canStartProduction).toBe(false);
+  });
+
+  it('the raw float really does fall short — proving the guard is load-bearing', () => {
+    expect(5500 + 1617.56 >= 7117.56).toBe(false);
+  });
+
+  it('exactly half is enough to reach the 50% threshold', () => {
+    expect(computePaymentProgress(7117.56, paidRows(3558.78)).hasReached50).toBe(true);
+  });
+
+  it('a cent short of the total is NOT fully paid', () => {
+    const p = computePaymentProgress(7117.56, paidRows(5500, 1617.55));
+    expect(p.isFullyPaid).toBe(false);
+    expect(p.remainingAmount).toBe(0.01);
+  });
+
+  it('a cent short of half has NOT reached the threshold', () => {
+    expect(computePaymentProgress(7117.56, paidRows(3558.77)).hasReached50).toBe(false);
+  });
+
+  it('overpayment stays fully paid with no negative balance', () => {
+    const p = computePaymentProgress(7117.56, paidRows(7200));
+    expect(p.isFullyPaid).toBe(true);
+    expect(p.remainingAmount).toBe(0);
+  });
+});

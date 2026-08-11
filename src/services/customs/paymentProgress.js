@@ -18,8 +18,15 @@ export function computePaymentProgress(projectTotal, invoices = []) {
     .reduce((s, i) => s + (Number(i.amount) || 0), 0);
 
   const paymentProgress = total > 0 ? Math.round((paid / total) * 1000) / 10 : 0;
-  const hasReached50 = total > 0 && paid >= total * 0.5;
-  const isFullyPaid = total > 0 && paid >= total;
+
+  // COMPARE IN WHOLE CENTS. Summing decimal amounts in binary floating point leaves a fraction of a
+  // cent behind: 5500 + 1617.56 is 7117.5599999999995, so an order paid EXACTLY to its $7,117.56 total
+  // reported `isFullyPaid: false`. The customer's receipt then declines to say "paid in full" on a
+  // settled account, and `canStartProduction` (hasReached50 && !isFullyPaid) stays true after the final
+  // payment. Integer cents make the boundary exact instead of nearly right.
+  const cents = (v) => Math.round(v * 100);
+  const hasReached50 = total > 0 && cents(paid) >= cents(total * 0.5);
+  const isFullyPaid = total > 0 && cents(paid) >= cents(total);
 
   return {
     projectTotal: round(total),
