@@ -119,6 +119,15 @@ const nextConfig = withPWA({
     // compile it. Same as efd-shop.
     transpilePackages: ['@crittercodes/refrakt'],
     outputFileTracingRoot: projectRoot,
+    // EMAIL TEMPLATES MUST BE TRACED IN EXPLICITLY. lib/email.js loadTemplate() reads
+    // `path.join(process.cwd(), 'emails', `${name}.hbs`)` — a path computed at runtime, which Next's
+    // tracer cannot follow, so nothing pulls emails/ into the lambda and every send would die on
+    // "Template not found: <name>". That failure was invisible until now because EMAIL_USER was unset
+    // in production, so sends failed earlier, at transport creation. Fixing the credentials without
+    // this would just move the error one step later.
+    outputFileTracingIncludes: {
+        '/**': ['./emails/**'],
+    },
     eslint: {
         ignoreDuringBuilds: true,
     },
