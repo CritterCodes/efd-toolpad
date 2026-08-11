@@ -157,6 +157,15 @@ export default function CustomDetailPage() {
   const printDoc = (invoiceID, kind) => {
     window.open(`/dashboard/customs/${customID}/invoices/${invoiceID}/print?kind=${kind}`, '_blank');
   };
+
+  // Resend a receipt for an already-paid invoice. Needed because every receipt this app "sent" before
+  // the mail-credential fix failed silently, so paid invoices exist whose customer never got one.
+  const emailReceipt = (invoiceID) => call(async () => {
+    const res = await fetch(`/api/custom-orders/${customID}/invoices/${invoiceID}/receipt`, { method: 'POST' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Could not send the receipt');
+    notify(data.warning || `Receipt emailed to ${data.to}.`, data.warning ? 'warning' : 'success');
+  });
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress sx={{ color: REPAIRS_UI.accent }} /></Box>;
   if (!order) {
     return (
@@ -281,7 +290,10 @@ export default function CustomDetailPage() {
                       )}
                       {/* Once paid, the receipt is the document staff need — printable at the counter. */}
                       {inv.status === 'paid' && (
-                        <Button size="small" onClick={() => printDoc(inv.invoiceID, 'receipt')} sx={{ color: '#66BB6A' }}>Print receipt</Button>
+                        <>
+                          <Button size="small" onClick={() => printDoc(inv.invoiceID, 'receipt')} sx={{ color: '#66BB6A' }}>Print receipt</Button>
+                          <Button size="small" disabled={busy} onClick={() => emailReceipt(inv.invoiceID)} sx={{ color: '#64B5F6' }}>{inv.receiptEmail?.sent ? 'Resend receipt' : 'Email receipt'}</Button>
+                        </>
                       )}
                       {/* A silent email failure is what let a $5,500 cash receipt go missing. Say so. */}
                       {inv.status === 'paid' && inv.receiptEmail && !inv.receiptEmail.sent && (
