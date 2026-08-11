@@ -70,7 +70,87 @@ export default class CustomOrdersModel {
       col.createIndex({ clientID: 1 }),
       col.createIndex({ status: 1 }),
       col.createIndex({ createdAt: -1 }),
+      // Sparse: only grouped orders carry the field, and most never will.
+      col.createIndex({ orderGroupId: 1 }, { name: 'orderGroupId_1', sparse: true }),
     ]);
+  }
+
+  /* ---- ORDER GROUPS: several orders billed as one ----
+   *
+   * A client with two pieces in — two wedding bands, or a set booked as an engagement ring plus a band
+   * — should get ONE invoice and swipe ONCE. The group is the join.
+   *
+   * DELIBERATELY INVOICING-ONLY (owner, 2026-08-11). It is not a customer-facing "set" and nothing in
+   * production, CAD or reporting knows about it. Each order keeps its own quote, its own pieces and its
+   * own work orders, which is what keeps a wedding set correct: one order stays one piece, so the
+   * singular quote shape and per-piece work-order attribution are untouched.
+   */
+
+  /** Put orders in a group together. Returns the groupId. Same client only. */
+  static async groupOrders(customIDs = [], { groupId = null } = {}) {
+    const ids = [...new Set((customIDs || []).filter(Boolean))];
+    if (ids.length < 2) throw new Error('Grouping needs at least two orders.');
+
+    const col = await this.collection();
+    const orders = await col.find({ customID: { $in: ids } }, { projection: { _id: 0, customID: 1, clientID: 1 } }).toArray();
+    if (orders.length !== ids.length) throw new Error('One or more of those orders was not found.');
+
+    // A combined invoice is emailed to ONE customer and paid by ONE person. Grouping across clients
+    // would bill somebody for a stranger's ring, so this is a hard refusal rather than a warning.
+    const clients = [...new Set(orders.map((o) => o.clientID || ''))];
+    if (clients.length > 1) throw new Error('Those orders belong to different clients and cannot be billed together.');
+
+    const id = groupId || `cgrp-${randomUUID().slice(0, 8)}`;
+    await col.updateMany({ customID: { $in: ids } }, { $set: { orderGroupId: id, updatedAt: new Date() } });
+    return id;
+  }
+
+  /** Remove orders from their group. Ungrouping the second-to-last also clears the remaining one. */
+  static async ungroupOrders(customIDs = []) {
+    const ids = [...new Set((customIDs || []).filter(Boolean))];
+    if (!ids.length) return 0;
+    const col = await this.collection();
+
+    const affected = await col.find({ customID: { $in: ids } }, { projection: { _id: 0, orderGroupId: 1 } }).toArray();
+    const groupIds = [...new Set(affected.map((o) => o.orderGroupId).filter(Boolean))];
+
+    const result = await col.updateMany(
+      { customID: { $in: ids } },
+      { $unset: { orderGroupId: '' }, $set: { updatedAt: new Date() } },
+    );
+
+    // A group of one is not a group: leaving it set would offer "bill together" for a single order.
+    for (const gid of groupIds) {
+      const remaining = await col.find({ orderGroupId: gid }, { projection: { _id: 0, customID: 1 } }).toArray(); // eslint-disable-line no-await-in-loop
+      if (remaining.length === 1) {
+        await col.updateOne({ customID: remaining[0].customID }, { $unset: { orderGroupId: '' } }); // eslint-disable-line no-await-in-loop
+      }
+    }
+    return result.modifiedCount;
+  }
+
+  /** Every order in a group, oldest first. Empty when `groupId` is falsy. */
+  static async listByGroup(groupId) {
+    if (!groupId) return [];
+    const col = await this.collection();
+    return col.find({ orderGroupId: groupId }, { projection: { _id: 0 } }).sort({ createdAt: 1 }).toArray();
+  }
+
+  /**
+   * Orders that COULD be billed with this one: same client, still owing, not cancelled.
+   * Used to offer "bill together" without the operator hunting for the other order's number.
+   */
+  static async groupableWith(customID) {
+    const col = await this.collection();
+    const order = await col.findOne({ customID }, { projection: { _id: 0, clientID: 1 } });
+    if (!order?.clientID) return [];
+    return col
+      .find(
+        { clientID: order.clientID, customID: { $ne: customID }, status: { $nin: ['cancelled', 'delivered'] } },
+        { projection: { _id: 0, customID: 1, title: 1, status: 1, orderGroupId: 1, quote: 1, customerName: 1 } },
+      )
+      .sort({ createdAt: 1 })
+      .toArray();
   }
 
   static async create(data) {

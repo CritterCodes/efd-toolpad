@@ -8,6 +8,56 @@ function round(value) {
   return Math.round((Number(value) || 0) * 100) / 100;
 }
 
+/**
+ * THE PORTION OF AN INVOICE THAT BELONGS TO ONE ORDER.
+ *
+ * A combined invoice covers several custom orders — a client with two bands in, a wedding set booked
+ * as two orders. It carries `orderSnapshots[]`, each naming an order and the amount billed for it, so
+ * allocation is EXPLICIT rather than inferred.
+ *
+ * Deliberately not pro-rata. Splitting a lump payment by share of total sounds fair and is wrong here:
+ * each order advances to production at 50% paid and spawns its own work orders, so a fuzzy split starts
+ * bench work on the wrong ring. An invoice states what each order is being billed, and that is what
+ * gets credited.
+ *
+ * Single-order invoices have no snapshots and simply return their full amount.
+ */
+export function amountForOrder(invoice = {}, customID) {
+  const snapshots = invoice.orderSnapshots;
+  if (Array.isArray(snapshots) && snapshots.length > 0) {
+    return snapshots
+      .filter((s) => s && s.customID === customID)
+      .reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+  }
+
+  // No snapshots. Which orders does it cover?
+  const covered = Array.isArray(invoice.customIDs) && invoice.customIDs.length
+    ? invoice.customIDs
+    : [invoice.customID].filter(Boolean);
+
+  // Spanning several orders with nothing saying how to split them is unallocatable, and GUESSING is
+  // the expensive option in both directions: credit it whole to each and two rings start production on
+  // one payment; credit it to neither and a customer who has paid waits on a bench that never starts.
+  // This shape should be impossible — combined invoices are created with snapshots — so if it appears,
+  // it is corrupt data and must be seen rather than silently absorbed.
+  if (covered.length > 1) {
+    throw new Error(
+      `Invoice ${invoice.invoiceID || '(unknown)'} covers ${covered.length} orders but carries no `
+      + 'orderSnapshots, so its payment cannot be allocated. Repair the invoice before billing.',
+    );
+  }
+
+  // Ordinary single-order invoice: wholly its own order's, and nothing to anyone else's.
+  return covered[0] === customID ? Number(invoice.amount) || 0 : 0;
+}
+
+/** Re-express a mixed list of invoices as this order's share of each. */
+export function invoicesForOrder(invoices = [], customID) {
+  return (invoices || [])
+    .map((i) => ({ ...i, amount: amountForOrder(i, customID) }))
+    .filter((i) => i.amount > 0);
+}
+
 export function computePaymentProgress(projectTotal, invoices = []) {
   const total = Number(projectTotal) || 0;
   const paid = (invoices || [])

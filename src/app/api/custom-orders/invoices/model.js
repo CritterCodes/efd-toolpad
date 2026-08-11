@@ -22,6 +22,11 @@ export default class CustomInvoicesModel {
     await Promise.all([
       col.createIndex({ invoiceID: 1 }, { unique: true }),
       col.createIndex({ customID: 1 }),
+      // Multikey (customIDs is an array), so `{ customIDs: 'CO-x' }` matches any combined invoice
+      // covering that order. This is a CORRECTNESS lookup, not a convenience: payment progress and the
+      // 50%-to-production trigger are derived from it, so a combined invoice that an order cannot find
+      // is money the order never sees. Same reasoning as repairInvoices.repairIDs.
+      col.createIndex({ customIDs: 1 }, { name: 'customIDs_1' }),
       col.createIndex({ status: 1 }),
     ]);
   }
@@ -32,7 +37,17 @@ export default class CustomInvoicesModel {
     const invoice = {
       invoiceID: data.invoiceID || `cinv-${randomUUID().slice(0, 8)}`,
       invoiceNumber: data.invoiceNumber || `INV-${data.customID}-${Date.now().toString(36)}`,
+      // `customID` remains the PRIMARY order — every existing query, notification and document path
+      // keys off it, so it must never become null for a combined invoice.
       customID: data.customID,
+      // COMBINED INVOICES: one invoice covering several orders (a client with two bands in; a wedding
+      // set booked as two orders). `customIDs` is what lookups match on, and `orderSnapshots` carries
+      // the amount billed per order so allocation is explicit rather than inferred — see
+      // paymentProgress.amountForOrder for why pro-rata would be wrong.
+      customIDs: Array.isArray(data.customIDs) && data.customIDs.length
+        ? [...new Set(data.customIDs)]
+        : [data.customID],
+      orderSnapshots: Array.isArray(data.orderSnapshots) ? data.orderSnapshots : [],
       type: data.type || CUSTOM_INVOICE_TYPE.DEPOSIT,
       amount: Number(data.amount) || 0,
       // Sales-tax rate (fraction) in effect when billed. `amount` is tax-INCLUSIVE; the
@@ -52,9 +67,20 @@ export default class CustomInvoicesModel {
     return invoice;
   }
 
+  /**
+   * Every invoice this order appears on, INCLUDING combined invoices where it is not the primary.
+   *
+   * Matching `customID` alone would silently drop a combined invoice from the non-primary order's
+   * ledger: its payment progress would read as unpaid, the 50%-to-production trigger would never fire,
+   * and the customer's paid ring would sit waiting for money it had already handed over. Invoices
+   * created before combining exist have no `customIDs`, hence the $or.
+   */
   static async listByCustom(customID) {
     const col = await this.collection();
-    return col.find({ customID }, { projection: { _id: 0 } }).sort({ createdAt: 1 }).toArray();
+    return col
+      .find({ $or: [{ customID }, { customIDs: customID }] }, { projection: { _id: 0 } })
+      .sort({ createdAt: 1 })
+      .toArray();
   }
 
   static async findById(invoiceID) {

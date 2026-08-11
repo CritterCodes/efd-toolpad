@@ -8,8 +8,8 @@
  * over the legacy flow, which awaited it.
  */
 import CustomOrdersModel, { CUSTOM_ORDER_STATUS } from '@/app/api/custom-orders/model';
-import CustomInvoicesModel, { CUSTOM_INVOICE_STATUS } from '@/app/api/custom-orders/invoices/model';
-import { computePaymentProgress } from '@/services/customs/paymentProgress';
+import CustomInvoicesModel, { CUSTOM_INVOICE_STATUS, CUSTOM_INVOICE_TYPE } from '@/app/api/custom-orders/invoices/model';
+import { computePaymentProgress, invoicesForOrder } from '@/services/customs/paymentProgress';
 import { NotificationService, NOTIFICATION_TYPES } from '@/lib/notificationService';
 import { calculateCustomInvoice, isBillableEmail } from '@/services/customs/customInvoicePolicy';
 import { shopBase } from '@/lib/appUrls';
@@ -28,7 +28,13 @@ async function progressFor(order) {
   // Bill against the tax-inclusive total (what the customer owes); fall back to the
   // pre-tax quoteTotal for legacy orders quoted before sales tax was applied.
   const projectTotal = order.quote?.total ?? order.quote?.quoteTotal ?? 0;
-  return { invoices, progress: computePaymentProgress(projectTotal, invoices) };
+  // THIS ORDER'S SHARE of each invoice. A combined invoice covering two orders must not credit its
+  // whole amount to either one — that would trip the 50%-to-production trigger on money belonging to
+  // the other piece and start bench work on the wrong ring.
+  return {
+    invoices,
+    progress: computePaymentProgress(projectTotal, invoicesForOrder(invoices, order.customID)),
+  };
 }
 
 // Fire-and-forget: never block the caller on (slow, retrying) email.
@@ -109,6 +115,93 @@ export async function createCustomInvoice(customID, data) {
   const { progress } = await progressFor(order);
 
   notifyInvoiceCreated(order, invoice); // fire-and-forget
+  return { invoice, progress };
+}
+
+/**
+ * ONE INVOICE ACROSS SEVERAL ORDERS — a client with two pieces in pays once.
+ *
+ * Each order contributes an explicit amount, recorded in `orderSnapshots`, and that is what gets
+ * credited to it. Never pro-rata: each order advances to production at 50% paid and spawns its own
+ * work orders, so an inferred split starts bench work on the wrong ring.
+ *
+ * The invoice is paid as a SINGLE payment (owner, 2026-08-11) — there is no per-order part-payment. If
+ * a client wants to settle one piece only, issue that order its own invoice instead.
+ *
+ * @param {string[]} customIDs  orders to bill together (>= 2)
+ * @param {object}   data       { amounts?: {customID: amount}, depositPct?, type?, dueDays? }
+ */
+export async function createCombinedInvoice(customIDs = [], data = {}) {
+  const ids = [...new Set((customIDs || []).filter(Boolean))];
+  if (ids.length < 2) throw new Error('A combined invoice needs at least two orders.');
+
+  const orders = await Promise.all(ids.map((id) => CustomOrdersModel.findById(id)));
+  const missing = ids.filter((id, i) => !orders[i]);
+  if (missing.length) throw new Error(`Custom order not found: ${missing.join(', ')}.`);
+
+  const unpublished = orders.filter((o) => !o.quote?.quotePublished);
+  if (unpublished.length) {
+    throw new Error(`Publish the quote first for: ${unpublished.map((o) => o.customID).join(', ')}.`);
+  }
+
+  // One invoice is emailed to one person and paid by one person. Billing across clients would charge
+  // somebody for a stranger's ring.
+  const clients = [...new Set(orders.map((o) => o.clientID || ''))];
+  if (clients.length > 1) throw new Error('Those orders belong to different clients and cannot be billed together.');
+
+  const customerEmail = String(data.customerEmail || orders[0].customerEmail || '').trim();
+  if (!isBillableEmail(customerEmail)) throw new Error('Add a valid customer email before creating an invoice.');
+
+  // Per-order amount: an explicit override if given, else that order's own share computed exactly the
+  // way a single-order invoice would compute it — so a combined deposit is each order's deposit, not a
+  // lump split after the fact.
+  // Resolve the TYPE once and use the same one for every order's amount AND for the stored invoice.
+  // Passing an unresolved type per order while defaulting the invoice to something else is how the
+  // deposit percentage silently stops applying and every line computes as zero.
+  const invoiceType = data.type
+    || (data.depositPct != null ? CUSTOM_INVOICE_TYPE.DEPOSIT : CUSTOM_INVOICE_TYPE.PARTIAL);
+
+  const snapshots = [];
+  for (const order of orders) {
+    const { progress } = await progressFor(order); // eslint-disable-line no-await-in-loop
+    const override = data.amounts?.[order.customID];
+    const resolved = calculateCustomInvoice({
+      // An explicit per-order amount overrides the type-driven calculation for that line.
+      type: override != null ? CUSTOM_INVOICE_TYPE.PARTIAL : invoiceType,
+      amount: override != null ? override : undefined,
+      depositPct: data.depositPct,
+      dueDays: data.dueDays,
+      progress,
+    });
+    if (resolved.amount > 0) {
+      snapshots.push({
+        customID: order.customID,
+        description: order.title || order.quote?.mounting?.item || 'Custom piece',
+        amount: resolved.amount,
+        taxRate: order.quote?.taxRate ?? 0,
+      });
+    }
+  }
+  if (!snapshots.length) throw new Error('Nothing is owed on those orders.');
+
+  const total = Math.round(snapshots.reduce((s, x) => s + x.amount, 0) * 100) / 100;
+  const primary = orders[0];
+
+  const invoice = await CustomInvoicesModel.create({
+    // Primary order: every existing query, notification and document path keys off `customID`.
+    customID: primary.customID,
+    customIDs: ids,
+    orderSnapshots: snapshots,
+    type: invoiceType,
+    amount: total,
+    dueDays: data.dueDays,
+    customerEmail,
+    taxRate: primary.quote?.taxRate ?? 0,
+    createdBy: data.createdBy || null,
+  });
+
+  notifyInvoiceCreated(primary, invoice); // fire-and-forget
+  const { progress } = await progressFor(primary);
   return { invoice, progress };
 }
 

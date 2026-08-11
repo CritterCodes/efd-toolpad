@@ -1,4 +1,4 @@
-import { computePaymentProgress } from '@/services/customs/paymentProgress';
+import { computePaymentProgress, invoicesForOrder, amountForOrder } from '@/services/customs/paymentProgress';
 
 /**
  * THE CUSTOMER-FACING DOCUMENT for a custom-order invoice or receipt. Pure: hand it the order, the
@@ -96,17 +96,26 @@ export function buildInvoiceDocument(order = {}, invoice = {}, allInvoices = [],
   const taxRate = n(quote.taxRate);
 
   const invoices = Array.isArray(allInvoices) && allInvoices.length ? allInvoices : [invoice];
-  const progress = computePaymentProgress(projectTotal, invoices);
+  // Allocated to THIS order. Identical to the raw amounts for a single-order invoice; for a combined
+  // invoice it takes only this order's billed share, so the balance shown is this order's balance.
+  const orderInvoices = invoicesForOrder(invoices, order.customID || invoice.customID);
+  const progress = computePaymentProgress(projectTotal, orderInvoices);
 
   // Every settled payment, oldest first — the ledger the customer can reconcile against.
+  const thisOrder = order.customID || invoice.customID;
   const paymentsApplied = invoices
-    .filter((i) => i && i.status === 'paid')
+    .filter((i) => i && i.status === 'paid' && amountForOrder(i, thisOrder) > 0)
     .sort((a, b) => new Date(a.paidAt || a.createdAt || 0) - new Date(b.paidAt || b.createdAt || 0))
     .map((i) => ({
       invoiceNumber: i.invoiceNumber,
-      amount: round(i.amount),
+      // THIS ORDER'S SHARE, not the invoice's face value. A combined invoice covering two rings would
+      // otherwise show the full amount on each ring's document, so the ledger would not reconcile
+      // against the balance directly beneath it.
+      amount: round(amountForOrder(i, thisOrder)),
       method: i.paymentMethod || null,
       paidOn: docDate(i.paidAt),
+      // True when the payment covers several orders, so the line can say what else it paid for.
+      isCombined: Array.isArray(i.orderSnapshots) && i.orderSnapshots.length > 1,
       isThisDocument: i.invoiceID === invoice.invoiceID,
     }));
 
@@ -139,7 +148,13 @@ export function buildInvoiceDocument(order = {}, invoice = {}, allInvoices = [],
     projectTotal,
 
     // The amount THIS document is about: what was received (receipt) or what is being asked (invoice).
+    // For a combined invoice this is still the FULL amount — the customer pays it as one payment, so
+    // the figure they act on is the whole thing. The per-order split appears in the ledger above.
     documentAmount: round(invoice.amount),
+    // Set when this invoice covers more than one order, so a renderer can list them.
+    coversOrders: Array.isArray(invoice.orderSnapshots) && invoice.orderSnapshots.length > 1
+      ? invoice.orderSnapshots.map((s) => ({ orderNumber: s.customID, description: s.description || '', amount: round(s.amount) }))
+      : [],
     paymentsApplied,
     totalPaid: progress.totalPaid,
     balanceDue,

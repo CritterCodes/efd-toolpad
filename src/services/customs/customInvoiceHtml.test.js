@@ -13,6 +13,7 @@ const ORDER = {
   },
 };
 const CASH = {
+  customID: 'CO-msnijwee-11bb75',
   invoiceID: 'cinv-1', invoiceNumber: 'INV-1', amount: 5500, status: 'paid', paymentMethod: 'cash',
   customerEmail: 'buyer@example.com', createdAt: '2026-08-11T18:49:13Z', paidAt: '2026-08-11T18:49:17Z',
 };
