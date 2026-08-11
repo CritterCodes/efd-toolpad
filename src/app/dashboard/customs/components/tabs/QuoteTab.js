@@ -188,7 +188,7 @@ function QuoteSummaryCard({ lines, cog, cogMarkup, rush, subtotal, taxRate, taxA
     </Paper>
   );
 }
-function AnalyticsCard({ cog, total, designerPayout, margin, bonus, floorPct, workRevenue, workCog }) {
+export function AnalyticsCard({ cog, total, designerPayout, margin, bonus, floorPct, workRevenue, workCog }) {
   const grossProfit = total - cog;
   const grossMargin = total > 0 ? (grossProfit / total) * 100 : 0;
 
@@ -212,18 +212,21 @@ function AnalyticsCard({ cog, total, designerPayout, margin, bonus, floorPct, wo
         <Row label="COG (materials + labor + fees)" value={money(cog)} />
         <Row label="Quote total" value={money(total)} />
         <Row label="Gross profit" value={money(grossProfit)} color="#66BB6A" />
-        {/* Blended margin, shown for information — it's what the sale actually yields, but a
-            pass-through stone legitimately drags it down, so it is NOT what the floor judges. */}
-        <Row label="Gross margin (blended)" value={`${grossMargin.toFixed(1)}%`} />
+        {/* One row when the two figures agree — byte-for-byte the original UI, so a quote with no
+            pass-through line looks exactly as it always did. The second row appears only when a
+            pass-through pulls the blend away from the work margin, which is the only time the 35%-ish
+            blended number needs explaining. The floor annotation always rides the row it judges. */}
+        <Row
+          label={blendDiffers ? 'Gross margin (blended)' : 'Gross margin'}
+          value={`${grossMargin.toFixed(1)}%${!blendDiffers && belowFloor ? ` (below ${floorPct.toFixed(0)}% floor)` : ''}`}
+          warn={!blendDiffers && belowFloor} strong={!blendDiffers && belowFloor}
+        />
         {blendDiffers && (
           <Row
             label="Margin on EFD's work"
             value={`${workMargin.toFixed(1)}%${belowFloor ? ` (below ${floorPct.toFixed(0)}% floor)` : ''}`}
             warn={belowFloor} strong={belowFloor}
           />
-        )}
-        {!blendDiffers && belowFloor && (
-          <Row label="Margin floor" value={`below ${floorPct.toFixed(0)}%`} warn strong />
         )}
       </Box>
       <Divider sx={{ my: 1.25, borderColor: REPAIRS_UI.border }} />

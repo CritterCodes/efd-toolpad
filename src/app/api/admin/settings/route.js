@@ -234,12 +234,15 @@ export async function PUT(request) {
       }
     }
 
-    // Update settings
+    // MERGED per subdocument, same reason as POST below: `pricing: pricing || existing.pricing` only
+    // falls back when the key is absent ENTIRELY. Send a partial `pricing` and every key the caller
+    // omitted is gone — a form that edits just the tax rate would take wholesaleDiscount, deliveryFee
+    // and rushMultiplier with it. Note this is a replaceOne, so there is no server-side floor under it.
     const updatedSettings = {
       ...adminSettings,
-      pricing: pricing || adminSettings.pricing,
-      financial: financial || adminSettings.financial,
-      business: business || adminSettings.business,
+      pricing: { ...(adminSettings.pricing || {}), ...(pricing || {}) },
+      financial: { ...(adminSettings.financial || {}), ...(financial || {}) },
+      business: { ...(adminSettings.business || {}), ...(business || {}) },
       updatedAt: new Date(),
       lastModifiedBy: session.user.email
     };
@@ -310,6 +313,7 @@ export async function POST(request) {
     // Validate financial inputs (custom-quote formula v2 — see docs §9)
     const {
       cogMarkup,
+      centerstoneMarkup,
       designFeeMarkup,
       rushMultiplier,
       commissionPercentage,
@@ -319,6 +323,9 @@ export async function POST(request) {
 
     const invalidFinancial =
       (cogMarkup != null && (cogMarkup < 1 || cogMarkup > 10)) ||
+      // Same bounds as cogMarkup and as assertMarkupsSane on the per-quote value: below 1 prices under
+      // cost, above 10 is a stray digit. A shop-wide default is worse to get wrong than a single quote.
+      (centerstoneMarkup != null && (centerstoneMarkup < 1 || centerstoneMarkup > 10)) ||
       (designFeeMarkup != null && (designFeeMarkup < 1 || designFeeMarkup > 5)) ||
       (rushMultiplier != null && rushMultiplier < 1) ||
       (commissionPercentage != null && (commissionPercentage < 0 || commissionPercentage > 1)) ||
@@ -329,10 +336,14 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Invalid financial values' }, { status: 400 });
     }
 
-    // Update the settings
+    // MERGED, not replaced. `financial: financial` deleted every key the caller didn't send, and no
+    // caller sends all of them — the Custom Design Pricing tab posts 5 keys, so saving it silently
+    // dropped `rushMultiplier` (that has been happening) and would now drop `centerstoneMarkup`, which
+    // prices centre stones. The symptom is the worst kind: nothing errors, and the next quote just
+    // charges a different number. Same shape as the staffCapabilities wipe.
     const updatedSettings = {
       ...adminSettings,
-      financial: financial,
+      financial: { ...(adminSettings.financial || {}), ...financial },
       updatedAt: new Date(),
       version: (adminSettings.version || 0) + 1
     };
