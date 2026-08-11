@@ -181,3 +181,81 @@ describe('centre-stone markup', () => {
 });
 
 const round2 = (v) => Math.round(v * 100) / 100;
+
+/**
+ * PER-LINE MARKUP (owner, 2026-08-11): "there are edge cases where we might need to control markup on
+ * expensive accents, im not sure where the line is drawn though. like what if there is just one melee
+ * we dont want to markup 2.5?"
+ *
+ * Exactly because the line can't be stated as a rule, there ISN'T one. No size threshold (it would
+ * need a number nobody can name, and would silently reprice a line that crossed it), no stone/not-stone
+ * classification (small melee genuinely takes keystone). Each material line carries an optional
+ * override; whoever quotes decides on the job in front of them.
+ */
+describe('per-line material markup', () => {
+  const base = { cogMarkup: 2.5, taxRate: 0 };
+
+  it('marks up each accent line at its own override, others at the default', () => {
+    const q = {
+      accentStones: [
+        { description: 'melee ×20', quantity: 20, cost: 12 },              // 240 → × 2.5
+        { description: 'one big side stone', quantity: 1, cost: 900, markup: 1.3 },
+      ],
+    };
+    const out = computeQuote(q, base);
+    expect(out.cog).toBe(240 + 900);
+    expect(out.quoteTotal).toBe(240 * 2.5 + 900 * 1.3);   // 600 + 1170
+  });
+
+  it('honours an override on an additional-materials line too', () => {
+    const q = { additionalMaterials: [{ description: 'bought-in clasp', quantity: 1, cost: 900, markup: 1.3 }] };
+    expect(computeQuote(q, base).quoteTotal).toBe(1170);
+  });
+
+  it('multiplies quantity BEFORE the markup', () => {
+    const q = { accentStones: [{ description: 'pair', quantity: 2, cost: 500, markup: 1.4 }] };
+    expect(computeQuote(q, base).quoteTotal).toBe(1000 * 1.4);
+  });
+
+  it('changes nothing when no line sets an override', () => {
+    const q = { accentStones: [{ description: 'melee', quantity: 10, cost: 15 }], laborTasks: [{ cost: 100, quantity: 1 }] };
+    expect(computeQuote(q, base).quoteTotal).toBe((150 + 100) * 2.5);
+  });
+
+  it('ignores junk overrides rather than pricing a line at nothing', () => {
+    for (const bad of [0, -2, '', null, 'abc']) {
+      const q = { accentStones: [{ description: 'melee', quantity: 1, cost: 100, markup: bad }] };
+      expect(computeQuote(q, base).quoteTotal).toBe(250);
+    }
+  });
+
+  it('an override does NOT exempt the line from rush — only the centre stone is exempt', () => {
+    // A markup override says "price this differently", not "why". Inferring rush treatment from it
+    // would be a silent second effect.
+    const q = { accentStones: [{ description: 'big side stone', quantity: 1, cost: 900, markup: 1.3 }], isRush: true };
+    const out = computeQuote(q, { ...base, rushMultiplier: 1.5 });
+    expect(out.quoteTotal).toBe(900 * 1.3 * 1.5);
+  });
+
+  it('reports the BLENDED effective markup, not a single misleading figure', () => {
+    const q = {
+      centerstone: { item: '1.5ct', cost: 4000 },
+      mounting: { item: 'setting', cost: 800 },
+      accentStones: [{ description: 'big side', quantity: 1, cost: 900, markup: 1.3 }],
+      laborTasks: [{ cost: 200, quantity: 1 }],
+      centerstoneMarkup: 1.3,
+    };
+    const out = computeQuote(q, base);
+    const cog = 4000 + 800 + 900 + 200;                       // 5900
+    const total = (800 * 2.5 + 900 * 1.3 + 200 * 2.5) + 4000 * 1.3;  // 2000+1170+500+5200 = 8870
+    expect(out.cog).toBe(cog);
+    expect(out.quoteTotal).toBe(total);
+    expect(out.effectiveMarkup).toBe(Math.round((total / cog) * 1000) / 1000);   // ≈ 1.503
+    expect(out.effectiveMarkup).toBeLessThan(2.5);            // the headline 2.5 would misstate it
+  });
+
+  it('effectiveMarkup equals cogMarkup when nothing is overridden and there is no rush', () => {
+    const q = { mounting: { item: 'band', cost: 400 }, laborTasks: [{ cost: 100, quantity: 1 }] };
+    expect(computeQuote(q, base).effectiveMarkup).toBe(2.5);
+  });
+});

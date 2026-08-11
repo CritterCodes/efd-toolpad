@@ -25,6 +25,12 @@ const cardSx = { p: 2.5, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: '
 const money = (x) => `$${(Number(x) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const n = (v) => Number(v) || 0;
 const lineSum = (arr) => (arr || []).reduce((s, x) => s + n(x.cost) * Math.max(n(x.quantity) || 1, 1), 0);
+// Marked-up revenue honouring an optional per-line `markup`. MIRRORS lineRevenue in customQuote.js —
+// if these drift, the preview quotes a price the save won't produce.
+const lineRevenue = (arr, dflt) => (arr || []).reduce((s, x) => {
+  const cost = n(x.cost) * Math.max(n(x.quantity) || 1, 1);
+  return s + cost * (n(x.markup) > 0 ? n(x.markup) : dflt);
+}, 0);
 const goldBtn = { backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } };
 const DISCIPLINE_OPTS = [
   { value: 'bench_jewelry', label: 'Bench' }, { value: 'cad', label: 'CAD' },
@@ -95,12 +101,12 @@ function TaskAutocomplete({ value, disabled, onText, onPick }) {
 }
 
 /** Repeatable line-item editor (description [+discipline][+qty] + cost). `suggest` → task autocomplete. */
-function LineEditor({ rows, onChange, withQty, withDiscipline, withHours, editMode, emptyText, suggest }) {
+function LineEditor({ rows, onChange, withQty, withDiscipline, withHours, withMarkup, defaultMarkup, editMode, emptyText, suggest }) {
   const set = (i, k, v) => onChange(rows.map((r, idx) => (idx === i ? { ...r, [k]: v } : r)));
   const patch = (i, obj) => onChange(rows.map((r, idx) => (idx === i ? { ...r, ...obj } : r)));
   const remove = (i) => onChange(rows.filter((_, idx) => idx !== i));
   if (!rows.length) return <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted, py: 1 }}>{emptyText}</Typography>;
-  const descSm = withDiscipline ? 4 : (withQty ? 6 : 8);
+  const descSm = withDiscipline ? 4 : (withMarkup ? 4 : (withQty ? 6 : 8));
   return (
     <Stack spacing={1}>
       {rows.map((r, i) => {
@@ -134,7 +140,21 @@ function LineEditor({ rows, onChange, withQty, withDiscipline, withHours, editMo
               />
             </Grid>
           )}
-          <Grid item xs={withDiscipline ? 6 : 8} sm={withDiscipline ? 2 : 3}><TextField fullWidth size="small" label="Cost" type="number" value={r.cost ?? 0} disabled={!editMode} onChange={(e) => set(i, 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
+          <Grid item xs={withDiscipline ? 6 : 8} sm={withDiscipline ? 2 : (withMarkup ? 2.5 : 3)}><TextField fullWidth size="small" label="Cost" type="number" value={r.cost ?? 0} disabled={!editMode} onChange={(e) => set(i, 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
+          {withMarkup && (
+            <Grid item xs={10} sm={2.5}>
+              {/* Optional per-line markup. Blank = the default. For a bought-in good that didn't earn
+                  keystone — one expensive melee, a clasp — not for melee you set by the dozen. */}
+              <TextField
+                fullWidth size="small" label="Markup" type="number"
+                value={r.markup ?? ''} disabled={!editMode}
+                onChange={(e) => set(i, 'markup', e.target.value)}
+                placeholder={String(defaultMarkup ?? '')}
+                InputProps={{ startAdornment: <InputAdornment position="start">×</InputAdornment> }}
+                inputProps={{ step: 0.05, min: 0 }}
+              />
+            </Grid>
+          )}
           <Grid item xs={2} sm={1}>{editMode && <IconButton size="small" onClick={() => remove(i)} sx={{ color: REPAIRS_UI.textMuted }}><DeleteIcon fontSize="small" /></IconButton>}</Grid>
         </Grid>
       );
@@ -143,7 +163,11 @@ function LineEditor({ rows, onChange, withQty, withDiscipline, withHours, editMo
   );
 }
 
-function QuoteSummaryCard({ lines, cog, cogMarkup, rush, subtotal, taxRate, taxAmount, total }) {
+function QuoteSummaryCard({ lines, cog, cogMarkup, rush, subtotal, taxRate, taxAmount, total, effectiveMarkup }) {
+  // Once the centre stone or any material line carries its own markup, "× 2.5" is no longer what the
+  // customer is actually paying per dollar of cost. Show the blend whenever it differs from the
+  // headline, so a quote stays explainable weeks later.
+  const blended = Number(effectiveMarkup) > 0 && Math.abs(effectiveMarkup - cogMarkup * (rush > 1 ? rush : 1)) > 0.005;
   return (
     <Paper sx={cardSx}>
       <CardHead icon={CalculateIcon} title="Quote Summary" />
@@ -151,6 +175,7 @@ function QuoteSummaryCard({ lines, cog, cogMarkup, rush, subtotal, taxRate, taxA
       <Divider sx={{ my: 1.25, borderColor: REPAIRS_UI.border }} />
       <Row label="COG (cost)" value={money(cog)} />
       <Row label="Markup" value={`× ${cogMarkup}${rush > 1 ? ` · rush × ${rush}` : ''}`} />
+      {blended && <Row label="Effective (blended)" value={`× ${effectiveMarkup}`} color={REPAIRS_UI.accent} />}
       <Row label="Subtotal" value={money(subtotal)} />
       <Row label={`Sales tax (${(Number(taxRate) * 100).toFixed(taxRate && taxRate * 100 % 1 ? 2 : 1)}%)`} value={money(taxAmount)} />
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
@@ -275,8 +300,16 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
   const cog = cogExStone + stoneCost;
   const rush = form.isRush ? (n(q.rushMultiplier) > 1 ? n(q.rushMultiplier) : 1.5) : 1;
   // Rush multiplies the RING only — it prices EFD's capacity, and a bought-in stone costs the same
-  // whether it's set tomorrow or in three weeks. Mirrors computeQuote.
-  const subtotal = (cogExStone * cogMarkup * rush) + (stoneCost * centerstoneMarkup); // pre-tax
+  // whether it's set tomorrow or in three weeks. Material lines may each override the markup.
+  // MIRRORS computeQuote — if these drift the preview quotes a price the save won't produce.
+  const rushable =
+    n(form.mounting.cost) * cogMarkup
+    + lineRevenue(form.accentStones, cogMarkup)
+    + lineRevenue(form.additionalMaterials, cogMarkup)
+    + (laborTotal + shipTotal + castingCost + designTotal + glbFee + qcFee) * cogMarkup;
+  const subtotal = (rushable * rush) + (stoneCost * centerstoneMarkup); // pre-tax
+  // Once markups vary per line, a single "× 2.5" in the summary is a lie.
+  const effectiveMarkup = cog > 0 ? Math.round((subtotal / cog) * 1000) / 1000 : cogMarkup;
   const effTaxRate = form.taxExempt ? 0 : taxRate;
   const taxAmount = subtotal * effTaxRate;
   const total = subtotal + taxAmount; // tax-inclusive grand total the customer is billed
@@ -291,8 +324,9 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
     try {
       const body = {
         centerstone: form.centerstone, mounting: form.mounting,
-        accentStones: form.accentStones.map((r) => ({ description: r.description || '', quantity: n(r.quantity) || 1, cost: n(r.cost) })),
-        additionalMaterials: form.additionalMaterials.map((r) => ({ description: r.description || '', quantity: n(r.quantity) || 1, cost: n(r.cost) })),
+        // markup: 0 = no override, use the default. Persisted per line so a quote can be explained later.
+        accentStones: form.accentStones.map((r) => ({ description: r.description || '', quantity: n(r.quantity) || 1, cost: n(r.cost), markup: n(r.markup) || 0 })),
+        additionalMaterials: form.additionalMaterials.map((r) => ({ description: r.description || '', quantity: n(r.quantity) || 1, cost: n(r.cost), markup: n(r.markup) || 0 })),
         laborTasks: form.laborTasks.map((r) => ({ description: r.description || '', quantity: n(r.quantity) || 1, cost: n(r.cost), hours: n(r.hours), discipline: r.discipline || 'bench_jewelry', ...(r.autoKey ? { autoKey: r.autoKey, source: r.source || 'auto' } : {}), ...(r.noWorkOrder ? { noWorkOrder: true } : {}) })),
         shippingCosts: form.shippingCosts.map((r) => ({ description: r.description || '', cost: n(r.cost) })),
         isRush: form.isRush, includeCustomDesign: form.includeCustomDesign, designFee: n(form.designFee),
@@ -396,12 +430,12 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
           <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, fontWeight: 600 }}>Accent stones</Typography>
           {<Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('accentStones', { description: '', quantity: 1, cost: 0 })} sx={{ color: REPAIRS_UI.accent }}>Add stone</Button>}
         </Stack>
-        <LineEditor rows={form.accentStones} onChange={(rows) => setField('accentStones', rows)} withQty editMode={!busy} emptyText="No accent stones." />
+        <LineEditor rows={form.accentStones} onChange={(rows) => setField('accentStones', rows)} withQty withMarkup defaultMarkup={cogMarkup} editMode={!busy} emptyText="No accent stones." />
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 2, mb: 1 }}>
           <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, fontWeight: 600 }}>Additional materials</Typography>
           {<Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('additionalMaterials', { description: '', quantity: 1, cost: 0 })} sx={{ color: REPAIRS_UI.accent }}>Add material</Button>}
         </Stack>
-        <LineEditor rows={form.additionalMaterials} onChange={(rows) => setField('additionalMaterials', rows)} withQty editMode={!busy} emptyText="No additional materials." />
+        <LineEditor rows={form.additionalMaterials} onChange={(rows) => setField('additionalMaterials', rows)} withQty withMarkup defaultMarkup={cogMarkup} editMode={!busy} emptyText="No additional materials." />
       </Paper>
 
       {/* Phase 2: Labor */}
@@ -443,7 +477,7 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
 
       {/* Two-panel summary */}
       <Grid container spacing={2}>
-        <Grid item xs={12} md={6}><QuoteSummaryCard lines={summaryLines} cog={cog} cogMarkup={cogMarkup} rush={rush} subtotal={subtotal} taxRate={effTaxRate} taxAmount={taxAmount} total={total} /></Grid>
+        <Grid item xs={12} md={6}><QuoteSummaryCard lines={summaryLines} cog={cog} cogMarkup={cogMarkup} rush={rush} subtotal={subtotal} taxRate={effTaxRate} taxAmount={taxAmount} total={total} effectiveMarkup={effectiveMarkup} /></Grid>
         <Grid item xs={12} md={6}><AnalyticsCard cog={cog} total={subtotal} designerPayout={designTotal} margin={margin} bonus={n(order.clientMgmtBonus)} floorPct={floorPct} /></Grid>
       </Grid>
     </Stack>

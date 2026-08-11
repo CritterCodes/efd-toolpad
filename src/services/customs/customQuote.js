@@ -27,6 +27,23 @@ const n = (v) => Number(v) || 0;
 function lineSum(arr) {
   return (arr || []).reduce((s, x) => s + n(x.cost) * Math.max(n(x.quantity) || 1, 1), 0);
 }
+
+/**
+ * Marked-up REVENUE for a line array, honouring an optional per-line `markup`.
+ *
+ * Any material line can be a bought-in good that didn't earn keystone — one expensive melee, a $900
+ * clasp — not just the centre stone. Rather than guess which (a size threshold would need a number
+ * nobody can state, and would silently reprice a line that crossed it), each row carries an optional
+ * override. Blank/0/junk ⇒ the default markup, so a quote with no overrides is priced exactly as
+ * before.
+ */
+function lineRevenue(arr, defaultMarkup) {
+  return (arr || []).reduce((s, x) => {
+    const cost = n(x.cost) * Math.max(n(x.quantity) || 1, 1);
+    const markup = n(x.markup) > 0 ? n(x.markup) : defaultMarkup;
+    return s + cost * markup;
+  }, 0);
+}
 /** Legacy generic material line: explicit cost, else qty × unitPrice. */
 function legacyLine(m) {
   if (m.cost != null && m.cost !== '') return n(m.cost);
@@ -68,6 +85,18 @@ export function computeQuote(quote = {}, settings = {}) {
   if (quote.isRush) rushMultiplier = n(quote.rushMultiplier) > 1 ? n(quote.rushMultiplier) : (n(settings.rushMultiplier) > 1 ? n(settings.rushMultiplier) : DEFAULT_RUSH);
   else if (n(quote.rushMultiplier) > 1) rushMultiplier = n(quote.rushMultiplier); // legacy flat rush
 
+  // REVENUE, line by line. Everything except the centre stone is marked up and then rushed; material
+  // lines may each override the markup (see lineRevenue). With no overrides this is identically
+  // `cogExCenterstone × cogMarkup`, so a quote written before per-line markups existed is unchanged.
+  const rushableRevenue =
+    n(quote.mounting?.cost) * cogMarkup
+    + lineRevenue(quote.accentStones, cogMarkup)
+    + lineRevenue(quote.additionalMaterials, cogMarkup)
+    + (quote.materialCosts || []).reduce((s, m) => s + legacyLine(m), 0) * cogMarkup
+    + laborTotal * cogMarkup
+    + shippingTotal * cogMarkup
+    + (castingTotal + designTotal + glbTotal + qcTotal) * cogMarkup;
+
   // RUSH DOES NOT TOUCH THE CENTRE STONE (owner, 2026-08-11). A rush premium prices EFD's capacity —
   // reordering the bench queue, overtime, bumping other clients. A bought-in stone costs the same
   // whether it's set tomorrow or in three weeks, so rushing it buys the customer nothing.
@@ -79,7 +108,12 @@ export function computeQuote(quote = {}, settings = {}) {
   //
   // Real rush costs on a stone (paying up to source fast, air freight) belong where they land — a
   // higher stone cost, or the shipping bucket — not in a blanket 50%.
-  const quoteTotal = (cogExCenterstone * cogMarkup * rushMultiplier) + (centerstoneCost * centerstoneMarkup);
+  //
+  // A per-line markup override does NOT exempt that line from rush. An override says "price this
+  // differently"; it doesn't say why, and it can as easily be a premium or a discount as a
+  // pass-through. Inferring rush treatment from a markup number would be a silent second effect. The
+  // centre stone is exempt because it is a single, always-pass-through item by definition.
+  const quoteTotal = (rushableRevenue * rushMultiplier) + (centerstoneCost * centerstoneMarkup);
 
   // Sales tax sits ON TOP of the marked-up price (it's a pass-through liability, not
   // revenue/margin). Rate comes from admin settings (settings.taxRate, a fraction);
@@ -106,6 +140,10 @@ export function computeQuote(quote = {}, settings = {}) {
     cog: round(cog),
     cogMarkup,
     centerstoneMarkup,
+    // The BLENDED markup actually achieved — pre-tax price ÷ full cost, rush included. Once markups
+    // vary per line, showing a single "× 2.5" in a summary is a lie; this is the number that explains
+    // the quote to a customer six weeks later. Falls back to cogMarkup on a zero-cost quote.
+    effectiveMarkup: cog > 0 ? Math.round((quoteTotal / cog) * 1000) / 1000 : cogMarkup,
     rushMultiplier,
     quoteTotal: round(quoteTotal),
     taxRate,
