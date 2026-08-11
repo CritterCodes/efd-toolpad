@@ -442,6 +442,7 @@ function CadTab({ design, designId, onReload, notify, onCreateFirstVariant, form
    * far smaller GLB of the same model succeeded. The STL is what Carrera casts from, so it can't be
    * shrunk to fit; the transport had to change.
    */
+  // Resolves { url, key }. The key comes from the presign response; never re-derive it from the url.
   const uploadAsset = async (file) => directUpload(file, { scope: 'design', id: designId });
 
   const patch = async (fields) => {
@@ -453,8 +454,7 @@ function CadTab({ design, designId, onReload, notify, onCreateFirstVariant, form
     try {
       // Direct to MinIO — this is the MANUFACTURING file Carrera casts from (a real one is 91 MB) and a
       // serverless request body caps at ~4.5 MB.
-      const url = await uploadAsset(file);
-      const key = new URL(url).pathname.split('/').slice(2).join('/');   // strip /<bucket>/
+      const { url, key } = await uploadAsset(file);
 
       // GEMSTONE designs: the viewer GLB is GENERATED from the same solid (one mesh named 'Gemstone',
       // flat facet normals, mm→m; the look comes from the variant's REFRAKT preset). Jewelry never
@@ -466,7 +466,7 @@ function CadTab({ design, designId, onReload, notify, onCreateFirstVariant, form
           const { stlToGlb } = await import('@/lib/stlToGlb');
           const blob = await stlToGlb(file);
           const glbFile = new File([blob], `${(form.name || 'gemstone').replace(/[^a-z0-9-]+/gi, '-').toLowerCase()}.glb`, { type: 'model/gltf-binary' });
-          glbUrl = await uploadAsset(glbFile);
+          glbUrl = (await uploadAsset(glbFile)).url;
         } catch { /* best-effort — the STL still lands; a GLB can be uploaded by hand */ }
       }
 
@@ -490,7 +490,7 @@ function CadTab({ design, designId, onReload, notify, onCreateFirstVariant, form
   const onGlb = async (file) => {
     setBusyGlb(true);
     try {
-      const url = await uploadAsset(file);
+      const { url } = await uploadAsset(file);
       await patch({ designModel: { ...dm, glbUrl: url } });
       notify('GLB uploaded', 'success');
       onReload();

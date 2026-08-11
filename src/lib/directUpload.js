@@ -5,7 +5,17 @@
  * ~4.5 MB. A design's or CAD work order's STL is the MANUFACTURING file that goes to Carrera to cast
  * from — one real file is 91 MB — so shrinking it isn't an option and the transport had to change.
  *
- * Returns the PUBLIC url of the stored object, which is what design/piece records store.
+ * Returns `{ url, key }` — the public url that design/piece records store, AND the storage key the
+ * server chose.
+ *
+ * RETURNING THE KEY IS THE POINT. It used to return the url alone, so callers reconstructed the key by
+ * string surgery: `new URL(url).pathname.split('/').slice(2).join('/')`. That hardcodes "exactly one
+ * path segment precedes the key", which only holds when MINIO_PUBLIC_URL has no path of its own —
+ * storageUrl() builds `${MINIO_PUBLIC_URL}/${BUCKET}/${key}`, so any base with a path shifts every
+ * segment and the derived key comes out wrong. attach-stl then correctly refuses it with "That file
+ * does not belong to this work order", and a 91 MB upload that actually succeeded looks like a failure.
+ *
+ * The presign response already carries the exact key. Passing it through removes the guess.
  */
 export async function directUpload(file, { scope, id, onProgress } = {}) {
   if (!file) throw new Error('No file selected.');
@@ -24,7 +34,7 @@ export async function directUpload(file, { scope, id, onProgress } = {}) {
   if (!presignRes.ok) throw new Error(signed.error || 'Could not prepare the upload.');
 
   await putWithProgress(signed.uploadUrl, file, signed.headers || {}, onProgress);
-  return signed.publicUrl;
+  return { url: signed.publicUrl, key: signed.key };
 }
 
 /**

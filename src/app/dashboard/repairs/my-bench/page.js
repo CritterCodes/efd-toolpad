@@ -156,14 +156,16 @@ export default function BenchPage() {
         // DIRECT to storage. A CAD STL is the manufacturing file Carrera casts from — a real one is
         // 91 MB — and a serverless request body caps at ~4.5 MB, so it cannot go through upload-stl.
         // The browser PUTs it straight to MinIO, then we record the reference and move the WO to QC.
-        const url = await directUpload(file, {
+        const { url, key } = await directUpload(file, {
           scope: 'work-order', id: wo.workOrderID,
           onProgress: (pct) => setUploadPct((m) => ({ ...m, [wo.workOrderID]: pct })),
         });
         // NOTE: no client-side volume. The server streams the stored object and measures it
         // itself (attachCadStl -> stlVolumeCm3FromStorage) — volume sets the mounting cost and
         // therefore the retail price, so it must not be a number the browser supplies.
-        const key = new URL(url).pathname.split('/').slice(2).join('/');   // strip /<bucket>/
+        // The key comes STRAIGHT from the presign response. Deriving it from the url assumed exactly
+        // one path segment before the key, which broke whenever MINIO_PUBLIC_URL carried a path — the
+        // upload succeeded and attach-stl then refused the mismatched key as "not your work order".
         const res = await fetch(`/api/bench/work-orders/${wo.workOrderID}/attach-stl`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url, key, originalName: file.name }),
