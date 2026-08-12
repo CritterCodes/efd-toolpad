@@ -3,7 +3,7 @@ import { requireRole } from '@/lib/apiAuth';
 import { requireCustomsRead } from '@/lib/customsPermissions';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
 import { NotificationService } from '@/lib/notificationService';
-import { shopBase } from '@/lib/appUrls';
+import { shopBase, portalLink } from '@/lib/appUrls';
 
 /** GET /api/custom-orders/[customID]/communications — list messages (both threads). */
 export const GET = async (req, { params }) => {
@@ -51,7 +51,7 @@ export const POST = async (req, { params }) => {
         channels: ['inApp', 'email'],
         recipientEmail: order.customerEmail,
         priority: 'normal',
-        data: { actionUrl: `${shopBase()}/custom-work/portal`, customID },
+        data: { actionUrl: portalLink(customID, 'messages'), customID },
       });
     } catch (e) {
       console.error('⚠️ custom-message notification failed:', e.message);

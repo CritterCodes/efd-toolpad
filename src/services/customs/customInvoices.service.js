@@ -12,11 +12,12 @@ import CustomInvoicesModel, { CUSTOM_INVOICE_STATUS, CUSTOM_INVOICE_TYPE, invoic
 import { computePaymentProgress, invoicesForOrder } from '@/services/customs/paymentProgress';
 import { NotificationService, NOTIFICATION_TYPES } from '@/lib/notificationService';
 import { calculateCustomInvoice, isBillableEmail } from '@/services/customs/customInvoicePolicy';
-import { shopBase } from '@/lib/appUrls';
+import { portalLink } from '@/lib/appUrls';
 
 // Where a customer pays a balance by card. Admin never handles the card; the shop portal owns checkout.
-// The Stripe hosted-invoice helpers this file used to import are gone — see sendInvoiceToCustomer.
-const PORTAL_URL = `${shopBase()}/custom-work/portal`;
+// Deep-linked per order via portalLink() — a bare portal root dropped the customer on a list and made
+// them find the request and tab themselves. The Stripe hosted-invoice helpers this file used to import
+// are gone; see sendInvoiceToCustomer.
 
 const STATUS_RANK = {
   pending: 0, consultation: 1, design: 2, quote: 3, deposit: 4,
@@ -245,7 +246,7 @@ export async function sendInvoiceToCustomer(customID, invoiceID) {
     channels: ['inApp'],
     templateName: 'invoice-created',
     recipientEmail: customerEmail,
-    data: { customID, invoiceNumber: invoice.invoiceNumber, amount: (Number(invoice.amount) || 0).toFixed(2), type: invoice.type, actionUrl: PORTAL_URL },
+    data: { customID, invoiceNumber: invoice.invoiceNumber, amount: (Number(invoice.amount) || 0).toFixed(2), type: invoice.type, actionUrl: portalLink(customID, 'invoices') },
   }).catch((e) => console.error('⚠️ invoice notification failed:', e.message));
 
   // The caller surfaces this: a failed send must be VISIBLE, not swallowed behind a success toast.

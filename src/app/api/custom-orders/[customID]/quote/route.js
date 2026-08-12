@@ -3,9 +3,9 @@ import { requireRole } from '@/lib/apiAuth';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
 import { syncQuoteToWorkOrders } from '@/services/customs/customProduction';
 import { NotificationService } from '@/lib/notificationService';
-import { shopBase } from '@/lib/appUrls';
+import { portalLink } from '@/lib/appUrls';
 
-const PORTAL_URL = `${shopBase()}/custom-work/portal`;
+// Deep-linked per order below — a quote-ready notice must open the quote, not a list.
 
 /**
  * PUT /api/custom-orders/[customID]/quote
@@ -41,7 +41,7 @@ export const PUT = async (req, { params }) => {
       channels: ['inApp', 'email'],
       recipientEmail: updated.customerEmail,
       priority: 'high',
-      data: { actionUrl: PORTAL_URL, customID },
+      data: { actionUrl: portalLink(customID, 'quote'), customID },
     }).catch((e) => console.error('custom-quote-ready notification failed:', e.message));
   }
 

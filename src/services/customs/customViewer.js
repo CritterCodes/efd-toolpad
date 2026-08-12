@@ -11,7 +11,7 @@ import { randomBytes } from 'crypto';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
 import { METAL_FINISHES, GEM_PRESETS } from '@/services/products/productContract';
 import { NotificationService } from '@/lib/notificationService';
-import { shopBase, shopLink } from '@/lib/appUrls';
+import { shopBase, portalLink, shopLink } from '@/lib/appUrls';
 
 export function validateDesignModel(designModel = {}) {
   const errors = [];
@@ -88,7 +88,7 @@ export async function createShareLink(customID, shareTitle) {
         channels: ['inApp', 'email'],
         recipientEmail: updated.customerEmail,
         priority: 'high',
-        data: { actionUrl: `${shopBase()}/custom-work/portal`, customID },
+        data: { actionUrl: portalLink(customID, 'messages'), customID },
       });
     } catch (e) {
       console.error('⚠️ custom-design-ready notification failed:', e.message);

@@ -4,9 +4,9 @@ import { requireCustomsRead } from '@/lib/customsPermissions';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
 import { awardClientMgmtBonus } from '@/services/customs/customProduction';
 import { NotificationService } from '@/lib/notificationService';
-import { shopBase } from '@/lib/appUrls';
+import { portalLink } from '@/lib/appUrls';
 
-const PORTAL_URL = `${shopBase()}/custom-work/portal`;
+// Deep-linked per notification below — see lib/appUrls.js portalLink().
 
 // Milestone statuses that warrant a customer notification, with friendly copy.
 // Cosmetic / intermediate writes (pending, consultation, quote, deposit) are skipped.
@@ -84,7 +84,7 @@ export const PUT = async (req, { params }) => {
         channels: ['inApp', 'email'],
         recipientEmail: updated.customerEmail,
         priority: 'high',
-        data: { actionUrl: PORTAL_URL, customID },
+        data: { actionUrl: portalLink(customID, 'quote'), customID },
       });
     }
   } catch (e) {
@@ -105,7 +105,7 @@ export const PUT = async (req, { params }) => {
         channels: ['inApp', 'email'],
         recipientEmail: updated.customerEmail,
         priority: 'normal',
-        data: { actionUrl: PORTAL_URL, customID, status: updated.status },
+        data: { actionUrl: portalLink(customID, 'overview'), customID, status: updated.status },
       });
     }
   } catch (e) {

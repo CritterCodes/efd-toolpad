@@ -4,7 +4,7 @@ import SettingsManagerService from '@/app/api/admin/settings/services/settingsMa
 import { buildInvoiceDocument, buildCombinedInvoiceDocument, assertNoCostBasis, DOC_KIND, money } from '@/services/customs/customInvoiceDocument';
 import { renderCustomInvoiceHtml } from '@/services/customs/customInvoiceHtml';
 import { renderCustomInvoiceEmail } from '@/services/customs/customInvoiceEmail';
-import { adminBase, shopBase } from '@/lib/appUrls';
+import { adminBase, portalLink } from '@/lib/appUrls';
 import { sendEmailWithRetry } from '../../../lib/email.js';
 
 /**
@@ -70,8 +70,10 @@ export function composeDocument({ order, orders, invoice, allInvoices, settings,
   const opts = {
     kind,
     businessName: settings?.business?.name || 'Engel Fine Design',
-    // The customer pays a balance by card in the shop portal — admin never takes the card.
-    portalUrl: `${shopBase()}/custom-work/portal`,
+    // The customer pays a balance by card in the shop portal — admin never takes the card. Deep-linked
+    // to the INVOICES tab of THIS request: the Pay button in an invoice email must land on the invoice,
+    // not on a list of requests the customer then has to search.
+    portalUrl: portalLink(order?.customID || invoice?.customID, 'invoices'),
     zelleHandle: settings?.business?.zelleHandle || '',
   };
   const doc = isCombined
