@@ -23,17 +23,29 @@ At 2.5×, COG is always 40% of retail, so a 50% deposit clears cost with 10 poin
 job. **It breaks below ~2× blended markup**, because then half of retail is less than cost. Bryce blended
 to 1.43× (the diamond went in at 1.3× — see `customQuote.js`), so the standard deposit was underwater.
 
-**The durable rule is therefore not a percentage:**
+**The durable rule is therefore not a percentage. DECIDED 2026-08-12: the floor is `COG × 1.25`.**
+
+That is exactly what 50% has always delivered — at 2.5×, retail = 2.5 × COG, so half of retail is
+1.25 × COG. Preserving the cushion means preserving that multiple, not a fixed percentage of retail.
 
 ```
-minimum safe deposit = cog / total          # the point where the deposit clears COG
-    2.5× blended  → 40%    ⇒ 50% is fine
-    1.43× blended → 70%    ⇒ 50% is not
+deposit floor = cog × 1.25
 ```
 
-Every input exists on the quote already: `cog`, `total`, `effectiveMarkup`. The deposit field should
-default to 50% and, when 50% would not clear COG, **say so and offer the figure that does**. That is the
-single guardrail that would have caught Bryce at quote time rather than afterwards.
+On Bryce that is $5,696 (88% of retail). The owner charged $5,500 — COG × 1.21 — so the instinct was
+already within 4% of the rule.
+
+The honest consequence: on a thin-margin job the same absolute cushion is a large share of retail. The
+field should therefore show all three reference points so the trade-off is visible rather than implied,
+defaulting to `COG × 1.25` and remaining typeable over:
+
+| | Bryce | % of retail |
+|---|---|---|
+| COG only — breaks even | $4,557 | 70% |
+| COG + 10% | $5,013 | 77% |
+| **COG × 1.25 — the historical cushion (default)** | **$5,696** | **88%** |
+
+Every input already exists on the quote: `cog`, `total`, `effectiveMarkup`.
 
 ---
 
@@ -111,11 +123,16 @@ decide, write down what they decided (cf. the design/QC fee decision in `customA
 
 ---
 
-## 6. Tax
+## 6. Tax — finalised at the lock, not spread across tranches
 
-Invoice `amount` is **tax-inclusive** (see `customInvoices` model). Each tranche must therefore carry its
-share of tax **pro-rata**, or the final payment silently absorbs all of it — turning "the balance is
-labour" into "the balance is labour plus 9.5% of everything."
+**DECIDED 2026-08-12.** Tax is computed and added **when the price locks**, not pro-rata per payment.
+
+The lock is whichever applies: 50% paid (Path A), or stone + mounting paid (Path B). Before the lock the
+price can still move, so taxing an unlocked total would mean re-taxing it — the tax follows the final
+number rather than chasing a moving one.
+
+This supersedes the earlier pro-rata suggestion. It is simpler to explain and simpler to build: tranches
+before the lock are pre-tax against materials; tax appears once, on the locked total.
 
 ---
 
@@ -145,11 +162,62 @@ portal quote tab.
 
 - **O1 — payment allocation.** Stone-first is assumed throughout (§3). Confirm that a payment is credited
   against gates in risk order rather than pro-rata across lines.
-- **O2 — labour is the unsecured tranche.** Labour credits to the artisan at QC pass, so if a customer
-  abandons at completion, EFD has paid the bench, holds a finished piece, and the stone in it is the
-  customer's — it cannot simply be resold. Possession is the protection; a small labour deposit folded
-  into gate 2 is the lever if that ever bites.
-- **O3 — expiry mechanics.** Does day 31 re-price automatically or flag for staff re-quote?
+- **O3 — expiry mechanics.** Day 31 on the UNPAID lines: auto re-price, or flag for staff re-quote?
+  Note this now interacts with §9 — a customer paying monthly never expires, so expiry only bites the
+  ones who go quiet, which is also when they default.
 - **O4 — accent stones / other materials.** Assumed to slot in after mounting by risk. Bryce also had
   $70 shipping and a $100 design fee that need a home in the ladder.
-- **O5 — does accepting a quote auto-create the first invoice?** Undecided.
+
+---
+
+## 9. Ownership, default, and momentum — DECIDED 2026-08-12
+
+### Nothing is theirs until it is paid for
+
+**All payments are non-refundable.** A cleared gate does NOT transfer ownership of the piece — it means
+EFD has bought the material and is holding it for them. The customer-facing wording must reflect that:
+"your stone is secured," never "your stone." As the owner put it: a garage does not hand back the car
+before the bill is paid.
+
+### Default
+
+There is **no payment schedule**. The only obligation is **something every month** — any amount, as
+evidence of intent. Miss a month and the order is in default.
+
+On default:
+
+| State at default | Outcome |
+|---|---|
+| Stone fully paid | They may **collect the stone**. It is paid for; releasing it costs EFD nothing. |
+| Partial payment toward the mounting | **Forfeit.** Non-refundable, and the metal was bought or committed. |
+| Nothing complete | Forfeit. No material was secured. |
+
+So a fully-paid LINE is recoverable by the customer on default; a partially-paid one is not; and the
+unfinished PIECE is never theirs. That is the reconciliation of "nothing is theirs until paid in full"
+with "they can pick up the stone" — line-level settlement on exit, no ownership of work in progress.
+
+### Momentum — acceptance must be immediately payable
+
+**Do not stop a customer who has just said yes.** Accepting a quote must land them somewhere they can pay
+straight away, with two choices:
+
+1. **Pay 50%** (or the `COG × 1.25` floor when that is higher) — locks the price, production starts.
+2. **Start paying what they want** — any amount, gates clear as they go, monthly activity keeps it alive.
+
+This answers O5: acceptance creates a payable position immediately. Whether that is literally an invoice
+record or a payable balance is an implementation choice; what matters is that "accept" and "pay" are not
+separated by a wait for staff.
+
+---
+
+## 10. Build order
+
+1. **Deposit floor guardrail** (admin, small) — warn when 50% does not clear `COG × 1.25`, offer the
+   figure. Catches the next Bryce at quote time. No new concepts.
+2. **Gates computed + shown** (admin) — the ladder for this job, in the order it falls, with the
+   staff-only "you can buy the stone now" cost marker and the recorded override.
+3. **Portal + shop checkout** — quote tab as the hub, choose-your-amount payment, deep links that open
+   the right request on the right tab, `%paid` against the project total.
+
+Invoice sending is already live (`POST /api/custom-orders/:customID/invoices/:invoiceID/send`, with
+Send/Resend + Print + Email receipt on the invoice row).
