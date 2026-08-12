@@ -297,23 +297,46 @@ export function buildCombinedInvoiceDocument(orders = [], invoice = {}, invoices
  * the resulting document reveals what EFD paid for the customer's diamond. Compares against the actual
  * cost values on the order, so it cannot go stale as the quote shape changes.
  */
-export function assertNoCostBasis(rendered, order = {}) {
+export function assertNoCostBasis(rendered, order = {}, doc = null) {
   const quote = order.quote || {};
-  const secrets = [
-    quote.centerstone?.cost, quote.mounting?.cost, quote.cog, quote.cogMarkup, quote.centerstoneMarkup,
+
+  // MONEY ONLY, AND ONLY AS MONEY. The first version matched each cost as a BARE number anywhere in the
+  // document, which is unsound: it blocked a real invoice send on CO-msq5n116-1a2523 because a bare
+  // number also occurs in the stylesheet, in dates, in an invoice id, in "1.5ct", and in quantities.
+  // A guard that fires on correct documents is worse than no guard — it teaches people to bypass it.
+  //
+  // Every figure this renderer prints goes through money(), so a leak is necessarily `$1,234.56`. Match
+  // that shape, in the BODY only (the <style> block is nothing but numbers and can never leak a price).
+  //
+  // MARKUPS ARE NOT CHECKED. cogMarkup 1.5 is indistinguishable from "1.5ct" in a stone description, and
+  // 2.5 from a CSS value. They are not money, so they cannot be matched this way at all; the protection
+  // against those is that no renderer prints them, plus the test that asserts they are absent.
+  const costs = [
+    quote.centerstone?.cost, quote.mounting?.cost, quote.cog,
     ...(quote.accentStones || []).map((x) => x?.cost),
     ...(quote.additionalMaterials || []).map((x) => x?.cost),
     ...(quote.laborTasks || []).map((x) => x?.cost),
   ];
-  const text = String(rendered);
-  for (const raw of secrets) {
-    const v = n(raw);
-    if (v <= 0) continue;
-    // Match the number as it would be WRITTEN — bare and comma-grouped, on a value boundary.
-    for (const form of [v.toFixed(2), String(v), v.toLocaleString('en-US', { minimumFractionDigits: 2 })]) {
-      if (new RegExp(`(^|[^\\d.])${form.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^\\d]|$)`).test(text)) {
-        throw new Error(`Customer document leaked a cost-basis figure (${form}). Show the marked-up price only.`);
-      }
+
+  // Figures the customer is SUPPOSED to see. A cost that coincidentally equals one of them is not a
+  // leak — the document has to be able to print its own totals.
+  const legitimate = new Set(
+    (doc
+      ? [doc.subtotal, doc.taxAmount, doc.projectTotal, doc.documentAmount, doc.totalPaid, doc.balanceDue,
+        doc.groupBalance, ...(doc.paymentsApplied || []).map((p) => p.amount),
+        ...(doc.lineItems || []).map((l) => l.amount)]
+      : []
+    ).map((v) => round(v)),
+  );
+
+  const body = String(rendered).replace(/<style[\s\S]*?<\/style>/gi, '');
+  for (const raw of costs) {
+    const v = round(n(raw));
+    if (v <= 0 || legitimate.has(v)) continue;
+    if (body.includes(money(v))) {
+      throw new Error(
+        `Customer document leaked a cost-basis figure (${money(v)}). Show the marked-up price only.`,
+      );
     }
   }
   return true;

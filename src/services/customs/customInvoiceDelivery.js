@@ -80,7 +80,7 @@ export function composeDocument({ order, orders, invoice, allInvoices, settings,
   // EVERY covered order, not just the primary. The renderer only ever sees one, so on a combined
   // invoice the second order's stone cost and markups would otherwise go unchecked — and that is the
   // document listing both pieces, so it is exactly where a second order's figures could surface.
-  for (const o of (orders || [order]).filter(Boolean)) assertNoCostBasis(html, o);
+  for (const o of (orders || [order]).filter(Boolean)) assertNoCostBasis(html, o, doc);
 
   return { doc, html };
 }

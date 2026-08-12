@@ -89,14 +89,40 @@ describe('the document never carries EFD cost basis', () => {
   });
 
   it('assertNoCostBasis CATCHES a leaked stone cost — the thing it exists to stop', () => {
-    expect(() => assertNoCostBasis('Center stone .......... 3949.50', ORDER))
-      .toThrow(/leaked a cost-basis figure/);
-    expect(() => assertNoCostBasis('Center stone $3,949.50', ORDER)).toThrow(/leaked/);
+    // Every figure the renderer prints goes through money(), so a real leak is money-shaped.
+    expect(() => assertNoCostBasis('Center stone $3,949.50', ORDER)).toThrow(/leaked a cost-basis figure/);
+    expect(() => assertNoCostBasis('Mounting $303.00', ORDER)).toThrow(/leaked/);
   });
 
-  it('catches a leaked markup and a leaked mounting cost too', () => {
-    expect(() => assertNoCostBasis('markup 2.248 applied', ORDER)).toThrow(/leaked/);
-    expect(() => assertNoCostBasis('mounting 303', ORDER)).toThrow(/leaked/);
+  it('does NOT match a bare number — that unsoundness blocked a real invoice send', () => {
+    // The first version matched costs as bare numbers anywhere in the document. A bare number also
+    // occurs in the stylesheet, in dates, in an invoice id, in "1.5ct" and in quantities, so the guard
+    // fired on correct documents (CO-msq5n116-1a2523) and stopped an invoice going out. A guard that
+    // blocks valid work is worse than none: it teaches people to bypass it.
+    expect(() => assertNoCostBasis('Center stone .......... 3949.50', ORDER)).not.toThrow();
+    expect(() => assertNoCostBasis('quantity 303 of something', ORDER)).not.toThrow();
+  });
+
+  it('does NOT check markups, because they are indistinguishable from carat weights', () => {
+    // centerstoneMarkup 1.3 vs "1.3ct"; cogMarkup 2.5 vs a CSS value. Not money, so not matchable this
+    // way at all. Protection against those is that no renderer prints them, plus the assertion below.
+    expect(() => assertNoCostBasis('markup 2.248 applied', ORDER)).not.toThrow();
+    expect(() => assertNoCostBasis('1.5ct I VS2, 1.3 something', ORDER)).not.toThrow();
+  });
+
+  it('ignores the stylesheet, which is nothing but numbers', () => {
+    const withCss = '<style>.x{padding:303px;width:3949.50px}</style><p>Total $7,117.56</p>';
+    expect(() => assertNoCostBasis(withCss, ORDER)).not.toThrow();
+  });
+
+  it('does not flag a cost that happens to equal a figure the document must print', () => {
+    // A $500 stone cost in a job whose subtotal is also $500 is not a leak — the document has to be
+    // able to state its own totals.
+    const order = { quote: { centerstone: { cost: 500 }, quoteTotal: 500, total: 500 } };
+    const doc = buildInvoiceDocument(order, { amount: 500 }, [], OPTS);
+    expect(() => assertNoCostBasis('Subtotal $500.00', order, doc)).not.toThrow();
+    // …but the same figure IS flagged when the document has no legitimate claim to it.
+    expect(() => assertNoCostBasis('Subtotal $500.00', order, null)).toThrow(/leaked/);
   });
 
   it('does not false-positive on the legitimate customer-facing totals', () => {

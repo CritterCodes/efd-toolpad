@@ -215,6 +215,7 @@ export function renderCustomInvoiceHtml(doc, opts = {}) {
 
   // Fail loudly rather than post a customer their own buy price. Only possible when the caller hands us
   // the order; the API routes always do.
-  if (order) assertNoCostBasis(html, order);
+  // `doc` is passed so the guard can tell a cost from a legitimate total it happens to equal.
+  if (order) assertNoCostBasis(html, order, doc);
   return html;
 }
