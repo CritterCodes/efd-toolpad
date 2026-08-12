@@ -101,12 +101,12 @@ describe('assigning a CAD designer', () => {
     await expect(assignArtisan({ customID: 'CO-x', userID: 'user-cad', role: 'bench' })).resolves.toBeTruthy();
   });
 
-  it('REFUSES a second BENCH jeweler too — one artisan per role', async () => {
-    // Owner: "I'm not sure there's ever really a case I would need to assign a second jeweler."
+  it('ALLOWS a second bench jeweler — two on a job is a real workflow', async () => {
+    // Vernon cleans up the casting, then the owner sets the stones. The per-task split lives in
+    // splitPieceTask; blocking the assignment would have blocked nothing useful.
     const { assignArtisan } = await load();
     await assignArtisan({ customID: 'CO-x', userID: 'user-cad', role: 'bench' });
-    await expect(assignArtisan({ customID: 'CO-x', userID: 'user-cad', role: 'bench' }))
-      .rejects.toThrow(/already assigned to the bench/);
+    await expect(assignArtisan({ customID: 'CO-x', userID: 'user-cad', role: 'bench' })).resolves.toBeTruthy();
   });
 
   it('the refusal says how to proceed rather than being a dead end', async () => {
@@ -156,13 +156,43 @@ describe('removing a CAD assignment reverses what assigning did', () => {
     expect(woUpdates[0]).toMatchObject({ id: 'wo-1', status: 'CANCELLED' });
   });
 
-  it('clears the design fee so the order stops billing an unassigned designer', async () => {
+  it('clears the design fee when NOTHING was designed — the assignment was a mistake', async () => {
     withAssignment();
     workOrders = [{ workOrderID: 'wo-1', assignmentId: 'asg-1', files: {}, tasks: [] }];
     const { removeAssignment } = await load();
     await removeAssignment({ customID: 'CO-x', assignmentID: 'asg-1' });
     expect(updates.at(-1).quote.designFee).toBe(0);
     expect(updates.at(-1).quote.includeCustomDesign).toBe(false);
+  });
+
+  it('KEEPS the design + QC fees when an STL was actually delivered', async () => {
+    // Case by case (owner). Real design work is billable whatever happened to the assignment
+    // afterwards; writing it off silently would lose the charge.
+    withAssignment();
+    workOrders = [{ workOrderID: 'wo-1', assignmentId: 'asg-1', files: { stl: { url: 'x' } }, tasks: [] }];
+    const { removeAssignment } = await load();
+    await removeAssignment({ customID: 'CO-x', assignmentID: 'asg-1' });
+    expect(updates.at(-1).quote).toBeUndefined();          // the quote is left alone
+    expect(order.quote.designFee).toBe(100);
+    expect(order.quote.laborTasks.some((t) => t.autoKey === 'custom-qc')).toBe(true);
+  });
+
+  it('records WHICH way it went, so the decision is not silent', async () => {
+    withAssignment();
+    workOrders = [{ workOrderID: 'wo-1', assignmentId: 'asg-1', files: { stl: { url: 'x' } }, tasks: [] }];
+    const { default: CustomOrdersModel } = await import('@/app/api/custom-orders/model');
+    const { removeAssignment } = await load();
+    await removeAssignment({ customID: 'CO-x', assignmentID: 'asg-1' });
+    expect(CustomOrdersModel.updateById.mock.calls.at(-1)[2].reason).toMatch(/fees KEPT/);
+  });
+
+  it('fails CLOSED on the fee when cleanup errors — never write off real work on a guess', async () => {
+    withAssignment();
+    const { default: WorkOrdersModel } = await import('@/app/api/workOrders/model');
+    WorkOrdersModel.findBySource.mockRejectedValueOnce(new Error('mongo down'));
+    const { removeAssignment } = await load();
+    await removeAssignment({ customID: 'CO-x', assignmentID: 'asg-1' });
+    expect(order.quote.designFee).toBe(100);
   });
 
   it('drops the auto CAD QC line but keeps real labor lines', async () => {

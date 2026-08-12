@@ -98,29 +98,30 @@ export async function assignArtisan({ customID, userID, role = ASSIGNMENT_ROLE.C
     assignedAt: new Date(),
     assignedBy,
   };
-  // ONE ARTISAN PER ROLE PER ORDER (owner, 2026-08-11: "I'm not sure there's ever really a case I
-  // would need to assign a second jeweler"). A custom order can still have a CAD designer AND a bench
-  // jeweler — those are different roles — but not two of either.
+  // ONE CAD DESIGNER PER ORDER — and deliberately NOT one bench jeweler.
   //
-  // For CAD this is a correctness guard, not just tidiness: a second CAD assignment silently spawned a
-  // SECOND CAD work order on the same piece and overwrote the quote's designFee with the new
-  // designer's. That is exactly what happened on CO-msp2z3jx-b313c5 — the second assignment set
+  // Two jewelers on one job is normal (owner, 2026-08-11: Vernon cleans up the casting, then the owner
+  // sets the stones). That split is handled where the work is, not here: splitPieceTask peels a task
+  // off the bench work order into its own work order for the second artisan, so each is paid for what
+  // they actually did. Blocking a second BENCH assignment would have blocked nothing useful and
+  // suggested the split was impossible.
+  //
+  // CAD is different, and the reason is structural rather than a preference. A second CAD assignment
+  // spawns a SECOND CAD work order on the same piece and overwrites the quote's designFee with the new
+  // designer's snapshot. That is what happened on CO-msp2z3jx-b313c5: the second assignment set
   // designFee to 0, deleting it left the zero behind, and the order billed nothing for a $100 designer
-  // who was still assigned. One design is one CAD file, the same invariant that keeps a wedding set as
-  // two orders.
-  //
-  // Refusing beats reconciling: the operator is told at the point of the mistake instead of finding an
-  // orphaned work order later. It is not a dead end either — the message says to remove the existing
-  // assignment, which is how you change artisan.
-  const existing = (order.assignments || []).find((a) => a.role === assignment.role);
-  if (existing) {
-    const label = assignment.role === ASSIGNMENT_ROLE.CAD ? 'CAD' : 'the bench';
-    const err = new Error(
-      `${existing.name || 'Someone'} is already assigned to ${label} on this order. `
-      + 'Remove that assignment first if you are changing who works it.',
-    );
-    err.code = 'CONFLICT';
-    throw err;
+  // who was still assigned. One design is one CAD file — the same invariant that keeps a wedding set as
+  // two orders — so a second CAD designer is a mistake, not a workflow.
+  if (assignment.role === ASSIGNMENT_ROLE.CAD) {
+    const existingCad = (order.assignments || []).find((a) => a.role === ASSIGNMENT_ROLE.CAD);
+    if (existingCad) {
+      const err = new Error(
+        `${existingCad.name || 'A designer'} is already assigned to CAD on this order. `
+        + 'Remove that assignment first if you are changing designer.',
+      );
+      err.code = 'CONFLICT';
+      throw err;
+    }
   }
 
   await CustomOrdersModel.addAssignment(customID, assignment);
@@ -175,22 +176,41 @@ export async function removeAssignment({ customID, assignmentID }) {
   if (assignment?.role === ASSIGNMENT_ROLE.CAD) {
     const cleanup = await releaseCadWorkOrder(order, assignment);
 
-    // Reverse the quote edits assigning made. Another CAD designer should never exist (assignCustom
-    // refuses one), so there is nothing to fall back to: the fee goes to zero and the auto QC line
-    // goes with it, because QC exists to review THAT designer's CAD.
+    // WHETHER TO KEEP THE DESIGN + QC FEES IS CASE BY CASE (owner, 2026-08-11), and the work order
+    // already knows which case this is.
+    //
+    //   Nothing was done  → the assignment was a mistake. Charging the customer a design fee for a
+    //                       designer who never designed anything is wrong, so it comes off.
+    //   Work was done     → an STL was delivered, or it went through QC. That is billable whatever
+    //                       happened to the assignment afterwards, so the fee and the QC line STAY.
+    //
+    // Neither is silent: the status-history reason records which way it went, and the fees are plain
+    // fields on the Quote tab, so the operator can override either way. Guessing "always remove" would
+    // quietly write off real work; guessing "always keep" would bill for none.
     const quote = order.quote || {};
-    const laborTasks = (quote.laborTasks || []).filter((t) => t?.autoKey !== 'custom-qc');
-    await CustomOrdersModel.updateById(
-      customID,
-      { quote: { ...quote, designFee: 0, includeCustomDesign: false, laborTasks } },
-      { changedBy: 'system', reason: `cad designer unassigned (${cleanup})` },
-    );
+    if (cleanup.hadWork) {
+      await CustomOrdersModel.updateById(
+        customID,
+        {},
+        { changedBy: 'system', reason: `cad designer unassigned; design + QC fees KEPT (${cleanup.detail})` },
+      );
+    } else {
+      const laborTasks = (quote.laborTasks || []).filter((t) => t?.autoKey !== 'custom-qc');
+      await CustomOrdersModel.updateById(
+        customID,
+        { quote: { ...quote, designFee: 0, includeCustomDesign: false, laborTasks } },
+        { changedBy: 'system', reason: `cad designer unassigned; design + QC fees removed (${cleanup.detail})` },
+      );
+    }
   }
 
   return CustomOrdersModel.findById(customID);
 }
 
-/** Cancel or delete the CAD work order this assignment spawned. Returns what it did. */
+/**
+ * Cancel or delete the CAD work order this assignment spawned.
+ * Returns { hadWork, detail } — hadWork drives whether the design + QC fees survive the unassignment.
+ */
 async function releaseCadWorkOrder(order, assignment) {
   try {
     const [{ default: WorkOrdersModel, WORK_ORDER_SOURCE }, { default: PiecesModel }] = await Promise.all([
@@ -198,7 +218,7 @@ async function releaseCadWorkOrder(order, assignment) {
       import('@/app/api/pieces/model'),
     ]);
     const pieceID = (order.pieceIDs || [])[0];
-    if (!pieceID) return 'no piece';
+    if (!pieceID) return { hadWork: false, detail: 'no piece' };
 
     const all = await WorkOrdersModel.findBySource(WORK_ORDER_SOURCE.PRODUCTION_PIECE, pieceID);
     // Prefer the stamped link; fall back to the CAD design stage for work orders created before the
@@ -206,7 +226,7 @@ async function releaseCadWorkOrder(order, assignment) {
     const wo = all.find((w) => w.assignmentId && w.assignmentId === assignment.id)
       || all.find((w) => w.discipline === 'cad' && w.cadStage === 'design' && w.status !== 'CANCELLED'
         && (w.assignedToUserID === assignment.userID));
-    if (!wo) return 'no work order';
+    if (!wo) return { hadWork: false, detail: 'no work order' };
 
     const hasWork = Boolean(wo.completedAt) || Boolean(wo.qcBy)
       || Object.keys(wo.files || {}).length > 0 || (wo.tasks || []).length > 0;
@@ -215,17 +235,19 @@ async function releaseCadWorkOrder(order, assignment) {
         status: 'CANCELLED',
         cancelledReason: 'CAD assignment removed',
       });
-      return `work order ${wo.workOrderID} cancelled (had work)`;
+      return { hadWork: true, detail: `work order ${wo.workOrderID} cancelled, work preserved` };
     }
 
     const dbi = await db.connect();
     await dbi.collection('workOrders').deleteOne({ workOrderID: wo.workOrderID });
     await dbi.collection('pieces').updateOne({ pieceID }, { $pull: { workOrderIDs: wo.workOrderID } });
-    return `work order ${wo.workOrderID} removed`;
+    return { hadWork: false, detail: `work order ${wo.workOrderID} removed` };
   } catch (e) {
     // Never block removing the assignment on cleanup: a stuck work order is visible and fixable, an
     // assignment you cannot remove is not.
     console.error('[customs] CAD work-order cleanup failed:', e?.message || e);
-    return `cleanup failed: ${e?.message || e}`;
+    // Fails CLOSED on the fee: we could not prove the work order was untouched, and writing off a
+    // real design fee is worse than leaving a removable one on the quote.
+    return { hadWork: true, detail: `cleanup failed: ${e?.message || e}` };
   }
 }
