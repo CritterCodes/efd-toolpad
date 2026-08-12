@@ -1,13 +1,23 @@
 // src/app/api/auth/email.util.js
 import nodemailer from 'nodemailer';
+import { resolveMailCredentials } from '../../../lib/email.js';
 
-const transporter = nodemailer.createTransport({
-    service: 'gmail', // Change this if using a different service (e.g., SendGrid, Outlook)
-    auth: {
-        user: process.env.EMAIL_USER, // Your email address from environment variables
-        pass: process.env.EMAIL_PASS  // Your email app password from environment variables
-    }
-});
+// ONE resolver for both mail modules. This file read EMAIL_PASS while lib/email.js read
+// EMAIL_PASSWORD, and production has neither — it has GMAIL_USER / GMAIL_APP_PASSWORD. Two modules
+// with two guesses at the same secret is how a whole subsystem stayed dead without anyone noticing.
+//
+// Built LAZILY: this module used to create the transport at import time, so a missing credential threw
+// while the module was loading rather than when an email was sent, taking the importing route with it.
+let transporter = null;
+function getTransporter() {
+    if (transporter) return transporter;
+    const { user, pass } = resolveMailCredentials();
+    transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: { user, pass }
+    });
+    return transporter;
+}
 
 /**
  * ✅ Send a verification email to the user
@@ -30,7 +40,7 @@ export async function sendVerificationEmail(email, token) {
     };
 
     try {
-        const info = await transporter.sendMail(mailOptions);
+        const info = await getTransporter().sendMail(mailOptions);
         console.log('Verification email sent:', info.response);
     } catch (error) {
         console.error('Error sending verification email:', error);
@@ -59,7 +69,7 @@ export async function sendPasswordResetEmail(email, token) {
     };
 
     try {
-        const info = await transporter.sendMail(mailOptions);
+        const info = await getTransporter().sendMail(mailOptions);
         console.log('Password reset email sent:', info.response);
     } catch (error) {
         console.error('Error sending password reset email:', error);
@@ -89,7 +99,7 @@ export async function sendInviteEmail(email, token, firstName) {
     };
 
     try {
-        const info = await transporter.sendMail(mailOptions);
+        const info = await getTransporter().sendMail(mailOptions);
         console.log('Invite email sent:', info.response);
     } catch (error) {
         console.error('Error sending invite email:', error);
