@@ -1242,7 +1242,7 @@ export default function NewRepairForm({
           // same materials 401, so this branch had the identical failure waiting.
           const wsSettled = await Promise.allSettled([
             wholesaleClientsAPIClient.fetchMyClients(),
-            tasksService.getTasks(),
+            tasksService.getTasks({ context: 'repair' }),
             materialsService.getMaterials()
           ]);
           const [users, tasks, materials] = wsSettled.map((r) => (r.status === 'fulfilled' ? r.value : null));
@@ -1288,7 +1288,7 @@ export default function NewRepairForm({
           // no error on screen, and no way to write up a repair. The failure was in materials; the
           // symptom was everywhere else, which is what made it hard to find.
           const settled = await Promise.allSettled([
-            tasksService.getTasks(),
+            tasksService.getTasks({ context: 'repair' }),
             materialsService.getMaterials(),
             UsersService.getAllUsers(),
             fetch('/api/users?role=wholesaler').then((res) => res.ok ? res.json() : { data: [] }),

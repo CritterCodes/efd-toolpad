@@ -28,9 +28,23 @@ export function buildQuery(filters) {
     query.category = filters.category;
   }
 
-  // Context tag (e.g. 'custom') — a task whose `contexts` array includes the value.
-  // Used by the custom quote builder to show only custom-relevant tasks.
-  if (filters.context) {
+  // WHERE A TASK IS OFFERED. `contexts` is an array of surfaces: 'repair' (repair intake) and/or
+  // 'custom' (the custom quote builder). A task can be in both — stone setting is charged the same way
+  // on a repair and on a custom — or in one only.
+  //
+  // 'custom' is STRICT opt-in: the quote builder should not be flooded with retipping and sizing, so a
+  // task appears there only when it says so.
+  //
+  // 'repair' also matches UNTAGGED tasks. Every task in the catalog predates this field, and they are
+  // all repair tasks; excluding them would empty the repair intake picker, which is the busiest screen
+  // in the shop. Untagged therefore means "repair", and tagging a task 'custom' alone is what takes it
+  // OUT of repairs — the only way to express a custom-only task.
+  if (filters.context === 'repair') {
+    query.$and = [
+      ...(query.$and || []),
+      { $or: [{ contexts: 'repair' }, { contexts: { $in: [null, []] } }, { contexts: { $exists: false } }] },
+    ];
+  } else if (filters.context) {
     query.contexts = filters.context;
   }
 
