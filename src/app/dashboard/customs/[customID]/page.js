@@ -16,6 +16,7 @@ import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import { customOrderLabel } from '@/constants/customRequest.constants';
+import { depositFloor } from '@/services/customs/customInvoicePolicy';
 import StatusTimeline from '../components/StatusTimeline';
 import OverviewTab from '../components/tabs/OverviewTab';
 import QuoteTab from '../components/tabs/QuoteTab';
@@ -126,6 +127,16 @@ export default function CustomDetailPage() {
     if (invoiceForm.mode === 'deposit') return round2(quoteTotal * (Number(invoiceForm.depositPct) || 0) / 100);
     return round2(invoiceForm.amount);
   };
+  // THE DEPOSIT FLOOR. A 50% deposit clears cost only while the blended markup is ~2× or better; below
+  // that, half of retail is less than COG. Bryce's diamond at 1.3× took the blend to 1.43×, and 50%
+  // would have been $1,307 short of cost. Advisory only — the owner overrides these gates by design.
+  const floor = depositFloor({
+    cog: Number(order?.quote?.cog) || 0,
+    total: quoteTotal,
+    requestedPct: invoiceForm.mode === 'deposit' ? Number(invoiceForm.depositPct) || 0 : 0,
+  });
+  const showFloorWarning = invoiceForm.mode === 'deposit' && floor.breakEven > 0 && !floor.clearsCost;
+
   const invoiceType = () => {
     if (invoiceForm.mode === 'full') return 'final';
     if (invoiceForm.mode === 'deposit') return 'deposit';
@@ -360,6 +371,27 @@ export default function CustomDetailPage() {
             </TextField>
             {invoiceForm.mode === 'deposit' && (
               <TextField label="Deposit %" type="number" value={invoiceForm.depositPct} onChange={(e) => setInvoiceForm({ ...invoiceForm, depositPct: e.target.value })} helperText="Default 50%. Lower it for smaller staged payments." fullWidth InputProps={{ endAdornment: <Typography sx={{ color: REPAIRS_UI.textMuted }}>%</Typography> }} />
+            )}
+            {showFloorWarning && (
+              <Alert
+                severity="warning"
+                sx={{ backgroundColor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }}
+                action={(
+                  <Button size="small" onClick={() => setInvoiceForm({ ...invoiceForm, depositPct: floor.floorPct })} sx={{ color: REPAIRS_UI.accent, whiteSpace: 'nowrap' }}>
+                    Use {floor.floorPct}%
+                  </Button>
+                )}
+              >
+                <strong>{money(floor.requested)} does not cover what this job costs to make.</strong>
+                <div style={{ fontSize: '0.82rem', marginTop: 4, color: REPAIRS_UI.textSecondary }}>
+                  This quote blends to {floor.blendedMarkup}&times;, so COG is {Math.round((floor.breakEven / quoteTotal) * 100)}% of retail
+                  &mdash; 50% only clears cost at 2&times; or better. Short by {money(floor.shortfall)}.
+                </div>
+                <div style={{ fontSize: '0.82rem', marginTop: 6, color: REPAIRS_UI.textSecondary }}>
+                  Break even {money(floor.breakEven)} &middot; +10% {money(floor.cushioned10)} &middot;{' '}
+                  <strong style={{ color: REPAIRS_UI.textPrimary }}>usual cushion {money(floor.floor)} ({floor.floorPct}%)</strong>
+                </div>
+              </Alert>
             )}
             {invoiceForm.mode === 'custom' && (
               <TextField label="Amount" type="number" value={invoiceForm.amount} onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: e.target.value })} fullWidth />
