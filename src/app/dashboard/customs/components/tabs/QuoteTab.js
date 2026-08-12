@@ -339,11 +339,13 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
     n(form.mounting.cost) * cogMarkup
     + lineRevenue(form.accentStones, cogMarkup)
     + lineRevenue(form.additionalMaterials, cogMarkup)
-    + (laborTotal + castingCost + designTotal + glbFee + qcFee) * cogMarkup;
+    + (laborTotal + castingCost + glbFee + qcFee) * cogMarkup;
   // SHIPPING IS A PASS-THROUGH: no markup, no rush. It is a courier's invoice, not value EFD added.
   // Added outside the rush multiplier for the same reason the centre stone is — a faster courier is a
   // higher shipping COST, not a multiplier on the old one.
-  const subtotal = (rushable * rush) + (stoneCost * centerstoneMarkup) + shipTotal; // pre-tax
+  // Shipping AND the design fee pass through at cost — logistics and an artisan's own fee. Casting
+  // stays marked up: it is a production step in making the piece.
+  const subtotal = (rushable * rush) + (stoneCost * centerstoneMarkup) + shipTotal + designTotal; // pre-tax
   // Once markups vary per line, a single "× 2.5" in the summary is a lie.
   const effectiveMarkup = cog > 0 ? Math.round((subtotal / cog) * 1000) / 1000 : cogMarkup;
   const effTaxRate = form.taxExempt ? 0 : taxRate;
@@ -514,7 +516,7 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
       {/* Two-panel summary */}
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}><QuoteSummaryCard lines={summaryLines} cog={cog} cogMarkup={cogMarkup} rush={rush} subtotal={subtotal} taxRate={effTaxRate} taxAmount={taxAmount} total={total} effectiveMarkup={effectiveMarkup} /></Grid>
-        <Grid item xs={12} md={6}><AnalyticsCard cog={cog} total={subtotal} designerPayout={designTotal} margin={margin} bonus={n(order.clientMgmtBonus)} floorPct={floorPct} workRevenue={rushable * rush} workCog={cogExStone - shipTotal} /></Grid>
+        <Grid item xs={12} md={6}><AnalyticsCard cog={cog} total={subtotal} designerPayout={designTotal} margin={margin} bonus={n(order.clientMgmtBonus)} floorPct={floorPct} workRevenue={rushable * rush} workCog={cogExStone - shipTotal - designTotal} /></Grid>
       </Grid>
     </Stack>
   );

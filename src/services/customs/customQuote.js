@@ -6,7 +6,20 @@
  * × rush. Artists are paid base fees; the marked-up amount is the customer price.
  *
  *   cog        = materials + labor + shipping + casting + designer + GLB + QC fees
- *   quoteTotal = cog × cogMarkup × (isRush ? rushMultiplier : 1)
+ *
+ * NOT everything is marked up. Three lines PASS THROUGH at cost, each for its own reason:
+ *
+ *   centre stone  — a bought-in good; the trade prices significant stones near cost (~1.3×), so it
+ *                   carries its OWN markup rather than mounting keystone
+ *   shipping      — a courier's invoice. Logistics, not craft; EFD added nothing to it
+ *   design fee    — the CAD designer's own per-job fee. EFD collects it and hands it over; taking a
+ *                   cut of an artisan's design work is the one thing it does not do
+ *
+ * Casting IS marked up: it is a production step in making the piece (alloy, file prep, vendor
+ * management, and EFD eats a bad cast), like the mounting metal. Not to be confused with the at-cost
+ * rule for billing an ARTISAN to cast their own piece — that is EFD declining to rent infrastructure.
+ *
+ *   quoteTotal = (marked-up work × rush) + (stone × stoneMarkup) + shipping + designFee
  *
  * NOTE (T2): new orders model CAD QC + GLB as LABOR LINES (quote.laborTasks), not the
  * `glbFee`/`qcReviewFee` fields — so those fields are 0 for new orders and counted via
@@ -134,7 +147,11 @@ export function computeQuote(quote = {}, settings = {}) {
     + lineRevenue(quote.additionalMaterials, cogMarkup)
     + (quote.materialCosts || []).reduce((s, m) => s + legacyLine(m), 0) * cogMarkup
     + laborTotal * cogMarkup
-    + (castingTotal + designTotal + glbTotal + qcTotal) * cogMarkup;
+    // Casting IS marked up — it is a production step in making the piece (alloy choice, file prep,
+    // vendor management, and EFD eats a bad cast), exactly like the mounting metal. Not to be confused
+    // with the at-cost rule for billing an ARTISAN for casting their own piece: that is EFD declining to
+    // rent out infrastructure, and it does not apply to a customer buying a finished ring.
+    + (castingTotal + glbTotal + qcTotal) * cogMarkup;
 
   // RUSH DOES NOT TOUCH THE CENTRE STONE (owner, 2026-08-11). A rush premium prices EFD's capacity —
   // reordering the bench queue, overtime, bumping other clients. A bought-in stone costs the same
@@ -161,9 +178,15 @@ export function computeQuote(quote = {}, settings = {}) {
   // old one. If expedited freight costs more, that belongs in the shipping line itself.
   //
   // It stays in `cog` (it genuinely is a cost) so margin figures remain honest — it simply earns nothing.
+  // THE DESIGN FEE ALSO PASSES THROUGH (owner, 2026-08-12). It is the CAD designer's own per-job fee,
+  // snapshotted from their profile — EFD collects it and hands it over. Marking it up would be taking a
+  // cut of an artisan's design work, which is the one thing EFD explicitly does not do: it earns on
+  // facilitated infrastructure and consignment, never rent on someone else's craft. The paid QC review
+  // is separate and IS marked up, because that is EFD's own review process.
   const quoteTotal = (rushableRevenue * rushMultiplier)
     + (centerstoneCost * centerstoneMarkup)
-    + shippingTotal;
+    + shippingTotal
+    + designTotal;
 
   // Sales tax sits ON TOP of the marked-up price (it's a pass-through liability, not
   // revenue/margin). Rate comes from admin settings (settings.taxRate, a fraction);
@@ -184,8 +207,8 @@ export function computeQuote(quote = {}, settings = {}) {
     // The cost of the work EFD actually marked up — everything except the pass-throughs. The margin
     // floor is measured against THIS, so a $70 shipping line at zero margin cannot read as a loss on
     // EFD's labour. `passThroughTotal` is what earns nothing by design.
-    workCog: round(cogExCenterstone - shippingTotal),
-    passThroughTotal: round(centerstoneCost + shippingTotal),
+    workCog: round(cogExCenterstone - shippingTotal - designTotal),
+    passThroughTotal: round(centerstoneCost + shippingTotal + designTotal),
     laborTotal: round(laborTotal),
     shippingTotal: round(shippingTotal),
     castingTotal: round(castingTotal),

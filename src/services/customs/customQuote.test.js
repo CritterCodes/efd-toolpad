@@ -14,10 +14,10 @@ describe('computeQuote (structured single-COG bucket)', () => {
     }, { cogMarkup: 2.5 });
     // 700 + 100 + 50 + 150 + 20 + 60 + 100 + 30 + 25 = 1235
     expect(q.cog).toBeCloseTo(1235, 2);
-    // Shipping ($20) is a PASS-THROUGH: everything else takes 2.5×, shipping is added at cost.
-    // (1235 − 20) × 2.5 + 20 = 3057.50. It used to be 1235 × 2.5 = 3087.50, i.e. $30 of margin on a
-    // courier's invoice.
-    expect(q.quoteTotal).toBeCloseTo(3057.5, 2);
+    // Shipping ($20) and the design fee ($100) PASS THROUGH at cost; everything else takes 2.5×.
+    // (1235 − 20 − 100) × 2.5 + 20 + 100 = 2907.50. Originally 1235 × 2.5 = 3087.50 — i.e. $30 of
+    // margin on a courier's invoice and $150 on the designer's own fee.
+    expect(q.quoteTotal).toBeCloseTo(2907.5, 2);
   });
 
   it('applies rush when isRush (settings rushMultiplier)', () => {
@@ -385,5 +385,66 @@ describe('shipping passes through at cost', () => {
   it('a quote with no shipping is completely unchanged', () => {
     const q = computeQuote({ mounting: { cost: 400 }, laborTasks: [{ cost: 100 }] }, base);
     expect(q.quoteTotal).toBe(1250);         // 500 × 2.5, exactly as before
+  });
+});
+
+
+/**
+ * THE DESIGN FEE PASSES THROUGH (owner, 2026-08-12: "design fee doesnt need marked up").
+ *
+ * It is the CAD designer's own per-job fee, snapshotted from their profile. EFD collects it and hands it
+ * over; marking it up would be taking a cut of an artisan's craft, which is precisely what EFD does not
+ * do — it earns on facilitated infrastructure and consignment, never rent on someone else's work.
+ *
+ * The paid QC REVIEW is separate and IS marked up: that is EFD's own review process.
+ */
+describe('design fee passes through at cost', () => {
+  const base = { cogMarkup: 2.5, rushMultiplier: 1.5, taxRate: 0 };
+
+  it('adds the designer fee at cost, not at markup', () => {
+    const q = computeQuote({ mounting: { cost: 100 }, designFee: 100 }, base);
+    expect(q.quoteTotal).toBe(350);          // 100 × 2.5 + 100 — not 200 × 2.5 = 500
+    expect(q.designTotal).toBe(100);
+  });
+
+  it('earns zero margin on it', () => {
+    const without = computeQuote({ mounting: { cost: 100 } }, base);
+    const withFee = computeQuote({ mounting: { cost: 100 }, designFee: 100 }, base);
+    expect(withFee.quoteTotal - without.quoteTotal).toBe(100);
+    expect(withFee.projectedMargin).toBe(without.projectedMargin);
+  });
+
+  it('rush does not touch it — the designer is paid their fee either way', () => {
+    const q = computeQuote({ mounting: { cost: 100 }, designFee: 100, isRush: true }, base);
+    expect(q.quoteTotal).toBe(475);          // (100 × 2.5) × 1.5 + 100
+  });
+
+  it('CASTING is still marked up — production, not a pass-through', () => {
+    const q = computeQuote({ castingCost: 100 }, base);
+    expect(q.quoteTotal).toBe(250);          // deliberately 2.5×
+  });
+
+  it('the QC review fee is still marked up — that review belongs to EFD', () => {
+    const q = computeQuote({ qcReviewFee: 25 }, base);
+    expect(q.quoteTotal).toBe(62.5);
+  });
+
+  it('workCog excludes both pass-throughs so neither reads as a loss on the labour', () => {
+    const q = computeQuote({
+      mounting: { cost: 100 }, laborTasks: [{ cost: 50 }],
+      shippingCosts: [{ cost: 70 }], designFee: 100,
+    }, base);
+    expect(q.cogExCenterstone).toBe(320);    // every real cost
+    expect(q.workCog).toBe(150);             // mounting + labour only
+    expect(q.passThroughTotal).toBe(170);    // shipping + design fee
+  });
+
+  it('all three pass-throughs together, with a stone and rush', () => {
+    const q = computeQuote({
+      centerstone: { cost: 200 }, centerstoneMarkup: 1.3,
+      mounting: { cost: 100 }, shippingCosts: [{ cost: 70 }], designFee: 100, isRush: true,
+    }, base);
+    // (100 × 2.5) × 1.5 + 200 × 1.3 + 70 + 100 = 375 + 260 + 170
+    expect(q.quoteTotal).toBe(805);
   });
 });
