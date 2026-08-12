@@ -42,10 +42,27 @@ export async function getTaskSuggestions(search = '', limit = 40, context = null
     const agg = await dbi.collection(Constants.CUSTOM_ORDERS_COLLECTION).aggregate([
       { $unwind: { path: '$quote.laborTasks', preserveNullAndEmptyArrays: false } },
       ...(rx ? [{ $match: { 'quote.laborTasks.description': rx } }] : []),
-      { $group: { _id: '$quote.laborTasks.description', cost: { $last: '$quote.laborTasks.cost' } } },
+      {
+        $group: {
+          _id: '$quote.laborTasks.description',
+          cost: { $last: '$quote.laborTasks.cost' },
+          // CARRY THE HOURS FORWARD. This was hardcoded to 0, so picking a task you had already
+          // priced on a previous order re-filled the cost and silently blanked the hours — and hours
+          // are what the bench jeweler is PAID for, so the quote builder had to retype them from
+          // memory every time or the artisan's payout came out at zero.
+          hours: { $last: '$quote.laborTasks.hours' },
+          discipline: { $last: '$quote.laborTasks.discipline' },
+        },
+      },
       { $limit: limit },
     ]).toArray();
-    custom = agg.filter((c) => c._id).map((c) => ({ label: c._id, cost: Number(c.cost) || 0, hours: 0, source: 'custom' }));
+    custom = agg.filter((c) => c._id).map((c) => ({
+      label: c._id,
+      cost: Number(c.cost) || 0,
+      hours: Number(c.hours) || 0,
+      category: c.discipline || null,
+      source: 'custom',
+    }));
   } catch { /* no custom history yet */ }
 
   // Dedupe by lowercased label; repair catalog (richer) wins.

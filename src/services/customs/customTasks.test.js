@@ -3,11 +3,12 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 // customTasks imports the DB layer + TasksService at module load — mock both so the
 // unit under test (getCustomTaskLine / mergeAutoLaborLine) runs with no real I/O.
 const getTasks = vi.fn();
-vi.mock('@/lib/database', () => ({ db: { connect: vi.fn(async () => ({ collection: () => ({ aggregate: () => ({ toArray: async () => [] }) }) })) } }));
+let customHistory = [];
+vi.mock('@/lib/database', () => ({ db: { connect: vi.fn(async () => ({ collection: () => ({ aggregate: () => ({ toArray: async () => customHistory }) }) })) } }));
 vi.mock('@/lib/constants', () => ({ default: { CUSTOM_ORDERS_COLLECTION: 'customOrders' } }));
 vi.mock('@/app/api/tasks/service', () => ({ TasksService: { getTasks: (...a) => getTasks(...a) } }));
 
-const { getCustomTaskLine, mergeAutoLaborLine } = await import('@/services/customs/customTasks');
+const { getCustomTaskLine, mergeAutoLaborLine, getTaskSuggestions } = await import('@/services/customs/customTasks');
 
 describe('getCustomTaskLine', () => {
   beforeEach(() => getTasks.mockReset());
@@ -42,5 +43,45 @@ describe('mergeAutoLaborLine', () => {
   it('appends when no matching autoKey exists', () => {
     const merged = mergeAutoLaborLine([{ description: 'polish', cost: 10 }], { description: 'GLB Creation', cost: 50, autoKey: 'custom-glb' });
     expect(merged).toHaveLength(2);
+  });
+});
+
+
+/**
+ * Labor HOURS are what the bench jeweler is paid for. The historical-custom branch of the suggestion
+ * list hardcoded hours to 0, so picking a task you had already priced on an earlier order refilled the
+ * cost and silently blanked the hours — the quote builder retyped them from memory every time, and any
+ * that were missed produced a work order with no payout.
+ *
+ * This matters more than it looks: NO task in the catalog is tagged `contexts: 'custom'`, so the
+ * repair-catalog branch returns nothing for the quote builder and history is the ONLY source of
+ * suggestions it sees.
+ */
+describe('getTaskSuggestions carries labor hours', () => {
+  beforeEach(() => { customHistory = []; getTasks.mockReset(); getTasks.mockResolvedValue({ data: [] }); });
+
+  it('returns the hours a historical custom task was quoted with', async () => {
+    customHistory = [{ _id: 'Set center stone', cost: 40, hours: 0.8, discipline: 'bench_jewelry' }];
+    const [s] = await getTaskSuggestions('', 40, 'custom');
+    expect(s).toMatchObject({ label: 'Set center stone', cost: 40, hours: 0.8, source: 'custom' });
+  });
+
+  it('carries the discipline too, so the lane is not re-picked by hand', async () => {
+    customHistory = [{ _id: 'Clean up casting', cost: 69.52, hours: 0.8, discipline: 'bench_jewelry' }];
+    expect((await getTaskSuggestions('', 40, 'custom'))[0].category).toBe('bench_jewelry');
+  });
+
+  it('copes with history that predates hours being stored', async () => {
+    customHistory = [{ _id: 'Old line', cost: 25 }];
+    expect((await getTaskSuggestions('', 40, 'custom'))[0].hours).toBe(0);
+  });
+
+  it('still prefers the repair catalog when a label appears in both', async () => {
+    // The catalog is the richer, priced-by-the-engine source.
+    getTasks.mockResolvedValue({ data: [{ title: 'Set Stone 1ct or larger', pricing: { laborCost: 30, totalLaborHours: 0.4 }, category: 'setting' }] });
+    customHistory = [{ _id: 'set stone 1ct or larger', cost: 99, hours: 9 }];
+    const out = await getTaskSuggestions('', 40, 'custom');
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ cost: 30, hours: 0.4, source: 'repair' });
   });
 });
