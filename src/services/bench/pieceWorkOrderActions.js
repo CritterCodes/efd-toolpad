@@ -294,20 +294,28 @@ async function finalizeCadStl({ session, wo, workOrderID, stl }) {
     completedAt: new Date(),
   });
 
-  // X8 — STL design submitted for QC peer review: alert admins. Best-effort.
-  try {
-    const customID = piece?.customOrderID || (await customIDForWorkOrder(wo));
-    await notifyAllAdmins({
-      type: 'custom-design-submitted',
-      title: 'Design submitted for QC review',
-      message: `"${woLabel(wo)}"${customID ? ` (custom ${customID})` : ''} was submitted for CAD QC peer review.`,
-      actionUrl: customID ? customLink(customID) : BENCH_ACTION_URL,
-      priority: 'normal',
-      relatedData: { customID: customID || null, workOrderID },
-    });
-  } catch (e) {
-    console.error('⚠️ custom-design-submitted (STL) notify failed:', e?.message || e);
-  }
+  // X8 — STL design submitted for QC peer review: alert admins.
+  //
+  // NOT AWAITED. The work is already done above: the STL is recorded and the work order is in QC. This
+  // notification fans out an email PER ADMIN, and awaiting it made a slow mail server able to fail an
+  // operation that had entirely succeeded — the route 504'd at Vercel's 15s limit while retrying sends,
+  // and the bench saw "Could not attach the STL" for a 91 MB upload that had worked. The response must
+  // not depend on anything that happens after the state change.
+  void (async () => {
+    try {
+      const customID = piece?.customOrderID || (await customIDForWorkOrder(wo));
+      await notifyAllAdmins({
+        type: 'custom-design-submitted',
+        title: 'Design submitted for QC review',
+        message: `"${woLabel(wo)}"${customID ? ` (custom ${customID})` : ''} was submitted for CAD QC peer review.`,
+        actionUrl: customID ? customLink(customID) : BENCH_ACTION_URL,
+        priority: 'normal',
+        relatedData: { customID: customID || null, workOrderID },
+      });
+    } catch (e) {
+      console.error('⚠️ custom-design-submitted (STL) notify failed:', e?.message || e);
+    }
+  })();
 
   return updated;
 }
