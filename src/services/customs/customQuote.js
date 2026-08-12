@@ -134,7 +134,6 @@ export function computeQuote(quote = {}, settings = {}) {
     + lineRevenue(quote.additionalMaterials, cogMarkup)
     + (quote.materialCosts || []).reduce((s, m) => s + legacyLine(m), 0) * cogMarkup
     + laborTotal * cogMarkup
-    + shippingTotal * cogMarkup
     + (castingTotal + designTotal + glbTotal + qcTotal) * cogMarkup;
 
   // RUSH DOES NOT TOUCH THE CENTRE STONE (owner, 2026-08-11). A rush premium prices EFD's capacity —
@@ -153,7 +152,18 @@ export function computeQuote(quote = {}, settings = {}) {
   // differently"; it doesn't say why, and it can as easily be a premium or a discount as a
   // pass-through. Inferring rush treatment from a markup number would be a silent second effect. The
   // centre stone is exempt because it is a single, always-pass-through item by definition.
-  const quoteTotal = (rushableRevenue * rushMultiplier) + (centerstoneCost * centerstoneMarkup);
+  // SHIPPING IS A PASS-THROUGH — no markup, no rush (owner, 2026-08-12: "it just doesn't feel right").
+  //
+  // It is a courier's invoice, not value EFD added. Keystone pays for design, bench skill and risk; a
+  // shipping label carries none of those, so marking it 2.5× charges the customer $175 to move a $70
+  // package. Rush does not touch it either, for the same reason it does not touch the centre stone:
+  // rush prices EFD's capacity, and a faster courier is a HIGHER SHIPPING COST, not a multiplier on the
+  // old one. If expedited freight costs more, that belongs in the shipping line itself.
+  //
+  // It stays in `cog` (it genuinely is a cost) so margin figures remain honest — it simply earns nothing.
+  const quoteTotal = (rushableRevenue * rushMultiplier)
+    + (centerstoneCost * centerstoneMarkup)
+    + shippingTotal;
 
   // Sales tax sits ON TOP of the marked-up price (it's a pass-through liability, not
   // revenue/margin). Rate comes from admin settings (settings.taxRate, a fraction);
@@ -171,6 +181,11 @@ export function computeQuote(quote = {}, settings = {}) {
     centerstoneCost: round(centerstoneCost),
     otherMaterialsTotal: round(otherMaterialsTotal),
     cogExCenterstone: round(cogExCenterstone),
+    // The cost of the work EFD actually marked up — everything except the pass-throughs. The margin
+    // floor is measured against THIS, so a $70 shipping line at zero margin cannot read as a loss on
+    // EFD's labour. `passThroughTotal` is what earns nothing by design.
+    workCog: round(cogExCenterstone - shippingTotal),
+    passThroughTotal: round(centerstoneCost + shippingTotal),
     laborTotal: round(laborTotal),
     shippingTotal: round(shippingTotal),
     castingTotal: round(castingTotal),

@@ -14,7 +14,10 @@ describe('computeQuote (structured single-COG bucket)', () => {
     }, { cogMarkup: 2.5 });
     // 700 + 100 + 50 + 150 + 20 + 60 + 100 + 30 + 25 = 1235
     expect(q.cog).toBeCloseTo(1235, 2);
-    expect(q.quoteTotal).toBeCloseTo(3087.5, 2); // 1235 × 2.5
+    // Shipping ($20) is a PASS-THROUGH: everything else takes 2.5×, shipping is added at cost.
+    // (1235 − 20) × 2.5 + 20 = 3057.50. It used to be 1235 × 2.5 = 3087.50, i.e. $30 of margin on a
+    // courier's invoice.
+    expect(q.quoteTotal).toBeCloseTo(3057.5, 2);
   });
 
   it('applies rush when isRush (settings rushMultiplier)', () => {
@@ -324,5 +327,63 @@ describe('assertMarkupsSane', () => {
     };
     expect(() => assertMarkupsSane(q)).not.toThrow();
     expect(computeQuote(q, base).projectedMargin).toBeGreaterThan(0);
+  });
+});
+
+
+/**
+ * SHIPPING IS NOT MARKED UP (owner, 2026-08-12: "it just doesn't feel right").
+ *
+ * Keystone pays for design, bench skill and risk. A shipping label carries none of those, so marking it
+ * 2.5× charged a customer $175 to move a $70 package. It stays in `cog` — it genuinely is a cost — it
+ * simply earns nothing.
+ */
+describe('shipping passes through at cost', () => {
+  const base = { cogMarkup: 2.5, rushMultiplier: 1.5, taxRate: 0 };
+
+  it('adds shipping at cost, not at markup', () => {
+    const q = computeQuote({ mounting: { cost: 100 }, shippingCosts: [{ cost: 70 }] }, base);
+    expect(q.quoteTotal).toBe(320);          // 100 × 2.5 + 70 — not 170 × 2.5 = 425
+    expect(q.shippingTotal).toBe(70);
+    expect(q.cog).toBe(170);                 // still a cost
+  });
+
+  it('earns exactly zero margin on the shipping line', () => {
+    const without = computeQuote({ mounting: { cost: 100 } }, base);
+    const with70 = computeQuote({ mounting: { cost: 100 }, shippingCosts: [{ cost: 70 }] }, base);
+    expect(with70.quoteTotal - without.quoteTotal).toBe(70);        // revenue up by exactly the cost
+    expect(with70.projectedMargin).toBe(without.projectedMargin);   // margin unchanged
+  });
+
+  it('RUSH does not touch shipping either — a faster courier is a higher cost, not a multiplier', () => {
+    const q = computeQuote({ mounting: { cost: 100 }, shippingCosts: [{ cost: 70 }], isRush: true }, base);
+    expect(q.quoteTotal).toBe(445);          // (100 × 2.5) × 1.5 + 70 — shipping outside the rush
+  });
+
+  it('sums several shipping lines and the legacy flat field, all at cost', () => {
+    const q = computeQuote({
+      mounting: { cost: 100 },
+      shippingCosts: [{ cost: 35 }, { cost: 35 }],
+      shippingCost: 10,
+    }, base);
+    expect(q.shippingTotal).toBe(80);
+    expect(q.quoteTotal).toBe(330);          // 250 + 80
+  });
+
+  it('workCog excludes shipping so a zero-margin line cannot read as a loss on the labour', () => {
+    const q = computeQuote({ mounting: { cost: 100 }, laborTasks: [{ cost: 50 }], shippingCosts: [{ cost: 70 }] }, base);
+    expect(q.cogExCenterstone).toBe(220);    // includes shipping — it is a real cost
+    expect(q.workCog).toBe(150);             // excludes it — this is what the margin floor judges
+    expect(q.passThroughTotal).toBe(70);     // no centre stone here, so just shipping
+  });
+
+  it('the blended markup drops accordingly, which is the honest number', () => {
+    const q = computeQuote({ mounting: { cost: 100 }, shippingCosts: [{ cost: 70 }] }, base);
+    expect(q.effectiveMarkup).toBeCloseTo(1.882, 3);   // 320 / 170 — not 2.5
+  });
+
+  it('a quote with no shipping is completely unchanged', () => {
+    const q = computeQuote({ mounting: { cost: 400 }, laborTasks: [{ cost: 100 }] }, base);
+    expect(q.quoteTotal).toBe(1250);         // 500 × 2.5, exactly as before
   });
 });
