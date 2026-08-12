@@ -3,6 +3,7 @@ import CustomInvoicesModel, { invoiceCovers } from '@/app/api/custom-orders/invo
 import SettingsManagerService from '@/app/api/admin/settings/services/settingsManager.service';
 import { buildInvoiceDocument, buildCombinedInvoiceDocument, assertNoCostBasis, DOC_KIND, money } from '@/services/customs/customInvoiceDocument';
 import { renderCustomInvoiceHtml } from '@/services/customs/customInvoiceHtml';
+import { renderCustomInvoiceEmail } from '@/services/customs/customInvoiceEmail';
 import { adminBase, shopBase } from '@/lib/appUrls';
 import { sendEmailWithRetry } from '../../../lib/email.js';
 
@@ -58,7 +59,14 @@ export async function loadInvoiceContext(customID, invoiceID) {
  * Build the document model + rendered HTML for one invoice.
  * @param {'invoice'|'receipt'} kind
  */
-export function composeDocument({ order, orders, invoice, allInvoices, settings, isCombined }, kind, { standalone = true } = {}) {
+/**
+ * @param {object} opts
+ *   medium — 'print' (letter-size document) or 'email' (600px EFD themed message). The document MODEL is
+ *            the same either way; only the presentation differs. Using the print document as an email
+ *            body is what made the first invoice email arrive unstyled: @page rules, inch widths and a
+ *            <style> block that clients strip.
+ */
+export function composeDocument({ order, orders, invoice, allInvoices, settings, isCombined }, kind, { standalone = true, medium = 'print' } = {}) {
   const opts = {
     kind,
     businessName: settings?.business?.name || 'Engel Fine Design',
@@ -69,13 +77,17 @@ export function composeDocument({ order, orders, invoice, allInvoices, settings,
   const doc = isCombined
     ? buildCombinedInvoiceDocument(orders || [order], invoice, allInvoices, opts)
     : buildInvoiceDocument(order, invoice, allInvoices, opts);
-  const html = renderCustomInvoiceHtml(doc, {
-    standalone,
-    logoSrc: ASSET('/logos/%5Befd%5DLogoBlack.png'),
-    zelleQrSrc: ASSET('/logos/zelle-qr.jpg'),
-    // Passing the order arms assertNoCostBasis — a leak throws here rather than reaching a customer.
-    order,
-  });
+  const html = medium === 'email'
+    // The email uses the shop's theme (dark ground, gold accent, 600px) so admin and shop mail look like
+    // one brand. A white-on-dark logo is required against that ground.
+    ? renderCustomInvoiceEmail(doc, { logoSrc: ASSET('/logos/%5Befd%5DLogoWhite.png') })
+    : renderCustomInvoiceHtml(doc, {
+      standalone,
+      logoSrc: ASSET('/logos/%5Befd%5DLogoBlack.png'),
+      zelleQrSrc: ASSET('/logos/zelle-qr.jpg'),
+      // Passing the order arms assertNoCostBasis — a leak throws here rather than reaching a customer.
+      order,
+    });
 
   // EVERY covered order, not just the primary. The renderer only ever sees one, so on a combined
   // invoice the second order's stone cost and markups would otherwise go unchecked — and that is the
@@ -104,7 +116,7 @@ async function emailDocument({ to, subject, html }) {
 /** Send the INVOICE to the customer and record the send on the invoice. */
 export async function sendCustomInvoiceEmail(customID, invoiceID) {
   const ctx = await loadInvoiceContext(customID, invoiceID);
-  const { doc, html } = composeDocument(ctx, DOC_KIND.INVOICE, { standalone: false });
+  const { doc, html } = composeDocument(ctx, DOC_KIND.INVOICE, { standalone: false, medium: 'email' });
 
   const subject = doc.balanceDue > 0
     ? `Invoice ${doc.invoiceNumber} — ${money(doc.documentAmount)} due for ${doc.orderNumber}`
@@ -120,7 +132,7 @@ export async function sendCustomInvoiceEmail(customID, invoiceID) {
 /** Send the RECEIPT for a payment just recorded, and record the send. */
 export async function sendCustomReceiptEmail(customID, invoiceID) {
   const ctx = await loadInvoiceContext(customID, invoiceID);
-  const { doc, html } = composeDocument(ctx, DOC_KIND.RECEIPT, { standalone: false });
+  const { doc, html } = composeDocument(ctx, DOC_KIND.RECEIPT, { standalone: false, medium: 'email' });
 
   const subject = doc.balanceDue > 0
     ? `Receipt — ${money(doc.documentAmount)} received for ${doc.orderNumber} (${money(doc.balanceDue)} remaining)`
