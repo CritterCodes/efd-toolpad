@@ -305,3 +305,81 @@ terms later must not silently re-bind a customer who agreed to an older version.
 - **Design fee placement** — recommendation above (gate 1); owner undecided.
 - Whether the weekly stone check can be automated for Stuller-sourced stones (SKU lookup) rather than
   prompting staff. Manual first; automation is an optimisation.
+
+---
+
+# PART THREE — cart architecture (decided 2026-08-12)
+
+## 16. The cart is primary; the invoice is a record
+
+**Corrects an earlier framing in this document.** I described the cart as "the customer-side face of the
+combined invoice". That is backwards and it breaks the moment a cart is mixed.
+
+In consumer e-commerce nobody pays an invoice — they pay a CART, and a receipt/invoice is generated FROM
+the payment. Invoice-as-demand is an accounts-receivable instrument, not a checkout.
+
+The case that forces it: the customer is paying toward two custom orders AND adds a $50 ring.
+
+```
+CART
+  ├─ custom payment   CO-msp2z3jx   $1,200
+  ├─ custom payment   CO-mspb2jq1     $800
+  └─ product          silver ring      $50
+                             ───────────
+  ONE checkout                  $2,050
+```
+
+A product cannot live inside a custom invoice. So:
+
+1. **"Pay toward a custom order" is a CART LINE ITEM TYPE**, not a portal-only payment screen. It sits
+   beside product lines and goes through the same checkout the shop already has.
+2. **Allocation happens AFTER payment succeeds.** Product lines become a normal shop order; custom-payment
+   lines are credited to their orders.
+3. **The invoice record is CREATED BY the payment**, not settled by it. A customer choosing to pay $800
+   does not need an invoice to exist first — which is the whole point of removing the back-and-forth.
+
+**The combined-invoice machinery is the ALLOCATION ENGINE, and that part is unchanged and already
+tested**: `orderSnapshots[]` with an explicit per-order amount, credited stone-first, fanning out to
+advance each order on its own share (`amountForOrder`, `setCustomInvoiceStatus`).
+
+**Both directions survive.** Admin's Send invoice still exists for when EFD wants to DEMAND a specific
+amount; the cart is for when the CUSTOMER chooses one. Different purposes, same document at the end.
+
+## 17. Reminders — one digest, per-order clocks
+
+- **Minimum payment: $10 per ORDER.** Each order's default clock runs independently, so a customer with
+  two orders needs $10 against each. Good faith is per piece.
+- **ONE reminder email covering every upcoming payment.** Per-order reminder emails would be irritating
+  for exactly the customer who is trying hardest. The clock is per order; the message is a digest.
+- Cadence: a week before default, and the day before.
+- **Batch the weekly stone-availability email the same way** — one message covering every stone they are
+  waiting on.
+
+## 18. Progress display
+
+After a quote is accepted and a path chosen, the overview shows a stepper for THAT path — not a generic bar:
+
+| Path | Steps |
+|---|---|
+| Pay in full | Paid → In production → Ready |
+| 50% deposit | Deposit → In production → Balance → Ready |
+| Pay over time | Stone → Mounting → Production → Balance → Ready |
+
+Render the gates in the order they actually fall for that quote (§3): a big stone can clear several at
+once, and a small stone can let the price lock before the stone is secured.
+
+## 19. Communication consent
+
+Payment emails — invoices, receipts, reminders, stone-availability updates — are TRANSACTIONAL, not
+marketing: their primary purpose is facilitating an agreed transaction, so they do not require the
+opt-in a promotional list would. Two rules keep it that way:
+
+- **Never mix promotional content into them.** The primary-purpose test is what makes them transactional,
+  and a promotion inside a reminder can flip it.
+- **Accurate headers and subjects**, which applies to transactional mail too.
+
+**SMS is a different law entirely** (TCPA, prior express consent, real penalties). If reminders ever
+become texts, revisit this properly.
+
+Cheapest belt-and-braces: the pay-over-time acknowledgement (§14) already collects an explicit, versioned
+agreement — state the communication expectation there.
