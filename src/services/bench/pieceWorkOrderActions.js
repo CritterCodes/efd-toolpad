@@ -25,6 +25,7 @@ import { storageClient, STORAGE_BUCKET, storageUrl } from '@/lib/storage';
 import SettingsManagerService from '@/app/api/admin/settings/services/settingsManager.service';
 import { getSTLVolume } from '@/lib/stlParser';
 import { createShareLink, setShareEnabled } from '@/services/customs/customViewer';
+import { advanceCustomOrderStatus, maybeCompleteCustomOrder } from '@/services/customs/customStatus';
 import { db } from '@/lib/database';
 import { NotificationService, notifyAllAdmins } from '@/lib/notificationService';
 import { adminBase } from '@/lib/appUrls';
@@ -168,11 +169,27 @@ export async function movePieceToQc({ session, workOrderID }) {
     notes: requiresAdminReview ? 'Confirm piece labor hours/rate before payout.' : '',
   });
 
-  return WorkOrdersModel.updateByID(workOrderID, {
+  const updated = await WorkOrdersModel.updateByID(workOrderID, {
     status: 'QC',
     completedBy: session.user.name,
     completedAt: new Date(),
   });
+
+  // Bench work reaching QC = the linked custom order is at its qc stage. CAD QC is a
+  // design-phase review months earlier and must NOT drag the order to qc — CAD WOs go
+  // through the STL/GLB submit paths, and the discipline guard keeps any stray one out.
+  if (wo.discipline !== DISCIPLINE.CAD) {
+    try {
+      const piece = await PiecesModel.findById(wo.sourceID);
+      if (piece?.customOrderID) {
+        await advanceCustomOrderStatus(piece.customOrderID, 'qc', { reason: `work order ${workOrderID} in QC` });
+      }
+    } catch (e) {
+      console.error('[bench] custom-order qc advance failed:', e?.message || e);
+    }
+  }
+
+  return updated;
 }
 
 /**
@@ -567,6 +584,15 @@ export async function approveCadQc({ session, workOrderID }) {
     console.error('[bench] wo-completed (cad-qc) notify failed:', e?.message || e);
   }
 
+  // A late CAD approval (e.g. the GLB pass) can be the last open work order on a custom
+  // order whose bench work already finished. The guard inside makes the design-phase
+  // approval — where the CAD WO is the ONLY one so far — a no-op.
+  try {
+    if (piece?.customOrderID) await maybeCompleteCustomOrder(piece.customOrderID);
+  } catch (e) {
+    console.error('[bench] custom-order completion check failed:', e?.message || e);
+  }
+
   return { workOrder, piece };
 }
 
@@ -651,6 +677,14 @@ export async function completePieceWorkOrderFromQc({ workOrderID, completedBy = 
     }
   } catch (e) {
     console.error('[bench] wo-completed notify failed:', e?.message || e);
+  }
+
+  // Was that the LAST open work order on a custom order? Then the piece is done —
+  // advance the order to completed (guarded inside: bench phase only, forward-only).
+  try {
+    if (piece?.customOrderID) await maybeCompleteCustomOrder(piece.customOrderID);
+  } catch (e) {
+    console.error('[bench] custom-order completion check failed:', e?.message || e);
   }
 
   return { workOrder, piece, billing };

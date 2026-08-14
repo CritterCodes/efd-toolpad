@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/apiAuth';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
 import { syncQuoteToWorkOrders } from '@/services/customs/customProduction';
+import { advanceCustomOrderStatus } from '@/services/customs/customStatus';
 import { NotificationService } from '@/lib/notificationService';
 import { portalLink } from '@/lib/appUrls';
 
@@ -32,6 +33,12 @@ export const PUT = async (req, { params }) => {
   }
 
   // This is the route used by QuoteTab. Fire only on the unpublished -> published edge.
+  if (!existing.quote?.quotePublished && updated.quote?.quotePublished) {
+    // A published quote IS the quote stage — forward-only, so re-publishing an order
+    // already in deposit/production never demotes it.
+    const advanced = await advanceCustomOrderStatus(customID, 'quote', { reason: 'quote published', order: updated });
+    if (advanced.advanced) updated = advanced.order;
+  }
   if (!existing.quote?.quotePublished && updated.quote?.quotePublished && updated.clientID) {
     NotificationService.createNotification({
       userId: updated.clientID,

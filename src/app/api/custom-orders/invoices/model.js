@@ -96,6 +96,17 @@ export default class CustomInvoicesModel {
       .toArray();
   }
 
+  /** Batch form of listByCustom — every invoice touching ANY of the given orders, one query. */
+  static async listByCustomMany(customIDs = []) {
+    const ids = [...new Set((customIDs || []).filter(Boolean))];
+    if (!ids.length) return [];
+    const col = await this.collection();
+    return col
+      .find({ $or: [{ customID: { $in: ids } }, { customIDs: { $in: ids } }] }, { projection: { _id: 0 } })
+      .sort({ createdAt: 1 })
+      .toArray();
+  }
+
   static async findById(invoiceID) {
     const col = await this.collection();
     return col.findOne({ invoiceID }, { projection: { _id: 0 } });

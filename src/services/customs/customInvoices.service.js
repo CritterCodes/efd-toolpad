@@ -19,10 +19,7 @@ import { portalLink } from '@/lib/appUrls';
 // them find the request and tab themselves. The Stripe hosted-invoice helpers this file used to import
 // are gone; see sendInvoiceToCustomer.
 
-const STATUS_RANK = {
-  pending: 0, consultation: 1, design: 2, quote: 3, deposit: 4,
-  in_production: 5, qc: 6, completed: 7, delivered: 8, cancelled: 99,
-};
+import { advanceCustomOrderStatus } from '@/services/customs/customStatus';
 
 async function progressFor(order) {
   const invoices = await CustomInvoicesModel.listByCustom(order.customID);
@@ -253,6 +250,37 @@ export async function sendInvoiceToCustomer(customID, invoiceID) {
   return { invoice: await CustomInvoicesModel.findById(invoiceID), delivery, balanceDue: doc.balanceDue };
 }
 
+/**
+ * Attach a compact `payment` summary to each order — ONE invoice query for the whole
+ * list, allocated per order (combined invoices credit each order its own share).
+ * Per-order failures (e.g. a corrupt combined invoice with no snapshots) null that
+ * order's summary rather than 500ing the list: a missing progress bar is recoverable,
+ * a dead customs page is not.
+ */
+export async function withPaymentSummaries(orders = []) {
+  if (!orders.length) return orders;
+  const invoices = await CustomInvoicesModel.listByCustomMany(orders.map((o) => o.customID));
+  return orders.map((order) => {
+    try {
+      const projectTotal = order.quote?.total ?? order.quote?.quoteTotal ?? 0;
+      const p = computePaymentProgress(projectTotal, invoicesForOrder(invoices, order.customID));
+      return {
+        ...order,
+        payment: {
+          totalPaid: p.totalPaid,
+          remainingAmount: p.remainingAmount,
+          paymentProgress: p.paymentProgress,
+          hasReached50: p.hasReached50,
+          isFullyPaid: p.isFullyPaid,
+        },
+      };
+    } catch (e) {
+      console.error(`⚠️ payment summary for ${order.customID} failed:`, e.message);
+      return { ...order, payment: null };
+    }
+  });
+}
+
 export async function getCustomPaymentProgress(customID) {
   const order = await CustomOrdersModel.findById(customID);
   if (!order) throw new Error('Custom order not found.');
@@ -288,14 +316,13 @@ export async function setCustomInvoiceStatus(customID, invoiceID, status, paymen
       const o = id === customID ? order : await CustomOrdersModel.findById(id); // eslint-disable-line no-await-in-loop
       if (!o) continue;
       const { progress: p } = await progressFor(o); // eslint-disable-line no-await-in-loop
-      // Forward-only (first paid → deposit; 50% → in_production).
+      // Forward-only (first paid → deposit; 50% → in_production) via the shared advance
+      // path, which also sends the in_production milestone notification on crossing 50%.
+      // Note: bench work orders are generated at CASTING RECEIVED (not deposit) — you
+      // can't do in-house bench work until the cast metal is in hand. See customProduction.addCastingCost.
       const target = p.hasReached50 ? CUSTOM_ORDER_STATUS.IN_PRODUCTION : CUSTOM_ORDER_STATUS.DEPOSIT;
-      if ((STATUS_RANK[o.status] ?? 0) < (STATUS_RANK[target] ?? 0)) {
-        // eslint-disable-next-line no-await-in-loop
-        await CustomOrdersModel.updateById(o.customID, { status: target }, { changedBy: 'system', reason: `payment ${p.paymentProgress}%` });
-        // Note: bench work orders are generated at CASTING RECEIVED (not deposit) — you
-        // can't do in-house bench work until the cast metal is in hand. See customProduction.recordCastingReceived.
-      }
+      // eslint-disable-next-line no-await-in-loop
+      await advanceCustomOrderStatus(o.customID, target, { reason: `payment ${p.paymentProgress}%`, order: o });
     }
     notifyPayment(order, invoice, progress); // fire-and-forget
 

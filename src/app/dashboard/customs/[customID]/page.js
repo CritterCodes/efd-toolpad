@@ -248,6 +248,22 @@ export default function CustomDetailPage() {
 
       <StatusTimeline order={order} busy={busy} onChange={changeStatus} />
 
+      {/* Deliberately a human-confirmed step, not automation: software can see money and QC,
+          but only a person knows the piece actually left the shop in the customer's hands. */}
+      {order.status === 'completed' && progress?.isFullyPaid && (
+        <Alert
+          severity="success"
+          sx={{ mb: 2, backgroundColor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}`, '& .MuiAlert-icon': { color: '#66BB6A' } }}
+          action={(
+            <Button size="small" disabled={busy} onClick={() => changeStatus('delivered')} sx={{ color: '#66BB6A', fontWeight: 700 }}>
+              Mark delivered
+            </Button>
+          )}
+        >
+          Finished and paid in full — has the customer received it?
+        </Alert>
+      )}
+
       <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile
         sx={{ mb: 2, '& .MuiTab-root': { color: REPAIRS_UI.textSecondary, textTransform: 'none' }, '& .Mui-selected': { color: REPAIRS_UI.accent }, '& .MuiTabs-indicator': { bgcolor: REPAIRS_UI.accent } }}>
         {TABS.map((t) => <Tab key={t} label={t} />)}

@@ -6,32 +6,10 @@ import { awardClientMgmtBonus } from '@/services/customs/customProduction';
 import { NotificationService } from '@/lib/notificationService';
 import { portalLink } from '@/lib/appUrls';
 
-// Deep-linked per notification below — see lib/appUrls.js portalLink().
+import { advanceCustomOrderStatus, notifyStatusMilestone } from '@/services/customs/customStatus';
 
-// Milestone statuses that warrant a customer notification, with friendly copy.
-// Cosmetic / intermediate writes (pending, consultation, quote, deposit) are skipped.
-const CUSTOM_STATUS_NOTIFICATIONS = {
-  design: {
-    title: 'Your design is underway',
-    message: 'We\'ve started designing your custom piece. We\'ll share the design with you soon.',
-  },
-  in_production: {
-    title: 'Your piece is in production',
-    message: 'Great news — your custom piece is now being made at our bench.',
-  },
-  qc: {
-    title: 'Your piece is in final review',
-    message: 'Your custom piece is in quality control — the last step before it\'s ready.',
-  },
-  completed: {
-    title: 'Your custom piece is complete',
-    message: 'Your custom piece is finished! We\'ll be in touch with next steps.',
-  },
-  delivered: {
-    title: 'Your custom piece has been delivered',
-    message: 'Your custom piece has been delivered. Thank you for working with us!',
-  },
-};
+// Deep-linked per notification below — see lib/appUrls.js portalLink().
+// Milestone copy lives in customStatus.js so manual and automated transitions say the same thing.
 
 /** GET /api/custom-orders/[customID] — returns the order + live margin (quote − piece COGS) */
 export const GET = async (req, { params }) => {
@@ -75,6 +53,11 @@ export const PUT = async (req, { params }) => {
   try {
     const wasPublished = !!existing?.quote?.quotePublished;
     const nowPublished = !!updated?.quote?.quotePublished;
+    if (!wasPublished && nowPublished) {
+      // Publishing IS the quote stage — forward-only, so it never demotes a later status.
+      const advanced = await advanceCustomOrderStatus(customID, 'quote', { reason: 'quote published', order: updated });
+      if (advanced.advanced) updated = advanced.order;
+    }
     if (!wasPublished && nowPublished && updated.clientID) {
       await NotificationService.createNotification({
         userId: updated.clientID,
@@ -92,24 +75,10 @@ export const PUT = async (req, { params }) => {
   }
 
   // X2 — milestone status change: notify the client on the mapped milestone transitions only
-  // (skip cosmetic/no-op writes — fire only when status actually changed value).
-  try {
-    const statusChanged = updated.status && existing?.status !== updated.status;
-    const milestone = statusChanged ? CUSTOM_STATUS_NOTIFICATIONS[updated.status] : null;
-    if (milestone && updated.clientID) {
-      await NotificationService.createNotification({
-        userId: updated.clientID,
-        type: `custom-status-${updated.status}`,
-        title: milestone.title,
-        message: milestone.message,
-        channels: ['inApp', 'email'],
-        recipientEmail: updated.customerEmail,
-        priority: 'normal',
-        data: { actionUrl: portalLink(customID, 'overview'), customID, status: updated.status },
-      });
-    }
-  } catch (e) {
-    console.error('⚠️ custom-status notification failed:', e.message);
+  // (skip cosmetic/no-op writes — fire only when status actually changed value). Guarded to the
+  // MANUAL write: an automated advance above already notified through the shared path.
+  if (body.status && updated.status === body.status && existing?.status !== updated.status) {
+    await notifyStatusMilestone(updated, updated.status);
   }
 
   return NextResponse.json(updated, { status: 200 });

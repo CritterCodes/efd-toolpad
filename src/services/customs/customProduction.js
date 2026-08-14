@@ -16,6 +16,7 @@ import SettingsManagerService from '@/app/api/admin/settings/services/settingsMa
 import { DISCIPLINE } from '@/services/workOrders/disciplines';
 import { createPieceFromDesign } from '@/services/production/pieceRouting';
 import { getCustomTaskLine, mergeAutoLaborLine } from '@/services/customs/customTasks';
+import { advanceCustomOrderStatus } from '@/services/customs/customStatus';
 import { NotificationService, notifyAllAdmins } from '@/lib/notificationService';
 import { adminBase } from '@/lib/appUrls';
 
@@ -153,6 +154,16 @@ export async function spawnCustomWorkOrder({
   });
   await PiecesModel.setWorkOrders(pieceID, [...(piece.workOrderIDs || []), wo.workOrderID]);
 
+  // CAD work now exists on this order → it is in the design stage (forward-only; a GLB
+  // stage spawned later, when the order already sits in deposit/production, is a no-op).
+  if (discipline === DISCIPLINE.CAD) {
+    try {
+      await advanceCustomOrderStatus(customID, 'design', { reason: 'CAD work order created' });
+    } catch (e) {
+      console.error('⚠️ status advance to design failed:', e.message);
+    }
+  }
+
   // X7 — if this WO was spawned pre-assigned (e.g. the CAD/GLB designer at assignment
   // time), notify that artisan. Unassigned WOs (claimed later at the bench) skip this —
   // the claim itself notifies (W1). Best-effort; never block the spawn.
@@ -244,6 +255,14 @@ export async function addCastingCost({ customID, amount, vendor = '', invoiceNum
   // Casting is in hand → generate the in-house bench work orders from the quote (idempotent).
   const generation = await generateWorkOrdersFromQuote({ customID, createdBy: createdBy || 'system' });
   await CustomOrdersModel.updateById(customID, { castingReceivedAt: new Date() });
+
+  // Cast metal in hand + bench WOs generated = the piece IS in production, whatever the
+  // payment ledger says (the 50% rule usually got here first; this covers the rest).
+  try {
+    await advanceCustomOrderStatus(customID, 'in_production', { reason: 'casting received' });
+  } catch (e) {
+    console.error('⚠️ status advance to in_production failed:', e.message);
+  }
 
   // X6 — casting received: alert the production-team artisans assigned to this order's
   // work orders that the cast metal is in hand and bench work can begin. If no WOs are

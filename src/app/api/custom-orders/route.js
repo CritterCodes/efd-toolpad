@@ -3,6 +3,7 @@ import { requireRole, requireAuth } from '@/lib/apiAuth';
 import { isStaff } from '@/lib/designPermissions';
 import { customsListFilter } from '@/lib/customsPermissions';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
+import { withPaymentSummaries } from '@/services/customs/customInvoices.service';
 
 /** GET /api/custom-orders — list (optional ?status= / ?clientID=) */
 export const GET = async (req) => {
@@ -19,7 +20,9 @@ export const GET = async (req) => {
   const clientID = searchParams.get('clientID');
   if (status) filter.status = status;
   if (clientID) filter.clientID = clientID;
-  const orders = await CustomOrdersModel.list(filter);
+  // Each order carries a `payment` summary (paid / remaining / progress) so the list
+  // page can show real money-at-a-glance instead of just the quoted figure.
+  const orders = await withPaymentSummaries(await CustomOrdersModel.list(filter));
   return NextResponse.json(orders, { status: 200 });
 };
 
