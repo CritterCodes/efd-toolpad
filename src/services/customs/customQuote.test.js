@@ -470,3 +470,72 @@ describe('design fee passes through at cost', () => {
     expect(q.quoteTotal).toBe(805);
   });
 });
+
+describe('payment gates ladder (quote.gates — read by the shop)', () => {
+  it('gates sum exactly to quoteTotal, with tax as its own final rung', () => {
+    const q = computeQuote({
+      centerstone: { item: 'Sapphire', cost: 500 },
+      mounting: { item: '14k band', cost: 200 },
+      accentStones: [{ description: 'melee', quantity: 4, cost: 25 }],
+      laborTasks: [{ description: 'setting', quantity: 1, cost: 120 }],
+      shippingCosts: [{ description: 'insured', cost: 20 }],
+      castingCost: 60, designFee: 100, glbFee: 30, qcReviewFee: 25,
+      taxRate: 0.0975,
+    }, { cogMarkup: 2.5 });
+    const [stone, mounting, production, balance] = q.gates;
+    expect(stone.name).toBe('Stone');
+    expect(mounting.name).toBe('Mounting');
+    expect(production.name).toBe('Production');
+    expect(balance.name).toBe('Balance');
+    expect(stone.amount + mounting.amount + production.amount).toBeCloseTo(q.quoteTotal, 2);
+    expect(balance.amount).toBeCloseTo(q.taxAmount, 2);
+  });
+
+  it('per-line markups land in the right gate: a pass-through engraver cheapens PRODUCTION, not mounting', () => {
+    const base = {
+      mounting: { item: 'band', cost: 200 },
+      laborTasks: [{ description: 'engraving (outsourced)', quantity: 1, cost: 550 }],
+    };
+    const blanket = computeQuote(base, { cogMarkup: 2.5 });
+    const passThrough = computeQuote({
+      ...base,
+      laborTasks: [{ ...base.laborTasks[0], markup: 1 }],
+    }, { cogMarkup: 2.5 });
+    const gate = (q, name) => q.gates.find((g) => g.name === name);
+    expect(gate(passThrough, 'Mounting').amount).toBeCloseTo(gate(blanket, 'Mounting').amount, 2);
+    expect(gate(passThrough, 'Production').amount).toBeCloseTo(gate(blanket, 'Production').amount - 550 * 1.5, 2);
+  });
+
+  it('design fee rides the Stone gate; shipping rides Production', () => {
+    const q = computeQuote({
+      centerstone: { item: 'stone', cost: 400 },
+      designFee: 100,
+      shippingCosts: [{ description: 'ship', cost: 70 }],
+    }, { cogMarkup: 2.5, centerstoneMarkup: 1.3 });
+    const gate = (name) => q.gates.find((g) => g.name === name);
+    expect(gate('Stone').amount).toBeCloseTo(400 * 1.3 + 100, 2);
+    expect(gate('Production').amount).toBeCloseTo(70, 2); // pass-through shipping only
+  });
+
+  it('omits zero rungs: no stone and no tax → no Stone gate, no Balance gate', () => {
+    const q = computeQuote({
+      mounting: { item: 'band', cost: 200 },
+      laborTasks: [{ description: 'work', quantity: 1, cost: 100 }],
+    }, { cogMarkup: 2.5 });
+    expect(q.gates.map((g) => g.name)).toEqual(['Mounting', 'Production']);
+  });
+
+  it('rush scales mounting and production, never the stone gate', () => {
+    const base = {
+      centerstone: { item: 'stone', cost: 1000 },
+      mounting: { item: 'band', cost: 200 },
+      laborTasks: [{ description: 'work', quantity: 1, cost: 100 }],
+      isRush: true, rushMultiplier: 1.5,
+    };
+    const q = computeQuote(base, { cogMarkup: 2 , centerstoneMarkup: 1.3 });
+    const gate = (name) => q.gates.find((g) => g.name === name);
+    expect(gate('Stone').amount).toBeCloseTo(1300, 2);          // no rush on the stone
+    expect(gate('Mounting').amount).toBeCloseTo(200 * 2 * 1.5, 2);
+    expect(gate('Production').amount).toBeCloseTo(100 * 2 * 1.5, 2);
+  });
+});
