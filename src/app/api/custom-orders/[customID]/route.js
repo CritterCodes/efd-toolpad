@@ -4,6 +4,7 @@ import { requireCustomsRead } from '@/lib/customsPermissions';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
 import { awardClientMgmtBonus } from '@/services/customs/customProduction';
 import { NotificationService } from '@/lib/notificationService';
+import { sendShopAccountInvite } from '@/lib/shopInvite';
 import { portalLink } from '@/lib/appUrls';
 
 import { advanceCustomOrderStatus, notifyStatusMilestone } from '@/services/customs/customStatus';
@@ -69,6 +70,9 @@ export const PUT = async (req, { params }) => {
         priority: 'high',
         data: { actionUrl: portalLink(customID, 'quote'), customID },
       });
+      // Same re-invite as the QuoteTab route: a passwordless client gets the
+      // claim link with quote copy; a claimed one gets nothing (shop no-ops).
+      await sendShopAccountInvite(updated.clientID, 'quote');
     }
   } catch (e) {
     console.error('⚠️ custom-quote-ready notification failed:', e.message);

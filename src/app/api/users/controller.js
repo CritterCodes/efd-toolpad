@@ -4,6 +4,7 @@ import UserService from "./service";
 import { stripPrivilegeFields } from "./model";
 import { NotificationService, NOTIFICATION_TYPES, CHANNELS } from "@/lib/notificationService.js";
 import { adminBase } from '@/lib/appUrls';
+import { sendShopAccountInvite } from '@/lib/shopInvite';
 
 export default class UserController {
     /**
@@ -49,6 +50,14 @@ export default class UserController {
             } catch (notificationError) {
               console.error('⚠️ Failed to send artisan welcome notification:', notificationError);
               // Don't fail the API if notifications fail
+            }
+
+            // Non-artisan users (clients, incl. the NewCustomStepper client-create
+            // path, which posts through this controller) are created passwordless —
+            // invite them to claim their shop account. Best-effort by contract;
+            // the shop no-ops for anyone who already has a password.
+            if (!(userData.role === 'artisan' || userData.artisanTypes?.length > 0)) {
+              await sendShopAccountInvite(createdUser.userID, 'account');
             }
 
             return new Response(

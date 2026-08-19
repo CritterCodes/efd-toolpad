@@ -5,6 +5,7 @@ import { syncQuoteToWorkOrders } from '@/services/customs/customProduction';
 import { advanceCustomOrderStatus } from '@/services/customs/customStatus';
 import { NotificationService } from '@/lib/notificationService';
 import { portalLink } from '@/lib/appUrls';
+import { sendShopAccountInvite } from '@/lib/shopInvite';
 
 // Deep-linked per order below — a quote-ready notice must open the quote, not a list.
 
@@ -50,6 +51,9 @@ export const PUT = async (req, { params }) => {
       priority: 'high',
       data: { actionUrl: portalLink(customID, 'quote'), customID },
     }).catch((e) => console.error('custom-quote-ready notification failed:', e.message));
+    // A quote the client can't sign in to see is a quote they can't accept or pay —
+    // re-invite anyone still passwordless (the shop no-ops for claimed accounts).
+    await sendShopAccountInvite(updated.clientID, 'quote');
   }
 
   // Reconcile any already-generated (pre-QC) bench work orders with the edited plan:
