@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import {
   Card, CardContent, CardActions, Typography, Box, Chip, Divider, Button, Checkbox,
-  TextField, MenuItem, Alert, Stack,
+  TextField, MenuItem, Alert, Stack, LinearProgress,
   Dialog, DialogTitle, DialogContent, DialogActions, FormControlLabel,
 } from '@mui/material';
 import HandymanIcon from '@mui/icons-material/Handyman';
@@ -72,6 +72,7 @@ export default function BenchWorkCard({
   wo, currentUserID, isAdmin, jewelers = [], busy,
   selectable = false, isSelected = false, onToggleSelect,
   onAction, onOpenPartsDialog, onUploadStl, onUploadGlb, error,
+  uploadPct = null, // 0–100 while a CAD file is transferring; null otherwise
 }) {
   const router = useRouter();
   const stlInputRef = useRef(null);
@@ -327,8 +328,19 @@ export default function BenchWorkCard({
               onChange={(e) => { const f = e.target.files?.[0]; if (f) (isGlbStage ? onUploadGlb : onUploadStl)?.(wo, f); e.target.value = ''; }}
             />
             <Button size="small" variant="outlined" startIcon={<UploadIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => stlInputRef.current?.click()} sx={btn({ color: '#64B5F6', borderColor: '#64B5F6' })}>
-              {hasFile ? `Replace ${fileLabel}` : (isGlbStage ? 'Upload GLB' : 'Upload STL (→ QC)')}
+              {uploadPct != null
+                ? `Uploading… ${uploadPct}%`
+                : (hasFile ? `Replace ${fileLabel}` : (isGlbStage ? 'Upload GLB' : 'Upload STL (→ QC)'))}
             </Button>
+            {/* A 91 MB STL with no feedback is indistinguishable from a hang — show the transfer. */}
+            {uploadPct != null && (
+              <Box sx={{ width: '100%', mt: 0.5 }}>
+                <LinearProgress
+                  variant="determinate" value={Math.min(100, uploadPct)}
+                  sx={{ height: 5, borderRadius: 3, backgroundColor: REPAIRS_UI.bgTertiary, '& .MuiLinearProgress-bar': { backgroundColor: '#64B5F6', borderRadius: 3 } }}
+                />
+              </Box>
+            )}
             {isGlbStage && hasFile && customOrderID && (
               <Button size="small" variant="contained" startIcon={<PaletteIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => router.push(`/dashboard/customs/${customOrderID}/assign-materials?wo=${wo.workOrderID}`)} sx={goldBtn}>
                 Assign materials → QC

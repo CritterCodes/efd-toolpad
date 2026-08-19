@@ -47,6 +47,10 @@
     {
       "path": "/api/cron/update-stone-prices",
       "schedule": "0 10 * * 1"
+    },
+    {
+      "path": "/api/cron/drain-shop-payments",
+      "schedule": "*/10 * * * *"
     }
   ]
 }

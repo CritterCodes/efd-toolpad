@@ -323,7 +323,7 @@ export default function CustomDetailPage() {
                   <TableCell sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>{inv.invoiceNumber}</TableCell>
                   <TableCell sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>{inv.type}</TableCell>
                   <TableCell align="right" sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>{money(inv.amount)}</TableCell>
-                  <TableCell sx={{ borderColor: REPAIRS_UI.border }}><Chip size="small" label={inv.status === 'paid' && inv.paymentMethod ? `paid · ${inv.paymentMethod}` : inv.status} color={inv.status === 'paid' ? 'success' : inv.status === 'cancelled' ? 'default' : 'warning'} /></TableCell>
+                  <TableCell sx={{ borderColor: REPAIRS_UI.border }}><Chip size="small" label={inv.source?.kind === 'shop-checkout' ? 'paid · shop checkout' : (inv.status === 'paid' && inv.paymentMethod ? `paid · ${inv.paymentMethod}` : inv.status)} color={inv.status === 'paid' ? 'success' : inv.status === 'cancelled' ? 'default' : 'warning'} /></TableCell>
                   <TableCell align="right" sx={{ borderColor: REPAIRS_UI.border }}>
                     <Stack direction="row" spacing={0.5} justifyContent="flex-end" alignItems="center" flexWrap="wrap" useFlexGap>
                       {inv.status !== 'paid' && inv.status !== 'cancelled' && (

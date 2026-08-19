@@ -23,7 +23,7 @@ import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import ContinuousBarcodeScanner from '@/components/repairs/ContinuousBarcodeScanner';
 import { BENCH_QUEUE, BENCH_TABS, isWorkOrderInTab } from '@/services/workOrders/workOrderWorkflow';
 import { uploadSizeError } from '@/lib/uploadLimits';
-import { directUpload } from '@/lib/directUpload';
+import { directUpload, postFileWithProgress } from '@/lib/directUpload';
 import BenchWorkCard from './components/BenchWorkCard';
 
 const DEFAULT_PARTS_FORM = { source: 'stuller', stullerSku: '', name: '', description: '', quantity: '1', price: '' };
@@ -175,10 +175,11 @@ export default function BenchPage() {
       } else {
         const tooBig = uploadSizeError(file);
         if (tooBig) throw new Error(tooBig);
-        const fd = new FormData();
-        fd.append('file', file);
-        const res = await fetch(`/api/bench/work-orders/${wo.workOrderID}/upload-${kind}`, { method: 'POST', body: fd });
-        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `${kind.toUpperCase()} upload failed`);
+        // XHR multipart, not fetch — fetch has no upload-progress events, and a GLB on shop
+        // wifi takes long enough that a silent button reads as a hang.
+        await postFileWithProgress(`/api/bench/work-orders/${wo.workOrderID}/upload-${kind}`, file, {
+          onProgress: (pct) => setUploadPct((m) => ({ ...m, [wo.workOrderID]: pct })),
+        });
         showSnack(`${kind.toUpperCase()} uploaded — work order moved to QC`, 'success');
       }
       await fetchWorkOrders();
@@ -437,6 +438,7 @@ export default function BenchPage() {
                 isAdmin={isAdmin}
                 jewelers={jewelers}
                 busy={busyID === wo.workOrderID}
+                uploadPct={uploadPct[wo.workOrderID] ?? null}
                 error={cardErrors[wo.workOrderID]}
                 selectable={activeKey === BENCH_QUEUE.QC}
                 isSelected={selectedQcIDs.includes(wo.workOrderID)}

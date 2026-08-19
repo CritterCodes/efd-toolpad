@@ -65,3 +65,32 @@ function putWithProgress(url, file, headers, onProgress) {
     xhr.send(file);
   });
 }
+
+/**
+ * Multipart POST to one of our own upload routes, with upload-progress events. Same XHR-not-fetch
+ * reasoning as putWithProgress — a GLB is smaller than a manufacturing STL but still takes long
+ * enough on shop wifi that a silent button reads as a hang. Resolves with the parsed JSON body
+ * (like `res.json()`); rejects with the server's `error` message on a non-2xx.
+ */
+export function postFileWithProgress(url, file, { fieldName = 'file', onProgress } = {}) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url, true);
+    if (typeof onProgress === 'function') {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+    }
+    xhr.onload = () => {
+      let body = {};
+      try { body = JSON.parse(xhr.responseText || '{}'); } catch { /* non-JSON error page */ }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(body);
+      else reject(new Error(body.error || `Upload failed (${xhr.status}).`));
+    };
+    xhr.onerror = () => reject(new Error('Upload failed — the server could not be reached.'));
+    xhr.onabort = () => reject(new Error('Upload cancelled.'));
+    const fd = new FormData();
+    fd.append(fieldName, file);
+    xhr.send(fd);
+  });
+}
