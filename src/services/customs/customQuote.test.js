@@ -20,6 +20,28 @@ describe('computeQuote (structured single-COG bucket)', () => {
     expect(q.quoteTotal).toBeCloseTo(2907.5, 2);
   });
 
+  it('honours a per-line markup on labor: an outsourced engraver passes through at ×1', () => {
+    // The engraver charges $550; forcing the blanket 2.5× would bill the customer $1,375
+    // for a vendor invoice EFD added nothing to. Markup 1 passes it through at cost while
+    // EFD's own bench task beside it still takes the full markup.
+    const q = computeQuote({
+      laborTasks: [
+        { description: 'Engraving (outsourced)', quantity: 1, cost: 550, markup: 1 },
+        { description: 'setting', quantity: 1, cost: 100 },
+      ],
+    }, { cogMarkup: 2.5 });
+    expect(q.cog).toBeCloseTo(650, 2);
+    expect(q.quoteTotal).toBeCloseTo(550 + 250, 2);
+    // A partial markup prices partial value-add (vendor management, risk) without full keystone.
+    const partial = computeQuote({
+      laborTasks: [{ description: 'Engraving', quantity: 1, cost: 550, markup: 1.2 }],
+    }, { cogMarkup: 2.5 });
+    expect(partial.quoteTotal).toBeCloseTo(660, 2);
+    // And a typo'd labor markup is rejected like any other per-line markup.
+    expect(() => assertMarkupsSane({ laborTasks: [{ description: 'Engraving', markup: 0.12 }] }))
+      .toThrow(/Labor task #1 markup \(Engraving\)/);
+  });
+
   it('applies rush when isRush (settings rushMultiplier)', () => {
     const q = computeQuote({ laborTasks: [{ cost: 100, quantity: 1 }], isRush: true }, { cogMarkup: 2, rushMultiplier: 1.5 });
     expect(q.quoteTotal).toBeCloseTo(300, 2); // 100 × 2 × 1.5

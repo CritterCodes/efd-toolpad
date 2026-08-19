@@ -7,9 +7,36 @@
 import { db } from '@/lib/database';
 import Constants from '@/lib/constants';
 import { TasksService } from '@/app/api/tasks/service';
+import SettingsManagerService from '@/app/api/admin/settings/services/settingsManager.service';
 
 function escapeRegex(s) {
   return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** The shop's hourly wage (settings.pricing.wage) — the rate hours are derived from. */
+async function shopWage() {
+  try {
+    const s = await SettingsManagerService.getSettings();
+    const wage = Number(s?.pricing?.wage);
+    return wage > 0 ? wage : 50;
+  } catch {
+    return 50;
+  }
+}
+
+/**
+ * A labor line must carry HOURS, not just a price: hours are what the bench work order
+ * plans and what the artisan is paid for. Flat-priced catalog tasks (QC review, GLB) store
+ * a cost with no hours, so the line arrived with hours 0 and either the quoter retyped
+ * them from memory or the payout planned at zero. When hours are missing, derive them
+ * from the cost at the shop wage — an estimate, but an editable one that starts sane.
+ */
+function deriveHours(cost, hours, wage) {
+  const h = Number(hours) || 0;
+  if (h > 0) return h;
+  const c = Number(cost) || 0;
+  if (!(c > 0) || !(wage > 0)) return 0;
+  return Math.round((c / wage) * 100) / 100;
 }
 
 export async function getTaskSuggestions(search = '', limit = 40, context = null) {
@@ -74,18 +101,26 @@ export async function getTaskSuggestions(search = '', limit = 40, context = null
     seen.add(key);
     out.push(s);
   }
-  return out.slice(0, limit);
+  // Flat-priced tasks (cost, no hours) get hours derived at the shop wage — see deriveHours.
+  const wage = await shopWage();
+  return out.slice(0, limit).map((s) => ({ ...s, hours: deriveHours(s.cost, s.hours, wage) }));
 }
 
 /**
  * Resolve a custom-context catalog task (by exact title) into a quote labor LINE.
  * Cost = the task's engine-computed laborCost (its `minimumLaborPrice` floor); falls
- * back to `fallbackCost` if the task is missing/zero (e.g. the seed hasn't run). The
- * line is marked `discipline:'cad'` + `noWorkOrder` so it folds into the quote's labor
- * COG but is NOT re-spawned as a bench work order at casting (CAD/GLB/QC have their own
- * flows). `autoKey` lets the auto-add dedupe itself on re-assign / re-create.
+ * back to `fallbackCost` if the task is missing/zero (e.g. the seed hasn't run). Hours
+ * are the catalog's, else derived from cost at the shop wage (see deriveHours).
+ *
+ * By default the line is `discipline:'cad'` + `noWorkOrder` so it folds into the
+ * quote's labor COG but is NOT re-spawned as a bench work order at casting (CAD/GLB/QC
+ * have their own flows). Real bench work auto-added to a quote — casting cleanup —
+ * overrides `discipline`/`noWorkOrder` so it DOES become a bench work order.
+ * `autoKey` lets the auto-add dedupe itself on re-assign / re-create.
  */
-export async function getCustomTaskLine(title, { autoKey = null, fallbackCost = 0 } = {}) {
+export async function getCustomTaskLine(title, {
+  autoKey = null, fallbackCost = 0, discipline = 'cad', noWorkOrder = true,
+} = {}) {
   let cost = 0; let hours = 0;
   try {
     const result = await TasksService.getTasks({ isActive: true, context: 'custom', search: title, limit: 10 });
@@ -96,7 +131,12 @@ export async function getCustomTaskLine(title, { autoKey = null, fallbackCost = 
     }
   } catch { /* fall back below */ }
   const resolved = cost > 0 ? cost : (Number(fallbackCost) || 0);
-  return { description: title, quantity: 1, cost: resolved, hours, discipline: 'cad', source: 'auto', autoKey, noWorkOrder: true };
+  const wage = await shopWage();
+  return {
+    description: title, quantity: 1, cost: resolved,
+    hours: deriveHours(resolved, hours, wage),
+    discipline, source: 'auto', autoKey, noWorkOrder,
+  };
 }
 
 /** Merge an auto labor line into a laborTasks array, replacing any prior line with the

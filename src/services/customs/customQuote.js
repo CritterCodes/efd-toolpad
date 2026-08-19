@@ -98,8 +98,8 @@ export function assertMarkupsSane(quote = {}) {
   check('Centre-stone markup', quote.centerstoneMarkup);
   // Per-line overrides are the ones a typo is most likely to hide in — there can be a dozen rows and
   // no single line is big enough to make the total look obviously wrong.
-  for (const [field, rows] of [['Accent stone', quote.accentStones], ['Material', quote.additionalMaterials]]) {
-    (rows || []).forEach((row, i) => check(`${field} #${i + 1} markup${row?.item ? ` (${row.item})` : ''}`, row?.markup));
+  for (const [field, rows] of [['Accent stone', quote.accentStones], ['Material', quote.additionalMaterials], ['Labor task', quote.laborTasks]]) {
+    (rows || []).forEach((row, i) => check(`${field} #${i + 1} markup${row?.item || row?.description ? ` (${row.item || row.description})` : ''}`, row?.markup));
   }
 }
 
@@ -146,7 +146,12 @@ export function computeQuote(quote = {}, settings = {}) {
     + lineRevenue(quote.accentStones, cogMarkup)
     + lineRevenue(quote.additionalMaterials, cogMarkup)
     + (quote.materialCosts || []).reduce((s, m) => s + legacyLine(m), 0) * cogMarkup
-    + laborTotal * cogMarkup
+    // Labor lines honour a per-line markup too. Outsourced work billed through the quote — an
+    // engraver charging $550 — is a vendor's invoice, not EFD bench time; forcing the blanket 2.5×
+    // on it either overcharges the customer or forces the quoter to fake the cost. Markup 1 passes
+    // it through at cost; anything between 1 and the default prices partial value-add. Blank/0 ⇒
+    // the default markup, so existing quotes are priced exactly as before.
+    + lineRevenue(quote.laborTasks, cogMarkup) + n(quote.laborCost) * cogMarkup
     // Casting IS marked up — it is a production step in making the piece (alloy choice, file prep,
     // vendor management, and EFD eats a bad cast), exactly like the mounting metal. Not to be confused
     // with the at-cost rule for billing an ARTISAN for casting their own piece: that is EFD declining to

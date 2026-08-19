@@ -199,6 +199,27 @@ export async function spawnCustomWorkOrder({
       );
     }
   }
+
+  // A design-stage CAD work order means the piece will be CAST — and every casting gets
+  // cleaned up at the bench. Pre-fill the "Clean up Casting" labor line (same recipe the
+  // designs quote maker uses: catalog price, fallback if the seed hasn't run) so the
+  // quote never forgets the cleanup. Unlike the CAD/GLB/QC lines this is REAL bench
+  // work: it keeps the bench discipline and spawns a work order at casting received.
+  if (discipline === DISCIPLINE.CAD && (cadStage || 'design') === 'design') {
+    const order = await CustomOrdersModel.findById(customID);
+    if (order && !(order.quote?.laborTasks || []).some((t) => t.autoKey === 'auto-casting-cleanup')) {
+      const cleanupLine = await getCustomTaskLine('Clean up Casting', {
+        autoKey: 'auto-casting-cleanup', fallbackCost: 40,
+        discipline: DISCIPLINE.BENCH_JEWELRY, noWorkOrder: false,
+      });
+      const laborTasks = mergeAutoLaborLine(order.quote?.laborTasks, cleanupLine);
+      await CustomOrdersModel.updateById(
+        customID,
+        { quote: { ...order.quote, laborTasks } },
+        { changedBy: createdBy, reason: 'cad work order created — casting cleanup pre-filled' },
+      );
+    }
+  }
   return wo;
 }
 

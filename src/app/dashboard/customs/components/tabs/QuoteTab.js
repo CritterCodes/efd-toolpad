@@ -106,7 +106,7 @@ function LineEditor({ rows, onChange, withQty, withDiscipline, withHours, withMa
   const patch = (i, obj) => onChange(rows.map((r, idx) => (idx === i ? { ...r, ...obj } : r)));
   const remove = (i) => onChange(rows.filter((_, idx) => idx !== i));
   if (!rows.length) return <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted, py: 1 }}>{emptyText}</Typography>;
-  const descSm = withDiscipline ? 4 : (withMarkup ? 4 : (withQty ? 6 : 8));
+  const descSm = withDiscipline ? (withMarkup ? 3 : 4) : (withMarkup ? 4 : (withQty ? 6 : 8));
   return (
     <Stack spacing={1}>
       {rows.map((r, i) => {
@@ -121,7 +121,7 @@ function LineEditor({ rows, onChange, withQty, withDiscipline, withHours, withMa
               : <TextField fullWidth size="small" label="Description" value={r.description || ''} disabled={!editMode} onChange={(e) => set(i, 'description', e.target.value)} />}
           </Grid>
           {withDiscipline && (
-            <Grid item xs={6} sm={2.5}>
+            <Grid item xs={6} sm={withMarkup ? 2 : 2.5}>
               <TextField select fullWidth size="small" label="Lane" value={r.discipline || 'bench_jewelry'} disabled={!editMode} onChange={(e) => set(i, 'discipline', e.target.value)}>
                 {DISCIPLINE_OPTS.map((d) => <MenuItem key={d.value} value={d.value}>{d.label}</MenuItem>)}
               </TextField>
@@ -129,7 +129,7 @@ function LineEditor({ rows, onChange, withQty, withDiscipline, withHours, withMa
           )}
           {withQty && <Grid item xs={4} sm={withDiscipline ? 1 : 2}><TextField fullWidth size="small" label="Qty" type="number" value={r.quantity ?? 1} disabled={!editMode} onChange={(e) => set(i, 'quantity', e.target.value)} /></Grid>}
           {withHours && (
-            <Grid item xs={4} sm={1.5}>
+            <Grid item xs={4} sm={withMarkup ? 1 : 1.5}>
               <TextField
                 fullWidth size="small" label="Hrs" type="number" value={r.hours ?? 0} disabled={!editMode}
                 onChange={(e) => set(i, 'hours', e.target.value)}
@@ -142,7 +142,7 @@ function LineEditor({ rows, onChange, withQty, withDiscipline, withHours, withMa
           )}
           <Grid item xs={withDiscipline ? 6 : 8} sm={withDiscipline ? 2 : (withMarkup ? 2.5 : 3)}><TextField fullWidth size="small" label="Cost" type="number" value={r.cost ?? 0} disabled={!editMode} onChange={(e) => set(i, 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
           {withMarkup && (
-            <Grid item xs={10} sm={2.5}>
+            <Grid item xs={10} sm={withDiscipline ? 2 : 2.5}>
               {/* Optional per-line markup. Blank = the default. For a bought-in good that didn't earn
                   keystone — one expensive melee, a clasp — not for melee you set by the dozen. */}
               <TextField
@@ -339,7 +339,9 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
     n(form.mounting.cost) * cogMarkup
     + lineRevenue(form.accentStones, cogMarkup)
     + lineRevenue(form.additionalMaterials, cogMarkup)
-    + (laborTotal + castingCost + glbFee + qcFee) * cogMarkup;
+    // Labor lines honour a per-line markup too (markup 1 = outsourced work passed through at cost).
+    + lineRevenue(form.laborTasks, cogMarkup)
+    + (castingCost + glbFee + qcFee) * cogMarkup;
   // SHIPPING IS A PASS-THROUGH: no markup, no rush. It is a courier's invoice, not value EFD added.
   // Added outside the rush multiplier for the same reason the centre stone is — a faster courier is a
   // higher shipping COST, not a multiplier on the old one.
@@ -365,7 +367,7 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
         // markup: 0 = no override, use the default. Persisted per line so a quote can be explained later.
         accentStones: form.accentStones.map((r) => ({ description: r.description || '', quantity: n(r.quantity) || 1, cost: n(r.cost), markup: n(r.markup) || 0 })),
         additionalMaterials: form.additionalMaterials.map((r) => ({ description: r.description || '', quantity: n(r.quantity) || 1, cost: n(r.cost), markup: n(r.markup) || 0 })),
-        laborTasks: form.laborTasks.map((r) => ({ description: r.description || '', quantity: n(r.quantity) || 1, cost: n(r.cost), hours: n(r.hours), discipline: r.discipline || 'bench_jewelry', ...(r.autoKey ? { autoKey: r.autoKey, source: r.source || 'auto' } : {}), ...(r.noWorkOrder ? { noWorkOrder: true } : {}) })),
+        laborTasks: form.laborTasks.map((r) => ({ description: r.description || '', quantity: n(r.quantity) || 1, cost: n(r.cost), hours: n(r.hours), markup: n(r.markup) || 0, discipline: r.discipline || 'bench_jewelry', ...(r.autoKey ? { autoKey: r.autoKey, source: r.source || 'auto' } : {}), ...(r.noWorkOrder ? { noWorkOrder: true } : {}) })),
         shippingCosts: form.shippingCosts.map((r) => ({ description: r.description || '', cost: n(r.cost) })),
         isRush: form.isRush, includeCustomDesign: form.includeCustomDesign, designFee: n(form.designFee),
         cogMarkup: n(form.cogMarkup) || 0, // 0 = revert to the admin-settings default
@@ -479,8 +481,8 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
       {/* Phase 2: Labor */}
       <Paper sx={cardSx}>
         <CardHead icon={BuildIcon} title="Labor Tasks" action={<Button size="small" startIcon={<AddIcon />} onClick={() => lineAdd('laborTasks', { description: '', quantity: 1, cost: 0, hours: 0, discipline: 'bench_jewelry' })} sx={{ color: REPAIRS_UI.accent }}>Add task</Button>} />
-        <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 1 }}>Each bench task generates a work order in its lane when the order reaches production (deposit ≥ 50%). <b>Hrs</b> is the labor the bench jeweler is paid for (hours × their rate) — a bench task with 0 hrs spawns a work order with no payout. Cost is what the customer is charged. CAD/QC/GLB lines are added automatically by the design flow.</Typography>
-        <LineEditor rows={form.laborTasks} onChange={(rows) => setField('laborTasks', rows)} withQty withDiscipline withHours editMode={!busy} suggest emptyText='No labor tasks. Click "Add task" to add production tasks.' />
+        <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 1 }}>Each bench task generates a work order in its lane when the order reaches production (deposit ≥ 50%). <b>Hrs</b> is the labor the bench jeweler is paid for (hours × their rate) — a bench task with 0 hrs spawns a work order with no payout. Cost is what the customer is charged. <b>Markup</b> overrides the default per line — set ×1 to pass an outside vendor&rsquo;s charge (an engraver&rsquo;s invoice) through at cost. CAD/QC/GLB lines are added automatically by the design flow.</Typography>
+        <LineEditor rows={form.laborTasks} onChange={(rows) => setField('laborTasks', rows)} withQty withDiscipline withHours withMarkup defaultMarkup={cogMarkup} editMode={!busy} suggest emptyText='No labor tasks. Click "Add task" to add production tasks.' />
       </Paper>
 
       {/* Phase 3: Additional services */}

@@ -52,8 +52,11 @@ export default function NewClientForm({ open, onClose, onClientCreated }) {
             delete submissionData.business;
         }
 
-        const newClient = await createNewClient(submissionData);
-        if (newClient) {
+        const response = await createNewClient(submissionData);
+        // POST /api/users wraps the user in { success, message, data } — hand callers the
+        // USER, not the envelope, or every field they read comes back undefined.
+        const newClient = response?.data ?? response?.user ?? response;
+        if (newClient?.userID) {
             onClientCreated(newClient);
             onClose();
         }

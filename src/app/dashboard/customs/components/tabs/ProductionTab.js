@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box, Paper, Stack, Typography, Button, Chip, Grid, CircularProgress,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, InputAdornment,
@@ -7,8 +7,10 @@ import AddIcon from '@mui/icons-material/Add';
 import BuildCircleIcon from '@mui/icons-material/BuildCircle';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import DownloadIcon from '@mui/icons-material/Download';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import { useRouter } from 'next/navigation';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import { directUpload } from '@/lib/directUpload';
 
 const dialogPaperProps = { sx: { backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` } };
 const panelSx = { p: 2.5, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' };
@@ -42,6 +44,9 @@ export default function ProductionTab({ customID, order, margin, notify, onChang
   const EMPTY_CAST = { amount: '', vendor: '', invoiceNumber: '', notes: '' };
   const [castForm, setCastForm] = useState(EMPTY_CAST);
   const [busy, setBusy] = useState(false);
+  const [replacePct, setReplacePct] = useState(null); // upload % while a replacement STL transfers
+  const replaceInputRef = useRef(null);
+  const replaceTargetRef = useRef(null); // which WO the picked file replaces
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -75,6 +80,30 @@ export default function ProductionTab({ customID, order, margin, notify, onChang
       notify('Work order added — routed to the bench', 'success');
       await load(); await onChanged?.();
     } catch (e) { notify(e.message, 'error'); } finally { setBusy(false); }
+  };
+
+  // Replace an existing STL in place — a refinement (lighter model etc.), not a QC redo.
+  // Direct upload to MinIO, then replace-stl records it without touching the WO's status.
+  const pickReplacement = (wo) => { replaceTargetRef.current = wo; replaceInputRef.current?.click(); };
+  const replaceStl = async (file) => {
+    const wo = replaceTargetRef.current;
+    if (!wo || !file) return;
+    setBusy(true); setReplacePct(0);
+    try {
+      const { url, key } = await directUpload(file, {
+        scope: 'work-order', id: wo.workOrderID, onProgress: setReplacePct,
+      });
+      const res = await fetch(`/api/bench/work-orders/${wo.workOrderID}/replace-stl`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, key, originalName: file.name }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Could not replace the STL');
+      notify('STL replaced — volume re-measured, status unchanged', 'success');
+      await load(); await onChanged?.();
+    } catch (e) { notify(e.message, 'error'); } finally {
+      setBusy(false); setReplacePct(null); replaceTargetRef.current = null;
+      if (replaceInputRef.current) replaceInputRef.current.value = '';
+    }
   };
 
   const addCasting = async () => {
@@ -162,6 +191,16 @@ export default function ProductionTab({ customID, order, margin, notify, onChang
                         GLB{wo.files.glb.originalName ? ` · ${wo.files.glb.originalName}` : ''}
                       </Button>
                     )}
+                    {wo.discipline === 'cad' && wo.files?.stl?.url && (
+                      <Button size="small" disabled={busy} startIcon={<SwapHorizIcon sx={{ fontSize: 15 }} />} onClick={() => pickReplacement(wo)} sx={{ color: REPAIRS_UI.textSecondary, textTransform: 'none' }}>
+                        {replacePct != null && replaceTargetRef.current?.workOrderID === wo.workOrderID ? `Uploading… ${replacePct}%` : 'Replace STL'}
+                      </Button>
+                    )}
+                    {(wo.files?.stlHistory || []).length > 0 && (
+                      <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
+                        rev {(wo.files.stlHistory.length + 1)}
+                      </Typography>
+                    )}
                   </Stack>
                 )}
               </Paper>
@@ -170,6 +209,9 @@ export default function ProductionTab({ customID, order, margin, notify, onChang
           </Stack>
         )}
       </Box>
+
+      {/* Hidden picker for STL replacement (triggered per work order). */}
+      <input ref={replaceInputRef} type="file" accept=".stl" hidden onChange={(e) => replaceStl(e.target.files?.[0])} />
 
       <Dialog open={addOpen} onClose={() => !busy && setAddOpen(false)} fullWidth maxWidth="sm" PaperProps={dialogPaperProps}>
         <DialogTitle>Add work order</DialogTitle>

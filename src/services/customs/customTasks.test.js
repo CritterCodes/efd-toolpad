@@ -28,6 +28,22 @@ describe('getCustomTaskLine', () => {
     const zero = await getCustomTaskLine('GLB Creation', { autoKey: 'custom-glb', fallbackCost: 50 });
     expect(zero.cost).toBe(50);
   });
+
+  it('derives hours at the shop wage for flat-priced tasks that store none', async () => {
+    // A flat $25 QC fee with no catalog hours used to auto-fill hours 0 into the quote form.
+    getTasks.mockResolvedValue({ data: [{ title: 'CAD QC Review', pricing: { laborCost: 25 } }] });
+    const line = await getCustomTaskLine('CAD QC Review', { autoKey: 'custom-qc' });
+    expect(line.hours).toBe(0.5); // 25 / 50 (default wage)
+  });
+
+  it('honours discipline/noWorkOrder overrides for real bench work (casting cleanup)', async () => {
+    getTasks.mockResolvedValue({ data: [] });
+    const line = await getCustomTaskLine('Clean up Casting', {
+      autoKey: 'auto-casting-cleanup', fallbackCost: 40, discipline: 'bench_jewelry', noWorkOrder: false,
+    });
+    expect(line).toMatchObject({ description: 'Clean up Casting', cost: 40, discipline: 'bench_jewelry', noWorkOrder: false });
+    expect(line.hours).toBe(0.8); // 40 / 50 — bench WO hours drive the artisan payout
+  });
 });
 
 describe('mergeAutoLaborLine', () => {
@@ -71,9 +87,11 @@ describe('getTaskSuggestions carries labor hours', () => {
     expect((await getTaskSuggestions('', 40, 'custom'))[0].category).toBe('bench_jewelry');
   });
 
-  it('copes with history that predates hours being stored', async () => {
+  it('derives hours from cost at the shop wage when history predates hours being stored', async () => {
+    // $25 at the $50/hr default wage → 0.5h. Zero hours meant a work order with no payout;
+    // a derived estimate is editable and starts sane instead of silently blank.
     customHistory = [{ _id: 'Old line', cost: 25 }];
-    expect((await getTaskSuggestions('', 40, 'custom'))[0].hours).toBe(0);
+    expect((await getTaskSuggestions('', 40, 'custom'))[0].hours).toBe(0.5);
   });
 
   it('still prefers the repair catalog when a label appears in both', async () => {

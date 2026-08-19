@@ -249,6 +249,61 @@ export async function attachCadStl({ session, workOrderID, url, key, originalNam
   return finalizeCadStl({ session, wo, workOrderID, stl });
 }
 
+/**
+ * Swap the STL on a CAD work order WITHOUT touching its status or re-running QC.
+ *
+ * This is the "make it a little lighter" path: the design already passed (or is in) review and the
+ * change is a refinement, not a redo — hollowing, a thickness tweak, a sprue adjustment. Re-running
+ * the whole submit→QC ceremony for that would re-charge review fees and bounce the bench. The prior
+ * file is kept on files.stlHistory so nothing is ever silently overwritten, and volume is re-measured
+ * server-side (it prices the mounting metal) and re-mirrored onto the piece + custom order.
+ */
+export async function replaceCadStl({ session, workOrderID, url, key, originalName, reason = '' }) {
+  const wo = await assertCadStlAllowed({ session, workOrderID });
+  if (!wo.files?.stl?.url) {
+    const e = new Error('No STL to replace — upload the first one from the bench.'); e.code = 'BAD_REQUEST'; throw e;
+  }
+  if (!url || !key) {
+    const e = new Error('The uploaded file reference is incomplete.'); e.code = 'BAD_REQUEST'; throw e;
+  }
+  const expectedPrefix = `production/pieces/${wo.sourceID}/`;
+  if (!String(key).startsWith(expectedPrefix)) {
+    const e = new Error('That file does not belong to this work order.'); e.code = 'FORBIDDEN'; throw e;
+  }
+
+  const volumeCm3 = await stlVolumeCm3FromStorage(key);
+  const stl = {
+    url, key, originalName: originalName || null,
+    volumeCm3,
+    volumeSource: volumeCm3 != null ? 'server' : null,
+    uploadedBy: session.user.name || session.user.email || session.user.userID,
+    uploadedAt: new Date(),
+  };
+  const stlHistory = [
+    ...(wo.files?.stlHistory || []),
+    { ...wo.files.stl, replacedBy: stl.uploadedBy, replacedAt: new Date(), replaceReason: reason || null },
+  ];
+
+  const piece = await PiecesModel.findById(wo.sourceID);
+  if (piece) {
+    const updates = { files: { ...(piece.files || {}), stl } };
+    if (volumeCm3 != null) updates.printVolumeCm3 = volumeCm3;
+    await PiecesModel.updateById(wo.sourceID, updates);
+    if (piece.customOrderID && volumeCm3 != null) {
+      const order = await CustomOrdersModel.findById(piece.customOrderID);
+      if (order) {
+        await CustomOrdersModel.updateById(piece.customOrderID, {
+          designModel: { ...(order.designModel || {}), stlVolumeCm3: volumeCm3 },
+        });
+      }
+    }
+  }
+
+  return WorkOrdersModel.updateByID(workOrderID, {
+    files: { ...(wo.files || {}), stl, stlHistory },
+  });
+}
+
 export async function uploadCadStl({ session, workOrderID, file }) {
   const wo = await assertCadStlAllowed({ session, workOrderID });
 
