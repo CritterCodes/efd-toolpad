@@ -147,25 +147,32 @@ export function computeQuote(quote = {}, settings = {}) {
   // REVENUE, line by line. Everything except the centre stone is marked up and then rushed; material
   // lines may each override the markup (see lineRevenue). With no overrides this is identically
   // `cogExCenterstone × cogMarkup`, so a quote written before per-line markups existed is unchanged.
-  const rushableRevenue =
+  // Split by PAYMENT GATE (rules §12: stone → mounting → production), because the
+  // shop's pay-over-time ladder needs each gate's real revenue — with per-line
+  // markups, deriving it from a blended multiplier is wrong for any quote using
+  // overrides. Their sum is rushableRevenue, so the total is unchanged.
+  const mountingRevenue =
     n(quote.mounting?.cost) * cogMarkup
     + lineRevenue(quote.accentStones, cogMarkup)
     + lineRevenue(quote.additionalMaterials, cogMarkup)
-    + (quote.materialCosts || []).reduce((s, m) => s + legacyLine(m), 0) * cogMarkup
+    + (quote.materialCosts || []).reduce((s, m) => s + legacyLine(m), 0) * cogMarkup;
+  const productionRevenue =
     // Labor lines honour a per-line markup too. Outsourced work billed through the quote — an
     // engraver charging $550 — is a vendor's invoice, not EFD bench time; forcing the blanket 2.5×
     // on it either overcharges the customer or forces the quoter to fake the cost. Markup 1 passes
     // it through at cost; anything between 1 and the default prices partial value-add. Blank/0 ⇒
     // the default markup, so existing quotes are priced exactly as before. Lines flagged
-    // `passThrough` (GLB / CAD QC review) are excluded here entirely — added at cost below.
-    + lineRevenue(laborMarkedLines, cogMarkup) + n(quote.laborCost) * cogMarkup
+    // `passThrough` (GLB / CAD QC review) are excluded here entirely — added at cost after rush.
+    lineRevenue(laborMarkedLines, cogMarkup) + n(quote.laborCost) * cogMarkup
     // Casting IS marked up — it is a production step in making the piece (alloy choice, file prep,
     // vendor management, and EFD eats a bad cast), exactly like the mounting metal. Not to be confused
     // with the at-cost rule for billing an ARTISAN for casting their own piece: that is EFD declining to
     // rent out infrastructure, and it does not apply to a customer buying a finished ring.
     // The legacy glbFee/qcReviewFee FIELDS (pre-T2 orders) moved out on 2026-08-19: those fees are
-    // peer artisans' work and pass through below, same as their labor-line successors.
+    // peer artisans' work and pass through after rush, same as their labor-line successors —
+    // the gates ladder is unaffected because gate 3 (Production) is computed as the remainder.
     + castingTotal * cogMarkup;
+  const rushableRevenue = mountingRevenue + productionRevenue;
 
   // RUSH DOES NOT TOUCH THE CENTRE STONE (owner, 2026-08-11). A rush premium prices EFD's capacity —
   // reordering the bench queue, overtime, bumping other clients. A bought-in stone costs the same
@@ -244,6 +251,23 @@ export function computeQuote(quote = {}, settings = {}) {
     taxRate,
     taxAmount: round(taxAmount),
     total: round(total),
+    // The pay-over-time GATES LADDER, with each gate's authoritative revenue
+    // (rules §12; design fee rides gate 1, shipping gate 3, tax at the lock).
+    // The shop (efd-shop lib/customPayments.js) prefers this stamped shape over
+    // its own blended-multiplier derivation, which per-line markups made wrong.
+    // Production absorbs rounding so the gates sum EXACTLY to quoteTotal; a
+    // zero-amount rung is omitted (a quote with no stone has no stone gate).
+    gates: (() => {
+      const gStone = round(centerstoneCost * centerstoneMarkup + designTotal);
+      const gMounting = round(mountingRevenue * rushMultiplier);
+      const gProduction = round(quoteTotal - (centerstoneCost * centerstoneMarkup + designTotal) - (mountingRevenue * rushMultiplier));
+      return [
+        { n: 1, name: 'Stone', covers: 'Centre stone + design fee', amount: gStone },
+        { n: 2, name: 'Mounting', covers: 'Mounting + accent stones', amount: gMounting },
+        { n: 3, name: 'Production', covers: 'Labour, casting, 3D + QC, shipping', amount: gProduction },
+        { n: 4, name: 'Balance', covers: 'Sales tax — added when the price locks', amount: round(taxAmount) },
+      ].filter((g) => g.amount > 0);
+    })(),
     projectedMargin: round(quoteTotal - cog),
   };
 }

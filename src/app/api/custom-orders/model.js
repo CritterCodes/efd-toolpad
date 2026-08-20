@@ -280,6 +280,12 @@ export default class CustomOrdersModel {
       taxRate: computed.taxRate,
       taxAmount: computed.taxAmount,
       total: computed.total,
+      // The pay-over-time gates ladder with authoritative per-gate revenue — the
+      // shop's payment surfaces read this (efd-shop lib/customPayments.js prefers
+      // it over deriving from a blended multiplier, which per-line markups broke).
+      // Stamped on every save, like the other computed snapshots, so the ladder a
+      // customer sees always matches the quote they were priced with.
+      gates: computed.gates,
     };
   }
 
