@@ -16,6 +16,7 @@ import {
   adjustPriceForPurity,
   calculateMetalWeight,
   calculateMetalCost, // applies the 1.3× casting-house markup
+  calculateMountingCOG, // + the casting house's flat print/sprue labor ($15)
 } from '@/constants/metalTypes';
 
 // Lost-wax reference: wax density ≈ 1 g/cm³, so 1 cm³ of model ≈ 1 g of wax.
@@ -41,7 +42,13 @@ export function estimateMetalCost({ volumeCm3, metalKey, metalPrices = {} }) {
   const category = getMetalPriceCategory(metalKey);
   const basePricePerGram = Number(metalPrices?.[category]) || 0;
   const pricePerGram = adjustPriceForPurity(basePricePerGram, metalKey);
-  const metalCost = calculateMetalCost(metalWeightG, pricePerGram);
+  const metalOnlyCost = calculateMetalCost(metalWeightG, pricePerGram);
+  // The full mounting recipe is metal × 1.3 PLUS the casting house's flat print/sprue
+  // labor (owner, 2026-08-19: "the mounting math is ×1.3 + 15"). calculateMountingCOG
+  // has carried the $15 all along — the estimate path just never called it, so every
+  // model-based estimate quoted the mounting $15 short. Skipped when the market price
+  // is unavailable: $15 on a $0 estimate would look like a real number and isn't.
+  const metalCost = metalOnlyCost > 0 ? calculateMountingCOG(metalOnlyCost) : 0;
 
   return {
     metalKey,
@@ -50,6 +57,8 @@ export function estimateMetalCost({ volumeCm3, metalKey, metalPrices = {} }) {
     metalWeightG: round(metalWeightG),
     basePricePerGram: round(basePricePerGram),
     pricePerGram: round(pricePerGram),
+    metalOnlyCost: round(metalOnlyCost),
+    printSetupFee: metalOnlyCost > 0 ? round(metalCost - metalOnlyCost) : 0,
     metalCost: round(metalCost),
   };
 }

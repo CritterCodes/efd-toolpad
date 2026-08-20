@@ -190,7 +190,7 @@ export async function spawnCustomWorkOrder({
   if (discipline === DISCIPLINE.CAD && cadStage === 'glb') {
     const order = await CustomOrdersModel.findById(customID);
     if (order) {
-      const glbLine = await getCustomTaskLine('GLB Creation', { autoKey: 'custom-glb', fallbackCost: resolvedFee });
+      const glbLine = await getCustomTaskLine('GLB Creation', { autoKey: 'custom-glb', fallbackCost: resolvedFee, passThrough: true });
       const laborTasks = mergeAutoLaborLine(order.quote?.laborTasks, glbLine);
       await CustomOrdersModel.updateById(
         customID,

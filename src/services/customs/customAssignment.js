@@ -133,7 +133,7 @@ export async function assignArtisan({ customID, userID, role = ASSIGNMENT_ROLE.C
     // qcReviewFee setting if the seed hasn't run). It's a labor line — not a separate
     // fee field — so QC is modeled as work, like the rest of the tasks.
     const qcFee = await qcReviewFeeSetting();
-    const qcLine = await getCustomTaskLine('CAD QC Review', { autoKey: 'custom-qc', fallbackCost: qcFee });
+    const qcLine = await getCustomTaskLine('CAD QC Review', { autoKey: 'custom-qc', fallbackCost: qcFee, passThrough: true });
     const laborTasks = mergeAutoLaborLine(order.quote?.laborTasks, qcLine);
     await CustomOrdersModel.updateById(
       customID,

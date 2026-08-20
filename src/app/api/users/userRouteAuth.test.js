@@ -69,6 +69,30 @@ describe('anonymous callers cannot touch users at all', () => {
   });
 });
 
+describe('the user DIRECTORY is shop-floor only (staff + artisan)', () => {
+  // Found in the affiliate-onboarding audit: GET was requireAuth-only, so any login —
+  // a customer, an affiliate — could dump every user's name/email/phone with a bare GET.
+  it.each([['customer'], ['client'], ['affiliate'], ['wholesaler'], ['artisan-applicant']])(
+    'role %s is refused on every GET shape and never reaches the controller', async (role) => {
+      sessionUser = { userID: 'u-nosy', email: 'nosy@test', role };
+      expect((await coll.GET(collReq())).status).toBe(403);
+      expect((await coll.GET(collReq('?query=victim-1'))).status).toBe(403);
+      expect((await coll.GET(collReq('?role=customer'))).status).toBe(403);
+      expect(controller.getAllUsers).not.toHaveBeenCalled();
+      expect(controller.getUserByQuery).not.toHaveBeenCalled();
+      expect(controller.getUsersByRole).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([['admin'], ['dev'], ['staff'], ['artisan']])(
+    'role %s still reaches the directory (intake needs the client base)', async (role) => {
+      sessionUser = { userID: 'u-ok', email: 'ok@test', role };
+      expect((await coll.GET(collReq())).status).toBe(200);
+      expect(controller.getAllUsers).toHaveBeenCalled();
+    },
+  );
+});
+
 describe('THE ESCALATION: nobody can grant themselves a role here', () => {
   it.each([['client'], ['customer'], ['artisan'], ['artisan-applicant'], ['wholesaler'], ['affiliate'], [undefined]])(
     'role %s is refused on PUT', async (role) => {

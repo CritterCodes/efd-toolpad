@@ -144,10 +144,11 @@ function LineEditor({ rows, onChange, withQty, withDiscipline, withHours, withMa
           {withMarkup && (
             <Grid item xs={10} sm={withDiscipline ? 2 : 2.5}>
               {/* Optional per-line markup. Blank = the default. For a bought-in good that didn't earn
-                  keystone — one expensive melee, a clasp — not for melee you set by the dozen. */}
+                  keystone — one expensive melee, a clasp — not for melee you set by the dozen.
+                  Pass-through lines (GLB / QC review — peer artisans' fees) are locked at ×1. */}
               <TextField
-                fullWidth size="small" label="Markup" type="number"
-                value={r.markup ?? ''} disabled={!editMode}
+                fullWidth size="small" label={r.passThrough ? 'Pass-through' : 'Markup'} type="number"
+                value={r.passThrough ? 1 : (r.markup ?? '')} disabled={!editMode || !!r.passThrough}
                 onChange={(e) => set(i, 'markup', e.target.value)}
                 placeholder={String(defaultMarkup ?? '')}
                 InputProps={{ startAdornment: <InputAdornment position="start">×</InputAdornment> }}
@@ -335,19 +336,22 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
   // Rush multiplies the RING only — it prices EFD's capacity, and a bought-in stone costs the same
   // whether it's set tomorrow or in three weeks. Material lines may each override the markup.
   // MIRRORS computeQuote — if these drift the preview quotes a price the save won't produce.
+  // Pass-through labor (GLB / CAD QC review — peer artisans' fees): no markup, no rush.
+  // MIRRORS computeQuote's passThrough handling; legacy glbFee/qcReviewFee fields pass through too.
+  const laborPass = lineSum(form.laborTasks.filter((t) => t.passThrough));
   const rushable =
     n(form.mounting.cost) * cogMarkup
     + lineRevenue(form.accentStones, cogMarkup)
     + lineRevenue(form.additionalMaterials, cogMarkup)
     // Labor lines honour a per-line markup too (markup 1 = outsourced work passed through at cost).
-    + lineRevenue(form.laborTasks, cogMarkup)
-    + (castingCost + glbFee + qcFee) * cogMarkup;
+    + lineRevenue(form.laborTasks.filter((t) => !t.passThrough), cogMarkup)
+    + castingCost * cogMarkup;
   // SHIPPING IS A PASS-THROUGH: no markup, no rush. It is a courier's invoice, not value EFD added.
   // Added outside the rush multiplier for the same reason the centre stone is — a faster courier is a
   // higher shipping COST, not a multiplier on the old one.
   // Shipping AND the design fee pass through at cost — logistics and an artisan's own fee. Casting
   // stays marked up: it is a production step in making the piece.
-  const subtotal = (rushable * rush) + (stoneCost * centerstoneMarkup) + shipTotal + designTotal; // pre-tax
+  const subtotal = (rushable * rush) + (stoneCost * centerstoneMarkup) + shipTotal + designTotal + laborPass + glbFee + qcFee; // pre-tax
   // Once markups vary per line, a single "× 2.5" in the summary is a lie.
   const effectiveMarkup = cog > 0 ? Math.round((subtotal / cog) * 1000) / 1000 : cogMarkup;
   const effTaxRate = form.taxExempt ? 0 : taxRate;
@@ -367,7 +371,7 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
         // markup: 0 = no override, use the default. Persisted per line so a quote can be explained later.
         accentStones: form.accentStones.map((r) => ({ description: r.description || '', quantity: n(r.quantity) || 1, cost: n(r.cost), markup: n(r.markup) || 0 })),
         additionalMaterials: form.additionalMaterials.map((r) => ({ description: r.description || '', quantity: n(r.quantity) || 1, cost: n(r.cost), markup: n(r.markup) || 0 })),
-        laborTasks: form.laborTasks.map((r) => ({ description: r.description || '', quantity: n(r.quantity) || 1, cost: n(r.cost), hours: n(r.hours), markup: n(r.markup) || 0, discipline: r.discipline || 'bench_jewelry', ...(r.autoKey ? { autoKey: r.autoKey, source: r.source || 'auto' } : {}), ...(r.noWorkOrder ? { noWorkOrder: true } : {}) })),
+        laborTasks: form.laborTasks.map((r) => ({ description: r.description || '', quantity: n(r.quantity) || 1, cost: n(r.cost), hours: n(r.hours), markup: n(r.markup) || 0, discipline: r.discipline || 'bench_jewelry', ...(r.autoKey ? { autoKey: r.autoKey, source: r.source || 'auto' } : {}), ...(r.noWorkOrder ? { noWorkOrder: true } : {}), ...(r.passThrough ? { passThrough: true } : {}) })),
         shippingCosts: form.shippingCosts.map((r) => ({ description: r.description || '', cost: n(r.cost) })),
         isRush: form.isRush, includeCustomDesign: form.includeCustomDesign, designFee: n(form.designFee),
         cogMarkup: n(form.cogMarkup) || 0, // 0 = revert to the admin-settings default

@@ -36,7 +36,49 @@ const ViewUserPage = ({ params }) => {
     const [promoteLoading, setPromoteLoading] = useState(false);
     const [promoteError, setPromoteError] = useState('');
 
+    // Claim-link modal: mint a shop account-claim URL to text by hand (placeholder-email clients).
+    const [claimDialogOpen, setClaimDialogOpen] = useState(false);
+    const [claimLoading, setClaimLoading] = useState(false);
+    const [claim, setClaim] = useState(null); // { url, needsEmail, alreadyClaimed, phone }
+    const [claimError, setClaimError] = useState('');
+    const [copied, setCopied] = useState('');
+
     const canPromote = session?.user?.role === 'admin' || session?.user?.role === 'dev';
+
+    const getClaimLink = async () => {
+        setClaimDialogOpen(true);
+        setClaimLoading(true);
+        setClaimError('');
+        setClaim(null);
+        setCopied('');
+        try {
+            const res = await fetch(`/api/users/${userID}/claim-link`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason: 'account' }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.error || 'Could not create the claim link.');
+            setClaim(data);
+        } catch (err) {
+            setClaimError(err.message);
+        } finally {
+            setClaimLoading(false);
+        }
+    };
+
+    const claimSmsText = claim?.url
+        ? `Hi${updatedUser.firstName ? ` ${updatedUser.firstName}` : ''}! It's Engel Fine Design — your account for your custom project is ready. Set it up here (link is good for 7 days): ${claim.url}`
+        : '';
+
+    const copyText = async (label, text) => {
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopied(label);
+        } catch {
+            setCopied('');
+        }
+    };
 
     const handlePromoteAffiliate = async () => {
         setPromoteLoading(true);
@@ -165,8 +207,13 @@ const ViewUserPage = ({ params }) => {
                     <UserImage picture={updatedUser.image} />
                     <Box sx={{ flex: 1 }}>
                         <UserDetailsForm user={updatedUser} onEdit={handleEditChange} />
-                        {canPromote && updatedUser.role !== 'affiliate' && (
-                            <Box sx={{ mt: 3 }}>
+                        <Box sx={{ mt: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                            {canPromote && (
+                                <Button variant="outlined" onClick={getClaimLink}>
+                                    Get account claim link
+                                </Button>
+                            )}
+                            {canPromote && updatedUser.role !== 'affiliate' && (
                                 <Button
                                     variant="outlined"
                                     color="secondary"
@@ -174,8 +221,8 @@ const ViewUserPage = ({ params }) => {
                                 >
                                     Promote to Affiliate
                                 </Button>
-                            </Box>
-                        )}
+                            )}
+                        </Box>
                     </Box>
                 </Box>
             )}
@@ -212,6 +259,39 @@ const ViewUserPage = ({ params }) => {
                 onClose={() => setOpen(false)}
                 onSubmit={handleNewRepair}
             />
+
+            {/* Claim-link dialog — mint + copy; staff texts it by hand (never automate SMS). */}
+            <Dialog open={claimDialogOpen} onClose={() => setClaimDialogOpen(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>Account claim link</DialogTitle>
+                <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+                    {claimLoading && <Typography variant="body2" color="text.secondary">Minting link…</Typography>}
+                    {claimError && <Alert severity="error">{claimError}</Alert>}
+                    {claim?.alreadyClaimed && (
+                        <Alert severity="info">This account is already claimed — they can sign in at the shop with their email.</Alert>
+                    )}
+                    {claim?.url && (
+                        <>
+                            <Typography variant="body2" color="text.secondary">
+                                Good for 7 days, one use. Text it to {updatedUser.firstName || 'the client'}
+                                {claim.phone ? ` at ${claim.phone}` : ''} yourself — manual texting only.
+                                {claim.needsEmail && ' Their email on file is a placeholder, so the link asks for their real email while they set a password.'}
+                            </Typography>
+                            <TextField value={claim.url} fullWidth size="small" InputProps={{ readOnly: true }} onFocus={(e) => e.target.select()} />
+                            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                <Button variant="contained" onClick={() => copyText('link', claim.url)}>
+                                    {copied === 'link' ? 'Link copied!' : 'Copy link'}
+                                </Button>
+                                <Button variant="outlined" onClick={() => copyText('sms', claimSmsText)}>
+                                    {copied === 'sms' ? 'Message copied!' : 'Copy ready-to-send text'}
+                                </Button>
+                            </Box>
+                        </>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setClaimDialogOpen(false)}>Close</Button>
+                </DialogActions>
+            </Dialog>
 
             {/* Promote to Affiliate Dialog */}
             <Dialog open={promoteDialogOpen} onClose={() => setPromoteDialogOpen(false)} maxWidth="xs" fullWidth>
