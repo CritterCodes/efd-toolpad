@@ -60,12 +60,27 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ success: false, error: 'No valid fields to update.' }, { status: 400 });
   }
 
+  const changingCode = Boolean(updates.code) && updates.code.toLowerCase().trim() !== affiliate.code;
   if (updates.code) {
     updates.code = updates.code.toLowerCase().trim();
-    const conflict = await col.findOne({ code: updates.code, affiliateId: { $ne: affiliateId } });
+    // A code is taken if it's ANYONE else's current code OR in their previousCodes —
+    // old codes still resolve in the shop's /r/ redirect, so handing one to a second
+    // affiliate would route their printed links to the wrong person.
+    const conflict = await col.findOne({
+      affiliateId: { $ne: affiliateId },
+      $or: [{ code: updates.code }, { previousCodes: updates.code }],
+    });
     if (conflict) {
       return NextResponse.json({ success: false, error: 'Affiliate code already taken.' }, { status: 409 });
     }
+  }
+
+  // Keep printed links under the old code alive: the shop matches
+  // { $or: [{ code }, { previousCodes: code }] } in /r/ and referral capture.
+  // Re-taking one of your own old codes pulls it back out of the history.
+  if (changingCode) {
+    const prev = Array.isArray(affiliate.previousCodes) ? affiliate.previousCodes : [];
+    updates.previousCodes = [...new Set([...prev, affiliate.code])].filter((c) => c !== updates.code);
   }
 
   updates.updatedAt = new Date();
