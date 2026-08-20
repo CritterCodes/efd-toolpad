@@ -62,6 +62,7 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ success: false, error: 'No valid fields to update.' }, { status: 400 });
   }
 
+  const changingCode = Boolean(updates.code) && updates.code.toLowerCase().trim() !== affiliate.code;
   if (updates.code) {
     updates.code = String(updates.code).toLowerCase().trim();
     if (!AFFILIATE_CODE_RX.test(updates.code)) {
@@ -70,10 +71,24 @@ export async function PATCH(request, { params }) {
         { status: 400 },
       );
     }
-    const conflict = await col.findOne({ code: updates.code, affiliateId: { $ne: affiliateId } });
+    // A code is taken if it's ANYONE else's current code OR in their previousCodes —
+    // old codes still resolve in the shop's /r/ redirect, so handing one to a second
+    // affiliate would route their printed links to the wrong person.
+    const conflict = await col.findOne({
+      affiliateId: { $ne: affiliateId },
+      $or: [{ code: updates.code }, { previousCodes: updates.code }],
+    });
     if (conflict) {
       return NextResponse.json({ success: false, error: 'Affiliate code already taken.' }, { status: 409 });
     }
+  }
+
+  // Keep printed links under the old code alive: the shop matches
+  // { $or: [{ code }, { previousCodes: code }] } in /r/ and referral capture.
+  // Re-taking one of your own old codes pulls it back out of the history.
+  if (changingCode) {
+    const prev = Array.isArray(affiliate.previousCodes) ? affiliate.previousCodes : [];
+    updates.previousCodes = [...new Set([...prev, affiliate.code])].filter((c) => c !== updates.code);
   }
 
   updates.updatedAt = new Date();
@@ -90,8 +105,8 @@ export async function PATCH(request, { params }) {
 
   // Campaigns snapshot the affiliate's code (it's half of every /r/<code>/<campaign> link).
   // A code change without this re-sync leaves the dashboard handing out links built from the
-  // OLD code, which the shop's redirect no longer resolves. NOTE: links already printed or
-  // shared under the old code stop working either way — changing a live code is destructive.
+  // OLD code. Links already printed under the old code keep working via previousCodes —
+  // the shop's /r/ redirect matches those too and forwards the current code.
   if (updates.code && updates.code !== affiliate.code) {
     const campaignsCol = await db.dbAffiliateCampaigns();
     await campaignsCol.updateMany({ affiliateId }, { $set: { affiliateCode: updates.code, updatedAt: new Date() } });
