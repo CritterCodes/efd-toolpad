@@ -235,14 +235,21 @@ export const POST = async (request) => {
           },
         });
       }
-      await notifyAllAdmins({
-        type: "new-repair-lead",
-        title: "New repair lead received",
-        message: `A new repair was submitted${newRepair.clientName ? ` for ${newRepair.clientName}` : ""}.`,
-        actionUrl: `${adminUrl}/dashboard/repairs/${newRepair.repairID}`,
-        priority: "normal",
-        relatedData: { repairID: newRepair.repairID, clientName: newRepair.clientName || "" },
-      });
+      // A repair created BY the shop's own people at the counter is the day's work, not a
+      // lead — emailing every admin about intake they just did themselves was pure noise.
+      // Only an EXTERNAL submitter (a wholesaler sending work in) is news worth an alert;
+      // customer-originated leads never come through this authenticated route at all.
+      const INTERNAL_ROLES = ["admin", "dev", "artisan"];
+      if (!INTERNAL_ROLES.includes(session.user.role)) {
+        await notifyAllAdmins({
+          type: "new-repair-lead",
+          title: "New repair lead received",
+          message: `A new repair was submitted${newRepair.clientName ? ` for ${newRepair.clientName}` : ""}.`,
+          actionUrl: `${adminUrl}/dashboard/repairs/${newRepair.repairID}`,
+          priority: "normal",
+          relatedData: { repairID: newRepair.repairID, clientName: newRepair.clientName || "" },
+        });
+      }
     };
     notifyRepairLead().catch((notifyError) => {
       console.error("R1 repair-lead notification failed (non-fatal):", notifyError.message);

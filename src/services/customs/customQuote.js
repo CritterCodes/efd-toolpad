@@ -115,6 +115,12 @@ export function computeQuote(quote = {}, settings = {}) {
     + (quote.materialCosts || []).reduce((s, m) => s + legacyLine(m), 0); // legacy fallback
   const materialsTotal = centerstoneCost + otherMaterialsTotal;
   const laborTotal = lineSum(quote.laborTasks) + n(quote.laborCost);       // + legacy flat
+  // PASS-THROUGH labor lines (owner, 2026-08-19): the GLB-creation and CAD-QC-review lines
+  // are peer artisans' fees EFD collects and hands over — same principle as the design fee,
+  // so they earn no markup and take no rush. Flagged per line (`passThrough`) by the auto-add;
+  // still full members of `cog`, so margin stays honest about what the job really cost.
+  const laborPassThroughTotal = lineSum((quote.laborTasks || []).filter((t) => t.passThrough));
+  const laborMarkedLines = (quote.laborTasks || []).filter((t) => !t.passThrough);
   const shippingTotal = lineSum(quote.shippingCosts) + n(quote.shippingCost);
   const castingTotal = n(quote.castingCost);
   const designTotal = n(quote.designFee);
@@ -150,13 +156,16 @@ export function computeQuote(quote = {}, settings = {}) {
     // engraver charging $550 — is a vendor's invoice, not EFD bench time; forcing the blanket 2.5×
     // on it either overcharges the customer or forces the quoter to fake the cost. Markup 1 passes
     // it through at cost; anything between 1 and the default prices partial value-add. Blank/0 ⇒
-    // the default markup, so existing quotes are priced exactly as before.
-    + lineRevenue(quote.laborTasks, cogMarkup) + n(quote.laborCost) * cogMarkup
+    // the default markup, so existing quotes are priced exactly as before. Lines flagged
+    // `passThrough` (GLB / CAD QC review) are excluded here entirely — added at cost below.
+    + lineRevenue(laborMarkedLines, cogMarkup) + n(quote.laborCost) * cogMarkup
     // Casting IS marked up — it is a production step in making the piece (alloy choice, file prep,
     // vendor management, and EFD eats a bad cast), exactly like the mounting metal. Not to be confused
     // with the at-cost rule for billing an ARTISAN for casting their own piece: that is EFD declining to
     // rent out infrastructure, and it does not apply to a customer buying a finished ring.
-    + (castingTotal + glbTotal + qcTotal) * cogMarkup;
+    // The legacy glbFee/qcReviewFee FIELDS (pre-T2 orders) moved out on 2026-08-19: those fees are
+    // peer artisans' work and pass through below, same as their labor-line successors.
+    + castingTotal * cogMarkup;
 
   // RUSH DOES NOT TOUCH THE CENTRE STONE (owner, 2026-08-11). A rush premium prices EFD's capacity —
   // reordering the bench queue, overtime, bumping other clients. A bought-in stone costs the same
@@ -191,7 +200,10 @@ export function computeQuote(quote = {}, settings = {}) {
   const quoteTotal = (rushableRevenue * rushMultiplier)
     + (centerstoneCost * centerstoneMarkup)
     + shippingTotal
-    + designTotal;
+    + designTotal
+    // Peer-artisan fees pass through at cost, un-rushed: the flagged GLB / QC-review labor
+    // lines on new orders, and the equivalent legacy fee fields on pre-T2 orders.
+    + laborPassThroughTotal + glbTotal + qcTotal;
 
   // Sales tax sits ON TOP of the marked-up price (it's a pass-through liability, not
   // revenue/margin). Rate comes from admin settings (settings.taxRate, a fraction);
@@ -212,8 +224,8 @@ export function computeQuote(quote = {}, settings = {}) {
     // The cost of the work EFD actually marked up — everything except the pass-throughs. The margin
     // floor is measured against THIS, so a $70 shipping line at zero margin cannot read as a loss on
     // EFD's labour. `passThroughTotal` is what earns nothing by design.
-    workCog: round(cogExCenterstone - shippingTotal - designTotal),
-    passThroughTotal: round(centerstoneCost + shippingTotal + designTotal),
+    workCog: round(cogExCenterstone - shippingTotal - designTotal - laborPassThroughTotal - glbTotal - qcTotal),
+    passThroughTotal: round(centerstoneCost + shippingTotal + designTotal + laborPassThroughTotal + glbTotal + qcTotal),
     laborTotal: round(laborTotal),
     shippingTotal: round(shippingTotal),
     castingTotal: round(castingTotal),

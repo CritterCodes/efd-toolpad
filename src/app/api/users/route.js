@@ -34,8 +34,19 @@ export async function POST(req) {
  * Otherwise, fetch all users
  */
 export async function GET(req) {
-    const { errorResponse } = await requireAuth();
+    const { session, errorResponse } = await requireAuth();
     if (errorResponse) return errorResponse;
+
+    // THE USER DIRECTORY IS SHOP-FLOOR ONLY. requireAuth alone meant ANY login — a customer,
+    // a freshly promoted affiliate — could dump every user's name/email/phone with a bare GET.
+    // Staff and artisans genuinely need it (intake at /dashboard/repairs/new and the customs
+    // stepper search the client base; artisans ARE the counter staff here). Nobody else does:
+    // wholesalers have their own client surfaces, and affiliates get privacy-masked referred
+    // clients from /api/affiliates/metrics, never raw user documents.
+    if (![...STAFF_ROLES, 'artisan'].includes(session.user?.role)) {
+        return new Response(JSON.stringify({ success: false, error: 'Access denied.' }), { status: 403 });
+    }
+
     const { searchParams } = new URL(req.url);
     const query = searchParams.get("query");
     const role = searchParams.get("role");

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/apiAuth';
 import { db } from '@/lib/database';
 import { v4 as uuidv4 } from 'uuid';
+import { AFFILIATE_CODE_RX } from '@/lib/affiliateCode';
 
 // GET /api/affiliates — admin only, paginated list
 export async function GET(request) {
@@ -42,9 +43,17 @@ export async function POST(request) {
     return NextResponse.json({ success: false, error: 'userId and code are required.' }, { status: 400 });
   }
 
+  const normalizedCode = String(code).toLowerCase().trim();
+  if (!AFFILIATE_CODE_RX.test(normalizedCode)) {
+    return NextResponse.json(
+      { success: false, error: 'Code must be 3–30 characters: lowercase letters, numbers, and hyphens.' },
+      { status: 400 },
+    );
+  }
+
   const col = await db.dbAffiliates();
 
-  const existing = await col.findOne({ code });
+  const existing = await col.findOne({ code: normalizedCode });
   if (existing) {
     return NextResponse.json({ success: false, error: 'Affiliate code already taken.' }, { status: 409 });
   }
@@ -52,7 +61,7 @@ export async function POST(request) {
   const now = new Date();
   const affiliate = {
     affiliateId: `aff_${uuidv4().slice(-8)}`,
-    code: code.toLowerCase().trim(),
+    code: normalizedCode,
     userId,
     name: name || '',
     email: email || '',

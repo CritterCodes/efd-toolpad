@@ -120,6 +120,9 @@ export async function getTaskSuggestions(search = '', limit = 40, context = null
  */
 export async function getCustomTaskLine(title, {
   autoKey = null, fallbackCost = 0, discipline = 'cad', noWorkOrder = true,
+  // Peer-artisan fees (GLB, CAD QC review) pass through at cost — no markup, no rush —
+  // same principle as the design fee: EFD takes no cut of another artisan's craft.
+  passThrough = false,
 } = {}) {
   let cost = 0; let hours = 0;
   try {
@@ -136,6 +139,8 @@ export async function getCustomTaskLine(title, {
     description: title, quantity: 1, cost: resolved,
     hours: deriveHours(resolved, hours, wage),
     discipline, source: 'auto', autoKey, noWorkOrder,
+    // markup: 1 rides along for the editor's display; the engine keys off the flag itself.
+    ...(passThrough ? { passThrough: true, markup: 1 } : {}),
   };
 }
 

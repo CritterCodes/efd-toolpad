@@ -19,18 +19,14 @@ export default function AffiliateClientsPage() {
   useEffect(() => {
     async function load() {
       try {
+        // The metrics endpoint returns referred clients ALREADY privacy-masked (name +
+        // last initial, email stub). This page used to fetch each full user document via
+        // /api/users and mask it in the browser — which masked nothing, and that endpoint
+        // is now staff/artisan-only anyway.
         const mRes = await fetch('/api/affiliates/metrics');
         const mData = await mRes.json();
         if (!mData.success) throw new Error(mData.error || 'Failed to load metrics.');
-
-        const userIds = mData.data?.referredUserIds || [];
-        if (!userIds.length) { setClients([]); return; }
-
-        const userPromises = userIds.slice(0, 50).map((id) =>
-          fetch(`/api/users?query=${id}`).then((r) => r.json()).catch(() => null)
-        );
-        const users = (await Promise.all(userPromises)).filter(Boolean).map((u) => u.user || u).filter(Boolean);
-        setClients(users);
+        setClients(mData.data?.referredClients || []);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -107,13 +103,9 @@ export default function AffiliateClientsPage() {
                     '&:last-child td': { borderBottom: 'none' },
                   }}
                 >
-                  <TableCell sx={{ color: UI.textPrimary }}>
-                    {`${c.firstName || ''} ${c.lastName ? c.lastName[0] + '.' : ''}`.trim() || '—'}
-                  </TableCell>
-                  <TableCell sx={{ color: UI.textSecondary, fontFamily: 'monospace' }}>
-                    {c.email ? `${c.email.split('@')[0].slice(0, 2)}***@${c.email.split('@')[1]}` : '—'}
-                  </TableCell>
-                  <TableCell sx={{ color: UI.textSecondary }}>{fmtDate(c.createdAt)}</TableCell>
+                  <TableCell sx={{ color: UI.textPrimary }}>{c.name || '—'}</TableCell>
+                  <TableCell sx={{ color: UI.textSecondary, fontFamily: 'monospace' }}>{c.maskedEmail || '—'}</TableCell>
+                  <TableCell sx={{ color: UI.textSecondary }}>{fmtDate(c.memberSince)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

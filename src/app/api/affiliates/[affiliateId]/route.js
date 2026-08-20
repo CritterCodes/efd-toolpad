@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { requireAuth, requireRole } from '@/lib/apiAuth';
 import { db } from '@/lib/database';
 
+import { AFFILIATE_CODE_RX } from '@/lib/affiliateCode';
+
 function isAdminOrDev(role) {
   return role === 'admin' || role === 'dev';
 }
@@ -61,7 +63,13 @@ export async function PATCH(request, { params }) {
   }
 
   if (updates.code) {
-    updates.code = updates.code.toLowerCase().trim();
+    updates.code = String(updates.code).toLowerCase().trim();
+    if (!AFFILIATE_CODE_RX.test(updates.code)) {
+      return NextResponse.json(
+        { success: false, error: 'Code must be 3–30 characters: lowercase letters, numbers, and hyphens.' },
+        { status: 400 },
+      );
+    }
     const conflict = await col.findOne({ code: updates.code, affiliateId: { $ne: affiliateId } });
     if (conflict) {
       return NextResponse.json({ success: false, error: 'Affiliate code already taken.' }, { status: 409 });
@@ -78,6 +86,15 @@ export async function PATCH(request, { params }) {
 
   if (!result) {
     return NextResponse.json({ success: false, error: 'Affiliate not found.' }, { status: 404 });
+  }
+
+  // Campaigns snapshot the affiliate's code (it's half of every /r/<code>/<campaign> link).
+  // A code change without this re-sync leaves the dashboard handing out links built from the
+  // OLD code, which the shop's redirect no longer resolves. NOTE: links already printed or
+  // shared under the old code stop working either way — changing a live code is destructive.
+  if (updates.code && updates.code !== affiliate.code) {
+    const campaignsCol = await db.dbAffiliateCampaigns();
+    await campaignsCol.updateMany({ affiliateId }, { $set: { affiliateCode: updates.code, updatedAt: new Date() } });
   }
 
   return NextResponse.json({ success: true, data: result });

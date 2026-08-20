@@ -14,10 +14,27 @@ describe('computeQuote (structured single-COG bucket)', () => {
     }, { cogMarkup: 2.5 });
     // 700 + 100 + 50 + 150 + 20 + 60 + 100 + 30 + 25 = 1235
     expect(q.cog).toBeCloseTo(1235, 2);
-    // Shipping ($20) and the design fee ($100) PASS THROUGH at cost; everything else takes 2.5×.
-    // (1235 − 20 − 100) × 2.5 + 20 + 100 = 2907.50. Originally 1235 × 2.5 = 3087.50 — i.e. $30 of
-    // margin on a courier's invoice and $150 on the designer's own fee.
-    expect(q.quoteTotal).toBeCloseTo(2907.5, 2);
+    // Shipping ($20), the design fee ($100), AND the legacy GLB/QC fee fields ($30/$25 —
+    // peer artisans' fees, 2026-08-19) PASS THROUGH at cost; everything else takes 2.5×.
+    // (1235 − 20 − 100 − 30 − 25) × 2.5 + 20 + 100 + 30 + 25 = 2825.00.
+    expect(q.quoteTotal).toBeCloseTo(2825, 2);
+  });
+
+  it('labor lines flagged passThrough (GLB / CAD QC review) earn no markup and no rush', () => {
+    const q = computeQuote({
+      laborTasks: [
+        { description: 'GLB Creation', quantity: 1, cost: 50, passThrough: true, markup: 1 },
+        { description: 'CAD QC Review', quantity: 1, cost: 25, passThrough: true, markup: 1 },
+        { description: 'Set stones', quantity: 1, cost: 100 },
+      ],
+      isRush: true,
+    }, { cogMarkup: 2.5, rushMultiplier: 1.5 });
+    expect(q.cog).toBeCloseTo(175, 2);
+    // Bench work: 100 × 2.5 × 1.5 = 375. Peer fees ride at cost, un-rushed: + 75.
+    expect(q.quoteTotal).toBeCloseTo(450, 2);
+    // And the margin floor judges EFD's work alone — the peer fees are pass-through cost.
+    expect(q.workCog).toBeCloseTo(100, 2);
+    expect(q.passThroughTotal).toBeCloseTo(75, 2);
   });
 
   it('honours a per-line markup on labor: an outsourced engraver passes through at ×1', () => {
@@ -446,9 +463,11 @@ describe('design fee passes through at cost', () => {
     expect(q.quoteTotal).toBe(250);          // deliberately 2.5×
   });
 
-  it('the QC review fee is still marked up — that review belongs to EFD', () => {
+  it('the legacy QC review fee passes through — a peer artisan\'s fee (owner, 2026-08-19)', () => {
+    // Reverses the earlier "review belongs to EFD" rule: QC review is paid to the reviewing
+    // peer designer, so like the design fee EFD collects it and hands it over — no markup, no rush.
     const q = computeQuote({ qcReviewFee: 25 }, base);
-    expect(q.quoteTotal).toBe(62.5);
+    expect(q.quoteTotal).toBe(25);
   });
 
   it('workCog excludes both pass-throughs so neither reads as a loss on the labour', () => {

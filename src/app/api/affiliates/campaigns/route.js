@@ -16,13 +16,18 @@ export async function GET(request) {
   const affiliateId = searchParams.get('affiliateId');
 
   const query = {};
-  if (affiliateId) {
-    query.affiliateId = affiliateId;
-  } else if (!isAdminOrDev(session.user.role)) {
-    // Non-admins must filter by affiliateId
+  if (isAdminOrDev(session.user.role)) {
+    if (affiliateId) query.affiliateId = affiliateId; // admins may scope to anyone (or list all)
+  } else {
+    // NON-ADMINS SEE ONLY THEIR OWN — regardless of what affiliateId they pass. The old
+    // shape trusted a supplied affiliateId before falling back to ownership, so any
+    // authenticated user could enumerate another affiliate's campaigns by id.
     const affiliatesCol = await db.dbAffiliates();
     const affiliate = await affiliatesCol.findOne({ userId: session.user.userID });
     if (!affiliate) return NextResponse.json({ success: true, data: [] });
+    if (affiliateId && affiliateId !== affiliate.affiliateId) {
+      return NextResponse.json({ success: false, error: 'Access denied.' }, { status: 403 });
+    }
     query.affiliateId = affiliate.affiliateId;
   }
 
