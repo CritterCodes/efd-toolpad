@@ -123,6 +123,17 @@ async function processCredit(credit) {
     }).catch((e) => console.error('⚠️ shop-payment notification failed:', e.message));
   }
 
+  // 2b. PAID IN FULL is the affiliate commission trigger — a shop payment can be the
+  // one that completes the order. Best-effort; the commission cron is the backstop.
+  if (progress.isFullyPaid && order.affiliate?.affiliateId && !order.affiliate?.commissionId) {
+    try {
+      const { earnCustomOrderCommission } = await import('@/services/affiliates/commissionEngine');
+      await earnCustomOrderCommission(credit.customID);
+    } catch (e) {
+      console.error(`⚠️ affiliate commission for ${credit.customID} failed (cron will retry):`, e.message);
+    }
+  }
+
   // 3. Receipt with the remaining balance. sendCustomReceiptEmail cannot throw; a failed
   // send is recorded on the credit so it can be chased, not silently forgotten.
   const { sendCustomReceiptEmail } = await import('@/services/customs/customInvoiceDelivery');

@@ -323,6 +323,19 @@ export async function setCustomInvoiceStatus(customID, invoiceID, status, paymen
       const target = p.hasReached50 ? CUSTOM_ORDER_STATUS.IN_PRODUCTION : CUSTOM_ORDER_STATUS.DEPOSIT;
       // eslint-disable-next-line no-await-in-loop
       await advanceCustomOrderStatus(o.customID, target, { reason: `payment ${p.paymentProgress}%`, order: o });
+      // PAID IN FULL is the affiliate commission trigger. Lazy import (the engine reads
+      // progress from this module); best-effort — a commission failure must never undo
+      // a payment that already happened. The cron sweep is the backstop.
+      if (p.isFullyPaid && o.affiliate?.affiliateId && !o.affiliate?.commissionId) {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          const { earnCustomOrderCommission } = await import('@/services/affiliates/commissionEngine');
+          // eslint-disable-next-line no-await-in-loop
+          await earnCustomOrderCommission(o.customID);
+        } catch (e) {
+          console.error(`⚠️ affiliate commission for ${o.customID} failed (cron will retry):`, e.message);
+        }
+      }
     }
     notifyPayment(order, invoice, progress); // fire-and-forget
 

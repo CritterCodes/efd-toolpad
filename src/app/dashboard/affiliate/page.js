@@ -1,10 +1,11 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import {
-  Box, Typography, Grid, Card, CardContent,
-  CircularProgress, Alert, TextField, Button, InputAdornment
+  Box, Typography, Grid, Card, CardContent, Chip,
+  CircularProgress, Alert, TextField, Button, InputAdornment,
+  Table, TableHead, TableRow, TableCell, TableBody,
 } from '@mui/material';
-import { BarChart as BarChartIcon, CheckCircle as CheckIcon, People as PeopleIcon, Edit as EditIcon, Save as SaveIcon, Link2 as AffiliateIcon } from '@mui/icons-material';
+import { BarChart as BarChartIcon, CheckCircle as CheckIcon, People as PeopleIcon, Edit as EditIcon, Save as SaveIcon, Paid as PaidIcon } from '@mui/icons-material';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
@@ -13,6 +14,7 @@ export default function AffiliateDashboardPage() {
   const router = useRouter();
   const [affiliate, setAffiliate] = useState(null);
   const [metrics, setMetrics] = useState(null);
+  const [earnings, setEarnings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -24,11 +26,12 @@ export default function AffiliateDashboardPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [affRes, mRes] = await Promise.all([
+        const [affRes, mRes, cRes] = await Promise.all([
           fetch('/api/affiliates/me'),
           fetch('/api/affiliates/metrics'),
+          fetch('/api/affiliates/commissions'),
         ]);
-        const [affData, mData] = await Promise.all([affRes.json(), mRes.json()]);
+        const [affData, mData, cData] = await Promise.all([affRes.json(), mRes.json(), cRes.json()]);
 
         if (!affData.success) {
           setError('No affiliate profile found for your account.');
@@ -37,6 +40,7 @@ export default function AffiliateDashboardPage() {
         setAffiliate(affData.data);
         setCodeInput(affData.data.code || '');
         if (mData.success) setMetrics(mData.data);
+        if (cData.success) setEarnings(cData.data);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -73,7 +77,10 @@ export default function AffiliateDashboardPage() {
     { label: 'Total Clicks', value: metrics?.clicks ?? '—', icon: <BarChartIcon color="primary" /> },
     { label: 'Custom Requests', value: metrics?.requests ?? '—', icon: <CheckIcon color="success" /> },
     { label: 'Referred Clients', value: metrics?.referredClientsCount ?? '—', icon: <PeopleIcon color="secondary" /> },
+    { label: 'Earned', value: earnings ? `$${(earnings.totals?.earned ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—', icon: <PaidIcon color="warning" /> },
   ];
+
+  const COMMISSION_CHIP = { earned: 'success', needs_review: 'warning', void: 'default' };
 
   return (
     <Box sx={{ pb: 10 }}>
@@ -125,7 +132,7 @@ export default function AffiliateDashboardPage() {
           {/* Metrics */}
           <Grid container spacing={3}>
             {stats.map((s) => (
-              <Grid item xs={12} sm={4} key={s.label}>
+              <Grid item xs={12} sm={3} key={s.label}>
                 <Card>
                   <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     {s.icon}
@@ -138,6 +145,45 @@ export default function AffiliateDashboardPage() {
               </Grid>
             ))}
           </Grid>
+
+          {/* Earnings ledger */}
+          <Card sx={{ mt: 3 }}>
+            <CardContent>
+              <Typography variant="subtitle2" color="text.secondary" mb={1}>Commissions</Typography>
+              {!earnings?.commissions?.length ? (
+                <Typography variant="body2" color="text.secondary">
+                  No commissions yet. You earn a percentage of the pre-tax profit on each referred
+                  order once it&rsquo;s paid in full — payouts ride the regular payroll cycle.
+                </Typography>
+              ) : (
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Date</TableCell>
+                      <TableCell>Type</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell align="right">Amount</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {earnings.commissions.map((c) => (
+                      <TableRow key={c.commissionId}>
+                        <TableCell>{c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '—'}</TableCell>
+                        <TableCell>{c.conversionType === 'product_sale' ? 'Purchase' : 'Custom order'}</TableCell>
+                        <TableCell>
+                          <Chip size="small" color={COMMISSION_CHIP[c.status] || 'default'}
+                            label={c.status === 'needs_review' ? 'processing' : c.status} />
+                        </TableCell>
+                        <TableCell align="right">
+                          {c.status === 'needs_review' ? '—' : `$${(c.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
         </>
       )}
     </Box>
