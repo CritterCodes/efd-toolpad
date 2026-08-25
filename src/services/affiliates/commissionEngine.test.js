@@ -21,6 +21,9 @@ const sourceUpdates = [];
 let pendingCustomOrders = [];
 let pendingShopOrders = [];
 let laborLogDocs = [];
+const adminNotifications = [];
+// Default: the order priced cleanly (catalogue sale, cost known).
+let profitResult = { ok: true, revenue: 1850, cost: 850, profit: 1000, lines: [] };
 
 const commissionsColMock = {
   updateOne: vi.fn(async (filter, update) => {
@@ -88,6 +91,13 @@ vi.mock('@/app/api/repairLaborLogs/model', () => ({
 }));
 vi.mock('@/lib/notificationService', () => ({
   NotificationService: { createNotification: vi.fn(async (n) => { notifications.push(n); }) },
+  notifyAllAdmins: vi.fn(async (n) => { adminNotifications.push(n); }),
+}));
+vi.mock('@/lib/appUrls', () => ({ adminBase: () => 'https://admin.test', portalLink: (id) => `https://shop.test/${id}` }));
+// The profit resolver has its own suite (orderProfit.test.js); scripted here so each
+// commission path — auto-earn, review, skip — can be driven deliberately.
+vi.mock('@/services/affiliates/orderProfit', () => ({
+  resolveOrderProfit: vi.fn(async () => profitResult),
 }));
 vi.mock('@/services/customs/customInvoices.service', () => ({
   getCustomPaymentProgress: vi.fn(async () => ({ progress })),
@@ -98,6 +108,8 @@ const engine = await import('@/services/affiliates/commissionEngine');
 beforeEach(() => {
   commissions.clear(); laborLogs.length = 0; notifications.length = 0; sourceUpdates.length = 0;
   pendingCustomOrders = []; pendingShopOrders = []; laborLogDocs = []; currentCollection = null;
+  adminNotifications.length = 0;
+  profitResult = { ok: true, revenue: 1850, cost: 850, profit: 1000, lines: [] };
   claimResults = [true];
   progress = { isFullyPaid: true };
   affiliate = { affiliateId: 'aff_1', code: 'shanin', userId: 'u-shanin', name: 'Shanin', commissionRate: 0.2 };
@@ -181,14 +193,33 @@ describe('recordProductSaleCommission', () => {
     ...over,
   });
 
-  it('creates a needs-review record with revenue figures and NO payout yet', async () => {
+  it('AUTO-EARNS when the order can be priced from product cost — no human needed', async () => {
+    profitResult = { ok: true, revenue: 1850, cost: 850, profit: 1000, lines: [{ productId: 'p1' }] };
     const r = await engine.recordProductSaleCommission(shopOrder());
     expect(r.recorded).toBe(true);
+    expect(r.earned).toBe(true);
+    const c = commissions.get('comm-ord-1');
+    expect(c.status).toBe('earned');
+    expect(c.basis.kind).toBe('product_sale_cost_basis');
+    expect(c.basis.profit).toBe(1000);
+    expect(c.amount).toBe(100);            // 1000 profit × the 10% snapshot
+    expect(laborLogs).toHaveLength(1);     // paid through payroll, like every other commission
+    expect(adminNotifications).toHaveLength(0); // nobody interrupted
+  });
+
+  it('falls back to review WITH A REASON when the cost is unknowable, and tells admin', async () => {
+    profitResult = { ok: false, needsReview: true, reason: '"Chain" has no cost basis recorded' };
+    const r = await engine.recordProductSaleCommission(shopOrder());
+    expect(r.recorded).toBe(true);
+    expect(r.earned).toBe(false);
     const c = commissions.get('comm-ord-1');
     expect(c.status).toBe('needs_review');
-    expect(c.basis.orderTotal).toBe(2025.75);
+    expect(c.basis.reviewReason).toMatch(/no cost basis/);
     expect(c.basis.taxAmount).toBe(175.75); // reads the shop's `tax` field, not `taxAmount`
     expect(laborLogs).toHaveLength(0);
+    // The gap that let commissions sit unnoticed: admin is now told.
+    expect(adminNotifications).toHaveLength(1);
+    expect(adminNotifications[0].type).toBe('affiliate-commission-review');
   });
 
   it('a PURE custom-payment cart is skipped — the customs trigger owns that money', async () => {
@@ -201,12 +232,18 @@ describe('recordProductSaleCommission', () => {
   // THE MTO BUG (fixed 2026-08-25): made-to-order sales settle as 'accepted', never
   // 'paid'. The sweep filtered on 'paid' alone, so every MTO sale was attributed and
   // converted on the affiliate's dashboard but silently never commissioned.
-  it('an ACCEPTED made-to-order sale earns — it is the MTO equivalent of paid', async () => {
+  it('an ACCEPTED made-to-order sale is commissioned — it is the MTO equivalent of paid', async () => {
+    // The resolver refuses MTO lines for real (a variant stores price, not cost), so
+    // this lands as review. The POINT of this test is that it is picked up AT ALL:
+    // before the 2026-08-25 fix, `accepted` wasn't a commissionable state and every
+    // MTO sale was attributed, converted, and then silently never commissioned.
+    profitResult = { ok: false, needsReview: true, reason: 'made-to-order line (d1) — a variant stores its price but not its cost' };
     const r = await engine.recordProductSaleCommission(
       shopOrder({ orderId: 'ord-mto', kind: 'made_to_order', fulfillmentStatus: 'accepted' }),
     );
     expect(r.recorded).toBe(true);
     expect(commissions.get('comm-ord-mto').status).toBe('needs_review');
+    expect(commissions.get('comm-ord-mto').basis.reviewReason).toMatch(/made-to-order/);
   });
 
   it.each([
@@ -281,6 +318,7 @@ describe('recordProductSaleCommission', () => {
   });
 
   it('approval computes amount at the snapshotted rate and writes the payout', async () => {
+    profitResult = { ok: false, needsReview: true, reason: 'unpriceable' }; // force the review path
     await engine.recordProductSaleCommission(shopOrder());
     const r = await engine.approveCommission({ commissionId: 'comm-ord-1', profit: 600, approvedBy: 'admin' });
     expect(r.amount).toBe(60); // 600 × 10% snapshot, not the 20% profile
@@ -290,6 +328,7 @@ describe('recordProductSaleCommission', () => {
   });
 
   it('an earned commission with a payroll entry REFUSES to void silently', async () => {
+    profitResult = { ok: false, needsReview: true, reason: 'unpriceable' };
     await engine.recordProductSaleCommission(shopOrder());
     await engine.approveCommission({ commissionId: 'comm-ord-1', profit: 600, approvedBy: 'admin' });
     await expect(engine.voidCommission({ commissionId: 'comm-ord-1', voidedBy: 'admin' }))
@@ -297,6 +336,7 @@ describe('recordProductSaleCommission', () => {
   });
 
   it('a needs-review commission voids cleanly', async () => {
+    profitResult = { ok: false, needsReview: true, reason: 'unpriceable' };
     await engine.recordProductSaleCommission(shopOrder());
     const r = await engine.voidCommission({ commissionId: 'comm-ord-1', reason: 'refund', voidedBy: 'admin' });
     expect(r.status).toBe('void');

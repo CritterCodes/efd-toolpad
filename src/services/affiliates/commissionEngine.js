@@ -28,7 +28,9 @@
 import { db } from '@/lib/database';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
 import RepairLaborLogsModel from '@/app/api/repairLaborLogs/model';
-import { NotificationService } from '@/lib/notificationService';
+import { NotificationService, notifyAllAdmins } from '@/lib/notificationService';
+import { adminBase } from '@/lib/appUrls';
+import { resolveOrderProfit } from '@/services/affiliates/orderProfit';
 
 export const COMMISSION_STATUS = {
   NEEDS_REVIEW: 'needs_review', // product sale awaiting an admin-entered profit
@@ -97,6 +99,23 @@ function notifyEarned(affiliate, commission) {
     channels: ['inApp'],
     data: { commissionId: commission.commissionId, sourceID: commission.sourceID },
   }).catch((e) => console.error('⚠️ commission-earned notification failed:', e.message));
+}
+
+/**
+ * Tell admin a commission needs pricing. Without this, a review item is only findable
+ * by opening that particular affiliate's detail page — so an affiliate could simply
+ * never be paid and nobody would know. Best-effort; the queue on the affiliates list
+ * is the durable surface, this is the nudge.
+ */
+async function notifyAdminsOfReview(commission) {
+  await notifyAllAdmins({
+    type: 'affiliate-commission-review',
+    title: 'Affiliate commission needs a profit figure',
+    message: `${commission.affiliateCode} earned a commission on ${commission.sourceID}, but it couldn't be priced automatically — ${commission.basis?.reviewReason || 'cost unavailable'}. Enter the pre-tax profit to approve it.`,
+    actionUrl: `${adminBase()}/dashboard/admin/affiliates/${commission.affiliateId}`,
+    priority: 'normal',
+    relatedData: { commissionId: commission.commissionId, affiliateId: commission.affiliateId },
+  });
 }
 
 /** First-wins claim on the source document. Returns true when THIS caller owns the work. */
@@ -236,11 +255,29 @@ export async function recordProductSaleCommission(order) {
   const rate = n(aff.commissionRate) > 0 ? n(aff.commissionRate) : n(affiliate.commissionRate);
   const commissionId = `comm-${order.orderId}`;
 
+  // Try to price it ourselves. Catalogue/RTS lines resolve from the product's recorded
+  // cost basis, so the common product sale earns without interrupting anyone; anything
+  // genuinely unknowable (an MTO variant, a product with no cost) falls through to
+  // review WITH ITS REASON, rather than every product sale queueing for a human.
+  const priced = await resolveOrderProfit(order).catch((e) => {
+    console.error(`[affiliates] profit resolve for ${order.orderId} failed:`, e.message);
+    return { ok: false, needsReview: true, reason: 'could not read product costs' };
+  });
+
+  // A cart that was ENTIRELY custom-order payments has nothing of its own to
+  // commission — the customs trigger pays that money. Not a review item.
+  if (!priced.ok && priced.needsReview === false) {
+    await setSourceStatus('orders', { orderId: order.orderId }, 'custom_only_skipped');
+    return { recorded: false, reason: priced.reason };
+  }
+
   if (!(await claimSource('orders', { orderId: order.orderId }, commissionId))) {
     return { recorded: false, reason: 'claimed by a concurrent trigger' };
   }
 
   try {
+    const auto = priced.ok;
+    const amount = auto ? round2(priced.profit * rate) : 0;
     const commission = {
       commissionId,
       affiliateId: affiliate.affiliateId,
@@ -250,26 +287,49 @@ export async function recordProductSaleCommission(order) {
       sourceID: order.orderId,
       conversionType: 'product_sale',
       rate,
-      basis: {
-        kind: 'product_sale_pending_profit',
-        orderTotal,
-        subtotal: n(order.subtotal) || null,
-        // The shop order stores `tax` (checkout route); `taxAmount` is the customs shape.
-        taxAmount: n(order.tax ?? order.taxAmount) || null,
-        customPaymentPortion: customTotal || 0,
-        note: 'Profit entered by admin at approval — product COGS is not derivable from the order.',
-      },
-      amount: 0,
-      status: COMMISSION_STATUS.NEEDS_REVIEW,
+      basis: auto
+        ? {
+          kind: 'product_sale_cost_basis',
+          revenue: priced.revenue,      // pre-tax, never the tax-inclusive total
+          cost: priced.cost,            // Σ product costBasis × qty
+          profit: priced.profit,
+          lines: priced.lines,          // per-line workings, so the number is explainable
+          customPaymentPortion: customTotal || 0,
+        }
+        : {
+          kind: 'product_sale_pending_profit',
+          orderTotal,
+          subtotal: n(order.subtotal) || null,
+          // The shop order stores `tax` (checkout route); `taxAmount` is the customs shape.
+          taxAmount: n(order.tax ?? order.taxAmount) || null,
+          customPaymentPortion: customTotal || 0,
+          // Say WHY a human is needed, so review is a decision and not a mystery.
+          reviewReason: priced.reason,
+          note: 'Enter the pre-tax profit to approve — this order could not be priced automatically.',
+        },
+      amount,
+      status: auto ? COMMISSION_STATUS.EARNED : COMMISSION_STATUS.NEEDS_REVIEW,
       laborLogId: null,
       createdAt: new Date(),
-      earnedAt: null,
+      earnedAt: auto ? new Date() : null,
     };
 
     const col = await commissionsCol();
     await col.updateOne({ commissionId }, { $setOnInsert: commission }, { upsert: true });
+
+    if (auto) {
+      if (amount > 0) {
+        const laborLogId = await writePayout({ commission, affiliate });
+        await col.updateOne({ commissionId }, { $set: { laborLogId } });
+      }
+      await setSourceStatus('orders', { orderId: order.orderId }, COMMISSION_STATUS.EARNED);
+      notifyEarned(affiliate, commission);
+      return { recorded: true, commissionId, earned: true, amount };
+    }
+
     await setSourceStatus('orders', { orderId: order.orderId }, COMMISSION_STATUS.NEEDS_REVIEW);
-    return { recorded: true, commissionId };
+    await notifyAdminsOfReview(commission).catch(() => {});
+    return { recorded: true, commissionId, earned: false, reason: priced.reason };
   } catch (e) {
     await releaseClaim('orders', { orderId: order.orderId }, e).catch(() => {});
     throw e;
@@ -486,6 +546,34 @@ export async function listPendingWork(affiliateId) {
 
   rows.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   return { rows, estimatedTotal, count: rows.filter((r) => !r.willNeverPay).length };
+}
+
+/**
+ * Every commission awaiting a profit figure, across ALL affiliates — admin's queue.
+ * Previously `needs_review` existed only on an individual affiliate's page, so a
+ * commission could wait indefinitely simply because nobody opened that page.
+ */
+export async function listReviewQueue({ limit = 100 } = {}) {
+  const col = await commissionsCol();
+  const rows = await col
+    .find({ status: COMMISSION_STATUS.NEEDS_REVIEW }, { projection: { _id: 0 } })
+    .sort({ createdAt: 1 }) // oldest first — the ones that have waited longest
+    .limit(limit)
+    .toArray();
+  return {
+    rows: rows.map((c) => ({
+      commissionId: c.commissionId,
+      affiliateId: c.affiliateId,
+      affiliateCode: c.affiliateCode,
+      sourceID: c.sourceID,
+      conversionType: c.conversionType,
+      rate: c.rate,
+      orderTotal: c.basis?.orderTotal ?? null,
+      reviewReason: c.basis?.reviewReason || null,
+      createdAt: c.createdAt || null,
+    })),
+    count: rows.length,
+  };
 }
 
 /**

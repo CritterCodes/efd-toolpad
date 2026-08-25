@@ -15,6 +15,9 @@ export default function AdminAffiliatesPage() {
   const [affiliates, setAffiliates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  // Commissions that couldn't be priced automatically. Surfaced HERE because it spans
+  // affiliates — buried on an individual's page, one could wait forever unnoticed.
+  const [review, setReview] = useState(null);
 
   useEffect(() => {
     fetch('/api/affiliates?limit=100')
@@ -25,6 +28,11 @@ export default function AdminAffiliatesPage() {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
+
+    fetch('/api/affiliates/commissions/review-queue')
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setReview(d.data); })
+      .catch(() => {});
   }, []);
 
   return (
@@ -64,6 +72,33 @@ export default function AdminAffiliatesPage() {
 
       {loading && <CircularProgress sx={{ color: UI.accent }} />}
       {error && <Alert severity="error">{error}</Alert>}
+
+      {/* Needs-pricing queue. Only rendered when there IS something waiting, so it
+          never becomes a permanent empty box people learn to ignore. */}
+      {review?.count > 0 && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 3, backgroundColor: UI.bgCard, color: UI.textPrimary, border: `1px solid ${UI.border}` }}
+        >
+          <Typography sx={{ fontWeight: 700, mb: 1 }}>
+            {review.count} commission{review.count === 1 ? '' : 's'} waiting on a profit figure
+          </Typography>
+          {review.rows.map((r) => (
+            <Box key={r.commissionId} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', mb: 0.5 }}>
+              <Typography variant="body2" sx={{ color: UI.textSecondary }}>
+                <strong>{r.affiliateCode}</strong> · {r.sourceID}
+                {r.orderTotal ? ` · order $${Number(r.orderTotal).toLocaleString()}` : ''}
+                {r.reviewReason ? ` — ${r.reviewReason}` : ''}
+                {r.createdAt ? ` · waiting since ${fmtDate(r.createdAt)}` : ''}
+              </Typography>
+              <Button size="small" onClick={() => router.push(`/dashboard/admin/affiliates/${r.affiliateId}`)}
+                sx={{ color: UI.accent, fontWeight: 600 }}>
+                Price it
+              </Button>
+            </Box>
+          ))}
+        </Alert>
+      )}
 
       {!loading && !error && affiliates.length === 0 && (
         <Box sx={{ p: 3, border: `1px solid ${UI.border}`, borderRadius: 2, backgroundColor: UI.bgCard }}>
