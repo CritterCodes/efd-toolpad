@@ -101,9 +101,12 @@ export default function AdminAffiliateDetailPage({ params }) {
     ['Custom Requests', metrics?.requests ?? '—'],
     ['Referred Clients', metrics?.referredClientsCount ?? '—'],
     ['Earned', earnings ? `$${(earnings.totals?.earned ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—'],
+    ['Awaiting payroll', earnings ? `$${(earnings.totals?.awaitingPayroll ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—'],
+    ['In progress', earnings?.pending ? `${earnings.pending.count} · ≈$${(earnings.pending.estimatedTotal ?? 0).toLocaleString()}` : '—'],
   ];
 
   const COMMISSION_CHIP = { earned: 'success', needs_review: 'warning', void: 'default' };
+  const PAYOUT_LABEL = { paid: 'paid out', batched: 'in payroll run', unbatched: 'next payroll' };
 
   return (
     <Box sx={{ pb: 10 }}>
@@ -242,7 +245,7 @@ export default function AdminAffiliateDetailPage({ params }) {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ backgroundColor: UI.bgTertiary }}>
-                {['Date', 'Source', 'Type', 'Basis (profit)', 'Rate', 'Amount', 'Status', ''].map((h) => (
+                {['Date', 'Source', 'Type', 'Basis (profit)', 'Rate', 'Amount', 'Status', 'Payout', ''].map((h) => (
                   <TableCell key={h} sx={{ color: UI.textMuted, fontWeight: 700, fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase', borderBottom: `1px solid ${UI.border}` }}>
                     {h}
                   </TableCell>
@@ -263,6 +266,11 @@ export default function AdminAffiliateDetailPage({ params }) {
                     {c.status === 'needs_review' ? '—' : `$${(c.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
                   </TableCell>
                   <TableCell><Chip size="small" label={c.status.replace('_', ' ')} color={COMMISSION_CHIP[c.status] || 'default'} /></TableCell>
+                  <TableCell>
+                    <Typography variant="caption" sx={{ color: c.payrollStatus === 'paid' ? '#66BB6A' : UI.textSecondary }}>
+                      {c.status === 'earned' ? (PAYOUT_LABEL[c.payrollStatus] || 'next payroll') : '—'}
+                    </Typography>
+                  </TableCell>
                   <TableCell>
                     {c.status === 'needs_review' && (
                       <Box sx={{ display: 'flex', gap: 1 }}>

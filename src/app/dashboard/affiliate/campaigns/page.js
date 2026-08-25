@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Button, Chip, CircularProgress, Alert, Stack, IconButton, Tooltip, Divider,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-  MenuItem, Select, FormControl, InputLabel, Snackbar
+  MenuItem, Select, FormControl, InputLabel, Snackbar, Autocomplete
 } from '@mui/material';
 import {
   Add as AddIcon, Link as LinkIcon, ContentCopy as CopyIcon,
@@ -31,6 +31,23 @@ export default function AffiliateCampaignsPage() {
   const [editForm, setEditForm] = useState({ name: '', description: '', destinationUrl: '', status: 'active' });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+
+  // What an affiliate can point a campaign at. Before this the destination was a
+  // free-text URL, so promoting a specific piece meant knowing to type
+  // `/products/<id>` — in practice every campaign just pointed at the request form.
+  const [destinations, setDestinations] = useState([]);
+  const [destQuery, setDestQuery] = useState('');
+
+  useEffect(() => {
+    if (!session) return undefined;
+    const t = setTimeout(() => {
+      fetch(`/api/affiliates/promotable${destQuery ? `?q=${encodeURIComponent(destQuery)}` : ''}`)
+        .then((r) => r.json())
+        .then((d) => { if (d.success) setDestinations(d.data.destinations || []); })
+        .catch(() => {});
+    }, 250); // debounce the search-as-you-type
+    return () => clearTimeout(t);
+  }, [session, destQuery]);
 
   useEffect(() => {
     if (session) load();
@@ -299,9 +316,36 @@ export default function AffiliateCampaignsPage() {
             onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))} />
           <TextField label="Description" value={editForm.description} multiline rows={2} fullWidth
             onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))} />
-          <TextField label="Destination URL" value={editForm.destinationUrl} fullWidth
-            onChange={(e) => setEditForm((p) => ({ ...p, destinationUrl: e.target.value }))}
-            helperText="Where visitors land after clicking your referral link" />
+          {/* Pick what to promote, or type any path. freeSolo keeps the old behaviour
+              available for anything the picker doesn't list yet. */}
+          <Autocomplete
+            freeSolo
+            options={destinations}
+            filterOptions={(x) => x} // server already filtered; don't double-filter
+            getOptionLabel={(o) => (typeof o === 'string' ? o : o.path)}
+            inputValue={editForm.destinationUrl}
+            onInputChange={(_, v, reason) => {
+              if (reason === 'input') { setEditForm((p) => ({ ...p, destinationUrl: v })); setDestQuery(v); }
+            }}
+            onChange={(_, v) => {
+              const path = typeof v === 'string' ? v : v?.path || '';
+              setEditForm((p) => ({ ...p, destinationUrl: path }));
+            }}
+            renderOption={(props, o) => (
+              <Box component="li" {...props} key={o.id}>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="body2" noWrap>{o.label}</Typography>
+                  <Typography variant="caption" sx={{ color: UI.textMuted }}>
+                    {o.sublabel}{o.price ? ` · $${Number(o.price).toLocaleString()}` : ''} · {o.path}
+                  </Typography>
+                </Box>
+              </Box>
+            )}
+            renderInput={(params) => (
+              <TextField {...params} label="What are you promoting?" fullWidth
+                helperText="Pick a page or product — or type any path. This is where your link lands." />
+            )}
+          />
           <FormControl fullWidth>
             <InputLabel>Status</InputLabel>
             <Select label="Status" value={editForm.status} onChange={(e) => setEditForm((p) => ({ ...p, status: e.target.value }))}>

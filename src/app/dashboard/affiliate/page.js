@@ -81,6 +81,11 @@ export default function AffiliateDashboardPage() {
   ];
 
   const COMMISSION_CHIP = { earned: 'success', needs_review: 'warning', void: 'default' };
+  // Payout state, in the affiliate's language rather than payroll's.
+  const PAYOUT_LABEL = { paid: 'paid out', batched: 'in this payroll run', unbatched: 'next payroll run', none: '—' };
+  const money = (v) => `$${(Number(v) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+  const pending = earnings?.pending;
+  const rate = Math.round((affiliate?.commissionRate || 0) * 1000) / 10;
 
   return (
     <Box sx={{ pb: 10 }}>
@@ -146,10 +151,60 @@ export default function AffiliateDashboardPage() {
             ))}
           </Grid>
 
+          {/* Referred work that hasn't paid yet — so the dashboard isn't a bare $0
+              while a referred piece is months from finishing. */}
+          {pending?.rows?.length > 0 && (
+            <Card sx={{ mt: 3 }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mb: 1, flexWrap: 'wrap', gap: 1 }}>
+                  <Typography variant="subtitle2" color="text.secondary">In progress</Typography>
+                  {pending.estimatedTotal > 0 && (
+                    <Typography variant="body2" color="text.secondary">
+                      ≈ <strong>{money(pending.estimatedTotal)}</strong> once these are paid in full
+                    </Typography>
+                  )}
+                </Box>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Referred</TableCell>
+                      <TableCell>Stage</TableCell>
+                      <TableCell align="right">Estimated</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {pending.rows.map((r) => (
+                      <TableRow key={r.sourceID} sx={{ opacity: r.willNeverPay ? 0.5 : 1 }}>
+                        <TableCell>{r.title}</TableCell>
+                        <TableCell>
+                          <Chip size="small" variant="outlined"
+                            label={r.willNeverPay ? 'cancelled' : String(r.stage || '').replace(/_/g, ' ')} />
+                        </TableCell>
+                        <TableCell align="right">
+                          {r.willNeverPay ? '—' : (r.estimate != null ? `≈ ${money(r.estimate)}` : 'to be reviewed')}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                  Estimates only — the final quote can change before an order is paid.
+                </Typography>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Earnings ledger */}
           <Card sx={{ mt: 3 }}>
             <CardContent>
-              <Typography variant="subtitle2" color="text.secondary" mb={1}>Commissions</Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mb: 1, flexWrap: 'wrap', gap: 1 }}>
+                <Typography variant="subtitle2" color="text.secondary">Commissions</Typography>
+                {earnings?.totals?.earned > 0 && (
+                  <Typography variant="body2" color="text.secondary">
+                    {money(earnings.totals.paidOut)} paid out · {money(earnings.totals.awaitingPayroll)} awaiting payroll
+                  </Typography>
+                )}
+              </Box>
               {!earnings?.commissions?.length ? (
                 <Typography variant="body2" color="text.secondary">
                   No commissions yet. You earn a percentage of the pre-tax profit on each referred
@@ -162,6 +217,7 @@ export default function AffiliateDashboardPage() {
                       <TableCell>Date</TableCell>
                       <TableCell>Type</TableCell>
                       <TableCell>Status</TableCell>
+                      <TableCell>Payout</TableCell>
                       <TableCell align="right">Amount</TableCell>
                     </TableRow>
                   </TableHead>
@@ -174,14 +230,36 @@ export default function AffiliateDashboardPage() {
                           <Chip size="small" color={COMMISSION_CHIP[c.status] || 'default'}
                             label={c.status === 'needs_review' ? 'processing' : c.status} />
                         </TableCell>
+                        <TableCell>
+                          <Typography variant="caption" color={c.payrollStatus === 'paid' ? 'success.main' : 'text.secondary'}>
+                            {c.status === 'earned' ? (PAYOUT_LABEL[c.payrollStatus] || 'next payroll run') : '—'}
+                          </Typography>
+                        </TableCell>
                         <TableCell align="right">
-                          {c.status === 'needs_review' ? '—' : `$${(c.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                          {c.status === 'needs_review' ? '—' : money(c.amount)}
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               )}
+            </CardContent>
+          </Card>
+
+          {/* The deal, in writing — cheap insurance against a later disagreement. */}
+          <Card sx={{ mt: 3 }}>
+            <CardContent>
+              <Typography variant="subtitle2" color="text.secondary" mb={1}>Your agreement</Typography>
+              <Typography variant="body2" color="text.secondary" component="div">
+                <ul style={{ margin: 0, paddingLeft: '1.1rem', lineHeight: 1.9 }}>
+                  <li>You earn <strong>{rate}%</strong> of the pre-tax profit on referred orders — not of the sale price, and not of tax.</li>
+                  <li>Commission is earned once an order is <strong>paid in full</strong>, and is paid on the regular payroll cycle.</li>
+                  <li>Your link is credited for <strong>{affiliate?.attributionWindowDays ?? 90} days</strong> after someone clicks it.</li>
+                  <li>If someone clicks more than one affiliate link, the <strong>most recent</strong> one is credited.</li>
+                  <li>Your own purchases don&rsquo;t earn commission.</li>
+                  <li>Cancelled or refunded orders don&rsquo;t earn commission.</li>
+                </ul>
+              </Typography>
             </CardContent>
           </Card>
         </>

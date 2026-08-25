@@ -326,6 +326,66 @@ export async function voidCommission({ commissionId, reason = '', voidedBy }) {
 }
 
 /**
+ * Tell an affiliate when a referral CONVERTS, not only when it pays.
+ *
+ * Attribution happens in the shop, which can't reach admin's notification layer, so
+ * this sweep is the notifier. The moment matters: the gap between "someone used my
+ * link" and "an order finally paid in full" can be months on a custom piece, and
+ * silence across it reads as the link not working.
+ *
+ * Stamped with `affiliate.conversionNotifiedAt` so it fires exactly once per order.
+ */
+export async function notifyNewConversions({ limit = 50 } = {}) {
+  const dbi = await db.connect();
+  const filter = {
+    'affiliate.affiliateId': { $exists: true, $nin: [null, ''] },
+    'affiliate.conversionNotifiedAt': { $in: [null, undefined] },
+  };
+  const sources = [
+    { collection: 'customOrders', idField: 'customID', label: 'custom request' },
+    { collection: 'orders', idField: 'orderId', label: 'purchase' },
+  ];
+
+  let notified = 0;
+  for (const src of sources) {
+    // eslint-disable-next-line no-await-in-loop
+    const docs = await dbi.collection(src.collection)
+      .find(filter, { projection: { _id: 0, [src.idField]: 1, affiliate: 1 } })
+      .limit(limit).toArray();
+
+    for (const doc of docs) {
+      const id = doc[src.idField];
+      // Claim first — same rule as everywhere else here, so two sweeps can't double-notify.
+      // eslint-disable-next-line no-await-in-loop
+      const claim = await dbi.collection(src.collection).updateOne(
+        { [src.idField]: id, 'affiliate.conversionNotifiedAt': { $in: [null, undefined] } },
+        { $set: { 'affiliate.conversionNotifiedAt': new Date() } },
+      );
+      if (claim.modifiedCount !== 1) continue;
+
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const affiliate = await affiliateFor(doc.affiliate.affiliateId);
+        if (!affiliate?.userId) continue;
+        // eslint-disable-next-line no-await-in-loop
+        await NotificationService.createNotification({
+          userId: affiliate.userId,
+          type: 'affiliate-referral-converted',
+          title: 'Someone used your link',
+          message: `A ${src.label} came in through your referral link. You'll earn your commission once it's paid in full.`,
+          channels: ['inApp'],
+          data: { sourceID: id, affiliateId: affiliate.affiliateId },
+        });
+        notified += 1;
+      } catch (e) {
+        console.error(`[affiliates] conversion notify for ${id} failed:`, e.message);
+      }
+    }
+  }
+  return { notified };
+}
+
+/**
  * The cron sweep — the guaranteed consumer behind the event hooks. Scans attributed,
  * unprocessed sources: custom orders get the trigger re-checked; paid shop orders get
  * a needs-review record. Both paths are claim-first, so overlap with hooks is safe.
@@ -370,7 +430,70 @@ export async function drainCommissions({ limit = 50 } = {}) {
   return { customScanned: customOrders.length, shopScanned: shopOrders.length, custom, product, failed };
 }
 
-/** Ledger + totals for one affiliate (their dashboard and admin's detail page). */
+/**
+ * REFERRED WORK THAT HASN'T EARNED YET — attributed orders with no commission on them.
+ *
+ * Without this an affiliate sees $0 and no sign anything is coming: they referred a
+ * $6,000 ring three weeks ago and the dashboard looks identical to having referred
+ * nothing. The estimate is explicitly an ESTIMATE (the quote can still change before
+ * it's paid) and is only possible for custom orders, where profit is quotable;
+ * a product sale's profit isn't derivable, so it shows as awaiting review instead.
+ */
+export async function listPendingWork(affiliateId) {
+  const dbi = await db.connect();
+  const filter = { 'affiliate.affiliateId': affiliateId, 'affiliate.commissionId': null };
+
+  const [customOrders, shopOrders] = await Promise.all([
+    dbi.collection('customOrders')
+      .find(filter, { projection: { _id: 0, customID: 1, title: 1, status: 1, quote: 1, affiliate: 1, createdAt: 1 } })
+      .sort({ createdAt: -1 }).limit(50).toArray(),
+    dbi.collection('orders')
+      .find(filter, { projection: { _id: 0, orderId: 1, kind: 1, fulfillmentStatus: 1, total: 1, affiliate: 1, createdAt: 1 } })
+      .sort({ createdAt: -1 }).limit(50).toArray(),
+  ]);
+
+  const rows = [];
+  let estimatedTotal = 0;
+
+  for (const o of customOrders) {
+    const rate = n(o.affiliate?.commissionRate);
+    const profit = round2(Math.max(0, n(o.quote?.quoteTotal) - n(o.quote?.cog)));
+    const estimate = round2(profit * rate);
+    // Cancelled work will never pay; show the row so it isn't a mystery, but keep it
+    // OUT of the headline estimate. An affiliate told "$260 coming" when $60 of it is
+    // a dead order is the same lie the customs page used to tell with "money in
+    // pipeline" — a total is only useful if every dollar in it can actually arrive.
+    const willNeverPay = o.status === 'cancelled';
+    if (!willNeverPay) estimatedTotal = round2(estimatedTotal + estimate);
+    rows.push({
+      kind: 'custom_order', sourceID: o.customID, title: o.title || 'Custom piece',
+      stage: o.status, rate, estimate, willNeverPay,
+      createdAt: o.createdAt || null,
+    });
+  }
+
+  for (const o of shopOrders) {
+    const settled = COMMISSIONABLE_ORDER_STATUSES.includes(o.fulfillmentStatus);
+    rows.push({
+      kind: o.kind === 'made_to_order' ? 'made_to_order' : 'product_sale',
+      sourceID: o.orderId, title: o.kind === 'made_to_order' ? 'Made-to-order piece' : 'Shop purchase',
+      stage: settled ? 'awaiting review' : o.fulfillmentStatus,
+      rate: n(o.affiliate?.commissionRate), estimate: null, // product profit isn't derivable
+      willNeverPay: ['rejected_capacity', 'cancelled_pre_production', 'payment_setup_failed'].includes(o.fulfillmentStatus),
+      createdAt: o.createdAt || null,
+    });
+  }
+
+  rows.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  return { rows, estimatedTotal, count: rows.filter((r) => !r.willNeverPay).length };
+}
+
+/**
+ * Ledger + totals for one affiliate (their dashboard and admin's detail page).
+ * Earned rows carry their PAYROLL state so "earned" and "actually paid" are
+ * distinguishable — an affiliate asking "where's my money" should be able to see
+ * whether it's waiting for the next payroll run or already went out.
+ */
 export async function listCommissions(affiliateId, { limit = 100 } = {}) {
   const col = await commissionsCol();
   const commissions = await col
@@ -378,10 +501,30 @@ export async function listCommissions(affiliateId, { limit = 100 } = {}) {
     .sort({ createdAt: -1 })
     .limit(limit)
     .toArray();
-  const totals = { earned: 0, pendingReview: 0, entries: commissions.length };
-  for (const c of commissions) {
-    if (c.status === COMMISSION_STATUS.EARNED) totals.earned = round2(totals.earned + n(c.amount));
-    if (c.status === COMMISSION_STATUS.NEEDS_REVIEW) totals.pendingReview += 1;
+
+  // Resolve payroll state for the payouts that exist (one query, not one per row).
+  const logIds = commissions.map((c) => c.laborLogId).filter(Boolean);
+  const payrollByLog = {};
+  if (logIds.length) {
+    const logsCol = await db.dbLaborLogs();
+    const logs = await logsCol
+      .find({ logID: { $in: logIds } }, { projection: { _id: 0, logID: 1, payrollStatus: 1, payrolledAt: 1, payrollBatchID: 1 } })
+      .toArray();
+    for (const l of logs) payrollByLog[l.logID] = l;
   }
-  return { commissions, totals };
+
+  const totals = { earned: 0, paidOut: 0, awaitingPayroll: 0, pendingReview: 0, entries: commissions.length };
+  const withPayroll = commissions.map((c) => {
+    const log = c.laborLogId ? payrollByLog[c.laborLogId] : null;
+    const payrollStatus = log?.payrollStatus || (c.status === COMMISSION_STATUS.EARNED && c.amount === 0 ? 'none' : null);
+    if (c.status === COMMISSION_STATUS.EARNED) {
+      totals.earned = round2(totals.earned + n(c.amount));
+      if (payrollStatus === 'paid') totals.paidOut = round2(totals.paidOut + n(c.amount));
+      else if (n(c.amount) > 0) totals.awaitingPayroll = round2(totals.awaitingPayroll + n(c.amount));
+    }
+    if (c.status === COMMISSION_STATUS.NEEDS_REVIEW) totals.pendingReview += 1;
+    return { ...c, payrollStatus, payrolledAt: log?.payrolledAt || null };
+  });
+
+  return { commissions: withPayroll, totals };
 }

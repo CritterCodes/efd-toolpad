@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/apiAuth';
 import { db } from '@/lib/database';
-import { listCommissions } from '@/services/affiliates/commissionEngine';
+import { listCommissions, listPendingWork } from '@/services/affiliates/commissionEngine';
 
 function isAdminOrDev(role) {
   return role === 'admin' || role === 'dev';
@@ -31,6 +31,14 @@ export async function GET(request) {
     return NextResponse.json({ success: false, error: 'affiliateId is required.' }, { status: 400 });
   }
 
-  const data = await listCommissions(affiliateId);
-  return NextResponse.json({ success: true, data });
+  // Ledger + referred work that hasn't earned yet, so the dashboard can show what's
+  // coming instead of a bare $0 while a referred piece is still being made.
+  const [data, pending] = await Promise.all([
+    listCommissions(affiliateId),
+    listPendingWork(affiliateId).catch((e) => {
+      console.error('[affiliates] pending work lookup failed:', e.message);
+      return { rows: [], estimatedTotal: 0, count: 0 };
+    }),
+  ]);
+  return NextResponse.json({ success: true, data: { ...data, pending } });
 }

@@ -18,6 +18,10 @@ const laborLogs = [];
 const notifications = [];
 const sourceUpdates = [];
 
+let pendingCustomOrders = [];
+let pendingShopOrders = [];
+let laborLogDocs = [];
+
 const commissionsColMock = {
   updateOne: vi.fn(async (filter, update) => {
     const id = filter.commissionId;
@@ -34,6 +38,9 @@ const commissionsColMock = {
   find: vi.fn(() => ({ sort: () => ({ limit: () => ({ toArray: async () => [...commissions.values()] }) }) })),
 };
 
+// One mock stands in for both source collections; `find` is scripted per collection
+// name so the pending-work queries can return different fixtures.
+let currentCollection = null;
 const sourceCol = {
   updateOne: vi.fn(async (filter, update) => {
     sourceUpdates.push({ filter, update });
@@ -42,15 +49,32 @@ const sourceCol = {
     }
     return { modifiedCount: 1 };
   }),
-  find: vi.fn(() => ({ limit: () => ({ toArray: async () => [] }) })),
+  find: vi.fn(function findImpl() {
+    const rows = currentCollection === 'customOrders' ? pendingCustomOrders
+      : currentCollection === 'orders' ? pendingShopOrders
+        : currentCollection === 'laborLogs' ? laborLogDocs : [];
+    const chain = {
+      sort: () => chain,
+      limit: () => chain,
+      toArray: async () => rows,
+    };
+    return chain;
+  }),
 };
 
 vi.mock('@/lib/database', () => ({
   db: {
     connect: vi.fn(async () => ({
-      collection: (name) => (name === 'affiliateCommissions' ? commissionsColMock : sourceCol),
+      collection: (name) => {
+        currentCollection = name;
+        return name === 'affiliateCommissions' ? commissionsColMock : sourceCol;
+      },
     })),
     dbAffiliates: vi.fn(async () => ({ findOne: async () => affiliate })),
+    dbLaborLogs: vi.fn(async () => {
+      currentCollection = 'laborLogs';
+      return sourceCol;
+    }),
   },
 }));
 vi.mock('@/app/api/custom-orders/model', () => ({
@@ -73,6 +97,7 @@ const engine = await import('@/services/affiliates/commissionEngine');
 
 beforeEach(() => {
   commissions.clear(); laborLogs.length = 0; notifications.length = 0; sourceUpdates.length = 0;
+  pendingCustomOrders = []; pendingShopOrders = []; laborLogDocs = []; currentCollection = null;
   claimResults = [true];
   progress = { isFullyPaid: true };
   affiliate = { affiliateId: 'aff_1', code: 'shanin', userId: 'u-shanin', name: 'Shanin', commissionRate: 0.2 };
@@ -195,6 +220,54 @@ describe('recordProductSaleCommission', () => {
     );
     expect(r.recorded).toBe(false);
     expect(commissions.size).toBe(0);
+  });
+
+  it('estimates pending custom work, and refuses to estimate a product sale', async () => {
+    pendingCustomOrders = [
+      { customID: 'CO-p1', title: 'Signet', status: 'in_production', quote: { quoteTotal: 5000, cog: 3000 }, affiliate: { commissionRate: 0.1 }, createdAt: new Date('2026-08-02') },
+      { customID: 'CO-dead', title: 'Abandoned', status: 'cancelled', quote: { quoteTotal: 1000, cog: 400 }, affiliate: { commissionRate: 0.1 }, createdAt: new Date('2026-08-01') },
+    ];
+    pendingShopOrders = [
+      { orderId: 'ord-p1', kind: 'made_to_order', fulfillmentStatus: 'accepted', affiliate: { commissionRate: 0.1 }, createdAt: new Date('2026-08-03') },
+    ];
+    const p = await engine.listPendingWork('aff_1');
+
+    const custom = p.rows.find((r) => r.sourceID === 'CO-p1');
+    expect(custom.estimate).toBe(200); // (5000 − 3000) × 10%, pre-tax profit
+    // A product sale's profit isn't derivable, so no invented number.
+    expect(p.rows.find((r) => r.sourceID === 'ord-p1').estimate).toBeNull();
+    // Cancelled work is still SHOWN (so it isn't a mystery) but flagged...
+    expect(p.rows.find((r) => r.sourceID === 'CO-dead').willNeverPay).toBe(true);
+    // ...and kept out of both the count and the headline estimate: a total is only
+    // useful if every dollar in it can actually arrive. 200, not 260.
+    expect(p.count).toBe(2);
+    expect(p.estimatedTotal).toBe(200);
+  });
+
+  it('surfaces payroll state so "earned" and "actually paid" are distinguishable', async () => {
+    commissions.set('comm-a', { commissionId: 'comm-a', affiliateId: 'aff_1', status: 'earned', amount: 300, laborLogId: 'll-1' });
+    commissions.set('comm-b', { commissionId: 'comm-b', affiliateId: 'aff_1', status: 'earned', amount: 150, laborLogId: 'll-2' });
+    laborLogDocs = [
+      { logID: 'll-1', payrollStatus: 'paid', payrolledAt: new Date('2026-08-10') },
+      { logID: 'll-2', payrollStatus: 'unbatched', payrolledAt: null },
+    ];
+    const { commissions: rows, totals } = await engine.listCommissions('aff_1');
+    expect(rows.find((r) => r.commissionId === 'comm-a').payrollStatus).toBe('paid');
+    expect(rows.find((r) => r.commissionId === 'comm-b').payrollStatus).toBe('unbatched');
+    expect(totals.earned).toBe(450);
+    expect(totals.paidOut).toBe(300);
+    expect(totals.awaitingPayroll).toBe(150);
+  });
+
+  it('notifies a conversion exactly once, claim-first', async () => {
+    pendingCustomOrders = [{ customID: 'CO-new', affiliate: { affiliateId: 'aff_1' } }];
+    pendingShopOrders = [];
+    const first = await engine.notifyNewConversions();
+    expect(first.notified).toBe(1);
+    expect(notifications[0].type).toBe('affiliate-referral-converted');
+    // The claim stamps conversionNotifiedAt; a losing claim notifies nobody.
+    const stamped = sourceUpdates.find((u) => u.update.$set?.['affiliate.conversionNotifiedAt']);
+    expect(stamped).toBeTruthy();
   });
 
   it('the sweep asks for BOTH terminal states, so neither kind is left behind', async () => {

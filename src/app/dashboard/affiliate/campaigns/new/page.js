@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Button, TextField,
-  Alert, CircularProgress
+  Alert, CircularProgress, Autocomplete
 } from '@mui/material';
 import { Add as AddIcon, CampaignOutlined as CampaignIcon } from '@mui/icons-material';
 import { useSession } from 'next-auth/react';
@@ -23,6 +23,20 @@ export default function NewCampaignPage() {
   const [fetchingAffiliate, setFetchingAffiliate] = useState(true);
   const [error, setError] = useState('');
   const [created, setCreated] = useState(null);
+  // Promotable destinations — pages and published products — so an affiliate can pick
+  // what they're promoting instead of having to know shop URL structure.
+  const [destinations, setDestinations] = useState([]);
+  const [destQuery, setDestQuery] = useState('');
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      fetch(`/api/affiliates/promotable${destQuery ? `?q=${encodeURIComponent(destQuery)}` : ''}`)
+        .then((r) => r.json())
+        .then((d) => { if (d.success) setDestinations(d.data.destinations || []); })
+        .catch(() => {});
+    }, 250);
+    return () => clearTimeout(t);
+  }, [destQuery]);
 
   useEffect(() => {
     async function loadAffiliate() {
@@ -143,12 +157,30 @@ export default function NewCampaignPage() {
               rows={3}
               fullWidth
             />
-            <TextField
-              label="Destination URL"
-              value={destinationUrl}
-              onChange={(e) => setDestinationUrl(e.target.value)}
-              fullWidth
-              helperText="Where the referral link should direct visitors"
+            <Autocomplete
+              freeSolo
+              options={destinations}
+              filterOptions={(x) => x}
+              getOptionLabel={(o) => (typeof o === 'string' ? o : o.path)}
+              inputValue={destinationUrl}
+              onInputChange={(_, v, reason) => {
+                if (reason === 'input') { setDestinationUrl(v); setDestQuery(v); }
+              }}
+              onChange={(_, v) => setDestinationUrl(typeof v === 'string' ? v : v?.path || '')}
+              renderOption={(props, o) => (
+                <Box component="li" {...props} key={o.id}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography variant="body2" noWrap>{o.label}</Typography>
+                    <Typography variant="caption" sx={{ color: UI.textMuted }}>
+                      {o.sublabel}{o.price ? ` · $${Number(o.price).toLocaleString()}` : ''} · {o.path}
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+              renderInput={(params) => (
+                <TextField {...params} label="What are you promoting?" fullWidth
+                  helperText="Pick a page or product — or type any path. This is where your link lands." />
+              )}
             />
             <Button
               type="submit"
