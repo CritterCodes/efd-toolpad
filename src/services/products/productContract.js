@@ -161,6 +161,10 @@ export function buildProductFromPiece({ piece, design = null, opts = {} }) {
       retailPrice: opts.retailPrice ?? suggestedRetailFromCOGS(cogs),
       compareAtPrice: opts.compareAtPrice ?? null,
       costBasis: cogs, // storefront strips this
+      // The piece exists, so this is its MEASURED COGS, not an estimate. Labelled at
+      // birth for the same reason `attachPieceToProduct` labels it: downstream money
+      // (affiliate commission) reports which kind of number it paid off.
+      costBasisSource: 'actual',
       currency: 'USD',
     },
     jewelry: {
