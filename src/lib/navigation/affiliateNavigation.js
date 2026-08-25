@@ -3,14 +3,15 @@ import { USER_ROLES } from '../unifiedUserService';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import LinkIcon from '@mui/icons-material/Link';
 import PeopleIcon from '@mui/icons-material/People';
-import { SHARED_NAVIGATION } from './sharedNavigation';
-
 export const affiliateNavigation = {
   [USER_ROLES.AFFILIATE]: [
-    SHARED_NAVIGATION.dashboard,
+    // NO shared `dashboard` entry here. /dashboard renders AffiliateDashboardContent —
+    // literally the same component as /dashboard/affiliate — so including both listed
+    // one page twice under two names ("Dashboard" and "Affiliate Dashboard"), which
+    // read as two different destinations.
     {
       segment: 'dashboard/affiliate',
-      title: 'Affiliate Dashboard',
+      title: 'Dashboard',
       icon: <BarChartIcon />,
     },
     {
