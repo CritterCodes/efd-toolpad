@@ -36,6 +36,25 @@ export const COMMISSION_STATUS = {
   VOID: 'void',                 // admin rejected (e.g. refund, all-custom cart)
 };
 
+/**
+ * Shop-order states where the money LANDED AND THE SALE STANDS — the only ones that
+ * may earn a commission. The shop uses a different terminal word per order kind:
+ *
+ *   paid      cart / RTS / catalog  (lib/cartFulfillment)
+ *   accepted  made-to-order         (lib/mtoCheckoutCapacity — piece created, edition committed)
+ *
+ * This list was `['paid']` alone until 2026-08-25, which silently excluded EVERY MTO
+ * sale: the shop stamped attribution and consumed the referral, so the affiliate saw
+ * the conversion on their dashboard and simply never got paid for it.
+ *
+ * DELIBERATELY AN ALLOWLIST, not "has paidAt". Two paid-but-void states would slip
+ * through a paidAt test: `rejected_capacity` (charged, edition was full, refund owed)
+ * and `cancelled_pre_production` (accepted — so it DOES carry paidAt — then cancelled).
+ * Fail-closed is the right direction here: a commission that never fires is visible and
+ * recoverable, one paid on a refunded order is money already out the door.
+ */
+export const COMMISSIONABLE_ORDER_STATUSES = ['paid', 'accepted'];
+
 const round2 = (v) => Math.round((Number(v) || 0) * 100) / 100;
 const n = (v) => Number(v) || 0;
 
@@ -196,6 +215,13 @@ export async function recordProductSaleCommission(order) {
   const aff = order?.affiliate;
   if (!aff?.affiliateId || aff.commissionId) return { recorded: false };
 
+  // The status rule lives HERE, with the money — not only in the sweep's query. The
+  // drain is one caller today; a future hook calling this directly must not be able to
+  // commission a refunded or unpaid order just because it skipped the query.
+  if (!COMMISSIONABLE_ORDER_STATUSES.includes(order.fulfillmentStatus)) {
+    return { recorded: false, reason: `order is ${order.fulfillmentStatus || 'unpaid'}` };
+  }
+
   const allocations = Array.isArray(order.customAllocations) ? order.customAllocations : [];
   const customTotal = round2(allocations.reduce((s, a) => s + n(a.amount), 0));
   const orderTotal = n(order.total ?? order.amount);
@@ -324,7 +350,12 @@ export async function drainCommissions({ limit = 50 } = {}) {
 
   const shopOrders = await dbi.collection('orders')
     .find(
-      { 'affiliate.affiliateId': { $exists: true, $nin: [null, ''] }, 'affiliate.commissionId': null, fulfillmentStatus: 'paid' },
+      {
+        'affiliate.affiliateId': { $exists: true, $nin: [null, ''] },
+        'affiliate.commissionId': null,
+        // Covers BOTH kinds: cart/RTS ('paid') and made-to-order ('accepted').
+        fulfillmentStatus: { $in: COMMISSIONABLE_ORDER_STATUSES },
+      },
       { projection: { _id: 0 } },
     )
     .limit(limit).toArray();

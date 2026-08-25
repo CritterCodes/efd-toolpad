@@ -146,10 +146,14 @@ describe('earnCustomOrderCommission', () => {
 });
 
 describe('recordProductSaleCommission', () => {
-  const shopOrder = () => ({
+  // 'paid' is the CART/RTS terminal state; MTO uses 'accepted' (see COMMISSIONABLE_ORDER_STATUSES).
+  const shopOrder = (over = {}) => ({
     orderId: 'ord-1',
+    kind: 'cart',
+    fulfillmentStatus: 'paid',
     affiliate: { affiliateId: 'aff_1', affiliateCode: 'shanin', commissionRate: 0.1, commissionId: null },
     total: 2025.75, subtotal: 1850, tax: 175.75, customAllocations: [],
+    ...over,
   });
 
   it('creates a needs-review record with revenue figures and NO payout yet', async () => {
@@ -163,10 +167,44 @@ describe('recordProductSaleCommission', () => {
   });
 
   it('a PURE custom-payment cart is skipped — the customs trigger owns that money', async () => {
-    const order = { ...shopOrder(), total: 500, customAllocations: [{ customID: 'CO-1', amount: 500 }] };
+    const order = shopOrder({ total: 500, customAllocations: [{ customID: 'CO-1', amount: 500 }] });
     const r = await engine.recordProductSaleCommission(order);
     expect(r.recorded).toBe(false);
     expect(commissions.size).toBe(0);
+  });
+
+  // THE MTO BUG (fixed 2026-08-25): made-to-order sales settle as 'accepted', never
+  // 'paid'. The sweep filtered on 'paid' alone, so every MTO sale was attributed and
+  // converted on the affiliate's dashboard but silently never commissioned.
+  it('an ACCEPTED made-to-order sale earns — it is the MTO equivalent of paid', async () => {
+    const r = await engine.recordProductSaleCommission(
+      shopOrder({ orderId: 'ord-mto', kind: 'made_to_order', fulfillmentStatus: 'accepted' }),
+    );
+    expect(r.recorded).toBe(true);
+    expect(commissions.get('comm-ord-mto').status).toBe('needs_review');
+  });
+
+  it.each([
+    ['awaiting_payment',        'never charged'],
+    ['payment_setup_failed',    'never charged'],
+    ['rejected_capacity',       'charged but the edition was full — refund owed'],
+    ['cancelled_pre_production','was accepted (so it carries paidAt) then cancelled'],
+  ])('does NOT commission a %s order (%s)', async (fulfillmentStatus) => {
+    const r = await engine.recordProductSaleCommission(
+      shopOrder({ orderId: `ord-${fulfillmentStatus}`, fulfillmentStatus }),
+    );
+    expect(r.recorded).toBe(false);
+    expect(commissions.size).toBe(0);
+  });
+
+  it('the sweep asks for BOTH terminal states, so neither kind is left behind', async () => {
+    expect(engine.COMMISSIONABLE_ORDER_STATUSES).toEqual(['paid', 'accepted']);
+    sourceCol.find.mockClear();
+    await engine.drainCommissions();
+    // Second find() is the shop-orders sweep (the first is customOrders).
+    const ordersQuery = sourceCol.find.mock.calls[1][0];
+    expect(ordersQuery.fulfillmentStatus).toEqual({ $in: ['paid', 'accepted'] });
+    expect(ordersQuery['affiliate.commissionId']).toBeNull();
   });
 
   it('approval computes amount at the snapshotted rate and writes the payout', async () => {
