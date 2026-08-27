@@ -29,6 +29,9 @@
     },
     "src/app/api/admin/trigger/route.js": {
       "maxDuration": 30
+    },
+    "src/app/api/cron/reprice-listings/route.js": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -55,6 +58,10 @@
     {
       "path": "/api/cron/earn-commissions",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/reprice-listings",
+      "schedule": "0 10 * * *"
     }
   ]
 }

@@ -23,6 +23,10 @@ import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components
 import { uploadSizeError } from '@/lib/uploadLimits';
 import { directUpload } from '@/lib/directUpload';
 import { KARAT_OPTIONS, finishUsesKarat, finishLabel, composeMetalKey, isTwoTone, metalFinishes } from '@/services/production/variantMetal';
+import {
+  sumLines, sumStones, stoneUnit, sumLaborLines, autoLaborLines, caratBand,
+  autoLaborAsSharedRows, effectiveDesignFee,
+} from '@/services/production/variantPricing';
 import { gemBuildableForRows } from '@/services/production/gemDesignMatch';
 import { slotMatchesLink, allowedSpeciesForLink } from '@/services/production/gemLinks';
 import GemLinksPanel from './GemLinksPanel';
@@ -110,28 +114,10 @@ const DESIGN_FEE_MODES = [
   { value: 'split', label: 'Split across the edition' },
   { value: 'waived', label: 'Waived' },
 ];
-// The per-piece design fee that cascades into shared costs. `split` divides the fee across
-// a limited edition's run; unlimited editions can only be flat (custom amount) or waived.
-function effectiveDesignFee(fee, artisanFee, editionType, editionLimit) {
-  const mode = fee?.mode || 'flat';
-  if (mode === 'waived') return 0;
-  const base = fee?.amount != null && fee.amount !== '' ? Number(fee.amount) : (Number(artisanFee) || 0);
-  if (mode === 'split' && editionType === 'limited') {
-    const n = Number(editionLimit) || 1;
-    return n > 0 ? base / n : base;
-  }
-  return base;
-}
 
 const panelSx = { p: { xs: 2, md: 2.5 }, mb: 2, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' };
 const cap = (s) => String(s || '').replace(/_/g, ' ');
 const money = (x) => `$${(Number(x) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const sumLines = (arr) => (arr || []).reduce((s, r) => s + (Number(r.cost) || 0) * (Number(r.quantity) || 1), 0);
-// A stone row's unit cost. SKU-linked rows read the CURRENT catalog (Stuller wholesale,
-// kept fresh by the cron) so pricing stays live like metal; manual rows use their own cost.
-const stoneUnit = (r, stoneCosts = {}) => (r?.stoneSkuId && stoneCosts[r.stoneSkuId] != null ? Number(stoneCosts[r.stoneSkuId]) : Number(r?.unitCost) || 0);
-// Per-variant stone cost = Σ(unit × qty). Accents are priced per-stone × quantity.
-const sumStones = (arr, stoneCosts = {}) => (arr || []).reduce((s, r) => s + stoneUnit(r, stoneCosts) * (Number(r.qty) || 1), 0);
 // Physical size label from measured mm — one number for round/square, L×W for fancy.
 const stoneSizeLabel = ({ l, w } = {}) => {
   if (l == null || w == null) return '';
@@ -141,61 +127,8 @@ const GEM_ROLES = [{ value: 'center', label: 'Center' }, { value: 'accent', labe
 // Stone creation is PER STONE (a variant/piece can mix natural + lab) — binary, no simulant.
 const CREATION_OPTS = [{ value: 'natural', label: 'Natural' }, { value: 'lab', label: 'Lab' }];
 
-// Stone-setting labor is inferred from carat band × count (gem type is irrelevant). Labels
-// match the task catalog; `fallback` is used if the catalog lookup misses.
-const SETTING_BANDS = [
-  { key: '1plus', min: 1, label: 'Set Stone 1ct or larger', fallback: 40 },
-  { key: 'mid', min: 0.5, label: 'Set Stone 0.5ct to 0.99ct', fallback: 20 },
-  { key: 'small', min: 0.0001, label: 'Set Stone less than 0.49ct', fallback: 10 },
-];
-const caratBand = (ct) => { const c = Number(ct) || 0; return SETTING_BANDS.find((b) => c >= b.min) || null; };
-const sumLaborLines = (lines) => (lines || []).reduce((s, l) => s + (Number(l.cost) || 0) * (Number(l.qty) || 1), 0);
 
-// Per-piece labor inferred automatically: casting defaults (by production method) +
-// stone-setting tasks tallied by carat band × count. taskCosts overrides the fallbacks.
-function autoLaborLines(variant, productionMethod, taskCosts = {}) {
-  const lines = [];
-  if (productionMethod === 'cad_cast') {
-    lines.push({ key: 'cleanup', label: 'Clean up Casting', qty: 1, cost: taskCosts['Clean up Casting'] ?? 40, auto: 'casting' });
-  }
-  const tally = new Map();
-  for (const g of (variant.gemstones || [])) {
-    const band = caratBand(g.caratEach);
-    if (!band) continue;
-    const cur = tally.get(band.key) || { key: band.key, label: band.label, qty: 0, cost: taskCosts[band.label] ?? band.fallback, auto: 'setting' };
-    cur.qty += Number(g.qty) || 1;
-    tally.set(band.key, cur);
-  }
-  for (const l of tally.values()) lines.push(l);
-  return lines;
-}
 
-/**
- * Turn auto-derived labor into real, editable SHARED labor-task rows. PURE.
- *
- * A design has ONE CAD file, so its stone count is a property of the DESIGN — every variant is the same
- * geometry in a different metal. Auto labor is therefore identical across variants and genuinely
- * shared, which is why it belongs in the Shared costs panel rather than being recomputed per card.
- * (Owner, 2026-07-31: "all variants have the same stone count… that would make it a different design.")
- *
- * Before this, the Labor tasks box read "No labor tasks." while hundreds of dollars of auto labor sat in
- * every variant's price with no way to see or adjust it.
- *
- * Shape matches LaborTaskEditor: `quantity` (not qty) and string fields, and `sumLines` multiplies
- * cost × quantity — so the seeded rows total exactly what `autoLaborLines` totalled. That equality is
- * what makes seeding price-neutral.
- */
-export function autoLaborAsSharedRows(variant, productionMethod, taskCosts = {}) {
-  return autoLaborLines(variant || {}, productionMethod, taskCosts).map((l) => ({
-    description: l.label,
-    quantity: String(l.qty || 1),
-    hours: '',
-    // Casting cleanup is bench work; stone setting is bench work too — both default to the bench lane.
-    discipline: 'bench_jewelry',
-    cost: String(l.cost ?? ''),
-    autoSeeded: true,   // provenance, so it's clear these came from the CAD rather than being typed
-  }));
-}
 const artisanLabel = (a) => [a.firstName, a.lastName].filter(Boolean).join(' ') || a.email || a.userID || '';
 const artisanId = (a) => a.userID || a._id?.toString();
 
