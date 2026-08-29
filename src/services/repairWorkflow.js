@@ -14,6 +14,7 @@ export const REPAIR_STATUS = {
   PAID_CLOSED: 'PAID_CLOSED',
   PENDING_PICKUP: 'PENDING PICKUP',
   PICKUP_REQUESTED: 'PICKUP REQUESTED',
+  SHIPPED_TO_SHOP: 'SHIPPED TO SHOP',
   PICKED_UP: 'PICKED UP',
   CANCELLED: 'CANCELLED',
 };
@@ -78,6 +79,7 @@ export const QC_COMPLETION_STATUSES = [
 export const WHOLESALE_INTAKE_STATUSES = [
   REPAIR_STATUS.PENDING_PICKUP,
   REPAIR_STATUS.PICKUP_REQUESTED,
+  REPAIR_STATUS.SHIPPED_TO_SHOP,
 ];
 
 export const WHOLESALE_ACTIVE_STATUSES = [
@@ -110,6 +112,7 @@ export const STATUS_DESCRIPTIONS = {
   [REPAIR_STATUS.COMPLETED]: 'Passed QC and physically complete',
   [REPAIR_STATUS.READY_FOR_PICKUP]: 'Completed and ready for customer pickup',
   [REPAIR_STATUS.DELIVERY_BATCHED]: 'Completed and batched for delivery or invoicing',
+  [REPAIR_STATUS.SHIPPED_TO_SHOP]: 'Shipped by the wholesale partner - in transit to the shop',
   [REPAIR_STATUS.PAID_CLOSED]: 'Invoice paid and repair fully closed',
 };
 
@@ -142,6 +145,7 @@ export const STATUS_SURFACE_MATRIX = {
   [REPAIR_STATUS.PAID_CLOSED]: { surface: 'admin_only', benchQueue: null },
   [REPAIR_STATUS.PENDING_PICKUP]: { surface: 'admin_only', benchQueue: null },
   [REPAIR_STATUS.PICKUP_REQUESTED]: { surface: 'admin_only', benchQueue: null },
+  [REPAIR_STATUS.SHIPPED_TO_SHOP]: { surface: 'admin_only', benchQueue: null },
   [REPAIR_STATUS.PICKED_UP]: { surface: 'admin_only', benchQueue: null },
   [REPAIR_STATUS.CANCELLED]: { surface: 'admin_only', benchQueue: null },
   [REPAIR_STATUS.LEAD]: { surface: 'admin_only', benchQueue: null },
@@ -196,6 +200,7 @@ const STATUS_VARIANTS = {
   [REPAIR_STATUS.PAID_CLOSED]: ['PAID_CLOSED'],
   [REPAIR_STATUS.PENDING_PICKUP]: ['PENDING PICKUP'],
   [REPAIR_STATUS.PICKUP_REQUESTED]: ['PICKUP REQUESTED'],
+  [REPAIR_STATUS.SHIPPED_TO_SHOP]: ['SHIPPED TO SHOP'],
   [REPAIR_STATUS.PICKED_UP]: ['picked-up'],
   [REPAIR_STATUS.CANCELLED]: ['cancelled'],
   [REPAIR_STATUS.LEAD]: ['lead'],

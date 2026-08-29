@@ -24,7 +24,7 @@ export async function POST(request) {
             {
                 repairID: { $in: repairIDs },
                 isWholesale: true,
-                status: { $in: [REPAIR_STATUS.PENDING_PICKUP, REPAIR_STATUS.PICKUP_REQUESTED] }
+                status: { $in: [REPAIR_STATUS.PENDING_PICKUP, REPAIR_STATUS.PICKUP_REQUESTED, REPAIR_STATUS.SHIPPED_TO_SHOP] }
             },
             {
                 $set: {

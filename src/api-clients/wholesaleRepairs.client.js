@@ -47,15 +47,30 @@ export const wholesaleRepairsClient = {
         return response.json();
     },
 
-    async requestAction(repairIDs, action) {
+    async requestAction(repairIDs, action, extra = {}) {
         const response = await fetch('/api/wholesale/repairs/request-action', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ repairIDs, action })
+            // extra carries { carrier, trackingNumber } for action 'ship'
+            body: JSON.stringify({ repairIDs, action, ...extra })
         });
         if (!response.ok) {
             const err = await response.json();
             throw new Error(err.error || 'Failed to process request');
+        }
+        return response.json();
+    },
+
+    /** Staff records the return shipment of completed repairs (outbound tracking). */
+    async shipBack(repairIDs, { carrier, trackingNumber } = {}) {
+        const response = await fetch('/api/wholesale/repairs/ship-back', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ repairIDs, carrier, trackingNumber })
+        });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || 'Failed to record the return shipment');
         }
         return response.json();
     }

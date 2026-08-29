@@ -87,6 +87,7 @@ export default function CompletedRepairsPage() {
                                 <TH>Item</TH>
                                 <TH>Description</TH>
                                 <TH>Status</TH>
+                                <TH>Return Tracking</TH>
                                 <TH>Submitted</TH>
                             </TableRow>
                         </TableHead>
@@ -120,6 +121,11 @@ export default function CompletedRepairsPage() {
                                                 color={displayStatus === 'COMPLETED' ? 'success' : 'info'}
                                                 size="small"
                                             />
+                                        </TableCell>
+                                        <TableCell sx={{ color: UI.textSecondary, fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                                            {repair.outboundShipment?.trackingNumber
+                                                ? `${repair.outboundShipment.carrier ? `${repair.outboundShipment.carrier} - ` : ''}${repair.outboundShipment.trackingNumber}`
+                                                : '-'}
                                         </TableCell>
                                         <TableCell sx={{ color: UI.textSecondary }}>{fmtDate(repair.createdAt)}</TableCell>
                                     </TableRow>

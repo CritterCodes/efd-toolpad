@@ -27,11 +27,14 @@ export default function PendingWholesalePage() {
         try {
             setLoading(true);
             setError(null);
-            const [pendingData, pickupData] = await Promise.all([
+            const [pendingData, pickupData, shippedData] = await Promise.all([
                 wholesaleRepairsClient.fetchRepairs({ status: REPAIR_STATUS.PENDING_PICKUP }),
                 wholesaleRepairsClient.fetchRepairs({ status: REPAIR_STATUS.PICKUP_REQUESTED }),
+                wholesaleRepairsClient.fetchRepairs({ status: REPAIR_STATUS.SHIPPED_TO_SHOP }),
             ]);
-            setRepairs([...(pickupData.repairs || []), ...(pendingData.repairs || [])].map(normalizeRepairWorkflow));
+            // Inbound shipments surface first: a box already in transit is the most
+            // time-sensitive thing on this page.
+            setRepairs([...(shippedData.repairs || []), ...(pickupData.repairs || []), ...(pendingData.repairs || [])].map(normalizeRepairWorkflow));
         } catch {
             setError('Failed to load pending repairs');
         } finally {

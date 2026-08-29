@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { uploadRepairImage } from "@/utils/s3.util";
 import RepairsController from "./controller";
 import RepairLaborLogsModel from "@/app/api/repairLaborLogs/model";
-import { requireRepairsAccess, requireRole } from "@/lib/apiAuth";
+import { requireRepairsAccess, requireRole, canTouchRepair, repairOwnershipFilter, isStaffRepairSession } from "@/lib/apiAuth";
 import {
   calculateRepairChargeTotal,
   calculateRepairLaborHours,
@@ -270,7 +270,7 @@ export const POST = async (request) => {
 
 export const GET = async (req) => {
   try {
-    const { errorResponse } = await requireRepairsAccess();
+    const { session, errorResponse } = await requireRepairsAccess();
     if (errorResponse) return errorResponse;
 
     const { searchParams } = new URL(req.url);
@@ -278,10 +278,17 @@ export const GET = async (req) => {
 
     if (repairID) {
       const repair = await RepairsController.getRepairById(repairID);
+      // Ownership at the sink: a wholesaler may only read their own repairs. 404,
+      // not 403 — a foreign repairID should not even confirm the repair exists.
+      if (repair && !canTouchRepair(session, repair)) {
+        return NextResponse.json({ error: "Repair not found." }, { status: 404 });
+      }
       return NextResponse.json(repair, { status: 200 });
     }
 
-    return RepairsController.getRepairs(req);
+    // Staff get the full dataset exactly as before (null filter → find({})).
+    // A wholesaler's list is scoped to repairs they own or created.
+    return RepairsController.getRepairs(req, repairOwnershipFilter(session));
   } catch (error) {
     console.error("Error in GET Route:", error.message);
     return NextResponse.json({ error: "Failed to fetch repairs", details: error.message }, { status: 500 });
@@ -290,7 +297,7 @@ export const GET = async (req) => {
 
 export const PUT = async (req) => {
   try {
-    const { errorResponse } = await requireRepairsAccess();
+    const { session, errorResponse } = await requireRepairsAccess();
     if (errorResponse) return errorResponse;
 
     const { searchParams } = new URL(req.url);
@@ -298,6 +305,15 @@ export const PUT = async (req) => {
 
     if (!repairID) {
       return NextResponse.json({ error: "repairID is required for updating a repair" }, { status: 400 });
+    }
+
+    // Ownership before write: without this, any wholesaler login could edit any
+    // repair in the shop by guessing an ID. Staff sessions skip the extra read.
+    if (!isStaffRepairSession(session)) {
+      const existing = await RepairsController.getRepairById(repairID);
+      if (!existing || !canTouchRepair(session, existing)) {
+        return NextResponse.json({ error: "Repair not found." }, { status: 404 });
+      }
     }
 
     const body = await req.json();

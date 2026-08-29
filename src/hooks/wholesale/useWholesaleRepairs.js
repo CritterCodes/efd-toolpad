@@ -77,8 +77,17 @@ export function useWholesaleRepairs() {
         return result;
     }, [selected, loadRepairs]);
 
+    // Remote partners hand a box to a carrier instead of waiting on a pickup run.
+    const markShipped = useCallback(async ({ carrier, trackingNumber }) => {
+        if (selected.length === 0) return;
+        const result = await wholesaleRepairsClient.requestAction(selected, 'ship', { carrier, trackingNumber });
+        await loadRepairs();
+        return result;
+    }, [selected, loadRepairs]);
+
     const pendingRepairs = repairs.filter(r => r.normalizedStatus === REPAIR_STATUS.PENDING_PICKUP);
     const pickupRequestedRepairs = repairs.filter(r => r.normalizedStatus === REPAIR_STATUS.PICKUP_REQUESTED);
+    const shippedRepairs = repairs.filter(r => r.normalizedStatus === REPAIR_STATUS.SHIPPED_TO_SHOP);
     const activeRepairs = repairs.filter(isWholesaleActiveRepair);
     const completedRepairs = repairs.filter(isWholesaleCompletedRepair);
 
@@ -86,6 +95,7 @@ export function useWholesaleRepairs() {
         total: repairs.length,
         pending: pendingRepairs.length,
         pickupRequested: pickupRequestedRepairs.length,
+        shippedInbound: shippedRepairs.length,
         receiving: repairs.filter(r => r.normalizedStatus === REPAIR_STATUS.RECEIVING).length,
         inProgress: activeRepairs.filter(r => r.normalizedStatus !== REPAIR_STATUS.RECEIVING).length,
         completed: completedRepairs.length,
@@ -95,6 +105,7 @@ export function useWholesaleRepairs() {
         repairs,
         pendingRepairs,
         pickupRequestedRepairs,
+        shippedRepairs,
         activeRepairs,
         completedRepairs,
         loading,
@@ -108,6 +119,7 @@ export function useWholesaleRepairs() {
         createRepair,
         requestPickup,
         scheduleDelivery,
+        markShipped,
         refresh: loadRepairs
     };
 }

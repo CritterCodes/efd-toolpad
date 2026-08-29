@@ -1,10 +1,16 @@
 "use client";
 import React, { useState, useMemo } from 'react';
 import {
-    Box, TextField, MenuItem, Select, InputLabel, FormControl, Typography, Chip, Stack
+    Box, TextField, MenuItem, Select, InputLabel, FormControl, Typography, Chip, Stack,
+    Button, Alert, CircularProgress
 } from '@mui/material';
+import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import RepairsGrid from '@/app/components/repairs/repairGrid';
 import { useRepairs } from '@/app/context/repairs.context';
+import { wholesaleRepairsClient } from '@/api-clients/wholesaleRepairs.client';
+
+// Statuses a finished repair can ship back FROM (matches the ship-back API guard).
+const SHIPPABLE_STATUSES = new Set(['COMPLETED', 'READY FOR PICKUP', 'READY FOR PICK-UP']);
 
 const statusOptions = [
     "RECEIVING",
@@ -67,10 +73,15 @@ const repairBelongsToWholesaler = (repair, identifiers, businessNames) => {
 };
 
 const WholesalerRepairsTab = ({ wholesaler }) => {
-    const { repairs } = useRepairs();
+    const { repairs, fetchRepairs } = useRepairs();
     const [statusFilter, setStatusFilter] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [sortOrder, setSortOrder] = useState('newest');
+    // Return-shipment panel (remote partners: box goes back via carrier w/ tracking).
+    const [shipCarrier, setShipCarrier] = useState('');
+    const [shipTracking, setShipTracking] = useState('');
+    const [shipBusy, setShipBusy] = useState(false);
+    const [shipResult, setShipResult] = useState(null);
 
     const filteredRepairs = useMemo(() => {
         const identifiers = getWholesalerIdentifiers(wholesaler);
@@ -106,8 +117,70 @@ const WholesalerRepairsTab = ({ wholesaler }) => {
         return updated;
     }, [repairs, wholesaler, statusFilter, searchQuery, sortOrder]);
 
+    // Everything of this wholesaler's that is finished and still in the shop —
+    // physically, the contents of the return box.
+    const shippableRepairs = useMemo(() => {
+        const identifiers = getWholesalerIdentifiers(wholesaler);
+        const businessNames = uniqueIdentifiers([
+            wholesaler?.businessName,
+            wholesaler?.business,
+            wholesaler?.wholesaleApplication?.businessName,
+        ]);
+        return repairs.filter((repair) =>
+            repairBelongsToWholesaler(repair, identifiers, businessNames)
+            && SHIPPABLE_STATUSES.has(repair.status));
+    }, [repairs, wholesaler]);
+
+    const handleShipBack = async () => {
+        setShipBusy(true);
+        setShipResult(null);
+        try {
+            const result = await wholesaleRepairsClient.shipBack(
+                shippableRepairs.map((r) => r.repairID),
+                { carrier: shipCarrier.trim(), trackingNumber: shipTracking.trim() },
+            );
+            setShipResult({ severity: 'success', message: result.message });
+            setShipCarrier('');
+            setShipTracking('');
+            fetchRepairs?.();
+        } catch (err) {
+            setShipResult({ severity: 'error', message: err.message });
+        } finally {
+            setShipBusy(false);
+        }
+    };
+
     return (
         <Box>
+            {/* Return shipping: record the outbound box for a remote partner. The whole
+                completed set ships as one box; the partner is notified with the tracking. */}
+            {shippableRepairs.length > 0 && (
+                <Box sx={{ p: 2, mb: 3, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+                    <Typography sx={{ fontWeight: 700, mb: 1 }}>
+                        Ship completed repairs back ({shippableRepairs.length})
+                    </Typography>
+                    <Stack direction="row" spacing={1} sx={{ mb: 1.5, flexWrap: 'wrap', gap: 0.5 }}>
+                        {shippableRepairs.map((r) => (
+                            <Chip key={r.repairID} size="small" label={r.repairID} sx={{ fontFamily: 'monospace' }} />
+                        ))}
+                    </Stack>
+                    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <TextField size="small" label="Carrier (optional)" placeholder="UPS, FedEx, USPS..."
+                            value={shipCarrier} onChange={(e) => setShipCarrier(e.target.value)} sx={{ minWidth: 170 }} />
+                        <TextField size="small" label="Tracking number" required
+                            value={shipTracking} onChange={(e) => setShipTracking(e.target.value)} sx={{ minWidth: 220 }} />
+                        <Button
+                            variant="contained"
+                            startIcon={shipBusy ? <CircularProgress size={16} /> : <LocalShippingIcon />}
+                            disabled={!shipTracking.trim() || shipBusy}
+                            onClick={handleShipBack}
+                        >
+                            Mark Shipped
+                        </Button>
+                    </Box>
+                    {shipResult && <Alert severity={shipResult.severity} sx={{ mt: 1.5 }}>{shipResult.message}</Alert>}
+                </Box>
+            )}
             <Box
                 sx={{
                     display: 'flex',

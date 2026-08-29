@@ -12,6 +12,7 @@ import { REPAIRS_UI as UI } from '@/app/dashboard/repairs/components/repairsUi';
 import { STATUS_DESCRIPTIONS } from '@/services/repairWorkflow';
 
 const STATUS_COLORS = {
+    'SHIPPED TO SHOP': 'info',
     'RECEIVING': 'info',
     'NEEDS QUOTE': 'warning',
     'COMMUNICATION REQUIRED': 'secondary',

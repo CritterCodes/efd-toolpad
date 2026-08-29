@@ -4,9 +4,11 @@ export default class RepairsController {
     /**
      * ✅ Get all repairs
      */
-    static getRepairs = async (req) => {
+    static getRepairs = async (req, scopeFilter = null) => {
         try {
-            const repairs = await RepairsService.getRepairs();
+            // scopeFilter comes from repairOwnershipFilter(): null for staff (full
+            // dataset, unchanged behavior), an ownership $or for wholesalers.
+            const repairs = await RepairsService.getRepairs(scopeFilter);
             return new Response(JSON.stringify(repairs), { status: 200 });
         } catch (error) {
             return new Response(

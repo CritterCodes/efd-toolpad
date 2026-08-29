@@ -2,8 +2,22 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { NotificationService, CHANNELS } from '@/lib/notificationService';
+import { REPAIR_STATUS } from '@/services/repairWorkflow';
 
-// POST /api/wholesale/repairs/request-action - Batch request pickup or schedule delivery
+/**
+ * POST /api/wholesale/repairs/request-action — batch-move a wholesaler's intake
+ * repairs toward the shop. Three ways in, matching how the partner actually operates:
+ *
+ *   pickup    local store; EFD drives out           → PICKUP REQUESTED, admin notified
+ *   delivery  local store; they drop off            → deliveryMethod recorded
+ *   ship      remote store (e.g. Marlen, Ohio);     → SHIPPED TO SHOP + carrier/tracking,
+ *             they hand a box to a carrier             admin notified with the tracking #
+ *
+ * OWNERSHIP IS IN THE FILTER. A wholesaler's updateMany matches only repairs they own
+ * or created — previously any wholesaler could flip ANOTHER wholesaler's repairs by
+ * posting guessed IDs, because the filter checked only `isWholesale`. Admin keeps the
+ * unscoped filter (they act on behalf of any store).
+ */
 export async function POST(request) {
     try {
         const session = await auth();
@@ -15,69 +29,113 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Access denied' }, { status: 403 });
         }
 
-        const { repairIDs, action } = await request.json();
+        const { repairIDs, action, carrier, trackingNumber } = await request.json();
 
         if (!Array.isArray(repairIDs) || repairIDs.length === 0) {
             return NextResponse.json({ error: 'repairIDs array is required' }, { status: 400 });
         }
 
-        if (!['pickup', 'delivery'].includes(action)) {
-            return NextResponse.json({ error: 'action must be "pickup" or "delivery"' }, { status: 400 });
+        if (!['pickup', 'delivery', 'ship'].includes(action)) {
+            return NextResponse.json({ error: 'action must be "pickup", "delivery" or "ship"' }, { status: 400 });
+        }
+
+        // A shipment without a tracking number is a box nobody can find — refuse
+        // rather than record an untrackable in-transit state.
+        const tracking = String(trackingNumber || '').trim();
+        const shipCarrier = String(carrier || '').trim();
+        if (action === 'ship' && !tracking) {
+            return NextResponse.json({ error: 'trackingNumber is required to mark repairs shipped' }, { status: 400 });
         }
 
         const dbInstance = await db.connect();
         const now = new Date();
 
-        if (action === 'pickup') {
-            // Mark as PICKUP REQUESTED and notify admin
-            await dbInstance.collection('repairs').updateMany(
-                {
-                    repairID: { $in: repairIDs },
-                    isWholesale: true,
-                    status: 'PENDING PICKUP'
-                },
-                {
-                    $set: {
-                        status: 'PICKUP REQUESTED',
-                        deliveryMethod: 'pickup',
-                        pickupRequestedAt: now,
-                        pickupRequestedBy: session.user.userID,
-                        updatedAt: now
-                    }
-                }
-            );
+        const baseFilter = {
+            repairID: { $in: repairIDs },
+            isWholesale: true,
+            status: REPAIR_STATUS.PENDING_PICKUP,
+        };
+        // The ownership fix: non-admins only ever move their own repairs.
+        if (session.user.role !== 'admin') {
+            baseFilter.$or = [
+                { userID: session.user.userID },
+                { createdBy: session.user.userID },
+            ];
+        }
 
-            // Send notification to admin
-            await notifyAdminPickupRequest(
-                session.user.name || session.user.email,
-                repairIDs.length
-            );
+        const wholesalerName = session.user.name || session.user.email;
+
+        if (action === 'pickup') {
+            const result = await dbInstance.collection('repairs').updateMany(baseFilter, {
+                $set: {
+                    status: REPAIR_STATUS.PICKUP_REQUESTED,
+                    deliveryMethod: 'pickup',
+                    pickupRequestedAt: now,
+                    pickupRequestedBy: session.user.userID,
+                    updatedAt: now,
+                },
+            });
+
+            await notifyAdmin({
+                type: 'wholesale-pickup-request',
+                title: 'Wholesale Pickup Requested',
+                message: `${wholesalerName} has ${result.modifiedCount} repair(s) ready for pickup.`,
+                tags: ['wholesale', 'pickup'],
+                data: { wholesalerName, repairCount: result.modifiedCount },
+            });
 
             return NextResponse.json({
                 success: true,
-                message: `Pickup requested for ${repairIDs.length} repair(s). Admin has been notified.`
+                moved: result.modifiedCount,
+                message: `Pickup requested for ${result.modifiedCount} repair(s). Admin has been notified.`,
+            });
+        }
+
+        if (action === 'ship') {
+            const result = await dbInstance.collection('repairs').updateMany(baseFilter, {
+                $set: {
+                    status: REPAIR_STATUS.SHIPPED_TO_SHOP,
+                    deliveryMethod: 'ship',
+                    // One inbound shipment object per repair — receiving reads it to
+                    // reconcile the box against what was declared shipped.
+                    inboundShipment: {
+                        carrier: shipCarrier || null,
+                        trackingNumber: tracking,
+                        shippedAt: now,
+                        shippedBy: session.user.userID,
+                    },
+                    updatedAt: now,
+                },
+            });
+
+            await notifyAdmin({
+                type: 'wholesale-inbound-shipment',
+                title: 'Wholesale Shipment Inbound',
+                message: `${wholesalerName} shipped ${result.modifiedCount} repair(s) to the shop${shipCarrier ? ` via ${shipCarrier}` : ''}. Tracking: ${tracking}`,
+                tags: ['wholesale', 'shipping'],
+                data: { wholesalerName, repairCount: result.modifiedCount, carrier: shipCarrier || null, trackingNumber: tracking },
+            });
+
+            return NextResponse.json({
+                success: true,
+                moved: result.modifiedCount,
+                message: `${result.modifiedCount} repair(s) marked shipped. Admin has the tracking number.`,
             });
         }
 
         // action === 'delivery'
-        await dbInstance.collection('repairs').updateMany(
-            {
-                repairID: { $in: repairIDs },
-                isWholesale: true,
-                status: 'PENDING PICKUP'
+        const result = await dbInstance.collection('repairs').updateMany(baseFilter, {
+            $set: {
+                deliveryMethod: 'delivery',
+                deliveryScheduledAt: now,
+                updatedAt: now,
             },
-            {
-                $set: {
-                    deliveryMethod: 'delivery',
-                    deliveryScheduledAt: now,
-                    updatedAt: now
-                }
-            }
-        );
+        });
 
         return NextResponse.json({
             success: true,
-            message: `${repairIDs.length} repair(s) marked for delivery. Drop them off when ready.`
+            moved: result.modifiedCount,
+            message: `${result.modifiedCount} repair(s) marked for delivery. Drop them off when ready.`,
         });
 
     } catch (error) {
@@ -86,31 +144,30 @@ export async function POST(request) {
     }
 }
 
-async function notifyAdminPickupRequest(wholesalerName, repairCount) {
+/** Best-effort admin notification — logistics must not fail because email did. */
+async function notifyAdmin({ type, title, message, tags, data }) {
     try {
         const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAILS;
         if (!adminEmail) return;
 
         await NotificationService.createNotification({
             userId: 'admin',
-            type: 'wholesale-pickup-request',
-            title: 'Wholesale Pickup Requested',
-            message: `${wholesalerName} has ${repairCount} repair(s) ready for pickup.`,
+            type,
+            title,
+            message,
             channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
             recipientEmail: adminEmail,
             priority: 'high',
-            tags: ['wholesale', 'pickup'],
+            tags,
             data: {
                 userRole: 'admin',
                 relatedType: 'wholesale-repairs',
-                wholesalerName,
-                repairCount,
+                ...data,
                 actionUrl: '/dashboard/repairs/pending-wholesale',
-                actionLabel: 'View Pending Repairs'
-            }
+                actionLabel: 'View Pending Repairs',
+            },
         });
     } catch (error) {
-        console.error('Failed to send pickup notification:', error);
-        // Don't fail the API if notification fails
+        console.error('Failed to send wholesale logistics notification:', error);
     }
 }
