@@ -172,11 +172,16 @@ export const POST = async (request) => {
     repairData.createdBy = session.user.userID;
     repairData.submittedBy = session.user.email;
 
-    if (
-      session.user.role === "wholesaler"
-      && (!repairData.status || [REPAIR_STATUS.RECEIVING, REPAIR_STATUS.READY_FOR_WORK].includes(repairData.status))
-    ) {
+    // A wholesaler's repair ALWAYS starts at PENDING PICKUP, whatever status the
+    // client posted. The old guard only rewrote blank/RECEIVING/READY FOR WORK, so a
+    // crafted POST could inject a repair straight into IN PROGRESS or COMPLETED --
+    // items the shop never physically received, sitting in bench queues (a fake
+    // COMPLETED is even ship-back-eligible). Same rule for the isWholesale flag:
+    // the ROLE decides it, not the payload -- posting isWholesale:false would drop
+    // the repair out of every wholesale query, invisible to their own portal.
+    if (session.user.role === "wholesaler") {
       repairData.status = REPAIR_STATUS.PENDING_PICKUP;
+      repairData.isWholesale = true;
     }
 
     // Canonical billing classification (S1) — derived from comp/wholesale flags.
