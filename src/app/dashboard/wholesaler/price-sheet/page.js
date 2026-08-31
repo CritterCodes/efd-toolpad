@@ -3,25 +3,46 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     Box, Typography, Button, CircularProgress, Alert, TextField,
-    Table, TableBody, TableCell, TableHead, TableRow, Chip
+    Table, TableBody, TableCell, TableHead, TableRow
 } from '@mui/material';
 import { Print as PrintIcon, RequestQuote as PriceIcon, Refresh as RefreshIcon } from '@mui/icons-material';
 import { REPAIRS_UI as UI } from '@/app/dashboard/repairs/components/repairsUi';
 
 const money = (v) => `$${(Number(v) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const metalLabel = (k) => String(k).replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-
-const TH = ({ children, align }) => (
-    <TableCell align={align} sx={{ color: UI.textMuted, fontWeight: 700, fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase', borderBottom: `1px solid ${UI.border}`, backgroundColor: UI.bgTertiary }}>
-        {children}
-    </TableCell>
-);
 
 /**
- * Live wholesale price sheet — served from the task catalog, so it is always
- * today's numbers rather than a PDF that goes stale in someone's inbox.
- * Print-friendly on purpose: partners pin this to the bench.
+ * The metal matrix. Trade price sheets are karat-column tables — the eye scans
+ * DOWN a column to compare tasks and ACROSS a row to compare metals. Gold colors
+ * are shown exactly (owner: never collapse colors — yellow/white/rose price
+ * differently and the sheet must say so).
  */
+const METAL_GROUPS = [
+    { label: 'Silver', columns: [{ key: 'sterling_silver_925', label: '925' }] },
+    { label: '10k Gold', columns: [{ key: 'yellow_gold_10k', label: 'Y' }, { key: 'white_gold_10k', label: 'W' }, { key: 'rose_gold_10k', label: 'R' }] },
+    { label: '14k Gold', columns: [{ key: 'yellow_gold_14k', label: 'Y' }, { key: 'white_gold_14k', label: 'W' }, { key: 'rose_gold_14k', label: 'R' }] },
+    { label: '18k Gold', columns: [{ key: 'yellow_gold_18k', label: 'Y' }, { key: 'white_gold_18k', label: 'W' }, { key: 'rose_gold_18k', label: 'R' }] },
+    { label: 'Platinum', columns: [{ key: 'platinum_950', label: '950' }] },
+];
+const ALL_COLUMNS = METAL_GROUPS.flatMap((g) => g.columns);
+
+// "(laser welded)" and similar parentheticals are shop detail — keep them off the
+// task name line so titles stop wrapping, but keep them visible as a subtitle.
+const splitTitle = (title = '') => {
+    const m = title.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+    return m ? { name: m[1], note: m[2] } : { name: title, note: null };
+};
+
+const priceCellSx = {
+    color: UI.textPrimary, textAlign: 'right', whiteSpace: 'nowrap',
+    fontVariantNumeric: 'tabular-nums', fontSize: '0.82rem',
+    borderBottom: `1px solid ${UI.border}`, px: 1,
+};
+const headCellSx = {
+    color: UI.textMuted, fontWeight: 700, fontSize: '0.68rem', letterSpacing: '0.05em',
+    textTransform: 'uppercase', borderBottom: `1px solid ${UI.border}`,
+    backgroundColor: UI.bgTertiary, textAlign: 'right', whiteSpace: 'nowrap', px: 1,
+};
+
 export default function WholesalePriceSheetPage() {
     const [rows, setRows] = useState([]);
     const [generatedAt, setGeneratedAt] = useState(null);
@@ -51,6 +72,11 @@ export default function WholesalePriceSheetPage() {
             if (!map.has(r.category)) map.set(r.category, []);
             map.get(r.category).push(r);
         }
+        // Within a category: flat-priced services first (the simple list), then the
+        // metal matrix rows, each alphabetical.
+        for (const list of map.values()) {
+            list.sort((a, b) => (a.byMetal ? 1 : 0) - (b.byMetal ? 1 : 0) || a.title.localeCompare(b.title));
+        }
         return [...map.entries()];
     }, [rows, search]);
 
@@ -77,6 +103,7 @@ export default function WholesalePriceSheetPage() {
                         <Typography sx={{ color: UI.textSecondary, lineHeight: 1.6 }}>
                             Your trade pricing for repair services — live from our catalog, current as of{' '}
                             {generatedAt ? new Date(generatedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'today'}.
+                            {' '}A dash means quote on request.
                         </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', gap: 1.5 }}>
@@ -97,42 +124,86 @@ export default function WholesalePriceSheetPage() {
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
             {loading && <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress sx={{ color: UI.accent }} /></Box>}
 
-            {!loading && grouped.map(([category, tasks]) => (
-                <Box key={category} sx={{ mb: 3, border: `1px solid ${UI.border}`, borderRadius: 2, overflow: 'hidden', breakInside: 'avoid' }}>
-                    <Typography sx={{ px: 2, py: 1.25, fontWeight: 700, color: UI.textHeader, backgroundColor: UI.bgPanel, borderBottom: `1px solid ${UI.border}`, textTransform: 'capitalize' }}>
-                        {String(category).replace(/[_-]+/g, ' ')}
-                    </Typography>
-                    <Table size="small">
-                        <TableHead>
-                            <TableRow>
-                                <TH>Service</TH>
-                                <TH align="right">Your Price</TH>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {tasks.map((t) => (
-                                <TableRow key={`${category}-${t.title}`} sx={{ backgroundColor: UI.bgCard, '&:not(:last-child) td': { borderBottom: `1px solid ${UI.border}` }, '&:last-child td': { borderBottom: 'none' } }}>
-                                    <TableCell sx={{ color: UI.textPrimary }}>
-                                        {t.title}
-                                        {t.sku && <Typography component="span" variant="caption" sx={{ color: UI.textMuted, ml: 1, fontFamily: 'monospace' }}>{t.sku}</Typography>}
-                                    </TableCell>
-                                    <TableCell align="right" sx={{ color: UI.textPrimary, whiteSpace: 'nowrap' }}>
-                                        {t.byMetal ? (
-                                            <Box sx={{ display: 'flex', gap: 0.75, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                                                {Object.entries(t.byMetal).map(([metal, price]) => (
-                                                    <Chip key={metal} size="small" label={`${metalLabel(metal)} ${money(price)}`} sx={{ backgroundColor: UI.bgTertiary, color: UI.textPrimary }} />
-                                                ))}
-                                            </Box>
-                                        ) : (
-                                            <Typography component="span" sx={{ fontWeight: 600 }}>{money(t.wholesalePrice)}</Typography>
-                                        )}
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </Box>
-            ))}
+            {!loading && grouped.map(([category, tasks]) => {
+                const flatTasks = tasks.filter((t) => !t.byMetal);
+                const matrixTasks = tasks.filter((t) => t.byMetal);
+                return (
+                    <Box key={category} sx={{ mb: 3, border: `1px solid ${UI.border}`, borderRadius: 2, overflow: 'hidden', breakInside: 'avoid' }}>
+                        <Typography sx={{ px: 2, py: 1.25, fontWeight: 700, color: UI.textHeader, backgroundColor: UI.bgPanel, borderBottom: `1px solid ${UI.border}`, textTransform: 'capitalize' }}>
+                            {String(category).replace(/[_-]+/g, ' ')}
+                        </Typography>
+
+                        {/* Metal-independent services: a simple two-column list. */}
+                        {flatTasks.length > 0 && (
+                            <Table size="small">
+                                <TableBody>
+                                    {flatTasks.map((t) => {
+                                        const { name, note } = splitTitle(t.title);
+                                        return (
+                                            <TableRow key={t.title} sx={{ backgroundColor: UI.bgCard }}>
+                                                <TableCell sx={{ color: UI.textPrimary, borderBottom: `1px solid ${UI.border}` }}>
+                                                    {name}
+                                                    {note && <Typography component="span" variant="caption" sx={{ color: UI.textMuted, ml: 1 }}>{note}</Typography>}
+                                                    {t.sku && <Typography component="span" variant="caption" sx={{ color: UI.textMuted, ml: 1, fontFamily: 'monospace' }}>{t.sku}</Typography>}
+                                                </TableCell>
+                                                <TableCell sx={{ ...priceCellSx, fontWeight: 600, width: 120 }}>{money(t.wholesalePrice)}</TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                </TableBody>
+                            </Table>
+                        )}
+
+                        {/* Metal-dependent services: the matrix. Scrolls sideways on small
+                            screens rather than wrapping into chip soup. */}
+                        {matrixTasks.length > 0 && (
+                            <Box sx={{ overflowX: 'auto' }}>
+                                <Table size="small" sx={{ minWidth: 900 }}>
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell sx={{ ...headCellSx, textAlign: 'left', minWidth: 190 }} rowSpan={2}>Service</TableCell>
+                                            {METAL_GROUPS.map((g) => (
+                                                <TableCell key={g.label} colSpan={g.columns.length} sx={{ ...headCellSx, textAlign: 'center', borderLeft: `1px solid ${UI.border}` }}>
+                                                    {g.label}
+                                                </TableCell>
+                                            ))}
+                                        </TableRow>
+                                        <TableRow>
+                                            {METAL_GROUPS.flatMap((g) => g.columns.map((c, i) => (
+                                                <TableCell key={c.key} sx={{ ...headCellSx, ...(i === 0 ? { borderLeft: `1px solid ${UI.border}` } : {}) }}>
+                                                    {c.label}
+                                                </TableCell>
+                                            )))}
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {matrixTasks.map((t) => {
+                                            const { name, note } = splitTitle(t.title);
+                                            return (
+                                                <TableRow key={t.title} sx={{ backgroundColor: UI.bgCard, '&:hover': { backgroundColor: UI.bgTertiary } }}>
+                                                    <TableCell sx={{ color: UI.textPrimary, borderBottom: `1px solid ${UI.border}` }}>
+                                                        {name}
+                                                        {note && <Typography variant="caption" sx={{ color: UI.textMuted, display: 'block' }}>{note}</Typography>}
+                                                    </TableCell>
+                                                    {ALL_COLUMNS.map((c, i) => {
+                                                        const groupStart = METAL_GROUPS.some((g) => g.columns[0].key === c.key);
+                                                        const price = t.byMetal?.[c.key];
+                                                        return (
+                                                            <TableCell key={c.key} sx={{ ...priceCellSx, ...(groupStart ? { borderLeft: `1px solid ${UI.border}` } : {}), color: price ? UI.textPrimary : UI.textMuted }}>
+                                                                {price ? money(price) : '—'}
+                                                            </TableCell>
+                                                        );
+                                                    })}
+                                                </TableRow>
+                                            );
+                                        })}
+                                    </TableBody>
+                                </Table>
+                            </Box>
+                        )}
+                    </Box>
+                );
+            })}
 
             {!loading && !error && grouped.length === 0 && (
                 <Box sx={{ p: 4, textAlign: 'center', border: `1px solid ${UI.border}`, borderRadius: 2, backgroundColor: UI.bgCard }}>

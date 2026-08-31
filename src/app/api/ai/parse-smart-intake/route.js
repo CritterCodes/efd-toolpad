@@ -162,6 +162,7 @@ export async function POST(request) {
     const taskListText = relevantTasks.length > 0
       ? relevantTasks.map(t =>
           `- id:${t.id} | title:"${t.title}"` +
+          (Array.isArray(t.metals) && t.metals.length ? ` | onlyForMetals:${JSON.stringify(t.metals)}` : '') +
           (t.symptoms?.length ? ` | symptoms:${JSON.stringify(t.symptoms)}` : '') +
           (t.whenToUse ? ` | whenToUse:"${t.whenToUse}"` : '') +
           (t.neverUseWhen ? ` | neverUseWhen:"${t.neverUseWhen}"` : '')
@@ -193,6 +194,7 @@ export async function POST(request) {
         '',
         'You are also given a list of available repair tasks. Identify which tasks (by id) best match the repair described (up to 3 tasks maximum).',
         'Use the symptoms, whenToUse, and neverUseWhen fields to decide. Return their ids in "matchedTaskIds". If no task clearly matches, return an empty array.',
+        'A task with onlyForMetals must ONLY be matched when the item is that metal — and when the item IS that metal, prefer the onlyForMetals task over a generic one (e.g. a platinum ring gets the platinum sizing task, never the standard soldered one).',
         '',
         'Available tasks:',
         taskListText,

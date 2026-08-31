@@ -68,11 +68,19 @@ export async function GET() {
       } catch { /* a task the engine can't price is not purchasable — skip below */ }
       const flat = round2(base?.wholesalePrice);
 
+      // A task may be restricted to specific metals (e.g. platinum work is laser
+      // welded and has its OWN task — offering it in gold would duplicate the gold
+      // task, and offering gold tasks in platinum priced gold solder into a weld job).
+      const restricted = Array.isArray(task.metals) && task.metals.length > 0;
+      const taskContexts = restricted
+        ? contexts.filter((key) => task.metals.some((m) => key.startsWith(String(m).toLowerCase())))
+        : contexts;
+
       // Price the task for each metal the catalog can support. A context where a
       // required material has no variant comes back flagged (unmatchedMaterials)
       // and is omitted — never rendered as $0.
       const byMetal = {};
-      for (const contextKey of contexts) {
+      for (const contextKey of taskContexts) {
         try {
           const priced = calculateTaskCost(task, adminSettings, [], materials, contextKey);
           if ((priced.unmatchedMaterials || []).length > 0) continue;
@@ -82,8 +90,10 @@ export async function GET() {
       }
 
       // Metal-independent tasks price identically everywhere — one flat number.
+      // A metal-RESTRICTED task always keeps its metal label, even with one price:
+      // "Platinum $X" is the point of the row.
       const distinct = new Set(Object.values(byMetal));
-      const isFlat = distinct.size <= 1 && (distinct.size === 0 || [...distinct][0] === flat);
+      const isFlat = !restricted && distinct.size <= 1 && (distinct.size === 0 || [...distinct][0] === flat);
 
       if (!(flat > 0) && distinct.size === 0) continue; // nothing priceable
 
