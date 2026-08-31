@@ -50,6 +50,7 @@ import UsersService from '@/services/users';
 import wholesaleClientsAPIClient from '@/api-clients/wholesaleClients.client';
 import wholesaleAccountSettingsAPIClient from '@/api-clients/wholesaleAccountSettings.client';
 import pricingEngine from '@/services/PricingEngine';
+import { alignTasksToMetal } from '@/services/repairs/metalTaskFilter';
 
 // Context
 import { useRepairs } from '@/app/context/repairs.context';
@@ -1591,6 +1592,11 @@ export default function NewRepairForm({
 
       if (results.karat && !String(prev.karat || '').trim()) {
         updates.karat = results.karat;
+      } else if ((updates.metalType || prev.metalType) === 'platinum' && !results.karat && !String(prev.karat || '').trim()) {
+        // Platinum without a stated purity defaults to 950 — the form's primary
+        // platinum option and the key the material variants price under. Without
+        // this, the pricing context is null and platinum tasks price at base.
+        updates.karat = '950';
       }
 
       if (isRing && results.currentRingSize) {
@@ -1665,7 +1671,11 @@ export default function NewRepairForm({
 
     const detectedMetalContext = extractMetalContextFromDescription(parsingText) || {};
     const detectedRingSizes = extractRingSizesFromDescription(parsingText);
-    const inferredTasks = inferTasksFromDescription(parsingText, availableTasks);
+    const inferredTasks = alignTasksToMetal(
+      inferTasksFromDescription(parsingText, availableTasks),
+      detectedMetalContext.metalType || '',
+      availableTasks
+    );
     const isRingCategory = SIZEABLE_CATEGORIES.some((cat) => parsingText.toLowerCase().includes(cat) || parsingText.toLowerCase().includes('ring'));
     const promiseDate = parsePromiseDateFromDescription(parsingText);
     const materialHints = inferMaterialHintsFromSmartIntake({
@@ -1707,6 +1717,7 @@ export default function NewRepairForm({
         symptoms: t.aiMeta?.symptoms || [],
         whenToUse: t.aiMeta?.whenToUse || '',
         neverUseWhen: t.aiMeta?.neverUseWhen || '',
+        metals: Array.isArray(t.metals) && t.metals.length ? t.metals : undefined,
       })).filter((t) => t.id);
 
       const response = await fetch('/api/ai/parse-smart-intake', {
@@ -1742,6 +1753,11 @@ export default function NewRepairForm({
         aiMatchedTasks, parsingText,
         parsed.currentRingSize || '', parsed.desiredRingSize || ''
       );
+
+      // Metal is the recipe: a platinum job swaps generic matches for the
+      // laser-welded platinum tasks, and a platinum task never lands on a gold
+      // job. Deterministic — the AI prompt only hints, this decides.
+      aiMatchedTasks = alignTasksToMetal(aiMatchedTasks, parsed.metalType || '', availableTasks);
 
       applySmartIntakeResults({
         inputText: parsingText,
