@@ -84,6 +84,33 @@ describe('GET /api/wholesale/price-sheet', () => {
     expect(JSON.stringify(res._data)).not.toContain('yellow_gold_14k');
   });
 
+  it('a metal-RESTRICTED task prices only its metals and keeps the label', async () => {
+    // Platinum work is laser welded and has its own task; it must never render
+    // gold chips, and even a single platinum price stays labeled, never flat.
+    mocks.getTasks.mockResolvedValue({
+      success: true,
+      data: [task({ title: 'Half-Shank — Platinum', metals: ['platinum'] })],
+    });
+    mocks.loadDeps.mockResolvedValue({
+      adminSettings: {},
+      materials: [{
+        isMetalDependent: true,
+        stullerProducts: [
+          { metalType: 'sterling_silver', karat: '925' },
+          { metalType: 'yellow_gold', karat: '14K' },
+          { metalType: 'platinum', karat: '950' },
+        ],
+      }],
+    });
+    mocks.calc.mockImplementation((t, s, p, m, ctx) => priced(ctx === 'platinum_950' ? 474.24 : 40));
+    const res = await GET();
+    const row = res._data.rows[0];
+    expect(row.byMetal).toEqual({ platinum_950: 474.24 });
+    expect(row.wholesalePrice).toBeUndefined();
+    const ctxCalls = mocks.calc.mock.calls.map((c) => c[4]).filter(Boolean);
+    expect(ctxCalls).toEqual(['platinum_950']); // gold/silver never even computed
+  });
+
   it('drops a task the engine cannot price at all', async () => {
     mocks.calc.mockImplementation(() => { throw new Error('bad task'); });
     const res = await GET();
