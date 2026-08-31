@@ -65,8 +65,12 @@ export async function createInvoiceCheckoutSession({ invoice, method, successUrl
   const body = new URLSearchParams();
   body.set('mode', 'payment');
   body.append('payment_method_types[]', method === 'card' ? 'card' : 'us_bank_account');
-  body.set('success_url', successUrl);
-  body.set('cancel_url', cancelUrl);
+  // EMBEDDED checkout: Stripe's payment UI mounts inside our page (the billing
+  // drawer) instead of redirecting away -- the wholesaler never leaves the site,
+  // matching the shop's checkout pattern. return_url is where the iframe sends
+  // the browser after completion.
+  body.set('ui_mode', 'embedded');
+  body.set('return_url', successUrl);
   body.set('client_reference_id', invoice.invoiceID);
 
   body.set('line_items[0][quantity]', '1');
@@ -102,7 +106,36 @@ export async function createInvoiceCheckoutSession({ invoice, method, successUrl
   const data = await response.json();
   if (!response.ok) throw new Error(data?.error?.message || 'Failed to create the Stripe Checkout session.');
 
-  return { url: data.url, sessionId: data.id, base, fee };
+  return { clientSecret: data.client_secret, sessionId: data.id, base, fee };
+}
+
+/**
+ * Mark an ACH payment as in flight. checkout.session.completed for a bank debit
+ * arrives with payment_status 'unpaid' -- the money is PROCESSING for days.
+ * Without this marker the Billing page kept offering Pay on an invoice that was
+ * already being paid (owner hit it on the first live test), and a second payment
+ * would double-debit. Cleared when the async event settles or fails.
+ */
+export async function markWholesalePaymentProcessing(checkoutSession) {
+  const meta = checkoutSession?.metadata || {};
+  if (meta.kind !== 'wholesale_invoice' || !meta.invoiceID) return { marked: false };
+  const { default: RepairInvoicesModel } = await import('@/app/api/repair-invoices/model');
+  await RepairInvoicesModel.updateByInvoiceID(meta.invoiceID, {
+    pendingCheckout: {
+      sessionId: checkoutSession.id,
+      method: meta.method || 'ach',
+      amount: round2(meta.baseAmount),
+      startedAt: new Date(),
+    },
+  });
+  return { marked: true, invoiceID: meta.invoiceID };
+}
+
+/** Clear the in-flight marker (payment settled or failed). */
+export async function clearWholesalePaymentProcessing(invoiceID) {
+  if (!invoiceID) return;
+  const { default: RepairInvoicesModel } = await import('@/app/api/repair-invoices/model');
+  await RepairInvoicesModel.updateByInvoiceID(invoiceID, { pendingCheckout: null });
 }
 
 /**
@@ -155,6 +188,7 @@ export async function recordWholesaleCheckoutPayment(checkoutSession) {
     amountPaid,
     paymentStatus,
     remainingBalance,
+    pendingCheckout: null,
     ...(paymentStatus === 'paid' ? { status: 'paid', paidAt: new Date() } : {}),
   });
   if (paymentStatus === 'paid') {

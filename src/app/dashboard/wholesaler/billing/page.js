@@ -1,13 +1,30 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     Box, Typography, Button, CircularProgress, Alert, Chip,
     Table, TableBody, TableCell, TableHead, TableRow, Tooltip,
-    Dialog, DialogTitle, DialogContent, DialogActions,
+    Drawer, IconButton,
     RadioGroup, FormControlLabel, Radio
 } from '@mui/material';
-import { ReceiptLong as BillingIcon, Refresh as RefreshIcon, Payment as PayIcon } from '@mui/icons-material';
+import { ReceiptLong as BillingIcon, Refresh as RefreshIcon, Payment as PayIcon, Close as CloseIcon } from '@mui/icons-material';
+
+// Stripe's browser library from its own CDN (the only way Stripe permits serving
+// it) — loaded once, on demand, so the page carries no npm Stripe dependency.
+let stripeJsPromise = null;
+const loadStripeJs = () => {
+    if (window.Stripe) return Promise.resolve(window.Stripe);
+    if (!stripeJsPromise) {
+        stripeJsPromise = new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://js.stripe.com/v3';
+            script.onload = () => resolve(window.Stripe);
+            script.onerror = () => { stripeJsPromise = null; reject(new Error('Could not load the payment library.')); };
+            document.head.appendChild(script);
+        });
+    }
+    return stripeJsPromise;
+};
 import { REPAIRS_UI as UI } from '@/app/dashboard/repairs/components/repairsUi';
 
 const money = (v) => `$${(Number(v) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -67,6 +84,22 @@ export default function WholesalerBillingPage() {
         }
     };
 
+    // Embedded checkout mounts INSIDE the drawer — the wholesaler never leaves
+    // the site (same pattern as the shop's checkout). The instance must be
+    // destroyed on close or Stripe refuses to mount a second one.
+    const checkoutRef = useRef(null);
+    const [checkoutMounted, setCheckoutMounted] = useState(false);
+    const destroyCheckout = () => {
+        try { checkoutRef.current?.destroy(); } catch { /* already gone */ }
+        checkoutRef.current = null;
+        setCheckoutMounted(false);
+    };
+    const closePayDrawer = () => {
+        if (payBusy) return;
+        destroyCheckout();
+        setPayInvoice(null);
+    };
+
     const startPayment = async () => {
         setPayBusy(true);
         setPayError('');
@@ -77,10 +110,16 @@ export default function WholesalerBillingPage() {
                 body: JSON.stringify({ method: payMethod }),
             });
             const d = await r.json();
-            if (!d.success || !d.url) throw new Error(d.error || 'Could not start the payment.');
-            window.location.assign(d.url);
+            if (!d.success || !d.clientSecret || !d.publishableKey) throw new Error(d.error || 'Could not start the payment.');
+            const Stripe = await loadStripeJs();
+            const stripe = Stripe(d.publishableKey);
+            const checkout = await stripe.initEmbeddedCheckout({ clientSecret: d.clientSecret });
+            checkoutRef.current = checkout;
+            setCheckoutMounted(true);
+            checkout.mount('#wholesale-embedded-checkout');
         } catch (e) {
             setPayError(e.message);
+        } finally {
             setPayBusy(false);
         }
     };
@@ -151,35 +190,60 @@ export default function WholesalerBillingPage() {
                 </Box>
             )}
 
-            {/* Pay dialog: ACH default (no fee), card with the disclosed surcharge.
-                Confirms into Stripe Checkout — no card or bank data ever touches this app. */}
-            <Dialog open={Boolean(payInvoice)} onClose={() => !payBusy && setPayInvoice(null)} maxWidth="xs" fullWidth>
-                <DialogTitle>Pay invoice {payInvoice?.invoiceID}</DialogTitle>
-                <DialogContent>
-                    {!payQuote && !payError && <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}><CircularProgress size={24} /></Box>}
+            {/* Pay drawer: full-width on phones, a right-side panel on desktop.
+                Step 1 picks the rail; step 2 mounts Stripe's embedded checkout in
+                place — no card or bank data ever touches this app, and the
+                wholesaler never leaves the site. */}
+            <Drawer
+                anchor="right"
+                open={Boolean(payInvoice)}
+                onClose={closePayDrawer}
+                PaperProps={{ sx: { width: { xs: '100%', sm: 480 }, backgroundColor: '#fff' } }}
+            >
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, borderBottom: '1px solid #e5e7eb' }}>
+                    <Typography sx={{ fontWeight: 700, color: '#111' }}>
+                        Pay invoice <Box component="span" sx={{ fontFamily: 'monospace' }}>{payInvoice?.invoiceID}</Box>
+                    </Typography>
+                    <IconButton onClick={closePayDrawer} disabled={payBusy} size="small"><CloseIcon /></IconButton>
+                </Box>
+
+                <Box sx={{ p: 2, display: checkoutMounted ? 'none' : 'block' }}>
+                    {!payQuote && !payError && <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}><CircularProgress size={24} /></Box>}
                     {payQuote && (
                         <RadioGroup value={payMethod} onChange={(e) => setPayMethod(e.target.value)}>
                             <FormControlLabel
                                 value="ach"
                                 control={<Radio />}
+                                sx={{ mb: 1, color: '#111' }}
                                 label={`Bank transfer (ACH) — ${money(payQuote.ach.total)}, no fee. Settles in a few business days.`}
                             />
                             <FormControlLabel
                                 value="card"
                                 control={<Radio />}
+                                sx={{ color: '#111' }}
                                 label={`Card — ${money(payQuote.card.total)} (includes ${money(payQuote.card.fee)} convenience fee). Instant.`}
                             />
                         </RadioGroup>
                     )}
                     {payError && <Alert severity="error" sx={{ mt: 1 }}>{payError}</Alert>}
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setPayInvoice(null)} disabled={payBusy}>Cancel</Button>
-                    <Button variant="contained" onClick={startPayment} disabled={!payQuote || payBusy}>
-                        {payBusy ? 'Redirecting…' : 'Continue to payment'}
+                    <Button
+                        fullWidth variant="contained" sx={{ mt: 2 }}
+                        onClick={startPayment} disabled={!payQuote || payBusy}
+                    >
+                        {payBusy ? 'Loading payment…' : 'Continue to payment'}
                     </Button>
-                </DialogActions>
-            </Dialog>
+                </Box>
+
+                {/* Stripe owns everything inside this box. */}
+                <Box id="wholesale-embedded-checkout" sx={{ flex: 1, overflowY: 'auto' }} />
+                {checkoutMounted && (
+                    <Box sx={{ p: 1.5, borderTop: '1px solid #e5e7eb' }}>
+                        <Button size="small" onClick={() => { destroyCheckout(); }} sx={{ color: '#555' }}>
+                            ← Change payment method
+                        </Button>
+                    </Box>
+                )}
+            </Drawer>
 
             {!loading && invoices.length > 0 && (
                 <Box sx={{ border: `1px solid ${UI.border}`, borderRadius: 2, overflow: 'hidden' }}>
@@ -222,11 +286,15 @@ export default function WholesalerBillingPage() {
                                             />
                                         </TableCell>
                                         <TableCell>
-                                            {open && (
+                                            {open && inv.pendingCheckout?.sessionId ? (
+                                                <Tooltip title={`${String(inv.pendingCheckout.method || '').toUpperCase()} payment started ${fmtDate(inv.pendingCheckout.startedAt)} — bank debits take a few business days to settle.`}>
+                                                    <Chip size="small" label="Processing" color="info" />
+                                                </Tooltip>
+                                            ) : open ? (
                                                 <Button size="small" variant="contained" startIcon={<PayIcon />} onClick={() => openPayDialog(inv)}>
                                                     Pay
                                                 </Button>
-                                            )}
+                                            ) : null}
                                         </TableCell>
                                     </TableRow>
                                 );
