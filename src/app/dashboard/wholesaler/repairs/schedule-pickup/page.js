@@ -12,7 +12,8 @@ import {
     Refresh as RefreshIcon,
     LocalShipping as PickupIcon,
     DirectionsCar as DeliveryIcon,
-    LocalShipping as ShipIcon
+    LocalShipping as ShipIcon,
+    Print as PrintSlipsIcon
 } from '@mui/icons-material';
 import { useWholesaleRepairs } from '@/hooks/wholesale/useWholesaleRepairs';
 import { REPAIRS_UI as UI } from '@/app/dashboard/repairs/components/repairsUi';
@@ -170,6 +171,20 @@ export default function SchedulePickupPage() {
                         sx={{ color: UI.textPrimary, borderColor: UI.border }}
                     >
                         I&apos;m Shipping
+                    </Button>
+                    <Button
+                        variant="outlined"
+                        startIcon={<PrintSlipsIcon />}
+                        disabled={selectedPendingCount === 0}
+                        // Batch slips for the box: the existing bulk-print page, which
+                        // fetches each repair through the ownership-scoped API.
+                        onClick={() => {
+                            const ids = selected.filter((id) => pendingRepairs.some((r) => r.repairID === id));
+                            window.open(`/dashboard/repairs/bulk-print?ids=${encodeURIComponent(ids.join(','))}`, '_blank');
+                        }}
+                        sx={{ color: UI.textPrimary, borderColor: UI.border }}
+                    >
+                        Print Slips
                     </Button>
                 </Box>
             )}

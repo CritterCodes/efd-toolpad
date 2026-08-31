@@ -3,9 +3,11 @@
 import React, { useEffect, useState } from 'react';
 import {
     Box, Typography, Button, CircularProgress, Alert, Chip,
-    Table, TableBody, TableCell, TableHead, TableRow, Tooltip
+    Table, TableBody, TableCell, TableHead, TableRow, Tooltip,
+    Dialog, DialogTitle, DialogContent, DialogActions,
+    RadioGroup, FormControlLabel, Radio
 } from '@mui/material';
-import { ReceiptLong as BillingIcon, Refresh as RefreshIcon } from '@mui/icons-material';
+import { ReceiptLong as BillingIcon, Refresh as RefreshIcon, Payment as PayIcon } from '@mui/icons-material';
 import { REPAIRS_UI as UI } from '@/app/dashboard/repairs/components/repairsUi';
 
 const money = (v) => `$${(Number(v) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -18,14 +20,70 @@ const TH = ({ children, align }) => (
 );
 
 /**
- * Billing — what this account owes and what it has paid, from the same invoice
- * records the shop settles against. Read-only on purpose: online payment is a
- * later, deliberate build (card fees are a pricing decision, not a UI feature).
+ * Billing — what this account owes, what it has paid, and a way to pay online:
+ * ACH by default (no fee — the shop eats it), card with the disclosed
+ * convenience fee. All payment UI is Stripe Checkout's; the invoice is marked
+ * paid by the webhook, never by anything this page does.
  */
 export default function WholesalerBillingPage() {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    // Pay dialog: quote fetched from the server so the fee shown is computed by
+    // the same function that builds the charge.
+    const [payInvoice, setPayInvoice] = useState(null);
+    const [payQuote, setPayQuote] = useState(null);
+    const [payMethod, setPayMethod] = useState('ach');
+    const [payBusy, setPayBusy] = useState(false);
+    const [payError, setPayError] = useState('');
+    // The redirect back from Stripe carries ?paid= / ?cancelled= — informational
+    // only; the invoice is marked paid by the webhook, never by this URL.
+    const [returnBanner, setReturnBanner] = useState(null);
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('paid')) {
+            setReturnBanner(params.get('method') === 'card'
+                ? { severity: 'success', text: `Payment received for ${params.get('paid')}. It may take a moment to show below.` }
+                : { severity: 'info', text: `Bank payment started for ${params.get('paid')}. ACH takes a few business days to settle — the invoice shows paid once the debit clears.` });
+            window.history.replaceState(null, '', window.location.pathname);
+        } else if (params.get('cancelled')) {
+            setReturnBanner({ severity: 'warning', text: 'Payment cancelled — the invoice is unchanged.' });
+            window.history.replaceState(null, '', window.location.pathname);
+        }
+    }, []);
+
+    const openPayDialog = async (inv) => {
+        setPayInvoice(inv);
+        setPayQuote(null);
+        setPayMethod('ach');
+        setPayError('');
+        try {
+            const r = await fetch(`/api/wholesale/invoices/${encodeURIComponent(inv.invoiceID)}/pay`);
+            const d = await r.json();
+            if (d.success) setPayQuote(d);
+            else setPayError(d.error || 'Could not load payment options.');
+        } catch (e) {
+            setPayError(e.message);
+        }
+    };
+
+    const startPayment = async () => {
+        setPayBusy(true);
+        setPayError('');
+        try {
+            const r = await fetch(`/api/wholesale/invoices/${encodeURIComponent(payInvoice.invoiceID)}/pay`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ method: payMethod }),
+            });
+            const d = await r.json();
+            if (!d.success || !d.url) throw new Error(d.error || 'Could not start the payment.');
+            window.location.assign(d.url);
+        } catch (e) {
+            setPayError(e.message);
+            setPayBusy(false);
+        }
+    };
 
     const load = () => {
         setLoading(true);
@@ -61,7 +119,7 @@ export default function WholesalerBillingPage() {
                             Billing
                         </Typography>
                         <Typography sx={{ color: UI.textSecondary, lineHeight: 1.6 }}>
-                            Your invoices and account balance. Payment is settled at pickup, on delivery, or by phone.
+                            Your invoices and account balance. Pay online by bank transfer (no fee) or card, or settle at pickup.
                         </Typography>
                     </Box>
                     <Button variant="outlined" startIcon={<RefreshIcon />} onClick={load} disabled={loading} sx={{ color: UI.textPrimary, borderColor: UI.border }}>
@@ -83,6 +141,7 @@ export default function WholesalerBillingPage() {
                 </Box>
             </Box>
 
+            {returnBanner && <Alert severity={returnBanner.severity} sx={{ mb: 2 }} onClose={() => setReturnBanner(null)}>{returnBanner.text}</Alert>}
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
             {loading && <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress sx={{ color: UI.accent }} /></Box>}
 
@@ -91,6 +150,36 @@ export default function WholesalerBillingPage() {
                     <Typography sx={{ color: UI.textSecondary }}>No invoices yet. Invoices appear here when completed repairs are billed.</Typography>
                 </Box>
             )}
+
+            {/* Pay dialog: ACH default (no fee), card with the disclosed surcharge.
+                Confirms into Stripe Checkout — no card or bank data ever touches this app. */}
+            <Dialog open={Boolean(payInvoice)} onClose={() => !payBusy && setPayInvoice(null)} maxWidth="xs" fullWidth>
+                <DialogTitle>Pay invoice {payInvoice?.invoiceID}</DialogTitle>
+                <DialogContent>
+                    {!payQuote && !payError && <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}><CircularProgress size={24} /></Box>}
+                    {payQuote && (
+                        <RadioGroup value={payMethod} onChange={(e) => setPayMethod(e.target.value)}>
+                            <FormControlLabel
+                                value="ach"
+                                control={<Radio />}
+                                label={`Bank transfer (ACH) — ${money(payQuote.ach.total)}, no fee. Settles in a few business days.`}
+                            />
+                            <FormControlLabel
+                                value="card"
+                                control={<Radio />}
+                                label={`Card — ${money(payQuote.card.total)} (includes ${money(payQuote.card.fee)} convenience fee). Instant.`}
+                            />
+                        </RadioGroup>
+                    )}
+                    {payError && <Alert severity="error" sx={{ mt: 1 }}>{payError}</Alert>}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setPayInvoice(null)} disabled={payBusy}>Cancel</Button>
+                    <Button variant="contained" onClick={startPayment} disabled={!payQuote || payBusy}>
+                        {payBusy ? 'Redirecting…' : 'Continue to payment'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             {!loading && invoices.length > 0 && (
                 <Box sx={{ border: `1px solid ${UI.border}`, borderRadius: 2, overflow: 'hidden' }}>
@@ -104,6 +193,7 @@ export default function WholesalerBillingPage() {
                                 <TH align="right">Paid</TH>
                                 <TH align="right">Balance</TH>
                                 <TH>Status</TH>
+                                <TH>{''}</TH>
                             </TableRow>
                         </TableHead>
                         <TableBody>
@@ -130,6 +220,13 @@ export default function WholesalerBillingPage() {
                                                 label={inv.paymentStatus === 'paid' ? `Paid ${inv.paidAt ? fmtDate(inv.paidAt) : ''}`.trim() : 'Open'}
                                                 color={inv.paymentStatus === 'paid' ? 'success' : 'warning'}
                                             />
+                                        </TableCell>
+                                        <TableCell>
+                                            {open && (
+                                                <Button size="small" variant="contained" startIcon={<PayIcon />} onClick={() => openPayDialog(inv)}>
+                                                    Pay
+                                                </Button>
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 );

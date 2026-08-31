@@ -30,11 +30,12 @@ vi.mock('@/lib/notificationService', () => ({
 }));
 vi.mock('@/lib/apiAuth', async (importOriginal) => {
   const actual = await importOriginal();
-  return { ...actual, requireRepairOpsAny: mocks.requireRepairOpsAny };
+  return { ...actual, requireRepairOpsAny: mocks.requireRepairOpsAny, requireRepairOps: mocks.requireRepairOpsAny };
 });
 
 const { POST: requestAction } = await import('./request-action/route.js');
 const { POST: shipBack } = await import('./ship-back/route.js');
+const { POST: receive } = await import('./receive/route.js');
 const { REPAIR_STATUS } = await import('@/services/repairWorkflow');
 
 const req = (body) => ({ json: async () => body });
@@ -134,5 +135,35 @@ describe('ship-back (outbound)', () => {
     const res = await shipBack(req({ repairIDs: ['r1'], trackingNumber: 'X' }));
     expect(res.status).toBe(403);
     expect(mocks.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('receive notifies the owner their box arrived', () => {
+  beforeEach(() => {
+    mocks.requireRepairOpsAny.mockResolvedValue({ session: adminSession, errorResponse: null });
+  });
+
+  it('one note per owning wholesaler, listing exactly the received repairIDs', async () => {
+    mocks.find.mockReturnValue({ toArray: async () => [
+      { repairID: 'r1', userID: 'ws-marlen' },
+      { repairID: 'r2', userID: 'ws-marlen' },
+      { repairID: 'r3', userID: 'ws-rocky' },
+    ] });
+    const res = await receive(req({ repairIDs: ['r1', 'r2', 'r3'] }));
+    expect(res.status).toBe(200);
+
+    const notes = mocks.createNotification.mock.calls.map((c) => c[0]);
+    const marlen = notes.find((n) => n.userId === 'ws-marlen');
+    const rocky = notes.find((n) => n.userId === 'ws-rocky');
+    expect(marlen.message).toContain('r1, r2');
+    expect(rocky.message).toContain('r3');
+    expect(marlen.type).toBe('wholesale-received');
+  });
+
+  it('receiving still succeeds when the notification layer throws', async () => {
+    mocks.find.mockReturnValue({ toArray: async () => [{ repairID: 'r1', userID: 'ws-marlen' }] });
+    mocks.createNotification.mockRejectedValue(new Error('smtp down'));
+    const res = await receive(req({ repairIDs: ['r1'] }));
+    expect(res.status).toBe(200);
   });
 });

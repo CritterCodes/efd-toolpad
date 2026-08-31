@@ -65,6 +65,36 @@ export const POST = async (req) => {
       const paid = session.payment_status === 'paid' || session.status === 'complete';
       if (meta.kind === 'custom_invoice' && meta.customID && meta.invoiceID && paid) {
         await setCustomInvoiceStatus(meta.customID, meta.invoiceID, CUSTOM_INVOICE_STATUS.PAID, 'stripe');
+      } else if (meta.kind === 'wholesale_invoice' && session.payment_status === 'paid') {
+        // Card payments settle inside Checkout, so 'completed' arrives already
+        // paid. ACH completes the session UNPAID (the debit takes days) and the
+        // async event below is what actually records the money.
+        const { recordWholesaleCheckoutPayment } = await import('@/services/wholesale/invoicePayments');
+        await recordWholesaleCheckoutPayment(session);
+      }
+    } else if (event.type === 'checkout.session.async_payment_succeeded') {
+      // ACH settled days after the session completed — record it now, same sink,
+      // idempotent by session id (Stripe retries webhooks).
+      const session = event.data?.object || {};
+      if (session.metadata?.kind === 'wholesale_invoice') {
+        const { recordWholesaleCheckoutPayment } = await import('@/services/wholesale/invoicePayments');
+        await recordWholesaleCheckoutPayment(session);
+      }
+    } else if (event.type === 'checkout.session.async_payment_failed') {
+      // An ACH debit bounced AFTER the wholesaler left thinking they had paid.
+      // Silent failure here means the shop ships work against money that never
+      // arrived — tell the admins immediately.
+      const session = event.data?.object || {};
+      const meta = session.metadata || {};
+      if (meta.kind === 'wholesale_invoice' && meta.invoiceID) {
+        const { notifyAllAdmins } = await import('@/lib/notificationService');
+        await notifyAllAdmins({
+          type: 'wholesale-payment-failed',
+          title: 'Wholesale ACH payment failed',
+          message: `The bank debit for invoice ${meta.invoiceID} ($${meta.baseAmount}) failed after checkout. The invoice is still open — follow up with the account.`,
+          priority: 'high',
+          relatedData: { invoiceID: meta.invoiceID },
+        }).catch((e) => console.error('ACH-failure notification failed:', e?.message));
       }
     }
 
