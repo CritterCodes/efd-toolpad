@@ -50,7 +50,7 @@ import UsersService from '@/services/users';
 import wholesaleClientsAPIClient from '@/api-clients/wholesaleClients.client';
 import wholesaleAccountSettingsAPIClient from '@/api-clients/wholesaleAccountSettings.client';
 import pricingEngine from '@/services/PricingEngine';
-import { alignTasksToMetal } from '@/services/repairs/metalTaskFilter';
+import { alignTasksToMetal, taskAllowsMetal } from '@/services/repairs/metalTaskFilter';
 
 // Context
 import { useRepairs } from '@/app/context/repairs.context';
@@ -3386,7 +3386,16 @@ function RepairItemsSection({
         <Autocomplete
           disablePortal
           slotProps={autocompleteSlotProps}
-          options={availableTasks}
+          // Metal-aware: a task restricted to another metal never appears (a
+          // platinum laser-weld task on a gold job is the wrong recipe), and the
+          // selected metal's own tasks float to the top of the list.
+          options={[...availableTasks]
+            .filter((t) => taskAllowsMetal(t, formData.metalType))
+            .sort((a, b) => {
+              const aRestricted = Array.isArray(a.metals) && a.metals.length ? 0 : 1;
+              const bRestricted = Array.isArray(b.metals) && b.metals.length ? 0 : 1;
+              return aRestricted - bRestricted || String(a.title).localeCompare(String(b.title));
+            })}
           getOptionLabel={(option) => `${option.title}`}
           renderInput={(params) => (
             <TextField {...params} label="Add Task" size="small" />

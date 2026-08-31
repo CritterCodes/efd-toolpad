@@ -32,7 +32,21 @@ const normalizeIsoDate = (value) => {
   return parsed.toISOString().slice(0, 10);
 };
 
-const normalizeParsedPayload = (payload = {}) => {
+/**
+ * Karat/purity → the exact vocabulary the form's Select uses ('14k', '925',
+ * '950'…). Gemini answers in free text ("14K", "14 kt"); anything that doesn't
+ * normalize cleanly becomes '' rather than a value the Select can't render —
+ * a silently blank field is how a 14k price gets charged on an 18k ring.
+ */
+export const normalizeKaratValue = (value) => {
+  const raw = String(value || '').trim().toLowerCase().replace(/\s+/g, '');
+  if (!raw) return '';
+  if (/^\d{3}$/.test(raw)) return raw;            // 925 / 950 / 999
+  const m = raw.match(/^(\d{1,2})k?t?$/);          // 14, 14k, 14kt
+  return m ? `${m[1]}k` : '';
+};
+
+export const normalizeParsedPayload = (payload = {}) => {
   const normalizeString = (value) => String(value || '').trim();
   const normalizeEnum = (value, allowed = []) => {
     const normalized = normalizeString(value).toLowerCase();
@@ -50,7 +64,7 @@ const normalizeParsedPayload = (payload = {}) => {
     : [];
   const confidence = Math.min(1, Math.max(0, Number(payload.confidence || 0)));
   const matchedTaskIds = Array.isArray(payload.matchedTaskIds)
-    ? payload.matchedTaskIds.map(s => String(s || '').trim()).filter(Boolean).slice(0, 5)
+    ? payload.matchedTaskIds.map(s => String(s || '').trim()).filter(Boolean).slice(0, 3)
     : [];
   const materialHints = Array.isArray(payload.materialHints)
     ? payload.materialHints.map((item) => ({
@@ -62,7 +76,7 @@ const normalizeParsedPayload = (payload = {}) => {
 
   return {
     metalType: normalizeEnum(payload.metalType, ['gold', 'silver', 'platinum', 'costume']),
-    karat: normalizeString(payload.karat),
+    karat: normalizeKaratValue(payload.karat),
     goldColor: normalizeEnum(payload.goldColor, ['yellow', 'white', 'rose']),
     isRing: toBool(payload.isRing),
     currentRingSize: normalizeString(payload.currentRingSize),
@@ -76,8 +90,8 @@ const normalizeParsedPayload = (payload = {}) => {
   };
 };
 
-const prefilterTasks = (inputText, tasks, limit = 15) => {
-  const words = inputText.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+export const prefilterTasks = (inputText, tasks, limit = 15) => {
+  const words = inputText.toLowerCase().split(/\s+/).filter(w => w.length >= 3);
   if (!words.length) return tasks.slice(0, limit);
   const scored = tasks.map(t => {
     const haystack = [t.title, ...(t.symptoms || []), t.whenToUse || ''].join(' ').toLowerCase();
