@@ -32,7 +32,21 @@ const normalizeIsoDate = (value) => {
   return parsed.toISOString().slice(0, 10);
 };
 
-const normalizeParsedPayload = (payload = {}) => {
+/**
+ * Karat/purity → the exact vocabulary the form's Select uses ('14k', '925',
+ * '950'…). Gemini answers in free text ("14K", "14 kt"); anything that doesn't
+ * normalize cleanly becomes '' rather than a value the Select can't render —
+ * a silently blank field is how a 14k price gets charged on an 18k ring.
+ */
+export const normalizeKaratValue = (value) => {
+  const raw = String(value || '').trim().toLowerCase().replace(/\s+/g, '');
+  if (!raw) return '';
+  if (/^\d{3}$/.test(raw)) return raw;            // 925 / 950 / 999
+  const m = raw.match(/^(\d{1,2})k?t?$/);          // 14, 14k, 14kt
+  return m ? `${m[1]}k` : '';
+};
+
+export const normalizeParsedPayload = (payload = {}) => {
   const normalizeString = (value) => String(value || '').trim();
   const normalizeEnum = (value, allowed = []) => {
     const normalized = normalizeString(value).toLowerCase();
@@ -49,9 +63,23 @@ const normalizeParsedPayload = (payload = {}) => {
     ? payload.taskHints.map((item) => normalizeString(item)).filter(Boolean).slice(0, 5)
     : [];
   const confidence = Math.min(1, Math.max(0, Number(payload.confidence || 0)));
-  const matchedTaskIds = Array.isArray(payload.matchedTaskIds)
-    ? payload.matchedTaskIds.map(s => String(s || '').trim()).filter(Boolean).slice(0, 5)
+  // matchedTasks carries per-task QUANTITY ("retip 14 prongs" = the retip task
+  // x14 -- per-unit tasks price per prong/stone/link, so a dropped count is a
+  // silently wrong invoice). matchedTaskIds kept for backward compatibility.
+  const matchedTasks = Array.isArray(payload.matchedTasks)
+    ? payload.matchedTasks
+        .map((item) => ({
+          id: normalizeString(item?.id),
+          quantity: Math.min(99, Math.max(1, Math.round(Number(item?.quantity) || 1))),
+        }))
+        .filter((item) => item.id)
+        .slice(0, 3)
     : [];
+  const matchedTaskIds = matchedTasks.length
+    ? matchedTasks.map((item) => item.id)
+    : (Array.isArray(payload.matchedTaskIds)
+        ? payload.matchedTaskIds.map(s => String(s || '').trim()).filter(Boolean).slice(0, 3)
+        : []);
   const materialHints = Array.isArray(payload.materialHints)
     ? payload.materialHints.map((item) => ({
         type: normalizeString(item?.type || item?.name).toLowerCase().replace(/\s+/g, '_'),
@@ -62,7 +90,7 @@ const normalizeParsedPayload = (payload = {}) => {
 
   return {
     metalType: normalizeEnum(payload.metalType, ['gold', 'silver', 'platinum', 'costume']),
-    karat: normalizeString(payload.karat),
+    karat: normalizeKaratValue(payload.karat),
     goldColor: normalizeEnum(payload.goldColor, ['yellow', 'white', 'rose']),
     isRing: toBool(payload.isRing),
     currentRingSize: normalizeString(payload.currentRingSize),
@@ -72,12 +100,13 @@ const normalizeParsedPayload = (payload = {}) => {
     materialHints,
     normalizedSummary: normalizeString(payload.normalizedSummary),
     confidence,
-    matchedTaskIds
+    matchedTaskIds,
+    matchedTasks: matchedTasks.length ? matchedTasks : matchedTaskIds.map((id) => ({ id, quantity: 1 }))
   };
 };
 
-const prefilterTasks = (inputText, tasks, limit = 15) => {
-  const words = inputText.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+export const prefilterTasks = (inputText, tasks, limit = 15) => {
+  const words = inputText.toLowerCase().split(/\s+/).filter(w => w.length >= 3);
   if (!words.length) return tasks.slice(0, limit);
   const scored = tasks.map(t => {
     const haystack = [t.title, ...(t.symptoms || []), t.whenToUse || ''].join(' ').toLowerCase();
@@ -188,11 +217,14 @@ export async function POST(request) {
       '  "materialHints": [{"type":"sizing_material","quantity":1,"reason":""}],',
       '  "normalizedSummary": "",',
       '  "confidence": 0.0,',
-      '  "matchedTaskIds": []',
+      '  "matchedTasks": [{"id":"", "quantity": 1}]',
       '}',
       ...(taskListText ? [
         '',
-        'You are also given a list of available repair tasks. Identify which tasks (by id) best match the repair described (up to 3 tasks maximum).',
+        'You are also given a list of available repair tasks. Identify which tasks (by id) best match the repair described (up to 3 tasks maximum), each with a quantity.',
+        'QUANTITY: for tasks priced per unit (per prong, per stone, per link, per item), quantity is the stated count -- "retip 14 prongs" means the retip task with quantity 14. Sizing tasks are ALWAYS quantity 1 no matter how many sizes the ring moves. When no count is stated, quantity is 1.',
+        'COVER EVERY JOB: the intake may describe several jobs ("size down, tighten, retip") -- return one matched task per distinct job, not just the most prominent one.',
+        'A neverUseWhen exclusion applies ONLY when its condition is explicitly stated in the intake text. Do not exclude a task on inference, and do not skip a job because the ideal specialized task is not in the list -- pick the closest listed task instead.',
         'Use the symptoms, whenToUse, and neverUseWhen fields to decide. Return their ids in "matchedTaskIds". If no task clearly matches, return an empty array.',
         'A task with onlyForMetals must ONLY be matched when the item is that metal — and when the item IS that metal, prefer the onlyForMetals task over a generic one (e.g. a platinum ring gets the platinum sizing task, never the standard soldered one).',
         '',
@@ -202,6 +234,8 @@ export async function POST(request) {
       '',
       'Rules:',
       '- CRITICAL: isRing must be true ONLY if the item is explicitly a ring or band. For pendants, necklaces, bracelets, chains, earrings, watches, brooches, or any non-ring item, isRing must be false.',
+      '- Jeweler shorthand: yg/wg/rg = yellow/white/rose gold; "14kt"/"14 kt" = karat 14k; sz = size; plat/pt = platinum; ss = sterling silver.',
+      '- RELATIVE SIZING: "size 7 ... size down 3 sizes" means currentRingSize 7 and desiredRingSize 4 (7 - 3). "size up 2 sizes from 5" means 5 -> 7. Always resolve the arithmetic and fill BOTH sizes when the starting size is stated.',
       '- currentRingSize and desiredRingSize should ONLY be set if the item is a ring.',
       '- promiseDate must be YYYY-MM-DD. Resolve relative dates like "next friday" against the current date. If no due/promise date is stated, use an empty string.',
       '- taskHints should be SHORT keywords that describe repair work.',
@@ -210,7 +244,7 @@ export async function POST(request) {
       '- Do not add materialHints for size-down work unless material is explicitly mentioned.',
       '- Ring examples: "resize", "size up", "size down", "resize with stones", "size with accent stones", "retip", "prong", "setting"',
       '- Non-ring examples: "solder", "chain repair", "clasp repair", "restring", "clean", "polish", "stone replace", "weld", "refinish", "replating"',
-      '- IMPORTANT: If the ring has accent stones or multiple stones (not just a center stone), prefer task hints like "resize with stones" or "size with stones" instead of just "resize"',
+      '- If the ring has accent stones and a stones-aware sizing task EXISTS IN THE LIST (e.g. "Ring Sizing with Stones"), prefer it; when no such task is listed, use the standard sizing task -- never skip the sizing job.',
       '- taskHints must be generic repair terms that could match task names like "Ring Sizing", "Ring Sizing with Stones", "Retip Setting", "Stone Setting", "Cleaning & Polishing", "Chain Repair", "Clasp Repair"',
       '- Return 1-3 task hints, NOT full task names',
       '- confidence must be between 0 and 1 (1.0 = very confident in parsing)',

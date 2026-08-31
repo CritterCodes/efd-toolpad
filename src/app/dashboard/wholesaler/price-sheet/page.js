@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     Box, Typography, Button, CircularProgress, Alert, TextField,
-    Table, TableBody, TableCell, TableHead, TableRow
+    Table, TableBody, TableCell, TableHead, TableRow, GlobalStyles
 } from '@mui/material';
 import { Print as PrintIcon, RequestQuote as PriceIcon, Refresh as RefreshIcon } from '@mui/icons-material';
 import { REPAIRS_UI as UI } from '@/app/dashboard/repairs/components/repairsUi';
@@ -43,6 +43,45 @@ const headCellSx = {
     backgroundColor: UI.bgTertiary, textAlign: 'right', whiteSpace: 'nowrap', px: 1,
 };
 
+/**
+ * Print rules. The page lives inside the dashboard shell (sidebar, top bar),
+ * which has no business on paper — the classic visibility trick hides
+ * everything, then re-shows the sheet pinned to the page origin so the
+ * sidebar's space doesn't print as a blank column. The matrix drops its
+ * screen min-width and compacts to fit a landscape sheet, black on white.
+ */
+const printStyles = (
+    <GlobalStyles styles={`
+        @media print {
+            body * { visibility: hidden; }
+            .psheet-root, .psheet-root * { visibility: visible; }
+            .psheet-root { position: absolute; left: 0; top: 0; width: 100%; padding: 0; }
+            .psheet-root table { min-width: 0 !important; width: 100%; }
+            .psheet-root td, .psheet-root th {
+                padding: 2px 5px !important;
+                font-size: 9.5px !important;
+                color: #000 !important;
+                background: #fff !important;
+                border-color: #bbb !important;
+            }
+            .psheet-root .psheet-category {
+                color: #000 !important;
+                background: #eee !important;
+                font-size: 11px !important;
+                padding: 4px 8px !important;
+            }
+            .psheet-root .psheet-card {
+                border-color: #999 !important;
+                border-radius: 0 !important;
+                margin-bottom: 10px !important;
+                break-inside: avoid;
+            }
+            .psheet-root .psheet-scroll { overflow: visible !important; }
+            .psheet-print-header { display: block !important; }
+        }
+    `} />
+);
+
 export default function WholesalePriceSheetPage() {
     const [rows, setRows] = useState([]);
     const [generatedAt, setGeneratedAt] = useState(null);
@@ -81,7 +120,18 @@ export default function WholesalePriceSheetPage() {
     }, [rows, search]);
 
     return (
-        <Box sx={{ pb: 10, '@media print': { pb: 0 } }}>
+        <Box className="psheet-root" sx={{ pb: 10, '@media print': { pb: 0 } }}>
+            {printStyles}
+            {/* Letterhead, print only — the on-screen header hides itself on paper. */}
+            <Box className="psheet-print-header" sx={{ display: 'none', mb: 1 }}>
+                <Typography sx={{ fontWeight: 700, fontSize: 16, color: '#000' }}>
+                    Engel Fine Design — Wholesale Price Sheet
+                </Typography>
+                <Typography sx={{ fontSize: 11, color: '#000' }}>
+                    Current as of {generatedAt ? new Date(generatedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.
+                    Prices are live and change with the metal market — reprint rather than reuse. A dash means quote on request.
+                </Typography>
+            </Box>
             <Box
                 sx={{
                     backgroundColor: { xs: 'transparent', sm: UI.bgPanel },
@@ -128,8 +178,8 @@ export default function WholesalePriceSheetPage() {
                 const flatTasks = tasks.filter((t) => !t.byMetal);
                 const matrixTasks = tasks.filter((t) => t.byMetal);
                 return (
-                    <Box key={category} sx={{ mb: 3, border: `1px solid ${UI.border}`, borderRadius: 2, overflow: 'hidden', breakInside: 'avoid' }}>
-                        <Typography sx={{ px: 2, py: 1.25, fontWeight: 700, color: UI.textHeader, backgroundColor: UI.bgPanel, borderBottom: `1px solid ${UI.border}`, textTransform: 'capitalize' }}>
+                    <Box key={category} className="psheet-card" sx={{ mb: 3, border: `1px solid ${UI.border}`, borderRadius: 2, overflow: 'hidden', breakInside: 'avoid' }}>
+                        <Typography className="psheet-category" sx={{ px: 2, py: 1.25, fontWeight: 700, color: UI.textHeader, backgroundColor: UI.bgPanel, borderBottom: `1px solid ${UI.border}`, textTransform: 'capitalize' }}>
                             {String(category).replace(/[_-]+/g, ' ')}
                         </Typography>
 
@@ -157,7 +207,7 @@ export default function WholesalePriceSheetPage() {
                         {/* Metal-dependent services: the matrix. Scrolls sideways on small
                             screens rather than wrapping into chip soup. */}
                         {matrixTasks.length > 0 && (
-                            <Box sx={{ overflowX: 'auto' }}>
+                            <Box className="psheet-scroll" sx={{ overflowX: 'auto' }}>
                                 <Table size="small" sx={{ minWidth: 900 }}>
                                     <TableHead>
                                         <TableRow>

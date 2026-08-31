@@ -50,7 +50,8 @@ import UsersService from '@/services/users';
 import wholesaleClientsAPIClient from '@/api-clients/wholesaleClients.client';
 import wholesaleAccountSettingsAPIClient from '@/api-clients/wholesaleAccountSettings.client';
 import pricingEngine from '@/services/PricingEngine';
-import { alignTasksToMetal } from '@/services/repairs/metalTaskFilter';
+import { alignTasksToMetal, taskAllowsMetal } from '@/services/repairs/metalTaskFilter';
+import { extractRingSizesFromDescription, extractMetalContextFromDescription, normalizeRingSizeValue, RING_SIZES } from '@/services/repairs/smartIntakeExtractors';
 
 // Context
 import { useRepairs } from '@/app/context/repairs.context';
@@ -65,14 +66,6 @@ import usePromiseDateEstimate from '@/hooks/repairs/usePromiseDateEstimate';
 // Metal configuration — single source of truth, shared with the custom-request intake.
 import { METAL_TYPES, GOLD_COLORS } from '@/constants/customRequest.constants';
 
-// Ring sizes (US standard)
-const RING_SIZES = [
-  '3', '3.25', '3.5', '3.75', '4', '4.25', '4.5', '4.75', '5', '5.25', 
-  '5.5', '5.75', '6', '6.25', '6.5', '6.75', '7', '7.25', '7.5', '7.75', 
-  '8', '8.25', '8.5', '8.75', '9', '9.25', '9.5', '9.75', '10', '10.25', 
-  '10.5', '10.75', '11', '11.25', '11.5', '11.75', '12', '12.25', '12.5', 
-  '12.75', '13', '13.25', '13.5', '13.75', '14', '14.25', '14.5', '14.75', '15'
-];
 
 // Item categories that might have sizes
 const SIZEABLE_CATEGORIES = ['ring', 'band', 'wedding-ring', 'engagement-ring'];
@@ -230,55 +223,7 @@ const TASK_INFERENCE_RULES = [
   { regex: /(clasp|lock|latch)/, keywords: ['clasp', 'lock', 'latch'] }
 ];
 
-const normalizeRingSizeValue = (value = '') => {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-  const numeric = Number(raw);
-  if (!Number.isFinite(numeric) || numeric <= 0) return '';
 
-  const matchedOption = RING_SIZES.find((option) => Number(option) === numeric);
-  return matchedOption || raw;
-};
-
-const extractRingSizesFromDescription = (description = '') => {
-  const text = String(description || '').toLowerCase();
-  if (!text.trim()) {
-    return { currentRingSize: '', desiredRingSize: '' };
-  }
-
-  const pairPatterns = [
-    /(?:from|current(?:ly)?|now)\s*(?:size\s*)?(\d{1,2}(?:\.\d{1,2})?)\s*(?:to|->|into)\s*(?:size\s*)?(\d{1,2}(?:\.\d{1,2})?)/,
-    /(?:size|sz)\s*(\d{1,2}(?:\.\d{1,2})?)\s*(?:to|->|-)\s*(\d{1,2}(?:\.\d{1,2})?)/,
-    /(\d{1,2}(?:\.\d{1,2})?)\s*(?:to|->|into)\s*(\d{1,2}(?:\.\d{1,2})?)(?:\s*(?:ring\s*)?size)?/
-  ];
-
-  for (const pattern of pairPatterns) {
-    const match = text.match(pattern);
-    if (match) {
-      return {
-        currentRingSize: normalizeRingSizeValue(match[1]),
-        desiredRingSize: normalizeRingSizeValue(match[2])
-      };
-    }
-  }
-
-  const singlePatterns = [
-    /(?:resize|re-?size|size)\s*(?:to)?\s*(\d{1,2}(?:\.\d{1,2})?)/,
-    /(?:new|target|desired)\s*(?:size\s*)?(\d{1,2}(?:\.\d{1,2})?)/
-  ];
-
-  for (const pattern of singlePatterns) {
-    const match = text.match(pattern);
-    if (match) {
-      return {
-        currentRingSize: '',
-        desiredRingSize: normalizeRingSizeValue(match[1])
-      };
-    }
-  }
-
-  return { currentRingSize: '', desiredRingSize: '' };
-};
 
 const normalizeIsoPromiseDate = (value = '') => {
   const raw = String(value || '').trim();
@@ -474,56 +419,6 @@ const inferTasksFromDescription = (description = '', availableTasks = []) => {
   return disambiguateSizingTasks(deduped, description, sizes.currentRingSize, sizes.desiredRingSize).slice(0, 2);
 };
 
-const extractMetalContextFromDescription = (description = '') => {
-  const text = String(description || '').toLowerCase();
-  if (!text.trim()) return null;
-
-  let metalType = '';
-
-  if (/(platinum|plat\b|pt\s*950|950\s*plat|950\s*platinum)/.test(text)) {
-    metalType = 'platinum';
-  } else if (/(sterling|silver|\b925\b|fine\s*silver|\b999\b\s*silver)/.test(text)) {
-    metalType = 'silver';
-  } else if (/(gold|\b10k\b|\b14k\b|\b18k\b|\b22k\b|yellow\s*gold|white\s*gold|rose\s*gold|red\s*gold)/.test(text)) {
-    metalType = 'gold';
-  } else if (/(costume|fashion\s*jewelry|base\s*metal|brass|copper|stainless\s*steel)/.test(text)) {
-    metalType = 'costume';
-  }
-
-  if (!metalType) {
-    return null;
-  }
-
-  let karat = '';
-  let goldColor = '';
-
-  if (metalType === 'gold') {
-    if (/\b22k\b/.test(text)) karat = '22k';
-    else if (/\b18k\b/.test(text)) karat = '18k';
-    else if (/\b14k\b/.test(text)) karat = '14k';
-    else if (/\b10k\b/.test(text)) karat = '10k';
-
-    if (/white\s*gold/.test(text)) goldColor = 'white';
-    else if (/yellow\s*gold/.test(text)) goldColor = 'yellow';
-    else if (/(rose\s*gold|red\s*gold)/.test(text)) goldColor = 'rose';
-  }
-
-  if (metalType === 'silver') {
-    if (/(\b925\b|sterling)/.test(text)) karat = '925';
-    else if (/(\b999\b|fine\s*silver)/.test(text)) karat = '999';
-  }
-
-  if (metalType === 'platinum') {
-    if (/(\b950\b|pt\s*950)/.test(text)) karat = '950';
-    else if (/\b999\b/.test(text)) karat = '999';
-  }
-
-  return {
-    metalType,
-    karat,
-    goldColor
-  };
-};
 
 const toNumber = (value) => {
   const parsed = Number(value);
@@ -1473,7 +1368,9 @@ export default function NewRepairForm({
       return {
         ...task,
         id: Date.now() + index,
-        quantity: 1,
+        // Per-unit tasks (per prong / per stone) arrive from smart intake with a
+        // counted quantity; everything else defaults to 1 exactly as before.
+        quantity: Math.max(1, Math.round(Number(task.__aiQuantity) || 1)),
         pricing: livePricing ? { ...(task.pricing || {}), ...livePricing, liveCalculated: true } : task.pricing,
         retailPrice,
         price: paidPrice
@@ -1730,18 +1627,28 @@ export default function NewRepairForm({
         })
       });
 
-      const payload = await response.json();
+      // A gateway timeout (504) returns Vercel's HTML error page, not JSON —
+      // parse defensively so the fallback banner names the failure instead of
+      // showing a JSON.parse token error.
+      const payload = await response.json().catch(() => null);
       if (!response.ok || !payload?.success) {
-        throw new Error(payload?.error || 'AI smart intake parse failed');
+        throw new Error(payload?.error || `AI request failed (HTTP ${response.status})`);
       }
 
       const parsed = payload?.data?.parsed || {};
-      const matchedTaskIds = Array.isArray(parsed.matchedTaskIds) ? parsed.matchedTaskIds : [];
+      // matchedTasks carries per-task quantity ("retip 14 prongs" = retip x14);
+      // matchedTaskIds is the legacy shape and implies quantity 1.
+      const matchedPairs = Array.isArray(parsed.matchedTasks) && parsed.matchedTasks.length > 0
+        ? parsed.matchedTasks
+        : (Array.isArray(parsed.matchedTaskIds) ? parsed.matchedTaskIds : []).map((id) => ({ id, quantity: 1 }));
+      const quantityByTaskId = new Map(
+        matchedPairs.map((p) => [String(p.id), Math.max(1, Number(p.quantity) || 1)])
+      );
 
       let aiMatchedTasks = [];
-      if (matchedTaskIds.length > 0) {
-        aiMatchedTasks = matchedTaskIds
-          .map((id) => availableTasks.find((t) => String(t._id) === id))
+      if (matchedPairs.length > 0) {
+        aiMatchedTasks = matchedPairs
+          .map((p) => availableTasks.find((t) => String(t._id) === String(p.id)))
           .filter(Boolean);
       }
 
@@ -1756,8 +1663,15 @@ export default function NewRepairForm({
 
       // Metal is the recipe: a platinum job swaps generic matches for the
       // laser-welded platinum tasks, and a platinum task never lands on a gold
-      // job. Deterministic — the AI prompt only hints, this decides.
-      aiMatchedTasks = alignTasksToMetal(aiMatchedTasks, parsed.metalType || '', availableTasks);
+      // job. Deterministic — the AI prompt only hints, this decides. Aligned
+      // one at a time so each task's quantity survives an identity swap.
+      aiMatchedTasks = aiMatchedTasks
+        .map((task) => {
+          const [aligned] = alignTasksToMetal([task], parsed.metalType || '', availableTasks);
+          if (!aligned) return null;
+          return { ...aligned, __aiQuantity: quantityByTaskId.get(String(task._id)) || 1 };
+        })
+        .filter(Boolean);
 
       applySmartIntakeResults({
         inputText: parsingText,
@@ -3386,7 +3300,16 @@ function RepairItemsSection({
         <Autocomplete
           disablePortal
           slotProps={autocompleteSlotProps}
-          options={availableTasks}
+          // Metal-aware: a task restricted to another metal never appears (a
+          // platinum laser-weld task on a gold job is the wrong recipe), and the
+          // selected metal's own tasks float to the top of the list.
+          options={[...availableTasks]
+            .filter((t) => taskAllowsMetal(t, formData.metalType))
+            .sort((a, b) => {
+              const aRestricted = Array.isArray(a.metals) && a.metals.length ? 0 : 1;
+              const bRestricted = Array.isArray(b.metals) && b.metals.length ? 0 : 1;
+              return aRestricted - bRestricted || String(a.title).localeCompare(String(b.title));
+            })}
           getOptionLabel={(option) => `${option.title}`}
           renderInput={(params) => (
             <TextField {...params} label="Add Task" size="small" />
