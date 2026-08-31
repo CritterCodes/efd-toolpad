@@ -11,6 +11,7 @@ import { useWholesaleRepairs } from '@/hooks/wholesale/useWholesaleRepairs';
 import { REPAIRS_UI as UI } from '@/app/dashboard/repairs/components/repairsUi';
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+const money = (v) => (Number(v) > 0 ? `$${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-');
 
 const TH = ({ children }) => (
     <TableCell sx={{ color: UI.textMuted, fontWeight: 700, fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase', borderBottom: `1px solid ${UI.border}`, backgroundColor: UI.bgTertiary }}>
@@ -21,6 +22,17 @@ const TH = ({ children }) => (
 export default function CompletedRepairsPage() {
     const router = useRouter();
     const { completedRepairs, loading, error, refresh } = useWholesaleRepairs();
+
+    // Month-to-date spend across completed work: the number their bookkeeper
+    // reconciles against, computed from the same rows the table shows.
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+    const mtdTotal = completedRepairs.reduce((sum, r) => {
+        const done = r.completedAt || r.updatedAt;
+        return done && new Date(done) >= monthStart ? sum + (Number(r.totalCost) || 0) : sum;
+    }, 0);
+    const allTotal = completedRepairs.reduce((sum, r) => sum + (Number(r.totalCost) || 0), 0);
 
     return (
         <Box sx={{ pb: 10 }}>
@@ -54,6 +66,16 @@ export default function CompletedRepairsPage() {
                         <Typography sx={{ color: UI.textSecondary, lineHeight: 1.6 }}>
                             {completedRepairs.length} repair{completedRepairs.length !== 1 ? 's' : ''} completed or awaiting final pickup or delivery closeout.
                         </Typography>
+                        <Box sx={{ display: 'flex', gap: 3, mt: 1.5, flexWrap: 'wrap' }}>
+                            <Box>
+                                <Typography variant="h6" fontWeight={700} sx={{ color: UI.textHeader }}>{money(mtdTotal)}</Typography>
+                                <Typography variant="caption" sx={{ color: UI.textMuted }}>This month</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="h6" fontWeight={700} sx={{ color: UI.textHeader }}>{money(allTotal)}</Typography>
+                                <Typography variant="caption" sx={{ color: UI.textMuted }}>All listed</Typography>
+                            </Box>
+                        </Box>
                     </Box>
                     <Button
                         variant="outlined"
@@ -87,6 +109,7 @@ export default function CompletedRepairsPage() {
                                 <TH>Item</TH>
                                 <TH>Description</TH>
                                 <TH>Status</TH>
+                                <TH>Your Price</TH>
                                 <TH>Return Tracking</TH>
                                 <TH>Submitted</TH>
                             </TableRow>
@@ -122,6 +145,7 @@ export default function CompletedRepairsPage() {
                                                 size="small"
                                             />
                                         </TableCell>
+                                        <TableCell sx={{ color: UI.textPrimary, whiteSpace: 'nowrap', fontWeight: 600 }}>{money(repair.totalCost)}</TableCell>
                                         <TableCell sx={{ color: UI.textSecondary, fontFamily: 'monospace', fontSize: '0.8rem' }}>
                                             {repair.outboundShipment?.trackingNumber
                                                 ? `${repair.outboundShipment.carrier ? `${repair.outboundShipment.carrier} - ` : ''}${repair.outboundShipment.trackingNumber}`
