@@ -1627,9 +1627,12 @@ export default function NewRepairForm({
         })
       });
 
-      const payload = await response.json();
+      // A gateway timeout (504) returns Vercel's HTML error page, not JSON —
+      // parse defensively so the fallback banner names the failure instead of
+      // showing a JSON.parse token error.
+      const payload = await response.json().catch(() => null);
       if (!response.ok || !payload?.success) {
-        throw new Error(payload?.error || 'AI smart intake parse failed');
+        throw new Error(payload?.error || `AI request failed (HTTP ${response.status})`);
       }
 
       const parsed = payload?.data?.parsed || {};

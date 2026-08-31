@@ -32,6 +32,9 @@
     },
     "src/app/api/cron/reprice-listings/route.js": {
       "maxDuration": 300
+    },
+    "src/app/api/ai/parse-smart-intake/route.js": {
+      "maxDuration": 90
     }
   },
   "crons": [
