@@ -6,7 +6,7 @@ import { reportPaidInvoiceToMeta } from '@/services/repairs/paidRepairReporting'
 
 const DEFAULT_DELIVERY_FEE = 5;
 
-function normalizeAccountKey(value) {
+export function normalizeAccountKey(value) {
   return String(value || '')
     .trim()
     .toLowerCase()
