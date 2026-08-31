@@ -8,6 +8,7 @@ import AddIcon from "@mui/icons-material/Add";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import ListIcon from "@mui/icons-material/List";
 import RequestQuoteIcon from "@mui/icons-material/RequestQuote";
+import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 
 import { SHARED_NAVIGATION } from "./sharedNavigation";
@@ -41,6 +42,11 @@ export const wholesalerNavigation = {
           icon: <CheckCircleIcon />
         }
       ]
+    },
+    {
+      segment: 'dashboard/wholesaler/billing',
+      title: 'Billing',
+      icon: <ReceiptLongIcon />
     },
     {
       segment: 'dashboard/wholesaler/price-sheet',

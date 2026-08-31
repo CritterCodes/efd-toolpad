@@ -5,6 +5,21 @@ import MaterialModel from "./model";
 import { db } from '@/lib/database';
 
 export default class MaterialService {
+    /**
+     * Platinum variants arrive from Stuller with NO karat (purity lives in
+     * qualityCode, e.g. "PLIR" = Platinum Iridium). The karat field here is the
+     * MATCHING KEY the pricing engine joins on (`platinum_950` from the intake
+     * form's platinum purity), so a null leaves every platinum job unpriceable —
+     * intake and the wholesale price sheet both fell back to "quote on request".
+     * Derive it: an explicit 900/950/999 in the quality text wins, else 950 (the
+     * form's primary platinum option, and what the shop's Pt/Ir stock fulfills).
+     */
+    static derivePlatinumKarat = (product = {}) => {
+        const quality = `${product.qualityCode || ''} ${product.qualityDisplay || ''} ${product.description || ''}`;
+        const explicit = quality.match(/\b(900|950|999)\b/);
+        return explicit ? explicit[1] : '950';
+    };
+
     static sanitizeStullerProducts = (stullerProducts = [], defaultPortionsPerUnit = 1) => {
         if (!Array.isArray(stullerProducts)) return [];
 
@@ -13,7 +28,8 @@ export default class MaterialService {
             stullerItemNumber: product.stullerItemNumber || '',
             stullerProductId: product.stullerProductId || null,
             metalType: product.metalType || null,
-            karat: product.karat || null,
+            karat: product.karat
+                || (/platinum/i.test(product.metalType || '') ? MaterialService.derivePlatinumKarat(product) : null),
             qualityCode: product.qualityCode || null,
             qualityDisplay: product.qualityDisplay || null,
             unitOfSale: product.unitOfSale || null,
