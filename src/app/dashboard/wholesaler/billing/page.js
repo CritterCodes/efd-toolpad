@@ -198,29 +198,33 @@ export default function WholesalerBillingPage() {
                 anchor="right"
                 open={Boolean(payInvoice)}
                 onClose={closePayDrawer}
-                PaperProps={{ sx: { width: { xs: '100%', sm: 480 }, backgroundColor: '#fff' } }}
+                // Drawer chrome matches the dark theme (a flat #fff paper was
+                // overridden by the theme's Paper styles, washing labels out to
+                // gray-on-gray); only Stripe's embedded area below turns white,
+                // because its form renders light.
+                PaperProps={{ sx: { width: { xs: '100%', sm: 480 }, backgroundColor: UI.bgPanel, backgroundImage: 'none' } }}
             >
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, borderBottom: '1px solid #e5e7eb' }}>
-                    <Typography sx={{ fontWeight: 700, color: '#111' }}>
-                        Pay invoice <Box component="span" sx={{ fontFamily: 'monospace' }}>{payInvoice?.invoiceID}</Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, borderBottom: `1px solid ${UI.border}` }}>
+                    <Typography sx={{ fontWeight: 700, color: UI.textHeader }}>
+                        Pay invoice <Box component="span" sx={{ fontFamily: 'monospace', color: UI.accent }}>{payInvoice?.invoiceID}</Box>
                     </Typography>
-                    <IconButton onClick={closePayDrawer} disabled={payBusy} size="small"><CloseIcon /></IconButton>
+                    <IconButton onClick={closePayDrawer} disabled={payBusy} size="small" sx={{ color: UI.textPrimary }}><CloseIcon /></IconButton>
                 </Box>
 
                 <Box sx={{ p: 2, display: checkoutMounted ? 'none' : 'block' }}>
-                    {!payQuote && !payError && <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}><CircularProgress size={24} /></Box>}
+                    {!payQuote && !payError && <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}><CircularProgress size={24} sx={{ color: UI.accent }} /></Box>}
                     {payQuote && (
                         <RadioGroup value={payMethod} onChange={(e) => setPayMethod(e.target.value)}>
                             <FormControlLabel
                                 value="ach"
-                                control={<Radio />}
-                                sx={{ mb: 1, color: '#111' }}
+                                control={<Radio sx={{ color: UI.textMuted, '&.Mui-checked': { color: UI.accent } }} />}
+                                sx={{ mb: 1.5, alignItems: 'flex-start', '.MuiFormControlLabel-label': { color: UI.textPrimary, pt: 1 } }}
                                 label={`Bank transfer (ACH) — ${money(payQuote.ach.total)}, no fee. Settles in a few business days.`}
                             />
                             <FormControlLabel
                                 value="card"
-                                control={<Radio />}
-                                sx={{ color: '#111' }}
+                                control={<Radio sx={{ color: UI.textMuted, '&.Mui-checked': { color: UI.accent } }} />}
+                                sx={{ alignItems: 'flex-start', '.MuiFormControlLabel-label': { color: UI.textPrimary, pt: 1 } }}
                                 label={`Card — ${money(payQuote.card.total)} (includes ${money(payQuote.card.fee)} convenience fee). Instant.`}
                             />
                         </RadioGroup>
@@ -234,11 +238,11 @@ export default function WholesalerBillingPage() {
                     </Button>
                 </Box>
 
-                {/* Stripe owns everything inside this box. */}
-                <Box id="wholesale-embedded-checkout" sx={{ flex: 1, overflowY: 'auto' }} />
+                {/* Stripe owns everything inside this box — white because its form is light. */}
+                <Box id="wholesale-embedded-checkout" sx={{ flex: 1, overflowY: 'auto', ...(checkoutMounted ? { backgroundColor: '#fff', py: 2 } : {}) }} />
                 {checkoutMounted && (
-                    <Box sx={{ p: 1.5, borderTop: '1px solid #e5e7eb' }}>
-                        <Button size="small" onClick={() => { destroyCheckout(); }} sx={{ color: '#555' }}>
+                    <Box sx={{ p: 1.5, borderTop: `1px solid ${UI.border}` }}>
+                        <Button size="small" onClick={() => { destroyCheckout(); }} sx={{ color: UI.textSecondary }}>
                             ← Change payment method
                         </Button>
                     </Box>
