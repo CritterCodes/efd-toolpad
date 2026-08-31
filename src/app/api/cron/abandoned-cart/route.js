@@ -9,14 +9,16 @@
  * Marketing → honors user_preferences opt-out.
  */
 import { db as mongo } from '@/lib/database.js';
+import { cronAuthorized } from '@/lib/cronAuth';
 import { NotificationService } from '@/lib/notificationService';
 import { shopBase } from '@/lib/appUrls';
 
 const IDLE_HOURS = 4;
 
 export async function GET(req) {
-  const secret = req.nextUrl.searchParams.get('secret');
-  if (secret !== process.env.CRON_SECRET) {
+  // Vercel's scheduler sends the secret as an Authorization header;
+  // manual runs use ?secret=. Both accepted (lib/cronAuth).
+  if (!cronAuthorized(req)) {
     return Response.json({ success: false, error: 'Unauthorized' }, { status: 403 });
   }
 

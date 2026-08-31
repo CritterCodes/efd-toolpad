@@ -7,18 +7,14 @@
  */
 
 import { updateMetalPrices } from '@/lib/metalPriceService';
+import { cronAuthorized } from '@/lib/cronAuth';
 
 export async function GET(req) {
   try {
-    // Verify cron secret
-    const secret = req.nextUrl.searchParams.get('secret');
-    
-    if (secret !== process.env.CRON_SECRET) {
-      console.warn('⚠️ Unauthorized cron job attempt');
-      return Response.json({
-        success: false,
-        error: 'Unauthorized'
-      }, { status: 403 });
+    // Vercel's scheduler sends the secret as an Authorization header;
+    // manual runs use ?secret=. Both accepted (lib/cronAuth).
+    if (!cronAuthorized(req)) {
+      return Response.json({ success: false, error: 'Unauthorized' }, { status: 403 });
     }
 
     // Update metal prices

@@ -40,6 +40,14 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'A payment for this invoice is already processing.' }, { status: 409 });
     }
 
+    // Fail HERE with a real message, not downstream with an empty key: the
+    // publishable key lives in the deployment env, and its absence produced a
+    // 200-with-empty-key that the client could only report as a generic failure.
+    if (!process.env.STRIPE_PUBLISHABLE_KEY) {
+      console.error('[wholesale pay] STRIPE_PUBLISHABLE_KEY is not set in this environment');
+      return NextResponse.json({ error: 'Online payment is not configured (missing publishable key).' }, { status: 500 });
+    }
+
     const base = adminBase();
     const checkout = await createInvoiceCheckoutSession({
       invoice,
