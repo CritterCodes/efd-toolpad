@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireRepairsAccess } from '@/lib/apiAuth';
+import { requireRepairsAccess, canTouchRepair } from '@/lib/apiAuth';
 import { markQuoteSent, saveQuote } from '@/services/repairs/leadQuote';
 import { sendQuoteEmail } from '@/services/repairs/notifyQuote';
 import { db as database } from '@/lib/database';
@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 /** GET — the quote currently on this repair, if any. */
 export async function GET(request, { params }) {
-  const { errorResponse } = await requireRepairsAccess();
+  const { session, errorResponse } = await requireRepairsAccess();
   if (errorResponse) return errorResponse;
 
   const { repairID } = await params;
@@ -16,8 +16,9 @@ export async function GET(request, { params }) {
     const db = await database.connect();
     const repair = await db
       .collection('repairs')
-      .findOne({ repairID }, { projection: { quote: 1, clientName: 1, clientEmail: 1, description: 1 } });
-    if (!repair) return NextResponse.json({ success: false, error: 'Repair not found.' }, { status: 404 });
+      // userID/createdBy fetched solely for the ownership check below.
+      .findOne({ repairID }, { projection: { quote: 1, clientName: 1, clientEmail: 1, description: 1, userID: 1, createdBy: 1 } });
+    if (!repair || !canTouchRepair(session, repair)) return NextResponse.json({ success: false, error: 'Repair not found.' }, { status: 404 });
     return NextResponse.json({ success: true, quote: repair.quote || null, repair });
   } catch (error) {
     console.error('quote fetch failed:', error);
@@ -37,6 +38,15 @@ export async function POST(request, { params }) {
   if (errorResponse) return errorResponse;
 
   const { repairID } = await params;
+  // Quotes are money: without this, any wholesaler login could draft or SEND a
+  // quote on another business's repair. Ownership before the write.
+  {
+    const db = await database.connect();
+    const owned = await db.collection('repairs').findOne({ repairID }, { projection: { userID: 1, createdBy: 1 } });
+    if (!owned || !canTouchRepair(session, owned)) {
+      return NextResponse.json({ success: false, error: 'Repair not found.' }, { status: 404 });
+    }
+  }
   let body;
   try {
     body = await request.json();

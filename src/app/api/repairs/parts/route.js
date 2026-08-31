@@ -1,5 +1,5 @@
 import { db } from "@/lib/database";
-import { requireRepairOps, requireRepairsAccess } from "@/lib/apiAuth";
+import { requireRepairOps, requireRepairsAccess, canTouchRepair } from "@/lib/apiAuth";
 
 // ✅ Add or update parts for specific repairs
 export const PUT = async (req) => {
@@ -115,7 +115,7 @@ export const DELETE = async (req) => {
 // ✅ Fetch parts for a specific repair
 export const GET = async (req) => {
     try {
-        const { errorResponse } = await requireRepairsAccess();
+        const { session, errorResponse } = await requireRepairsAccess();
         if (errorResponse) return errorResponse;
 
         const { searchParams } = new URL(req.url);
@@ -128,7 +128,8 @@ export const GET = async (req) => {
         const dbRepairs = await db.dbRepairs();
         const repair = await dbRepairs.findOne({ repairID });
 
-        if (!repair) {
+        // Ownership at the sink — a wholesaler only reads parts on their own repairs.
+        if (!repair || !canTouchRepair(session, repair)) {
             return new Response(JSON.stringify({ error: "Repair not found" }), { status: 404 });
         }
 

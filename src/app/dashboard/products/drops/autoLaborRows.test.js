@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { autoLaborAsSharedRows } from '@/app/dashboard/products/drops/[dropId]/designs/[designId]/page';
+import { autoLaborAsSharedRows } from '@/services/production/variantPricing';
 
 /**
  * D4 — the Pricing tab read "No labor tasks." while auto labor was in every variant's price.

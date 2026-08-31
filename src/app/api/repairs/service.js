@@ -6,9 +6,9 @@ export default class RepairsService {
     /**
      * ✅ Fetch all repairs (ignoring _id)
      */
-    static getRepairs = async () => {
+    static getRepairs = async (scopeFilter = null) => {
         try {
-            return await RepairsModel.findAll();
+            return await RepairsModel.findAll(scopeFilter);
         } catch (error) {
             console.error("Error in getRepairs:", error);
             throw new Error("Failed to fetch repairs.");

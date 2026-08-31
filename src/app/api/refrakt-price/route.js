@@ -155,10 +155,16 @@ export const POST = async (req) => {
   }
 
   // Retail breakdown = cost components × markup (0005: breakdown is retail, NEVER costBasis).
+  // `printSetup` MUST be included: it is the casting house's flat print/sprue labor (owner,
+  // 2026-08-19 — "the 15 is the labor carrera charges for the print spruing etc"), which is
+  // why it rides in `labor`. It became a separate breakdown key when the per-slot metal
+  // double-count was fixed (#187); this hand-built breakdown didn't follow it, so the fee
+  // silently vanished from every configured price. One piece = one fee, already enforced by
+  // priceSelection, so summing it here charges it exactly once.
   const breakdown = {
     metal: round(cost.breakdown.metal * cogMarkup),
     stones: round(cost.breakdown.gems * cogMarkup),
-    labor: round((cost.breakdown.findings + cost.breakdown.labor) * cogMarkup),
+    labor: round((cost.breakdown.findings + cost.breakdown.labor + cost.breakdown.printSetup) * cogMarkup),
   };
   const subtotal = round(breakdown.metal + breakdown.stones + breakdown.labor);
   return NextResponse.json(finalize({ subtotal, taxRate, breakdown, priceSource: 'design-estimate', availability: 'made-to-order', selection, priceDay }));

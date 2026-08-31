@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import RepairsController from "../controller";
-import { requireRepairsAccess, requireRole } from "@/lib/apiAuth";
+import { requireRepairsAccess, requireRole, canTouchRepair, isStaffRepairSession } from "@/lib/apiAuth";
 
 export const GET = async (_req, { params }) => {
   try {
-    const { errorResponse } = await requireRepairsAccess();
+    const { session, errorResponse } = await requireRepairsAccess();
     if (errorResponse) return errorResponse;
 
     const { repairID } = params;
@@ -13,7 +13,9 @@ export const GET = async (_req, { params }) => {
     }
 
     const repair = await RepairsController.getRepairById(repairID);
-    if (!repair) {
+    // Ownership at the sink: a wholesaler only reads their own. 404 so a foreign
+    // ID doesn't even confirm the repair exists.
+    if (!repair || !canTouchRepair(session, repair)) {
       return NextResponse.json({ error: "Repair not found." }, { status: 404 });
     }
 
@@ -26,12 +28,20 @@ export const GET = async (_req, { params }) => {
 
 export const PUT = async (req, { params }) => {
   try {
-    const { errorResponse } = await requireRepairsAccess();
+    const { session, errorResponse } = await requireRepairsAccess();
     if (errorResponse) return errorResponse;
 
     const { repairID } = params;
     if (!repairID) {
       return NextResponse.json({ error: "Repair ID is required." }, { status: 400 });
+    }
+
+    // Ownership before write — a wholesaler must not edit another business's repair.
+    if (!isStaffRepairSession(session)) {
+      const existing = await RepairsController.getRepairById(repairID);
+      if (!existing || !canTouchRepair(session, existing)) {
+        return NextResponse.json({ error: "Repair not found." }, { status: 404 });
+      }
     }
 
     const updateData = await req.json();

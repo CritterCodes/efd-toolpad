@@ -7,9 +7,11 @@ export default class RepairsModel {
      * ✅ Find all repairs in the collection
      * Returns all repair records ignoring `_id`.
      */
-    static findAll = async () => {
+    static findAll = async (scopeFilter = null) => {
         const dbInstance = await db.connect();
-        return await dbInstance.collection("repairs").find({}).project({ _id: 0 }).toArray();
+        // null -> the full dataset (staff); a wholesaler session passes an ownership
+        // filter so the shared endpoint can never leak another business's repairs.
+        return await dbInstance.collection("repairs").find(scopeFilter || {}).project({ _id: 0 }).toArray();
     };
 
     /**

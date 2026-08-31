@@ -78,6 +78,39 @@ export function canAccessRepairs(session) {
 }
 
 /**
+ * Staff-side repair session: admin/dev or an onsite artisan with repair ops —
+ * everyone `canAccessRepairs` admits EXCEPT wholesalers. Wholesalers are outside
+ * businesses: they may use the repair pipeline, but only on their own jobs.
+ */
+export function isStaffRepairSession(session) {
+    return isAdmin(session) || isOnsiteRepairOps(session);
+}
+
+/**
+ * The Mongo filter that scopes a repair query to what this session may see.
+ * Staff → null (unscoped). Wholesaler → only repairs they own or created.
+ *
+ * WHY THIS EXISTS. `requireRepairsAccess` admits wholesalers because they create
+ * and track repairs — but every sink behind it queried the WHOLE collection, so
+ * any wholesaler login could read (and via PUT, edit) every repair in the shop,
+ * including other jewelers' customers and pricing. Guard the sink, not the route:
+ * the route-level guard stays, and each query composes this filter.
+ */
+export function repairOwnershipFilter(session) {
+    if (isStaffRepairSession(session)) return null;
+    const id = session?.user?.userID || '__no_user__';
+    return { $or: [{ userID: id }, { createdBy: id }] };
+}
+
+/** May this session touch this specific repair record? (Staff: always.) */
+export function canTouchRepair(session, repair) {
+    if (isStaffRepairSession(session)) return true;
+    if (!repair) return false;
+    const id = session?.user?.userID;
+    return Boolean(id) && (repair.userID === id || repair.createdBy === id);
+}
+
+/**
  * Check if the user has a specific staff capability (admin always passes)
  */
 export function hasStaffCapability(session, capability) {
@@ -186,6 +219,29 @@ export async function requireRepairOpsAny(requiredCapabilities = []) {
  * Require general repair access.
  * Admins and wholesalers always pass. Artisans must be onsite with repairOps.
  */
+/**
+ * Staff-only repairs guard: admins/devs and onsite repair-ops artisans, but NOT
+ * wholesalers. For surfaces wholesalers have no business on (e.g. the appointment
+ * book, which lists every customer) — `requireRepairsAccess` admits them because
+ * they create repairs, so anything beyond their own jobs needs this instead.
+ */
+export async function requireStaffRepairsAccess() {
+    const { session, errorResponse } = await requireAuth();
+    if (errorResponse) return { session: null, errorResponse };
+
+    if (!isStaffRepairSession(session)) {
+        return {
+            session: null,
+            errorResponse: NextResponse.json(
+                { error: 'Access denied. This area is restricted to staff.' },
+                { status: 403 }
+            ),
+        };
+    }
+
+    return { session, errorResponse: null };
+}
+
 export async function requireRepairsAccess() {
     const { session, errorResponse } = await requireAuth();
     if (errorResponse) return { session: null, errorResponse };

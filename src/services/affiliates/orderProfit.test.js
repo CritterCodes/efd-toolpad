@@ -58,11 +58,33 @@ describe('resolveOrderProfit', () => {
     expect(r.needsReview).toBe(false); // deliberately NOT queued for a human
   });
 
-  it('refuses to price a made-to-order line — a variant stores price, not cost', async () => {
-    const r = await resolveOrderProfit({ subtotal: 1950, lines: [{ designID: 'd1', variantId: 'v1', qty: 1, unitPrice: 1950 }] });
+  it('prices a made-to-order line from its product, same as any other', async () => {
+    // MTO lines carry a productId too, and productContract writes a costBasis onto it.
+    productDocs = [{ productId: 'p9', title: 'Ridge ring', pricing: { costBasis: 780, costBasisSource: 'estimated' } }];
+    const r = await resolveOrderProfit({
+      subtotal: 1950,
+      lines: [{ productId: 'p9', designID: 'd1', variantId: 'v1', qty: 1, unitPrice: 1950 }],
+    });
+    expect(r.ok).toBe(true);
+    expect(r.cost).toBe(780);
+    expect(r.profit).toBe(1170);
+    // The variant rides along so a design-level estimate can be reconciled later.
+    expect(r.lines[0]).toMatchObject({ designID: 'd1', variantId: 'v1', costBasisSource: 'estimated' });
+  });
+
+  it('records whether a cost was the piece ACTUAL or a design estimate', async () => {
+    // An estimate must never be presentable as a measured cost — a commission paid off
+    // one is explainable only if the basis travels with it.
+    productDocs = [{ productId: 'p1', pricing: { costBasis: 200, costBasisSource: 'actual' } }];
+    const r = await resolveOrderProfit({ subtotal: 500, lines: [catalogLine()] });
+    expect(r.lines[0].costBasisSource).toBe('actual');
+  });
+
+  it('refuses a line that carries no productId at all', async () => {
+    const r = await resolveOrderProfit({ subtotal: 300, lines: [{ title: 'Mystery', qty: 1, unitPrice: 300 }] });
     expect(r.ok).toBe(false);
     expect(r.needsReview).toBe(true);
-    expect(r.reason).toMatch(/made-to-order/i);
+    expect(r.reason).toMatch(/Mystery.*no productId/i);
   });
 
   it('refuses when a product has no recorded cost, naming the product', async () => {

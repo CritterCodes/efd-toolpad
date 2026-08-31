@@ -5,18 +5,17 @@
  * cost at all, so profit has to be resolved from the lines. Each line kind knows its
  * cost from a different place, and one of them deliberately doesn't participate:
  *
- *   catalog / RTS   productId  → products.pricing.costBasis × qty      RELIABLE
- *   custom payment  customID   → EXCLUDED (the customs trigger owns those dollars —
- *                                commissioning them here would pay twice on one payment)
- *   MTO / configured designID+variantId → NOT DERIVABLE today (see below)
+ *   any product line  productId → products.pricing.costBasis × qty
+ *   custom payment    customID  → EXCLUDED (the customs trigger owns those dollars —
+ *                                 commissioning them here would pay twice on one payment)
  *
- * WHY MTO IS NOT AUTOMATED. A design variant stores `price` but no cost, and the
- * design's `estCost` is one number for every metal — a 14k yellow and a platinum
- * variant of the same ring cost very different amounts. Deriving it live would mean
- * assuming the variant's metal, the design's volume, and per-variant stone/labour that
- * isn't stored. A guessed cost is a wrong commission paid out of real money, so these
- * return `needsReview` with a precise reason instead. When variants carry a costBasis
- * (or the live engine is asked to re-price them), this is the one place to change.
+ * MTO AND CUSTOMIZED GO THROUGH THE SAME DOOR. Every purchasable thing on the shop is a
+ * product, and `productContract` writes `pricing.costBasis` onto it — the piece's ACTUAL
+ * COGS for a made piece (`costBasisSource: 'actual'`), or the design's live-metal
+ * estimate for a design-backed one (`'estimated'`). MTO cart lines carry BOTH a productId
+ * and designID/variantId, so there is no reason to treat them as unpriceable: the cost is
+ * recorded. `costBasisSource` rides along on every line so the resulting commission can
+ * always be explained, and so an estimate is never mistaken for a measured cost.
  *
  * The contract: profit is only returned when EVERY commissionable line resolved. One
  * unknown line makes the whole order's profit unknown — a partial number would silently
@@ -32,7 +31,7 @@ function isCustomPaymentLine(line) {
   return line?.type === 'custom-payment' || Boolean(line?.customID);
 }
 
-/** MTO / REFRAKT-configured: a design variant rather than a catalogue product. */
+/** MTO / REFRAKT-configured lines also carry a productId — see the note above. */
 function isDesignLine(line) {
   return Boolean(line?.designID) && Boolean(line?.variantId);
 }
@@ -55,27 +54,28 @@ export async function resolveOrderProfit(order) {
     return { ok: false, needsReview: false, reason: 'every line is a custom-order payment', revenue: 0 };
   }
 
-  const designLines = commissionable.filter(isDesignLine);
-  if (designLines.length) {
+  // A line with no productId can't be priced — every purchasable thing is a product,
+  // so this means a malformed line rather than a kind we don't handle.
+  const unidentified = commissionable.find((l) => !l.productId);
+  if (unidentified) {
     return {
       ok: false,
       needsReview: true,
-      reason: `made-to-order line (${designLines[0].designID}) — a variant stores its price but not its cost`,
+      reason: `a line ("${unidentified.title || unidentified.designID || 'unknown'}") carries no productId to price from`,
       revenue: n(order?.subtotal),
     };
   }
 
-  // Everything left is a catalogue/RTS line: cost comes from the product record.
-  const productIds = [...new Set(commissionable.map((l) => l.productId).filter(Boolean))];
-  if (productIds.length !== commissionable.length && productIds.length === 0) {
-    return { ok: false, needsReview: true, reason: 'a line carries no productId to price from', revenue: n(order?.subtotal) };
-  }
-
+  const productIds = [...new Set(commissionable.map((l) => l.productId))];
   const dbi = await db.connect();
   const products = await dbi.collection('products')
-    .find({ productId: { $in: productIds } }, { projection: { _id: 0, productId: 1, title: 1, 'pricing.costBasis': 1 } })
+    .find(
+      { productId: { $in: productIds } },
+      { projection: { _id: 0, productId: 1, title: 1, 'pricing.costBasis': 1, 'pricing.costBasisSource': 1 } },
+    )
     .toArray();
   const costById = new Map(products.map((p) => [p.productId, p.pricing?.costBasis]));
+  const sourceById = new Map(products.map((p) => [p.productId, p.pricing?.costBasisSource || null]));
 
   const resolved = [];
   let cost = 0;
@@ -97,7 +97,21 @@ export async function resolveOrderProfit(order) {
     const lineRevenue = round2(n(line.unitPrice ?? line.priceSnapshot?.subtotal) * qty);
     cost = round2(cost + lineCost);
     revenue = round2(revenue + lineRevenue);
-    resolved.push({ productId: line.productId, title: line.title || null, qty, unitCost: round2(n(unitCost)), lineCost, lineRevenue });
+    resolved.push({
+      productId: line.productId,
+      title: line.title || null,
+      qty,
+      unitCost: round2(n(unitCost)),
+      lineCost,
+      lineRevenue,
+      // 'actual' = the made piece's real COGS; 'estimated' = the design's live-metal
+      // estimate. Recorded so a commission is explainable and an estimate is never
+      // silently presented as a measured cost.
+      costBasisSource: sourceById.get(line.productId) || null,
+      // MTO/configured lines identify their variant too — useful when reconciling a
+      // design-level estimate against the specific metal that was actually ordered.
+      ...(isDesignLine(line) ? { designID: line.designID, variantId: line.variantId } : {}),
+    });
   }
 
   // Prefer the summed line revenue; fall back to the order subtotal if lines carried no

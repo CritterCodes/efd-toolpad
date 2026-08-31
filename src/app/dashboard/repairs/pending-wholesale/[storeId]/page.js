@@ -39,11 +39,12 @@ export default function StorePickupDetailPage() {
     const loadRepairs = useCallback(async () => {
         try {
             setLoading(true);
-            const [pendingData, pickupData] = await Promise.all([
+            const [pendingData, pickupData, shippedData] = await Promise.all([
                 wholesaleRepairsClient.fetchRepairs({ status: REPAIR_STATUS.PENDING_PICKUP }),
                 wholesaleRepairsClient.fetchRepairs({ status: REPAIR_STATUS.PICKUP_REQUESTED }),
+                wholesaleRepairsClient.fetchRepairs({ status: REPAIR_STATUS.SHIPPED_TO_SHOP }),
             ]);
-            const allRepairs = [...(pickupData.repairs || []), ...(pendingData.repairs || [])].map(normalizeRepairWorkflow);
+            const allRepairs = [...(shippedData.repairs || []), ...(pickupData.repairs || []), ...(pendingData.repairs || [])].map(normalizeRepairWorkflow);
             const storeRepairs = allRepairs.filter(
                 r => (r.createdBy || r.userID) === decodedStoreId
             );

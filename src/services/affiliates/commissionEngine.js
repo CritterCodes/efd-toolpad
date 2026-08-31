@@ -15,10 +15,12 @@
  *             never the live profile rate; changing an affiliate's rate later must not
  *             reprice history.
  *
- * PRODUCT SALES cannot derive profit server-side (product COGS isn't reliably joined
- * from a shop order line), so their commissions are created as NEEDS_REVIEW carrying
- * the order's revenue figures; admin enters the profit on the affiliate detail page and
- * approval computes the amount at the snapshotted rate and writes the payout.
+ * PRODUCT SALES (catalogue, RTS, made-to-order and customized alike) derive profit from
+ * the product's recorded `pricing.costBasis` — see `orderProfit`. The storefront strips
+ * costBasis from every read, but this engine runs admin-side against the same database,
+ * so cost is available here and nowhere the customer can reach. NEEDS_REVIEW is the
+ * exception now, not the rule: it means a specific line had no cost recorded, and the
+ * commission carries the reason so admin knows what to price rather than guessing.
  *
  * Idempotency is claim-first, like the shop-payment drain: the commissionId is
  * deterministic per source (`comm-<sourceID>`), and the source document's
@@ -255,10 +257,10 @@ export async function recordProductSaleCommission(order) {
   const rate = n(aff.commissionRate) > 0 ? n(aff.commissionRate) : n(affiliate.commissionRate);
   const commissionId = `comm-${order.orderId}`;
 
-  // Try to price it ourselves. Catalogue/RTS lines resolve from the product's recorded
-  // cost basis, so the common product sale earns without interrupting anyone; anything
-  // genuinely unknowable (an MTO variant, a product with no cost) falls through to
-  // review WITH ITS REASON, rather than every product sale queueing for a human.
+  // Try to price it ourselves. EVERY product line — catalogue, RTS, MTO, customized —
+  // resolves from the product's recorded cost basis, because `productContract` writes one
+  // onto every product it creates. Only a product with no cost recorded at all falls
+  // through to review WITH ITS REASON, rather than a whole class of sale queueing forever.
   const priced = await resolveOrderProfit(order).catch((e) => {
     console.error(`[affiliates] profit resolve for ${order.orderId} failed:`, e.message);
     return { ok: false, needsReview: true, reason: 'could not read product costs' };
@@ -294,6 +296,10 @@ export async function recordProductSaleCommission(order) {
           cost: priced.cost,            // Σ product costBasis × qty
           profit: priced.profit,
           lines: priced.lines,          // per-line workings, so the number is explainable
+          // Whether ANY line priced off a live-metal estimate rather than a made piece's
+          // measured COGS. An estimate is a fine basis to pay on, but it should be visible
+          // as one — a metal move between listing and sale moves the real margin.
+          costEstimated: priced.lines.some((l) => l.costBasisSource !== 'actual'),
           customPaymentPortion: customTotal || 0,
         }
         : {

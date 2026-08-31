@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireRepairsAccess } from '@/lib/apiAuth';
+import { requireStaffRepairsAccess } from '@/lib/apiAuth';
 import {
   cancelAppointment,
   confirmAppointment,
@@ -23,7 +23,7 @@ export const dynamic = 'force-dynamic';
  * Arrival is internal: they are standing in front of you.
  */
 export async function POST(request, { params }) {
-  const { errorResponse } = await requireRepairsAccess();
+  const { errorResponse } = await requireStaffRepairsAccess();
   if (errorResponse) return errorResponse;
 
   const { appointmentID } = await params;

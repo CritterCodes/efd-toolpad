@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { uploadRepairImage } from "@/utils/s3.util";
 import RepairsController from "./controller";
 import RepairLaborLogsModel from "@/app/api/repairLaborLogs/model";
-import { requireRepairsAccess, requireRole } from "@/lib/apiAuth";
+import { requireRepairsAccess, requireRole, canTouchRepair, repairOwnershipFilter, isStaffRepairSession } from "@/lib/apiAuth";
 import {
   calculateRepairChargeTotal,
   calculateRepairLaborHours,
@@ -172,11 +172,16 @@ export const POST = async (request) => {
     repairData.createdBy = session.user.userID;
     repairData.submittedBy = session.user.email;
 
-    if (
-      session.user.role === "wholesaler"
-      && (!repairData.status || [REPAIR_STATUS.RECEIVING, REPAIR_STATUS.READY_FOR_WORK].includes(repairData.status))
-    ) {
+    // A wholesaler's repair ALWAYS starts at PENDING PICKUP, whatever status the
+    // client posted. The old guard only rewrote blank/RECEIVING/READY FOR WORK, so a
+    // crafted POST could inject a repair straight into IN PROGRESS or COMPLETED --
+    // items the shop never physically received, sitting in bench queues (a fake
+    // COMPLETED is even ship-back-eligible). Same rule for the isWholesale flag:
+    // the ROLE decides it, not the payload -- posting isWholesale:false would drop
+    // the repair out of every wholesale query, invisible to their own portal.
+    if (session.user.role === "wholesaler") {
       repairData.status = REPAIR_STATUS.PENDING_PICKUP;
+      repairData.isWholesale = true;
     }
 
     // Canonical billing classification (S1) — derived from comp/wholesale flags.
@@ -270,7 +275,7 @@ export const POST = async (request) => {
 
 export const GET = async (req) => {
   try {
-    const { errorResponse } = await requireRepairsAccess();
+    const { session, errorResponse } = await requireRepairsAccess();
     if (errorResponse) return errorResponse;
 
     const { searchParams } = new URL(req.url);
@@ -278,10 +283,17 @@ export const GET = async (req) => {
 
     if (repairID) {
       const repair = await RepairsController.getRepairById(repairID);
+      // Ownership at the sink: a wholesaler may only read their own repairs. 404,
+      // not 403 — a foreign repairID should not even confirm the repair exists.
+      if (repair && !canTouchRepair(session, repair)) {
+        return NextResponse.json({ error: "Repair not found." }, { status: 404 });
+      }
       return NextResponse.json(repair, { status: 200 });
     }
 
-    return RepairsController.getRepairs(req);
+    // Staff get the full dataset exactly as before (null filter → find({})).
+    // A wholesaler's list is scoped to repairs they own or created.
+    return RepairsController.getRepairs(req, repairOwnershipFilter(session));
   } catch (error) {
     console.error("Error in GET Route:", error.message);
     return NextResponse.json({ error: "Failed to fetch repairs", details: error.message }, { status: 500 });
@@ -290,7 +302,7 @@ export const GET = async (req) => {
 
 export const PUT = async (req) => {
   try {
-    const { errorResponse } = await requireRepairsAccess();
+    const { session, errorResponse } = await requireRepairsAccess();
     if (errorResponse) return errorResponse;
 
     const { searchParams } = new URL(req.url);
@@ -298,6 +310,15 @@ export const PUT = async (req) => {
 
     if (!repairID) {
       return NextResponse.json({ error: "repairID is required for updating a repair" }, { status: 400 });
+    }
+
+    // Ownership before write: without this, any wholesaler login could edit any
+    // repair in the shop by guessing an ID. Staff sessions skip the extra read.
+    if (!isStaffRepairSession(session)) {
+      const existing = await RepairsController.getRepairById(repairID);
+      if (!existing || !canTouchRepair(session, existing)) {
+        return NextResponse.json({ error: "Repair not found." }, { status: 404 });
+      }
     }
 
     const body = await req.json();

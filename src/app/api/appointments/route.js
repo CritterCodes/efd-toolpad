@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireRepairsAccess } from '@/lib/apiAuth';
+import { requireStaffRepairsAccess } from '@/lib/apiAuth';
 import { listAppointments } from '@/services/appointments/manage';
 
 // Availability changes as people book. Never cache it.
@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
  * walking in are the ones at the counter and the bench, not just the owner.
  */
 export async function GET(request) {
-  const { errorResponse } = await requireRepairsAccess();
+  const { errorResponse } = await requireStaffRepairsAccess();
   if (errorResponse) return errorResponse;
 
   try {
