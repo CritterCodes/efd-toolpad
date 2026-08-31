@@ -24,6 +24,7 @@ const STATUS_COLORS = {
 };
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+const money = (v) => (Number(v) > 0 ? `$${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-');
 
 const TH = ({ children }) => (
     <TableCell sx={{ color: UI.textMuted, fontWeight: 700, fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase', borderBottom: `1px solid ${UI.border}`, backgroundColor: UI.bgTertiary }}>
@@ -117,6 +118,7 @@ export default function CurrentRepairsPage() {
                                 <TH>Item</TH>
                                 <TH>Description</TH>
                                 <TH>Status</TH>
+                                <TH>Your Price</TH>
                                 <TH>Submitted</TH>
                                 <TH>Due</TH>
                             </TableRow>
@@ -153,6 +155,7 @@ export default function CurrentRepairsPage() {
                                                 title={STATUS_DESCRIPTIONS[displayStatus] || displayStatus}
                                             />
                                         </TableCell>
+                                        <TableCell sx={{ color: UI.textPrimary, whiteSpace: 'nowrap', fontWeight: 600 }}>{money(repair.totalCost)}</TableCell>
                                         <TableCell sx={{ color: UI.textSecondary }}>{fmtDate(repair.createdAt)}</TableCell>
                                         <TableCell sx={{ color: UI.textSecondary }}>{repair.promiseDate ? fmtDate(repair.promiseDate) : '—'}</TableCell>
                                     </TableRow>
