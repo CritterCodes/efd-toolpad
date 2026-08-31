@@ -10,10 +10,12 @@
  * `?dryRun=1` reports what WOULD change without writing — use it before trusting a run.
  */
 import { repriceListings } from '@/services/production/dailyReprice';
+import { cronAuthorized } from '@/lib/cronAuth';
 
 export async function GET(req) {
-  const secret = req.nextUrl.searchParams.get('secret');
-  if (secret !== process.env.CRON_SECRET) {
+  // Vercel's scheduler sends the secret as an Authorization header;
+  // manual runs use ?secret=. Both accepted (lib/cronAuth).
+  if (!cronAuthorized(req)) {
     return Response.json({ success: false, error: 'Unauthorized' }, { status: 403 });
   }
 

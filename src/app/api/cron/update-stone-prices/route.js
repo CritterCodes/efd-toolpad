@@ -3,12 +3,11 @@
  * Authorized by the Vercel cron header or ?secret=CRON_SECRET (mirrors update-material-prices).
  */
 import { refreshAllStonePrices } from '@/app/api/products/stones/refresh.service';
+import { cronAuthorized } from '@/lib/cronAuth';
 
 function isAuthorizedCronRequest(req) {
-  const querySecret = req.nextUrl.searchParams.get('secret');
-  if (querySecret && querySecret === process.env.CRON_SECRET) return true;
-  if (req.headers.get('x-vercel-cron')) return true;
-  return false;
+  // Secret in the Authorization header (Vercel scheduler) or ?secret= (manual).
+  return cronAuthorized(req);
 }
 
 export async function GET(req) {

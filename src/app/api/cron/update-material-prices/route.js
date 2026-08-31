@@ -4,6 +4,7 @@
  */
 
 import { db } from '@/lib/database';
+import { cronAuthorized } from '@/lib/cronAuth';
 import { runMaterialPriceSync } from '@/app/api/materials/bulk-update-pricing/service';
 
 const SUPPORTED_FREQUENCIES = ['daily', 'weekly', 'bi-weekly', 'monthly', 'quarterly', 'yearly'];
@@ -41,19 +42,10 @@ function isSyncDue(lastRun, frequency, now) {
 }
 
 function isAuthorizedCronRequest(req) {
-  const querySecret = req.nextUrl.searchParams.get('secret');
-  const vercelCronHeader = req.headers.get('x-vercel-cron');
-
-  if (querySecret && querySecret === process.env.CRON_SECRET) {
-    return true;
-  }
-
-  // Vercel cron requests include this header for scheduled invocations
-  if (vercelCronHeader) {
-    return true;
-  }
-
-  return false;
+  // The x-vercel-cron header this used to trust is just a request header --
+  // anyone can send it. cronAuthorized checks the actual secret, in either
+  // the Authorization header (Vercel scheduler) or ?secret= (manual runs).
+  return cronAuthorized(req);
 }
 
 export async function GET(req) {
