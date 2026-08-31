@@ -35,6 +35,10 @@ export async function POST(request, { params }) {
     if (invoice.status !== 'open' || invoice.paymentStatus === 'paid' || !(Number(invoice.remainingBalance) > 0)) {
       return NextResponse.json({ error: 'This invoice has no open balance to pay.' }, { status: 409 });
     }
+    // An ACH debit is already processing -- a second payment would double-debit.
+    if (invoice.pendingCheckout?.sessionId) {
+      return NextResponse.json({ error: 'A payment for this invoice is already processing.' }, { status: 409 });
+    }
 
     const base = adminBase();
     const checkout = await createInvoiceCheckoutSession({
@@ -46,7 +50,10 @@ export async function POST(request, { params }) {
 
     return NextResponse.json({
       success: true,
-      url: checkout.url,
+      clientSecret: checkout.clientSecret,
+      // The publishable key is public by design; served here so the client
+      // needs no NEXT_PUBLIC_ env plumbing.
+      publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '',
       base: checkout.base,
       fee: checkout.fee,
     });

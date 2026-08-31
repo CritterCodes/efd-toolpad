@@ -75,13 +75,15 @@ describe('invoiceBelongsToSession', () => {
 
 describe('createInvoiceCheckoutSession', () => {
   const invoice = { invoiceID: 'rinv-1', remainingBalance: 500 };
-  const stubStripe = () => mocks.fetch.mockResolvedValue({ ok: true, json: async () => ({ id: 'cs_1', url: 'https://checkout.stripe.test/cs_1' }) });
+  const stubStripe = () => mocks.fetch.mockResolvedValue({ ok: true, json: async () => ({ id: 'cs_1', client_secret: 'cs_1_secret' }) });
 
-  it('ACH: charges exactly the balance, one line, us_bank_account', async () => {
+  it('ACH: charges exactly the balance, one line, us_bank_account, EMBEDDED', async () => {
     stubStripe();
     const out = await createInvoiceCheckoutSession({ invoice, method: 'ach', successUrl: 's', cancelUrl: 'c' });
-    expect(out).toMatchObject({ base: 500, fee: 0, url: 'https://checkout.stripe.test/cs_1' });
+    expect(out).toMatchObject({ base: 500, fee: 0, clientSecret: 'cs_1_secret' });
     const body = mocks.fetch.mock.calls[0][1].body;
+    expect(body).toContain('ui_mode=embedded');
+    expect(body).toContain('return_url=s');
     expect(body).toContain('payment_method_types%5B%5D=us_bank_account');
     expect(body).toContain('line_items%5B0%5D%5Bprice_data%5D%5Bunit_amount%5D=50000');
     expect(body).not.toContain('line_items%5B1%5D'); // no fee line
@@ -117,7 +119,18 @@ describe('recordWholesaleCheckoutPayment (the webhook sink)', () => {
     expect(update.amountPaid).toBe(500);           // NOT 514.80
     expect(update.paymentStatus).toBe('paid');
     expect(update.payments[0]).toMatchObject({ amount: 500, processingFee: 14.8, stripeSessionId: 'cs_1' });
+    expect(update.pendingCheckout).toBeNull();     // the in-flight marker clears with settlement
     expect(mocks.syncPaidRepairs).toHaveBeenCalled();
+  });
+
+  it('marks an ACH session PROCESSING so Billing stops offering Pay', async () => {
+    const { markWholesalePaymentProcessing, clearWholesalePaymentProcessing } = await import('./invoicePayments');
+    await markWholesalePaymentProcessing(session({ payment_status: 'unpaid' }));
+    const update = mocks.updateByInvoiceID.mock.calls[0][1];
+    expect(update.pendingCheckout).toMatchObject({ sessionId: 'cs_1', method: 'card', amount: 500 });
+
+    await clearWholesalePaymentProcessing('rinv-1');
+    expect(mocks.updateByInvoiceID.mock.calls[1][1]).toEqual({ pendingCheckout: null });
   });
 
   it('a webhook REPLAY records nothing (idempotent by session id)', async () => {
