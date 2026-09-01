@@ -261,6 +261,7 @@ export default function WholesalerBillingPage() {
                                 <TH align="right">Paid</TH>
                                 <TH align="right">Balance</TH>
                                 <TH>Status</TH>
+                                <TH>Shipment</TH>
                                 <TH>{''}</TH>
                             </TableRow>
                         </TableHead>
@@ -288,6 +289,13 @@ export default function WholesalerBillingPage() {
                                                 label={inv.paymentStatus === 'paid' ? `Paid ${inv.paidAt ? fmtDate(inv.paidAt) : ''}`.trim() : 'Open'}
                                                 color={inv.paymentStatus === 'paid' ? 'success' : 'warning'}
                                             />
+                                        </TableCell>
+                                        <TableCell sx={{ color: UI.textSecondary, fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                                            {inv.outboundShipment?.trackingNumber ? (
+                                                <Tooltip title={`Shipped ${fmtDate(inv.outboundShipment.shippedAt)}${inv.outboundShipment.carrier ? ` via ${inv.outboundShipment.carrier}` : ''}`}>
+                                                    <span>{inv.outboundShipment.trackingNumber}</span>
+                                                </Tooltip>
+                                            ) : '—'}
                                         </TableCell>
                                         <TableCell>
                                             {open && inv.pendingCheckout?.sessionId ? (
