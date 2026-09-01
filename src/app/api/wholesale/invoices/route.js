@@ -56,7 +56,7 @@ export async function GET() {
           _id: 0,
           invoiceID: 1, createdAt: 1, paidAt: 1,
           status: 1, paymentStatus: 1, deliveryMethod: 1,
-          subtotal: 1, taxAmount: 1, deliveryFee: 1, cashDiscountAmount: 1, pendingCheckout: 1,
+          subtotal: 1, taxAmount: 1, deliveryFee: 1, cashDiscountAmount: 1, pendingCheckout: 1, outboundShipment: 1,
           total: 1, amountPaid: 1, remainingBalance: 1,
           repairIDs: 1, 'repairSnapshots.repairID': 1, 'repairSnapshots.description': 1,
         },
