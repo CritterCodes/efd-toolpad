@@ -4,6 +4,7 @@
  */
 
 import { db } from '@/lib/database';
+import { priceJobDue, markPriceJobRun } from '@/services/cron/priceSchedules';
 import { cronAuthorized } from '@/lib/cronAuth';
 import { runMaterialPriceSync } from '@/app/api/materials/bulk-update-pricing/service';
 
@@ -62,52 +63,37 @@ export async function GET(req) {
       (await adminCollection.findOne({}));
 
     const stuller = settings?.stuller || {};
-    const frequency = SUPPORTED_FREQUENCIES.includes(stuller.updateFrequency)
-      ? stuller.updateFrequency
-      : 'daily';
-
     const now = new Date();
-    const lastRun = stuller.lastPriceSyncAt ? new Date(stuller.lastPriceSyncAt) : null;
 
     if (!stuller.enabled) {
       return Response.json({
         success: true,
         skipped: true,
         reason: 'Stuller integration disabled',
-        frequency,
         timestamp: now.toISOString()
       });
     }
 
-    if (!isSyncDue(lastRun, frequency, now)) {
-      const nextRun = getNextRun(lastRun, frequency);
-      await adminCollection.updateOne(
-        { _id: settings?._id || 'repair_task_admin_settings' },
-        { $set: { 'stuller.nextPriceSyncAt': nextRun, updatedAt: now } }
-      );
-
-      return Response.json({
-        success: true,
-        skipped: true,
-        reason: 'Not due yet for configured schedule',
-        frequency,
-        lastRun: lastRun?.toISOString() || null,
-        nextRun: nextRun.toISOString(),
-        timestamp: now.toISOString()
-      });
+    // Owner-controlled schedule (settings -> Price Update Schedules). This
+    // replaces the old stuller.updateFrequency gate so ALL pricing jobs are
+    // configured in one place.
+    const { due, schedule } = await priceJobDue('materialPrices', now);
+    if (!due && !req.nextUrl.searchParams.get('force')) {
+      return Response.json({ success: true, skipped: true, reason: 'not due', schedule, timestamp: now.toISOString() });
     }
 
     const result = await runMaterialPriceSync(settings);
+    await markPriceJobRun('materialPrices', { status: 'ok', detail: `synced ${result?.updated ?? ''}` });
 
     const completedAt = new Date();
-    const nextRun = getNextRun(completedAt, frequency);
 
+    // lastPriceSyncAt stays on the Stuller panel for display; the schedule
+    // itself now lives in Price Update Schedules (cronRuns is the gate's clock).
     await adminCollection.updateOne(
       { _id: settings?._id || 'repair_task_admin_settings' },
       {
         $set: {
           'stuller.lastPriceSyncAt': completedAt,
-          'stuller.nextPriceSyncAt': nextRun,
           'stuller.lastUpdate': completedAt,
           updatedAt: completedAt
         }
@@ -117,9 +103,7 @@ export async function GET(req) {
     return Response.json({
       success: true,
       ran: true,
-      frequency,
       lastRun: completedAt.toISOString(),
-      nextRun: nextRun.toISOString(),
       sync: result.payload
     }, { status: result.status });
   } catch (error) {

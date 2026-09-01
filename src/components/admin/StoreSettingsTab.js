@@ -17,6 +17,7 @@ import {
 
 import LaborSettings from './store-settings/LaborSettings';
 import PricingMultiplierConfig from './store-settings/PricingMultiplierConfig';
+import PriceUpdateSchedules from './store-settings/PriceUpdateSchedules';
 import LaborRateSummary from './store-settings/LaborRateSummary';
 import SampleProjectExamples from './store-settings/SampleProjectExamples';
 import SystemUpdateDialog from './store-settings/SystemUpdateDialog';
@@ -81,6 +82,10 @@ export default function StoreSettingsTab() {
                         localSettings={localSettings} 
                         handleSettingChange={handleSettingChange} 
                     />
+                </Grid>
+
+                <Grid item xs={12}>
+                    <PriceUpdateSchedules />
                 </Grid>
 
                 <Grid item xs={12} md={6}>

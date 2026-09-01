@@ -201,19 +201,12 @@ export default function StullerIntegrationPanel() {
                             />
                         </Grid>
                         <Grid item xs={12} sm={6}>
-                            <FormControl fullWidth disabled={!settings.enabled}>
-                                <InputLabel>Update Frequency</InputLabel>
-                                <Select
-                                    value={settings.updateFrequency}
-                                    label="Update Frequency"
-                                    onChange={(e) => setSettings({ ...settings, updateFrequency: e.target.value })}
-                                >
-                                    <MenuItem value="hourly">Hourly</MenuItem>
-                                    <MenuItem value="daily">Daily</MenuItem>
-                                    <MenuItem value="weekly">Weekly</MenuItem>
-                                    <MenuItem value="manual">Manual Only</MenuItem>
-                                </Select>
-                            </FormControl>
+                            {/* The sync schedule moved to Store Settings -> Price Update
+                                Schedules, where ALL pricing jobs are configured together;
+                                a dropdown here would be a second source of truth. */}
+                            <Typography variant="body2" color="text.secondary" sx={{ pt: 2 }}>
+                                Sync schedule is set in Store Settings → Price Update Schedules.
+                            </Typography>
                         </Grid>
                     </Grid>
                 </CardContent>
