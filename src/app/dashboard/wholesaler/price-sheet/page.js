@@ -55,8 +55,14 @@ const printStyles = (
         @media print {
             body * { visibility: hidden; }
             .psheet-root, .psheet-root * { visibility: visible; }
-            .psheet-root { position: absolute; left: 0; top: 0; width: 100%; padding: 0; }
-            .psheet-root table { min-width: 0 !important; width: 100%; }
+            /* right: 8px (not width: 100%) keeps the last column off the paper's
+               clipped edge — the platinum cells were printing half-cut. */
+            .psheet-root { position: absolute; left: 0; top: 0; right: 8px; width: auto; padding: 0; }
+            .psheet-root table { min-width: 0 !important; width: 100%; table-layout: auto; }
+            /* the cards clip overflow for rounded corners on screen; on paper that
+               clipping is what amputated the platinum column */
+            .psheet-root .psheet-card { overflow: visible !important; }
+            .psheet-root td:last-child, .psheet-root th:last-child { padding-right: 10px !important; }
             .psheet-root td, .psheet-root th {
                 padding: 2px 5px !important;
                 font-size: 9.5px !important;
