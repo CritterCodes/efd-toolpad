@@ -89,52 +89,96 @@ describe('request-action ship (inbound)', () => {
   });
 });
 
-describe('ship-back (outbound)', () => {
-  const completed = { repairID: 'r1', status: 'COMPLETED', userID: 'ws-marlen' };
-  const inProgress = { repairID: 'r2', status: 'IN PROGRESS', userID: 'ws-marlen' };
-
-  const stubFind = (rows) => mocks.find.mockReturnValue({ toArray: async () => rows });
+describe('ship-back (outbound, INVOICE-based)', () => {
+  const invoice = (over = {}) => ({
+    invoiceID: 'rinv-1', accountType: 'wholesale', clientID: 'ws-marlen',
+    status: 'paid', paymentStatus: 'paid', total: 500, remainingBalance: 0,
+    repairIDs: ['r1', 'r2'],
+    repairSnapshots: [{ repairID: 'r1', description: 'ring' }, { repairID: 'r2', description: 'chain' }],
+    ...over,
+  });
+  // ship-back queries invoices first, repairs second — return per collection.
+  const stubFinds = ({ invoices = [], repairs = [] }) => {
+    mocks.find.mockReset();
+    mocks.find
+      .mockReturnValueOnce({ toArray: async () => invoices })
+      .mockReturnValue({ projection: undefined, toArray: async () => repairs })
+      ;
+  };
 
   beforeEach(() => {
     mocks.requireRepairOpsAny.mockResolvedValue({ session: adminSession, errorResponse: null });
   });
 
-  it('requires a tracking number', async () => {
-    const res = await shipBack(req({ repairIDs: ['r1'], carrier: 'UPS' }));
-    expect(res.status).toBe(400);
+  it('requires a tracking number, and refuses a repairIDs-only payload', async () => {
+    expect((await shipBack(req({ invoiceIDs: ['rinv-1'], carrier: 'UPS' }))).status).toBe(400);
+    expect((await shipBack(req({ repairIDs: ['r1'], trackingNumber: 'X' }))).status).toBe(400);
   });
 
-  it('ships completed repairs: DELIVERY BATCHED + outboundShipment + owner notified with tracking', async () => {
-    stubFind([completed]);
-    const res = await shipBack(req({ repairIDs: ['r1'], carrier: 'FedEx', trackingNumber: 'FX123' }));
+  it('ships invoices as one package: repairs + invoices stamped, owner told the tracking', async () => {
+    stubFinds({
+      invoices: [invoice(), invoice({ invoiceID: 'rinv-2', repairIDs: ['r3'], repairSnapshots: [{ repairID: 'r3', description: 'watch' }] })],
+      repairs: [
+        { repairID: 'r1', status: 'PAID_CLOSED' },
+        { repairID: 'r2', status: 'PAID_CLOSED' },
+        { repairID: 'r3', status: 'COMPLETED' },
+      ],
+    });
+    const res = await shipBack(req({ invoiceIDs: ['rinv-1', 'rinv-2'], carrier: 'FedEx', trackingNumber: 'FX123' }));
     const body = await res.json();
-    expect(body.shipped).toBe(1);
+    expect(body.shipped).toBe(2);
+    // the manifest IS the transfer list: per-invoice repair contents
+    expect(body.manifest.invoices.map((i) => i.invoiceID)).toEqual(['rinv-1', 'rinv-2']);
+    expect(body.manifest.invoices[0].repairs).toHaveLength(2);
+    expect(body.manifest.trackingNumber).toBe('FX123');
 
-    const [filter, update] = mocks.updateMany.mock.calls[0];
-    expect(filter.repairID.$in).toEqual(['r1']);
-    expect(update.$set.status).toBe(REPAIR_STATUS.DELIVERY_BATCHED);
-    expect(update.$set.outboundShipment).toMatchObject({ carrier: 'FedEx', trackingNumber: 'FX123' });
+    // repairs: status bump only for pre-payment states, shipment stamped on all
+    const statusBump = mocks.updateMany.mock.calls[0];
+    expect(statusBump[0].status.$in).toEqual([REPAIR_STATUS.COMPLETED, REPAIR_STATUS.READY_FOR_PICKUP]);
+    expect(statusBump[1].$set.status).toBe(REPAIR_STATUS.DELIVERY_BATCHED);
+    const stampAll = mocks.updateMany.mock.calls[1];
+    expect(stampAll[0].repairID.$in.sort()).toEqual(['r1', 'r2', 'r3']);
+    expect(stampAll[1].$set.outboundShipment).toMatchObject({ trackingNumber: 'FX123' });
+    // invoices stamped too — an invoice can only ship once
+    const invStamp = mocks.updateMany.mock.calls[2];
+    expect(invStamp[0].invoiceID.$in).toEqual(['rinv-1', 'rinv-2']);
+    expect(invStamp[1].$set.outboundShipment).toMatchObject({ trackingNumber: 'FX123' });
 
     const notif = mocks.createNotification.mock.calls[0][0];
-    expect(notif.userId).toBe('ws-marlen'); // the OWNER, not admin
+    expect(notif.userId).toBe('ws-marlen');
     expect(notif.message).toContain('FX123');
+    expect(notif.message).toContain('rinv-1');
   });
 
-  it('REFUSES an unfinished repair by name instead of silently shipping a subset', async () => {
-    stubFind([completed, inProgress]);
-    const res = await shipBack(req({ repairIDs: ['r1', 'r2'], trackingNumber: 'FX1' }));
-    const body = await res.json();
-    expect(body.shipped).toBe(1);
-    expect(body.refused).toEqual([{ repairID: 'r2', reason: expect.stringContaining('IN PROGRESS') }]);
-    // Only the completed one is in the update filter.
-    expect(mocks.updateMany.mock.calls[0][0].repairID.$in).toEqual(['r1']);
+  it('PAID_CLOSED repairs ship without their money state being regressed', async () => {
+    stubFinds({ invoices: [invoice()], repairs: [
+      { repairID: 'r1', status: 'PAID_CLOSED' }, { repairID: 'r2', status: 'PAID_CLOSED' },
+    ] });
+    const res = await shipBack(req({ invoiceIDs: ['rinv-1'], trackingNumber: 'T1' }));
+    expect((await res.json()).shipped).toBe(1);
+    // the status-bump filter can never match a PAID_CLOSED repair
+    expect(mocks.updateMany.mock.calls[0][0].status.$in).not.toContain('PAID_CLOSED');
   });
 
-  it('is staff-gated — the guard result is honored', async () => {
-    mocks.requireRepairOpsAny.mockResolvedValue({ session: null, errorResponse: new Response(null, { status: 403 }) });
-    const res = await shipBack(req({ repairIDs: ['r1'], trackingNumber: 'X' }));
-    expect(res.status).toBe(403);
+  it('refuses an already-shipped invoice BY NAME (one box per invoice)', async () => {
+    stubFinds({ invoices: [invoice({ outboundShipment: { trackingNumber: 'OLD1' } })], repairs: [] });
+    const body = await (await shipBack(req({ invoiceIDs: ['rinv-1'], trackingNumber: 'T2' }))).json();
+    expect(body.shipped).toBe(0);
+    expect(body.refused[0].reason).toContain('OLD1');
+  });
+
+  it('409s when an invoiced repair is somehow not in a shippable state', async () => {
+    stubFinds({ invoices: [invoice()], repairs: [
+      { repairID: 'r1', status: 'IN PROGRESS' }, { repairID: 'r2', status: 'COMPLETED' },
+    ] });
+    const res = await shipBack(req({ invoiceIDs: ['rinv-1'], trackingNumber: 'T3' }));
+    expect(res.status).toBe(409);
     expect(mocks.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('is staff-gated', async () => {
+    mocks.requireRepairOpsAny.mockResolvedValue({ session: null, errorResponse: new Response(null, { status: 403 }) });
+    expect((await shipBack(req({ invoiceIDs: ['rinv-1'], trackingNumber: 'X' }))).status).toBe(403);
   });
 });
 

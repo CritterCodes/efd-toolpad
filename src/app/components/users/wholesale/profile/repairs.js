@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
     Box, TextField, MenuItem, Select, InputLabel, FormControl, Typography, Chip, Stack,
     Button, Alert, CircularProgress
@@ -7,10 +7,7 @@ import {
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import RepairsGrid from '@/app/components/repairs/repairGrid';
 import { useRepairs } from '@/app/context/repairs.context';
-import { wholesaleRepairsClient } from '@/api-clients/wholesaleRepairs.client';
 
-// Statuses a finished repair can ship back FROM (matches the ship-back API guard).
-const SHIPPABLE_STATUSES = new Set(['COMPLETED', 'READY FOR PICKUP', 'READY FOR PICK-UP']);
 
 const statusOptions = [
     "RECEIVING",
@@ -117,31 +114,45 @@ const WholesalerRepairsTab = ({ wholesaler }) => {
         return updated;
     }, [repairs, wholesaler, statusFilter, searchQuery, sortOrder]);
 
-    // Everything of this wholesaler's that is finished and still in the shop —
-    // physically, the contents of the return box.
-    const shippableRepairs = useMemo(() => {
-        const identifiers = getWholesalerIdentifiers(wholesaler);
-        const businessNames = uniqueIdentifiers([
-            wholesaler?.businessName,
-            wholesaler?.business,
-            wholesaler?.wholesaleApplication?.businessName,
-        ]);
-        return repairs.filter((repair) =>
-            repairBelongsToWholesaler(repair, identifiers, businessNames)
-            && SHIPPABLE_STATUSES.has(repair.status));
-    }, [repairs, wholesaler]);
+    // SHIP-BACK IS INVOICE-BASED (owner): only invoiced work is done work, and
+    // one package may carry several invoices — the manifest is the transfer list.
+    const [shippableInvoices, setShippableInvoices] = useState([]);
+    const [selectedInvoices, setSelectedInvoices] = useState([]);
+    const wholesalerId = wholesaler?.userID || wholesaler?.id || '';
+
+    const loadShippable = async () => {
+        if (!wholesalerId) return;
+        try {
+            const r = await fetch(`/api/wholesale/repairs/ship-back?wholesalerId=${encodeURIComponent(wholesalerId)}`);
+            const d = await r.json();
+            if (d.success) { setShippableInvoices(d.invoices || []); setSelectedInvoices([]); }
+        } catch { /* panel simply stays empty */ }
+    };
+    useEffect(() => { loadShippable(); }, [wholesalerId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const toggleInvoice = (id) => setSelectedInvoices((prev) =>
+        prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
 
     const handleShipBack = async () => {
         setShipBusy(true);
         setShipResult(null);
         try {
-            const result = await wholesaleRepairsClient.shipBack(
-                shippableRepairs.map((r) => r.repairID),
-                { carrier: shipCarrier.trim(), trackingNumber: shipTracking.trim() },
-            );
+            const r = await fetch('/api/wholesale/repairs/ship-back', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ invoiceIDs: selectedInvoices, carrier: shipCarrier.trim(), trackingNumber: shipTracking.trim() }),
+            });
+            const result = await r.json();
+            if (!r.ok || !result.success) throw new Error(result.error || 'Ship-back failed.');
             setShipResult({ severity: 'success', message: result.message });
+            // The transfer list rides in the box — open it for printing now.
+            const ids = (result.manifest?.invoices || []).map((i) => i.invoiceID).join(',');
+            if (ids) {
+                window.open(`/dashboard/users/wholesalers/${encodeURIComponent(wholesalerId)}/transfer-list?invoices=${encodeURIComponent(ids)}`, '_blank');
+            }
             setShipCarrier('');
             setShipTracking('');
+            loadShippable();
             fetchRepairs?.();
         } catch (err) {
             setShipResult({ severity: 'error', message: err.message });
@@ -152,19 +163,27 @@ const WholesalerRepairsTab = ({ wholesaler }) => {
 
     return (
         <Box>
-            {/* Return shipping: record the outbound box for a remote partner. The whole
-                completed set ships as one box; the partner is notified with the tracking. */}
-            {shippableRepairs.length > 0 && (
+            {/* Return shipping, by INVOICE: pick the invoices going in this box —
+                the shipment manifest doubles as the printable transfer list. */}
+            {shippableInvoices.length > 0 && (
                 <Box sx={{ p: 2, mb: 3, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-                    <Typography sx={{ fontWeight: 700, mb: 1 }}>
-                        Ship completed repairs back ({shippableRepairs.length})
+                    <Typography sx={{ fontWeight: 700, mb: 0.5 }}>
+                        Ship invoices back ({shippableInvoices.length} ready)
                     </Typography>
-                    <Stack direction="row" spacing={1} sx={{ mb: 1.5, flexWrap: 'wrap', gap: 0.5 }}>
-                        {shippableRepairs.map((r) => (
-                            <Chip key={r.repairID} size="small" label={r.repairID} sx={{ fontFamily: 'monospace' }} />
-                        ))}
-                    </Stack>
-                    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+                        Only invoiced work ships — invoicing at closeout is the done-gate. One tracking number covers every invoice in the box.
+                    </Typography>
+                    {shippableInvoices.map((inv) => (
+                        <Box key={inv.invoiceID} sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.5 }}>
+                            <Checkbox size="small" checked={selectedInvoices.includes(inv.invoiceID)} onChange={() => toggleInvoice(inv.invoiceID)} />
+                            <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{inv.invoiceID}</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                {inv.repairs.length} repair{inv.repairs.length !== 1 ? 's' : ''} · ${Number(inv.total || 0).toFixed(2)}
+                            </Typography>
+                            <Chip size="small" label={inv.paymentStatus === 'paid' ? 'Paid' : 'Open'} color={inv.paymentStatus === 'paid' ? 'success' : 'warning'} />
+                        </Box>
+                    ))}
+                    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap', mt: 1.5 }}>
                         <TextField size="small" label="Carrier (optional)" placeholder="UPS, FedEx, USPS..."
                             value={shipCarrier} onChange={(e) => setShipCarrier(e.target.value)} sx={{ minWidth: 170 }} />
                         <TextField size="small" label="Tracking number" required
@@ -172,10 +191,10 @@ const WholesalerRepairsTab = ({ wholesaler }) => {
                         <Button
                             variant="contained"
                             startIcon={shipBusy ? <CircularProgress size={16} /> : <LocalShippingIcon />}
-                            disabled={!shipTracking.trim() || shipBusy}
+                            disabled={selectedInvoices.length === 0 || !shipTracking.trim() || shipBusy}
                             onClick={handleShipBack}
                         >
-                            Mark Shipped
+                            Ship {selectedInvoices.length || ''} invoice{selectedInvoices.length === 1 ? '' : 's'}
                         </Button>
                     </Box>
                     {shipResult && <Alert severity={shipResult.severity} sx={{ mt: 1.5 }}>{shipResult.message}</Alert>}
