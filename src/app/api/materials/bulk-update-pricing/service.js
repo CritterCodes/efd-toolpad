@@ -137,8 +137,6 @@ export async function runMaterialPriceSync(adminSettings = null, options = {}) {
       const setUpdates = { updatedAt: now };
       let anyPriceUpdated = false;
 
-      const portionsPerUnit = Number(material.portionsPerUnit) > 0 ? Number(material.portionsPerUnit) : 1;
-
       const topLevelSku = normalizeSku(material.stuller_item_number);
       if (topLevelSku) {
         const topLevelPrice = await getPrice(topLevelSku);
@@ -166,11 +164,12 @@ export async function runMaterialPriceSync(adminSettings = null, options = {}) {
             continue;
           }
 
-          // Store only raw Stuller price — markup applied at runtime
+          // MERGE the fresh price into the existing product — never rebuild it.
+          // A rebuild here deleted portionsPerUnit/unitCost across prod on
+          // 2026-09-01, which multiplied sizing-stock costs by 8x.
           updatedProducts.push({
+            ...product,
             stullerItemNumber: product.stullerItemNumber || product.sku,
-            metalType: product.metalType,
-            karat: product.karat,
             stullerPrice: live.price
           });
           anyPriceUpdated = true;
