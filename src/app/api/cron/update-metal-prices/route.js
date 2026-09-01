@@ -8,6 +8,7 @@
 
 import { updateMetalPrices } from '@/lib/metalPriceService';
 import { cronAuthorized } from '@/lib/cronAuth';
+import { priceJobDue, markPriceJobRun } from '@/services/cron/priceSchedules';
 
 export async function GET(req) {
   try {
@@ -17,8 +18,16 @@ export async function GET(req) {
       return Response.json({ success: false, error: 'Unauthorized' }, { status: 403 });
     }
 
+    // Owner-controlled schedule (settings -> Price Update Schedules): the cron
+    // fires hourly; this gate decides whether the job is actually due.
+    const { due, schedule } = await priceJobDue('metalPrices');
+    if (!due && !req.nextUrl.searchParams.get('force')) {
+      return Response.json({ success: true, skipped: true, reason: 'not due', schedule });
+    }
+
     // Update metal prices
     const result = await updateMetalPrices();
+    await markPriceJobRun('metalPrices', { status: result.success ? 'ok' : 'error', detail: result.error || '' });
 
     if (result.success) {
       return Response.json({

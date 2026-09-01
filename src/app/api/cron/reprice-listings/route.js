@@ -11,6 +11,7 @@
  */
 import { repriceListings } from '@/services/production/dailyReprice';
 import { cronAuthorized } from '@/lib/cronAuth';
+import { priceJobDue, markPriceJobRun } from '@/services/cron/priceSchedules';
 
 export async function GET(req) {
   // Vercel's scheduler sends the secret as an Authorization header;
@@ -22,7 +23,15 @@ export async function GET(req) {
   const dryRun = ['1', 'true'].includes((req.nextUrl.searchParams.get('dryRun') || '').toLowerCase());
 
   try {
+    // Owner-controlled schedule (settings -> Price Update Schedules). Dry runs
+    // and ?force=1 bypass the gate; only real scheduled runs stamp it.
+    if (!dryRun && !req.nextUrl.searchParams.get('force')) {
+      const { due, schedule } = await priceJobDue('listingReprice');
+      if (!due) return Response.json({ success: true, skipped: true, reason: 'not due', schedule });
+    }
+
     const result = await repriceListings({ dryRun });
+    if (!dryRun) await markPriceJobRun('listingReprice', { status: result.ok ? 'ok' : 'refused', detail: result.reason || `updated ${result.updated}` });
     if (!result.ok) {
       // A refusal (no metal rates) is not a crash, but it must not read as success —
       // a silent "0 updated" is exactly how a storefront goes stale unnoticed.
