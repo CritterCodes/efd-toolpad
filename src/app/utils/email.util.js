@@ -1,6 +1,15 @@
 // src/app/api/auth/email.util.js
 import nodemailer from 'nodemailer';
 import { resolveMailCredentials } from '../../../lib/email.js';
+import { adminBase } from '../../../lib/appUrls.js';
+
+// The From header. EMAIL_USER is not set in production (GMAIL_USER is), so the
+// old literal 'Your App Name <undefined>' went out on every auth email. The
+// resolver is the single source of the authenticated sender.
+function fromHeader() {
+    const { user } = resolveMailCredentials();
+    return `"Engel Fine Design" <${user}>`;
+}
 
 // ONE resolver for both mail modules. This file read EMAIL_PASS while lib/email.js read
 // EMAIL_PASSWORD, and production has neither — it has GMAIL_USER / GMAIL_APP_PASSWORD. Two modules
@@ -28,7 +37,7 @@ export async function sendVerificationEmail(email, token) {
     const verificationLink = `${process.env.NEXT_PUBLIC_URL}/verify-email?token=${token}`;
 
     const mailOptions = {
-        from: `"Your App Name" <${process.env.EMAIL_USER}>`,
+        from: fromHeader(),
         to: email,
         subject: 'Verify Your Email Address',
         html: `
@@ -54,10 +63,13 @@ export async function sendVerificationEmail(email, token) {
  * @param {string} token - The password reset token
  */
 export async function sendPasswordResetEmail(email, token) {
-    const resetLink = `${process.env.NEXT_PUBLIC_URL}/reset-password?token=${token}`;
+    // adminBase() is the URL helper every WORKING prod email already uses;
+    // NEXT_PUBLIC_URL is unverified in the deployment env. The page lives at
+    // /auth/reset-password -- the old /reset-password link 404'd.
+    const resetLink = `${adminBase()}/auth/reset-password?token=${token}`;
 
     const mailOptions = {
-        from: `"Your App Name" <${process.env.EMAIL_USER}>`,
+        from: fromHeader(),
         to: email,
         subject: 'Password Reset Request',
         html: `
@@ -87,7 +99,7 @@ export async function sendInviteEmail(email, token, firstName) {
     const inviteLink = `${process.env.NEXT_PUBLIC_URL}/complete-signup?token=${token}`;
 
     const mailOptions = {
-        from: `"Your App Name" <${process.env.EMAIL_USER}>`,
+        from: fromHeader(),
         to: email,
         subject: 'You’ve Been Invited to Join Our Platform!',
         html: `
