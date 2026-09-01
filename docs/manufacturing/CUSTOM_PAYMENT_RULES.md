@@ -221,3 +221,165 @@ separated by a wait for staff.
 
 Invoice sending is already live (`POST /api/custom-orders/:customID/invoices/:invoiceID/send`, with
 Send/Resend + Print + Email receipt on the invoice row).
+
+---
+
+# PART TWO — the customer-driven flow (decided 2026-08-12)
+
+## 11. What changes
+
+**Today.** You talk to the client, agree terms verbally, build an invoice, send it, they pay. Every
+payment is a round trip through you.
+
+**Target.** They approve the quote and immediately choose, in the portal, without waiting for you:
+
+| Choice | What it means |
+|---|---|
+| **Pay in full** | The whole thing, now. |
+| **50% deposit** | Price locks, production starts immediately. (Floored at `COG × 1.25` — §1.) |
+| **Pay over time** | Gates, at their own pace. Requires explicit acknowledgement (§14). |
+
+The invoice stops being the vehicle. **They say "I'm going to pay this much" and check out like they
+bought a piece off the shop** — same checkout, same feel. An invoice record still exists for the books,
+but the customer never waits on one being built.
+
+The goal is explicitly to **cut the back-and-forth**, not to add a self-service veneer over the same
+number of messages.
+
+## 12. The gates — ORDER CONFIRMED (answers O1)
+
+Payments are allocated in this order. Not pro-rata.
+
+```
+1. STONE          → stone secured, no longer snipeable
+2. MOUNTING       → metal + ACCENT STONES covered, mounting price locked
+3. PRODUCTION     → production starts
+4. BALANCE IN FULL → required before pickup. Nothing leaves the shop unpaid.
+```
+
+**Accent stones ride with the MOUNTING gate** (owner): they are readily available, so they carry none of
+the sniping risk that puts the centre stone first.
+
+**Shipping sits in the PRODUCTION gate** — it is incurred as materials move (stone in, casting back), so
+it must be covered by the time production starts.
+
+**Design fee — RECOMMENDATION, not yet decided.** Put it in gate 1, with the stone. The reasoning: the CAD
+work is already DONE by the time anyone pays, and the designer is paid at QC pass, so it is EFD's money
+already out the door. It is also the one line that is unrecoverable if the customer walks — you cannot
+resell a CAD file. Gate 1 is small enough to absorb it.
+
+## 13. Stone availability while unpaid (answers O3)
+
+The mounting price may **re-price automatically** with the metal market. The stone cannot — it is a
+specific stone that someone else can buy.
+
+So while the stone gate is unmet:
+
+- **Weekly check.** An email to the admin address prompting a real availability check on that stone.
+- **Weekly email to the customer**, either way:
+  - *"Good news — your stone is still available."*
+  - *"Your stone has sold. We are finding you another one."*
+- **Fully transparent.** No silent re-sourcing, no discovering it at pickup.
+
+This is the honest consequence of paying slowly for a specific stone, and saying it out loud weekly is
+what makes the arrangement fair rather than a trap.
+
+Once the stone gate is cleared, the checks stop — the stone is bought.
+
+## 14. Explicit acknowledgement
+
+Pay-over-time requires the customer to **explicitly acknowledge what it entails** before starting:
+
+- The stone is NOT held until it is paid for, and may sell to someone else.
+- The mounting price floats with the metal market until it is paid.
+- Payments are non-refundable (§9).
+- Something must be paid every month or the order defaults (§9).
+- Nothing is theirs until paid in full; a fully-paid LINE is recoverable on default.
+
+Reuse the **versioned policy acceptance** already built for artisan policies (S9 / policyRegistry) — same
+shape: a versioned document, an explicit accept, the version recorded against the order. Changing the
+terms later must not silently re-bind a customer who agreed to an older version.
+
+## 15. Still open
+
+- **Design fee placement** — recommendation above (gate 1); owner undecided.
+- Whether the weekly stone check can be automated for Stuller-sourced stones (SKU lookup) rather than
+  prompting staff. Manual first; automation is an optimisation.
+
+---
+
+# PART THREE — cart architecture (decided 2026-08-12)
+
+## 16. The cart is primary; the invoice is a record
+
+**Corrects an earlier framing in this document.** I described the cart as "the customer-side face of the
+combined invoice". That is backwards and it breaks the moment a cart is mixed.
+
+In consumer e-commerce nobody pays an invoice — they pay a CART, and a receipt/invoice is generated FROM
+the payment. Invoice-as-demand is an accounts-receivable instrument, not a checkout.
+
+The case that forces it: the customer is paying toward two custom orders AND adds a $50 ring.
+
+```
+CART
+  ├─ custom payment   CO-msp2z3jx   $1,200
+  ├─ custom payment   CO-mspb2jq1     $800
+  └─ product          silver ring      $50
+                             ───────────
+  ONE checkout                  $2,050
+```
+
+A product cannot live inside a custom invoice. So:
+
+1. **"Pay toward a custom order" is a CART LINE ITEM TYPE**, not a portal-only payment screen. It sits
+   beside product lines and goes through the same checkout the shop already has.
+2. **Allocation happens AFTER payment succeeds.** Product lines become a normal shop order; custom-payment
+   lines are credited to their orders.
+3. **The invoice record is CREATED BY the payment**, not settled by it. A customer choosing to pay $800
+   does not need an invoice to exist first — which is the whole point of removing the back-and-forth.
+
+**The combined-invoice machinery is the ALLOCATION ENGINE, and that part is unchanged and already
+tested**: `orderSnapshots[]` with an explicit per-order amount, credited stone-first, fanning out to
+advance each order on its own share (`amountForOrder`, `setCustomInvoiceStatus`).
+
+**Both directions survive.** Admin's Send invoice still exists for when EFD wants to DEMAND a specific
+amount; the cart is for when the CUSTOMER chooses one. Different purposes, same document at the end.
+
+## 17. Reminders — one digest, per-order clocks
+
+- **Minimum payment: $10 per ORDER.** Each order's default clock runs independently, so a customer with
+  two orders needs $10 against each. Good faith is per piece.
+- **ONE reminder email covering every upcoming payment.** Per-order reminder emails would be irritating
+  for exactly the customer who is trying hardest. The clock is per order; the message is a digest.
+- Cadence: a week before default, and the day before.
+- **Batch the weekly stone-availability email the same way** — one message covering every stone they are
+  waiting on.
+
+## 18. Progress display
+
+After a quote is accepted and a path chosen, the overview shows a stepper for THAT path — not a generic bar:
+
+| Path | Steps |
+|---|---|
+| Pay in full | Paid → In production → Ready |
+| 50% deposit | Deposit → In production → Balance → Ready |
+| Pay over time | Stone → Mounting → Production → Balance → Ready |
+
+Render the gates in the order they actually fall for that quote (§3): a big stone can clear several at
+once, and a small stone can let the price lock before the stone is secured.
+
+## 19. Communication consent
+
+Payment emails — invoices, receipts, reminders, stone-availability updates — are TRANSACTIONAL, not
+marketing: their primary purpose is facilitating an agreed transaction, so they do not require the
+opt-in a promotional list would. Two rules keep it that way:
+
+- **Never mix promotional content into them.** The primary-purpose test is what makes them transactional,
+  and a promotion inside a reminder can flip it.
+- **Accurate headers and subjects**, which applies to transactional mail too.
+
+**SMS is a different law entirely** (TCPA, prior express consent, real penalties). If reminders ever
+become texts, revisit this properly.
+
+Cheapest belt-and-braces: the pay-over-time acknowledgement (§14) already collects an explicit, versioned
+agreement — state the communication expectation there.
