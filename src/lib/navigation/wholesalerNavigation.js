@@ -44,6 +44,11 @@ export const wholesalerNavigation = {
       ]
     },
     {
+      segment: 'dashboard/wholesaler/shipments',
+      title: 'Shipments',
+      icon: <LocalShippingIcon />
+    },
+    {
       segment: 'dashboard/wholesaler/billing',
       title: 'Billing',
       icon: <ReceiptLongIcon />
