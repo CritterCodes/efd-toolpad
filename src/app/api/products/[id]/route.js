@@ -3,6 +3,7 @@ import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import { mergeProductEditorUpdate } from '@/services/products/productEditorPayload';
+import { canManageGemstones, loadArtisanTypes } from '@/lib/productPermissions';
 
 const ADMIN_ROLES = new Set(['admin', 'superadmin', 'dev', 'staff']);
 const userId = (session) => session?.user?.userID || session?.user?.id;
@@ -100,6 +101,24 @@ export async function PUT(request, { params }) {
       ...mergeProductEditorUpdate(product, data, { canAdminister: isAdmin }),
       updatedAt: now,
     };
+
+    // Flipping a product INTO the gemstone type is the same privilege as creating one —
+    // gated to gem cutters, and failing closed on a profile-read failure.
+    if (!isAdmin && updateData.productType === 'gemstone' && product.productType !== 'gemstone') {
+      let artisanTypes;
+      try {
+        artisanTypes = await loadArtisanTypes(db, session.user);
+      } catch (err) {
+        console.error('❌ Gemstone gate: could not load artisan profile:', err);
+        return NextResponse.json({ error: 'Could not verify permissions' }, { status: 503 });
+      }
+      if (!canManageGemstones(session.user.role, artisanTypes)) {
+        return NextResponse.json(
+          { error: 'Only gem-cutters and admins can create gemstone listings' },
+          { status: 403 }
+        );
+      }
+    }
     const update = { $set: updateData };
     if (updateData.status && updateData.status !== product.status) {
       update.$set.isPublic = false;

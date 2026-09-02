@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { mergeProductEditorUpdate } from '@/services/products/productEditorPayload';
+import { canManageGemstones, loadArtisanTypes } from '@/lib/productPermissions';
 
 const ADMIN_ROLES = new Set(['admin', 'superadmin', 'dev', 'staff']);
 
@@ -95,6 +96,24 @@ export async function POST(request) {
         return NextResponse.json(
           { error: `Missing required field: ${field}` },
           { status: 400 }
+        );
+      }
+    }
+
+    // Gemstone listings are gated to gem cutters — same rule as /api/products/gemstones;
+    // this generic route must not be the bypass. Fails closed on a profile-read failure.
+    if (data.productType === 'gemstone' && !ADMIN_ROLES.has(session.user.role)) {
+      let artisanTypes;
+      try {
+        artisanTypes = await loadArtisanTypes(db, session.user);
+      } catch (err) {
+        console.error('❌ Gemstone gate: could not load artisan profile:', err);
+        return NextResponse.json({ error: 'Could not verify permissions' }, { status: 503 });
+      }
+      if (!canManageGemstones(session.user.role, artisanTypes)) {
+        return NextResponse.json(
+          { error: 'Only gem-cutters and admins can create gemstone listings' },
+          { status: 403 }
         );
       }
     }

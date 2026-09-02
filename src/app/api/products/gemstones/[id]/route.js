@@ -3,6 +3,15 @@ import { auth } from "@/lib/auth";
 import { db as mongo } from '@/lib/database';
 import { ObjectId } from 'mongodb';
 
+const STAFF_ROLES = new Set(['admin', 'superadmin', 'dev', 'staff']);
+
+// Staff, or the owning artisan — the same rule every sibling product route uses.
+function canAccessGemstone(session, gemstone) {
+    if (STAFF_ROLES.has(session.user.role)) return true;
+    const ids = [session.user.userID, session.user.email].filter(Boolean);
+    return ids.includes(gemstone.userId) || ids.includes(gemstone.seller?.userId);
+}
+
 export async function GET(request, { params }) {
     try {
         const session = await auth();
@@ -50,18 +59,9 @@ export async function GET(request, { params }) {
         }
 
         // Check if user has permission to view this gemstone
-        const userIdentifier = session.user.userID || session.user.email;
-        const hasPermission = 
-            gemstone.userId === userIdentifier ||
-            gemstone.userId === session.user.email ||
-            gemstone.userId === session.user.userID ||
-            session.user.role === 'admin';
-
-        if (!hasPermission) {
+        if (!canAccessGemstone(session, gemstone)) {
             return NextResponse.json({ error: 'Access denied' }, { status: 403 });
         }
-
-        console.log(`GET /api/products/gemstones/${id} - Found gemstone for user: ${userIdentifier}`);
 
         return NextResponse.json({
             success: true,
@@ -116,14 +116,7 @@ export async function PUT(request, { params }) {
         }
 
         // Check if user has permission to edit this gemstone
-        const userIdentifier = session.user.userID || session.user.email;
-        const hasPermission = 
-            existingGemstone.userId === userIdentifier ||
-            existingGemstone.userId === session.user.email ||
-            existingGemstone.userId === session.user.userID ||
-            session.user.role === 'admin';
-
-        if (!hasPermission) {
+        if (!canAccessGemstone(session, existingGemstone)) {
             return NextResponse.json({ error: 'Access denied' }, { status: 403 });
         }
 
@@ -156,9 +149,17 @@ export async function PUT(request, { params }) {
                 certification: data.certification || existingGemstone.gemstone?.certification,
                 designCoverage: data.designCoverage || existingGemstone.gemstone?.designCoverage
             },
-            
+
             updatedAt: new Date()
         };
+
+        // The shop charges pricing.retailPrice — keep it in lockstep with the gem price
+        // (the collection-level PUT already does; this route used to drift them apart).
+        const resolvedPrice = Number(updateData.gemstone.retailPrice);
+        if (Number.isFinite(resolvedPrice) && resolvedPrice > 0) {
+            updateData['pricing.retailPrice'] = resolvedPrice;
+            updateData['pricing.currency'] = 'USD';
+        }
 
         // Update the gemstone using the appropriate search criteria
         const result = await db.collection('products').updateOne(
@@ -172,8 +173,6 @@ export async function PUT(request, { params }) {
 
         // Fetch the updated gemstone using the same criteria
         const updatedGemstone = await db.collection('products').findOne(searchCriteria);
-
-        console.log(`PUT /api/products/gemstones/${id} - Updated gemstone for user: ${userIdentifier}`);
 
         return NextResponse.json({
             success: true,
@@ -227,14 +226,7 @@ export async function DELETE(request, { params }) {
         }
 
         // Check if user has permission to delete this gemstone
-        const userIdentifier = session.user.userID || session.user.email;
-        const hasPermission = 
-            existingGemstone.userId === userIdentifier ||
-            existingGemstone.userId === session.user.email ||
-            existingGemstone.userId === session.user.userID ||
-            session.user.role === 'admin';
-
-        if (!hasPermission) {
+        if (!canAccessGemstone(session, existingGemstone)) {
             return NextResponse.json({ error: 'Access denied' }, { status: 403 });
         }
 
@@ -244,8 +236,6 @@ export async function DELETE(request, { params }) {
         if (result.deletedCount === 0) {
             return NextResponse.json({ error: 'Failed to delete gemstone' }, { status: 400 });
         }
-
-        console.log(`DELETE /api/products/gemstones/${id} - Deleted gemstone for user: ${userIdentifier}`);
 
         return NextResponse.json({
             success: true,

@@ -94,27 +94,35 @@ export async function POST(request) {
     let actualVendor = vendor || session.user.businessName || session.user.name;
     let artisanType = null;
 
-    // Fetch user profile for businessName and artisanType
-    if (session.user.email) {
+    // Permission check fails CLOSED: only gem-cutters (and admin/staff/dev) may create
+    // gemstone listings, and a profile we cannot read is a request we cannot authorize.
+    let userProfile = null;
+    if (session.user.email || session.user.userID) {
       try {
-        const userProfile = await db.collection('users').findOne({ email: session.user.email });
-        if (userProfile?.artisanApplication?.businessName && !actualVendor) {
-          actualVendor = userProfile.artisanApplication.businessName;
-        }
-        artisanType = userProfile?.artisanApplication?.artisanType || null;
-
-        // Artisan permission check — only gem-cutters (and admin/staff/dev) may create gemstone listings
-        const artisanTypes = getUserArtisanTypes(userProfile);
-        if (!canManageGemstones(session.user.role, artisanTypes)) {
-          return NextResponse.json(
-            { error: 'Only gem-cutters and admins can create gemstone listings' },
-            { status: 403 }
-          );
-        }
+        userProfile = await db.collection('users').findOne({
+          $or: [
+            ...(session.user.userID ? [{ userID: session.user.userID }] : []),
+            ...(session.user.email ? [{ email: session.user.email }] : []),
+          ],
+        });
       } catch (err) {
         console.error('Error fetching user profile:', err);
+        if (!canManageGemstones(session.user.role, [])) {
+          return NextResponse.json({ error: 'Could not verify permissions' }, { status: 503 });
+        }
       }
     }
+    const artisanTypes = getUserArtisanTypes(userProfile);
+    if (!canManageGemstones(session.user.role, artisanTypes)) {
+      return NextResponse.json(
+        { error: 'Only gem-cutters and admins can create gemstone listings' },
+        { status: 403 }
+      );
+    }
+    if (userProfile?.artisanApplication?.businessName && !actualVendor) {
+      actualVendor = userProfile.artisanApplication.businessName;
+    }
+    artisanType = userProfile?.artisanApplication?.artisanType || null;
 
     const timestamp = Date.now().toString(36);
     const randomStr = Math.random().toString(36).substring(2, 8);
@@ -159,10 +167,12 @@ export async function POST(request) {
         designId: null,
       },
 
-      // V2 inventory
+      // V2 inventory — canonical numeric shape (a loose stone is qty 1). The shop's
+      // reserve-on-paid guard reads quantity/available and decrements at payment.
       inventory: {
-        available: true,
-        reserved: false,
+        quantity: 1,
+        reserved: 0,
+        available: 1,
         usedInProductId: null,
       },
 
@@ -283,12 +293,29 @@ export async function PUT(request) {
 
     const db = await mongo.connect();
 
+    const isStaff = ['admin', 'superadmin', 'staff', 'dev'].includes(session.user.role);
+
     // Permission check for write ops
-    if (!['admin', 'staff', 'dev'].includes(session.user.role)) {
+    if (!isStaff) {
       const userProfile = await db.collection('users').findOne({ email: session.user.email });
       const artisanTypes = getUserArtisanTypes(userProfile);
       if (!canManageGemstones(session.user.role, artisanTypes)) {
         return NextResponse.json({ error: 'Only gem-cutters and admins can edit gemstone listings' }, { status: 403 });
+      }
+    }
+
+    // Ownership: a gem-cutter edits only their own listings; staff edit any.
+    const existing = await db.collection('products').findOne(
+      { productId },
+      { projection: { userId: 1, seller: 1 } }
+    );
+    if (!existing) {
+      return NextResponse.json({ error: 'Gemstone not found' }, { status: 404 });
+    }
+    if (!isStaff) {
+      const ids = [session.user.userID, session.user.email].filter(Boolean);
+      if (!ids.includes(existing.userId) && !ids.includes(existing.seller?.userId)) {
+        return NextResponse.json({ error: 'Access denied — not your listing' }, { status: 403 });
       }
     }
 
@@ -298,7 +325,7 @@ export async function PUT(request) {
       productType: 'gemstone',
       title,
       description: description || '',
-      userId: data.userId || session.user.userID,
+      userId: (isStaff && data.userId) || existing.userId || session.user.userID,
       status,
       isPublic,
       images,
@@ -360,12 +387,27 @@ export async function DELETE(request) {
 
     const db = await mongo.connect();
 
+    const isStaff = ['admin', 'superadmin', 'staff', 'dev'].includes(session.user.role);
+
     // Permission check
-    if (!['admin', 'staff', 'dev'].includes(session.user.role)) {
+    if (!isStaff) {
       const userProfile = await db.collection('users').findOne({ email: session.user.email });
       const artisanTypes = getUserArtisanTypes(userProfile);
       if (!canManageGemstones(session.user.role, artisanTypes)) {
         return NextResponse.json({ error: 'Only gem-cutters and admins can delete gemstone listings' }, { status: 403 });
+      }
+
+      // Ownership: a gem-cutter deletes only their own listings.
+      const existing = await db.collection('products').findOne(
+        { productId: id },
+        { projection: { userId: 1, seller: 1 } }
+      );
+      if (!existing) {
+        return NextResponse.json({ error: 'Gemstone not found' }, { status: 404 });
+      }
+      const ids = [session.user.userID, session.user.email].filter(Boolean);
+      if (!ids.includes(existing.userId) && !ids.includes(existing.seller?.userId)) {
+        return NextResponse.json({ error: 'Access denied — not your listing' }, { status: 403 });
       }
     }
 
