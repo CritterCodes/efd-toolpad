@@ -283,7 +283,9 @@ const theme = createTheme({
           backgroundImage: 'none',
           border: `1px solid ${BORDER}`,
           borderRadius: 16,
-          overflow: 'hidden',
+          // auto, not hidden: wide tables must scroll inside their own
+          // container on narrow screens instead of being clipped.
+          overflow: 'auto',
         },
       },
     },
