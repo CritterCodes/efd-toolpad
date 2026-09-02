@@ -3,12 +3,8 @@
 import Link from 'next/link';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Card from '@mui/material/Card';
-import CardActions from '@mui/material/CardActions';
-import CardContent from '@mui/material/CardContent';
-import Grid from '@mui/material/Grid';
-import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import { PageHeader, SurfaceCard, CardGrid } from '@/components/facelift';
 
 const FINANCE_SURFACES = [
   {
@@ -45,35 +41,32 @@ const FINANCE_SURFACES = [
 
 export default function FinanceIndexPage() {
   return (
-    <Box sx={{ p: 4 }}>
-      <Stack spacing={1} sx={{ mb: 3 }}>
-        <Typography variant="h4" fontWeight="bold">Finance</Typography>
-        <Typography variant="body2" color="text.secondary">
-          Operational money management for expenses, owner draws, and tax reserve planning.
-        </Typography>
-      </Stack>
+    <Box sx={{ p: 3.75 }}>
+      <PageHeader
+        title="Finance"
+        subtitle="Operational money management for expenses, owner draws, and tax reserve planning."
+        boxed={false}
+      />
 
-      <Grid container spacing={2}>
-        {FINANCE_SURFACES.map((surface) => (
-          <Grid item xs={12} md={6} lg={4} key={surface.href}>
-            <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <CardContent sx={{ flex: 1 }}>
-                <Typography variant="h6" fontWeight={700} gutterBottom>
-                  {surface.title}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {surface.description}
-                </Typography>
-              </CardContent>
-              <CardActions sx={{ px: 2, pb: 2 }}>
-                <Button component={Link} href={surface.href} variant="contained">
-                  Open
-                </Button>
-              </CardActions>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+      <Box sx={{ mt: 3 }}>
+        <CardGrid min={300}>
+          {FINANCE_SURFACES.map((surface) => (
+            <SurfaceCard key={surface.href}>
+              <Typography sx={{ fontWeight: 600, fontSize: '1.063rem', letterSpacing: '-0.022em' }}>
+                {surface.title}
+              </Typography>
+              <Typography sx={{ flex: 1, mt: 1.125, fontSize: '0.8125rem', lineHeight: 1.6,
+                                color: 'rgba(255,255,255,0.6)', textWrap: 'pretty' }}>
+                {surface.description}
+              </Typography>
+              <Button component={Link} href={surface.href} variant="contained"
+                      sx={{ alignSelf: 'flex-start', mt: 2 }}>
+                Open
+              </Button>
+            </SurfaceCard>
+          ))}
+        </CardGrid>
+      </Box>
     </Box>
   );
 }
