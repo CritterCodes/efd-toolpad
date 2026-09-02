@@ -7,6 +7,7 @@ import {
   beginPieceProduction,
   beginManualPieceProduction,
 } from '@/services/production/editionCapacity';
+import { repriceGemAtClaim, gemCutTarget, spawnGemCuttingWO } from '@/services/production/gemClaim';
 
 /**
  * POST /api/production/pieces/[pieceID]/start
@@ -46,6 +47,40 @@ export const POST = async (req, { params }) => {
     const started = piece.orderId
       ? await beginPieceProduction({ client, database, pieceID })
       : await beginManualPieceProduction({ client, database, pieceID });
+
+    // A directly-sold GEM piece enters production as a cut job, not a casting: spawn the
+    // gem_cutting WO for the cutter and re-resolve the price at the ordered carat (drift is
+    // informational — billing true-up at final carat is a deferred follow-up). Best-effort
+    // AFTER the allocation transaction committed: a WO hiccup must not roll back the start.
+    const design = await database
+      .collection(Constants.DESIGNS_COLLECTION)
+      .findOne({ designID: piece.designID }, { projection: { category: 1, variants: 1, primaryArtisanId: 1 } });
+    if (design?.category === 'gemstone') {
+      try {
+        const variant = (design.variants || []).find((v) => v?.variantId === piece.variantId);
+        const gemstone = variant?.gemstone || {};
+        const rc = piece.resolvedConfiguration || {};
+        const target = gemCutTarget({ gemstone, resolvedConfiguration: rc });
+        const wo = await spawnGemCuttingWO({
+          pieceID,
+          gemDesignId: piece.designID,
+          gemVariantId: piece.variantId,
+          target,
+          cutterUserID: design.primaryArtisanId || null,
+        });
+        const reprice = rc.color && rc.carat
+          ? repriceGemAtClaim({ gemstone, colorLabel: rc.color, carat: rc.carat })
+          : null;
+        if (reprice && !reprice.priceable) {
+          console.warn(`⚠️ gem piece ${pieceID}: claim-time reprice not priceable — ${reprice.reason}`);
+        }
+        return NextResponse.json({ ...started, gemCuttingWO: wo.workOrderID, ...(reprice?.priceable ? { claimReprice: { estCost: reprice.estCost, carat: rc.carat } } : {}) }, { status: 200 });
+      } catch (gemErr) {
+        console.error(`❌ gem piece ${pieceID}: production started but the gem_cutting WO failed to spawn:`, gemErr);
+        return NextResponse.json({ ...started, gemCuttingWO: null, gemCuttingError: 'Work order failed to spawn — create it manually.' }, { status: 200 });
+      }
+    }
+
     return NextResponse.json(started, { status: 200 });
   } catch (err) {
     if (err instanceof EditionCapacityError) {

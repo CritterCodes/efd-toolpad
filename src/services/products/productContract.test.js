@@ -114,6 +114,68 @@ describe('buildProductFromDesign', () => {
     const p = buildProductFromDesign({ design, estCost: 100, opts: { runSize: { type: 'limited', size: 8 } } });
     expect(p.runSize).toEqual({ type: 'limited', size: 8, remaining: 8 });
   });
+
+  it('stamps a top-level designId (what publish/validate/the shop resolvers read)', () => {
+    const p = buildProductFromDesign({ design, estCost: 100 });
+    expect(p.designId).toBe('d1');
+  });
+
+  describe('gemstone design branch', () => {
+    const gemDesign = {
+      designID: 'gd1', name: 'Aster Cut', category: 'gemstone',
+      pricing: { markup: 2 },
+      gemstone: { cut: ['cushion'], cutStyle: ['brilliant'] },
+      designModel: { glbUrl: 'https://cdn/aster.glb', generatedFromStl: true },
+      primaryArtisanId: 'cutter-1',
+      variants: [{
+        variantId: 'v1', sku: 'AST-1', active: true,
+        gemstone: {
+          species: 'Amethyst', availability: 'purchase', caratMin: 1, caratMax: 4,
+          cutLaborCost: 60, yield: 0.25,
+          colors: [{ label: 'deep purple', rates: [{ upToCt: 4, ratePerCarat: 50 }] }],
+        },
+      }],
+    };
+    const seller = { userId: 'cutter-1', displayName: 'Aster Gems', artisanType: 'Gem Cutter' };
+
+    it('gemstone listing: from-price floor, public spec, no rate table', () => {
+      const p = buildProductFromDesign({ design: gemDesign, estCost: 0, opts: { seller, gemPricing: { defaultMarkup: 2.5, sharedCosts: 40 } } });
+      expect(p.productType).toBe('gemstone');
+      expect(p.listingType).toBe('gemstone');
+      // (1/0.25 × 50 + 60 + 40) × 2 = 600
+      expect(p.pricing.retailPrice).toBeCloseTo(600, 2);
+      expect(p.pricing.priceIsFrom).toBe(true);
+      expect(p.gemstone.species).toBe('Amethyst');
+      expect(p.gemstone.colors).toEqual(['deep purple']);
+      expect(p.gemstone.availability).toBeUndefined();
+      expect(JSON.stringify(p)).not.toContain('ratePerCarat');
+      expect(JSON.stringify(p)).not.toContain('cutLaborCost');
+    });
+
+    it('stamps ownership from the seller so the cutter can publish + upload certs', () => {
+      const p = buildProductFromDesign({ design: gemDesign, estCost: 0, opts: { seller } });
+      expect(p.userId).toBe('cutter-1');
+      expect(p.vendor).toBe('Aster Gems');
+      expect(p.seller).toEqual(seller);
+    });
+
+    it('projects a viewer from the design GLB with a species-mapped gem preset', () => {
+      const p = buildProductFromDesign({ design: gemDesign, estCost: 0, opts: {} });
+      expect(p.viewer.glbUrl).toBe('https://cdn/aster.glb');
+      expect(p.viewer.meshMap).toEqual([{ nameContains: '', type: 'gem', gemPreset: 'amethyst' }]);
+      // Unknown species falls back to diamond; explicit opts.viewer (incl. null) wins.
+      const odd = structuredClone(gemDesign);
+      odd.variants[0].gemstone.species = 'Unobtanium';
+      expect(buildProductFromDesign({ design: odd, estCost: 0, opts: {} }).viewer.meshMap[0].gemPreset).toBe('diamond');
+      expect(buildProductFromDesign({ design: gemDesign, estCost: 0, opts: { viewer: null } }).viewer).toBeNull();
+    });
+
+    it('a gem listing passes the product contract (publishable once priced + imaged)', () => {
+      const p = buildProductFromDesign({ design: gemDesign, estCost: 0, opts: { seller, gemPricing: {} } });
+      const check = validateProductContract(p);
+      expect(check.valid).toBe(true);
+    });
+  });
 });
 
 describe('attachPieceToProduct', () => {

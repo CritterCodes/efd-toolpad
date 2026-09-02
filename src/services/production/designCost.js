@@ -160,22 +160,28 @@ export function gemTierRate(rates = [], carat) {
 
 /**
  * "From $X" price for a gemstone Design listing — the cheapest configuration a shopper could
- * order: min over purchasable variants × their color buckets, priced at caratMin. Returns null
- * when nothing is priceable (no variants/colors/tiers). Shared costs are omitted (estimate floor).
+ * BUY NOW: min over active, purchasable variants × their color buckets, priced at caratMin.
+ * Returns null when nothing is priceable (no variants/colors/tiers). `sharedCosts` (labor tasks +
+ * shipping + design fee, from sharedCostsFor) rides inside the markup so the floor matches the
+ * editor's GemVariantPriceCard number; per-variant markupOverride wins over the design markup.
  */
-export function gemstoneFromPrice(design = {}, { defaultMarkup = 2.5 } = {}) {
-  const markup = Number(design.pricing?.markup) > 0 ? Number(design.pricing.markup) : defaultMarkup;
+export function gemstoneFromPrice(design = {}, { defaultMarkup = 2.5, sharedCosts = 0 } = {}) {
+  const baseMarkup = Number(design.pricing?.markup) > 0 ? Number(design.pricing.markup) : defaultMarkup;
   let min = null;
   for (const v of design.variants || []) {
     const g = v.gemstone;
     if (!g || !Array.isArray(g.colors)) continue;
+    if (v.active === false) continue;
+    // special_request variants quote through customs — they never set the buy-now floor.
+    if (g.availability === 'special_request') continue;
     const ct = Number(g.caratMin) || 0;
     if (!(ct > 0)) continue;
+    const markup = Number(v.markupOverride) > 0 ? Number(v.markupOverride) : baseMarkup;
     for (const c of g.colors) {
       const rate = gemTierRate(c.rates, ct);
       if (rate == null) continue;
       const { estCost } = estimateGemstoneCost({ carat: ct, roughRatePerCarat: rate, yield: g.yield, cutLaborCost: g.cutLaborCost });
-      const retail = round(estCost * markup);
+      const retail = round((estCost + (Number(sharedCosts) || 0)) * markup);
       if (retail > 0 && (min == null || retail < min)) min = retail;
     }
   }
@@ -189,9 +195,33 @@ export function gemstoneFromPrice(design = {}, { defaultMarkup = 2.5 } = {}) {
  */
 export function publicGemstoneSpec(spec = {}) {
   if (!spec || typeof spec !== 'object') return null;
-  const { colors, cutLaborCost, lotQty, ratesUpdatedAt, yield: _y, maxPieces, ...pub } = spec; // eslint-disable-line no-unused-vars
+  // `availability` (purchase vs special_request) is per-variant seller data — the shopper-facing
+  // orderability comes live from the price endpoint, never baked into the listing doc.
+  const { colors, cutLaborCost, lotQty, ratesUpdatedAt, yield: _y, maxPieces, availability, sgOverride, ...pub } = spec; // eslint-disable-line no-unused-vars
   return {
     ...pub,
     ...(Array.isArray(colors) ? { colors: colors.map((c) => c.label).filter(Boolean) } : {}),
   };
+}
+
+/**
+ * Aggregate the PUBLIC gem spec for a design's LISTING: design-level cut/technique plus the
+ * species and carat range offered across active variants. A single-species design keeps that
+ * variant's full public detail (clarity, treatment, creation, colors); a multi-species design
+ * lists the species and the overall carat envelope — per-variant detail is served live by the
+ * shop's option fetch, not baked into the doc.
+ */
+export function aggregateGemstoneSpec(design = {}) {
+  const active = (design.variants || []).filter((v) => v && v.active !== false && v.gemstone);
+  const specs = active.map((v) => v.gemstone);
+  const species = [...new Set(specs.map((s) => s.species).filter(Boolean))];
+  const mins = specs.map((s) => Number(s.caratMin)).filter((n) => n > 0);
+  const maxs = specs.map((s) => Number(s.caratMax)).filter((n) => n > 0);
+  return publicGemstoneSpec({
+    ...(design.gemstone || {}),
+    ...(specs.length === 1 ? specs[0] : {}),
+    ...(species.length ? { species: species.length === 1 ? species[0] : species } : {}),
+    ...(mins.length ? { caratMin: Math.min(...mins) } : {}),
+    ...(maxs.length ? { caratMax: Math.max(...maxs) } : {}),
+  });
 }

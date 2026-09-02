@@ -21,6 +21,7 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const artisanId = searchParams.get('artisanId');
+    const productIdParam = searchParams.get('productId');
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
     const limit = Math.min(200, Math.max(1, parseInt(searchParams.get('limit') || '20', 10) || 20));
 
@@ -42,6 +43,10 @@ export async function GET(request) {
       // Customers don't have access to this endpoint
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
+
+    // Point lookup by public handle (resolves productId → the doc/_id the editor routes need);
+    // composes with the role scoping above, so artisans still only see their own.
+    if (productIdParam) query.productId = productIdParam;
 
     // Execute query with pagination
     const skip = (page - 1) * limit;
