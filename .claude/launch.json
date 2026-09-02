@@ -3,9 +3,18 @@
   "configurations": [
     {
       "name": "efd-admin",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:preview"],
-      "port": 3099
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["node_modules/next/dist/bin/next", "dev", "--port", "3001"],
+      "port": 3001
+    },
+    {
+      "name": "efd-shop",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "cd /d C:\\Users\\jacob\\dev\\crittercodes\\EngelFineDesign\\web\\efd-shop\\.claude\\worktrees\\gemstone-shopper-experience && node node_modules\\next\\dist\\bin\\next dev --port 3098"
+      ],
+      "port": 3098
     }
   ]
 }
