@@ -30,16 +30,6 @@ import NotificationBell from '@/components/notifications/NotificationBell';
 import { getNavigationForRole, getEffectiveRole } from '@/lib/roleBasedNavigation';
 
 const SIDEBAR_WIDTH = 260;
-const ACCENT = '#D4AF37';
-const BG_PRIMARY = '#0F1115';
-const BG_PANEL = '#15181D';
-const BG_SECONDARY = '#171A1F';
-const BG_TERTIARY = '#1F232A';
-const BORDER_SUBTLE = '#2A2F38';
-const TEXT_PRIMARY = '#E6E8EB';
-const TEXT_SECONDARY = '#9CA3AF';
-const TEXT_MUTED = '#6B7280';
-const TEXT_HEADER = '#D1D5DB';
 
 function buildHref(segment, parentSegment) {
   if (!segment) {
@@ -83,23 +73,17 @@ function NavLeaf({ item, href, active, onClose, indent }) {
       component={Link}
       href={href}
       onClick={onClose}
+      selected={active}
       sx={{
         mx: 0.75,
         pl: indent ? 4.5 : 1.75,
         pr: 1.5,
         py: 0.75,
-        borderRadius: '10px',
-        borderLeft: active ? `2px solid ${ACCENT}` : '2px solid transparent',
-        bgcolor: active ? BG_TERTIARY : 'transparent',
-        '&:hover': {
-          bgcolor: active ? BG_TERTIARY : BG_SECONDARY,
-        },
-        transition: 'all 0.2s ease',
         minHeight: 40,
       }}
     >
       {item.icon && (
-        <ListItemIcon sx={{ minWidth: 34, color: active ? ACCENT : TEXT_SECONDARY }}>
+        <ListItemIcon sx={{ minWidth: 34 }}>
           {React.cloneElement(item.icon, { sx: { fontSize: 20 } })}
         </ListItemIcon>
       )}
@@ -109,7 +93,6 @@ function NavLeaf({ item, href, active, onClose, indent }) {
           sx: {
             fontSize: '0.875rem',
             fontWeight: active ? 600 : 400,
-            color: active ? TEXT_PRIMARY : TEXT_SECONDARY,
             lineHeight: 1.3,
           },
         }}
@@ -146,14 +129,11 @@ function NavGroup({ item, pathname, onClose }) {
           pl: 1.75,
           pr: 1.5,
           py: 0.75,
-          borderRadius: '10px',
-          borderLeft: '2px solid transparent',
-          '&:hover': { bgcolor: BG_SECONDARY },
           minHeight: 40,
         }}
       >
         {item.icon && (
-          <ListItemIcon sx={{ minWidth: 34, color: TEXT_SECONDARY }}>
+          <ListItemIcon sx={{ minWidth: 34 }}>
             {React.cloneElement(item.icon, { sx: { fontSize: 20 } })}
           </ListItemIcon>
         )}
@@ -163,14 +143,13 @@ function NavGroup({ item, pathname, onClose }) {
             sx: {
               fontSize: '0.875rem',
               fontWeight: 400,
-              color: TEXT_SECONDARY,
               lineHeight: 1.3,
             },
           }}
         />
         {isOpen
-          ? <ExpandLess sx={{ color: TEXT_MUTED, fontSize: 18 }} />
-          : <ExpandMore sx={{ color: TEXT_MUTED, fontSize: 18 }} />
+          ? <ExpandLess sx={{ color: 'text.disabled', fontSize: 18 }} />
+          : <ExpandMore sx={{ color: 'text.disabled', fontSize: 18 }} />
         }
       </ListItemButton>
       <Collapse in={isOpen} timeout="auto" unmountOnExit>
@@ -197,23 +176,19 @@ function NavGroup({ item, pathname, onClose }) {
 
 function NavItem({ item, pathname, onClose }) {
   if (item.kind === 'divider') {
-    return <Divider sx={{ borderColor: BORDER_SUBTLE, my: 0.5, mx: 1 }} />;
+    return <Divider sx={{ my: 0.5, mx: 1 }} />;
   }
 
   if (item.kind === 'header') {
     return (
       <Typography
-        variant="caption"
+        variant="overline"
         sx={{
           display: 'block',
           px: 2.5,
           pt: 2,
           pb: 0.5,
-          color: TEXT_MUTED,
-          fontSize: '0.625rem',
-          fontWeight: 700,
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase',
+          color: 'text.disabled',
         }}
       >
         {item.title}
@@ -238,15 +213,16 @@ function SidebarContent({ navigation, user, onClose }) {
     : (user?.name || 'User');
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#0B0D10' }}>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Branding */}
       <Box
         sx={{
           px: 2.5,
           display: 'flex',
           alignItems: 'center',
-          minHeight: 64,
-          borderBottom: `1px solid ${BORDER_SUBTLE}`,
+          minHeight: 66,
+          borderBottom: 1,
+          borderColor: 'divider',
           flexShrink: 0,
         }}
       >
@@ -270,18 +246,19 @@ function SidebarContent({ navigation, user, onClose }) {
       </Box>
 
       {/* User section */}
-      <Box sx={{ borderTop: `1px solid ${BORDER_SUBTLE}`, px: 2, py: 1.5, flexShrink: 0 }}>
+      <Box sx={{ borderTop: 1, borderColor: 'divider', px: 2, py: 1.5, flexShrink: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Avatar
             sx={{
               width: 32,
               height: 32,
-              bgcolor: BG_TERTIARY,
-              color: ACCENT,
+              bgcolor: 'action.selected',
+              color: 'primary.main',
               fontSize: '0.8rem',
               fontWeight: 700,
               flexShrink: 0,
-              border: `1px solid ${BORDER_SUBTLE}`,
+              border: 1,
+              borderColor: 'divider',
             }}
           >
             {initials}
@@ -290,7 +267,6 @@ function SidebarContent({ navigation, user, onClose }) {
             <Typography
               variant="body2"
               sx={{
-                color: TEXT_PRIMARY,
                 fontWeight: 500,
                 fontSize: '0.8125rem',
                 lineHeight: 1.3,
@@ -303,7 +279,7 @@ function SidebarContent({ navigation, user, onClose }) {
             </Typography>
             <Typography
               variant="caption"
-              sx={{ color: TEXT_MUTED, textTransform: 'capitalize', fontSize: '0.7rem' }}
+              sx={{ color: 'text.disabled', textTransform: 'capitalize', fontSize: '0.7rem' }}
             >
               {user?.role || ''}
             </Typography>
@@ -312,10 +288,7 @@ function SidebarContent({ navigation, user, onClose }) {
             size="small"
             onClick={() => signOut({ callbackUrl: '/auth/signin' })}
             title="Sign out"
-            sx={{
-              color: TEXT_MUTED,
-              '&:hover': { color: TEXT_PRIMARY, bgcolor: BG_SECONDARY },
-            }}
+            sx={{ color: 'text.disabled', '&:hover': { color: 'text.primary' } }}
           >
             <Logout sx={{ fontSize: 18 }} />
           </IconButton>
@@ -388,9 +361,6 @@ export default function AppShell({ children }) {
             '& .MuiDrawer-paper': {
               width: SIDEBAR_WIDTH,
               boxSizing: 'border-box',
-               bgcolor: '#0B0D10',
-               border: 'none',
-               borderRight: `1px solid ${BORDER_SUBTLE}`,
             },
           }}
         >
@@ -405,9 +375,6 @@ export default function AppShell({ children }) {
             '& .MuiDrawer-paper': {
               width: SIDEBAR_WIDTH,
               boxSizing: 'border-box',
-               bgcolor: '#0B0D10',
-               border: 'none',
-               borderRight: `1px solid ${BORDER_SUBTLE}`,
               position: 'fixed',
               height: '100vh',
               overflowX: 'hidden',
@@ -426,24 +393,16 @@ export default function AppShell({ children }) {
           display: 'flex',
           flexDirection: 'column',
           minWidth: 0,
-          backgroundColor: BG_PRIMARY,
+          backgroundColor: 'background.default',
         }}
       >
         {/* Top bar */}
         <AppBar
           position="sticky"
           elevation={0}
-          sx={{
-            bgcolor: BG_PRIMARY,
-            borderBottom: `1px solid ${BORDER_SUBTLE}`,
-            color: TEXT_PRIMARY,
-            zIndex: (t) => t.zIndex.drawer - 1,
-          }}
+          sx={{ zIndex: (t) => t.zIndex.drawer - 1 }}
         >
-          <Toolbar
-            variant="dense"
-            sx={{ minHeight: { xs: 56, md: 72 }, px: { xs: 2, md: 3 }, gap: 1.5 }}
-          >
+          <Toolbar sx={{ px: { xs: 2, md: 3 }, gap: 1.5 }}>
             <IconButton
               color="inherit"
               edge="start"
@@ -451,8 +410,8 @@ export default function AppShell({ children }) {
               sx={{
                 mr: 0.5,
                 display: { md: 'none' },
-                border: `1px solid ${BORDER_SUBTLE}`,
-                bgcolor: BG_SECONDARY,
+                border: 1,
+                borderColor: 'divider',
               }}
               aria-label="Open navigation"
             >
@@ -463,7 +422,6 @@ export default function AppShell({ children }) {
                 sx={{
                   display: { xs: 'none', sm: 'flex' },
                   alignItems: 'center',
-                  gap: 1.5,
                   gap: 1.25,
                   py: 0.75,
                 }}
@@ -475,8 +433,8 @@ export default function AppShell({ children }) {
                     borderRadius: 2,
                     display: 'grid',
                     placeItems: 'center',
-                    backgroundColor: BG_SECONDARY,
-                    color: ACCENT,
+                    backgroundColor: 'action.selected',
+                    color: 'primary.main',
                     fontWeight: 700,
                     fontSize: '0.875rem',
                   }}
@@ -486,23 +444,11 @@ export default function AppShell({ children }) {
                 <Box sx={{ minWidth: 0 }}>
                   <Typography
                     variant="subtitle1"
-                    sx={{
-                      fontWeight: 600,
-                      color: TEXT_HEADER,
-                      lineHeight: 1.2,
-                    }}
+                    sx={{ fontWeight: 600, lineHeight: 1.2 }}
                   >
                     Engel Fine Design
                   </Typography>
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color: TEXT_SECONDARY,
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                      fontSize: '0.68rem',
-                    }}
-                  >
+                  <Typography variant="overline" sx={{ color: 'text.secondary', display: 'block', lineHeight: 1.4 }}>
                     Admin workspace
                   </Typography>
                 </Box>
@@ -526,24 +472,15 @@ export default function AppShell({ children }) {
                   minWidth: 0,
                 }}
               >
-                <Typography
-                  sx={{
-                    color: TEXT_MUTED,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                    fontSize: '0.68rem',
-                    fontWeight: 700,
-                  }}
-                >
+                <Typography variant="overline" sx={{ color: 'text.disabled' }}>
                   Signed in
                 </Typography>
-                <Divider orientation="vertical" flexItem sx={{ borderColor: BORDER_SUBTLE }} />
+                <Divider orientation="vertical" flexItem />
                 <Box sx={{ textAlign: 'right', minWidth: 0 }}>
                   <Typography
                     variant="body2"
                     sx={{
                       fontWeight: 700,
-                      color: TEXT_HEADER,
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
@@ -553,11 +490,7 @@ export default function AppShell({ children }) {
                   </Typography>
                   <Typography
                     variant="caption"
-                    sx={{
-                      color: TEXT_SECONDARY,
-                      textTransform: 'capitalize',
-                      letterSpacing: '0.03em',
-                    }}
+                    sx={{ color: 'text.secondary', textTransform: 'capitalize' }}
                   >
                     {roleLabel}
                   </Typography>
@@ -567,12 +500,13 @@ export default function AppShell({ children }) {
                 sx={{
                   width: 36,
                   height: 36,
-                  bgcolor: BG_TERTIARY,
-                  color: TEXT_PRIMARY,
+                  bgcolor: 'action.selected',
+                  color: 'primary.main',
                   fontSize: '0.82rem',
                   fontWeight: 700,
                   display: { xs: 'none', sm: 'flex' },
-                  border: `1px solid ${BORDER_SUBTLE}`,
+                  border: 1,
+                  borderColor: 'divider',
                 }}
               >
                 {initials}
@@ -583,8 +517,8 @@ export default function AppShell({ children }) {
                   width: 36,
                   height: 36,
                   borderRadius: '50%',
-                  border: `1px solid ${BORDER_SUBTLE}`,
-                  bgcolor: BG_SECONDARY,
+                  border: 1,
+                  borderColor: 'divider',
                   display: 'flex',
                   justifyContent: 'center',
                   alignItems: 'center',
