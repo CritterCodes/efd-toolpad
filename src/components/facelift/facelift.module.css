@@ -1,0 +1,352 @@
+/*
+ * Facelift primitives — styles.
+ *
+ * A Next.js CSS module. No MUI, no emotion, no Tailwind, no dependencies.
+ * Dynamic values (accent colors, grid thresholds) arrive as CSS custom
+ * properties set inline by the components, so nothing here needs a build
+ * step beyond what Next already does.
+ */
+
+.tokens {
+  --fl-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --fl-gold: #FBBF24;
+  --fl-gold-hover: #FFCF4D;
+  --fl-ground: #08090B;
+  --fl-border: rgba(255, 255, 255, 0.12);
+  --fl-hairline: rgba(255, 255, 255, 0.09);
+  --fl-surface: rgba(255, 255, 255, 0.045);
+  --fl-surface-quiet: rgba(255, 255, 255, 0.03);
+  --fl-surface-hover: rgba(255, 255, 255, 0.07);
+  --fl-text-2: rgba(255, 255, 255, 0.66);
+  --fl-text-3: rgba(255, 255, 255, 0.5);
+  --fl-text-4: rgba(255, 255, 255, 0.34);
+}
+
+/* ── Page header ────────────────────────────────────────────────────────── */
+
+.header {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.headerBoxed {
+  padding: 22px;
+  border: 1px solid var(--fl-border);
+  border-radius: 20px;
+  background: var(--fl-surface-quiet);
+}
+
+.headerBody {
+  flex: 1;
+  min-width: 280px;
+  max-width: 920px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border: 1px solid var(--fl-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  font-family: var(--fl-mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fl-text-2);
+}
+
+.badge svg {
+  color: var(--fl-gold);
+  width: 14px;
+  height: 14px;
+}
+
+.title {
+  margin: 0;
+  font-weight: 700;
+  font-size: 34px;
+  line-height: 1.03;
+  letter-spacing: -0.036em;
+}
+
+.titleSpaced {
+  margin-top: 14px;
+}
+
+.subtitle {
+  margin: 11px 0 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--fl-text-2);
+  text-wrap: pretty;
+}
+
+.headerActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+/* ── Metrics ────────────────────────────────────────────────────────────── */
+
+.metricRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--fl-min, 190px), 1fr));
+  gap: 14px;
+}
+
+.metric {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 17px 18px;
+  border: 1px solid var(--fl-metric-border, var(--fl-border));
+  border-radius: 16px;
+  background: var(--fl-surface);
+}
+
+.metricIcon {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--fl-border);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--fl-accent, var(--fl-gold));
+}
+
+.metricIcon svg {
+  width: 19px;
+  height: 19px;
+}
+
+.metricValue {
+  font-weight: 700;
+  font-size: 24px;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.metricLabel {
+  margin-top: 3px;
+  font-family: var(--fl-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fl-text-3);
+}
+
+/* ── Status chip ────────────────────────────────────────────────────────── */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border: 1px solid var(--fl-chip-border);
+  border-radius: 999px;
+  background: var(--fl-chip-bg);
+  color: var(--fl-chip-fg);
+  font-family: var(--fl-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.chipSolid {
+  border: none;
+  font-weight: 600;
+}
+
+/* ── Surfaces ───────────────────────────────────────────────────────────── */
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--fl-min, 300px), 1fr));
+  gap: 14px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+  border: 1px solid var(--fl-border);
+  border-radius: 18px;
+  background: var(--fl-surface);
+}
+
+.cardAccented {
+  border-left: 2px solid var(--fl-accent, var(--fl-gold));
+}
+
+.cardInteractive {
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.cardInteractive:hover {
+  background: var(--fl-surface-hover);
+  border-color: var(--fl-gold);
+}
+
+.cardInteractive:focus-visible {
+  outline: 2px solid var(--fl-gold);
+  outline-offset: 2px;
+}
+
+/* ── Section label ──────────────────────────────────────────────────────── */
+
+.sectionLabel {
+  font-family: var(--fl-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fl-text-3);
+}
+
+/* ── Filters ────────────────────────────────────────────────────────────── */
+
+.filterBar {
+  display: flex;
+  gap: 11px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.filterBarBoxed {
+  padding: 14px;
+  border: 1px solid var(--fl-border);
+  border-radius: 16px;
+  background: var(--fl-surface-quiet);
+}
+
+.search {
+  flex: 1;
+  min-width: 260px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 42px;
+  padding: 0 15px;
+  border: 1px solid var(--fl-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.search svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--fl-text-3);
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  outline: none;
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.searchInput::placeholder {
+  color: var(--fl-text-3);
+}
+
+.pill {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 42px;
+  padding: 0 15px;
+  border: 1px solid var(--fl-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--fl-text-2);
+  font-family: var(--fl-mono);
+  font-size: 12.5px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.pill:hover {
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.pillActive {
+  border-color: rgba(251, 191, 36, 0.42);
+  background: rgba(251, 191, 36, 0.13);
+  color: var(--fl-gold);
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+
+.goldButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 999px;
+  background: var(--fl-gold);
+  color: var(--fl-ground);
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 13.5px;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+}
+
+.goldButton:hover {
+  background: var(--fl-gold-hover);
+}
+
+.goldButton svg {
+  width: 15px;
+  height: 15px;
+}
+
+.quietButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+  font-family: inherit;
+  font-weight: 500;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.quietButton:hover {
+  border-color: rgba(255, 255, 255, 0.32);
+}
+
+.quietButton svg {
+  width: 15px;
+  height: 15px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cardInteractive {
+    transition: none;
+  }
+}
