@@ -1,5 +1,32 @@
 'use client';
 
+/**
+ * AppShell — restyled to match the Admin Facelift mock.
+ *
+ * Drop-in replacement for src/components/AppShell.js. Behaviour is unchanged:
+ * same role-based navigation, same collapse logic, same mobile/permanent
+ * drawers, same sign-out, same NotificationBell, same event listeners.
+ * Only the presentation changed.
+ *
+ * Why this file exists: the theme sets palette, type, and radii, but the shell
+ * is STRUCTURE — sidebar width, label voice, the active-item treatment, the
+ * role chip. No theme can produce those. This is the frame around all 138
+ * pages, so it's the single highest-leverage file for making the admin read
+ * as redesigned.
+ *
+ * What changed from the previous shell:
+ *   - Sidebar 260 → 216px, matching the mock.
+ *   - Nav labels move to IBM Plex Mono 12.5px (the shop's label voice).
+ *     Section headers are mono 9.5px, uppercase, .18em tracked.
+ *   - Active item is a gold wash + gold text, not MUI's default selected grey.
+ *   - Nav icons drop to 18px and sit muted until active.
+ *   - Top bar gains the "Viewing as <ROLE>" chip and loses the duplicated
+ *     brand block (the sidebar already carries the logo).
+ *
+ * Colours are read from the theme where a token exists and written literally
+ * where the mock uses a value the palette doesn't name (the gold washes).
+ */
+
 import React, { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
@@ -29,7 +56,12 @@ import {
 import NotificationBell from '@/components/notifications/NotificationBell';
 import { getNavigationForRole, getEffectiveRole } from '@/lib/roleBasedNavigation';
 
-const SIDEBAR_WIDTH = 260;
+const SIDEBAR_WIDTH = 216;
+
+const MONO = "'IBM Plex Mono', ui-monospace, monospace";
+const GOLD = '#FBBF24';
+const GOLD_WASH = 'rgba(251, 191, 36, 0.13)';
+const GOLD_WASH_HOVER = 'rgba(251, 191, 36, 0.19)';
 
 function buildHref(segment, parentSegment) {
   if (!segment) {
@@ -76,24 +108,44 @@ function NavLeaf({ item, href, active, onClose, indent }) {
       selected={active}
       sx={{
         mx: 0.75,
-        pl: indent ? 4.5 : 1.75,
+        pl: indent ? 3 : 1.5,
         pr: 1.5,
-        py: 0.75,
-        minHeight: 40,
+        py: 0.9,
+        minHeight: 38,
+        borderRadius: '10px',
+        color: active ? GOLD : 'rgba(255,255,255,0.6)',
+        backgroundColor: active ? GOLD_WASH : 'transparent',
+        '&.Mui-selected': {
+          backgroundColor: GOLD_WASH,
+          '&:hover': { backgroundColor: GOLD_WASH_HOVER },
+        },
+        '&:hover': {
+          backgroundColor: active ? GOLD_WASH_HOVER : 'rgba(255,255,255,0.05)',
+          color: active ? GOLD : '#fff',
+        },
       }}
     >
       {item.icon && (
-        <ListItemIcon sx={{ minWidth: 34 }}>
-          {React.cloneElement(item.icon, { sx: { fontSize: 20 } })}
+        <ListItemIcon
+          sx={{
+            minWidth: 30,
+            color: 'inherit',
+            opacity: active ? 1 : 0.72,
+          }}
+        >
+          {React.cloneElement(item.icon, { sx: { fontSize: 18 } })}
         </ListItemIcon>
       )}
       <ListItemText
         primary={item.title}
         primaryTypographyProps={{
           sx: {
-            fontSize: '0.875rem',
-            fontWeight: active ? 600 : 400,
-            lineHeight: 1.3,
+            fontFamily: MONO,
+            fontSize: indent ? '0.75rem' : '0.781rem',
+            fontWeight: active ? 500 : 400,
+            letterSpacing: '-0.005em',
+            lineHeight: 1.35,
+            color: 'inherit',
           },
         }}
       />
@@ -126,30 +178,39 @@ function NavGroup({ item, pathname, onClose }) {
         onClick={handleToggle}
         sx={{
           mx: 0.75,
-          pl: 1.75,
-          pr: 1.5,
-          py: 0.75,
-          minHeight: 40,
+          pl: 1.5,
+          pr: 1.25,
+          py: 0.9,
+          minHeight: 38,
+          borderRadius: '10px',
+          color: hasActiveChild ? 'rgba(255,255,255,0.86)' : 'rgba(255,255,255,0.6)',
+          '&:hover': {
+            backgroundColor: 'rgba(255,255,255,0.05)',
+            color: '#fff',
+          },
         }}
       >
         {item.icon && (
-          <ListItemIcon sx={{ minWidth: 34 }}>
-            {React.cloneElement(item.icon, { sx: { fontSize: 20 } })}
+          <ListItemIcon sx={{ minWidth: 30, color: 'inherit', opacity: 0.72 }}>
+            {React.cloneElement(item.icon, { sx: { fontSize: 18 } })}
           </ListItemIcon>
         )}
         <ListItemText
           primary={item.title}
           primaryTypographyProps={{
             sx: {
-              fontSize: '0.875rem',
+              fontFamily: MONO,
+              fontSize: '0.781rem',
               fontWeight: 400,
-              lineHeight: 1.3,
+              letterSpacing: '-0.005em',
+              lineHeight: 1.35,
+              color: 'inherit',
             },
           }}
         />
         {isOpen
-          ? <ExpandLess sx={{ color: 'text.disabled', fontSize: 18 }} />
-          : <ExpandMore sx={{ color: 'text.disabled', fontSize: 18 }} />
+          ? <ExpandLess sx={{ color: 'rgba(255,255,255,0.34)', fontSize: 17 }} />
+          : <ExpandMore sx={{ color: 'rgba(255,255,255,0.34)', fontSize: 17 }} />
         }
       </ListItemButton>
       <Collapse in={isOpen} timeout="auto" unmountOnExit>
@@ -176,19 +237,24 @@ function NavGroup({ item, pathname, onClose }) {
 
 function NavItem({ item, pathname, onClose }) {
   if (item.kind === 'divider') {
-    return <Divider sx={{ my: 0.5, mx: 1 }} />;
+    return <Divider sx={{ my: 0.75, mx: 1.5, borderColor: 'rgba(255,255,255,0.08)' }} />;
   }
 
   if (item.kind === 'header') {
     return (
       <Typography
-        variant="overline"
+        component="div"
         sx={{
           display: 'block',
-          px: 2.5,
-          pt: 2,
-          pb: 0.5,
-          color: 'text.disabled',
+          mx: 1.5,
+          mt: 2.25,
+          mb: 0.75,
+          fontFamily: MONO,
+          fontSize: '0.594rem',
+          fontWeight: 400,
+          letterSpacing: '0.18em',
+          textTransform: 'uppercase',
+          color: 'rgba(255,255,255,0.34)',
         }}
       >
         {item.title}
@@ -217,12 +283,10 @@ function SidebarContent({ navigation, user, onClose }) {
       {/* Branding */}
       <Box
         sx={{
-          px: 2.5,
+          px: 2,
           display: 'flex',
           alignItems: 'center',
-          minHeight: 66,
-          borderBottom: 1,
-          borderColor: 'divider',
+          minHeight: 64,
           flexShrink: 0,
         }}
       >
@@ -231,13 +295,13 @@ function SidebarContent({ navigation, user, onClose }) {
           alt="EFD"
           width={120}
           height={60}
-          style={{ width: 'auto', height: 32, filter: 'invert(1) brightness(1)' }}
+          style={{ width: 'auto', height: 28, filter: 'invert(1) brightness(1)' }}
           priority
         />
       </Box>
 
       {/* Navigation */}
-      <Box sx={{ flex: 1, overflowY: 'auto', py: 1 }}>
+      <Box sx={{ flex: 1, overflowY: 'auto', pb: 1.5 }}>
         <List disablePadding>
           {navigation.map((item, idx) => (
             <NavItem key={idx} item={item} pathname={pathname} onClose={onClose} />
@@ -246,29 +310,35 @@ function SidebarContent({ navigation, user, onClose }) {
       </Box>
 
       {/* User section */}
-      <Box sx={{ borderTop: 1, borderColor: 'divider', px: 2, py: 1.5, flexShrink: 0 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+      <Box
+        sx={{
+          borderTop: 1,
+          borderColor: 'rgba(255,255,255,0.09)',
+          px: 1.75,
+          py: 1.5,
+          flexShrink: 0,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
           <Avatar
             sx={{
-              width: 32,
-              height: 32,
-              bgcolor: 'action.selected',
-              color: 'primary.main',
-              fontSize: '0.8rem',
+              width: 30,
+              height: 30,
+              bgcolor: GOLD_WASH,
+              color: GOLD,
+              fontSize: '0.72rem',
               fontWeight: 700,
               flexShrink: 0,
-              border: 1,
-              borderColor: 'divider',
             }}
           >
             {initials}
           </Avatar>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography
-              variant="body2"
+              component="div"
               sx={{
-                fontWeight: 500,
                 fontSize: '0.8125rem',
+                fontWeight: 500,
                 lineHeight: 1.3,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -278,8 +348,14 @@ function SidebarContent({ navigation, user, onClose }) {
               {displayName}
             </Typography>
             <Typography
-              variant="caption"
-              sx={{ color: 'text.disabled', textTransform: 'capitalize', fontSize: '0.7rem' }}
+              component="div"
+              sx={{
+                fontFamily: MONO,
+                fontSize: '0.656rem',
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                color: 'rgba(255,255,255,0.44)',
+              }}
             >
               {user?.role || ''}
             </Typography>
@@ -288,9 +364,12 @@ function SidebarContent({ navigation, user, onClose }) {
             size="small"
             onClick={() => signOut({ callbackUrl: '/auth/signin' })}
             title="Sign out"
-            sx={{ color: 'text.disabled', '&:hover': { color: 'text.primary' } }}
+            sx={{
+              color: 'rgba(255,255,255,0.44)',
+              '&:hover': { color: '#fff', backgroundColor: 'rgba(255,255,255,0.07)' },
+            }}
           >
-            <Logout sx={{ fontSize: 18 }} />
+            <Logout sx={{ fontSize: 17 }} />
           </IconButton>
         </Box>
       </Box>
@@ -336,7 +415,8 @@ export default function AppShell({ children }) {
     ? `${user.firstName} ${user.lastName || ''}`.trim()
     : (user?.name || user?.email || 'User');
   const initials = getInitials(user);
-  const roleLabel = getEffectiveRole(user?.role || '').replace(/_/g, ' ');
+  const effectiveRole = getEffectiveRole(user?.role || '');
+  const roleLabel = effectiveRole.replace(/_/g, ' ');
 
   const sidebarContent = (
     <SidebarContent
@@ -361,6 +441,7 @@ export default function AppShell({ children }) {
             '& .MuiDrawer-paper': {
               width: SIDEBAR_WIDTH,
               boxSizing: 'border-box',
+              borderRight: '1px solid rgba(255,255,255,0.09)',
             },
           }}
         >
@@ -378,6 +459,7 @@ export default function AppShell({ children }) {
               position: 'fixed',
               height: '100vh',
               overflowX: 'hidden',
+              borderRight: '1px solid rgba(255,255,255,0.09)',
             },
           }}
           open
@@ -396,13 +478,18 @@ export default function AppShell({ children }) {
           backgroundColor: 'background.default',
         }}
       >
-        {/* Top bar */}
+        {/* Top bar — joined to the shell, no white band, no seam. */}
         <AppBar
           position="sticky"
           elevation={0}
-          sx={{ zIndex: (t) => t.zIndex.drawer - 1 }}
+          sx={{
+            zIndex: (t) => t.zIndex.drawer - 1,
+            backgroundColor: 'transparent',
+            backgroundImage: 'none',
+            borderBottom: '1px solid rgba(255,255,255,0.09)',
+          }}
         >
-          <Toolbar sx={{ px: { xs: 2, md: 3 }, gap: 1.5 }}>
+          <Toolbar sx={{ px: { xs: 2, md: 3.75 }, gap: 1.5, minHeight: '64px !important' }}>
             <IconButton
               color="inherit"
               edge="start"
@@ -411,117 +498,98 @@ export default function AppShell({ children }) {
                 mr: 0.5,
                 display: { md: 'none' },
                 border: 1,
-                borderColor: 'divider',
+                borderColor: 'rgba(255,255,255,0.14)',
               }}
               aria-label="Open navigation"
             >
               <MenuIcon />
             </IconButton>
-            <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}>
+
+            <Box sx={{ flex: 1, minWidth: 0 }} />
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
+              {/* Role chip — the mock's "Viewing as ADMIN". */}
               <Box
                 sx={{
                   display: { xs: 'none', sm: 'flex' },
                   alignItems: 'center',
-                  gap: 1.25,
-                  py: 0.75,
+                  height: 28,
+                  px: 1.5,
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: 999,
+                  backgroundColor: 'rgba(255,255,255,0.05)',
+                  fontFamily: MONO,
+                  fontSize: '0.625rem',
+                  letterSpacing: '0.16em',
+                  textTransform: 'uppercase',
+                  color: 'rgba(255,255,255,0.62)',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
                 }}
               >
-                <Box
-                  sx={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: 2,
-                    display: 'grid',
-                    placeItems: 'center',
-                    backgroundColor: 'action.selected',
-                    color: 'primary.main',
-                    fontWeight: 700,
-                    fontSize: '0.875rem',
-                  }}
-                >
-                  [e]
-                </Box>
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography
-                    variant="subtitle1"
-                    sx={{ fontWeight: 600, lineHeight: 1.2 }}
-                  >
-                    Engel Fine Design
-                  </Typography>
-                  <Typography variant="overline" sx={{ color: 'text.secondary', display: 'block', lineHeight: 1.4 }}>
-                    Admin workspace
-                  </Typography>
-                </Box>
+                Viewing as {roleLabel}
               </Box>
-            </Box>
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                minWidth: 0,
-              }}
-            >
+
               <Box
                 sx={{
-                  display: { xs: 'none', lg: 'flex' },
-                  alignItems: 'center',
-                  gap: 1.25,
-                  px: 0,
-                  py: 0,
+                  display: { xs: 'none', lg: 'block' },
+                  textAlign: 'right',
                   minWidth: 0,
                 }}
               >
-                <Typography variant="overline" sx={{ color: 'text.disabled' }}>
-                  Signed in
+                <Typography
+                  component="div"
+                  sx={{
+                    fontSize: '0.8125rem',
+                    fontWeight: 600,
+                    lineHeight: 1.3,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {displayName}
                 </Typography>
-                <Divider orientation="vertical" flexItem />
-                <Box sx={{ textAlign: 'right', minWidth: 0 }}>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontWeight: 700,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                  >
-                    {displayName}
-                  </Typography>
-                  <Typography
-                    variant="caption"
-                    sx={{ color: 'text.secondary', textTransform: 'capitalize' }}
-                  >
-                    {roleLabel}
-                  </Typography>
-                </Box>
+                <Typography
+                  component="div"
+                  sx={{
+                    fontFamily: MONO,
+                    fontSize: '0.656rem',
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color: 'rgba(255,255,255,0.44)',
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {roleLabel}
+                </Typography>
               </Box>
+
               <Avatar
                 sx={{
-                  width: 36,
-                  height: 36,
-                  bgcolor: 'action.selected',
-                  color: 'primary.main',
-                  fontSize: '0.82rem',
+                  width: 34,
+                  height: 34,
+                  bgcolor: GOLD_WASH,
+                  color: GOLD,
+                  fontSize: '0.78rem',
                   fontWeight: 700,
                   display: { xs: 'none', sm: 'flex' },
-                  border: 1,
-                  borderColor: 'divider',
+                  flexShrink: 0,
                 }}
               >
                 {initials}
               </Avatar>
+
               <Box
                 sx={{
-                  ml: 0.5,
-                  width: 36,
-                  height: 36,
+                  width: 34,
+                  height: 34,
                   borderRadius: '50%',
-                  border: 1,
-                  borderColor: 'divider',
+                  border: '1px solid rgba(255,255,255,0.12)',
                   display: 'flex',
                   justifyContent: 'center',
                   alignItems: 'center',
+                  flexShrink: 0,
                 }}
               >
                 <NotificationBell />
