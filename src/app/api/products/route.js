@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { mergeProductEditorUpdate } from '@/services/products/productEditorPayload';
+import { canManageGemstones, loadArtisanTypes } from '@/lib/productPermissions';
 
 const ADMIN_ROLES = new Set(['admin', 'superadmin', 'dev', 'staff']);
 
@@ -20,6 +21,7 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const artisanId = searchParams.get('artisanId');
+    const productIdParam = searchParams.get('productId');
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
     const limit = Math.min(200, Math.max(1, parseInt(searchParams.get('limit') || '20', 10) || 20));
 
@@ -41,6 +43,10 @@ export async function GET(request) {
       // Customers don't have access to this endpoint
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
+
+    // Point lookup by public handle (resolves productId → the doc/_id the editor routes need);
+    // composes with the role scoping above, so artisans still only see their own.
+    if (productIdParam) query.productId = productIdParam;
 
     // Execute query with pagination
     const skip = (page - 1) * limit;
@@ -95,6 +101,24 @@ export async function POST(request) {
         return NextResponse.json(
           { error: `Missing required field: ${field}` },
           { status: 400 }
+        );
+      }
+    }
+
+    // Gemstone listings are gated to gem cutters — same rule as /api/products/gemstones;
+    // this generic route must not be the bypass. Fails closed on a profile-read failure.
+    if (data.productType === 'gemstone' && !ADMIN_ROLES.has(session.user.role)) {
+      let artisanTypes;
+      try {
+        artisanTypes = await loadArtisanTypes(db, session.user);
+      } catch (err) {
+        console.error('❌ Gemstone gate: could not load artisan profile:', err);
+        return NextResponse.json({ error: 'Could not verify permissions' }, { status: 503 });
+      }
+      if (!canManageGemstones(session.user.role, artisanTypes)) {
+        return NextResponse.json(
+          { error: 'Only gem-cutters and admins can create gemstone listings' },
+          { status: 403 }
         );
       }
     }

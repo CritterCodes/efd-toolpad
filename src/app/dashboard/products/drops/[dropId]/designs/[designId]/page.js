@@ -16,6 +16,7 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ViewInArIcon from '@mui/icons-material/ViewInAr';
 import EditIcon from '@mui/icons-material/Edit';
+import StorefrontIcon from '@mui/icons-material/Storefront';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 
@@ -28,6 +29,7 @@ import {
   autoLaborAsSharedRows, effectiveDesignFee,
 } from '@/services/production/variantPricing';
 import { gemBuildableForRows } from '@/services/production/gemDesignMatch';
+import { speciesSG } from '@/constants/gemSpecies';
 import { slotMatchesLink, allowedSpeciesForLink } from '@/services/production/gemLinks';
 import GemLinksPanel from './GemLinksPanel';
 
@@ -86,7 +88,7 @@ function newVariantForm() {
     retailPrice: '', leadTimeDays: '', active: true,
     // Gemstone-design variants: a SPECIES the cut is offered in (capability, not inventory).
     // colors = quality buckets, each with size-TIERED $/ct (rates non-linear in size).
-    gem: { species: '', availability: 'purchase', caratMin: '', caratMax: '', creation: 'natural', clarity: '', treatment: '', cutLaborCost: '', lotQty: '', maxPieces: '', yield: '', colors: [] },
+    gem: { species: '', availability: 'purchase', caratMin: '', caratMax: '', creation: 'natural', clarity: '', treatment: '', cutLaborCost: '', lotQty: '', maxPieces: '', yield: '', sg: '', colors: [] },
   };
 }
 // Resolve a color bucket's rough $/ct for a carat — STRICT: null beyond the last tier (that's a
@@ -226,6 +228,9 @@ function toForm(d) {
         lotQty: v.gemstone?.lotQty != null ? String(v.gemstone.lotQty) : '',
         maxPieces: v.gemstone?.maxPieces != null ? String(v.gemstone.maxPieces) : '',
         yield: v.gemstone?.yield != null ? String(v.gemstone.yield) : '',
+        // Show the OVERRIDE only — a table-resolved sg round-trips as blank so the field
+        // reads "custom material" rather than echoing the default back as user input.
+        sg: v.gemstone?.sgOverride != null ? String(v.gemstone.sgOverride) : '',
         colors: (v.gemstone?.colors || []).map((c) => ({
           label: c.label || '',
           rates: (c.rates || []).map((t) => ({ upToCt: t.upToCt != null ? String(t.upToCt) : '', ratePerCarat: t.ratePerCarat != null ? String(t.ratePerCarat) : '' })),
@@ -660,6 +665,9 @@ function VariantRow({ index, variant, isRing, isGem, hasGlb, stoneCosts, gemLink
                   helperText="finished ÷ rough ct" FormHelperTextProps={{ sx: { mx: 0, fontSize: '0.6rem' } }} />
                 <TextField label="Max pieces" type="number" value={gem.maxPieces ?? ''} onChange={(e) => setGem({ maxPieces: e.target.value })} size="small" sx={{ width: 104 }} inputProps={{ min: 1 }}
                   helperText="this variant's slice of the edition" FormHelperTextProps={{ sx: { mx: 0, fontSize: '0.6rem' } }} />
+                <TextField label="SG override" type="number" value={gem.sg ?? ''} onChange={(e) => setGem({ sg: e.target.value })} size="small" sx={{ width: 118 }}
+                  placeholder={speciesSG(gem.species) != null ? String(speciesSG(gem.species)) : '—'} inputProps={{ step: 0.01, min: 0.5, max: 9 }}
+                  helperText="specific gravity — blank uses the species table (carat ⇄ mm)" FormHelperTextProps={{ sx: { mx: 0, fontSize: '0.6rem' } }} />
               </Stack>
               <GemColorRates colors={gem.colors || []} onChange={(colors) => setGem({ colors })} />
             </Stack>
@@ -1665,6 +1673,8 @@ export function DesignDetail({ dropId, designId, backHref, backLabel }) {
     return { details: 0, cad: 1, variants: 2, pricing: 3 }[want] ?? 0;
   });
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
+  const [listing, setListing] = useState(false);
+  const [listedProductRef, setListedProductRef] = useState(null); // Mongo _id of the listed product (editor routes key on it)
   const notify = (message, severity = 'success') => setSnack({ open: true, message, severity });
   const closeSnack = () => setSnack((s) => ({ ...s, open: false }));
 
@@ -1853,6 +1863,10 @@ export function DesignDetail({ dropId, designId, backHref, backLabel }) {
                 lotQty: v.gem?.lotQty ? Number(v.gem.lotQty) : null,
                 maxPieces: v.gem?.maxPieces ? Number(v.gem.maxPieces) : null,
                 yield: v.gem?.yield ? Number(v.gem.yield) : null, // null → default 0.25 at price time
+                // sg drives carat ⇄ mm (baseCarat = stlVolumeCm3 × sg × 5). The override is
+                // kept separately so the form can tell "custom material" from the table value.
+                sgOverride: v.gem?.sg ? Number(v.gem.sg) : null,
+                sg: v.gem?.sg ? Number(v.gem.sg) : (speciesSG(v.gem?.species) ?? null),
                 colors,
                 ratesUpdatedAt: ratesChanged ? new Date().toISOString() : (prev?.ratesUpdatedAt ?? null),
               },
@@ -1866,6 +1880,40 @@ export function DesignDetail({ dropId, designId, backHref, backLabel }) {
       await load();
       return true;
     } catch (e) { notify(e.message, 'error'); return false; } finally { setSaving(false); }
+  };
+
+  // Resolve the listed product's Mongo _id (the catalog editor routes key on _id, the design
+  // back-link stores the public productId).
+  useEffect(() => {
+    if (!design?.productID) { setListedProductRef(null); return; }
+    let cancelled = false;
+    fetch(`/api/products?productId=${encodeURIComponent(design.productID)}&limit=1`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled) setListedProductRef(d?.products?.[0]?._id || null); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [design?.productID]);
+
+  // "List design" — turn this design into a draft product (the design→listing bridge).
+  // Server enforces staff-or-owning-artisan; publish stays a separate transition on the listing.
+  const listDesign = async () => {
+    if (dirty) { const ok = await save(); if (!ok) return; }
+    setListing(true);
+    try {
+      const res = await fetch(`/api/production/designs/${designId}/list-concept`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || 'Listing failed');
+      if (d.product?._id) setListedProductRef(d.product._id);
+      notify(
+        d.contractWarnings?.length
+          ? `Listed as a draft — still needed before publish: ${d.contractWarnings.join('; ')}`
+          : 'Listed as a draft product',
+        d.contractWarnings?.length ? 'warning' : 'success',
+      );
+      await load();
+    } catch (e) { notify(e.message, 'error'); } finally { setListing(false); }
   };
 
   // Load the gem Designs this jewelry's stone rows link to (Phase 2) — powers the buildable
@@ -1931,7 +1979,26 @@ export function DesignDetail({ dropId, designId, backHref, backLabel }) {
               {design.primaryArtisanId && <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: '0.85rem' }}>· {artisanName(design.primaryArtisanId)}</Typography>}
             </Stack>
           </Box>
-          <Chip label={cap(design.status || 'draft')} sx={{ backgroundColor: `${STATUS_COLOR[design.status] || REPAIRS_UI.textMuted}22`, color: STATUS_COLOR[design.status] || REPAIRS_UI.textMuted, fontWeight: 700, textTransform: 'capitalize', flexShrink: 0 }} />
+          <Stack direction="row" spacing={1} alignItems="center" flexShrink={0}>
+            {design.productID ? (
+              <Tooltip title={listedProductRef ? `Listed as ${design.productID}` : 'Resolving the listing…'}>
+                <span>
+                  <Button size="small" variant="outlined" startIcon={<StorefrontIcon />} disabled={!listedProductRef}
+                    onClick={() => router.push(`/dashboard/products/${listedProductRef}`)}
+                    sx={{ color: REPAIRS_UI.accent, borderColor: `${REPAIRS_UI.accent}66`, textTransform: 'none', fontWeight: 600, '&:hover': { borderColor: REPAIRS_UI.accent } }}>
+                    View listing
+                  </Button>
+                </span>
+              </Tooltip>
+            ) : (
+              <Button size="small" variant="outlined" onClick={listDesign} disabled={listing || saving}
+                startIcon={listing ? <CircularProgress size={14} sx={{ color: REPAIRS_UI.accent }} /> : <StorefrontIcon />}
+                sx={{ color: REPAIRS_UI.accent, borderColor: `${REPAIRS_UI.accent}66`, textTransform: 'none', fontWeight: 600, '&:hover': { borderColor: REPAIRS_UI.accent } }}>
+                {listing ? 'Listing…' : 'List design'}
+              </Button>
+            )}
+            <Chip label={cap(design.status || 'draft')} sx={{ backgroundColor: `${STATUS_COLOR[design.status] || REPAIRS_UI.textMuted}22`, color: STATUS_COLOR[design.status] || REPAIRS_UI.textMuted, fontWeight: 700, textTransform: 'capitalize', flexShrink: 0 }} />
+          </Stack>
         </Stack>
       </Box>
 

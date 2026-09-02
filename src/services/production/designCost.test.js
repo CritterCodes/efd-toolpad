@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { estimateMetalCost, estimateDesignCost, estimateGemstoneCost, gemTierRate, gemstoneFromPrice, publicGemstoneSpec } from '@/services/production/designCost';
+import { estimateMetalCost, estimateDesignCost, estimateGemstoneCost, gemTierRate, gemstoneFromPrice, publicGemstoneSpec, aggregateGemstoneSpec } from '@/services/production/designCost';
 import { validateDesign, EDITION_TYPE, PRODUCTION_METHOD } from '@/app/api/designs/model';
 
 describe('estimateMetalCost', () => {
@@ -118,6 +118,61 @@ describe('gemstoneFromPrice + publicGemstoneSpec (listing)', () => {
     expect(pub.cutLaborCost).toBeUndefined();
     expect(pub.lotQty).toBeUndefined();
     expect(JSON.stringify(pub)).not.toContain('ratePerCarat');
+  });
+  it('public spec strips the availability toggle and sgOverride, keeps resolved sg', () => {
+    const pub = publicGemstoneSpec({ ...design.variants[0].gemstone, sg: 3.9, sgOverride: 3.9 });
+    expect(pub.availability).toBeUndefined();
+    expect(pub.sgOverride).toBeUndefined();
+    expect(pub.sg).toBe(3.9);
+  });
+  it('shared costs ride inside the markup: ((1/0.25 × 50 + 60) + 40) × 2 = 600', () => {
+    expect(gemstoneFromPrice(design, { sharedCosts: 40 })).toBeCloseTo(600, 2);
+  });
+  it('inactive and special_request variants never set the buy-now floor', () => {
+    const d = {
+      category: 'gemstone', pricing: { markup: 2 },
+      variants: [
+        { variantId: 'v1', active: false, gemstone: { species: 'Citrine', availability: 'purchase', caratMin: 1, caratMax: 2, colors: [{ label: 'cheap', rates: [{ upToCt: 2, ratePerCarat: 1 }] }] } },
+        { variantId: 'v2', active: true, gemstone: { species: 'Sapphire', availability: 'special_request', caratMin: 1, caratMax: 2, colors: [{ label: 'cheap', rates: [{ upToCt: 2, ratePerCarat: 1 }] }] } },
+        { variantId: 'v3', active: true, gemstone: { species: 'Garnet', availability: 'purchase', caratMin: 1, caratMax: 2, cutLaborCost: 0, yield: 0.5, colors: [{ label: 'red', rates: [{ upToCt: 2, ratePerCarat: 100 }] }] } },
+      ],
+    };
+    // Only v3 counts: 1/0.5 × 100 × 2 = 400 (v1/v2 would have priced at 8)
+    expect(gemstoneFromPrice(d)).toBeCloseTo(400, 2);
+  });
+  it('per-variant markupOverride wins over the design markup', () => {
+    const d = structuredClone(design);
+    d.variants[0].markupOverride = 3;
+    // (1/0.25 × 50 + 60) × 3 = 780
+    expect(gemstoneFromPrice(d)).toBeCloseTo(780, 2);
+  });
+});
+
+describe('aggregateGemstoneSpec (the listing doc gem block)', () => {
+  it('single species keeps full public detail', () => {
+    const spec = aggregateGemstoneSpec({
+      gemstone: { cut: ['cushion'], cutStyle: ['brilliant'] },
+      variants: [{ active: true, gemstone: { species: 'Garnet', availability: 'purchase', caratMin: 1, caratMax: 4, clarity: 'eye clean', colors: [{ label: 'red AAA', rates: [{ upToCt: 4, ratePerCarat: 50 }] }] } }],
+    });
+    expect(spec.species).toBe('Garnet');
+    expect(spec.cut).toEqual(['cushion']);
+    expect(spec.clarity).toBe('eye clean');
+    expect(spec.caratMin).toBe(1);
+    expect(spec.caratMax).toBe(4);
+    expect(spec.availability).toBeUndefined();
+    expect(JSON.stringify(spec)).not.toContain('ratePerCarat');
+  });
+  it('multi-species lists species and the carat envelope, skipping inactive variants', () => {
+    const spec = aggregateGemstoneSpec({
+      variants: [
+        { active: true, gemstone: { species: 'Garnet', caratMin: 1, caratMax: 3 } },
+        { active: true, gemstone: { species: 'Amethyst', caratMin: 2, caratMax: 6 } },
+        { active: false, gemstone: { species: 'Citrine', caratMin: 0.5, caratMax: 10 } },
+      ],
+    });
+    expect(spec.species).toEqual(['Garnet', 'Amethyst']);
+    expect(spec.caratMin).toBe(1);
+    expect(spec.caratMax).toBe(6);
   });
 });
 

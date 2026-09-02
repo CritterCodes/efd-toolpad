@@ -268,9 +268,15 @@ export async function repriceListings({ dryRun = false, priceDay: dayIn } = {}) 
     if (!design) { skip(product, 'no design and no recorded COGS to price from'); continue; }
 
     // ── Gemstone design: the customer picks the carat, so the listing carries a live
-    //    "from" floor computed off the cutter's current rough rates.
+    //    "from" floor computed off the cutter's current rough rates — WITH shared costs,
+    //    the same recipe the editor and the price-at-carat endpoint use.
     if (design.category === 'gemstone') {
-      const from = gemstoneFromPrice(design, { defaultMarkup });
+      const gemShared = sharedCostsFor(design.pricing || {}, {
+        artisanFee: artisanFees[design.primaryArtisanId] ?? 0,
+        editionType: design.edition?.type ?? design.editionType ?? null,
+        editionLimit: design.edition?.limit ?? design.editionLimit ?? null,
+      });
+      const from = gemstoneFromPrice(design, { defaultMarkup, sharedCosts: gemShared });
       if (!(n(from) > 0)) { skip(product, 'gemstone design has no priceable variant/tier'); continue; }
       const retail = round(from);
       if (retail === current) { report.unchanged += 1; continue; }

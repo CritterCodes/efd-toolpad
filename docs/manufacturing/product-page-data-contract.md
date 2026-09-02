@@ -242,3 +242,29 @@ it the viewer fails silently (blank).
                    { "nameContains": "Gem_Amethyst", "type": "gem", "gemPreset": "amethyst" },
                    { "nameContains": "Diamond", "type": "gem", "gemPreset": "diamond" } ] } }] }
 ```
+
+---
+
+## 10. Gemstone products (2026-09-02)
+
+Two kinds share `productType: "gemstone"`; full detail lives in the storefront's copy
+(`efd-shop/docs/PRODUCT-PAGE-DATA-CONTRACT.md`, "Gemstone products"). Admin's write
+obligations:
+
+- **Loose stones** (`availability: "ready-to-ship"`): canonical NUMERIC inventory
+  `{ quantity, reserved: 0, available }` — the shop's reserve-on-paid guard decrements
+  it; the boolean legacy shape is migrated by `scripts/normalize-gemstone-inventory.mjs`.
+  The `gemstone{}` block renders the Stone Details panel; `acquisitionPrice/
+  acquisitionDate/costBasis/supplier` are stripped by the shop, never rendered.
+- **Design-backed gems** (the list-concept bridge): top-level `designId` REQUIRED,
+  `availability: "made-to-order"`, `pricing.retailPrice` = the "from" floor +
+  `pricing.priceIsFrom: true` (computed with shared costs × markup — the editor's
+  math; dailyReprice keeps it fresh). `gemstone{}` = the AGGREGATE public spec from
+  ACTIVE variants via `aggregateGemstoneSpec` — rate tables, cut labor, lot/max caps
+  and the purchase/special_request toggle never reach the doc; per-variant `sg` is
+  public on purpose (carat ⇄ mm needs it: `baseCarat = stlVolumeCm3 × sg × 5`).
+- Carat pricing is served ONLY by `/api/refrakt-price` (`selection.gem`), backed by
+  `services/production/gemPricing.priceGemAtCarat` — one recipe for the editor, the
+  listing floor, the shop picker, and the claim-time reprice.
+- Ownership stamps (`userId`, `seller{userId,displayName,artisanType}`, `vendor`) come
+  from the design's primary artisan so the cutter can publish and upload certs.

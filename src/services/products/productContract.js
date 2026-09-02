@@ -14,7 +14,7 @@ import { randomUUID } from 'crypto';
 // The root barrel is `sideEffects:false`, so the Next build tree-shakes the client components out
 // of this import; the vitest alias maps the root to the lightweight core/library vocab module.
 import { VALID_FINISHES, VALID_GEM_PRESETS } from '@crittercodes/refrakt';
-import { gemstoneFromPrice, publicGemstoneSpec } from '@/services/production/designCost';
+import { gemstoneFromPrice, aggregateGemstoneSpec } from '@/services/production/designCost';
 
 // Material vocabulary is owned by the engine package (refrakt ≥1.2). These are the
 // VALIDATION supersets (incl. cuts like `marquise`) — re-exported under the historical
@@ -205,14 +205,25 @@ export function buildProductFromDesign({ design = {}, estCost = 0, opts = {} }) 
     : [];
   // A gemstone Design (a cut stone) lists as a gemstone product carrying the gem-native spec,
   // not the jewelry metal shape. Cut/technique are DESIGN details (the cut IS the design); the
-  // material spec lives per VARIANT — surface the first variant's, STRIPPED of the cutter's
-  // pricing internals (rough-rate tiers, cut labor, lot qty): the public doc never carries the
-  // rate table. Price = a computed "from $X" floor (cheapest orderable configuration).
+  // aggregate spec covers ACTIVE variants, STRIPPED of the cutter's pricing internals
+  // (rough-rate tiers, cut labor, lot qty): the public doc never carries the rate table.
+  // Price = a computed "from $X" floor (cheapest buy-now configuration), priced with the same
+  // markup + shared costs the editor shows (the caller passes them via opts.gemPricing).
   const isGem = design.category === 'gemstone';
-  const gemSpec = isGem
-    ? publicGemstoneSpec({ ...(design.gemstone || {}), ...((design.variants || []).find((v) => v.gemstone)?.gemstone || {}) })
+  const gemSpec = isGem ? aggregateGemstoneSpec(design) : null;
+  const gemFrom = isGem ? gemstoneFromPrice(design, opts.gemPricing || {}) : null;
+
+  // The whole model IS the stone (gem GLBs are one mesh named "Gemstone"): one catch-all gem
+  // slot, preset from the offered species when REFRAKT knows it. A supplied opts.viewer wins.
+  const speciesGuess = String(
+    (Array.isArray(gemSpec?.species) ? gemSpec.species[0] : gemSpec?.species) || ''
+  ).toLowerCase();
+  const gemViewer = isGem && design.designModel?.glbUrl
+    ? {
+        glbUrl: design.designModel.glbUrl,
+        meshMap: [{ nameContains: '', type: 'gem', gemPreset: GEM_PRESETS.includes(speciesGuess) ? speciesGuess : 'diamond' }],
+      }
     : null;
-  const gemFrom = isGem ? gemstoneFromPrice(design) : null;
 
   return {
     productId,
@@ -233,11 +244,18 @@ export function buildProductFromDesign({ design = {}, estCost = 0, opts = {} }) 
       currency: 'USD',
     },
     ...(isGem ? { gemstone: gemSpec } : { jewelry: { type: opts.jewelryType ?? null, metals } }),
+    // Top-level designId is what the contract, validateProductContract, publish, and the
+    // shop's MTO/gem resolvers read; references.designId stays for the cross-link shape.
+    designId: design.designID ?? null,
     references: { designId: design.designID ?? null, pieceID: null, gemstoneId: design.gemstoneId ?? null },
     pieceIDs: [],
+    // Ownership stamps make the artisan's own publish + cert upload work downstream
+    // (canPublishProduct checks product.userId; the cert route checks seller.userId too).
+    userId: opts.userId ?? opts.seller?.userId ?? null,
+    vendor: opts.vendor ?? opts.seller?.displayName ?? null,
     seller: opts.seller ?? null,
     images: Array.isArray(opts.images) ? opts.images : [],
-    viewer: opts.viewer ?? null,
+    viewer: opts.viewer !== undefined ? opts.viewer : gemViewer,
     publishing: { visible: false, featured: false, publishedAt: null },
     createdBy: opts.createdBy ?? null,
   };

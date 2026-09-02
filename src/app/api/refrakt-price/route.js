@@ -6,6 +6,7 @@ import { METAL_TYPES } from '@/constants/metalTypes';
 import { priceSelection, resolveMetalVolumes } from '@/services/production/pricing';
 import { resolveSelectionBindings } from '@/services/production/customizableBindings';
 import { getDailyMetalSnapshot, currentPriceDay } from '@/services/production/dailyMetalSnapshot';
+import { priceGemAtCarat, gemSizingFor, loadGemPricingInputs } from '@/services/production/gemPricing';
 import { consumeRateLimit } from '@/lib/rateLimit';
 
 /**
@@ -102,10 +103,55 @@ export const POST = async (req) => {
   const design = dsnId ? await DesignsModel.findById(dsnId) : null;
   const productType = product?.productType || (design ? 'concept' : null);
 
-  // §5 gemstone dispatch: trivial direct retail (no design needed).
-  if (productType === 'gemstone') {
-    const subtotal = round(product?.pricing?.retailPrice || 0);
-    return NextResponse.json(finalize({ subtotal, breakdown: { metal: 0, stones: subtotal, labor: 0 }, priceSource: 'gemstone', selection }));
+  // §5 gemstone dispatch. Two shapes:
+  //   selection.gem = { variantId, colorLabel, carat, sizeMode?, targetMm?, tolerance? }
+  //     → carat-aware price off the DESIGN's rate tiers (the Phase-4 picker; the rate table
+  //       never crosses — only the retail number does).
+  //   no selection.gem → trivial direct retail (a loose stone, or a listing's "from" echo).
+  if (productType === 'gemstone' || design?.category === 'gemstone') {
+    const gem = selection?.gem || null;
+    if (!gem) {
+      const subtotal = round(product?.pricing?.retailPrice || 0);
+      return NextResponse.json(finalize({ subtotal, breakdown: { metal: 0, stones: subtotal, labor: 0 }, priceSource: 'gemstone', selection }));
+    }
+    if (!design || design.category !== 'gemstone') {
+      return NextResponse.json({ error: 'Gem design not found for this listing.' }, { status: 404 });
+    }
+    let inputs;
+    try {
+      inputs = await getInputs();
+    } catch (e) {
+      return NextResponse.json({ error: 'Pricing temporarily unavailable.', detail: e?.message }, { status: 500 });
+    }
+    const { sharedCosts } = await loadGemPricingInputs(dbInstance, design);
+    const priced = priceGemAtCarat({
+      design,
+      variantId: gem.variantId,
+      colorLabel: gem.colorLabel,
+      carat: gem.carat,
+      defaultMarkup: inputs.cogMarkup,
+      sharedCosts,
+    });
+    if (!priced.ok) {
+      // `code` is load-bearing for the shop: 'special-request' routes to the customs intake,
+      // 'unavailable' renders as not offered / sold out.
+      return NextResponse.json({ error: priced.reason, code: priced.code }, { status: 422 });
+    }
+    const variant = (design.variants || []).find((v) => v?.variantId === gem.variantId);
+    const sizing = gemSizingFor(design, variant);
+    return NextResponse.json({
+      ...finalize({
+        subtotal: priced.retail,
+        taxRate: inputs.taxRate,
+        breakdown: { metal: 0, stones: priced.retail, labor: 0 },
+        priceSource: 'gemstone-carat',
+        availability: 'made-to-order',
+        selection,
+        priceDay: inputs.priceDay,
+      }),
+      carat: priced.carat, // snapped to the 0.25ct pick step — the number that was actually priced
+      ...(sizing ? { sizing } : {}), // REFRAKT config.sizing for the size control (carat ⇄ mm)
+    });
   }
 
   if (!design) return NextResponse.json({ error: 'Base product/design not found or not customizable.' }, { status: 404 });

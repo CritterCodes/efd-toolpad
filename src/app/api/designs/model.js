@@ -48,6 +48,9 @@ export function validateDesign(data = {}, { requireSellable = false } = {}) {
       if (lo && hi && lo > hi) errors.push(`${id}: caratMin exceeds caratMax`);
       if (g.yield != null && !(Number(g.yield) > 0 && Number(g.yield) <= 1)) errors.push(`${id}: yield must be between 0 and 1`);
       if (g.maxPieces != null && (!Number.isInteger(g.maxPieces) || g.maxPieces < 1)) errors.push(`${id}: maxPieces must be a positive integer`);
+      // Specific gravity drives carat ⇄ mm (baseCarat = stlVolumeCm3 × sg × 5). Optional —
+      // resolved from the species table at save time; an override is per unusual material.
+      if (g.sg != null && !(Number(g.sg) > 0 && Number(g.sg) < 10)) errors.push(`${id}: sg (specific gravity) must be a positive number`);
       if (g.availability !== 'special_request') {
         const colors = Array.isArray(g.colors) ? g.colors.filter((c) => String(c.label || '').trim()) : [];
         if (!colors.length) errors.push(`${id}: a purchasable gemstone variant needs at least one color bucket with rates`);

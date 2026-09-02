@@ -7,6 +7,22 @@ export function getUserArtisanTypes(userProfile) {
   return arr.map((s) => String(s).trim().toLowerCase().replace(/[\s_]+/g, '-')).filter(Boolean);
 }
 
+/**
+ * Load the session user's artisan types from their DB profile. Returns [] when no
+ * profile matches; THROWS on a DB failure — callers must fail closed (deny), never
+ * fall through to the write.
+ */
+export async function loadArtisanTypes(db, sessionUser) {
+  const or = [];
+  if (sessionUser?.userID) or.push({ userID: sessionUser.userID });
+  if (sessionUser?.email) or.push({ email: sessionUser.email });
+  if (!or.length) return [];
+  const profile = await db
+    .collection('users')
+    .findOne({ $or: or }, { projection: { artisanApplication: 1 } });
+  return getUserArtisanTypes(profile);
+}
+
 export function canManageGemstones(role, artisanTypes) {
   if (['admin', 'staff', 'dev'].includes(role)) return true;
   return artisanTypes.some((t) => t === 'gem-cutter');
