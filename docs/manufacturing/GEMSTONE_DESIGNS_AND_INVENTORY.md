@@ -174,12 +174,24 @@ The cutter's variants are the single source of truth; downstream only narrows:
 - Claim-time re-validation (drift guard) lands with Phase 3.
 
 ## 6. Committed follow-ups (decided, not yet built)
+
+> **Status 2026-09-02 — Phase 4 SHIPPED.** Built since this list was written: artisan
+> self-service (designs AND the listing bridge — "List design" in the editor, list-concept
+> gated staff-or-owning-cutter), the species SG table (`src/constants/gemSpecies.js` +
+> per-variant override), price-at-carat (`/api/refrakt-price` `selection.gem`, backed by
+> `services/production/gemPricing`), the shop's species/color/carat picker + REFRAKT
+> carat⇄mm sizing, the special-request path into customs intake (prefilled deep link),
+> reserve-on-paid for loose stones, variant sub-caps (maxPieces/lotQty) in the webhook's
+> atomic claim, and gem_cutting WO spawn at piece-start. Still open below: deposit/true-up
+> billing (seam: shop `gemChargeAmount`), salePayouts wiring, cert-on-Piece, the
+> rate-staleness nag, buildable rollup.
+
 - **Artisan self-service access** (owner, 2026-07-22): jewelers/engravers/CAD designers create
   jewelry + see customs they're assigned; **gem cutters create/manage their gemstone designs**
-  (today the design page + API are admin/dev-only — the cutter can't set his own rates); onsite
+  (BUILT — design page, API, and the listing bridge are staff-or-owning-cutter); onsite
   jewelers get repairs. Route by `artisanApplication.artisanType` (lib/artisans.js).
-- **Species SG table** — REQUIRED for Phase 4 shop UX: "2ct amethyst" means nothing without
-  "≈ 8.1mm"; carat↔mm also drives the jewelry-slot coupling. Per-species SG + per-variant override.
+- **Species SG table** (BUILT — `src/constants/gemSpecies.js`, per-variant `sg` override):
+  "2ct amethyst" means nothing without "≈ 8.1mm"; carat↔mm also drives the jewelry-slot coupling.
 - **Jewelry slot linking (Phase 2) pins species + COLOR** — color is the rate; species alone can't
   price. WOs for jewelry-consumed gems carry target mm + tolerance (cut-to-fit).
 - Wiring gem sale lines → salePayouts (consignment); deposit/true-up billing per §2.
