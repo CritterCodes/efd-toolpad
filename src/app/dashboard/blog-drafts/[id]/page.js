@@ -17,15 +17,15 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import ArticleIcon from '@mui/icons-material/Article';
 
 const C = {
-  bg: '#0F1115',
-  surface: '#15181D',
+  bg: '#08090B',
+  surface: '#131416',
   card: '#1A1D23',
-  cardAlt: '#1F232A',
-  border: '#2A2F38',
+  cardAlt: '#1B1C1E',
+  border: 'rgba(255,255,255,0.12)',
   text: '#E5E7EB',
-  muted: '#6B7280',
-  accent: '#D4AF37',
-  accentDim: '#D4AF3722',
+  muted: 'rgba(255,255,255,0.5)',
+  accent: '#FBBF24',
+  accentDim: '#FBBF2422',
   success: '#22C55E',
   successDim: '#22C55E18',
   userBubble: '#1E2530',
@@ -244,7 +244,7 @@ export default function BlogDraftChatPage({ params }) {
           <Typography sx={{ color: C.muted, mb: 3, fontSize: '0.9rem' }}>Your experience has been integrated throughout the article. Review it, make any edits, then publish.</Typography>
           <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'center' }}>
             <Box component="button" onClick={() => router.push(`/dashboard/blogs/${id}`)}
-              sx={{ px: 2.5, py: 1, backgroundColor: C.accent, color: '#000', border: 'none', borderRadius: 1.5, fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer', '&:hover': { backgroundColor: '#B8932A' } }}>
+              sx={{ px: 2.5, py: 1, backgroundColor: C.accent, color: '#000', border: 'none', borderRadius: 1.5, fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer', '&:hover': { backgroundColor: '#FFCF4D' } }}>
               Review & Publish →
             </Box>
             <Box component="button" onClick={() => router.push('/dashboard/blog-drafts')}
@@ -335,7 +335,7 @@ export default function BlogDraftChatPage({ params }) {
                     component="button"
                     onClick={handleSubmit}
                     disabled={submitting}
-                    sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2.5, py: 1, backgroundColor: submitting ? C.border : C.accent, color: submitting ? C.muted : '#000', border: 'none', borderRadius: 1.5, fontWeight: 600, fontSize: '0.875rem', cursor: submitting ? 'not-allowed' : 'pointer', transition: 'background-color 0.15s', '&:hover:not(:disabled)': { backgroundColor: '#B8932A' } }}
+                    sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2.5, py: 1, backgroundColor: submitting ? C.border : C.accent, color: submitting ? C.muted : '#000', border: 'none', borderRadius: 1.5, fontWeight: 600, fontSize: '0.875rem', cursor: submitting ? 'not-allowed' : 'pointer', transition: 'background-color 0.15s', '&:hover:not(:disabled)': { backgroundColor: '#FFCF4D' } }}
                   >
                     {submitting ? <><CircularProgress size={14} sx={{ color: C.muted, mr: 0.5 }} /> Enriching article…</> : 'Enrich article with my answers →'}
                   </Box>
@@ -374,7 +374,7 @@ export default function BlogDraftChatPage({ params }) {
             <IconButton
               onClick={handleSend}
               disabled={!currentInput.trim()}
-              sx={{ width: 44, height: 44, backgroundColor: currentInput.trim() ? C.accent : C.cardAlt, color: currentInput.trim() ? '#000' : C.muted, borderRadius: 2, flexShrink: 0, '&:hover': { backgroundColor: currentInput.trim() ? '#B8932A' : C.cardAlt }, transition: 'background-color 0.15s', '&:disabled': { backgroundColor: C.cardAlt, color: C.muted } }}
+              sx={{ width: 44, height: 44, backgroundColor: currentInput.trim() ? C.accent : C.cardAlt, color: currentInput.trim() ? '#000' : C.muted, borderRadius: 2, flexShrink: 0, '&:hover': { backgroundColor: currentInput.trim() ? '#FFCF4D' : C.cardAlt }, transition: 'background-color 0.15s', '&:disabled': { backgroundColor: C.cardAlt, color: C.muted } }}
             >
               <SendIcon fontSize="small" />
             </IconButton>

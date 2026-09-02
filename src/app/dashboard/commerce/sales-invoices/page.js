@@ -43,16 +43,16 @@ import NewRepairForm from '@/app/components/repairs/NewRepairForm';
 import { deriveRepairItemMetadata } from '@/lib/productRepairMetadata';
 
 const UI = {
-  bgPrimary: '#0F1115',
-  bgPanel: '#15181D',
-  bgCard: '#171A1F',
-  bgTertiary: '#1F232A',
-  border: '#2A2F38',
-  textPrimary: '#E6E8EB',
+  bgPrimary: '#08090B',
+  bgPanel: '#131416',
+  bgCard: '#12141A',
+  bgTertiary: '#1B1C1E',
+  border: 'rgba(255,255,255,0.12)',
+  textPrimary: '#FFFFFF',
   textHeader: '#D1D5DB',
-  textSecondary: '#9CA3AF',
-  textMuted: '#6B7280',
-  accent: '#D4AF37',
+  textSecondary: 'rgba(255,255,255,0.66)',
+  textMuted: 'rgba(255,255,255,0.5)',
+  accent: '#FBBF24',
 };
 
 const money = (value) => `$${Number(value || 0).toFixed(2)}`;

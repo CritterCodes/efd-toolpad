@@ -19,15 +19,15 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import LinkIcon from '@mui/icons-material/OpenInNew';
 
 const C = {
-  bg: '#0F1115',
-  surface: '#15181D',
+  bg: '#08090B',
+  surface: '#131416',
   card: '#1A1D23',
-  cardAlt: '#1F232A',
-  border: '#2A2F38',
+  cardAlt: '#1B1C1E',
+  border: 'rgba(255,255,255,0.12)',
   text: '#E5E7EB',
-  muted: '#6B7280',
-  accent: '#D4AF37',
-  accentDim: '#D4AF3722',
+  muted: 'rgba(255,255,255,0.5)',
+  accent: '#FBBF24',
+  accentDim: '#FBBF2422',
   success: '#22C55E',
   successDim: '#22C55E18',
   info: '#3B82F6',
@@ -189,7 +189,7 @@ export default function BlogReviewPage({ params }) {
           <Typography sx={{ color: C.muted, mb: 3, fontSize: '0.9rem' }}>The post is published and the site has been revalidated.</Typography>
           <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'center' }}>
             <Box component="a" href={`https://shop.engelfinedesign.com/blog/${published}`} target="_blank"
-              sx={{ px: 2.5, py: 1, backgroundColor: C.accent, color: '#000', borderRadius: 1.5, fontWeight: 600, fontSize: '0.875rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 0.5, '&:hover': { backgroundColor: '#B8932A' } }}>
+              sx={{ px: 2.5, py: 1, backgroundColor: C.accent, color: '#000', borderRadius: 1.5, fontWeight: 600, fontSize: '0.875rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 0.5, '&:hover': { backgroundColor: '#FFCF4D' } }}>
               View Article <LinkIcon sx={{ fontSize: 14 }} />
             </Box>
             <Box component="button" onClick={() => router.push('/dashboard/blogs')}
@@ -280,7 +280,7 @@ export default function BlogReviewPage({ params }) {
                 backgroundColor: publishing ? C.border : C.accent, color: publishing ? C.muted : '#000',
                 border: 'none', borderRadius: 1.5, fontWeight: 600, fontSize: '0.8rem',
                 cursor: publishing ? 'not-allowed' : 'pointer', transition: 'background-color 0.15s',
-                '&:hover:not(:disabled)': { backgroundColor: '#B8932A' },
+                '&:hover:not(:disabled)': { backgroundColor: '#FFCF4D' },
               }}
             >
               {publishing
@@ -369,7 +369,7 @@ export default function BlogReviewPage({ params }) {
               sx={{
                 width: 44, height: 44, backgroundColor: input.trim() && !editing ? C.accent : C.cardAlt,
                 color: input.trim() && !editing ? '#000' : C.muted, borderRadius: 2, flexShrink: 0,
-                '&:hover': { backgroundColor: input.trim() && !editing ? '#B8932A' : C.cardAlt },
+                '&:hover': { backgroundColor: input.trim() && !editing ? '#FFCF4D' : C.cardAlt },
                 transition: 'background-color 0.15s',
                 '&:disabled': { backgroundColor: C.cardAlt, color: C.muted },
               }}

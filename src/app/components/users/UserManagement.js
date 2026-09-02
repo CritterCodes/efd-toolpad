@@ -512,7 +512,7 @@ const UserManagement = ({
             variant="contained"
             onClick={saveCompensationProfile}
             disabled={saving || !selectedUser}
-            sx={{ bgcolor: UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}
+            sx={{ bgcolor: UI.accent, color: '#000', '&:hover': { bgcolor: '#FFCF4D' } }}
           >
             {saving ? 'Saving...' : 'Save'}
           </Button>

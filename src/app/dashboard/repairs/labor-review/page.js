@@ -229,7 +229,7 @@ function ReviewCard({ log, jewelers = [], onApprove, loading, onOpenRepair }) {
           variant="contained"
           disabled={loading || (splitMode && !allocValid)}
           onClick={submit}
-          sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}
+          sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#FFCF4D' } }}
         >
           {splitMode ? 'Finalize Split' : 'Finalize Review'}
         </Button>

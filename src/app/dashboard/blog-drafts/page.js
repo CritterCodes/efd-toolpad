@@ -15,12 +15,12 @@ import ArticleIcon from '@mui/icons-material/Article';
 import QuizIcon from '@mui/icons-material/Quiz';
 
 const C = {
-  bg: '#15181D',
+  bg: '#131416',
   card: '#1A1D23',
-  border: '#2A2F38',
+  border: 'rgba(255,255,255,0.12)',
   text: '#D1D5DB',
-  muted: '#9CA3AF',
-  accent: '#D4AF37',
+  muted: 'rgba(255,255,255,0.66)',
+  accent: '#FBBF24',
 };
 
 export default function BlogDraftsPage() {
@@ -113,20 +113,20 @@ export default function BlogDraftsPage() {
                     label={`${draft.questionnaire?.length ?? 0} questions`}
                     size="small"
                     icon={<QuizIcon sx={{ fontSize: '14px !important' }} />}
-                    sx={{ backgroundColor: '#2A2F38', color: C.accent, border: `1px solid ${C.accent}33`, flexShrink: 0 }}
+                    sx={{ backgroundColor: 'rgba(255,255,255,0.12)', color: C.accent, border: `1px solid ${C.accent}33`, flexShrink: 0 }}
                   />
                 </Box>
                 <Typography variant="body2" sx={{ color: C.muted, mb: 1.5, lineHeight: 1.5 }}>
                   {draft.excerpt}
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  <Chip label={draft.category} size="small" sx={{ backgroundColor: '#1F232A', color: C.muted, fontSize: '0.75rem' }} />
-                  <Chip label={`${draft.wordCount?.toLocaleString()} words`} size="small" sx={{ backgroundColor: '#1F232A', color: C.muted, fontSize: '0.75rem' }} />
-                  <Chip label={`${draft.readingTime} min read`} size="small" sx={{ backgroundColor: '#1F232A', color: C.muted, fontSize: '0.75rem' }} />
+                  <Chip label={draft.category} size="small" sx={{ backgroundColor: '#1B1C1E', color: C.muted, fontSize: '0.75rem' }} />
+                  <Chip label={`${draft.wordCount?.toLocaleString()} words`} size="small" sx={{ backgroundColor: '#1B1C1E', color: C.muted, fontSize: '0.75rem' }} />
+                  <Chip label={`${draft.readingTime} min read`} size="small" sx={{ backgroundColor: '#1B1C1E', color: C.muted, fontSize: '0.75rem' }} />
                   <Chip
                     label={new Date(draft.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     size="small"
-                    sx={{ backgroundColor: '#1F232A', color: C.muted, fontSize: '0.75rem' }}
+                    sx={{ backgroundColor: '#1B1C1E', color: C.muted, fontSize: '0.75rem' }}
                   />
                 </Box>
               </CardContent>

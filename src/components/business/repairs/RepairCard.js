@@ -11,32 +11,32 @@ import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 import RepairThumbnail from '@/app/dashboard/repairs/components/RepairThumbnail';
 
 const REPAIR_UI = {
-    bgCard: '#171A1F',
-    bgPanel: '#15181D',
-    border: '#2A2F38',
-    textPrimary: '#E6E8EB',
+    bgCard: '#12141A',
+    bgPanel: '#131416',
+    border: 'rgba(255,255,255,0.12)',
+    textPrimary: '#FFFFFF',
     textHeader: '#D1D5DB',
-    textSecondary: '#9CA3AF',
-    textMuted: '#6B7280',
-    accent: '#D4AF37',
+    textSecondary: 'rgba(255,255,255,0.66)',
+    textMuted: 'rgba(255,255,255,0.5)',
+    accent: '#FBBF24',
     shadow: '0 8px 24px rgba(0,0,0,0.45)'
 };
 
 const getStatusColor = (status) => {
     const colorMap = {
-        'RECEIVING': '#D4AF37',
-        'NEEDS PARTS': '#9CA3AF',
-        'PARTS ORDERED': '#9CA3AF',
-        'READY FOR WORK': '#D4AF37',
-        'IN PROGRESS': '#D4AF37',
-        'QC': '#E6E8EB',
-        'READY FOR PICKUP': '#D4AF37',
-        'READY FOR PICK-UP': '#D4AF37',
-        'COMPLETED': '#9CA3AF',
-        'DELIVERY BATCHED': '#9CA3AF',
-        'PAID_CLOSED': '#9CA3AF',
-        'PENDING PICKUP': '#9CA3AF',
-        'PICKUP REQUESTED': '#9CA3AF',
+        'RECEIVING': '#FBBF24',
+        'NEEDS PARTS': 'rgba(255,255,255,0.66)',
+        'PARTS ORDERED': 'rgba(255,255,255,0.66)',
+        'READY FOR WORK': '#FBBF24',
+        'IN PROGRESS': '#FBBF24',
+        'QC': '#FFFFFF',
+        'READY FOR PICKUP': '#FBBF24',
+        'READY FOR PICK-UP': '#FBBF24',
+        'COMPLETED': 'rgba(255,255,255,0.66)',
+        'DELIVERY BATCHED': 'rgba(255,255,255,0.66)',
+        'PAID_CLOSED': 'rgba(255,255,255,0.66)',
+        'PENDING PICKUP': 'rgba(255,255,255,0.66)',
+        'PICKUP REQUESTED': 'rgba(255,255,255,0.66)',
     };
     return colorMap[status] || REPAIR_UI.textMuted;
 };

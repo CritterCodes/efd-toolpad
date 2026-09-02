@@ -298,14 +298,14 @@ function buildInvoicePrintHtml(invoice) {
       .title { font-size: 18px; font-weight: 700; text-align: right; }
       .zelle-header { display: grid; grid-template-columns: 0.78in 1fr; gap: 7px; align-items: center; border: 1px solid #D1D5DB; padding: 6px; min-width: 2.25in; }
       .zelle-header img { width: 0.78in; height: 0.78in; object-fit: contain; display: block; }
-      .muted { color: #6B7280; font-size: 11px; margin-top: 3px; }
+      .muted { color: rgba(255,255,255,0.5); font-size: 11px; margin-top: 3px; }
       .mono { font-family: "Courier New", monospace; }
       .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
       .box { border: 1px solid #D1D5DB; padding: 8px; min-height: 48px; }
-      .label { color: #6B7280; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+      .label { color: rgba(255,255,255,0.5); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
       .value { font-size: 13px; font-weight: 700; }
       table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-      th { text-align: left; color: #374151; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid #9CA3AF; padding: 7px 6px; }
+      th { text-align: left; color: #374151; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid rgba(255,255,255,0.66); padding: 7px 6px; }
       td { border-bottom: 1px solid #E5E7EB; padding: 7px 6px; vertical-align: top; }
       .money { text-align: right; white-space: nowrap; }
       .strong { font-weight: 700; }

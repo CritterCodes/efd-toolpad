@@ -352,7 +352,7 @@ export default function ContinuousBarcodeScanner({
             bgcolor: REPAIRS_UI.accent,
             color: '#000',
             fontWeight: 700,
-            '&:hover': { bgcolor: '#c9a227' },
+            '&:hover': { bgcolor: '#FFCF4D' },
           }}
         >
           {actionLabel}

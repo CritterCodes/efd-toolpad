@@ -378,7 +378,7 @@ export default function BenchPage() {
           />
           <Button type="submit" variant="outlined" startIcon={<ScanIcon />} disabled={scanLoading || !scanValue.trim()} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>Queue Scan</Button>
           <Button type="button" variant="outlined" startIcon={<ScanIcon />} disabled={scanLoading} onClick={() => setClaimScannerOpen(true)} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>Camera Scan</Button>
-          <Button type="button" variant="contained" disabled={scanLoading || queuedClaimIDs.length === 0} onClick={claimQueued} sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}>
+          <Button type="button" variant="contained" disabled={scanLoading || queuedClaimIDs.length === 0} onClick={claimQueued} sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#FFCF4D' } }}>
             {scanLoading ? 'Claiming…' : `Claim ${queuedClaimIDs.length} Queued`}
           </Button>
         </Box>
@@ -506,7 +506,7 @@ export default function BenchPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={closePartsDialog} disabled={partsLoading}>Cancel</Button>
-          <Button variant="contained" onClick={submitNeedsParts} disabled={partsLoading} sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}>
+          <Button variant="contained" onClick={submitNeedsParts} disabled={partsLoading} sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#FFCF4D' } }}>
             {partsLoading ? 'Moving…' : 'Add Material & Move'}
           </Button>
         </DialogActions>

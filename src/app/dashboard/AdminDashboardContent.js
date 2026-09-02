@@ -39,16 +39,16 @@ import { useRepairs } from '@/app/context/repairs.context';
 import ContinuousBarcodeScanner from '@/components/repairs/ContinuousBarcodeScanner';
 
 const COLORS = {
-  bgPrimary: '#0F1115',
-  bgPanel: '#15181D',
-  bgSecondary: '#171A1F',
-  bgTertiary: '#1F232A',
-  border: '#2A2F38',
-  textPrimary: '#E6E8EB',
+  bgPrimary: '#08090B',
+  bgPanel: '#131416',
+  bgSecondary: '#12141A',
+  bgTertiary: '#1B1C1E',
+  border: 'rgba(255,255,255,0.12)',
+  textPrimary: '#FFFFFF',
   textHeader: '#D1D5DB',
-  textSecondary: '#9CA3AF',
-  textMuted: '#6B7280',
-  accent: '#D4AF37',
+  textSecondary: 'rgba(255,255,255,0.66)',
+  textMuted: 'rgba(255,255,255,0.5)',
+  accent: '#FBBF24',
 };
 
 function formatCurrency(value) {
@@ -410,7 +410,7 @@ function RepairLookupPanel({ repairs, onNavigate, autoOpenScanner = false }) {
               minWidth: { xs: '100%', md: 120 },
               textTransform: 'none',
               fontWeight: 700,
-              '&:hover': { bgcolor: '#c9a227' },
+              '&:hover': { bgcolor: '#FFCF4D' },
               '&.Mui-disabled': {
                 bgcolor: COLORS.bgTertiary,
                 color: COLORS.textMuted,

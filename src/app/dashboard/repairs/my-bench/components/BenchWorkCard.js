@@ -37,7 +37,7 @@ const QUEUE_META = {
 };
 
 const btn = (extra = {}) => ({ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border, fontSize: '0.75rem', ...extra });
-const goldBtn = { bgcolor: REPAIRS_UI.accent, color: '#000', fontSize: '0.75rem', '&:hover': { bgcolor: '#c9a227' } };
+const goldBtn = { bgcolor: REPAIRS_UI.accent, color: '#000', fontSize: '0.75rem', '&:hover': { bgcolor: '#FFCF4D' } };
 
 function sourceTitle(wo) {
   const s = wo.source || {};

@@ -73,12 +73,12 @@ export default function AssignMaterialsPage() {
   }, [customID, glbUrl, workOrderID, back]);
 
   if (loading) {
-    return <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}><CircularProgress sx={{ color: '#D4AF37' }} /></Box>;
+    return <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}><CircularProgress sx={{ color: '#FBBF24' }} /></Box>;
   }
   if (error || !glbUrl) {
     return (
       <Box sx={{ p: 4 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={back} sx={{ color: '#9CA3AF', mb: 2 }}>Back to bench</Button>
+        <Button startIcon={<ArrowBackIcon />} onClick={back} sx={{ color: 'rgba(255,255,255,0.66)', mb: 2 }}>Back to bench</Button>
         <Typography color="error">{error || 'This custom order has no uploaded GLB yet — upload the GLB on the work order first.'}</Typography>
       </Box>
     );

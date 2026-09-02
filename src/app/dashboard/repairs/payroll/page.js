@@ -661,7 +661,7 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
             <Button
               variant="contained"
               onClick={() => openOwnerDraw(null)}
-              sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}
+              sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#FFCF4D' } }}
             >
               Record Owner Draw
             </Button>
@@ -984,7 +984,7 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
                 variant="contained"
                 onClick={saveOwnerDraw}
                 disabled={actionLoading || ownerOperators.length === 0}
-                sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}
+                sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#FFCF4D' } }}
               >
                 {actionLoading ? 'Saving...' : selectedDetail?.drawID ? 'Save Draw' : 'Record Draw'}
               </Button>
@@ -995,7 +995,7 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
               variant="contained"
               onClick={createBatch}
               disabled={actionLoading}
-              sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}
+              sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#FFCF4D' } }}
             >
               {actionLoading ? 'Creating...' : 'Create Batch'}
             </Button>
@@ -1009,7 +1009,7 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
                 variant="contained"
                 onClick={() => updateBatch('finalize')}
                 disabled={actionLoading}
-                sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}
+                sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#FFCF4D' } }}
               >
                 {actionLoading ? 'Saving...' : 'Finalize Batch'}
               </Button>
@@ -1024,7 +1024,7 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
                 variant="contained"
                 onClick={() => updateBatch('mark_paid')}
                 disabled={actionLoading}
-                sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}
+                sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#FFCF4D' } }}
               >
                 {actionLoading ? 'Saving...' : 'Mark Paid'}
               </Button>

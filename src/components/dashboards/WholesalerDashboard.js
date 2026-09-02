@@ -9,15 +9,15 @@ import { useRouter } from 'next/navigation';
 import { useWholesalerDashboard } from '@/hooks/dashboards/useWholesalerDashboard';
 
 const C = {
-    bgPanel: '#15181D',
-    bgCard: '#171A1F',
-    bgTertiary: '#1F232A',
-    border: '#2A2F38',
-    textPrimary: '#E6E8EB',
+    bgPanel: '#131416',
+    bgCard: '#12141A',
+    bgTertiary: '#1B1C1E',
+    border: 'rgba(255,255,255,0.12)',
+    textPrimary: '#FFFFFF',
     textHeader: '#D1D5DB',
-    textSecondary: '#9CA3AF',
-    textMuted: '#6B7280',
-    accent: '#D4AF37',
+    textSecondary: 'rgba(255,255,255,0.66)',
+    textMuted: 'rgba(255,255,255,0.5)',
+    accent: '#FBBF24',
     shadow: '0 8px 24px rgba(0,0,0,0.45)',
 };
 
