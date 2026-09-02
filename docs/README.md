@@ -16,6 +16,12 @@ Welcome to the comprehensive documentation for the Engel Fine Design Admin CRM S
 - **[REPAIR_TASKS_TRACKER.md](migration/REPAIR_TASKS_TRACKER.md)** - Detailed progress tracking and completion status
 - **[REPAIR_TASK_SCHEMA_V2.md](migration/REPAIR_TASK_SCHEMA_V2.md)** - Database schema documentation and structure
 
+### **Manufacturing / Production Documentation** (`/manufacturing/`)
+- **[CLAUDE_HANDOFF_2026-07-17.md](manufacturing/CLAUDE_HANDOFF_2026-07-17.md)** - Current handoff for Products, Drops, Collections, Designs, Pieces, casting, Stripe/custom-order context, and BARF status.
+- **[README.md](manufacturing/README.md)** - Manufacturing system orientation and locked decisions.
+- **[data-model.md](manufacturing/data-model.md)** - Canonical collection model; update alongside data-shape changes.
+- **[PRODUCTION_PIPELINE_VISION.md](manufacturing/PRODUCTION_PIPELINE_VISION.md)** - Production-pipeline vision and legacy context.
+
 ### **📁 API Documentation** (`/api/`)
 - **[API_REFERENCE.md](api/API_REFERENCE.md)** - Complete API endpoint documentation
 - **[SHOPIFY_INTEGRATION.md](api/SHOPIFY_INTEGRATION.md)** - Shopify API integration guide
