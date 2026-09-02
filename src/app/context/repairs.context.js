@@ -26,37 +26,43 @@ export const useRepairs = () => {
 // Repairs Provider Component
 export const RepairsProvider = ({ children }) => {
     const sessionState = useSession() || {};
-    const { data: session = null } = sessionState;
+    const { data: session = null, status: sessionStatus } = sessionState;
     const [repairs, setRepairs] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    // Depend on stable primitives, not session.user itself — useSession returns a
+    // new object on every /api/auth/session poll, and keying on object identity
+    // put the fetch effect in a continuous refetch loop.
+    const userKey = session?.user?.userID || session?.user?.email || null;
+    const role = session?.user?.role;
+    const isOnsite = session?.user?.employment?.isOnsite === true;
+    const hasRepairOps = session?.user?.staffCapabilities?.repairOps === true;
 
     /**
      * Fetch repairs based on user role
      */
     const fetchRepairs = useCallback(async () => {
-        if (!session?.user) {
+        if (!userKey) {
             setLoading(false);
             return;
         }
 
         const rolesWithoutRepairs = ['affiliate', 'artisan-applicant', 'client', 'customer'];
-        const isOnsiteRepairOps = session.user.role === 'artisan'
-            && session.user.employment?.isOnsite === true
-            && session.user.staffCapabilities?.repairOps === true;
+        const isOnsiteRepairOps = role === 'artisan' && isOnsite && hasRepairOps;
 
-        if (rolesWithoutRepairs.includes(session.user.role) || (session.user.role === 'artisan' && !isOnsiteRepairOps)) {
+        if (rolesWithoutRepairs.includes(role) || (role === 'artisan' && !isOnsiteRepairOps)) {
             setRepairs([]);
             setLoading(false);
             return;
         }
 
-        console.log("🔄 Starting repairs fetch for role:", session.user.role);
+        console.log("🔄 Starting repairs fetch for role:", role);
         setLoading(true);
         try {
             let data;
 
             // Role-based data fetching
-            if (session.user.role === 'wholesaler') {
+            if (role === 'wholesaler') {
                 console.log("🔄 Fetching repairs for wholesaler via /api/repairs/my-repairs");
                 // Wholesalers only see their own repairs
                 const response = await fetch('/api/repairs/my-repairs');
@@ -88,7 +94,7 @@ export const RepairsProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    }, [session?.user]);
+    }, [userKey, role, isOnsite, hasRepairOps]);
 
     /**
      * Add a new repair to the context
@@ -131,14 +137,19 @@ export const RepairsProvider = ({ children }) => {
     };
 
     useEffect(() => {
-        if (session?.user) {
+        if (userKey) {
             // Add a small delay to ensure session cookies are established
             const timer = setTimeout(() => {
                 fetchRepairs();
             }, 100);
             return () => clearTimeout(timer);
         }
-    }, [session?.user, fetchRepairs]); // Refetch when session changes
+        if (sessionStatus === "unauthenticated") {
+            // Signed out: nothing to fetch, don't leave consumers stuck on loading
+            setRepairs([]);
+            setLoading(false);
+        }
+    }, [userKey, sessionStatus, fetchRepairs]); // Refetch only when the signed-in user (not the session object identity) changes
 
     return (
         <RepairsContext.Provider value={{ 

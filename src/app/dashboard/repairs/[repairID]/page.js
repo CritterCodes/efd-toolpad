@@ -172,7 +172,9 @@ const ViewRepairPage = ({ params }) => {
         }
 
         return () => { cancelled = true; };
-    }, [repairID, repairs, session?.user]);
+    // Depend on the primitives the effect reads, not session.user object identity —
+    // useSession returns a new object per poll and identity deps loop the fetch.
+    }, [repairID, repairs, session?.user?.role, session?.user?.email, session?.user?.userID]);
 
     React.useEffect(() => {
         let cancelled = false;
@@ -229,7 +231,7 @@ const ViewRepairPage = ({ params }) => {
         fetchFreshRepair();
 
         return () => { cancelled = true; };
-    }, [repairID, session?.user, setRepairs]);
+    }, [repairID, session?.user?.userID, session?.user?.email, setRepairs]);
 
     if (loading) {
         return <Typography>Loading repair data...</Typography>;

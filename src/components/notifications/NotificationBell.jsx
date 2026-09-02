@@ -63,7 +63,10 @@ export default function NotificationBell() {
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 60000);
     return () => clearInterval(interval);
-  }, [session]);
+    // Keyed on stable user primitives — a `session` identity dep re-fetched and
+    // rebuilt the interval on every next-auth session poll.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.userID, session?.user?.email]);
 
   const handleClick = (event) => {
     setAnchorEl(event.currentTarget);
