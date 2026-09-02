@@ -301,15 +301,19 @@ export const AdminSettingsProvider = ({ children }) => {
   //
   // The repair intake form doesn't rely on this: it reads /api/admin/settings directly, which now
   // serves a quoting subset to non-staff.
+  //
+  // Keyed on the user's role, not the session object: useSession hands back a new
+  // session object on every /api/auth/session poll, so an identity dep refetches in a loop.
+  const sessionRole = session?.user?.role;
   useEffect(() => {
-    if (session?.user && STAFF_ROLES.includes(session.user.role)) {
+    if (sessionRole && STAFF_ROLES.includes(sessionRole)) {
       fetchAdminSettings();
     } else {
       // Defaults when unauthenticated, or when this caller isn't entitled to the real settings.
       setAdminSettings(defaultSettings);
       setLoading(false);
     }
-  }, [session, fetchAdminSettings, defaultSettings]);
+  }, [sessionRole, fetchAdminSettings, defaultSettings]);
 
   const contextValue = {
     adminSettings,

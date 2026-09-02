@@ -169,7 +169,9 @@ export default function MyRepairsPage() {
 
   useEffect(() => {
     if (session?.user) fetchMyRepairs();
-  }, [session?.user]);
+    // Key on stable primitives — session?.user is a new object on every
+    // next-auth session poll, which looped this fetch.
+  }, [session?.user?.userID, session?.user?.email]);
 
   const fetchMyRepairs = async (status = null) => {
     try {
