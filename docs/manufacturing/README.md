@@ -4,6 +4,11 @@ This is the design home for EFD's move from a repair-only shop system to a unifi
 **production + custom + repair + marketplace** platform. Everything here is the agreed
 design; code is built sprint-by-sprint (see [sprints.md](./sprints.md)).
 
+> **Latest handoff:** read [CLAUDE_HANDOFF_2026-07-17.md](./CLAUDE_HANDOFF_2026-07-17.md)
+> before continuing Products/Drops/Collections/Designs/Pieces or casting work. It records
+> newer owner decisions that supersede older Drop/Collection and "concept" assumptions in
+> some existing docs.
+
 > **Anti-drift rule:** [data-model.md](./data-model.md) is the single source of truth for
 > every collection and field. Any sprint that changes data **must update data-model.md in
 > the same PR**. If a structure isn't in that file, it doesn't exist. Don't invent new shapes
