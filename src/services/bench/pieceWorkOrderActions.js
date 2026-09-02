@@ -570,7 +570,17 @@ export async function approveCadQc({ session, workOrderID }) {
   }
 
   // Author's CAD design fee → payable now that QC passed. Payer scope from the piece's owner.
-  if (Number(wo.flatFee) > 0) {
+  //
+  // GUARDED against a second approval of the same work order, exactly as the QC review fee below is.
+  // Nothing stops approveCadQc running twice — loadPieceWorkOrder checks existence and discipline, not
+  // status — and the realistic trigger is a retry: billing fails transiently, staff see the error and
+  // click Approve again. Unguarded, that writes a SECOND cad_design_fee, which double-credits the
+  // author in payroll, inflates piece COGS, and (since billableLabor sums the logs) raises an invoice
+  // for twice the fee. The invoice dedupe can't help — the whole scenario begins with no invoice.
+  const alreadyPaidDesignFee = Number(wo.flatFee) > 0
+    ? await (await db.connect()).collection('laborLogs').findOne({ workOrderID, sourceAction: 'cad_design_fee' })
+    : null;
+  if (Number(wo.flatFee) > 0 && !alreadyPaidDesignFee) {
     const cadScope = await resolvePieceLaborScope({ pieceID: wo.sourceID, laborerUserID: wo.assignedToUserID });
     await RepairLaborLogsModel.create({
       workOrderID, sourceType: wo.sourceType, sourceID: wo.sourceID,
@@ -590,11 +600,24 @@ export async function approveCadQc({ session, workOrderID }) {
   });
   if (!alreadyReviewed) {
     const qcReviewFee = await getQcReviewFee();
+    // Resolve the payer for the REVIEWER's labor the same way the design fee does, instead of letting
+    // the model default it to 'efd'. The rule is mechanical (laborPayer.js): 'self' only when the
+    // laborer IS the piece's owning artisan.
+    //
+    // This is not cosmetic. Self-review is blocked for the AUTHOR, but an owner who outsourced the CAD
+    // may review it themselves — and the default billed them, through the wholesale markup, for their
+    // own labour on their own piece. That is renting on self-work, which is exactly what EFD doesn't do.
+    //
+    // What it does NOT change: a solo artisan whose CAD is reviewed by EFD staff still pays the review
+    // fee. The reviewer's time is genuinely EFD-paid labour on that artisan's piece — facilitated
+    // infrastructure, the thing EFD does charge for — so 'efd' is the correct answer there.
+    const reviewScope = await resolvePieceLaborScope({ pieceID: wo.sourceID, laborerUserID: session.user.userID });
     await RepairLaborLogsModel.create({
       workOrderID, sourceType: wo.sourceType, sourceID: wo.sourceID,
       primaryJewelerUserID: session.user.userID, primaryJewelerName: session.user.name,
       creditedLaborHours: 0, creditedValue: qcReviewFee,
       sourceAction: 'cad_qc_review', requiresAdminReview: false,
+      payer: reviewScope.payer, payeeUserID: reviewScope.payeeUserID,
       notes: 'CAD QC peer review.',
     });
   }
@@ -603,6 +626,14 @@ export async function approveCadQc({ session, workOrderID }) {
     status: 'COMPLETED', qcBy: session.user.name, qcDate: new Date(),
   });
   const piece = await PiecesModel.recomputeCosts(wo.sourceID);
+
+  // Bill the owning artisan, exactly as completePieceWorkOrderFromQc does (U-BILL-2). This path also
+  // completes a piece work order carrying EFD-paid labor — the cad_design_fee and cad_qc_review logs
+  // written above — so leaving it out would mean whether an artisan is charged depends on WHICH button
+  // staff click. Ordered after the status write and non-throwing for the same reason: QC pass is a
+  // committed money event (that labor is now payable) and a billing failure must not undo it.
+  const { billCompletedWorkOrder } = await import('@/services/production/workOrderBilling');
+  const billing = await billCompletedWorkOrder({ workOrderID, createdBy: session.user.userID });
 
   // GLB passed QC → publish the customer share link so the approved design is viewable
   // in the efd-shop customs portal (+ the public /d/<token> page). Idempotent: reuse an
@@ -648,7 +679,8 @@ export async function approveCadQc({ session, workOrderID }) {
     console.error('[bench] custom-order completion check failed:', e?.message || e);
   }
 
-  return { workOrder, piece };
+  // Same shape as completePieceWorkOrderFromQc: both QC paths now bill, so both report it.
+  return { workOrder, piece, billing };
 }
 
 /** Reject a CAD work order at QC — back to the author (IN PROGRESS), no payout. */
@@ -698,24 +730,26 @@ export async function completePieceWorkOrderFromQc({ workOrderID, completedBy = 
   // QC PASS BILLS THE OWNING ARTISAN — EFD's infrastructure fee (§4c). Until this call existed,
   // `billWorkOrder` had zero callers: labor became payroll-payable here and nobody was ever charged
   // for it. Ordered AFTER the status write and never throwing, because QC pass is itself a committed
-  // money event (labor is now credited) — a billing failure must not undo it. Solo work, EFD-owned
-  // pieces, and staff-owned pieces all correctly bill nothing; see workOrderBilling.
-  // DELIBERATELY NOT ENABLED YET. `billCompletedWorkOrder` is written, tested and mutation-proven, but
-  // a `work_order` invoice currently has NO path to `paid` or `void`: markPaid/markVoid are both
-  // hard-keyed to `casting_batch` (castingSettlement) and there is no artisanInvoices route or admin
-  // UI. So every invoice raised here would go overdue at +14 days and freeze the artisan out of
-  // mintRun / requestDesignCad / casting-create, with nothing in-product to clear it. That is the
-  // invariant this repo states in its own words (castingSettlement.js): "every exit from an invoiced
-  // state must resolve the invoice... Getting this wrong is worse than never billing at all." Casting
-  // ships all three sides (bill on receive, settle on pay, void on cancel); this would ship one.
+  // money event (labor is now credited) — a billing failure must not undo it.
   //
-  // TO ENABLE: build the invoice resolution surface (mark-paid/void route + admin view — U-BILL-2's
-  // foundation), restore the two lines below, and ALSO call it from `approveCadQc`, which likewise
-  // completes a piece WO with billable EFD-paid labor (cad_design_fee + cad_qc_review) and bills
-  // nothing — otherwise whether an artisan is charged depends on which button staff clicks.
-  //   const { billCompletedWorkOrder } = await import('@/services/production/workOrderBilling');
-  //   const billing = await billCompletedWorkOrder({ workOrderID, createdBy: completedBy });
-  const billing = { billed: false, reason: 'work-order billing is not enabled yet' };
+  // WHAT BILLS NOTHING: EFD-owned pieces (nobody to invoice), staff-owned pieces (EFD doesn't bill
+  // EFD), and work orders whose labour is all `payer: 'self'` — an artisan's own hands on their own
+  // piece. What DOES bill is any EFD-paid labour on an artisan's piece, which includes a CAD peer
+  // review done by someone other than the owner even when the artisan did everything else themselves.
+  // That is facilitated infrastructure, not rent on self-work. See workOrderBilling + laborPayer.
+  // ENABLED (U-BILL-2). This was held back because a `work_order` invoice had no path to `paid` or
+  // `void` — it would go overdue at +14 days and freeze the artisan out of mintRun / requestDesignCad /
+  // casting-create with nothing in-product able to clear it. All three exits now exist:
+  //   send  → POST /api/artisanInvoices/[invoiceID]/push-to-stripe (hosted Stripe invoice)
+  //   paid  → Stripe `invoice.paid` → markArtisanInvoicePaid, or the manual mark-paid action
+  //   void  → Stripe `invoice.voided`, or the void action
+  // all surfaced on /dashboard/production/invoices. That satisfies the invariant castingSettlement
+  // states: "every exit from an invoiced state must resolve the invoice."
+  //
+  // Never throws: QC pass is itself a committed money event (labor is credited above), so a billing
+  // failure must not undo it — it returns { billed: false, reason }.
+  const { billCompletedWorkOrder } = await import('@/services/production/workOrderBilling');
+  const billing = await billCompletedWorkOrder({ workOrderID, createdBy: completedBy });
 
   // W3: piece work order passed QC → held labor is now payable. Notify the assigned artisan.
   try {
