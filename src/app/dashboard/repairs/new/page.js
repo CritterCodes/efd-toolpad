@@ -2,23 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { Box, Button, Typography, Alert, Snackbar, Stack, Chip, useMediaQuery, useTheme } from '@mui/material';
+import { Box, Button, Typography, Alert, Snackbar, Stack, useMediaQuery, useTheme } from '@mui/material';
 import { ArrowBack } from '@mui/icons-material';
 import NewRepairForm from '@/app/components/repairs/NewRepairForm';
 import { canCreateRepair } from '@/lib/repairAccess';
-
-const COLORS = {
-  bgPrimary: '#08090B',
-  bgPanel: '#131416',
-  bgCard: '#12141A',
-  bgTertiary: '#1B1C1E',
-  border: 'rgba(255,255,255,0.12)',
-  textPrimary: '#FFFFFF',
-  textHeader: '#D1D5DB',
-  textSecondary: 'rgba(255,255,255,0.66)',
-  textMuted: 'rgba(255,255,255,0.5)',
-  accent: '#FBBF24',
-};
+import { PageHeader, facelift } from '@/components/facelift';
 
 function getProductImageUrl(product) {
   const image = product?.images?.[0]
@@ -212,164 +200,37 @@ const NewRepairPage = () => {
 
   return (
     <Box sx={{ pb: 10 }}>
-      <Stack spacing={3}>
-        <Box
-          sx={{
-            backgroundColor: { xs: 'transparent', sm: COLORS.bgPanel },
-            border: { xs: 'none', sm: `1px solid ${COLORS.border}` },
-            borderRadius: { xs: 0, sm: 3 },
-            boxShadow: { xs: 'none', sm: '0 8px 24px rgba(0,0,0,0.45)' },
-            p: { xs: 0, md: 3, sm: 2.5 },
-          }}
+      <Stack spacing={2.5}>
+        <PageHeader
+          badge={linkedSaleContext ? 'Sales-linked repair' : isWholesaler ? 'Wholesale intake' : 'Repair intake'}
+          title="Create a new repair"
+          subtitle={linkedSaleContext
+            ? 'Create a comped repair ticket from the selected sales invoice line, then print the ticket for bench work.'
+            : 'Intake client details, capture item information, assign services and pricing, then generate the repair ticket.'}
+          actions={(
+            <Button
+              startIcon={<ArrowBack />}
+              onClick={handleCancel}
+              variant="outlined"
+              fullWidth={isMobile}
+            >
+              Back to Repairs
+            </Button>
+          )}
         >
-          <Stack spacing={2.5}>
-            <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" spacing={2}>
-              <Box>
-                <Chip
-                  label={linkedSaleContext ? 'Sales-linked repair' : isWholesaler ? 'Wholesale intake' : 'Repair intake'}
-                  size="small"
-                  sx={{
-                    mb: 1.5,
-                    backgroundColor: COLORS.bgCard,
-                    color: COLORS.textPrimary,
-                    border: `1px solid ${COLORS.border}`,
-                    borderRadius: 2,
-                  }}
-                />
-                <Typography sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: COLORS.textHeader, mb: 1 }}>
-                  Create a new repair
-                </Typography>
-                <Typography sx={{ color: COLORS.textSecondary, maxWidth: 720, lineHeight: 1.6 }}>
-                  {linkedSaleContext
-                    ? 'Create a comped repair ticket from the selected sales invoice line, then print the ticket for bench work.'
-                    : 'Intake client details, capture item information, assign services and pricing, then generate the repair ticket.'}
-                </Typography>
-                {linkedSaleContext && (
-                  <Typography sx={{ color: COLORS.accent, mt: 1, fontWeight: 600 }}>
-                    Linked sale: {linkedSaleContext.invoice.invoiceID} / {linkedSaleContext.line.title}
-                  </Typography>
-                )}
-                {scannedWholesaleStoreId && session?.user?.role !== 'wholesaler' && (
-                  <Typography sx={{ color: COLORS.accent, mt: 1, fontWeight: 600 }}>
-                    Store preset: {wholesalerStoreName || scannedWholesaleStoreId}
-                  </Typography>
-                )}
-              </Box>
-              <Button
-                startIcon={<ArrowBack />}
-                onClick={handleCancel}
-                variant="outlined"
-                fullWidth={isMobile}
-                sx={{
-                  color: COLORS.textPrimary,
-                  borderColor: COLORS.border,
-                  backgroundColor: COLORS.bgCard,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  '&:hover': {
-                    borderColor: COLORS.accent,
-                    backgroundColor: COLORS.bgTertiary,
-                  },
-                }}
-              >
-                Back to Repairs
-              </Button>
-            </Stack>
-          </Stack>
-        </Box>
+          {linkedSaleContext && (
+            <Typography sx={{ color: facelift.gold, mt: 1, fontWeight: 600 }}>
+              Linked sale: {linkedSaleContext.invoice.invoiceID} / {linkedSaleContext.line.title}
+            </Typography>
+          )}
+          {scannedWholesaleStoreId && session?.user?.role !== 'wholesaler' && (
+            <Typography sx={{ color: facelift.gold, mt: 1, fontWeight: 600 }}>
+              Store preset: {wholesalerStoreName || scannedWholesaleStoreId}
+            </Typography>
+          )}
+        </PageHeader>
 
-        <Box
-          sx={{
-            '& .MuiAlert-root': {
-              backgroundColor: COLORS.bgCard,
-              color: COLORS.textPrimary,
-              border: `1px solid ${COLORS.border}`,
-            },
-            '& .MuiPaper-root': {
-              backgroundImage: 'none',
-            },
-            '& .MuiFormLabel-root, & .MuiInputLabel-root, & .MuiFormHelperText-root, & .MuiTypography-caption': {
-              color: `${COLORS.textSecondary} !important`,
-            },
-            '& .MuiTypography-body1, & .MuiTypography-body2': {
-              color: COLORS.textPrimary,
-            },
-            '& .MuiTypography-overline': {
-              color: `${COLORS.textHeader} !important`,
-            },
-            '& .MuiTypography-h6, & .MuiTypography-subtitle1, & .MuiTypography-subtitle2': {
-              color: COLORS.textHeader,
-            },
-            '& .MuiFormControlLabel-label': {
-              color: COLORS.textPrimary,
-            },
-            '& .MuiOutlinedInput-root, & .MuiSelect-select, & .MuiAutocomplete-inputRoot': {
-              backgroundColor: COLORS.bgCard,
-              color: COLORS.textPrimary,
-            },
-            '& .MuiOutlinedInput-root fieldset': {
-              borderColor: COLORS.border,
-            },
-            '& .MuiOutlinedInput-root:hover fieldset': {
-              borderColor: COLORS.textSecondary,
-            },
-            '& .MuiOutlinedInput-root.Mui-focused fieldset': {
-              borderColor: COLORS.accent,
-            },
-            '& .MuiInputBase-input::placeholder': {
-              color: COLORS.textMuted,
-              opacity: 1,
-            },
-            '& .MuiChip-root': {
-              borderRadius: 2,
-            },
-            '& .MuiChip-outlined': {
-              color: COLORS.textPrimary,
-              borderColor: COLORS.border,
-              backgroundColor: COLORS.bgCard,
-            },
-            '& .MuiChip-filled': {
-              color: COLORS.textPrimary,
-              backgroundColor: COLORS.bgTertiary,
-            },
-            '& .MuiButton-outlined': {
-              color: COLORS.textPrimary,
-              borderColor: COLORS.border,
-              backgroundColor: COLORS.bgCard,
-            },
-            '& .MuiButtonBase-root.Mui-disabled, & .MuiLoadingButton-root.Mui-disabled': {
-              color: `${COLORS.textMuted} !important`,
-              borderColor: `${COLORS.border} !important`,
-              backgroundColor: `${COLORS.bgCard} !important`,
-              opacity: 0.55,
-            },
-            '& .MuiButton-text': {
-              color: COLORS.accent,
-            },
-            '& .MuiDivider-root': {
-              borderColor: COLORS.border,
-            },
-            '& .MuiSwitch-track': {
-              backgroundColor: `${COLORS.bgTertiary} !important`,
-            },
-            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-              backgroundColor: `${COLORS.accent} !important`,
-              opacity: 0.35,
-            },
-            '& .MuiSwitch-switchBase.Mui-disabled + .MuiSwitch-track': {
-              opacity: '0.4 !important',
-            },
-            '& .MuiSwitch-switchBase.Mui-disabled .MuiSwitch-thumb': {
-              color: `${COLORS.textMuted} !important`,
-            },
-            '& .MuiFab-root': {
-              backgroundColor: COLORS.bgCard,
-              color: COLORS.accent,
-              border: `1px solid ${COLORS.border}`,
-              boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
-            },
-          }}
-        >
+        <Box>
           {linkedSaleError && <Alert severity="error" sx={{ mb: 2 }}>{linkedSaleError}</Alert>}
           <NewRepairForm
             onSubmit={handleSubmit}
