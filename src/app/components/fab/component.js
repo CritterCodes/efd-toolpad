@@ -102,6 +102,12 @@ const FloatingActionButton = () => {
     if (pathname?.startsWith('/dashboard/finance')) {
         return null;
     }
+
+    // The intake page IS the FAB's primary action — a floating quick-create
+    // button there is redundant and sits on top of the flow's own controls.
+    if (pathname === '/dashboard/repairs/new') {
+        return null;
+    }
     
     // Don't render FAB if no actions available
     if (actions.length === 0) {

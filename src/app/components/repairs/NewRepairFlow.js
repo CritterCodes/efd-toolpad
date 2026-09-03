@@ -356,7 +356,8 @@ export default function NewRepairFlow(props) {
     ? stores.filter((store) => String(store.name || '').toLowerCase().includes(storeQuery.toLowerCase()))
     : stores;
 
-  // Autocomplete: no rows until the user types, then the best 8 matches.
+  // Autocomplete with a shortlist, per the mock: three suggestions while the
+  // search is empty, then the best 8 matches as the user types.
   const filteredClients = clientQuery.trim()
     ? users.filter((opt) => {
         const inputText = clientQuery.toLowerCase().trim();
@@ -366,7 +367,7 @@ export default function NewRepairFlow(props) {
         const business = (opt.business || '').toLowerCase();
         return name.includes(inputText) || email.includes(inputText) || phone.includes(inputText) || business.includes(inputText);
       }).slice(0, 8)
-    : [];
+    : users.slice(0, 3);
   const queryMatchesClient = users.some((opt) => clientLabel(opt).toLowerCase() === clientQuery.toLowerCase().trim());
 
   const metalAllowedTasks = [...availableTasks]
@@ -445,8 +446,7 @@ export default function NewRepairFlow(props) {
   };
 
   return (
-    /* Bottom padding clears the global FAB, which floats over the content. */
-    <Box sx={{ pb: { xs: 14, sm: 4 } }}>
+    <Box sx={{ pb: { xs: 6, sm: 4 } }}>
       <Stack spacing={2.5}>
         <StepHeader step={step} onBack={goBack} onCancel={onCancel || goBack} />
 
@@ -527,7 +527,7 @@ export default function NewRepairFlow(props) {
                       onChange={(e) => setClientQuery(e.target.value)}
                       autoFocus={clientPickerOpen}
                     />
-                    {clientQuery.trim() && (
+                    {(filteredClients.length > 0 || clientQuery.trim()) && (
                       <ChoiceList>
                         {filteredClients.map((opt) => (
                           <ChoiceRow
@@ -547,7 +547,7 @@ export default function NewRepairFlow(props) {
                             }}
                           />
                         ))}
-                        {!isWholesale && !formData.isWholesale && !queryMatchesClient && (
+                        {!isWholesale && !formData.isWholesale && clientQuery.trim() && !queryMatchesClient && (
                           <ChoiceRow
                             lead="+"
                             title={`Use “${clientQuery.trim()}” as the client name`}
@@ -1131,7 +1131,7 @@ export default function NewRepairFlow(props) {
       </Stack>
 
       {/* ── Step actions — sticky, primary under the thumb ─────────────── */}
-      <Box sx={{ mt: 2.5, mr: { xs: 9, sm: 0 } }}>
+      <Box sx={{ mt: 2.5 }}>
         {STEPS[step].next ? (
           <ActionBar>
             <GoldButton onClick={goNext}>{STEPS[step].next}</GoldButton>
