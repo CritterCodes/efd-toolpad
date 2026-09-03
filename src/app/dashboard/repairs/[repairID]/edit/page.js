@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { Alert, Box, Button, Chip, CircularProgress, Snackbar, Stack, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { ArrowBack } from '@mui/icons-material';
 import NewRepairForm from '@/app/components/repairs/NewRepairForm';
+import { canEditRepair, isWholesaleContext } from '@/lib/repairAccess';
 
 const COLORS = {
   bgPrimary: '#08090B',
@@ -43,13 +44,7 @@ export default function EditRepairPage() {
   useEffect(() => {
     if (status !== 'authenticated') return;
 
-    const isAdmin = session?.user?.role === 'admin';
-    const isWholesaler = session?.user?.role === 'wholesaler';
-    const isOnsiteRepairOps = session?.user?.role === 'artisan'
-      && session?.user?.employment?.isOnsite === true
-      && session?.user?.staffCapabilities?.repairOps === true;
-
-    if (!isAdmin && !isWholesaler && !isOnsiteRepairOps) {
+    if (!canEditRepair(session)) {
       router.push('/dashboard');
     }
   }, [router, session, status]);
@@ -92,8 +87,8 @@ export default function EditRepairPage() {
   }, [repairID]);
 
   const isWholesalerRepair = useMemo(() => {
-    return Boolean(repair?.isWholesale || session?.user?.role === 'wholesaler');
-  }, [repair?.isWholesale, session?.user?.role]);
+    return isWholesaleContext(session, repair);
+  }, [repair, session]);
   const wholesalerAccountKey = useMemo(() => {
     if (!repair) return null;
     return repair.storeId || repair.submittedBy || repair.createdBy || null;

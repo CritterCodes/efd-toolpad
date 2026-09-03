@@ -14,6 +14,7 @@ import {
 } from '@mui/icons-material';
 import { wholesaleRepairsClient } from '@/api-clients/wholesaleRepairs.client';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import { isAdminRole, canReceiveWholesale } from '@/lib/repairAccess';
 import { normalizeRepairWorkflow, REPAIR_STATUS } from '@/services/repairWorkflow';
 
 export default function PendingWholesalePage() {
@@ -44,22 +45,14 @@ export default function PendingWholesalePage() {
 
     useEffect(() => { loadRepairs(); }, [loadRepairs]);
     useEffect(() => {
-        const isAdmin = ['admin', 'dev'].includes(session?.user?.role);
-        const canReceiveWholesale = session?.user?.role === 'artisan'
-            && session?.user?.employment?.isOnsite === true
-            && session?.user?.staffCapabilities?.repairOps === true
-            && session?.user?.staffCapabilities?.receiving === true;
+        const canView = isAdminRole(session) || canReceiveWholesale(session);
 
-        if (session && !isAdmin && !canReceiveWholesale) router.replace('/dashboard');
+        if (session && !canView) router.replace('/dashboard');
     }, [session, router]);
 
-    const isAdmin = ['admin', 'dev'].includes(session?.user?.role);
-    const canReceiveWholesale = session?.user?.role === 'artisan'
-        && session?.user?.employment?.isOnsite === true
-        && session?.user?.staffCapabilities?.repairOps === true
-        && session?.user?.staffCapabilities?.receiving === true;
+    const canView = isAdminRole(session) || canReceiveWholesale(session);
 
-    if (!session || (!isAdmin && !canReceiveWholesale)) return null;
+    if (!session || !canView) return null;
 
     const storeGroups = repairs.reduce((acc, repair) => {
         const key = repair.createdBy || repair.userID || 'unknown';

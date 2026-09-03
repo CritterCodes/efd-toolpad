@@ -30,6 +30,7 @@ import {
 } from '@mui/icons-material';
 import RepairsService from '@/services/repairs';
 import UsersService from '@/services/users';
+import { isWholesalerViewer } from '@/lib/repairAccess';
 
 const calculateDisplayedRepairTotal = (repairRecord) => {
     if (!repairRecord) return 0;
@@ -87,12 +88,11 @@ const ViewRepairPage = ({ params }) => {
                 setAccessDenied(false);
 
                 // Check access permissions
-                const userRole = session.user.role;
                 const userEmail = session.user.email;
 
                 // Admins can see all repairs
                 // Wholesalers can only see repairs they created
-                if (userRole === 'wholesaler') {
+                if (isWholesalerViewer(session)) {
                     const isOwner = (
                         foundRepair.createdBy === userEmail ||
                         foundRepair.submittedBy === userEmail ||
@@ -338,7 +338,7 @@ const ViewRepairPage = ({ params }) => {
                                 Print
                             </Button>
                             {/* Hide Edit and Delete buttons for wholesalers */}
-                            {session?.user?.role !== 'wholesaler' && (
+                            {!isWholesalerViewer(session) && (
                                 <>
                                     <Button
                                         variant="outlined"

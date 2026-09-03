@@ -34,6 +34,7 @@ import { useRepairs } from '@/app/context/repairs.context';
 import RepairCard from '@/components/business/repairs/RepairCard';
 import BulkMoveDialog from '@/components/repairs/BulkMoveDialog';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import { isAdminRole, canReceiveRepairs } from '@/lib/repairAccess';
 
 const statCards = [
     { key: 'total', label: 'Total in Receiving', icon: InventoryIcon },
@@ -57,12 +58,9 @@ const ReceivingPage = () => {
         );
     }
 
-    const isAdmin = session?.user?.role === 'admin';
-    const isOnsiteReceiving = session?.user?.staffCapabilities?.repairOps === true
-        && session?.user?.staffCapabilities?.receiving === true
-        && session?.user?.employment?.isOnsite === true;
+    const canView = isAdminRole(session) || canReceiveRepairs(session);
 
-    if (!session?.user || (!isAdmin && !isOnsiteReceiving)) {
+    if (!session?.user || !canView) {
         router.push('/dashboard');
         return null;
     }

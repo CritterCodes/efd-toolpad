@@ -18,6 +18,7 @@ import {
 } from '@mui/icons-material';
 import { wholesaleRepairsClient } from '@/api-clients/wholesaleRepairs.client';
 import { normalizeRepairWorkflow, REPAIR_STATUS } from '@/services/repairWorkflow';
+import { isAdminRole, canReceiveWholesale } from '@/lib/repairAccess';
 
 export default function StorePickupDetailPage() {
     const { data: session } = useSession();
@@ -62,13 +63,9 @@ export default function StorePickupDetailPage() {
     useEffect(() => { loadRepairs(); }, [loadRepairs]);
 
     useEffect(() => {
-        const isAdmin = ['admin', 'dev'].includes(session?.user?.role);
-        const canReceiveWholesale = session?.user?.role === 'artisan'
-            && session?.user?.employment?.isOnsite === true
-            && session?.user?.staffCapabilities?.repairOps === true
-            && session?.user?.staffCapabilities?.receiving === true;
+        const canView = isAdminRole(session) || canReceiveWholesale(session);
 
-        if (session && !isAdmin && !canReceiveWholesale) router.replace('/dashboard');
+        if (session && !canView) router.replace('/dashboard');
     }, [session, router]);
 
     // Auto-focus scanner input when not loading
@@ -129,13 +126,9 @@ export default function StorePickupDetailPage() {
         }
     };
 
-    const isAdmin = ['admin', 'dev'].includes(session?.user?.role);
-    const canReceiveWholesale = session?.user?.role === 'artisan'
-        && session?.user?.employment?.isOnsite === true
-        && session?.user?.staffCapabilities?.repairOps === true
-        && session?.user?.staffCapabilities?.receiving === true;
+    const canView = isAdminRole(session) || canReceiveWholesale(session);
 
-    if (!session || (!isAdmin && !canReceiveWholesale)) return null;
+    if (!session || !canView) return null;
 
     const unreceivedCount = repairs.filter(r => !receivedIds.has(r.repairID)).length;
     const allReceived = repairs.length > 0 && unreceivedCount === 0;

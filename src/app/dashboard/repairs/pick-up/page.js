@@ -41,6 +41,7 @@ import {
 import { REPAIRS_UI } from "@/app/dashboard/repairs/components/repairsUi";
 import RepairThumbnail from "@/app/dashboard/repairs/components/RepairThumbnail";
 import ContinuousBarcodeScanner from "@/components/repairs/ContinuousBarcodeScanner";
+import { canAccessCloseout, canReopenInvoices as canReopenInvoicesGate } from "@/lib/repairAccess";
 
 const currency = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -472,17 +473,6 @@ function getRepairDisplayTotal(repair) {
 function hasAfterPhoto(repair) {
   const afterPhotoCount = Array.isArray(repair.afterPhotos) ? repair.afterPhotos.length : 0;
   return afterPhotoCount > 0;
-}
-
-function canAccessCloseout(session) {
-  if (session?.user?.role === "admin") return true;
-  return session?.user?.role === "artisan"
-    && session?.user?.employment?.isOnsite === true
-    && session?.user?.staffCapabilities?.repairOps === true
-    && (
-      session?.user?.staffCapabilities?.closeoutBilling === true
-      || session?.user?.staffCapabilities?.qualityControl === true
-    );
 }
 
 function RepairCloseoutCard({
@@ -1438,7 +1428,7 @@ export default function PaymentPickupPage() {
   // uses requireRepairOpsAny(['qualityControl','closeoutBilling']). Non-admins must not be offered it;
   // the card renders the block behind `onReopen &&`, so withholding the prop hides it rather than
   // handing onsite staff a button that 403s.
-  const canReopenInvoices = session?.user?.role === "admin";
+  const canReopenInvoices = canReopenInvoicesGate(session);
 
   const handleReopenInvoice = async (invoiceID) => {
     try {

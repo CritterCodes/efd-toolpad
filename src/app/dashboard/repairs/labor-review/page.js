@@ -24,6 +24,7 @@ import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import { canReviewLabor } from '@/lib/repairAccess';
 
 function formatMoney(value) {
   return `$${Number(value || 0).toFixed(2)}`;
@@ -284,14 +285,14 @@ export default function LaborReviewPage() {
   }, []);
 
   useEffect(() => {
-    if (status === 'authenticated' && session?.user?.role !== 'admin') {
+    if (status === 'authenticated' && !canReviewLabor(session)) {
       router.push('/dashboard');
       return;
     }
-    if (status === 'authenticated' && session?.user?.role === 'admin') {
+    if (status === 'authenticated' && canReviewLabor(session)) {
       fetchData();
     }
-  }, [fetchData, router, session?.user?.role, status]);
+  }, [fetchData, router, session, status]);
 
   const currentWeek = useMemo(() => {
     if (!weekly.length) return [];
@@ -352,7 +353,7 @@ export default function LaborReviewPage() {
     setBreakdownError('');
   };
 
-  if (status === 'loading' || (status === 'authenticated' && session?.user?.role !== 'admin')) {
+  if (status === 'loading' || (status === 'authenticated' && !canReviewLabor(session))) {
     return null;
   }
 

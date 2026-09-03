@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { Box, Button, Typography, Alert, Snackbar, Stack, Chip, useMediaQuery, useTheme } from '@mui/material';
 import { ArrowBack } from '@mui/icons-material';
 import NewRepairForm from '@/app/components/repairs/NewRepairForm';
+import { canCreateRepair } from '@/lib/repairAccess';
 
 const COLORS = {
   bgPrimary: '#08090B',
@@ -71,13 +72,7 @@ const NewRepairPage = () => {
   useEffect(() => {
     if (status !== 'authenticated') return;
 
-    const isAdmin = session?.user?.role === 'admin';
-    const isWholesalerRoleCheck = session?.user?.role === 'wholesaler';
-    const isOnsiteRepairOps = session?.user?.role === 'artisan'
-      && session?.user?.employment?.isOnsite === true
-      && session?.user?.staffCapabilities?.repairOps === true;
-
-    if (!isAdmin && !isWholesalerRoleCheck && !isOnsiteRepairOps) {
+    if (!canCreateRepair(session)) {
       router.push('/dashboard');
     }
   }, [router, session, status]);

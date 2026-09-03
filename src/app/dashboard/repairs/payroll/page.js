@@ -34,6 +34,7 @@ import { useRouter } from 'next/navigation';
 import { useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { REPAIRS_UI } from '../components/repairsUi';
+import { canAccessPayroll } from '@/lib/repairAccess';
 import {
   ANALYTICS_BASELINE_NOTE,
   DEFAULT_LABOR_ANALYTICS_START_DATE,
@@ -298,14 +299,14 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
   }, [currentWeekStart]);
 
   useEffect(() => {
-    if (status === 'authenticated' && !['admin', 'dev'].includes(session?.user?.role)) {
+    if (status === 'authenticated' && !canAccessPayroll(session)) {
       router.push('/dashboard');
       return;
     }
-    if (status === 'authenticated' && ['admin', 'dev'].includes(session?.user?.role)) {
+    if (status === 'authenticated' && canAccessPayroll(session)) {
       fetchData();
     }
-  }, [fetchData, router, session?.user?.role, status]);
+  }, [fetchData, router, session, status]);
 
   useEffect(() => {
     if (!ownerDrawUserID && ownerOperators.length > 0) {
@@ -483,7 +484,7 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
     await fetchData();
   });
 
-  if (status === 'loading' || (status === 'authenticated' && !['admin', 'dev'].includes(session?.user?.role))) {
+  if (status === 'loading' || (status === 'authenticated' && !canAccessPayroll(session))) {
     return null;
   }
 

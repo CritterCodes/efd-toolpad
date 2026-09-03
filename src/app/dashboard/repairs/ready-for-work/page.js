@@ -18,6 +18,7 @@ import WorkGrid from './components/WorkGrid';
 import AssignJewelerModal from './components/AssignJewelerModal';
 import { assignJewelerToRepairs, updateRepairAssignment } from './utils/workUtils';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import { isAdminRole, canDoBenchWork } from '@/lib/repairAccess';
 
 const ReadyForWorkPage = () => {
     const { data: session, status: authStatus } = useSession();
@@ -52,22 +53,16 @@ const ReadyForWorkPage = () => {
     } = useReadyForWork();
 
     useEffect(() => {
-        const isAdmin = session?.user?.role === 'admin';
-        const isOnsiteBench = session?.user?.employment?.isOnsite === true
-            && session?.user?.staffCapabilities?.repairOps === true
-            && session?.user?.staffCapabilities?.benchWork === true;
+        const canView = isAdminRole(session) || canDoBenchWork(session);
 
-        if (authStatus !== 'loading' && (!session?.user || (!isAdmin && !isOnsiteBench))) {
+        if (authStatus !== 'loading' && (!session?.user || !canView)) {
             router.push('/dashboard');
         }
     }, [authStatus, session, router]);
 
-    const isAdmin = session?.user?.role === 'admin';
-    const isOnsiteBench = session?.user?.employment?.isOnsite === true
-        && session?.user?.staffCapabilities?.repairOps === true
-        && session?.user?.staffCapabilities?.benchWork === true;
+    const canView = isAdminRole(session) || canDoBenchWork(session);
 
-    if (authStatus === 'loading' || !session?.user || (!isAdmin && !isOnsiteBench)) return null;
+    if (authStatus === 'loading' || !session?.user || !canView) return null;
 
     const filteredRepairs = getFilteredAndSortedRepairs(repairs);
 

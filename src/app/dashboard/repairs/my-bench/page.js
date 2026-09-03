@@ -25,6 +25,7 @@ import { BENCH_QUEUE, BENCH_TABS, isWorkOrderInTab } from '@/services/workOrders
 import { uploadSizeError } from '@/lib/uploadLimits';
 import { directUpload, postFileWithProgress } from '@/lib/directUpload';
 import BenchWorkCard from './components/BenchWorkCard';
+import { isAdminRole } from '@/lib/repairAccess';
 
 const DEFAULT_PARTS_FORM = { source: 'stuller', stullerSku: '', name: '', description: '', quantity: '1', price: '' };
 
@@ -127,7 +128,7 @@ export default function BenchPage() {
   }, [status, fetchWorkOrders, fetchJewelers]);
 
   const userID = session?.user?.userID;
-  const isAdmin = ['admin', 'dev'].includes(session?.user?.role);
+  const isAdmin = isAdminRole(session);
 
   // Unified per-work-order action.
   const runAction = async (wo, action, body = {}) => {
