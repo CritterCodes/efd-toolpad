@@ -239,6 +239,7 @@ export default function NewRepairFlow(props) {
   const [step, setStep] = useState(0);
   const [storePickerOpen, setStorePickerOpen] = useState(false);
   const [storeQuery, setStoreQuery] = useState('');
+  const [clientPickerOpen, setClientPickerOpen] = useState(false);
   const [clientQuery, setClientQuery] = useState('');
   const [taskQuery, setTaskQuery] = useState('');
   const [materialQuery, setMaterialQuery] = useState('');
@@ -262,7 +263,8 @@ export default function NewRepairFlow(props) {
     ? stores.filter((store) => String(store.name || '').toLowerCase().includes(storeQuery.toLowerCase()))
     : stores;
 
-  const filteredClients = (clientQuery
+  // Autocomplete: no rows until the user types, then the best 8 matches.
+  const filteredClients = clientQuery.trim()
     ? users.filter((opt) => {
         const inputText = clientQuery.toLowerCase().trim();
         const name = clientLabel(opt).toLowerCase();
@@ -270,9 +272,8 @@ export default function NewRepairFlow(props) {
         const phone = (opt.phone || opt.phoneNumber || '').toLowerCase();
         const business = (opt.business || '').toLowerCase();
         return name.includes(inputText) || email.includes(inputText) || phone.includes(inputText) || business.includes(inputText);
-      })
-    : users
-  ).slice(0, 12);
+      }).slice(0, 8)
+    : [];
   const queryMatchesClient = users.some((opt) => clientLabel(opt).toLowerCase() === clientQuery.toLowerCase().trim());
 
   const metalAllowedTasks = [...availableTasks]
@@ -374,39 +375,71 @@ export default function NewRepairFlow(props) {
             <SurfaceCard>
               <SectionLabel>Client at this store</SectionLabel>
               <Stack spacing={1.25} sx={{ mt: 1.5 }}>
-                {formData.clientName && (
-                  <Box>
-                    <StatusChip label={`Client: ${formData.clientName}`} hue="#34D399" />
-                  </Box>
-                )}
-                {users.length > 12 && (
-                  <SearchField placeholder="Name, phone, or email…" value={clientQuery} onChange={(e) => setClientQuery(e.target.value)} />
-                )}
-                <ChoiceList>
-                  {filteredClients.map((opt) => (
-                    <ChoiceRow
-                      key={clientId(opt) || clientLabel(opt)}
-                      lead={initials(clientLabel(opt))}
-                      title={clientLabel(opt)}
-                      meta={[opt.phone || opt.phoneNumber, opt.email].filter(Boolean).join(' · ')}
-                      selected={formData.userID ? clientId(opt) === formData.userID : clientLabel(opt) === formData.clientName}
-                      onClick={() => setFormData((prev) => ({
-                        ...prev,
-                        clientName: clientLabel(opt),
-                        userID: clientId(opt)
-                      }))}
+                {formData.clientName && !clientPickerOpen ? (
+                  /* Collapsed, same pattern as the store: the chosen client
+                     with a Change affordance. */
+                  <ChoiceRow
+                    lead={initials(formData.clientName)}
+                    title={formData.clientName}
+                    meta={(() => {
+                      const rec = users.find((u) => formData.userID && clientId(u) === formData.userID);
+                      return rec
+                        ? [rec.phone || rec.phoneNumber, rec.email].filter(Boolean).join(' · ')
+                        : 'Walk-in — no account yet';
+                    })()}
+                    trailing={<Typography component="span" sx={{ color: facelift.gold, fontWeight: 600, fontSize: '0.8125rem', flexShrink: 0 }}>Change</Typography>}
+                    selected
+                    aria-expanded={false}
+                    onClick={() => { setClientPickerOpen(true); setClientQuery(''); }}
+                  />
+                ) : (
+                  /* Autocomplete: search first, rows appear as you type. */
+                  <>
+                    <SearchField
+                      placeholder="Name, phone, or email…"
+                      value={clientQuery}
+                      onChange={(e) => setClientQuery(e.target.value)}
+                      autoFocus={clientPickerOpen}
                     />
-                  ))}
-                  {!isWholesale && !formData.isWholesale && clientQuery.trim() && !queryMatchesClient && (
-                    <ChoiceRow
-                      lead="+"
-                      title={`Use “${clientQuery.trim()}” as the client name`}
-                      meta="Walk-in — no account yet"
-                      onClick={() => setFormData((prev) => ({ ...prev, clientName: clientQuery.trim(), userID: '' }))}
-                    />
-                  )}
-                  <ChoiceRow add title="New client at this store" onClick={() => setShowNewClientDialog(true)} />
-                </ChoiceList>
+                    {clientQuery.trim() && (
+                      <ChoiceList>
+                        {filteredClients.map((opt) => (
+                          <ChoiceRow
+                            key={clientId(opt) || clientLabel(opt)}
+                            lead={initials(clientLabel(opt))}
+                            title={clientLabel(opt)}
+                            meta={[opt.phone || opt.phoneNumber, opt.email].filter(Boolean).join(' · ')}
+                            selected={formData.userID ? clientId(opt) === formData.userID : clientLabel(opt) === formData.clientName}
+                            onClick={() => {
+                              setFormData((prev) => ({
+                                ...prev,
+                                clientName: clientLabel(opt),
+                                userID: clientId(opt)
+                              }));
+                              setClientPickerOpen(false);
+                              setClientQuery('');
+                            }}
+                          />
+                        ))}
+                        {!isWholesale && !formData.isWholesale && !queryMatchesClient && (
+                          <ChoiceRow
+                            lead="+"
+                            title={`Use “${clientQuery.trim()}” as the client name`}
+                            meta="Walk-in — no account yet"
+                            onClick={() => {
+                              setFormData((prev) => ({ ...prev, clientName: clientQuery.trim(), userID: '' }));
+                              setClientPickerOpen(false);
+                              setClientQuery('');
+                            }}
+                          />
+                        )}
+                      </ChoiceList>
+                    )}
+                    <ChoiceList>
+                      <ChoiceRow add title="New client at this store" onClick={() => setShowNewClientDialog(true)} />
+                    </ChoiceList>
+                  </>
+                )}
               </Stack>
             </SurfaceCard>
           </Stack>
