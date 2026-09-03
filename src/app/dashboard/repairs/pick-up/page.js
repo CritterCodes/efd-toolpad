@@ -490,7 +490,6 @@ function RepairCloseoutCard({
   const [pendingPhoto, setPendingPhoto] = useState(null);
   const [pendingPhotoPreview, setPendingPhotoPreview] = useState("");
   const fileInputRef = useRef(null);
-  const afterPhotoCount = Array.isArray(repair.afterPhotos) ? repair.afterPhotos.length : 0;
   const flaggedForReview = repair.requiresLaborReview === true;
   const photoOnFile = hasAfterPhoto(repair);
 
@@ -610,27 +609,21 @@ function RepairCloseoutCard({
             {repair.description || "No description"}
           </Typography>
 
+          {/* After-photo count and its "no photo yet" reminder used to sit here.
+              The shop retired after-pics (CLOSEOUT-FRICTION.md): a zero is the
+              normal case, and styling it amber taught staff to ignore amber.
+              The capture control below stays for the repairs that do warrant
+              a photo. */}
           <Grid container spacing={1.5}>
             <Grid item xs={12} sm={6}>
               <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Current total</Typography>
               <Typography sx={{ color: REPAIRS_UI.textPrimary, fontWeight: 600 }}>{formatCurrency(getRepairDisplayTotal(repair))}</Typography>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>After photos</Typography>
-              <Typography sx={{ color: afterPhotoCount > 0 ? REPAIRS_UI.textPrimary : "#F59E0B", fontWeight: 600 }}>{afterPhotoCount}</Typography>
             </Grid>
           </Grid>
 
           {flaggedForReview && (
             <Alert severity="warning" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
               Labor review is flagged for weekly review. This repair can still be batched into an invoice now.
-            </Alert>
-          )}
-
-          {afterPhotoCount === 0 && (
-            <Alert severity="info" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
-              No after photo yet. One is still worth taking, but it&apos;s optional — confirm whenever
-              you&apos;re ready to move this repair to an invoice.
             </Alert>
           )}
 
@@ -1850,11 +1843,6 @@ export default function PaymentPickupPage() {
                     {legacyClosing ? "Closing..." : `Grace Close Selected (${selectedRepairIDs.length})`}
                   </Button>
                 </Stack>
-                {selectedMissingPhotoCount > 0 && (
-                  <Alert severity="info" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
-                    {selectedMissingPhotoCount} selected repair{selectedMissingPhotoCount !== 1 ? "s have" : " has"} no after photo. They can still be invoiced — this is a reminder, not a block.
-                  </Alert>
-                )}
               </Stack>
             </CardContent>
           </Card>
