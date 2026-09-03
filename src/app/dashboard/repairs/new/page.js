@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { Box, Button, IconButton, Typography, Alert, Snackbar, Stack, useMediaQuery, useTheme } from '@mui/material';
-import { ArrowBack, Close as CloseIcon } from '@mui/icons-material';
+import { Box, Button, Typography, Alert, Snackbar, Stack, useMediaQuery, useTheme } from '@mui/material';
+import { ArrowBack } from '@mui/icons-material';
 import NewRepairForm from '@/app/components/repairs/NewRepairForm';
 import NewRepairFlow from '@/app/components/repairs/NewRepairFlow';
 import { canCreateRepair } from '@/lib/repairAccess';
@@ -38,6 +38,9 @@ const NewRepairPage = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+  // Stepped flow's save choice: "Create & print ticket" (true) vs
+  // "Save without printing" (false). Classic form always prints.
+  const printAfterSaveRef = React.useRef(true);
   const [linkedSaleContext, setLinkedSaleContext] = useState(null);
   const [linkedSaleError, setLinkedSaleError] = useState('');
 
@@ -182,7 +185,10 @@ const NewRepairPage = () => {
         }
       }
 
-      if (repairId) {
+      if (repairId && !printAfterSaveRef.current) {
+        // "Save without printing" (stepped flow) — straight to the queue.
+        router.push('/dashboard/repairs/ready-for-work');
+      } else if (repairId) {
         router.push(`/dashboard/repairs/${repairId}/print`);
       } else {
         console.error('No repair ID found in response:', result);
@@ -207,27 +213,15 @@ const NewRepairPage = () => {
     <Box sx={{ pb: 10 }}>
       <Stack spacing={2.5}>
         {useNextUi ? (
-          /* Compact bar, per the mock: ✕ + "New repair". The stepped flow
-             carries its own progress; a full PageHeader ate the first screen
-             on a phone. */
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minHeight: 44 }}>
-            <IconButton onClick={handleCancel} aria-label="Back to repairs">
-              <CloseIcon />
-            </IconButton>
-            <Typography sx={{ fontWeight: 700, fontSize: '1.0625rem', letterSpacing: '-0.02em' }}>
-              New repair
+          /* The stepped flow renders its own per-step header (✕/‹ + title +
+             dots). The page adds only linked-sale / preset context if any. */
+          (linkedSaleContext || (scannedWholesaleStoreId && session?.user?.role !== 'wholesaler')) && (
+            <Typography variant="caption" sx={{ color: facelift.gold, fontWeight: 600 }}>
+              {linkedSaleContext
+                ? `Linked sale: ${linkedSaleContext.invoice.invoiceID}`
+                : `Store preset: ${wholesalerStoreName || scannedWholesaleStoreId}`}
             </Typography>
-            {linkedSaleContext && (
-              <Typography variant="caption" sx={{ color: facelift.gold, ml: 'auto', fontWeight: 600 }}>
-                Linked sale: {linkedSaleContext.invoice.invoiceID}
-              </Typography>
-            )}
-            {scannedWholesaleStoreId && session?.user?.role !== 'wholesaler' && (
-              <Typography variant="caption" sx={{ color: facelift.gold, ml: 'auto', fontWeight: 600 }}>
-                Store preset: {wholesalerStoreName || scannedWholesaleStoreId}
-              </Typography>
-            )}
-          </Box>
+          )
         ) : (
         <PageHeader
           badge={linkedSaleContext ? 'Sales-linked repair' : isWholesaler ? 'Wholesale intake' : 'Repair intake'}
@@ -264,6 +258,8 @@ const NewRepairPage = () => {
           {useNextUi ? (
             <NewRepairFlow
               onSubmit={handleSubmit}
+              onCancel={handleCancel}
+              onPrintChoice={(print) => { printAfterSaveRef.current = print; }}
               initialData={linkedSaleContext?.initialData || null}
               clientInfo={linkedSaleContext?.clientInfo || null}
               isWholesale={isWholesaler}
