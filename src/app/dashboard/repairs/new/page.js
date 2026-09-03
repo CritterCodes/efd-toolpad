@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { Box, Button, Typography, Alert, Snackbar, Stack, useMediaQuery, useTheme } from '@mui/material';
-import { ArrowBack } from '@mui/icons-material';
+import { Box, Button, IconButton, Typography, Alert, Snackbar, Stack, useMediaQuery, useTheme } from '@mui/material';
+import { ArrowBack, Close as CloseIcon } from '@mui/icons-material';
 import NewRepairForm from '@/app/components/repairs/NewRepairForm';
 import NewRepairFlow from '@/app/components/repairs/NewRepairFlow';
 import { canCreateRepair } from '@/lib/repairAccess';
@@ -206,6 +206,29 @@ const NewRepairPage = () => {
   return (
     <Box sx={{ pb: 10 }}>
       <Stack spacing={2.5}>
+        {useNextUi ? (
+          /* Compact bar, per the mock: ✕ + "New repair". The stepped flow
+             carries its own progress; a full PageHeader ate the first screen
+             on a phone. */
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minHeight: 44 }}>
+            <IconButton onClick={handleCancel} aria-label="Back to repairs">
+              <CloseIcon />
+            </IconButton>
+            <Typography sx={{ fontWeight: 700, fontSize: '1.0625rem', letterSpacing: '-0.02em' }}>
+              New repair
+            </Typography>
+            {linkedSaleContext && (
+              <Typography variant="caption" sx={{ color: facelift.gold, ml: 'auto', fontWeight: 600 }}>
+                Linked sale: {linkedSaleContext.invoice.invoiceID}
+              </Typography>
+            )}
+            {scannedWholesaleStoreId && session?.user?.role !== 'wholesaler' && (
+              <Typography variant="caption" sx={{ color: facelift.gold, ml: 'auto', fontWeight: 600 }}>
+                Store preset: {wholesalerStoreName || scannedWholesaleStoreId}
+              </Typography>
+            )}
+          </Box>
+        ) : (
         <PageHeader
           badge={linkedSaleContext ? 'Sales-linked repair' : isWholesaler ? 'Wholesale intake' : 'Repair intake'}
           title="Create a new repair"
@@ -234,6 +257,7 @@ const NewRepairPage = () => {
             </Typography>
           )}
         </PageHeader>
+        )}
 
         <Box>
           {linkedSaleError && <Alert severity="error" sx={{ mb: 2 }}>{linkedSaleError}</Alert>}

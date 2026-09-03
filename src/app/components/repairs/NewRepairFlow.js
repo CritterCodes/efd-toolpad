@@ -237,6 +237,7 @@ export default function NewRepairFlow(props) {
   } = useNewRepairForm(props);
 
   const [step, setStep] = useState(0);
+  const [storePickerOpen, setStorePickerOpen] = useState(false);
   const [storeQuery, setStoreQuery] = useState('');
   const [clientQuery, setClientQuery] = useState('');
   const [taskQuery, setTaskQuery] = useState('');
@@ -312,7 +313,8 @@ export default function NewRepairFlow(props) {
   const karatOptions = getKaratOptions();
 
   return (
-    <Box sx={{ pb: { xs: 2, sm: 4 } }}>
+    /* Bottom padding clears the global FAB, which floats over the content. */
+    <Box sx={{ pb: { xs: 14, sm: 4 } }}>
       <Stack spacing={2.5}>
         <StepProgress step={step} />
 
@@ -323,9 +325,6 @@ export default function NewRepairFlow(props) {
           <Stack spacing={2.5}>
             <SurfaceCard>
               <SectionLabel>Account</SectionLabel>
-              <Typography variant="caption" sx={{ color: facelift.text2, display: 'block', mt: 0.5 }}>
-                The store is the account: picking a wholesale store switches pricing and the client list.
-              </Typography>
               <Box sx={{ mt: 1.5 }}>
                 {isWholesale ? (
                   <ChoiceRow
@@ -336,6 +335,18 @@ export default function NewRepairFlow(props) {
                     selected
                     disabled
                     sx={{ cursor: 'default' }}
+                  />
+                ) : !storePickerOpen ? (
+                  /* Collapsed, per the mock: the chosen store with a Change
+                     affordance. The full list only appears on demand. */
+                  <ChoiceRow
+                    lead={initials(formData.storeName)}
+                    title={formData.storeName || 'Engel Fine Design'}
+                    meta={formData.isWholesale ? 'Wholesale pricing · net terms' : 'Retail pricing'}
+                    trailing={<Typography component="span" sx={{ color: facelift.gold, fontWeight: 600, fontSize: '0.8125rem', flexShrink: 0 }}>Change</Typography>}
+                    selected
+                    aria-expanded={false}
+                    onClick={() => setStorePickerOpen(true)}
                   />
                 ) : (
                   <Stack spacing={1.25}>
@@ -351,7 +362,7 @@ export default function NewRepairFlow(props) {
                           meta={store.isWholesale ? 'Wholesale pricing · net terms' : 'Retail pricing'}
                           trailing={<StatusChip label={store.isWholesale ? 'Wholesale' : 'Retail'} hue={store.isWholesale ? '#7DD3FC' : facelift.gold} />}
                           selected={String(store.id) === String(formData.storeId)}
-                          onClick={() => handleStoreChange(store.id)}
+                          onClick={() => { handleStoreChange(store.id); setStorePickerOpen(false); setStoreQuery(''); }}
                         />
                       ))}
                     </ChoiceList>
