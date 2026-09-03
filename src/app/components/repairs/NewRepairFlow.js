@@ -352,12 +352,14 @@ export default function NewRepairFlow(props) {
   const clientId = (option) => option._id || option.id || option.userID || option.clientID || '';
 
   const stores = availableStores || [];
-  const filteredStores = storeQuery
-    ? stores.filter((store) => String(store.name || '').toLowerCase().includes(storeQuery.toLowerCase()))
-    : stores;
+  // The account switcher makes the picker wholesale-only: Retail IS Engel
+  // Fine Design, so the list only ever chooses between wholesale stores.
+  const wholesaleStores = stores.filter((store) => store.isWholesale);
+  const filteredStores = (storeQuery
+    ? wholesaleStores.filter((store) => String(store.name || '').toLowerCase().includes(storeQuery.toLowerCase()))
+    : wholesaleStores);
 
-  // Autocomplete with a shortlist, per the mock: three suggestions while the
-  // search is empty, then the best 8 matches as the user types.
+  // Search-only autocomplete: no rows until the user types, then the best 8.
   const filteredClients = clientQuery.trim()
     ? users.filter((opt) => {
         const inputText = clientQuery.toLowerCase().trim();
@@ -367,7 +369,7 @@ export default function NewRepairFlow(props) {
         const business = (opt.business || '').toLowerCase();
         return name.includes(inputText) || email.includes(inputText) || phone.includes(inputText) || business.includes(inputText);
       }).slice(0, 8)
-    : users.slice(0, 3);
+    : [];
   const queryMatchesClient = users.some((opt) => clientLabel(opt).toLowerCase() === clientQuery.toLowerCase().trim());
 
   const metalAllowedTasks = [...availableTasks]
@@ -468,34 +470,64 @@ export default function NewRepairFlow(props) {
                     disabled
                     sx={{ cursor: 'default' }}
                   />
-                ) : !storePickerOpen ? (
-                  <ChoiceRow
-                    lead={initials(formData.storeName)}
-                    title={formData.storeName || 'Engel Fine Design'}
-                    meta={formData.isWholesale ? 'Wholesale pricing · net terms' : 'Retail pricing'}
-                    trailing={<Typography component="span" sx={{ color: facelift.gold, fontWeight: 600, fontSize: '0.8125rem', flexShrink: 0 }}>Change</Typography>}
-                    selected
-                    aria-expanded={false}
-                    onClick={() => setStorePickerOpen(true)}
-                  />
                 ) : (
                   <Stack spacing={1.25}>
-                    {stores.length > 12 && (
-                      <SearchField placeholder="Search stores…" value={storeQuery} onChange={(e) => setStoreQuery(e.target.value)} />
+                    {/* The mock's Retail / Wholesale switcher. Retail IS Engel
+                        Fine Design; Wholesale opens the store picker. */}
+                    <Segmented
+                      options={[
+                        { value: 'retail', label: 'Retail' },
+                        { value: 'wholesale', label: 'Wholesale' },
+                      ]}
+                      value={formData.isWholesale ? 'wholesale' : 'retail'}
+                      onChange={(value) => {
+                        if (value === 'retail') {
+                          handleStoreChange('engel-fine-design');
+                          setStorePickerOpen(false);
+                          setStoreQuery('');
+                        } else if (!formData.isWholesale) {
+                          // No wholesale store chosen yet — open the picker.
+                          setStorePickerOpen(true);
+                        }
+                      }}
+                      aria-label="Account type"
+                    />
+                    {formData.isWholesale && !storePickerOpen && (
+                      <ChoiceRow
+                        lead={initials(formData.storeName)}
+                        title={formData.storeName || 'Wholesale store'}
+                        meta="Wholesale pricing · net terms"
+                        trailing={<Typography component="span" sx={{ color: facelift.gold, fontWeight: 600, fontSize: '0.8125rem', flexShrink: 0 }}>Change</Typography>}
+                        selected
+                        aria-expanded={false}
+                        onClick={() => setStorePickerOpen(true)}
+                      />
                     )}
-                    <ChoiceList>
-                      {filteredStores.map((store) => (
-                        <ChoiceRow
-                          key={store.id}
-                          lead={initials(store.name)}
-                          title={store.name}
-                          meta={store.isWholesale ? 'Wholesale pricing · net terms' : 'Retail pricing'}
-                          trailing={<StatusChip label={store.isWholesale ? 'Wholesale' : 'Retail'} hue={store.isWholesale ? '#7DD3FC' : facelift.gold} />}
-                          selected={String(store.id) === String(formData.storeId)}
-                          onClick={() => { handleStoreChange(store.id); setStorePickerOpen(false); setStoreQuery(''); }}
-                        />
-                      ))}
-                    </ChoiceList>
+                    {storePickerOpen && (
+                      <>
+                        {wholesaleStores.length > 12 && (
+                          <SearchField placeholder="Search stores…" value={storeQuery} onChange={(e) => setStoreQuery(e.target.value)} />
+                        )}
+                        <ChoiceList>
+                          {filteredStores.map((store) => (
+                            <ChoiceRow
+                              key={store.id}
+                              lead={initials(store.name)}
+                              title={store.name}
+                              meta="Wholesale pricing · net terms"
+                              trailing={<StatusChip label="Wholesale" hue="#7DD3FC" />}
+                              selected={String(store.id) === String(formData.storeId)}
+                              onClick={() => { handleStoreChange(store.id); setStorePickerOpen(false); setStoreQuery(''); }}
+                            />
+                          ))}
+                          {wholesaleStores.length === 0 && (
+                            <Typography variant="caption" sx={{ color: facelift.text2 }}>
+                              No wholesale accounts yet.
+                            </Typography>
+                          )}
+                        </ChoiceList>
+                      </>
+                    )}
                   </Stack>
                 )}
               </Box>
