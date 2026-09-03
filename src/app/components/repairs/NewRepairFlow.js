@@ -945,20 +945,33 @@ export default function NewRepairFlow(props) {
                   </QuietButton>
                 )}
               />
-              <ReviewRow
-                label="Promise date"
-                value={isWholesale ? (formData.promiseDate || 'Suggested below') : (formData.promiseDate || 'Required')}
-                valueColor={!isWholesale && !formData.promiseDate ? '#F87171' : undefined}
-                editor={!isWholesale ? (
-                  <TextField
-                    fullWidth
-                    type="date"
-                    value={formData.promiseDate}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, promiseDate: e.target.value }))}
-                    InputLabelProps={{ shrink: true }}
-                    inputProps={{ style: { fontSize: 16 } }}
-                  />
-                ) : (
+              {!isWholesale ? (
+                /* The suggestion component prefills an empty promise date from
+                   the shop-workload estimate, but only while mounted — so the
+                   editor opens itself whenever no date is set yet. */
+                <ReviewRow
+                  label="Promise date"
+                  value={formData.promiseDate
+                    || (promiseDateLoading ? 'Calculating…' : promiseDateEstimate?.suggestedDateString ? 'Suggested' : 'Required')}
+                  valueColor={formData.promiseDate ? undefined : '#F87171'}
+                  defaultOpen={!formData.promiseDate}
+                  editor={(
+                    <PromiseDateSuggestion
+                      estimate={promiseDateEstimate}
+                      context={promiseDateContext}
+                      loading={promiseDateLoading}
+                      error={promiseDateError}
+                      value={formData.promiseDate}
+                      onChange={(v) => setFormData((prev) => ({ ...prev, promiseDate: v }))}
+                      deliveryDays={promiseDateContext?.deliveryDays}
+                    />
+                  )}
+                />
+              ) : (
+                /* Wholesale: the estimate is read-only and mirrors the shop
+                   schedule continuously, so it stays mounted, not collapsed. */
+                <Box sx={{ py: 1, borderBottom: `1px solid rgba(255,255,255,0.08)` }}>
+                  <Typography sx={{ fontSize: '0.8125rem', color: facelift.text2 }}>Promise date</Typography>
                   <PromiseDateSuggestion
                     readOnly
                     estimate={promiseDateEstimate}
@@ -969,8 +982,8 @@ export default function NewRepairFlow(props) {
                     onChange={(v) => setFormData((prev) => ({ ...prev, promiseDate: v }))}
                     deliveryDays={promiseDateContext?.deliveryDays}
                   />
-                )}
-              />
+                </Box>
+              )}
               <ReviewRow
                 label="Rush"
                 value={formData.isRush ? `Yes · x${adminSettings.rushMultiplier}` : 'No'}
