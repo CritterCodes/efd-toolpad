@@ -3,34 +3,28 @@
 /**
  * NewRepairFlow — the stepped, mobile-first intake presentation.
  *
- * Step 3 of the intake redesign (facelift handoff INTAKE.md / intake-flow.png):
- * a SECOND presentational component rendering from the SAME useNewRepairForm
- * hook as the classic NewRepairForm. Both views share every piece of state,
- * fetching, pricing, and submission — this file contains NO business logic,
- * only arrangement. Reached behind the ?ui=next flag on /dashboard/repairs/new
- * so old and new can be A/B'd on real records and reverted instantly.
+ * Steps and parity: INTAKE.md. Controls: INTAKE-CONTROLS.md — the rule is
+ * "if the options are already narrow, show them and let people tap":
+ * ChoiceList/ChoiceRow for small option sets, Segmented for 2–3 exclusive
+ * options, QtyStepper for quantities, SearchField + ChoiceList for catalogs,
+ * ActionBar with ONE gold button per screen. No MUI size="small" anywhere
+ * (below the 44px touch minimum) and every text input at 16px so iOS Safari
+ * does not zoom on focus.
  *
- * The four screens, per the mock:
- *   1 Who it's for   — store → client scoped to that store, new-client dialog
- *   2 The piece      — photo, then the sentence; extractions as confirm-chips
- *   3 Work items     — mixed ticket list, subtotal, task/material/custom adds
- *   4 Review & save  — everything editable, pricing summary, save
+ * Two deliberate departures from the mock, both from INTAKE-CONTROLS.md:
+ * there is no Retail/Wholesale toggle — the store list IS the account choice
+ * (each row carries its pricing mode) — and on step 2 the sentence comes
+ * first with the camera as a secondary action beneath it.
  *
- * No step gates: validation happens at submit exactly as in the classic form,
- * so the two views cannot disagree about what a valid repair is.
+ * Renders from the SAME useNewRepairForm hook as the classic form; no
+ * business logic lives here. Reached behind ?ui=next on /dashboard/repairs/new.
  */
 
 import React, { useState } from 'react';
 import {
   Box,
-  Button,
-  TextField,
   Typography,
-  Autocomplete,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
+  TextField,
   Chip,
   Stack,
   Switch,
@@ -40,17 +34,12 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Button,
   useMediaQuery,
   useTheme
 } from '@mui/material';
-import {
-  Add as AddIcon,
-  AutoAwesome as AutoAwesomeIcon,
-  ArrowBack as ArrowBackIcon,
-  ArrowForward as ArrowForwardIcon,
-  Save as SaveIcon
-} from '@mui/icons-material';
 import { LoadingButton } from '@mui/lab';
+import { AutoAwesome as AutoAwesomeIcon } from '@mui/icons-material';
 
 import { taskAllowsMetal } from '@/services/repairs/metalTaskFilter';
 import { RING_SIZES } from '@/services/repairs/smartIntakeExtractors';
@@ -62,8 +51,23 @@ import useNewRepairForm, {
   resolveMaterialRetailPrice,
   resolveMaterialWholesalePrice,
 } from '@/hooks/repairs/useNewRepairForm';
-import { TaskItem, CustomLineItem, TotalCostCard } from '@/app/components/repairs/NewRepairForm';
-import { SurfaceCard, SectionLabel, StatusChip, facelift } from '@/components/facelift';
+import { TotalCostCard } from '@/app/components/repairs/NewRepairForm';
+import {
+  SurfaceCard,
+  SectionLabel,
+  StatusChip,
+  ChoiceList,
+  ChoiceRow,
+  Segmented,
+  QtyStepper,
+  SearchField,
+  FilterPill,
+  GoldButton,
+  QuietButton,
+  IconButton as TapIconButton,
+  ActionBar,
+  facelift,
+} from '@/components/facelift';
 
 const STEPS = [
   { key: 'who', title: "Who it's for", next: 'Next — the piece' },
@@ -71,6 +75,24 @@ const STEPS = [
   { key: 'work', title: 'Work items', next: 'Next — review' },
   { key: 'review', title: 'Review & save', next: null },
 ];
+
+const initials = (name = '') =>
+  String(name).trim().split(/\s+/).map((part) => part[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?';
+
+const CheckGlyph = () => (
+  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor"
+       strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+       style={{ marginRight: 5, flexShrink: 0 }}>
+    <path d="m4 12.5 5 5L20 6.5" />
+  </svg>
+);
+
+const TrashGlyph = () => (
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+       strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+  </svg>
+);
 
 function StepProgress({ step }) {
   return (
@@ -95,9 +117,100 @@ function StepProgress({ step }) {
   );
 }
 
-/** A confirm-chip for a value the smart intake picked out of the sentence. */
-function ExtractedChip({ label }) {
-  return <StatusChip label={`✓ ${label}`} hue="#34D399" />;
+/** Segmented for 2–3 options, tap-list for more. Never a dropdown. */
+function OptionPicker({ options, value, onChange, ariaLabel }) {
+  const norm = options.map((o) => (typeof o === 'string' ? { value: o, label: o } : o));
+  if (norm.length <= 3) {
+    return <Segmented options={norm} value={value} onChange={onChange} aria-label={ariaLabel} />;
+  }
+  return (
+    <ChoiceList aria-label={ariaLabel}>
+      {norm.map((o) => (
+        <ChoiceRow key={o.value} title={o.label} selected={o.value === value} onClick={() => onChange(o.value)} />
+      ))}
+    </ChoiceList>
+  );
+}
+
+/** Collapsed value row that expands into a searchable tap-list of ring sizes. */
+function RingSizePicker({ label, value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const sizes = RING_SIZES.filter((size) => !query || String(size).startsWith(query.trim()));
+  return (
+    <Box>
+      <ChoiceRow
+        title={value ? `${label}: ${value}` : `${label} — tap to pick`}
+        selected={!!value}
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      />
+      {open && (
+        <Box sx={{ mt: 1 }}>
+          <SearchField placeholder={`Search ${label.toLowerCase()}…`} value={query} onChange={(e) => setQuery(e.target.value)} />
+          <Box sx={{ mt: 1, maxHeight: 240, overflowY: 'auto' }}>
+            <ChoiceList>
+              {sizes.map((size) => (
+                <ChoiceRow
+                  key={size}
+                  title={String(size)}
+                  selected={String(value) === String(size)}
+                  onClick={() => { onChange(size); setOpen(false); setQuery(''); }}
+                />
+              ))}
+            </ChoiceList>
+          </Box>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+/** A work-item row: stepper for qty, 44px delete, price per the item kind. */
+function TicketRow({ kind, hue, item, onQuantityChange, onPriceChange, priceEditable, extraFields, onRemove }) {
+  const unitPrice = toNumber(item.price);
+  const lineTotal = unitPrice * (item.quantity || 1);
+  return (
+    <SurfaceCard sx={{ p: 1.75 }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
+        <Box sx={{ minWidth: 0 }}>
+          <StatusChip label={kind} hue={hue} />
+          <Typography sx={{ mt: 0.75, fontWeight: 600, fontSize: '0.9375rem' }}>
+            {item.title || item.displayName || item.name || 'Custom line'}
+          </Typography>
+          {item.description && (item.title || item.displayName || item.name) !== item.description && (
+            <Typography variant="caption" sx={{ color: facelift.text2, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {item.description}
+            </Typography>
+          )}
+        </Box>
+        <TapIconButton aria-label={`Remove ${item.title || item.displayName || item.name || 'line'}`} onClick={onRemove}>
+          <TrashGlyph />
+        </TapIconButton>
+      </Box>
+      {extraFields}
+      <Box sx={{ mt: 1.25, display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
+        <QtyStepper value={item.quantity || 1} min={1} onChange={onQuantityChange} label={`${item.title || 'item'} quantity`} />
+        {priceEditable ? (
+          <TextField
+            type="number"
+            label="Price"
+            value={item.price}
+            onChange={(e) => onPriceChange(parseFloat(e.target.value) || 0)}
+            inputProps={{ min: 0, step: 0.01, style: { fontSize: 16 } }}
+            sx={{ width: 120 }}
+          />
+        ) : (
+          <Typography sx={{ fontFamily: facelift.mono, fontSize: '0.8125rem', color: facelift.text2 }}>
+            ${unitPrice.toFixed(2)} each
+          </Typography>
+        )}
+        <Typography sx={{ ml: 'auto', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+          ${lineTotal.toFixed(2)}
+        </Typography>
+      </Box>
+    </SurfaceCard>
+  );
 }
 
 export default function NewRepairFlow(props) {
@@ -124,9 +237,62 @@ export default function NewRepairFlow(props) {
   } = useNewRepairForm(props);
 
   const [step, setStep] = useState(0);
+  const [storeQuery, setStoreQuery] = useState('');
+  const [clientQuery, setClientQuery] = useState('');
+  const [taskQuery, setTaskQuery] = useState('');
+  const [materialQuery, setMaterialQuery] = useState('');
 
   const goNext = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));
   const goBack = () => setStep((s) => Math.max(s - 1, 0));
+  const goReview = () => setStep(3);
+
+  const users = Array.isArray(availableUsers) ? availableUsers : [];
+  const clientLabel = (option) => {
+    if (typeof option === 'string') return option;
+    if (option && typeof option === 'object') {
+      return option.name || option.fullName || `${option.firstName || ''} ${option.lastName || ''}`.trim() || option.email || '';
+    }
+    return '';
+  };
+  const clientId = (option) => option._id || option.id || option.userID || option.clientID || '';
+
+  const stores = availableStores || [];
+  const filteredStores = storeQuery
+    ? stores.filter((store) => String(store.name || '').toLowerCase().includes(storeQuery.toLowerCase()))
+    : stores;
+
+  const filteredClients = (clientQuery
+    ? users.filter((opt) => {
+        const inputText = clientQuery.toLowerCase().trim();
+        const name = clientLabel(opt).toLowerCase();
+        const email = (opt.email || '').toLowerCase();
+        const phone = (opt.phone || opt.phoneNumber || '').toLowerCase();
+        const business = (opt.business || '').toLowerCase();
+        return name.includes(inputText) || email.includes(inputText) || phone.includes(inputText) || business.includes(inputText);
+      })
+    : users
+  ).slice(0, 12);
+  const queryMatchesClient = users.some((opt) => clientLabel(opt).toLowerCase() === clientQuery.toLowerCase().trim());
+
+  const metalAllowedTasks = [...availableTasks]
+    .filter((t) => taskAllowsMetal(t, formData.metalType))
+    .sort((a, b) => {
+      const aRestricted = Array.isArray(a.metals) && a.metals.length ? 0 : 1;
+      const bRestricted = Array.isArray(b.metals) && b.metals.length ? 0 : 1;
+      return aRestricted - bRestricted || String(a.title).localeCompare(String(b.title));
+    });
+  const commonTasks = metalAllowedTasks.slice(0, 6);
+  const taskResults = taskQuery
+    ? metalAllowedTasks.filter((t) => `${t.title || ''} ${t.displayName || ''} ${t.description || ''}`.toLowerCase().includes(taskQuery.toLowerCase())).slice(0, 8)
+    : [];
+  const materialResults = materialQuery
+    ? availableMaterials.filter((m) => `${m.displayName || ''} ${m.name || ''} ${m.description || ''}`.toLowerCase().includes(materialQuery.toLowerCase())).slice(0, 8)
+    : [];
+  const materialPrice = (option) => {
+    const retail = resolveMaterialRetailPrice(option, formData.metalType, formData.karat, formData.goldColor, adminSettings);
+    const wholesale = resolveMaterialWholesalePrice(option, formData.metalType, formData.karat, formData.goldColor, adminSettings);
+    return formData.isWholesale && wholesale > 0 ? wholesale : retail;
+  };
 
   const itemCount = formData.tasks.length + formData.materials.length + formData.customLineItems.length;
   const itemsSubtotal = [
@@ -143,16 +309,10 @@ export default function NewRepairFlow(props) {
     formData.currentRingSize && formData.desiredRingSize && `${formData.currentRingSize} → ${formData.desiredRingSize}`,
   ].filter(Boolean);
 
-  const clientLabel = (option) => {
-    if (typeof option === 'string') return option;
-    if (option && typeof option === 'object') {
-      return option.name || option.fullName || `${option.firstName || ''} ${option.lastName || ''}`.trim() || option.email || '';
-    }
-    return '';
-  };
+  const karatOptions = getKaratOptions();
 
   return (
-    <Box sx={{ maxWidth: 720, mx: 'auto', pb: { xs: 12, sm: 4 } }}>
+    <Box sx={{ pb: { xs: 2, sm: 4 } }}>
       <Stack spacing={2.5}>
         <StepProgress step={step} />
 
@@ -160,142 +320,148 @@ export default function NewRepairFlow(props) {
 
         {/* ── Step 1 — Who it's for ─────────────────────────────────────── */}
         {step === 0 && (
-          <SurfaceCard>
-            <Stack spacing={2.5}>
-              <Box>
-                <SectionLabel>Account</SectionLabel>
-                <Box sx={{ mt: 1.5 }}>
-                  {isWholesale ? (
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Store"
-                      value={formData.storeName || 'My Wholesale Store'}
-                      InputProps={{ readOnly: true }}
-                      helperText="Store selection controls wholesale pricing automatically"
-                    />
-                  ) : (
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Store</InputLabel>
-                      <Select
-                        value={formData.storeId || 'engel-fine-design'}
-                        label="Store"
-                        onChange={(e) => handleStoreChange(e.target.value)}
-                      >
-                        {(availableStores || []).map((store) => (
-                          <MenuItem key={store.id} value={store.id}>
-                            <Stack direction="row" alignItems="center" spacing={1}>
-                              <Typography variant="body2">{store.name}</Typography>
-                              {store.isWholesale && <Chip label="Wholesale" size="small" variant="outlined" />}
-                            </Stack>
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  )}
-                </Box>
-                <Box sx={{ mt: 1.25 }}>
-                  <StatusChip
-                    label={formData.isWholesale ? 'Wholesale pricing' : 'Retail pricing'}
-                    hue={formData.isWholesale ? '#7DD3FC' : facelift.gold}
+          <Stack spacing={2.5}>
+            <SurfaceCard>
+              <SectionLabel>Account</SectionLabel>
+              <Typography variant="caption" sx={{ color: facelift.text2, display: 'block', mt: 0.5 }}>
+                The store is the account: picking a wholesale store switches pricing and the client list.
+              </Typography>
+              <Box sx={{ mt: 1.5 }}>
+                {isWholesale ? (
+                  <ChoiceRow
+                    lead={initials(formData.storeName)}
+                    title={formData.storeName || 'My Wholesale Store'}
+                    meta="Your store — fixed by your sign-in"
+                    trailing={<StatusChip label="Wholesale" hue="#7DD3FC" />}
+                    selected
+                    disabled
+                    sx={{ cursor: 'default' }}
                   />
-                </Box>
+                ) : (
+                  <Stack spacing={1.25}>
+                    {stores.length > 12 && (
+                      <SearchField placeholder="Search stores…" value={storeQuery} onChange={(e) => setStoreQuery(e.target.value)} />
+                    )}
+                    <ChoiceList>
+                      {filteredStores.map((store) => (
+                        <ChoiceRow
+                          key={store.id}
+                          lead={initials(store.name)}
+                          title={store.name}
+                          meta={store.isWholesale ? 'Wholesale pricing · net terms' : 'Retail pricing'}
+                          trailing={<StatusChip label={store.isWholesale ? 'Wholesale' : 'Retail'} hue={store.isWholesale ? '#7DD3FC' : facelift.gold} />}
+                          selected={String(store.id) === String(formData.storeId)}
+                          onClick={() => handleStoreChange(store.id)}
+                        />
+                      ))}
+                    </ChoiceList>
+                  </Stack>
+                )}
               </Box>
+            </SurfaceCard>
 
-              <Box>
-                <SectionLabel>Client at this store</SectionLabel>
-                <Box sx={{ mt: 1.5 }}>
-                  <Autocomplete
-                    disablePortal
-                    freeSolo
-                    size="small"
-                    options={Array.isArray(availableUsers) ? availableUsers : []}
-                    getOptionLabel={clientLabel}
-                    filterOptions={(options, state) => {
-                      const input = state.inputValue.toLowerCase().trim();
-                      if (!input) return options;
-                      return options.filter((opt) => {
-                        const name = clientLabel(opt).toLowerCase();
-                        const email = (opt.email || '').toLowerCase();
-                        const phone = (opt.phone || opt.phoneNumber || '').toLowerCase();
-                        const business = (opt.business || '').toLowerCase();
-                        return name.includes(input) || email.includes(input) || phone.includes(input) || business.includes(input);
-                      });
-                    }}
-                    isOptionEqualToValue={(option, val) => {
-                      if (!option || !val) return false;
-                      if (typeof val === 'string') return clientLabel(option) === val;
-                      return (option._id || option.userID || option.clientID) === (val._id || val.userID || val.clientID);
-                    }}
-                    inputValue={formData.clientName || ''}
-                    onInputChange={(event, newInputValue, reason) => {
-                      setFormData((prev) => ({
+            <SurfaceCard>
+              <SectionLabel>Client at this store</SectionLabel>
+              <Stack spacing={1.25} sx={{ mt: 1.5 }}>
+                {formData.clientName && (
+                  <Box>
+                    <StatusChip label={`Client: ${formData.clientName}`} hue="#34D399" />
+                  </Box>
+                )}
+                {users.length > 12 && (
+                  <SearchField placeholder="Name, phone, or email…" value={clientQuery} onChange={(e) => setClientQuery(e.target.value)} />
+                )}
+                <ChoiceList>
+                  {filteredClients.map((opt) => (
+                    <ChoiceRow
+                      key={clientId(opt) || clientLabel(opt)}
+                      lead={initials(clientLabel(opt))}
+                      title={clientLabel(opt)}
+                      meta={[opt.phone || opt.phoneNumber, opt.email].filter(Boolean).join(' · ')}
+                      selected={formData.userID ? clientId(opt) === formData.userID : clientLabel(opt) === formData.clientName}
+                      onClick={() => setFormData((prev) => ({
                         ...prev,
-                        clientName: newInputValue || '',
-                        userID: reason === 'input' || reason === 'clear' ? '' : prev.userID
-                      }));
-                    }}
-                    value={
-                      formData.userID
-                        ? (Array.isArray(availableUsers) ? availableUsers : []).find(
-                            (u) => (u._id || u.userID || u.clientID) === formData.userID
-                          ) || formData.clientName || null
-                        : null
-                    }
-                    onChange={(event, newValue) => {
-                      if (newValue && typeof newValue === 'object') {
-                        setFormData((prev) => ({
-                          ...prev,
-                          clientName: clientLabel(newValue),
-                          userID: newValue._id || newValue.id || newValue.userID || newValue.clientID || ''
-                        }));
-                      } else if (typeof newValue === 'string') {
-                        setFormData((prev) => ({ ...prev, clientName: newValue, userID: '' }));
-                      }
-                    }}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        fullWidth
-                        label="Client Name"
-                        required
-                        placeholder="Name, phone, or email"
-                        helperText={formData.isWholesale ? 'Select a client from your wholesale client list' : 'Start typing to search existing clients'}
-                      />
-                    )}
-                    renderOption={(liProps, option) => (
-                      <Box component="li" {...liProps} key={option._id || option.id || option.userID || option.clientID || option}>
-                        <Stack sx={{ width: '100%' }}>
-                          <Typography variant="body2">{clientLabel(option)}</Typography>
-                          {(option.email || option.phone || option.phoneNumber) && (
-                            <Typography variant="caption" sx={{ color: facelift.text2 }}>
-                              {[option.email, option.phone || option.phoneNumber].filter(Boolean).join(' · ')}
-                            </Typography>
-                          )}
-                        </Stack>
-                      </Box>
-                    )}
-                  />
-                </Box>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  startIcon={<AddIcon />}
-                  onClick={() => setShowNewClientDialog(true)}
-                  sx={{ mt: 1.5 }}
-                >
-                  New client at this store
-                </Button>
-              </Box>
-            </Stack>
-          </SurfaceCard>
+                        clientName: clientLabel(opt),
+                        userID: clientId(opt)
+                      }))}
+                    />
+                  ))}
+                  {!isWholesale && !formData.isWholesale && clientQuery.trim() && !queryMatchesClient && (
+                    <ChoiceRow
+                      lead="+"
+                      title={`Use “${clientQuery.trim()}” as the client name`}
+                      meta="Walk-in — no account yet"
+                      onClick={() => setFormData((prev) => ({ ...prev, clientName: clientQuery.trim(), userID: '' }))}
+                    />
+                  )}
+                  <ChoiceRow add title="New client at this store" onClick={() => setShowNewClientDialog(true)} />
+                </ChoiceList>
+              </Stack>
+            </SurfaceCard>
+          </Stack>
         )}
 
         {/* ── Step 2 — The piece ────────────────────────────────────────── */}
         {step === 1 && (
           <Stack spacing={2.5}>
             <SurfaceCard>
+              <SectionLabel>What needs doing?</SectionLabel>
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                autoFocus
+                value={formData.smartIntakeInput}
+                onChange={(e) => {
+                  setSmartIntakeError('');
+                  setFormData((prev) => ({ ...prev, smartIntakeInput: e.target.value }));
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    handleAnalyzeSmartIntake();
+                  }
+                }}
+                placeholder="Size down 14k white gold ring from 7 to 6.5, retip two prongs"
+                inputProps={{ style: { fontSize: 16 } }}
+                sx={{ mt: 1.5 }}
+              />
+              <Box sx={{ mt: 1.5 }}>
+                <GoldButton onClick={handleAnalyzeSmartIntake} disabled={analyzingSmartIntake} aria-label="Analyze the sentence">
+                  <AutoAwesomeIcon sx={{ fontSize: 16 }} />
+                  {analyzingSmartIntake ? 'Reading the sentence…' : 'Analyze the sentence'}
+                </GoldButton>
+              </Box>
+              {smartIntakeError && <Alert severity="warning" sx={{ mt: 1.5 }}>{smartIntakeError}</Alert>}
+
+              {extractedChips.length > 0 && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="caption" sx={{ fontFamily: facelift.mono, color: facelift.text3 }}>
+                    Picked up from that sentence — tap one to edit it on review
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                    {extractedChips.map((label) => (
+                      <Box
+                        key={label}
+                        component="button"
+                        type="button"
+                        onClick={goReview}
+                        aria-label={`Edit ${label} on the review step`}
+                        sx={{ all: 'unset', cursor: 'pointer', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
+                      >
+                        <StatusChip label={<><CheckGlyph />{label}</>} hue="#34D399" />
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+            </SurfaceCard>
+
+            <SurfaceCard>
               <SectionLabel>Photo of the piece</SectionLabel>
+              <Typography variant="caption" sx={{ color: facelift.text2, display: 'block', mt: 0.5 }}>
+                Optional — a photo also writes the customer-facing description for you.
+              </Typography>
               <Stack spacing={2} alignItems="center" sx={{ mt: 1.5 }}>
                 <CameraCapture
                   onCapture={(file) => {
@@ -315,7 +481,7 @@ export default function NewRepairFlow(props) {
                       <Chip
                         label={typeof formData.picture === 'string' ? 'Existing photo' : (formData.picture.name || 'Captured photo')}
                         onDelete={() => setFormData((prev) => ({ ...prev, picture: null }))}
-                        sx={{ maxWidth: 250 }}
+                        sx={{ maxWidth: 250, height: 44 }}
                       />
                     </Box>
                   </Box>
@@ -330,61 +496,16 @@ export default function NewRepairFlow(props) {
             </SurfaceCard>
 
             <SurfaceCard>
-              <SectionLabel>What needs doing?</SectionLabel>
-              <TextField
-                fullWidth
-                size="small"
-                multiline
-                rows={3}
-                value={formData.smartIntakeInput}
-                onChange={(e) => {
-                  setSmartIntakeError('');
-                  setFormData((prev) => ({ ...prev, smartIntakeInput: e.target.value }));
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && !event.shiftKey) {
-                    event.preventDefault();
-                    handleAnalyzeSmartIntake();
-                  }
-                }}
-                placeholder="Size down 14k white gold ring from 7 to 6.5, retip two prongs"
-                sx={{ mt: 1.5 }}
-              />
-              <LoadingButton
-                variant="contained"
-                loading={analyzingSmartIntake}
-                onClick={handleAnalyzeSmartIntake}
-                startIcon={<AutoAwesomeIcon />}
-                loadingPosition="start"
-                sx={{ mt: 1.5, alignSelf: 'flex-start' }}
-              >
-                Analyze the sentence
-              </LoadingButton>
-              {smartIntakeError && <Alert severity="warning" sx={{ mt: 1.5 }}>{smartIntakeError}</Alert>}
-
-              {extractedChips.length > 0 && (
-                <Box sx={{ mt: 2 }}>
-                  <Typography variant="caption" sx={{ fontFamily: facelift.mono, color: facelift.text3 }}>
-                    Picked up from that sentence — confirm on the review step
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                    {extractedChips.map((label) => <ExtractedChip key={label} label={label} />)}
-                  </Box>
-                </Box>
-              )}
-            </SurfaceCard>
-
-            <SurfaceCard>
               <SectionLabel>Customer-facing description</SectionLabel>
               <TextField
                 fullWidth
-                size="small"
                 multiline
                 rows={2}
                 value={formData.description}
                 onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
                 required
                 placeholder="What the ticket says. Filled from the photo when one is taken."
+                inputProps={{ style: { fontSize: 16 } }}
                 sx={{ mt: 1.5 }}
               />
             </SurfaceCard>
@@ -395,57 +516,74 @@ export default function NewRepairFlow(props) {
         {step === 2 && (
           <Stack spacing={2.5}>
             {itemCount > 0 && (
-              <SurfaceCard>
+              <Box>
                 <SectionLabel>On this ticket ({itemCount})</SectionLabel>
-                <Stack spacing={1.5} sx={{ mt: 1.5 }}>
+                <Stack spacing={1.25} sx={{ mt: 1.25 }}>
                   {formData.tasks.map((task) => (
-                    <Box key={task.id}>
-                      <StatusChip label="Task" hue={facelift.gold} />
-                      <Box sx={{ mt: 0.75 }}>
-                        <TaskItem
-                          item={task}
-                          onQuantityChange={(qty) => updateItem('tasks', task.id, 'quantity', qty)}
-                          onPriceChange={(price) => updateItem('tasks', task.id, 'price', price)}
-                          showPriceInput={false}
-                          onRemove={() => removeItem('tasks', task.id)}
-                        />
-                      </Box>
-                    </Box>
+                    <TicketRow
+                      key={task.id}
+                      kind="Task"
+                      hue={facelift.gold}
+                      item={task}
+                      onQuantityChange={(qty) => updateItem('tasks', task.id, 'quantity', qty)}
+                      onPriceChange={(price) => updateItem('tasks', task.id, 'price', price)}
+                      priceEditable={false}
+                      onRemove={() => removeItem('tasks', task.id)}
+                    />
                   ))}
                   {formData.materials.map((material) => (
-                    <Box key={material.id}>
-                      <StatusChip label="Material" hue="#7DD3FC" />
-                      <Box sx={{ mt: 0.75 }}>
-                        <TaskItem
-                          item={material}
-                          onQuantityChange={(qty) => updateItem('materials', material.id, 'quantity', qty)}
-                          onPriceChange={(price) => updateItem('materials', material.id, 'price', price)}
-                          onRemove={() => removeItem('materials', material.id)}
-                        />
-                      </Box>
-                    </Box>
+                    <TicketRow
+                      key={material.id}
+                      kind="Material"
+                      hue="#7DD3FC"
+                      item={material}
+                      onQuantityChange={(qty) => updateItem('materials', material.id, 'quantity', qty)}
+                      onPriceChange={(price) => updateItem('materials', material.id, 'price', price)}
+                      priceEditable
+                      onRemove={() => removeItem('materials', material.id)}
+                    />
                   ))}
                   {formData.customLineItems.map((item) => (
-                    <Box key={item.id}>
-                      <StatusChip label="Custom" hue="#C4B5FD" />
-                      <Box sx={{ mt: 0.75 }}>
-                        <CustomLineItem
-                          item={item}
-                          onDescriptionChange={(desc) => updateItem('customLineItems', item.id, 'description', desc)}
-                          onQuantityChange={(qty) => updateItem('customLineItems', item.id, 'quantity', qty)}
-                          onPriceChange={(price) => updateItem('customLineItems', item.id, 'price', price)}
-                          onLaborHoursChange={(hours) => updateItem('customLineItems', item.id, 'laborHours', hours)}
-                          onRemove={() => removeItem('customLineItems', item.id)}
-                        />
-                      </Box>
-                    </Box>
+                    <TicketRow
+                      key={item.id}
+                      kind="Custom"
+                      hue="#C4B5FD"
+                      item={item}
+                      onQuantityChange={(qty) => updateItem('customLineItems', item.id, 'quantity', qty)}
+                      onPriceChange={(price) => updateItem('customLineItems', item.id, 'price', price)}
+                      priceEditable
+                      onRemove={() => removeItem('customLineItems', item.id)}
+                      extraFields={(
+                        <Stack spacing={1.25} sx={{ mt: 1.25 }}>
+                          <TextField
+                            fullWidth
+                            label="Description"
+                            value={item.description}
+                            onChange={(e) => updateItem('customLineItems', item.id, 'description', e.target.value)}
+                            placeholder="Custom work description…"
+                            inputProps={{ style: { fontSize: 16 } }}
+                          />
+                          <TextField
+                            type="number"
+                            label="Labor Hrs"
+                            value={item.laborHours ?? 0}
+                            onChange={(e) => updateItem('customLineItems', item.id, 'laborHours', parseFloat(e.target.value) || 0)}
+                            inputProps={{ min: 0, step: 0.1, style: { fontSize: 16 } }}
+                            helperText="Hours feed the jeweler's credited pay; price is what the client is billed."
+                            sx={{ width: 160 }}
+                          />
+                        </Stack>
+                      )}
+                    />
                   ))}
                 </Stack>
                 <Box
                   sx={{
-                    mt: 2,
-                    pt: 1.5,
-                    borderTop: `1px solid ${facelift.hairline}`,
+                    mt: 1.5,
+                    py: 1.25,
+                    px: 1.75,
+                    border: `1px solid ${facelift.border}`,
+                    borderRadius: '13px',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
@@ -456,89 +594,95 @@ export default function NewRepairFlow(props) {
                     ${itemsSubtotal.toFixed(2)}
                   </Typography>
                 </Box>
-              </SurfaceCard>
+              </Box>
             )}
 
             <SurfaceCard>
               <SectionLabel>Add a task</SectionLabel>
               <Typography variant="caption" sx={{ color: facelift.text2, display: 'block', mt: 0.5 }}>
-                Filtered to {formData.metalType ? `${formData.metalType} work` : 'the selected metal'} — a task
-                restricted to another metal never appears.
+                Filtered to {formData.metalType ? `${formData.metalType} work` : 'the selected metal'} — a task restricted to another metal never appears.
               </Typography>
-              <Autocomplete
-                disablePortal
-                size="small"
-                options={[...availableTasks]
-                  .filter((t) => taskAllowsMetal(t, formData.metalType))
-                  .sort((a, b) => {
-                    const aRestricted = Array.isArray(a.metals) && a.metals.length ? 0 : 1;
-                    const bRestricted = Array.isArray(b.metals) && b.metals.length ? 0 : 1;
-                    return aRestricted - bRestricted || String(a.title).localeCompare(String(b.title));
-                  })}
-                getOptionLabel={(option) => `${option.title}`}
-                renderInput={(params) => <TextField {...params} label="Search all tasks" />}
-                onChange={(e, value) => value && addTask(value)}
-                sx={{ mt: 1.5 }}
-              />
+              {commonTasks.length > 0 && !taskQuery && (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1.5 }}>
+                  {commonTasks.map((t) => (
+                    <FilterPill key={t._id || t.title} onClick={() => addTask(t)}>
+                      + {t.title}
+                    </FilterPill>
+                  ))}
+                </Box>
+              )}
+              <Box sx={{ mt: 1.5 }}>
+                <SearchField
+                  placeholder={`Search all ${metalAllowedTasks.length} tasks…`}
+                  value={taskQuery}
+                  onChange={(e) => setTaskQuery(e.target.value)}
+                />
+              </Box>
+              {taskResults.length > 0 && (
+                <Box sx={{ mt: 1.25 }}>
+                  <ChoiceList>
+                    {taskResults.map((t) => (
+                      <ChoiceRow
+                        key={t._id || t.title}
+                        title={t.title}
+                        meta={t.description}
+                        onClick={() => { addTask(t); setTaskQuery(''); }}
+                      />
+                    ))}
+                  </ChoiceList>
+                </Box>
+              )}
             </SurfaceCard>
 
             <SurfaceCard>
               <SectionLabel>Add a material</SectionLabel>
-              <Autocomplete
-                disablePortal
-                size="small"
-                options={availableMaterials}
-                getOptionLabel={(option) => {
-                  const displayName = option.displayName || option.name || 'Material';
-                  const retail = resolveMaterialRetailPrice(option, formData.metalType, formData.karat, formData.goldColor, adminSettings);
-                  const wholesale = resolveMaterialWholesalePrice(option, formData.metalType, formData.karat, formData.goldColor, adminSettings);
-                  const shownPrice = formData.isWholesale && wholesale > 0 ? wholesale : retail;
-                  return `${displayName} - $${shownPrice.toFixed(2)}`;
-                }}
-                renderInput={(params) => <TextField {...params} label="Search the catalog" />}
-                onChange={(e, value) => value && addMaterial(value)}
-                sx={{ mt: 1.5 }}
-              />
+              <Box sx={{ mt: 1.5 }}>
+                <SearchField
+                  placeholder="Search the material catalog…"
+                  value={materialQuery}
+                  onChange={(e) => setMaterialQuery(e.target.value)}
+                />
+              </Box>
+              {materialResults.length > 0 && (
+                <Box sx={{ mt: 1.25 }}>
+                  <ChoiceList>
+                    {materialResults.map((m) => (
+                      <ChoiceRow
+                        key={m._id || m.name}
+                        title={m.displayName || m.name || 'Material'}
+                        meta={`$${materialPrice(m).toFixed(2)}`}
+                        onClick={() => { addMaterial(m); setMaterialQuery(''); }}
+                      />
+                    ))}
+                  </ChoiceList>
+                </Box>
+              )}
               <Box sx={{ mt: 2, pt: 2, borderTop: `1px solid ${facelift.hairline}` }}>
                 <Typography variant="caption" sx={{ color: facelift.text2, display: 'block', mb: 1 }}>
                   Or look one up by Stuller SKU — added with markup applied.
                 </Typography>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'flex-start' }}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} alignItems={{ xs: 'stretch', sm: 'center' }}>
                   <TextField
                     label="Stuller SKU"
                     value={stullerSku}
                     onChange={(e) => setStullerSku(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && addStullerMaterial()}
                     placeholder="Enter Stuller item number…"
-                    size="small"
                     fullWidth
                     error={!!stullerError}
                     helperText={stullerError}
+                    inputProps={{ style: { fontSize: 16 } }}
                   />
-                  <LoadingButton
-                    onClick={addStullerMaterial}
-                    loading={loadingStuller}
-                    disabled={!stullerSku.trim()}
-                    variant="outlined"
-                    sx={{ minWidth: 88, flexShrink: 0 }}
-                  >
-                    Look up
-                  </LoadingButton>
+                  <QuietButton onClick={addStullerMaterial} disabled={!stullerSku.trim() || loadingStuller} aria-label="Look up Stuller SKU">
+                    {loadingStuller ? 'Looking up…' : 'Look up'}
+                  </QuietButton>
                 </Stack>
               </Box>
             </SurfaceCard>
 
-            <SurfaceCard sx={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}>
-              <Box>
-                <SectionLabel>Custom line</SectionLabel>
-                <Typography variant="caption" sx={{ color: facelift.text2 }}>
-                  Work with no catalog match — labor hours feed payroll, price is what's billed.
-                </Typography>
-              </Box>
-              <Button variant="outlined" startIcon={<AddIcon />} onClick={addCustomLineItem} sx={{ flexShrink: 0 }}>
-                Add
-              </Button>
-            </SurfaceCard>
+            <ChoiceList>
+              <ChoiceRow add title="Add a custom line" onClick={addCustomLineItem} />
+            </ChoiceList>
           </Stack>
         )}
 
@@ -547,83 +691,68 @@ export default function NewRepairFlow(props) {
           <Stack spacing={2.5}>
             <SurfaceCard>
               <SectionLabel>The piece — confirm</SectionLabel>
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Metal Type</InputLabel>
-                  <Select
+              <Stack spacing={2} sx={{ mt: 1.5 }}>
+                <Box>
+                  <Typography variant="caption" sx={{ color: facelift.text2, display: 'block', mb: 1 }}>Metal</Typography>
+                  <OptionPicker
+                    options={METAL_TYPES}
                     value={formData.metalType}
-                    label="Metal Type"
-                    onChange={(e) => setFormData((prev) => ({ ...prev, metalType: e.target.value, goldColor: '', karat: '' }))}
-                  >
-                    {METAL_TYPES.map((metal) => (
-                      <MenuItem key={metal.value} value={metal.value}>{metal.label}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                {getKaratOptions().length > 0 && (
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Karat/Purity</InputLabel>
-                    <Select
-                      value={formData.karat}
-                      label="Karat/Purity"
-                      onChange={(e) => setFormData((prev) => ({ ...prev, karat: e.target.value }))}
-                    >
-                      {getKaratOptions().map((karat) => (
-                        <MenuItem key={karat} value={karat}>{karat}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                )}
-                {formData.metalType === 'gold' && (
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Gold Color</InputLabel>
-                    <Select
-                      value={formData.goldColor}
-                      label="Gold Color"
-                      onChange={(e) => setFormData((prev) => ({ ...prev, goldColor: e.target.value }))}
-                    >
-                      {GOLD_COLORS.map((color) => (
-                        <MenuItem key={color.value} value={color.value}>{color.label}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                )}
-              </Box>
-              <FormControlLabel
-                sx={{ mt: 1 }}
-                control={
-                  <Switch
-                    checked={formData.isRing}
-                    onChange={(e) => setFormData((prev) => ({
-                      ...prev,
-                      isRing: e.target.checked,
-                      currentRingSize: e.target.checked ? prev.currentRingSize : '',
-                      desiredRingSize: e.target.checked ? prev.desiredRingSize : ''
-                    }))}
-                  />
-                }
-                label="This item is a ring (enable sizing fields)"
-              />
-              {formData.isRing && (
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5, mt: 1 }}>
-                  <Autocomplete
-                    disablePortal
-                    size="small"
-                    options={RING_SIZES}
-                    value={formData.currentRingSize}
-                    onChange={(e, value) => setFormData((prev) => ({ ...prev, currentRingSize: value }))}
-                    renderInput={(params) => <TextField {...params} label="Current Ring Size" />}
-                  />
-                  <Autocomplete
-                    disablePortal
-                    size="small"
-                    options={RING_SIZES}
-                    value={formData.desiredRingSize}
-                    onChange={(e, value) => setFormData((prev) => ({ ...prev, desiredRingSize: value }))}
-                    renderInput={(params) => <TextField {...params} label="Desired Ring Size" />}
+                    onChange={(value) => setFormData((prev) => ({ ...prev, metalType: value, goldColor: '', karat: '' }))}
+                    ariaLabel="Metal type"
                   />
                 </Box>
-              )}
+                {karatOptions.length > 0 && (
+                  <Box>
+                    <Typography variant="caption" sx={{ color: facelift.text2, display: 'block', mb: 1 }}>Karat / purity</Typography>
+                    <OptionPicker
+                      options={karatOptions}
+                      value={formData.karat}
+                      onChange={(value) => setFormData((prev) => ({ ...prev, karat: value }))}
+                      ariaLabel="Karat or purity"
+                    />
+                  </Box>
+                )}
+                {formData.metalType === 'gold' && (
+                  <Box>
+                    <Typography variant="caption" sx={{ color: facelift.text2, display: 'block', mb: 1 }}>Gold color</Typography>
+                    <OptionPicker
+                      options={GOLD_COLORS}
+                      value={formData.goldColor}
+                      onChange={(value) => setFormData((prev) => ({ ...prev, goldColor: value }))}
+                      ariaLabel="Gold color"
+                    />
+                  </Box>
+                )}
+                <FormControlLabel
+                  sx={{ minHeight: 44 }}
+                  control={
+                    <Switch
+                      checked={formData.isRing}
+                      onChange={(e) => setFormData((prev) => ({
+                        ...prev,
+                        isRing: e.target.checked,
+                        currentRingSize: e.target.checked ? prev.currentRingSize : '',
+                        desiredRingSize: e.target.checked ? prev.desiredRingSize : ''
+                      }))}
+                    />
+                  }
+                  label="This item is a ring (enable sizing fields)"
+                />
+                {formData.isRing && (
+                  <Stack spacing={1.25}>
+                    <RingSizePicker
+                      label="Current ring size"
+                      value={formData.currentRingSize}
+                      onChange={(value) => setFormData((prev) => ({ ...prev, currentRingSize: value }))}
+                    />
+                    <RingSizePicker
+                      label="Desired ring size"
+                      value={formData.desiredRingSize}
+                      onChange={(value) => setFormData((prev) => ({ ...prev, desiredRingSize: value }))}
+                    />
+                  </Stack>
+                )}
+              </Stack>
             </SurfaceCard>
 
             <SurfaceCard>
@@ -633,11 +762,11 @@ export default function NewRepairFlow(props) {
                   fullWidth
                   label="Promise Date"
                   type="date"
-                  size="small"
                   value={formData.promiseDate}
                   onChange={(e) => setFormData((prev) => ({ ...prev, promiseDate: e.target.value }))}
                   InputLabelProps={{ shrink: true }}
                   required
+                  inputProps={{ style: { fontSize: 16 } }}
                   sx={{ mt: 1.5 }}
                 />
               ) : (
@@ -654,15 +783,17 @@ export default function NewRepairFlow(props) {
                   />
                 </Box>
               )}
-              <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 1.5 }}>
-                <Typography>Rush Job</Typography>
-                <Switch
-                  checked={formData.isRush}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, isRush: e.target.checked }))}
-                  disabled={!rushJobInfo.canCreate && !formData.isRush}
-                />
-                {formData.isRush && <Chip label={`x${adminSettings.rushMultiplier}`} size="small" />}
-              </Stack>
+              <FormControlLabel
+                sx={{ mt: 1, minHeight: 44 }}
+                control={
+                  <Switch
+                    checked={formData.isRush}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, isRush: e.target.checked }))}
+                    disabled={!rushJobInfo.canCreate && !formData.isRush}
+                  />
+                }
+                label={`Rush job${formData.isRush ? ` (x${adminSettings.rushMultiplier})` : ''}`}
+              />
               {!rushJobInfo.canCreate && (
                 <Typography variant="caption" color="error">
                   Rush jobs at capacity ({rushJobInfo.currentRushJobs}/{rushJobInfo.maxRushJobs})
@@ -673,6 +804,7 @@ export default function NewRepairFlow(props) {
             {!formData.isWholesale && submitMode === 'create' && (
               <SurfaceCard accent={formData.whileYouWait ? facelift.gold : undefined}>
                 <FormControlLabel
+                  sx={{ minHeight: 44 }}
                   control={
                     <Switch
                       checked={formData.whileYouWait}
@@ -693,35 +825,35 @@ export default function NewRepairFlow(props) {
                   Creates this repair as completed and sends it directly to Payment & Pickup closeout.
                 </Typography>
                 {formData.whileYouWait && (
-                  <FormControl fullWidth size="small" required sx={{ mt: 1.5 }}>
-                    <InputLabel>Artisan who did the work</InputLabel>
-                    <Select
-                      value={formData.assignedTo}
-                      label="Artisan who did the work"
-                      onChange={(event) => {
-                        const selected = benchJewelers.find((jeweler) => jeweler.userID === event.target.value);
-                        setFormData((prev) => ({
-                          ...prev,
-                          assignedTo: event.target.value,
-                          assignedJeweler: selected ? getJewelerLabel(selected) : '',
-                        }));
-                      }}
-                    >
+                  <Box sx={{ mt: 1.5 }}>
+                    <Typography variant="caption" sx={{ color: facelift.text2, display: 'block', mb: 1 }}>
+                      Artisan who did the work — used for labor attribution.
+                    </Typography>
+                    <ChoiceList>
                       {benchJewelers.map((jeweler) => (
-                        <MenuItem key={jeweler.userID} value={jeweler.userID}>
-                          {getJewelerLabel(jeweler)}
-                        </MenuItem>
+                        <ChoiceRow
+                          key={jeweler.userID}
+                          lead={initials(getJewelerLabel(jeweler))}
+                          title={getJewelerLabel(jeweler)}
+                          selected={formData.assignedTo === jeweler.userID}
+                          onClick={() => setFormData((prev) => ({
+                            ...prev,
+                            assignedTo: jeweler.userID,
+                            assignedJeweler: getJewelerLabel(jeweler),
+                          }))}
+                        />
                       ))}
-                    </Select>
-                  </FormControl>
+                    </ChoiceList>
+                  </Box>
                 )}
               </SurfaceCard>
             )}
 
             <SurfaceCard>
               <SectionLabel>Billing options</SectionLabel>
-              <Stack spacing={1} sx={{ mt: 1 }}>
+              <Stack spacing={0.5} sx={{ mt: 1 }}>
                 <FormControlLabel
+                  sx={{ minHeight: 44 }}
                   control={
                     <Switch
                       checked={Boolean(formData.compRepair || formData.includedWithSale)}
@@ -736,6 +868,7 @@ export default function NewRepairFlow(props) {
                   label="Comp repair price / included with sale"
                 />
                 <FormControlLabel
+                  sx={{ minHeight: 44 }}
                   control={
                     <Switch
                       checked={formData.includeDelivery}
@@ -746,6 +879,7 @@ export default function NewRepairFlow(props) {
                 />
                 {!formData.isWholesale ? (
                   <FormControlLabel
+                    sx={{ minHeight: 44 }}
                     control={
                       <Switch
                         checked={formData.includeTax}
@@ -766,24 +900,24 @@ export default function NewRepairFlow(props) {
               <SectionLabel>Notes</SectionLabel>
               <TextField
                 fullWidth
-                size="small"
                 label="Notes"
                 multiline
                 rows={isMobile ? 2 : 3}
                 value={formData.notes}
                 onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
                 placeholder="Customer notes, special instructions…"
+                inputProps={{ style: { fontSize: 16 } }}
                 sx={{ mt: 1.5 }}
               />
               <TextField
                 fullWidth
-                size="small"
                 label="Internal Notes"
                 multiline
                 rows={isMobile ? 2 : 3}
                 value={formData.internalNotes}
                 onChange={(e) => setFormData((prev) => ({ ...prev, internalNotes: e.target.value }))}
                 placeholder="Internal team notes, not visible to customer…"
+                inputProps={{ style: { fontSize: 16 } }}
                 sx={{ mt: 1.5 }}
               />
             </SurfaceCard>
@@ -798,51 +932,22 @@ export default function NewRepairFlow(props) {
         )}
       </Stack>
 
-      {/* ── Sticky step actions ─────────────────────────────────────────── */}
-      <Box
-        sx={{
-          position: { xs: 'fixed', sm: 'static' },
-          bottom: { xs: 0, sm: 'auto' },
-          left: { xs: 0, sm: 'auto' },
-          right: { xs: 0, sm: 'auto' },
-          zIndex: { xs: 1100, sm: 'auto' },
-          p: { xs: 1.5, sm: 0 },
-          // Clear the global FAB, which floats bottom-right above this bar.
-          pr: { xs: 10, sm: 0 },
-          mt: { xs: 0, sm: 3 },
-          backgroundColor: { xs: facelift.ground, sm: 'transparent' },
-          borderTop: { xs: `1px solid ${facelift.hairline}`, sm: 'none' },
-          display: 'flex',
-          gap: 1.25,
-        }}
-      >
-        {step > 0 && (
-          <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={goBack} sx={{ flexShrink: 0 }}>
-            Back
-          </Button>
-        )}
-        {STEPS[step].next ? (
-          <Button
-            variant="contained"
-            endIcon={<ArrowForwardIcon />}
-            onClick={goNext}
-            fullWidth
-            sx={{ py: 1.25 }}
-          >
-            {STEPS[step].next}
-          </Button>
-        ) : (
-          <Button
-            variant="contained"
-            onClick={handleSubmit}
-            disabled={loading}
-            startIcon={<SaveIcon />}
-            fullWidth
-            sx={{ py: 1.25 }}
-          >
-            {loading ? 'Saving…' : (submitLabel || 'Create repair')}
-          </Button>
-        )}
+      {/* ── Step actions — sticky, primary under the thumb ─────────────── */}
+      <Box sx={{ mt: 2.5, mr: { xs: 9, sm: 0 } }}>
+        <ActionBar>
+          {step > 0 && (
+            <QuietButton onClick={goBack} aria-label="Back a step">
+              Back
+            </QuietButton>
+          )}
+          {STEPS[step].next ? (
+            <GoldButton onClick={goNext}>{STEPS[step].next}</GoldButton>
+          ) : (
+            <GoldButton onClick={handleSubmit} disabled={loading}>
+              {loading ? 'Saving…' : (submitLabel || 'Create repair')}
+            </GoldButton>
+          )}
+        </ActionBar>
       </Box>
 
       {/* New Client Dialog — same fields and handler as the classic form. */}
@@ -858,38 +963,38 @@ export default function NewRepairFlow(props) {
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
               fullWidth
-              size="small"
               label="First Name"
               value={newClientData.firstName}
               onChange={(e) => setNewClientData((prev) => ({ ...prev, firstName: e.target.value }))}
               required
+              inputProps={{ style: { fontSize: 16 } }}
             />
             <TextField
               fullWidth
-              size="small"
               label="Last Name"
               value={newClientData.lastName}
               onChange={(e) => setNewClientData((prev) => ({ ...prev, lastName: e.target.value }))}
               required
+              inputProps={{ style: { fontSize: 16 } }}
             />
             <TextField
               fullWidth
-              size="small"
               label="Phone"
               type="tel"
               value={newClientData.phone}
               onChange={(e) => setNewClientData((prev) => ({ ...prev, phone: formatPhoneNumber(e.target.value) }))}
               placeholder="(555) 123-4567"
               required
+              inputProps={{ style: { fontSize: 16 } }}
             />
             <TextField
               fullWidth
-              size="small"
               label="Email"
               type="email"
               value={newClientData.email}
               onChange={(e) => setNewClientData((prev) => ({ ...prev, email: e.target.value }))}
               helperText="Optional"
+              inputProps={{ style: { fontSize: 16 } }}
             />
           </Stack>
         </DialogContent>
