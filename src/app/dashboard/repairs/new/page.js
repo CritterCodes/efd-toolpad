@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { Box, Button, Typography, Alert, Snackbar, Stack, useMediaQuery, useTheme } from '@mui/material';
 import { ArrowBack } from '@mui/icons-material';
 import NewRepairForm from '@/app/components/repairs/NewRepairForm';
+import NewRepairFlow from '@/app/components/repairs/NewRepairFlow';
 import { canCreateRepair } from '@/lib/repairAccess';
 import { PageHeader, facelift } from '@/components/facelift';
 
@@ -39,6 +40,10 @@ const NewRepairPage = () => {
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const [linkedSaleContext, setLinkedSaleContext] = useState(null);
   const [linkedSaleError, setLinkedSaleError] = useState('');
+
+  // Stepped-flow A/B flag (intake redesign step 3): both views render from the
+  // same useNewRepairForm hook, so this switch changes arrangement only.
+  const useNextUi = searchParams.get('ui') === 'next';
 
   const scannedWholesaleStoreId = searchParams.get('wholesaleStoreId');
   const scannedWholesaleStoreName = searchParams.get('wholesaleStoreName');
@@ -232,14 +237,25 @@ const NewRepairPage = () => {
 
         <Box>
           {linkedSaleError && <Alert severity="error" sx={{ mb: 2 }}>{linkedSaleError}</Alert>}
-          <NewRepairForm
-            onSubmit={handleSubmit}
-            initialData={linkedSaleContext?.initialData || null}
-            clientInfo={linkedSaleContext?.clientInfo || null}
-            isWholesale={isWholesaler}
-            wholesalerStoreId={wholesalerStoreId}
-            wholesalerStoreName={wholesalerStoreName}
-          />
+          {useNextUi ? (
+            <NewRepairFlow
+              onSubmit={handleSubmit}
+              initialData={linkedSaleContext?.initialData || null}
+              clientInfo={linkedSaleContext?.clientInfo || null}
+              isWholesale={isWholesaler}
+              wholesalerStoreId={wholesalerStoreId}
+              wholesalerStoreName={wholesalerStoreName}
+            />
+          ) : (
+            <NewRepairForm
+              onSubmit={handleSubmit}
+              initialData={linkedSaleContext?.initialData || null}
+              clientInfo={linkedSaleContext?.clientInfo || null}
+              isWholesale={isWholesaler}
+              wholesalerStoreId={wholesalerStoreId}
+              wholesalerStoreName={wholesalerStoreName}
+            />
+          )}
         </Box>
       </Stack>
 

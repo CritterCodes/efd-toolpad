@@ -1293,7 +1293,7 @@ function RepairItemsSection({
 }
 
 // Task/Process/Material item component
-function TaskItem({ item, onQuantityChange, onPriceChange, onRemove, showPriceInput = true }) {
+export function TaskItem({ item, onQuantityChange, onPriceChange, onRemove, showPriceInput = true }) {
   const unitPrice = toNumber(item.price);
   const lineTotal = unitPrice * (item.quantity || 1);
 
@@ -1320,7 +1320,9 @@ function TaskItem({ item, onQuantityChange, onPriceChange, onRemove, showPriceIn
               )}
             </Stack>
             {item.description && (
-              <Typography variant="caption" color="text.secondary" noWrap>
+              // display:block so noWrap's overflow-hidden actually clips — on the
+              // default inline span the text bleeds past the card on phones.
+              <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
                 {item.description}
               </Typography>
             )}
@@ -1381,7 +1383,7 @@ function TaskItem({ item, onQuantityChange, onPriceChange, onRemove, showPriceIn
 }
 
 // Custom line item component
-function CustomLineItem({
+export function CustomLineItem({
   item,
   onDescriptionChange,
   onQuantityChange,
@@ -1452,7 +1454,7 @@ function CustomLineItem({
 }
 
 // Total cost card with rush job information
-function TotalCostCard({ formData, calculateTotalCost, adminSettings, viewerIsWholesaler = false }) {
+export function TotalCostCard({ formData, calculateTotalCost, adminSettings, viewerIsWholesaler = false }) {
   const [totalCost, setTotalCost] = React.useState(0);
   const isCompedRepair = Boolean(formData.compRepair || formData.includedWithSale);
   const [costBreakdown, setCostBreakdown] = React.useState({
