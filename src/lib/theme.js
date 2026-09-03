@@ -118,7 +118,9 @@ const theme = createTheme({
         },
         sizeSmall: { padding: '6px 14px', minHeight: 34, fontSize: '0.8125rem' },
         sizeLarge: { padding: '13px 24px', minHeight: 48, fontSize: '0.9375rem' },
-        contained: {
+        // Scoped to primary so color="success" / "error" contained buttons
+        // keep their semantic fills instead of all going gold.
+        containedPrimary: {
           backgroundColor: GOLD,
           color: '#08090B',
           fontWeight: 600,

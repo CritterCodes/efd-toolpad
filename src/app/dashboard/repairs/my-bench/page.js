@@ -19,13 +19,13 @@ import {
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 
-import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import ContinuousBarcodeScanner from '@/components/repairs/ContinuousBarcodeScanner';
 import { BENCH_QUEUE, BENCH_TABS, isWorkOrderInTab } from '@/services/workOrders/workOrderWorkflow';
 import { uploadSizeError } from '@/lib/uploadLimits';
 import { directUpload, postFileWithProgress } from '@/lib/directUpload';
 import BenchWorkCard from './components/BenchWorkCard';
 import { isAdminRole } from '@/lib/repairAccess';
+import { PageHeader, SurfaceCard, SectionLabel, facelift } from '@/components/facelift';
 
 const DEFAULT_PARTS_FORM = { source: 'stuller', stullerSku: '', name: '', description: '', quantity: '1', price: '' };
 
@@ -327,7 +327,7 @@ export default function BenchPage() {
   };
 
   if (status === 'loading') {
-    return <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}><CircularProgress sx={{ color: REPAIRS_UI.accent }} /></Box>;
+    return <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}><CircularProgress /></Box>;
   }
 
   const activeKey = BENCH_TABS[tab].key;
@@ -338,120 +338,122 @@ export default function BenchPage() {
   return (
     <Box sx={{ pb: 8 }}>
       {/* Header panel */}
-      <Box sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 3, p: { xs: 2, md: 3 }, mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mb: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <WorkIcon sx={{ color: REPAIRS_UI.accent, fontSize: 28 }} />
-            <Box>
-              <Typography sx={{ fontSize: { xs: 24, md: 30 }, fontWeight: 600, color: REPAIRS_UI.textHeader, lineHeight: 1.1 }}>My Bench</Typography>
-              <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
-                All active work across your disciplines — repairs, production, customs, sale service.
-              </Typography>
-            </Box>
-          </Box>
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={() => router.push('/dashboard/repairs/new')} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>New Repair</Button>
-            <Button size="small" variant="contained" startIcon={<QCIcon />} onClick={moveMyBenchToQc} disabled={bulkQcLoading || mineInProgress.length === 0} sx={{ bgcolor: '#00C49F', color: '#000', '&:hover': { bgcolor: '#00a985' } }}>
+      <PageHeader
+        badge="Bench work"
+        badgeIcon={<WorkIcon sx={{ fontSize: 14 }} />}
+        title="My Bench"
+        subtitle="All active work across your disciplines — repairs, production, customs, sale service."
+        actions={(
+          <>
+            <Button variant="outlined" startIcon={<AddIcon />} onClick={() => router.push('/dashboard/repairs/new')}>New Repair</Button>
+            <Button variant="contained" color="success" startIcon={<QCIcon />} onClick={moveMyBenchToQc} disabled={bulkQcLoading || mineInProgress.length === 0}>
               {bulkQcLoading ? 'Moving…' : `Move My Bench to QC (${mineInProgress.length})`}
             </Button>
-            <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={fetchWorkOrders} disabled={loading} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>Refresh</Button>
-          </Box>
-        </Box>
-
+            <Button variant="outlined" startIcon={<RefreshIcon />} onClick={fetchWorkOrders} disabled={loading}>Refresh</Button>
+          </>
+        )}
+      >
         {/* Summary counts */}
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 2 }}>
+        <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', mt: 2.5 }}>
           {BENCH_TABS.map(({ label, key }) => (
-            <Box key={key} sx={{ textAlign: 'center' }}>
-              <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: REPAIRS_UI.textHeader, lineHeight: 1 }}>{byTab[key]?.length ?? 0}</Typography>
-              <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{label}</Typography>
+            <Box key={key}>
+              <Typography sx={{ fontSize: '1.375rem', fontWeight: 700, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{byTab[key]?.length ?? 0}</Typography>
+              <SectionLabel sx={{ mt: 0.25, fontSize: '0.594rem' }}>{label}</SectionLabel>
             </Box>
           ))}
         </Box>
+      </PageHeader>
 
-        {/* Scan to claim */}
-        <Box component="form" onSubmit={handleQueueScan} sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      {/* Scan to claim */}
+      <SurfaceCard sx={{ mt: 2.5 }}>
+        <SectionLabel>Scan to claim</SectionLabel>
+        <Box component="form" onSubmit={handleQueueScan} sx={{ mt: 1.5, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <TextField
             label="Scan to Claim" placeholder="Scan repair ticket barcode" value={scanValue}
             onChange={(e) => setScanValue(e.target.value)} autoComplete="off" autoFocus size="small"
-            sx={{ minWidth: { xs: '100%', sm: 320 }, '& .MuiOutlinedInput-root': { bgcolor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary }, '& .MuiInputLabel-root': { color: REPAIRS_UI.textMuted } }}
+            sx={{ minWidth: { xs: '100%', sm: 320 } }}
             helperText="Barcode scan lands here. Press Enter to queue each repair, then claim the batch."
-            FormHelperTextProps={{ sx: { color: REPAIRS_UI.textMuted } }}
           />
-          <Button type="submit" variant="outlined" startIcon={<ScanIcon />} disabled={scanLoading || !scanValue.trim()} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>Queue Scan</Button>
-          <Button type="button" variant="outlined" startIcon={<ScanIcon />} disabled={scanLoading} onClick={() => setClaimScannerOpen(true)} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>Camera Scan</Button>
-          <Button type="button" variant="contained" disabled={scanLoading || queuedClaimIDs.length === 0} onClick={claimQueued} sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#FFCF4D' } }}>
+          <Button type="submit" variant="outlined" startIcon={<ScanIcon />} disabled={scanLoading || !scanValue.trim()}>Queue Scan</Button>
+          <Button type="button" variant="outlined" startIcon={<ScanIcon />} disabled={scanLoading} onClick={() => setClaimScannerOpen(true)}>Camera Scan</Button>
+          <Button type="button" variant="contained" disabled={scanLoading || queuedClaimIDs.length === 0} onClick={claimQueued}>
             {scanLoading ? 'Claiming…' : `Claim ${queuedClaimIDs.length} Queued`}
           </Button>
         </Box>
         {queuedClaimIDs.length > 0 && (
           <Box sx={{ mt: 1.5 }}>
-            <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 1 }}>Queued to claim ({queuedClaimIDs.length})</Typography>
+            <SectionLabel sx={{ mb: 1 }}>Queued to claim ({queuedClaimIDs.length})</SectionLabel>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
               {queuedClaimIDs.map((id) => (
-                <Chip key={id} label={id} onDelete={() => removeQueued(id)} deleteIcon={<CloseIcon />} sx={{ bgcolor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }} />
+                <Chip key={id} label={id} onDelete={() => removeQueued(id)} deleteIcon={<CloseIcon />} />
               ))}
             </Box>
           </Box>
         )}
-      </Box>
+      </SurfaceCard>
 
       {/* Tabs */}
       <Tabs
         value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile
-        sx={{ mb: 2, maxWidth: '100%', '& .MuiTabs-scroller': { overflowX: 'auto !important' }, '& .MuiTab-root': { color: REPAIRS_UI.textSecondary, textTransform: 'none', flexShrink: 0 }, '& .Mui-selected': { color: REPAIRS_UI.accent }, '& .MuiTabs-indicator': { bgcolor: REPAIRS_UI.accent } }}
+        sx={{ mt: 2.5, mb: 2, maxWidth: '100%', '& .MuiTabs-scroller': { overflowX: 'auto !important' } }}
       >
         {BENCH_TABS.map(({ label, key }) => <Tab key={key} label={`${label} (${byTab[key]?.length ?? 0})`} />)}
       </Tabs>
 
       {/* QC bulk bar */}
       {activeKey === BENCH_QUEUE.QC && shown.length > 0 && (
-        <Box sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, p: 1.5, mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, flexWrap: 'wrap' }}>
+        <SurfaceCard accent="#34D399" sx={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, flexWrap: 'wrap', py: 1.5, mb: 2 }}>
           <Box>
-            <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 600 }}>QC Selection</Typography>
-            <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{selectedShownQc.length} selected on this tab</Typography>
+            <Typography sx={{ fontWeight: 600 }}>QC Selection</Typography>
+            <Typography variant="caption" sx={{ color: facelift.text3 }}>{selectedShownQc.length} selected on this tab</Typography>
           </Box>
-          <Button variant="contained" startIcon={<QCIcon />} disabled={bulkCompleteLoading || selectedShownQc.length === 0} onClick={completeSelectedQc} sx={{ bgcolor: '#00C49F', color: '#000', '&:hover': { bgcolor: '#00a985' } }}>
+          <Button variant="contained" color="success" startIcon={<QCIcon />} disabled={bulkCompleteLoading || selectedShownQc.length === 0} onClick={completeSelectedQc}>
             {bulkCompleteLoading ? 'Approving…' : `Approve to Payment & Pickup (${selectedShownQc.length})`}
           </Button>
-        </Box>
+        </SurfaceCard>
       )}
 
       {/* Grid / states */}
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress sx={{ color: REPAIRS_UI.accent }} /></Box>
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>
       ) : shown.length === 0 ? (
-        <Box sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 3, py: 6, textAlign: 'center' }}>
+        <SurfaceCard sx={{ py: 6, alignItems: 'center', textAlign: 'center' }}>
           {activeKey === BENCH_QUEUE.COMMUNICATIONS
-            ? <CommunicationsIcon sx={{ fontSize: 48, color: REPAIRS_UI.textMuted, mb: 1.5 }} />
-            : <WorkIcon sx={{ fontSize: 48, color: REPAIRS_UI.textMuted, mb: 1.5 }} />}
-          <Typography sx={{ color: REPAIRS_UI.textHeader }}>Nothing here</Typography>
-          <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, mt: 0.5 }}>
+            ? <CommunicationsIcon sx={{ fontSize: 48, color: facelift.text4, mb: 1.5 }} />
+            : <WorkIcon sx={{ fontSize: 48, color: facelift.text4, mb: 1.5 }} />}
+          <Typography sx={{ fontWeight: 600 }}>Nothing here</Typography>
+          <Typography variant="body2" sx={{ color: facelift.text2, mt: 0.5 }}>
             {activeKey === BENCH_QUEUE.MINE ? 'You have no work claimed to your bench.' : 'No work in this category.'}
           </Typography>
-        </Box>
+        </SurfaceCard>
       ) : (
-        <Grid container spacing={2}>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(3, minmax(0, 1fr))' },
+            gap: 2,
+          }}
+        >
           {shown.map((wo) => (
-            <Grid item xs={12} sm={6} xl={4} key={wo.workOrderID}>
-              <BenchWorkCard
-                wo={wo}
-                currentUserID={userID}
-                isAdmin={isAdmin}
-                jewelers={jewelers}
-                busy={busyID === wo.workOrderID}
-                uploadPct={uploadPct[wo.workOrderID] ?? null}
-                error={cardErrors[wo.workOrderID]}
-                selectable={activeKey === BENCH_QUEUE.QC}
-                isSelected={selectedQcIDs.includes(wo.workOrderID)}
-                onToggleSelect={toggleQc}
-                onAction={runAction}
-                onOpenPartsDialog={openPartsDialog}
-                onUploadStl={uploadStl}
-                onUploadGlb={uploadGlb}
-              />
-            </Grid>
+            <BenchWorkCard
+              key={wo.workOrderID}
+              wo={wo}
+              currentUserID={userID}
+              isAdmin={isAdmin}
+              jewelers={jewelers}
+              busy={busyID === wo.workOrderID}
+              uploadPct={uploadPct[wo.workOrderID] ?? null}
+              error={cardErrors[wo.workOrderID]}
+              selectable={activeKey === BENCH_QUEUE.QC}
+              isSelected={selectedQcIDs.includes(wo.workOrderID)}
+              onToggleSelect={toggleQc}
+              onAction={runAction}
+              onOpenPartsDialog={openPartsDialog}
+              onUploadStl={uploadStl}
+              onUploadGlb={uploadGlb}
+            />
           ))}
-        </Grid>
+        </Box>
       )}
 
       {/* Camera scanner */}
@@ -467,15 +469,15 @@ export default function BenchPage() {
       >
         {queuedClaimIDs.length > 0 ? (
           <Box>
-            <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 1 }}>Queued to claim ({queuedClaimIDs.length})</Typography>
+            <SectionLabel sx={{ mb: 1 }}>Queued to claim ({queuedClaimIDs.length})</SectionLabel>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
               {queuedClaimIDs.map((id) => (
-                <Chip key={id} label={id} onDelete={() => removeQueued(id)} deleteIcon={<CloseIcon />} sx={{ bgcolor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }} />
+                <Chip key={id} label={id} onDelete={() => removeQueued(id)} deleteIcon={<CloseIcon />} />
               ))}
             </Box>
           </Box>
         ) : (
-          <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>Scanned repairs appear here. The camera stays open until you close it.</Typography>
+          <Typography variant="body2" sx={{ color: facelift.text2 }}>Scanned repairs appear here. The camera stays open until you close it.</Typography>
         )}
       </ContinuousBarcodeScanner>
 
@@ -484,7 +486,7 @@ export default function BenchPage() {
         <DialogTitle>Move to Needs Parts</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
-            <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>Add the part or material that needs to be ordered before moving this repair.</Typography>
+            <Typography variant="body2" sx={{ color: facelift.text2 }}>Add the part or material that needs to be ordered before moving this repair.</Typography>
             {partsDialogWO && <Alert severity="info">{partsDialogWO.sourceID} — {partsDialogWO.source?.clientName || partsDialogWO.source?.businessName || ''}</Alert>}
             {partsError && <Alert severity="error">{partsError}</Alert>}
             <TextField select label="Material Source" value={partsForm.source} onChange={(e) => setPF('source', e.target.value)} fullWidth>
@@ -507,14 +509,14 @@ export default function BenchPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={closePartsDialog} disabled={partsLoading}>Cancel</Button>
-          <Button variant="contained" onClick={submitNeedsParts} disabled={partsLoading} sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#FFCF4D' } }}>
+          <Button variant="contained" onClick={submitNeedsParts} disabled={partsLoading}>
             {partsLoading ? 'Moving…' : 'Add Material & Move'}
           </Button>
         </DialogActions>
       </Dialog>
 
       <Snackbar open={snack.open} autoHideDuration={5000} onClose={closeSnack} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-        <Alert onClose={closeSnack} severity={snack.severity} sx={{ bgcolor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }}>{snack.message}</Alert>
+        <Alert onClose={closeSnack} severity={snack.severity}>{snack.message}</Alert>
       </Snackbar>
     </Box>
   );
