@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
     Box, TextField, MenuItem, Select, InputLabel, FormControl, Typography, Chip, Stack,
-    Button, Alert, CircularProgress
+    Button, Alert, CircularProgress, Checkbox
 } from '@mui/material';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import RepairsGrid from '@/app/components/repairs/repairGrid';
