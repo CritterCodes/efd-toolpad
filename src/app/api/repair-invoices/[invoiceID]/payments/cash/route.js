@@ -25,9 +25,10 @@ export const POST = async (req, { params }) => {
     const grossTotal = parseFloat(invoice.subtotal || 0)
       + parseFloat(invoice.taxAmount || 0)
       + parseFloat(invoice.deliveryFee || 0);
-    const cashDiscountAmount = body.applyCashDiscount === true
-      ? Math.max(grossTotal - (Math.floor(grossTotal / 5) * 5), 0)
-      : parseFloat(invoice.cashDiscountAmount || 0);
+    // CASH DISCOUNT REMOVED (owner, 2026-09-04): cash payments no longer round the
+    // total down to the nearest $5. A discount already STORED on an old open invoice
+    // is still honored — that total was already quoted to the customer.
+    const cashDiscountAmount = parseFloat(invoice.cashDiscountAmount || 0);
     const invoiceTotal = Math.max(grossTotal - cashDiscountAmount, 0);
     const payments = Array.isArray(invoice.payments) ? [...invoice.payments] : [];
     payments.push({
@@ -44,7 +45,7 @@ export const POST = async (req, { params }) => {
 
     let updated = await RepairInvoicesModel.updateByInvoiceID(invoice.invoiceID, {
       payments,
-      cashDiscountApplied: body.applyCashDiscount === true || invoice.cashDiscountApplied === true,
+      cashDiscountApplied: invoice.cashDiscountApplied === true,
       cashDiscountAmount,
       total: invoiceTotal,
       amountPaid,

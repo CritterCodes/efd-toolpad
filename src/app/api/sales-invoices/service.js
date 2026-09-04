@@ -19,12 +19,6 @@ function roundMoney(value) {
   return Math.round(toNumber(value) * 100) / 100;
 }
 
-function getCashDiscountAmount(grossTotal) {
-  const total = toNumber(grossTotal);
-  const roundedTotal = Math.floor(total / 5) * 5;
-  return roundMoney(Math.max(total - roundedTotal, 0));
-}
-
 function computePaymentStatus(total, amountPaid) {
   const remainingBalance = roundMoney(Math.max(toNumber(total) - toNumber(amountPaid), 0));
   if (remainingBalance <= 0) return { paymentStatus: 'paid', remainingBalance: 0 };
@@ -105,23 +99,24 @@ function normalizeTask(task) {
   };
 }
 
-function calculateInvoiceTotals(lineItems, taxRate, cashDiscountApplied = false, amountPaid = 0) {
+// CASH DISCOUNT REMOVED (owner, 2026-09-04): sales invoices no longer round the total
+// down to the nearest $5 for cash. The stored cashDiscount* fields remain on historical
+// invoices for display and reporting; nothing writes a non-zero one anymore.
+function calculateInvoiceTotals(lineItems, taxRate, amountPaid = 0) {
   const subtotal = roundMoney(lineItems.reduce((sum, line) => sum + toNumber(line.lineTotal), 0));
   const taxableSubtotal = roundMoney(lineItems.filter((line) => line.taxable !== false).reduce((sum, line) => sum + toNumber(line.lineTotal), 0));
   const taxAmount = roundMoney(taxableSubtotal * toNumber(taxRate));
   const grossTotal = roundMoney(subtotal + taxAmount);
-  const cashDiscountAmount = cashDiscountApplied ? getCashDiscountAmount(grossTotal) : 0;
-  const total = roundMoney(Math.max(grossTotal - cashDiscountAmount, 0));
   return {
     subtotal,
     taxableSubtotal,
     taxAmount,
     grossTotal,
-    cashDiscountApplied,
-    cashDiscountAmount,
-    total,
+    cashDiscountApplied: false,
+    cashDiscountAmount: 0,
+    total: grossTotal,
     amountPaid: roundMoney(amountPaid),
-    ...computePaymentStatus(total, amountPaid),
+    ...computePaymentStatus(grossTotal, amountPaid),
   };
 }
 
@@ -291,7 +286,7 @@ export async function getSalesInvoice(invoiceID) {
 export async function createSalesInvoice(data, actor) {
   const settings = await getSalesSettings();
   const lineItems = await normalizeLineItems(data.lineItems || [], settings);
-  const totals = calculateInvoiceTotals(lineItems, settings.taxRate, data.cashDiscountApplied === true, data.amountPaid || 0);
+  const totals = calculateInvoiceTotals(lineItems, settings.taxRate, data.amountPaid || 0);
 
   let invoice = await SalesInvoicesModel.create({
     clientID: data.clientID,
@@ -427,14 +422,6 @@ export async function updateSalesInvoicePaymentMethod(invoiceID, { paymentID, me
   }
 
   return await SalesInvoicesModel.updateByInvoiceID(invoiceID, { payments });
-}
-
-export async function setSalesInvoiceCashDiscount(invoiceID, enabled = true) {
-  const invoice = await SalesInvoicesModel.findByInvoiceID(invoiceID);
-  if (invoice.paymentStatus === 'paid') throw new Error('Paid invoices cannot be changed.');
-
-  const totals = calculateInvoiceTotals(invoice.lineItems, invoice.taxRate, enabled, invoice.amountPaid);
-  return await SalesInvoicesModel.updateByInvoiceID(invoiceID, totals);
 }
 
 export async function voidSalesInvoice(invoiceID, reason = '') {

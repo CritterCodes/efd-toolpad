@@ -120,10 +120,11 @@ function calculateInvoiceTotals(repairSnapshots = [], deliveryFee = 0, cashDisco
   };
 }
 
-function getCashDiscountAmount(grossTotal) {
-  const roundedTotal = Math.floor(parseFloat(grossTotal || 0) / 5) * 5;
-  return Math.max(parseFloat(grossTotal || 0) - roundedTotal, 0);
-}
+// CASH DISCOUNT REMOVED (owner, 2026-09-04): invoices no longer round down to the
+// nearest $5 for cash. calculateInvoiceTotals keeps its discount parameter so the
+// stored cashDiscountAmount on HISTORICAL invoices still normalizes correctly, but
+// every recalculation path now passes 0 — editing an old discounted invoice
+// deliberately drops its discount.
 
 async function findAppendableInvoice(context, deliveryMethod) {
   const dbInstance = await db.connect();
@@ -150,18 +151,13 @@ async function appendRepairsToInvoice(invoice, repairs, repairSnapshots, created
   ];
 
   const deliveryFee = parseFloat(invoice.deliveryFee || 0);
-  const totals = calculateInvoiceTotals(
-    nextSnapshots,
-    deliveryFee,
-    invoice.cashDiscountApplied ? parseFloat(invoice.cashDiscountAmount || 0) : 0,
-    invoice.amountPaid
-  );
+  const totals = calculateInvoiceTotals(nextSnapshots, deliveryFee, 0, invoice.amountPaid);
 
   const updatedInvoice = await RepairInvoicesModel.updateByInvoiceID(invoice.invoiceID, {
     repairIDs: nextRepairIDs,
     repairSnapshots: nextSnapshots,
     ...totals,
-    cashDiscountApplied: invoice.cashDiscountApplied === true,
+    cashDiscountApplied: false,
   });
 
   const nextRepairStatus = invoice.deliveryMethod === 'delivery' ? 'DELIVERY BATCHED' : 'READY FOR PICKUP';
@@ -350,14 +346,12 @@ export async function updateInvoiceDelivery(invoiceID, { deliveryMethod = 'picku
 
   const nextDeliveryMethod = deliveryMethod === 'delivery' ? 'delivery' : 'pickup';
   const nextDeliveryFee = nextDeliveryMethod === 'delivery' ? parseFloat(deliveryFee || DEFAULT_DELIVERY_FEE) : 0;
-  const grossTotal = (invoice.repairSnapshots || []).reduce((sum, item) => sum + parseFloat(item.subtotal || 0) + parseFloat(item.taxAmount || 0), 0) + nextDeliveryFee;
-  const discount = invoice.cashDiscountApplied ? getCashDiscountAmount(grossTotal) : 0;
-  const totals = calculateInvoiceTotals(invoice.repairSnapshots || [], nextDeliveryFee, discount, invoice.amountPaid);
+  const totals = calculateInvoiceTotals(invoice.repairSnapshots || [], nextDeliveryFee, 0, invoice.amountPaid);
 
   const updated = await RepairInvoicesModel.updateByInvoiceID(invoiceID, {
     deliveryMethod: nextDeliveryMethod,
     deliveryFee: nextDeliveryFee,
-    cashDiscountAmount: discount,
+    cashDiscountApplied: false,
     ...totals,
   });
 
@@ -372,21 +366,6 @@ export async function updateInvoiceDelivery(invoiceID, { deliveryMethod = 'picku
   );
 
   return updated;
-}
-
-export async function setInvoiceCashDiscount(invoiceID, enabled = true) {
-  const invoice = await RepairInvoicesModel.findByInvoiceID(invoiceID);
-  if (invoice.paymentStatus === 'paid') throw new Error('Paid invoices cannot be changed.');
-
-  const grossTotal = (invoice.repairSnapshots || []).reduce((sum, item) => sum + parseFloat(item.subtotal || 0) + parseFloat(item.taxAmount || 0), 0)
-    + parseFloat(invoice.deliveryFee || 0);
-  const discount = enabled ? getCashDiscountAmount(grossTotal) : 0;
-  const totals = calculateInvoiceTotals(invoice.repairSnapshots || [], invoice.deliveryFee || 0, discount, invoice.amountPaid);
-
-  return await RepairInvoicesModel.updateByInvoiceID(invoiceID, {
-    cashDiscountApplied: Boolean(enabled),
-    ...totals,
-  });
 }
 
 export async function splitInvoice(invoiceID, repairIDs = []) {
@@ -406,21 +385,16 @@ export async function splitInvoice(invoiceID, repairIDs = []) {
   const remainingSnapshots = (invoice.repairSnapshots || []).filter((snapshot) => !selected.includes(snapshot.repairID));
   const remainingIDs = currentIDs.filter((repairID) => !selected.includes(repairID));
 
-  const remainingGross = remainingSnapshots.reduce((sum, item) => sum + parseFloat(item.subtotal || 0) + parseFloat(item.taxAmount || 0), 0)
-    + parseFloat(invoice.deliveryFee || 0);
-  const remainingDiscount = invoice.cashDiscountApplied ? getCashDiscountAmount(remainingGross) : 0;
-  const remainingTotals = calculateInvoiceTotals(remainingSnapshots, invoice.deliveryFee || 0, remainingDiscount, invoice.amountPaid);
+  const remainingTotals = calculateInvoiceTotals(remainingSnapshots, invoice.deliveryFee || 0, 0, invoice.amountPaid);
 
   const updatedOriginal = await RepairInvoicesModel.updateByInvoiceID(invoice.invoiceID, {
     repairIDs: remainingIDs,
     repairSnapshots: remainingSnapshots,
-    cashDiscountAmount: remainingDiscount,
+    cashDiscountApplied: false,
     ...remainingTotals,
   });
 
-  const newGross = movingSnapshots.reduce((sum, item) => sum + parseFloat(item.subtotal || 0) + parseFloat(item.taxAmount || 0), 0);
-  const newDiscount = invoice.cashDiscountApplied ? getCashDiscountAmount(newGross) : 0;
-  const newTotals = calculateInvoiceTotals(movingSnapshots, 0, newDiscount, 0);
+  const newTotals = calculateInvoiceTotals(movingSnapshots, 0, 0, 0);
   const newInvoice = await RepairInvoicesModel.create({
     accountType: invoice.accountType,
     accountID: invoice.accountID,
@@ -432,7 +406,7 @@ export async function splitInvoice(invoiceID, repairIDs = []) {
     status: 'draft',
     deliveryMethod: 'pickup',
     deliveryFee: 0,
-    cashDiscountApplied: invoice.cashDiscountApplied === true,
+    cashDiscountApplied: false,
     ...newTotals,
     closeoutNotes: invoice.closeoutNotes || '',
     createdBy: invoice.createdBy || '',
@@ -473,15 +447,12 @@ export async function mergeInvoices(sourceInvoiceID, targetInvoiceID) {
     ...(target.repairSnapshots || []),
     ...(source.repairSnapshots || []).filter((snapshot) => !(target.repairIDs || []).includes(snapshot.repairID)),
   ];
-  const grossTotal = repairSnapshots.reduce((sum, item) => sum + parseFloat(item.subtotal || 0) + parseFloat(item.taxAmount || 0), 0)
-    + parseFloat(target.deliveryFee || 0);
-  const discount = target.cashDiscountApplied ? getCashDiscountAmount(grossTotal) : 0;
-  const totals = calculateInvoiceTotals(repairSnapshots, target.deliveryFee || 0, discount, target.amountPaid);
+  const totals = calculateInvoiceTotals(repairSnapshots, target.deliveryFee || 0, 0, target.amountPaid);
 
   const updatedTarget = await RepairInvoicesModel.updateByInvoiceID(target.invoiceID, {
     repairIDs,
     repairSnapshots,
-    cashDiscountAmount: discount,
+    cashDiscountApplied: false,
     ...totals,
   });
 
@@ -545,15 +516,12 @@ export async function removeRepairsFromInvoice(invoiceID, repairIDs = []) {
       voidReason: 'All repairs removed back to closeout',
     });
   } else {
-    const grossTotal = remainingSnapshots.reduce((sum, item) => sum + parseFloat(item.subtotal || 0) + parseFloat(item.taxAmount || 0), 0)
-      + parseFloat(invoice.deliveryFee || 0);
-    const discount = invoice.cashDiscountApplied ? getCashDiscountAmount(grossTotal) : 0;
-    const totals = calculateInvoiceTotals(remainingSnapshots, invoice.deliveryFee || 0, discount, 0);
+    const totals = calculateInvoiceTotals(remainingSnapshots, invoice.deliveryFee || 0, 0, 0);
 
     updatedInvoice = await RepairInvoicesModel.updateByInvoiceID(invoice.invoiceID, {
       repairIDs: remainingIDs,
       repairSnapshots: remainingSnapshots,
-      cashDiscountAmount: discount,
+      cashDiscountApplied: false,
       ...totals,
     });
   }

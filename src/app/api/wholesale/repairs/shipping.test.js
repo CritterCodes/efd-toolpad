@@ -97,12 +97,14 @@ describe('ship-back (outbound, INVOICE-based)', () => {
     repairSnapshots: [{ repairID: 'r1', description: 'ring' }, { repairID: 'r2', description: 'chain' }],
     ...over,
   });
-  // ship-back queries invoices first, repairs second — return per collection.
-  const stubFinds = ({ invoices = [], repairs = [] }) => {
+  // ship-back queries invoices first, repairs second, then users (the notification's
+  // recipient resolution — real portal accounts, not invoice.clientID) — per collection.
+  const stubFinds = ({ invoices = [], repairs = [], users = [{ userID: 'ws-marlen', email: 'marlen@store.test', firstName: 'Marlen' }] }) => {
     mocks.find.mockReset();
     mocks.find
       .mockReturnValueOnce({ toArray: async () => invoices })
-      .mockReturnValue({ projection: undefined, toArray: async () => repairs })
+      .mockReturnValueOnce({ projection: undefined, toArray: async () => repairs })
+      .mockReturnValue({ toArray: async () => users })
       ;
   };
 
@@ -146,6 +148,8 @@ describe('ship-back (outbound, INVOICE-based)', () => {
 
     const notif = mocks.createNotification.mock.calls[0][0];
     expect(notif.userId).toBe('ws-marlen');
+    // The email leg needs an address — clientID grouping never carried one.
+    expect(notif.recipientEmail).toBe('marlen@store.test');
     expect(notif.message).toContain('FX123');
     expect(notif.message).toContain('rinv-1');
   });
