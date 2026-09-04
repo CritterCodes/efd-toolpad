@@ -38,7 +38,7 @@ vi.mock('@/lib/appUrls', () => ({
 
 const { notifyWholesaleInvoiceFinalized, resolveWholesaleInvoiceRecipients } = await import('./invoiceNotifications');
 
-const marlen = { userID: 'ws-marlen', email: 'marlen@store.test', business: "Marlen's Jewelers" };
+const marlen = { userID: 'ws-marlen', email: 'marlen@store.test', firstName: 'Marlen', business: "Marlen's Jewelers" };
 
 const wholesaleInvoice = {
   invoiceID: 'rinv-1',
@@ -85,7 +85,12 @@ describe('notifyWholesaleInvoiceFinalized', () => {
       recipientEmail: 'marlen@store.test',
       channels: ['inApp', 'email'],
       message: expect.stringContaining('rinv-1'),
-      data: expect.objectContaining({ actionUrl: 'https://admin.test/dashboard/wholesaler/billing' }),
+      // recipientName overrides the email channel's email-prefix default, so the greeting
+      // reads "Hi Marlen," not "Hi marlen,@store.test-prefix".
+      data: expect.objectContaining({
+        actionUrl: 'https://admin.test/dashboard/wholesaler/billing',
+        recipientName: 'Marlen',
+      }),
     }));
     expect(mocks.updateByInvoiceID).toHaveBeenCalledWith('rinv-1', expect.objectContaining({
       partnerNotifiedAt: expect.any(Date),

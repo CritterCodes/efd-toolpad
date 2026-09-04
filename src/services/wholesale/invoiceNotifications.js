@@ -95,6 +95,11 @@ export async function notifyWholesaleInvoiceFinalized(invoice) {
             invoiceID: invoice.invoiceID,
             relatedType: 'repair-invoice',
             userRole: 'wholesaler',
+            // The email channel defaults recipientName to the EMAIL PREFIX ("Hi jacobengel,").
+            // relatedData is spread over that default, so a real name here wins.
+            ...(user.firstName || user.business
+              ? { recipientName: user.firstName || user.business }
+              : {}),
           },
         });
         result.notified += 1;
