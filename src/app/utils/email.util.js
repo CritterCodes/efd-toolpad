@@ -1,7 +1,7 @@
 // src/app/api/auth/email.util.js
 import nodemailer from 'nodemailer';
 import { resolveMailCredentials } from '../../../lib/email.js';
-import { adminBase } from '../../../lib/appUrls.js';
+import { adminBase, shopBase } from '../../../lib/appUrls.js';
 
 // The From header. EMAIL_USER is not set in production (GMAIL_USER is), so the
 // old literal 'Your App Name <undefined>' went out on every auth email. The
@@ -28,6 +28,53 @@ function getTransporter() {
     return transporter;
 }
 
+// The SAME branded card every other EFD email uses (emails/generic-notification.hbs). Auth emails
+// can't go through lib/email.js — its .hbs loading assumes the notification pipeline — so the
+// skeleton is inlined here as a string builder. These used to be bare unstyled HTML that opened
+// with "Welcome to Our App!" — a customer's very first email from a fine jewelry brand.
+function brandedEmailHtml({ title, greeting = '', message, actionUrl, actionLabel, footnote = '' }) {
+    const supportEmail = process.env.SUPPORT_EMAIL || 'critter@engelfinedesign.com';
+    return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>${title}</title></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#18181b;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
+          <tr>
+            <td style="background:#0a0a0a;padding:20px 28px;">
+              <span style="color:#D4AF37;font-size:18px;font-weight:600;letter-spacing:0.5px;">Engel Fine Design</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px;">
+              ${greeting ? `<p style="margin:0 0 16px;font-size:15px;">${greeting}</p>` : ''}
+              <h1 style="margin:0 0 12px;font-size:20px;font-weight:600;color:#18181b;">${title}</h1>
+              <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#3f3f46;">${message}</p>
+              <table role="presentation" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="border-radius:8px;background:#0a0a0a;">
+                    <a href="${actionUrl}" target="_blank" style="display:inline-block;padding:12px 28px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;">${actionLabel}</a>
+                  </td>
+                </tr>
+              </table>
+              ${footnote ? `<p style="margin:24px 0 0;font-size:14px;line-height:1.6;color:#71717a;">${footnote}</p>` : ''}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 28px;border-top:1px solid #e4e4e7;background:#fafafa;">
+              <p style="margin:0;font-size:12px;color:#a1a1aa;">Engel Fine Design &middot; <a href="${shopBase()}" style="color:#a1a1aa;">Shop</a> &middot; Questions? <a href="mailto:${supportEmail}" style="color:#a1a1aa;">${supportEmail}</a></p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
 /**
  * ✅ Send a verification email to the user
  * @param {string} email - The user's email address
@@ -40,12 +87,13 @@ export async function sendVerificationEmail(email, token) {
         from: fromHeader(),
         to: email,
         subject: 'Verify Your Email Address',
-        html: `
-            <h2>Welcome to Our App!</h2>
-            <p>Thank you for signing up. Please verify your email address by clicking the link below:</p>
-            <a href="${verificationLink}" target="_blank">Verify Email</a>
-            <p>If you did not sign up, you can safely ignore this message.</p>
-        `
+        html: brandedEmailHtml({
+            title: 'Welcome to Engel Fine Design',
+            message: 'Thank you for signing up. Please verify your email address by clicking the button below.',
+            actionUrl: verificationLink,
+            actionLabel: 'Verify Email',
+            footnote: 'If you did not sign up, you can safely ignore this message.',
+        })
     };
 
     try {
@@ -72,12 +120,13 @@ export async function sendPasswordResetEmail(email, token) {
         from: fromHeader(),
         to: email,
         subject: 'Password Reset Request',
-        html: `
-            <h2>Password Reset Request</h2>
-            <p>Click the link below to reset your password:</p>
-            <a href="${resetLink}" target="_blank">Reset Password</a>
-            <p>If you did not request a password reset, please ignore this message.</p>
-        `
+        html: brandedEmailHtml({
+            title: 'Reset your password',
+            message: 'We received a request to reset your password. Click the button below to choose a new one.',
+            actionUrl: resetLink,
+            actionLabel: 'Reset Password',
+            footnote: 'If you did not request a password reset, please ignore this message.',
+        })
     };
 
     try {
@@ -101,13 +150,15 @@ export async function sendInviteEmail(email, token, firstName) {
     const mailOptions = {
         from: fromHeader(),
         to: email,
-        subject: 'You’ve Been Invited to Join Our Platform!',
-        html: `
-            <h2>Hello ${firstName}!</h2>
-            <p>You have been invited to join our platform. Click the link below to finish creating your account:</p>
-            <a href="${inviteLink}" target="_blank">Complete Your Signup</a>
-            <p>If you were not expecting this invitation, you can safely ignore this email.</p>
-        `
+        subject: 'You’ve Been Invited to Engel Fine Design',
+        html: brandedEmailHtml({
+            title: 'You’ve been invited',
+            greeting: firstName ? `Hello ${firstName},` : '',
+            message: 'You have been invited to join Engel Fine Design. Click the button below to finish creating your account.',
+            actionUrl: inviteLink,
+            actionLabel: 'Complete Your Signup',
+            footnote: 'If you were not expecting this invitation, you can safely ignore this email.',
+        })
     };
 
     try {
