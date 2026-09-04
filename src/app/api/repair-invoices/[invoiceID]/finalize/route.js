@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireRepairOpsAny, requireRole } from '@/lib/apiAuth';
 import RepairInvoicesModel from '../../model';
+import { notifyWholesaleInvoiceFinalized } from '@/services/wholesale/invoiceNotifications';
 
 async function requireCloseoutAccess() {
   const adminResult = await requireRole(['admin']);
@@ -19,7 +20,13 @@ export const POST = async (req, { params }) => {
       status: invoice.paymentStatus === 'paid' ? 'paid' : 'open',
     });
 
-    return NextResponse.json(updated, { status: 200 });
+    // Finalize is the moment a wholesale draft becomes a bill the partner owes — tell them
+    // (in-app + push + email). Best-effort and deduped by the partnerNotifiedAt stamp, so a
+    // re-finalize can't spam; the summary rides back so the closeout UI can report delivery
+    // honestly instead of assuming it.
+    const notification = await notifyWholesaleInvoiceFinalized(updated);
+
+    return NextResponse.json({ ...updated, notification }, { status: 200 });
   } catch (error) {
     console.error('Error finalizing repair invoice:', error.message);
     return NextResponse.json({ error: error.message }, { status: 400 });
