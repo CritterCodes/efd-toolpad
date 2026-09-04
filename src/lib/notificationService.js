@@ -46,6 +46,7 @@ export const NOTIFICATION_TYPES = {
 
   // Payments / Invoices
   INVOICE_CREATED: 'invoice-created',
+  WHOLESALE_INVOICE_FINALIZED: 'wholesale-invoice-finalized',
   PAYMENT_RECEIVED: 'payment-received',
   PAYMENT_THRESHOLD_REACHED: 'payment-threshold-reached',
 };

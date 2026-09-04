@@ -1426,7 +1426,19 @@ export default function PaymentPickupPage() {
 
   const handleFinalizeInvoice = async (invoiceID) => {
     try {
-      await postInvoiceAction(`/api/repair-invoices/${invoiceID}/finalize`, {}, `Finalized invoice ${invoiceID}.`);
+      const data = await postInvoiceAction(`/api/repair-invoices/${invoiceID}/finalize`, {}, `Finalized invoice ${invoiceID}.`);
+      // Wholesale invoices notify the partner on finalize — report what was actually delivered,
+      // because "we sent an email" has been fiction in this app before.
+      const summary = data?.notification;
+      if (summary && !summary.skipped) {
+        if (summary.notified > 0 && summary.emailed > 0) {
+          showMessage(`Finalized invoice ${invoiceID}. Partner notified — email sent to ${summary.recipients.join(", ")}.`, "success");
+        } else if (summary.notified > 0) {
+          showMessage(`Finalized invoice ${invoiceID}. Partner notified in-app, but the email did not send — follow up by hand. ${summary.errors.join(" ")}`, "warning");
+        } else {
+          showMessage(`Finalized invoice ${invoiceID}, but the partner was NOT notified. ${summary.errors.join(" ")}`, "warning");
+        }
+      }
       setTab(2);
     } catch (error) {
       showMessage(error.message, "error");
