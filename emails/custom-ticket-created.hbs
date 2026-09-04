@@ -1,41 +1,58 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <style>
-    body { font-family: Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; }
-    .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; }
-    .header { background-color: #1a1a2e; color: #d4af37; padding: 24px; text-align: center; }
-    .header h1 { margin: 0; font-size: 22px; }
-    .body { padding: 24px; color: #333; line-height: 1.6; }
-    .detail { background: #f9f9f9; padding: 16px; border-radius: 6px; margin: 16px 0; }
-    .detail p { margin: 4px 0; }
-    .btn { display: inline-block; background: #d4af37; color: #1a1a2e; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 16px; }
-    .footer { padding: 16px 24px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee; }
-  </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Custom Ticket Created</title>
 </head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>Custom Ticket Created</h1>
-    </div>
-    <div class="body">
-      <p>Your custom design ticket has been created and submitted to our artisan team.</p>
-      <div class="detail">
-        <p><strong>Ticket:</strong> #{{ticketNumber}}</p>
-        {{#if description}}
-        <p><strong>Description:</strong> {{description}}</p>
-        {{/if}}
-      </div>
-      <p>We will review your request and assign an artisan to bring your vision to life.</p>
-      {{#if ticketUrl}}
-      <a href="{{ticketUrl}}" class="btn">View Your Ticket</a>
-      {{/if}}
-    </div>
-    <div class="footer">
-      <p>Engel Fine Design &mdash; Custom Jewelry Crafted For You</p>
-      <p>Questions? Contact us at {{supportEmail}}</p>
-    </div>
-  </div>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#18181b;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
+          <tr>
+            <td style="background:#0a0a0a;padding:20px 28px;">
+              <span style="color:#D4AF37;font-size:18px;font-weight:600;letter-spacing:0.5px;">Engel Fine Design</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px;">
+              <h1 style="margin:0 0 12px;font-size:20px;font-weight:600;color:#18181b;">Your custom ticket has been created</h1>
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#3f3f46;">Your custom design ticket has been created and submitted to our artisan team.</p>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;border:1px solid #e4e4e7;border-radius:8px;margin:0 0 24px;">
+                <tr>
+                  <td style="padding:18px 20px;">
+                    <p style="margin:0 0 10px;font-size:13px;font-weight:600;letter-spacing:0.4px;text-transform:uppercase;color:#71717a;">Ticket details</p>
+                    <p style="margin:0 0 4px;font-size:15px;line-height:1.6;color:#3f3f46;"><strong>Ticket:</strong> #{{ticketNumber}}</p>
+                    {{#if description}}
+                    <p style="margin:0;font-size:15px;line-height:1.6;color:#3f3f46;"><strong>Description:</strong> {{description}}</p>
+                    {{/if}}
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#3f3f46;">We will review your request and assign an artisan to bring your vision to life.</p>
+
+              {{#if ticketUrl}}
+              <table role="presentation" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="border-radius:8px;background:#0a0a0a;">
+                    <a href="{{ticketUrl}}" style="display:inline-block;padding:12px 28px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;">View Your Ticket</a>
+                  </td>
+                </tr>
+              </table>
+              {{/if}}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 28px;border-top:1px solid #e4e4e7;background:#fafafa;">
+              <p style="margin:0;font-size:12px;color:#a1a1aa;">Engel Fine Design &middot; <a href="{{shopUrl}}" style="color:#a1a1aa;">Shop</a> &middot; Questions? <a href="mailto:{{supportEmail}}" style="color:#a1a1aa;">{{supportEmail}}</a></p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>
