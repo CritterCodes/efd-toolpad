@@ -5,6 +5,7 @@ import {
     Button, Alert, CircularProgress, Checkbox
 } from '@mui/material';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
+import PrintIcon from '@mui/icons-material/Print';
 import RepairsGrid from '@/app/components/repairs/repairGrid';
 import { useRepairs } from '@/app/context/repairs.context';
 
@@ -184,6 +185,18 @@ const WholesalerRepairsTab = ({ wholesaler }) => {
                         </Box>
                     ))}
                     <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap', mt: 1.5 }}>
+                        {/* The real-world order is: print the list, drive the box to the carrier,
+                            come back with a tracking number, THEN record the shipment. So the
+                            transfer list must print BEFORE shipping — it shows "Shipment pending"
+                            until tracking is recorded, and reprints with tracking afterwards. */}
+                        <Button
+                            variant="outlined"
+                            startIcon={<PrintIcon />}
+                            disabled={selectedInvoices.length === 0}
+                            onClick={() => window.open(`/dashboard/users/wholesalers/${encodeURIComponent(wholesalerId)}/transfer-list?invoices=${encodeURIComponent(selectedInvoices.join(','))}`, '_blank')}
+                        >
+                            Print transfer list
+                        </Button>
                         <TextField size="small" label="Carrier (optional)" placeholder="UPS, FedEx, USPS..."
                             value={shipCarrier} onChange={(e) => setShipCarrier(e.target.value)} sx={{ minWidth: 170 }} />
                         <TextField size="small" label="Tracking number" required
@@ -197,6 +210,9 @@ const WholesalerRepairsTab = ({ wholesaler }) => {
                             Ship {selectedInvoices.length || ''} invoice{selectedInvoices.length === 1 ? '' : 's'}
                         </Button>
                     </Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>
+                        Print the transfer list first and put it in the box. When you have the carrier&apos;s tracking number, enter it and press Ship — that records the shipment and notifies the partner with the tracking.
+                    </Typography>
                     {shipResult && <Alert severity={shipResult.severity} sx={{ mt: 1.5 }}>{shipResult.message}</Alert>}
                 </Box>
             )}

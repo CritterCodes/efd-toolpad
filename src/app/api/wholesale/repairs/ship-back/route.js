@@ -4,6 +4,8 @@ import { requireRepairOpsAny } from '@/lib/apiAuth';
 import { NotificationService, CHANNELS } from '@/lib/notificationService';
 import { REPAIR_STATUS, normalizeRepairStatus } from '@/services/repairWorkflow';
 import { normalizeAccountKey } from '@/app/api/repair-invoices/service';
+import { resolveWholesaleInvoiceRecipients } from '@/services/wholesale/invoiceNotifications';
+import { adminLink } from '@/lib/appUrls';
 
 /**
  * Return shipping for remote wholesalers, organized around INVOICES (owner,
@@ -170,17 +172,28 @@ export async function POST(request) {
         { $set: { outboundShipment: shipment, deliveryMethod: 'ship', updatedAt: now } },
       );
 
-      // One notification per owning wholesaler: the box, its invoices, the tracking.
-      const byOwner = new Map();
+      // One notification per PORTAL ACCOUNT. Grouping by invoice.clientID looked right but
+      // notified nobody on admin-created invoices — clientID there is a client RECORD id, not
+      // a login — and it never carried a recipient email, so the email leg failed on every
+      // send. Resolve the same identities the partner portal uses (clientID/storeId by
+      // userID, business account key), which also greets them by name.
+      const byRecipient = new Map();
       for (const inv of shippable) {
-        const owner = inv.clientID;
-        if (!owner) continue;
-        if (!byOwner.has(owner)) byOwner.set(owner, []);
-        byOwner.get(owner).push(inv.invoiceID);
+        let recipients = [];
+        try {
+          recipients = await resolveWholesaleInvoiceRecipients(inv);
+        } catch (e) {
+          console.error('ship-back recipient resolution failed:', e?.message);
+        }
+        for (const user of recipients) {
+          if (!byRecipient.has(user.userID)) byRecipient.set(user.userID, { user, ids: [] });
+          byRecipient.get(user.userID).ids.push(inv.invoiceID);
+        }
       }
-      for (const [owner, ids] of byOwner) {
+      for (const { user, ids } of byRecipient.values()) {
         NotificationService.createNotification({
-          userId: owner,
+          userId: user.userID,
+          recipientEmail: user.email || '',
           type: 'wholesale-shipped-back',
           title: 'Your repairs are on the way back',
           message: `${ids.length} invoice(s) shipped back to you${shipCarrier ? ` via ${shipCarrier}` : ''}: ${ids.join(', ')}. Tracking: ${tracking}`,
@@ -191,8 +204,10 @@ export async function POST(request) {
             carrier: shipCarrier,
             trackingNumber: tracking,
             invoiceIDs: ids,
-            actionUrl: '/dashboard/wholesaler/billing',
-            actionLabel: 'View Billing',
+            ...(user.firstName || user.business ? { recipientName: user.firstName || user.business } : {}),
+            // Absolute — this URL rides in an email, where a relative href is inert.
+            actionUrl: adminLink('/dashboard/wholesaler/shipments'),
+            actionLabel: 'View Shipment',
           },
         }).catch((e) => console.error('ship-back notification failed:', e?.message));
       }

@@ -3,7 +3,6 @@ import { requireSalesPosAccess } from '@/lib/apiAuth';
 import {
   getSalesInvoice,
   linkRepairToSalesInvoice,
-  setSalesInvoiceCashDiscount,
   updateSalesInvoicePayment,
   updateSalesInvoicePaymentMethod,
   voidSalesInvoice,
@@ -43,8 +42,6 @@ export const PATCH = async (req, { params }) => {
         paymentID: body.paymentID,
         method: body.method,
       });
-    } else if (body.action === 'cash_discount') {
-      invoice = await setSalesInvoiceCashDiscount(invoiceID, body.enabled === true);
     } else if (body.action === 'void') {
       invoice = await voidSalesInvoice(invoiceID, body.reason || '');
     } else if (body.action === 'link_repair') {

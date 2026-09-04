@@ -132,18 +132,13 @@ function formatCurrency(amount) {
   return currency.format(parseFloat(amount || 0));
 }
 
-function getCashDiscountSummary(invoice) {
-  const grossTotal = parseFloat(invoice.subtotal || 0)
-    + parseFloat(invoice.taxAmount || 0)
-    + parseFloat(invoice.deliveryFee || 0);
-  const roundedCashTotal = Math.floor(grossTotal / 5) * 5;
-  const cashDiscountAmount = Math.max(grossTotal - roundedCashTotal, 0);
+// CASH DISCOUNT REMOVED (owner, 2026-09-04): cash pays the same total as everything
+// else — no more rounding down to the nearest $5.
+function getCashPaymentSummary(invoice) {
   const amountPaid = parseFloat(invoice.amountPaid || 0);
-
+  const total = parseFloat(invoice.total || 0);
   return {
-    grossTotal,
-    cashDiscountAmount,
-    cashTotal: Math.max(roundedCashTotal - amountPaid, 0),
+    cashTotal: Math.max(total - amountPaid, 0),
   };
 }
 
@@ -255,7 +250,7 @@ function normalizeScannedInvoiceID(value) {
 }
 
 function buildInvoicePrintHtml(invoice) {
-  const cashSummary = getCashDiscountSummary(invoice);
+  const cashSummary = getCashPaymentSummary(invoice);
   const cardSummary = getCardPaymentSummary(invoice);
   const logoSrc = getPrintAssetSrc(EFD_LOGO_SRC);
   const zelleQrSrc = getPrintAssetSrc(ZELLE_QR_SRC);
@@ -367,8 +362,7 @@ function buildInvoicePrintHtml(invoice) {
       <div class="totals-row"><span>Subtotal</span><span>${formatCurrency(invoice.subtotal)}</span></div>
       <div class="totals-row"><span>Tax</span><span>${formatCurrency(invoice.taxAmount)}</span></div>
       <div class="totals-row"><span>Delivery</span><span>${formatCurrency(invoice.deliveryFee)}</span></div>
-      <div class="totals-row"><span>Cash Discount</span><span>-${formatCurrency(cashSummary.cashDiscountAmount)}</span></div>
-      <div class="totals-row grand"><span>Cash Total</span><span>${formatCurrency(cashSummary.cashTotal)}</span></div>
+      <div class="totals-row grand"><span>Cash/Check Total</span><span>${formatCurrency(cashSummary.cashTotal)}</span></div>
       <div class="totals-row"><span>Card Processing Fee</span><span>${formatCurrency(cardSummary.processingFee)}</span></div>
       <div class="totals-row grand"><span>Card Total</span><span>${formatCurrency(cardSummary.cardTotal)}</span></div>
     </div>
@@ -753,7 +747,6 @@ function InvoiceCard({
   onSyncTerminal,
   collectingTerminalInvoiceID,
   onUpdateDelivery,
-  onSetCashDiscount,
   onSplitInvoice,
   onMergeInvoice,
   onRemoveRepairs,
@@ -764,7 +757,7 @@ function InvoiceCard({
   const [selectedRepairIDs, setSelectedRepairIDs] = useState([]);
   const [targetInvoiceID, setTargetInvoiceID] = useState("");
   const [deliveryFeeInput, setDeliveryFeeInput] = useState(invoice.deliveryFee || 5);
-  const cashDiscountSummary = useMemo(() => getCashDiscountSummary(invoice), [invoice]);
+  const cashPaymentSummary = useMemo(() => getCashPaymentSummary(invoice), [invoice]);
   const cardPaymentSummary = useMemo(() => getCardPaymentSummary(invoice), [invoice]);
   const fullInvoiceCardSummary = useMemo(() => getFullInvoiceCardSummary(invoice), [invoice]);
   const pendingStripe = (invoice.payments || []).find((payment) => payment.type === "stripe" && payment.status === "pending");
@@ -774,9 +767,9 @@ function InvoiceCard({
   const splitDisabled = selectedRepairIDs.length === 0 || selectedRepairIDs.length >= (invoice.repairIDs || []).length;
 
   useEffect(() => {
-    setCashAmount(cashDiscountSummary.cashTotal || invoice.remainingBalance || 0);
+    setCashAmount(cashPaymentSummary.cashTotal || invoice.remainingBalance || 0);
     setDeliveryFeeInput(invoice.deliveryFee || 5);
-  }, [cashDiscountSummary.cashTotal, invoice.deliveryFee, invoice.remainingBalance]);
+  }, [cashPaymentSummary.cashTotal, invoice.deliveryFee, invoice.remainingBalance]);
 
   useEffect(() => {
     setSelectedRepairIDs((prev) => prev.filter((repairID) => (invoice.repairIDs || []).includes(repairID)));
@@ -817,8 +810,6 @@ function InvoiceCard({
             <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Tax</Typography><Typography>{formatCurrency(invoice.taxAmount)}</Typography></Grid>
             <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Delivery</Typography><Typography>{formatCurrency(invoice.deliveryFee)}</Typography></Grid>
             <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Remaining</Typography><Typography sx={{ fontWeight: 700 }}>{formatCurrency(invoice.remainingBalance)}</Typography></Grid>
-            <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Cash Discount</Typography><Typography>{formatCurrency(cashDiscountSummary.cashDiscountAmount)}</Typography></Grid>
-            <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Cash Total</Typography><Typography sx={{ fontWeight: 700 }}>{formatCurrency(cashDiscountSummary.cashTotal)}</Typography></Grid>
             <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Card Fee</Typography><Typography>{formatCurrency(cardPaymentSummary.processingFee)}</Typography></Grid>
             <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Card Total</Typography><Typography sx={{ fontWeight: 700 }}>{formatCurrency(cardPaymentSummary.cardTotal)}</Typography></Grid>
           </Grid>
@@ -978,7 +969,7 @@ function InvoiceCard({
               <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
                 <TextField label="Cash Amount" type="number" value={cashAmount} onChange={(event) => setCashAmount(event.target.value)} sx={{ minWidth: 140 }} />
                 <TextField label="Cash Notes" value={cashNotes} onChange={(event) => setCashNotes(event.target.value)} sx={{ flex: 1 }} />
-                <Button variant="contained" onClick={() => onCashPay(invoice.invoiceID, cashAmount, cashNotes, true)} sx={{ backgroundColor: REPAIRS_UI.accent, color: "#111" }}>
+                <Button variant="contained" onClick={() => onCashPay(invoice.invoiceID, cashAmount, cashNotes)} sx={{ backgroundColor: REPAIRS_UI.accent, color: "#111" }}>
                   Record Cash
                 </Button>
               </Stack>
@@ -1461,11 +1452,11 @@ export default function PaymentPickupPage() {
     }
   };
 
-  const handleCashPayment = async (invoiceID, amount, notes, applyCashDiscount = false) => {
+  const handleCashPayment = async (invoiceID, amount, notes) => {
     try {
       await postInvoiceAction(
         `/api/repair-invoices/${invoiceID}/payments/cash`,
-        { amount: parseFloat(amount || 0), notes, applyCashDiscount },
+        { amount: parseFloat(amount || 0), notes },
         `Recorded cash payment on ${invoiceID}.`
       );
     } catch (error) {
@@ -1578,18 +1569,6 @@ export default function PaymentPickupPage() {
         deliveryMethod === "delivery"
           ? `Marked ${invoiceID} for delivery.`
           : `Marked ${invoiceID} for pickup.`
-      );
-    } catch (error) {
-      showMessage(error.message, "error");
-    }
-  };
-
-  const handleSetCashDiscount = async (invoiceID, enabled) => {
-    try {
-      await postInvoiceAction(
-        `/api/repair-invoices/${invoiceID}/cash-discount`,
-        { enabled },
-        enabled ? `Applied cash discount to ${invoiceID}.` : `Removed cash discount from ${invoiceID}.`
       );
     } catch (error) {
       showMessage(error.message, "error");
@@ -1933,7 +1912,6 @@ export default function PaymentPickupPage() {
                 onSyncTerminal={handleSyncTerminal}
                 collectingTerminalInvoiceID={collectingTerminalInvoiceID}
                 onUpdateDelivery={handleUpdateDelivery}
-                onSetCashDiscount={handleSetCashDiscount}
                 onSplitInvoice={handleSplitInvoice}
                 onMergeInvoice={handleMergeInvoice}
                 onRemoveRepairs={handleRemoveRepairsFromInvoice}
@@ -1969,7 +1947,6 @@ export default function PaymentPickupPage() {
                 onSyncTerminal={handleSyncTerminal}
                 collectingTerminalInvoiceID={collectingTerminalInvoiceID}
                 onUpdateDelivery={handleUpdateDelivery}
-                onSetCashDiscount={handleSetCashDiscount}
                 onSplitInvoice={handleSplitInvoice}
                 onMergeInvoice={handleMergeInvoice}
                 onRemoveRepairs={handleRemoveRepairsFromInvoice}
@@ -2001,7 +1978,6 @@ export default function PaymentPickupPage() {
                 onSyncTerminal={handleSyncTerminal}
                 collectingTerminalInvoiceID={collectingTerminalInvoiceID}
                 onUpdateDelivery={handleUpdateDelivery}
-                onSetCashDiscount={handleSetCashDiscount}
                 onSplitInvoice={handleSplitInvoice}
                 onMergeInvoice={handleMergeInvoice}
                 onRemoveRepairs={handleRemoveRepairsFromInvoice}

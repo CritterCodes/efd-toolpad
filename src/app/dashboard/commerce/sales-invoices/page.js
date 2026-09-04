@@ -133,7 +133,6 @@ export default function SalesInvoicesPage() {
   const [taxRate, setTaxRate] = useState(0);
   const [selectedClient, setSelectedClient] = useState(null);
   const [lines, setLines] = useState([buildEmptyCustomLine()]);
-  const [cashDiscountApplied, setCashDiscountApplied] = useState(false);
   const [payNow, setPayNow] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [notes, setNotes] = useState('');
@@ -201,15 +200,12 @@ export default function SalesInvoicesPage() {
     const subtotal = lines.reduce((sum, line) => sum + Number(line.unitPrice || 0) * Number(line.quantity || 1), 0);
     const taxAmount = subtotal * taxRate;
     const grossTotal = subtotal + taxAmount;
-    const cashDiscountAmount = cashDiscountApplied ? Math.max(grossTotal - Math.floor(grossTotal / 5) * 5, 0) : 0;
-    const total = Math.max(grossTotal - cashDiscountAmount, 0);
-    return { subtotal, taxRate, taxAmount, grossTotal, cashDiscountAmount, total };
-  }, [cashDiscountApplied, lines, taxRate]);
+    return { subtotal, taxRate, taxAmount, grossTotal, total: grossTotal };
+  }, [lines, taxRate]);
 
   const resetForm = () => {
     setSelectedClient(null);
     setLines([buildEmptyCustomLine()]);
-    setCashDiscountApplied(false);
     setPayNow(false);
     setPaymentMethod('cash');
     setNotes('');
@@ -275,7 +271,6 @@ export default function SalesInvoicesPage() {
           clientPhone: selectedClient.isNoClient ? '' : selectedClient.phoneNumber || selectedClient.phone || '',
           clientEmail: selectedClient.isNoClient ? '' : selectedClient.email || '',
           lineItems: payloadLines,
-          cashDiscountApplied,
           amountPaid: payNow ? preview.total : 0,
           paymentMethod,
           notes,
@@ -304,25 +299,6 @@ export default function SalesInvoicesPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to collect payment.');
-      await loadInvoices();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const toggleCashDiscount = async (invoice) => {
-    setSaving(true);
-    setError('');
-    try {
-      const res = await fetch(`/api/sales-invoices/${invoice.invoiceID}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'cash_discount', enabled: !invoice.cashDiscountApplied }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update cash discount.');
       await loadInvoices();
     } catch (err) {
       setError(err.message);
@@ -425,14 +401,9 @@ export default function SalesInvoicesPage() {
                         </Button>
                       )}
                       {invoice.paymentStatus !== 'paid' && invoice.status !== 'void' && (
-                        <>
-                          <Button size="small" startIcon={<PaymentIcon />} onClick={() => payInvoice(invoice)} disabled={saving}>
-                            Collect Cash
-                          </Button>
-                          <Button size="small" onClick={() => toggleCashDiscount(invoice)} disabled={saving}>
-                            {invoice.cashDiscountApplied ? 'Remove Discount' : 'Cash Discount'}
-                          </Button>
-                        </>
+                        <Button size="small" startIcon={<PaymentIcon />} onClick={() => payInvoice(invoice)} disabled={saving}>
+                          Collect Cash
+                        </Button>
                       )}
                     </Stack>
                   </Stack>
@@ -608,7 +579,6 @@ export default function SalesInvoicesPage() {
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <Stack spacing={1}>
-                      <FormControlLabel control={<Switch checked={cashDiscountApplied} onChange={(e) => setCashDiscountApplied(e.target.checked)} />} label="Apply cash discount" />
                       <FormControlLabel control={<Switch checked={payNow} onChange={(e) => setPayNow(e.target.checked)} />} label="Collect payment now" />
                       {payNow && (
                         <TextField select label="Payment method" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
@@ -619,7 +589,6 @@ export default function SalesInvoicesPage() {
                       )}
                       <Typography>Subtotal: {money(preview.subtotal)}</Typography>
                       <Typography>Tax: {money(preview.taxAmount)}</Typography>
-                      {cashDiscountApplied && <Typography>Cash discount: -{money(preview.cashDiscountAmount)}</Typography>}
                       <Typography sx={{ color: UI.textHeader, fontWeight: 700 }}>Total: {money(preview.total)}</Typography>
                     </Stack>
                   </Grid>

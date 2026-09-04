@@ -3,6 +3,7 @@ import { db } from '@/lib/database';
 import { requireRepairOps } from '@/lib/apiAuth';
 import { LEGACY_BENCH_STATUS, REPAIR_STATUS } from '@/services/repairWorkflow';
 import { NotificationService, CHANNELS } from '@/lib/notificationService';
+import { adminLink } from '@/lib/appUrls';
 
 // POST /api/wholesale/repairs/receive - Batch receive wholesale repairs
 export async function POST(request) {
@@ -63,9 +64,27 @@ export async function POST(request) {
             if (!byOwner.has(owner)) byOwner.set(owner, []);
             byOwner.get(owner).push(r.repairID);
         }
+        // The email leg needs an actual address — createNotification records a failed
+        // send when userEmail is blank, which is what every one of these did before.
+        let ownerById = new Map();
+        if (byOwner.size) {
+            try {
+                const ownerUsers = await dbInstance.collection('users')
+                    .find(
+                        { userID: { $in: [...byOwner.keys()] } },
+                        { projection: { _id: 0, userID: 1, email: 1, firstName: 1, business: 1 } },
+                    )
+                    .toArray();
+                ownerById = new Map(ownerUsers.filter((u) => u?.userID).map((u) => [u.userID, u]));
+            } catch (e) {
+                console.error('receive owner-email lookup failed:', e?.message);
+            }
+        }
         for (const [owner, ids] of byOwner) {
+            const user = ownerById.get(owner);
             NotificationService.createNotification({
                 userId: owner,
+                recipientEmail: user?.email || '',
                 type: 'wholesale-received',
                 title: 'We received your repairs',
                 message: `${ids.length} repair(s) checked in at the shop and queued for work: ${ids.join(', ')}`,
@@ -74,7 +93,9 @@ export async function POST(request) {
                 tags: ['wholesale', 'receiving'],
                 data: {
                     repairIDs: ids,
-                    actionUrl: '/dashboard/wholesaler/repairs/current',
+                    ...(user?.firstName || user?.business ? { recipientName: user.firstName || user.business } : {}),
+                    // Absolute — this URL rides in an email, where a relative href is inert.
+                    actionUrl: adminLink('/dashboard/wholesaler/repairs/current'),
                     actionLabel: 'View Current Repairs',
                 },
             }).catch((e) => console.error('receive notification failed:', e?.message));
