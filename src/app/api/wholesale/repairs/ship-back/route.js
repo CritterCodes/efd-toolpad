@@ -68,6 +68,9 @@ const invoiceRow = (inv) => ({
  * GET ?wholesalerId=X            → invoices with repairs not yet shipped (the picker)
  * GET ?wholesalerId=X&invoices=a,b → those invoices regardless of shipped state
  *                                   (the transfer-list page re-reads after shipping)
+ * GET ?account=<accountID>       → same, keyed by the invoice's account directly — the
+ *                                   Shipping & Delivery page works per ACCOUNT, and an
+ *                                   admin-created account may have no portal login to key on.
  */
 export async function GET(request) {
   const { errorResponse } = await requireRepairOpsAny(['receiving', 'closeoutBilling']);
@@ -76,10 +79,15 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const wholesalerId = searchParams.get('wholesalerId');
-    if (!wholesalerId) return NextResponse.json({ error: 'wholesalerId is required' }, { status: 400 });
+    const account = searchParams.get('account');
+    if (!wholesalerId && !account) {
+      return NextResponse.json({ error: 'wholesalerId or account is required' }, { status: 400 });
+    }
 
     const dbi = await db.connect();
-    const filter = await accountFilterFor(dbi, wholesalerId);
+    const filter = account
+      ? { accountType: 'wholesale', accountID: account }
+      : await accountFilterFor(dbi, wholesalerId);
 
     const wanted = String(searchParams.get('invoices') || '').split(',').map((s) => s.trim()).filter(Boolean);
     if (wanted.length) {
@@ -100,19 +108,32 @@ export async function GET(request) {
   }
 }
 
-/** POST { invoiceIDs, carrier?, trackingNumber } — ship N invoices as one package. */
+/**
+ * POST { invoiceIDs, carrier?, trackingNumber }                — ship N invoices as one package.
+ * POST { invoiceIDs, method: 'deliver', scheduledFor }         — WE hand-deliver the package to
+ *   the store on a date; no carrier or tracking exists. The partner is told the date instead
+ *   of a tracking number, and the Shipping & Delivery page carries it until Mark delivered.
+ */
 export async function POST(request) {
   try {
     const { session, errorResponse } = await requireRepairOpsAny(['receiving', 'closeoutBilling']);
     if (errorResponse) return errorResponse;
 
-    const { invoiceIDs, carrier, trackingNumber } = await request.json();
+    const { invoiceIDs, carrier, trackingNumber, method, scheduledFor } = await request.json();
 
     if (!Array.isArray(invoiceIDs) || invoiceIDs.length === 0) {
       return NextResponse.json({ error: 'invoiceIDs array is required — ship-back is invoice-based (only invoiced work is done work).' }, { status: 400 });
     }
+
+    const isDelivery = method === 'deliver';
     const tracking = String(trackingNumber || '').trim();
-    if (!tracking) {
+    let deliveryDate = null;
+    if (isDelivery) {
+      deliveryDate = scheduledFor ? new Date(scheduledFor) : null;
+      if (!deliveryDate || Number.isNaN(deliveryDate.getTime())) {
+        return NextResponse.json({ error: 'scheduledFor (a valid date) is required for a hand delivery.' }, { status: 400 });
+      }
+    } else if (!tracking) {
       return NextResponse.json({ error: 'trackingNumber is required — an untracked return shipment is a lost-box dispute waiting to happen' }, { status: 400 });
     }
     const shipCarrier = String(carrier || '').trim() || null;
@@ -129,7 +150,7 @@ export async function POST(request) {
     for (const id of invoiceIDs) {
       const inv = invoices.find((x) => x.invoiceID === id);
       if (!inv) { refused.push({ invoiceID: id, reason: 'not found or not a wholesale invoice' }); continue; }
-      if (inv.outboundShipment?.trackingNumber) { refused.push({ invoiceID: id, reason: `already shipped (${inv.outboundShipment.trackingNumber})` }); continue; }
+      if (inv.outboundShipment) { refused.push({ invoiceID: id, reason: `already ${inv.outboundShipment.method === 'delivery' ? 'scheduled for delivery' : `shipped (${inv.outboundShipment.trackingNumber})`}` }); continue; }
       if (!(inv.repairIDs || []).length) { refused.push({ invoiceID: id, reason: 'carries no repairs' }); continue; }
       if (!['open', 'paid'].includes(inv.status)) { refused.push({ invoiceID: id, reason: `status is ${inv.status}` }); continue; }
       shippable.push(inv);
@@ -150,12 +171,20 @@ export async function POST(request) {
         }, { status: 409 });
       }
 
-      const shipment = {
-        carrier: shipCarrier,
-        trackingNumber: tracking,
-        shippedAt: now,
-        shippedBy: session.user.userID,
-      };
+      const shipment = isDelivery
+        ? {
+            method: 'delivery',
+            scheduledFor: deliveryDate,
+            shippedAt: now,
+            shippedBy: session.user.userID,
+          }
+        : {
+            method: 'ship',
+            carrier: shipCarrier,
+            trackingNumber: tracking,
+            shippedAt: now,
+            shippedBy: session.user.userID,
+          };
 
       // Move only pre-payment statuses to DELIVERY BATCHED; a PAID_CLOSED repair
       // keeps its closed status (shipping must never regress the money state).
@@ -190,19 +219,25 @@ export async function POST(request) {
           byRecipient.get(user.userID).ids.push(inv.invoiceID);
         }
       }
+      const deliveryDateLabel = isDelivery
+        ? deliveryDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+        : '';
       for (const { user, ids } of byRecipient.values()) {
         NotificationService.createNotification({
           userId: user.userID,
           recipientEmail: user.email || '',
           type: 'wholesale-shipped-back',
-          title: 'Your repairs are on the way back',
-          message: `${ids.length} invoice(s) shipped back to you${shipCarrier ? ` via ${shipCarrier}` : ''}: ${ids.join(', ')}. Tracking: ${tracking}`,
+          title: isDelivery ? 'Your repairs are being delivered' : 'Your repairs are on the way back',
+          message: isDelivery
+            ? `We're hand-delivering ${ids.length} invoice(s) to your store on ${deliveryDateLabel}: ${ids.join(', ')}.`
+            : `${ids.length} invoice(s) shipped back to you${shipCarrier ? ` via ${shipCarrier}` : ''}: ${ids.join(', ')}. Tracking: ${tracking}`,
           channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
           priority: 'high',
           tags: ['wholesale', 'shipping'],
           data: {
             carrier: shipCarrier,
-            trackingNumber: tracking,
+            trackingNumber: isDelivery ? '' : tracking,
+            ...(isDelivery ? { scheduledFor: deliveryDate.toISOString() } : {}),
             invoiceIDs: ids,
             ...(user.firstName || user.business ? { recipientName: user.firstName || user.business } : {}),
             // Absolute — this URL rides in an email, where a relative href is inert.
@@ -219,14 +254,18 @@ export async function POST(request) {
       refused,
       // The transfer list: what is physically in this box, by invoice.
       manifest: {
+        method: isDelivery ? 'delivery' : 'ship',
         carrier: shipCarrier,
-        trackingNumber: tracking,
+        trackingNumber: isDelivery ? '' : tracking,
+        scheduledFor: isDelivery ? deliveryDate : null,
         shippedAt: now,
         invoices: shippable.map(invoiceRow),
       },
       message: refused.length
-        ? `${shippable.length} invoice(s) shipped; ${refused.length} refused (see refused list).`
-        : `${shippable.length} invoice(s) shipped with tracking ${tracking}.`,
+        ? `${shippable.length} invoice(s) ${isDelivery ? 'scheduled' : 'shipped'}; ${refused.length} refused (see refused list).`
+        : (isDelivery
+          ? `${shippable.length} invoice(s) scheduled for delivery.`
+          : `${shippable.length} invoice(s) shipped with tracking ${tracking}.`),
     });
   } catch (error) {
     console.error('POST /api/wholesale/repairs/ship-back error:', error);

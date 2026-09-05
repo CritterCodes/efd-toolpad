@@ -164,6 +164,27 @@ describe('ship-back (outbound, INVOICE-based)', () => {
     expect(mocks.updateMany.mock.calls[0][0].status.$in).not.toContain('PAID_CLOSED');
   });
 
+  it('deliver method: needs a date instead of tracking, stamps a delivery shipment, tells the store the date', async () => {
+    // No scheduledFor → refused.
+    expect((await shipBack(req({ invoiceIDs: ['rinv-1'], method: 'deliver' }))).status).toBe(400);
+
+    stubFinds({ invoices: [invoice()], repairs: [
+      { repairID: 'r1', status: 'PAID_CLOSED' }, { repairID: 'r2', status: 'PAID_CLOSED' },
+    ] });
+    const res = await shipBack(req({ invoiceIDs: ['rinv-1'], method: 'deliver', scheduledFor: '2026-09-08' }));
+    const body = await res.json();
+    expect(body.shipped).toBe(1);
+    expect(body.manifest.method).toBe('delivery');
+
+    const stampAll = mocks.updateMany.mock.calls[1];
+    expect(stampAll[1].$set.outboundShipment).toMatchObject({ method: 'delivery' });
+    expect(stampAll[1].$set.outboundShipment.trackingNumber).toBeUndefined();
+
+    const notif = mocks.createNotification.mock.calls[0][0];
+    expect(notif.title).toContain('delivered');
+    expect(notif.message).toContain('rinv-1');
+  });
+
   it('refuses an already-shipped invoice BY NAME (one box per invoice)', async () => {
     stubFinds({ invoices: [invoice({ outboundShipment: { trackingNumber: 'OLD1' } })], repairs: [] });
     const body = await (await shipBack(req({ invoiceIDs: ['rinv-1'], trackingNumber: 'T2' }))).json();

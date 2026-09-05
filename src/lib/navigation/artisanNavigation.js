@@ -84,6 +84,15 @@ function buildRepairOpsNavItems(caps = {}) {
     });
   }
 
+  // Outbound coordination — the API behind it admits receiving OR closeoutBilling.
+  if (caps.receiving === true || caps.closeoutBilling === true) {
+    items.push({
+      segment: 'dashboard/repairs/shipping',
+      title: 'Shipping & Delivery',
+      icon: <LocalShippingIcon />,
+    });
+  }
+
   // QC lives on the Move surface (/dashboard/repairs/quality-control just redirects there). That page
   // ALREADY admits onsite repair-ops by its own guard, but no artisan navigation item pointed at it, so
   // it was a room with no door: capable staff could only reach QC by typing the URL. Entry is gated on
