@@ -133,6 +133,11 @@ export const adminNavigation = {
       icon: <NotificationsActiveIcon />
     },
     {
+      segment: 'dashboard/repairs/shipping',
+      title: 'Shipping & Delivery',
+      icon: <PickupIcon />
+    },
+    {
       segment: 'dashboard/repairs/by-period',
       title: 'Repairs by Period',
       icon: <CalendarMonthIcon />

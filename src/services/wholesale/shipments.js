@@ -40,18 +40,27 @@ export function buildShipments({ repairs = [], invoices = [] } = {}) {
 
   for (const invoice of invoices) {
     const ship = invoice.outboundShipment;
-    if (!norm(ship?.trackingNumber)) continue;
-    const key = `out:${ship.trackingNumber}`;
+    // A package is identified by its tracking number — except a HAND DELIVERY, which has
+    // none: those group by their scheduled date (one delivery run = one package).
+    const isDelivery = ship?.method === 'delivery';
+    const scheduledKey = ship?.scheduledFor ? new Date(ship.scheduledFor).toISOString().slice(0, 10) : '';
+    if (!norm(ship?.trackingNumber) && !(isDelivery && scheduledKey)) continue;
+    const key = isDelivery ? `out:delivery:${scheduledKey}` : `out:${ship.trackingNumber}`;
     if (!packages.has(key)) {
       packages.set(key, {
         direction: 'outbound',
-        trackingNumber: ship.trackingNumber,
+        method: isDelivery ? 'delivery' : 'ship',
+        trackingNumber: ship.trackingNumber || null,
         carrier: ship.carrier || null,
+        scheduledFor: isDelivery ? ship.scheduledFor || null : null,
+        deliveredAt: ship.deliveredAt || null,
         shippedAt: ship.shippedAt || null,
         repairs: [],
         invoices: [],
       });
     }
+    // deliveredAt lands after the package row was first stamped; keep the latest truth.
+    if (ship.deliveredAt && !packages.get(key).deliveredAt) packages.get(key).deliveredAt = ship.deliveredAt;
     packages.get(key).invoices.push({
       invoiceID: invoice.invoiceID,
       total: invoice.total,
@@ -66,6 +75,9 @@ export function buildShipments({ repairs = [], invoices = [] } = {}) {
       // In transit until EVERY repair in the box has been checked in.
       const pending = pkg.repairs.filter((r) => !r.receivedAt && r.status === 'SHIPPED TO SHOP').length;
       return { ...pkg, state: pending > 0 ? 'in_transit' : 'received' };
+    }
+    if (pkg.method === 'delivery') {
+      return { ...pkg, state: pkg.deliveredAt ? 'delivered' : 'scheduled' };
     }
     return { ...pkg, state: 'shipped' };
   });

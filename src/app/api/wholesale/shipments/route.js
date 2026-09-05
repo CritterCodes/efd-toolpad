@@ -51,7 +51,9 @@ export async function GET(request) {
       .find(
         {
           accountType: 'wholesale',
-          'outboundShipment.trackingNumber': { $exists: true },
+          // Any outbound package — tracked carrier shipments AND hand deliveries (which
+          // have no tracking number; keying on it hid every delivery from the portal).
+          outboundShipment: { $exists: true },
           $or: [
             { clientID: wholesalerId },
             { storeId: wholesalerId },

@@ -3,7 +3,7 @@ import RepairsModel from '../../model';
 import { uploadRepairImage } from '@/utils/s3.util';
 import { requireRepairOpsAny, requireRole } from '@/lib/apiAuth';
 import { createRepairInvoice } from '@/app/api/repair-invoices/service';
-import RepairInvoicesModel from '@/app/api/repair-invoices/model';
+import { releaseClaimIfUninvoiced } from '@/services/repairs/autoInvoice';
 import { syncLaborLogAfterRepairChange } from '@/services/repairLaborReviewSync';
 
 async function requireCloseoutAccess() {
@@ -13,46 +13,8 @@ async function requireCloseoutAccess() {
   return await requireRepairOpsAny(['qualityControl', 'closeoutBilling']);
 }
 
-/**
- * Hand the auto-invoice claim back — but only when it is provably safe.
- *
- * "Was this repair invoiced" is a fact about the invoices collection, NOT about `repair.invoiceID`:
- * createRepairInvoice inserts the invoice document before it writes that field, so a failure in
- * between leaves a real invoice holding a priced snapshot while the repair row still looks unbilled.
- * Releasing on the repair's own field alone would free it and let the next confirm raise a SECOND
- * invoice for work already billed.
- *
- * Fails CLOSED: if the invoices collection can't be reached, the claim is kept. A duplicate bill reaches
- * the customer; a kept claim does not.
- *
- * Recovering a stuck claim: use the "Create Invoice Batch" button on Payment & Pickup —
- * ensureRepairsCanBatch never reads closeoutStatus, so it bills the repair regardless. (NOT "remove from
- * invoice": a leaked claim has no invoice by definition, so removeRepairsFromInvoice would just throw.)
- * Failing that, reset closeoutStatus on the repair by hand.
- *
- * Returns true when an invoice already exists, so callers can say so.
- */
-async function releaseClaimIfUninvoiced(repairID) {
-  let alreadyInvoiced;
-  try {
-    const existing = await RepairInvoicesModel.findAll({ repairIDs: repairID });
-    alreadyInvoiced = Array.isArray(existing) && existing.length > 0;
-  } catch (lookupError) {
-    console.error('Could not confirm invoice state; keeping the claim:', lookupError.message);
-    return true;
-  }
-
-  if (!alreadyInvoiced) {
-    // try/await rather than `.catch()` chaining: a release failure must not escape and turn an
-    // otherwise-handled error into a 500, nor mask the real error that triggered the release.
-    try {
-      await RepairsModel.releaseAutoInvoiceClaim(repairID);
-    } catch (releaseError) {
-      console.error('Failed to release auto-invoice claim:', releaseError.message);
-    }
-  }
-  return alreadyInvoiced;
-}
+// releaseClaimIfUninvoiced moved to @/services/repairs/autoInvoice — QC-pass auto-invoicing
+// (the new primary flow) and this confirm fallback share one copy of the claim-release logic.
 
 export const POST = async (req, { params }) => {
   try {

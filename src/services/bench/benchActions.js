@@ -18,6 +18,7 @@ import RepairsModel from '@/app/api/repairs/model';
 import { moveRepairToQc } from '@/app/api/repairs/[repairID]/send-to-qc/route';
 import { claimPieceWorkOrder, movePieceToQc, completePieceWorkOrderFromQc, approveCadQc, rejectCadQc, submitCadGlbToQc, splitPieceTask } from '@/services/bench/pieceWorkOrderActions';
 import { signOffAndHandoffRepair, creditRepairLaborAtQc } from '@/services/repairs/benchHandoff';
+import { autoInvoiceAtQcPass } from '@/services/repairs/autoInvoice';
 import {
   buildClaimRepairUpdate,
   buildUnclaimRepairUpdate,
@@ -151,12 +152,19 @@ async function runRepairAction({ session, repairID, action, body }) {
       // stamps, attributed to whoever did the work (not the QC actor). Before status flip.
       const repair = await RepairsModel.findById(repairID);
       await creditRepairLaborAtQc({ repair, session });
-      const nextStatus = body?.deliveryBatched
-        ? 'DELIVERY BATCHED'
-        : (body?.readyForPickup ? 'READY FOR PICKUP' : 'COMPLETED');
-      return RepairsModel.updateById(repairID, buildCompleteFromQcUpdate({
-        nextStatus, userName: session.user.name, now,
+      // Always land on COMPLETED; auto-invoicing advances the status itself (owner,
+      // 2026-09-04: repairs go straight onto an invoice at QC pass — no manual batching).
+      // A failed invoice leaves the repair COMPLETED, i.e. on the closeout-tab fallback.
+      let updated = await RepairsModel.updateById(repairID, buildCompleteFromQcUpdate({
+        nextStatus: 'COMPLETED', userName: session.user.name, now,
       }));
+      const autoInvoice = await autoInvoiceAtQcPass({
+        repairID,
+        deliveryMethod: body?.deliveryBatched ? 'delivery' : 'pickup',
+        createdBy: session.user.name || session.user.email || '',
+      });
+      if (autoInvoice.invoiced) updated = await RepairsModel.findById(repairID);
+      return { ...updated, autoInvoice };
     }
     case 'mark-waiting-parts': {
       assertRepairOps(session);

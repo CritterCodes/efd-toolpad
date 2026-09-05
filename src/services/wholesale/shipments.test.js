@@ -52,4 +52,19 @@ describe('buildShipments', () => {
   it('ignores records without a tracking number', () => {
     expect(buildShipments({ repairs: [{ repairID: 'r', inboundShipment: {} }], invoices: [{ invoiceID: 'i' }] })).toEqual([]);
   });
+
+  it('hand deliveries group by scheduled date (no tracking number) and know their state', () => {
+    const delivery = (id, over = {}) => outInvoice(id, undefined, {
+      outboundShipment: { method: 'delivery', scheduledFor: '2026-09-08T00:00:00Z', shippedAt: '2026-09-04T10:00:00Z', ...over },
+    });
+
+    const scheduled = buildShipments({ invoices: [delivery('a'), delivery('b')] });
+    expect(scheduled).toHaveLength(1); // one delivery run = one package
+    expect(scheduled[0].method).toBe('delivery');
+    expect(scheduled[0].state).toBe('scheduled');
+    expect(scheduled[0].invoices.map((i) => i.invoiceID)).toEqual(['a', 'b']);
+
+    const delivered = buildShipments({ invoices: [delivery('a', { deliveredAt: '2026-09-08T18:00:00Z' })] })[0];
+    expect(delivered.state).toBe('delivered');
+  });
 });

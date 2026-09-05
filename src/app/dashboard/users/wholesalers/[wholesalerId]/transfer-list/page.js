@@ -31,17 +31,23 @@ function TransferListInner() {
     const search = useSearchParams();
     const wholesalerId = Array.isArray(params?.wholesalerId) ? params.wholesalerId[0] : params?.wholesalerId;
     const invoiceIds = String(search.get('invoices') || '');
+    // The Shipping & Delivery page works per ACCOUNT (an admin-created account may have no
+    // portal login) — ?account= keys the read directly and the path segment is just routing.
+    const account = String(search.get('account') || '');
 
     const [invoices, setInvoices] = useState(null);
     const [error, setError] = useState('');
 
     useEffect(() => {
-        if (!wholesalerId || !invoiceIds) return;
-        fetch(`/api/wholesale/repairs/ship-back?wholesalerId=${encodeURIComponent(wholesalerId)}&invoices=${encodeURIComponent(invoiceIds)}`)
+        if ((!wholesalerId && !account) || !invoiceIds) return;
+        const identity = account
+            ? `account=${encodeURIComponent(account)}`
+            : `wholesalerId=${encodeURIComponent(wholesalerId)}`;
+        fetch(`/api/wholesale/repairs/ship-back?${identity}&invoices=${encodeURIComponent(invoiceIds)}`)
             .then((r) => r.json())
             .then((d) => { if (d.success) setInvoices(d.invoices || []); else setError(d.error || 'Could not load the shipment.'); })
             .catch((e) => setError(e.message));
-    }, [wholesalerId, invoiceIds]);
+    }, [wholesalerId, account, invoiceIds]);
 
     const shipment = invoices?.find((i) => i.outboundShipment)?.outboundShipment || null;
     const grandTotal = (invoices || []).reduce((s, i) => s + (Number(i.total) || 0), 0);
@@ -64,7 +70,11 @@ function TransferListInner() {
                     <Typography sx={{ fontWeight: 700, fontSize: 20 }}>Engel Fine Design — Transfer List</Typography>
                     <Typography sx={{ fontSize: 13, mb: 2 }}>
                         {shipment ? (
-                            <>Shipped {fmtDate(shipment.shippedAt)}{shipment.carrier ? ` via ${shipment.carrier}` : ''} — tracking <strong>{shipment.trackingNumber}</strong></>
+                            shipment.method === 'delivery' ? (
+                                <>Hand delivery {shipment.deliveredAt ? `completed ${fmtDate(shipment.deliveredAt)}` : `scheduled for ${fmtDate(shipment.scheduledFor)}`}</>
+                            ) : (
+                                <>Shipped {fmtDate(shipment.shippedAt)}{shipment.carrier ? ` via ${shipment.carrier}` : ''} — tracking <strong>{shipment.trackingNumber}</strong></>
+                            )
                         ) : 'Shipment pending'}
                         {' · '}{invoices.length} invoice{invoices.length !== 1 ? 's' : ''} · {repairCount} repair{repairCount !== 1 ? 's' : ''} · {money(grandTotal)}
                     </Typography>
