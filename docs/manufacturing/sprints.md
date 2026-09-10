@@ -145,8 +145,13 @@ showcase listing with COGS-based pricing.
   - `POST /api/production/pieces/[pieceID]/list-product` — creates a contract draft product from a piece,
     links piece↔product, marks the piece `available`. Verified e2e on DEV (COGS 100 → costBasis 100,
     retail 250, linked).
-- **Remaining (UI phase):** product editor screen, 3D media + **shared meshMap builder** (via efd-shop
-  `POST /api/glb/inspect`), publish flow wiring `validateProductContract` (§8 gate) + S3 bucket CORS.
+- **Remaining — SUPERSEDED (owner ruling 2026-09-10):** there will be **no product editor screen**.
+  Nobody authors a Product; products become machine-maintained projections of Design + Piece state.
+  The replacement plan (sync engine, gem RTS offers, Design+Piece intake, sale loop, retiring the
+  CRUD editors) is [PRODUCTS_ARE_PROJECTIONS.md](./PRODUCTS_ARE_PROJECTIONS.md) — P1–P5 there are
+  the continuation of this sprint. Still relevant from the old list: 3D media + **shared meshMap
+  builder** (via efd-shop `POST /api/glb/inspect`) — now landing on the Design, and the §8
+  `validateProductContract` gate — now enforced inside the sync engine.
 - **Code (reference):**
   - product editor writes the contract shape: `productId`/`status`/`isPublic`,
     `pricing.retailPrice`(+`compareAtPrice`)/`price`, `availability`, `jewelry{}`, `images[]`, `viewer{}`
