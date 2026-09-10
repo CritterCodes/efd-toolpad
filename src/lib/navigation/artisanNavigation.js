@@ -14,6 +14,7 @@ import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import ChecklistIcon from '@mui/icons-material/Checklist';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import DesignServicesIcon from '@mui/icons-material/DesignServices';
+import StorefrontIcon from '@mui/icons-material/Storefront';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import { SHARED_NAVIGATION } from './sharedNavigation';
 import { normalizeArtisanType, ARTISAN_TYPE } from '@/lib/artisans';
@@ -134,6 +135,10 @@ export function generateArtisanNavigation(artisanTypes = [], staffCapabilities =
     base.push(
       { kind: 'header', title: 'Designs' },
       { segment: 'dashboard/artisan/designs', title: 'My Designs', icon: <DesignServicesIcon /> },
+      // The artisan's sellable Products (gemstone + jewelry listings, incl. consigned items).
+      // Both products APIs scope their lists to the signed-in artisan — without this entry the
+      // scoped listing endpoints had no artisan-facing page calling them.
+      { segment: 'dashboard/artisan/listings', title: 'My Listings', icon: <StorefrontIcon /> },
       // The drops surface is role-agnostic — the drops APIs scope artisans to drops they own or
       // collaborate on, and force artisan creations self-owned + draft (releasing stays with EFD).
       { segment: 'dashboard/products/drops', title: 'My Drops', icon: <RocketLaunchIcon /> },
