@@ -280,6 +280,12 @@ Variant/resolved configuration. Other Piece states never count.
 
 ## `products` ♻️ (S5) — **storefront-read shape**
 
+> **Owner ruling 2026-09-10 — products are PROJECTIONS.** Nobody authors a Product: Designs (MTO —
+> preset variants or REFRAKT customizer) and Pieces (RTS) are the catalog, and product docs are
+> machine-maintained caches of that state. The collection survives only because the storefront reads
+> it directly. Plan and rules: [PRODUCTS_ARE_PROJECTIONS.md](./PRODUCTS_ARE_PROJECTIONS.md). Do not
+> add or extend manual product-authoring routes/UI.
+
 ⚠ efd-admin and efd-shop **share the `products` collection**; the storefront reads documents
 **directly** (no API). The shape is therefore dictated by the storefront — see
 [product-page-data-contract.md](./product-page-data-contract.md) (**authoritative**; field names &

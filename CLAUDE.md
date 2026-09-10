@@ -18,3 +18,5 @@ The July 17 handoff contains newer owner decisions that supersede older assumpti
 
 Newer (2026-09-01): for Drops work specifically, also read `docs/manufacturing/DROPS_STATE_AND_FACELIFT.md` — the current-state audit and the owner's sequencing (UI facelift → listing polish → brief/open-call → release engine).
 
+Newer (2026-09-10): before ANY product/listing/catalog work, read `docs/manufacturing/PRODUCTS_ARE_PROJECTIONS.md` — owner ruling: nobody ever authors a Product; Designs (MTO/customizer) + Pieces (RTS) are the catalog and product docs are machine-maintained projections. Never add manual product-authoring routes or UI.
+
