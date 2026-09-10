@@ -3,7 +3,17 @@ import { NextResponse } from "next/server";
 import { STAFF_ROLES } from "@/lib/designPermissions";
 
 // List of public routes that can be accessed without authentication
-const publicRoutes = ["/auth/signin", "/auth/change-password", "/emergency-logout"];
+// forgot-password and reset-password MUST be public: they exist precisely for
+// people with no session, and the matcher covers /auth/:path* — without these
+// entries the "Forgot password?" link and the emailed reset link both bounce
+// back to sign-in, locking out anyone who lost their password.
+const publicRoutes = [
+    "/auth/signin",
+    "/auth/change-password",
+    "/auth/forgot-password",
+    "/auth/reset-password",
+    "/emergency-logout",
+];
 
 /**
  * Dashboard sections only EFD staff may open. Until this existed the middleware checked only WHETHER
