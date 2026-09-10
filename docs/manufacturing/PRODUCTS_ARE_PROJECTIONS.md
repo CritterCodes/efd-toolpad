@@ -167,7 +167,12 @@ the Piece to `sold`; the projection retires the offer.
 
 ## 6. Staged build plan
 
-**P1 — the sync engine (core).**
+**P1 — the sync engine (core).** ✅ BUILT 2026-09-10 (`listingSync.js` + pure `listingSyncCore.js`,
+triggers in design create/update, piece update/start, repricer tail; manual sweep at
+`POST /api/production/listing-sync`; corpus dry-run passed 27/27). Note: `design.listing` publish
+block is supported by the sync but no UI writes it yet. Found + fixed in passing: the design PUT
+replaced the edition subdoc, wiping server-owned counters (route now preserves them; two prod
+designs repaired).
 `listingSync.js` (+ tests) wrapping `projectDesignProduct`; `design.listing` publish block; wire
 triggers into design/piece write routes + repricer; `syncAllListings` sweep; stamp `projection`
 metadata. Validate against the 27 consigned items as the live corpus (their projections must
