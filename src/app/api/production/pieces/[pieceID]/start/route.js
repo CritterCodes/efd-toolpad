@@ -8,6 +8,7 @@ import {
   beginManualPieceProduction,
 } from '@/services/production/editionCapacity';
 import { repriceGemAtClaim, gemCutTarget, spawnGemCuttingWO } from '@/services/production/gemClaim';
+import { syncDesignListingSafe } from '@/services/production/listingSync';
 
 /**
  * POST /api/production/pieces/[pieceID]/start
@@ -47,6 +48,10 @@ export const POST = async (req, { params }) => {
     const started = piece.orderId
       ? await beginPieceProduction({ client, database, pieceID })
       : await beginManualPieceProduction({ client, database, pieceID });
+
+    // Products are projections: the edition just allocated (MTO capacity changed), so
+    // re-project the design's listing. Best-effort, after the transaction committed.
+    if (piece.designID) await syncDesignListingSafe(piece.designID);
 
     // A directly-sold GEM piece enters production as a cut job, not a casting: spawn the
     // gem_cutting WO for the cutter and re-resolve the price at the ordered carat (drift is

@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/apiAuth';
 import DesignsModel, { validateDesign } from '@/app/api/designs/model';
 import { isStaff, canManageDesign } from '@/lib/designPermissions';
 import { validateGemLinkPresets } from '@/services/production/gemLinks';
+import { syncDesignListingSafe } from '@/services/production/listingSync';
 
 /** GET /api/production/designs/[designID] — staff, or the artisan who owns it. */
 export const GET = async (req, { params }) => {
@@ -35,6 +36,20 @@ export const PUT = async (req, { params }) => {
   if (!isStaff(session) && body.primaryArtisanId !== undefined && body.primaryArtisanId !== existing.primaryArtisanId) {
     return NextResponse.json({ error: 'Only staff can reassign a design’s artisan credit.' }, { status: 403 });
   }
+  // Edition COUNTERS are server-owned: allocated/committed/nextNumber/freedNumbers change only
+  // through the editionCapacity transactions. A client saving the editor form sends
+  // edition:{type,limit} and would otherwise REPLACE the subdoc, silently zeroing the counters —
+  // which re-opens MTO capacity on a one-of-one whose piece already exists (seen in prod
+  // 2026-09-10 on two consigned gem designs).
+  if (body.edition !== undefined && body.edition !== null) {
+    body.edition = {
+      ...body.edition,
+      allocated: existing.edition?.allocated ?? 0,
+      committed: existing.edition?.committed ?? 0,
+      nextNumber: existing.edition?.nextNumber ?? 1,
+      freedNumbers: existing.edition?.freedNumbers ?? [],
+    };
+  }
   // Gemstone designs get merged-doc validation on update (the UI promises priceable variants;
   // hold the API to it). Jewelry keeps the historical raw-$set behavior for partial updates.
   // `stlVolumeCm3` is SERVER-MEASURED ONLY (see attach-stl). It drives estimateMetalCost → mounting
@@ -58,6 +73,8 @@ export const PUT = async (req, { params }) => {
   }
   const updated = await DesignsModel.updateById(designID, body);
   if (!updated) return NextResponse.json({ error: 'Design not found.' }, { status: 404 });
+  // Products are projections: re-project the shop-read doc after every design write.
+  await syncDesignListingSafe(designID);
   return NextResponse.json(updated, { status: 200 });
 };
 
