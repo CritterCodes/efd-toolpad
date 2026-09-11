@@ -1,5 +1,28 @@
 import { gemstoneFromPrice, publicGemstoneSpec } from '@/services/production/designCost';
 
+/**
+ * The storefront `viewer` for a design-backed listing: the DESIGN owns the GLB, each VARIANT
+ * owns the look (its REFRAKT `viewerConfig.meshMap`). Nothing used to join the two, so a design
+ * with a perfectly good model projected `viewer: null` — and since the contract requires a
+ * viewer OR images, a 3D-only design could never be published at all.
+ */
+export function deriveViewer({ design = {}, variant = null, product = {} }) {
+  const glbUrl = variant?.viewer?.glbUrl
+    || design?.designModel?.glbUrl
+    || product?.viewer?.glbUrl
+    || null;
+  const config = variant?.viewer?.meshMap?.length ? variant.viewer : variant?.viewerConfig;
+  const meshMap = Array.isArray(config?.meshMap) ? config.meshMap : product?.viewer?.meshMap;
+  if (!glbUrl || !Array.isArray(meshMap) || meshMap.length === 0) return null;
+  return {
+    glbUrl,
+    meshMap,
+    ...(config?.environment ? { environment: config.environment } : {}),
+    ...(config?.background ? { background: config.background } : {}),
+    ...(config?.orientation ? { orientation: config.orientation } : {}),
+  };
+}
+
 export function projectDesignProduct({ product = {}, design, pieces = [] }) {
   const available = pieces.filter((piece) => piece.status === 'available');
   const allocated = design.edition?.allocated ?? 0;
@@ -32,7 +55,7 @@ export function projectDesignProduct({ product = {}, design, pieces = [] }) {
     edition: { ...design.edition, ...(remaining === undefined ? {} : { remaining }) },
     price: isGem ? (gemFrom ?? primary?.pricing?.retailPrice ?? null) : primary?.pricing?.retailPrice,
     ...(isGem && gemFrom != null ? { priceIsFrom: true } : {}),
-    viewer: primary?.viewer ?? null,
+    viewer: deriveViewer({ design, variant: primary, product }),
     availability: primary?.offers?.readyToShip ? 'ready-to-ship' : 'made-to-order',
     ...(isGem
       // Cut/technique are DESIGN details; the material spec (species/…) is per-variant, public-stripped.

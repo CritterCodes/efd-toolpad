@@ -38,6 +38,9 @@
     },
     "src/app/api/cron/update-material-prices/route.js": {
       "maxDuration": 120
+    },
+    "src/app/api/cron/release-drops/route.js": {
+      "maxDuration": 120
     }
   },
   "crons": [
@@ -72,6 +75,10 @@
     {
       "path": "/api/cron/update-material-prices",
       "schedule": "10 * * * *"
+    },
+    {
+      "path": "/api/cron/release-drops",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

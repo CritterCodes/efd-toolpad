@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/apiAuth';
 import DropsModel from '@/app/api/drops/model';
 import { isStaff, canCreateDrop, dropListFilter } from '@/lib/dropPermissions';
+import { parseReleaseAt } from '@/services/production/dropRelease';
 
 /** GET /api/production/drops — list drops (optional ?status=).
  *  Staff see everything; artisans see drops they OWN or COLLABORATE on. */
@@ -32,6 +33,9 @@ export const POST = async (req) => {
 
   const drop = await DropsModel.create({
     ...body,
+    // datetime-local posts a bare local-time string; store a real Date so the release cron
+    // can compare it (see the same normalization on PUT).
+    ...(body.releaseAt ? { releaseAt: parseReleaseAt(body.releaseAt) } : {}),
     ...(isStaff(session) ? {} : {
       ownerType: 'artisan',
       ownerId: session.user.userID || session.user.email,

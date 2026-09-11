@@ -14,6 +14,8 @@ import DesignServicesIcon from '@mui/icons-material/DesignServices';
 import DiamondIcon from '@mui/icons-material/AutoAwesome';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 
@@ -208,6 +210,8 @@ export default function DropDetailPage({ params }) {
   const [piecesLoading, setPiecesLoading] = useState(true);
   const [tab, setTab] = useState(0);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'error' });
+  const [preflight, setPreflight] = useState(null);
+  const [releasing, setReleasing] = useState(false);
 
   const showSnack = (message, severity = 'error') => setSnack({ open: true, message, severity });
   const closeSnack = () => setSnack((s) => ({ ...s, open: false }));
@@ -251,11 +255,42 @@ export default function DropDetailPage({ params }) {
     }
   }, [dropId]);
 
+  // Release readiness: what would actually go live, and what is holding the rest back.
+  const loadPreflight = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/production/drops/${dropId}/release`);
+      setPreflight(res.ok ? await res.json() : null);
+    } catch { setPreflight(null); }
+  }, [dropId]);
+
+  const doRelease = async () => {
+    setReleasing(true);
+    try {
+      const res = await fetch(`/api/production/drops/${dropId}/release`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Release failed');
+      const n = (data.published || []).length;
+      showSnack(
+        `Released — ${n} listing${n === 1 ? '' : 's'} live in the shop` +
+        ((data.blocked || []).length ? `, ${data.blocked.length} still blocked` : ''),
+        'success',
+      );
+      await Promise.all([loadDrop(), loadDesigns(), loadPreflight()]);
+    } catch (e) {
+      showSnack(e.message);
+    } finally {
+      setReleasing(false);
+    }
+  };
+
   useEffect(() => {
     loadDrop();
     loadDesigns();
     loadPieces();
-  }, [loadDrop, loadDesigns, loadPieces]);
+    loadPreflight();
+  }, [loadDrop, loadDesigns, loadPieces, loadPreflight]);
 
   const STATUS_COLOR_LOCAL = {
     draft: REPAIRS_UI.textMuted,
@@ -326,15 +361,75 @@ export default function DropDetailPage({ params }) {
               )}
             </Stack>
           </Box>
-          <Button
-            variant="outlined"
-            startIcon={<EditIcon />}
-            onClick={() => router.push(`/dashboard/products/drops/${dropId}/edit`)}
-            sx={{ color: REPAIRS_UI.accent, borderColor: REPAIRS_UI.accent }}
-          >
-            Edit Drop
-          </Button>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ flexShrink: 0 }}>
+            <Button
+              variant="outlined"
+              startIcon={<EditIcon />}
+              onClick={() => router.push(`/dashboard/products/drops/${dropId}/edit`)}
+              sx={{ color: REPAIRS_UI.accent, borderColor: REPAIRS_UI.accent }}
+            >
+              Edit Drop
+            </Button>
+            {drop.status !== 'archived' && (
+              <Button
+                variant="contained"
+                startIcon={<RocketLaunchIcon />}
+                disabled={releasing || !preflight?.canRelease}
+                onClick={doRelease}
+                sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 700, '&:hover': { backgroundColor: '#C19B2E' } }}
+              >
+                {releasing ? 'Releasing…' : drop.status === 'released' ? 'Re-release' : 'Release now'}
+              </Button>
+            )}
+          </Stack>
         </Stack>
+
+        {/* Release readiness. A drop used to "release" by writing a word on a document while
+            the shop stayed empty; this says what will actually go live and what is blocking. */}
+        {preflight && (
+          <Box sx={{ mt: 2.5, pt: 2, borderTop: `1px solid ${REPAIRS_UI.border}` }}>
+            <Typography sx={{ fontSize: '0.72rem', color: REPAIRS_UI.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 1 }}>
+              Release readiness
+            </Typography>
+            {preflight.designCount === 0 ? (
+              <Typography sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.9rem' }}>
+                This drop has no designs yet — add one before releasing.
+              </Typography>
+            ) : (
+              <Stack spacing={0.75}>
+                {preflight.eligible.map((d) => (
+                  <Stack key={d.designID} direction="row" spacing={1} alignItems="center">
+                    <CheckCircleIcon sx={{ fontSize: 16, color: '#66BB6A' }} />
+                    <Typography sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.88rem' }}>
+                      <strong>{d.name}</strong> — ready to go live
+                    </Typography>
+                  </Stack>
+                ))}
+                {preflight.blocked.map((d) => (
+                  <Stack key={d.designID} direction="row" spacing={1} alignItems="flex-start">
+                    <ErrorOutlineIcon sx={{ fontSize: 16, color: '#FFB74D', mt: '2px' }} />
+                    <Box>
+                      <Typography sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.88rem' }}>
+                        <strong>{d.name}</strong> — not releasable
+                      </Typography>
+                      {d.reasons.map((r) => (
+                        <Typography key={r} sx={{ color: REPAIRS_UI.textMuted, fontSize: '0.8rem', ml: 0 }}>• {r}</Typography>
+                      ))}
+                      <Button
+                        size="small"
+                        endIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />}
+                        onClick={() => router.push(`/dashboard/products/drops/${dropId}/designs/${d.designID}`)}
+                        sx={{ color: REPAIRS_UI.accent, textTransform: 'none', fontSize: '0.78rem', p: 0, minWidth: 0, mt: 0.25 }}
+                      >
+                        Open design
+                      </Button>
+                    </Box>
+                  </Stack>
+                ))}
+              </Stack>
+            )}
+          </Box>
+        )}
       </Box>
 
       <Box sx={{ borderBottom: `1px solid ${REPAIRS_UI.border}`, mb: 3 }}>
