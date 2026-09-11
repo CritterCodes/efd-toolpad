@@ -199,6 +199,18 @@ now upserts a stamped read-model doc (`collectionId: drop-<dropId>`, `kind: 'dro
 a hand-authored Collection holding the same slug. **When the shop is moved onto `drops` directly,
 delete this projection** (the honest fix lives in the shop repo).
 
+**Customizer authoring restored (2026-09-11).** The screen that makes a design customizable
+(`/dashboard/…/designs/[designId]/customize`) and its save route (`PUT …/customizable`) were
+ORPHANED when Designs moved under Drops — everything downstream (the strict binding resolution in
+`/api/refrakt-price`, the shop's `/products/[handle]/customize` page, the PDP gate, the homepage
+hero query) kept reading `design.viewer.meshMap`, which nothing wrote any more. In its place the CAD
+tab had a boolean `design.customizable` toggle that NO code read. Restored from `d9dd8034` onto the
+current route (refrakt `<ConfiguratorSetup>` for appearance + admin's per-option cost bindings),
+plus `DesignsModel.setViewer`. Two projection bugs fixed with it: `deriveViewer` now prefers the
+design's authored meshMap over a variant's fixed look (otherwise the `customizable` blocks never
+reach the product the shop gates on), and `customizerEnabled` reads
+`meshMap.some(s => s.customizable)` instead of a non-existent `variant.viewer.customizable` flag.
+
 **Media + name projection (§3.4) — DONE.** `design.media.images` and `design.name`/`description`
 project onto the listing (blanks never overwrite). Jake's 15 stones carry 55 photos this way.
 **Materialization gate:** a listing is only created when the design asks for one (has a `listing`

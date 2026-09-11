@@ -165,6 +165,21 @@ export default class DesignsModel {
     return res.deletedCount > 0;
   }
 
+  /**
+   * Persist the customizer authoring output on the design's viewer config (0005 §6):
+   * the refrakt-native `meshMap` where each customizable slot carries
+   * `customizable:{options,default,label?}` with admin's per-option cost `binding`s.
+   * Dotted paths only — never replace the whole `viewer` subdoc.
+   */
+  static async setViewer(designID, { meshMap, glbUrl } = {}) {
+    const col = await this.collection();
+    const $set = { updatedAt: new Date() };
+    if (Array.isArray(meshMap)) $set['viewer.meshMap'] = meshMap;
+    if (glbUrl) $set['viewer.glbUrl'] = glbUrl;
+    await col.updateOne({ designID }, { $set });
+    return this.findById(designID);
+  }
+
   static ASSET_FIELDS = ['referenceImages', 'sketches'];
 
   /** Append an uploaded asset URL to one of the design's asset arrays. */

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   Box, Typography, Button, Chip, Stack, Paper, CircularProgress, IconButton,
   TextField, FormControl, InputLabel, Select, MenuItem, Autocomplete, Snackbar, Alert, InputAdornment,
-  Switch, FormControlLabel, Dialog, DialogTitle, DialogContent, DialogActions, Divider, Tooltip,
+  Dialog, DialogTitle, DialogContent, DialogActions, Divider, Tooltip,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DesignServicesIcon from '@mui/icons-material/DesignServices';
@@ -156,7 +156,6 @@ function toForm(d) {
     gemCutStyle: (d.gemstone?.cutStyle || []).join(', '),
     // Customization is a DESIGN-level capability (shoppers open REFRAKT and customize the
     // design's model), not a per-variant flag.
-    customizable: Boolean(d.customizable),
     // Pricing recipe — SHARED across variants; cascades. Retail is computed live from
     // market metal rates, never stored, so we only persist these inputs.
     pricing: {
@@ -363,7 +362,8 @@ function CadUploadRow({ label, accept, hint, done, uploading, onPick }) {
   );
 }
 
-function CadTab({ design, designId, onReload, notify, onCreateFirstVariant, form, setField }) {
+function CadTab({ design, designId, dropId, onReload, notify, onCreateFirstVariant, form, setField }) {
+  const router = useRouter();
   const [busyStl, setBusyStl] = useState(false);
   const [busyGlb, setBusyGlb] = useState(false);
   const isGem = form.category === 'gemstone';
@@ -490,19 +490,54 @@ function CadTab({ design, designId, onReload, notify, onCreateFirstVariant, form
           )}
         </Paper>
 
-        {/* Customization is a DESIGN-level capability (not per-variant): can shoppers open
-            REFRAKT and customize this design's model? Runs on the GLB above. */}
+        {/* Customization is a DESIGN-level capability (not per-variant): which parts of the model
+            can a shopper change, to what, and what does each option COST. That is authored on the
+            Customizer screen — a boolean here never made a design customizable, because the
+            pricing endpoint and the storefront both read the authored per-slot
+            `viewer.meshMap[].customizable` blocks, not a flag. */}
         <Paper sx={panelSx}>
           <PanelTitle>Customization</PanelTitle>
-          <FormControlLabel
-            control={<Switch checked={!!form?.customizable} disabled={!glbUrl} onChange={(e) => setField('customizable', e.target.checked)} sx={{ '& .Mui-checked': { color: REPAIRS_UI.accent }, '& .Mui-checked + .MuiSwitch-track': { backgroundColor: REPAIRS_UI.accent } }} />}
-            label={<Typography sx={{ color: REPAIRS_UI.textPrimary, fontWeight: 600, fontSize: '0.9rem' }}>Allow customization in REFRAKT</Typography>}
-          />
-          <Typography variant="caption" sx={{ color: glbUrl ? REPAIRS_UI.textMuted : '#FFB74D', display: 'block', mt: 0.5 }}>
-            {glbUrl
-              ? 'Shoppers open REFRAKT and customize this design (finish, gems) starting from its default look — every customized order is made-to-order.'
-              : 'Upload a GLB to enable the customizer.'}
-          </Typography>
+          {(() => {
+            const slots = (design?.viewer?.meshMap || []).filter((sl) => sl?.customizable);
+            const unbound = slots.filter((sl) => {
+              const key = sl.type === 'gem' ? 'gemPreset' : 'finish';
+              const opts = sl.customizable?.options || [];
+              return opts.some((o) => !o?.binding || (sl.type === 'gem'
+                ? !(o.binding.gemstoneId || (o.binding.materialRef && Number(o.binding.carat) > 0))
+                : !o.binding.metalKey)) || !opts.length || !key;
+            });
+            return (
+              <>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1, flexWrap: 'wrap', gap: 1 }}>
+                  <Chip
+                    size="small"
+                    label={slots.length ? `${slots.length} customizable part${slots.length === 1 ? '' : 's'}` : 'Not customizable'}
+                    sx={{ backgroundColor: slots.length ? '#66BB6A22' : REPAIRS_UI.bgCard, color: slots.length ? '#66BB6A' : REPAIRS_UI.textMuted, fontWeight: 700 }}
+                  />
+                  {unbound.length > 0 && (
+                    <Chip size="small" label={`${unbound.length} need a cost binding`} sx={{ backgroundColor: '#FFB74D22', color: '#FFB74D', fontWeight: 700 }} />
+                  )}
+                </Stack>
+                <Button
+                  variant={slots.length ? 'outlined' : 'contained'}
+                  disabled={!glbUrl}
+                  onClick={() => router.push(`/dashboard/products/drops/${design?.dropId || dropId}/designs/${designId}/customize`)}
+                  sx={slots.length
+                    ? { color: REPAIRS_UI.accent, borderColor: REPAIRS_UI.accent, textTransform: 'none' }
+                    : { backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, textTransform: 'none', '&:hover': { backgroundColor: '#C19B2E' } }}
+                >
+                  {slots.length ? 'Edit customizer options' : 'Set up the customizer'}
+                </Button>
+                <Typography variant="caption" sx={{ color: glbUrl ? REPAIRS_UI.textMuted : '#FFB74D', display: 'block', mt: 1 }}>
+                  {!glbUrl
+                    ? 'Upload a GLB to enable the customizer.'
+                    : slots.length
+                      ? 'Shoppers open REFRAKT and change these parts, starting from the default look — every customized order is made-to-order. Options without a cost binding are refused at checkout.'
+                      : 'Choose which parts of the model a shopper may change, the presets allowed for each, and bind every option to a real cost.'}
+                </Typography>
+              </>
+            );
+          })()}
         </Paper>
       </Box>
     </Stack>
@@ -1785,7 +1820,6 @@ export function DesignDetail({ dropId, designId, backHref, backLabel }) {
         status: form.status,
         tags: form.tags,
         primaryArtisanId: form.primaryArtisanId || null,
-        customizable: !!form.customizable,
         edition: { type: form.editionType, ...(form.editionType === 'limited' ? { limit: Number(form.editionLimit) || 1 } : {}) },
         // Gemstone designs: the cut (shape + technique) is a DESIGN detail.
         ...(form.category === 'gemstone' ? { gemstone: { cut: csvArr(form.gemCut), cutStyle: csvArr(form.gemCutStyle) } } : {}),
@@ -2011,7 +2045,7 @@ export function DesignDetail({ dropId, designId, backHref, backLabel }) {
       </Tabs>
 
       {tab === 0 && <DetailsTab form={form} setField={setField} artisans={artisans} />}
-      {tab === 1 && <CadTab design={design} designId={designId} onReload={load} notify={notify} onCreateFirstVariant={configureFirstVariant} form={form} setField={setField} />}
+      {tab === 1 && <CadTab design={design} designId={designId} dropId={dropId} onReload={load} notify={notify} onCreateFirstVariant={configureFirstVariant} form={form} setField={setField} />}
       {tab === 2 && (
         <VariantsTab
           variants={form.variants}

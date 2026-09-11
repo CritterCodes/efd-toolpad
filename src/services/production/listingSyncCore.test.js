@@ -230,3 +230,44 @@ describe('viewer derivation (design GLB + variant look)', () => {
     expect(set.viewer).toBeUndefined();
   });
 });
+
+describe('customizer reaches the listing', () => {
+  const authored = {
+    designID: 'd1', name: 'Tracks Band', category: 'ring',
+    designModel: { glbUrl: 'https://cdn/band.glb' },
+    edition: { type: 'unlimited', allocated: 0, committed: 0 },
+    viewer: {
+      glbUrl: 'https://cdn/band.glb',
+      meshMap: [
+        { nameContains: 'Ring_highPolish', type: 'metal', finish: 'gold',
+          customizable: { label: 'Band', default: 'gold', options: [{ finish: 'gold', binding: { metalKey: 'GOLD_14K_YELLOW' } }, { finish: 'whiteGold', binding: { metalKey: 'GOLD_14K_WHITE' } }] } },
+      ],
+    },
+    variants: [{
+      variantId: 'v1', sku: 'TB-1', active: true, ringSize: '10', pricing: { retailPrice: 5443 },
+      viewerConfig: { meshMap: [{ nameContains: 'Ring_highPolish', type: 'metal', finish: 'gold' }] },
+    }],
+  };
+
+  it("projects the DESIGN's authored slots, not the variant's fixed look", () => {
+    // The shop's Customize gate is `viewer.meshMap[].customizable` — if the variant's one fixed
+    // look wins, the customizer stays dark however well the design was authored.
+    const { set } = computeListingUpdate({ design: authored, pieces: [], product: { productId: 'p1', images: [{ url: 'u' }] } });
+    expect(set.viewer.meshMap[0].customizable).toBeTruthy();
+    expect(set.viewer.meshMap[0].customizable.options).toHaveLength(2);
+    expect(set.variants[0].offers.madeToOrder.customizerEnabled).toBe(true);
+  });
+
+  it('reports customizerEnabled false when nothing is authored', () => {
+    const plain = { ...authored, viewer: { glbUrl: 'https://cdn/band.glb', meshMap: [{ nameContains: 'x', type: 'metal', finish: 'gold' }] } };
+    const { set } = computeListingUpdate({ design: plain, pieces: [], product: { productId: 'p1', images: [{ url: 'u' }] } });
+    expect(set.variants[0].offers.madeToOrder.customizerEnabled).toBe(false);
+  });
+
+  it('still uses the variant look when the design has no authored customizer', () => {
+    const { viewer, ...noViewer } = authored;
+    const { set } = computeListingUpdate({ design: noViewer, pieces: [], product: { productId: 'p1', images: [{ url: 'u' }] } });
+    expect(set.viewer.meshMap[0].nameContains).toBe('Ring_highPolish');
+    expect(set.viewer.meshMap[0].customizable).toBeUndefined();
+  });
+});
