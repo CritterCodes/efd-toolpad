@@ -121,6 +121,79 @@ export async function preflightDrop(dropId) {
 }
 
 /**
+ * Build the shop's read-model doc for a released drop.
+ *
+ * WHY THIS EXISTS: efd-shop renders every drop surface — `/drops/[slug]` and the Drops tab on
+ * `/collections` — from the `collections` collection, because it was built when "a Drop is a
+ * Collection with a release facet" (its own comment, decisions/0003). Admin has since moved to a
+ * separate `drops` collection per the owner's July-17 ruling that Drops and Collections are
+ * different things. Nothing bridged the two, so a released drop published its products (they show
+ * under All Pieces) but the drop itself never appeared anywhere.
+ *
+ * So: `drops` stays the source of truth and this is a PROJECTION of it in the shape the storefront
+ * reads — the same pattern as products (PRODUCTS_ARE_PROJECTIONS.md). It is stamped with
+ * `projection.engine` + `dropId` so it is recognisable as generated, and `kind: 'drop'` so the shop
+ * files it under the Drops tab. When the shop is moved onto `drops` directly, delete this.
+ */
+export function buildDropReadModel({ drop, members = [], releasedAt = new Date() }) {
+  return {
+    collectionId: `drop-${drop.dropId}`,
+    slug: drop.slug,
+    name: drop.name,
+    title: drop.name,
+    description: drop.description ?? '',
+    kind: 'drop',
+    status: DROP_STATUS.RELEASED,
+    releasedAt,
+    members: members.map((productId, position) => ({ productId, position })),
+    heroImage: drop.heroImage ?? null,
+    image: drop.heroImage ?? drop.thumbnail ?? null,
+    thumbnail: drop.thumbnail ?? null,
+    ownerType: drop.ownerType ?? 'efd',
+    ownerInfo: drop.ownerInfo ?? null,
+    seo: drop.seo ?? {},
+    projection: { engine: 'dropRelease@1', dropId: drop.dropId, syncedAt: new Date() },
+  };
+}
+
+/**
+ * Order the drop's published listings: the curator's `designOrder` first, then anything else.
+ */
+export function orderDropMembers({ designOrder = [], published = [] }) {
+  const byDesign = new Map(published.filter((p) => p.productId).map((p) => [p.designID, p.productId]));
+  const ordered = [];
+  for (const designID of designOrder || []) {
+    if (byDesign.has(designID)) { ordered.push(byDesign.get(designID)); byDesign.delete(designID); }
+  }
+  return [...ordered, ...byDesign.values()];
+}
+
+/** Upsert the shop read-model, refusing to trample a hand-authored Collection on the same slug. */
+async function projectDropToShop({ drop, published, releasedAt }) {
+  const dbi = await db.connect();
+  const collections = dbi.collection('collections');
+  const existing = await collections.findOne({ $or: [{ collectionId: `drop-${drop.dropId}` }, { slug: drop.slug }] });
+  if (existing && existing.projection?.dropId && existing.projection.dropId !== drop.dropId) {
+    return { ok: false, reason: `slug "${drop.slug}" already belongs to another drop projection` };
+  }
+  if (existing && !existing.projection?.engine) {
+    // A real, human-made Collection owns this slug. Never overwrite it.
+    return { ok: false, reason: `slug "${drop.slug}" is taken by an existing collection — rename the drop's slug` };
+  }
+  const doc = buildDropReadModel({
+    drop,
+    members: orderDropMembers({ designOrder: drop.designOrder, published }),
+    releasedAt,
+  });
+  await collections.updateOne(
+    { collectionId: doc.collectionId },
+    { $set: { ...doc, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } },
+    { upsert: true },
+  );
+  return { ok: true, collectionId: doc.collectionId, slug: doc.slug, members: doc.members.length };
+}
+
+/**
  * Release a drop: publish the eligible designs' listings, then mark the drop released.
  * Idempotent — re-releasing re-syncs and republishes without duplicating anything.
  *
@@ -137,6 +210,7 @@ export async function releaseDrop(dropId, { dryRun = false, releasedBy = null, f
   const published = [];
   const failed = [];
   const repriced = [];
+  let shopProjection = null;
   if (!dryRun) {
     // Price the release before publishing it. Variant retail is a CALCULATED recipe that is
     // never authored by hand, and the daily repricer only scans listings the shop can already
@@ -203,11 +277,16 @@ export async function releaseDrop(dropId, { dryRun = false, releasedBy = null, f
       }
     }
 
+    const releasedAt = new Date();
     await DropsModel.updateById(dropId, {
       status: DROP_STATUS.RELEASED,
-      releasedAt: new Date(),
+      releasedAt,
       ...(releasedBy ? { releasedBy } : {}),
     });
+
+    // Make the drop itself visible to the shop (not just its products).
+    const drop = await DropsModel.findById(dropId);
+    shopProjection = await projectDropToShop({ drop, published, releasedAt });
   }
 
   return {
@@ -219,6 +298,7 @@ export async function releaseDrop(dropId, { dryRun = false, releasedBy = null, f
     publishFailed: failed,
     blocked: pre.blocked,
     ...(repriced.length ? { repriced } : {}),
+    ...(shopProjection ? { shopDropPage: shopProjection } : {}),
   };
 }
 
