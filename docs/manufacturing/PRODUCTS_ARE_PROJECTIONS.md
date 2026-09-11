@@ -189,6 +189,16 @@ with per-design reasons. Wired to `POST .../drops/[dropID]/release`, the status 
 unpublished⇒unpriced⇒unpublishable deadlock, `viewer` never joining design GLB + variant meshMap,
 and two rival design→product link fields minting duplicate listings.
 
+**The drop page is a projection too (2026-09-11).** Releasing published the drop's PRODUCTS but the
+drop itself still appeared nowhere: efd-shop renders `/drops/[slug]` and the Drops tab on
+`/collections` from the **`collections`** collection ("a Drop is a Collection with a release facet"
+— its own comment, decisions/0003), while admin moved drops to their own collection per the
+owner's July-17 "Drops and Collections are separate" ruling. Nothing bridged them. `releaseDrop`
+now upserts a stamped read-model doc (`collectionId: drop-<dropId>`, `kind: 'drop'`,
+`status: 'released'`, ordered `members[]`) — `drops` stays source of truth. It refuses to overwrite
+a hand-authored Collection holding the same slug. **When the shop is moved onto `drops` directly,
+delete this projection** (the honest fix lives in the shop repo).
+
 **Media + name projection (§3.4) — DONE.** `design.media.images` and `design.name`/`description`
 project onto the listing (blanks never overwrite). Jake's 15 stones carry 55 photos this way.
 **Materialization gate:** a listing is only created when the design asks for one (has a `listing`

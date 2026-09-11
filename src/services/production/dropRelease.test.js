@@ -110,3 +110,32 @@ describe('shouldMaterializeListing', () => {
     expect(shouldMaterializeListing({ designID: 'd1', listing: { published: false } })).toBe(true);
   });
 });
+
+describe('shop drop page projection', () => {
+  it('builds the shape efd-shop reads (kind drop, released, ordered members)', async () => {
+    const { buildDropReadModel, orderDropMembers } = await import('./dropRelease');
+    const drop = { dropId: 'd-1', slug: 'fall-drop', name: 'Fall Drop', description: 'x', heroImage: 'h.jpg', ownerType: 'efd' };
+    const doc = buildDropReadModel({ drop, members: ['p1', 'p2'] });
+    expect(doc.collectionId).toBe('drop-d-1');
+    expect(doc.slug).toBe('fall-drop');
+    expect(doc.kind).toBe('drop');      // the shop's Drops tab filters on this
+    expect(doc.status).toBe('released'); // the shop's visibility test
+    expect(doc.members).toEqual([{ productId: 'p1', position: 0 }, { productId: 'p2', position: 1 }]);
+    expect(doc.projection.dropId).toBe('d-1');
+  });
+
+  it('honours the curated designOrder and appends anything not in it', async () => {
+    const { orderDropMembers } = await import('./dropRelease');
+    const published = [
+      { designID: 'a', productId: 'pa' }, { designID: 'b', productId: 'pb' }, { designID: 'c', productId: 'pc' },
+    ];
+    expect(orderDropMembers({ designOrder: ['c', 'a'], published })).toEqual(['pc', 'pa', 'pb']);
+    expect(orderDropMembers({ designOrder: [], published })).toEqual(['pa', 'pb', 'pc']);
+  });
+
+  it('skips designs that failed to publish', async () => {
+    const { orderDropMembers } = await import('./dropRelease');
+    const published = [{ designID: 'a', productId: 'pa' }, { designID: 'b', productId: null }];
+    expect(orderDropMembers({ designOrder: ['a', 'b'], published })).toEqual(['pa']);
+  });
+});
