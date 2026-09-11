@@ -12,9 +12,16 @@
  *     the design carries a `listing` block.
  *
  *   NEVER TOUCHED (owned elsewhere): pricing/price (the daily repricer is the price
- *     author — §5.1; filled only when the product has no price at all), images/title/
- *     description (merchandising copy until the media move, §3.4), inventory +
+ *     author — §5.1; filled only when the product has no price at all), inventory +
  *     stripe ids (shop-owned counters, §5.3), seller/userId/vendor/custody/tags.
+ *
+ *   NAME/STORY: the DESIGN owns them. Renaming a design renamed nothing the shopper sees,
+ *     so listings kept whatever name they were born with (Jake's stones were still called
+ *     "Tanzania Tourmaline" after the design became "Tanzanian Tourmaline Shield").
+ *
+ *   MEDIA (§3.4): photos live on the DESIGN (`design.media.images`) and project onto the
+ *     listing. A design that carries no media leaves `product.images` alone, so listings
+ *     whose photos still sit on the product keep them until they are migrated.
  *
  * Validation gate: a sync may never flip an invalid doc to published, and may never
  * touch a LIVE doc it would make invalid (it blocks instead).
@@ -85,6 +92,16 @@ export function computeListingUpdate({ design, pieces = [], product = {}, valida
 
   // Viewer: only when the design actually derives one — never null out product media.
   if (projected.viewer) set.viewer = projected.viewer;
+
+  // Photos: the design owns them (§3.4). Only project when the design actually has media —
+  // an empty design must never wipe a listing's existing photos.
+  const designImages = Array.isArray(design?.media?.images) ? design.media.images.filter(Boolean) : [];
+  if (designImages.length) set.images = designImages;
+
+  // Name + story follow the design (blanks never overwrite — a design with no description
+  // must not erase listing copy someone wrote before the projection owned it).
+  if (String(design?.name || '').trim()) set.title = design.name.trim();
+  if (String(design?.description || '').trim()) set.description = design.description.trim();
 
   // Spec block: design-derived facts win, but blanks never clobber product-held facts
   // (a consigned stone's carat/dimensions live on the product until the media/spec
