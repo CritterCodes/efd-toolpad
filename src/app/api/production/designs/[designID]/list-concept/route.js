@@ -6,6 +6,8 @@ import DesignsModel from '@/app/api/designs/model';
 import { estimateDesignCost, gemstoneFromPrice, aggregateGemstoneSpec } from '@/services/production/designCost';
 import { loadGemPricingInputs } from '@/services/production/gemPricing';
 import { buildProductFromDesign, suggestedRetailFromCOGS, validateProductContract } from '@/services/products/productContract';
+import { syncDesignListingSafe } from '@/services/production/listingSync';
+import { designReleaseReadiness } from '@/services/production/dropRelease';
 
 /** Read the live per-gram metal prices (24k gold / .999 silver basis). */
 async function getMetalPrices() {
@@ -84,8 +86,19 @@ export const POST = async (req, { params }) => {
   const { designID } = await params;
   const { session, design, errorResponse } = await requireDesignAccess(designID);
   if (errorResponse) return errorResponse;
-  if (design.productID) {
-    return NextResponse.json({ error: `Design is already listed as product ${design.productID}.` }, { status: 409 });
+  const existingListing = design.productID || design.primaryProductId;
+  if (existingListing) {
+    // Already listed — re-project instead of refusing. Listings are projections: asking to
+    // list something that is already listed means "make the listing current", not an error.
+    const sync = await syncDesignListingSafe(designID);
+    const dbi = await db.connect();
+    const product = await dbi.collection('products').findOne({ productId: existingListing }, { projection: { _id: 0 } });
+    const readiness = designReleaseReadiness(await DesignsModel.findById(designID), { product });
+    return NextResponse.json(
+      { product, design: await DesignsModel.findById(designID), listingSync: sync, resynced: true,
+        ...(readiness.eligible ? {} : { notReleasable: readiness.reasons }) },
+      { status: 200 },
+    );
   }
 
   const body = await req.json().catch(() => ({}));
@@ -114,13 +127,33 @@ export const POST = async (req, { params }) => {
 
   const now = new Date();
   const inserted = await dbInstance.collection('products').insertOne({ ...productDoc, createdAt: now, updatedAt: now });
-  const updatedDesign = await DesignsModel.updateById(designID, { productID: productDoc.productId });
+  await DesignsModel.updateById(designID, {
+    productID: productDoc.productId,
+    primaryProductId: productDoc.productId,
+  });
+
+  // `buildProductFromDesign` writes the listing's IDENTITY (title, seller, price floor, spec
+  // block) but no variants/edition/offers — a listing built from it alone renders as an empty
+  // product page, which is exactly what "List design" produced. Projecting it immediately
+  // fills in the sellable half from the design's variants and pieces (P1 sync engine).
+  const sync = await syncDesignListingSafe(designID);
+  const product = await dbInstance.collection('products').findOne(
+    { productId: productDoc.productId },
+    { projection: { _id: 0 } },
+  );
+  const updatedDesign = await DesignsModel.findById(designID);
+
+  // Surface what is still missing for release (an inactive variant is the usual culprit) so
+  // the UI can say why the listing looks empty rather than reporting a clean success.
+  const readiness = designReleaseReadiness(updatedDesign, { product });
 
   return NextResponse.json(
     {
-      product: { ...productDoc, _id: inserted.insertedId },
+      product: { ...product, _id: inserted.insertedId },
       design: updatedDesign,
       estimate,
+      listingSync: sync,
+      ...(readiness.eligible ? {} : { notReleasable: readiness.reasons }),
       ...(check.valid ? {} : { contractWarnings: check.errors }),
     },
     { status: 201 },
@@ -138,12 +171,13 @@ export const PUT = async (req, { params }) => {
   const { designID } = await params;
   const { design, errorResponse } = await requireDesignAccess(designID);
   if (errorResponse) return errorResponse;
-  if (!design.productID) {
+  const listedProductId = design.productID || design.primaryProductId;
+  if (!listedProductId) {
     return NextResponse.json({ error: 'Design is not listed as a concept yet.' }, { status: 404 });
   }
 
   const dbInstance = await db.connect();
-  const product = await dbInstance.collection('products').findOne({ productId: design.productID });
+  const product = await dbInstance.collection('products').findOne({ productId: listedProductId });
   if (!product) {
     return NextResponse.json({ error: 'The listed product no longer exists.' }, { status: 404 });
   }

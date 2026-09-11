@@ -45,13 +45,17 @@ export async function syncDesignListing(designID, { dryRun = false } = {}) {
   const dbi = await db.connect();
   const products = dbi.collection('products');
 
-  let product = design.primaryProductId
-    ? await products.findOne({ productId: design.primaryProductId })
-    : null;
+  // Adopt an existing listing under ANY of the historical link fields before creating one.
+  // `primaryProductId` (data-model canon) and `productID` (written by list-concept) both
+  // exist in the wild: looking at only one of them made this engine mint a SECOND product
+  // for a design that was already listed (seen in prod on "Tracks Band").
+  const handle = design.primaryProductId || design.productID || null;
+  let product = handle ? await products.findOne({ productId: handle }) : null;
   if (!product) {
-    product = await products.findOne({
-      $or: [{ 'references.designId': design.designID }, { designId: design.designID }],
-    });
+    product = await products.findOne(
+      { $or: [{ 'references.designId': design.designID }, { designId: design.designID }] },
+      { sort: { createdAt: 1 } },
+    );
   }
 
   let created = false;
@@ -84,8 +88,13 @@ export async function syncDesignListing(designID, { dryRun = false } = {}) {
       { productId: product.productId },
       { $set: { ...result.set, updatedAt: new Date() } },
     );
-    if (design.primaryProductId !== product.productId) {
-      await DesignsModel.updateById(design.designID, { primaryProductId: product.productId });
+    // Keep BOTH link fields pointed at the one listing — `productID` is what the design
+    // detail page's "View listing" reads, `primaryProductId` is the canonical name.
+    if (design.primaryProductId !== product.productId || design.productID !== product.productId) {
+      await DesignsModel.updateById(design.designID, {
+        primaryProductId: product.productId,
+        productID: product.productId,
+      });
     }
   }
 

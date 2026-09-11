@@ -159,3 +159,40 @@ describe('helpers', () => {
     expect(doc.pricing.costBasis).toBeUndefined();
   });
 });
+
+describe('viewer derivation (design GLB + variant look)', () => {
+  it('joins the design GLB to the variant meshMap so a 3D-only design can publish', () => {
+    const design = {
+      designID: 'd1', name: 'Tracks Band', category: 'ring',
+      designModel: { glbUrl: 'https://cdn/band.glb' },
+      edition: { type: 'unlimited', allocated: 0, committed: 0 },
+      variants: [{
+        variantId: 'v1', sku: 'TB-1', active: true, metalKey: 'GOLD_14K_YELLOW', ringSize: '10',
+        pricing: { retailPrice: 5443.13 },
+        viewerConfig: {
+          environment: 'city', background: '#080808',
+          meshMap: [{ nameContains: 'Ring_highPolish', match: 'exact', type: 'metal', finish: 'gold' }],
+        },
+      }],
+    };
+    const product = { productId: 'p1', title: 'Tracks Band', images: [], viewer: null, pricing: { retailPrice: 5443.13 } };
+    const { set } = computeListingUpdate({ design, pieces: [], product });
+    expect(set.viewer.glbUrl).toBe('https://cdn/band.glb');
+    expect(set.viewer.meshMap).toHaveLength(1);
+    expect(set.viewer.environment).toBe('city');
+    // …and that makes the doc contract-valid, which is what gates publishing.
+    const wouldBe = applySet(product, set);
+    const check = validateProductContract({ ...wouldBe, designId: 'd1', availability: 'made-to-order', jewelry: { type: 'ring' } });
+    expect(check.errors).toEqual([]);
+  });
+
+  it('derives no viewer when the design has a model but the variant has no look yet', () => {
+    const design = {
+      designID: 'd1', name: 'X', designModel: { glbUrl: 'https://cdn/x.glb' },
+      edition: { type: 'unlimited' },
+      variants: [{ variantId: 'v1', sku: 'X-1', active: true, pricing: { retailPrice: 10 } }],
+    };
+    const { set } = computeListingUpdate({ design, pieces: [], product: { productId: 'p1', images: [{ url: 'u' }] } });
+    expect(set.viewer).toBeUndefined();
+  });
+});

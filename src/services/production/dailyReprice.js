@@ -44,7 +44,7 @@ const n = (v) => Number(v) || 0;
 const SELLABLE = { $or: [{ status: 'published' }, { isPublic: true }] };
 
 /** Live wholesale cost per stone SKU. Read straight from the catalog (no 50-row API cap). */
-async function loadStoneCosts(dbi) {
+export async function loadStoneCosts(dbi) {
   const rows = await dbi.collection('stoneSkus')
     .find({}, { projection: { _id: 0, stoneSkuId: 1, cost: 1 } })
     .toArray();
@@ -54,7 +54,7 @@ async function loadStoneCosts(dbi) {
 }
 
 /** Current cost for the auto-labor tasks (casting cleanup + carat-band stone setting). */
-async function loadTaskCosts() {
+export async function loadTaskCosts() {
   const out = {};
   for (const q of ['casting', 'set stone']) {
     try {
@@ -68,7 +68,7 @@ async function loadTaskCosts() {
 }
 
 /** designFee falls back to the primary artisan's custom design fee when left blank. */
-async function loadArtisanFees(dbi) {
+export async function loadArtisanFees(dbi) {
   const rows = await dbi.collection('users')
     .find(
       { 'artisanApplication.customDesignFee': { $exists: true } },
@@ -206,6 +206,34 @@ export function priceDesignBase({ design, rates, gemPrices = {} }) {
   } catch {
     return { ok: false, reason: `no metal cost for ${metalKey}` };
   }
+}
+
+/**
+ * The inputs the variant-pricing recipe needs (metal snapshot, stone/task costs, artisan fees,
+ * default markup). Shared so anything that prices a design — the daily cron OR a drop release —
+ * uses exactly the same recipe rather than reinventing a second pricing path.
+ */
+export async function loadPricingInputs(priceDay = null) {
+  const dbi = await db.connect();
+  const day = priceDay || currentPriceDay();
+  const snapshot = await getDailyMetalSnapshot(dbi, day);
+  const rates = snapshot.rates || {};
+  const [settings, stoneCosts, taskCosts, artisanFees] = await Promise.all([
+    dbi.collection('adminSettings').findOne({}),
+    loadStoneCosts(dbi),
+    loadTaskCosts(),
+    loadArtisanFees(dbi),
+  ]);
+  return {
+    priceDay: day,
+    rates,
+    hasRates: Object.values(rates).some((r) => n(r) > 0),
+    stoneCosts,
+    taskCosts,
+    artisanFees,
+    defaultMarkup: n(settings?.financial?.cogMarkup) > 0 ? n(settings.financial.cogMarkup) : DEFAULT_MARKUP,
+    settings,
+  };
 }
 
 /**
