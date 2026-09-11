@@ -7,12 +7,25 @@ import { gemstoneFromPrice, publicGemstoneSpec } from '@/services/production/des
  * viewer OR images, a 3D-only design could never be published at all.
  */
 export function deriveViewer({ design = {}, variant = null, product = {} }) {
-  const glbUrl = variant?.viewer?.glbUrl
+  const glbUrl = design?.viewer?.glbUrl
+    || variant?.viewer?.glbUrl
     || design?.designModel?.glbUrl
     || product?.viewer?.glbUrl
     || null;
   const config = variant?.viewer?.meshMap?.length ? variant.viewer : variant?.viewerConfig;
-  const meshMap = Array.isArray(config?.meshMap) ? config.meshMap : product?.viewer?.meshMap;
+  const variantMeshMap = Array.isArray(config?.meshMap) ? config.meshMap : null;
+
+  // The DESIGN's authored meshMap is where the customizer lives (`customizable` blocks + their
+  // cost bindings, written by the Customizer screen). The variant's `viewerConfig` is one fixed
+  // LOOK. When a design has been authored as customizable, its slots must win — otherwise the
+  // shop's Customize gate (`viewer.meshMap[].customizable`) never sees them and the customizer
+  // stays dark no matter what was authored.
+  const designMeshMap = Array.isArray(design?.viewer?.meshMap) ? design.viewer.meshMap : null;
+  const designIsCustomizable = (designMeshMap || []).some((slot) => slot?.customizable);
+  const meshMap = designIsCustomizable
+    ? designMeshMap
+    : (variantMeshMap || designMeshMap || product?.viewer?.meshMap);
+
   if (!glbUrl || !Array.isArray(meshMap) || meshMap.length === 0) return null;
   return {
     glbUrl,
@@ -25,6 +38,8 @@ export function deriveViewer({ design = {}, variant = null, product = {} }) {
 
 export function projectDesignProduct({ product = {}, design, pieces = [] }) {
   const available = pieces.filter((piece) => piece.status === 'available');
+  // Authored once on the design, true for every variant's made-to-order offer.
+  const customizerOn = (design?.viewer?.meshMap || []).some((slot) => slot?.customizable);
   const allocated = design.edition?.allocated ?? 0;
   const committed = design.edition?.committed ?? 0;
   const cap = design.edition?.type === 'one_of_one' ? 1 : design.edition?.limit;
@@ -35,7 +50,10 @@ export function projectDesignProduct({ product = {}, design, pieces = [] }) {
       ...variant,
       offers: {
         ...(matching.length ? { readyToShip: { quantity: matching.length, pieceIDs: matching.map((piece) => piece.pieceID) } } : {}),
-        ...((remaining === undefined || remaining > 0) ? { madeToOrder: { enabled: true, leadTimeDays: variant.leadTimeDays ?? null, customizerEnabled: Boolean(variant.viewer?.customizable) } } : {}),
+        // `customizable` is a per-SLOT block inside the meshMap (refrakt's shape), never a flag on
+        // the variant's viewer — reading it as a flag reported customizerEnabled:false for every
+        // design, however thoroughly it had been authored. Use the same test the storefront does.
+        ...((remaining === undefined || remaining > 0) ? { madeToOrder: { enabled: true, leadTimeDays: variant.leadTimeDays ?? null, customizerEnabled: customizerOn } } : {}),
       },
     };
   });
