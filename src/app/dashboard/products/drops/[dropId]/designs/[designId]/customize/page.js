@@ -27,7 +27,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 
 import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
 import { METAL_TYPES } from '@/constants/metalTypes';
-import { customizableSlots, annotateBindings, unboundSlots } from '@/services/production/customizableBindings';
+import { customizableSlots, annotateBindings, unboundSlots, mergeBaseMeshMap } from '@/services/production/customizableBindings';
 
 // refrakt admin authoring surface — WebGL, never SSR.
 const ConfiguratorSetup = dynamic(() => import('@crittercodes/refrakt/ConfiguratorSetup'), { ssr: false });
@@ -75,9 +75,7 @@ export default function DesignCustomizePage() {
           for (const o of s.options) if (o.binding) { (seeded[s.nameContains] ||= {})[o[key]] = o.binding; }
         }
         setBindings(seeded);
-        // Seed the editor from what is already authored so re-entering shows the current slots
-        // instead of an empty binding list until ConfiguratorSetup re-emits.
-        if (Array.isArray(dsn.viewer?.meshMap)) setMeshMap(dsn.viewer.meshMap);
+        if (Array.isArray(dsn.viewer?.meshMap) && dsn.viewer.meshMap.length) setMeshMap(dsn.viewer.meshMap);
         // /api/products/gemstones returns { success, gemstones: [...] } — read that shape (bug: was reading g.products → empty picker).
         if (gRes && gRes.ok) { const g = await gRes.json().catch(() => ({})); setGemstones(Array.isArray(g) ? g : (g.gemstones || g.products || [])); }
       } catch (e) { if (!cancelled) setError(e.message); } finally { if (!cancelled) setLoading(false); }
@@ -88,6 +86,22 @@ export default function DesignCustomizePage() {
   // The CAD tab stores the model on `designModel.glbUrl`; `viewer.glbUrl` only exists once this
   // screen has saved. Accept either, or the page reports "no GLB" for every real design.
   const glbUrl = design?.viewer?.glbUrl || design?.designModel?.glbUrl || null;
+
+  // ConfiguratorSetup does NOT scan the GLB for parts — it authors the slots handed to it in
+  // `config.meshMap`. The BASE meshMap (every material slot in the model, already tagged
+  // metal/gem) is what the REFRAKT variant Studio produces on each variant's `viewerConfig`;
+  // this screen only adds the `customizable` blocks on top. Handing it the design's own (empty,
+  // until first save) viewer is why it said "no material slots to author" on a model the Studio
+  // happily edits. `mergeBaseMeshMap` keeps prior authoring while taking fresh material fields
+  // from the Studio, so re-tagging a look never wipes the customizer.
+  const baseMeshMap = useMemo(() => {
+    const variants = design?.variants || [];
+    const source = variants.find((v) => v.variantId === design?.defaultVariantId && v.active)
+      || variants.find((v) => v.active)
+      || variants[0];
+    const base = source?.viewerConfig?.meshMap || source?.viewer?.meshMap || [];
+    return mergeBaseMeshMap(base, design?.viewer?.meshMap || []);
+  }, [design]);
   const slots = useMemo(() => customizableSlots(meshMap), [meshMap]);
   const unbound = useMemo(() => unboundSlots(annotateBindings(meshMap, bindings)), [meshMap, bindings]);
   // Per-metal-slot volume emitted by ConfiguratorSetup (depends on modelUnit) — surfaced so the
@@ -171,9 +185,16 @@ export default function DesignCustomizePage() {
         </Alert>
       )}
 
+      {baseMeshMap.length === 0 && (
+        <Alert severity="info" sx={{ mb: 2, backgroundColor: REPAIRS_UI.bgPanel, color: REPAIRS_UI.textSecondary, border: `1px solid ${REPAIRS_UI.border}` }}>
+          This design has no material slots yet — they come from a variant&apos;s look. Build a variant in the
+          REFRAKT studio (Variants tab) first; its tagged parts are what you choose from here.
+        </Alert>
+      )}
+
       {/* refrakt authoring surface (appearance: which parts customizable + allowed presets + default) */}
       <Box sx={{ border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, overflow: 'hidden', mb: 3 }}>
-        <ConfiguratorSetup glbUrl={glbUrl} config={{ ...(design.viewer || {}), glbUrl }} onChange={setMeshMap} modelUnit={modelUnit} />
+        <ConfiguratorSetup glbUrl={glbUrl} config={{ ...(design.viewer || {}), glbUrl, meshMap: baseMeshMap }} onChange={setMeshMap} modelUnit={modelUnit} />
       </Box>
 
       {/* admin cost-binding editor (0005 §6): bind each allowed option → a real cost input */}
