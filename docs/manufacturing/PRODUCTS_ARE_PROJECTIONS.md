@@ -180,6 +180,21 @@ round-trip: same offers, prices preserved, photos intact).
 *Done when:* editing a Design or flipping a Piece's status updates the shop-read doc with no human
 touching a product, and the §8 contract gate passes on every sync.
 
+**Release engine (2026-09-11, PR #77 + follow-up).** Not originally a numbered phase — releasing a
+drop turned out to be pure theatre (a status dropdown; nothing read it; no cron for `scheduled`).
+`services/production/dropRelease.js` now resolves the drop's designs, preflights each, prices what
+it is about to publish, publishes through the sync, and marks the drop released; refusal is a 409
+with per-design reasons. Wired to `POST .../drops/[dropID]/release`, the status dropdown, and a
+5-minute cron. Four latent defects fell out of it: inactive-by-default variant stubs, the
+unpublished⇒unpriced⇒unpublishable deadlock, `viewer` never joining design GLB + variant meshMap,
+and two rival design→product link fields minting duplicate listings.
+
+**Media + name projection (§3.4) — DONE.** `design.media.images` and `design.name`/`description`
+project onto the listing (blanks never overwrite). Jake's 15 stones carry 55 photos this way.
+**Materialization gate:** a listing is only created when the design asks for one (has a `listing`
+block, is already linked, or `create: true`) — the sweep otherwise minted shop listings for private
+custom-order designs.
+
 **P2 — gem RTS offers.**
 Per-piece RTS offers (fixed carat/price) in the projector; `piece.pricing.retailPrice`; repricer
 respects `priceSource: manual`. My Designs gem editor gets a "stones on hand" panel (the design's

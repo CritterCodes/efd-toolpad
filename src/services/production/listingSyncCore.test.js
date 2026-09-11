@@ -141,9 +141,43 @@ describe('computeListingUpdate', () => {
     expect(set['projection.engine']).toBe('listingSync@1');
     expect(set['projection.syncedAt']).toBeInstanceOf(Date);
     const touched = Object.keys(set);
-    for (const owned of ['inventory', 'stripeProductId', 'stripePriceId', 'images', 'title', 'description', 'seller', 'custody', 'tags']) {
+    for (const owned of ['inventory', 'stripeProductId', 'stripePriceId', 'seller', 'custody', 'tags']) {
       expect(touched.some((k) => k === owned || k.startsWith(`${owned}.`))).toBe(false);
     }
+  });
+});
+
+describe('media projection (§3.4 — photos live on the design)', () => {
+  it('projects design media onto the listing', () => {
+    const { design, piece, product } = gemFixture();
+    design.media = { images: [{ id: 'a', url: 'https://cdn/1.jpg', key: 'k1' }, { id: 'b', url: 'https://cdn/2.jpg', key: 'k2' }] };
+    const { set } = computeListingUpdate({ design, pieces: [piece], product });
+    expect(set.images).toHaveLength(2);
+    expect(set.images[0].url).toBe('https://cdn/1.jpg');
+  });
+
+  it('leaves existing listing photos alone when the design carries no media', () => {
+    // Listings whose photos still sit on the product must not be wiped by an empty design.
+    const { design, piece, product } = gemFixture();
+    const { set } = computeListingUpdate({ design, pieces: [piece], product });
+    expect(set.images).toBeUndefined();
+    expect(product.images).toHaveLength(1);
+  });
+});
+
+describe('name follows the design', () => {
+  it('projects the design name onto the listing', () => {
+    const { design, piece, product } = gemFixture();
+    design.name = 'Tanzanian Tourmaline Shield';
+    const { set } = computeListingUpdate({ design, pieces: [piece], product });
+    expect(set.title).toBe('Tanzanian Tourmaline Shield');
+  });
+  it('never blanks listing copy from an empty design', () => {
+    const { design, piece, product } = gemFixture();
+    design.name = '   '; design.description = '';
+    const { set } = computeListingUpdate({ design, pieces: [piece], product });
+    expect(set.title).toBeUndefined();
+    expect(set.description).toBeUndefined();
   });
 });
 

@@ -136,7 +136,7 @@ export const POST = async (req, { params }) => {
   // block) but no variants/edition/offers — a listing built from it alone renders as an empty
   // product page, which is exactly what "List design" produced. Projecting it immediately
   // fills in the sellable half from the design's variants and pieces (P1 sync engine).
-  const sync = await syncDesignListingSafe(designID);
+  const sync = await syncDesignListingSafe(designID, { create: true });
   const product = await dbInstance.collection('products').findOne(
     { productId: productDoc.productId },
     { projection: { _id: 0 } },

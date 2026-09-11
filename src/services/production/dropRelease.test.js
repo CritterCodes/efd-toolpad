@@ -96,3 +96,17 @@ describe('parseReleaseAt', () => {
     expect(parseReleaseAt(new Date('nope'))).toBeNull();
   });
 });
+
+describe('shouldMaterializeListing', () => {
+  it('never mints a listing for a design nobody asked to list (custom orders)', async () => {
+    const { shouldMaterializeListing } = await import('./listingSync');
+    // A custom order spawns a private one-off design; the sweep once minted 8 of these.
+    expect(shouldMaterializeListing({ designID: 'd1', name: 'Custom CO-abc', status: 'cad' })).toBe(false);
+    // …but an explicit "list this design" does.
+    expect(shouldMaterializeListing({ designID: 'd1' }, { create: true })).toBe(true);
+    // …and anything already listed, or carrying a publish block, keeps syncing.
+    expect(shouldMaterializeListing({ designID: 'd1', primaryProductId: 'p1' })).toBe(true);
+    expect(shouldMaterializeListing({ designID: 'd1', productID: 'p1' })).toBe(true);
+    expect(shouldMaterializeListing({ designID: 'd1', listing: { published: false } })).toBe(true);
+  });
+});

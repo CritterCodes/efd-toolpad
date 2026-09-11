@@ -33,11 +33,30 @@ async function sellerForArtisan(dbi, userID) {
 }
 
 /**
+ * Should this design have a storefront listing at all?
+ *
+ * NOT every design is catalog: a custom order spawns a private one-off design (its own
+ * `productID`, no variants, statuses like `cad`) that must never surface in the shop. The
+ * sweep used to materialize a product for every design it found and quietly minted eight
+ * "Custom CO-…" listings. A listing is materialized only when someone actually asked for
+ * one — the design carries a `listing` block, it is already linked to a product, or the
+ * caller passes `create: true` (the explicit "list this" action).
+ */
+export function shouldMaterializeListing(design, { create = false } = {}) {
+  if (design?.primaryProductId || design?.productID) return true;
+  if (design?.listing && typeof design.listing === 'object') return true;
+  if (create) return true;
+  return false;
+}
+
+/**
  * Sync one design's listing. Returns a report, never throws for data problems.
  * @param {string} designID
- * @param {{ dryRun?: boolean }} opts
+ * @param {{ dryRun?: boolean, create?: boolean }} opts
+ *   create: materialize a listing even if the design has never had one (the explicit
+ *   "list this design" action). Without it, an unlisted design is left alone.
  */
-export async function syncDesignListing(designID, { dryRun = false } = {}) {
+export async function syncDesignListing(designID, { dryRun = false, create = false } = {}) {
   const design = await DesignsModel.findById(designID);
   if (!design) return { designID, action: 'skipped', reason: 'design not found' };
 
@@ -59,6 +78,9 @@ export async function syncDesignListing(designID, { dryRun = false } = {}) {
   }
 
   let created = false;
+  if (!product && !shouldMaterializeListing(design, { create })) {
+    return { designID, action: 'skipped', reason: 'design is not listed (and no listing was requested)' };
+  }
   if (!product) {
     const seller = await sellerForArtisan(dbi, design.primaryArtisanId);
     product = buildProductFromDesign({
