@@ -3,7 +3,6 @@ import { requireAuth } from '@/lib/apiAuth';
 import DesignsModel from '@/app/api/designs/model';
 import { canManageDesign } from '@/lib/designPermissions';
 import { unboundSlots, customizableSlots } from '@/services/production/customizableBindings';
-import { syncDesignListingSafe } from '@/services/production/listingSync';
 
 /**
  * Customizer authoring (M3-T2 / decision 0005 §6).
@@ -60,14 +59,9 @@ export const PUT = async (req, { params }) => {
   if (!meshMap) return NextResponse.json({ error: 'meshMap (array) is required.' }, { status: 400 });
 
   const updated = await DesignsModel.setViewer(designID, { meshMap, glbUrl: body.glbUrl });
-  // Products are projections: the customizable slots have to reach the listing, because the
-  // shop's Customize gate reads `product.viewer.meshMap[].customizable`.
-  const listingSync = await syncDesignListingSafe(designID);
-
   return NextResponse.json({
     design: updated,
     unboundSlots: unboundSlots(meshMap),
     slots: customizableSlots(meshMap),
-    listingSync,
   }, { status: 200 });
 };
