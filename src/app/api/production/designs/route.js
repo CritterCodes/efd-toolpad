@@ -4,7 +4,6 @@ import DesignsModel from '@/app/api/designs/model';
 import DropsModel from '@/app/api/drops/model';
 import { isStaff, canCreateDesignCategory, designListFilter, sessionArtisanTypes } from '@/lib/designPermissions';
 import { canViewDrop } from '@/lib/dropPermissions';
-import { syncDesignListingSafe } from '@/services/production/listingSync';
 
 /** GET /api/production/designs — list designs (optional ?dropID=).
  *  Staff see everything; artisans see ONLY their own designs (primaryArtisanId). */
@@ -57,8 +56,5 @@ export const POST = async (req) => {
     ...(isStaff(session) ? {} : { primaryArtisanId: session.user.userID || session.user.email }),
     createdBy: session.user.userID || session.user.email || '',
   });
-  // Products are projections (PRODUCTS_ARE_PROJECTIONS.md): materialize/refresh the
-  // shop-read doc from the design. Best-effort — a sync hiccup must not fail the create.
-  await syncDesignListingSafe(design.designID);
   return NextResponse.json(design, { status: 201 });
 };
