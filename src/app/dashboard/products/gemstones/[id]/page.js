@@ -31,6 +31,9 @@ export default function GemstonePage() {
     const [loading, setLoading] = useState(!isNew);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    // The save may succeed while part of it could not be stored (a design with no piece has
+    // nowhere to put a carat). Saying so beats a silent partial save.
+    const [warnings, setWarnings] = useState([]);
 
     useEffect(() => {
         if (isNew) return;
@@ -64,13 +67,14 @@ export default function GemstonePage() {
     const handleSave = async (targetStatus) => {
         if (!form.title || !form.species) { setError('Title and species are required.'); return; }
         try {
-            setSaving(true); setError('');
+            setSaving(true); setError(''); setWarnings([]);
             const payload = { ...form, status: targetStatus || form.status, retailPrice: form.price };
             const res = isNew
                 ? await fetch('/api/products/gemstones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
                 : await fetch(`/api/products/gemstones/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Failed to save gemstone');
+            setWarnings(Array.isArray(data.warnings) ? data.warnings : []);
             const pid = data.gemstone?.productId || data.productId || id;
             if (isNew && pid && pid !== 'new') router.push(`/dashboard/products/gemstones/${pid}`);
         } catch (e) {
@@ -128,6 +132,12 @@ export default function GemstonePage() {
                     </Button>
                 </Stack>
             </Box>
+
+            {warnings.map((w) => (
+                <Alert key={w} severity="warning" sx={{ mb: 2, backgroundColor: '#4A3A1D', color: '#F3DDA8', border: '1px solid #7A5F2E' }}>
+                    {w}
+                </Alert>
+            ))}
 
             {error && (
                 <Alert severity="error" sx={{ mb: 3, backgroundColor: '#4A1D1D', color: '#F8BBBB', border: '1px solid #7A2E2E' }}>

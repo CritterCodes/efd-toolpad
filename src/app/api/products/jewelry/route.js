@@ -1,8 +1,20 @@
 import { NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { auth } from '@/lib/auth';
 import { db as mongo } from '@/lib/database';
 import { getUserArtisanTypes, canManageJewelry } from '@/lib/productPermissions';
-import { deriveRepairItemMetadata, withRepairItemMetadata } from '@/lib/productRepairMetadata';
+import { toEditorShape, editorPiece, applyEditorPatch } from '@/services/production/jewelryListingEditor';
+import { CATALOG_JEWELRY } from '@/services/production/listingLookup';
+
+/**
+ * Jewelry listings — resolved from DESIGNS + PIECES, which is where they live now.
+ *
+ * This used to list and insert `products` documents. efd-shop stopped reading that collection,
+ * so the list showed a catalog the storefront could not see and "create" made a doc nobody read.
+ *
+ * A catalog listing is a design owned by an artisan. Custom-order designs (which carry a
+ * designerUserID and no primaryArtisanId) are a different thing and are deliberately excluded.
+ */
 
 export async function GET() {
   try {
@@ -13,41 +25,44 @@ export async function GET() {
 
     const db = await mongo.connect();
     const isAdmin = ['admin', 'staff', 'dev'].includes(session.user.role);
+    const ids = [session.user.userID, session.user.email].filter(Boolean);
 
-    let jewelry;
-    if (isAdmin) {
-      jewelry = await db.collection('products').find({ productType: 'jewelry' }).toArray();
-    } else {
-      const userIdentifier = session.user.userID || session.user.email;
-      jewelry = await db.collection('products').find({
-        productType: 'jewelry',
-        $or: [
-          { userId: userIdentifier },
-          { userId: session.user.email },
-          { userId: session.user.userID },
-        ],
-      }).toArray();
+    const designs = await db.collection('designs')
+      .find({
+        ...CATALOG_JEWELRY,
+        ...(isAdmin ? {} : { $or: [{ primaryArtisanId: { $in: ids } }, { createdBy: { $in: ids } }] }),
+      })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    // One query for every piece, then grouped — a find per design would be N+1 on a list page.
+    const pieces = designs.length
+      ? await db.collection('pieces').find({ designID: { $in: designs.map((d) => d.designID) } }).toArray()
+      : [];
+    const byDesign = new Map();
+    for (const p of pieces) {
+      if (!byDesign.has(p.designID)) byDesign.set(p.designID, []);
+      byDesign.get(p.designID).push(p);
     }
 
-    // Migrate jewelry that don't have productId yet
-    for (const item of jewelry) {
-      if (!item.productId) {
-        const productId = `jwl_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
-        await db.collection('products').updateOne(
-          { _id: item._id },
-          { $set: { productId } }
-        );
-        item.productId = productId;
-      }
-    }
+    const jewelry = designs.map((design) => toEditorShape({
+      design,
+      piece: editorPiece(byDesign.get(design.designID) || []),
+    }));
 
-    return NextResponse.json({ success: true, jewelry: (jewelry || []).map(withRepairItemMetadata) });
+    return NextResponse.json({ success: true, jewelry });
   } catch (error) {
     console.error('GET /api/products/jewelry error:', error);
     return NextResponse.json({ error: 'Failed to fetch jewelry' }, { status: 500 });
   }
 }
 
+/**
+ * Create a jewelry listing — a DESIGN plus the PIECE that is the thing in the case.
+ *
+ * A made-to-order listing still gets a piece row: it is the first of the edition, and it is where
+ * the metal, size and price of the first one made are recorded.
+ */
 export async function POST(request) {
   try {
     const session = await auth();
@@ -56,204 +71,136 @@ export async function POST(request) {
     }
 
     const data = await request.json();
-
-    const {
-      title,
-      description,
-      notes,
-      type,
-      material,
-      metalColor,
-      purity,
-      weight,
-      size,
-      price,
-      compareAtPrice,
-      costBasis,
-      status,
-      availability,
-      classification,
-      images,
-      customMounting,
-      vendor,
-      madeToOrder,
-      metals,
-      gemstoneLineItems,
-      castingRequired,
-      estimatedLeadTimeDays,
-      productionNotes,
-      // Ring Specifics
-      ringSize,
-      canBeSized,
-      sizingRangeUp,
-      sizingRangeDown,
-      // Pendant Specifics
-      chainIncluded,
-      chainMaterial,
-      chainLength,
-      chainStyle,
-      // Bracelet Specifics
-      length,
-      claspType,
-      // General
-      dimensions,
-      tags,
-      ...otherData
-    } = data;
-
     const db = await mongo.connect();
 
-    const actualUserId = session.user.userID || session.user.email;
-    let actualVendor = vendor || session.user.businessName || session.user.name || '';
-    let artisanType = null;
-
-    // Fetch user profile for artisanType + businessName
-    if (session.user.email) {
-      try {
-        const userProfile = await db.collection('users').findOne({ email: session.user.email });
-        if (userProfile?.artisanApplication?.businessName && !actualVendor) {
-          actualVendor = userProfile.artisanApplication.businessName;
-        }
-        artisanType = userProfile?.artisanApplication?.artisanType || null;
-
-        const artisanTypes = getUserArtisanTypes(userProfile);
-        if (!canManageJewelry(session.user.role, artisanTypes)) {
-          return NextResponse.json(
-            { error: 'Only jewelers and admins can create jewelry listings' },
-            { status: 403 }
-          );
-        }
-      } catch (err) {
-        console.error('Error fetching user profile:', err);
+    // Fails CLOSED: only jewelers (and staff) may create jewelry listings, and a profile we
+    // cannot read is a request we cannot authorize.
+    const isStaff = ['admin', 'superadmin', 'staff', 'dev'].includes(session.user.role);
+    let userProfile = null;
+    try {
+      userProfile = await db.collection('users').findOne({
+        $or: [
+          ...(session.user.userID ? [{ userID: session.user.userID }] : []),
+          ...(session.user.email ? [{ email: session.user.email }] : []),
+        ],
+      });
+    } catch (err) {
+      console.error('Error fetching user profile:', err);
+      if (!isStaff) {
+        return NextResponse.json({ error: 'Could not verify permissions' }, { status: 503 });
       }
     }
+    if (!canManageJewelry(session.user.role, getUserArtisanTypes(userProfile))) {
+      return NextResponse.json(
+        { error: 'Only jewelers and admins can create jewelry listings' },
+        { status: 403 },
+      );
+    }
 
-    const timestamp = Date.now().toString(36);
-    const randomStr = Math.random().toString(36).substring(2, 8);
-    const productId = `jwl_${timestamp}_${randomStr}`;
+    const actor = session.user.userID || session.user.email;
+    const artisanId = data.userId || data.primaryArtisanId || actor;
+    const vendor = data.vendor
+      || userProfile?.artisanApplication?.businessName
+      || session.user.businessName
+      || session.user.name
+      || '';
     const now = new Date();
-    const canonicalRetailPrice = parseFloat(price) || 0;
-    const isMadeToOrder = madeToOrder || availability === 'made-to-order' || false;
+    const designID = randomUUID();
+    const variantId = randomUUID();
+    const pieceID = randomUUID();
+    const handle = `jwl_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+    const mto = data.madeToOrder === true || data.availability === 'made-to-order';
 
-    // Build metals array — V2 canonical; fall back to flat fields for single metal
-    const metalsArray = Array.isArray(metals) && metals.length > 0
-      ? metals
-      : [{ type: material || '', color: metalColor || '', purity: purity || '', weight: weight || 0 }];
-
-    // Extract gemstoneIds from line items for V2 references
-    const referencedGemstoneIds = Array.isArray(gemstoneLineItems)
-      ? gemstoneLineItems.map((g) => g.gemstoneId).filter(Boolean)
-      : [];
-
-    const jewelryData = {
-      type: type || '',
-      category: type || '',
-      madeToOrder: isMadeToOrder,
-      material: material || '',
-      purity: purity || '',
-      weight: weight || '',
-      size: size || '',
-      customMounting: customMounting || false,
-
-      // V2 metals array
-      metals: metalsArray,
-
-      // V2 gemstone line items
-      gemstoneLineItems: Array.isArray(gemstoneLineItems) ? gemstoneLineItems : [],
-
-      // V2 production
-      production: {
-        castingRequired: castingRequired || false,
-        estimatedLeadTimeDays: estimatedLeadTimeDays || null,
-        notes: productionNotes || '',
-      },
-
-      // Ring Specifics
-      ringSize: ringSize || '',
-      canBeSized: canBeSized || false,
-      sizingRangeUp: sizingRangeUp || '',
-      sizingRangeDown: sizingRangeDown || '',
-      // Pendant Specifics
-      chainIncluded: chainIncluded || false,
-      chainMaterial: chainMaterial || '',
-      chainLength: chainLength || '',
-      chainStyle: chainStyle || '',
-      // Bracelet Specifics
-      length: length || '',
-      claspType: claspType || '',
-      // General
-      dimensions: dimensions || '',
-      ...otherData,
-    };
-
-    const newJewelry = {
-      productId,
-      productType: 'jewelry',
-      listingType: isMadeToOrder ? 'made-to-order' : 'finished',
-
-      title: title || 'Untitled Jewelry',
-      description: description || '',
-      notes: notes || '',
-
-      // V2 seller
-      seller: {
-        userId: actualUserId,
-        displayName: actualVendor,
-        artisanType,
-      },
-
-      // V2 pricing
-      pricing: {
-        retailPrice: canonicalRetailPrice,
-        compareAtPrice: parseFloat(compareAtPrice) || null,
-        costBasis: parseFloat(costBasis) || null,
-        currency: 'USD',
-      },
-
-      // V2 publishing
-      publishing: {
-        visible: false,
-        featured: false,
-        publishedAt: null,
-      },
-
-      // V2 references
-      references: {
-        gemstoneIds: referencedGemstoneIds,
-        designId: null,
-      },
-
-      // Stripe (set when synced)
-      stripeProductId: null,
-      stripePriceId: null,
-
-      // Legacy fields (kept for backward compat with existing admin UI)
-      status: status || 'draft',
-      availability: availability || (isMadeToOrder ? 'made-to-order' : 'ready-to-ship'),
-      classification: classification || 'signature',
-      userId: actualUserId,
-      vendor: actualVendor,
+    const design = {
+      designID,
+      name: String(data.title || 'Untitled Jewelry').trim(),
+      description: data.description || '',
+      internalNotes: data.notes || '',
+      category: data.type || null,
+      status: 'ready',
+      productionMethod: 'handmade',
+      primaryArtisanId: artisanId,
+      vendor,
+      collaborators: [],
+      attributes: {},
+      tags: Array.isArray(data.tags) ? data.tags : [],
+      metadata: {},
+      gemLinks: [],
+      // A one-off is a spent edition; a made-to-order listing can still be made.
+      edition: mto
+        ? { type: 'unlimited', allocated: 0, committed: 0, nextNumber: 1, freedNumbers: [] }
+        : { type: 'one_of_one', allocated: 1, committed: 0, nextNumber: 2, freedNumbers: [] },
+      defaultVariantId: variantId,
+      variants: [{
+        variantId,
+        sku: data.sku || handle.toUpperCase(),
+        label: String(data.title || 'Untitled Jewelry').trim(),
+        active: true,
+        options: {},
+      }],
+      // Unlisted until someone publishes it; the storefront reads this flag.
+      listing: { published: false, visible: false, handle },
+      media: { images: Array.isArray(data.images) ? data.images : [] },
+      referenceImages: [],
+      sketches: [],
+      bom: { castingEstimate: 0, stones: [], findings: [], estMaterialCost: 0 },
+      routing: [],
+      production: {},
+      primaryProductId: handle,
       createdAt: now,
       updatedAt: now,
-      images: images || [],
-      tags: Array.isArray(tags) ? tags : [],
-      price: canonicalRetailPrice,
-
-      jewelry: jewelryData,
-      repairItem: deriveRepairItemMetadata({ jewelry: jewelryData }),
-
-      designs: [],
+      createdBy: actor,
     };
 
-    const result = await db.collection('products').insertOne(newJewelry);
+    const piece = {
+      pieceID,
+      designID,
+      variantId,
+      resolvedConfiguration: {},
+      editionNumber: 1,
+      sku: `${design.variants[0].sku}-01`,
+      serialNumber: null,
+      metalType: null,
+      karat: null,
+      finish: null,
+      ringSize: null,
+      dimensions: null,
+      weight: null,
+      stones: [],
+      actualMaterials: [],
+      workOrderIDs: [],
+      status: 'available',
+      accruedMaterialCost: 0,
+      accruedLaborCost: 0,
+      totalCOGS: 0,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: actor,
+    };
 
+    // The rest of the form is the same patch an edit would apply, so one mapping covers both and
+    // the two paths cannot drift apart.
+    const { designSet, pieceSet } = applyEditorPatch({ design, piece, data, actor });
+    await db.collection('designs').insertOne(design);
+    await db.collection('pieces').insertOne(piece);
+    if (Object.keys(designSet).length) {
+      await db.collection('designs').updateOne({ designID }, { $set: designSet });
+    }
+    if (Object.keys(pieceSet).length) {
+      await db.collection('pieces').updateOne({ pieceID }, { $set: pieceSet });
+    }
+
+    const saved = await db.collection('designs').findOne({ designID });
+    const savedPiece = await db.collection('pieces').findOne({ pieceID });
     return NextResponse.json({
       success: true,
-      productId,
-      id: result.insertedId,
+      productId: handle,
+      designID,
+      pieceID,
+      jewelry: toEditorShape({ design: saved, piece: savedPiece }),
     });
   } catch (error) {
     console.error('POST /api/products/jewelry error:', error);
-    return NextResponse.json({ error: 'Failed to create jewelry' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to create jewelry', details: error.message }, { status: 500 });
   }
 }

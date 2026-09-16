@@ -1,252 +1,120 @@
 import { NextResponse } from 'next/server';
-import { auth } from "@/lib/auth";
+import { auth } from '@/lib/auth';
 import { db as mongo } from '@/lib/database';
-import { ObjectId } from 'mongodb';
+import { toEditorShape, applyEditorPatch } from '@/services/production/gemListingEditor';
+import { loadGemListing } from '@/services/production/listingLookup';
+
+/**
+ * The gemstone listing editor — now reading and writing the Design + its Piece.
+ *
+ * It used to read and write a `products` document. efd-shop stopped reading that collection,
+ * so an edit here displayed back correctly in admin and reached the storefront never: a save
+ * that looked like it worked and changed nothing a customer could see.
+ *
+ * The response keeps the flat shape the editor form already consumes, so the UI is unchanged.
+ * See `services/production/gemListingEditor` for which field belongs to the offering (design)
+ * and which to the physical stone (piece).
+ */
 
 const STAFF_ROLES = new Set(['admin', 'superadmin', 'dev', 'staff']);
 
-// Staff, or the owning artisan — the same rule every sibling product route uses.
-function canAccessGemstone(session, gemstone) {
-    if (STAFF_ROLES.has(session.user.role)) return true;
-    const ids = [session.user.userID, session.user.email].filter(Boolean);
-    return ids.includes(gemstone.userId) || ids.includes(gemstone.seller?.userId);
+/** Staff, or the artisan who owns the design. */
+function canAccess(session, design) {
+  if (STAFF_ROLES.has(session.user.role)) return true;
+  const ids = [session.user.userID, session.user.email].filter(Boolean);
+  return ids.includes(design.primaryArtisanId) || ids.includes(design.createdBy);
 }
 
 export async function GET(request, { params }) {
-    try {
-        const session = await auth();
-        if (!session?.user) {
-            return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-        }
+  try {
+    const session = await auth();
+    if (!session?.user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
 
-        const db = await mongo.connect();
-        const { id } = await params;
+    const db = await mongo.connect();
+    const { id } = await params;
+    const { design, piece } = await loadGemListing(db, id);
 
-        // Try to find by productId first, then fallback to _id for backward compatibility
-        let gemstone = await db.collection('products').findOne({
-            productId: id,
-            productType: 'gemstone'
-        });
+    if (!design) return NextResponse.json({ error: 'Gemstone not found' }, { status: 404 });
+    if (!canAccess(session, design)) return NextResponse.json({ error: 'Access denied' }, { status: 403 });
 
-        // If not found by productId, try by MongoDB _id (for backward compatibility)
-        if (!gemstone) {
-            try {
-                // Validate if it's a valid ObjectId before querying
-                if (ObjectId.isValid(id)) {
-                    gemstone = await db.collection('products').findOne({
-                        _id: new ObjectId(id),
-                        productType: 'gemstone'
-                    });
-                    
-                    // If found by _id, migrate it to have a productId
-                    if (gemstone && !gemstone.productId) {
-                        const productId = `gem_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
-                        await db.collection('products').updateOne(
-                            { _id: gemstone._id },
-                            { $set: { productId: productId } }
-                        );
-                        gemstone.productId = productId;
-                        console.log(`Migrated gemstone ${gemstone._id} to productId: ${productId}`);
-                    }
-                }
-            } catch (error) {
-                console.error('Error trying to find by ObjectId:', error);
-            }
-        }
-
-        if (!gemstone) {
-            return NextResponse.json({ error: 'Gemstone not found' }, { status: 404 });
-        }
-
-        // Check if user has permission to view this gemstone
-        if (!canAccessGemstone(session, gemstone)) {
-            return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-        }
-
-        return NextResponse.json({
-            success: true,
-            gemstone
-        });
-
-    } catch (error) {
-        console.error(`GET /api/products/gemstones/[id] error:`, error);
-        return NextResponse.json(
-            { error: 'Failed to fetch gemstone' },
-            { status: 500 }
-        );
-    }
+    return NextResponse.json({ success: true, gemstone: toEditorShape({ design, piece }) });
+  } catch (error) {
+    console.error('GET /api/products/gemstones/[id] error:', error);
+    return NextResponse.json({ error: 'Failed to fetch gemstone' }, { status: 500 });
+  }
 }
 
 export async function PUT(request, { params }) {
-    try {
-        const session = await auth();
-        if (!session?.user) {
-            return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-        }
+  try {
+    const session = await auth();
+    if (!session?.user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
 
-        const db = await mongo.connect();
-        const { id } = await params;
-        const data = await request.json();
+    const db = await mongo.connect();
+    const { id } = await params;
+    const data = await request.json();
+    const { design, piece } = await loadGemListing(db, id);
 
-        // Try to find by productId first, then fallback to _id for backward compatibility
-        let existingGemstone = await db.collection('products').findOne({
-            productId: id,
-            productType: 'gemstone'
-        });
+    if (!design) return NextResponse.json({ error: 'Gemstone not found' }, { status: 404 });
+    if (!canAccess(session, design)) return NextResponse.json({ error: 'Access denied' }, { status: 403 });
 
-        let searchCriteria = { productId: id };
+    const actor = session.user.userID || session.user.email || null;
+    const { designSet, pieceSet, warnings } = applyEditorPatch({ design, piece, data, actor });
 
-        // If not found by productId, try by MongoDB _id (for backward compatibility)
-        if (!existingGemstone) {
-            try {
-                if (ObjectId.isValid(id)) {
-                    existingGemstone = await db.collection('products').findOne({
-                        _id: new ObjectId(id),
-                        productType: 'gemstone'
-                    });
-                    searchCriteria = { _id: new ObjectId(id) };
-                }
-            } catch (error) {
-                console.error('Error trying to find by ObjectId:', error);
-            }
-        }
-
-        if (!existingGemstone) {
-            return NextResponse.json({ error: 'Gemstone not found' }, { status: 404 });
-        }
-
-        // Check if user has permission to edit this gemstone
-        if (!canAccessGemstone(session, existingGemstone)) {
-            return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-        }
-
-        // Prepare the update data with hierarchical structure
-        const updateData = {
-            // Update universal fields
-            title: data.title || existingGemstone.title,
-            description: data.description || existingGemstone.description,
-            internalNotes: data.internalNotes || data.notes || existingGemstone.internalNotes,
-            vendor: data.vendor || existingGemstone.vendor,
-            
-            // Update gemstone-specific data
-            gemstone: {
-                ...existingGemstone.gemstone,
-                species: data.species || existingGemstone.gemstone?.species,
-                subspecies: data.subspecies || existingGemstone.gemstone?.subspecies,
-                carat: data.carat || existingGemstone.gemstone?.carat,
-                dimensions: data.dimensions || existingGemstone.gemstone?.dimensions,
-                cut: data.cut || existingGemstone.gemstone?.cut,
-                cutStyle: data.cutStyle || existingGemstone.gemstone?.cutStyle,
-                treatment: data.treatment || existingGemstone.gemstone?.treatment,
-                color: data.color || existingGemstone.gemstone?.color,
-                clarity: data.clarity || existingGemstone.gemstone?.clarity,
-                locale: data.locale || existingGemstone.gemstone?.locale,
-                naturalSynthetic: data.naturalSynthetic || existingGemstone.gemstone?.naturalSynthetic,
-                retailPrice: data.price || data.retailPrice || existingGemstone.gemstone?.retailPrice,
-                acquisitionPrice: data.acquisitionPrice || existingGemstone.gemstone?.acquisitionPrice,
-                supplier: data.supplier || existingGemstone.gemstone?.supplier,
-                acquisitionDate: data.acquisitionDate || existingGemstone.gemstone?.acquisitionDate,
-                certification: data.certification || existingGemstone.gemstone?.certification,
-                designCoverage: data.designCoverage || existingGemstone.gemstone?.designCoverage
-            },
-
-            updatedAt: new Date()
-        };
-
-        // The shop charges pricing.retailPrice — keep it in lockstep with the gem price
-        // (the collection-level PUT already does; this route used to drift them apart).
-        const resolvedPrice = Number(updateData.gemstone.retailPrice);
-        if (Number.isFinite(resolvedPrice) && resolvedPrice > 0) {
-            updateData['pricing.retailPrice'] = resolvedPrice;
-            updateData['pricing.currency'] = 'USD';
-        }
-
-        // Update the gemstone using the appropriate search criteria
-        const result = await db.collection('products').updateOne(
-            searchCriteria,
-            { $set: updateData }
-        );
-
-        if (result.modifiedCount === 0) {
-            return NextResponse.json({ error: 'Failed to update gemstone' }, { status: 400 });
-        }
-
-        // Fetch the updated gemstone using the same criteria
-        const updatedGemstone = await db.collection('products').findOne(searchCriteria);
-
-        return NextResponse.json({
-            success: true,
-            gemstone: updatedGemstone
-        });
-
-    } catch (error) {
-        console.error(`PUT /api/products/gemstones/[id] error:`, error);
-        return NextResponse.json(
-            { error: 'Failed to update gemstone' },
-            { status: 500 }
-        );
+    // Dotted paths only — a whole-subdocument write would delete every key the form did not
+    // send. The variant paths need an arrayFilter for the variant being edited.
+    if (Object.keys(designSet).length) {
+      const editsVariant = Object.keys(designSet).some((k) => k.startsWith('variants.$[v]'));
+      const variantId = design.defaultVariantId
+        || (design.variants || []).find((v) => v.active)?.variantId
+        || (design.variants || [])[0]?.variantId;
+      await db.collection('designs').updateOne(
+        { designID: design.designID },
+        { $set: { ...designSet, updatedAt: new Date() } },
+        editsVariant ? { arrayFilters: [{ 'v.variantId': variantId }] } : {},
+      );
     }
+    if (piece && Object.keys(pieceSet).length) {
+      await db.collection('pieces').updateOne(
+        { pieceID: piece.pieceID },
+        { $set: { ...pieceSet, updatedAt: new Date() } },
+      );
+    }
+
+    const fresh = await loadGemListing(db, id);
+    return NextResponse.json({
+      success: true,
+      gemstone: toEditorShape(fresh),
+      ...(warnings.length ? { warnings } : {}),
+    });
+  } catch (error) {
+    console.error('PUT /api/products/gemstones/[id] error:', error);
+    return NextResponse.json({ error: 'Failed to update gemstone', details: error.message }, { status: 500 });
+  }
 }
 
+/**
+ * DELETE — unlist. The design and its piece are deliberately kept: a stone that came off the
+ * site still exists in the drawer, and its provenance is the record of that.
+ */
 export async function DELETE(request, { params }) {
-    try {
-        const session = await auth();
-        if (!session?.user) {
-            return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-        }
+  try {
+    const session = await auth();
+    if (!session?.user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
 
-        const db = await mongo.connect();
-        const { id } = await params;
+    const db = await mongo.connect();
+    const { id } = await params;
+    const { design } = await loadGemListing(db, id);
 
-        // Try to find by productId first, then fallback to _id for backward compatibility
-        let existingGemstone = await db.collection('products').findOne({
-            productId: id,
-            productType: 'gemstone'
-        });
+    if (!design) return NextResponse.json({ error: 'Gemstone not found' }, { status: 404 });
+    if (!canAccess(session, design)) return NextResponse.json({ error: 'Access denied' }, { status: 403 });
 
-        let searchCriteria = { productId: id };
-
-        // If not found by productId, try by MongoDB _id (for backward compatibility)
-        if (!existingGemstone) {
-            try {
-                if (ObjectId.isValid(id)) {
-                    existingGemstone = await db.collection('products').findOne({
-                        _id: new ObjectId(id),
-                        productType: 'gemstone'
-                    });
-                    searchCriteria = { _id: new ObjectId(id) };
-                }
-            } catch (error) {
-                console.error('Error trying to find by ObjectId:', error);
-            }
-        }
-
-        if (!existingGemstone) {
-            return NextResponse.json({ error: 'Gemstone not found' }, { status: 404 });
-        }
-
-        // Check if user has permission to delete this gemstone
-        if (!canAccessGemstone(session, existingGemstone)) {
-            return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-        }
-
-        // Delete the gemstone using the appropriate search criteria
-        const result = await db.collection('products').deleteOne(searchCriteria);
-
-        if (result.deletedCount === 0) {
-            return NextResponse.json({ error: 'Failed to delete gemstone' }, { status: 400 });
-        }
-
-        return NextResponse.json({
-            success: true,
-            message: 'Gemstone deleted successfully'
-        });
-
-    } catch (error) {
-        console.error(`DELETE /api/products/gemstones/[id] error:`, error);
-        return NextResponse.json(
-            { error: 'Failed to delete gemstone' },
-            { status: 500 }
-        );
-    }
+    await db.collection('designs').updateOne(
+      { designID: design.designID },
+      { $set: { 'listing.published': false, 'listing.visible': false, updatedAt: new Date() } },
+    );
+    return NextResponse.json({ success: true, message: 'Gemstone unlisted (design and piece kept).' });
+  } catch (error) {
+    console.error('DELETE /api/products/gemstones/[id] error:', error);
+    return NextResponse.json({ error: 'Failed to unlist gemstone' }, { status: 500 });
+  }
 }

@@ -63,7 +63,7 @@ export default function MyListingsPage() {
           {listings.map((p) => {
             const isGem = p.productType === 'gemstone';
             const img = firstImage(p.images);
-            const live = p.status === 'published' || p.isPublic === true;
+            const live = ['published', 'active'].includes(p.status);
             return (
               <Paper key={p.productId || p._id} sx={{ ...panelSx, p: 1.5 }}>
                 <Stack direction="row" alignItems="center" spacing={1.5}>
