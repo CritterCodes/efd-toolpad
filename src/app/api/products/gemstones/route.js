@@ -2,7 +2,20 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db as mongo } from '@/lib/database';
 import { getUserArtisanTypes, canManageGemstones } from '@/lib/productPermissions';
+import { toEditorShape, editorPiece } from '@/services/production/gemListingEditor';
+import { randomUUID } from 'crypto';
 
+/** The editor's single-line list fields are comma text; the documents hold arrays. */
+const toList = (v) => (Array.isArray(v)
+  ? v
+  : (String(v ?? '').trim() ? String(v).split(',').map((s) => s.trim()).filter(Boolean) : []));
+
+/**
+ * List gemstone listings — resolved from DESIGNS, which is where they live now.
+ *
+ * This used to list `products` documents. efd-shop stopped reading that collection, so the
+ * list showed a catalog the storefront could not see.
+ */
 export async function GET() {
   try {
     const session = await auth();
@@ -12,41 +25,47 @@ export async function GET() {
 
     const db = await mongo.connect();
     const isAdmin = ['admin', 'staff', 'dev'].includes(session.user.role);
+    const ids = [session.user.userID, session.user.email].filter(Boolean);
 
-    let gemstones;
-    if (isAdmin) {
-      gemstones = await db.collection('products').find({ productType: 'gemstone' }).toArray();
-    } else {
-      const userIdentifier = session.user.userID || session.user.email;
-      gemstones = await db.collection('products').find({
-        productType: 'gemstone',
-        $or: [
-          { userId: userIdentifier },
-          { userId: session.user.email },
-          { userId: session.user.userID },
-        ],
-      }).toArray();
+    const designs = await db.collection('designs')
+      .find({
+        category: 'gemstone',
+        designID: { $exists: true },
+        ...(isAdmin ? {} : { $or: [{ primaryArtisanId: { $in: ids } }, { createdBy: { $in: ids } }] }),
+      })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    // One query for every piece, then grouped — a find per design would be N+1 on a page that
+    // only ever renders a list.
+    const pieces = designs.length
+      ? await db.collection('pieces').find({ designID: { $in: designs.map((d) => d.designID) } }).toArray()
+      : [];
+    const byDesign = new Map();
+    for (const p of pieces) {
+      if (!byDesign.has(p.designID)) byDesign.set(p.designID, []);
+      byDesign.get(p.designID).push(p);
     }
 
-    // Migrate gemstones that don't have productId yet
-    for (const gemstone of gemstones) {
-      if (!gemstone.productId) {
-        const productId = `gem_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
-        await db.collection('products').updateOne(
-          { _id: gemstone._id },
-          { $set: { productId } }
-        );
-        gemstone.productId = productId;
-      }
-    }
+    const gemstones = designs.map((design) => toEditorShape({
+      design,
+      piece: editorPiece(byDesign.get(design.designID) || []),
+    }));
 
-    return NextResponse.json({ success: true, gemstones: gemstones || [] });
+    return NextResponse.json({ success: true, gemstones });
   } catch (error) {
     console.error('GET /api/products/gemstones error:', error);
     return NextResponse.json({ error: 'Failed to fetch gemstones' }, { status: 500 });
   }
 }
 
+/**
+ * Create a gemstone listing — a one-of-one DESIGN plus the physical PIECE.
+ *
+ * This used to insert a `products` document. A stone is a design (the cut, the species it is
+ * offered in) and a piece (the actual stone, with its carat and its price); creating both here
+ * is what makes it appear in the shop and in the cutter's My Designs.
+ */
 export async function POST(request) {
   try {
     const session = await auth();
@@ -55,371 +74,138 @@ export async function POST(request) {
     }
 
     const data = await request.json();
-
-    const {
-      title,
-      description,
-      internalNotes,
-      species,
-      subspecies,
-      carat,
-      dimensions,
-      cut,
-      cutStyle,
-      treatment,
-      color,
-      clarity,
-      locale,
-      naturalSynthetic,
-      price,
-      retailPrice,
-      compareAtPrice,
-      acquisitionPrice,
-      acquisitionDate,
-      supplier,
-      certification,
-      tags,
-      userId,
-      vendor,
-      notes,
-    } = data;
-
-    if (!title || !species) {
+    if (!data.title || !data.species) {
       return NextResponse.json({ error: 'Title and species are required' }, { status: 400 });
     }
 
     const db = await mongo.connect();
 
-    const actualUserId = userId || session.user.userID || session.user.email;
-    let actualVendor = vendor || session.user.businessName || session.user.name;
-    let artisanType = null;
-
-    // Permission check fails CLOSED: only gem-cutters (and admin/staff/dev) may create
-    // gemstone listings, and a profile we cannot read is a request we cannot authorize.
+    // Permission check fails CLOSED: only gem-cutters (and staff) may create gemstone
+    // listings, and a profile we cannot read is a request we cannot authorize.
     let userProfile = null;
-    if (session.user.email || session.user.userID) {
-      try {
-        userProfile = await db.collection('users').findOne({
-          $or: [
-            ...(session.user.userID ? [{ userID: session.user.userID }] : []),
-            ...(session.user.email ? [{ email: session.user.email }] : []),
-          ],
-        });
-      } catch (err) {
-        console.error('Error fetching user profile:', err);
-        if (!canManageGemstones(session.user.role, [])) {
-          return NextResponse.json({ error: 'Could not verify permissions' }, { status: 503 });
-        }
+    try {
+      userProfile = await db.collection('users').findOne({
+        $or: [
+          ...(session.user.userID ? [{ userID: session.user.userID }] : []),
+          ...(session.user.email ? [{ email: session.user.email }] : []),
+        ],
+      });
+    } catch (err) {
+      console.error('Error fetching user profile:', err);
+      if (!canManageGemstones(session.user.role, [])) {
+        return NextResponse.json({ error: 'Could not verify permissions' }, { status: 503 });
       }
     }
-    const artisanTypes = getUserArtisanTypes(userProfile);
-    if (!canManageGemstones(session.user.role, artisanTypes)) {
+    if (!canManageGemstones(session.user.role, getUserArtisanTypes(userProfile))) {
       return NextResponse.json(
         { error: 'Only gem-cutters and admins can create gemstone listings' },
-        { status: 403 }
+        { status: 403 },
       );
     }
-    if (userProfile?.artisanApplication?.businessName && !actualVendor) {
-      actualVendor = userProfile.artisanApplication.businessName;
-    }
-    artisanType = userProfile?.artisanApplication?.artisanType || null;
 
-    const timestamp = Date.now().toString(36);
-    const randomStr = Math.random().toString(36).substring(2, 8);
-    const productId = `gem_${timestamp}_${randomStr}`;
+    const actor = session.user.userID || session.user.email;
+    const artisanId = data.primaryArtisanId || actor;
     const now = new Date();
-    const canonicalRetailPrice = Number(retailPrice || price) || 0;
+    const designID = randomUUID();
+    const variantId = randomUUID();
+    const pieceID = randomUUID();
+    const handle = `gem_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
 
-    const gemstone = {
-      productId,
-      productType: 'gemstone',
-      listingType: 'gemstone',
-
-      title: title || '',
-      description: description || '',
-      internalNotes: internalNotes || notes || '',
-
-      // V2 seller
-      seller: {
-        userId: actualUserId,
-        displayName: actualVendor || '',
-        artisanType,
-      },
-
-      // V2 pricing
-      pricing: {
-        retailPrice: canonicalRetailPrice,
-        compareAtPrice: Number(compareAtPrice) || null,
-        costBasis: Number(acquisitionPrice) || null,
-        currency: 'USD',
-      },
-
-      // V2 publishing
-      publishing: {
-        visible: false,
-        featured: false,
-        publishedAt: null,
-      },
-
-      // V2 references
-      references: {
-        gemstoneIds: [],
-        designId: null,
-      },
-
-      // V2 inventory — canonical numeric shape (a loose stone is qty 1). The shop's
-      // reserve-on-paid guard reads quantity/available and decrements at payment.
-      inventory: {
-        quantity: 1,
-        reserved: 0,
-        available: 1,
-        usedInProductId: null,
-      },
-
-      // Stripe (set when synced to Stripe)
-      stripeProductId: null,
-      stripePriceId: null,
-
-      // Legacy fields (kept for backward compat with existing admin UI)
-      userId: actualUserId,
-      vendor: actualVendor || '',
-      status: 'draft',
-      isPublic: false,
-      featured: false,
-      images: [],
-      tags: Array.isArray(tags) ? tags : [],
-
-      gemstone: {
-        species: species || '',
-        subspecies: subspecies || '',
-        carat: Number(carat) || 0,
-        dimensions: {
-          length: Number(dimensions?.length) || 0,
-          width: Number(dimensions?.width) || 0,
-          height: Number(dimensions?.height) || 0,
+    // The cut is the design; the species is what that cut is offered in.
+    await db.collection('designs').insertOne({
+      designID,
+      name: String(data.title).trim(),
+      description: data.description || '',
+      category: 'gemstone',
+      status: 'ready',
+      productionMethod: 'handmade',
+      primaryArtisanId: artisanId,
+      collaborators: [],
+      gemstone: { cut: toList(data.cut), cutStyle: toList(data.cutStyle) },
+      gemLinks: [],
+      tags: Array.isArray(data.tags) ? data.tags : [],
+      metadata: {},
+      internalNotes: data.internalNotes || data.notes || '',
+      // A stone that exists is one stone: the edition is spent on it.
+      edition: { type: 'one_of_one', allocated: 1, committed: 0, nextNumber: 2, freedNumbers: [] },
+      defaultVariantId: variantId,
+      variants: [{
+        variantId,
+        sku: data.sku || handle.toUpperCase(),
+        label: String(data.title).trim(),
+        active: true,
+        gemstone: {
+          species: String(data.species).trim(),
+          subspecies: data.subspecies || '',
+          naturalSynthetic: data.naturalSynthetic || 'natural',
+          // A stone already cut is not offered to be cut again — it ships as it is.
+          availability: 'special_request',
+          caratMin: null, caratMax: null, colors: [],
         },
-        cut: Array.isArray(cut) ? cut : [],
-        cutStyle: Array.isArray(cutStyle) ? cutStyle : [],
-        treatment: Array.isArray(treatment) ? treatment : [],
-        color: Array.isArray(color) ? color : [],
-        clarity: clarity || '',
-        locale: locale || '',
-        naturalSynthetic: naturalSynthetic || 'natural',
-        certification: {
-          lab: certification?.lab || '',
-          number: certification?.number || '',
-          url: certification?.url || '',
-          verified: certification?.verified || false,
-        },
-        obj3DFile: { url: '', filename: '', fileSize: 0, uploadedAt: null, downloadCount: 0 },
-        acquisitionDate: acquisitionDate ? new Date(acquisitionDate) : null,
-        acquisitionPrice: Number(acquisitionPrice) || null,
-        supplier: supplier || '',
-        retailPrice: canonicalRetailPrice,
-        designCoverage: {
-          hasBasicBasket: false,
-          hasBasicRing: false,
-          customDesignCount: 0,
-          lastDesignAdded: null,
-          priorityLevel: 'critical',
-        },
-      },
-
-      availableDesigns: [],
-      relatedProducts: [],
+      }],
+      // Unlisted until someone publishes it; the storefront reads this flag.
+      listing: { published: false, visible: false, handle },
+      media: { images: Array.isArray(data.images) ? data.images : [] },
+      referenceImages: [],
+      sketches: [],
+      bom: { castingEstimate: 0, stones: [], findings: [], estMaterialCost: 0 },
+      routing: [],
+      primaryProductId: handle,
       createdAt: now,
       updatedAt: now,
-    };
+      createdBy: actor,
+    });
 
-    const result = await db.collection('products').insertOne(gemstone);
+    // The physical stone: as-built facts and the price it sells for.
+    await db.collection('pieces').insertOne({
+      pieceID,
+      designID,
+      variantId,
+      resolvedConfiguration: { species: String(data.species).trim(), naturalSynthetic: data.naturalSynthetic || 'natural' },
+      editionNumber: 1,
+      status: 'available',
+      gemstone: {
+        species: String(data.species).trim(),
+        subspecies: data.subspecies || '',
+        naturalSynthetic: data.naturalSynthetic || 'natural',
+        carat: Number(data.carat) || null,
+        dimensions: data.dimensions ?? null,
+        color: toList(data.color),
+        clarity: data.clarity || '',
+        treatment: toList(data.treatment),
+        locale: data.locale || '',
+        certification: data.certification || null,
+        // Admin-only provenance — the storefront's resolver strips this block.
+        acquisitionPrice: Number(data.acquisitionPrice) || null,
+        acquisitionDate: data.acquisitionDate || null,
+        supplier: data.supplier || '',
+      },
+      pricing: {
+        retailPrice: Number(data.retailPrice ?? data.price) || null,
+        compareAtPrice: Number(data.compareAtPrice) || null,
+      },
+      stones: [],
+      actualMaterials: [],
+      workOrderIDs: [],
+      accruedMaterialCost: 0,
+      accruedLaborCost: 0,
+      totalCOGS: 0,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: actor,
+    });
 
+    const design = await db.collection('designs').findOne({ designID });
+    const piece = await db.collection('pieces').findOne({ pieceID });
     return NextResponse.json({
       success: true,
-      gemstone: { ...gemstone, _id: result.insertedId },
-      productId,
+      gemstone: toEditorShape({ design, piece }),
+      productId: handle,
+      designID,
+      pieceID,
     });
   } catch (error) {
     console.error('POST /api/products/gemstones error:', error);
     return NextResponse.json({ error: 'Failed to create gemstone', details: error.message }, { status: 500 });
-  }
-}
-
-export async function PUT(request) {
-  try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-
-    const data = await request.json();
-
-    // Support both flat (legacy) and hierarchical (new) data structures
-    let title, description, tags, images, isPublic, status, gemstoneData, productId;
-
-    if (data.gemstone) {
-      ({ productId, title, description, tags = [], images = [], isPublic = true, status = 'active' } = data);
-      gemstoneData = data.gemstone;
-    } else {
-      productId = data.productId;
-      title = data.title;
-      description = data.description || '';
-      tags = data.tags || [];
-      images = data.images || [];
-      isPublic = data.isPublic !== undefined ? data.isPublic : true;
-      status = data.status || 'active';
-      gemstoneData = {
-        species: data.species,
-        subspecies: data.subspecies || '',
-        carat: Number(data.carat) || 0,
-        dimensions: data.dimensions || { length: '', width: '', height: '' },
-        cut: data.cut || [],
-        cutStyle: data.cutStyle || [],
-        treatment: data.treatment || [],
-        color: data.color || [],
-        locale: data.locale || '',
-        naturalSynthetic: data.naturalSynthetic || 'natural',
-        retailPrice: Number(data.price || data.retailPrice) || 0,
-        customMounting: data.customMounting || false,
-        vendor: data.vendor || session.user.businessName || session.user.slug || session.user.name,
-        internalNotes: data.notes || data.internalNotes || '',
-        certification: data.certification || {},
-        designCoverage: data.designCoverage || 'full',
-      };
-    }
-
-    if (!productId || !title || !gemstoneData.species) {
-      return NextResponse.json({ error: 'ProductId, title and species are required' }, { status: 400 });
-    }
-
-    const db = await mongo.connect();
-
-    const isStaff = ['admin', 'superadmin', 'staff', 'dev'].includes(session.user.role);
-
-    // Permission check for write ops
-    if (!isStaff) {
-      const userProfile = await db.collection('users').findOne({ email: session.user.email });
-      const artisanTypes = getUserArtisanTypes(userProfile);
-      if (!canManageGemstones(session.user.role, artisanTypes)) {
-        return NextResponse.json({ error: 'Only gem-cutters and admins can edit gemstone listings' }, { status: 403 });
-      }
-    }
-
-    // Ownership: a gem-cutter edits only their own listings; staff edit any.
-    const existing = await db.collection('products').findOne(
-      { productId },
-      { projection: { userId: 1, seller: 1 } }
-    );
-    if (!existing) {
-      return NextResponse.json({ error: 'Gemstone not found' }, { status: 404 });
-    }
-    if (!isStaff) {
-      const ids = [session.user.userID, session.user.email].filter(Boolean);
-      if (!ids.includes(existing.userId) && !ids.includes(existing.seller?.userId)) {
-        return NextResponse.json({ error: 'Access denied — not your listing' }, { status: 403 });
-      }
-    }
-
-    const canonicalRetailPrice = Number(gemstoneData.retailPrice) || 0;
-
-    const updateData = {
-      productType: 'gemstone',
-      title,
-      description: description || '',
-      userId: (isStaff && data.userId) || existing.userId || session.user.userID,
-      status,
-      isPublic,
-      images,
-      tags,
-      'pricing.retailPrice': canonicalRetailPrice,
-      'pricing.currency': 'USD',
-      gemstone: {
-        species: gemstoneData.species,
-        subspecies: gemstoneData.subspecies || '',
-        carat: Number(gemstoneData.carat) || 0,
-        dimensions: gemstoneData.dimensions || { length: '', width: '', height: '' },
-        cut: Array.isArray(gemstoneData.cut) ? gemstoneData.cut : [],
-        cutStyle: Array.isArray(gemstoneData.cutStyle) ? gemstoneData.cutStyle : [],
-        treatment: Array.isArray(gemstoneData.treatment) ? gemstoneData.treatment : [],
-        color: Array.isArray(gemstoneData.color) ? gemstoneData.color : [],
-        locale: gemstoneData.locale || '',
-        naturalSynthetic: gemstoneData.naturalSynthetic || 'natural',
-        retailPrice: canonicalRetailPrice,
-        customMounting: Boolean(gemstoneData.customMounting),
-        vendor: gemstoneData.vendor || session.user.businessName || session.user.slug || session.user.name,
-        internalNotes: gemstoneData.internalNotes || '',
-        certification: gemstoneData.certification || {},
-        designCoverage: gemstoneData.designCoverage || 'full',
-      },
-      ...(data.availableDesigns !== undefined && { availableDesigns: data.availableDesigns }),
-      ...(data.relatedProducts !== undefined && { relatedProducts: data.relatedProducts }),
-      updatedAt: new Date(),
-    };
-
-    const result = await db.collection('products').updateOne(
-      { productId },
-      { $set: updateData }
-    );
-
-    if (result.matchedCount === 0) {
-      return NextResponse.json({ error: 'Gemstone not found' }, { status: 404 });
-    }
-
-    return NextResponse.json({ success: true, gemstone: { ...updateData, productId } });
-  } catch (error) {
-    console.error('PUT /api/products/gemstones error:', error);
-    return NextResponse.json({ error: 'Failed to update gemstone', details: error.message }, { status: 500 });
-  }
-}
-
-export async function DELETE(request) {
-  try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-
-    if (!id) {
-      return NextResponse.json({ error: 'Gemstone ID is required' }, { status: 400 });
-    }
-
-    const db = await mongo.connect();
-
-    const isStaff = ['admin', 'superadmin', 'staff', 'dev'].includes(session.user.role);
-
-    // Permission check
-    if (!isStaff) {
-      const userProfile = await db.collection('users').findOne({ email: session.user.email });
-      const artisanTypes = getUserArtisanTypes(userProfile);
-      if (!canManageGemstones(session.user.role, artisanTypes)) {
-        return NextResponse.json({ error: 'Only gem-cutters and admins can delete gemstone listings' }, { status: 403 });
-      }
-
-      // Ownership: a gem-cutter deletes only their own listings.
-      const existing = await db.collection('products').findOne(
-        { productId: id },
-        { projection: { userId: 1, seller: 1 } }
-      );
-      if (!existing) {
-        return NextResponse.json({ error: 'Gemstone not found' }, { status: 404 });
-      }
-      const ids = [session.user.userID, session.user.email].filter(Boolean);
-      if (!ids.includes(existing.userId) && !ids.includes(existing.seller?.userId)) {
-        return NextResponse.json({ error: 'Access denied — not your listing' }, { status: 403 });
-      }
-    }
-
-    const result = await db.collection('products').deleteOne({ productId: id });
-
-    if (result.deletedCount === 0) {
-      return NextResponse.json({ error: 'Gemstone not found' }, { status: 404 });
-    }
-
-    return NextResponse.json({ success: true, message: 'Gemstone deleted successfully' });
-  } catch (error) {
-    console.error('DELETE /api/products/gemstones error:', error);
-    return NextResponse.json({ error: 'Failed to delete gemstone', details: error.message }, { status: 500 });
   }
 }

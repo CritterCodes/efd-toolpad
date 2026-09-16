@@ -173,7 +173,8 @@ export default function SalesInvoicesPage() {
       const users = usersData.users || [];
       setClients(users.filter(isSalesClient));
       setArtisans(users.filter((user) => ['artisan', 'admin', 'staff', 'dev'].includes(user.role)));
-      setProducts((productsData.jewelry || []).filter((product) => product.status !== 'sold'));
+      // The piece is what gets sold; an unsold listing can be published or still a draft.
+      setProducts((productsData.jewelry || []).filter((product) => product.pieceStatus !== 'sold'));
       setTaxRate(Number(settingsData?.pricing?.taxRate || 0));
     } catch (err) {
       setError(err.message || 'Failed to load checkout reference data.');

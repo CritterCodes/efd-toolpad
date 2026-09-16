@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from "@/lib/auth";
 import { db as mongo } from '@/lib/database';
 import { uploadFileToS3 } from '@/utils/s3.util';
-import { ObjectId } from 'mongodb';
+import { loadJewelryListing } from '@/services/production/listingLookup';
 
 export async function POST(request, { params }) {
     try {
@@ -32,28 +32,19 @@ export async function POST(request, { params }) {
             return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 });
         }
 
-        // Update database
+        // The file belongs to the DESIGN. It used to be written onto a `products` document,
+        // which the storefront no longer reads — so an uploaded GLB never reached the viewer.
+        // `viewer.glbUrl` is the field efd-shop's resolveViewer actually looks at.
         const db = await mongo.connect();
-        
-        const updateField = `jewelry.${type}File`; // e.g., jewelry.objFile, jewelry.stlFile
-        
-        let query = { productId: id, productType: 'jewelry' };
-        if (ObjectId.isValid(id)) {
-             // Try to find by _id if productId not found, but usually we use productId in URL
-             const exists = await db.collection('products').findOne(query);
-             if (!exists) {
-                 query = { _id: new ObjectId(id), productType: 'jewelry' };
-             }
+        const { design } = await loadJewelryListing(db, id);
+        if (!design) {
+            return NextResponse.json({ error: 'Jewelry not found' }, { status: 404 });
         }
 
-        await db.collection('products').updateOne(
-            query,
-            { 
-                $set: { 
-                    [updateField]: fileUrl,
-                    updatedAt: new Date()
-                } 
-            }
+        const field = type === 'glb' ? 'viewer.glbUrl' : `files.${type}`;
+        await db.collection('designs').updateOne(
+            { designID: design.designID },
+            { $set: { [field]: fileUrl, updatedAt: new Date() } },
         );
 
         return NextResponse.json({ 

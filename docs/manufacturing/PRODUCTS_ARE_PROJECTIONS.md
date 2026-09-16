@@ -1,5 +1,23 @@
 # Products Are Projections — the listing sync plan
 
+> **SUPERSEDED (2026-09-16) — read this first.**
+>
+> The owner overruled the projection plan itself: _"do the shop rework so products goes away."_
+> The `products` collection is **gone from the read path**, not maintained as a cache. efd-shop
+> reads Designs + Pieces directly (`lib/catalogModel.js`, `lib/catalogRepo.js`,
+> `lib/pieceInventory.js`) and drops from the `drops` collection; `productProjection.js`,
+> `productInventory.js` and this repo's `listingSync` + its triggers are **deleted**.
+>
+> What still holds from this document: the owner ruling below, the mental model in §1's table, the
+> field ownership rules (Design = offering, Piece = as-built), and §5.1/§5.3 on who owns prices and
+> commerce counters. What does NOT hold: everything about maintaining, syncing or validating a
+> `products` document, and every reference to `projectDesignProduct` or `listingSync`.
+>
+> Publishing is now one flag: **`design.listing.published`**. The gemstone and jewelry editors
+> write the Design and the Piece (`services/production/{gem,jewelry}ListingEditor.js`).
+> Remaining work: admin's own catalog views under `/dashboard/products` still read `products`;
+> once they move, the collection gets renamed (reversible) and then dropped.
+
 **Owner ruling (2026-09-10):** _"I never want to have to create a product. Designs and pieces ARE
 the products. A design in the shop for when there is no physical piece — MTO with preset variants
 or the REFRAKT customizer. Pieces are the RTS products made from a variant. Me creating a design,
