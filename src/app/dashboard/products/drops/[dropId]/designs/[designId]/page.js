@@ -32,6 +32,7 @@ import { gemBuildableForRows } from '@/services/production/gemDesignMatch';
 import { speciesSG } from '@/constants/gemSpecies';
 import { slotMatchesLink, allowedSpeciesForLink } from '@/services/production/gemLinks';
 import GemLinksPanel from './GemLinksPanel';
+import PiecesTab from './PiecesTab';
 
 // Read-only WebGL product viewer (client-only — must be dynamically imported, ssr:false).
 const JewelryViewer = dynamic(() => import('@crittercodes/refrakt').then((m) => m.JewelryViewer), { ssr: false });
@@ -1699,13 +1700,13 @@ export function DesignDetail({ dropId, designId, backHref, backLabel }) {
   const [defaultMarkup, setDefaultMarkup] = useState(2.5);
   const [stoneCosts, setStoneCosts] = useState({}); // { stoneSkuId: current wholesale cost }
   const [gemDocs, setGemDocs] = useState({}); // { gemDesignId: gem Design doc } — linked in-house gems
-  // Tab order: 0 Details · 1 CAD & 3D · 2 Variants · 3 Pricing.
+  // Tab order: 0 Details · 1 CAD & 3D · 2 Variants · 3 Pieces · 4 Pricing.
   // Honour ?tab= so a round trip can return where it started — the REFRAKT studio comes back here after
   // saving a variant, and used to dump the user on Details, which read as the save not registering.
   const [tab, setTab] = useState(() => {
     if (typeof window === 'undefined') return 0;
     const want = new URLSearchParams(window.location.search).get('tab');
-    return { details: 0, cad: 1, variants: 2, pricing: 3 }[want] ?? 0;
+    return { details: 0, cad: 1, variants: 2, pieces: 3, pricing: 4 }[want] ?? 0;
   });
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
   const [listing, setListing] = useState(false);
@@ -2041,6 +2042,7 @@ export function DesignDetail({ dropId, designId, backHref, backLabel }) {
         <Tab label="Details" />
         <Tab label="CAD & 3D" />
         <Tab label="Variants" />
+        <Tab label="Pieces" />
         <Tab label="Pricing" />
       </Tabs>
 
@@ -2060,7 +2062,8 @@ export function DesignDetail({ dropId, designId, backHref, backLabel }) {
           onConfigure={configureVariant}
         />
       )}
-      {tab === 3 && (
+      {tab === 3 && <PiecesTab design={design} designId={designId} notify={notify} />}
+      {tab === 4 && (
         <PricingTab
           pricing={form.pricing}
           variants={form.variants}

@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
-import { requireRole, requireAuth } from '@/lib/apiAuth';
+import { requireAuth } from '@/lib/apiAuth';
 import PiecesModel from '@/app/api/pieces/model';
 import DesignsModel from '@/app/api/designs/model';
 import DropsModel from '@/app/api/drops/model';
 import { isStaff, canManageDesign } from '@/lib/designPermissions';
 import { canViewDrop } from '@/lib/dropPermissions';
 import { createPieceFromDesign, createDirectPiece } from '@/services/production/pieceRouting';
+import { intakePremadePiece } from '@/services/production/pieceIntake';
+import { EditionCapacityError } from '@/services/production/editionCapacity';
+import { db } from '@/lib/database';
 
 /** GET /api/production/pieces — list (optional ?designID= / ?dropId= / ?status=).
  *  Staff see everything; artisans may read pieces of THEIR design, or of a drop they own or
@@ -41,17 +44,56 @@ export const GET = async (req) => {
 };
 
 /**
- * POST /api/production/pieces — create a piece + spawn its routed work orders.
- * With `designID` → production path (routing from the Design). Without `designID` →
- * a direct handmade / premade-with-CAD piece, COGS-only, no estimate (Pipeline M1-T4).
- * Body: { designID?, metalType?, karat?, dropID?, sku?, routing?, actualMaterials?, customerID?, billing? }
+ * POST /api/production/pieces — bring a piece into existence. Two different intents:
+ *
+ *   `premade: true` → RECORD one that already exists (the ring in the case, a consigned stone,
+ *     last year's handmade work). Comes in `available`, with its recorded cost and NO work
+ *     orders — nobody is owed labor for work that was not done here.
+ *   otherwise      → PRODUCE one. Routed work orders spawn from the design's routing.
+ *
+ * Producing stays with staff. Recording is open to the artisan whose design it is: an artisan
+ * with finished work in the case needs to list it without asking anybody, which is the whole
+ * point of the flow.
+ *
+ * Body: { designID, premade?, variantId?, metalType?, karat?, finish?, ringSize?, weight?,
+ *         sku?, serialNumber?, cost?, retailPrice?, compareAtPrice?, note?,
+ *         routing?, actualMaterials?, customerID?, billing? }
  */
 export const POST = async (req) => {
-  const { session, errorResponse } = await requireRole(['admin', 'dev']);
+  const { session, errorResponse } = await requireAuth();
   if (errorResponse) return errorResponse;
 
   const body = await req.json().catch(() => ({}));
   const createdBy = session.user.userID || session.user.email || '';
+
+  if (body?.premade === true) {
+    if (!body.designID) {
+      return NextResponse.json({ error: 'designID is required — a piece is an instance of a design.' }, { status: 400 });
+    }
+    const design = await DesignsModel.findById(body.designID);
+    if (!design) return NextResponse.json({ error: 'Design not found.' }, { status: 404 });
+    if (!canManageDesign(session, design)) {
+      return NextResponse.json({ error: 'Access denied — not your design.' }, { status: 403 });
+    }
+    try {
+      const database = await db.connect();
+      const piece = await intakePremadePiece({ client: db.client, database, design, data: body, actor: createdBy });
+      return NextResponse.json(piece, { status: 201 });
+    } catch (error) {
+      // A spent edition is the caller's answer, not a server fault: the design says there is only
+      // one of these and there already is one.
+      const status = error instanceof EditionCapacityError ? 409 : 400;
+      return NextResponse.json({ error: error.message }, { status });
+    }
+  }
+
+  // Producing a piece spawns work orders and commits shop time; that stays with staff.
+  if (!isStaff(session)) {
+    return NextResponse.json(
+      { error: 'Only staff can put a piece into production. To record one that already exists, send premade: true.' },
+      { status: 403 },
+    );
+  }
 
   try {
     const piece = body?.designID
