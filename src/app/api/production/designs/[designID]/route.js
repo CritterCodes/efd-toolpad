@@ -3,7 +3,6 @@ import { requireAuth } from '@/lib/apiAuth';
 import DesignsModel, { validateDesign } from '@/app/api/designs/model';
 import { isStaff, canManageDesign } from '@/lib/designPermissions';
 import { validateGemLinkPresets } from '@/services/production/gemLinks';
-import { syncDesignListingSafe } from '@/services/production/listingSync';
 
 /** GET /api/production/designs/[designID] — staff, or the artisan who owns it. */
 export const GET = async (req, { params }) => {
@@ -73,8 +72,6 @@ export const PUT = async (req, { params }) => {
   }
   const updated = await DesignsModel.updateById(designID, body);
   if (!updated) return NextResponse.json({ error: 'Design not found.' }, { status: 404 });
-  // Products are projections: re-project the shop-read doc after every design write.
-  await syncDesignListingSafe(designID);
   return NextResponse.json(updated, { status: 200 });
 };
 

@@ -416,16 +416,5 @@ export async function repriceListings({ dryRun = false, priceDay: dayIn } = {}) 
     }
   }
 
-  // Products are projections (PRODUCTS_ARE_PROJECTIONS.md §5.1): the repricer authored
-  // fresh design-variant prices above; the sync engine now assembles them back into the
-  // listing docs (product.variants pricing would otherwise go stale). Reprice → sync order
-  // matters; lazy import avoids a module cycle through the products contract.
-  if (!dryRun && designIds.length) {
-    const { syncListingsForDesigns } = await import('@/services/production/listingSync');
-    report.listingSync = (await syncListingsForDesigns(designIds)).filter((r) => r.action !== 'updated').length === 0
-      ? { synced: designIds.length }
-      : { synced: designIds.length, note: 'some listings reported non-updated actions — see logs' };
-  }
-
   return report;
 }

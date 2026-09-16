@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/apiAuth';
 import PiecesModel from '@/app/api/pieces/model';
-import { syncDesignListingSafe } from '@/services/production/listingSync';
 
 /** GET /api/production/pieces/[pieceID] */
 export const GET = async (req, { params }) => {
@@ -34,7 +33,5 @@ export const PUT = async (req, { params }) => {
 
   const updated = await PiecesModel.updateById(pieceID, body);
   if (!updated) return NextResponse.json({ error: 'Piece not found.' }, { status: 404 });
-  // Products are projections: a piece's status drives its design's RTS offers.
-  if (updated.designID) await syncDesignListingSafe(updated.designID);
   return NextResponse.json(updated, { status: 200 });
 };
