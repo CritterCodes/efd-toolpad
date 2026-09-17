@@ -32,6 +32,8 @@ import { gemBuildableForRows } from '@/services/production/gemDesignMatch';
 import { speciesSG } from '@/constants/gemSpecies';
 import { slotMatchesLink, allowedSpeciesForLink } from '@/services/production/gemLinks';
 import GemLinksPanel from './GemLinksPanel';
+import PiecesTab from './PiecesTab';
+import MediaTab from './MediaTab';
 
 // Read-only WebGL product viewer (client-only — must be dynamically imported, ssr:false).
 const JewelryViewer = dynamic(() => import('@crittercodes/refrakt').then((m) => m.JewelryViewer), { ssr: false });
@@ -1699,13 +1701,13 @@ export function DesignDetail({ dropId, designId, backHref, backLabel }) {
   const [defaultMarkup, setDefaultMarkup] = useState(2.5);
   const [stoneCosts, setStoneCosts] = useState({}); // { stoneSkuId: current wholesale cost }
   const [gemDocs, setGemDocs] = useState({}); // { gemDesignId: gem Design doc } — linked in-house gems
-  // Tab order: 0 Details · 1 CAD & 3D · 2 Variants · 3 Pricing.
+  // Tab order: 0 Details · 1 Photos · 2 CAD & 3D · 3 Variants · 4 Pieces · 5 Pricing.
   // Honour ?tab= so a round trip can return where it started — the REFRAKT studio comes back here after
   // saving a variant, and used to dump the user on Details, which read as the save not registering.
   const [tab, setTab] = useState(() => {
     if (typeof window === 'undefined') return 0;
     const want = new URLSearchParams(window.location.search).get('tab');
-    return { details: 0, cad: 1, variants: 2, pricing: 3 }[want] ?? 0;
+    return { details: 0, photos: 1, cad: 2, variants: 3, pieces: 4, pricing: 5 }[want] ?? 0;
   });
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
   const [listing, setListing] = useState(false);
@@ -2039,14 +2041,17 @@ export function DesignDetail({ dropId, designId, backHref, backLabel }) {
       <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile
         sx={{ mb: 2, borderBottom: `1px solid ${REPAIRS_UI.border}`, '& .MuiTab-root': { color: REPAIRS_UI.textSecondary, textTransform: 'none', fontWeight: 600 }, '& .Mui-selected': { color: REPAIRS_UI.accent }, '& .MuiTabs-indicator': { backgroundColor: REPAIRS_UI.accent } }}>
         <Tab label="Details" />
+        <Tab label="Photos" />
         <Tab label="CAD & 3D" />
         <Tab label="Variants" />
+        <Tab label="Pieces" />
         <Tab label="Pricing" />
       </Tabs>
 
       {tab === 0 && <DetailsTab form={form} setField={setField} artisans={artisans} />}
-      {tab === 1 && <CadTab design={design} designId={designId} dropId={dropId} onReload={load} notify={notify} onCreateFirstVariant={configureFirstVariant} form={form} setField={setField} />}
-      {tab === 2 && (
+      {tab === 1 && <MediaTab design={design} designId={designId} onReload={load} notify={notify} />}
+      {tab === 2 && <CadTab design={design} designId={designId} dropId={dropId} onReload={load} notify={notify} onCreateFirstVariant={configureFirstVariant} form={form} setField={setField} />}
+      {tab === 3 && (
         <VariantsTab
           variants={form.variants}
           category={form.category}
@@ -2060,7 +2065,8 @@ export function DesignDetail({ dropId, designId, backHref, backLabel }) {
           onConfigure={configureVariant}
         />
       )}
-      {tab === 3 && (
+      {tab === 4 && <PiecesTab design={design} designId={designId} notify={notify} />}
+      {tab === 5 && (
         <PricingTab
           pricing={form.pricing}
           variants={form.variants}

@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Box, Typography, Stack, Paper, CircularProgress, Chip, Avatar } from '@mui/material';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import DiamondIcon from '@mui/icons-material/Diamond';
 import DesignServicesIcon from '@mui/icons-material/DesignServices';
@@ -15,11 +17,15 @@ const firstImage = (images) => {
   return typeof img === 'string' ? img : img?.url || null;
 };
 
-/** Artisan "My Listings" — the artisan's sellable Products (gemstones + jewelry). The
- *  products APIs scope both lists to the signed-in artisan; staff landing here see
- *  everything (they have the Products dashboard). Read-only: listings are completed and
- *  published from the admin side; the artisan's editable surface is My Designs. */
+/** Artisan "My Listings" — the artisan's sellable listings (gemstones + jewelry), resolved
+ *  from their designs and pieces. Both list APIs scope to the signed-in artisan; staff landing
+ *  here see everything.
+ *
+ *  Editable: a row opens the same editor an admin uses, and the editor routes authorize the
+ *  design's owner. It was read-only before only because nothing linked to them — so the person
+ *  who cut the stone could not fill in its carat, and had to ask EFD to do it. */
 export default function MyListingsPage() {
+  const router = useRouter();
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -64,8 +70,19 @@ export default function MyListingsPage() {
             const isGem = p.productType === 'gemstone';
             const img = firstImage(p.images);
             const live = ['published', 'active'].includes(p.status);
+            const href = `/dashboard/products/${isGem ? 'gemstones' : 'jewelry'}/${p.productId}`;
             return (
-              <Paper key={p.productId || p._id} sx={{ ...panelSx, p: 1.5 }}>
+              <Paper
+                key={p.productId || p._id}
+                onClick={() => p.productId && router.push(href)}
+                role="link"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' && p.productId) router.push(href); }}
+                sx={{
+                  ...panelSx, p: 1.5, cursor: p.productId ? 'pointer' : 'default',
+                  '&:hover': p.productId ? { borderColor: REPAIRS_UI.accent } : undefined,
+                }}
+              >
                 <Stack direction="row" alignItems="center" spacing={1.5}>
                   <Avatar variant="rounded" src={img || undefined} sx={{ width: 48, height: 48, bgcolor: REPAIRS_UI.border }}>
                     {isGem ? <DiamondIcon sx={{ color: REPAIRS_UI.accent, fontSize: 22 }} /> : <DesignServicesIcon sx={{ color: REPAIRS_UI.accent, fontSize: 22 }} />}
@@ -78,6 +95,7 @@ export default function MyListingsPage() {
                   </Box>
                   <Chip size="small" label={live ? 'Live in shop' : (p.status || 'draft')} variant="outlined"
                     sx={{ height: 20, textTransform: 'capitalize', ...(live ? { borderColor: REPAIRS_UI.accent, color: REPAIRS_UI.accent } : {}) }} />
+                  <ChevronRightIcon sx={{ color: REPAIRS_UI.textMuted, fontSize: 20 }} />
                 </Stack>
               </Paper>
             );

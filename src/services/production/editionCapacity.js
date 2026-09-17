@@ -12,6 +12,28 @@ const cappedFilter = {
   },
 };
 
+/**
+ * Take one slot out of the edition and return its number, atomically.
+ *
+ * This is the allocation half of `startManualProduction`, pulled out for callers whose piece is
+ * born already made (premade intake) and so never passes through `planned`. It shares
+ * `cappedFilter`, which is the invariant that matters: a design can only hand out as many
+ * numbers as its edition allows, and a one-of-one allows exactly one.
+ *
+ * @returns {Promise<number>} the piece's edition number
+ * @throws {EditionCapacityError} when the edition is spent
+ */
+export async function allocateEditionNumber({ database, designID, session = null }) {
+  const designs = database.collection(Constants.DESIGNS_COLLECTION);
+  const design = await designs.findOneAndUpdate(
+    { designID, $or: [{ 'edition.type': 'unlimited' }, cappedFilter] },
+    { $inc: { 'edition.allocated': 1, 'edition.nextNumber': 1 }, $set: { updatedAt: new Date() } },
+    { returnDocument: 'before', session },
+  );
+  if (!design) throw new EditionCapacityError('edition capacity exhausted');
+  return design.edition?.nextNumber ?? 1;
+}
+
 export async function claimMadeToOrder({ database, designID, variantId, resolvedConfiguration = {}, orderId = null, session = null }) {
   const designs = database.collection(Constants.DESIGNS_COLLECTION);
   const pieces = database.collection(Constants.PIECES_COLLECTION);
