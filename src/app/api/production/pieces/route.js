@@ -3,7 +3,7 @@ import { requireAuth } from '@/lib/apiAuth';
 import PiecesModel from '@/app/api/pieces/model';
 import DesignsModel from '@/app/api/designs/model';
 import DropsModel from '@/app/api/drops/model';
-import { isStaff, canManageDesign } from '@/lib/designPermissions';
+import { isStaff, canManageDesign, designListFilter } from '@/lib/designPermissions';
 import { canViewDrop } from '@/lib/dropPermissions';
 import { createPieceFromDesign, createDirectPiece } from '@/services/production/pieceRouting';
 import { intakePremadePiece } from '@/services/production/pieceIntake';
@@ -11,8 +11,8 @@ import { EditionCapacityError } from '@/services/production/editionCapacity';
 import { db } from '@/lib/database';
 
 /** GET /api/production/pieces — list (optional ?designID= / ?dropId= / ?status=).
- *  Staff see everything; artisans may read pieces of THEIR design, or of a drop they own or
- *  collaborate on (their My Drops surface shows its pieces) — nothing broader. */
+ *  Staff see everything; artisans may read pieces of THEIR design, of a drop they own or
+ *  collaborate on, or — unscoped — every piece across the designs they own. Nothing broader. */
 export const GET = async (req) => {
   const { session, errorResponse } = await requireAuth();
   if (errorResponse) return errorResponse;
@@ -35,7 +35,14 @@ export const GET = async (req) => {
       const drop = await DropsModel.findById(dropId);
       if (!drop || !canViewDrop(session, drop)) return NextResponse.json({ error: 'Access denied — not your drop.' }, { status: 403 });
     } else {
-      return NextResponse.json({ error: 'Access denied — scope the query to your design or drop.' }, { status: 403 });
+      // "My pieces": every physical piece of every design this artisan owns. Resolved from their
+      // designs rather than trusted from the caller, so the scope is still theirs alone — the
+      // endpoint used to refuse this outright, which left artisans with no way to see their own
+      // stock at all.
+      const owned = await DesignsModel.list(designListFilter(session));
+      const ids = owned.map((d) => d.designID).filter(Boolean);
+      if (!ids.length) return NextResponse.json([], { status: 200 });
+      filter.designID = { $in: ids };
     }
   }
 

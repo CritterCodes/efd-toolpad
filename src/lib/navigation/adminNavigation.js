@@ -56,6 +56,11 @@ export const adminNavigation = {
           icon: <ViewListIcon />
         },
         {
+          segment: 'pieces',
+          title: 'Pieces',
+          icon: <InventoryIcon />
+        },
+        {
           segment: 'drops',
           title: 'Drops',
           icon: <RocketLaunchIcon />
