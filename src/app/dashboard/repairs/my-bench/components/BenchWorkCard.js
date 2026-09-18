@@ -60,6 +60,15 @@ function taskHours(t) {
 function taskMaterials(t) {
   return (t.materials || []).map((m) => m.displayName || m.materialName || m.name).filter(Boolean);
 }
+function taskQty(t) {
+  return Math.max(Number(t?.quantity) || 1, 1);
+}
+// "Laser weld ×20 · 4h" — quantity shown when > 1; hours are the task total (per-unit × qty).
+function taskSummary(t) {
+  const qty = taskQty(t);
+  const hours = Math.round(taskHours(t) * qty * 100) / 100;
+  return `${taskLabel(t)}${qty > 1 ? ` ×${qty}` : ''}${hours > 0 ? ` · ${hours}h` : ''}${t?.isCustomLabor ? ' · custom labor' : ''}`;
+}
 
 function sourceTag(wo) {
   const s = wo.source || {};
@@ -79,6 +88,7 @@ export default function BenchWorkCard({
   const [glbReviewOpen, setGlbReviewOpen] = useState(false);
   const [handoffOpen, setHandoffOpen] = useState(false);
   const [signedOff, setSignedOff] = useState({}); // task index → checked
+  const [doneQty, setDoneQty] = useState({}); // task index → units done (multi-qty tasks; blank = all)
   const [handoffTarget, setHandoffTarget] = useState('');
   const lane = LANE[wo.discipline] || { label: wo.discipline, color: 'default', Icon: HandymanIcon };
   const LaneIcon = lane.Icon;
@@ -102,15 +112,30 @@ export default function BenchWorkCard({
 
   // Bench handoff: the assignee (or an admin on their behalf) signs off the tasks they did
   // and hands the rest off. Tasks already stamped completedByUserID are done/credited.
+  // A multi-quantity task (20 laser welds) can be signed off PARTIALLY ("I did 10") — the
+  // service splits it so the remainder travels with the hand-off and credits the finisher.
   const repairTasks = isRepair && Array.isArray(wo.tasks) ? wo.tasks : [];
   const uncreditedTaskIndexes = repairTasks.reduce((acc, t, i) => { if (!t?.completedByUserID) acc.push(i); return acc; }, []);
   const canHandoff = isRepair && wo.benchQueue === BENCH_QUEUE.IN_PROGRESS && (isMine || isAdmin) && uncreditedTaskIndexes.length > 0;
+  const handoffWorthwhile = repairTasks.length > 1 || repairTasks.some((t) => taskQty(t) > 1);
   const checkedIndexes = uncreditedTaskIndexes.filter((i) => signedOff[i]);
-  const allUncreditedChecked = uncreditedTaskIndexes.length > 0 && checkedIndexes.length === uncreditedTaskIndexes.length;
-  const closeHandoff = () => { setHandoffOpen(false); setSignedOff({}); setHandoffTarget(''); };
+  const qtyDoneFor = (i) => {
+    const total = taskQty(repairTasks[i]);
+    const n = parseInt(doneQty[i], 10);
+    return Number.isInteger(n) ? Math.min(Math.max(n, 1), total) : total;
+  };
+  const partialIndexes = checkedIndexes.filter((i) => qtyDoneFor(i) < taskQty(repairTasks[i]));
+  const allUncreditedChecked = uncreditedTaskIndexes.length > 0
+    && checkedIndexes.length === uncreditedTaskIndexes.length
+    && partialIndexes.length === 0;
+  const closeHandoff = () => { setHandoffOpen(false); setSignedOff({}); setDoneQty({}); setHandoffTarget(''); };
   const submitHandoff = () => {
     if (!checkedIndexes.length) return;
-    onAction(wo, 'handoff', { completedTaskIndexes: checkedIndexes, assignToUserID: allUncreditedChecked ? null : (handoffTarget || null) });
+    const payload = { completedTaskIndexes: checkedIndexes, assignToUserID: allUncreditedChecked ? null : (handoffTarget || null) };
+    if (partialIndexes.length) {
+      payload.completedQuantities = Object.fromEntries(partialIndexes.map((i) => [i, qtyDoneFor(i)]));
+    }
+    onAction(wo, 'handoff', payload);
     closeHandoff();
   };
 
@@ -208,7 +233,7 @@ export default function BenchWorkCard({
                       <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: REPAIRS_UI.accent, mt: '5px', flexShrink: 0 }} />
                       <Box sx={{ minWidth: 0 }}>
                         <Typography variant="caption" sx={{ color: REPAIRS_UI.textPrimary, fontSize: '0.78rem' }}>
-                          {taskLabel(t)}{hours > 0 && <Box component="span" sx={{ color: REPAIRS_UI.textMuted }}> · {hours}h</Box>}
+                          {taskLabel(t)}{taskQty(t) > 1 && <Box component="span" sx={{ color: REPAIRS_UI.textMuted }}> ×{taskQty(t)}</Box>}{hours > 0 && <Box component="span" sx={{ color: REPAIRS_UI.textMuted }}> · {Math.round(hours * taskQty(t) * 100) / 100}h</Box>}{t.isCustomLabor && <Box component="span" sx={{ color: REPAIRS_UI.textMuted }}> · custom labor</Box>}
                         </Typography>
                         {detail && <Typography variant="caption" sx={{ display: 'block', color: REPAIRS_UI.textMuted, fontSize: '0.68rem' }}>{detail.slice(0, 90)}{detail.length > 90 ? '…' : ''}</Typography>}
                         {mats.length > 0 && <Typography variant="caption" sx={{ display: 'block', color: REPAIRS_UI.textMuted, fontSize: '0.68rem' }}>parts: {mats.join(', ')}</Typography>}
@@ -288,7 +313,7 @@ export default function BenchWorkCard({
           <>
             <Button size="small" variant="outlined" disabled={busy} onClick={() => onAction(wo, 'unclaim')} sx={btn({ color: REPAIRS_UI.textSecondary })}>Unclaim</Button>
             <Button size="small" variant="outlined" startIcon={<PartsIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => onOpenPartsDialog?.(wo)} sx={btn({ color: REPAIRS_UI.textSecondary })}>Needs Parts</Button>
-            {canHandoff && repairTasks.length > 1 && (
+            {canHandoff && handoffWorthwhile && (
               <Button size="small" variant="outlined" startIcon={<HandymanIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => setHandoffOpen(true)} sx={btn({ color: '#E0A33E', borderColor: '#E0A33E' })}>Sign off &amp; hand off</Button>
             )}
             <Button size="small" variant="outlined" startIcon={<QCIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => onAction(wo, 'move-to-qc')} sx={btn({ color: '#00C49F', borderColor: '#00C49F' })}>Move to QC</Button>
@@ -400,17 +425,28 @@ export default function BenchWorkCard({
           {repairTasks.map((t, i) => (
             t.completedByUserID ? (
               <Typography key={i} variant="body2" sx={{ color: REPAIRS_UI.textMuted, pl: 0.5 }}>
-                ✓ {taskLabel(t)}{taskHours(t) > 0 ? ` · ${taskHours(t)}h` : ''}{t.completedByName ? ` — ${t.completedByName}` : ''}
+                ✓ {taskSummary(t)}{t.completedByName ? ` — ${t.completedByName}` : ''}
               </Typography>
             ) : (
-              <FormControlLabel
-                key={i}
-                control={<Checkbox checked={!!signedOff[i]} disabled={busy}
-                  onChange={(e) => setSignedOff((s) => ({ ...s, [i]: e.target.checked }))}
-                  sx={{ color: REPAIRS_UI.border, '&.Mui-checked': { color: REPAIRS_UI.accent } }} />}
-                label={`${taskLabel(t)}${taskHours(t) > 0 ? ` · ${taskHours(t)}h` : ''}`}
-                sx={{ color: REPAIRS_UI.textPrimary, '& .MuiFormControlLabel-label': { fontSize: '0.85rem' } }}
-              />
+              <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                <FormControlLabel
+                  control={<Checkbox checked={!!signedOff[i]} disabled={busy}
+                    onChange={(e) => setSignedOff((s) => ({ ...s, [i]: e.target.checked }))}
+                    sx={{ color: REPAIRS_UI.border, '&.Mui-checked': { color: REPAIRS_UI.accent } }} />}
+                  label={taskSummary(t)}
+                  sx={{ color: REPAIRS_UI.textPrimary, mr: 0, '& .MuiFormControlLabel-label': { fontSize: '0.85rem' } }}
+                />
+                {signedOff[i] && taskQty(t) > 1 && (
+                  <TextField
+                    type="number" size="small" label="Qty done" disabled={busy}
+                    value={doneQty[i] ?? taskQty(t)}
+                    onChange={(e) => setDoneQty((q) => ({ ...q, [i]: e.target.value }))}
+                    inputProps={{ min: 1, max: taskQty(t), step: 1, 'aria-label': `Quantity done for ${taskLabel(t)}` }}
+                    helperText={qtyDoneFor(i) < taskQty(t) ? `${taskQty(t) - qtyDoneFor(i)} left for the next jeweler` : ' '}
+                    sx={{ width: 120, ml: 'auto', '& .MuiOutlinedInput-root': { bgcolor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, fontSize: '0.8rem' }, '& .MuiInputLabel-root': { color: REPAIRS_UI.textMuted, fontSize: '0.8rem' }, '& .MuiFormHelperText-root': { color: REPAIRS_UI.textMuted, mx: 0 } }}
+                  />
+                )}
+              </Box>
             )
           ))}
         </Stack>

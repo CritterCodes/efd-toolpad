@@ -143,6 +143,7 @@ async function runRepairAction({ session, repairID, action, body }) {
       return signOffAndHandoffRepair({
         session, repairID,
         completedTaskIndexes: body?.completedTaskIndexes || [],
+        completedQuantities: body?.completedQuantities || {},
         assignToUserID: body?.assignToUserID || null,
       });
     }

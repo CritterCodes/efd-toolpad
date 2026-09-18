@@ -19,6 +19,7 @@ import {
   getUncreditedTaskIndexes,
   getLaborRateSnapshotForUser,
   groupCompletedTasksByJeweler,
+  stampCompletedTasks,
   calculateRepairLaborHours,
   calculateRepairChargeTotal,
 } from '@/app/api/repairLaborLogs/utils';
@@ -42,8 +43,12 @@ function jewelerName(user = {}) {
  *   - no tasks left  → move to QC (auto)
  *   - tasks left + assignToUserID → reassign to that jeweler (NOT flagged for review)
  *   - tasks left + no target       → release to the open bench queue
+ *
+ * `completedQuantities` ({ [taskIndex]: n }) lets the jeweler sign off PART of a
+ * multi-quantity task (10 of 20 welds): the task splits into a stamped portion and an
+ * un-stamped remainder that travels with the hand-off. See stampCompletedTasks.
  */
-export async function signOffAndHandoffRepair({ session, repairID, completedTaskIndexes = [], assignToUserID = null }) {
+export async function signOffAndHandoffRepair({ session, repairID, completedTaskIndexes = [], completedQuantities = {}, assignToUserID = null }) {
   const repair = await RepairsModel.findById(repairID);
   if (!repair) throw err('Repair not found.', 'NOT_FOUND');
 
@@ -57,12 +62,11 @@ export async function signOffAndHandoffRepair({ session, repairID, completedTask
   // Snapshot the assigned jeweler's rate at sign-off (fair: the rate when the work was done).
   const rate = Number(await getLaborRateSnapshotForUser({ userID: assigneeID, session })) || 0;
   const now = new Date();
-  const stampSet = new Set(indexes);
-  const tasks = (repair.tasks || []).map((task, i) => (
-    stampSet.has(i)
-      ? { ...task, completedByUserID: assigneeID, completedByName: repair.assignedJeweler || assigneeID, completedAt: now, laborRateSnapshot: rate }
-      : task
-  ));
+  const { tasks } = stampCompletedTasks({
+    tasks: repair.tasks || [],
+    completed: indexes.map((index) => ({ index, quantity: Number(completedQuantities?.[index]) || null })),
+    stamp: { completedByUserID: assigneeID, completedByName: repair.assignedJeweler || assigneeID, completedAt: now, laborRateSnapshot: rate },
+  });
 
   const remaining = tasks.reduce((acc, task, i) => {
     if (!task?.completedByUserID) acc.push(i);
@@ -129,7 +133,7 @@ export async function creditRepairLaborAtQc({ repair, session }) {
   const existing = await RepairLaborLogsModel.findByRepair(repair.repairID);
   if (existing.some((l) => l.sourceAction === QC_PASS_ACTION)) return { created: 0 };
 
-  let groups = groupCompletedTasksByJeweler(repair, { finalMoverUserID: repair.assignedTo });
+  let groups = groupCompletedTasksByJeweler(repair);
   if (!groups.length) {
     const uid = repair.assignedTo || session?.user?.userID;
     if (!uid) return { created: 0 };

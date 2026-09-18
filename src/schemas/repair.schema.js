@@ -96,10 +96,15 @@ export const repairSchema = {
         quantity: { type: 'number', default: 1, min: 1 },
         price: { type: 'number', default: 0, min: 0 },
         sku: { type: 'string' },
-        category: { type: 'string' }
+        category: { type: 'string' },
+        // Custom LABOR line (services/repairs/customLabor.js): an ad-hoc task priced from
+        // hours × wage through the task engine. Gets sign-off stamps + labor credit like any task.
+        isCustomLabor: { type: 'boolean', default: false },
+        laborHours: { type: 'number', min: 0, description: 'Per-unit labor hours (custom labor lines)' },
+        priceOverridden: { type: 'boolean', default: false, description: 'Unit price was set by hand (discount) and should survive re-pricing' }
       }
     },
-    description: 'Predefined tasks/services to be performed'
+    description: 'Tasks/services to be performed — catalog tasks and custom labor lines. The only source of labor hours.'
   },
 
   materials: {
@@ -133,7 +138,7 @@ export const repairSchema = {
         price: { type: 'number', default: 0, min: 0 }
       }
     },
-    description: 'Custom work items not in predefined lists'
+    description: 'Custom NON-labor charges (a sourced part, a fee, a misc charge). Never carries labor hours — custom labor is a task (tasks[].isCustomLabor).'
   },
 
   // Pricing

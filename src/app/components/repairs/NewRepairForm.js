@@ -51,6 +51,13 @@ import wholesaleClientsAPIClient from '@/api-clients/wholesaleClients.client';
 import wholesaleAccountSettingsAPIClient from '@/api-clients/wholesaleAccountSettings.client';
 import pricingEngine from '@/services/PricingEngine';
 import { alignTasksToMetal, taskAllowsMetal } from '@/services/repairs/metalTaskFilter';
+import {
+  buildCustomLaborTask,
+  updateCustomLaborTask as applyCustomLaborPatch,
+  repriceCustomLaborTask,
+  isCustomLaborTask,
+  calculatedCustomLaborPrice,
+} from '@/services/repairs/customLabor';
 import { extractRingSizesFromDescription, extractMetalContextFromDescription, normalizeRingSizeValue, RING_SIZES } from '@/services/repairs/smartIntakeExtractors';
 
 // Context
@@ -1828,17 +1835,36 @@ export default function NewRepairForm({
     }));
   };
 
+  // Custom NON-labor charge (a sourced part, a fee). No labor hours — labor is a task.
   const addCustomLineItem = () => {
     const newItem = {
       id: Date.now(),
       description: '',
       quantity: 1,
-      price: 0,
-      laborHours: 0
+      price: 0
     };
     setFormData(prev => ({
       ...prev,
       customLineItems: [...prev.customLineItems, newItem]
+    }));
+  };
+
+  // Custom LABOR line: a task priced from hours × wage through the task engine, so it gets
+  // sign-off / hand-off / per-jeweler labor credit like any catalog task. Price is editable
+  // (bulk discount) and the override survives re-pricing. See services/repairs/customLabor.js.
+  const addCustomLaborTask = () => {
+    const task = buildCustomLaborTask({ id: Date.now(), adminSettings, isWholesale: formData.isWholesale });
+    setFormData(prev => ({ ...prev, tasks: [...prev.tasks, task] }));
+  };
+
+  const patchCustomLaborTask = (id, patch) => {
+    setFormData(prev => ({
+      ...prev,
+      tasks: prev.tasks.map((task) => (
+        task.id === id && isCustomLaborTask(task)
+          ? applyCustomLaborPatch(task, patch, { adminSettings, isWholesale: prev.isWholesale })
+          : task
+      ))
     }));
   };
 
@@ -1847,6 +1873,9 @@ export default function NewRepairForm({
     setFormData(prev => ({
       ...prev,
       tasks: prev.tasks.map((task) => {
+        if (isCustomLaborTask(task)) {
+          return repriceCustomLaborTask(task, { adminSettings, isWholesale });
+        }
         const livePricing = computeTaskPricing(task, formData.metalType, formData.karat, formData.goldColor);
         const baseRetailPrice = livePricing?.retailPrice || computeTaskRetailPrice(task, formData.metalType, formData.karat, formData.goldColor);
         const wholesalePrice = livePricing?.wholesalePrice || computeTaskWholesalePrice(task, formData.metalType, formData.karat, formData.goldColor);
@@ -3118,6 +3147,8 @@ export default function NewRepairForm({
           addTask={addTask}
           addMaterial={addMaterial}
           addCustomLineItem={addCustomLineItem}
+          addCustomLaborTask={addCustomLaborTask}
+          patchCustomLaborTask={patchCustomLaborTask}
           removeItem={removeItem}
           updateItem={updateItem}
           stullerSku={stullerSku}
@@ -3283,6 +3314,8 @@ function RepairItemsSection({
   addTask,
   addMaterial,
   addCustomLineItem,
+  addCustomLaborTask,
+  patchCustomLaborTask,
   removeItem,
   updateItem,
   stullerSku,
@@ -3292,10 +3325,21 @@ function RepairItemsSection({
   addStullerMaterial
 }) {
   return (
-    <FormSection title="Work Items" subtitle="Tasks, materials, and custom charges for this repair">
-      <Typography variant="overline" sx={sectionLabelSx}>
-        Tasks {formData.tasks.length > 0 && `(${formData.tasks.length})`}
-      </Typography>
+    <FormSection title="Work Items" subtitle="Tasks (catalog or custom labor), materials, and non-labor charges for this repair">
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, gap: 1, flexWrap: 'wrap' }}>
+        <Typography variant="overline" sx={sectionLabelSx}>
+          Tasks {formData.tasks.length > 0 && `(${formData.tasks.length})`}
+        </Typography>
+        <Button
+          startIcon={<AddIcon />}
+          onClick={addCustomLaborTask}
+          variant="outlined"
+          size="small"
+          sx={{ borderColor: UI.border, color: UI.textPrimary }}
+        >
+          Custom labor
+        </Button>
+      </Box>
       <Stack spacing={1.5} sx={{ mb: 3 }}>
         <Autocomplete
           disablePortal
@@ -3317,14 +3361,24 @@ function RepairItemsSection({
           onChange={(e, value) => value && addTask(value)}
         />
         {formData.tasks.map(task => (
-          <TaskItem
-            key={task.id}
-            item={task}
-            onQuantityChange={(qty) => updateItem('tasks', task.id, 'quantity', qty)}
-            onPriceChange={(price) => updateItem('tasks', task.id, 'price', price)}
-            showPriceInput={false}
-            onRemove={() => removeItem('tasks', task.id)}
-          />
+          isCustomLaborTask(task) ? (
+            <CustomLaborItem
+              key={task.id}
+              item={task}
+              isWholesale={!!formData.isWholesale}
+              onChange={(patch) => patchCustomLaborTask(task.id, patch)}
+              onRemove={() => removeItem('tasks', task.id)}
+            />
+          ) : (
+            <TaskItem
+              key={task.id}
+              item={task}
+              onQuantityChange={(qty) => updateItem('tasks', task.id, 'quantity', qty)}
+              onPriceChange={(price) => updateItem('tasks', task.id, 'price', price)}
+              showPriceInput={false}
+              onRemove={() => removeItem('tasks', task.id)}
+            />
+          )
         ))}
       </Stack>
 
@@ -3417,7 +3471,7 @@ function RepairItemsSection({
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid', borderColor: UI.border, pt: 2.5, mb: 1.5 }}>
         <Typography variant="overline" sx={sectionLabelSx}>
-          Custom Items {formData.customLineItems.length > 0 && `(${formData.customLineItems.length})`}
+          Custom Charges {formData.customLineItems.length > 0 && `(${formData.customLineItems.length})`}
         </Typography>
         <Button
           startIcon={<AddIcon />}
@@ -3429,6 +3483,9 @@ function RepairItemsSection({
           Add
         </Button>
       </Box>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+        Non-labor only: a part you sourced, a fee, a misc charge. For bench work that isn&apos;t in the catalog, add <strong>Custom labor</strong> under Tasks so it&apos;s priced from hours and credited to whoever does it.
+      </Typography>
       <Stack spacing={1.5}>
         {formData.customLineItems.map(item => (
           <CustomLineItem
@@ -3437,7 +3494,6 @@ function RepairItemsSection({
             onDescriptionChange={(desc) => updateItem('customLineItems', item.id, 'description', desc)}
             onQuantityChange={(qty) => updateItem('customLineItems', item.id, 'quantity', qty)}
             onPriceChange={(price) => updateItem('customLineItems', item.id, 'price', price)}
-            onLaborHoursChange={(hours) => updateItem('customLineItems', item.id, 'laborHours', hours)}
             onRemove={() => removeItem('customLineItems', item.id)}
           />
         ))}
@@ -3534,13 +3590,91 @@ function TaskItem({ item, onQuantityChange, onPriceChange, onRemove, showPriceIn
   );
 }
 
-// Custom line item component
+// Custom LABOR line (a task): description, per-unit hours, qty, and a price that defaults to
+// the engine's hours × wage × markup but can be overridden (bulk discount). The override is
+// flagged so a wholesale/metal re-price keeps it; the calculated figure stays visible beside it.
+function CustomLaborItem({ item, isWholesale, onChange, onRemove }) {
+  const unitPrice = toNumber(item.price);
+  const qty = Math.max(parseInt(item.quantity, 10) || 1, 1);
+  const hours = toNumber(item.laborHours);
+  const calculated = calculatedCustomLaborPrice(item, { isWholesale });
+  const overridden = !!item.priceOverridden && calculated !== unitPrice;
+
+  return (
+    <Box
+      sx={{
+        p: { xs: 1.5, sm: 2 },
+        border: '1px solid',
+        borderColor: UI.border,
+        borderRadius: 2,
+        backgroundColor: UI.bgCard,
+        boxShadow: UI.shadow
+      }}
+    >
+      <Stack spacing={1.5}>
+        <Stack direction="row" alignItems="flex-start" spacing={1}>
+          <TextField
+            fullWidth
+            label="Custom labor"
+            value={item.description || ''}
+            onChange={(e) => onChange({ description: e.target.value })}
+            placeholder="What was done (e.g. Laser weld)…"
+            size="small"
+          />
+          <Chip label="Labor" size="small" variant="outlined" sx={{ ...neutralChipSx, mt: 0.5 }} />
+          <IconButton onClick={onRemove} size="small" sx={{ color: UI.textSecondary }}>
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Stack>
+        <Stack direction="row" spacing={1} alignItems="flex-start" flexWrap="wrap" useFlexGap>
+          <TextField
+            type="number"
+            label="Qty"
+            value={qty}
+            onChange={(e) => onChange({ quantity: parseInt(e.target.value, 10) || 1 })}
+            size="small"
+            sx={{ width: 70 }}
+            inputProps={{ min: 1 }}
+          />
+          <TextField
+            type="number"
+            label="Hrs / unit"
+            value={item.laborHours ?? 0}
+            onChange={(e) => onChange({ laborHours: parseFloat(e.target.value) || 0 })}
+            size="small"
+            sx={{ width: 100 }}
+            inputProps={{ min: 0, step: 0.05 }}
+          />
+          <TextField
+            type="number"
+            label="Price / unit"
+            value={item.price ?? 0}
+            onChange={(e) => onChange({ price: parseFloat(e.target.value) || 0 })}
+            size="small"
+            sx={{ width: 110 }}
+            inputProps={{ min: 0, step: 0.01 }}
+            helperText={overridden ? `Calculated $${calculated.toFixed(2)} · discounted` : `${isWholesale ? 'Wholesale' : 'Retail'} from hours`}
+          />
+          <Box sx={{ ml: 'auto', textAlign: 'right' }}>
+            <Typography variant="body2" sx={{ fontWeight: 700, whiteSpace: 'nowrap', color: UI.textHeader }}>
+              ${(unitPrice * qty).toFixed(2)}
+            </Typography>
+            <Typography variant="caption" sx={{ color: UI.textMuted, whiteSpace: 'nowrap' }}>
+              {(hours * qty).toFixed(2)} hrs total
+            </Typography>
+          </Box>
+        </Stack>
+      </Stack>
+    </Box>
+  );
+}
+
+// Custom NON-labor charge (a sourced part, a fee, a misc charge). Never carries labor hours.
 function CustomLineItem({
   item,
   onDescriptionChange,
   onQuantityChange,
   onPriceChange,
-  onLaborHoursChange,
   onRemove
 }) {
   return (
@@ -3561,7 +3695,7 @@ function CustomLineItem({
             label="Description"
             value={item.description}
             onChange={(e) => onDescriptionChange(e.target.value)}
-            placeholder="Custom work description..."
+            placeholder="Part, fee, or other non-labor charge..."
             size="small"
           />
           <IconButton onClick={onRemove} size="small" sx={{ color: UI.textSecondary }}>
@@ -3577,15 +3711,6 @@ function CustomLineItem({
             size="small"
             sx={{ width: 70 }}
             inputProps={{ min: 1 }}
-          />
-          <TextField
-            type="number"
-            label="Labor Hrs"
-            value={item.laborHours ?? 0}
-            onChange={(e) => onLaborHoursChange(parseFloat(e.target.value) || 0)}
-            size="small"
-            sx={{ width: 110 }}
-            inputProps={{ min: 0, step: 0.1 }}
           />
           <TextField
             type="number"
