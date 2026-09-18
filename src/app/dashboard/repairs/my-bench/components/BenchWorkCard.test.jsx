@@ -77,4 +77,42 @@ describe('BenchWorkCard (React 19 render smoke)', () => {
       { completedTaskIndexes: [0, 1], assignToUserID: null },
     );
   });
+
+  // repair-86f66304: one custom labor line "Laser weld ×20", the assignee did 10 of them.
+  const splitWO = {
+    ...baseWO,
+    tasks: [
+      { title: 'Set stone', laborHours: 0.2, quantity: 10, completedByUserID: 'u-me', completedByName: 'Me' },
+      { title: 'Laser weld', isCustomLabor: true, laborHours: 0.2, quantity: 20, price: 15 },
+    ],
+  };
+
+  it('offers sign-off on a single remaining multi-quantity task and shows qty + total hours', () => {
+    renderCard({ wo: splitWO });
+    expect(screen.getByText(/×20/)).toBeInTheDocument();
+    expect(screen.getByText(/· 4h/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Sign off & hand off/i })).toBeInTheDocument();
+  });
+
+  it('signing off part of a task sends completedQuantities and does NOT route to QC', () => {
+    const onAction = vi.fn();
+    renderCard({ wo: splitWO, onAction });
+    fireEvent.click(screen.getByRole('button', { name: /Sign off & hand off/i }));
+    const dialog = screen.getByRole('dialog');
+    // The stone-setting line is already stamped → only the weld line is a checkbox.
+    const boxes = within(dialog).getAllByRole('checkbox');
+    expect(boxes).toHaveLength(1);
+    fireEvent.click(boxes[0]);
+    const qty = within(dialog).getByLabelText(/Quantity done for Laser weld/i);
+    fireEvent.change(qty, { target: { value: '10' } });
+    expect(within(dialog).getByText(/10 left for the next jeweler/i)).toBeInTheDocument();
+    // Partial → hand-off, never "send to QC".
+    expect(within(dialog).queryByRole('button', { name: /send to QC/i })).toBeNull();
+    fireEvent.click(within(dialog).getByRole('button', { name: /^Sign off & hand off$/i }));
+    expect(onAction).toHaveBeenCalledWith(
+      splitWO,
+      'handoff',
+      { completedTaskIndexes: [1], completedQuantities: { 1: 10 }, assignToUserID: null },
+    );
+  });
 });

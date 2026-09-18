@@ -17,24 +17,16 @@ async function getShopLaborWage() {
   }
 }
 
+/**
+ * Total labor hours on a repair = the sum over `tasks[]` (catalog tasks AND custom labor
+ * lines, which are tasks with `isCustomLabor: true`). `customLineItems[]` are NON-labor
+ * charges (parts, fees) and contribute nothing here — owner ruling 2026-09-18; see
+ * services/repairs/customLabor.js. Legacy custom line items may still carry a stale
+ * `laborHours` field from before the split; it is deliberately ignored.
+ */
 export function calculateRepairLaborHours(repair = {}) {
-  const taskHours = (repair.tasks || []).reduce((sum, task) => {
-    const quantity = Math.max(Number(task?.quantity) || 1, 1);
-    const taskHours =
-      Number(task?.pricing?.totalLaborHours)
-      || Number(task?.laborHours)
-      || 0;
-
-    return sum + (taskHours * quantity);
-  }, 0);
-
-  const customLineItemHours = (repair.customLineItems || []).reduce((sum, item) => {
-    const quantity = Math.max(Number(item?.quantity) || 1, 1);
-    const lineHours = Number(item?.laborHours) || 0;
-    return sum + (lineHours * quantity);
-  }, 0);
-
-  return Math.round((taskHours + customLineItemHours) * 100) / 100;
+  const taskHours = (repair.tasks || []).reduce((sum, task) => sum + taskLaborHours(task), 0);
+  return Math.round(taskHours * 100) / 100;
 }
 
 /** Hours for a single repair task (per-task form of calculateRepairLaborHours). */
@@ -59,22 +51,62 @@ export function sumTaskLaborHours(repair = {}, indexes = []) {
   return Math.round(total * 100) / 100;
 }
 
-function sumCustomLineItemHours(repair = {}) {
-  const h = (repair.customLineItems || []).reduce((sum, item) => {
-    const quantity = Math.max(Number(item?.quantity) || 1, 1);
-    return sum + (Number(item?.laborHours) || 0) * quantity;
-  }, 0);
-  return Math.round(h * 100) / 100;
+/**
+ * Stamp the tasks a jeweler signed off, splitting a multi-quantity task when they only
+ * did PART of it (e.g. 10 of 20 laser welds — the other 10 go to whoever finishes).
+ *
+ * `completed` is [{ index, quantity? }] (a bare index means the whole task). A partial
+ * quantity splits the task in place into two entries: the stamped portion (qty n) at the
+ * original index, and an un-stamped remainder (qty Q−n, fresh id) inserted right after it.
+ * Per-unit fields (price, laborHours, pricing) are shared by both halves, so the ticket
+ * total and total hours are unchanged — only who gets credit moves.
+ *
+ * Already-stamped tasks and out-of-range indexes are ignored. Pure; used by the sign-off
+ * service and unit-tested directly.
+ * @returns {{ tasks: Array, stampedCount: number }}
+ */
+export function stampCompletedTasks({ tasks = [], completed = [], stamp = {} } = {}) {
+  const byIndex = new Map();
+  for (const c of completed || []) {
+    const isObj = typeof c === 'object' && c !== null;
+    const index = Number(isObj ? c.index : c);
+    if (!Number.isInteger(index) || index < 0 || index >= tasks.length) continue;
+    if (tasks[index]?.completedByUserID) continue;
+    const requested = isObj ? Number(c.quantity) : NaN;
+    byIndex.set(index, Number.isInteger(requested) && requested > 0 ? requested : null);
+  }
+
+  const out = [];
+  let stampedCount = 0;
+  let splitSeq = 0;
+  tasks.forEach((task, i) => {
+    if (!byIndex.has(i)) { out.push(task); return; }
+    const total = Math.max(Number(task?.quantity) || 1, 1);
+    const requested = byIndex.get(i);
+    const done = requested == null ? total : Math.min(requested, total);
+    stampedCount += 1;
+    if (done >= total) { out.push({ ...task, ...stamp }); return; }
+    // Partial: the stamped portion keeps the id; the remainder gets a fresh one so form/bench keys stay unique.
+    out.push({ ...task, quantity: done, ...stamp });
+    const remainder = { ...task, id: `${task?.id ?? i}-r${Date.now()}${splitSeq++}`, quantity: total - done };
+    delete remainder.completedByUserID;
+    delete remainder.completedByName;
+    delete remainder.completedAt;
+    delete remainder.laborRateSnapshot;
+    out.push(remainder);
+  });
+  return { tasks: out, stampedCount };
 }
 
 /**
  * Group signed-off tasks by the jeweler who did them → one entry per jeweler with summed
- * hours and the rate snapshot captured at sign-off. customLineItem hours (no per-task
- * stamp) fold into `finalMoverUserID`'s bucket — the jeweler who did the final move-to-QC.
+ * hours and the rate snapshot captured at sign-off. Custom labor lines are tasks too, so
+ * they are credited to whoever stamped them, exactly like catalog tasks. Non-labor
+ * `customLineItems` never enter labor credit.
  * `rate` may be 0 if it wasn't captured; the caller backfills it before paying.
  * @returns {Array<{ userID, name, hours, rate }>}
  */
-export function groupCompletedTasksByJeweler(repair = {}, { finalMoverUserID = null } = {}) {
+export function groupCompletedTasksByJeweler(repair = {}) {
   const byUser = new Map();
   for (const task of repair.tasks || []) {
     const userID = task?.completedByUserID;
@@ -84,13 +116,6 @@ export function groupCompletedTasksByJeweler(repair = {}, { finalMoverUserID = n
     if (!cur.name && task.completedByName) cur.name = task.completedByName;
     if (!cur.rate && Number(task.laborRateSnapshot) > 0) cur.rate = Number(task.laborRateSnapshot);
     byUser.set(userID, cur);
-  }
-  const extra = sumCustomLineItemHours(repair);
-  if (extra > 0 && byUser.size) {
-    const targetID = finalMoverUserID && byUser.has(finalMoverUserID)
-      ? finalMoverUserID
-      : [...byUser.keys()][byUser.size - 1];
-    byUser.get(targetID).hours += extra;
   }
   return [...byUser.values()].map((e) => ({ ...e, hours: Math.round(e.hours * 100) / 100 }));
 }

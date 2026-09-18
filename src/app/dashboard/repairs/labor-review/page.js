@@ -44,6 +44,7 @@ function getRepairChargeTotal(repair = {}) {
   return Number(repair.totalCost || 0) > 0 ? Number(repair.totalCost || 0) : computedTotal;
 }
 
+// Labor lives on tasks[] only (custom labor is a task); customLineItems are non-labor charges.
 function getRepairSuggestedLaborHours(repair = {}) {
   const taskHours = (repair.tasks || []).reduce((sum, item) => {
     const quantity = Math.max(Number(item?.quantity) || 1, 1);
@@ -51,13 +52,7 @@ function getRepairSuggestedLaborHours(repair = {}) {
     return sum + (hours * quantity);
   }, 0);
 
-  const customHours = (repair.customLineItems || []).reduce((sum, item) => {
-    const quantity = Math.max(Number(item?.quantity) || 1, 1);
-    const hours = Number(item?.laborHours) || 0;
-    return sum + (hours * quantity);
-  }, 0);
-
-  return Math.round((taskHours + customHours) * 100) / 100;
+  return Math.round(taskHours * 100) / 100;
 }
 
 function getWorkItemLabels(repair = {}) {
