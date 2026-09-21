@@ -44,6 +44,7 @@ import {
   isCustomLaborTask,
 } from '@/services/repairs/customLabor';
 import { buildStullerRepairMaterial } from '@/services/pricing/stullerMaterial';
+import { normalizeSpokenIntake } from '@/services/repairs/spokenIntake';
 import { wholesalerBusinessName } from '@/services/wholesale/businessName';
 
 
@@ -1429,7 +1430,8 @@ export default function useNewRepairForm({
   }, [availableTasks, applySmartIntakeResults]);
 
   const handleAnalyzeSmartIntake = useCallback(async () => {
-    const parsingText = String(formData.smartIntakeInput || '').trim();
+    // Dictated forms ("14 karat", "7 and a half") folded into what the extractors match.
+    const parsingText = normalizeSpokenIntake(String(formData.smartIntakeInput || '').trim());
     if (!parsingText) {
       setSmartIntakeError('Enter intake details first.');
       return;

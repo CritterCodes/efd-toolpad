@@ -33,7 +33,8 @@ import {
   DialogActions,
   Button,
   useMediaQuery,
-  useTheme
+  useTheme,
+  InputAdornment
 } from '@mui/material';
 import { LoadingButton } from '@mui/lab';
 import { AutoAwesome as AutoAwesomeIcon } from '@mui/icons-material';
@@ -42,6 +43,7 @@ import { taskAllowsMetal } from '@/services/repairs/metalTaskFilter';
 import { isCustomLaborTask, calculatedCustomLaborPrice, buildCustomLaborTask } from '@/services/repairs/customLabor';
 import { RING_SIZES } from '@/services/repairs/smartIntakeExtractors';
 import CameraCapture from '@/components/shared/CameraCapture';
+import SmartIntakeMic from '@/app/components/repairs/SmartIntakeMic';
 import PromiseDateSuggestion from '@/app/components/repairs/PromiseDateSuggestion';
 import { METAL_TYPES, GOLD_COLORS } from '@/constants/customRequest.constants';
 import useNewRepairForm, {
@@ -321,6 +323,25 @@ export default function NewRepairFlow(props) {
   const EMPTY_LABOR = { description: '', laborHours: 0, quantity: 1, price: '' };
   const [laborDraft, setLaborDraft] = useState(EMPTY_LABOR);
   const [reviewTotal, setReviewTotal] = useState(null);
+  // Voice input for the sentence: each finished phrase is appended; when the jeweler taps the
+  // mic to STOP (not when the engine times out), the sentence is analyzed for them.
+  const [dictation, setDictation] = useState({ listening: false, interim: '', error: '', endedByUser: false });
+  const analyzeAfterDictationRef = useRef(false);
+  const appendDictated = (text) => {
+    setSmartIntakeError('');
+    setFormData((prev) => ({ ...prev, smartIntakeInput: [String(prev.smartIntakeInput || '').trim(), text].filter(Boolean).join(' ') }));
+  };
+  const onDictationStatus = (status) => {
+    if (status.endedByUser) analyzeAfterDictationRef.current = true;
+    setDictation((prev) => ({ ...prev, ...status }));
+  };
+  useEffect(() => {
+    if (!analyzeAfterDictationRef.current || dictation.listening) return;
+    analyzeAfterDictationRef.current = false;
+    if (String(formData.smartIntakeInput || '').trim()) handleAnalyzeSmartIntake();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dictation.listening, formData.smartIntakeInput]);
+
   const [showFullBreakdown, setShowFullBreakdown] = useState(false);
 
   const goNext = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));
@@ -648,12 +669,25 @@ export default function NewRepairFlow(props) {
                     handleAnalyzeSmartIntake();
                   }
                 }}
-                placeholder="Size down 14k white gold ring from 7 to 6.5, retip two prongs"
+                placeholder={dictation.listening ? 'Listening… say what needs doing' : 'Size down 14k white gold ring from 7 to 6.5, retip two prongs'}
                 inputProps={{ style: { fontSize: 16 } }}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end" sx={{ alignSelf: 'flex-start', mt: 0.5 }}>
+                      <SmartIntakeMic onTranscript={appendDictated} onStatus={onDictationStatus} />
+                    </InputAdornment>
+                  ),
+                }}
                 sx={{ mt: 1.5 }}
               />
+              {dictation.listening && (
+                <Typography variant="caption" sx={{ display: 'block', mt: 0.75, color: facelift.gold }}>
+                  Listening{dictation.interim ? `: “${dictation.interim}”` : '…'} Tap the mic again to stop and analyze.
+                </Typography>
+              )}
+              {dictation.error && <Alert severity="warning" sx={{ mt: 1.5 }}>{dictation.error}</Alert>}
               <Box sx={{ mt: 1.5 }}>
-                <GoldButton onClick={handleAnalyzeSmartIntake} disabled={analyzingSmartIntake} aria-label="Analyze the sentence">
+                <GoldButton onClick={handleAnalyzeSmartIntake} disabled={analyzingSmartIntake || dictation.listening} aria-label="Analyze the sentence">
                   <AutoAwesomeIcon sx={{ fontSize: 16 }} />
                   {analyzingSmartIntake ? 'Reading the sentence…' : 'Analyze the sentence'}
                 </GoldButton>
