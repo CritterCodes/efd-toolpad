@@ -14,6 +14,7 @@ import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import ChecklistIcon from '@mui/icons-material/Checklist';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import DesignServicesIcon from '@mui/icons-material/DesignServices';
+import Inventory2Icon from '@mui/icons-material/Inventory2';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import { SHARED_NAVIGATION } from './sharedNavigation';
@@ -144,6 +145,9 @@ export function generateArtisanNavigation(artisanTypes = [], staffCapabilities =
     base.push(
       { kind: 'header', title: 'Designs' },
       { segment: 'dashboard/artisan/designs', title: 'My Designs', icon: <DesignServicesIcon /> },
+      // The physical pieces behind those designs — the pieces API scopes the list to designs
+      // this artisan owns, which it used to refuse outright.
+      { segment: 'dashboard/artisan/pieces', title: 'My Pieces', icon: <Inventory2Icon /> },
       // The artisan's sellable Products (gemstone + jewelry listings, incl. consigned items).
       // Both products APIs scope their lists to the signed-in artisan — without this entry the
       // scoped listing endpoints had no artisan-facing page calling them.
