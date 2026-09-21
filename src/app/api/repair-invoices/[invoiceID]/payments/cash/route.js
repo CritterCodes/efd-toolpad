@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireRepairOpsAny, requireRole } from '@/lib/apiAuth';
 import RepairInvoicesModel from '@/app/api/repair-invoices/model';
-import { computePaymentStatus, syncPaidRepairs } from '@/app/api/repair-invoices/service';
+import { computePaymentStatus, syncPaidRepairs, invoiceGrossTotal } from '@/app/api/repair-invoices/service';
 
 async function requireCloseoutAccess() {
   const adminResult = await requireRole(['admin']);
@@ -22,9 +22,8 @@ export const POST = async (req, { params }) => {
     }
 
     const invoice = await RepairInvoicesModel.findByInvoiceID(params.invoiceID);
-    const grossTotal = parseFloat(invoice.subtotal || 0)
-      + parseFloat(invoice.taxAmount || 0)
-      + parseFloat(invoice.deliveryFee || 0);
+    // Shared helper — includes the carrier shipping fee (see invoiceGrossTotal).
+    const grossTotal = invoiceGrossTotal(invoice);
     // CASH DISCOUNT REMOVED (owner, 2026-09-04): cash payments no longer round the
     // total down to the nearest $5. A discount already STORED on an old open invoice
     // is still honored — that total was already quoted to the customer.

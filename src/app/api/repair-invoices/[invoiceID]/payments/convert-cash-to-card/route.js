@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireRepairOpsAny, requireRole } from '@/lib/apiAuth';
 import RepairInvoicesModel from '@/app/api/repair-invoices/model';
-import { syncPaidRepairs } from '@/app/api/repair-invoices/service';
+import { syncPaidRepairs, invoiceGrossTotal } from '@/app/api/repair-invoices/service';
 
 const CARD_SURCHARGE_RATE = 0.03;
 
@@ -40,11 +40,8 @@ export const POST = async (req, { params }) => {
       return NextResponse.json({ error: 'Cash-to-card correction only supports invoices paid entirely as cash.' }, { status: 400 });
     }
 
-    const grossTotal = roundMoney(
-      parseFloat(invoice.subtotal || 0)
-      + parseFloat(invoice.taxAmount || 0)
-      + parseFloat(invoice.deliveryFee || 0)
-    );
+    // Shared helper — includes the carrier shipping fee (see invoiceGrossTotal).
+    const grossTotal = roundMoney(invoiceGrossTotal(invoice));
     const processingFee = roundMoney(grossTotal * CARD_SURCHARGE_RATE);
     const cardTotal = roundMoney(grossTotal + processingFee);
     const lastCashIndex = completedCashIndexes[completedCashIndexes.length - 1];
