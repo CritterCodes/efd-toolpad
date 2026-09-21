@@ -162,7 +162,8 @@ export default class UserController {
                 );
             }
 
-            const users = await UserService.getUsersByRole(role);
+            // Terminated staff are hidden unless an admin list asks for them (?includeTerminated=1).
+            const users = await UserService.getUsersByRole(role, { includeTerminated: searchParams.get('includeTerminated') === '1' });
             
             return new Response(
                 JSON.stringify({ 

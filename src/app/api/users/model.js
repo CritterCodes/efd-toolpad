@@ -46,6 +46,9 @@ export const USER_SECRET_FIELDS = Object.freeze({
 export const USER_PRIVILEGE_FIELDS = Object.freeze([
     'role', 'password', 'status', 'emailVerified', 'staffCapabilities', 'mustChangePassword',
     'resetToken', 'resetTokenExpiry', 'verificationToken', 'permissions',
+    // The offboarding record (services/users/terminateArtisan.js). Only the terminate/reinstate
+    // routes write it; the generic PUT re-sends the fetched record and must not be able to erase it.
+    'termination',
 ]);
 // NOT in that list, deliberately: `employment` and `compensationProfile`. The admin user-management
 // page edits both, and repair-ops access needs `employment.isOnsite` AND `staffCapabilities.repairOps`
@@ -206,10 +209,14 @@ export default class UserModel {
      * @param {string} role - The role to filter by
      * @returns {Array} - Array of users with the specified role
      */
-    static getUsersByRole = async (role) => {
+    static getUsersByRole = async (role, { includeTerminated = false } = {}) => {
         try {
             const dbUsers = await db.dbUsers();
-            const users = await dbUsers.find({ role: role }, { projection: USER_SECRET_FIELDS }).toArray();
+            // Terminated staff are hidden from every role listing (collaborator pickers, artisan
+            // directory) by default. They are not deleted — their name stays on the financial
+            // records — and an admin list can opt in with includeTerminated.
+            const filter = includeTerminated ? { role } : { role, status: { $ne: 'terminated' } };
+            const users = await dbUsers.find(filter, { projection: USER_SECRET_FIELDS }).toArray();
             return users;
         } catch (error) {
             console.error("Error retrieving users by role:", error);

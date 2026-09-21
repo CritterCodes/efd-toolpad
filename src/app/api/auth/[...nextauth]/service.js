@@ -79,6 +79,12 @@ export default class AuthService {
             }
             console.log('✅ [AUTH_SERVICE] Authentication successful for:', email);
 
+            if (user.status === 'terminated' || user.status === 'suspended') {
+                // Deactivated by an admin (services/users/terminateArtisan.js). Not a verification
+                // problem, so don't send them looking for a verification email.
+                console.log('❌ [AUTH_SERVICE] Deactivated account attempted sign-in:', email);
+                throw new Error("This account has been deactivated.");
+            }
             if (user.status !== 'verified') {
                 console.log('❌ [AUTH_SERVICE] User not verified:', email);
                 throw new Error("Please verify your email before logging in.");

@@ -101,7 +101,7 @@ const ASSIGNABLE_ARTISAN_QUERY = {
   role: { $in: ['artisan', 'senior-artisan'] },
   isApproved: { $ne: false },
   isActive: { $ne: false },
-  status: { $nin: ['inactive', 'disabled', 'deleted'] },
+  status: { $nin: ['inactive', 'disabled', 'deleted', 'terminated'] },
 };
 function getJewelerName(user) {
   const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();

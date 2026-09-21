@@ -3,7 +3,9 @@
  * Used in pages and API routes to validate user permissions
  */
 
-import { auth } from '../../auth.js';
+// Via the wrapper, not the raw root auth: the wrapper overlays the live account state, so a
+// terminated account is signed out here too (services/users/accountRevocation.js).
+import { auth } from '@/lib/auth';
 import { UnifiedUserService } from './unifiedUserService.js';
 import { redirect } from 'next/navigation';
 
