@@ -8,6 +8,7 @@ import {
   buildReinstateUpdate,
   assertTerminable,
   RELEASABLE_REPAIR_STATUSES,
+  FINISHED_WORK_ORDER_STATUSES,
   TERMINATED_STATUS,
 } from './terminateArtisan';
 
@@ -62,5 +63,11 @@ describe('release policy', () => {
     expect(RELEASABLE_REPAIR_STATUSES).not.toContain('QC');
     expect(RELEASABLE_REPAIR_STATUSES).not.toContain('READY FOR PICKUP');
     expect(RELEASABLE_REPAIR_STATUSES).not.toContain('PAID_CLOSED');
+  });
+
+  it('treats UPPERCASE piece work-order completion as finished (prod stores COMPLETED, not completed)', () => {
+    expect(FINISHED_WORK_ORDER_STATUSES).toContain('COMPLETED');
+    expect(FINISHED_WORK_ORDER_STATUSES).toContain('completed');
+    expect(FINISHED_WORK_ORDER_STATUSES).not.toContain('IN PROGRESS');
   });
 });

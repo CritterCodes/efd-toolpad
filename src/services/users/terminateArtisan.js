@@ -36,6 +36,11 @@ export const RELEASABLE_REPAIR_STATUSES = Object.freeze([
   REPAIR_STATUS.COMMUNICATION_REQUIRED,
 ]);
 
+/** Work-order states that mean "done" — prod stores piece WOs UPPERCASE ('COMPLETED'), so both cases. */
+export const FINISHED_WORK_ORDER_STATUSES = Object.freeze([
+  'completed', 'COMPLETED', 'cancelled', 'CANCELLED', 'PAID_CLOSED', 'PICKED UP', 'DELIVERED', 'delivered',
+]);
+
 const PROTECTED_ROLES = Object.freeze(['admin', 'dev']);
 
 function err(message, code) {
@@ -110,7 +115,7 @@ export async function previewTermination(userID) {
     ).toArray(),
     dbInstance.collection('repairs').countDocuments({ assignedTo: userID, status: REPAIR_STATUS.QC }),
     dbInstance.collection('workOrders').find(
-      { assignedToUserID: userID, sourceType: { $ne: 'repair' }, status: { $nin: ['completed', 'cancelled', 'PAID_CLOSED'] } },
+      { assignedToUserID: userID, sourceType: { $ne: 'repair' }, status: { $nin: [...FINISHED_WORK_ORDER_STATUSES] } },
       { projection: { _id: 0, workOrderID: 1, sourceType: 1, sourceID: 1, title: 1, status: 1 } },
     ).toArray(),
     dbInstance.collection('pushSubscriptions').countDocuments({ userID }),
