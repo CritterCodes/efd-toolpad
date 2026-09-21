@@ -20,7 +20,7 @@ import { NotificationService, CHANNELS } from '@/lib/notificationService';
 import { resolveWholesaleInvoiceRecipients } from '@/services/wholesale/invoiceNotifications';
 import { REPAIR_STATUS } from '@/services/repairWorkflow';
 import { adminLink } from '@/lib/appUrls';
-import { quoteShipment, buyShipment, isEasyPostConfigured, easyPostMode } from './easypost';
+import { quoteShipment, buyShipment, isEasyPostConfigured, easyPostMode, SATURDAY_EMPTY_HINT, relevantCarrierMessages } from './easypost';
 import { findParcelPreset, parcelForEasyPost, resolveParcelPresets } from './parcels';
 import { loadShipFrom, resolveInvoiceShipTo, addressProblems } from './addresses';
 import { buildFulfillmentUpdate, buildLabelUpdate, labelCostDrift } from './invoiceFulfillment';
@@ -70,7 +70,10 @@ export async function quoteInvoiceShipping({ invoiceID, parcelKey = '', saturday
     reference: invoice.invoiceID,
     options: saturdayDelivery ? { saturday_delivery: true } : null,
   });
-  if (!quote.rates.length) throw err('The carrier returned no rates for this address and parcel.', 'BAD_GATEWAY');
+  if (!quote.rates.length) {
+    const detail = relevantCarrierMessages(quote.messages).join(' ');
+    throw err(saturdayDelivery ? `${SATURDAY_EMPTY_HINT}${detail ? ` (${detail})` : ''}` : `The carrier returned no rates for this address and parcel.${detail ? ` ${detail}` : ''}`, 'BAD_REQUEST');
+  }
 
   const stored = { ...quote, parcelKey: preset.key, parcelLabel: preset.label, shipTo: readiness.shipTo, shipFrom: readiness.shipFrom, quotedBy: actor.userID || '' };
   await RepairInvoicesModel.updateByInvoiceID(invoice.invoiceID, { shippingQuote: stored });

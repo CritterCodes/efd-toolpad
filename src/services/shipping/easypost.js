@@ -15,6 +15,22 @@
 
 export const EASYPOST_BASE_URL = 'https://api.easypost.com/v2';
 
+/**
+ * Why a Saturday quote can come back empty: FedEx offers Saturday delivery only when Saturday IS
+ * the scheduled delivery day for that service from today's ship date — Priority Overnight shipped
+ * Friday, 2Day shipped Thursday. Quoted on a Monday, nothing is Saturday-eligible. First seen
+ * 2026-09-21 (a Monday) on the Marlen rate check.
+ */
+export const SATURDAY_EMPTY_HINT = 'No Saturday-eligible services for a shipment today. FedEx offers Saturday delivery only when Saturday is the delivery day: quote and ship on Friday for Priority Overnight, Thursday for 2Day. Untick Saturday to see weekday services.';
+
+/** The carrier messages worth showing a human (FedEx + generic), trimmed. */
+export function relevantCarrierMessages(messages = [], carriers = ['FedEx']) {
+  const wanted = new Set(carriers.map((c) => carrierBrand(c).toLowerCase()));
+  return (messages || [])
+    .filter((m) => wanted.has(carrierBrand(m.carrier).toLowerCase()))
+    .map((m) => `${carrierBrand(m.carrier)}: ${m.message}`);
+}
+
 export class EasyPostError extends Error {
   constructor(message, { status = 0, code = '', details = null } = {}) {
     super(message);
