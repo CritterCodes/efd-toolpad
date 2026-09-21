@@ -69,10 +69,12 @@ export default function PendingWholesalePage() {
                 storeName: repair.wholesalerName || repair.businessName || 'Unknown Store',
                 repairs: [],
                 pickupRequested: 0,
-                pending: 0
+                pending: 0,
+                quotesNeeded: 0
             };
         }
         acc[key].repairs.push(repair);
+        if (repair.quoteRequest?.status === 'requested') acc[key].quotesNeeded++;
         if (repair.normalizedStatus === REPAIR_STATUS.PICKUP_REQUESTED) acc[key].pickupRequested++;
         else acc[key].pending++;
         return acc;
@@ -244,6 +246,13 @@ export default function PendingWholesalePage() {
                                                 label={`${store.pending} drop-off`}
                                                 size="small"
                                                 sx={{ backgroundColor: REPAIRS_UI.bgCard, color: '#F59E0B', border: '1px solid #F59E0B', fontSize: '0.7rem' }}
+                                            />
+                                        )}
+                                        {store.quotesNeeded > 0 && (
+                                            <Chip
+                                                label={`${store.quotesNeeded} need${store.quotesNeeded === 1 ? 's' : ''} a quote`}
+                                                size="small"
+                                                sx={{ backgroundColor: REPAIRS_UI.bgCard, color: '#A855F7', border: '1px solid #A855F7', fontSize: '0.7rem' }}
                                             />
                                         )}
                                     </Box>

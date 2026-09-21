@@ -15,6 +15,7 @@ import { blockSlotForWalkIn } from "@/services/appointments/benchSlots";
 import { adminBase } from '@/lib/appUrls';
 import { db } from "@/lib/database";
 import { wholesalerBusinessName } from "@/services/wholesale/businessName";
+import { buildQuoteRequest } from "@/services/repairs/quoteRequest";
 
 async function createWhileYouWaitLaborLog(repair, session) {
   if (!repair?.repairID || repair.whileYouWait !== true || repair.status !== "COMPLETED" || !repair.assignedTo) {
@@ -215,6 +216,18 @@ export const POST = async (request) => {
 
     // Canonical billing classification (S1) — derived from comp/wholesale flags.
     repairData.billing = { mode: resolveBillingMode(repairData) };
+
+    // Request Quote: the store couldn't price it. The flag becomes a server-stamped request block;
+    // a quoteRequest object in the payload itself is ignored so nobody can mark their own job "quoted".
+    const quoteRequested = repairData.quoteRequested === true;
+    delete repairData.quoteRequested;
+    delete repairData.quoteRequest;
+    if (quoteRequested && repairData.isWholesale) {
+      repairData.quoteRequest = buildQuoteRequest({ actor: { userID: session.user.userID, name: session.user.name } });
+      repairData.tasks = [];
+      repairData.totalCost = 0;
+      repairData.subtotal = 0;
+    }
 
     const newRepair = await RepairsController.createRepair(repairData);
 

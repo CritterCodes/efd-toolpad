@@ -2041,7 +2041,10 @@ export default function NewRepairForm({
   };
 
   // Handle form submission
-  const handleSubmit = async () => {
+  // `opts.requestQuote` — the store can't price it: create the repair with no tasks and ask EFD to
+  // quote (services/repairs/quoteRequest.js). The onClick handler passes a click event, not opts.
+  const handleSubmit = async (opts = {}) => {
+    const requestQuote = opts?.requestQuote === true;
     setLoading(true);
     setErrors({});
 
@@ -2147,6 +2150,7 @@ export default function NewRepairForm({
       const sanitizedFormData = formData;
       const submissionData = {
         ...sanitizedFormData,
+        ...(requestQuote ? { quoteRequested: true } : {}),
         // For wholesalers, set a placeholder promise date if none provided (admin will update it)
         promiseDate: isQuote
           ? ''
@@ -2213,6 +2217,7 @@ export default function NewRepairForm({
         return;
       }
 
+      if (requestQuote) submissionData.tasks = [];
       const result = submitMode === 'edit' && repairID
         ? await RepairsService.updateRepair(repairID, submissionData)
         : await RepairsService.createRepair(submissionData);
@@ -3283,14 +3288,14 @@ export default function NewRepairForm({
         display: 'flex',
         justifyContent: 'center'
       }}>
-        <Button 
-          variant="outlined" 
-          onClick={handleSubmit}
+        <Button
+          variant="outlined"
+          onClick={() => handleSubmit()}
           disabled={loading}
           startIcon={<SaveIcon />}
           size="large"
           fullWidth
-          sx={{ 
+          sx={{
             maxWidth: { xs: '100%', sm: 400 },
             py: 1.5,
             fontSize: { xs: '1rem', sm: '1.1rem' },
@@ -3302,6 +3307,19 @@ export default function NewRepairForm({
         >
           {loading ? 'Saving...' : (submitLabel || 'SAVE REPAIR')}
         </Button>
+        {/* Stores are pushed to price their own jobs; when they can't, this creates the repair with no
+            tasks and asks EFD to quote it. The piece still comes in the normal way. */}
+        {formData.isWholesale && submitMode === 'create' && !isQuote && (
+          <Button
+            variant="text"
+            onClick={() => handleSubmit({ requestQuote: true })}
+            disabled={loading}
+            size="large"
+            sx={{ ml: 1.5, py: 1.5, fontWeight: 700, color: UI.accent, whiteSpace: 'nowrap' }}
+          >
+            Request Quote
+          </Button>
+        )}
       </Box>
     </Box>
   );
