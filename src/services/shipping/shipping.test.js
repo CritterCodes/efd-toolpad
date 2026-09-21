@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('@/lib/database', () => ({ db: { connect: vi.fn() } }));
 vi.mock('@/services/wholesale/invoiceNotifications', () => ({ resolveWholesaleInvoiceRecipients: vi.fn() }));
 
-import { selectRates, normalizeRate, quoteShipment, buyShipment, EasyPostError, easyPostMode } from './easypost';
+import { selectRates, normalizeRate, quoteShipment, buyShipment, EasyPostError, easyPostMode, relevantCarrierMessages, SATURDAY_EMPTY_HINT } from './easypost';
 import { DEFAULT_PARCEL_PRESETS, resolveParcelPresets, findParcelPreset, parcelForEasyPost } from './parcels';
 import { shipFromFromSettings, shipToFromWholesaler, addressProblems, countryCode } from './addresses';
 import { buildFulfillmentUpdate, buildLabelUpdate, labelCostDrift } from './invoiceFulfillment';
@@ -71,6 +71,15 @@ describe('EasyPost adapter', () => {
     expect(q.saturdayDelivery).toBe(true);
     const set = buildFulfillmentUpdate({ method: 'ship', quote: { ...q, shipTo: {} }, rateId: 'rate_fx_on', actor: { userID: 'u' } });
     expect(set.fulfillment.shipping.saturdayDelivery).toBe(true);
+  });
+
+  it('keeps only the FedEx messages for humans and has a Saturday explanation ready', () => {
+    const msgs = [
+      { carrier: 'USPS', type: 'rate_error', message: 'predefined_package not supported' },
+      { carrier: 'FedExDefault', type: 'rate_error', message: 'Saturday delivery is not available for the requested ship date.' },
+    ];
+    expect(relevantCarrierMessages(msgs)).toEqual(['FedEx: Saturday delivery is not available for the requested ship date.']);
+    expect(SATURDAY_EMPTY_HINT).toMatch(/Friday for Priority Overnight/);
   });
 
   it('buyShipment sends the chosen rate (+ insurance as a string) and returns label + tracking', async () => {

@@ -79,7 +79,15 @@ export default function RateCheck() {
         </Stack>
         {meta.shipFromProblems?.length > 0 && <Alert severity="warning" sx={{ mt: 1.5 }}>{meta.shipFromProblems.join(' ')}</Alert>}
         {error && <Alert severity="error" sx={{ mt: 1.5 }}>{error}</Alert>}
-        {quote && (
+        {quote && quote.rates.length === 0 && (
+          <Alert severity="info" sx={{ mt: 1.5 }}>
+            {quote.saturdayDelivery
+              ? 'No Saturday-eligible services for a shipment today. FedEx offers Saturday delivery only when Saturday is the delivery day: quote and ship on Friday for Priority Overnight, Thursday for 2Day. Untick Saturday to see weekday services.'
+              : 'FedEx returned no rates for this store and package.'}
+            {(quote.messages || []).filter((m) => /^fedex/i.test(m.carrier || '')).map((m) => <div key={m.message}>FedEx: {m.message}</div>)}
+          </Alert>
+        )}
+        {quote && quote.rates.length > 0 && (
           <>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
               {quote.parcelLabel} to {store?.name}, {quote.shipTo?.city}, {quote.shipTo?.state} {quote.shipTo?.zip}{quote.saturdayDelivery ? ' · Saturday delivery' : ''}
