@@ -76,7 +76,7 @@ export async function createInvoiceCheckoutSession({ invoice, method, successUrl
   body.set('line_items[0][quantity]', '1');
   body.set('line_items[0][price_data][currency]', 'usd');
   body.set('line_items[0][price_data][unit_amount]', String(Math.round(base * 100)));
-  body.set('line_items[0][price_data][product_data][name]', `Repair invoice ${invoice.invoiceID}`);
+  body.set('line_items[0][price_data][product_data][name]', invoice.kind === 'inbound-shipping' && invoice.description ? invoice.description : `Repair invoice ${invoice.invoiceID}`);
   if (fee > 0) {
     // The surcharge is its OWN line so the disclosure is on the payment page
     // itself, not buried in a total.
@@ -193,6 +193,11 @@ export async function recordWholesaleCheckoutPayment(checkoutSession) {
   });
   if (paymentStatus === 'paid') {
     await syncPaidRepairs(invoice).catch((e) => console.error('syncPaidRepairs failed:', e?.message));
+    // A paid inbound-shipping order buys the store's label now (idempotent — a webhook replay is a no-op).
+    if (invoice.kind === 'inbound-shipping') {
+      const { fulfillPaidInboundLabel } = await import('@/services/shipping/inboundShipping');
+      await fulfillPaidInboundLabel(invoice.invoiceID).catch((e) => console.error('inbound label fulfilment failed:', e?.message));
+    }
   }
 
   return { recorded: true, invoiceID: invoice.invoiceID, amount: base, paymentStatus };
