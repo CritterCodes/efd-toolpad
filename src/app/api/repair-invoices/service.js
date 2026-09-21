@@ -102,10 +102,12 @@ function buildRepairSnapshot(repair) {
   };
 }
 
-function calculateInvoiceTotals(repairSnapshots = [], deliveryFee = 0, cashDiscountAmount = 0, amountPaid = 0) {
+// `shippingFee` is the carrier rate chosen at finalize (services/shipping/invoiceFulfillment.js),
+// passed through at cost. It sits beside the legacy hand-delivery `deliveryFee`, never inside it.
+export function calculateInvoiceTotals(repairSnapshots = [], deliveryFee = 0, cashDiscountAmount = 0, amountPaid = 0, shippingFee = 0) {
   const subtotal = repairSnapshots.reduce((sum, item) => sum + parseFloat(item.subtotal || 0), 0);
   const taxAmount = repairSnapshots.reduce((sum, item) => sum + parseFloat(item.taxAmount || 0), 0);
-  const grossTotal = subtotal + taxAmount + parseFloat(deliveryFee || 0);
+  const grossTotal = subtotal + taxAmount + parseFloat(deliveryFee || 0) + parseFloat(shippingFee || 0);
   const normalizedDiscount = Math.max(0, Math.min(parseFloat(cashDiscountAmount || 0), grossTotal));
   const total = Math.max(grossTotal - normalizedDiscount, 0);
   const normalizedAmountPaid = parseFloat(amountPaid || 0);
@@ -151,7 +153,7 @@ async function appendRepairsToInvoice(invoice, repairs, repairSnapshots, created
   ];
 
   const deliveryFee = parseFloat(invoice.deliveryFee || 0);
-  const totals = calculateInvoiceTotals(nextSnapshots, deliveryFee, 0, invoice.amountPaid);
+  const totals = calculateInvoiceTotals(nextSnapshots, deliveryFee, 0, invoice.amountPaid, invoice.shippingFee || 0);
 
   const updatedInvoice = await RepairInvoicesModel.updateByInvoiceID(invoice.invoiceID, {
     repairIDs: nextRepairIDs,
@@ -245,7 +247,7 @@ export async function createRepairInvoice({
   const normalizedDeliveryFee = deliveryMethod === 'delivery'
     ? (deliveryFee ?? repairs.find((repair) => parseFloat(repair.deliveryFee || 0) > 0)?.deliveryFee ?? DEFAULT_DELIVERY_FEE)
     : 0;
-  const totals = calculateInvoiceTotals(repairSnapshots, normalizedDeliveryFee);
+  const totals = calculateInvoiceTotals(repairSnapshots, normalizedDeliveryFee, 0, 0, 0);
 
   const invoice = await RepairInvoicesModel.create({
     ...context,
@@ -254,6 +256,7 @@ export async function createRepairInvoice({
     status: 'draft',
     deliveryMethod,
     deliveryFee: parseFloat(normalizedDeliveryFee || 0),
+    shippingFee: 0,
     ...totals,
     closeoutNotes,
     createdBy,
@@ -346,7 +349,7 @@ export async function updateInvoiceDelivery(invoiceID, { deliveryMethod = 'picku
 
   const nextDeliveryMethod = deliveryMethod === 'delivery' ? 'delivery' : 'pickup';
   const nextDeliveryFee = nextDeliveryMethod === 'delivery' ? parseFloat(deliveryFee || DEFAULT_DELIVERY_FEE) : 0;
-  const totals = calculateInvoiceTotals(invoice.repairSnapshots || [], nextDeliveryFee, 0, invoice.amountPaid);
+  const totals = calculateInvoiceTotals(invoice.repairSnapshots || [], nextDeliveryFee, 0, invoice.amountPaid, invoice.shippingFee || 0);
 
   const updated = await RepairInvoicesModel.updateByInvoiceID(invoiceID, {
     deliveryMethod: nextDeliveryMethod,
@@ -385,7 +388,7 @@ export async function splitInvoice(invoiceID, repairIDs = []) {
   const remainingSnapshots = (invoice.repairSnapshots || []).filter((snapshot) => !selected.includes(snapshot.repairID));
   const remainingIDs = currentIDs.filter((repairID) => !selected.includes(repairID));
 
-  const remainingTotals = calculateInvoiceTotals(remainingSnapshots, invoice.deliveryFee || 0, 0, invoice.amountPaid);
+  const remainingTotals = calculateInvoiceTotals(remainingSnapshots, invoice.deliveryFee || 0, 0, invoice.amountPaid, invoice.shippingFee || 0);
 
   const updatedOriginal = await RepairInvoicesModel.updateByInvoiceID(invoice.invoiceID, {
     repairIDs: remainingIDs,
@@ -447,7 +450,7 @@ export async function mergeInvoices(sourceInvoiceID, targetInvoiceID) {
     ...(target.repairSnapshots || []),
     ...(source.repairSnapshots || []).filter((snapshot) => !(target.repairIDs || []).includes(snapshot.repairID)),
   ];
-  const totals = calculateInvoiceTotals(repairSnapshots, target.deliveryFee || 0, 0, target.amountPaid);
+  const totals = calculateInvoiceTotals(repairSnapshots, target.deliveryFee || 0, 0, target.amountPaid, target.shippingFee || 0);
 
   const updatedTarget = await RepairInvoicesModel.updateByInvoiceID(target.invoiceID, {
     repairIDs,
@@ -516,7 +519,7 @@ export async function removeRepairsFromInvoice(invoiceID, repairIDs = []) {
       voidReason: 'All repairs removed back to closeout',
     });
   } else {
-    const totals = calculateInvoiceTotals(remainingSnapshots, invoice.deliveryFee || 0, 0, 0);
+    const totals = calculateInvoiceTotals(remainingSnapshots, invoice.deliveryFee || 0, 0, 0, invoice.shippingFee || 0);
 
     updatedInvoice = await RepairInvoicesModel.updateByInvoiceID(invoice.invoiceID, {
       repairIDs: remainingIDs,

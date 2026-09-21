@@ -42,6 +42,9 @@ export default class RepairInvoicesModel {
       status: data.status || 'draft',
       deliveryMethod: data.deliveryMethod || 'pickup',
       deliveryFee: data.deliveryFee ?? 0,
+      // Carrier rate chosen at finalize, at cost (services/shipping/invoiceFulfillment.js).
+      shippingFee: data.shippingFee ?? 0,
+      fulfillment: data.fulfillment ?? null,
       cashDiscountAmount: data.cashDiscountAmount ?? 0,
       cashDiscountApplied: data.cashDiscountApplied ?? false,
       subtotal: data.subtotal ?? 0,

@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { requireRepairOpsAny, requireRole } from '@/lib/apiAuth';
-import RepairInvoicesModel from '../../model';
 import { notifyWholesaleInvoiceFinalized } from '@/services/wholesale/invoiceNotifications';
+import { finalizeInvoiceFulfillment } from '@/services/shipping/invoiceShipping';
+
+const CODE_STATUS = { NOT_FOUND: 404, BAD_REQUEST: 400, FORBIDDEN: 403 };
 
 async function requireCloseoutAccess() {
   const adminResult = await requireRole(['admin']);
@@ -10,14 +12,26 @@ async function requireCloseoutAccess() {
   return await requireRepairOpsAny(['qualityControl', 'closeoutBilling']);
 }
 
+/**
+ * POST /api/repair-invoices/[invoiceID]/finalize  { method: 'pickup' | 'ship', rateId? }
+ *
+ * Finalize is the fulfillment decision (owner, 2026-09-21). Pickup, or Ship with one of the rates
+ * quoted via …/shipping/rates — the chosen rate becomes `shippingFee` at cost, so the total the
+ * store is told about (and the paper in the box) already includes it. Hand delivery is not offered.
+ * Omitting `method` finalizes as pickup, which is what the old bare Finalize did.
+ */
 export const POST = async (req, { params }) => {
   try {
-    const { errorResponse } = await requireCloseoutAccess();
+    const { session, errorResponse } = await requireCloseoutAccess();
     if (errorResponse) return errorResponse;
 
-    const invoice = await RepairInvoicesModel.findByInvoiceID(params.invoiceID);
-    const updated = await RepairInvoicesModel.updateByInvoiceID(invoice.invoiceID, {
-      status: invoice.paymentStatus === 'paid' ? 'paid' : 'open',
+    const { invoiceID } = await params;
+    const body = await req.json().catch(() => ({}));
+    const updated = await finalizeInvoiceFulfillment({
+      invoiceID,
+      method: body?.method || 'pickup',
+      rateId: body?.rateId || '',
+      actor: { userID: session.user.userID, name: session.user.name },
     });
 
     // Finalize is the moment a wholesale draft becomes a bill the partner owes — tell them
@@ -28,7 +42,8 @@ export const POST = async (req, { params }) => {
 
     return NextResponse.json({ ...updated, notification }, { status: 200 });
   } catch (error) {
+    const status = CODE_STATUS[error.code] || 400;
     console.error('Error finalizing repair invoice:', error.message);
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ error: error.message }, { status });
   }
 };

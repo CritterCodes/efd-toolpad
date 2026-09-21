@@ -27,6 +27,8 @@ const invoiceRow = (inv) => ({
   total: inv.total,
   remainingBalance: inv.remainingBalance,
   repairCount: (inv.repairIDs || []).length,
+  shippingFee: Number(inv.shippingFee) || 0,
+  fulfillment: inv.fulfillment || null,
   outboundShipment: inv.outboundShipment || null,
 });
 
@@ -58,10 +60,11 @@ export async function GET() {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
     const [readyInvoices, scheduledInvoices, recentInvoices] = await Promise.all([
-      // The picker across EVERY account: invoiced (payment is not the shipping gate),
-      // carrying repairs, not already in a box.
+      // The outbound QUEUE, not a directory (owner, 2026-09-21: "not every invoice is shippable").
+      // Only invoices FINALIZED as Ship appear — pickups never do — until they are in a box.
       dbi.collection('repairInvoices').find({
         accountType: 'wholesale',
+        deliveryMethod: 'ship',
         status: { $in: ['open', 'paid'] },
         'repairIDs.0': { $exists: true },
         outboundShipment: { $exists: false },

@@ -21,17 +21,19 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 const money = (v) => `$${(Number(v) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '');
 
+const serviceLabel = (v) => String(v || '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+
 function transferListUrl(group, invoiceIDs) {
   const base = `/dashboard/users/wholesalers/${encodeURIComponent(group.wholesalerUserID || 'account')}/transfer-list`;
   return `${base}?invoices=${encodeURIComponent(invoiceIDs.join(','))}&account=${encodeURIComponent(group.accountID)}`;
 }
 
 /** One store with invoices ready to go: pick, then ship or schedule the delivery run. */
-function ReadyAccountCard({ group, busy, onShip, onDeliver }) {
+function ReadyAccountCard({ group, busy, onShip, onBuyLabel }) {
   const [selected, setSelected] = useState(group.invoices.map((inv) => inv.invoiceID));
   const [carrier, setCarrier] = useState('');
   const [tracking, setTracking] = useState('');
-  const [deliveryDate, setDeliveryDate] = useState('');
+  const [manual, setManual] = useState(false);
 
   const toggle = (id) => setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
@@ -54,40 +56,28 @@ function ReadyAccountCard({ group, busy, onShip, onDeliver }) {
                   {inv.repairCount} repair{inv.repairCount !== 1 ? 's' : ''} · {money(inv.total)}
                 </Typography>
                 <Chip size="small" label={inv.paymentStatus === 'paid' ? 'Paid' : 'Open'} color={inv.paymentStatus === 'paid' ? 'success' : 'warning'} />
+                {inv.fulfillment?.shipping?.rate ? (
+                  <>
+                    <Chip size="small" variant="outlined" label={`${inv.fulfillment.shipping.rate.carrier} ${serviceLabel(inv.fulfillment.shipping.rate.service)} · ${money(inv.shippingFee)} on invoice`} />
+                    <Button size="small" variant="contained" startIcon={<LocalShippingIcon />} disabled={busy}
+                      onClick={() => onBuyLabel(inv.invoiceID)} sx={{ ml: 'auto' }}>
+                      Buy label &amp; ship
+                    </Button>
+                  </>
+                ) : (
+                  <Chip size="small" variant="outlined" color="warning" label="No rate on invoice — ship another way below" />
+                )}
               </Box>
             ))}
           </Stack>
 
           <Divider />
 
-          {/* Real-world order: the printed invoices ride in the box; tracking is entered once
-              the carrier hands it back. The packing list is optional — useful when one box
-              carries several invoices. */}
+          {/* Labels are bought above, one click per invoice — tracking comes from the purchase. The
+              manual path stays for a box that went out some other way (a Pirate Ship label, a counter
+              drop-off): type the tracking, it records the shipment and notifies the store the same way. */}
           <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
-            <TextField size="small" label="Carrier (optional)" placeholder="USPS, UPS..." value={carrier}
-              onChange={(e) => setCarrier(e.target.value)} sx={{ width: { xs: '100%', sm: 150 } }} />
-            <TextField size="small" label="Tracking number" value={tracking}
-              onChange={(e) => setTracking(e.target.value)} sx={{ width: { xs: '100%', sm: 210 } }} />
-            <Button
-              variant="contained"
-              startIcon={<LocalShippingIcon />}
-              disabled={busy || selected.length === 0 || !tracking.trim()}
-              onClick={() => onShip({ invoiceIDs: selected, carrier: carrier.trim(), trackingNumber: tracking.trim() })}
-            >
-              Ship
-            </Button>
-          </Stack>
-          <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
-            <TextField size="small" type="date" label="Delivery date" InputLabelProps={{ shrink: true }} value={deliveryDate}
-              onChange={(e) => setDeliveryDate(e.target.value)} sx={{ width: { xs: '100%', sm: 180 } }} />
-            <Button
-              variant="outlined"
-              startIcon={<EventIcon />}
-              disabled={busy || selected.length === 0 || !deliveryDate}
-              onClick={() => onDeliver({ invoiceIDs: selected, scheduledFor: deliveryDate })}
-            >
-              Schedule delivery
-            </Button>
+            <Button size="small" onClick={() => setManual((m) => !m)}>{manual ? 'Hide' : 'Shipped another way?'}</Button>
             <Button
               size="small"
               startIcon={<PrintIcon />}
@@ -97,6 +87,22 @@ function ReadyAccountCard({ group, busy, onShip, onDeliver }) {
               Packing list
             </Button>
           </Stack>
+          {manual && (
+            <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
+              <TextField size="small" label="Carrier" placeholder="FedEx, USPS..." value={carrier}
+                onChange={(e) => setCarrier(e.target.value)} sx={{ width: { xs: '100%', sm: 150 } }} />
+              <TextField size="small" label="Tracking number" value={tracking}
+                onChange={(e) => setTracking(e.target.value)} sx={{ width: { xs: '100%', sm: 210 } }} />
+              <Button
+                variant="outlined"
+                startIcon={<LocalShippingIcon />}
+                disabled={busy || selected.length === 0 || !tracking.trim()}
+                onClick={() => onShip({ invoiceIDs: selected, carrier: carrier.trim(), trackingNumber: tracking.trim() })}
+              >
+                Record shipment
+              </Button>
+            </Stack>
+          )}
         </Stack>
       </CardContent>
     </Card>
@@ -179,6 +185,15 @@ export default function ShippingDeliveryPage() {
     return body.message;
   });
 
+  const buyLabel = (invoiceID) => act(async () => {
+    const res = await fetch(`/api/repair-invoices/${encodeURIComponent(invoiceID)}/shipping/buy`, { method: 'POST' });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.success) throw new Error(body.error || 'The label could not be bought.');
+    if (body.label?.labelUrl) window.open(body.label.labelUrl, '_blank');
+    const drift = Number(body.drift) || 0;
+    return `Label bought — ${body.label?.carrier || ''} ${body.label?.trackingCode || ''}.${drift ? ` Carrier charged ${drift > 0 ? '+' : ''}$${drift.toFixed(2)} vs the quote (invoice unchanged).` : ''}`;
+  });
+
   const markDelivered = (invoiceIDs) => act(async () => {
     const res = await fetch('/api/wholesale/shipping', {
       method: 'POST',
@@ -194,9 +209,8 @@ export default function ShippingDeliveryPage() {
     <Box sx={{ p: { xs: 1.5, md: 3 }, maxWidth: 1100, mx: 'auto' }}>
       <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>Shipping &amp; Delivery</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Every wholesale package leaving the shop. The printed invoices ride in the box; enter the tracking number
-        after the carrier hands it back — that records the shipment and notifies the store. For local stores,
-        schedule the delivery run instead.
+        Invoices finalized as Ship, until they are in a box. Buy the FedEx label here — the rate is already on the
+        invoice — print it, and the store is notified with tracking. Pickups never appear; hand delivery is no longer offered.
       </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -214,7 +228,7 @@ export default function ShippingDeliveryPage() {
               <Grid container spacing={2}>
                 {data.ready.map((group) => (
                   <Grid item xs={12} md={6} key={group.accountID}>
-                    <ReadyAccountCard group={group} busy={busy} onShip={shipOrDeliver} onDeliver={(p) => shipOrDeliver({ ...p, method: 'deliver' })} />
+                    <ReadyAccountCard group={group} busy={busy} onShip={shipOrDeliver} onBuyLabel={buyLabel} />
                   </Grid>
                 ))}
               </Grid>
