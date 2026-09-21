@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { buildStullerRepairMaterial } from '@/services/pricing/stullerMaterial';
 import {
   Box, Typography, Grid, Button, Chip, CircularProgress, Tabs, Tab,
   TextField, MenuItem, Alert, Snackbar, Stack,
@@ -33,40 +34,11 @@ function toNumber(value, fallback = 0) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
-function normalizePricingSettings(adminSettings = {}) {
-  const pricing = adminSettings?.pricing && typeof adminSettings.pricing === 'object' ? adminSettings.pricing : adminSettings;
-  const administrativeFee = toNumber(pricing?.administrativeFee ?? 0.10);
-  const businessFee = toNumber(pricing?.businessFee ?? 0.15);
-  const consumablesFee = toNumber(pricing?.consumablesFee ?? 0.05);
-  const materialMarkup = Math.max(toNumber(pricing?.materialMarkup ?? 1.0), 1);
-  const businessMultiplier = Math.max(1 + administrativeFee + businessFee + consumablesFee, 1);
-  return { materialMarkup, businessMultiplier };
-}
-function calculateRetailFromBaseCosts(baseMaterialsCost = 0, laborCost = 0, adminSettings = {}) {
-  const safeMaterials = Math.max(toNumber(baseMaterialsCost), 0);
-  const safeLabor = Math.max(toNumber(laborCost), 0);
-  const { materialMarkup, businessMultiplier } = normalizePricingSettings(adminSettings);
-  const retail = ((safeMaterials + safeLabor) * businessMultiplier) + (safeMaterials * (materialMarkup - 1));
-  return Math.round(retail * 100) / 100;
-}
-function buildStullerMaterial(stullerResponse, stullerSku, adminSettings = {}) {
-  const data = stullerResponse?.data || stullerResponse || {};
-  const basePrice = toNumber(data.price || data.showcasePrice, 0);
-  const retailPrice = calculateRetailFromBaseCosts(basePrice, 0, adminSettings);
-  const name = data.description || `Stuller ${stullerSku}`;
-  return {
-    id: Date.now(), name, displayName: name,
-    description: `${data.longDescription || data.description || name} (Stuller: ${stullerSku})`,
-    quantity: 1, price: retailPrice, retailPrice, unitCost: basePrice, stullerPrice: basePrice,
-    baseCostPerPortion: basePrice, category: 'stuller_material', supplier: 'Stuller',
-    stuller_item_number: stullerSku, isStullerItem: true,
-    stullerData: {
-      originalPrice: basePrice, itemNumber: stullerSku,
-      materialMarkup: normalizePricingSettings(adminSettings).materialMarkup,
-      businessMultiplier: normalizePricingSettings(adminSettings).businessMultiplier,
-      weight: data.weight, dimensions: data.dimensions, metal: data.metal,
-    },
-  };
+// A Stuller part is priced by services/pricing/stullerMaterial.js — wholesale when the work
+// order's repair is a store job, retail otherwise. The browser's number is a preview; the
+// mark-waiting-parts action re-prices from the repair's billing mode before storing it.
+function buildStullerMaterial(stullerResponse, stullerSku, adminSettings = {}, isWholesale = false) {
+  return buildStullerRepairMaterial({ item: stullerResponse, sku: stullerSku, isWholesale, adminSettings });
 }
 
 export default function BenchPage() {
@@ -299,7 +271,7 @@ export default function BenchPage() {
         const stullerData = await stullerRes.json().catch(() => ({}));
         if (!stullerRes.ok) throw new Error(stullerData.error || 'Failed to fetch Stuller item.');
         const adminSettings = settingsRes.ok ? await settingsRes.json().catch(() => ({})) : {};
-        material = buildStullerMaterial(stullerData, cleanSku, adminSettings);
+        material = buildStullerMaterial(stullerData, cleanSku, adminSettings, !!(partsDialogWO?.isWholesale || partsDialogWO?.repair?.isWholesale || partsDialogWO?.billing?.mode === 'wholesale'));
       } else {
         const name = partsForm.name.trim();
         const quantity = Math.max(toNumber(partsForm.quantity, 1), 0);

@@ -4,6 +4,8 @@ import { requireRepairOps } from '@/lib/apiAuth';
 import { buildMarkWaitingPartsUpdate } from '@/services/repairWorkflow';
 import { NotificationService } from '@/lib/notificationService';
 import { adminBase } from '@/lib/appUrls';
+import { db } from '@/lib/database';
+import { repriceStullerMaterialForRepair } from '@/services/pricing/stullerMaterial';
 
 function toNumber(value, fallback = 0) {
   const parsed = Number(value);
@@ -62,8 +64,11 @@ export const POST = async (req, { params }) => {
     if (!repairID) return NextResponse.json({ error: 'Repair ID is required.' }, { status: 400 });
 
     const body = await req.json().catch(() => ({}));
-    const material = normalizeMaterial(body.material || {});
     const repair = await RepairsModel.findById(repairID);
+    // Stuller parts are priced server-side from the repair's billing mode (see services/pricing/stullerMaterial.js).
+    const dbi = await db.connect();
+    const adminSettings = (await dbi.collection('adminSettings').findOne({}, { projection: { pricing: 1 } })) || {};
+    const material = repriceStullerMaterialForRepair(normalizeMaterial(body.material || {}), { repair, adminSettings });
     const materials = [...(Array.isArray(repair.materials) ? repair.materials : []), material];
     const totals = calculateRepairTotals(repair, materials);
 

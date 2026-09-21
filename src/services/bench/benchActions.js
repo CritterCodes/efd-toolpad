@@ -19,6 +19,7 @@ import { moveRepairToQc } from '@/app/api/repairs/[repairID]/send-to-qc/route';
 import { claimPieceWorkOrder, movePieceToQc, completePieceWorkOrderFromQc, approveCadQc, rejectCadQc, submitCadGlbToQc, splitPieceTask } from '@/services/bench/pieceWorkOrderActions';
 import { signOffAndHandoffRepair, creditRepairLaborAtQc } from '@/services/repairs/benchHandoff';
 import { autoInvoiceAtQcPass } from '@/services/repairs/autoInvoice';
+import { repriceStullerMaterialForRepair } from '@/services/pricing/stullerMaterial';
 import {
   buildClaimRepairUpdate,
   buildUnclaimRepairUpdate,
@@ -169,8 +170,12 @@ async function runRepairAction({ session, repairID, action, body }) {
     }
     case 'mark-waiting-parts': {
       assertRepairOps(session);
-      const material = normalizeMaterial(body?.material || {});
       const repair = await RepairsModel.findById(repairID);
+      // A Stuller part is priced HERE from the repair's billing mode (wholesale × wholesaleMarkup,
+      // retail × business multiplier); the browser's price is only a preview.
+      const dbi = await db.connect();
+      const adminSettings = (await dbi.collection('adminSettings').findOne({}, { projection: { pricing: 1 } })) || {};
+      const material = repriceStullerMaterialForRepair(normalizeMaterial(body?.material || {}), { repair, adminSettings });
       const materials = [...(Array.isArray(repair.materials) ? repair.materials : []), material];
       const totals = calculateRepairTotals(repair, materials);
       return RepairsModel.updateById(repairID, buildMarkWaitingPartsUpdate({
