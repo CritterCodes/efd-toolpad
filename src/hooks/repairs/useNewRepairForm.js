@@ -1676,8 +1676,22 @@ export default function useNewRepairForm({
   // Custom LABOR line: a task priced from hours × wage through the task engine, so it gets
   // sign-off / hand-off / per-jeweler labor credit like any catalog task. Price is editable
   // (bulk discount) and the override survives re-pricing. See services/repairs/customLabor.js.
-  const addCustomLaborTask = () => {
-    const task = buildCustomLaborTask({ id: Date.now(), adminSettings, isWholesale: formData.isWholesale });
+  // `draft` is optional: the classic form adds a blank line and edits it in place; the stepped
+  // flow's Labor sheet passes { description, laborHours, quantity, price? } in one go. A click
+  // event (classic onClick) is not a draft.
+  const addCustomLaborTask = (draft) => {
+    const d = draft && typeof draft === 'object' && !draft.nativeEvent ? draft : {};
+    let task = buildCustomLaborTask({
+      id: Date.now(),
+      description: d.description || '',
+      laborHours: d.laborHours || 0,
+      quantity: d.quantity || 1,
+      adminSettings,
+      isWholesale: formData.isWholesale,
+    });
+    if (d.price !== undefined && d.price !== null && d.price !== '') {
+      task = applyCustomLaborPatch(task, { price: d.price }, { adminSettings, isWholesale: formData.isWholesale });
+    }
     setFormData(prev => ({ ...prev, tasks: [...prev.tasks, task] }));
   };
 

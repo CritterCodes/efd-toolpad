@@ -9,7 +9,7 @@
  *   - one header row per step: ✕ (cancel) or ‹ (back) + step title + dot bars
  *   - step 2 carries a client-context pill and marks sentence-extracted values
  *   - step 3 is SHORT: ticket + gold subtotal + an "Add to ticket" strip that
- *     opens full-screen add sheets (task / material / custom)
+ *     opens full-screen add sheets (task / material / labor / custom charge)
  *   - step 4 is a SUMMARY — label/value rows that expand to edit on tap, a
  *     gold Total, and two actions: Create & print / Save without printing
  *
@@ -39,6 +39,7 @@ import { LoadingButton } from '@mui/lab';
 import { AutoAwesome as AutoAwesomeIcon } from '@mui/icons-material';
 
 import { taskAllowsMetal } from '@/services/repairs/metalTaskFilter';
+import { isCustomLaborTask, calculatedCustomLaborPrice, buildCustomLaborTask } from '@/services/repairs/customLabor';
 import { RING_SIZES } from '@/services/repairs/smartIntakeExtractors';
 import CameraCapture from '@/components/shared/CameraCapture';
 import PromiseDateSuggestion from '@/app/components/repairs/PromiseDateSuggestion';
@@ -302,7 +303,7 @@ export default function NewRepairFlow(props) {
     promiseDateEstimate, promiseDateContext, promiseDateLoading, promiseDateError,
     getJewelerLabel, getKaratOptions, calculateTotalCost, formatPhoneNumber,
     handleStoreChange,
-    addTask, addMaterial, addCustomLineItem, removeItem, updateItem,
+    addTask, addMaterial, addCustomLineItem, addCustomLaborTask, patchCustomLaborTask, removeItem, updateItem,
     handleSubmit, handleAddNewClient, handleGenerateDescriptionFromImage, handleAnalyzeSmartIntake
   } = useNewRepairForm(props);
 
@@ -311,10 +312,14 @@ export default function NewRepairFlow(props) {
   const [storeQuery, setStoreQuery] = useState('');
   const [clientPickerOpen, setClientPickerOpen] = useState(false);
   const [clientQuery, setClientQuery] = useState('');
-  const [addSheet, setAddSheet] = useState(null); // 'task' | 'material' | 'custom' | null
+  const [addSheet, setAddSheet] = useState(null); // 'task' | 'material' | 'labor' | 'custom' | null
   const [taskQuery, setTaskQuery] = useState('');
   const [materialQuery, setMaterialQuery] = useState('');
   const [customDraft, setCustomDraft] = useState({ description: '', quantity: 1, price: 0 });
+  // Custom LABOR is a task priced from hours (services/repairs/customLabor.js); `price` stays ''
+  // until the jeweler types over the calculated number, which then becomes a remembered override.
+  const EMPTY_LABOR = { description: '', laborHours: 0, quantity: 1, price: '' };
+  const [laborDraft, setLaborDraft] = useState(EMPTY_LABOR);
   const [reviewTotal, setReviewTotal] = useState(null);
   const [showFullBreakdown, setShowFullBreakdown] = useState(false);
 
@@ -429,6 +434,24 @@ export default function NewRepairFlow(props) {
   const submitWith = (print) => {
     if (onPrintChoice) onPrintChoice(print);
     handleSubmit();
+  };
+
+  // What the engine would charge for the drafted hours, in this ticket's pricing context.
+  const laborDraftCalculated = calculatedCustomLaborPrice(
+    buildCustomLaborTask({ laborHours: laborDraft.laborHours, adminSettings, isWholesale: formData.isWholesale }),
+    { isWholesale: formData.isWholesale },
+  );
+  const laborDraftPrice = laborDraft.price === '' ? laborDraftCalculated : toNumber(laborDraft.price);
+
+  const addLaborFromDraft = () => {
+    addCustomLaborTask({
+      description: laborDraft.description.trim(),
+      laborHours: toNumber(laborDraft.laborHours),
+      quantity: Math.max(1, Number(laborDraft.quantity) || 1),
+      ...(laborDraft.price === '' ? {} : { price: toNumber(laborDraft.price) }),
+    });
+    setLaborDraft(EMPTY_LABOR);
+    setAddSheet(null);
   };
 
   const addCustomFromDraft = () => {
@@ -722,7 +745,46 @@ export default function NewRepairFlow(props) {
               <Box>
                 <SectionLabel>On this ticket ({itemCount})</SectionLabel>
                 <Stack spacing={1.25} sx={{ mt: 1.25 }}>
-                  {formData.tasks.map((task) => (
+                  {formData.tasks.map((task) => (isCustomLaborTask(task) ? (
+                    <TicketRow
+                      key={task.id}
+                      kind="Labor"
+                      hue="#F9A8D4"
+                      item={task}
+                      onQuantityChange={(qty) => patchCustomLaborTask(task.id, { quantity: qty })}
+                      onPriceChange={(price) => patchCustomLaborTask(task.id, { price })}
+                      priceEditable
+                      onRemove={() => removeItem('tasks', task.id)}
+                      extraFields={(
+                        <Stack spacing={1.25} sx={{ mt: 1.25 }}>
+                          <TextField
+                            fullWidth
+                            label="What was done"
+                            value={task.description || ''}
+                            onChange={(e) => patchCustomLaborTask(task.id, { description: e.target.value })}
+                            placeholder="Laser weld, rebuild prong…"
+                            inputProps={{ style: { fontSize: 16 } }}
+                          />
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
+                            <TextField
+                              type="number"
+                              label="Hours / unit"
+                              value={task.laborHours ?? 0}
+                              onChange={(e) => patchCustomLaborTask(task.id, { laborHours: parseFloat(e.target.value) || 0 })}
+                              inputProps={{ min: 0, step: 0.05, style: { fontSize: 16 } }}
+                              sx={{ width: 130 }}
+                            />
+                            <Typography variant="caption" sx={{ color: facelift.text2 }}>
+                              {(toNumber(task.laborHours) * (task.quantity || 1)).toFixed(2)} hrs total ·{' '}
+                              {task.priceOverridden && calculatedCustomLaborPrice(task, { isWholesale: !!formData.isWholesale }) !== toNumber(task.price)
+                                ? `calculated $${calculatedCustomLaborPrice(task, { isWholesale: !!formData.isWholesale }).toFixed(2)}, discounted`
+                                : `${formData.isWholesale ? 'wholesale' : 'retail'} price from hours`}
+                            </Typography>
+                          </Box>
+                        </Stack>
+                      )}
+                    />
+                  ) : (
                     <TicketRow
                       key={task.id}
                       kind="Task"
@@ -734,7 +796,7 @@ export default function NewRepairFlow(props) {
                       priceEditable={false}
                       onRemove={() => removeItem('tasks', task.id)}
                     />
-                  ))}
+                  )))}
                   {formData.materials.map((material) => (
                     <TicketRow
                       key={material.id}
@@ -797,7 +859,7 @@ export default function NewRepairFlow(props) {
               <SurfaceCard sx={{ alignItems: 'center', py: 4 }}>
                 <Typography sx={{ fontWeight: 600 }}>Nothing on the ticket yet</Typography>
                 <Typography variant="caption" sx={{ color: facelift.text2, mt: 0.5 }}>
-                  Add a task, a material, or a custom charge below.
+                  Add a task, a material, custom labor, or a charge below.
                 </Typography>
               </SurfaceCard>
             )}
@@ -809,7 +871,8 @@ export default function NewRepairFlow(props) {
                   options={[
                     { value: 'task', label: 'Task' },
                     { value: 'material', label: 'Material' },
-                    { value: 'custom', label: 'Custom' },
+                    { value: 'labor', label: 'Labor' },
+                    { value: 'custom', label: 'Charge' },
                   ]}
                   value={null}
                   onChange={(value) => setAddSheet(value)}
@@ -1271,6 +1334,56 @@ export default function NewRepairFlow(props) {
         </Stack>
       </AddSheet>
 
+      <AddSheet open={addSheet === 'labor'} title="Custom labor" onClose={() => setAddSheet(null)} isMobile={isMobile}>
+        <Stack spacing={1.5}>
+          <TextField
+            fullWidth
+            label="What was done"
+            value={laborDraft.description}
+            onChange={(e) => setLaborDraft((prev) => ({ ...prev, description: e.target.value }))}
+            placeholder="Laser weld, rebuild prong, re-tip claw…"
+            autoFocus={!isMobile}
+            inputProps={{ style: { fontSize: 16 } }}
+          />
+          <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'center', flexWrap: 'wrap' }}>
+            <QtyStepper
+              value={laborDraft.quantity}
+              min={1}
+              onChange={(q) => setLaborDraft((prev) => ({ ...prev, quantity: q }))}
+              label="Custom labor quantity"
+            />
+            <TextField
+              type="number"
+              label="Hours / unit"
+              value={laborDraft.laborHours}
+              onChange={(e) => setLaborDraft((prev) => ({ ...prev, laborHours: e.target.value, price: '' }))}
+              inputProps={{ min: 0, step: 0.05, style: { fontSize: 16 } }}
+              sx={{ width: 130 }}
+            />
+            <TextField
+              type="number"
+              label="Price / unit"
+              value={laborDraft.price === '' ? laborDraftCalculated : laborDraft.price}
+              onChange={(e) => setLaborDraft((prev) => ({ ...prev, price: e.target.value }))}
+              inputProps={{ min: 0, step: 0.01, style: { fontSize: 16 } }}
+              sx={{ width: 130 }}
+            />
+          </Box>
+          <Typography variant="caption" sx={{ color: facelift.text2 }}>
+            {laborDraft.price === '' || toNumber(laborDraft.price) === laborDraftCalculated
+              ? `${formData.isWholesale ? 'Wholesale' : 'Retail'} price from hours: $${laborDraftCalculated.toFixed(2)} each. Type over it to discount — the hours still credit the jeweler at payroll.`
+              : `Calculated $${laborDraftCalculated.toFixed(2)} each, discounted to $${laborDraftPrice.toFixed(2)}. Hours still credit the jeweler in full.`}
+          </Typography>
+          <GoldButton
+            onClick={addLaborFromDraft}
+            disabled={!laborDraft.description.trim() || toNumber(laborDraft.laborHours) <= 0}
+            aria-label="Add custom labor to ticket"
+          >
+            Add to ticket · ${(laborDraftPrice * Math.max(1, Number(laborDraft.quantity) || 1)).toFixed(2)}
+          </GoldButton>
+        </Stack>
+      </AddSheet>
+
       <AddSheet open={addSheet === 'custom'} title="Custom charge" onClose={() => setAddSheet(null)} isMobile={isMobile}>
         <Stack spacing={1.5}>
           <TextField
@@ -1301,8 +1414,8 @@ export default function NewRepairFlow(props) {
             />
           </Box>
           <Typography variant="caption" sx={{ color: facelift.text2 }}>
-            Labor hours feed the jeweler&rsquo;s credited pay at payroll. Price is what the client is
-            billed — the two are set independently on a custom line.
+            A non-labor charge: a sourced part, a fee, a pass-through. It carries no hours and never
+            enters labor credit. Work you did by hand goes on as Labor instead.
           </Typography>
           <GoldButton onClick={addCustomFromDraft} disabled={!customDraft.description.trim()} aria-label="Add custom charge to ticket">
             Add to ticket
