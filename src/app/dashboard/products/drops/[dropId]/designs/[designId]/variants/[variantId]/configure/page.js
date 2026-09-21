@@ -107,12 +107,12 @@ export default function VariantConfigurePage() {
   }, [design, designId, variantId, back]);
 
   if (loading) {
-    return <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}><CircularProgress sx={{ color: '#D4AF37' }} /></Box>;
+    return <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}><CircularProgress sx={{ color: '#FBBF24' }} /></Box>;
   }
   if (error || !variant || !glbUrl) {
     return (
       <Box sx={{ p: 4 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={back} sx={{ color: '#9CA3AF', mb: 2 }}>Back to design</Button>
+        <Button startIcon={<ArrowBackIcon />} onClick={back} sx={{ color: 'rgba(255,255,255,0.66)', mb: 2 }}>Back to design</Button>
         <Typography color="error">
           {error || (!variant ? 'Variant not found.' : 'This design has no uploaded GLB yet — upload the GLB on the CAD & 3D tab first.')}
         </Typography>

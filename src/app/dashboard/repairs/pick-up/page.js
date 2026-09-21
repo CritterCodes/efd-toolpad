@@ -42,6 +42,7 @@ import { REPAIRS_UI } from "@/app/dashboard/repairs/components/repairsUi";
 import FinalizeFulfillment from "./FinalizeFulfillment";
 import RepairThumbnail from "@/app/dashboard/repairs/components/RepairThumbnail";
 import ContinuousBarcodeScanner from "@/components/repairs/ContinuousBarcodeScanner";
+import { canAccessCloseout, canReopenInvoices as canReopenInvoicesGate } from "@/lib/repairAccess";
 
 const currency = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -295,14 +296,14 @@ function buildInvoicePrintHtml(invoice) {
       .title { font-size: 18px; font-weight: 700; text-align: right; }
       .zelle-header { display: grid; grid-template-columns: 0.78in 1fr; gap: 7px; align-items: center; border: 1px solid #D1D5DB; padding: 6px; min-width: 2.25in; }
       .zelle-header img { width: 0.78in; height: 0.78in; object-fit: contain; display: block; }
-      .muted { color: #6B7280; font-size: 11px; margin-top: 3px; }
+      .muted { color: rgba(255,255,255,0.5); font-size: 11px; margin-top: 3px; }
       .mono { font-family: "Courier New", monospace; }
       .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
       .box { border: 1px solid #D1D5DB; padding: 8px; min-height: 48px; }
-      .label { color: #6B7280; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+      .label { color: rgba(255,255,255,0.5); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
       .value { font-size: 13px; font-weight: 700; }
       table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-      th { text-align: left; color: #374151; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid #9CA3AF; padding: 7px 6px; }
+      th { text-align: left; color: #374151; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid rgba(255,255,255,0.66); padding: 7px 6px; }
       td { border-bottom: 1px solid #E5E7EB; padding: 7px 6px; vertical-align: top; }
       .money { text-align: right; white-space: nowrap; }
       .strong { font-weight: 700; }
@@ -471,17 +472,6 @@ function hasAfterPhoto(repair) {
   return afterPhotoCount > 0;
 }
 
-function canAccessCloseout(session) {
-  if (session?.user?.role === "admin") return true;
-  return session?.user?.role === "artisan"
-    && session?.user?.employment?.isOnsite === true
-    && session?.user?.staffCapabilities?.repairOps === true
-    && (
-      session?.user?.staffCapabilities?.closeoutBilling === true
-      || session?.user?.staffCapabilities?.qualityControl === true
-    );
-}
-
 function RepairCloseoutCard({
   repair,
   isSelected,
@@ -497,7 +487,6 @@ function RepairCloseoutCard({
   const [pendingPhoto, setPendingPhoto] = useState(null);
   const [pendingPhotoPreview, setPendingPhotoPreview] = useState("");
   const fileInputRef = useRef(null);
-  const afterPhotoCount = Array.isArray(repair.afterPhotos) ? repair.afterPhotos.length : 0;
   const flaggedForReview = repair.requiresLaborReview === true;
   const photoOnFile = hasAfterPhoto(repair);
 
@@ -617,27 +606,21 @@ function RepairCloseoutCard({
             {repair.description || "No description"}
           </Typography>
 
+          {/* After-photo count and its "no photo yet" reminder used to sit here.
+              The shop retired after-pics (CLOSEOUT-FRICTION.md): a zero is the
+              normal case, and styling it amber taught staff to ignore amber.
+              The capture control below stays for the repairs that do warrant
+              a photo. */}
           <Grid container spacing={1.5}>
             <Grid item xs={12} sm={6}>
               <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Current total</Typography>
               <Typography sx={{ color: REPAIRS_UI.textPrimary, fontWeight: 600 }}>{formatCurrency(getRepairDisplayTotal(repair))}</Typography>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>After photos</Typography>
-              <Typography sx={{ color: afterPhotoCount > 0 ? REPAIRS_UI.textPrimary : "#F59E0B", fontWeight: 600 }}>{afterPhotoCount}</Typography>
             </Grid>
           </Grid>
 
           {flaggedForReview && (
             <Alert severity="warning" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
               Labor review is flagged for weekly review. This repair can still be batched into an invoice now.
-            </Alert>
-          )}
-
-          {afterPhotoCount === 0 && (
-            <Alert severity="info" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
-              No after photo yet. One is still worth taking, but it&apos;s optional — confirm whenever
-              you&apos;re ready to move this repair to an invoice.
             </Alert>
           )}
 
@@ -1420,7 +1403,7 @@ export default function PaymentPickupPage() {
   // uses requireRepairOpsAny(['qualityControl','closeoutBilling']). Non-admins must not be offered it;
   // the card renders the block behind `onReopen &&`, so withholding the prop hides it rather than
   // handing onsite staff a button that 403s.
-  const canReopenInvoices = session?.user?.role === "admin";
+  const canReopenInvoices = canReopenInvoicesGate(session);
 
   const handleReopenInvoice = async (invoiceID) => {
     try {
@@ -1822,11 +1805,6 @@ export default function PaymentPickupPage() {
                     {legacyClosing ? "Closing..." : `Grace Close Selected (${selectedRepairIDs.length})`}
                   </Button>
                 </Stack>
-                {selectedMissingPhotoCount > 0 && (
-                  <Alert severity="info" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
-                    {selectedMissingPhotoCount} selected repair{selectedMissingPhotoCount !== 1 ? "s have" : " has"} no after photo. They can still be invoiced — this is a reminder, not a block.
-                  </Alert>
-                )}
               </Stack>
             </CardContent>
           </Card>

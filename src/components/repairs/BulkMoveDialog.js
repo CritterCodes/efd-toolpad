@@ -8,13 +8,13 @@ import {
 import { MoveUp as MoveIcon } from '@mui/icons-material';
 
 const REPAIR_UI = {
-    bgPanel: '#15181D',
-    bgCard: '#171A1F',
-    border: '#2A2F38',
-    textPrimary: '#E6E8EB',
+    bgPanel: '#131416',
+    bgCard: '#12141A',
+    border: 'rgba(255,255,255,0.12)',
+    textPrimary: '#FFFFFF',
     textHeader: '#D1D5DB',
-    textSecondary: '#9CA3AF',
-    accent: '#D4AF37',
+    textSecondary: 'rgba(255,255,255,0.66)',
+    accent: '#FBBF24',
 };
 
 const MOVEABLE_STATUSES = [
@@ -153,7 +153,7 @@ const BulkMoveDialog = ({ open, onClose, repairIDs = [], onSuccess }) => {
                         backgroundColor: REPAIR_UI.accent,
                         color: '#0D0F12',
                         fontWeight: 700,
-                        '&:hover': { backgroundColor: '#c9a227' },
+                        '&:hover': { backgroundColor: '#FFCF4D' },
                         '&:disabled': { backgroundColor: REPAIR_UI.border, color: REPAIR_UI.textSecondary }
                     }}
                 >

@@ -1,6 +1,7 @@
-﻿/**
+/**
  * Admin/Staff/Dev Dashboard Content
- * Industrial luxury dashboard baseline aligned with UI_REDESIGN_DESIGN_DOC.md.
+ * Facelift Ring 1 conversion: containers use the facelift primitives; the
+ * data flow, queues, lookup, and scanner behavior are unchanged.
  */
 
 'use client';
@@ -9,11 +10,8 @@ import React from 'react';
 import { useSession } from 'next-auth/react';
 import {
   Alert,
-  Avatar,
   Box,
   Button,
-  Chip,
-  Divider,
   InputAdornment,
   LinearProgress,
   Stack,
@@ -37,19 +35,7 @@ import {
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useRepairs } from '@/app/context/repairs.context';
 import ContinuousBarcodeScanner from '@/components/repairs/ContinuousBarcodeScanner';
-
-const COLORS = {
-  bgPrimary: '#0F1115',
-  bgPanel: '#15181D',
-  bgSecondary: '#171A1F',
-  bgTertiary: '#1F232A',
-  border: '#2A2F38',
-  textPrimary: '#E6E8EB',
-  textHeader: '#D1D5DB',
-  textSecondary: '#9CA3AF',
-  textMuted: '#6B7280',
-  accent: '#D4AF37',
-};
+import { PageHeader, SurfaceCard, SectionLabel, StatusChip, facelift, tint } from '@/components/facelift';
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('en-US', {
@@ -68,17 +54,21 @@ function formatDate(value) {
   });
 }
 
-function Surface({ children, sx }) {
+/** 40px gold icon tile — the mock's row/stat icon treatment. */
+function IconTile({ children }) {
   return (
     <Box
       sx={{
-        backgroundColor: COLORS.bgPanel,
-        border: `1px solid ${COLORS.border}`,
-        borderRadius: 3,
-        boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
-        color: COLORS.textPrimary,
-        p: 3,
-        ...sx,
+        width: 40,
+        height: 40,
+        borderRadius: '12px',
+        display: 'grid',
+        placeItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        border: `1px solid ${facelift.border}`,
+        color: facelift.gold,
+        flexShrink: 0,
+        '& svg': { fontSize: 19 },
       }}
     >
       {children}
@@ -86,163 +76,134 @@ function Surface({ children, sx }) {
   );
 }
 
-function MetricCard({ label, value, subtext, icon, progress }) {
+/**
+ * Stat card with a supporting line (and optional progress). The facelift
+ * MetricCard carries value + label only; the dashboard's stats each explain
+ * themselves with a sentence, which is worth keeping.
+ */
+function StatCard({ label, value, subtext, icon, progress }) {
   return (
-    <Box
-      sx={{
-        height: '100%',
-        backgroundColor: COLORS.bgSecondary,
-        border: `1px solid ${COLORS.border}`,
-        borderRadius: 3,
-        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-        p: 2.5,
-      }}
-    >
-      <Stack spacing={2.5} sx={{ height: '100%' }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
-          <Box>
-            <Typography sx={{ color: COLORS.textSecondary, fontSize: 12, mb: 1 }}>{label}</Typography>
-            <Typography sx={{ fontSize: { xs: 34, md: 40 }, fontWeight: 700, lineHeight: 1, color: COLORS.textHeader }}>
-              {value}
-            </Typography>
-          </Box>
-          <Box
+    <SurfaceCard>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
+        <Box sx={{ minWidth: 0 }}>
+          <SectionLabel>{label}</SectionLabel>
+          <Typography
             sx={{
-              width: 40,
-              height: 40,
-              borderRadius: 2,
-              display: 'grid',
-              placeItems: 'center',
-              backgroundColor: COLORS.bgTertiary,
-              color: COLORS.accent,
-              border: `1px solid ${COLORS.border}`,
-              flexShrink: 0,
+              mt: 1,
+              fontSize: '1.75rem',
+              fontWeight: 700,
+              lineHeight: 1.1,
+              letterSpacing: '-0.03em',
+              fontVariantNumeric: 'tabular-nums',
             }}
           >
-            {icon}
+            {value}
+          </Typography>
+        </Box>
+        <IconTile>{icon}</IconTile>
+      </Box>
+      <Typography sx={{ mt: 'auto', pt: 1.5, fontSize: '0.8125rem', lineHeight: 1.55, color: facelift.text2 }}>
+        {subtext}
+      </Typography>
+      {typeof progress === 'number' && (
+        <Box sx={{ mt: 1.5 }}>
+          <Box sx={{ height: 4, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.10)', overflow: 'hidden' }}>
+            <Box sx={{ width: `${progress}%`, height: '100%', borderRadius: 999, backgroundColor: facelift.gold }} />
           </Box>
+          <Typography sx={{ mt: 1, fontFamily: facelift.mono, fontSize: '0.66rem', color: facelift.text3 }}>
+            {progress}% of total repair volume completed
+          </Typography>
         </Box>
-        <Box sx={{ mt: 'auto' }}>
-          <Typography sx={{ color: COLORS.textSecondary, fontSize: 14 }}>{subtext}</Typography>
-          {typeof progress === 'number' && (
-            <Box sx={{ mt: 2 }}>
-              <LinearProgress
-                variant="determinate"
-                value={progress}
-                sx={{
-                  height: 6,
-                  borderRadius: 999,
-                  backgroundColor: COLORS.bgTertiary,
-                  '& .MuiLinearProgress-bar': {
-                    borderRadius: 999,
-                    backgroundColor: COLORS.accent,
-                  },
-                }}
-              />
-              <Typography sx={{ mt: 1, color: COLORS.textMuted, fontSize: 12 }}>
-                {progress}% of total repair volume completed
-              </Typography>
-            </Box>
-          )}
-        </Box>
-      </Stack>
+      )}
+    </SurfaceCard>
+  );
+}
+
+/** Mono overline + section title, with an optional action on the right. */
+function PanelHeader({ overline, title, action }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+      <Box>
+        <SectionLabel>{overline}</SectionLabel>
+        <Typography sx={{ mt: 0.75, fontSize: '1.375rem', fontWeight: 600, letterSpacing: '-0.022em' }}>
+          {title}
+        </Typography>
+      </Box>
+      {action}
     </Box>
   );
 }
+
+/** Gold text link-button used at the end of rows and panels. */
+function OpenLink({ onClick, children = 'Open' }) {
+  return (
+    <Button
+      endIcon={<ArrowForwardIcon />}
+      onClick={onClick}
+      sx={{
+        color: facelift.gold,
+        minWidth: 0,
+        p: 0,
+        textTransform: 'none',
+        fontWeight: 600,
+        '&:hover': { backgroundColor: 'transparent', opacity: 0.9 },
+      }}
+    >
+      {children}
+    </Button>
+  );
+}
+
+const rowDividerSx = {
+  py: 2,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 2,
+  '& + &': { borderTop: `1px solid ${facelift.hairline}` },
+};
 
 function QueuePanel({ items, onNavigate }) {
   return (
-    <Surface sx={{ height: '100%' }}>
-      <Stack spacing={2.5}>
-        <Box>
-          <Typography sx={{ color: COLORS.textMuted, fontSize: 12, fontWeight: 600, mb: 0.75 }}>
-            Operational queues
-          </Typography>
-          <Typography sx={{ fontSize: 28, fontWeight: 600, color: COLORS.textHeader }}>Focus for today</Typography>
-        </Box>
-
-        <Stack divider={<Divider sx={{ borderColor: COLORS.border }} />}>
-          {items.map((item) => (
-            <Box
-              key={item.label}
-              sx={{
-                py: 2,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 2,
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
-                <Box
-                  sx={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 2,
-                    display: 'grid',
-                    placeItems: 'center',
-                    backgroundColor: COLORS.bgSecondary,
-                    color: COLORS.accent,
-                    border: `1px solid ${COLORS.border}`,
-                    flexShrink: 0,
-                  }}
-                >
-                  {item.icon}
-                </Box>
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography sx={{ fontSize: 16, fontWeight: 600, color: COLORS.textHeader }}>{item.label}</Typography>
-                  <Typography sx={{ color: COLORS.textSecondary, fontSize: 14 }}>{item.detail}</Typography>
-                </Box>
+    <SurfaceCard sx={{ height: '100%' }}>
+      <PanelHeader overline="Operational queues" title="Focus for today" />
+      <Box sx={{ mt: 1 }}>
+        {items.map((item) => (
+          <Box key={item.label} sx={rowDividerSx}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
+              <IconTile>{item.icon}</IconTile>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600 }}>{item.label}</Typography>
+                <Typography sx={{ color: facelift.text2, fontSize: '0.8125rem' }}>{item.detail}</Typography>
               </Box>
-              <Stack alignItems="flex-end" spacing={1} sx={{ flexShrink: 0 }}>
-                <Typography sx={{ fontSize: 28, fontWeight: 700, lineHeight: 1, color: COLORS.textHeader }}>{item.value}</Typography>
-                <Button
-                  endIcon={<ArrowForwardIcon />}
-                  onClick={() => onNavigate(item.href)}
-                  sx={{
-                    color: COLORS.accent,
-                    minWidth: 0,
-                    p: 0,
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    '&:hover': { backgroundColor: 'transparent', opacity: 0.9 },
-                  }}
-                >
-                  Open
-                </Button>
-              </Stack>
             </Box>
-          ))}
-        </Stack>
-      </Stack>
-    </Surface>
+            <Stack alignItems="flex-end" spacing={0.75} sx={{ flexShrink: 0 }}>
+              <Typography
+                sx={{ fontSize: '1.5rem', fontWeight: 700, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}
+              >
+                {item.value}
+              </Typography>
+              <OpenLink onClick={() => onNavigate(item.href)} />
+            </Stack>
+          </Box>
+        ))}
+      </Box>
+    </SurfaceCard>
   );
 }
 
-function PriorityNotice({ children }) {
+function PriorityNotice({ hue = facelift.gold, children }) {
   return (
-    <Alert
-      icon={false}
-      sx={{
-        backgroundColor: COLORS.bgPanel,
-        color: COLORS.textPrimary,
-        border: `1px solid ${COLORS.border}`,
-        borderLeft: `2px solid ${COLORS.accent}`,
-        boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
-        '& .MuiAlert-message': { padding: 0 },
-      }}
-    >
-      {children}
-    </Alert>
+    <SurfaceCard accent={hue} sx={{ flexDirection: 'row', alignItems: 'center', gap: 1.5, py: 1.75 }}>
+      <Typography sx={{ fontSize: '0.875rem' }}>{children}</Typography>
+    </SurfaceCard>
   );
 }
 
-function getStatusTone(status) {
-  if (['READY FOR PICKUP', 'READY FOR PICK-UP', 'DELIVERY BATCHED', 'PAID_CLOSED', 'COMPLETED'].includes(status)) {
-    return { color: COLORS.textPrimary, bg: COLORS.bgSecondary, borderLeft: `2px solid ${COLORS.accent}` };
-  }
+const DONE_STATUSES = ['READY FOR PICKUP', 'READY FOR PICK-UP', 'DELIVERY BATCHED', 'PAID_CLOSED', 'COMPLETED'];
 
-  return { color: COLORS.textSecondary, bg: COLORS.bgSecondary, borderLeft: `2px solid ${COLORS.border}` };
+function statusHue(status) {
+  return DONE_STATUSES.includes(status) ? facelift.gold : '#A1A1AA';
 }
 
 function getRepairSearchText(repair) {
@@ -328,194 +289,115 @@ function RepairLookupPanel({ repairs, onNavigate, autoOpenScanner = false }) {
   }, [autoOpenScanner]);
 
   return (
-    <Surface>
-      <Stack spacing={2.5}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-          <Box>
-            <Typography sx={{ color: COLORS.textMuted, fontSize: 12, fontWeight: 600, mb: 0.75 }}>
-              Repair lookup
-            </Typography>
-            <Typography sx={{ fontSize: 28, fontWeight: 600, color: COLORS.textHeader }}>Scan or search repairs</Typography>
-          </Box>
+    <SurfaceCard>
+      <PanelHeader
+        overline="Repair lookup"
+        title="Scan or search repairs"
+        action={(
           <Button
             startIcon={<WorkIcon />}
             onClick={() => onNavigate('/dashboard/repairs/my-bench')}
-            sx={{
-              color: COLORS.accent,
-              borderColor: COLORS.border,
-              textTransform: 'none',
-              fontWeight: 600,
-            }}
             variant="outlined"
           >
             My Bench
           </Button>
-        </Box>
+        )}
+      />
 
-        <Box
-          component="form"
-          onSubmit={handleSubmit}
-          sx={{
-            display: 'flex',
-            gap: 1,
-            alignItems: 'stretch',
-            flexWrap: { xs: 'wrap', md: 'nowrap' },
+      <Box
+        component="form"
+        onSubmit={handleSubmit}
+        sx={{
+          mt: 2.5,
+          display: 'flex',
+          gap: 1,
+          alignItems: 'stretch',
+          flexWrap: { xs: 'wrap', md: 'nowrap' },
+        }}
+      >
+        <TextField
+          fullWidth
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            if (error) setError('');
           }}
+          placeholder="Scan a repair ticket barcode or search name, repair ID, business, status"
+          autoComplete="off"
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <QrCodeScannerIcon sx={{ color: facelift.gold }} />
+              </InputAdornment>
+            ),
+            endAdornment: (
+              <InputAdornment position="end">
+                <SearchIcon sx={{ color: facelift.text3 }} />
+              </InputAdornment>
+            ),
+          }}
+        />
+        <Button
+          type="submit"
+          variant="contained"
+          disabled={!trimmedQuery}
+          startIcon={<SearchIcon />}
+          sx={{ px: 2.5, minWidth: { xs: '100%', md: 120 } }}
         >
-          <TextField
-            fullWidth
-            value={query}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              if (error) setError('');
-            }}
-            placeholder="Scan a repair ticket barcode or search name, repair ID, business, status"
-            autoComplete="off"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <QrCodeScannerIcon sx={{ color: COLORS.accent }} />
-                </InputAdornment>
-              ),
-              endAdornment: (
-                <InputAdornment position="end">
-                  <SearchIcon sx={{ color: COLORS.textMuted }} />
-                </InputAdornment>
-              ),
-            }}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                backgroundColor: COLORS.bgSecondary,
-                color: COLORS.textPrimary,
-                borderRadius: 2,
-                '& fieldset': { borderColor: COLORS.border },
-                '&:hover fieldset': { borderColor: COLORS.accent },
-                '&.Mui-focused fieldset': { borderColor: COLORS.accent },
-              },
-              '& input::placeholder': {
-                color: COLORS.textMuted,
-                opacity: 1,
-              },
-            }}
-          />
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={!trimmedQuery}
-            startIcon={<SearchIcon />}
-            sx={{
-              bgcolor: COLORS.accent,
-              color: '#000',
-              px: 2.5,
-              minWidth: { xs: '100%', md: 120 },
-              textTransform: 'none',
-              fontWeight: 700,
-              '&:hover': { bgcolor: '#c9a227' },
-              '&.Mui-disabled': {
-                bgcolor: COLORS.bgTertiary,
-                color: COLORS.textMuted,
-              },
-            }}
-          >
-            Search
-          </Button>
-          <Button
-            type="button"
-            variant="outlined"
-            startIcon={<QrCodeScannerIcon />}
-            onClick={() => setCameraScannerOpen(true)}
-            sx={{
-              color: COLORS.textPrimary,
-              borderColor: COLORS.border,
-              px: 2.5,
-              minWidth: { xs: '100%', md: 140 },
-              textTransform: 'none',
-              fontWeight: 700,
-              '&:hover': { borderColor: COLORS.accent, backgroundColor: COLORS.bgTertiary },
-            }}
-          >
-            Camera Scan
-          </Button>
+          Search
+        </Button>
+        <Button
+          type="button"
+          variant="outlined"
+          startIcon={<QrCodeScannerIcon />}
+          onClick={() => setCameraScannerOpen(true)}
+          sx={{ px: 2.5, minWidth: { xs: '100%', md: 140 } }}
+        >
+          Camera Scan
+        </Button>
+      </Box>
+
+      {error && (
+        <Alert severity="warning" sx={{ mt: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      {trimmedQuery && matches.length > 0 && (
+        <Box sx={{ mt: 1 }}>
+          {matches.map((repair) => (
+            <Box key={repair.repairID} sx={{ ...rowDividerSx, py: 1.5, flexWrap: 'wrap' }}>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontWeight: 600 }}>
+                  {getRepairDisplayName(repair)}
+                </Typography>
+                <Typography sx={{ color: facelift.text2, fontSize: '0.8125rem' }}>
+                  {repair.repairID} · {repair.repairType || repair.description || 'Repair'}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexShrink: 0 }}>
+                <StatusChip label={repair.status || 'No status'} hue={statusHue(repair.status)} />
+                <OpenLink onClick={() => openRepair(repair.repairID)} />
+              </Box>
+            </Box>
+          ))}
         </Box>
+      )}
 
-        {error && (
-          <Alert severity="warning" sx={{ backgroundColor: COLORS.bgSecondary, color: COLORS.textPrimary, border: `1px solid ${COLORS.border}` }}>
-            {error}
-          </Alert>
-        )}
-
-        {trimmedQuery && matches.length > 0 && (
-          <Stack divider={<Divider sx={{ borderColor: COLORS.border }} />}>
-            {matches.map((repair) => {
-              const tone = getStatusTone(repair.status);
-              return (
-                <Box
-                  key={repair.repairID}
-                  sx={{
-                    py: 1.5,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 2,
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={{ color: COLORS.textHeader, fontWeight: 600 }}>
-                      {getRepairDisplayName(repair)}
-                    </Typography>
-                    <Typography sx={{ color: COLORS.textSecondary, fontSize: 14 }}>
-                      {repair.repairID} · {repair.repairType || repair.description || 'Repair'}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-                    <Chip
-                      label={repair.status || 'No status'}
-                      size="small"
-                      sx={{
-                        color: tone.color,
-                        backgroundColor: tone.bg,
-                        border: `1px solid ${COLORS.border}`,
-                        borderLeft: tone.borderLeft,
-                        borderRadius: 2,
-                      }}
-                    />
-                    <Button
-                      endIcon={<ArrowForwardIcon />}
-                      onClick={() => openRepair(repair.repairID)}
-                      sx={{
-                        color: COLORS.accent,
-                        minWidth: 0,
-                        p: 0,
-                        textTransform: 'none',
-                        fontWeight: 600,
-                        '&:hover': { backgroundColor: 'transparent', opacity: 0.9 },
-                      }}
-                    >
-                      Open
-                    </Button>
-                  </Box>
-                </Box>
-              );
-            })}
-          </Stack>
-        )}
-
-        <ContinuousBarcodeScanner
-          open={cameraScannerOpen}
-          title="Scan Repair Ticket"
-          queuedCount={0}
-          actionLabel="Close Scanner"
-          onClose={() => setCameraScannerOpen(false)}
-          onScan={handleCameraScan}
-          onAction={() => setCameraScannerOpen(false)}
-        >
-          <Typography variant="body2" sx={{ color: COLORS.textSecondary }}>
-            Scan a repair ticket QR code or barcode to open the matching repair.
-          </Typography>
-        </ContinuousBarcodeScanner>
-      </Stack>
-    </Surface>
+      <ContinuousBarcodeScanner
+        open={cameraScannerOpen}
+        title="Scan Repair Ticket"
+        queuedCount={0}
+        actionLabel="Close Scanner"
+        onClose={() => setCameraScannerOpen(false)}
+        onScan={handleCameraScan}
+        onAction={() => setCameraScannerOpen(false)}
+      >
+        <Typography variant="body2" sx={{ color: facelift.text2 }}>
+          Scan a repair ticket QR code or barcode to open the matching repair.
+        </Typography>
+      </ContinuousBarcodeScanner>
+    </SurfaceCard>
   );
 }
 
@@ -672,28 +554,20 @@ export default function AdminDashboardContent() {
 
   if (loading) {
     return (
-      <Surface>
-        <Stack spacing={2.5}>
-          <Typography sx={{ fontSize: 28, fontWeight: 600, color: COLORS.textHeader }}>Loading dashboard</Typography>
-          <LinearProgress
-            sx={{
-              height: 6,
-              borderRadius: 999,
-              backgroundColor: COLORS.bgTertiary,
-              '& .MuiLinearProgress-bar': { backgroundColor: COLORS.accent },
-            }}
-          />
-        </Stack>
-      </Surface>
+      <SurfaceCard>
+        <SectionLabel>Operations overview</SectionLabel>
+        <Typography sx={{ mt: 1, fontSize: '1.375rem', fontWeight: 600 }}>Loading dashboard</Typography>
+        <LinearProgress sx={{ mt: 2.5 }} />
+      </SurfaceCard>
     );
   }
 
   return (
-    <Stack spacing={3}>
+    <Stack spacing={2.5}>
       {(dashboardMetrics.rushJobs.length > 0 || dashboardMetrics.pendingWholesale.length > 0) && (
-        <Stack spacing={2}>
+        <Stack spacing={1.5}>
           {dashboardMetrics.rushJobs.length > 0 && (
-            <PriorityNotice>
+            <PriorityNotice hue="#F87171">
               {dashboardMetrics.rushJobs.length} rush job(s) need priority handling.
             </PriorityNotice>
           )}
@@ -709,60 +583,46 @@ export default function AdminDashboardContent() {
         sx={{
           display: 'grid',
           gridTemplateColumns: { xs: '1fr', xl: 'minmax(0, 1.7fr) minmax(360px, 0.95fr)' },
-          gap: 3,
+          gap: 2.5,
           alignItems: 'stretch',
         }}
       >
-        <Surface sx={{ height: '100%' }}>
-          <Stack spacing={3}>
-            <Box>
-              <Chip
-                label="Operations overview"
-                sx={{
-                  mb: 2,
-                  borderRadius: 2,
-                  backgroundColor: COLORS.bgSecondary,
-                  color: COLORS.textPrimary,
-                  border: `1px solid ${COLORS.border}`,
-                }}
-              />
-              <Typography sx={{ fontSize: { xs: 40, md: 56 }, fontWeight: 600, lineHeight: 1.05, mb: 2, color: COLORS.textHeader }}>
-                Welcome back, {session?.user?.firstName || session?.user?.name || 'team'}
-              </Typography>
-              <Typography sx={{ color: COLORS.textSecondary, fontSize: 18, maxWidth: 780, lineHeight: 1.6 }}>
-                Track repair flow, revenue, and operational bottlenecks from one place.
-              </Typography>
-            </Box>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          <PageHeader
+            badge="Operations overview"
+            title={`Welcome back, ${session?.user?.firstName || session?.user?.name || 'team'}`}
+            subtitle="Track repair flow, revenue, and operational bottlenecks from one place."
+          />
 
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
-                gap: 2,
-              }}
-            >
-              <MetricCard
-                label="Active repairs"
-                value={dashboardMetrics.totalRepairs}
-                subtext="Total repairs currently in the system"
-                icon={<BuildIcon fontSize="small" />}
-                progress={completionRate}
-              />
-              <MetricCard
-                label="Last month revenue"
-                value={formatCurrency(dashboardFinance.lastMonthRevenue)}
-                subtext={`${dashboardFinance.lastMonthGoLiveRepairs} go-live repair(s) invoiced`}
-                icon={<MonetizationOnIcon fontSize="small" />}
-              />
-              <MetricCard
-                label="Last week cash"
-                value={formatCurrency(dashboardFinance.lastWeekCashCollected)}
-                subtext={`${formatCurrency(dashboardFinance.outstandingReceivables)} still sitting in receivables`}
-                icon={<TrendingUpIcon fontSize="small" />}
-              />
-            </Box>
-          </Stack>
-        </Surface>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
+              gap: 1.75,
+              flex: 1,
+            }}
+          >
+            <StatCard
+              label="Active repairs"
+              value={dashboardMetrics.totalRepairs}
+              subtext="Total repairs currently in the system"
+              icon={<BuildIcon fontSize="small" />}
+              progress={completionRate}
+            />
+            <StatCard
+              label="Last month revenue"
+              value={formatCurrency(dashboardFinance.lastMonthRevenue)}
+              subtext={`${dashboardFinance.lastMonthGoLiveRepairs} go-live repair(s) invoiced`}
+              icon={<MonetizationOnIcon fontSize="small" />}
+            />
+            <StatCard
+              label="Last week cash"
+              value={formatCurrency(dashboardFinance.lastWeekCashCollected)}
+              subtext={`${formatCurrency(dashboardFinance.outstandingReceivables)} still sitting in receivables`}
+              icon={<TrendingUpIcon fontSize="small" />}
+            />
+          </Box>
+        </Box>
 
         <QueuePanel items={operationalQueues} onNavigate={(href) => router.push(href)} />
       </Box>
@@ -773,208 +633,111 @@ export default function AdminDashboardContent() {
         autoOpenScanner={searchParams.get('scanRepair') === '1'}
       />
 
-      <Surface>
-        <Stack spacing={2}>
-          <Box>
-            <Typography sx={{ color: COLORS.textMuted, fontSize: 12, fontWeight: 600, mb: 0.75 }}>
-              Analytics at a glance
-            </Typography>
-            <Typography sx={{ fontSize: 28, fontWeight: 600, color: COLORS.textHeader }}>Business health</Typography>
-          </Box>
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', md: 'repeat(4, minmax(0, 1fr))' },
-              gap: 2,
-            }}
-          >
-            <MetricCard
-              label="Accounts receivable"
-              value={formatCurrency(dashboardFinance.outstandingReceivables)}
-              subtext="Open invoice balances that still need collection"
-              icon={<MonetizationOnIcon fontSize="small" />}
-            />
-            <MetricCard
-              label="Closeout bottlenecks"
-              value={dashboardFinance.closeoutBottlenecks}
-              subtext="Completed jobs still waiting on invoice or payment"
-              icon={<AssignmentIcon fontSize="small" />}
-            />
-            <MetricCard
-              label="Average ticket"
-              value={formatCurrency(dashboardMetrics.averageValue)}
-              subtext="Average completed repair value in current data"
-              icon={<TrendingUpIcon fontSize="small" />}
-            />
-            <MetricCard
-              label="Go-live repairs"
-              value={dashboardFinance.lastMonthGoLiveRepairs}
-              subtext="Repairs entered in the clean system last month"
-              icon={<BuildIcon fontSize="small" />}
-            />
-          </Box>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button
-              endIcon={<ArrowForwardIcon />}
-              onClick={() => router.push('/dashboard/analytics/reports')}
-              sx={{
-                color: COLORS.accent,
-                textTransform: 'none',
-                fontWeight: 600,
-                '&:hover': { backgroundColor: 'transparent', opacity: 0.9 },
-              }}
-            >
-              Open analytics reports
-            </Button>
-          </Box>
-        </Stack>
-      </Surface>
+      <SurfaceCard>
+        <PanelHeader
+          overline="Analytics at a glance"
+          title="Business health"
+          action={<OpenLink onClick={() => router.push('/dashboard/analytics/reports')}>Open analytics reports</OpenLink>}
+        />
+        <Box
+          sx={{
+            mt: 2.5,
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', md: 'repeat(4, minmax(0, 1fr))' },
+            gap: 1.75,
+          }}
+        >
+          <StatCard
+            label="Accounts receivable"
+            value={formatCurrency(dashboardFinance.outstandingReceivables)}
+            subtext="Open invoice balances that still need collection"
+            icon={<MonetizationOnIcon fontSize="small" />}
+          />
+          <StatCard
+            label="Closeout bottlenecks"
+            value={dashboardFinance.closeoutBottlenecks}
+            subtext="Completed jobs still waiting on invoice or payment"
+            icon={<AssignmentIcon fontSize="small" />}
+          />
+          <StatCard
+            label="Average ticket"
+            value={formatCurrency(dashboardMetrics.averageValue)}
+            subtext="Average completed repair value in current data"
+            icon={<TrendingUpIcon fontSize="small" />}
+          />
+          <StatCard
+            label="Go-live repairs"
+            value={dashboardFinance.lastMonthGoLiveRepairs}
+            subtext="Repairs entered in the clean system last month"
+            icon={<BuildIcon fontSize="small" />}
+          />
+        </Box>
+      </SurfaceCard>
 
       <Box
         sx={{
           display: 'grid',
           gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1.55fr) minmax(320px, 0.9fr)' },
-          gap: 3,
+          gap: 2.5,
           alignItems: 'start',
         }}
       >
-        <Surface>
-          <Stack spacing={2.5}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
-              <Box>
-                <Typography sx={{ color: COLORS.textMuted, fontSize: 12, fontWeight: 600, mb: 0.75 }}>
-                  Live feed
-                </Typography>
-                <Typography sx={{ fontSize: 28, fontWeight: 600, color: COLORS.textHeader }}>Recent repair activity</Typography>
-              </Box>
-              <Button
-                endIcon={<ArrowForwardIcon />}
-                onClick={() => router.push('/dashboard/repairs')}
-                sx={{
-                  color: COLORS.accent,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  '&:hover': { backgroundColor: 'transparent', opacity: 0.9 },
-                }}
-              >
-                View all repairs
-              </Button>
-            </Box>
+        <SurfaceCard>
+          <PanelHeader
+            overline="Live feed"
+            title="Recent repair activity"
+            action={<OpenLink onClick={() => router.push('/dashboard/repairs')}>View all repairs</OpenLink>}
+          />
 
-            <Stack divider={<Divider sx={{ borderColor: COLORS.border }} />}>
-              {recentActivity.map((item) => {
-                const tone = getStatusTone(item.status);
-                return (
+          <Box sx={{ mt: 1 }}>
+            {recentActivity.map((item) => (
+              <Box key={item.id} sx={{ ...rowDividerSx, flexWrap: 'wrap' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
                   <Box
-                    key={item.id}
                     sx={{
-                      py: 2,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 2,
-                      flexWrap: 'wrap',
+                      width: 40,
+                      height: 40,
+                      borderRadius: '50%',
+                      display: 'grid',
+                      placeItems: 'center',
+                      backgroundColor: tint(facelift.gold).bg,
+                      color: facelift.gold,
+                      fontWeight: 700,
+                      flexShrink: 0,
                     }}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
-                      <Avatar
-                        sx={{
-                          width: 40,
-                          height: 40,
-                          bgcolor: COLORS.bgSecondary,
-                          color: COLORS.accent,
-                          border: `1px solid ${COLORS.border}`,
-                          fontWeight: 700,
-                        }}
-                      >
-                        {(item.customerName || 'U')[0].toUpperCase()}
-                      </Avatar>
-                      <Box sx={{ minWidth: 0 }}>
-                        <Typography sx={{ fontSize: 16, fontWeight: 600, color: COLORS.textHeader }}>{item.customerName}</Typography>
-                        <Typography sx={{ color: COLORS.textSecondary, fontSize: 14 }}>
-                          {item.type} · {formatDate(item.updatedAt)}
-                        </Typography>
-                      </Box>
-                    </Box>
-                    <Chip
-                      label={item.status}
-                      size="small"
-                      sx={{
-                        color: tone.color,
-                        backgroundColor: tone.bg,
-                        border: `1px solid ${COLORS.border}`,
-                        borderLeft: tone.borderLeft,
-                        borderRadius: 2,
-                        fontWeight: 500,
-                      }}
-                    />
+                    {(item.customerName || 'U')[0].toUpperCase()}
                   </Box>
-                );
-              })}
-            </Stack>
-          </Stack>
-        </Surface>
-
-        <Surface>
-          <Stack spacing={2.5}>
-            <Box>
-              <Typography sx={{ color: COLORS.textMuted, fontSize: 12, fontWeight: 600, mb: 0.75 }}>
-                Quick actions
-              </Typography>
-              <Typography sx={{ fontSize: 28, fontWeight: 600, color: COLORS.textHeader }}>Jump into work</Typography>
-            </Box>
-            <Stack divider={<Divider sx={{ borderColor: COLORS.border }} />}>
-              {quickActions.map((action) => (
-                <Box
-                  key={action.title}
-                  sx={{
-                    py: 2,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 2,
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
-                    <Box
-                      sx={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 2,
-                        display: 'grid',
-                        placeItems: 'center',
-                        backgroundColor: COLORS.bgSecondary,
-                        color: COLORS.accent,
-                        border: `1px solid ${COLORS.border}`,
-                        flexShrink: 0,
-                      }}
-                    >
-                      {action.icon}
-                    </Box>
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography sx={{ fontSize: 16, fontWeight: 600, color: COLORS.textHeader }}>{action.title}</Typography>
-                      <Typography sx={{ color: COLORS.textSecondary, fontSize: 14 }}>{action.subtitle}</Typography>
-                    </Box>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600 }}>{item.customerName}</Typography>
+                    <Typography sx={{ color: facelift.text2, fontSize: '0.8125rem' }}>
+                      {item.type} · {formatDate(item.updatedAt)}
+                    </Typography>
                   </Box>
-                  <Button
-                    endIcon={<ArrowForwardIcon />}
-                    onClick={() => router.push(action.href)}
-                    sx={{
-                      color: COLORS.accent,
-                      minWidth: 0,
-                      p: 0,
-                      textTransform: 'none',
-                      fontWeight: 600,
-                      '&:hover': { backgroundColor: 'transparent', opacity: 0.9 },
-                    }}
-                  >
-                    Open
-                  </Button>
                 </Box>
-              ))}
-            </Stack>
-          </Stack>
-        </Surface>
+                <StatusChip label={item.status || 'No status'} hue={statusHue(item.status)} />
+              </Box>
+            ))}
+          </Box>
+        </SurfaceCard>
+
+        <SurfaceCard>
+          <PanelHeader overline="Quick actions" title="Jump into work" />
+          <Box sx={{ mt: 1 }}>
+            {quickActions.map((action) => (
+              <Box key={action.title} sx={rowDividerSx}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
+                  <IconTile>{action.icon}</IconTile>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600 }}>{action.title}</Typography>
+                    <Typography sx={{ color: facelift.text2, fontSize: '0.8125rem' }}>{action.subtitle}</Typography>
+                  </Box>
+                </Box>
+                <OpenLink onClick={() => router.push(action.href)} />
+              </Box>
+            ))}
+          </Box>
+        </SurfaceCard>
       </Box>
     </Stack>
   );

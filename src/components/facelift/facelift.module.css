@@ -1,0 +1,589 @@
+/*
+ * Facelift primitives — styles.
+ *
+ * A Next.js CSS module. No MUI, no emotion, no Tailwind, no dependencies.
+ * Dynamic values (accent colors, grid thresholds) arrive as CSS custom
+ * properties set inline by the components.
+ *
+ * MOBILE-FIRST. Every interactive surface here is at least 44px tall, and the
+ * grids are single-column until there is room for more. Sizes are not
+ * negotiable downward: a 40px control (MUI's `size="small"`) is below the
+ * touch minimum and should not appear on these screens.
+ */
+
+.tokens {
+  --fl-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --fl-gold: #FBBF24;
+  --fl-gold-hover: #FFCF4D;
+  --fl-ground: #08090B;
+  --fl-border: rgba(255, 255, 255, 0.12);
+  --fl-hairline: rgba(255, 255, 255, 0.09);
+  --fl-surface: rgba(255, 255, 255, 0.045);
+  --fl-surface-quiet: rgba(255, 255, 255, 0.03);
+  --fl-surface-hover: rgba(255, 255, 255, 0.07);
+  --fl-text-2: rgba(255, 255, 255, 0.66);
+  --fl-text-3: rgba(255, 255, 255, 0.5);
+  --fl-text-4: rgba(255, 255, 255, 0.34);
+  --fl-tap: 44px;
+}
+
+/* ── Page header ────────────────────────────────────────────────────────── */
+
+.header {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.headerBoxed {
+  padding: 18px;
+  border: 1px solid var(--fl-border);
+  border-radius: 20px;
+  background: var(--fl-surface-quiet);
+}
+
+@media (min-width: 600px) {
+  .headerBoxed { padding: 22px; }
+}
+
+.headerBody {
+  flex: 1;
+  /* min(280px, 100%): wide enough that the actions wrap BELOW the body on a
+     phone instead of squeezing the title to a word per line, without ever
+     forcing the row wider than its container. */
+  min-width: min(280px, 100%);
+  max-width: 920px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border: 1px solid var(--fl-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  font-family: var(--fl-mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fl-text-2);
+}
+
+.badge svg {
+  color: var(--fl-gold);
+  width: 14px;
+  height: 14px;
+}
+
+.title {
+  margin: 0;
+  font-weight: 700;
+  font-size: 27px;
+  line-height: 1.06;
+  letter-spacing: -0.032em;
+}
+
+@media (min-width: 600px) {
+  .title { font-size: 34px; line-height: 1.03; letter-spacing: -0.036em; }
+}
+
+.titleSpaced { margin-top: 14px; }
+
+.subtitle {
+  margin: 11px 0 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--fl-text-2);
+  text-wrap: pretty;
+}
+
+.headerActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  /* Never wider than the header: a single long action button must wrap its
+     text on narrow screens rather than overflow the page. */
+  min-width: 0;
+  max-width: 100%;
+}
+
+.headerActions > * {
+  max-width: 100%;
+}
+
+/* ── Metrics ────────────────────────────────────────────────────────────── */
+
+.metricRow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+@media (min-width: 480px) {
+  .metricRow {
+    grid-template-columns: repeat(auto-fit, minmax(var(--fl-min, 190px), 1fr));
+  }
+}
+
+.metric {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 17px 18px;
+  border: 1px solid var(--fl-metric-border, var(--fl-border));
+  border-radius: 16px;
+  background: var(--fl-surface);
+}
+
+.metricIcon {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--fl-border);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--fl-accent, var(--fl-gold));
+}
+
+.metricIcon svg { width: 19px; height: 19px; }
+
+.metricValue {
+  font-weight: 700;
+  font-size: 24px;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.metricLabel {
+  margin-top: 3px;
+  font-family: var(--fl-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fl-text-3);
+}
+
+/* ── Status chip ────────────────────────────────────────────────────────── */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border: 1px solid var(--fl-chip-border);
+  border-radius: 999px;
+  background: var(--fl-chip-bg);
+  color: var(--fl-chip-fg);
+  font-family: var(--fl-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.chipSolid { border: none; font-weight: 600; }
+
+/* ── Surfaces ───────────────────────────────────────────────────────────── */
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+@media (min-width: 560px) {
+  .cardGrid {
+    grid-template-columns: repeat(auto-fit, minmax(var(--fl-min, 300px), 1fr));
+  }
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+  border: 1px solid var(--fl-border);
+  border-radius: 18px;
+  background: var(--fl-surface);
+}
+
+.cardAccented { border-left: 2px solid var(--fl-accent, var(--fl-gold)); }
+
+.cardInteractive {
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.cardInteractive:hover {
+  background: var(--fl-surface-hover);
+  border-color: var(--fl-gold);
+}
+
+.cardInteractive:focus-visible {
+  outline: 2px solid var(--fl-gold);
+  outline-offset: 2px;
+}
+
+/* ── Section label ──────────────────────────────────────────────────────── */
+
+.sectionLabel {
+  font-family: var(--fl-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fl-text-3);
+}
+
+/* ── Choice row — the tap-to-pick list item ─────────────────────────────── */
+/*
+ * This is the control that replaces a dropdown or an autocomplete whenever the
+ * option count is small enough to show. Picking from a visible list of eleven
+ * is faster than typing, and far faster on a phone.
+ */
+
+.choiceList {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.choiceRow {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-height: 56px;
+  padding: 9px 13px;
+  border: 1px solid var(--fl-border);
+  border-radius: 13px;
+  background: var(--fl-surface);
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.choiceRow:hover { background: var(--fl-surface-hover); }
+
+.choiceRow:focus-visible {
+  outline: 2px solid var(--fl-gold);
+  outline-offset: 2px;
+}
+
+.choiceRowSelected {
+  border-color: rgba(251, 191, 36, 0.45);
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.choiceLead {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(251, 191, 36, 0.14);
+  color: var(--fl-gold);
+  font-weight: 600;
+  font-size: 11.5px;
+}
+
+.choiceBody { flex: 1; min-width: 0; }
+
+.choiceTitle {
+  display: block;
+  font-weight: 500;
+  font-size: 13.5px;
+  letter-spacing: -0.012em;
+}
+
+.choiceMeta {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--fl-mono);
+  font-size: 11px;
+  color: var(--fl-text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.choiceRowAdd {
+  justify-content: center;
+  min-height: var(--fl-tap);
+  border-style: dashed;
+  background: none;
+  color: var(--fl-gold);
+  font-weight: 500;
+  font-size: 13.5px;
+}
+
+/* ── Segmented control ──────────────────────────────────────────────────── */
+
+.segmented {
+  display: flex;
+  gap: 6px;
+}
+
+.segment {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid var(--fl-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--fl-text-2);
+  font-family: inherit;
+  font-weight: 500;
+  font-size: 13px;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.segment:hover { border-color: rgba(255, 255, 255, 0.28); }
+
+.segment:focus-visible {
+  outline: 2px solid var(--fl-gold);
+  outline-offset: 2px;
+}
+
+.segmentActive {
+  border-color: rgba(251, 191, 36, 0.45);
+  background: rgba(251, 191, 36, 0.13);
+  color: var(--fl-gold);
+}
+
+/* ── Quantity stepper ───────────────────────────────────────────────────── */
+
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--fl-border);
+  border-radius: 11px;
+  overflow: hidden;
+}
+
+.stepperButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--fl-tap);
+  height: var(--fl-tap);
+  border: none;
+  background: none;
+  color: var(--fl-text-2);
+  font-family: inherit;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.stepperButton:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
+
+.stepperButton:focus-visible {
+  outline: 2px solid var(--fl-gold);
+  outline-offset: -2px;
+}
+
+.stepperButton:disabled { opacity: 0.35; cursor: default; }
+
+.stepperValue {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: var(--fl-tap);
+  font-family: var(--fl-mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Filters ────────────────────────────────────────────────────────────── */
+
+.filterBar {
+  display: flex;
+  gap: 11px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.filterBarBoxed {
+  padding: 14px;
+  border: 1px solid var(--fl-border);
+  border-radius: 16px;
+  background: var(--fl-surface-quiet);
+}
+
+.search {
+  flex: 1;
+  min-width: min(220px, 100%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--fl-tap);
+  padding: 0 15px;
+  border: 1px solid var(--fl-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.search svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--fl-text-3);
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  outline: none;
+  color: #fff;
+  font-family: inherit;
+  font-size: 16px;
+}
+
+/* 16px prevents iOS Safari zooming the viewport on focus. Do not lower it. */
+
+.searchInput::placeholder { color: var(--fl-text-3); }
+
+.pill {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: var(--fl-tap);
+  padding: 0 15px;
+  border: 1px solid var(--fl-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--fl-text-2);
+  font-family: var(--fl-mono);
+  font-size: 12.5px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.pill:hover { border-color: rgba(255, 255, 255, 0.28); }
+
+.pill:focus-visible {
+  outline: 2px solid var(--fl-gold);
+  outline-offset: 2px;
+}
+
+.pillActive {
+  border-color: rgba(251, 191, 36, 0.42);
+  background: rgba(251, 191, 36, 0.13);
+  color: var(--fl-gold);
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+
+.goldButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 999px;
+  background: var(--fl-gold);
+  color: var(--fl-ground);
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 14.5px;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+}
+
+.goldButton:hover { background: var(--fl-gold-hover); }
+
+.goldButton:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.goldButton:disabled { opacity: 0.5; cursor: default; }
+
+.goldButton svg { width: 16px; height: 16px; }
+
+.quietButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--fl-tap);
+  padding: 0 18px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+  font-family: inherit;
+  font-weight: 500;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.quietButton:hover { border-color: rgba(255, 255, 255, 0.32); }
+
+.quietButton:focus-visible {
+  outline: 2px solid var(--fl-gold);
+  outline-offset: 2px;
+}
+
+.quietButton svg { width: 15px; height: 15px; }
+
+.iconButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--fl-tap);
+  height: var(--fl-tap);
+  border: none;
+  border-radius: 11px;
+  background: none;
+  color: var(--fl-text-3);
+  cursor: pointer;
+}
+
+.iconButton:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+
+.iconButton:focus-visible {
+  outline: 2px solid var(--fl-gold);
+  outline-offset: -2px;
+}
+
+.iconButton svg { width: 17px; height: 17px; }
+
+/* ── Sticky action bar — the mobile primary action ──────────────────────── */
+
+.actionBar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  padding: 12px 0 max(12px, env(safe-area-inset-bottom));
+  background: linear-gradient(to top, var(--fl-ground) 62%, rgba(8, 9, 11, 0));
+}
+
+.actionBar > .goldButton { flex: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cardInteractive { transition: none; }
+}

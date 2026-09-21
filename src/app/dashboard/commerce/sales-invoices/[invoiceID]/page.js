@@ -24,13 +24,13 @@ import {
 } from '@mui/icons-material';
 
 const UI = {
-  bgPanel: '#15181D',
-  bgCard: '#171A1F',
-  border: '#2A2F38',
-  textPrimary: '#E6E8EB',
+  bgPanel: '#131416',
+  bgCard: '#12141A',
+  border: 'rgba(255,255,255,0.12)',
+  textPrimary: '#FFFFFF',
   textHeader: '#D1D5DB',
-  textSecondary: '#9CA3AF',
-  accent: '#D4AF37',
+  textSecondary: 'rgba(255,255,255,0.66)',
+  accent: '#FBBF24',
 };
 
 const money = (value) => `$${Number(value || 0).toFixed(2)}`;

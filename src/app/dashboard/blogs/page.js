@@ -32,15 +32,15 @@ import PendingIcon from '@mui/icons-material/HourglassEmpty';
 import ReviewIcon from '@mui/icons-material/RateReview';
 
 const C = {
-  bg: '#0F1115',
-  surface: '#15181D',
+  bg: '#08090B',
+  surface: '#131416',
   card: '#1A1D23',
-  cardAlt: '#1F232A',
-  border: '#2A2F38',
+  cardAlt: '#1B1C1E',
+  border: 'rgba(255,255,255,0.12)',
   text: '#E5E7EB',
-  muted: '#6B7280',
-  accent: '#D4AF37',
-  accentDim: '#D4AF3722',
+  muted: 'rgba(255,255,255,0.5)',
+  accent: '#FBBF24',
+  accentDim: '#FBBF2422',
   success: '#22C55E',
   warning: '#F59E0B',
   info: '#3B82F6',
@@ -330,7 +330,7 @@ export default function BlogsPage() {
             onClick={handleTrigger}
             disabled={triggering}
             startIcon={triggering ? <CircularProgress size={14} sx={{ color: '#000' }} /> : <AutoAwesomeIcon />}
-            sx={{ backgroundColor: triggering ? C.border : C.accent, color: triggering ? C.muted : '#000', textTransform: 'none', fontWeight: 600, '&:hover': { backgroundColor: '#B8932A' }, '&:disabled': { backgroundColor: C.border } }}
+            sx={{ backgroundColor: triggering ? C.border : C.accent, color: triggering ? C.muted : '#000', textTransform: 'none', fontWeight: 600, '&:hover': { backgroundColor: '#FFCF4D' }, '&:disabled': { backgroundColor: C.border } }}
           >
             {triggering ? 'Starting…' : 'Start Pipeline'}
           </Button>

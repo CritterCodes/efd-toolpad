@@ -1,0 +1,150 @@
+/**
+ * Print stylesheet for the dashboard.
+ *
+ * The admin is a dark theme. Dark themes do not print — browsers drop
+ * background fills by default, which leaves white text on white paper.
+ * This sheet forces an ink-on-white rendering for any printed route.
+ *
+ * Install: import once in the dashboard layout, below the theme provider.
+ *   import '@/styles/dashboard-print.css';
+ *
+ * Scope note: this is deliberately blunt. It is correct for documents that
+ * are mostly text and tables — repair tickets, invoices, payroll batches,
+ * client lists. It is WRONG for anything where a fill carries meaning
+ * (status pie, revenue bars, progress fills), because those flatten to
+ * outlines. Those surfaces need a purpose-built print view; see the
+ * "Charts" section at the bottom.
+ */
+
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* Chrome that should never reach paper. */
+  .MuiDrawer-root,
+  .MuiAppBar-root,
+  .MuiToolbar-root,
+  .MuiSpeedDial-root,
+  .MuiFab-root,
+  .MuiSnackbar-root,
+  .MuiTooltip-popper,
+  [data-print="hide"] {
+    display: none !important;
+  }
+
+  /* The content column carries a left offset for the fixed sidebar. */
+  main,
+  [role="main"] {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  /* Flatten the dark palette. Cards, chips, and table heads all rely on
+     translucent white washes that read as grey mud on paper. */
+  *,
+  *::before,
+  *::after {
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    color: #111 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    backdrop-filter: none !important;
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* Borders resolve from rgba-white (invisible on paper) to grey. */
+  .MuiCard-root,
+  .MuiPaper-root,
+  .MuiTableContainer-root,
+  .MuiChip-root,
+  .MuiAlert-root,
+  .MuiAccordion-root,
+  .MuiOutlinedInput-notchedOutline,
+  [class*="MuiDivider"] {
+    border-color: #c9c9c9 !important;
+  }
+
+  .MuiTableCell-root {
+    border-bottom-color: #d8d8d8 !important;
+  }
+
+  .MuiTableCell-head {
+    color: #333 !important;
+    font-weight: 600 !important;
+    border-bottom: 1px solid #999 !important;
+  }
+
+  /* Chips lose their fill, so they need a visible outline to stay legible
+     as discrete tokens rather than loose words. */
+  .MuiChip-root {
+    border: 1px solid #999 !important;
+  }
+
+  /* Icons are stroked in white. */
+  svg {
+    stroke: #333 !important;
+    fill: none !important;
+  }
+
+  .MuiSvgIcon-root {
+    fill: #333 !important;
+    stroke: none !important;
+  }
+
+  /* Links: show the target, since a printed page can't be clicked. */
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+    color: #555;
+  }
+
+  /* Pagination. Tables may break across pages; rows and cards may not. */
+  table {
+    page-break-inside: auto;
+  }
+
+  tr,
+  img,
+  .MuiCard-root,
+  .MuiAccordion-root {
+    page-break-inside: avoid;
+  }
+
+  h1,
+  h2,
+  h3,
+  .MuiTableCell-head {
+    page-break-after: avoid;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  /* Charts. Recharts renders SVG whose meaning IS the fill, so the global
+     reset above destroys it. Two options, pick per surface:
+     1. Mark the chart [data-print="hide"] and print the table beside it.
+     2. Opt the chart out of the reset with [data-print="keep"] and accept
+        that the user must enable "print backgrounds" in the print dialog.
+     Option 1 is the safe default for analytics exports. */
+  [data-print="keep"],
+  [data-print="keep"] * {
+    background-color: revert !important;
+    background-image: revert !important;
+    color: revert !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}

@@ -57,15 +57,15 @@ export default function ArtisanDashboardContent() {
         return (
             <Box sx={{ p: 3 }}>
                 <Typography sx={{ color: '#D1D5DB', mb: 2 }}>Loading dashboard...</Typography>
-                <LinearProgress sx={{ backgroundColor: '#1F232A', '& .MuiLinearProgress-bar': { backgroundColor: '#D4AF37' } }} />
+                <LinearProgress sx={{ backgroundColor: '#1B1C1E', '& .MuiLinearProgress-bar': { backgroundColor: '#FBBF24' } }} />
             </Box>
         );
     }
 
     const C = {
-        bgPanel: '#15181D', bgCard: '#171A1F', bgTertiary: '#1F232A',
-        border: '#2A2F38', textHeader: '#D1D5DB', textSecondary: '#9CA3AF', textMuted: '#6B7280',
-        accent: '#D4AF37', shadow: '0 8px 24px rgba(0,0,0,0.45)',
+        bgPanel: '#131416', bgCard: '#12141A', bgTertiary: '#1B1C1E',
+        border: 'rgba(255,255,255,0.12)', textHeader: '#D1D5DB', textSecondary: 'rgba(255,255,255,0.66)', textMuted: 'rgba(255,255,255,0.5)',
+        accent: '#FBBF24', shadow: '0 8px 24px rgba(0,0,0,0.45)',
     };
 
     const shopBaseUrl = process.env.NEXT_PUBLIC_SHOP_URL || 'https://shop.engelfinedesign.com';
