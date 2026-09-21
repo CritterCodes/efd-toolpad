@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { wholesalerBusinessName } from '@/services/wholesale/businessName';
 import { v4 as uuidv4 } from 'uuid';
 import { auth } from '@/lib/auth';
 import { db as mongo } from '@/lib/database';
@@ -107,9 +108,12 @@ export async function POST(request) {
       ? session.user.userID
       : String(payload.wholesalerId || '').trim();
 
-    const ownerWholesalerName = role === 'wholesaler'
-      ? (session.user.name || 'Wholesale Store')
-      : String(payload.wholesalerName || '').trim();
+    // The store's BUSINESS name, resolved from its record — session.user.name is the contact
+    // ("Sam Johnson"), and the payload name is whatever the caller's dropdown showed.
+    const ownerUser = ownerWholesalerId
+      ? await (await mongo.connect()).collection('users').findOne({ userID: ownerWholesalerId }, { projection: { _id: 0, firstName: 1, lastName: 1, business: 1, name: 1, 'wholesaleApplication.businessName': 1 } })
+      : null;
+    const ownerWholesalerName = wholesalerBusinessName(ownerUser || {}, String(payload.wholesalerName || '').trim() || session.user.name || 'Wholesale Store');
 
     if (!ownerWholesalerId) {
       return NextResponse.json({ success: false, error: 'wholesalerId is required' }, { status: 400 });

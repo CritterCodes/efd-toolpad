@@ -51,6 +51,7 @@ import wholesaleClientsAPIClient from '@/api-clients/wholesaleClients.client';
 import wholesaleAccountSettingsAPIClient from '@/api-clients/wholesaleAccountSettings.client';
 import pricingEngine from '@/services/PricingEngine';
 import { alignTasksToMetal, taskAllowsMetal } from '@/services/repairs/metalTaskFilter';
+import { wholesalerBusinessName } from '@/services/wholesale/businessName';
 import {
   buildCustomLaborTask,
   updateCustomLaborTask as applyCustomLaborPatch,
@@ -1227,7 +1228,9 @@ export default function NewRepairForm({
           const wholesalerData = Array.isArray(wholesalers?.data) ? wholesalers.data : [];
           const wholesalerStores = wholesalerData.map((store) => ({
             id: store.userID || store._id,
-            name: store.business || store.name || `${store.firstName || ''} ${store.lastName || ''}`.trim() || 'Wholesale Store',
+            // The BUSINESS, never the contact: Greers Pawn had only wholesaleApplication.businessName and
+            // this line named the store "Sam Johnson", keying 20 repairs + 7 invoices to a person.
+            name: wholesalerBusinessName(store, 'Wholesale Store'),
             isWholesale: true
           }));
 
