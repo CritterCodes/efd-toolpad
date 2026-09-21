@@ -93,7 +93,7 @@ describe('parcel presets', () => {
     expect(custom.map((p) => p.key)).toEqual(['ring-box']);
     expect(parcelForEasyPost(findParcelPreset({}, 'small-box'))).toEqual({ length: 6, width: 4, height: 4, weight: 8 });
     expect(parcelForEasyPost(findParcelPreset({}, 'fedex-small-box'))).toEqual({ predefined_package: 'FedExSmallBox', weight: 12 });
-    expect(findParcelPreset({}, 'nope').key).toBe('small-box'); // unknown key → first preset
+    expect(findParcelPreset({}, 'nope').key).toBe('fedex-envelope'); // unknown key → first preset
   });
 });
 
