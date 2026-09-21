@@ -42,11 +42,26 @@ export function easyPostMode(env = process.env) {
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
-/** EasyPost rate → the shape the invoice stores. */
+/**
+ * EasyPost names a wallet account's carrier by ACCOUNT, not brand: the FedEx Default wallet
+ * account comes back as `FedExDefault` (likewise `UPSDAP` for UPS-by-EasyPost). The invoice, the
+ * label, and the store's notification want the brand. First real quote (2026-09-21) returned five
+ * `FedExDefault` rates that the exact-match filter threw away, so the UI wrongly said "no FedEx".
+ */
+export function carrierBrand(carrier = '') {
+  const c = String(carrier || '');
+  if (/^fedex/i.test(c)) return 'FedEx';
+  if (/^ups/i.test(c)) return 'UPS';
+  if (/^usps/i.test(c)) return 'USPS';
+  return c;
+}
+
+/** EasyPost rate → the shape the invoice stores. `carrier` is the brand; `carrierAccount` the raw name. */
 export function normalizeRate(rate = {}) {
   return {
     rateId: rate.id || '',
-    carrier: rate.carrier || '',
+    carrier: carrierBrand(rate.carrier),
+    carrierAccount: rate.carrier || '',
     service: rate.service || '',
     rate: round2(rate.rate),
     currency: rate.currency || 'USD',
@@ -64,7 +79,7 @@ export function normalizeRate(rate = {}) {
  */
 export function selectRates(rates = [], { carriers = ['FedEx'] } = {}) {
   const normalized = (rates || []).map(normalizeRate).filter((r) => r.rateId && r.rate > 0);
-  const wanted = new Set((carriers || []).map((c) => String(c).toLowerCase()));
+  const wanted = new Set((carriers || []).map((c) => carrierBrand(c).toLowerCase()));
   const matched = wanted.size ? normalized.filter((r) => wanted.has(r.carrier.toLowerCase())) : normalized;
   const list = matched.length ? matched : normalized;
   list.sort((a, b) => a.rate - b.rate);
