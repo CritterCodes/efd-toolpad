@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     Box, Typography, Button, Chip, Checkbox,
@@ -18,6 +18,7 @@ import {
 import { useWholesaleRepairs } from '@/hooks/wholesale/useWholesaleRepairs';
 import { REPAIRS_UI as UI } from '@/app/dashboard/repairs/components/repairsUi';
 import { REPAIR_STATUS } from '@/services/repairWorkflow';
+import InboundShipDialog from './InboundShipDialog';
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 
@@ -38,8 +39,32 @@ export default function SchedulePickupPage() {
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     // Shipping dialog: the tracking number is required - an untracked box helps no one.
     const [shipDialogOpen, setShipDialogOpen] = useState(false);
-    const [shipCarrier, setShipCarrier] = useState('');
-    const [shipTracking, setShipTracking] = useState('');
+    // Back from Stripe after paying for a label: poll until the webhook has bought it, then offer Print.
+    const [labelOrder, setLabelOrder] = useState(null);
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const paid = params.get('paid');
+        if (params.get('cancelled')) {
+            setSnackbar({ open: true, message: 'Payment cancelled — nothing was shipped.', severity: 'warning' });
+            window.history.replaceState(null, '', window.location.pathname);
+        }
+        if (!paid) return;
+        window.history.replaceState(null, '', window.location.pathname);
+        let tries = 0; let stop = false;
+        const poll = async () => {
+            try {
+                const r = await fetch(`/api/wholesale/repairs/inbound-shipping?invoiceID=${encodeURIComponent(paid)}`);
+                const d = await r.json();
+                if (d.success) {
+                    setLabelOrder(d);
+                    if (d.label?.trackingNumber) { await refresh(); return; }
+                }
+            } catch { /* keep polling */ }
+            if (!stop && tries++ < 20) setTimeout(poll, 3000);
+        };
+        poll();
+        return () => { stop = true; };
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleAction = async (actionFn) => {
         setActionLoading(true);
@@ -170,7 +195,7 @@ export default function SchedulePickupPage() {
                         onClick={() => setShipDialogOpen(true)}
                         sx={{ color: UI.textPrimary, borderColor: UI.border }}
                     >
-                        I&apos;m Shipping
+                        Ship to EFD
                     </Button>
                     <Button
                         variant="outlined"
@@ -189,6 +214,22 @@ export default function SchedulePickupPage() {
                 </Box>
             )}
 
+            {labelOrder && (
+                <Alert
+                    severity={labelOrder.label?.trackingNumber ? 'success' : 'info'}
+                    sx={{ mb: 2 }}
+                    action={labelOrder.label?.labelUrl ? (
+                        <Button color="inherit" size="small" onClick={() => window.open(labelOrder.label.labelUrl, '_blank')}>Print label</Button>
+                    ) : null}
+                >
+                    {labelOrder.label?.trackingNumber
+                        ? `Label ready — ${labelOrder.label.carrier} ${labelOrder.label.trackingNumber}. Print it, tape it on, hand the box to FedEx.`
+                        : labelOrder.paymentStatus === 'paid'
+                            ? 'Payment received — buying your label now…'
+                            : 'Waiting for the card payment to clear…'}
+                </Alert>
+            )}
+
             {/* In-transit shipments: handed to a carrier, not yet received by EFD. */}
             {shippedRepairs.length > 0 && (
                 <Box sx={{ p: 2, mb: 2, border: `1px solid ${UI.border}`, borderRadius: 2, backgroundColor: UI.bgCard }}>
@@ -205,47 +246,22 @@ export default function SchedulePickupPage() {
                             <Typography variant="caption" sx={{ color: UI.textMuted }}>
                                 shipped {fmtDate(r.inboundShipment?.shippedAt)}
                             </Typography>
+                            {r.inboundShipment?.labelUrl && (
+                                <Button size="small" onClick={() => window.open(r.inboundShipment.labelUrl, '_blank')} sx={{ color: UI.accent, textTransform: 'none' }}>Print label</Button>
+                            )}
                         </Box>
                     ))}
                 </Box>
             )}
 
-            {/* Carrier + tracking for a shipment to EFD. */}
-            <Dialog open={shipDialogOpen} onClose={() => setShipDialogOpen(false)} maxWidth="xs" fullWidth>
-                <DialogTitle>Ship {selectedPendingCount} repair(s) to EFD</DialogTitle>
-                <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '8px !important' }}>
-                    <TextField
-                        label="Carrier (optional)"
-                        placeholder="UPS, FedEx, USPS..."
-                        value={shipCarrier}
-                        onChange={(e) => setShipCarrier(e.target.value)}
-                        size="small"
-                    />
-                    <TextField
-                        label="Tracking number"
-                        required
-                        value={shipTracking}
-                        onChange={(e) => setShipTracking(e.target.value)}
-                        size="small"
-                        helperText="Required - we watch for the box and receive against it."
-                    />
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setShipDialogOpen(false)}>Cancel</Button>
-                    <Button
-                        variant="contained"
-                        disabled={!shipTracking.trim() || actionLoading}
-                        onClick={async () => {
-                            setShipDialogOpen(false);
-                            await handleAction(() => markShipped({ carrier: shipCarrier.trim(), trackingNumber: shipTracking.trim() }));
-                            setShipCarrier('');
-                            setShipTracking('');
-                        }}
-                    >
-                        Mark Shipped
-                    </Button>
-                </DialogActions>
-            </Dialog>
+            {/* Ship to EFD: pay for a FedEx label at EFD's rate (card, up front) or record own tracking. */}
+            <InboundShipDialog
+                open={shipDialogOpen}
+                onClose={() => setShipDialogOpen(false)}
+                selectedRepairIDs={selected.filter((id) => pendingRepairs.some((r) => r.repairID === id))}
+                busy={actionLoading}
+                onOwnTracking={async ({ carrier, trackingNumber }) => { await handleAction(() => markShipped({ carrier, trackingNumber })); }}
+            />
 
             {pendingRepairs.length === 0 && pickupRequestedRepairs.length === 0 && !loading && (
                 <Box sx={{ p: 4, textAlign: 'center', border: `1px solid ${UI.border}`, borderRadius: 2, backgroundColor: UI.bgCard, mb: 2 }}>

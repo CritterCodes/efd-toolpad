@@ -2,11 +2,15 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/database', () => ({ db: { connect: vi.fn() } }));
 vi.mock('@/services/wholesale/invoiceNotifications', () => ({ resolveWholesaleInvoiceRecipients: vi.fn() }));
+vi.mock('@/app/api/repair-invoices/model', () => ({ default: { create: vi.fn(), findByInvoiceID: vi.fn(), updateByInvoiceID: vi.fn() } }));
+vi.mock('@/lib/notificationService', () => ({ NotificationService: { createNotification: vi.fn(async () => ({})) }, CHANNELS: { IN_APP: 'inApp', EMAIL: 'email' } }));
+vi.mock('@/lib/appUrls', () => ({ adminLink: (p) => `http://test${p}` }));
 
 import { selectRates, normalizeRate, quoteShipment, buyShipment, EasyPostError, easyPostMode, relevantCarrierMessages, SATURDAY_EMPTY_HINT } from './easypost';
 import { DEFAULT_PARCEL_PRESETS, resolveParcelPresets, findParcelPreset, parcelForEasyPost } from './parcels';
 import { shipFromFromSettings, shipToFromWholesaler, addressProblems, countryCode } from './addresses';
 import { buildFulfillmentUpdate, buildLabelUpdate, labelCostDrift } from './invoiceFulfillment';
+import { buildInboundOrderInvoice, INBOUND_SHIPPING_KIND } from './inboundShipping';
 
 // Recorded EasyPost shapes (docs.easypost.com/docs/shipments), trimmed.
 const RATES = [
@@ -182,5 +186,25 @@ describe('invoiceGrossTotal (every payment path must use it)', () => {
     expect(invoiceGrossTotal({ subtotal: 2103.48, taxAmount: 0, deliveryFee: 0, shippingFee: 81 })).toBe(2184.48);
     expect(invoiceGrossTotal({ subtotal: 48, deliveryFee: 5 })).toBe(53);
     expect(invoiceGrossTotal({})).toBe(0);
+  });
+});
+
+describe('inbound label order (store pays up front)', () => {
+  it('builds a payable invoice whose total IS the rate, keyed to the store, with the quote held for the webhook', () => {
+    const store = { userID: 'user-c9f82772', firstName: 'Andrew', lastName: 'Eilberg', wholesaleApplication: { businessName: 'Marlen Jewelers' } };
+    const quote = { shipmentId: 'shp_in', mode: 'production', parcelKey: 'fedex-small-box', parcelLabel: 'FedEx Small Box S2', saturdayDelivery: false,
+      rates: [{ rateId: 'rate_in', carrier: 'FedEx', service: 'FEDEX_EXPRESS_SAVER', rate: 18.4 }] };
+    const inv = buildInboundOrderInvoice({ store, repairIDs: ['r1', 'r2'], quote, rate: quote.rates[0], createdBy: 'user-c9f82772' });
+    expect(inv.kind).toBe(INBOUND_SHIPPING_KIND);
+    expect(inv.accountID).toBe('wholesale-business:marlen-jewelers');
+    expect(inv.storeId).toBe('user-c9f82772');
+    expect(inv.customerName).toBe('Marlen Jewelers');
+    expect(inv.repairIDs).toEqual([]); // the WORK is invoiced later, separately
+    expect(inv.total).toBe(18.4);
+    expect(inv.remainingBalance).toBe(18.4);
+    expect(inv.status).toBe('open');
+    expect(inv.inboundLabelRequest).toMatchObject({ repairIDs: ['r1', 'r2'], shipmentId: 'shp_in', rateId: 'rate_in', quotedRate: 18.4, saturdayDelivery: false });
+    expect(inv.inboundLabel).toBeNull();
+    expect(inv.description).toMatch(/FedEx label to EFD — FedEx Fedex Express Saver, FedEx Small Box S2, 2 repairs/);
   });
 });

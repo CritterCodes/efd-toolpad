@@ -48,12 +48,22 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'Online payment is not configured (missing publishable key).' }, { status: 500 });
     }
 
+    // An inbound label order is card-only (ACH takes days; the box leaves today) and returns to the
+    // shipping page, where the label appears once the webhook buys it.
+    const isLabelOrder = invoice.kind === 'inbound-shipping';
+    if (isLabelOrder && method !== 'card') {
+      return NextResponse.json({ error: 'Shipping labels are paid by card so the label can print right away.' }, { status: 400 });
+    }
     const base = adminBase();
     const checkout = await createInvoiceCheckoutSession({
       invoice,
       method,
-      successUrl: `${base}/dashboard/wholesaler/billing?paid=${encodeURIComponent(invoiceID)}&method=${method}`,
-      cancelUrl: `${base}/dashboard/wholesaler/billing?cancelled=1`,
+      successUrl: isLabelOrder
+        ? `${base}/dashboard/wholesaler/repairs/schedule-pickup?paid=${encodeURIComponent(invoiceID)}`
+        : `${base}/dashboard/wholesaler/billing?paid=${encodeURIComponent(invoiceID)}&method=${method}`,
+      cancelUrl: isLabelOrder
+        ? `${base}/dashboard/wholesaler/repairs/schedule-pickup?cancelled=1`
+        : `${base}/dashboard/wholesaler/billing?cancelled=1`,
     });
 
     return NextResponse.json({

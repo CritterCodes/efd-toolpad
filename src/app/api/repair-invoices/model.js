@@ -45,6 +45,12 @@ export default class RepairInvoicesModel {
       // Carrier rate chosen at finalize, at cost (services/shipping/invoiceFulfillment.js).
       shippingFee: data.shippingFee ?? 0,
       fulfillment: data.fulfillment ?? null,
+      // Inbound label orders (services/shipping/inboundShipping.js): a store pays for its FedEx label to
+      // EFD up front. `kind` marks the invoice, the request holds the quote, the label lands when paid.
+      ...(data.kind ? { kind: data.kind } : {}),
+      ...(data.description ? { description: data.description } : {}),
+      ...(data.inboundLabelRequest ? { inboundLabelRequest: data.inboundLabelRequest } : {}),
+      ...(data.inboundLabelRequest ? { inboundLabel: data.inboundLabel ?? null } : {}),
       cashDiscountAmount: data.cashDiscountAmount ?? 0,
       cashDiscountApplied: data.cashDiscountApplied ?? false,
       subtotal: data.subtotal ?? 0,
