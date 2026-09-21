@@ -84,8 +84,10 @@ describe('credential projection is passed on every users read', () => {
     expect(users.find).toHaveBeenCalledWith({}, PROJ);
   });
 
-  it('getUsersByRole', async () => {
+  it('getUsersByRole hides terminated staff by default, includes them on request', async () => {
     await UserModel.getUsersByRole('artisan');
+    expect(users.find).toHaveBeenCalledWith({ role: 'artisan', status: { $ne: 'terminated' } }, PROJ);
+    await UserModel.getUsersByRole('artisan', { includeTerminated: true });
     expect(users.find).toHaveBeenCalledWith({ role: 'artisan' }, PROJ);
   });
 

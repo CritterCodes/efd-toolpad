@@ -1,4 +1,8 @@
-import { auth } from "@/lib/auth";
+// RAW auth on purpose: middleware runs on the Edge runtime, where the MongoDB driver behind the
+// live-account check in @/lib/auth cannot load. This is a cookie-only "is there a session" gate;
+// a terminated account still holding a token gets past it and is then refused by every API
+// (all of which go through the @/lib/auth wrapper) — see services/users/accountRevocation.js.
+import { auth } from "../auth";
 import { NextResponse } from "next/server";
 import { STAFF_ROLES } from "@/lib/designPermissions";
 

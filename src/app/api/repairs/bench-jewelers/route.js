@@ -8,7 +8,7 @@ const ASSIGNABLE_ARTISAN_QUERY = {
   role: { $in: ['artisan', 'senior-artisan', 'admin', 'dev'] },
   isApproved: { $ne: false },
   isActive: { $ne: false },
-  status: { $nin: ['inactive', 'disabled', 'deleted'] },
+  status: { $nin: ['inactive', 'disabled', 'deleted', 'terminated'] },
 };
 
 export const GET = async () => {

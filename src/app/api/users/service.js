@@ -72,9 +72,9 @@ export default class UserService {
      * @param {string} role - The role to filter by
      * @returns {Array} - List of users with the specified role
      */
-    static async getUsersByRole(role) {
+    static async getUsersByRole(role, options = {}) {
         try {
-            const users = await UserModel.getUsersByRole(role);
+            const users = await UserModel.getUsersByRole(role, options);
             return users;
         } catch (error) {
             console.error("Error in UserService.getUsersByRole:", error);

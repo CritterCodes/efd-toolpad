@@ -17,6 +17,7 @@ import ArtisanDetailsForm from '@/app/components/artisans/profile/details';
 import ArtisanVendorProfile from '@/app/components/artisans/profile/vendorProfile';
 import ArtisanImage from '@/app/components/artisans/profile/image';
 import ArtisanStaffCapabilities from '@/app/components/artisans/profile/staffCapabilities';
+import ArtisanAccountStatus from '@/app/components/artisans/profile/accountStatus';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import BenchWorkCard from '@/app/dashboard/repairs/my-bench/components/BenchWorkCard';
 
@@ -221,6 +222,20 @@ const ViewArtisanPage = ({ params }) => {
                     {artisan.firstName} {artisan.lastName}
                 </Typography>
             </Breadcrumbs>
+
+            {/* Account access: Terminate (admin) / terminated banner + Reinstate */}
+            <ArtisanAccountStatus
+                artisan={artisan}
+                isAdmin={['admin', 'dev'].includes(session?.user?.role)}
+                onChanged={async () => {
+                    const res = await fetch(`/api/users/${userID}`);
+                    const data = await res.json().catch(() => ({}));
+                    if (data.success) { setArtisan(data.data); setUpdatedArtisan(data.data); }
+                    setSnackbarMessage(data.success ? 'Account access updated.' : 'Updated, but the refresh failed — reload the page.');
+                    setSnackbarSeverity(data.success ? 'success' : 'warning');
+                    setSnackbarOpen(true);
+                }}
+            />
 
             {/* Header with Tabs */}
             <ArtisanHeader
