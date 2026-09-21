@@ -21,6 +21,7 @@ import MoveSummary from "./components/MoveSummary";
 import { REPAIR_STATUSES } from "./constants";
 import { moveRepairsToStatus, updateRepairWithMetadata } from "./utils/repairUtils";
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import { canMoveRepairs, hasNamedCapability } from '@/lib/repairAccess';
 import ContinuousBarcodeScanner from '@/components/repairs/ContinuousBarcodeScanner';
 import { BENCH_QUEUE, QC_COMPLETION_STATUSES, REPAIR_STATUS, normalizeRepairWorkflow } from '@/services/repairWorkflow';
 
@@ -66,11 +67,7 @@ const MoveRepairsPage = () => {
     } = useMoveRepairs();
 
     useEffect(() => {
-        const isAdmin = session?.user?.role === 'admin';
-        const isOnsiteRepairOps = session?.user?.employment?.isOnsite === true
-            && session?.user?.staffCapabilities?.repairOps === true;
-
-        if (authStatus !== 'loading' && (!session?.user || (!isAdmin && !isOnsiteRepairOps))) {
+        if (authStatus !== 'loading' && (!session?.user || !canMoveRepairs(session))) {
             router.push('/dashboard');
         }
     }, [authStatus, session, router]);
@@ -79,16 +76,12 @@ const MoveRepairsPage = () => {
         .map((repairID) => repairs.find((repair) => repair.repairID === repairID))
         .filter(Boolean)
         .map(normalizeRepairWorkflow);
-    const isAdmin = session?.user?.role === 'admin';
-    const isOnsiteRepairOps = session?.user?.employment?.isOnsite === true
-        && session?.user?.staffCapabilities?.repairOps === true;
     const hasSelectedRepairs = selectedRepairs.length > 0;
     const allSelectedInQc = hasSelectedRepairs && selectedRepairs.every((repair) => repair.benchQueue === BENCH_QUEUE.QC);
     // Mirror of the server's hasStaffCapability (lib/apiAuth.js): admin/dev bypass, otherwise the
     // capability must be held. Used for EVERY capability decision on this page so two role rules can't
     // disagree three lines apart.
-    const hasCapability = (capability) => ['admin', 'dev'].includes(session?.user?.role)
-        || session?.user?.staffCapabilities?.[capability] === true;
+    const hasCapability = (capability) => hasNamedCapability(session, capability);
     const canCompleteFromQc = hasCapability('qualityControl');
     const canUseStatus = (status) => {
         const required = CAPABILITY_GATED_STATUSES[status];
@@ -113,7 +106,7 @@ const MoveRepairsPage = () => {
         }
     }, [availableStatuses, location, setLocation]);
 
-    if (authStatus === 'loading' || !session?.user || (!isAdmin && !isOnsiteRepairOps)) return null;
+    if (authStatus === 'loading' || !session?.user || !canMoveRepairs(session)) return null;
 
     const handleLocationSelect = (event, value) => {
         setLocation(value);

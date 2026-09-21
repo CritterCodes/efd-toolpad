@@ -569,7 +569,7 @@ export default function LeadsPage() {
                             backgroundColor: REPAIRS_UI.accent,
                             color: '#0D0F12',
                             fontWeight: 700,
-                            '&:hover': { backgroundColor: '#c9a227' },
+                            '&:hover': { backgroundColor: '#FFCF4D' },
                         }}
                     >
                         Move Selected

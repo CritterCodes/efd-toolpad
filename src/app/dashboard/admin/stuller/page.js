@@ -340,7 +340,7 @@ export default function StullerSettingsPage() {
         <Typography variant="h5" fontWeight={600} sx={{ color: '#D1D5DB' }}>
           Stuller
         </Typography>
-        <Typography variant="body2" sx={{ color: '#9CA3AF', mt: 0.5 }}>
+        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.66)', mt: 0.5 }}>
           Configure Stuller credentials, sync material pricing, and pull order or invoice data into finance.
         </Typography>
       </Box>

@@ -34,6 +34,7 @@ import { useRouter } from 'next/navigation';
 import { useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { REPAIRS_UI } from '../components/repairsUi';
+import { canAccessPayroll } from '@/lib/repairAccess';
 import {
   ANALYTICS_BASELINE_NOTE,
   DEFAULT_LABOR_ANALYTICS_START_DATE,
@@ -298,14 +299,14 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
   }, [currentWeekStart]);
 
   useEffect(() => {
-    if (status === 'authenticated' && !['admin', 'dev'].includes(session?.user?.role)) {
+    if (status === 'authenticated' && !canAccessPayroll(session)) {
       router.push('/dashboard');
       return;
     }
-    if (status === 'authenticated' && ['admin', 'dev'].includes(session?.user?.role)) {
+    if (status === 'authenticated' && canAccessPayroll(session)) {
       fetchData();
     }
-  }, [fetchData, router, session?.user?.role, status]);
+  }, [fetchData, router, session, status]);
 
   useEffect(() => {
     if (!ownerDrawUserID && ownerOperators.length > 0) {
@@ -483,7 +484,7 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
     await fetchData();
   });
 
-  if (status === 'loading' || (status === 'authenticated' && !['admin', 'dev'].includes(session?.user?.role))) {
+  if (status === 'loading' || (status === 'authenticated' && !canAccessPayroll(session))) {
     return null;
   }
 
@@ -661,7 +662,7 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
             <Button
               variant="contained"
               onClick={() => openOwnerDraw(null)}
-              sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}
+              sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#FFCF4D' } }}
             >
               Record Owner Draw
             </Button>
@@ -984,7 +985,7 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
                 variant="contained"
                 onClick={saveOwnerDraw}
                 disabled={actionLoading || ownerOperators.length === 0}
-                sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}
+                sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#FFCF4D' } }}
               >
                 {actionLoading ? 'Saving...' : selectedDetail?.drawID ? 'Save Draw' : 'Record Draw'}
               </Button>
@@ -995,7 +996,7 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
               variant="contained"
               onClick={createBatch}
               disabled={actionLoading}
-              sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}
+              sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#FFCF4D' } }}
             >
               {actionLoading ? 'Creating...' : 'Create Batch'}
             </Button>
@@ -1009,7 +1010,7 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
                 variant="contained"
                 onClick={() => updateBatch('finalize')}
                 disabled={actionLoading}
-                sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}
+                sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#FFCF4D' } }}
               >
                 {actionLoading ? 'Saving...' : 'Finalize Batch'}
               </Button>
@@ -1024,7 +1025,7 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
                 variant="contained"
                 onClick={() => updateBatch('mark_paid')}
                 disabled={actionLoading}
-                sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}
+                sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#FFCF4D' } }}
               >
                 {actionLoading ? 'Saving...' : 'Mark Paid'}
               </Button>

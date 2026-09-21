@@ -14,6 +14,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 let session = { user: { userID: 'u', role: 'admin' } };
 vi.mock('@/lib/auth', () => ({ auth: async () => session }));
+// The middleware imports the RAW root auth (Edge runtime — the @/lib/auth wrapper pulls in Mongo);
+// mock that module too or the suite fails loading next-auth outside Next (seen 2026-09-21).
+vi.mock('../auth', () => ({ auth: async () => session }));
 
 const middleware = (await import('@/middleware')).default;
 

@@ -53,35 +53,35 @@ export default function GlbReviewModal({ open, onClose, glbUrl, title = 'GLB —
       onClose={onClose}
       maxWidth="md"
       fullWidth
-      PaperProps={{ sx: { backgroundColor: '#0B0D10', backgroundImage: 'none', border: '1px solid #2A2F38' } }}
+      PaperProps={{ sx: { backgroundColor: '#0A0B0E', backgroundImage: 'none', border: '1px solid rgba(255,255,255,0.12)' } }}
     >
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#E6E8EB' }}>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#FFFFFF' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <ThreeDIcon sx={{ color: '#D4AF37', fontSize: 20 }} />
+          <ThreeDIcon sx={{ color: '#FBBF24', fontSize: 20 }} />
           <Typography sx={{ fontWeight: 600 }}>{title}</Typography>
         </Box>
-        <IconButton onClick={onClose} size="small" sx={{ color: '#9CA3AF' }}><CloseIcon fontSize="small" /></IconButton>
+        <IconButton onClick={onClose} size="small" sx={{ color: 'rgba(255,255,255,0.66)' }}><CloseIcon fontSize="small" /></IconButton>
       </DialogTitle>
       <DialogContent sx={{ p: 0 }}>
         <Box sx={{ width: '100%', height: '68vh', minHeight: 380, backgroundColor: '#080808', position: 'relative' }}>
           {!glbUrl ? (
             <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Typography sx={{ color: '#6B7280', fontFamily: 'monospace', fontSize: 14 }}>No GLB to review</Typography>
+              <Typography sx={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace', fontSize: 14 }}>No GLB to review</Typography>
             </Box>
           ) : !ready ? (
             <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <CircularProgress size={28} sx={{ color: '#D4AF37' }} />
+              <CircularProgress size={28} sx={{ color: '#FBBF24' }} />
             </Box>
           ) : (
             <JewelryViewerClient glbUrl={glbUrl} config={{ background: '#080808', meshMap }} style={{ width: '100%', height: '100%' }} />
           )}
         </Box>
         <Box sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="caption" sx={{ color: '#6B7280' }}>
+          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
             {inspecting ? 'Inspecting model…' : 'Drag to orbit · scroll to zoom · materials auto-detected for preview'}
           </Typography>
           {glbUrl && (
-            <Button size="small" startIcon={<DownloadIcon sx={{ fontSize: 14 }} />} component="a" href={glbUrl} target="_blank" rel="noreferrer" sx={{ color: '#9CA3AF' }}>
+            <Button size="small" startIcon={<DownloadIcon sx={{ fontSize: 14 }} />} component="a" href={glbUrl} target="_blank" rel="noreferrer" sx={{ color: 'rgba(255,255,255,0.66)' }}>
               Download GLB
             </Button>
           )}
