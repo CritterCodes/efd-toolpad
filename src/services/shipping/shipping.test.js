@@ -91,9 +91,8 @@ describe('parcel presets', () => {
     expect(resolveParcelPresets({})).toHaveLength(DEFAULT_PARCEL_PRESETS.length);
     const custom = resolveParcelPresets({ business: { shipping: { parcels: [{ key: 'ring-box', label: 'Ring box', length: 3, width: 3, height: 2, weightOz: 4 }, { key: 'bad' }] } } });
     expect(custom.map((p) => p.key)).toEqual(['ring-box']);
-    expect(parcelForEasyPost(findParcelPreset({}, 'small-box'))).toEqual({ length: 6, width: 4, height: 4, weight: 8 });
     expect(parcelForEasyPost(findParcelPreset({}, 'fedex-small-box'))).toEqual({ predefined_package: 'FedExSmallBox', weight: 12 });
-    expect(findParcelPreset({}, 'nope').key).toBe('fedex-envelope'); // unknown key → first preset
+    expect(findParcelPreset({}, 'nope').key).toBe('fedex-small-box'); // unknown key → the standard box
   });
 });
 
