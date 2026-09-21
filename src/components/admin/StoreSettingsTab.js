@@ -21,6 +21,7 @@ import PriceUpdateSchedules from './store-settings/PriceUpdateSchedules';
 import LaborRateSummary from './store-settings/LaborRateSummary';
 import SampleProjectExamples from './store-settings/SampleProjectExamples';
 import SystemUpdateDialog from './store-settings/SystemUpdateDialog';
+import ShippingSettings from './store-settings/ShippingSettings';
 
 export default function StoreSettingsTab() {
     const {
@@ -86,6 +87,10 @@ export default function StoreSettingsTab() {
 
                 <Grid item xs={12}>
                     <PriceUpdateSchedules />
+                </Grid>
+
+                <Grid item xs={12}>
+                    <ShippingSettings />
                 </Grid>
 
                 <Grid item xs={12} md={6}>

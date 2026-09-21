@@ -39,6 +39,7 @@ import {
   QrCodeScanner as ScanIcon,
 } from "@mui/icons-material";
 import { REPAIRS_UI } from "@/app/dashboard/repairs/components/repairsUi";
+import FinalizeFulfillment from "./FinalizeFulfillment";
 import RepairThumbnail from "@/app/dashboard/repairs/components/RepairThumbnail";
 import ContinuousBarcodeScanner from "@/components/repairs/ContinuousBarcodeScanner";
 
@@ -163,7 +164,8 @@ function getCardPaymentSummary(invoice) {
 function getInvoiceGrossTotal(invoice) {
   return parseFloat(invoice.subtotal || 0)
     + parseFloat(invoice.taxAmount || 0)
-    + parseFloat(invoice.deliveryFee || 0);
+    + parseFloat(invoice.deliveryFee || 0)
+    + parseFloat(invoice.shippingFee || 0);
 }
 
 function getFullInvoiceCardSummary(invoice) {
@@ -347,7 +349,7 @@ function buildInvoicePrintHtml(invoice) {
     <div class="grid">
       <div class="box"><div class="label">Customer</div><div class="value">${escapeHtml(invoice.customerName || invoice.accountID)}</div></div>
       <div class="box"><div class="label">Payment</div><div class="value">${escapeHtml(invoice.paymentStatus)}</div></div>
-      <div class="box"><div class="label">Fulfillment</div><div class="value">${invoice.deliveryMethod === "delivery" ? "Delivery" : "Pickup"}</div></div>
+      <div class="box"><div class="label">Fulfillment</div><div class="value">${invoice.deliveryMethod === "ship" ? "Ship" : invoice.deliveryMethod === "delivery" ? "Delivery" : "Pickup"}</div></div>
     </div>
 
     <div class="section">
@@ -361,7 +363,8 @@ function buildInvoicePrintHtml(invoice) {
     <div class="totals">
       <div class="totals-row"><span>Subtotal</span><span>${formatCurrency(invoice.subtotal)}</span></div>
       <div class="totals-row"><span>Tax</span><span>${formatCurrency(invoice.taxAmount)}</span></div>
-      <div class="totals-row"><span>Delivery</span><span>${formatCurrency(invoice.deliveryFee)}</span></div>
+      ${parseFloat(invoice.deliveryFee || 0) > 0 ? `<div class="totals-row"><span>Delivery</span><span>${formatCurrency(invoice.deliveryFee)}</span></div>` : ""}
+      ${parseFloat(invoice.shippingFee || 0) > 0 ? `<div class="totals-row"><span>Shipping${invoice.fulfillment?.shipping?.rate ? ` (${escapeHtml(invoice.fulfillment.shipping.rate.carrier || "")} ${escapeHtml(String(invoice.fulfillment.shipping.rate.service || "").replace(/_/g, " ").toLowerCase())})` : ""}</span><span>${formatCurrency(invoice.shippingFee)}</span></div>` : ""}
       <div class="totals-row grand"><span>Cash/Check Total</span><span>${formatCurrency(cashSummary.cashTotal)}</span></div>
       <div class="totals-row"><span>Card Processing Fee</span><span>${formatCurrency(cardSummary.processingFee)}</span></div>
       <div class="totals-row grand"><span>Card Total</span><span>${formatCurrency(cardSummary.cardTotal)}</span></div>
@@ -756,7 +759,6 @@ function InvoiceCard({
   const [cashNotes, setCashNotes] = useState("");
   const [selectedRepairIDs, setSelectedRepairIDs] = useState([]);
   const [targetInvoiceID, setTargetInvoiceID] = useState("");
-  const [deliveryFeeInput, setDeliveryFeeInput] = useState(invoice.deliveryFee || 5);
   const cashPaymentSummary = useMemo(() => getCashPaymentSummary(invoice), [invoice]);
   const cardPaymentSummary = useMemo(() => getCardPaymentSummary(invoice), [invoice]);
   const fullInvoiceCardSummary = useMemo(() => getFullInvoiceCardSummary(invoice), [invoice]);
@@ -768,8 +770,7 @@ function InvoiceCard({
 
   useEffect(() => {
     setCashAmount(cashPaymentSummary.cashTotal || invoice.remainingBalance || 0);
-    setDeliveryFeeInput(invoice.deliveryFee || 5);
-  }, [cashPaymentSummary.cashTotal, invoice.deliveryFee, invoice.remainingBalance]);
+  }, [cashPaymentSummary.cashTotal, invoice.remainingBalance]);
 
   useEffect(() => {
     setSelectedRepairIDs((prev) => prev.filter((repairID) => (invoice.repairIDs || []).includes(repairID)));
@@ -793,7 +794,7 @@ function InvoiceCard({
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
               <Chip label={invoice.status} size="small" />
               <Chip label={`Payment: ${invoice.paymentStatus}`} size="small" color={invoice.paymentStatus === "paid" ? "success" : invoice.paymentStatus === "partial" ? "warning" : "default"} />
-              <Chip label={invoice.deliveryMethod === "delivery" ? "Delivery" : "Pickup"} size="small" />
+              <Chip label={invoice.deliveryMethod === "ship" ? `Ship${invoice.fulfillment?.shipping?.rate ? ` · ${invoice.fulfillment.shipping.rate.carrier}` : ""}` : invoice.deliveryMethod === "delivery" ? "Delivery" : "Pickup"} size="small" />
               <Button
                 size="small"
                 variant="outlined"
@@ -808,7 +809,7 @@ function InvoiceCard({
           <Grid container spacing={1.5}>
             <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Subtotal</Typography><Typography>{formatCurrency(invoice.subtotal)}</Typography></Grid>
             <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Tax</Typography><Typography>{formatCurrency(invoice.taxAmount)}</Typography></Grid>
-            <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Delivery</Typography><Typography>{formatCurrency(invoice.deliveryFee)}</Typography></Grid>
+            <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>{parseFloat(invoice.shippingFee || 0) > 0 ? "Shipping" : "Delivery"}</Typography><Typography>{formatCurrency(parseFloat(invoice.shippingFee || 0) > 0 ? invoice.shippingFee : invoice.deliveryFee)}</Typography></Grid>
             <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Remaining</Typography><Typography sx={{ fontWeight: 700 }}>{formatCurrency(invoice.remainingBalance)}</Typography></Grid>
             <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Card Fee</Typography><Typography>{formatCurrency(cardPaymentSummary.processingFee)}</Typography></Grid>
             <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Card Total</Typography><Typography sx={{ fontWeight: 700 }}>{formatCurrency(cardPaymentSummary.cardTotal)}</Typography></Grid>
@@ -882,28 +883,8 @@ function InvoiceCard({
                 </Typography>
               )}
 
-              <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ xs: "stretch", md: "center" }}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={invoice.deliveryMethod === "delivery"}
-                      onChange={(event) => onUpdateDelivery(invoice.invoiceID, event.target.checked ? "delivery" : "pickup", deliveryFeeInput || 5)}
-                    />
-                  }
-                  label="Delivery"
-                />
-                {invoice.deliveryMethod === "delivery" && (
-                  <TextField
-                    label="Delivery Fee"
-                    type="number"
-                    size="small"
-                    value={deliveryFeeInput}
-                    onChange={(event) => setDeliveryFeeInput(event.target.value)}
-                    onBlur={() => onUpdateDelivery(invoice.invoiceID, "delivery", deliveryFeeInput || 5)}
-                    sx={{ maxWidth: 160 }}
-                  />
-                )}
-              </Stack>
+              {/* Hand delivery is no longer offered (owner, 2026-09-21). Fulfillment — pickup or ship —
+                  is decided at Finalize (FinalizeFulfillment) and the shipping line comes from the carrier rate. */}
             </>
           )}
 
@@ -912,9 +893,7 @@ function InvoiceCard({
           )}
 
           {invoice.status === "draft" && (
-            <Button variant="outlined" onClick={() => onFinalize(invoice.invoiceID)} sx={{ alignSelf: "flex-start", color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>
-              Finalize Invoice
-            </Button>
+            <FinalizeFulfillment invoice={invoice} onFinalize={onFinalize} />
           )}
 
           {invoice.paymentStatus === "paid" && onReopen && (
@@ -1415,9 +1394,9 @@ export default function PaymentPickupPage() {
     return data;
   };
 
-  const handleFinalizeInvoice = async (invoiceID) => {
+  const handleFinalizeInvoice = async (invoiceID, fulfillment = { method: "pickup" }) => {
     try {
-      const data = await postInvoiceAction(`/api/repair-invoices/${invoiceID}/finalize`, {}, `Finalized invoice ${invoiceID}.`);
+      const data = await postInvoiceAction(`/api/repair-invoices/${invoiceID}/finalize`, fulfillment, `Finalized invoice ${invoiceID}.`);
       // Wholesale invoices notify the partner on finalize — report what was actually delivered,
       // because "we sent an email" has been fiction in this app before.
       const summary = data?.notification;
@@ -1826,16 +1805,8 @@ export default function PaymentPickupPage() {
             <CardContent>
               <Stack spacing={2}>
                 <Typography sx={{ fontWeight: 700, color: REPAIRS_UI.textHeader }}>Batch Selected Repairs</Typography>
-                <FormControl>
-                  <FormLabel>Delivery Method</FormLabel>
-                  <RadioGroup row value={deliveryMethod} onChange={(event) => setDeliveryMethod(event.target.value)}>
-                    <FormControlLabel value="pickup" control={<Radio />} label="Pickup" />
-                    <FormControlLabel value="delivery" control={<Radio />} label="Delivery" />
-                  </RadioGroup>
-                </FormControl>
-                {deliveryMethod === "delivery" && (
-                  <TextField label="Invoice Delivery Fee" type="number" value={deliveryFee} onChange={(event) => setDeliveryFee(event.target.value)} sx={{ maxWidth: 220 }} />
-                )}
+                {/* Manual batches are created as pickup drafts; how they go back (pickup or ship) is decided
+                    at Finalize. Hand delivery is no longer offered (owner, 2026-09-21). */}
                 <TextField label="Invoice Notes" value={batchNotes} onChange={(event) => setBatchNotes(event.target.value)} multiline minRows={2} />
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ xs: "stretch", sm: "center" }}>
                   <Chip label={`${selectedRepairIDs.length} selected`} />
