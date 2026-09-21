@@ -14,6 +14,12 @@ const RATES = [
   { id: 'rate_fx_on', carrier: 'FedEx', service: 'PRIORITY_OVERNIGHT', rate: '81.00', currency: 'USD', delivery_days: 1, delivery_date_guaranteed: true, carrier_account_id: 'ca_fx' },
   { id: 'rate_fx_gr', carrier: 'FedEx', service: 'FEDEX_GROUND', rate: '14.20', currency: 'USD', delivery_days: 3, carrier_account_id: 'ca_fx' },
 ];
+// What the FedEx Default WALLET account actually returns (prod, 2026-09-21): carrier is the account name.
+const WALLET_RATES = [
+  { id: 'rate_w1', carrier: 'FedExDefault', service: 'FEDEX_EXPRESS_SAVER', rate: '15.66', currency: 'USD', delivery_days: 3 },
+  { id: 'rate_w2', carrier: 'FedExDefault', service: 'PRIORITY_OVERNIGHT', rate: '21.30', currency: 'USD', delivery_days: 1 },
+  { id: 'rate_w3', carrier: 'UPSDAP', service: 'Ground', rate: '9.10', currency: 'USD', delivery_days: 4 },
+];
 
 describe('EasyPost adapter', () => {
   it('normalizes money strings once and keeps FedEx only, cheapest first', () => {
@@ -22,6 +28,13 @@ describe('EasyPost adapter', () => {
     expect(rates.map((r) => r.service)).toEqual(['FEDEX_GROUND', 'PRIORITY_OVERNIGHT']);
     expect(rates[1]).toMatchObject({ rateId: 'rate_fx_on', rate: 81, guaranteed: true, deliveryDays: 1 });
     expect(typeof rates[0].rate).toBe('number');
+  });
+
+  it('recognises the FedEx Default WALLET account as FedEx (the "no FedEx rates" false alarm)', () => {
+    const { rates, filteredToCarriers } = selectRates(WALLET_RATES, { carriers: ['FedEx'] });
+    expect(filteredToCarriers).toBe(true);
+    expect(rates.map((r) => r.service)).toEqual(['FEDEX_EXPRESS_SAVER', 'PRIORITY_OVERNIGHT']);
+    expect(rates[0]).toMatchObject({ carrier: 'FedEx', carrierAccount: 'FedExDefault', rate: 15.66 });
   });
 
   it('falls back to every carrier, flagged, when FedEx returned nothing (account not enabled yet)', () => {
