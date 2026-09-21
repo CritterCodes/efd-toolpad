@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert, Button, Card, CardContent, Chip, CircularProgress, FormControl, InputLabel, MenuItem, Select, Stack,
+  Alert, Button, Card, CardContent, Checkbox, Chip, CircularProgress, FormControl, FormControlLabel, InputLabel, MenuItem, Select, Stack,
   Table, TableBody, TableCell, TableHead, TableRow, Typography,
 } from '@mui/material';
 import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
@@ -17,6 +17,7 @@ export default function RateCheck() {
   const [meta, setMeta] = useState(null);
   const [wholesalerId, setWholesalerId] = useState('');
   const [parcelKey, setParcelKey] = useState('');
+  const [saturday, setSaturday] = useState(false);
   const [quote, setQuote] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -31,7 +32,7 @@ export default function RateCheck() {
   const check = async () => {
     setBusy(true); setError(''); setQuote(null);
     try {
-      const res = await fetch('/api/wholesale/shipping/rate-check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ wholesalerId, parcelKey }) });
+      const res = await fetch('/api/wholesale/shipping/rate-check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ wholesalerId, parcelKey, saturdayDelivery: saturday }) });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `Rate check failed (${res.status}).`);
       setQuote(body);
@@ -71,6 +72,7 @@ export default function RateCheck() {
               {(meta.parcels || []).map((p) => <MenuItem key={p.key} value={p.key}>{p.label}</MenuItem>)}
             </Select>
           </FormControl>
+          <FormControlLabel control={<Checkbox size="small" checked={saturday} onChange={(e) => setSaturday(e.target.checked)} disabled={busy} />} label="Saturday delivery" />
           <Button variant="outlined" onClick={check} disabled={busy || !wholesalerId || !parcelKey} startIcon={busy ? <CircularProgress size={14} /> : null}>
             Get rates
           </Button>
@@ -80,7 +82,7 @@ export default function RateCheck() {
         {quote && (
           <>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
-              {quote.parcelLabel} to {store?.name}, {quote.shipTo?.city}, {quote.shipTo?.state} {quote.shipTo?.zip}
+              {quote.parcelLabel} to {store?.name}, {quote.shipTo?.city}, {quote.shipTo?.state} {quote.shipTo?.zip}{quote.saturdayDelivery ? ' · Saturday delivery' : ''}
             </Typography>
             <Table size="small" sx={{ mt: 0.5, maxWidth: 560 }}>
               <TableHead><TableRow><TableCell>Service</TableCell><TableCell align="right">Rate</TableCell><TableCell>Transit</TableCell></TableRow></TableHead>

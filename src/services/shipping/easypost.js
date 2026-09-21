@@ -112,10 +112,15 @@ async function request(path, { method = 'GET', body = null, apiKey, fetchImpl = 
  * (needed to buy later — a Shipment is immutable, so the quote and the label share it) plus
  * the selected, normalized rates.
  */
-export async function quoteShipment({ shipFrom, shipTo, parcel, carriers = ['FedEx'], reference = '', apiKey = getEasyPostApiKey(), fetchImpl } = {}) {
+/**
+ * `options` are EasyPost shipment options. The one the shop uses is `saturday_delivery: true` —
+ * FedEx then returns only Saturday-eligible services with the Saturday surcharge INSIDE the rate,
+ * so what the store is billed is what the label costs.
+ */
+export async function quoteShipment({ shipFrom, shipTo, parcel, carriers = ['FedEx'], reference = '', options = null, apiKey = getEasyPostApiKey(), fetchImpl } = {}) {
   const shipment = await request('/shipments', {
     method: 'POST', apiKey, fetchImpl,
-    body: { shipment: { to_address: shipTo, from_address: shipFrom, parcel, reference: reference || undefined } },
+    body: { shipment: { to_address: shipTo, from_address: shipFrom, parcel, reference: reference || undefined, ...(options && Object.keys(options).length ? { options } : {}) } },
   });
   const selection = selectRates(shipment.rates, { carriers });
   return {
@@ -123,6 +128,8 @@ export async function quoteShipment({ shipFrom, shipTo, parcel, carriers = ['Fed
     mode: shipment.mode || null,
     quotedAt: new Date(),
     parcel,
+    options: options || null,
+    saturdayDelivery: options?.saturday_delivery === true,
     ...selection,
     messages: (shipment.messages || []).map((m) => ({ carrier: m.carrier, type: m.type, message: m.message })),
   };

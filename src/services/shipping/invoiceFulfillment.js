@@ -55,6 +55,7 @@ export function buildFulfillmentUpdate({ method, quote = null, rateId = '', acto
         shipmentId: quote.shipmentId,
         quotedAt: quote.quotedAt || now,
         parcel: quote.parcel || null,
+        saturdayDelivery: quote.saturdayDelivery === true,
         shipTo: quote.shipTo || null,
         shipFrom: quote.shipFrom || null,
         rate: { ...rate },

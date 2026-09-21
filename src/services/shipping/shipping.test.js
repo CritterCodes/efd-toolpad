@@ -60,6 +60,17 @@ describe('EasyPost adapter', () => {
     const body = JSON.parse(calls[0].init.body);
     expect(body.shipment.parcel).toEqual(parcel);
     expect(body.shipment.to_address).toEqual({ street1: 'b' });
+    expect(body.shipment.options).toBeUndefined();
+    expect(q.saturdayDelivery).toBe(false);
+  });
+
+  it('Saturday delivery is passed as an EasyPost shipment option and flagged on the quote', async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: true, status: 201, json: async () => ({ id: 'shp_sat', mode: 'production', rates: [RATES[1]], messages: [] }) }));
+    const q = await quoteShipment({ shipFrom: {}, shipTo: {}, parcel: { weight: 12 }, options: { saturday_delivery: true }, apiKey: 'EZAK_x', fetchImpl });
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body).shipment.options).toEqual({ saturday_delivery: true });
+    expect(q.saturdayDelivery).toBe(true);
+    const set = buildFulfillmentUpdate({ method: 'ship', quote: { ...q, shipTo: {} }, rateId: 'rate_fx_on', actor: { userID: 'u' } });
+    expect(set.fulfillment.shipping.saturdayDelivery).toBe(true);
   });
 
   it('buyShipment sends the chosen rate (+ insurance as a string) and returns label + tracking', async () => {
