@@ -13,6 +13,8 @@ import { resolveBillingMode } from "@/services/billing/modes";
 import { NotificationService, notifyAllAdmins } from "@/lib/notificationService";
 import { blockSlotForWalkIn } from "@/services/appointments/benchSlots";
 import { adminBase } from '@/lib/appUrls';
+import { db } from "@/lib/database";
+import { wholesalerBusinessName } from "@/services/wholesale/businessName";
 
 async function createWhileYouWaitLaborLog(repair, session) {
   if (!repair?.repairID || repair.whileYouWait !== true || repair.status !== "COMPLETED" || !repair.assignedTo) {
@@ -182,6 +184,33 @@ export const POST = async (request) => {
     if (session.user.role === "wholesaler") {
       repairData.status = REPAIR_STATUS.PENDING_PICKUP;
       repairData.isWholesale = true;
+    }
+
+    // GUARD THE SINK: the invoice account key is derived from businessName (repair-invoices
+    // getRepairAccountContext), so the business name is resolved HERE from the store's own record,
+    // never trusted from the payload. The admin form once named Greers Pawn "Sam Johnson" (the contact)
+    // and 20 repairs + 7 invoices were keyed to a person nobody's portal login matched (2026-09-21).
+    const storeUserID = session.user.role === "wholesaler"
+      ? session.user.userID
+      : (repairData.storeId && repairData.storeId !== "engel-fine-design" ? String(repairData.storeId) : "");
+    if (storeUserID) {
+      try {
+        const dbi = await db.connect();
+        const owner = await dbi.collection("users").findOne(
+          { userID: storeUserID, role: "wholesaler" },
+          { projection: { _id: 0, firstName: 1, lastName: 1, business: 1, name: 1, "wholesaleApplication.businessName": 1 } },
+        );
+        const businessName = owner ? wholesalerBusinessName(owner) : "";
+        if (businessName) {
+          repairData.businessName = businessName;
+          repairData.storeName = businessName;
+          repairData.storeId = storeUserID;
+          repairData.isWholesale = true;
+        }
+      } catch (lookupError) {
+        // Best-effort: a lookup failure must not block intake; the payload name stands.
+        console.error("wholesale business-name resolution failed (non-fatal):", lookupError?.message);
+      }
     }
 
     // Canonical billing classification (S1) — derived from comp/wholesale flags.

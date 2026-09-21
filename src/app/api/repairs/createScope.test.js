@@ -9,6 +9,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   requireRepairsAccess: vi.fn(),
+  // The store record the route resolves the BUSINESS name from (Greers Pawn as it sat in prod).
+  findUser: vi.fn(async () => ({ firstName: 'Sam', lastName: 'Johnson', wholesaleApplication: { businessName: 'Greers Pawn' } })),
   createRepair: vi.fn(async (data) => ({ repairID: 'r-new', ...data })),
 }));
 
@@ -29,6 +31,7 @@ vi.mock('@/lib/notificationService', () => ({
 }));
 vi.mock('@/services/appointments/benchSlots', () => ({ blockSlotForWalkIn: vi.fn(async () => null) }));
 vi.mock('@/lib/appUrls', () => ({ adminBase: () => 'http://test' }));
+vi.mock('@/lib/database', () => ({ db: { connect: vi.fn(async () => ({ collection: () => ({ findOne: mocks.findUser }) })) } }));
 vi.mock('./controller', () => ({ default: { createRepair: mocks.createRepair, getRepairs: vi.fn(), getRepairById: vi.fn(), updateRepairById: vi.fn() } }));
 vi.mock('@/lib/apiAuth', async (importOriginal) => {
   const actual = await importOriginal();
@@ -60,6 +63,21 @@ describe('POST /api/repairs as a wholesaler', () => {
     await POST(jsonReq({ userID: 'cust-1', clientName: 'C', status: 'COMPLETED', isWholesale: true }));
     const created = mocks.createRepair.mock.calls[0][0];
     expect(created.status).toBe(REPAIR_STATUS.PENDING_PICKUP);
+  });
+
+  it("names the account by the store's BUSINESS, never the contact (the Sam Johnson bug)", async () => {
+    await POST(jsonReq({ userID: 'cust-1', clientName: 'Sam Johnson', businessName: 'Sam Johnson', storeName: 'Sam Johnson' }));
+    const created = mocks.createRepair.mock.calls[0][0];
+    expect(created.businessName).toBe('Greers Pawn');
+    expect(created.storeName).toBe('Greers Pawn');
+    expect(created.storeId).toBe('ws-marlen'); // the wholesaler's own userID
+    expect(mocks.findUser).toHaveBeenCalledWith({ userID: 'ws-marlen', role: 'wholesaler' }, expect.anything());
+  });
+
+  it('keeps the payload name when the store lookup fails (intake must not block)', async () => {
+    mocks.findUser.mockRejectedValueOnce(new Error('mongo blip'));
+    await POST(jsonReq({ userID: 'cust-1', clientName: 'C', businessName: 'Typed Name' }));
+    expect(mocks.createRepair.mock.calls[0][0].businessName).toBe('Typed Name');
   });
 
   it('forces isWholesale even when the payload says false', async () => {
