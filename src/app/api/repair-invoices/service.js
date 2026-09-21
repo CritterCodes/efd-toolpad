@@ -104,6 +104,17 @@ function buildRepairSnapshot(repair) {
 
 // `shippingFee` is the carrier rate chosen at finalize (services/shipping/invoiceFulfillment.js),
 // passed through at cost. It sits beside the legacy hand-delivery `deliveryFee`, never inside it.
+/**
+ * The invoice's gross total (before any stored cash discount / payments): subtotal + tax + the legacy
+ * hand-delivery fee + the carrier shipping fee. EVERY payment path must use this rather than re-adding
+ * the pieces itself — the cash route once rebuilt the total without shippingFee and overwrote a correct
+ * $2,184.48 with $2,103.48 while recording a $2,184.48 payment (rinv-bdac0837, 2026-09-21).
+ */
+export function invoiceGrossTotal(invoice = {}) {
+  return Math.round((parseFloat(invoice.subtotal || 0) + parseFloat(invoice.taxAmount || 0)
+    + parseFloat(invoice.deliveryFee || 0) + parseFloat(invoice.shippingFee || 0)) * 100) / 100;
+}
+
 export function calculateInvoiceTotals(repairSnapshots = [], deliveryFee = 0, cashDiscountAmount = 0, amountPaid = 0, shippingFee = 0) {
   const subtotal = repairSnapshots.reduce((sum, item) => sum + parseFloat(item.subtotal || 0), 0);
   const taxAmount = repairSnapshots.reduce((sum, item) => sum + parseFloat(item.taxAmount || 0), 0);

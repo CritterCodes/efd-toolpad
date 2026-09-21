@@ -143,3 +143,12 @@ describe('invoice fulfillment (pure)', () => {
     expect(labelCostDrift({ shipping: { rate: { rate: 81 } } })).toBe(0);
   });
 });
+
+describe('invoiceGrossTotal (every payment path must use it)', () => {
+  it('includes the carrier shipping fee beside the legacy delivery fee', async () => {
+    const { invoiceGrossTotal } = await import('@/app/api/repair-invoices/service');
+    expect(invoiceGrossTotal({ subtotal: 2103.48, taxAmount: 0, deliveryFee: 0, shippingFee: 81 })).toBe(2184.48);
+    expect(invoiceGrossTotal({ subtotal: 48, deliveryFee: 5 })).toBe(53);
+    expect(invoiceGrossTotal({})).toBe(0);
+  });
+});
