@@ -6,9 +6,10 @@
  */
 export const DEFAULT_PARCEL_PRESETS = Object.freeze([
   // Owner SOP (2026-09-21): FedEx-branded boxes ONLY, never own boxes or bare envelopes. Standard is
-  // padded envelope → small inner box → FedEx Small Box (the double box). Medium/Large stay as
-  // fallbacks for the odd oversized package. FedEx Express prices these by tier, not weight.
-  { key: 'fedex-small-box', label: 'FedEx Small Box — standard (jewelry box inside, 12 oz)', predefinedPackage: 'FedExSmallBox', weightOz: 12 },
+  // padded envelope → FedEx Extra Small Box → FedEx Small Box S2 (the double box, both boxes free from
+  // FedEx; the shallow S1 Small Box does NOT fit the XS inside). Medium/Large stay as fallbacks for
+  // the odd oversized package. FedEx Express prices these by tier, not weight.
+  { key: 'fedex-small-box', label: 'FedEx Small Box S2 — standard (Extra Small box inside, 12 oz)', predefinedPackage: 'FedExSmallBox', weightOz: 12 },
   { key: 'fedex-medium-box', label: 'FedEx Medium Box — oversized only (1 lb)', predefinedPackage: 'FedExMediumBox', weightOz: 16 },
   { key: 'fedex-large-box', label: 'FedEx Large Box — oversized only (1.5 lb)', predefinedPackage: 'FedExLargeBox', weightOz: 24 },
 ]);
