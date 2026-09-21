@@ -141,6 +141,17 @@ export const repairSchema = {
     description: 'Custom NON-labor charges (a sourced part, a fee, a misc charge). Never carries labor hours — custom labor is a task (tasks[].isCustomLabor).'
   },
 
+  // Request Quote (wholesale): the store couldn't price the job. Server-stamped at creation from
+  // the `quoteRequested` flag; flips to 'quoted' when staff price it (services/repairs/quoteRequest.js).
+  quoteRequest: {
+    type: 'object',
+    properties: {
+      status: { type: 'string', enum: ['requested', 'quoted'] },
+      requestedAt: { type: 'date' }, requestedBy: { type: 'string' }, requestedByName: { type: 'string' },
+      quotedAt: { type: 'date' }, quotedTotal: { type: 'number' }, notifiedAt: { type: 'date' }
+    }
+  },
+
   // Pricing
   isWholesale: {
     type: 'boolean',

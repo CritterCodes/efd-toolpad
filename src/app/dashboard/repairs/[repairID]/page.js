@@ -323,6 +323,20 @@ const ViewRepairPage = ({ params }) => {
     return (
         <Box sx={{ pb: 10 }}>
 
+            {repair.quoteRequest?.status === 'requested' && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                    <strong>{repair.businessName || 'The store'} asked for a quote.</strong>{' '}
+                    {session?.user?.role === 'wholesaler'
+                        ? 'EFD will price this repair and notify you.'
+                        : 'Edit the repair and add the work; the moment it has a price the store is notified with the number.'}
+                </Alert>
+            )}
+            {repair.quoteRequest?.status === 'quoted' && (
+                <Alert severity="success" sx={{ mb: 2 }}>
+                    Quoted ${Number(repair.quoteRequest.quotedTotal || repair.totalCost || 0).toFixed(2)} on {new Date(repair.quoteRequest.quotedAt).toLocaleDateString()}. The store was notified.
+                </Alert>
+            )}
+
             {/* Header Section */}
             <Card sx={{ mb: 3 }}>
                 <CardContent>

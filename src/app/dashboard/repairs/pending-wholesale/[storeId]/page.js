@@ -251,6 +251,9 @@ export default function StorePickupDetailPage() {
                                                     size="small"
                                                 />
                                             )}
+                                            {repair.quoteRequest?.status === 'requested' && (
+                                                <Chip label="Needs quote" size="small" sx={{ ml: 0.5, color: '#A855F7', border: '1px solid #A855F7', backgroundColor: 'transparent' }} />
+                                            )}
                                         </TableCell>
                                         <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
                                             {repair.repairID}

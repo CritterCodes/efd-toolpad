@@ -154,8 +154,16 @@ export default function CurrentRepairsPage() {
                                                 size="small"
                                                 title={STATUS_DESCRIPTIONS[displayStatus] || displayStatus}
                                             />
+                                            {repair.quoteRequest?.status === 'requested' && (
+                                                <Chip label="Quote requested" size="small" sx={{ ml: 0.5, color: '#A855F7', border: '1px solid #A855F7', backgroundColor: 'transparent' }} />
+                                            )}
+                                            {repair.quoteRequest?.status === 'quoted' && (
+                                                <Chip label="Quoted" size="small" color="success" variant="outlined" sx={{ ml: 0.5 }} />
+                                            )}
                                         </TableCell>
-                                        <TableCell sx={{ color: UI.textPrimary, whiteSpace: 'nowrap', fontWeight: 600 }}>{money(repair.totalCost)}</TableCell>
+                                        <TableCell sx={{ color: UI.textPrimary, whiteSpace: 'nowrap', fontWeight: 600 }}>
+                                            {repair.quoteRequest?.status === 'requested' ? <span style={{ color: '#A855F7' }}>Pending quote</span> : money(repair.totalCost)}
+                                        </TableCell>
                                         <TableCell sx={{ color: UI.textSecondary }}>{fmtDate(repair.createdAt)}</TableCell>
                                         <TableCell sx={{ color: UI.textSecondary }}>{repair.promiseDate ? fmtDate(repair.promiseDate) : '—'}</TableCell>
                                     </TableRow>
