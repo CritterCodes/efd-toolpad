@@ -53,7 +53,7 @@ export async function shippingReadinessForInvoice(invoice) {
   };
 }
 
-export async function quoteInvoiceShipping({ invoiceID, parcelKey = '', actor = {} }) {
+export async function quoteInvoiceShipping({ invoiceID, parcelKey = '', saturdayDelivery = false, actor = {} }) {
   const invoice = await RepairInvoicesModel.findByInvoiceID(invoiceID);
   if (!invoice) throw err('Invoice not found.', 'NOT_FOUND');
   if (invoice.status !== 'draft') throw err('Only a draft invoice can be quoted — shipping is decided at finalize.', 'BAD_REQUEST');
@@ -68,6 +68,7 @@ export async function quoteInvoiceShipping({ invoiceID, parcelKey = '', actor = 
     parcel: parcelForEasyPost(preset),
     carriers: ['FedEx'],
     reference: invoice.invoiceID,
+    options: saturdayDelivery ? { saturday_delivery: true } : null,
   });
   if (!quote.rates.length) throw err('The carrier returned no rates for this address and parcel.', 'BAD_GATEWAY');
 

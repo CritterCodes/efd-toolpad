@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import {
-  Alert, Box, Button, Chip, CircularProgress, FormControl, FormControlLabel, InputLabel, MenuItem,
+  Alert, Box, Button, Checkbox, Chip, CircularProgress, FormControl, FormControlLabel, InputLabel, MenuItem,
   Radio, RadioGroup, Select, Stack, Typography,
 } from '@mui/material';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
@@ -21,6 +21,7 @@ export default function FinalizeFulfillment({ invoice, onFinalize }) {
   const [method, setMethod] = useState('pickup');
   const [readiness, setReadiness] = useState(null);
   const [parcelKey, setParcelKey] = useState('');
+  const [saturday, setSaturday] = useState(!!invoice?.shippingQuote?.saturdayDelivery);
   const [quote, setQuote] = useState(invoice?.shippingQuote || null);
   const [rateId, setRateId] = useState(invoice?.shippingQuote?.rates?.[0]?.rateId || '');
   const [busy, setBusy] = useState(false);
@@ -42,7 +43,7 @@ export default function FinalizeFulfillment({ invoice, onFinalize }) {
     setBusy(true); setError('');
     try {
       const res = await fetch(`/api/repair-invoices/${invoice.invoiceID}/shipping/rates`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ parcelKey }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ parcelKey, saturdayDelivery: saturday }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `Could not get rates (${res.status}).`);
@@ -100,17 +101,28 @@ export default function FinalizeFulfillment({ invoice, onFinalize }) {
                     {(readiness.parcels || []).map((p) => <MenuItem key={p.key} value={p.key}>{p.label}</MenuItem>)}
                   </Select>
                 </FormControl>
+                <FormControlLabel
+                  control={<Checkbox size="small" checked={saturday} disabled={busy}
+                    onChange={(e) => { setSaturday(e.target.checked); setQuote(null); setRateId(''); }} />}
+                  label="Saturday delivery"
+                  sx={{ '& .MuiFormControlLabel-label': { fontSize: '0.85rem' } }}
+                />
                 <Button variant="outlined" size="small" onClick={getRates} disabled={busy || !parcelKey}
                   startIcon={busy ? <CircularProgress size={14} /> : null}
                   sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}>
                   {quote ? 'Re-quote' : 'Get FedEx rates'}
                 </Button>
               </Stack>
+              {saturday && !quote && (
+                <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
+                  Saturday delivery: only Saturday-eligible services are quoted and the surcharge is inside the rate.
+                </Typography>
+              )}
               {quote?.rates?.length > 0 && (
                 <RadioGroup value={rateId} onChange={(e) => setRateId(e.target.value)}>
                   {quote.rates.map((r) => (
                     <FormControlLabel key={r.rateId} value={r.rateId} control={<Radio size="small" />}
-                      label={`${r.carrier} ${serviceLabel(r.service)} — ${money(r.rate)}${r.deliveryDays ? ` · ${r.deliveryDays} day${r.deliveryDays === 1 ? '' : 's'}` : ''}${r.guaranteed ? ' · guaranteed' : ''}`}
+                      label={`${r.carrier} ${serviceLabel(r.service)}${quote.saturdayDelivery ? ' · Saturday' : ''} — ${money(r.rate)}${r.deliveryDays ? ` · ${r.deliveryDays} day${r.deliveryDays === 1 ? '' : 's'}` : ''}${r.guaranteed ? ' · guaranteed' : ''}`}
                       sx={{ '& .MuiFormControlLabel-label': { fontSize: '0.85rem' } }} />
                   ))}
                 </RadioGroup>
@@ -128,7 +140,7 @@ export default function FinalizeFulfillment({ invoice, onFinalize }) {
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1.5 }}>
         <Button variant="contained" size="small" disabled={busy || !canFinalize} onClick={finalize}
           sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#c9a227' } }}>
-          {method === 'ship' && selected ? `Finalize & add ${money(selected.rate)} shipping` : 'Finalize for pickup'}
+          {method === 'ship' && selected ? `Finalize & add ${money(selected.rate)} shipping${quote?.saturdayDelivery ? ' (Saturday)' : ''}` : 'Finalize for pickup'}
         </Button>
         {method === 'ship' && selected && (
           <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>

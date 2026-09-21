@@ -51,7 +51,7 @@ export const POST = async (req) => {
     ];
     if (problems.length) return NextResponse.json({ error: problems.join(' ') }, { status: 400 });
     const preset = findParcelPreset(settings, body.parcelKey || '');
-    const quote = await quoteShipment({ shipFrom, shipTo, parcel: parcelForEasyPost(preset), carriers: ['FedEx'], reference: `rate-check:${user.userID}` });
+    const quote = await quoteShipment({ shipFrom, shipTo, parcel: parcelForEasyPost(preset), carriers: ['FedEx'], reference: `rate-check:${user.userID}`, options: body.saturdayDelivery === true ? { saturday_delivery: true } : null });
     return NextResponse.json({ ...quote, parcelKey: preset.key, parcelLabel: preset.label, shipTo }, { status: 200 });
   } catch (error) {
     const status = error.name === 'EasyPostError' ? 502 : 500;

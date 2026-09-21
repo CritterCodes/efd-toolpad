@@ -59,7 +59,7 @@ function ReadyAccountCard({ group, busy, onShip, onBuyLabel }) {
                 <Chip size="small" label={inv.paymentStatus === 'paid' ? 'Paid' : 'Open'} color={inv.paymentStatus === 'paid' ? 'success' : 'warning'} />
                 {inv.fulfillment?.shipping?.rate ? (
                   <>
-                    <Chip size="small" variant="outlined" label={`${inv.fulfillment.shipping.rate.carrier} ${serviceLabel(inv.fulfillment.shipping.rate.service)} · ${money(inv.shippingFee)} on invoice`} />
+                    <Chip size="small" variant="outlined" label={`${inv.fulfillment.shipping.rate.carrier} ${serviceLabel(inv.fulfillment.shipping.rate.service)}${inv.fulfillment.shipping.saturdayDelivery ? ' · Saturday' : ''} · ${money(inv.shippingFee)} on invoice`} />
                     <Button size="small" variant="contained" startIcon={<LocalShippingIcon />} disabled={busy}
                       onClick={() => onBuyLabel(inv.invoiceID)} sx={{ ml: 'auto' }}>
                       Buy label &amp; ship

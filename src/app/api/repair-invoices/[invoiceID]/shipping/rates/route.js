@@ -41,6 +41,7 @@ export const POST = async (req, { params }) => {
     const quote = await quoteInvoiceShipping({
       invoiceID,
       parcelKey: body?.parcelKey || '',
+      saturdayDelivery: body?.saturdayDelivery === true,
       actor: { userID: session.user.userID, name: session.user.name },
     });
     return NextResponse.json(quote, { status: 200 });
