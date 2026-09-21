@@ -6,6 +6,7 @@ import {
   Checkbox, CircularProgress, Alert, Snackbar, Divider, Grid,
 } from '@mui/material';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
+import RateCheck from './RateCheck';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import PrintIcon from '@mui/icons-material/Print';
 import EventIcon from '@mui/icons-material/Event';
@@ -212,6 +213,8 @@ export default function ShippingDeliveryPage() {
         Invoices finalized as Ship, until they are in a box. Buy the FedEx label here — the rate is already on the
         invoice — print it, and the store is notified with tracking. Pickups never appear; hand delivery is no longer offered.
       </Typography>
+
+      <RateCheck />
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {!data && !error && <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>}
