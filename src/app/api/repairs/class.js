@@ -114,6 +114,8 @@ export default class Repair {
         // for that reason until 2026-09-21; the canonical billing classification was lost the same way.
         this.quoteRequest = data.quoteRequest || null;
         this.billing = data.billing || null;
+        // Retail ready-for-pickup notice stamp (services/repairs/readyForPickup.js).
+        this.pickupNotice = data.pickupNotice || null;
     }
     
     /**
@@ -239,6 +241,7 @@ export default class Repair {
             whileYouWaitCompletedAt: this.whileYouWaitCompletedAt,
             ...(this.quoteRequest ? { quoteRequest: this.quoteRequest } : {}),
             ...(this.billing ? { billing: this.billing } : {}),
+            ...(this.pickupNotice ? { pickupNotice: this.pickupNotice } : {}),
             // Legacy support
             repairTasks: this.repairTasks,
             parts: this.parts

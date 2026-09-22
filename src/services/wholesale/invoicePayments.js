@@ -16,6 +16,15 @@ import { normalizeAccountKey } from '@/app/api/repair-invoices/service';
 export const CARD_FEE_RATE = 0.029;
 export const CARD_FEE_FLAT = 0.30;
 
+/**
+ * Checkout metadata `kind` values this sink owns. WHOLESALE is the store portal (embedded checkout,
+ * ACH or card). RETAIL is the walk-in customer's pay-ahead link (services/repairs/readyForPickup.js:
+ * hosted checkout, card only). Same money shape on the invoice either way.
+ */
+export const PAYABLE_INVOICE_KINDS = Object.freeze({ WHOLESALE: 'wholesale_invoice', RETAIL: 'retail_invoice' });
+const PAYABLE_KIND_VALUES = Object.values(PAYABLE_INVOICE_KINDS);
+export function isPayableInvoiceKind(kind) { return PAYABLE_KIND_VALUES.includes(kind); }
+
 const round2 = (v) => Math.round((Number(v) || 0) * 100) / 100;
 
 /** The surcharge a card payment adds. ACH carries none — the shop eats it. */
@@ -55,9 +64,10 @@ export async function invoiceBelongsToSession(session, invoice) {
  * Create the Stripe Checkout Session for an invoice's remaining balance.
  * @returns {{ url: string, sessionId: string, base: number, fee: number }}
  */
-export async function createInvoiceCheckoutSession({ invoice, method, successUrl, cancelUrl }) {
+export async function createInvoiceCheckoutSession({ invoice, method, successUrl, cancelUrl, kind = PAYABLE_INVOICE_KINDS.WHOLESALE, uiMode = 'embedded' }) {
   const secretKey = process.env.STRIPE_SECRET_KEY;
   if (!secretKey) throw new Error('STRIPE_SECRET_KEY is not configured.');
+  if (!isPayableInvoiceKind(kind)) throw new Error(`Unknown checkout kind "${kind}".`);
 
   const base = round2(invoice.remainingBalance);
   const fee = method === 'card' ? cardConvenienceFee(base) : 0;
@@ -65,18 +75,27 @@ export async function createInvoiceCheckoutSession({ invoice, method, successUrl
   const body = new URLSearchParams();
   body.set('mode', 'payment');
   body.append('payment_method_types[]', method === 'card' ? 'card' : 'us_bank_account');
-  // EMBEDDED checkout: Stripe's payment UI mounts inside our page (the billing
-  // drawer) instead of redirecting away -- the wholesaler never leaves the site,
-  // matching the shop's checkout pattern. return_url is where the iframe sends
-  // the browser after completion.
-  body.set('ui_mode', 'embedded');
-  body.set('return_url', successUrl);
+  if (uiMode === 'hosted') {
+    // HOSTED checkout: the retail pay-ahead link. The customer arrives from an email with no session
+    // of ours, so Stripe's own page is the right place; success/cancel bring them back to /pay/<token>.
+    body.set('success_url', successUrl);
+    body.set('cancel_url', cancelUrl || successUrl);
+  } else {
+    // EMBEDDED checkout: Stripe's payment UI mounts inside our page (the billing
+    // drawer) instead of redirecting away -- the wholesaler never leaves the site,
+    // matching the shop's checkout pattern. return_url is where the iframe sends
+    // the browser after completion.
+    body.set('ui_mode', 'embedded');
+    body.set('return_url', successUrl);
+  }
   body.set('client_reference_id', invoice.invoiceID);
 
   body.set('line_items[0][quantity]', '1');
   body.set('line_items[0][price_data][currency]', 'usd');
   body.set('line_items[0][price_data][unit_amount]', String(Math.round(base * 100)));
-  body.set('line_items[0][price_data][product_data][name]', invoice.kind === 'inbound-shipping' && invoice.description ? invoice.description : `Repair invoice ${invoice.invoiceID}`);
+  body.set('line_items[0][price_data][product_data][name]', invoice.kind === 'inbound-shipping' && invoice.description
+    ? invoice.description
+    : kind === PAYABLE_INVOICE_KINDS.RETAIL ? `Engel Fine Design repair · ${invoice.invoiceID}` : `Repair invoice ${invoice.invoiceID}`);
   if (fee > 0) {
     // The surcharge is its OWN line so the disclosure is on the payment page
     // itself, not buried in a total.
@@ -87,7 +106,7 @@ export async function createInvoiceCheckoutSession({ invoice, method, successUrl
   }
 
   const metadata = {
-    kind: 'wholesale_invoice',
+    kind,
     invoiceID: invoice.invoiceID,
     method,
     baseAmount: String(base),
@@ -106,7 +125,7 @@ export async function createInvoiceCheckoutSession({ invoice, method, successUrl
   const data = await response.json();
   if (!response.ok) throw new Error(data?.error?.message || 'Failed to create the Stripe Checkout session.');
 
-  return { clientSecret: data.client_secret, sessionId: data.id, base, fee };
+  return { clientSecret: data.client_secret, url: data.url || '', sessionId: data.id, base, fee, kind };
 }
 
 /**
@@ -118,7 +137,7 @@ export async function createInvoiceCheckoutSession({ invoice, method, successUrl
  */
 export async function markWholesalePaymentProcessing(checkoutSession) {
   const meta = checkoutSession?.metadata || {};
-  if (meta.kind !== 'wholesale_invoice' || !meta.invoiceID) return { marked: false };
+  if (!isPayableInvoiceKind(meta.kind) || !meta.invoiceID) return { marked: false };
   const { default: RepairInvoicesModel } = await import('@/app/api/repair-invoices/model');
   await RepairInvoicesModel.updateByInvoiceID(meta.invoiceID, {
     pendingCheckout: {
@@ -147,7 +166,8 @@ export async function clearWholesalePaymentProcessing(invoiceID) {
  */
 export async function recordWholesaleCheckoutPayment(checkoutSession) {
   const meta = checkoutSession?.metadata || {};
-  if (meta.kind !== 'wholesale_invoice' || !meta.invoiceID) return { recorded: false, reason: 'not a wholesale invoice session' };
+  if (!isPayableInvoiceKind(meta.kind) || !meta.invoiceID) return { recorded: false, reason: 'not a wholesale invoice session' };
+  const retail = meta.kind === PAYABLE_INVOICE_KINDS.RETAIL;
 
   const { default: RepairInvoicesModel } = await import('@/app/api/repair-invoices/model');
   const { computePaymentStatus, syncPaidRepairs } = await import('@/app/api/repair-invoices/service');
@@ -173,7 +193,7 @@ export async function recordWholesaleCheckoutPayment(checkoutSession) {
       ? `Paid online by card (convenience fee $${fee.toFixed(2)} collected separately).`
       : 'Paid online by ACH bank debit.',
     status: 'completed',
-    source: 'wholesale_portal_checkout',
+    source: retail ? 'retail_pay_link' : 'wholesale_portal_checkout',
     stripeSessionId: checkoutSession.id,
     stripePaymentIntentId: checkoutSession.payment_intent || null,
   });
@@ -190,8 +210,20 @@ export async function recordWholesaleCheckoutPayment(checkoutSession) {
     remainingBalance,
     pendingCheckout: null,
     ...(paymentStatus === 'paid' ? { status: 'paid', paidAt: new Date() } : {}),
+    // A retail customer paying AHEAD has not collected the piece: the repairs stay READY FOR PICKUP
+    // and the counter closes them at handover (POST /api/repair-invoices/[id]/picked-up).
+    ...(retail && paymentStatus === 'paid' ? { paidAheadAt: new Date() } : {}),
   });
-  if (paymentStatus === 'paid') {
+  if (paymentStatus === 'paid' && retail) {
+    const { notifyAllAdmins } = await import('@/lib/notificationService');
+    await notifyAllAdmins({
+      type: 'retail-paid-ahead',
+      title: 'Customer paid ahead',
+      message: `${invoice.customerName || 'A customer'} paid $${base.toFixed(2)} online for ${invoice.invoiceID}. Hand it over and tap “Picked up” on Payment & Pickup.`,
+      priority: 'normal',
+      relatedData: { invoiceID: invoice.invoiceID },
+    }).catch((e) => console.error('paid-ahead admin notice failed:', e?.message));
+  } else if (paymentStatus === 'paid') {
     await syncPaidRepairs(invoice).catch((e) => console.error('syncPaidRepairs failed:', e?.message));
     // A paid inbound-shipping order buys the store's label now (idempotent — a webhook replay is a no-op).
     if (invoice.kind === 'inbound-shipping') {

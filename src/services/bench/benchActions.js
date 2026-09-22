@@ -21,6 +21,7 @@ import { signOffAndHandoffRepair, creditRepairLaborAtQc } from '@/services/repai
 import { autoInvoiceAtQcPass } from '@/services/repairs/autoInvoice';
 import { repriceStullerMaterialForRepair } from '@/services/pricing/stullerMaterial';
 import { readQcMode, canSelfCertify } from '@/services/repairs/qcMode';
+import { notifyReadyForPickup } from '@/services/repairs/readyForPickup';
 import {
   buildClaimRepairUpdate,
   buildUnclaimRepairUpdate,
@@ -295,8 +296,13 @@ async function passRepairQc({ session, repairID, body, now, selfCertified = fals
     deliveryMethod: body?.deliveryBatched ? 'delivery' : 'pickup',
     createdBy: session.user.name || session.user.email || '',
   });
-  if (autoInvoice.invoiced) updated = await RepairsModel.findById(repairID);
-  return { ...updated, autoInvoice };
+  const pickupNotice = await notifyReadyForPickup({
+    repairID,
+    invoiceID: autoInvoice.invoiced ? autoInvoice.invoiceID : null,
+    actor: session.user.name || session.user.email || '',
+  });
+  if (autoInvoice.invoiced || pickupNotice.sent) updated = await RepairsModel.findById(repairID);
+  return { ...updated, autoInvoice, pickupNotice };
 }
 
 export async function runBenchAction({ session, workOrderID, action, body = {} }) {
