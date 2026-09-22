@@ -20,6 +20,17 @@ const CAPABILITIES = [
 
 export default function ArtisanStaffCapabilities({ artisan, onFieldChange }) {
   const employment = artisan?.employment || {};
+  // The published pay ladder (Settings → Store → Pay ladder). Tier + rate are privileged leaves: the page
+  // saves them through PATCH /api/users/[userID]/pay-rate, not the generic PUT.
+  const [ladder, setLadder] = React.useState(null);
+  React.useEffect(() => {
+    fetch('/api/admin/settings/pay-ladder').then((r) => (r.ok ? r.json() : null)).then((b) => setLadder(b?.ladder || { tiers: [] })).catch(() => setLadder({ tiers: [] }));
+  }, []);
+  const currentTier = (ladder?.tiers || []).find((t) => t.key === employment.payTier) || null;
+  const placeOnTier = (key) => {
+    const tier = (ladder?.tiers || []).find((t) => t.key === key) || null;
+    onFieldChange('employment', { ...employment, payTier: tier ? tier.key : '', hourlyRate: tier ? tier.rate : 0 });
+  };
   const caps = artisan?.staffCapabilities || {};
   const compensationProfile = artisan?.compensationProfile || {};
 
@@ -128,16 +139,37 @@ export default function ArtisanStaffCapabilities({ artisan, onFieldChange }) {
                 </Select>
               </FormControl>
 
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <InputLabel>Pay tier</InputLabel>
+                <Select
+                  value={currentTier ? currentTier.key : ''}
+                  label="Pay tier"
+                  onChange={(e) => placeOnTier(e.target.value)}
+                  disabled={ladder === null}
+                >
+                  <MenuItem value="">Not placed — shop rate</MenuItem>
+                  {(ladder?.tiers || []).map((t) => (
+                    <MenuItem key={t.key} value={t.key}>{t.label} · ${Number(t.rate).toFixed(2)}/hr</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
               <TextField
                 size="small"
-                label="Hourly Rate ($)"
+                label="Pay rate ($/hr)"
                 type="number"
                 value={employment.hourlyRate ?? ''}
                 onChange={(e) => setEmployment('hourlyRate', parseFloat(e.target.value) || 0)}
-                sx={{ width: 140 }}
+                sx={{ width: 150 }}
                 inputProps={{ min: 0, step: 0.5 }}
+                helperText={currentTier && Number(employment.hourlyRate) > 0 && Number(employment.hourlyRate) !== Number(currentTier.rate) ? 'negotiated override' : currentTier ? 'tier rate' : Number(employment.hourlyRate) > 0 ? 'custom, no tier' : 'blank = shop rate'}
               />
             </Box>
+          )}
+          {isOnsite && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+              What this jeweler is credited per catalog hour at QC pass. The shop rate customers are priced from is separate (Settings → Pricing). Takes effect at their next sign-off; past labor keeps its snapshot.
+            </Typography>
           )}
 
           {/* The capability switches are hidden while off-site, so without this the retained

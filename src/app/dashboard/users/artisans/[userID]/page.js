@@ -173,6 +173,23 @@ const ViewArtisanPage = ({ params }) => {
                 capabilitiesApplyOnNextLogin = capsBody?.appliesOnNextLogin === true;
             }
 
+            // employment.payTier / hourlyRate are privileged leaves too (money at every QC pass): the
+            // generic PUT strips them, so a changed pay rate goes through its own admin-only route.
+            const payChanged = String(updatedArtisan?.employment?.payTier ?? '') !== String(artisan?.employment?.payTier ?? '')
+                || (Number(updatedArtisan?.employment?.hourlyRate) || 0) !== (Number(artisan?.employment?.hourlyRate) || 0);
+            if (payChanged) {
+                const nextRate = Number(updatedArtisan?.employment?.hourlyRate) || 0;
+                const payResponse = await fetch(`/api/users/${userID}/pay-rate`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ payTier: String(updatedArtisan?.employment?.payTier ?? ''), hourlyRate: nextRate > 0 ? nextRate : null })
+                });
+                if (!payResponse.ok) {
+                    const payError = await payResponse.json().catch(() => ({}));
+                    throw new Error(payError.error || 'Profile saved, but the pay rate did not.');
+                }
+            }
+
             // The session bakes capabilities at login, so say so rather than implying it took effect —
             // otherwise an admin grants QC, tells the jeweler, and neither can work out why it's absent.
             setSnackbarMessage(capabilitiesApplyOnNextLogin

@@ -1,6 +1,7 @@
 import { db } from '@/lib/database';
 import { UserQueryService } from '@/lib/user/user.query.service.js';
 import { isCustomerCharged, resolveBillingMode } from '@/services/billing/modes';
+import { readLadder, DEFAULT_LADDER, resolvePayRate } from '@/services/pay/payLadder';
 
 async function getShopLaborWage() {
   try {
@@ -120,27 +121,38 @@ export function groupCompletedTasksByJeweler(repair = {}) {
   return [...byUser.values()].map((e) => ({ ...e, hours: Math.round(e.hours * 100) / 100 }));
 }
 
+/**
+ * The rate a jeweler is CREDITED at (snapshotted onto the task at sign-off and onto the labor log).
+ * Per-person pay rate first — `employment.hourlyRate` / `employment.payTier` against the published
+ * ladder (services/pay/payLadder.js) — and the shop rate (pricing.wage) only for someone never placed.
+ * Until 2026-09-22 the shop rate won unconditionally, which made per-person rates inert and paid every
+ * jeweler the number the customer is priced from. Pricing still uses the shop rate; only credit reads this.
+ */
 export async function getLaborRateSnapshotForUser({ userID = '', email = '', session = null } = {}) {
-  const shopWage = await getShopLaborWage();
-  if (shopWage > 0) {
-    return shopWage;
+  const [shopWage, ladder] = await Promise.all([
+    getShopLaborWage(),
+    readLadder().catch(() => DEFAULT_LADDER),
+  ]);
+
+  let user = null;
+  try {
+    user = userID
+      ? await UserQueryService.findUserByUserID(userID)
+      : (email ? await UserQueryService.findUserByEmail(email) : null);
+  } catch (error) {
+    console.error('Error loading user for labor rate:', error);
+  }
+  // No stored record reachable (tests, transient DB error): the session's own employment block is the
+  // next-best source, but only for the session's own user — never someone else's rate.
+  if (!user && session?.user && (!userID || session.user.userID === userID)) {
+    user = { employment: session.user.employment || {} };
   }
 
-  const sessionRate = Number(session?.user?.employment?.hourlyRate);
-  if (sessionRate > 0 && (!userID || session?.user?.userID === userID)) {
-    return sessionRate;
-  }
+  const resolved = resolvePayRate(user || {}, ladder, shopWage);
+  if (resolved.rate > 0) return resolved.rate;
 
-  const user = userID
-    ? await UserQueryService.findUserByUserID(userID)
-    : (email ? await UserQueryService.findUserByEmail(email) : null);
-
-  const storedRate = Number(user?.employment?.hourlyRate ?? user?.hourlyRate);
-  if (storedRate > 0) {
-    return storedRate;
-  }
-
-  return 0;
+  const legacyRate = Number(user?.hourlyRate);
+  return legacyRate > 0 ? legacyRate : 0;
 }
 
 export async function getLaborRateSnapshot(session) {
