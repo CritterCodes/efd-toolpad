@@ -308,6 +308,7 @@ export const adminNavigation = {
       segment: 'dashboard/admin/settings',
       title: 'Admin Settings',
       icon: <SettingsIcon />
-    }
+    },
+    SHARED_NAVIGATION.guide
   ]
 };

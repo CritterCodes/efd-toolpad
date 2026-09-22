@@ -23,6 +23,7 @@ import {
 } from '@mui/icons-material';
 import AnalyticsCarousel from '@/components/analytics/AnalyticsCarousel';
 import { buildArtisanShopUrl, isOnsiteRepairOpsUser } from './artisanDashboardLinks';
+import GettingStartedCard from '@/components/guide/GettingStartedCard';
 
 export default function ArtisanDashboardContent() {
     const { data: session } = useSession();
@@ -164,6 +165,9 @@ export default function ArtisanDashboardContent() {
     };
 
     return (
-        renderOverviewContent()
+        <>
+            <GettingStartedCard />
+            {renderOverviewContent()}
+        </>
     );
 }

@@ -67,6 +67,7 @@ export const wholesalerNavigation = {
       segment: 'dashboard/wholesaler/account-settings',
       title: 'Account Settings',
       icon: <SettingsIcon />
-    }
+    },
+    SHARED_NAVIGATION.guide
   ]
 };

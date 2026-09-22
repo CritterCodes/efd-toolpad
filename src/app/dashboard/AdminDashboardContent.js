@@ -36,6 +36,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useRepairs } from '@/app/context/repairs.context';
 import ContinuousBarcodeScanner from '@/components/repairs/ContinuousBarcodeScanner';
 import { PageHeader, SurfaceCard, SectionLabel, StatusChip, facelift, tint } from '@/components/facelift';
+import GettingStartedCard from '@/components/guide/GettingStartedCard';
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('en-US', {
@@ -564,6 +565,7 @@ export default function AdminDashboardContent() {
 
   return (
     <Stack spacing={2.5}>
+      <GettingStartedCard sx={{ marginBottom: 0 }} />
       {(dashboardMetrics.rushJobs.length > 0 || dashboardMetrics.pendingWholesale.length > 0) && (
         <Stack spacing={1.5}>
           {dashboardMetrics.rushJobs.length > 0 && (

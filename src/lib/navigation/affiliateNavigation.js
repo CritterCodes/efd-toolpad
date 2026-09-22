@@ -4,6 +4,7 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 import LinkIcon from '@mui/icons-material/Link';
 import PeopleIcon from '@mui/icons-material/People';
 import PaidIcon from '@mui/icons-material/Paid';
+import { SHARED_NAVIGATION } from './sharedNavigation';
 export const affiliateNavigation = {
   [USER_ROLES.AFFILIATE]: [
     // NO shared `dashboard` entry here. /dashboard renders AffiliateDashboardContent —
@@ -32,5 +33,6 @@ export const affiliateNavigation = {
       title: 'Payouts',
       icon: <PaidIcon />,
     },
+    SHARED_NAVIGATION.guide,
   ],
 };

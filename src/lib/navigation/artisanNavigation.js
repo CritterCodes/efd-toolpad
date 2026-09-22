@@ -56,6 +56,8 @@ const BASE_ARTISAN_NAV = [
     title: 'My Work',
     icon: <WorkHistoryIcon />,
   },
+  { kind: 'header', title: 'Help' },
+  SHARED_NAVIGATION.guide,
 ];
 
 function buildRepairOpsNavItems(caps = {}) {

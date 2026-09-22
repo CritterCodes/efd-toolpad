@@ -8,6 +8,7 @@ import {
 import { BarChart as BarChartIcon, CheckCircle as CheckIcon, People as PeopleIcon, Edit as EditIcon, Save as SaveIcon, Paid as PaidIcon } from '@mui/icons-material';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import GettingStartedCard from '@/components/guide/GettingStartedCard';
 
 export default function AffiliateDashboardPage() {
   const { data: session } = useSession();
@@ -89,6 +90,7 @@ export default function AffiliateDashboardPage() {
 
   return (
     <Box sx={{ pb: 10 }}>
+      <GettingStartedCard />
       <Box sx={{ mb: 3 }}>
         <Typography variant="h5" fontWeight={600}>Affiliate Dashboard</Typography>
       </Box>
