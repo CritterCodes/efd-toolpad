@@ -22,6 +22,13 @@ export const dynamic = 'force-dynamic';
 export const ARTISAN_KINDS = Object.freeze(['artisan_wo_invoice', 'casting_charge']);
 
 /**
+ * Checkout `kind`s paid through services/wholesale/invoicePayments.js: the store portal and the retail
+ * pay-ahead link. Literal for the same lazy-import reason as ARTISAN_KINDS; must equal
+ * Object.values(PAYABLE_INVOICE_KINDS) there.
+ */
+export const PAYABLE_INVOICE_KIND_VALUES = Object.freeze(['wholesale_invoice', 'retail_invoice']);
+
+/**
  * POST /api/stripe/webhook — Stripe event sink.
  * Stripe Invoice events are authoritative for custom-order billing. The legacy
  * Checkout event remains supported for links created before this migration.
@@ -94,7 +101,7 @@ export const POST = async (req) => {
       const paid = session.payment_status === 'paid' || session.status === 'complete';
       if (meta.kind === 'custom_invoice' && meta.customID && meta.invoiceID && paid) {
         await setCustomInvoiceStatus(meta.customID, meta.invoiceID, CUSTOM_INVOICE_STATUS.PAID, 'stripe');
-      } else if (meta.kind === 'wholesale_invoice') {
+      } else if (PAYABLE_INVOICE_KIND_VALUES.includes(meta.kind)) {
         if (session.payment_status === 'paid') {
           // Card payments settle inside Checkout, so 'completed' arrives already paid.
           const { recordWholesaleCheckoutPayment } = await import('@/services/wholesale/invoicePayments');
@@ -110,7 +117,7 @@ export const POST = async (req) => {
       // ACH settled days after the session completed — record it now, same sink,
       // idempotent by session id (Stripe retries webhooks).
       const session = event.data?.object || {};
-      if (session.metadata?.kind === 'wholesale_invoice') {
+      if (PAYABLE_INVOICE_KIND_VALUES.includes(session.metadata?.kind)) {
         const { recordWholesaleCheckoutPayment } = await import('@/services/wholesale/invoicePayments');
         await recordWholesaleCheckoutPayment(session);
       }
@@ -120,7 +127,7 @@ export const POST = async (req) => {
       // arrived — tell the admins immediately.
       const session = event.data?.object || {};
       const meta = session.metadata || {};
-      if (meta.kind === 'wholesale_invoice' && meta.invoiceID) {
+      if (PAYABLE_INVOICE_KIND_VALUES.includes(meta.kind) && meta.invoiceID) {
         const { clearWholesalePaymentProcessing } = await import('@/services/wholesale/invoicePayments');
         await clearWholesalePaymentProcessing(meta.invoiceID);
         const { notifyAllAdmins } = await import('@/lib/notificationService');

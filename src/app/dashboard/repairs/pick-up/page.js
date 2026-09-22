@@ -737,8 +737,12 @@ function InvoiceCard({
   onMergeInvoice,
   onRemoveRepairs,
   onReopen,
+  onPayLink,
+  onPickedUp,
 }) {
   const [cashAmount, setCashAmount] = useState(invoice.remainingBalance || 0);
+  const isRetail = invoice.accountType !== "wholesale";
+  const paidAheadAwaitingPickup = isRetail && invoice.paymentStatus === "paid" && Boolean(invoice.paidAheadAt) && !invoice.pickedUpAt;
   const [cashNotes, setCashNotes] = useState("");
   const [selectedRepairIDs, setSelectedRepairIDs] = useState([]);
   const [targetInvoiceID, setTargetInvoiceID] = useState("");
@@ -786,8 +790,28 @@ function InvoiceCard({
               >
                 Print Invoice
               </Button>
+              {isRetail && invoice.paymentStatus !== "paid" && onPayLink && (
+                <>
+                  <Button size="small" variant="outlined" onClick={() => onPayLink(invoice.invoiceID, false)} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border, textTransform: "none" }}>
+                    Copy pay link
+                  </Button>
+                  <Button size="small" variant="outlined" onClick={() => onPayLink(invoice.invoiceID, true)} sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border, textTransform: "none" }}>
+                    Resend ready notice
+                  </Button>
+                </>
+              )}
+              {paidAheadAwaitingPickup && onPickedUp && (
+                <Button size="small" variant="contained" onClick={() => onPickedUp(invoice.invoiceID)} sx={{ backgroundColor: REPAIRS_UI.accent, color: "#111", textTransform: "none" }}>
+                  Picked up
+                </Button>
+              )}
             </Stack>
           </Box>
+          {paidAheadAwaitingPickup && (
+            <Alert severity="success" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
+              Paid online {invoice.paidAheadAt ? new Date(invoice.paidAheadAt).toLocaleString() : ""} — the piece is still here. Tap “Picked up” at handover.
+            </Alert>
+          )}
 
           <Grid container spacing={1.5}>
             <Grid item xs={6} md={3}><Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>Subtotal</Typography><Typography>{formatCurrency(invoice.subtotal)}</Typography></Grid>
@@ -1405,6 +1429,29 @@ export default function PaymentPickupPage() {
   // handing onsite staff a button that 403s.
   const canReopenInvoices = canReopenInvoicesGate(session);
 
+  const handlePayLink = async (invoiceID, resend) => {
+    try {
+      const response = await fetch(`/api/repair-invoices/${invoiceID}/pay-link`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ resend: resend === true }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Could not build the pay link.");
+      try { await navigator.clipboard.writeText(data.url); } catch { /* clipboard may be blocked; the link is still in the toast */ }
+      const sent = (data.resent || []).filter((r) => r.sent).length;
+      showMessage(resend ? (sent > 0 ? `Ready notice re-sent (${sent}). Pay link copied: ${data.url}` : `Notice not sent: ${(data.resent || [])[0]?.reason || "no customer contact"}. Link: ${data.url}`) : `Pay link copied: ${data.url}`, sent > 0 || !resend ? "success" : "warning");
+    } catch (error) {
+      showMessage(error.message, "error");
+    }
+  };
+
+  const handlePickedUp = async (invoiceID) => {
+    try {
+      await postInvoiceAction(`/api/repair-invoices/${invoiceID}/picked-up`, {}, `${invoiceID} handed over — repairs closed.`);
+    } catch (error) {
+      showMessage(error.message, "error");
+    }
+  };
+
   const handleReopenInvoice = async (invoiceID) => {
     try {
       await postInvoiceAction(`/api/repair-invoices/${invoiceID}/reopen`, {}, `Reopened invoice ${invoiceID}.`);
@@ -1864,6 +1911,8 @@ export default function PaymentPickupPage() {
                 onSplitInvoice={handleSplitInvoice}
                 onMergeInvoice={handleMergeInvoice}
                 onRemoveRepairs={handleRemoveRepairsFromInvoice}
+                onPayLink={handlePayLink}
+                onPickedUp={handlePickedUp}
               />
             ))
           )}
@@ -1899,6 +1948,8 @@ export default function PaymentPickupPage() {
                 onSplitInvoice={handleSplitInvoice}
                 onMergeInvoice={handleMergeInvoice}
                 onRemoveRepairs={handleRemoveRepairsFromInvoice}
+                onPayLink={handlePayLink}
+                onPickedUp={handlePickedUp}
               />
             ))
           )}
@@ -1930,6 +1981,8 @@ export default function PaymentPickupPage() {
                 onSplitInvoice={handleSplitInvoice}
                 onMergeInvoice={handleMergeInvoice}
                 onRemoveRepairs={handleRemoveRepairsFromInvoice}
+                onPayLink={handlePayLink}
+                onPickedUp={handlePickedUp}
                 onReopen={canReopenInvoices ? handleReopenInvoice : undefined}
               />
             ))

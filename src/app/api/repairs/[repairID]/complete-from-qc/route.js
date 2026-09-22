@@ -4,8 +4,7 @@ import { requireRepairOps } from '@/lib/apiAuth';
 import { buildCompleteFromQcUpdate } from '@/services/repairWorkflow';
 import { creditRepairLaborAtQc } from '@/services/repairs/benchHandoff';
 import { autoInvoiceAtQcPass } from '@/services/repairs/autoInvoice';
-import { NotificationService } from '@/lib/notificationService';
-import { adminBase } from '@/lib/appUrls';
+import { notifyReadyForPickup } from '@/services/repairs/readyForPickup';
 
 export const POST = async (req, { params }) => {
   try {
@@ -44,32 +43,16 @@ export const POST = async (req, { params }) => {
       updated = await RepairsModel.findById(repairID);
     }
 
-    // R3 — QC passed, repair completed & ready for pickup: notify customer (best-effort, high priority).
-    try {
-      const customerID = updated.userID;
-      const customerEmail = updated.email || updated.clientEmail || updated.customerEmail || '';
-      if (customerID || customerEmail) {
-        const adminUrl = adminBase();
-        await NotificationService.createNotification({
-          userId: customerID,
-          type: 'repair-ready-pickup',
-          title: 'Your repair is ready for pickup',
-          message: `Good news${updated.clientName ? `, ${updated.clientName}` : ''}! Your repair has passed final inspection and is ready for pickup.`,
-          channels: ['inApp', 'email'],
-          recipientEmail: customerEmail || undefined,
-          priority: 'high',
-          data: {
-            actionUrl: `${adminUrl}/dashboard/repairs/${repairID}`,
-            repairID,
-            clientName: updated.clientName || '',
-          },
-        });
-      }
-    } catch (notifyError) {
-      console.error('R3 repair-ready-pickup notification failed (non-fatal):', notifyError.message);
-    }
+    // Retail customer: "ready for pickup" with the pay-ahead link (services/repairs/readyForPickup.js).
+    // Best-effort, idempotent per repair; the old inline notice pointed the customer at the ADMIN app.
+    const pickupNotice = await notifyReadyForPickup({
+      repairID,
+      invoiceID: autoInvoice.invoiced ? autoInvoice.invoiceID : null,
+      actor: session.user.name || session.user.email || '',
+    });
+    if (pickupNotice.sent) updated = await RepairsModel.findById(repairID);
 
-    return NextResponse.json({ ...updated, autoInvoice }, { status: 200 });
+    return NextResponse.json({ ...updated, autoInvoice, pickupNotice }, { status: 200 });
   } catch (error) {
     console.error('Error in complete-from-qc route:', error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });

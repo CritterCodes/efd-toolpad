@@ -23,6 +23,7 @@ vi.mock('@/lib/database', () => ({
 vi.mock('@/app/api/repair-invoices/model', () => ({
   default: { findByInvoiceID: mocks.findByInvoiceID, updateByInvoiceID: mocks.updateByInvoiceID },
 }));
+vi.mock('@/lib/notificationService', () => ({ notifyAllAdmins: vi.fn(async () => ({})) }));
 vi.mock('@/app/api/repair-invoices/service', async (importOriginal) => {
   const actual = await importOriginal();
   return { ...actual, syncPaidRepairs: mocks.syncPaidRepairs };
@@ -89,6 +90,19 @@ describe('createInvoiceCheckoutSession', () => {
     expect(body).not.toContain('line_items%5B1%5D'); // no fee line
   });
 
+  it('retail pay-ahead: HOSTED checkout with success/cancel urls, card only, kind=retail_invoice, returns the url', async () => {
+    mocks.fetch.mockResolvedValue({ ok: true, json: async () => ({ id: 'cs_2', url: 'https://checkout.stripe.com/c/pay/cs_2' }) });
+    const out = await createInvoiceCheckoutSession({ invoice, method: 'card', kind: 'retail_invoice', uiMode: 'hosted', successUrl: 'https://x/pay/t?status=paid', cancelUrl: 'https://x/pay/t?status=cancel' });
+    expect(out.url).toBe('https://checkout.stripe.com/c/pay/cs_2');
+    expect(out.kind).toBe('retail_invoice');
+    const body = mocks.fetch.mock.calls[0][1].body;
+    expect(body).not.toContain('ui_mode=embedded');
+    expect(body).toContain('success_url=https%3A%2F%2Fx%2Fpay%2Ft%3Fstatus%3Dpaid');
+    expect(body).toContain('cancel_url=https%3A%2F%2Fx%2Fpay%2Ft%3Fstatus%3Dcancel');
+    expect(body).toContain('metadata%5Bkind%5D=retail_invoice');
+    await expect(createInvoiceCheckoutSession({ invoice, method: 'card', kind: 'nope', successUrl: 's' })).rejects.toThrow(/Unknown checkout kind/);
+  });
+
   it('card: the surcharge is its OWN disclosed line item', async () => {
     stubStripe();
     const out = await createInvoiceCheckoutSession({ invoice, method: 'card', successUrl: 's', cancelUrl: 'c' });
@@ -150,6 +164,17 @@ describe('recordWholesaleCheckoutPayment (the webhook sink)', () => {
     const update = mocks.updateByInvoiceID.mock.calls[0][1];
     expect(update.remainingBalance).toBe(300);
     expect(update.paidAt).toBeUndefined();
+    expect(mocks.syncPaidRepairs).not.toHaveBeenCalled();
+  });
+
+  it('RETAIL pay-ahead: credits the invoice, stamps paidAheadAt, and does NOT close the repairs (the piece is still in the shop)', async () => {
+    mocks.findByInvoiceID.mockResolvedValue({ invoiceID: 'rinv-r', total: 43.8, payments: [], customerName: 'Caroline' });
+    const out = await recordWholesaleCheckoutPayment({ id: 'cs_r', payment_intent: 'pi_r', metadata: { kind: 'retail_invoice', invoiceID: 'rinv-r', method: 'card', baseAmount: '43.8', feeAmount: '1.57' } });
+    expect(out).toMatchObject({ recorded: true, paymentStatus: 'paid' });
+    const update = mocks.updateByInvoiceID.mock.calls[0][1];
+    expect(update.status).toBe('paid');
+    expect(update.paidAheadAt).toBeInstanceOf(Date);
+    expect(update.payments[0].source).toBe('retail_pay_link');
     expect(mocks.syncPaidRepairs).not.toHaveBeenCalled();
   });
 
