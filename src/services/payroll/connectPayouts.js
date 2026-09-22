@@ -37,6 +37,13 @@ import { computeDailyPayout, readFeeSettings, createDailyBatchesForAllDailyPayee
 
 export const CONNECT_PAYMENT_METHOD = 'stripe-connect';
 
+/** Where a payee connects Stripe and sees their payouts, by role. Pure. */
+export function payoutPagePath(role) {
+  if (role === 'affiliate') return '/dashboard/affiliate/payouts';
+  if (role === 'admin' || role === 'dev' || role === 'superadmin') return '/dashboard/repairs/payroll';
+  return '/dashboard/artisan/payroll';
+}
+
 const money = (n) => Number(n || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 const USER_PROJECTION = { _id: 0, userID: 1, email: 1, firstName: 1, lastName: 1, role: 1, stripeConnect: 1, compensationProfile: 1, payoutSettings: 1 };
 
@@ -217,7 +224,7 @@ export async function runConnectPayouts({ actor = 'payroll-cron', notify = true 
  * Weekly nudge: every payee with a finalized, unpaid batch and no live Stripe account is told how
  * much is waiting and where to connect. Called from the Monday run, not the daily payout cron.
  */
-export async function nudgeUnpaidPayees({ payrollUrlForPayee = `${adminBase()}/dashboard/artisan/payroll` } = {}) {
+export async function nudgeUnpaidPayees() {
   const finalized = await RepairPayrollBatchesModel.list({ status: PAYROLL_BATCH_STATUS.FINALIZED });
   const byUser = new Map();
   for (const b of finalized) {
@@ -238,7 +245,7 @@ export async function nudgeUnpaidPayees({ payrollUrlForPayee = `${adminBase()}/d
       channels: ['inApp', 'email'],
       priority: 'high',
       tags: ['payroll', 'stripe-connect'],
-      data: { actionUrl: payrollUrlForPayee, actionLabel: 'Connect with Stripe', relatedType: 'payroll', amount: entry.amount },
+      data: { actionUrl: `${adminBase()}${payoutPagePath(user.role)}`, actionLabel: 'Connect with Stripe', relatedType: 'payroll', amount: entry.amount },
     }).catch(() => {});
     nudged.push({ userID: entry.userID, userName: entry.userName, amount: entry.amount });
   }
