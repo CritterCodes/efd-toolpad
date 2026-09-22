@@ -49,10 +49,12 @@ export default function StoreFulfillmentSelect({ storeUserID, compact = false })
   return (
     <Stack spacing={0.5} sx={{ mt: 1, maxWidth: 360 }}>
       <FormControl size="small" fullWidth>
-        <InputLabel id={`fulfillment-${storeUserID}`}>Finished work goes back by</InputLabel>
+        {/* shrink + notched: with displayEmpty the label would otherwise sit on top of the placeholder */}
+        <InputLabel id={`fulfillment-${storeUserID}`} shrink>Finished work goes back by</InputLabel>
         <Select
           labelId={`fulfillment-${storeUserID}`}
           label="Finished work goes back by"
+          notched
           value={method}
           onChange={(e) => change(e.target.value)}
           disabled={saving}
