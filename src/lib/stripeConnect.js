@@ -114,3 +114,28 @@ export function summarizeAccount(account = {}) {
 export function availableUsdCents(balance = {}) {
   return (balance.available || []).filter((b) => b.currency === 'usd').reduce((s, b) => s + Number(b.amount || 0), 0);
 }
+
+/** Pending USD (card receipts still settling) in cents. Pure. */
+export function pendingUsdCents(balance = {}) {
+  return (balance.pending || []).filter((b) => b.currency === 'usd').reduce((s, b) => s + Number(b.amount || 0), 0);
+}
+
+/**
+ * Pull money INTO EFD's Stripe balance from the platform's verified bank account (an ACH debit,
+ * 1–2 business days). Stripe never does this on its own: a transfer to a connected account can only
+ * spend balance that is already there, so payroll funding has to be deliberate — this call.
+ * Fails with a Stripe error when no bank account is verified for top-ups.
+ */
+export function createTopup({ amountCents, description = '', statementDescriptor = 'EFD PAYROLL', metadata = {}, idempotencyKey }) {
+  return stripeRequest('POST', '/topups', {
+    amount: Math.round(amountCents),
+    currency: 'usd',
+    description,
+    statement_descriptor: String(statementDescriptor).slice(0, 15),
+    metadata,
+  }, { idempotencyKey });
+}
+
+export function listTopups({ limit = 10 } = {}) {
+  return stripeRequest('GET', `/topups?limit=${Math.min(Math.max(1, limit), 100)}`);
+}
