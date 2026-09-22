@@ -71,6 +71,7 @@ export default function PayrollFundingSettings() {
           <Grid item xs={12} sm={4}>{field('floor', 'Floor to keep in Stripe ($)', 'Always aim to have this much available on top of payroll.')}</Grid>
           <Grid item xs={12} sm={4}>{field('bufferPct', 'Buffer (%)', 'Extra over the projection for work credited after Monday.')}</Grid>
           <Grid item xs={12} sm={4}>{field('minimumTopup', 'Smallest top-up ($)', 'Shortfalls below this are ignored.')}</Grid>
+          <Grid item xs={12} sm={4}>{field('maxTopup', 'Largest single top-up ($)', 'Hard cap per run — the check cannot see your bank balance, so this protects rent.')}</Grid>
         </Grid>
         {preview && !preview.error && preview.need && (
           <Box sx={{ mt: 2, p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>

@@ -25,7 +25,9 @@ import { notifyAllAdmins } from '@/lib/notificationService';
 import { adminBase } from '@/lib/appUrls';
 
 export const SETTINGS_ID = 'repair_task_admin_settings';
-export const FUNDING_DEFAULTS = Object.freeze({ enabled: false, floor: 1500, bufferPct: 10, minimumTopup: 25 });
+// Defaults sized for the SMALLEST version of EFD (owner, 2026-09-22: $1,800 in the bank, rent due):
+// a modest floor and a hard cap on any single pull, both editable in Store Settings.
+export const FUNDING_DEFAULTS = Object.freeze({ enabled: false, floor: 300, bufferPct: 10, minimumTopup: 25, maxTopup: 500 });
 
 const money = (n) => Number(n || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
@@ -41,6 +43,8 @@ export function normalizeFundingSettings(input = {}) {
     floor: num(input?.floor, FUNDING_DEFAULTS.floor, 0, 100000),
     bufferPct: num(input?.bufferPct, FUNDING_DEFAULTS.bufferPct, 0, 100),
     minimumTopup: num(input?.minimumTopup, FUNDING_DEFAULTS.minimumTopup, 1, 10000),
+    // Never pull more than this from the bank in one run — the check has no view of the bank balance.
+    maxTopup: num(input?.maxTopup, FUNDING_DEFAULTS.maxTopup, 25, 100000),
   };
 }
 
@@ -56,8 +60,8 @@ export function computeFundingNeed({ projected = 0, balance = 0, settings = FUND
   const s = normalizeFundingSettings(settings);
   const target = round2(projected * (1 + s.bufferPct / 100) + s.floor);
   const shortfall = round2(Math.max(0, target - balance));
-  const topup = shortfall >= s.minimumTopup ? shortfall : 0;
-  return { projected: round2(projected), target, balance: round2(balance), shortfall, topup };
+  const topup = shortfall >= s.minimumTopup ? Math.min(shortfall, s.maxTopup) : 0;
+  return { projected: round2(projected), target, balance: round2(balance), shortfall, topup, capped: topup > 0 && topup < shortfall };
 }
 
 /** Pure: one top-up per calendar day, however often the check re-runs. */
@@ -132,7 +136,7 @@ export async function runFundingCheck({ now = new Date(), dryRun = false, notify
       await notifyAllAdmins({
         type: 'payroll-funding',
         title: `Pulled ${money(need.topup)} into Stripe for payroll`,
-        message: `Wednesday needs about ${money(due.projected)} (${due.payees.join(', ') || 'no payees yet'}); Stripe had ${money(available)} available + ${money(pending)} pending. A ${money(need.topup)} top-up from the business bank account is on its way${result.topup.expectedAvailability ? `, expected ${result.topup.expectedAvailability.toLocaleDateString('en-US')}` : ''}.`,
+        message: `Wednesday needs about ${money(due.projected)} (${due.payees.join(', ') || 'no payees yet'}); Stripe had ${money(available)} available + ${money(pending)} pending. A ${money(need.topup)} top-up${need.capped ? ` (capped — ${money(need.shortfall)} short)` : ''} from the business bank account is on its way${result.topup.expectedAvailability ? `, expected ${result.topup.expectedAvailability.toLocaleDateString('en-US')}` : ''}.`,
         actionUrl: `${adminBase()}/dashboard/repairs/payroll`, actionLabel: 'Open payroll',
         priority: 'normal', channels: ['inApp', 'email'], relatedType: 'payroll-funding', relatedData: result,
       }).catch(() => {});

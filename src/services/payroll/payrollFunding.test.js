@@ -25,8 +25,15 @@ const MON = new Date('2026-09-21T15:00:00Z');
 
 describe('payroll funding math (pure)', () => {
   it('target = projected × (1 + buffer) + floor; shortfall against what Stripe will have by Wednesday', () => {
-    const need = computeFundingNeed({ projected: 800, balance: 350, settings: { enabled: true, floor: 1500, bufferPct: 10, minimumTopup: 25 } });
-    expect(need).toEqual({ projected: 800, target: 2380, balance: 350, shortfall: 2030, topup: 2030 });
+    const need = computeFundingNeed({ projected: 800, balance: 350, settings: { enabled: true, floor: 1500, bufferPct: 10, minimumTopup: 25, maxTopup: 5000 } });
+    expect(need).toEqual({ projected: 800, target: 2380, balance: 350, shortfall: 2030, topup: 2030, capped: false });
+  });
+
+  it('never pulls more than the cap in one run, and says so', () => {
+    const need = computeFundingNeed({ projected: 800, balance: 350, settings: { floor: 1500, bufferPct: 10, minimumTopup: 25, maxTopup: 500 } });
+    expect(need).toMatchObject({ shortfall: 2030, topup: 500, capped: true });
+    // defaults: $300 floor, $500 cap — safe for a shop with rent due
+    expect(computeFundingNeed({ projected: 600, balance: 0 })).toMatchObject({ target: 960, topup: 500, capped: true });
   });
 
   it('a shortfall under the minimum is ignored; a funded balance pulls nothing', () => {
@@ -36,7 +43,7 @@ describe('payroll funding math (pure)', () => {
 
   it('settings clamp and default sensibly', () => {
     expect(normalizeFundingSettings(undefined)).toEqual({ ...FUNDING_DEFAULTS });
-    expect(normalizeFundingSettings({ enabled: 'yes', floor: -5, bufferPct: 400, minimumTopup: 0 })).toEqual({ enabled: false, floor: 0, bufferPct: 100, minimumTopup: 1 });
+    expect(normalizeFundingSettings({ enabled: 'yes', floor: -5, bufferPct: 400, minimumTopup: 0, maxTopup: 1 })).toEqual({ enabled: false, floor: 0, bufferPct: 100, minimumTopup: 1, maxTopup: 25 });
   });
 
   it('one top-up per calendar day', () => {
@@ -59,7 +66,7 @@ describe('the Monday check', () => {
   });
 
   it('tops up the shortfall with a per-day idempotency key and tells admins', async () => {
-    mocks.findOne.mockResolvedValue({ business: { payroll: { funding: { enabled: true, floor: 1500, bufferPct: 10, minimumTopup: 25 } } } });
+    mocks.findOne.mockResolvedValue({ business: { payroll: { funding: { enabled: true, floor: 1500, bufferPct: 10, minimumTopup: 25, maxTopup: 5000 } } } });
     mocks.retrieveBalance.mockResolvedValue({ available: [{ currency: 'usd', amount: 20000 }], pending: [{ currency: 'usd', amount: 15000 }] });
     mocks.createTopup.mockResolvedValue({ id: 'tu_1', status: 'pending', expected_availability_date: 1758931200 });
 
@@ -72,7 +79,7 @@ describe('the Monday check', () => {
   });
 
   it('dry run reports the pull without moving money', async () => {
-    mocks.findOne.mockResolvedValue({ business: { payroll: { funding: { enabled: true, floor: 1500, bufferPct: 10, minimumTopup: 25 } } } });
+    mocks.findOne.mockResolvedValue({ business: { payroll: { funding: { enabled: true, floor: 1500, bufferPct: 10, minimumTopup: 25, maxTopup: 5000 } } } });
     mocks.retrieveBalance.mockResolvedValue({ available: [{ currency: 'usd', amount: 20000 }], pending: [] });
     const r = await runFundingCheck({ now: MON, dryRun: true });
     expect(r.wouldTopup).toBe(2180);
