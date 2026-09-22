@@ -378,6 +378,11 @@ export default function NewRepairFlow(props) {
   }, [dictation.listening, formData.smartIntakeInput]);
 
   const [showFullBreakdown, setShowFullBreakdown] = useState(false);
+  // Request Quote (wholesale): the store can't price the job. Chosen on the Work items step (where
+  // they're staring at an empty ticket) or on Review; the repair is created with NO tasks and EFD is
+  // asked to quote it (services/repairs/quoteRequest.js). `quoteIntent` carries the choice from
+  // Work items to Review, where the primary button becomes "Request quote".
+  const [quoteIntent, setQuoteIntent] = useState(false);
 
   const goNext = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));
 
@@ -506,6 +511,12 @@ export default function NewRepairFlow(props) {
   const submitWith = (print) => {
     if (onPrintChoice) onPrintChoice(print);
     handleSubmit();
+  };
+
+  const canRequestQuote = Boolean(formData.isWholesale) && submitMode === 'create' && !isQuote;
+  const requestQuote = () => {
+    if (onPrintChoice) onPrintChoice(false);
+    handleSubmit({ requestQuote: true });
   };
 
   // What the engine would charge for the drafted hours, in this ticket's pricing context.
@@ -942,8 +953,10 @@ export default function NewRepairFlow(props) {
             ) : (
               <SurfaceCard sx={{ alignItems: 'center', py: 4 }}>
                 <Typography sx={{ fontWeight: 600 }}>Nothing on the ticket yet</Typography>
-                <Typography variant="caption" sx={{ color: facelift.text2, mt: 0.5 }}>
-                  Add a task, a material, custom labor, or a charge below.
+                <Typography variant="caption" sx={{ color: facelift.text2, mt: 0.5, textAlign: 'center' }}>
+                  {canRequestQuote
+                    ? 'Add the work below — or, if you can’t price this job, ask EFD for a quote.'
+                    : 'Add a task, a material, custom labor, or a charge below.'}
                 </Typography>
               </SurfaceCard>
             )}
@@ -964,6 +977,30 @@ export default function NewRepairFlow(props) {
                 />
               </Box>
             </Box>
+
+            {canRequestQuote && (
+              <SurfaceCard sx={{ p: 1.75, borderColor: quoteIntent ? 'rgba(251,191,36,0.45)' : undefined }}>
+                <Typography sx={{ fontWeight: 600, fontSize: '0.9375rem' }}>
+                  {quoteIntent ? 'EFD will quote this job' : 'Can’t price this job?'}
+                </Typography>
+                <Typography variant="caption" sx={{ color: facelift.text2, display: 'block', mt: 0.25 }}>
+                  {quoteIntent
+                    ? 'The repair is created without work items; EFD prices it and notifies you with the number. Send the piece in as usual.'
+                    : 'Request a quote instead of pricing it yourself. EFD prices the repair and notifies you; the piece comes in the usual way.'}
+                </Typography>
+                <Box sx={{ mt: 1.25 }}>
+                  {quoteIntent ? (
+                    <QuietButton onClick={() => setQuoteIntent(false)} aria-label="Price it myself instead">
+                      Price it myself instead
+                    </QuietButton>
+                  ) : (
+                    <QuietButton onClick={() => { setQuoteIntent(true); setStep(3); }} aria-label="Request a quote from EFD">
+                      Request a quote from EFD
+                    </QuietButton>
+                  )}
+                </Box>
+              </SurfaceCard>
+            )}
           </Stack>
         )}
 
@@ -1076,7 +1113,8 @@ export default function NewRepairFlow(props) {
               />
               <ReviewRow
                 label="Work items"
-                value={`${itemCount} · $${itemsSubtotal.toFixed(2)}`}
+                value={quoteIntent ? 'Quote requested' : `${itemCount} · $${itemsSubtotal.toFixed(2)}`}
+                valueColor={quoteIntent ? facelift.gold : undefined}
                 editor={(
                   <QuietButton onClick={() => setStep(2)} aria-label="Edit work items">
                     Edit on the Work items step
@@ -1347,26 +1385,37 @@ export default function NewRepairFlow(props) {
           <ActionBar>
             <Stack spacing={0.75} sx={{ width: '100%' }}>
               {errors.submit && <Alert ref={submitErrorRef} severity="error" sx={{ py: 0 }}>{errors.submit}</Alert>}
-              <GoldButton onClick={() => submitWith(true)} disabled={loading} aria-label={submitMode === 'edit' ? 'Save and print ticket' : 'Create and print ticket'}>
-                <PrintGlyph />
-                {loading ? 'Saving…' : (submitLabel || (submitMode === 'edit' ? 'Save & print ticket' : 'Create & print ticket'))}
-              </GoldButton>
-              <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
-                <QuietButton onClick={() => submitWith(false)} disabled={loading} aria-label="Save without printing">
-                  Save without printing
-                </QuietButton>
-                {/* Stores are pushed to price their own jobs; when they can't, this creates the repair with
-                    no tasks and asks EFD to quote it (services/repairs/quoteRequest.js). */}
-                {formData.isWholesale && submitMode === 'create' && !isQuote && (
-                  <QuietButton
-                    onClick={() => { if (onPrintChoice) onPrintChoice(false); handleSubmit({ requestQuote: true }); }}
-                    disabled={loading}
-                    aria-label="Request a quote instead"
-                  >
-                    Request a quote instead
-                  </QuietButton>
-                )}
-              </Box>
+              {quoteIntent && canRequestQuote ? (
+                <>
+                  <GoldButton onClick={requestQuote} disabled={loading} aria-label="Request quote">
+                    {loading ? 'Sending…' : 'Request quote from EFD'}
+                  </GoldButton>
+                  <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
+                    <QuietButton onClick={() => setQuoteIntent(false)} disabled={loading} aria-label="Price it myself instead">
+                      Price it myself instead
+                    </QuietButton>
+                  </Box>
+                </>
+              ) : (
+                <>
+                  <GoldButton onClick={() => submitWith(true)} disabled={loading} aria-label={submitMode === 'edit' ? 'Save and print ticket' : 'Create and print ticket'}>
+                    <PrintGlyph />
+                    {loading ? 'Saving…' : (submitLabel || (submitMode === 'edit' ? 'Save & print ticket' : 'Create & print ticket'))}
+                  </GoldButton>
+                  <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
+                    <QuietButton onClick={() => submitWith(false)} disabled={loading} aria-label="Save without printing">
+                      Save without printing
+                    </QuietButton>
+                    {/* Stores are pushed to price their own jobs; when they can't, this creates the repair with
+                        no tasks and asks EFD to quote it (services/repairs/quoteRequest.js). */}
+                    {canRequestQuote && (
+                      <QuietButton onClick={requestQuote} disabled={loading} aria-label="Request a quote instead">
+                        Request a quote instead
+                      </QuietButton>
+                    )}
+                  </Box>
+                </>
+              )}
             </Stack>
           </ActionBar>
         )}
