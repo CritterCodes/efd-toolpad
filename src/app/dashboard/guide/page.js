@@ -316,7 +316,8 @@ function AdminOps({ t }) {
       <Facts rows={[
         ['Weekly payroll (finalize + Stripe transfers)', `${t.payroll.runDay} ${t.payroll.runHourUtc}:00 UTC`],
         ['Daily payouts (for daily-cadence payees)', 'every day 12:00 UTC'],
-        ['Payroll funding check (top-up if below floor)', 'every day 15:00 UTC'],
+        ['Payroll funding check (top-up if below floor)', 'every day 15:00 UTC, and first thing before any Stripe payout run'],
+        ['Thursday sweep (pay EFD’s bank only what sits above the floor)', 'Thursday 16:00 UTC, only on a manual Stripe payout schedule'],
         ['Affiliate commissions', 'every 30 minutes, on fully-paid orders'],
         ['Listing reprice off the metal snapshot', 'hourly'],
         ['Retail “ready for pickup” notice + pay-ahead link', 'at QC pass, email + push, marked paid by Stripe'],

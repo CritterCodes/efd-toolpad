@@ -121,7 +121,20 @@ export async function connectDashboardLink({ userID }) {
  * disabled since), checks EFD's available balance, transfers with an idempotency key, then marks
  * the batch PAID (the payee's "you have been paid" notification fires from there).
  */
-export async function payBatchViaConnect({ batchID, actor = 'payroll-cron' }) {
+/** Pure: pay the oldest weeks first, so a short balance never leapfrogs someone who has waited longer. */
+export function orderBatchesForPayout(batches = []) {
+  return [...(batches || [])].sort((a, b) => {
+    const wa = new Date(a?.weekStart || 0).getTime(); const wb = new Date(b?.weekStart || 0).getTime();
+    if (wa !== wb) return wa - wb;
+    return new Date(a?.createdAt || 0).getTime() - new Date(b?.createdAt || 0).getTime();
+  });
+}
+
+/**
+ * `availableCents`: when the caller already fetched EFD's balance (runConnectPayouts pays several
+ * batches from one snapshot), pass it and this will not fetch again.
+ */
+export async function payBatchViaConnect({ batchID, actor = 'payroll-cron', availableCents = null }) {
   const batch = await RepairPayrollBatchesModel.findByBatchID(batchID);
   const user = await loadUser(batch?.userID);
   if (user?.stripeConnect?.accountId) {
@@ -142,10 +155,11 @@ export async function payBatchViaConnect({ batchID, actor = 'payroll-cron' }) {
   }
 
   const amountCents = Math.round(transferAmount * 100);
-  const balance = await retrieveBalance();
-  const available = availableUsdCents(balance);
+  const available = Number.isFinite(Number(availableCents)) && availableCents !== null
+    ? Number(availableCents)
+    : availableUsdCents(await retrieveBalance());
   if (available < amountCents) {
-    return { paid: false, batchID, reason: 'insufficient balance', amount: check.amount, available: available / 100 };
+    return { paid: false, batchID, reason: 'insufficient balance', amount: check.amount, transferAmount, available: available / 100 };
   }
 
   const transfer = await createTransfer({
@@ -165,7 +179,7 @@ export async function payBatchViaConnect({ batchID, actor = 'payroll-cron' }) {
     notify: true,
     payout,
   });
-  return { paid: true, batchID, amount: transferAmount, gross: check.amount, fee: payout?.fee || 0, transferId: transfer.id, userID: user.userID, userName: batch.userName, cadence: batch.cadence || 'weekly' };
+  return { paid: true, batchID, amount: transferAmount, amountCents, gross: check.amount, fee: payout?.fee || 0, transferId: transfer.id, userID: user.userID, userName: batch.userName, cadence: batch.cadence || 'weekly' };
 }
 
 /**
@@ -173,9 +187,19 @@ export async function payBatchViaConnect({ batchID, actor = 'payroll-cron' }) {
  * (paid / waiting on Stripe setup / short balance / errors) and tells admins about anything that
  * needs a hand.
  */
-export async function runConnectPayouts({ actor = 'payroll-cron', notify = true } = {}) {
-  const result = { paid: [], skipped: [], shortfall: [], errors: [], dailyBatches: [], stripe: isStripeConfigured() ? stripeMode() : 'unconfigured' };
+export async function runConnectPayouts({ actor = 'payroll-cron', notify = true, now = new Date() } = {}) {
+  const result = { paid: [], skipped: [], shortfall: [], errors: [], dailyBatches: [], funding: null, available: null, stripe: isStripeConfigured() ? stripeMode() : 'unconfigured' };
   if (!isStripeConfigured()) return result;
+
+  // Funding FIRST (owner, 2026-09-22): if the balance will not cover what is due, start the top-up now
+  // rather than discovering it batch by batch. Lazy import — payrollFunding imports batchAmount from here.
+  try {
+    const { runFundingCheck } = await import('@/services/payroll/payrollFunding');
+    const f = await runFundingCheck({ now, notify: false });
+    result.funding = { skipped: f.skipped || null, topup: f.topup ? { amount: f.topup.amount, expectedAvailability: f.topup.expectedAvailability } : null, wouldTopup: f.wouldTopup || null, error: f.error || null, need: f.need || null };
+  } catch (error) {
+    result.funding = { error: error?.message || String(error) };
+  }
 
   // Daily-cadence payees: yesterday's (and any older unbatched) earnings become today's batches first.
   try {
@@ -186,22 +210,40 @@ export async function runConnectPayouts({ actor = 'payroll-cron', notify = true 
     result.errors.push({ error: `daily batching: ${error?.message || error}` });
   }
 
-  const finalized = await RepairPayrollBatchesModel.list({ status: PAYROLL_BATCH_STATUS.FINALIZED });
+  // One balance snapshot, then oldest week first, decrementing as transfers go out. A batch that does
+  // not fit is left FINALIZED (never partially paid) and the loop keeps going so smaller ones behind it
+  // can still be paid; the shortfall goes in the digest.
+  let availableCents = 0;
+  try {
+    availableCents = availableUsdCents(await retrieveBalance());
+    result.available = availableCents / 100;
+  } catch (error) {
+    result.errors.push({ error: `balance: ${error?.message || error}` });
+    return result;
+  }
+  const finalized = orderBatchesForPayout(await RepairPayrollBatchesModel.list({ status: PAYROLL_BATCH_STATUS.FINALIZED }));
   for (const batch of finalized) {
     try {
-      const r = await payBatchViaConnect({ batchID: batch.batchID, actor });
-      if (r.paid) result.paid.push(r);
+      const r = await payBatchViaConnect({ batchID: batch.batchID, actor, availableCents });
+      if (r.paid) { result.paid.push(r); availableCents -= Number(r.amountCents) || Math.round(r.amount * 100); }
       else if (r.reason === 'insufficient balance') result.shortfall.push(r);
       else result.skipped.push(r);
     } catch (error) {
       result.errors.push({ batchID: batch.batchID, userID: batch.userID, userName: batch.userName, error: error?.message || String(error) });
     }
   }
+  result.shortfallTotal = Math.round(result.shortfall.reduce((s, b) => s + (Number(b.transferAmount ?? b.amount) || 0), 0) * 100) / 100;
 
   if (notify && (result.paid.length || result.shortfall.length || result.errors.length)) {
     const parts = [];
     if (result.paid.length) parts.push(`Paid ${result.paid.length}: ${result.paid.map((p) => `${p.userName || p.userID} ${money(p.amount)}`).join(', ')}.`);
-    if (result.shortfall.length) parts.push(`Balance short for ${result.shortfall.map((s) => `${money(s.amount)}`).join(', ')} (available ${money(result.shortfall[0].available)}) — will retry.`);
+    if (result.shortfall.length) {
+      const f = result.funding || {};
+      const fundingNote = f.topup ? `a ${money(f.topup.amount)} top-up is on its way${f.topup.expectedAvailability ? ` (expected ${new Date(f.topup.expectedAvailability).toLocaleDateString('en-US')})` : ''}`
+        : f.error ? `funding failed: ${f.error}`
+          : f.skipped ? `funding: ${f.skipped}` : 'funding check did not run';
+      parts.push(`Balance short: ${money(result.shortfallTotal)} across ${result.shortfall.length} batch${result.shortfall.length === 1 ? '' : 'es'} (${result.shortfall.map((s) => `${s.userName || s.userID ? `${s.userName || s.userID} ` : ''}${money(s.amount)}`).join(', ')}) left finalized — ${fundingNote}; retried daily.`);
+    }
     const waiting = result.skipped.filter((b) => /no Stripe account|onboarding not finished/.test(b.reason));
     if (waiting.length) parts.push(`Waiting on Stripe setup: ${[...new Set(waiting.map((b) => b.userName || b.userID))].join(', ')} (${money(waiting.reduce((s, b) => s + (b.amount || 0), 0))}).`);
     if (result.errors.length) parts.push(`${result.errors.length} transfer${result.errors.length === 1 ? '' : 's'} failed: ${result.errors.map((e) => e.error).join('; ')}.`);

@@ -6,8 +6,8 @@ vi.mock('@/app/api/repairs/payroll/service', () => ({ markPayrollBatchPaid: vi.f
 vi.mock('@/lib/notificationService', () => ({ notifyAllAdmins: vi.fn(async () => ({})) }));
 vi.mock('@/lib/appUrls', () => ({ adminBase: () => 'http://test' }));
 
-import { payoutEligibility, batchAmount } from './connectPayouts';
-import { encodeForm, summarizeAccount, availableUsdCents } from '@/lib/stripeConnect';
+import { payoutEligibility, batchAmount, orderBatchesForPayout } from './connectPayouts';
+import { encodeForm, summarizeAccount, availableUsdCents, payoutScheduleOf } from '@/lib/stripeConnect';
 
 const live = { stripeConnect: { accountId: 'acct_1', payoutsEnabled: true } };
 const finalized = { batchID: 'b1', status: 'finalized', laborPay: 480.5, salePay: 19.5, totalPay: 500 };
@@ -27,6 +27,22 @@ describe('Connect payout eligibility (pure)', () => {
     expect(batchAmount({ laborPay: 595 })).toBe(595);
     // legacy batch (pre totalPay): laborPay already held the total — never add salePay again
     expect(batchAmount({ laborPay: 516, salePay: 496 })).toBe(516);
+  });
+});
+
+describe('payout ordering (pure)', () => {
+  it('oldest week first, then creation order — a short balance never leapfrogs someone who waited longer', () => {
+    const out = orderBatchesForPayout([
+      { batchID: 'new', weekStart: '2026-09-13', createdAt: '2026-09-16T01:00:00Z' },
+      { batchID: 'old-b', weekStart: '2026-09-06', createdAt: '2026-09-09T02:00:00Z' },
+      { batchID: 'old-a', weekStart: '2026-09-06', createdAt: '2026-09-09T01:00:00Z' },
+    ]);
+    expect(out.map((b) => b.batchID)).toEqual(['old-a', 'old-b', 'new']);
+  });
+  it('reads the platform payout schedule, defaulting to daily', () => {
+    expect(payoutScheduleOf({ settings: { payouts: { schedule: { interval: 'manual' } } } }).interval).toBe('manual');
+    expect(payoutScheduleOf({ settings: { payouts: { schedule: { interval: 'weekly', weekly_anchor: 'thursday', delay_days: 2 } } } })).toMatchObject({ interval: 'weekly', weeklyAnchor: 'thursday', delayDays: 2 });
+    expect(payoutScheduleOf({}).interval).toBe('daily');
   });
 });
 
