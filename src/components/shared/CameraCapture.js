@@ -213,7 +213,13 @@ export default function CameraCapture({ onCapture, disabled = false }) {
 
   return (
     <>
-      <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap" useFlexGap>
+      {/* One row, always: both controls share the width (no wrapping into a tall stack on phones). */}
+      <Stack
+        direction="row"
+        spacing={1}
+        useFlexGap
+        sx={{ width: '100%', '& > *': { flex: 1, minWidth: 0 }, '& .MuiButton-root': { width: "100%", whiteSpace: 'nowrap' } }}
+      >
         {/* Primary camera button — webcam dialog on desktop, native camera app on mobile */}
         {useWebcamDialog ? (
           <Button
@@ -222,7 +228,7 @@ export default function CameraCapture({ onCapture, disabled = false }) {
             onClick={handleOpenCamera}
             disabled={disabled}
             size="large"
-            sx={{ py: 1, fontSize: '1.1rem' }}
+            sx={{ py: 1.25 }}
           >
             Take Photo
           </Button>
@@ -239,7 +245,7 @@ export default function CameraCapture({ onCapture, disabled = false }) {
             />
             <label htmlFor="mobile-camera-input">
               <Button variant="contained" component="span" startIcon={<PhotoCameraIcon />}
-                disabled={disabled} size="medium" sx={{ py: 1.5, fontSize: '1rem' }}>Take Photo</Button>
+                disabled={disabled} size="large" sx={{ py: 1.25 }}>Take Photo</Button>
             </label>
           </>
         )}
@@ -253,7 +259,7 @@ export default function CameraCapture({ onCapture, disabled = false }) {
           id="file-upload-input"
         />
         <label htmlFor="file-upload-input">
-          <Button variant="outlined" component="span" disabled={disabled} size="large">Upload from File</Button>
+          <Button variant="outlined" component="span" disabled={disabled} size="large" sx={{ py: 1.25 }}>Upload</Button>
         </label>
       </Stack>
 

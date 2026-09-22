@@ -293,8 +293,13 @@ const RepairReceiptComponent = ({ repair, fullPage = false }) => {
         </Typography>
         <Typography sx={{ fontSize: '0.52rem', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', color: INK }}>
           <span>Total:</span>
-          <span>${displayedTotal.toFixed(2)}</span>
+          <span>{repair?.quoteRequest?.status === 'requested' ? 'QUOTE PENDING' : `$${displayedTotal.toFixed(2)}`}</span>
         </Typography>
+        {repair?.quoteRequest?.status === 'requested' && (
+          <Typography sx={{ fontSize: '0.4rem', color: INK, fontWeight: 'bold', textAlign: 'center', marginTop: '1px' }}>
+            Quote requested — EFD will price this repair and notify you before work begins.
+          </Typography>
+        )}
       </Box>
 
       <Box

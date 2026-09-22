@@ -1663,12 +1663,15 @@ export default function useNewRepairForm({
   };
 
   // Custom NON-labor charge (a sourced part, a fee). No labor hours — labor is a task.
-  const addCustomLineItem = () => {
+  // `draft` is optional: the classic form adds a blank row and edits it in place; the stepped
+  // flow's Charge sheet passes { description, quantity, price }. A click event is not a draft.
+  const addCustomLineItem = (draft) => {
+    const d = draft && typeof draft === 'object' && !draft.nativeEvent ? draft : {};
     const newItem = {
       id: Date.now(),
-      description: '',
-      quantity: 1,
-      price: 0
+      description: String(d.description || ''),
+      quantity: Math.max(1, parseInt(d.quantity, 10) || 1),
+      price: Math.max(0, Number(d.price) || 0)
     };
     setFormData(prev => ({
       ...prev,

@@ -9,7 +9,7 @@
  *   - one header row per step: ✕ (cancel) or ‹ (back) + step title + dot bars
  *   - step 2 carries a client-context pill and marks sentence-extracted values
  *   - step 3 is SHORT: ticket + gold subtotal + an "Add to ticket" strip that
- *     opens full-screen add sheets (task / material / labor / custom charge)
+ *     opens full-screen add sheets (task / material / labor / charge)
  *   - step 4 is a SUMMARY — label/value rows that expand to edit on tap, a
  *     gold Total, and two actions: Create & print / Save without printing
  *
@@ -108,20 +108,18 @@ const PrintGlyph = () => (
  * The mock's per-step header: ✕ (cancel) on step 1, ‹ (back) after, the step
  * title, and right-aligned dot bars — past dim gold, current gold, rest grey.
  */
-function StepHeader({ step, onBack, onCancel }) {
+function StepHeader({ step, title, onBack, onCancel }) {
   const isFirst = step === 0;
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <TapIconButton
-        aria-label={isFirst ? 'Cancel new repair' : 'Back a step'}
-        onClick={isFirst ? onCancel : onBack}
-      >
+      {/* ‹ goes back a step; ✕ always leaves the intake (a jeweler shouldn't need three backs to get out). */}
+      <TapIconButton aria-label={isFirst ? 'Cancel new repair' : 'Back a step'} onClick={isFirst ? onCancel : onBack}>
         <span style={{ fontSize: 18, lineHeight: 1, color: 'rgba(255,255,255,0.6)' }}>{isFirst ? '✕' : '‹'}</span>
       </TapIconButton>
-      <Typography sx={{ fontWeight: 600, fontSize: '0.9375rem', letterSpacing: '-0.016em' }}>
-        {STEPS[step].title}
+      <Typography sx={{ fontWeight: 600, fontSize: '0.9375rem', letterSpacing: '-0.016em', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {title || STEPS[step].title}
       </Typography>
-      <Box sx={{ ml: 'auto', display: 'flex', gap: 0.5 }} aria-label={`Step ${step + 1} of ${STEPS.length}`}>
+      <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }} aria-label={`Step ${step + 1} of ${STEPS.length}`}>
         {STEPS.map((s, i) => (
           <Box
             key={s.key}
@@ -133,6 +131,11 @@ function StepHeader({ step, onBack, onCancel }) {
             }}
           />
         ))}
+        {!isFirst && (
+          <TapIconButton aria-label="Cancel new repair" onClick={onCancel} style={{ marginLeft: 6 }}>
+            <span style={{ fontSize: 16, lineHeight: 1, color: 'rgba(255,255,255,0.6)' }}>✕</span>
+          </TapIconButton>
+        )}
       </Box>
     </Box>
   );
@@ -188,7 +191,7 @@ function RingSizePicker({ label, value, onChange }) {
 }
 
 /** A work-item row: stepper for qty, 44px delete, price per the item kind. */
-function TicketRow({ kind, hue, item, fromSentence, onQuantityChange, onPriceChange, priceEditable, extraFields, onRemove }) {
+function TicketRow({ kind, hue, item, title, fromSentence, onQuantityChange, onPriceChange, priceEditable, extraFields, beforePrice, onRemove }) {
   const unitPrice = toNumber(item.price);
   const lineTotal = unitPrice * (item.quantity || 1);
   return (
@@ -203,17 +206,27 @@ function TicketRow({ kind, hue, item, fromSentence, onQuantityChange, onPriceCha
           <TrashGlyph />
         </TapIconButton>
       </Box>
-      <Typography sx={{ mt: 0.75, fontWeight: 600, fontSize: '0.9375rem' }}>
-        {item.title || item.displayName || item.name || 'Custom line'}
-      </Typography>
-      {item.description && (item.title || item.displayName || item.name) !== item.description && (
+      {title !== undefined ? (
+        <Box sx={{ mt: 0.75 }}>{title}</Box>
+      ) : (
+        <Typography sx={{ mt: 0.75, fontWeight: 600, fontSize: '0.9375rem' }}>
+          {item.title || item.displayName || item.name || 'Custom line'}
+        </Typography>
+      )}
+      {title === undefined && item.description && (item.title || item.displayName || item.name) !== item.description && (
         <Typography variant="caption" sx={{ color: facelift.text2, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {item.description}
         </Typography>
       )}
+      {item.isStullerItem && item.stullerData && (
+        <Typography variant="caption" sx={{ color: facelift.gold, display: 'block', fontFamily: facelift.mono, fontSize: '0.6875rem' }}>
+          SKU {item.stullerData.itemNumber} · Stuller cost ${toNumber(item.stullerData.originalPrice).toFixed(2)}{item.stullerData.pricedAs ? ` · priced ${item.stullerData.pricedAs}` : ''}
+        </Typography>
+      )}
       {extraFields}
       <Box sx={{ mt: 1.25, display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
-        <QtyStepper value={item.quantity || 1} min={1} onChange={onQuantityChange} label={`${item.title || 'item'} quantity`} />
+        <QtyStepper value={item.quantity || 1} min={1} onChange={onQuantityChange} label={`${item.title || item.description || 'item'} quantity`} />
+        {beforePrice}
         {priceEditable ? (
           <TextField
             type="number"
@@ -236,6 +249,22 @@ function TicketRow({ kind, hue, item, fromSentence, onQuantityChange, onPriceCha
   );
 }
 
+/** A line's description edited in place, styled as the row title — one row, not a title plus a field. */
+function InlineTitleField({ value, onChange, placeholder, ariaLabel }) {
+  return (
+    <TextField
+      fullWidth
+      variant="standard"
+      value={value || ''}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      inputProps={{ 'aria-label': ariaLabel, style: { fontSize: 16, fontWeight: 600, padding: '2px 0' } }}
+      InputProps={{ disableUnderline: true }}
+      sx={{ '& .MuiInputBase-root': { fontSize: '0.9375rem' } }}
+    />
+  );
+}
+
 /** Full-screen add sheet chrome (mock frames 3a/3b/3c). */
 function AddSheet({ open, title, onClose, children, isMobile }) {
   return (
@@ -254,14 +283,20 @@ function AddSheet({ open, title, onClose, children, isMobile }) {
 }
 
 /** A review row: label · value, tap to expand its editor beneath. */
-function ReviewRow({ label, value, valueColor, editor, defaultOpen = false }) {
+function ReviewRow({ label, value, valueColor, editor, defaultOpen = false, autoCollapse = false }) {
   const [open, setOpen] = useState(defaultOpen);
+  const touched = useRef(false);
+  // Opened by default while waiting on a value (e.g. the promise-date suggestion) → fold shut
+  // when it arrives, unless the jeweler opened it themselves.
+  useEffect(() => {
+    if (autoCollapse && open && !touched.current) setOpen(false);
+  }, [autoCollapse]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <Box sx={{ borderBottom: `1px solid rgba(255,255,255,0.08)` }}>
       <Box
         component={editor ? 'button' : 'div'}
         type={editor ? 'button' : undefined}
-        onClick={editor ? () => setOpen((o) => !o) : undefined}
+        onClick={editor ? () => { touched.current = true; setOpen((o) => !o); } : undefined}
         aria-expanded={editor ? open : undefined}
         sx={{
           all: 'unset',
@@ -289,7 +324,7 @@ function ReviewRow({ label, value, valueColor, editor, defaultOpen = false }) {
 export default function NewRepairFlow(props) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const { isWholesale, submitMode = 'create', submitLabel = '', onCancel, onPrintChoice } = props;
+  const { isWholesale, submitMode = 'create', submitLabel = '', isQuote = false, onCancel, onPrintChoice, storePreset = false, onClearStorePreset } = props;
 
   const {
     formData, setFormData,
@@ -343,8 +378,29 @@ export default function NewRepairFlow(props) {
   }, [dictation.listening, formData.smartIntakeInput]);
 
   const [showFullBreakdown, setShowFullBreakdown] = useState(false);
+  // Request Quote (wholesale): the store can't price the job. Chosen on the Work items step (where
+  // they're staring at an empty ticket) or on Review; the repair is created with NO tasks and EFD is
+  // asked to quote it (services/repairs/quoteRequest.js). `quoteIntent` carries the choice from
+  // Work items to Review, where the primary button becomes "Request quote".
+  const [quoteIntent, setQuoteIntent] = useState(false);
 
   const goNext = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));
+
+  // What stops "Next" on this step — surfaced under the button instead of as a thrown error four
+  // screens later. Mirrors the hook's submit validation (client name, description).
+  const stepBlocker = step === 0 && !String(formData.clientName || '').trim()
+    ? 'Pick a client to continue'
+    : step === 1 && !String(formData.description || '').trim()
+      ? 'Add a description to continue'
+      : null;
+
+  // A submit error is shown next to the buttons that caused it, and scrolled into view.
+  const submitErrorRef = useRef(null);
+  useEffect(() => {
+    if (errors.submit && submitErrorRef.current) {
+      submitErrorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [errors.submit]);
   const goBack = () => setStep((s) => Math.max(s - 1, 0));
 
   // The gold Total on the review step, from the same calculation the classic
@@ -457,6 +513,14 @@ export default function NewRepairFlow(props) {
     handleSubmit();
   };
 
+  const canRequestQuote = Boolean(formData.isWholesale) && submitMode === 'create' && !isQuote;
+  // A quote request still prints the ticket — the piece travels with paper like any other job; the
+  // ticket shows "quote pending" in place of a total (components/print/RepairTicketComponent.js).
+  const requestQuote = () => {
+    if (onPrintChoice) onPrintChoice(true);
+    handleSubmit({ requestQuote: true });
+  };
+
   // What the engine would charge for the drafted hours, in this ticket's pricing context.
   const laborDraftCalculated = calculatedCustomLaborPrice(
     buildCustomLaborTask({ laborHours: laborDraft.laborHours, adminSettings, isWholesale: formData.isWholesale }),
@@ -476,26 +540,24 @@ export default function NewRepairFlow(props) {
   };
 
   const addCustomFromDraft = () => {
-    // Same shape addCustomLineItem creates — plus the sheet's drafted values.
-    setFormData((prev) => ({
-      ...prev,
-      customLineItems: [...prev.customLineItems, {
-        id: Date.now(),
-        description: customDraft.description,
-        quantity: Math.max(1, Number(customDraft.quantity) || 1),
-        price: Math.max(0, Number(customDraft.price) || 0),
-      }],
-    }));
+    addCustomLineItem({ description: customDraft.description.trim(), quantity: customDraft.quantity, price: customDraft.price });
     setCustomDraft({ description: '', quantity: 1, price: 0 });
     setAddSheet(null);
   };
 
   return (
-    <Box sx={{ pb: { xs: 6, sm: 4 } }}>
+    /* Phone-first column; on wide screens it stays a readable column instead of stretching rows and
+       the gold button across a 1000px main area. */
+    <Box sx={{ pb: { xs: 6, sm: 4 }, maxWidth: 720, mx: 'auto' }}>
       <Stack spacing={2.5}>
-        <StepHeader step={step} onBack={goBack} onCancel={onCancel || goBack} />
+        <StepHeader
+          step={step}
+          title={step === 0 && submitMode === 'edit' ? 'Edit repair' : undefined}
+          onBack={goBack}
+          onCancel={onCancel || goBack}
+        />
 
-        {errors.submit && <Alert severity="error">{errors.submit}</Alert>}
+        {errors.submit && step !== 3 && <Alert severity="error">{errors.submit}</Alert>}
 
         {/* ── Step 1 — Who it's for ─────────────────────────────────────── */}
         {step === 0 && (
@@ -504,14 +566,21 @@ export default function NewRepairFlow(props) {
               <SectionLabel>Account</SectionLabel>
               <Box sx={{ mt: 1.5 }}>
                 {isWholesale ? (
+                  /* A wholesaler sees their own store, locked. An admin arriving with a store preset
+                     ("Have another repair?" / a scanned tray) sees where it came from and can change it. */
                   <ChoiceRow
                     lead={initials(formData.storeName)}
                     title={formData.storeName || 'My Wholesale Store'}
-                    meta="Your store — fixed by your sign-in"
-                    trailing={<StatusChip label="Wholesale" hue="#7DD3FC" />}
+                    meta={storePreset ? 'Carried over from the last ticket' : 'Your store — fixed by your sign-in'}
+                    trailing={storePreset && onClearStorePreset
+                      /* ChoiceRow IS a button — the affordance is text, the row itself is the tap target. */
+                      ? <Typography component="span" sx={{ color: facelift.gold, fontFamily: facelift.mono, fontSize: '0.6875rem', flexShrink: 0 }}>Change</Typography>
+                      : <StatusChip label="Wholesale" hue="#7DD3FC" />}
                     selected
-                    disabled
-                    sx={{ cursor: 'default' }}
+                    disabled={!storePreset}
+                    aria-label={storePreset ? `Store ${formData.storeName || ''} — change store` : undefined}
+                    onClick={storePreset && onClearStorePreset ? onClearStorePreset : undefined}
+                    style={{ cursor: storePreset ? 'pointer' : 'default' }}
                   />
                 ) : (
                   <Stack spacing={1.25}>
@@ -686,7 +755,7 @@ export default function NewRepairFlow(props) {
                 </Typography>
               )}
               {dictation.error && <Alert severity="warning" sx={{ mt: 1.5 }}>{dictation.error}</Alert>}
-              <Box sx={{ mt: 1.5 }}>
+              <Box sx={{ mt: 1.5, display: 'flex', justifyContent: 'center' }}>
                 <GoldButton onClick={handleAnalyzeSmartIntake} disabled={analyzingSmartIntake || dictation.listening} aria-label="Analyze the sentence">
                   <AutoAwesomeIcon sx={{ fontSize: 16 }} />
                   {analyzingSmartIntake ? 'Reading the sentence…' : 'Analyze the sentence'}
@@ -737,12 +806,19 @@ export default function NewRepairFlow(props) {
                       alt="Captured item"
                       style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 12, objectFit: 'contain', border: `1px solid ${facelift.border}` }}
                     />
-                    <Box sx={{ mt: 1 }}>
+                    <Box sx={{ mt: 1, display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
                       <Chip
                         label={typeof formData.picture === 'string' ? 'Existing photo' : (formData.picture.name || 'Captured photo')}
                         onDelete={() => setFormData((prev) => ({ ...prev, picture: null }))}
                         sx={{ maxWidth: 250, height: 44 }}
                       />
+                      <QuietButton
+                        onClick={() => handleGenerateDescriptionFromImage()}
+                        disabled={generatingImageDescription}
+                        aria-label="Rewrite the description from the photo"
+                      >
+                        {generatingImageDescription ? 'Writing…' : 'Rewrite description from photo'}
+                      </QuietButton>
                     </Box>
                   </Box>
                 )}
@@ -785,37 +861,35 @@ export default function NewRepairFlow(props) {
                       kind="Labor"
                       hue="#F9A8D4"
                       item={task}
+                      title={(
+                        <InlineTitleField
+                          value={task.description}
+                          onChange={(v) => patchCustomLaborTask(task.id, { description: v })}
+                          placeholder="What was done"
+                          ariaLabel="Custom labor description"
+                        />
+                      )}
                       onQuantityChange={(qty) => patchCustomLaborTask(task.id, { quantity: qty })}
                       onPriceChange={(price) => patchCustomLaborTask(task.id, { price })}
                       priceEditable
                       onRemove={() => removeItem('tasks', task.id)}
+                      beforePrice={(
+                        <TextField
+                          type="number"
+                          label="Hrs"
+                          value={task.laborHours ?? 0}
+                          onChange={(e) => patchCustomLaborTask(task.id, { laborHours: parseFloat(e.target.value) || 0 })}
+                          inputProps={{ min: 0, step: 0.05, style: { fontSize: 16 }, 'aria-label': 'Labor hours per unit' }}
+                          sx={{ width: 84 }}
+                        />
+                      )}
                       extraFields={(
-                        <Stack spacing={1.25} sx={{ mt: 1.25 }}>
-                          <TextField
-                            fullWidth
-                            label="What was done"
-                            value={task.description || ''}
-                            onChange={(e) => patchCustomLaborTask(task.id, { description: e.target.value })}
-                            placeholder="Laser weld, rebuild prong…"
-                            inputProps={{ style: { fontSize: 16 } }}
-                          />
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
-                            <TextField
-                              type="number"
-                              label="Hours / unit"
-                              value={task.laborHours ?? 0}
-                              onChange={(e) => patchCustomLaborTask(task.id, { laborHours: parseFloat(e.target.value) || 0 })}
-                              inputProps={{ min: 0, step: 0.05, style: { fontSize: 16 } }}
-                              sx={{ width: 130 }}
-                            />
-                            <Typography variant="caption" sx={{ color: facelift.text2 }}>
-                              {(toNumber(task.laborHours) * (task.quantity || 1)).toFixed(2)} hrs total ·{' '}
-                              {task.priceOverridden && calculatedCustomLaborPrice(task, { isWholesale: !!formData.isWholesale }) !== toNumber(task.price)
-                                ? `calculated $${calculatedCustomLaborPrice(task, { isWholesale: !!formData.isWholesale }).toFixed(2)}, discounted`
-                                : `${formData.isWholesale ? 'wholesale' : 'retail'} price from hours`}
-                            </Typography>
-                          </Box>
-                        </Stack>
+                        <Typography variant="caption" sx={{ color: facelift.text2, display: 'block', mt: 0.25 }}>
+                          {(toNumber(task.laborHours) * (task.quantity || 1)).toFixed(2)} hrs total ·{' '}
+                          {task.priceOverridden && calculatedCustomLaborPrice(task, { isWholesale: !!formData.isWholesale }) !== toNumber(task.price)
+                            ? `calculated $${calculatedCustomLaborPrice(task, { isWholesale: !!formData.isWholesale }).toFixed(2)}, discounted`
+                            : `${formData.isWholesale ? 'wholesale' : 'retail'} price from hours`}
+                        </Typography>
                       )}
                     />
                   ) : (
@@ -847,25 +921,21 @@ export default function NewRepairFlow(props) {
                   {formData.customLineItems.map((item) => (
                     <TicketRow
                       key={item.id}
-                      kind="Custom"
+                      kind="Charge"
                       hue="#C4B5FD"
                       item={item}
+                      title={(
+                        <InlineTitleField
+                          value={item.description}
+                          onChange={(v) => updateItem('customLineItems', item.id, 'description', v)}
+                          placeholder="What the charge is for"
+                          ariaLabel="Custom charge description"
+                        />
+                      )}
                       onQuantityChange={(qty) => updateItem('customLineItems', item.id, 'quantity', qty)}
                       onPriceChange={(price) => updateItem('customLineItems', item.id, 'price', price)}
                       priceEditable
                       onRemove={() => removeItem('customLineItems', item.id)}
-                      extraFields={(
-                        <Stack spacing={1.25} sx={{ mt: 1.25 }}>
-                          <TextField
-                            fullWidth
-                            label="Description"
-                            value={item.description}
-                            onChange={(e) => updateItem('customLineItems', item.id, 'description', e.target.value)}
-                            placeholder="Custom work description…"
-                            inputProps={{ style: { fontSize: 16 } }}
-                          />
-                        </Stack>
-                      )}
                     />
                   ))}
                 </Stack>
@@ -892,8 +962,10 @@ export default function NewRepairFlow(props) {
             ) : (
               <SurfaceCard sx={{ alignItems: 'center', py: 4 }}>
                 <Typography sx={{ fontWeight: 600 }}>Nothing on the ticket yet</Typography>
-                <Typography variant="caption" sx={{ color: facelift.text2, mt: 0.5 }}>
-                  Add a task, a material, custom labor, or a charge below.
+                <Typography variant="caption" sx={{ color: facelift.text2, mt: 0.5, textAlign: 'center' }}>
+                  {canRequestQuote
+                    ? 'Add the work below — or, if you can’t price this job, ask EFD for a quote.'
+                    : 'Add a task, a material, custom labor, or a charge below.'}
                 </Typography>
               </SurfaceCard>
             )}
@@ -914,6 +986,30 @@ export default function NewRepairFlow(props) {
                 />
               </Box>
             </Box>
+
+            {canRequestQuote && (
+              <SurfaceCard sx={{ p: 1.75, borderColor: quoteIntent ? 'rgba(251,191,36,0.45)' : undefined }}>
+                <Typography sx={{ fontWeight: 600, fontSize: '0.9375rem' }}>
+                  {quoteIntent ? 'EFD will quote this job' : 'Can’t price this job?'}
+                </Typography>
+                <Typography variant="caption" sx={{ color: facelift.text2, display: 'block', mt: 0.25 }}>
+                  {quoteIntent
+                    ? 'The repair is created without work items; EFD prices it and notifies you with the number. Send the piece in as usual.'
+                    : 'Request a quote instead of pricing it yourself. EFD prices the repair and notifies you; the piece comes in the usual way.'}
+                </Typography>
+                <Box sx={{ mt: 1.25 }}>
+                  {quoteIntent ? (
+                    <QuietButton onClick={() => setQuoteIntent(false)} aria-label="Price it myself instead">
+                      Price it myself instead
+                    </QuietButton>
+                  ) : (
+                    <QuietButton onClick={() => { setQuoteIntent(true); setStep(3); }} aria-label="Request a quote from EFD">
+                      Request a quote from EFD
+                    </QuietButton>
+                  )}
+                </Box>
+              </SurfaceCard>
+            )}
           </Stack>
         )}
 
@@ -1026,23 +1122,26 @@ export default function NewRepairFlow(props) {
               />
               <ReviewRow
                 label="Work items"
-                value={`${itemCount} · $${itemsSubtotal.toFixed(2)}`}
+                value={quoteIntent ? 'Quote requested' : `${itemCount} · $${itemsSubtotal.toFixed(2)}`}
+                valueColor={quoteIntent ? facelift.gold : undefined}
                 editor={(
                   <QuietButton onClick={() => setStep(2)} aria-label="Edit work items">
                     Edit on the Work items step
                   </QuietButton>
                 )}
               />
-              {!isWholesale ? (
+              {isQuote ? null : !isWholesale ? (
                 /* The suggestion component prefills an empty promise date from
                    the shop-workload estimate, but only while mounted — so the
-                   editor opens itself whenever no date is set yet. */
+                   editor opens itself while no date is set, and folds shut once
+                   the suggestion lands (tap Edit to change it). */
                 <ReviewRow
                   label="Promise date"
                   value={formData.promiseDate
                     || (promiseDateLoading ? 'Calculating…' : promiseDateEstimate?.suggestedDateString ? 'Suggested' : 'Required')}
                   valueColor={formData.promiseDate ? undefined : '#F87171'}
                   defaultOpen={!formData.promiseDate}
+                  autoCollapse={Boolean(formData.promiseDate)}
                   editor={(
                     <PromiseDateSuggestion
                       estimate={promiseDateEstimate}
@@ -1092,6 +1191,16 @@ export default function NewRepairFlow(props) {
                     {!rushJobInfo.canCreate && (
                       <Typography variant="caption" color="error" sx={{ display: 'block' }}>
                         Rush jobs at capacity ({rushJobInfo.currentRushJobs}/{rushJobInfo.maxRushJobs})
+                      </Typography>
+                    )}
+                    {rushJobInfo.canCreate && rushJobInfo.remainingSlots <= 2 && (
+                      <Typography variant="caption" sx={{ display: 'block', color: '#F59E0B' }}>
+                        {rushJobInfo.remainingSlots} rush job slot{rushJobInfo.remainingSlots === 1 ? '' : 's'} remaining
+                      </Typography>
+                    )}
+                    {formData.isRush && (
+                      <Typography variant="caption" sx={{ display: 'block', color: facelift.text2 }}>
+                        Rush jobs have {((toNumber(adminSettings.rushMultiplier) - 1) * 100).toFixed(0)}% markup
                       </Typography>
                     )}
                   </Box>
@@ -1264,21 +1373,69 @@ export default function NewRepairFlow(props) {
       </Stack>
 
       {/* ── Step actions — sticky, primary under the thumb ─────────────── */}
-      <Box sx={{ mt: 2.5 }}>
+      {/* The sticky containing block must be the tall root, not a wrapper the size of the bar itself
+          (position:sticky can't move outside its parent) — so the wrapper IS the sticky element. */}
+      <Box sx={{ mt: 2.5, position: 'sticky', bottom: 0, zIndex: 5 }}>
         {STEPS[step].next ? (
           <ActionBar>
-            <GoldButton onClick={goNext}>{STEPS[step].next}</GoldButton>
+            <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+              {stepBlocker && (
+                /* Solid pill: the bar's gradient is transparent at the top, so plain text here would
+                   sit over whatever scrolls under it. */
+                <Typography
+                  variant="caption"
+                  sx={{
+                    alignSelf: 'center', color: facelift.text2, mb: 0.75, px: 1.5, py: 0.5, borderRadius: 999,
+                    backgroundColor: facelift.ground, border: `1px solid ${facelift.hairline}`,
+                  }}
+                >
+                  {stepBlocker}
+                </Typography>
+              )}
+              <GoldButton onClick={goNext} disabled={Boolean(stepBlocker)} aria-disabled={Boolean(stepBlocker)}>
+                {STEPS[step].next}
+              </GoldButton>
+            </Box>
           </ActionBar>
         ) : (
-          <Stack spacing={1}>
-            <GoldButton onClick={() => submitWith(true)} disabled={loading} aria-label="Create and print ticket">
-              <PrintGlyph />
-              {loading ? 'Saving…' : (submitLabel || 'Create & print ticket')}
-            </GoldButton>
-            <QuietButton onClick={() => submitWith(false)} disabled={loading} aria-label="Save without printing">
-              Save without printing
-            </QuietButton>
-          </Stack>
+          /* Sticky like the other steps: the review rows scroll, the actions never leave the screen. */
+          <ActionBar>
+            <Stack spacing={0.75} sx={{ width: '100%' }}>
+              {errors.submit && <Alert ref={submitErrorRef} severity="error" sx={{ py: 0 }}>{errors.submit}</Alert>}
+              {quoteIntent && canRequestQuote ? (
+                <>
+                  <GoldButton onClick={requestQuote} disabled={loading} aria-label="Request quote and print ticket">
+                    <PrintGlyph />
+                    {loading ? 'Sending…' : 'Request quote & print ticket'}
+                  </GoldButton>
+                  <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
+                    <QuietButton onClick={() => setQuoteIntent(false)} disabled={loading} aria-label="Price it myself instead">
+                      Price it myself instead
+                    </QuietButton>
+                  </Box>
+                </>
+              ) : (
+                <>
+                  <GoldButton onClick={() => submitWith(true)} disabled={loading} aria-label={submitMode === 'edit' ? 'Save and print ticket' : 'Create and print ticket'}>
+                    <PrintGlyph />
+                    {loading ? 'Saving…' : (submitLabel || (submitMode === 'edit' ? 'Save & print ticket' : 'Create & print ticket'))}
+                  </GoldButton>
+                  <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
+                    <QuietButton onClick={() => submitWith(false)} disabled={loading} aria-label="Save without printing">
+                      Save without printing
+                    </QuietButton>
+                    {/* Stores are pushed to price their own jobs; when they can't, this creates the repair with
+                        no tasks and asks EFD to quote it (services/repairs/quoteRequest.js). */}
+                    {canRequestQuote && (
+                      <QuietButton onClick={requestQuote} disabled={loading} aria-label="Request a quote instead">
+                        Request a quote instead
+                      </QuietButton>
+                    )}
+                  </Box>
+                </>
+              )}
+            </Stack>
+          </ActionBar>
         )}
       </Box>
 

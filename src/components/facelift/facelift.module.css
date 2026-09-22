@@ -330,6 +330,7 @@
 
 .segmented {
   display: flex;
+  flex-wrap: wrap; /* local clamp: a 4-way strip (Task/Material/Labor/Charge) must not overflow 320px */
   gap: 6px;
 }
 

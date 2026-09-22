@@ -199,10 +199,23 @@ const RepairTicketComponent = ({ repair }) => {
             Wholesale ticket
           </Typography>
         )}
-        <Typography sx={{ fontSize: '0.52rem', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', marginTop: '1px', color: INK }}>
-          <span>Total:</span>
-          <span>${displayedTotal.toFixed(2)}</span>
-        </Typography>
+        {/* A store asked EFD to price this job: the ticket travels with the piece, but there is no total yet. */}
+        {repair.quoteRequest?.status === 'requested' ? (
+          <Typography sx={{ fontSize: '0.52rem', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', marginTop: '1px', color: INK }}>
+            <span>Total:</span>
+            <span>QUOTE PENDING</span>
+          </Typography>
+        ) : (
+          <Typography sx={{ fontSize: '0.52rem', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', marginTop: '1px', color: INK }}>
+            <span>Total:</span>
+            <span>${displayedTotal.toFixed(2)}</span>
+          </Typography>
+        )}
+        {repair.quoteRequest?.status === 'requested' && (
+          <Typography sx={{ fontSize: '0.4rem', color: INK, fontWeight: 'bold', textAlign: 'center', marginTop: '1px', border: '0.5px solid #000', padding: '1px 2px' }}>
+            QUOTE REQUESTED — EFD to price before work begins
+          </Typography>
+        )}
       </Box>
 
       <Box

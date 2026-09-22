@@ -1341,7 +1341,7 @@ function RepairItemsSection({
         </Typography>
         <Button
           startIcon={<AddIcon />}
-          onClick={addCustomLineItem}
+          onClick={() => addCustomLineItem()}
           variant="outlined"
           size="small"
           sx={{ borderColor: UI.border, color: UI.textPrimary }}
@@ -1404,7 +1404,7 @@ export function TaskItem({ item, onQuantityChange, onPriceChange, onRemove, show
             )}
             {item.isStullerItem && item.stullerData && (
               <Typography variant="caption" sx={{ color: UI.accent }} display="block">
-                SKU: {item.stullerData.itemNumber} | Base: ${item.stullerData.originalPrice} | Markup: {((item.stullerData.markup - 1) * 100).toFixed(0)}%
+                SKU {item.stullerData.itemNumber} · Stuller cost ${toNumber(item.stullerData.originalPrice).toFixed(2)}{item.stullerData.pricedAs ? ` · priced ${item.stullerData.pricedAs}` : ''}
               </Typography>
             )}
           </Box>

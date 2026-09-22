@@ -109,6 +109,11 @@ export default class Repair {
         this.whileYouWait = data.whileYouWait || false;
         this.whileYouWaitCompletedBy = data.whileYouWaitCompletedBy || '';
         this.whileYouWaitCompletedAt = data.whileYouWaitCompletedAt || null;
+        // This constructor is a WHITELIST: anything the POST route stamps that isn't listed here is
+        // silently dropped on insert. Request Quote (server-stamped `quoteRequest`) never persisted
+        // for that reason until 2026-09-21; the canonical billing classification was lost the same way.
+        this.quoteRequest = data.quoteRequest || null;
+        this.billing = data.billing || null;
     }
     
     /**
@@ -232,6 +237,8 @@ export default class Repair {
             whileYouWait: this.whileYouWait,
             whileYouWaitCompletedBy: this.whileYouWaitCompletedBy,
             whileYouWaitCompletedAt: this.whileYouWaitCompletedAt,
+            ...(this.quoteRequest ? { quoteRequest: this.quoteRequest } : {}),
+            ...(this.billing ? { billing: this.billing } : {}),
             // Legacy support
             repairTasks: this.repairTasks,
             parts: this.parts
