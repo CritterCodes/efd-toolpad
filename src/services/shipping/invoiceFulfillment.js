@@ -17,7 +17,10 @@
  * Pure helpers here; the service layer wires them to EasyPost and the database.
  */
 
-export const FULFILLMENT_METHODS = Object.freeze(['pickup', 'ship']);
+// `delivery` returned 2026-09-21 as a per-STORE default (services/shipping/storeFulfillment.js):
+// four stores get their work back on the store run. It is stamped as a scheduled delivery run so
+// Shipping & Delivery shows it with "Mark delivered".
+export const FULFILLMENT_METHODS = Object.freeze(['pickup', 'ship', 'delivery']);
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
@@ -26,16 +29,25 @@ export function isValidFulfillmentMethod(method) {
 }
 
 /** The $set for finalizing with a fulfillment decision. Pure. Throws on an incoherent request. */
-export function buildFulfillmentUpdate({ method, quote = null, rateId = '', actor = {}, now = new Date() } = {}) {
+export function buildFulfillmentUpdate({ method, quote = null, rateId = '', actor = {}, now = new Date(), deliveryFee = 0 } = {}) {
   if (!isValidFulfillmentMethod(method)) {
-    throw Object.assign(new Error(`Unsupported fulfillment method "${method}". Choose pickup or ship.`), { code: 'BAD_REQUEST' });
+    throw Object.assign(new Error(`Unsupported fulfillment method "${method}". Choose pickup, ship, or delivery.`), { code: 'BAD_REQUEST' });
   }
   const base = {
     deliveryMethod: method,
-    deliveryFee: 0, // hand delivery is gone; never carry a stale $5 into a pickup or shipment
+    deliveryFee: 0, // only a hand delivery carries a delivery fee; never a stale one on a pickup or shipment
     fulfillment: { method, decidedAt: now, decidedBy: actor.userID || '', decidedByName: actor.name || '' },
   };
   if (method === 'pickup') return { ...base, shippingFee: 0 };
+  if (method === 'delivery') {
+    return {
+      ...base,
+      shippingFee: 0,
+      deliveryFee: round2(deliveryFee),
+      // The same shape the store-run flow writes, minus deliveredAt — "Mark delivered" fills that in.
+      outboundShipment: { method: 'delivery', scheduledAt: now, scheduledFor: now, scheduledBy: actor.name || actor.userID || '' },
+    };
+  }
 
   if (!quote?.shipmentId || !Array.isArray(quote.rates) || !quote.rates.length) {
     throw Object.assign(new Error('Get shipping rates before finalizing as Ship.'), { code: 'BAD_REQUEST' });

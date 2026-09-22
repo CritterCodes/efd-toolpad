@@ -160,10 +160,12 @@ describe('invoice fulfillment (pure)', () => {
     expect(set.fulfillment.shipping).toMatchObject({ provider: 'easypost', shipmentId: 'shp_1', rate: { rateId: 'rate_fx_on', carrier: 'FedEx', rate: 81 }, label: null });
   });
 
-  it('refuses ship without a quote, with a rate that is not in the quote, and unknown methods (hand delivery included)', () => {
+  it('refuses ship without a quote, with a rate that is not in the quote, and unknown methods', () => {
     expect(() => buildFulfillmentUpdate({ method: 'ship', actor })).toThrow(/Get shipping rates/);
     expect(() => buildFulfillmentUpdate({ method: 'ship', quote, rateId: 'rate_usps_not_here', actor })).toThrow(/does not match/);
-    expect(() => buildFulfillmentUpdate({ method: 'delivery', actor })).toThrow(/pickup or ship/);
+    expect(() => buildFulfillmentUpdate({ method: 'courier-pigeon', actor })).toThrow(/pickup, ship, or delivery/);
+    // hand delivery came back 2026-09-21 as a per-store default (storeFulfillment.js) — see its own tests
+    expect(buildFulfillmentUpdate({ method: 'delivery', actor, deliveryFee: 5 })).toMatchObject({ deliveryMethod: 'delivery', deliveryFee: 5, shippingFee: 0 });
   });
 
   it('label purchase → label block + the outboundShipment every existing consumer reads', () => {
