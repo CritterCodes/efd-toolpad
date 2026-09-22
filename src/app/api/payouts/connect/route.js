@@ -12,6 +12,7 @@ import { adminBase } from '@/lib/appUrls';
 import { refreshConnectStatus, startConnectOnboarding, payoutPagePath } from '@/services/payroll/connectPayouts';
 import { isStripeConfigured, stripeMode } from '@/lib/stripeConnect';
 import { readFeeSettings, dailyFeeLabel } from '@/services/payroll/payoutCadence';
+import { termsGateResponse } from '@/services/policies/termsGate';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +43,11 @@ export async function POST(req) {
   const body = await req.json().catch(() => ({}));
   const userID = targetUser(session, body?.userID);
   if (!userID) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  // An artisan connecting THEMSELVES must have accepted the current terms first (admin acting for someone is not gated).
+  if (userID === session.user.userID) {
+    const gate = await termsGateResponse(session);
+    if (gate) return gate;
+  }
   // Payees land back on THEIR payout page (artisan / affiliate); an admin lands on the admin payroll page.
   const returnTo = `${adminBase()}${payoutPagePath(session.user.role)}`;
   try {

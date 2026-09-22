@@ -9,6 +9,7 @@ import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { Box } from '@mui/material';
 import RoleViewBanner from '@/components/RoleViewBanner';
+import TermsBanner from '@/components/policies/TermsBanner';
 
 export default function RoleAwareLayout({ children }) {
   const sessionState = useSession() || {};
@@ -53,6 +54,7 @@ export default function RoleAwareLayout({ children }) {
       
       {/* Main content */}
       <Box sx={{ px: { xs: 2, md: 3 }, py: 2 }}>
+        <TermsBanner />
         {children}
       </Box>
     </Box>

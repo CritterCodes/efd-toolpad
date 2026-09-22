@@ -6,6 +6,7 @@ import DesignsModel from '@/app/api/designs/model';
 import RunsModel, { RUN_STATUS } from '@/app/api/runs/model';
 import { mintPlannedRun, spawnRunWorkOrders } from '@/services/production/productionRun';
 import { EditionCapacityError } from '@/services/production/editionCapacity';
+import { termsGateResponse } from '@/services/policies/termsGate';
 
 /** GET /api/production/runs — scoped: staff see all; an artisan sees runs they created or collaborate on. */
 export const GET = async (req) => {
@@ -32,6 +33,8 @@ export const POST = async (req) => {
   const design = await DesignsModel.findById(body.designID);
   if (!design) return NextResponse.json({ error: 'Design not found.' }, { status: 404 });
   if (!canManageDesign(session, design)) return NextResponse.json({ error: 'Access denied — not your design.' }, { status: 403 });
+  const termsGate = await termsGateResponse(session); // artisan terms gate
+  if (termsGate) return termsGate;
 
   const collaborators = Array.isArray(design.collaborators) ? design.collaborators.filter(Boolean) : [];
   const createdBy = session.user.userID;
