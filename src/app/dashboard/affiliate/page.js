@@ -230,7 +230,12 @@ export default function AffiliateDashboardPage() {
                         <TableCell>{c.conversionType === 'product_sale' ? 'Purchase' : 'Custom order'}</TableCell>
                         <TableCell>
                           <Chip size="small" color={COMMISSION_CHIP[c.status] || 'default'}
-                            label={c.status === 'needs_review' ? 'processing' : c.status} />
+                            label={c.status === 'needs_review' ? 'waiting on the shop' : c.status} />
+                          {c.review && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, maxWidth: 320, whiteSpace: 'normal' }}>
+                              {c.review.title}. {c.review.nextStep}
+                            </Typography>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Typography variant="caption" color={c.payrollStatus === 'paid' ? 'success.main' : 'text.secondary'}>
@@ -256,6 +261,7 @@ export default function AffiliateDashboardPage() {
                 <ul style={{ margin: 0, paddingLeft: '1.1rem', lineHeight: 1.9 }}>
                   <li>You earn <strong>{rate}%</strong> of the pre-tax profit on referred orders — not of the sale price, and not of tax.</li>
                   <li>Commission is earned once an order is <strong>paid in full</strong>, and is paid on the regular payroll cycle.</li>
+                  <li>A row marked <strong>waiting on the shop</strong> means a product on that order has no recorded cost yet; the row says which one. The shop enters it, the profit is computed, and the row flips to earned — nothing to do on your side.</li>
                   <li>Your link is credited for <strong>{affiliate?.attributionWindowDays ?? 90} days</strong> after someone clicks it.</li>
                   <li>If someone clicks more than one affiliate link, the <strong>most recent</strong> one is credited.</li>
                   <li>Your own purchases don&rsquo;t earn commission.</li>

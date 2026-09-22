@@ -245,7 +245,7 @@ function AffiliatePaid({ t, affiliate }) {
           ['Earned when', 'the order is paid in full'],
           ['Paid how', 'as an entry in your weekly payout batch'],
         ]} />
-        <Muted>“Needs review” means a product on the order has no recorded cost yet. The shop enters it and the commission becomes earned; you do not have to do anything. Refunded or cancelled orders do not earn.</Muted>
+        <Muted>A row marked “waiting on the shop” means a product on that order has no recorded cost yet; the row names the product (for example “Waiting on the shop to enter a cost for ‘Emerald halo ring’”). The shop enters the cost, the profit is computed, and the row flips to earned and joins your next weekly payout — nothing to do on your side. Refunded or cancelled orders do not earn.</Muted>
       </Section>
       <PayrollBlock t={t} role="affiliate" />
     </>

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/apiAuth';
 import { db } from '@/lib/database';
 import { listCommissions, listPendingWork } from '@/services/affiliates/commissionEngine';
+import { withReviewExplanations } from '@/services/affiliates/reviewReason';
 
 function isAdminOrDev(role) {
   return role === 'admin' || role === 'dev';
@@ -40,5 +41,7 @@ export async function GET(request) {
       return { rows: [], estimatedTotal: 0, count: 0 };
     }),
   ]);
-  return NextResponse.json({ success: true, data: { ...data, pending } });
+  // `review` on each needs_review row: what the shop still has to do and what happens next
+  // (services/affiliates/reviewReason.js) — an affiliate should never see a bare "processing".
+  return NextResponse.json({ success: true, data: { ...data, commissions: withReviewExplanations(data.commissions), pending } });
 }
