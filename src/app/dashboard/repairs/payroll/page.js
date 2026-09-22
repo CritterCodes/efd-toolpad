@@ -612,6 +612,13 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
         </Grid>
       </Grid>
 
+      {/* The admin is a payee too (owner-operator): connect YOUR Stripe account here. Stripe Connect is
+          the only way anyone — you included — is paid. */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="overline" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 1 }}>Your payouts</Typography>
+        <ConnectPayoutCard sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}` }} />
+      </Box>
+
       <Box sx={{ borderBottom: `1px solid ${REPAIRS_UI.border}`, mb: 2 }}>
         <Tabs value={tab} onChange={(_e, next) => setTab(next)} textColor="inherit" indicatorColor="secondary">
           <Tab value="queue" label="Payroll Queue" />
