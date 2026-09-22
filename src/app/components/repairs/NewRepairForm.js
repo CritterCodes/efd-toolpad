@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Button,
@@ -28,7 +28,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Tooltip
+  Tooltip,
+  InputAdornment
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -47,6 +48,7 @@ import { LoadingButton } from '@mui/lab';
 import { taskAllowsMetal } from '@/services/repairs/metalTaskFilter';
 import { RING_SIZES } from '@/services/repairs/smartIntakeExtractors';
 import { isCustomLaborTask, calculatedCustomLaborPrice } from '@/services/repairs/customLabor';
+import SmartIntakeMic from '@/app/components/repairs/SmartIntakeMic';
 
 // Components
 import CameraCapture from '@/components/shared/CameraCapture';
@@ -260,6 +262,25 @@ export default function NewRepairForm({
     wholesalerStoreId,
     wholesalerStoreName
   });
+
+  // Voice input for the sentence: each finished phrase is appended; when the jeweler taps the
+  // mic to STOP (not when the engine times out), the sentence is analyzed for them.
+  const [dictation, setDictation] = useState({ listening: false, interim: '', error: '', endedByUser: false });
+  const analyzeAfterDictationRef = useRef(false);
+  const appendDictated = (text) => {
+    setSmartIntakeError('');
+    setFormData((prev) => ({ ...prev, smartIntakeInput: [String(prev.smartIntakeInput || '').trim(), text].filter(Boolean).join(' ') }));
+  };
+  const onDictationStatus = (status) => {
+    if (status.endedByUser) analyzeAfterDictationRef.current = true;
+    setDictation((prev) => ({ ...prev, ...status }));
+  };
+  useEffect(() => {
+    if (!analyzeAfterDictationRef.current || dictation.listening) return;
+    analyzeAfterDictationRef.current = false;
+    if (String(formData.smartIntakeInput || '').trim()) handleAnalyzeSmartIntake();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dictation.listening, formData.smartIntakeInput]);
 
   return (
     <Box sx={{ 
@@ -738,9 +759,23 @@ export default function NewRepairForm({
                       handleAnalyzeSmartIntake();
                     }
                   }}
-                  placeholder="Tell us about the ring and what we are doing (e.g., 14k white gold ring resize from 6 to 7, retip prongs)"
-                  helperText="Press Enter or click Analyze to auto-fill metal, ring sizing, and likely tasks. This does not replace your customer-facing description below."
+                  placeholder={dictation.listening ? 'Listening… say what needs doing' : 'Tell us about the ring and what we are doing (e.g., 14k white gold ring resize from 6 to 7, retip prongs)'}
+                  helperText={dictation.listening
+                    ? `Listening${dictation.interim ? `: “${dictation.interim}”` : '…'} Click the mic again to stop and analyze.`
+                    : 'Type or tap the mic to dictate. Press Enter or click Analyze to auto-fill metal, ring sizing, and likely tasks. This does not replace your customer-facing description below.'}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end" sx={{ alignSelf: 'flex-start', mt: 0.25 }}>
+                        <SmartIntakeMic size={36} onTranscript={appendDictated} onStatus={onDictationStatus} />
+                      </InputAdornment>
+                    ),
+                  }}
                 />
+                {dictation.error ? (
+                  <Alert severity="warning" sx={{ mt: 1, backgroundColor: UI.bgCard, border: '1px solid', borderColor: UI.border }}>
+                    {dictation.error}
+                  </Alert>
+                ) : null}
               </Grid>
 
               <Grid item xs={12}>
