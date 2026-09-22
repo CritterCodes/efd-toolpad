@@ -21,10 +21,10 @@ vi.mock('@/lib/appUrls', () => ({ adminBase: () => 'http://test' }));
 
 import { computeFundingNeed, normalizeFundingSettings, fundingIdempotencyKey, runFundingCheck, FUNDING_DEFAULTS } from './payrollFunding';
 
-const THU = new Date('2026-09-24T15:00:00Z');
+const MON = new Date('2026-09-21T15:00:00Z');
 
 describe('payroll funding math (pure)', () => {
-  it('target = projected × (1 + buffer) + floor; shortfall against what Stripe will have by Monday', () => {
+  it('target = projected × (1 + buffer) + floor; shortfall against what Stripe will have by Wednesday', () => {
     const need = computeFundingNeed({ projected: 800, balance: 350, settings: { enabled: true, floor: 1500, bufferPct: 10, minimumTopup: 25 } });
     expect(need).toEqual({ projected: 800, target: 2380, balance: 350, shortfall: 2030, topup: 2030 });
   });
@@ -40,11 +40,11 @@ describe('payroll funding math (pure)', () => {
   });
 
   it('one top-up per calendar day', () => {
-    expect(fundingIdempotencyKey(THU)).toBe('payroll-funding-2026-09-24');
+    expect(fundingIdempotencyKey(MON)).toBe('payroll-funding-2026-09-21');
   });
 });
 
-describe('the Thursday check', () => {
+describe('the Monday check', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.batchesList.mockResolvedValue([{ batchID: 'b1', userName: 'Michelle', laborPay: 275, salePay: 0 }]);
@@ -53,7 +53,7 @@ describe('the Thursday check', () => {
 
   it('does nothing while switched off', async () => {
     mocks.findOne.mockResolvedValue({ business: { payroll: { funding: { enabled: false } } } });
-    const r = await runFundingCheck({ now: THU });
+    const r = await runFundingCheck({ now: MON });
     expect(r.skipped).toMatch(/off/);
     expect(mocks.retrieveBalance).not.toHaveBeenCalled();
   });
@@ -63,10 +63,10 @@ describe('the Thursday check', () => {
     mocks.retrieveBalance.mockResolvedValue({ available: [{ currency: 'usd', amount: 20000 }], pending: [{ currency: 'usd', amount: 15000 }] });
     mocks.createTopup.mockResolvedValue({ id: 'tu_1', status: 'pending', expected_availability_date: 1758931200 });
 
-    const r = await runFundingCheck({ now: THU });
+    const r = await runFundingCheck({ now: MON });
     // projected 800 → target 2380; balance 350 → pull 2030
     expect(r.need).toMatchObject({ projected: 800, target: 2380, topup: 2030 });
-    expect(mocks.createTopup).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 203000, idempotencyKey: 'payroll-funding-2026-09-24' }));
+    expect(mocks.createTopup).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 203000, idempotencyKey: 'payroll-funding-2026-09-21' }));
     expect(r.topup).toMatchObject({ id: 'tu_1', amount: 2030 });
     expect(mocks.notifyAllAdmins.mock.calls[0][0].title).toMatch(/Pulled \$2,030\.00/);
   });
@@ -74,7 +74,7 @@ describe('the Thursday check', () => {
   it('dry run reports the pull without moving money', async () => {
     mocks.findOne.mockResolvedValue({ business: { payroll: { funding: { enabled: true, floor: 1500, bufferPct: 10, minimumTopup: 25 } } } });
     mocks.retrieveBalance.mockResolvedValue({ available: [{ currency: 'usd', amount: 20000 }], pending: [] });
-    const r = await runFundingCheck({ now: THU, dryRun: true });
+    const r = await runFundingCheck({ now: MON, dryRun: true });
     expect(r.wouldTopup).toBe(2180);
     expect(mocks.createTopup).not.toHaveBeenCalled();
   });
@@ -83,7 +83,7 @@ describe('the Thursday check', () => {
     mocks.findOne.mockResolvedValue({ business: { payroll: { funding: { enabled: true } } } });
     mocks.retrieveBalance.mockResolvedValue({ available: [], pending: [] });
     mocks.createTopup.mockRejectedValue(new Error('You must verify a bank account before creating top-ups.'));
-    const r = await runFundingCheck({ now: THU });
+    const r = await runFundingCheck({ now: MON });
     expect(r.error).toMatch(/verify a bank account/);
     const call = mocks.notifyAllAdmins.mock.calls[0][0];
     expect(call.priority).toBe('high');

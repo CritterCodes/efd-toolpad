@@ -4,15 +4,15 @@
  *
  * A Connect transfer can only spend balance that is already in EFD's Stripe account; Stripe never
  * debits the bank to cover one. Most stores pay cash, which never reaches Stripe, and Stripe's
- * default payout schedule sweeps the balance to the bank daily. So before Monday's payroll run:
+ * default payout schedule sweeps the balance to the bank daily. So before Wednesday's payroll run:
  *
  *   projected payroll  = finalized-but-unpaid batches + labor / sale payouts credited so far this week
  *   target             = projected × (1 + buffer) + floor
- *   shortfall          = target − (available + pending USD)      ← pending card receipts settle by Monday
+ *   shortfall          = target − (available + pending USD)      ← pending card receipts settle by Wednesday
  *   if shortfall > minimum → one Stripe TOP-UP (ACH debit from the verified business bank account)
  *
- * Runs Thursday morning so a standard 1–2 business-day top-up lands before Monday; the daily payout
- * cron retries anything that arrives late. One top-up per calendar day is guaranteed by the
+ * Runs Monday morning so a standard 1–2 business-day top-up lands before Wednesday's payroll run;
+ * the daily payout cron retries anything that arrives late. One top-up per calendar day is guaranteed by the
  * idempotency key, so a re-run never double-pulls. Settings: adminSettings.business.payroll.funding.
  */
 import { db } from '@/lib/database';
@@ -49,7 +49,7 @@ export function fundingFromSettings(doc) {
 }
 
 /**
- * Pure: how much to pull. `balance` = what Stripe will have by Monday (available + pending).
+ * Pure: how much to pull. `balance` = what Stripe will have by Wednesday (available + pending).
  * Returns { projected, target, balance, shortfall, topup } in dollars; topup is 0 when nothing is due.
  */
 export function computeFundingNeed({ projected = 0, balance = 0, settings = FUNDING_DEFAULTS } = {}) {
@@ -82,7 +82,7 @@ export async function writeFundingSettings(input, { actor = '' } = {}) {
   return next;
 }
 
-/** Everything payroll will want to pay on Monday: finalized-unpaid batches + this week's unbatched earnings. */
+/** Everything payroll will want to pay on Wednesday: finalized-unpaid batches + this week's unbatched earnings. */
 export async function projectPayrollDue() {
   const [finalized, candidates] = await Promise.all([
     RepairPayrollBatchesModel.list({ status: PAYROLL_BATCH_STATUS.FINALIZED }),
@@ -100,7 +100,7 @@ export async function projectPayrollDue() {
 }
 
 /**
- * The Thursday check. Never throws; returns what it saw and what it did, and tells admins when money
+ * The Monday check. Never throws; returns what it saw and what it did, and tells admins when money
  * moved or when it could not.
  */
 export async function runFundingCheck({ now = new Date(), dryRun = false, notify = true } = {}) {
@@ -132,7 +132,7 @@ export async function runFundingCheck({ now = new Date(), dryRun = false, notify
       await notifyAllAdmins({
         type: 'payroll-funding',
         title: `Pulled ${money(need.topup)} into Stripe for payroll`,
-        message: `Monday needs about ${money(due.projected)} (${due.payees.join(', ') || 'no payees yet'}); Stripe had ${money(available)} available + ${money(pending)} pending. A ${money(need.topup)} top-up from the business bank account is on its way${result.topup.expectedAvailability ? `, expected ${result.topup.expectedAvailability.toLocaleDateString('en-US')}` : ''}.`,
+        message: `Wednesday needs about ${money(due.projected)} (${due.payees.join(', ') || 'no payees yet'}); Stripe had ${money(available)} available + ${money(pending)} pending. A ${money(need.topup)} top-up from the business bank account is on its way${result.topup.expectedAvailability ? `, expected ${result.topup.expectedAvailability.toLocaleDateString('en-US')}` : ''}.`,
         actionUrl: `${adminBase()}/dashboard/repairs/payroll`, actionLabel: 'Open payroll',
         priority: 'normal', channels: ['inApp', 'email'], relatedType: 'payroll-funding', relatedData: result,
       }).catch(() => {});

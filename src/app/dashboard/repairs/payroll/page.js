@@ -45,11 +45,10 @@ function formatMoney(value) {
   return `$${Number(value || 0).toFixed(2)}`;
 }
 
+// Payroll weeks run Sunday–Saturday (services/payrollUtils.getPayrollWeekStart).
 function getMondayOfWeek(date = new Date()) {
   const copy = new Date(date);
-  const day = copy.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  copy.setDate(copy.getDate() + diff);
+  copy.setDate(copy.getDate() - copy.getDay());
   copy.setHours(0, 0, 0, 0);
   return copy;
 }

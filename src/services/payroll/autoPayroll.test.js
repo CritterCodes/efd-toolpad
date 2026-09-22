@@ -24,7 +24,7 @@ vi.mock('@/services/payroll/connectPayouts', () => ({ runConnectPayouts: mocks.r
 
 import { runWeeklyPayroll, lastClosedWeekStart } from './autoPayroll';
 
-const MON_SEP_21 = new Date('2026-09-21T11:00:00Z'); // the cron fires Monday morning
+const MON_SEP_21 = new Date('2026-09-23T11:00:00Z'); // the cron fires Wednesday morning (name kept; the week logic is what's under test)
 
 describe('weekly payroll run', () => {
   beforeEach(() => {
@@ -34,11 +34,14 @@ describe('weekly payroll run', () => {
     mocks.notifyAllAdmins.mockResolvedValue({});
   });
 
-  it('closes weeks strictly before the current Monday', () => {
+  it('closes Sun–Sat weeks strictly before the current one (Wed 9/23 → week of Sun 9/13)', () => {
     const cutoff = lastClosedWeekStart(MON_SEP_21);
-    expect(cutoff.toISOString().slice(0, 10)).toBe('2026-09-14');
-    // Wednesday still resolves to last week's Monday
-    expect(lastClosedWeekStart(new Date('2026-09-23T15:00:00Z')).toISOString().slice(0, 10)).toBe('2026-09-14');
+    expect(cutoff.getDay()).toBe(0);
+    expect(cutoff.toLocaleDateString('en-CA')).toBe('2026-09-13');
+    // Saturday night still resolves to the week that started the previous Sunday
+    expect(lastClosedWeekStart(new Date('2026-09-26T23:00:00')).toLocaleDateString('en-CA')).toBe('2026-09-13');
+    // Sunday morning rolls forward
+    expect(lastClosedWeekStart(new Date('2026-09-27T09:00:00')).toLocaleDateString('en-CA')).toBe('2026-09-20');
   });
 
   it('finalizes every closed week (missed ones too) and never marks anything paid itself — Stripe is the only path', async () => {

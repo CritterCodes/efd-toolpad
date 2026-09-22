@@ -1,5 +1,5 @@
 /**
- * GET /api/cron/weekly-payroll   (Mondays 11:00 UTC = 6am Central — see vercel.json)
+ * GET /api/cron/weekly-payroll   (Wednesdays 11:00 UTC = 6am Central — see vercel.json; Sun–Sat weeks, money lands Friday)
  *
  * Creates + finalizes every closed jeweler-week payroll batch, pays every payee with a live Stripe
  * Connect account (the only path — owner included), nudges anyone still unconnected, and tells
