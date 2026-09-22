@@ -78,7 +78,7 @@ function sourceTag(wo) {
 }
 
 export default function BenchWorkCard({
-  wo, currentUserID, isAdmin, jewelers = [], busy,
+  wo, currentUserID, isAdmin, jewelers = [], busy, qc = null,
   selectable = false, isSelected = false, onToggleSelect,
   onAction, onOpenPartsDialog, onUploadStl, onUploadGlb, error,
   uploadPct = null, // 0–100 while a CAD file is transferring; null otherwise
@@ -316,7 +316,16 @@ export default function BenchWorkCard({
             {canHandoff && handoffWorthwhile && (
               <Button size="small" variant="outlined" startIcon={<HandymanIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => setHandoffOpen(true)} sx={btn({ color: '#E0A33E', borderColor: '#E0A33E' })}>Sign off &amp; hand off</Button>
             )}
-            <Button size="small" variant="outlined" startIcon={<QCIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => onAction(wo, 'move-to-qc')} sx={btn({ color: '#00C49F', borderColor: '#00C49F' })}>Move to QC</Button>
+            {qc?.mode === 'self-certify' && qc?.canSelfCertify ? (
+              /* One-jeweler shop: sign off + pass QC in one tap (services/repairs/qcMode.js). Labor
+                 credit and the invoice fire immediately. Move to QC stays as the quiet alternative. */
+              <>
+                <Button size="small" variant="contained" startIcon={<QCIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => onAction(wo, 'done-self-certified')} sx={goldBtn} aria-label="Done, passed QC">Done · passed QC</Button>
+                <Button size="small" variant="text" disabled={busy} onClick={() => onAction(wo, 'move-to-qc')} sx={btn({ color: REPAIRS_UI.textSecondary })}>Move to QC instead</Button>
+              </>
+            ) : (
+              <Button size="small" variant="outlined" startIcon={<QCIcon sx={{ fontSize: 14 }} />} disabled={busy} onClick={() => onAction(wo, 'move-to-qc')} sx={btn({ color: '#00C49F', borderColor: '#00C49F' })}>Move to QC</Button>
+            )}
           </>
         )}
 

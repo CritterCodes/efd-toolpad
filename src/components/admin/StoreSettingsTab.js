@@ -22,6 +22,7 @@ import LaborRateSummary from './store-settings/LaborRateSummary';
 import SampleProjectExamples from './store-settings/SampleProjectExamples';
 import SystemUpdateDialog from './store-settings/SystemUpdateDialog';
 import ShippingSettings from './store-settings/ShippingSettings';
+import QcSettings from './store-settings/QcSettings';
 
 export default function StoreSettingsTab() {
     const {
@@ -91,6 +92,7 @@ export default function StoreSettingsTab() {
 
                 <Grid item xs={12}>
                     <ShippingSettings />
+                    <QcSettings />
                 </Grid>
 
                 <Grid item xs={12} md={6}>

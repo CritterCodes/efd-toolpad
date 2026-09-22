@@ -20,6 +20,7 @@ import { claimPieceWorkOrder, movePieceToQc, completePieceWorkOrderFromQc, appro
 import { signOffAndHandoffRepair, creditRepairLaborAtQc } from '@/services/repairs/benchHandoff';
 import { autoInvoiceAtQcPass } from '@/services/repairs/autoInvoice';
 import { repriceStullerMaterialForRepair } from '@/services/pricing/stullerMaterial';
+import { readQcMode, canSelfCertify } from '@/services/repairs/qcMode';
 import {
   buildClaimRepairUpdate,
   buildUnclaimRepairUpdate,
@@ -150,23 +151,25 @@ async function runRepairAction({ session, repairID, action, body }) {
     }
     case 'complete-from-qc': {
       assertRepairOps(session, 'qualityControl');
-      // Labor is credited HERE (QC pass) — one payable log per jeweler from the sign-off
-      // stamps, attributed to whoever did the work (not the QC actor). Before status flip.
-      const repair = await RepairsModel.findById(repairID);
-      await creditRepairLaborAtQc({ repair, session });
-      // Always land on COMPLETED; auto-invoicing advances the status itself (owner,
-      // 2026-09-04: repairs go straight onto an invoice at QC pass — no manual batching).
-      // A failed invoice leaves the repair COMPLETED, i.e. on the closeout-tab fallback.
-      let updated = await RepairsModel.updateById(repairID, buildCompleteFromQcUpdate({
-        nextStatus: 'COMPLETED', userName: session.user.name, now,
-      }));
-      const autoInvoice = await autoInvoiceAtQcPass({
-        repairID,
-        deliveryMethod: body?.deliveryBatched ? 'delivery' : 'pickup',
-        createdBy: session.user.name || session.user.email || '',
-      });
-      if (autoInvoice.invoiced) updated = await RepairsModel.findById(repairID);
-      return { ...updated, autoInvoice };
+      return passRepairQc({ session, repairID, body, now });
+    }
+    case 'done-self-certified': {
+      // One tap for a one-jeweler shop (services/repairs/qcMode.js): sign off the work AND pass QC.
+      // Only when the shop is in self-certify mode, only for the jeweler holding the repair (or an
+      // admin), and only for callers who could pass QC anyway. Stamped so it stays auditable.
+      assertRepairOps(session, 'benchWork');
+      const mode = await readQcMode();
+      if (!canSelfCertify({ session, mode })) {
+        throw err(mode === 'self-certify'
+          ? 'Access denied. Self-certifying QC needs the qualityControl capability.'
+          : 'The shop is set to a separate QC pass — use Move to QC.', 'FORBIDDEN');
+      }
+      const held = await RepairsModel.findById(repairID);
+      if (!isAdminRole(session) && held.assignedTo !== session.user.userID) {
+        throw err('You can only sign off a repair assigned to you.', 'FORBIDDEN');
+      }
+      await moveRepairToQc(session, repairID);
+      return passRepairQc({ session, repairID, body, now, selfCertified: true });
     }
     case 'mark-waiting-parts': {
       assertRepairOps(session);
@@ -274,6 +277,28 @@ async function runPieceAction({ session, workOrderID, action, body }) {
  * and returns the updated entity. Throws Error with .code ('FORBIDDEN',
  * 'NOT_FOUND', 'BAD_REQUEST', 'LANE_FORBIDDEN') the route maps to a status.
  */
+/**
+ * The QC pass. Labor is credited HERE — one payable log per jeweler from the sign-off stamps,
+ * attributed to whoever did the work (not the QC actor) — before the status flip. Always lands on
+ * COMPLETED; auto-invoicing advances the status itself (owner, 2026-09-04: repairs go straight
+ * onto an invoice at QC pass). A failed invoice leaves the repair COMPLETED (closeout fallback).
+ */
+async function passRepairQc({ session, repairID, body, now, selfCertified = false }) {
+  const repair = await RepairsModel.findById(repairID);
+  await creditRepairLaborAtQc({ repair, session });
+  let updated = await RepairsModel.updateById(repairID, {
+    ...buildCompleteFromQcUpdate({ nextStatus: 'COMPLETED', userName: session.user.name, now }),
+    ...(selfCertified ? { qcSelfCertified: true } : {}),
+  });
+  const autoInvoice = await autoInvoiceAtQcPass({
+    repairID,
+    deliveryMethod: body?.deliveryBatched ? 'delivery' : 'pickup',
+    createdBy: session.user.name || session.user.email || '',
+  });
+  if (autoInvoice.invoiced) updated = await RepairsModel.findById(repairID);
+  return { ...updated, autoInvoice };
+}
+
 export async function runBenchAction({ session, workOrderID, action, body = {} }) {
   const wo = await WorkOrdersModel.findByID(workOrderID);
   if (!wo) throw err('Work order not found.', 'NOT_FOUND');
