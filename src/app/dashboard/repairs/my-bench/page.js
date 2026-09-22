@@ -83,6 +83,15 @@ export default function BenchPage() {
     }
   }, []);
 
+  // QC mode + whether this session may self-certify (services/repairs/qcMode.js).
+  const [qc, setQc] = useState(null);
+  const fetchQcMode = useCallback(async () => {
+    try {
+      const res = await fetch('/api/bench/qc-mode');
+      if (res.ok) setQc(await res.json());
+    } catch { /* bench works without it: falls back to Move to QC */ }
+  }, []);
+
   const fetchJewelers = useCallback(async () => {
     try {
       const res = await fetch('/api/repairs/bench-jewelers');
@@ -96,8 +105,9 @@ export default function BenchPage() {
     if (status === 'authenticated') {
       fetchWorkOrders();
       fetchJewelers();
+      fetchQcMode();
     }
-  }, [status, fetchWorkOrders, fetchJewelers]);
+  }, [status, fetchWorkOrders, fetchJewelers, fetchQcMode]);
 
   const userID = session?.user?.userID;
   const isAdmin = isAdminRole(session);
@@ -413,6 +423,7 @@ export default function BenchPage() {
               currentUserID={userID}
               isAdmin={isAdmin}
               jewelers={jewelers}
+              qc={qc}
               busy={busyID === wo.workOrderID}
               uploadPct={uploadPct[wo.workOrderID] ?? null}
               error={cardErrors[wo.workOrderID]}

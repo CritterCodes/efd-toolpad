@@ -87,7 +87,7 @@ async function enrichBatch(batch) {
  * Owner-operators whose SELF labor stays payroll-payable (their draw). Everyone else's `payer:'self'`
  * labor is excluded from payroll — it realizes at sale via consignment (§4.4).
  */
-async function getOwnerOperatorUserIDs() {
+export async function getOwnerOperatorUserIDs() {
   const dbInstance = await db.connect();
   const owners = await dbInstance.collection('users')
     .find({ 'compensationProfile.isOwnerOperator': true })
@@ -252,6 +252,8 @@ export async function markPayrollBatchPaid(batchID, {
   paymentMethod = '',
   paymentReference = '',
   notes,
+  // false when the "payment" is the owner's own labor settling to the ledger — nobody was paid.
+  notify = true,
 } = {}) {
   const batch = await RepairPayrollBatchesModel.findByBatchID(batchID);
   if (batch.status !== PAYROLL_BATCH_STATUS.FINALIZED) {
@@ -274,7 +276,7 @@ export async function markPayrollBatchPaid(batchID, {
   // A payroll batch is per-artisan (single userID), so one notification per marked-paid batch.
   try {
     const artisanUserID = batch.userID;
-    if (artisanUserID) {
+    if (notify && artisanUserID) {
       const userMap = await getUserCompensationMap([artisanUserID]);
       const user = userMap.get(artisanUserID);
       const amount = Number(batch.laborPay || 0) + Number(batch.salePay || 0);
