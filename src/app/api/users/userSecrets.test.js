@@ -48,7 +48,7 @@ describe('stripPrivilegeFields', () => {
     });
     for (const f of USER_PRIVILEGE_FIELDS) expect(out[f], `${f} must be stripped`).toBeUndefined();
     expect(out.firstName).toBe('Legit');
-    expect(out.compensationProfile).toEqual({ rate: 25 });
+    expect(out['compensationProfile.rate']).toBe(25);   // nested kept leaves come out DOTTED so the write merges
   });
 
   it('drops DOTTED keys targeting a privileged subdocument', () => {
@@ -86,13 +86,17 @@ describe('stripPrivilegeFields', () => {
     expect(out['compensationProfile.rate']).toBe(30);
   });
 
-  it('strips it in NESTED form while keeping the rest of the subdocument', () => {
-    // Both shapes reach Mongo as the same write, so guarding one guards neither.
+  it('strips it in NESTED form and emits the kept leaves as DOTTED paths so the write MERGES', () => {
+    // Both shapes reach Mongo as the same write, so guarding one guards neither. And a trimmed
+    // object under `$set` would REPLACE the stored subdocument, erasing the privileged leaf from the
+    // record on every unrelated save — dotted paths leave it untouched.
     const out = stripPrivilegeFields({
       compensationProfile: { isOwnerOperator: true, rate: 25, hourly: true },
     });
-    expect(out.compensationProfile.isOwnerOperator).toBeUndefined();
-    expect(out.compensationProfile).toEqual({ rate: 25, hourly: true });
+    expect(out.compensationProfile).toBeUndefined();
+    expect(out['compensationProfile.isOwnerOperator']).toBeUndefined();
+    expect(out['compensationProfile.rate']).toBe(25);
+    expect(out['compensationProfile.hourly']).toBe(true);
   });
 
   it('does not mutate the caller\'s nested object while stripping the leaf', () => {
@@ -111,8 +115,17 @@ describe('stripPrivilegeFields', () => {
     // capability already blocks the grant; listing `employment` would break the admin user-management
     // page for no additional protection.
     const out = stripPrivilegeFields({ employment: { isOnsite: true }, compensationProfile: { rate: 1 } });
-    expect(out.employment).toEqual({ isOnsite: true });
-    expect(out.compensationProfile).toEqual({ rate: 1 });
+    expect(out['employment.isOnsite']).toBe(true);
+    expect(out['compensationProfile.rate']).toBe(1);
+  });
+
+  it('strips the pay-rate leaves (employment.hourlyRate / payTier) in both shapes, keeps the rest of employment', () => {
+    const nested = stripPrivilegeFields({ employment: { isOnsite: true, hourlyRate: 45, payTier: 'master', staffType: 'jeweler' } });
+    expect(nested).toEqual({ 'employment.isOnsite': true, 'employment.staffType': 'jeweler' });
+    const dotted = stripPrivilegeFields({ 'employment.hourlyRate': 45, 'employment.payTier': 'master', 'employment.isOnsite': true });
+    expect(dotted['employment.hourlyRate']).toBeUndefined();
+    expect(dotted['employment.payTier']).toBeUndefined();
+    expect(dotted['employment.isOnsite']).toBe(true);
   });
 
   it('returns a NEW object and never mutates the caller\'s payload', () => {

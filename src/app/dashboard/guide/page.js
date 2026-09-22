@@ -104,8 +104,8 @@ function EfdEarnsBlock({ t, role }) {
       <Section label="Where the money goes" title="What EFD earns, and where">
         <P>The platform is free. EFD only earns when it does work for you or sells for you. Here is every stream, with today’s numbers:</P>
         <Facts rows={[
-          ['Repair labor, retail ticket', `customer pays ${mult(l.businessMultiplier)} the labor line · EFD keeps ${pct(l.efdRetailShare)}`],
-          ['Repair labor, store ticket', `customer pays ${mult(l.wholesaleMarkup)} · EFD keeps ${pct(l.efdWholesaleShare)}`],
+          ['Repair labor, retail ticket', `customer pays ${mult(l.businessMultiplier)} the shop-rate labor line · EFD keeps ${pct(l.efdRetailShare)} at your rate`],
+          ['Repair labor, store ticket', `customer pays ${mult(l.wholesaleMarkup)} · EFD keeps ${pct(l.efdWholesaleShare)} at your rate`],
           ['Materials on a ticket', `cost ${mult(l.businessMultiplier)} retail · ${mult(l.wholesaleMarkup)} wholesale`],
           ['Work EFD facilitates for an artisan', `labor + materials ${mult(w.markup)}`],
           ['Selling your piece (EFD holds + ships)', pct(s.consignment)],
@@ -124,7 +124,7 @@ function EfdEarnsBlock({ t, role }) {
           ['Stripe’s monthly fee for your connected account', 'EFD pays it'],
         ]} />
         {(role === 'admin' || role === 'dev') && (
-          <Muted>Where each number lives: Settings → Pricing (wage, admin/business/consumables fees, wholesale markup, tax, delivery fee); Settings → Payout fees; Settings → Payroll funding; Settings → QC mode; per-affiliate rate on Affiliates. Consignment/marketplace rates, the client-management bonus and the QC review fee are code defaults with no settings screen yet.</Muted>
+          <Muted>Where each number lives: Settings → Pricing (shop rate, admin/business/consumables fees, wholesale markup, tax, delivery fee); Settings → Pay ladder (tiers, pay rates, bench tests); a person’s tier and rate on their artisan profile under Staff &amp; Repair Operations; Settings → Payout fees; Settings → Payroll funding; Settings → QC mode; per-affiliate rate on Affiliates. Consignment/marketplace rates, the client-management bonus and the QC review fee are code defaults with no settings screen yet.</Muted>
         )}
       </Section>
     </>
@@ -137,17 +137,44 @@ function ArtisanPaid({ t }) {
   const l = t.labor; const w = t.workOrders; const s = t.sales; const a = t.affiliate;
   return (
     <>
-      <Section label="1 · Bench work on repairs" title={`Hours × ${money(l.wage)}/hr, credited the moment the job passes QC`}>
+      <Section label="1 · Bench work on repairs" title={`Hours × ${money(l.payRate.rate)}/hr, credited the moment the job passes QC`} chip={l.payRate.tierLabel ? <StatusChip label={l.payRate.tierLabel} /> : null}>
         <P>
-          Every repair task carries hours. When you sign off and the job passes QC, you are credited those hours at the shop rate. The credit lands in your payroll ledger immediately — not when the customer pays, not when the piece is picked up.
+          Every repair task carries a fixed number of hours, set at a proficient pace. When you sign off and the job passes QC, you are credited those hours at your pay rate — finish faster and you still get the full credit. The credit lands in your payroll ledger immediately — not when the customer pays, not when the piece is picked up.
         </P>
         <Facts rows={[
-          ['Your rate', `${money(l.wage)} / hour (shop rate, same for every jeweler, snapshotted at sign-off)`],
-          ['Retail customer is charged', `${mult(l.businessMultiplier)} the labor line`],
-          ['Store (wholesale) is charged', `${mult(l.wholesaleMarkup)} the labor line`],
+          ['Your pay rate', `${money(l.payRate.rate)} / hour${l.payRate.tierLabel ? ` · ${l.payRate.tierLabel} tier` : l.payRate.source === 'custom' ? ' · negotiated' : ' · shop rate (not yet placed on the ladder)'}`],
+          ['Shop rate the customer is priced from', `${money(l.wage)} / hour`],
+          ['Retail customer is charged', `${mult(l.businessMultiplier)} the shop-rate labor line`],
+          ['Store (wholesale) is charged', `${mult(l.wholesaleMarkup)} the shop-rate labor line`],
           ['You keep of the labor line', `${pct(l.artisanRetailShare)} retail · ${pct(l.artisanWholesaleShare)} wholesale`],
         ]} />
-        <Muted>Materials you add from Stuller are billed to the customer at cost × the same multiplier; that markup is EFD’s, not part of your credit. Where to see it: My Bench → sign off → Payroll.</Muted>
+        <Muted>Your rate is snapshotted onto each task at sign-off, so a later change never reprices past work. A fix after a failed QC earns no additional hours: a task is credited once, when it passes. Materials you add from Stuller are billed at cost × the same multiplier; that markup is EFD’s, not part of your credit.</Muted>
+      </Section>
+
+      <Section label="Pay ladder" title="Where you sit is decided by a bench test, not a negotiation">
+        <P>
+          Every tier below has a published rate and the bench work that places you on it. Ask for the test at any time; passing it moves your rate at your next sign-off. The shop rate customers are priced from does not change when you move.
+        </P>
+        <Stack spacing={1.25}>
+          {(t.ladder?.tiers || []).map((tier) => {
+            const mine = tier.key === l.payRate.tierKey;
+            return (
+              <Box key={tier.key} sx={{ p: 1.5, borderRadius: 2, border: `1px solid ${mine ? facelift.gold : facelift.hairline}`, bgcolor: mine ? 'rgba(251,191,36,0.08)' : 'transparent' }}>
+                <Stack direction="row" spacing={1} alignItems="baseline" flexWrap="wrap" useFlexGap>
+                  <Typography sx={{ ...T.p, color: '#fff', fontWeight: 600 }}>{tier.label}</Typography>
+                  <Typography sx={{ ...T.p, color: facelift.gold, fontFamily: facelift.mono, fontSize: 14 }}>{money(tier.rate)}/hr</Typography>
+                  {mine && <StatusChip label="you" />}
+                </Stack>
+                {tier.summary && <Typography sx={{ ...T.muted, mt: 0.25 }}>{tier.summary}</Typography>}
+                {tier.requirements?.length > 0 && (
+                  <Box component="ul" sx={{ m: 0, mt: 0.75, pl: 2.5 }}>
+                    {tier.requirements.map((r) => <Typography component="li" key={r} sx={{ ...T.p, fontSize: 14 }}>{r}</Typography>)}
+                  </Box>
+                )}
+              </Box>
+            );
+          })}
+        </Stack>
       </Section>
 
       <Section label="2 · Work orders" title="Work you do for another artisan or for EFD">

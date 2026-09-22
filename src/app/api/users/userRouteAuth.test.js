@@ -121,7 +121,7 @@ describe('THE ESCALATION: nobody can grant themselves a role here', () => {
     for (const f of ['password', 'status', 'emailVerified', 'staffCapabilities', 'mustChangePassword']) {
       expect(patch[f], `${f} must be stripped`).toBeUndefined();
     }
-    expect(patch.compensationProfile).toEqual({ rate: 25 });   // the real staff use case still works
+    expect(patch['compensationProfile.rate']).toBe(25);   // the real staff use case still works
   });
 });
 

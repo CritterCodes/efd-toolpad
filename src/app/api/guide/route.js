@@ -16,10 +16,11 @@ import { isConnectLive } from '@/services/payroll/connectPayouts';
 import { isStripeConfigured } from '@/lib/stripeConnect';
 import { needsAcceptance } from '@/services/policies/policyRegistry';
 import { buildGuideTerms, buildChecklist, profileIsComplete } from '@/services/guide/guideTerms';
+import { ladderFromSettings, resolvePayRate } from '@/services/pay/payLadder';
 
 export const dynamic = 'force-dynamic';
 
-const USER_PROJECTION = { _id: 0, userID: 1, role: 1, image: 1, agreements: 1, artisanApplication: 1, stripeConnect: 1, fulfillmentPreference: 1, business: 1, wholesaleApplication: 1, guide: 1 };
+const USER_PROJECTION = { _id: 0, userID: 1, role: 1, image: 1, agreements: 1, artisanApplication: 1, stripeConnect: 1, fulfillmentPreference: 1, business: 1, wholesaleApplication: 1, guide: 1, employment: 1 };
 
 export async function GET() {
   const { session, errorResponse } = await requireAuth();
@@ -54,7 +55,9 @@ export async function GET() {
       facts.fundingSet = Boolean(settings?.payrollFunding);
     }
 
-    const terms = buildGuideTerms({ settings, fees, qcMode: qcModeFromSettings(settings), affiliate });
+    const ladder = ladderFromSettings(settings);
+    const payRate = resolvePayRate(user || {}, ladder, Number(settings?.pricing?.wage) || 0);
+    const terms = buildGuideTerms({ settings, fees, qcMode: qcModeFromSettings(settings), affiliate, payRate, ladder });
     const checklist = buildChecklist({ role, facts });
     return NextResponse.json({
       role,

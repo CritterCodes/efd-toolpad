@@ -41,6 +41,19 @@ describe('buildGuideTerms', () => {
     expect(l.affiliate.rateIsDefault).toBe(false);
   });
 
+  it('uses the viewer’s own pay rate for the shares; shop rate when never placed', () => {
+    const shop = buildGuideTerms({ settings: PROD_LIKE });
+    expect(shop.labor.payRate).toEqual({ rate: 50, source: 'shop', tierKey: '', tierLabel: '' });
+    expect(shop.labor.efdRetailShare).toBe(0.5);
+    const bench = buildGuideTerms({ settings: PROD_LIKE, payRate: { rate: 30, source: 'tier', tierKey: 'bench-jeweler', tierLabel: 'Bench jeweler' } });
+    expect(bench.labor.wage).toBe(50);                 // shop rate unchanged
+    expect(bench.labor.payRate.rate).toBe(30);
+    expect(bench.labor.artisanRetailShare).toBe(0.3);  // 30 of the $100 retail labor line
+    expect(bench.labor.efdRetailShare).toBe(0.7);
+    expect(bench.labor.artisanWholesaleShare).toBe(0.5); // 30 of the $60 store labor line
+    expect(bench.ladder.tiers.map((t) => t.key)).toEqual(['apprentice', 'bench-jeweler', 'senior-jeweler', 'master']);
+  });
+
   it('never crashes on empty settings', () => {
     const t = buildGuideTerms({});
     expect(t.labor.businessMultiplier).toBeGreaterThanOrEqual(2);

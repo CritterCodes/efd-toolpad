@@ -51,6 +51,24 @@ function getWorkItemLabels(repair = {}) {
   ].filter(Boolean);
 }
 
+/** The viewer's own credited rate and tier, from the same source the guide publishes (GET /api/guide). */
+function PayRateLine() {
+  const router = useRouter();
+  const [labor, setLabor] = useState(null);
+  useEffect(() => {
+    fetch('/api/guide').then((r) => (r.ok ? r.json() : null)).then((d) => setLabor(d?.terms?.labor || null)).catch(() => setLabor(null));
+  }, []);
+  if (!labor?.payRate) return null;
+  const rate = Number(labor.payRate.rate || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+  const tier = labor.payRate.tierLabel ? ` · ${labor.payRate.tierLabel}` : labor.payRate.source === 'custom' ? ' · negotiated' : ' · shop rate';
+  return (
+    <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, mt: 0.5 }}>
+      Your pay rate: <Box component="span" sx={{ color: REPAIRS_UI.accent, fontWeight: 600 }}>{rate}/hr</Box>{tier} · credited per catalog hour at QC pass.{' '}
+      <Box component="span" role="link" tabIndex={0} onClick={() => router.push('/dashboard/guide')} onKeyDown={(e) => { if (e.key === 'Enter') router.push('/dashboard/guide'); }} sx={{ color: REPAIRS_UI.accent, cursor: 'pointer', textDecoration: 'underline' }}>How the ladder works</Box>
+    </Typography>
+  );
+}
+
 export default function ArtisanPayrollPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -116,6 +134,7 @@ export default function ArtisanPayrollPage() {
             <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
               View your weekly payout batches and the repair work included in each one.
             </Typography>
+            <PayRateLine />
           </Box>
         </Box>
       </Box>

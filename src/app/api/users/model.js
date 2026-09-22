@@ -68,7 +68,13 @@ export const USER_PRIVILEGE_FIELDS = Object.freeze([
  * is open to all of `STAFF_ROLES`, leaving this leaf writable let a `staff` account put ITSELF in the
  * payable set — the same escalation shape as `role`, through the field the list above waives.
  */
-export const USER_PRIVILEGE_SUBPATHS = Object.freeze(['compensationProfile.isOwnerOperator']);
+export const USER_PRIVILEGE_SUBPATHS = Object.freeze([
+    'compensationProfile.isOwnerOperator',
+    // The pay rate a jeweler is credited at every QC pass (services/pay/payLadder.js). Written only by
+    // PATCH /api/users/[userID]/pay-rate (admin/dev). Same escalation shape as isOwnerOperator: the
+    // generic PUT is open to all of STAFF_ROLES, and pay must never be self-set.
+    'employment.hourlyRate', 'employment.payTier',
+]);
 
 /**
  * Remove privilege fields from an update payload. Returns a NEW object.
@@ -87,16 +93,23 @@ export function stripPrivilegeFields(updateData = {}) {
         if (path === '__proto__' || path === 'constructor' || path === 'prototype') continue;
         // Dotted form: `{"compensationProfile.isOwnerOperator": true}`
         if (USER_PRIVILEGE_SUBPATHS.includes(path)) continue;
-        // Nested form: `{compensationProfile: { isOwnerOperator: true, rate: 25 }}` — keep the
-        // subdocument (staff legitimately edit it) but drop the privileged leaf. Both shapes reach
-        // Mongo as the same write, so guarding only one of them guards neither.
+        // Nested form: `{compensationProfile: { isOwnerOperator: true, rate: 25 }}` — keep what staff
+        // legitimately edit, drop the privileged leaf. Both shapes reach Mongo as the same write, so
+        // guarding only one of them guards neither.
+        //
+        // The kept leaves are emitted as DOTTED paths, not as a trimmed object. `$set: { employment:
+        // {…} }` REPLACES the stored subdocument, so a trimmed object would erase the privileged leaves
+        // (the pay rate, the owner-operator flag) from the record on every unrelated profile save — the
+        // subdoc-replace-not-merge failure this codebase has hit four times. Dotted paths merge.
         const nested = USER_PRIVILEGE_SUBPATHS
             .filter((p) => p.split('.')[0] === head && p.includes('.'))
             .map((p) => p.slice(head.length + 1));
-        if (nested.length && value && typeof value === 'object' && !Array.isArray(value)) {
-            const clone = { ...value };
-            for (const leaf of nested) delete clone[leaf];
-            out[path] = clone;
+        if (nested.length && value && typeof value === 'object' && !Array.isArray(value) && !path.includes('.')) {
+            for (const [leaf, leafValue] of Object.entries(value)) {
+                if (nested.includes(leaf)) continue;
+                if (leaf === '__proto__' || leaf === 'constructor' || leaf === 'prototype') continue;
+                out[`${head}.${leaf}`] = leafValue;
+            }
             continue;
         }
         out[path] = value;

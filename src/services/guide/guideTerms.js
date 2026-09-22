@@ -16,6 +16,7 @@
 import { getBusinessMultiplierValue, getNormalizedSettings } from '@/services/pricing/config.pricing';
 import { loadFeeSchedule } from '@/services/billing/feeSchedule';
 import { FEE_DEFAULTS, dailyFeeLabel } from '@/services/payroll/payoutCadence';
+import { DEFAULT_LADDER, ladderFromSettings } from '@/services/pay/payLadder';
 
 export const DEFAULT_AFFILIATE_RATE = 0.1;      // api/affiliates POST default for a new affiliate
 export const DEFAULT_CLIENT_MGMT_BONUS_PCT = 0.05; // customs/customProduction
@@ -23,7 +24,7 @@ export const DEFAULT_QC_REVIEW_FEE = 25;         // bench/pieceWorkOrderActions
 
 const round = (n, d = 4) => Math.round((Number(n) || 0) * 10 ** d) / 10 ** d;
 
-export function buildGuideTerms({ settings = {}, fees = FEE_DEFAULTS, qcMode = 'separate', affiliate = null } = {}) {
+export function buildGuideTerms({ settings = {}, fees = FEE_DEFAULTS, qcMode = 'separate', affiliate = null, payRate = null, ladder = null } = {}) {
   const s = settings || {};
   const normalized = getNormalizedSettings(s);
   const wage = Number(s?.pricing?.wage) > 0 ? Number(s.pricing.wage) : normalized.baseWage;
@@ -36,20 +37,32 @@ export function buildGuideTerms({ settings = {}, fees = FEE_DEFAULTS, qcMode = '
   const qcFeeRaw = Number(s?.financial?.qcReviewFee);
   const qcReviewFee = qcFeeRaw > 0 ? qcFeeRaw : DEFAULT_QC_REVIEW_FEE;
   const affiliateRate = Number(affiliate?.commissionRate) > 0 ? Number(affiliate.commissionRate) : DEFAULT_AFFILIATE_RATE;
+  // The viewer's own credited rate (services/pay/payLadder.resolvePayRate); shop rate when never placed.
+  const rate = Number(payRate?.rate) > 0 ? Number(payRate.rate) : wage;
+  const resolvedLadder = ladder && Array.isArray(ladder.tiers) ? ladder : ladderFromSettings(s);
+  const retailLine = wage * businessMultiplier;      // what a retail customer pays per catalog hour
+  const wholesaleLine = wage * wholesaleMarkup;      // what a store pays per catalog hour
 
   return {
     labor: {
-      wage,
+      wage,                       // SHOP rate: the pricing input, per catalog hour
+      payRate: {                  // what THIS person is credited per catalog hour
+        rate,
+        source: payRate?.source || 'shop',
+        tierKey: payRate?.tierKey || '',
+        tierLabel: payRate?.tierLabel || '',
+      },
       businessMultiplier,
       wholesaleMarkup,
-      // share of the LABOR LINE the artisan is credited vs. what EFD keeps
-      artisanRetailShare: round(1 / businessMultiplier),
-      efdRetailShare: round(1 - 1 / businessMultiplier),
-      artisanWholesaleShare: round(1 / wholesaleMarkup),
-      efdWholesaleShare: round(1 - 1 / wholesaleMarkup),
+      // share of the LABOR LINE this person is credited vs. what EFD keeps
+      artisanRetailShare: round(rate / retailLine),
+      efdRetailShare: round(1 - rate / retailLine),
+      artisanWholesaleShare: round(rate / wholesaleLine),
+      efdWholesaleShare: round(1 - rate / wholesaleLine),
       creditedAt: 'QC pass',
-      rateSource: 'shop-wide',
+      rateSource: payRate?.source || 'shop',
     },
+    ladder: { tiers: (resolvedLadder.tiers || DEFAULT_LADDER.tiers).map((t) => ({ ...t, requirements: [...(t.requirements || [])] })) },
     workOrders: {
       markup: wholesaleMarkup,
       castingAtCost: true,

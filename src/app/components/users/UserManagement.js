@@ -188,6 +188,22 @@ const UserManagement = ({
         throw new Error(data.error || 'Failed to update compensation profile.');
       }
 
+      // employment.hourlyRate is a privileged leaf (stripped by the PUT above): a changed rate is
+      // written through the admin-only pay-rate route (services/pay/payLadder.js).
+      const original = users.find((u) => u._id === selectedUser._id);
+      const nextRate = Number(selectedUser.employment?.hourlyRate) || 0;
+      if (nextRate !== (Number(original?.employment?.hourlyRate) || 0)) {
+        const payResponse = await fetch(`/api/users/${selectedUser._id}/pay-rate`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ hourlyRate: nextRate > 0 ? nextRate : null }),
+        });
+        const payData = await payResponse.json().catch(() => ({}));
+        if (!payResponse.ok) {
+          throw new Error(payData.error || 'Saved, but the pay rate did not.');
+        }
+      }
+
       const nextUsers = users.map((user) => (
         user._id === selectedUser._id
           ? { ...user, compensationProfile: selectedUser.compensationProfile, employment: selectedUser.employment }
