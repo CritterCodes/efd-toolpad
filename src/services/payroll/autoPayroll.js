@@ -22,7 +22,7 @@ import {
   createPayrollBatch,
   finalizePayrollBatch,
 } from '@/app/api/repairs/payroll/service';
-import { getMondayOfWeek } from '@/services/payrollUtils';
+import { getMondayOfWeek, payrollTotal } from '@/services/payrollUtils';
 import { notifyAllAdmins } from '@/lib/notificationService';
 import { adminBase } from '@/lib/appUrls';
 import { runConnectPayouts, nudgeUnpaidPayees } from '@/services/payroll/connectPayouts';
@@ -58,7 +58,7 @@ export async function runWeeklyPayroll({ now = new Date(), createdBy = PAYROLL_C
         notes: 'Auto-created by the weekly payroll run.',
       });
       await finalizePayrollBatch(batch.batchID);
-      const amount = Number(batch.laborPay || 0) + Number(batch.salePay || 0);
+      const amount = payrollTotal(batch);
       result.finalized.push({ ...label, batchID: batch.batchID, amount, hours: Number(batch.laborHours || 0) });
     } catch (error) {
       if (/already exists/i.test(error?.message || '')) {

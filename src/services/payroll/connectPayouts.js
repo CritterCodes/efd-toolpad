@@ -26,7 +26,7 @@
 import { db } from '@/lib/database';
 import RepairPayrollBatchesModel from '@/app/api/repairPayrollBatches/model';
 import { markPayrollBatchPaid } from '@/app/api/repairs/payroll/service';
-import { PAYROLL_BATCH_STATUS } from '@/services/payrollUtils';
+import { PAYROLL_BATCH_STATUS, payrollTotal } from '@/services/payrollUtils';
 import {
   isStripeConfigured, stripeMode, createExpressAccount, createAccountLink, createLoginLink,
   retrieveAccount, retrieveBalance, createTransfer, summarizeAccount, availableUsdCents,
@@ -76,7 +76,7 @@ export function payoutEligibility({ batch, user }) {
 }
 
 export function batchAmount(batch = {}) {
-  return Math.round((Number(batch.laborPay || 0) + Number(batch.salePay || 0)) * 100) / 100;
+  return payrollTotal(batch);
 }
 
 /** Create (once) the payee's Express account and hand back the onboarding URL. */

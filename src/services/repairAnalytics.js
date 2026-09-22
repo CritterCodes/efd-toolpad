@@ -1,3 +1,4 @@
+import { splitBatchPay, payrollTotal } from '@/services/payrollUtils';
 import { resolveRepairAnalyticsOrigin, ANALYTICS_ORIGIN } from '@/services/analyticsBaseline';
 import { BUSINESS_EXPENSE_STATUS } from '@/services/businessExpenses';
 import { RECURRING_EXPENSE_SOURCE_TYPE } from '@/services/recurringBusinessExpenses';
@@ -775,9 +776,9 @@ export function buildFederalTaxReserveReport({
       userName: batch.userName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || batch.userID || 'Unknown user',
       isOwnerOperator: isOwnerOperatorUser(user),
       laborHours: Number(Number(batch.laborHours || 0).toFixed(2)),
-      laborPay: roundMoney(Math.max(Number(batch.laborPay || 0) - Number(batch.salePay || 0), 0)),
-      salePay: roundMoney(batch.salePay || 0),
-      totalPay: roundMoney(batch.laborPay || 0),
+      laborPay: roundMoney(splitBatchPay(batch).laborPay),
+      salePay: roundMoney(splitBatchPay(batch).salePay),
+      totalPay: roundMoney(splitBatchPay(batch).totalPay),
       paymentMethod: batch.paymentMethod || '',
       paymentReference: batch.paymentReference || '',
       status: batch.status || '',
@@ -1326,7 +1327,7 @@ export function buildJewelerPerformanceReport({ logs = [], payrollBatches = [], 
         paidThroughPayroll: 0,
       });
     }
-    byJeweler.get(userID).paidThroughPayroll += Number(batch.laborPay || 0);
+    byJeweler.get(userID).paidThroughPayroll += payrollTotal(batch);
   }
 
   const rows = Array.from(byJeweler.values())

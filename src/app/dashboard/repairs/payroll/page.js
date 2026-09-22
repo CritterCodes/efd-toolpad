@@ -1,5 +1,6 @@
 "use client";
 
+import { splitBatchPay, payrollTotal } from '@/services/payrollUtils';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -113,8 +114,8 @@ function QueueCard({ candidate, onOpen }) {
           {candidate.isOwnerOperator && <Chip label="Owner / Operator" size="small" color="secondary" />}
           <Chip label={`Hours ${Number(candidate.laborHours || 0).toFixed(2)}`} size="small" />
           <Chip label={`Repairs ${candidate.repairsWorked || 0}`} size="small" />
-          <Chip label={`Pay ${formatMoney(candidate.laborPay)}`} size="small" />
-          {Number(candidate.salePay || 0) > 0 && <Chip label={`Sales ${formatMoney(candidate.salePay)}`} size="small" color="success" />}
+          <Chip label={`Pay ${formatMoney(payrollTotal(candidate))}`} size="small" />
+          {Number(candidate.salePay || 0) > 0 && <Chip label={`Labor ${formatMoney(splitBatchPay(candidate).laborPay)} · Sales ${formatMoney(candidate.salePay)}`} size="small" color="success" />}
         </Stack>
         <Typography variant="caption" sx={{ display: 'block', color: REPAIRS_UI.textMuted, mt: 1.5 }}>
           {candidate.entryCount || 0} unbatched payout entr{candidate.entryCount === 1 ? 'y' : 'ies'}
@@ -160,8 +161,8 @@ function HistoryCard({ batch, onOpen }) {
           {batch.isOwnerOperator && <Chip label="Owner / Operator" size="small" color="secondary" />}
           <Chip label={`Hours ${Number(batch.laborHours || 0).toFixed(2)}`} size="small" />
           <Chip label={`Repairs ${batch.repairsWorked || 0}`} size="small" />
-          <Chip label={`Pay ${formatMoney(batch.laborPay)}`} size="small" />
-          {Number(batch.salePay || 0) > 0 && <Chip label={`Sales ${formatMoney(batch.salePay)}`} size="small" color="success" />}
+          <Chip label={`Pay ${formatMoney(payrollTotal(batch))}`} size="small" />
+          {Number(batch.salePay || 0) > 0 && <Chip label={`Labor ${formatMoney(splitBatchPay(batch).laborPay)} · Sales ${formatMoney(batch.salePay)}`} size="small" color="success" />}
         </Stack>
         {batch.paidAt && (
           <Typography variant="caption" sx={{ display: 'block', color: REPAIRS_UI.textMuted, mt: 1.5 }}>
@@ -496,10 +497,10 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
   const hasNoLogs = diagnostics && currentWeekLogCount === 0;
   const ownerLaborPaid = history
     .filter((batch) => batch.isOwnerOperator && batch.status === 'paid')
-    .reduce((sum, batch) => sum + Number(batch.laborPay || 0), 0);
+    .reduce((sum, batch) => sum + payrollTotal(batch), 0);
   const ownerLaborUnpaid = history
     .filter((batch) => batch.isOwnerOperator && batch.status !== 'paid' && batch.status !== 'void')
-    .reduce((sum, batch) => sum + Number(batch.laborPay || 0), 0);
+    .reduce((sum, batch) => sum + payrollTotal(batch), 0);
 
   return (
     <Box sx={{ pb: 8 }}>
@@ -813,8 +814,8 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
                 {selectedDetail.isOwnerOperator && <Chip label="Owner / Operator" color="secondary" />}
                 <Chip label={`${selectedDetail.cadence === 'daily' ? 'Day' : 'Week'} of ${new Date(selectedDetail.weekStart).toLocaleDateString()}`} />
                 <Chip label={`Hours ${Number(selectedDetail.laborHours || 0).toFixed(2)}`} />
-                <Chip label={`Pay ${formatMoney(selectedDetail.laborPay)}`} />
-                {Number(selectedDetail.salePay || 0) > 0 && <Chip label={`Sales ${formatMoney(selectedDetail.salePay)}`} color="success" />}
+                <Chip label={`Pay ${formatMoney(payrollTotal(selectedDetail))}`} />
+                {Number(selectedDetail.salePay || 0) > 0 && <Chip label={`Labor ${formatMoney(splitBatchPay(selectedDetail).laborPay)} · Sales ${formatMoney(selectedDetail.salePay)}`} color="success" />}
                 <Chip label={`Repairs ${selectedDetail.repairsWorked || 0}`} />
                 {selectedDetail.status && <Chip label={selectedDetail.status} />}
               </Stack>
