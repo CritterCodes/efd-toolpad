@@ -9,7 +9,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuth, isAdmin } from '@/lib/apiAuth';
 import { adminBase } from '@/lib/appUrls';
-import { refreshConnectStatus, startConnectOnboarding } from '@/services/payroll/connectPayouts';
+import { refreshConnectStatus, startConnectOnboarding, payoutPagePath } from '@/services/payroll/connectPayouts';
 import { isStripeConfigured, stripeMode } from '@/lib/stripeConnect';
 import { readFeeSettings, dailyFeeLabel } from '@/services/payroll/payoutCadence';
 
@@ -42,11 +42,8 @@ export async function POST(req) {
   const body = await req.json().catch(() => ({}));
   const userID = targetUser(session, body?.userID);
   if (!userID) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  // Payees land back on THEIR payroll page; an admin acting for someone lands on the admin payroll page.
-  const base = adminBase();
-  const returnTo = userID === session.user.userID && !isAdmin(session)
-    ? `${base}/dashboard/artisan/payroll`
-    : `${base}/dashboard/repairs/payroll`;
+  // Payees land back on THEIR payout page (artisan / affiliate); an admin lands on the admin payroll page.
+  const returnTo = `${adminBase()}${payoutPagePath(session.user.role)}`;
   try {
     const result = await startConnectOnboarding({
       userID,
