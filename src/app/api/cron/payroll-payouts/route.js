@@ -1,9 +1,10 @@
 /**
  * GET /api/cron/payroll-payouts   (daily 12:00 UTC — see vercel.json)
  *
- * Pays every FINALIZED payroll batch whose payee has a connected Stripe account with auto-pay on.
- * Runs daily (not just Mondays) so a batch that waited on EFD's balance, or a payee who finished
- * Stripe onboarding mid-week, gets paid without anyone remembering. Idempotent per batch.
+ * Pays every FINALIZED payroll batch whose payee has a live Stripe Connect account — the only way
+ * anyone is paid (owner, 2026-09-22). Runs daily (not just Mondays) so a batch that waited on EFD's
+ * balance, or a payee who finished Stripe onboarding mid-week, gets paid without anyone remembering.
+ * Idempotent per batch.
  */
 import { NextResponse } from 'next/server';
 import { cronAuthorized } from '@/lib/cronAuth';

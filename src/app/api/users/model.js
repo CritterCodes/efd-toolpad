@@ -45,9 +45,9 @@ export const USER_SECRET_FIELDS = Object.freeze({
  */
 export const USER_PRIVILEGE_FIELDS = Object.freeze([
     'role', 'password', 'status', 'emailVerified', 'staffCapabilities', 'mustChangePassword',
-    // Stripe Connect payout identity + the admin-only auto-pay switch (services/payroll/connectPayouts.js):
-    // written only by the payout routes; a payee must never be able to point payouts elsewhere.
-    'stripeConnect', 'payoutSettings',
+    // Stripe Connect payout identity (services/payroll/connectPayouts.js): written only by the payout
+    // routes; a payee must never be able to point payouts elsewhere.
+    'stripeConnect',
     'resetToken', 'resetTokenExpiry', 'verificationToken', 'permissions',
     // The offboarding record (services/users/terminateArtisan.js). Only the terminate/reinstate
     // routes write it; the generic PUT re-sends the fetched record and must not be able to erase it.

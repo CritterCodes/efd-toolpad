@@ -8,14 +8,17 @@
  * the owner's own labor. This module turns a FINALIZED batch into money:
  *
  *   payee connects an Express account (self-service on their Payroll page, or an admin sends the
- *   link)  →  an admin turns on auto-pay for them  →  every finalized batch is transferred from
- *   EFD's Stripe balance, marked PAID with the transfer id, and the payee is told.
+ *   link)  →  every finalized batch is transferred from EFD's Stripe balance, marked PAID with the
+ *   transfer id, and the payee is told.
+ *
+ * THIS IS THE ONLY WAY ANYONE IS PAID (owner, 2026-09-22: "autopay is a requirement to get paid,
+ * it's the only path"). No manual Mark Paid, no ledger settlement for the owner, no per-payee
+ * switch: a finalized batch waits, unpaid, until its payee has a live Stripe account, and the payee
+ * is reminded each week that money is waiting.
  *
  * Stored on the user:
- *   stripeConnect  = { accountId, detailsSubmitted, payoutsEnabled, requirementsDue, lastCheckedAt }
- *   payoutSettings = { autoPay: boolean, updatedAt, updatedBy }     (admin-only)
- *
- * Both are privileged fields — the generic user PUT strips them (app/api/users/model.js).
+ *   stripeConnect = { accountId, detailsSubmitted, payoutsEnabled, requirementsDue, lastCheckedAt }
+ * — a privileged field: the generic user PUT strips it (app/api/users/model.js).
  * Transfers use `payroll-<batchID>` as the idempotency key, so a retry can never double-pay.
  * If EFD's available balance is short the batch simply stays FINALIZED and is retried on the next
  * run; admins are told once per run.
@@ -34,7 +37,7 @@ import { adminBase } from '@/lib/appUrls';
 export const CONNECT_PAYMENT_METHOD = 'stripe-connect';
 
 const money = (n) => Number(n || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-const USER_PROJECTION = { _id: 0, userID: 1, email: 1, firstName: 1, lastName: 1, role: 1, stripeConnect: 1, payoutSettings: 1, compensationProfile: 1 };
+const USER_PROJECTION = { _id: 0, userID: 1, email: 1, firstName: 1, lastName: 1, role: 1, stripeConnect: 1, compensationProfile: 1 };
 
 async function loadUser(userID) {
   const dbi = await db.connect();
@@ -48,11 +51,9 @@ async function saveConnect(userID, patch) {
   await dbi.collection('users').updateOne({ userID }, { $set });
 }
 
-/** Is this payee set up to be paid by Connect (account live + auto-pay on)? */
-export async function isAutoPayReady(userID) {
-  if (!isStripeConfigured()) return false;
-  const user = await loadUser(userID);
-  return Boolean(user?.stripeConnect?.accountId && user.stripeConnect.payoutsEnabled && user.payoutSettings?.autoPay === true);
+/** Pure: can this user receive a transfer right now? */
+export function isConnectLive(user) {
+  return Boolean(user?.stripeConnect?.accountId && user.stripeConnect.payoutsEnabled);
 }
 
 /** Pure: what a batch needs to be paid by Connect. */
@@ -63,7 +64,6 @@ export function payoutEligibility({ batch, user }) {
   if (amount <= 0) return { eligible: false, reason: 'nothing to pay' };
   if (!user?.stripeConnect?.accountId) return { eligible: false, reason: 'no Stripe account connected' };
   if (!user.stripeConnect.payoutsEnabled) return { eligible: false, reason: 'Stripe onboarding not finished' };
-  if (user.payoutSettings?.autoPay !== true) return { eligible: false, reason: 'auto-pay is off for this payee' };
   return { eligible: true, amount };
 }
 
@@ -97,7 +97,7 @@ export async function refreshConnectStatus({ userID }) {
   const account = await retrieveAccount(accountId);
   const summary = summarizeAccount(account);
   await saveConnect(userID, { ...summary, lastCheckedAt: new Date() });
-  return { connected: true, ...summary, autoPay: user.payoutSettings?.autoPay === true };
+  return { connected: true, ...summary };
 }
 
 export async function connectDashboardLink({ userID }) {
@@ -108,31 +108,19 @@ export async function connectDashboardLink({ userID }) {
   return link.url;
 }
 
-/** Admin switch: pay this person's finalized batches automatically. */
-export async function setAutoPay({ userID, autoPay, actor = '' }) {
-  const dbi = await db.connect();
-  const now = new Date();
-  await dbi.collection('users').updateOne({ userID }, { $set: { payoutSettings: { autoPay: autoPay === true, updatedAt: now, updatedBy: actor }, updatedAt: now } });
-  return { userID, autoPay: autoPay === true };
-}
-
 /**
  * Pay one finalized batch through Connect. Refreshes the account first (payouts may have been
  * disabled since), checks EFD's available balance, transfers with an idempotency key, then marks
  * the batch PAID (the payee's "you have been paid" notification fires from there).
  */
-export async function payBatchViaConnect({ batchID, actor = 'payroll-cron', force = false }) {
+export async function payBatchViaConnect({ batchID, actor = 'payroll-cron' }) {
   const batch = await RepairPayrollBatchesModel.findByBatchID(batchID);
   const user = await loadUser(batch?.userID);
   if (user?.stripeConnect?.accountId) {
     try { Object.assign(user.stripeConnect, summarizeAccount(await retrieveAccount(user.stripeConnect.accountId))); } catch { /* use stored state */ }
   }
-  // `force` (an admin pressing Pay via Stripe) waives the auto-pay switch only — the batch must still
-  // be finalized with money in it, and the account must be live.
-  const check = force && batch?.status === PAYROLL_BATCH_STATUS.FINALIZED && batchAmount(batch) > 0 && user?.stripeConnect?.payoutsEnabled
-    ? { eligible: true, amount: batchAmount(batch) }
-    : payoutEligibility({ batch, user });
-  if (!check.eligible) return { paid: false, batchID, reason: check.reason };
+  const check = payoutEligibility({ batch, user });
+  if (!check.eligible) return { paid: false, batchID, userID: batch?.userID, userName: batch?.userName, amount: batchAmount(batch || {}), reason: check.reason };
 
   const amountCents = Math.round(check.amount * 100);
   const balance = await retrieveBalance();
@@ -161,8 +149,9 @@ export async function payBatchViaConnect({ batchID, actor = 'payroll-cron', forc
 }
 
 /**
- * Pay every finalized batch whose payee is connected and on auto-pay. Never throws; returns a
- * summary and tells admins about anything that needs a hand.
+ * Pay every finalized batch whose payee has a live Stripe account. Never throws; returns a summary
+ * (paid / waiting on Stripe setup / short balance / errors) and tells admins about anything that
+ * needs a hand.
  */
 export async function runConnectPayouts({ actor = 'payroll-cron', notify = true } = {}) {
   const result = { paid: [], skipped: [], shortfall: [], errors: [], stripe: isStripeConfigured() ? stripeMode() : 'unconfigured' };
@@ -184,6 +173,8 @@ export async function runConnectPayouts({ actor = 'payroll-cron', notify = true 
     const parts = [];
     if (result.paid.length) parts.push(`Paid ${result.paid.length}: ${result.paid.map((p) => `${p.userName || p.userID} ${money(p.amount)}`).join(', ')}.`);
     if (result.shortfall.length) parts.push(`Balance short for ${result.shortfall.map((s) => `${money(s.amount)}`).join(', ')} (available ${money(result.shortfall[0].available)}) — will retry.`);
+    const waiting = result.skipped.filter((b) => /no Stripe account|onboarding not finished/.test(b.reason));
+    if (waiting.length) parts.push(`Waiting on Stripe setup: ${[...new Set(waiting.map((b) => b.userName || b.userID))].join(', ')} (${money(waiting.reduce((s, b) => s + (b.amount || 0), 0))}).`);
     if (result.errors.length) parts.push(`${result.errors.length} transfer${result.errors.length === 1 ? '' : 's'} failed: ${result.errors.map((e) => e.error).join('; ')}.`);
     await notifyAllAdmins({
       type: 'payroll-payouts',
@@ -198,4 +189,36 @@ export async function runConnectPayouts({ actor = 'payroll-cron', notify = true 
     }).catch(() => {});
   }
   return result;
+}
+
+/**
+ * Weekly nudge: every payee with a finalized, unpaid batch and no live Stripe account is told how
+ * much is waiting and where to connect. Called from the Monday run, not the daily payout cron.
+ */
+export async function nudgeUnpaidPayees({ payrollUrlForPayee = `${adminBase()}/dashboard/artisan/payroll` } = {}) {
+  const finalized = await RepairPayrollBatchesModel.list({ status: PAYROLL_BATCH_STATUS.FINALIZED });
+  const byUser = new Map();
+  for (const b of finalized) {
+    const cur = byUser.get(b.userID) || { userID: b.userID, userName: b.userName, amount: 0, weeks: 0 };
+    cur.amount += batchAmount(b); cur.weeks += 1; byUser.set(b.userID, cur);
+  }
+  const nudged = [];
+  for (const entry of byUser.values()) {
+    const user = await loadUser(entry.userID);
+    if (!user || isConnectLive(user)) continue;
+    const { NotificationService } = await import('@/lib/notificationService');
+    await NotificationService.createNotification({
+      userId: user.userID,
+      recipientEmail: user.email || '',
+      type: 'payout-waiting',
+      title: `${money(entry.amount)} is waiting for you`,
+      message: `${entry.weeks} payroll batch${entry.weeks === 1 ? '' : 'es'} totaling ${money(entry.amount)} ${entry.weeks === 1 ? 'is' : 'are'} finalized and unpaid. Payouts go only through Stripe — connect your account and it is transferred automatically.`,
+      channels: ['inApp', 'email'],
+      priority: 'high',
+      tags: ['payroll', 'stripe-connect'],
+      data: { actionUrl: payrollUrlForPayee, actionLabel: 'Connect with Stripe', relatedType: 'payroll', amount: entry.amount },
+    }).catch(() => {});
+    nudged.push({ userID: entry.userID, userName: entry.userName, amount: entry.amount });
+  }
+  return nudged;
 }

@@ -1027,16 +1027,14 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
               <Button onClick={() => updateBatch('void')} disabled={actionLoading} color="inherit">
                 {actionLoading ? 'Saving...' : 'Void Batch'}
               </Button>
-              <Button onClick={() => updateBatch('pay_stripe')} disabled={actionLoading} variant="outlined">
-                {actionLoading ? 'Saving...' : 'Pay via Stripe'}
-              </Button>
+              {/* Stripe Connect is the only way a batch is paid (owner, 2026-09-22). */}
               <Button
                 variant="contained"
-                onClick={() => updateBatch('mark_paid')}
+                onClick={() => updateBatch('pay_stripe')}
                 disabled={actionLoading}
                 sx={{ bgcolor: REPAIRS_UI.accent, color: '#000', '&:hover': { bgcolor: '#FFCF4D' } }}
               >
-                {actionLoading ? 'Saving...' : 'Mark Paid'}
+                {actionLoading ? 'Paying...' : 'Pay now via Stripe'}
               </Button>
             </>
           )}

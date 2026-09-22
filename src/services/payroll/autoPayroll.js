@@ -7,12 +7,11 @@
  *
  *   - every closed week (Monday..Sunday before the current Monday) with unbatched labor or sale
  *     payouts gets its batch created and finalized — including weeks that were missed;
- *   - an OWNER-OPERATOR's batch is settled immediately as `owner-draw-ledger`: the owner's labor
- *     is earnings bookkeeping, not a payout (there is no one to pay), so it never sits "owed";
- *   - anyone else's batch is left FINALIZED and admins are told there is money to pay.
- *
- * Money never moves here. When Stripe Connect payouts land (the labor-log `payeeUserID` field is
- * already in place for it), the "toPay" list is where a transfer would be initiated.
+ *   - every finalized batch whose payee has a live Stripe Connect account is PAID by transfer
+ *     (services/payroll/connectPayouts.js) — the owner's own labor included; the owner is a payee
+ *     like anyone else (owner, 2026-09-22: Stripe is the only path — no ledger settlement, no
+ *     manual Mark Paid);
+ *   - anything left finalized is waiting on the payee's Stripe setup; they are nudged, admins see it.
  *
  * Idempotent: an open batch for a jeweler-week is skipped, and batched logs are no longer
  * candidates, so re-running on the same Monday is a no-op.
@@ -21,15 +20,12 @@ import {
   listPayrollCandidates,
   createPayrollBatch,
   finalizePayrollBatch,
-  markPayrollBatchPaid,
-  getOwnerOperatorUserIDs,
 } from '@/app/api/repairs/payroll/service';
 import { getMondayOfWeek } from '@/services/payrollUtils';
 import { notifyAllAdmins } from '@/lib/notificationService';
 import { adminBase } from '@/lib/appUrls';
-import { isAutoPayReady, runConnectPayouts } from '@/services/payroll/connectPayouts';
+import { runConnectPayouts, nudgeUnpaidPayees } from '@/services/payroll/connectPayouts';
 
-export const OWNER_LEDGER_METHOD = 'owner-draw-ledger';
 export const PAYROLL_CRON_ACTOR = 'payroll-cron';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -43,13 +39,9 @@ export function lastClosedWeekStart(now = new Date()) {
 
 export async function runWeeklyPayroll({ now = new Date(), createdBy = PAYROLL_CRON_ACTOR, notify = true } = {}) {
   const weekEnd = lastClosedWeekStart(now);
-  const [candidates, ownerIDs] = await Promise.all([
-    listPayrollCandidates({ weekEnd }),
-    getOwnerOperatorUserIDs(),
-  ]);
-  const owners = new Set(ownerIDs);
+  const candidates = await listPayrollCandidates({ weekEnd });
 
-  const result = { weekEnd, ownerLedger: [], toPay: [], skipped: [], errors: [], payouts: null };
+  const result = { weekEnd, finalized: [], toPay: [], skipped: [], errors: [], payouts: null, nudged: [] };
 
   for (const candidate of candidates) {
     const label = { userID: candidate.userID, userName: candidate.userName, weekStart: candidate.weekStart };
@@ -62,21 +54,7 @@ export async function runWeeklyPayroll({ now = new Date(), createdBy = PAYROLL_C
       });
       await finalizePayrollBatch(batch.batchID);
       const amount = Number(batch.laborPay || 0) + Number(batch.salePay || 0);
-
-      // An owner-operator who is connected to Stripe with auto-pay on gets a real transfer below,
-      // like any other payee; otherwise their labor settles to the ledger (nobody to pay).
-      if (owners.has(candidate.userID) && !(await isAutoPayReady(candidate.userID))) {
-        await markPayrollBatchPaid(batch.batchID, {
-          paidAt: now,
-          paymentMethod: OWNER_LEDGER_METHOD,
-          paymentReference: 'auto',
-          notes: 'Owner-operator labor — ledger only, no payout.',
-          notify: false,
-        });
-        result.ownerLedger.push({ ...label, batchID: batch.batchID, amount, hours: Number(batch.laborHours || 0) });
-      } else {
-        result.toPay.push({ ...label, batchID: batch.batchID, amount, hours: Number(batch.laborHours || 0) });
-      }
+      result.finalized.push({ ...label, batchID: batch.batchID, amount, hours: Number(batch.laborHours || 0) });
     } catch (error) {
       if (/already exists/i.test(error?.message || '')) {
         result.skipped.push({ ...label, reason: 'open batch exists' });
@@ -86,11 +64,12 @@ export async function runWeeklyPayroll({ now = new Date(), createdBy = PAYROLL_C
     }
   }
 
-  // Money: every finalized batch whose payee is connected + on auto-pay (owner included).
+  // Money: every finalized batch (this week's and any older ones) whose payee has a live Stripe
+  // account, the owner included. Whatever is still finalized afterwards is waiting on Stripe setup.
   try {
     result.payouts = await runConnectPayouts({ actor: createdBy, notify: false });
-    const paidIDs = new Set((result.payouts.paid || []).map((p) => p.batchID));
-    result.toPay = result.toPay.filter((b) => !paidIDs.has(b.batchID));
+    result.toPay = (result.payouts.skipped || []).filter((b) => /no Stripe account|onboarding not finished|insufficient/.test(b.reason || ''));
+    result.nudged = await nudgeUnpaidPayees();
   } catch (error) {
     result.errors.push({ error: `Stripe payouts: ${error?.message || error}` });
   }
@@ -103,55 +82,32 @@ export async function runWeeklyPayroll({ now = new Date(), createdBy = PAYROLL_C
 export async function notifyPayrollRun(result) {
   const payrollUrl = `${adminBase()}/dashboard/repairs/payroll`;
   try {
-    const paidViaStripe = result.payouts?.paid || [];
-    const stripeLine = paidViaStripe.length
-      ? ` Paid by Stripe: ${paidViaStripe.map((p) => `${p.userName || p.userID} ${money(p.amount)}`).join(', ')}.`
-      : '';
-    const shortLine = result.payouts?.shortfall?.length
-      ? ` Stripe balance short for ${result.payouts.shortfall.map((b) => money(b.amount)).join(', ')} — retried daily.`
-      : '';
-    if (result.toPay.length > 0) {
-      const total = result.toPay.reduce((s, b) => s + b.amount, 0);
-      const names = [...new Set(result.toPay.map((b) => b.userName || b.userID))].join(', ');
-      await notifyAllAdmins({
-        type: 'payroll-ready',
-        title: `Payroll ready: ${money(total)} to pay`,
-        message: `${result.toPay.length} finalized batch${result.toPay.length === 1 ? '' : 'es'} for ${names}. Pay them and mark paid on the payroll page.${stripeLine}${shortLine}`,
-        actionUrl: payrollUrl,
-        actionLabel: 'Open payroll',
-        priority: 'high',
-        channels: ['inApp', 'email', 'push'],
-        relatedType: 'payroll-run',
-        relatedData: { toPay: result.toPay, ownerLedger: result.ownerLedger, errors: result.errors },
-      });
-    } else if (paidViaStripe.length > 0) {
-      await notifyAllAdmins({
-        type: 'payroll-ran',
-        title: `Payroll ran — ${money(paidViaStripe.reduce((s, p) => s + p.amount, 0))} paid by Stripe`,
-        message: `${stripeLine.trim()}${shortLine}${result.errors.length ? ` ${result.errors.length} batch${result.errors.length === 1 ? '' : 'es'} failed — see payroll.` : ''}`.trim(),
-        actionUrl: payrollUrl,
-        actionLabel: 'Open payroll',
-        priority: result.errors.length ? 'normal' : 'low',
-        channels: ['inApp'],
-        relatedType: 'payroll-run',
-        relatedData: { payouts: result.payouts, errors: result.errors },
-      });
-    } else if (result.ownerLedger.length > 0 || result.errors.length > 0) {
-      const ledgerTotal = result.ownerLedger.reduce((s, b) => s + b.amount, 0);
-      const ledgerHours = result.ownerLedger.reduce((s, b) => s + b.hours, 0);
-      const weeks = result.ownerLedger.length;
-      await notifyAllAdmins({
-        type: 'payroll-ran',
-        title: 'Payroll ran — nothing to pay',
-        message: `${weeks ? `Your labor: ${money(ledgerTotal)} over ${ledgerHours.toFixed(2)} hrs (${weeks} week${weeks === 1 ? '' : 's'}), settled to the ledger.` : ''}${result.errors.length ? ` ${result.errors.length} batch${result.errors.length === 1 ? '' : 'es'} failed — see payroll.` : ''}`.trim(),
-        actionUrl: payrollUrl,
-        actionLabel: 'Open payroll',
-        priority: result.errors.length ? 'normal' : 'low',
-        channels: ['inApp'],
-        relatedType: 'payroll-run',
-        relatedData: { ownerLedger: result.ownerLedger, errors: result.errors },
-      });
-    }
+    const paid = result.payouts?.paid || [];
+    const shortfall = result.payouts?.shortfall || [];
+    const waiting = result.toPay.filter((b) => !/insufficient/.test(b.reason || ''));
+    const parts = [];
+    if (paid.length) parts.push(`Paid by Stripe: ${paid.map((p) => `${p.userName || p.userID} ${money(p.amount)}`).join(', ')}.`);
+    if (waiting.length) parts.push(`Waiting on Stripe setup: ${[...new Set(waiting.map((b) => b.userName || b.userID))].join(', ')} (${money(waiting.reduce((s, b) => s + (b.amount || 0), 0))}) — they were nudged to connect.`);
+    if (shortfall.length) parts.push(`EFD's Stripe balance was short for ${shortfall.map((b) => money(b.amount)).join(', ')} — retried daily.`);
+    if (result.errors.length) parts.push(`${result.errors.length} batch${result.errors.length === 1 ? '' : 'es'} failed — see payroll.`);
+    if (!parts.length) return; // nothing happened, say nothing
+
+    const needsHand = shortfall.length > 0 || result.errors.length > 0;
+    await notifyAllAdmins({
+      type: needsHand ? 'payroll-ready' : 'payroll-ran',
+      title: needsHand
+        ? 'Payroll ran — something needs a look'
+        : paid.length
+          ? `Payroll ran — ${money(paid.reduce((s, p) => s + p.amount, 0))} paid by Stripe`
+          : 'Payroll ran — waiting on Stripe setup',
+      message: parts.join(' '),
+      actionUrl: payrollUrl,
+      actionLabel: 'Open payroll',
+      priority: needsHand ? 'high' : 'low',
+      channels: needsHand ? ['inApp', 'email', 'push'] : ['inApp'],
+      relatedType: 'payroll-run',
+      relatedData: { finalized: result.finalized, payouts: result.payouts, nudged: result.nudged, errors: result.errors },
+    });
   } catch (error) {
     console.error('payroll run notification failed (non-fatal):', error?.message);
   }
