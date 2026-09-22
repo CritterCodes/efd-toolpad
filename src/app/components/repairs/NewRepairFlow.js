@@ -514,8 +514,10 @@ export default function NewRepairFlow(props) {
   };
 
   const canRequestQuote = Boolean(formData.isWholesale) && submitMode === 'create' && !isQuote;
+  // A quote request still prints the ticket — the piece travels with paper like any other job; the
+  // ticket shows "quote pending" in place of a total (components/print/RepairTicketComponent.js).
   const requestQuote = () => {
-    if (onPrintChoice) onPrintChoice(false);
+    if (onPrintChoice) onPrintChoice(true);
     handleSubmit({ requestQuote: true });
   };
 
@@ -1395,8 +1397,9 @@ export default function NewRepairFlow(props) {
               {errors.submit && <Alert ref={submitErrorRef} severity="error" sx={{ py: 0 }}>{errors.submit}</Alert>}
               {quoteIntent && canRequestQuote ? (
                 <>
-                  <GoldButton onClick={requestQuote} disabled={loading} aria-label="Request quote">
-                    {loading ? 'Sending…' : 'Request quote from EFD'}
+                  <GoldButton onClick={requestQuote} disabled={loading} aria-label="Request quote and print ticket">
+                    <PrintGlyph />
+                    {loading ? 'Sending…' : 'Request quote & print ticket'}
                   </GoldButton>
                   <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
                     <QuietButton onClick={() => setQuoteIntent(false)} disabled={loading} aria-label="Price it myself instead">
