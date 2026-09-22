@@ -84,7 +84,14 @@ export async function finalizeInvoiceFulfillment({ invoiceID, method = 'pickup',
   const invoice = await RepairInvoicesModel.findByInvoiceID(invoiceID);
   if (!invoice) throw err('Invoice not found.', 'NOT_FOUND');
 
-  const set = buildFulfillmentUpdate({ method, quote: invoice.shippingQuote || null, rateId, actor });
+  // A hand delivery bills the shop's delivery fee (Store Settings → pricing.deliveryFee).
+  let deliveryFee = 0;
+  if (method === 'delivery') {
+    const dbi = await db.connect();
+    const settings = await dbi.collection('adminSettings').findOne({}, { projection: { 'pricing.deliveryFee': 1 } });
+    deliveryFee = Number(settings?.pricing?.deliveryFee) || 0;
+  }
+  const set = buildFulfillmentUpdate({ method, quote: invoice.shippingQuote || null, rateId, actor, deliveryFee });
   const totals = calculateInvoiceTotals(invoice.repairSnapshots || [], set.deliveryFee, 0, invoice.amountPaid, set.shippingFee);
   const updated = await RepairInvoicesModel.updateByInvoiceID(invoice.invoiceID, {
     ...set,

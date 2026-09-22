@@ -18,7 +18,8 @@ const serviceLabel = (s) => String(s || '').replace(/_/g, ' ').toLowerCase().rep
  */
 export default function FinalizeFulfillment({ invoice, onFinalize }) {
   const isWholesale = invoice?.accountType === 'wholesale';
-  const [method, setMethod] = useState('pickup');
+  // Preselect what the store default (or a previous decision) already stamped on the invoice.
+  const [method, setMethod] = useState(['pickup', 'ship', 'delivery'].includes(invoice?.deliveryMethod) ? invoice.deliveryMethod : 'pickup');
   const [readiness, setReadiness] = useState(null);
   const [parcelKey, setParcelKey] = useState('');
   const [saturday, setSaturday] = useState(!!invoice?.shippingQuote?.saturdayDelivery);
@@ -59,7 +60,7 @@ export default function FinalizeFulfillment({ invoice, onFinalize }) {
   const finalize = async () => {
     setBusy(true); setError('');
     try {
-      await onFinalize(invoice.invoiceID, method === 'ship' ? { method, rateId } : { method: 'pickup' });
+      await onFinalize(invoice.invoiceID, method === 'ship' ? { method, rateId } : { method });
     } catch (e) {
       setError(e.message);
     } finally {
@@ -68,7 +69,7 @@ export default function FinalizeFulfillment({ invoice, onFinalize }) {
   };
 
   const selected = quote?.rates?.find((r) => r.rateId === rateId) || null;
-  const canFinalize = method === 'pickup' || (method === 'ship' && selected);
+  const canFinalize = method === 'pickup' || method === 'delivery' || (method === 'ship' && selected);
 
   return (
     <Box sx={{ border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, p: 1.5, bgcolor: REPAIRS_UI.bgCard }}>
@@ -77,7 +78,14 @@ export default function FinalizeFulfillment({ invoice, onFinalize }) {
         <FormControlLabel value="pickup" control={<Radio size="small" />} label={<Stack direction="row" spacing={0.5} alignItems="center"><StorefrontIcon fontSize="small" /><span>Pickup</span></Stack>} />
         <FormControlLabel value="ship" disabled={!isWholesale} control={<Radio size="small" />}
           label={<Stack direction="row" spacing={0.5} alignItems="center"><LocalShippingIcon fontSize="small" /><span>Ship (FedEx)</span></Stack>} />
+        <FormControlLabel value="delivery" disabled={!isWholesale} control={<Radio size="small" />}
+          label={<Stack direction="row" spacing={0.5} alignItems="center"><StorefrontIcon fontSize="small" /><span>Hand delivery</span></Stack>} />
       </RadioGroup>
+      {method === 'delivery' && (
+        <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
+          Goes on the store run; shows on Shipping &amp; Delivery until you mark it delivered. Bills the delivery fee from Store Settings.
+        </Typography>
+      )}
       {!isWholesale && <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>Retail invoices are pickup only.</Typography>}
 
       {method === 'ship' && (

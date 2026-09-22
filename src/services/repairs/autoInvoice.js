@@ -1,6 +1,7 @@
 import RepairsModel from '@/app/api/repairs/model';
 import RepairInvoicesModel from '@/app/api/repair-invoices/model';
 import { createRepairInvoice } from '@/app/api/repair-invoices/service';
+import { fulfillmentPreferenceForRepair, applyStoreFulfillmentDefault } from '@/services/shipping/storeFulfillment';
 
 /**
  * Repairs land on an invoice the moment QC passes them (owner, 2026-09-04: "there's a step
@@ -67,17 +68,32 @@ export async function autoInvoiceAtQcPass({ repairID, deliveryMethod = 'pickup',
     }
 
     try {
+      // The store's default decides how the work goes back (services/shipping/storeFulfillment.js).
+      // It is the append key too, so the day's repairs for one store land on ONE invoice.
+      let preference = null;
+      try {
+        const repair = await RepairsModel.findById(repairID);
+        preference = await fulfillmentPreferenceForRepair(repair);
+      } catch (prefError) {
+        console.warn(`[auto-invoice] store preference lookup failed for ${repairID}:`, prefError?.message);
+      }
       const invoice = await createRepairInvoice({
         repairIDs: [repairID],
-        deliveryMethod,
+        deliveryMethod: preference?.method || deliveryMethod,
         createdBy,
         appendToOpen: true,
       });
+      // Finalize it the way the store always wants — pickup / hand delivery immediately, ship with a
+      // quoted rate. Best-effort: on any failure the draft waits for the manual Finalize as before.
+      const fulfillment = preference
+        ? await applyStoreFulfillmentDefault({ invoiceID: invoice.invoiceID, preference })
+        : { applied: false, reason: 'store has no fulfillment preference' };
       return {
         invoiced: true,
         invoiceID: invoice.invoiceID,
-        invoiceStatus: invoice.status,
+        invoiceStatus: fulfillment.applied ? 'open' : invoice.status,
         repairCount: Array.isArray(invoice.repairIDs) ? invoice.repairIDs.length : 0,
+        fulfillment,
       };
     } catch (invoiceError) {
       const alreadyInvoiced = await releaseClaimIfUninvoiced(repairID);

@@ -19,6 +19,7 @@ import {
 import { wholesaleRepairsClient } from '@/api-clients/wholesaleRepairs.client';
 import { normalizeRepairWorkflow, REPAIR_STATUS } from '@/services/repairWorkflow';
 import { isAdminRole, canReceiveWholesale } from '@/lib/repairAccess';
+import StoreFulfillmentSelect from '@/components/admin/StoreFulfillmentSelect';
 
 export default function StorePickupDetailPage() {
     const { data: session } = useSession();
@@ -152,6 +153,8 @@ export default function StorePickupDetailPage() {
                     <Typography variant="body2" color="text.secondary">
                         {receivedIds.size} of {repairs.length} ready for work
                     </Typography>
+                    {/* How this store gets finished work back — drives the automatic Finalize at QC pass. */}
+                    <StoreFulfillmentSelect storeUserID={decodedStoreId} />
                 </Box>
                 <Button startIcon={<RefreshIcon />} onClick={loadRepairs} disabled={loading}>Refresh</Button>
                 <Button
