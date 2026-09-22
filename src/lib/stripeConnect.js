@@ -104,7 +104,7 @@ export function summarizeAccount(account = {}) {
     payoutsEnabled: account.payouts_enabled === true,
     chargesEnabled: account.charges_enabled === true,
     transfersActive: account.capabilities?.transfers === 'active',
-    requirementsDue: [...(account.requirements?.currently_due || []), ...(account.requirements?.past_due || [])],
+    requirementsDue: [...new Set([...(account.requirements?.currently_due || []), ...(account.requirements?.past_due || [])])],
     disabledReason: account.requirements?.disabled_reason || null,
     email: account.email || '',
   };
