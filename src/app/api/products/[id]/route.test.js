@@ -15,6 +15,8 @@ vi.mock('next/server', () => ({
 
 vi.mock('@/lib/auth', () => ({ auth: mocks.auth }));
 vi.mock('@/lib/database', () => ({ db: { connect: mocks.connect } }));
+// This suite is about field stripping; the artisan terms gate (services/policies/termsGate.js) has its own tests.
+vi.mock('@/services/policies/termsGate', () => ({ termsGateResponse: async () => null }));
 
 import { GET, PUT } from './route.js';
 
