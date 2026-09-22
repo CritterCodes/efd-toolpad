@@ -19,6 +19,7 @@ export default function AffiliatePayoutsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [batches, setBatches] = useState(null);
+  const [waiting, setWaiting] = useState([]);
 
   useEffect(() => {
     if (status === 'authenticated' && session?.user?.role !== 'affiliate') router.push('/dashboard');
@@ -27,6 +28,10 @@ export default function AffiliatePayoutsPage() {
   useEffect(() => {
     if (status !== 'authenticated') return;
     fetch('/api/payouts/mine').then((r) => r.json()).then((b) => setBatches(Array.isArray(b?.batches) ? b.batches : [])).catch(() => setBatches([]));
+    // Commissions the shop still has to price — with the reason — so "no payouts yet" is never a mystery.
+    fetch('/api/affiliates/commissions').then((r) => r.json())
+      .then((d) => setWaiting((d?.data?.commissions || []).filter((c) => c.status === 'needs_review')))
+      .catch(() => setWaiting([]));
   }, [status]);
 
   if (status !== 'authenticated' || session?.user?.role !== 'affiliate') {
@@ -44,6 +49,25 @@ export default function AffiliatePayoutsPage() {
       </Typography>
 
       <ConnectPayoutCard sx={{ mb: 3 }} />
+
+      {waiting.length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="overline" color="text.secondary">Waiting on the shop</Typography>
+          <Stack spacing={1} sx={{ mt: 1 }}>
+            {waiting.map((c) => (
+              <Card key={c.commissionId}>
+                <CardContent>
+                  <Typography fontWeight={600}>{c.review?.title || 'Waiting on the shop to price this order'}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{c.review?.detail}</Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                    {c.createdAt ? `Order paid ${new Date(c.createdAt).toLocaleDateString()} · ` : ''}{c.review?.nextStep}
+                  </Typography>
+                </CardContent>
+              </Card>
+            ))}
+          </Stack>
+        </Box>
+      )}
 
       <Typography variant="overline" color="text.secondary">Payout history</Typography>
       {batches === null ? (
