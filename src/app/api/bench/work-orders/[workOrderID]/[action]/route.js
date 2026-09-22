@@ -4,6 +4,7 @@ import { runBenchAction } from '@/services/bench/benchActions';
 
 const CODE_STATUS = {
   FORBIDDEN: 403,
+  TERMS_REQUIRED: 403, // artisan terms not accepted (services/policies/termsGate.js)
   LANE_FORBIDDEN: 403,
   NOT_FOUND: 404,
   BAD_REQUEST: 400,
@@ -27,6 +28,6 @@ export const POST = async (req, { params }) => {
   } catch (error) {
     const status = CODE_STATUS[error.code] || 500;
     if (status === 500) console.error(`Error in bench action "${action}":`, error.message);
-    return NextResponse.json({ error: error.message }, { status });
+    return NextResponse.json({ error: error.message, ...(error.code ? { code: error.code } : {}), ...(error.policyUrl ? { policyUrl: error.policyUrl } : {}) }, { status });
   }
 };

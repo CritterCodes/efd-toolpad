@@ -4,6 +4,7 @@ import DesignsModel from '@/app/api/designs/model';
 import DropsModel from '@/app/api/drops/model';
 import { isStaff, canCreateDesignCategory, designListFilter, sessionArtisanTypes } from '@/lib/designPermissions';
 import { canViewDrop } from '@/lib/dropPermissions';
+import { termsGateResponse } from '@/services/policies/termsGate';
 
 /** GET /api/production/designs — list designs (optional ?dropID=).
  *  Staff see everything; artisans see ONLY their own designs (primaryArtisanId). */
@@ -33,6 +34,9 @@ export const POST = async (req) => {
 
   const body = await req.json().catch(() => ({}));
   if (!body?.name) return NextResponse.json({ error: 'name is required.' }, { status: 400 });
+
+  const termsGate = await termsGateResponse(session); // artisan terms gate (staff/admin never gated)
+  if (termsGate) return termsGate;
 
   if (!canCreateDesignCategory(session, body.category)) {
     const need = body.category === 'gemstone' ? 'gem cutters' : 'jewelers, engravers, or CAD designers';

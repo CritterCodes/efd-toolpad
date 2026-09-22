@@ -223,7 +223,7 @@ function ArtisanApp() {
         { title: 'My Work', body: 'Work orders you have claimed or been assigned — CAD, bench, gem cutting. Same credit at QC.', href: '/dashboard/artisan/my-work', cta: 'My Work' },
         { title: 'My Invoices', body: 'What you owe (casting, work others did for you). An overdue invoice pauses new work until paid.', href: '/dashboard/artisan/invoices', cta: 'Invoices' },
         { title: 'Payroll', body: 'Connect Stripe once, then watch each week’s batch: labor, sales, status, paid date.', href: '/dashboard/artisan/payroll', cta: 'Payroll' },
-        { title: 'Terms', body: 'The plain-language terms you accept: nothing fronted, title passes at payment.', href: '/dashboard/policies', cta: 'Terms' },
+        { title: 'Terms', body: 'The plain-language terms you accept: nothing fronted, title passes at payment. Required before claiming work, moving a job to QC, creating a design or run, editing a listing, or connecting Stripe; a version bump asks again.', href: '/dashboard/policies', cta: 'Terms' },
       ]} />
     </Section>
   );

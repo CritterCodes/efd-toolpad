@@ -22,6 +22,7 @@ import { autoInvoiceAtQcPass } from '@/services/repairs/autoInvoice';
 import { repriceStullerMaterialForRepair } from '@/services/pricing/stullerMaterial';
 import { readQcMode, canSelfCertify } from '@/services/repairs/qcMode';
 import { notifyReadyForPickup } from '@/services/repairs/readyForPickup';
+import { assertTermsAccepted } from '@/services/policies/termsGate';
 import {
   buildClaimRepairUpdate,
   buildUnclaimRepairUpdate,
@@ -118,6 +119,7 @@ async function runRepairAction({ session, repairID, action, body }) {
   switch (action) {
     case 'claim': {
       assertRepairOps(session, 'benchWork');
+      await assertTermsAccepted(session); // artisan terms gate (services/policies/termsGate.js)
       const repair = await RepairsModel.findById(repairID);
       return RepairsModel.updateById(repairID, buildClaimRepairUpdate({
         repair, userID: session.user.userID, userName: session.user.name, now,
@@ -133,11 +135,13 @@ async function runRepairAction({ session, repairID, action, body }) {
     }
     case 'move-to-qc': {
       assertRepairOps(session, 'benchWork');
+      await assertTermsAccepted(session);
       return moveRepairToQc(session, repairID);
     }
     case 'handoff': {
       // Bench-native partial sign-off + handoff. Auth mirrors move-to-qc (benchWork); the
       // service further requires the caller hold the repair OR be admin (acting on behalf).
+      await assertTermsAccepted(session); // artisan terms gate
       assertRepairOps(session, 'benchWork');
       const repair = await RepairsModel.findById(repairID);
       if (!isAdminRole(session) && repair.assignedTo !== session.user.userID) {
@@ -158,6 +162,7 @@ async function runRepairAction({ session, repairID, action, body }) {
       // One tap for a one-jeweler shop (services/repairs/qcMode.js): sign off the work AND pass QC.
       // Only when the shop is in self-certify mode, only for the jeweler holding the repair (or an
       // admin), and only for callers who could pass QC anyway. Stamped so it stays auditable.
+      await assertTermsAccepted(session); // artisan terms gate
       assertRepairOps(session, 'benchWork');
       const mode = await readQcMode();
       if (!canSelfCertify({ session, mode })) {
@@ -251,6 +256,7 @@ function assertPieceWork(session) {
 }
 
 async function runPieceAction({ session, workOrderID, action, body }) {
+  if (['claim', 'move-to-qc', 'cad-submit-qc', 'complete-from-qc', 'cad-qc-approve'].includes(action)) await assertTermsAccepted(session); // artisan terms gate
   assertPieceWork(session);
   switch (action) {
     case 'claim':

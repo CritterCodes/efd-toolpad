@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import { mergeProductEditorUpdate } from '@/services/products/productEditorPayload';
 import { canManageGemstones, loadArtisanTypes } from '@/lib/productPermissions';
+import { termsGateResponse } from '@/services/policies/termsGate';
 
 const ADMIN_ROLES = new Set(['admin', 'superadmin', 'dev', 'staff']);
 const userId = (session) => session?.user?.userID || session?.user?.id;
@@ -85,6 +86,10 @@ export async function PUT(request, { params }) {
 
     if (!isAdmin && (!isArtisan || !isOwner)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+    }
+    if (!isAdmin) {
+      const gate = await termsGateResponse(session); // artisan terms gate
+      if (gate) return gate;
     }
 
     // Artisans can only edit draft products
