@@ -70,6 +70,35 @@ export function buildPayrollBatchTotals(logs = []) {
   };
 }
 
+/**
+ * What a payroll batch pays, split honestly. Since 2026-09-22 a batch stores `laborPay` (labor only),
+ * `salePay` (consignment / sale payouts) and `totalPay` (their sum) — that is what Stripe transfers.
+ * Batches written before that stored the TOTAL in `laborPay` (and the sale part again in `salePay`),
+ * which is why the fallback here reads `laborPay` as the total when `totalPay` is absent. The prod
+ * and dev collections were normalized (totalPay stamped, laborPay reduced) the same day, so the
+ * fallback only matters for docs written by code older than this helper.
+ */
+export function splitBatchPay(batch = {}) {
+  const round = (n) => Math.round(Number(n || 0) * 100) / 100;
+  const salePay = round(batch.salePay);
+  if (batch.totalPay !== null && batch.totalPay !== undefined && Number.isFinite(Number(batch.totalPay))) {
+    const totalPay = round(batch.totalPay);
+    return { laborPay: round(totalPay - salePay), salePay, totalPay };
+  }
+  if (batch.cadence === 'daily') {
+    // daily batches always stored labor-only laborPay
+    const laborPay = round(batch.laborPay);
+    return { laborPay, salePay, totalPay: round(laborPay + salePay) };
+  }
+  const totalPay = round(batch.laborPay);
+  return { laborPay: Math.max(round(totalPay - salePay), 0), salePay, totalPay };
+}
+
+/** The amount a batch pays out (before any daily payout fee). */
+export function payrollTotal(batch = {}) {
+  return splitBatchPay(batch).totalPay;
+}
+
 export function canVoidPayrollBatch(status) {
   return status === PAYROLL_BATCH_STATUS.DRAFT || status === PAYROLL_BATCH_STATUS.FINALIZED;
 }

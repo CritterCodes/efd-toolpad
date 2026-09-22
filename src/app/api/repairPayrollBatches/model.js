@@ -21,8 +21,12 @@ export default class RepairPayrollBatchesModel {
       weekEnd: data.weekEnd ? new Date(data.weekEnd) : getWeekEndFromStart(weekStart),
       status: data.status || PAYROLL_BATCH_STATUS.DRAFT,
       laborHours: Number(data.laborHours || 0),
+      // laborPay = labor only, salePay = sale/consignment payouts, totalPay = what gets paid.
       laborPay: Number(data.laborPay || 0),
       salePay: Number(data.salePay || 0),
+      totalPay: Math.round((Number.isFinite(Number(data.totalPay)) && data.totalPay !== null && data.totalPay !== undefined
+        ? Number(data.totalPay)
+        : Number(data.laborPay || 0) + Number(data.salePay || 0)) * 100) / 100,
       repairsWorked: Number(data.repairsWorked || 0),
       entryCount: Number(data.entryCount || 0),
       logIDs: Array.isArray(data.logIDs) ? data.logIDs : [],

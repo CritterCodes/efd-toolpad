@@ -10,6 +10,7 @@ import { Paid as PaidIcon } from '@mui/icons-material';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import ConnectPayoutCard from '@/components/payroll/ConnectPayoutCard';
+import { payrollTotal } from '@/services/payrollUtils';
 
 const money = (n) => Number(n || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 const STATUS_COLOR = { paid: 'success', finalized: 'warning', draft: 'default', void: 'default' };
@@ -52,7 +53,7 @@ export default function AffiliatePayoutsPage() {
       ) : (
         <Stack spacing={1.5} sx={{ mt: 1 }}>
           {batches.map((b) => {
-            const gross = Number(b.laborPay || 0) + Number(b.salePay || 0);
+            const gross = payrollTotal(b);
             return (
               <Card key={b.batchID}>
                 <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>

@@ -142,7 +142,7 @@ export async function createDailyBatches({ userID, now = new Date(), createdBy =
     const batch = await RepairPayrollBatchesModel.create({
       userID, userName, weekStart: day, weekEnd: new Date(dayMs + DAY - 1), cadence: 'daily',
       laborHours: totals.laborHours, laborPay: totals.laborPay, repairsWorked: totals.repairsWorked, entryCount: totals.entryCount + group.payouts.length,
-      logIDs: group.logs.map((l) => l.logID), salePayoutIDs: group.payouts.map((p) => p.payoutID), salePay,
+      logIDs: group.logs.map((l) => l.logID), salePayoutIDs: group.payouts.map((p) => p.payoutID), salePay, totalPay: round2(totals.laborPay + salePay),
       status: PAYROLL_BATCH_STATUS.DRAFT, notes: `Daily payout batch for ${day.toLocaleDateString('en-US')}.`, createdBy,
     });
     await RepairLaborLogsModel.assignToPayrollBatch(batch.logIDs, batch.batchID);

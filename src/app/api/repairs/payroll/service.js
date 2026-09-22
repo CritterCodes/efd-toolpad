@@ -8,6 +8,7 @@ import {
   PAYROLL_BATCH_STATUS,
   canVoidPayrollBatch,
   getMondayOfWeek,
+  payrollTotal,
 } from '@/services/payrollUtils';
 import { adminBase } from '@/lib/appUrls';
 
@@ -128,10 +129,8 @@ export async function listPayrollCandidates({ weekStart, weekEnd, userID } = {})
     current.totalPay = current.laborPay + current.salePay;
     candidatesByKey.set(key, current);
   });
-  const candidates = [...candidatesByKey.values()].map((candidate) => ({
-    ...candidate,
-    laborPay: Number(candidate.laborPay || 0) + Number(candidate.salePay || 0),
-  }));
+  // laborPay stays labor-only; totalPay (set above) is labor + sale pay. Never fold one into the other.
+  const candidates = [...candidatesByKey.values()];
   const userMap = await getUserCompensationMap(candidates.map((candidate) => candidate.userID));
   return candidates.map((candidate) => applyCompensationMeta(candidate, userMap.get(candidate.userID)));
 }
@@ -165,7 +164,8 @@ export async function getPayrollCandidateDetail({ weekStart, userID }) {
   detail.salePayouts = salePayouts;
   detail.salePayoutIDs = salePayouts.map((payout) => payout.payoutID);
   detail.salePay = salePay;
-  detail.laborPay = Number(detail.laborPay || 0) + salePay;
+  detail.laborPay = Number(detail.laborPay || 0);
+  detail.totalPay = Math.round((detail.laborPay + salePay) * 100) / 100;
   detail.entryCount = Number(detail.entryCount || 0) + salePayouts.length;
   const userMap = await getUserCompensationMap([detail.userID]);
   return applyCompensationMeta(detail, userMap.get(detail.userID));
@@ -218,6 +218,7 @@ export async function createPayrollBatch({ weekStart, userID, createdBy, notes =
     logIDs,
     salePayoutIDs,
     salePay: candidate.salePay || 0,
+    totalPay: candidate.totalPay,
     status: PAYROLL_BATCH_STATUS.DRAFT,
     notes,
     createdBy,
@@ -282,7 +283,7 @@ export async function markPayrollBatchPaid(batchID, {
     if (notify && artisanUserID) {
       const userMap = await getUserCompensationMap([artisanUserID]);
       const user = userMap.get(artisanUserID);
-      const amount = Number(batch.laborPay || 0) + Number(batch.salePay || 0);
+      const amount = payrollTotal(batch);
       const amountLabel = amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
       await NotificationService.createNotification({
         userId: artisanUserID,

@@ -18,7 +18,7 @@
 import { db } from '@/lib/database';
 import RepairPayrollBatchesModel from '@/app/api/repairPayrollBatches/model';
 import { listPayrollCandidates } from '@/app/api/repairs/payroll/service';
-import { PAYROLL_BATCH_STATUS } from '@/services/payrollUtils';
+import { PAYROLL_BATCH_STATUS, payrollTotal } from '@/services/payrollUtils';
 import { batchAmount } from '@/services/payroll/connectPayouts';
 import { isStripeConfigured, stripeMode, retrieveBalance, availableUsdCents, pendingUsdCents, createTopup } from '@/lib/stripeConnect';
 import { notifyAllAdmins } from '@/lib/notificationService';
@@ -93,7 +93,7 @@ export async function projectPayrollDue() {
     listPayrollCandidates({}),
   ]);
   const finalizedTotal = finalized.reduce((s, b) => s + batchAmount(b), 0);
-  const unbatchedTotal = candidates.reduce((s, c) => s + Number(c.laborPay || 0), 0); // laborPay already includes salePay
+  const unbatchedTotal = candidates.reduce((s, c) => s + payrollTotal(c), 0);
   return {
     projected: round2(finalizedTotal + unbatchedTotal),
     finalizedTotal: round2(finalizedTotal),

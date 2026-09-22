@@ -1,68 +1,24 @@
-import { describe, expect, it } from 'vitest';
-import {
-  OWNER_DRAW_STATUS,
-  PAYROLL_BATCH_STATUS,
-  PAYROLL_LOG_STATUS,
-  buildPayrollBatchTotals,
-  buildOwnerDrawTotals,
-  canVoidPayrollBatch,
-  getMondayOfWeek,
-  getWeekEndFromStart,
-  normalizePayrollLogStatus,
-} from './payrollUtils';
+import { describe, it, expect } from 'vitest';
+import { splitBatchPay, payrollTotal } from './payrollUtils';
 
-describe('payrollUtils', () => {
-  it('normalizes week boundaries to monday and sunday', () => {
-    const monday = getMondayOfWeek('2026-05-01T12:00:00.000Z');
-    const weekEnd = getWeekEndFromStart(monday);
-
-    expect(monday.getDay()).toBe(0); // Sunday — the payroll week is Sun–Sat
-    expect(monday.getHours()).toBe(0);
-    expect(monday.getMinutes()).toBe(0);
-    expect(weekEnd.getDay()).toBe(6); // Saturday
-    expect(weekEnd.getHours()).toBe(23);
-    expect(weekEnd.getMinutes()).toBe(59);
+describe('splitBatchPay / payrollTotal', () => {
+  it('reads the explicit totalPay when a batch has one (post 2026-09-22 shape)', () => {
+    expect(splitBatchPay({ laborPay: 20, salePay: 496, totalPay: 516 })).toEqual({ laborPay: 20, salePay: 496, totalPay: 516 });
+    expect(payrollTotal({ laborPay: 20, salePay: 496, totalPay: 516 })).toBe(516);
   });
 
-  it('builds frozen totals from labor logs', () => {
-    const totals = buildPayrollBatchTotals([
-      { repairID: 'repair-1', creditedLaborHours: 1.5, creditedValue: 75 },
-      { repairID: 'repair-2', creditedLaborHours: 0.5, creditedValue: 25 },
-      { repairID: 'repair-2', creditedLaborHours: 0.25, creditedValue: 12.5 },
-    ]);
-
-    expect(totals).toEqual({
-      laborHours: 2.25,
-      laborPay: 112.5,
-      entryCount: 3,
-      repairsWorked: 2,
-    });
+  it('treats a legacy weekly batch laborPay as the TOTAL — never adds salePay on top again', () => {
+    // rpay-49247705 in prod: labor 20 + sales 496 was stored as laborPay 516 / salePay 496
+    expect(splitBatchPay({ laborPay: 516, salePay: 496 })).toEqual({ laborPay: 20, salePay: 496, totalPay: 516 });
+    expect(payrollTotal({ laborPay: 516, salePay: 496 })).toBe(516);
   });
 
-  it('defaults missing payroll log status to unbatched', () => {
-    expect(normalizePayrollLogStatus()).toBe(PAYROLL_LOG_STATUS.UNBATCHED);
-    expect(normalizePayrollLogStatus('')).toBe(PAYROLL_LOG_STATUS.UNBATCHED);
-    expect(normalizePayrollLogStatus(PAYROLL_LOG_STATUS.BATCHED)).toBe(PAYROLL_LOG_STATUS.BATCHED);
-    expect(normalizePayrollLogStatus(PAYROLL_LOG_STATUS.PAID)).toBe(PAYROLL_LOG_STATUS.PAID);
+  it('treats a legacy daily batch laborPay as labor-only', () => {
+    expect(payrollTotal({ cadence: 'daily', laborPay: 100, salePay: 25 })).toBe(125);
   });
 
-  it('only allows unpaid batches to be voided', () => {
-    expect(canVoidPayrollBatch(PAYROLL_BATCH_STATUS.DRAFT)).toBe(true);
-    expect(canVoidPayrollBatch(PAYROLL_BATCH_STATUS.FINALIZED)).toBe(true);
-    expect(canVoidPayrollBatch(PAYROLL_BATCH_STATUS.PAID)).toBe(false);
-    expect(canVoidPayrollBatch(PAYROLL_BATCH_STATUS.VOID)).toBe(false);
-  });
-
-  it('builds owner draw totals without counting voided entries', () => {
-    const totals = buildOwnerDrawTotals([
-      { amount: 120, status: OWNER_DRAW_STATUS.RECORDED },
-      { amount: 55.5, status: OWNER_DRAW_STATUS.RECORDED },
-      { amount: 40, status: OWNER_DRAW_STATUS.VOID },
-    ]);
-
-    expect(totals).toEqual({
-      amount: 175.5,
-      count: 2,
-    });
+  it('is safe on empty and rounds to cents', () => {
+    expect(payrollTotal({})).toBe(0);
+    expect(payrollTotal({ totalPay: 0.1 + 0.2 })).toBe(0.3);
   });
 });

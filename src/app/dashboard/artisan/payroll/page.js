@@ -1,5 +1,6 @@
 "use client";
 
+import { splitBatchPay, payrollTotal } from '@/services/payrollUtils';
 import React, { useEffect, useState } from 'react';
 import {
   Box,
@@ -165,7 +166,9 @@ export default function ArtisanPayrollPage() {
                   <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1.5 }}>
                     <Chip label={batch.status} size="small" />
                     <Chip label={`Hours ${Number(batch.laborHours || 0).toFixed(2)}`} size="small" />
-                    <Chip label={`Pay ${formatMoney(batch.laborPay)}`} size="small" />
+                    <Chip label={`Pay ${formatMoney(payrollTotal(batch))}`} size="small" />
+                    {Number(batch.salePay || 0) > 0 && <Chip label={`Sales ${formatMoney(batch.salePay)}`} size="small" color="success" />}
+                    {batch.payout?.fee > 0 && <Chip label={`Fee ${formatMoney(batch.payout.fee)} · Net ${formatMoney(batch.payout.net)}`} size="small" color="warning" />}
                   </Stack>
                   {batch.paidAt && (
                     <Typography variant="caption" sx={{ display: 'block', color: REPAIRS_UI.textMuted, mt: 1.5 }}>
@@ -212,8 +215,14 @@ export default function ArtisanPayrollPage() {
                 <Chip label={`${selectedBatch.cadence === 'daily' ? 'Day' : 'Week'} of ${new Date(selectedBatch.weekStart).toLocaleDateString()}`} />
                 <Chip label={selectedBatch.status} />
                 <Chip label={`Hours ${Number(selectedBatch.laborHours || 0).toFixed(2)}`} />
-                <Chip label={`Pay ${formatMoney(selectedBatch.laborPay)}`} />
+                <Chip label={`Pay ${formatMoney(payrollTotal(selectedBatch))}`} />
+                {Number(selectedBatch.salePay || 0) > 0 && <Chip label={`Labor ${formatMoney(splitBatchPay(selectedBatch).laborPay)} · Sales ${formatMoney(selectedBatch.salePay)}`} color="success" />}
               </Stack>
+              {selectedBatch.payout?.fee > 0 && (
+                <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, mb: 2 }}>
+                  {formatMoney(selectedBatch.payout.gross)} earned, less the {formatMoney(selectedBatch.payout.fee)} daily payout fee — {formatMoney(selectedBatch.payout.net)} sent to your bank.
+                </Typography>
+              )}
               {(selectedBatch.paymentMethod || selectedBatch.paymentReference || selectedBatch.paidAt) && (
                 <Box sx={{ mb: 2 }}>
                   {selectedBatch.paidAt && (
@@ -239,6 +248,36 @@ export default function ArtisanPayrollPage() {
                 </Box>
               )}
               <Stack spacing={1.5}>
+                {(selectedBatch.salePayouts || []).map((payout) => (
+                  <Box
+                    key={payout.payoutID}
+                    sx={{ border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, p: 1.5, bgcolor: REPAIRS_UI.bgPrimary }}
+                  >
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between">
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 700 }}>
+                          Sale payout · {payout.invoiceID}
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
+                          {payout.saleDescription || 'Jewelry sale'}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ textAlign: { xs: 'left', sm: 'right' }, flexShrink: 0 }}>
+                        <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 700 }}>
+                          {formatMoney(payout.payoutAmount)}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>
+                          Sold for {formatMoney(payout.grossSale)} · EFD consignment fee -{formatMoney(payout.consignmentAmount)}
+                        </Typography>
+                        {Number(payout.actualLaborDeduction || 0) > 0 && (
+                          <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary, display: 'block' }}>
+                            Labor already paid through payroll -{formatMoney(payout.actualLaborDeduction)}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Stack>
+                  </Box>
+                ))}
                 {(selectedBatch.logs || []).map((log) => {
                   const workItems = getWorkItemLabels(log.repair);
                   const repairChargeTotal = getRepairChargeTotal(log.repair);
