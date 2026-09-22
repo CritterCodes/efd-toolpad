@@ -45,11 +45,10 @@ function formatMoney(value) {
   return `$${Number(value || 0).toFixed(2)}`;
 }
 
+// Payroll weeks run Sunday–Saturday (services/payrollUtils.getPayrollWeekStart).
 function getMondayOfWeek(date = new Date()) {
   const copy = new Date(date);
-  const day = copy.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  copy.setDate(copy.getDate() + diff);
+  copy.setDate(copy.getDate() - copy.getDay());
   copy.setHours(0, 0, 0, 0);
   return copy;
 }
@@ -152,7 +151,7 @@ function HistoryCard({ batch, onOpen }) {
               {batch.userName}
             </Typography>
             <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
-              Week of {new Date(batch.weekStart).toLocaleDateString()}
+              {batch.cadence === 'daily' ? 'Day' : 'Week'} of {new Date(batch.weekStart).toLocaleDateString()}
             </Typography>
           </Box>
           <Chip label={batch.status} size="small" color={statusColor} />
@@ -805,7 +804,7 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 2 }}>
                 <Chip label={selectedDetail.userName || 'Jeweler'} />
                 {selectedDetail.isOwnerOperator && <Chip label="Owner / Operator" color="secondary" />}
-                <Chip label={`Week of ${new Date(selectedDetail.weekStart).toLocaleDateString()}`} />
+                <Chip label={`${selectedDetail.cadence === 'daily' ? 'Day' : 'Week'} of ${new Date(selectedDetail.weekStart).toLocaleDateString()}`} />
                 <Chip label={`Hours ${Number(selectedDetail.laborHours || 0).toFixed(2)}`} />
                 <Chip label={`Pay ${formatMoney(selectedDetail.laborPay)}`} />
                 {Number(selectedDetail.salePay || 0) > 0 && <Chip label={`Sales ${formatMoney(selectedDetail.salePay)}`} color="success" />}

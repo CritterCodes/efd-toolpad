@@ -16,14 +16,20 @@ export const OWNER_DRAW_STATUS = {
   VOID: 'void',
 };
 
-export function getMondayOfWeek(value = new Date()) {
+/**
+ * Start of the payroll week containing `value`: SUNDAY 00:00 (owner, 2026-09-22: the work week is
+ * Sunday–Saturday; payroll runs Wednesday for the week that ended Saturday, money lands Friday).
+ * Labor logs, sale payouts and payroll batches are all keyed on this date.
+ */
+export function getPayrollWeekStart(value = new Date()) {
   const date = new Date(value);
-  const day = date.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  date.setDate(date.getDate() + diff);
+  date.setDate(date.getDate() - date.getDay());
   date.setHours(0, 0, 0, 0);
   return date;
 }
+
+/** @deprecated name from the Monday-week era — same function, kept so call sites keep working. */
+export const getMondayOfWeek = getPayrollWeekStart;
 
 export function getWeekEndFromStart(weekStart) {
   const end = new Date(weekStart);

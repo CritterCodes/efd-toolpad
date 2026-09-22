@@ -32,6 +32,10 @@ export default class RepairPayrollBatchesModel {
       paymentReference: data.paymentReference || '',
       notes: data.notes || '',
       createdBy: data.createdBy || '',
+      // 'weekly' (Sun–Sat, free to the payee) or 'daily' (one day, payee pays the payout fee) —
+      // services/payroll/payoutCadence.js. `payout` = { gross, fee, net } once transferred.
+      cadence: data.cadence === 'daily' ? 'daily' : 'weekly',
+      payout: data.payout || null,
       createdAt: now,
       updatedAt: now,
     };

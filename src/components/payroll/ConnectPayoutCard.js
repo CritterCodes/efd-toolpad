@@ -7,7 +7,7 @@
  * (+ /dashboard). See services/payroll/connectPayouts.js.
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Button, Card, CardContent, Chip, Stack, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, CardContent, Chip, FormControlLabel, Radio, RadioGroup, Stack, Typography } from '@mui/material';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import { useSearchParams } from 'next/navigation';
 
@@ -61,8 +61,22 @@ export default function ConnectPayoutCard({ adminFor = null, sx }) {
     }
   };
 
+  const setCadence = async (cadence) => {
+    setBusy(true); setError('');
+    try {
+      const res = await fetch('/api/payouts/cadence', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userID: adminFor, cadence }) });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Could not save');
+      setStatus((s) => ({ ...s, cadence }));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (!status) return null;
   const live = status.connected && status.payoutsEnabled;
+  const cadence = status.cadence === 'daily' ? 'daily' : 'weekly';
   const pending = status.connected && !status.payoutsEnabled;
 
   return (
@@ -104,6 +118,25 @@ export default function ConnectPayoutCard({ adminFor = null, sx }) {
               )}
               <Button variant="text" onClick={load} disabled={busy}>Refresh</Button>
             </Stack>
+            {status.connected && (
+              <Box sx={{ mt: 1.5 }}>
+                {adminFor ? (
+                  <>
+                    <Typography variant="caption" color="text.secondary">Payout cadence (you grant this)</Typography>
+                    <RadioGroup row value={cadence} onChange={(e) => setCadence(e.target.value)}>
+                      <FormControlLabel value="weekly" control={<Radio size="small" disabled={busy} />} label="Weekly — Wednesday, in the bank Friday, free" />
+                      <FormControlLabel value="daily" control={<Radio size="small" disabled={busy} />} label={`Daily — payee pays ${status.dailyFeeLabel || 'the payout fee'}`} />
+                    </RadioGroup>
+                  </>
+                ) : (
+                  <Typography variant="caption" color="text.secondary">
+                    {cadence === 'daily'
+                      ? `You are on daily payouts: each day’s work is transferred the next morning, less ${status.dailyFeeLabel || 'the payout fee'}.`
+                      : 'You are on weekly payouts: paid Wednesday for the week ending Saturday, in your bank Friday. Free — EFD covers the Stripe fee. Ask EFD about daily payouts if you want money sooner.'}
+                  </Typography>
+                )}
+              </Box>
+            )}
           </>
         )}
         {error && <Alert severity="error" sx={{ mt: 1.5 }}>{error}</Alert>}

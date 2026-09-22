@@ -16,10 +16,10 @@ describe('payrollUtils', () => {
     const monday = getMondayOfWeek('2026-05-01T12:00:00.000Z');
     const weekEnd = getWeekEndFromStart(monday);
 
-    expect(monday.getDay()).toBe(1);
+    expect(monday.getDay()).toBe(0); // Sunday — the payroll week is Sun–Sat
     expect(monday.getHours()).toBe(0);
     expect(monday.getMinutes()).toBe(0);
-    expect(weekEnd.getDay()).toBe(0);
+    expect(weekEnd.getDay()).toBe(6); // Saturday
     expect(weekEnd.getHours()).toBe(23);
     expect(weekEnd.getMinutes()).toBe(59);
   });

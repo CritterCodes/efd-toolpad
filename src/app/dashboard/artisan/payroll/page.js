@@ -160,7 +160,7 @@ export default function ArtisanPayrollPage() {
               >
                 <CardContent>
                   <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 700 }}>
-                    Week of {new Date(batch.weekStart).toLocaleDateString()}
+                    {batch.cadence === 'daily' ? 'Day' : 'Week'} of {new Date(batch.weekStart).toLocaleDateString()}
                   </Typography>
                   <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1.5 }}>
                     <Chip label={batch.status} size="small" />
@@ -209,7 +209,7 @@ export default function ArtisanPayrollPage() {
           ) : (
             <>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 2 }}>
-                <Chip label={`Week of ${new Date(selectedBatch.weekStart).toLocaleDateString()}`} />
+                <Chip label={`${selectedBatch.cadence === 'daily' ? 'Day' : 'Week'} of ${new Date(selectedBatch.weekStart).toLocaleDateString()}`} />
                 <Chip label={selectedBatch.status} />
                 <Chip label={`Hours ${Number(selectedBatch.laborHours || 0).toFixed(2)}`} />
                 <Chip label={`Pay ${formatMoney(selectedBatch.laborPay)}`} />

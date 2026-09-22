@@ -5,8 +5,9 @@
  * one jeweler's week. Until now an admin had to open the payroll page every Monday, press
  * Create Batch per jeweler, then Mark Paid. This runs that ceremony on a schedule:
  *
- *   - every closed week (Monday..Sunday before the current Monday) with unbatched labor or sale
- *     payouts gets its batch created and finalized — including weeks that were missed;
+ *   - every closed week (Sunday..Saturday before the current week) with unbatched labor or sale
+ *     payouts gets its batch created and finalized — including weeks that were missed. The run is
+ *     Wednesday 6am Central: transfers land in payees' banks Friday (owner, 2026-09-22);
  *   - every finalized batch whose payee has a live Stripe Connect account is PAID by transfer
  *     (services/payroll/connectPayouts.js) — the owner's own labor included; the owner is a payee
  *     like anyone else (owner, 2026-09-22: Stripe is the only path — no ledger settlement, no
@@ -25,21 +26,25 @@ import { getMondayOfWeek } from '@/services/payrollUtils';
 import { notifyAllAdmins } from '@/lib/notificationService';
 import { adminBase } from '@/lib/appUrls';
 import { runConnectPayouts, nudgeUnpaidPayees } from '@/services/payroll/connectPayouts';
+import { listDailyPayees } from '@/services/payroll/payoutCadence';
 
 export const PAYROLL_CRON_ACTOR = 'payroll-cron';
 
 const DAY = 24 * 60 * 60 * 1000;
 const money = (n) => Number(n || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 
-/** The most recent Monday whose week is fully closed as of `now` (weeks are keyed by Monday). */
+/** The most recent Sunday whose week (Sun–Sat) is fully closed as of `now`. */
 export function lastClosedWeekStart(now = new Date()) {
-  const thisMonday = getMondayOfWeek(now);
-  return new Date(thisMonday.getTime() - 7 * DAY);
+  const thisWeekStart = getMondayOfWeek(now); // Sunday — see payrollUtils.getPayrollWeekStart
+  return new Date(thisWeekStart.getTime() - 7 * DAY);
 }
 
 export async function runWeeklyPayroll({ now = new Date(), createdBy = PAYROLL_CRON_ACTOR, notify = true } = {}) {
   const weekEnd = lastClosedWeekStart(now);
-  const candidates = await listPayrollCandidates({ weekEnd });
+  const all = await listPayrollCandidates({ weekEnd });
+  // Daily-cadence payees are batched day by day by the payout cron; the weekly run leaves them alone.
+  const dailyIDs = new Set((await listDailyPayees()).map((u) => u.userID));
+  const candidates = all.filter((c) => !dailyIDs.has(c.userID));
 
   const result = { weekEnd, finalized: [], toPay: [], skipped: [], errors: [], payouts: null, nudged: [] };
 

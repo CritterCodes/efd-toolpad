@@ -75,13 +75,13 @@ function sourceTypeLabel(type) {
   return SOURCE_TYPE_LABELS[type] || formatSourceAction(type);
 }
 
-// Labor weekStart is stored at UTC-midnight Monday (server getMondayOfWeek on Vercel/UTC).
+// Labor weekStart is stored at UTC-midnight SUNDAY (server getPayrollWeekStart on Vercel/UTC; Sun–Sat weeks).
 // Compare in UTC — a local getDay()/setHours() shifts the boundary a day in US timezones,
 // which dropped current-week work out of "This Week" into "Past Weeks".
 function getMondayOfCurrentWeekUTC() {
   const now = new Date();
   const day = now.getUTCDay();
-  const diff = (day === 0 ? -6 : 1 - day);
+  const diff = -day; // back to Sunday
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff));
 }
 

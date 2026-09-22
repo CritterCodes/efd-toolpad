@@ -254,6 +254,8 @@ export async function markPayrollBatchPaid(batchID, {
   notes,
   // false when the "payment" is the owner's own labor settling to the ledger — nobody was paid.
   notify = true,
+  // { gross, fee, net, stripeFee, efdFee } when the transfer netted a daily payout fee.
+  payout = null,
 } = {}) {
   const batch = await RepairPayrollBatchesModel.findByBatchID(batchID);
   if (batch.status !== PAYROLL_BATCH_STATUS.FINALIZED) {
@@ -267,6 +269,7 @@ export async function markPayrollBatchPaid(batchID, {
     paymentMethod,
     paymentReference,
     notes: notes ?? batch.notes,
+    ...(payout ? { payout } : {}),
   });
 
   await RepairLaborLogsModel.markBatchPaid(batchID, paidDate);
@@ -285,7 +288,9 @@ export async function markPayrollBatchPaid(batchID, {
         userId: artisanUserID,
         type: 'payout-sent',
         title: 'You have been paid',
-        message: `Your payroll batch of ${amountLabel} for the week of ${new Date(batch.weekStart).toLocaleDateString()} has been marked paid${paymentMethod ? ` via ${paymentMethod}` : ''}.`,
+        message: payout?.fee > 0
+          ? `${payout.net.toLocaleString('en-US', { style: 'currency', currency: 'USD' })} is on its way for ${new Date(batch.weekStart).toLocaleDateString()} — ${amountLabel} earned, less the ${payout.fee.toLocaleString('en-US', { style: 'currency', currency: 'USD' })} daily payout fee.`
+          : `Your payroll batch of ${amountLabel} for the ${batch.cadence === 'daily' ? 'day' : 'week'} of ${new Date(batch.weekStart).toLocaleDateString()} has been paid${paymentMethod ? ` via ${paymentMethod}` : ''}.`,
         channels: ['inApp', 'email', 'push'],
         recipientEmail: user?.email || '',
         priority: 'high',
