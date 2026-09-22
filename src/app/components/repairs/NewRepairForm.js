@@ -1163,7 +1163,7 @@ function RepairItemsSection({
         </Typography>
         <Button
           startIcon={<AddIcon />}
-          onClick={addCustomLaborTask}
+          onClick={() => addCustomLaborTask()}
           variant="outlined"
           size="small"
           sx={{ borderColor: UI.border, color: UI.textPrimary }}

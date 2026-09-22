@@ -43,6 +43,7 @@ import {
   repriceCustomLaborTask,
   isCustomLaborTask,
 } from '@/services/repairs/customLabor';
+import { buildStullerRepairMaterial } from '@/services/pricing/stullerMaterial';
 import { wholesalerBusinessName } from '@/services/wholesale/businessName';
 
 
@@ -1676,8 +1677,22 @@ export default function useNewRepairForm({
   // Custom LABOR line: a task priced from hours × wage through the task engine, so it gets
   // sign-off / hand-off / per-jeweler labor credit like any catalog task. Price is editable
   // (bulk discount) and the override survives re-pricing. See services/repairs/customLabor.js.
-  const addCustomLaborTask = () => {
-    const task = buildCustomLaborTask({ id: Date.now(), adminSettings, isWholesale: formData.isWholesale });
+  // `draft` is optional: the classic form adds a blank line and edits it in place; the stepped
+  // flow's Labor sheet passes { description, laborHours, quantity, price? } in one go. A click
+  // event (classic onClick) is not a draft.
+  const addCustomLaborTask = (draft) => {
+    const d = draft && typeof draft === 'object' && !draft.nativeEvent ? draft : {};
+    let task = buildCustomLaborTask({
+      id: Date.now(),
+      description: d.description || '',
+      laborHours: d.laborHours || 0,
+      quantity: d.quantity || 1,
+      adminSettings,
+      isWholesale: formData.isWholesale,
+    });
+    if (d.price !== undefined && d.price !== null && d.price !== '') {
+      task = applyCustomLaborPatch(task, { price: d.price }, { adminSettings, isWholesale: formData.isWholesale });
+    }
     setFormData(prev => ({ ...prev, tasks: [...prev.tasks, task] }));
   };
 
@@ -1824,45 +1839,21 @@ export default function useNewRepairForm({
 
       const stullerData = await response.json();
 
-      // Get admin settings for markup calculation
+      // Fresh pricing settings (fall back to the ones already loaded).
       const settingsResponse = await fetch('/api/admin/settings');
-      let loadedSettings = {};
-      let pricing = {};
+      const loadedSettings = settingsResponse.ok ? await settingsResponse.json().catch(() => ({})) : {};
+      const pricingSettings = loadedSettings?.pricing ? loadedSettings : adminSettings;
 
-      if (settingsResponse.ok) {
-        loadedSettings = await settingsResponse.json();
-        pricing = loadedSettings.pricing || {};
-      }
-
-      // Apply full retail pricing formula to Stuller base price
-      const basePrice = stullerData.data.price || 0;
-      const retailPrice = calculateRetailFromBaseCosts(basePrice, 0, { pricing });
-
-      // Create material item for the repair
+      // Priced for THIS ticket: wholesale = cost × wholesaleMarkup, retail = cost × business
+      // multiplier. The server re-prices from the repair's billing mode on save regardless.
+      // (Before 2026-09-21 this always ran the retail formula — a 2× markup on store tickets.)
+      const isWholesale = !!formData.isWholesale;
+      const built = buildStullerRepairMaterial({
+        item: stullerData, sku: stullerSku, isWholesale, adminSettings: pricingSettings, category: 'stuller_gemstone',
+      });
       const newMaterial = {
-        id: Date.now(),
-        name: stullerData.data.description,
-        displayName: stullerData.data.description,
-        description: `${stullerData.data.longDescription || stullerData.data.description} (Stuller: ${stullerSku})`,
-        quantity: 1,
-        price: retailPrice,
-        retailPrice,
-        unitCost: basePrice,
-        stullerPrice: basePrice,
-        baseCostPerPortion: basePrice,
-        category: 'stuller_gemstone',
-        supplier: 'Stuller',
-        stuller_item_number: stullerSku,
-        isStullerItem: true,
-        stullerData: {
-          originalPrice: basePrice,
-          materialMarkup: normalizePricingSettings({ pricing }).materialMarkup,
-          businessMultiplier: normalizePricingSettings({ pricing }).businessMultiplier,
-          itemNumber: stullerSku,
-          weight: stullerData.data.weight,
-          dimensions: stullerData.data.dimensions,
-          metal: stullerData.data.metal
-        }
+        ...built,
+        retailPrice: isWholesale ? applyWholesalerRetailAdjustments(built.price, wholesalerPricingSettings) : built.retailPrice,
       };
 
       // Add to repair materials
