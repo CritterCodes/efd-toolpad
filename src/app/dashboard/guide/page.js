@@ -124,7 +124,7 @@ function EfdEarnsBlock({ t, role }) {
           ['Stripe’s monthly fee for your connected account', 'EFD pays it'],
         ]} />
         {(role === 'admin' || role === 'dev') && (
-          <Muted>Where each number lives: Settings → Pricing (shop rate, admin/business/consumables fees, wholesale markup, tax, delivery fee); Settings → Pay ladder (tiers, pay rates, bench tests); a person’s tier and rate on their artisan profile under Staff &amp; Repair Operations; Settings → Payout fees; Settings → Payroll funding; Settings → QC mode; per-affiliate rate on Affiliates. Consignment/marketplace rates, the client-management bonus and the QC review fee are code defaults with no settings screen yet.</Muted>
+          <Muted>Where each number lives: Settings → Pricing (shop rate, admin/business/consumables fees, wholesale markup, tax, delivery fee); Settings → Pay ladder (tiers, pay rates, bench tests); a person’s tier and rate on their artisan profile under Staff &amp; Repair Operations; Settings → Sale fees (consignment, marketplace, hybrid pillars); Settings → Custom order fees (client-management bonus, QC review fee); Settings → Payout fees; Settings → Payroll funding; Settings → QC mode; per-affiliate rate on Affiliates.</Muted>
         )}
       </Section>
     </>

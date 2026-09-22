@@ -26,6 +26,8 @@ import QcSettings from './store-settings/QcSettings';
 import PayrollFundingSettings from './store-settings/PayrollFundingSettings';
 import PayoutFeeSettings from './store-settings/PayoutFeeSettings';
 import PayLadderSettings from './store-settings/PayLadderSettings';
+import SaleFeeSettings from './store-settings/SaleFeeSettings';
+import CustomFeeSettings from './store-settings/CustomFeeSettings';
 
 export default function StoreSettingsTab() {
     const {
@@ -97,6 +99,8 @@ export default function StoreSettingsTab() {
                     <ShippingSettings />
                     <QcSettings />
                     <PayLadderSettings />
+                    <SaleFeeSettings />
+                    <CustomFeeSettings />
                     <PayrollFundingSettings />
                     <PayoutFeeSettings />
                 </Grid>
