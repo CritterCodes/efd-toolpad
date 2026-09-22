@@ -139,3 +139,32 @@ export function createTopup({ amountCents, description = '', statementDescriptor
 export function listTopups({ limit = 10 } = {}) {
   return stripeRequest('GET', `/topups?limit=${Math.min(Math.max(1, limit), 100)}`);
 }
+
+/** EFD's OWN Stripe account (the platform), for its payout schedule. */
+export function retrievePlatformAccount() {
+  return stripeRequest('GET', '/account');
+}
+
+/** Pure: the payout schedule a Stripe account object declares. */
+export function payoutScheduleOf(account = {}) {
+  const sched = account?.settings?.payouts?.schedule || {};
+  return {
+    interval: sched.interval || 'daily',        // 'manual' | 'daily' | 'weekly' | 'monthly'
+    weeklyAnchor: sched.weekly_anchor || '',
+    monthlyAnchor: sched.monthly_anchor ?? null,
+    delayDays: Number(sched.delay_days) || 0,
+  };
+}
+
+/**
+ * Pay out from EFD's balance to EFD's bank (the Thursday sweep, services/payroll/payrollSweep.js).
+ * Only meaningful on a MANUAL payout schedule; on an automatic one Stripe already does this.
+ */
+export function createPlatformPayout({ amountCents, description = '', metadata = {}, idempotencyKey }) {
+  return stripeRequest('POST', '/payouts', {
+    amount: Math.round(amountCents),
+    currency: 'usd',
+    description,
+    metadata,
+  }, { idempotencyKey });
+}

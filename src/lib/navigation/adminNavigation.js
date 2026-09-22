@@ -279,6 +279,12 @@ export const adminNavigation = {
           segment: 'tax-reserve',
           title: 'Tax Reserve',
           icon: <BarChartIcon />
+        },
+        {
+          // 1099 readiness: per payee, what Stripe Connect paid in the year (services/payroll/taxSummary.js).
+          segment: 'tax-summary',
+          title: '1099 Summary',
+          icon: <ReceiptIcon />
         }
       ]
     },

@@ -93,7 +93,11 @@ export async function notifyPayrollRun(result) {
     const parts = [];
     if (paid.length) parts.push(`Paid by Stripe: ${paid.map((p) => `${p.userName || p.userID} ${money(p.amount)}`).join(', ')}.`);
     if (waiting.length) parts.push(`Waiting on Stripe setup: ${[...new Set(waiting.map((b) => b.userName || b.userID))].join(', ')} (${money(waiting.reduce((s, b) => s + (b.amount || 0), 0))}) — they were nudged to connect.`);
-    if (shortfall.length) parts.push(`EFD's Stripe balance was short for ${shortfall.map((b) => money(b.amount)).join(', ')} — retried daily.`);
+    if (shortfall.length) {
+      const f = result.payouts?.funding || {};
+      const fundingNote = f.topup ? `a ${money(f.topup.amount)} top-up is on its way` : f.error ? `funding failed: ${f.error}` : f.skipped ? `funding: ${f.skipped}` : 'funding check did not run';
+      parts.push(`EFD's Stripe balance was short for ${shortfall.map((b) => `${b.userName || b.userID ? `${b.userName || b.userID} ` : ''}${money(b.amount)}`).join(', ')} (${money(result.payouts?.shortfallTotal || 0)} total) — ${fundingNote}; retried daily.`);
+    }
     if (result.errors.length) parts.push(`${result.errors.length} batch${result.errors.length === 1 ? '' : 'es'} failed — see payroll.`);
     if (!parts.length) return; // nothing happened, say nothing
 
