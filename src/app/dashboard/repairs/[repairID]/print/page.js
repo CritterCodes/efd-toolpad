@@ -31,10 +31,10 @@ const PrintRepairTicket = () => {
     const repair = apiRepair || contextRepair;
 
     // "Have another repair?" — a store dropping off a tray shouldn't re-pick itself fifteen times.
-    // Wholesale tickets carry the store into the next intake; the intake UI (`ui=next`) is kept.
+    // Wholesale tickets carry the store into the next intake; a `?ui=classic` fallback choice is kept.
     const nextRepairHref = useMemo(() => {
         const q = new URLSearchParams();
-        if (searchParams?.get('ui') === 'next') q.set('ui', 'next');
+        if (searchParams?.get('ui') === 'classic') q.set('ui', 'classic');
         if (repair?.isWholesale && repair?.storeId) {
             q.set('wholesaleStoreId', repair.storeId);
             const storeName = repair.storeName || repair.businessName;

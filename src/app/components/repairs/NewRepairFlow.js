@@ -14,7 +14,8 @@
  *     gold Total, and two actions: Create & print / Save without printing
  *
  * Renders from the SAME useNewRepairForm hook as the classic form; no
- * business logic lives here. Reached behind ?ui=next on /dashboard/repairs/new.
+ * business logic lives here. The DEFAULT intake on /dashboard/repairs/new since 2026-09-21
+ * (the classic NewRepairForm remains at ?ui=classic as a fallback).
  */
 
 import React, { useState, useEffect, useRef } from 'react';

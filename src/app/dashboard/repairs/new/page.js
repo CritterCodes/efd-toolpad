@@ -46,7 +46,11 @@ const NewRepairPage = () => {
 
   // Stepped-flow A/B flag (intake redesign step 3): both views render from the
   // same useNewRepairForm hook, so this switch changes arrangement only.
-  const useNextUi = searchParams.get('ui') === 'next';
+  // The stepped intake is the DEFAULT (owner, 2026-09-21). The classic form stays reachable at
+  // ?ui=classic as a fallback until it is deleted; `ui=next` is still accepted for old links.
+  const useClassicUi = searchParams.get('ui') === 'classic';
+  const useNextUi = !useClassicUi;
+  const uiQuery = useClassicUi ? '?ui=classic' : '';
 
   const scannedWholesaleStoreId = searchParams.get('wholesaleStoreId');
   const scannedWholesaleStoreName = searchParams.get('wholesaleStoreName');
@@ -189,8 +193,8 @@ const NewRepairPage = () => {
         // "Save without printing" (stepped flow) — straight to the queue.
         router.push('/dashboard/repairs/ready-for-work');
       } else if (repairId) {
-        // `ui=next` rides along so the print page's "Have another repair?" returns to the same intake.
-        router.push(`/dashboard/repairs/${repairId}/print${useNextUi ? '?ui=next' : ''}`);
+        // The UI choice rides along so the print page's "Have another repair?" returns to the same intake.
+        router.push(`/dashboard/repairs/${repairId}/print${uiQuery}`);
       } else {
         console.error('No repair ID found in response:', result);
         showToast?.('Repair created but redirect failed - check console', 'warning');
@@ -262,7 +266,7 @@ const NewRepairPage = () => {
               onCancel={handleCancel}
               onPrintChoice={(print) => { printAfterSaveRef.current = print; }}
               storePreset={!isWholesalerRole && !!scannedWholesaleStoreId}
-              onClearStorePreset={() => router.replace(`/dashboard/repairs/new${useNextUi ? '?ui=next' : ''}`)}
+              onClearStorePreset={() => router.replace(`/dashboard/repairs/new${uiQuery}`)}
               initialData={linkedSaleContext?.initialData || null}
               clientInfo={linkedSaleContext?.clientInfo || null}
               isWholesale={isWholesaler}
