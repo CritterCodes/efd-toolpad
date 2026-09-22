@@ -324,7 +324,7 @@ function ReviewRow({ label, value, valueColor, editor, defaultOpen = false, auto
 export default function NewRepairFlow(props) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const { isWholesale, submitMode = 'create', submitLabel = '', isQuote = false, onCancel, onPrintChoice } = props;
+  const { isWholesale, submitMode = 'create', submitLabel = '', isQuote = false, onCancel, onPrintChoice, storePreset = false, onClearStorePreset } = props;
 
   const {
     formData, setFormData,
@@ -566,14 +566,21 @@ export default function NewRepairFlow(props) {
               <SectionLabel>Account</SectionLabel>
               <Box sx={{ mt: 1.5 }}>
                 {isWholesale ? (
+                  /* A wholesaler sees their own store, locked. An admin arriving with a store preset
+                     ("Have another repair?" / a scanned tray) sees where it came from and can change it. */
                   <ChoiceRow
                     lead={initials(formData.storeName)}
                     title={formData.storeName || 'My Wholesale Store'}
-                    meta="Your store — fixed by your sign-in"
-                    trailing={<StatusChip label="Wholesale" hue="#7DD3FC" />}
+                    meta={storePreset ? 'Carried over from the last ticket' : 'Your store — fixed by your sign-in'}
+                    trailing={storePreset && onClearStorePreset
+                      /* ChoiceRow IS a button — the affordance is text, the row itself is the tap target. */
+                      ? <Typography component="span" sx={{ color: facelift.gold, fontFamily: facelift.mono, fontSize: '0.6875rem', flexShrink: 0 }}>Change</Typography>
+                      : <StatusChip label="Wholesale" hue="#7DD3FC" />}
                     selected
-                    disabled
-                    sx={{ cursor: 'default' }}
+                    disabled={!storePreset}
+                    aria-label={storePreset ? `Store ${formData.storeName || ''} — change store` : undefined}
+                    onClick={storePreset && onClearStorePreset ? onClearStorePreset : undefined}
+                    style={{ cursor: storePreset ? 'pointer' : 'default' }}
                   />
                 ) : (
                   <Stack spacing={1.25}>

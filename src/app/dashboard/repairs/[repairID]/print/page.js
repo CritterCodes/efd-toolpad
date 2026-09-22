@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Typography, Button, ButtonGroup } from '@mui/material';
 import { useSession } from 'next-auth/react';
 import { useRepairs } from '@/app/context/repairs.context';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import RepairTicketComponent from '@/components/print/RepairTicketComponent';
 import RepairReceiptComponent from '@/components/print/RepairReceiptComponent';
 import SideBySideLayout from '@/components/print/SideBySideLayout';
@@ -19,6 +19,8 @@ const PrintRepairTicket = () => {
     const { data: session } = useSession();
     const { repairs, setRepairs } = useRepairs();
     const params = useParams();
+    const router = useRouter();
+    const searchParams = useSearchParams();
     const repairID = params.repairID;
     const [printMode, setPrintMode] = useState('both'); // 'ticket', 'receipt', or 'both'
     const [showControls, setShowControls] = useState(true);
@@ -27,6 +29,21 @@ const PrintRepairTicket = () => {
 
     const contextRepair = repairs.find((r) => r.repairID === repairID);
     const repair = apiRepair || contextRepair;
+
+    // "Have another repair?" — a store dropping off a tray shouldn't re-pick itself fifteen times.
+    // Wholesale tickets carry the store into the next intake; the intake UI (`ui=next`) is kept.
+    const nextRepairHref = useMemo(() => {
+        const q = new URLSearchParams();
+        if (searchParams?.get('ui') === 'next') q.set('ui', 'next');
+        if (repair?.isWholesale && repair?.storeId) {
+            q.set('wholesaleStoreId', repair.storeId);
+            const storeName = repair.storeName || repair.businessName;
+            if (storeName) q.set('wholesaleStoreName', storeName);
+        }
+        const qs = q.toString();
+        return `/dashboard/repairs/new${qs ? `?${qs}` : ''}`;
+    }, [searchParams, repair?.isWholesale, repair?.storeId, repair?.storeName, repair?.businessName]);
+    const nextRepairStore = repair?.isWholesale ? (repair.storeName || repair.businessName || '') : '';
 
     useEffect(() => {
         let cancelled = false;
@@ -293,6 +310,20 @@ const PrintRepairTicket = () => {
                     <Typography variant="body2" sx={{ marginBottom: '8px', color: '#666' }}>
                         Default: both slips on one page, cut in half after printing.
                     </Typography>
+                    <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                        <Button
+                            variant="outlined"
+                            size="large"
+                            onClick={() => router.push(nextRepairHref)}
+                            sx={{ minHeight: 48, px: 3, fontWeight: 700, borderRadius: 999 }}
+                            aria-label="Start another repair"
+                        >
+                            Have another repair?
+                        </Button>
+                        <Typography variant="caption" sx={{ color: '#666' }}>
+                            {nextRepairStore ? `New ticket for ${nextRepairStore} — store already picked.` : 'Starts a new ticket.'}
+                        </Typography>
+                    </Box>
                     {needsMultipleTicketPages && printMode === 'ticket' && (
                         <Typography variant="body2" color="warning.main">
                             Repair ticket will span multiple bag slips ({Math.ceil(totalItems / maxItemsPerTicketPage)} pages)

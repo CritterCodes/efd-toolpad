@@ -189,7 +189,8 @@ const NewRepairPage = () => {
         // "Save without printing" (stepped flow) — straight to the queue.
         router.push('/dashboard/repairs/ready-for-work');
       } else if (repairId) {
-        router.push(`/dashboard/repairs/${repairId}/print`);
+        // `ui=next` rides along so the print page's "Have another repair?" returns to the same intake.
+        router.push(`/dashboard/repairs/${repairId}/print${useNextUi ? '?ui=next' : ''}`);
       } else {
         console.error('No repair ID found in response:', result);
         showToast?.('Repair created but redirect failed - check console', 'warning');
@@ -260,6 +261,8 @@ const NewRepairPage = () => {
               onSubmit={handleSubmit}
               onCancel={handleCancel}
               onPrintChoice={(print) => { printAfterSaveRef.current = print; }}
+              storePreset={!isWholesalerRole && !!scannedWholesaleStoreId}
+              onClearStorePreset={() => router.replace(`/dashboard/repairs/new${useNextUi ? '?ui=next' : ''}`)}
               initialData={linkedSaleContext?.initialData || null}
               clientInfo={linkedSaleContext?.clientInfo || null}
               isWholesale={isWholesaler}
