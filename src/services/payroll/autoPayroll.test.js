@@ -21,6 +21,7 @@ vi.mock('@/app/api/repairs/payroll/service', () => ({
 vi.mock('@/lib/notificationService', () => ({ notifyAllAdmins: mocks.notifyAllAdmins }));
 vi.mock('@/lib/appUrls', () => ({ adminBase: () => 'http://test' }));
 vi.mock('@/services/payroll/connectPayouts', () => ({ runConnectPayouts: mocks.runConnectPayouts, nudgeUnpaidPayees: mocks.nudgeUnpaidPayees }));
+vi.mock('@/services/payroll/payoutCadence', () => ({ listDailyPayees: vi.fn(async () => []) }));
 
 import { runWeeklyPayroll, lastClosedWeekStart } from './autoPayroll';
 

@@ -11,6 +11,7 @@ import { requireAuth, isAdmin } from '@/lib/apiAuth';
 import { adminBase } from '@/lib/appUrls';
 import { refreshConnectStatus, startConnectOnboarding } from '@/services/payroll/connectPayouts';
 import { isStripeConfigured, stripeMode } from '@/lib/stripeConnect';
+import { readFeeSettings, dailyFeeLabel } from '@/services/payroll/payoutCadence';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,8 +29,8 @@ export async function GET(req) {
   if (!userID) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   if (!isStripeConfigured()) return NextResponse.json({ configured: false, connected: false, mode: 'unconfigured' });
   try {
-    const status = await refreshConnectStatus({ userID });
-    return NextResponse.json({ configured: true, mode: stripeMode(), userID, ...status });
+    const [status, fees] = await Promise.all([refreshConnectStatus({ userID }), readFeeSettings()]);
+    return NextResponse.json({ configured: true, mode: stripeMode(), userID, ...status, dailyFeeLabel: dailyFeeLabel(fees) });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: error.status === 404 ? 404 : 500 });
   }

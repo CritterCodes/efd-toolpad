@@ -90,7 +90,7 @@
     },
     {
       "path": "/api/cron/payroll-funding",
-      "schedule": "0 15 * * 1"
+      "schedule": "0 15 * * *"
     }
   ]
 }

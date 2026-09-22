@@ -33,11 +33,12 @@ import {
 } from '@/lib/stripeConnect';
 import { notifyAllAdmins } from '@/lib/notificationService';
 import { adminBase } from '@/lib/appUrls';
+import { computeDailyPayout, readFeeSettings, createDailyBatchesForAllDailyPayees } from '@/services/payroll/payoutCadence';
 
 export const CONNECT_PAYMENT_METHOD = 'stripe-connect';
 
 const money = (n) => Number(n || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-const USER_PROJECTION = { _id: 0, userID: 1, email: 1, firstName: 1, lastName: 1, role: 1, stripeConnect: 1, compensationProfile: 1 };
+const USER_PROJECTION = { _id: 0, userID: 1, email: 1, firstName: 1, lastName: 1, role: 1, stripeConnect: 1, compensationProfile: 1, payoutSettings: 1 };
 
 async function loadUser(userID) {
   const dbi = await db.connect();
@@ -97,7 +98,7 @@ export async function refreshConnectStatus({ userID }) {
   const account = await retrieveAccount(accountId);
   const summary = summarizeAccount(account);
   await saveConnect(userID, { ...summary, lastCheckedAt: new Date() });
-  return { connected: true, ...summary };
+  return { connected: true, ...summary, cadence: user.payoutSettings?.cadence === 'daily' ? 'daily' : 'weekly' };
 }
 
 export async function connectDashboardLink({ userID }) {
@@ -122,7 +123,18 @@ export async function payBatchViaConnect({ batchID, actor = 'payroll-cron' }) {
   const check = payoutEligibility({ batch, user });
   if (!check.eligible) return { paid: false, batchID, userID: batch?.userID, userName: batch?.userName, amount: batchAmount(batch || {}), reason: check.reason };
 
-  const amountCents = Math.round(check.amount * 100);
+  // Daily cadence: the payee pays for the speed — Stripe's payout fee + EFD's flat fee come out of
+  // the transfer (payoutCadence.computeDailyPayout). Weekly batches transfer the full amount.
+  let payout = null;
+  let transferAmount = check.amount;
+  if (batch.cadence === 'daily') {
+    const ownerOperator = user.compensationProfile?.isOwnerOperator === true;
+    payout = computeDailyPayout({ gross: check.amount, fees: await readFeeSettings(), ownerOperator });
+    if (payout.net <= 0) return { paid: false, batchID, userID: user.userID, userName: batch.userName, amount: check.amount, reason: 'day too small to cover the payout fee' };
+    transferAmount = payout.net;
+  }
+
+  const amountCents = Math.round(transferAmount * 100);
   const balance = await retrieveBalance();
   const available = availableUsdCents(balance);
   if (available < amountCents) {
@@ -132,8 +144,8 @@ export async function payBatchViaConnect({ batchID, actor = 'payroll-cron' }) {
   const transfer = await createTransfer({
     amountCents,
     destination: user.stripeConnect.accountId,
-    description: `Payroll week of ${new Date(batch.weekStart).toLocaleDateString('en-US')} — ${batch.userName || user.userID}`,
-    metadata: { batchID, userID: user.userID, weekStart: new Date(batch.weekStart).toISOString() },
+    description: `Payroll ${batch.cadence === 'daily' ? 'day' : 'week'} of ${new Date(batch.weekStart).toLocaleDateString('en-US')} — ${batch.userName || user.userID}`,
+    metadata: { batchID, userID: user.userID, weekStart: new Date(batch.weekStart).toISOString(), cadence: batch.cadence || 'weekly', ...(payout ? { gross: String(payout.gross), fee: String(payout.fee), net: String(payout.net) } : {}) },
     transferGroup: batchID,
     idempotencyKey: `payroll-${batchID}`,
   });
@@ -142,10 +154,11 @@ export async function payBatchViaConnect({ batchID, actor = 'payroll-cron' }) {
     paidAt: new Date(),
     paymentMethod: CONNECT_PAYMENT_METHOD,
     paymentReference: transfer.id,
-    notes: `${batch.notes ? `${batch.notes} · ` : ''}Paid by Stripe Connect transfer ${transfer.id} (${actor}).`,
+    notes: `${batch.notes ? `${batch.notes} · ` : ''}Paid by Stripe Connect transfer ${transfer.id} (${actor})${payout ? ` — ${payout.net.toFixed(2)} net of ${payout.fee.toFixed(2)} daily payout fee` : ''}.`,
     notify: true,
+    payout,
   });
-  return { paid: true, batchID, amount: check.amount, transferId: transfer.id, userID: user.userID, userName: batch.userName };
+  return { paid: true, batchID, amount: transferAmount, gross: check.amount, fee: payout?.fee || 0, transferId: transfer.id, userID: user.userID, userName: batch.userName, cadence: batch.cadence || 'weekly' };
 }
 
 /**
@@ -154,8 +167,17 @@ export async function payBatchViaConnect({ batchID, actor = 'payroll-cron' }) {
  * needs a hand.
  */
 export async function runConnectPayouts({ actor = 'payroll-cron', notify = true } = {}) {
-  const result = { paid: [], skipped: [], shortfall: [], errors: [], stripe: isStripeConfigured() ? stripeMode() : 'unconfigured' };
+  const result = { paid: [], skipped: [], shortfall: [], errors: [], dailyBatches: [], stripe: isStripeConfigured() ? stripeMode() : 'unconfigured' };
   if (!isStripeConfigured()) return result;
+
+  // Daily-cadence payees: yesterday's (and any older unbatched) earnings become today's batches first.
+  try {
+    const daily = await createDailyBatchesForAllDailyPayees({ createdBy: actor });
+    result.dailyBatches = daily.created;
+    result.errors.push(...daily.errors.map((e) => ({ ...e, error: `daily batching: ${e.error}` })));
+  } catch (error) {
+    result.errors.push({ error: `daily batching: ${error?.message || error}` });
+  }
 
   const finalized = await RepairPayrollBatchesModel.list({ status: PAYROLL_BATCH_STATUS.FINALIZED });
   for (const batch of finalized) {

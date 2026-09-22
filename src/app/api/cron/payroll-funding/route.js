@@ -1,5 +1,5 @@
 /**
- * GET /api/cron/payroll-funding   (Mondays 15:00 UTC = 10am Central — see vercel.json)
+ * GET /api/cron/payroll-funding   (daily 15:00 UTC = 10am Central — see vercel.json; daily-cadence payees draw every morning)
  *
  * Projects Wednesday's payroll, compares it with EFD's Stripe balance, and tops the balance up from
  * the business bank account when it falls short (services/payroll/payrollFunding.js). Stripe never

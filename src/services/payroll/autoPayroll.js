@@ -26,6 +26,7 @@ import { getMondayOfWeek } from '@/services/payrollUtils';
 import { notifyAllAdmins } from '@/lib/notificationService';
 import { adminBase } from '@/lib/appUrls';
 import { runConnectPayouts, nudgeUnpaidPayees } from '@/services/payroll/connectPayouts';
+import { listDailyPayees } from '@/services/payroll/payoutCadence';
 
 export const PAYROLL_CRON_ACTOR = 'payroll-cron';
 
@@ -40,7 +41,10 @@ export function lastClosedWeekStart(now = new Date()) {
 
 export async function runWeeklyPayroll({ now = new Date(), createdBy = PAYROLL_CRON_ACTOR, notify = true } = {}) {
   const weekEnd = lastClosedWeekStart(now);
-  const candidates = await listPayrollCandidates({ weekEnd });
+  const all = await listPayrollCandidates({ weekEnd });
+  // Daily-cadence payees are batched day by day by the payout cron; the weekly run leaves them alone.
+  const dailyIDs = new Set((await listDailyPayees()).map((u) => u.userID));
+  const candidates = all.filter((c) => !dailyIDs.has(c.userID));
 
   const result = { weekEnd, finalized: [], toPay: [], skipped: [], errors: [], payouts: null, nudged: [] };
 

@@ -30,7 +30,7 @@ export default function PayrollFundingSettings() {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || 'Could not save');
       setSettings(body.settings);
-      setMsg({ severity: 'success', text: body.settings.enabled ? 'Funding check is on. It runs Monday mornings.' : 'Funding check is off.' });
+      setMsg({ severity: 'success', text: body.settings.enabled ? 'Funding check is on. It runs every morning.' : 'Funding check is off.' });
       load();
     } catch (e) {
       setMsg({ severity: 'error', text: e.message });
@@ -56,10 +56,10 @@ export default function PayrollFundingSettings() {
         <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
           <SavingsIcon />
           <Typography variant="h6" sx={{ flex: 1 }}>Payroll funding</Typography>
-          <Chip label={settings.enabled ? 'On — Mondays' : 'Off'} color={settings.enabled ? 'success' : 'default'} size="small" />
+          <Chip label={settings.enabled ? 'On — daily' : 'Off'} color={settings.enabled ? 'success' : 'default'} size="small" />
         </Stack>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Contractors are paid from EFD&rsquo;s Stripe balance, and Stripe never pulls from the bank to cover a payout. Every Monday this
+          Contractors are paid from EFD&rsquo;s Stripe balance, and Stripe never pulls from the bank to cover a payout. Every morning this
           projects Wednesday&rsquo;s payroll, and if the balance is short it tops Stripe up from the business bank account (an ACH debit, 1&ndash;2
           business days) for the shortfall plus the floor. Requires a bank account verified for top-ups in the Stripe dashboard.
         </Typography>
@@ -79,7 +79,7 @@ export default function PayrollFundingSettings() {
               Wednesday needs about <strong>{money(preview.need.projected)}</strong>
               {preview.due?.payees?.length ? ` (${preview.due.payees.join(', ')})` : ''}; target with buffer and floor is <strong>{money(preview.need.target)}</strong>.
               Stripe has {money(preview.available)} available + {money(preview.pending)} pending.{' '}
-              {preview.need.topup > 0 ? <>Monday would pull <strong>{money(preview.need.topup)}</strong>.</> : <>Nothing to pull.</>}
+              {preview.need.topup > 0 ? <>The next run would pull <strong>{money(preview.need.topup)}</strong>.</> : <>Nothing to pull.</>}
             </Typography>
           </Box>
         )}
