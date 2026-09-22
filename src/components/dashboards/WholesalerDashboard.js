@@ -7,6 +7,7 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useWholesalerDashboard } from '@/hooks/dashboards/useWholesalerDashboard';
+import GettingStartedCard from '@/components/guide/GettingStartedCard';
 
 const C = {
     bgPanel: '#131416',
@@ -77,6 +78,7 @@ export default function WholesalerDashboard() {
     return (
         <Stack spacing={3}>
             {error && <Alert severity="error">{error}</Alert>}
+            <GettingStartedCard sx={{ marginBottom: 0 }} />
 
             {/* Welcome + stats */}
             <Surface>

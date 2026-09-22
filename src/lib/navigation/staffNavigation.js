@@ -62,6 +62,7 @@ export const staffNavigation = {
           icon: <DiamondIcon />
         }
       ]
-    }
+    },
+    SHARED_NAVIGATION.guide
   ]
 };

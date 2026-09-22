@@ -44,6 +44,7 @@ export const artisanApplicantNavigation = {
       segment: 'dashboard/profile',
       title: 'Profile',
       icon: <PersonIcon />
-    }
+    },
+    SHARED_NAVIGATION.guide
   ]
 };

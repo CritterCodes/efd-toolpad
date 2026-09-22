@@ -31,6 +31,8 @@ export const artisanNavigationConfig = {
       segment: 'dashboard/artisan/payroll',
       title: 'Payroll',
       icon: <PaymentIcon />
-    }
+    },
+    { kind: 'header', title: 'Help' },
+    SHARED_NAVIGATION.guide
   ]
 };
