@@ -391,7 +391,7 @@ export default function NewRepairFlow(props) {
   const stepBlocker = step === 0 && !String(formData.clientName || '').trim()
     ? 'Pick a client to continue'
     : step === 1 && !String(formData.description || '').trim()
-      ? 'Add the customer-facing description to continue'
+      ? 'Add a description to continue'
       : null;
 
   // A submit error is shown next to the buttons that caused it, and scrolled into view.
@@ -746,7 +746,7 @@ export default function NewRepairFlow(props) {
                 </Typography>
               )}
               {dictation.error && <Alert severity="warning" sx={{ mt: 1.5 }}>{dictation.error}</Alert>}
-              <Box sx={{ mt: 1.5 }}>
+              <Box sx={{ mt: 1.5, display: 'flex', justifyContent: 'center' }}>
                 <GoldButton onClick={handleAnalyzeSmartIntake} disabled={analyzingSmartIntake || dictation.listening} aria-label="Analyze the sentence">
                   <AutoAwesomeIcon sx={{ fontSize: 16 }} />
                   {analyzingSmartIntake ? 'Reading the sentence…' : 'Analyze the sentence'}
@@ -1371,7 +1371,15 @@ export default function NewRepairFlow(props) {
           <ActionBar>
             <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
               {stepBlocker && (
-                <Typography variant="caption" sx={{ display: 'block', textAlign: 'center', color: facelift.text2, mb: 0.75 }}>
+                /* Solid pill: the bar's gradient is transparent at the top, so plain text here would
+                   sit over whatever scrolls under it. */
+                <Typography
+                  variant="caption"
+                  sx={{
+                    alignSelf: 'center', color: facelift.text2, mb: 0.75, px: 1.5, py: 0.5, borderRadius: 999,
+                    backgroundColor: facelift.ground, border: `1px solid ${facelift.hairline}`,
+                  }}
+                >
                   {stepBlocker}
                 </Typography>
               )}
