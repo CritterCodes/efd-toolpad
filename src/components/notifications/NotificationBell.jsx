@@ -240,8 +240,9 @@ export default function NotificationBell() {
             </List>
           </Box>
         )}
+        {/* MUI Menu iterates its children for focus handling and rejects a Fragment — one Box instead. */}
         {push.supported && (
-          <>
+          <Box>
             <Divider />
             <Box sx={{ p: 1.5, display: 'flex', justifyContent: 'center' }}>
               <Button
@@ -258,7 +259,7 @@ export default function NotificationBell() {
                   : (push.permission === 'denied' ? 'Push blocked in browser' : 'Enable push notifications')}
               </Button>
             </Box>
-          </>
+          </Box>
         )}
       </Menu>
     </>
