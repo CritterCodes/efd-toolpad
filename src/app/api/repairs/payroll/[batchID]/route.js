@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { payBatchViaConnect } from '@/services/payroll/connectPayouts';
 import { requireRole } from '@/lib/apiAuth';
 import {
   finalizePayrollBatch,
@@ -40,6 +41,12 @@ export const PATCH = async (req, { params }) => {
       });
     } else if (action === 'void') {
       batch = await voidPayrollBatch(params.batchID, { notes: body.notes });
+    } else if (action === 'pay_stripe') {
+      // Admin-initiated transfer for a finalized batch; works even when the payee is not on auto-pay
+      // (they still need a live Stripe account). Marks the batch paid with the transfer id.
+      const paid = await payBatchViaConnect({ batchID: params.batchID, actor: 'admin', force: true });
+      if (!paid.paid) return NextResponse.json({ error: `Not paid: ${paid.reason}.` }, { status: 400 });
+      batch = await getPayrollBatchDetail(params.batchID);
     } else {
       return NextResponse.json({ error: 'Unsupported payroll batch action.' }, { status: 400 });
     }

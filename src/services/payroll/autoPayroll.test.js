@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   markPayrollBatchPaid: vi.fn(),
   getOwnerOperatorUserIDs: vi.fn(),
   notifyAllAdmins: vi.fn(),
+  isAutoPayReady: vi.fn(async () => false),
+  runConnectPayouts: vi.fn(async () => ({ paid: [], skipped: [], shortfall: [], errors: [] })),
 }));
 
 vi.mock('@/app/api/repairs/payroll/service', () => ({
@@ -18,6 +20,7 @@ vi.mock('@/app/api/repairs/payroll/service', () => ({
 }));
 vi.mock('@/lib/notificationService', () => ({ notifyAllAdmins: mocks.notifyAllAdmins }));
 vi.mock('@/lib/appUrls', () => ({ adminBase: () => 'http://test' }));
+vi.mock('@/services/payroll/connectPayouts', () => ({ isAutoPayReady: mocks.isAutoPayReady, runConnectPayouts: mocks.runConnectPayouts }));
 
 import { runWeeklyPayroll, lastClosedWeekStart, OWNER_LEDGER_METHOD } from './autoPayroll';
 
@@ -95,6 +98,21 @@ describe('weekly payroll run', () => {
     expect(result.skipped).toEqual([expect.objectContaining({ userID: 'a', reason: 'open batch exists' })]);
     expect(result.errors).toEqual([expect.objectContaining({ userID: 'b', error: 'mongo down' })]);
     expect(mocks.notifyAllAdmins.mock.calls[0][0].message).toMatch(/1 batch failed/);
+  });
+
+  it("an owner on Stripe auto-pay is left finalized for the transfer instead of ledgered, and the transfer is reported", async () => {
+    mocks.getOwnerOperatorUserIDs.mockResolvedValue(['owner-1']);
+    mocks.isAutoPayReady.mockResolvedValueOnce(true);
+    mocks.listPayrollCandidates.mockResolvedValue([{ userID: 'owner-1', userName: 'Jacob', weekStart: new Date('2026-09-14T00:00:00Z') }]);
+    mocks.createPayrollBatch.mockResolvedValue({ batchID: 'b7', laborPay: 500, salePay: 0, laborHours: 10 });
+    mocks.runConnectPayouts.mockResolvedValueOnce({ paid: [{ batchID: 'b7', userName: 'Jacob', amount: 500, transferId: 'tr_1' }], skipped: [], shortfall: [], errors: [] });
+
+    const result = await runWeeklyPayroll({ now: MON_SEP_21 });
+    expect(mocks.markPayrollBatchPaid).not.toHaveBeenCalled(); // the payout module marks it paid after the transfer
+    expect(result.ownerLedger).toEqual([]);
+    expect(result.toPay).toEqual([]); // paid by Stripe, so nothing left "to pay"
+    const call = mocks.notifyAllAdmins.mock.calls[0][0];
+    expect(call.title).toMatch(/\$500\.00 paid by Stripe/);
   });
 
   it('stays silent when there is nothing at all to do', async () => {

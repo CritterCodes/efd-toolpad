@@ -35,6 +35,7 @@ import { useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { REPAIRS_UI } from '../components/repairsUi';
 import { canAccessPayroll } from '@/lib/repairAccess';
+import ConnectPayoutCard from '@/components/payroll/ConnectPayoutCard';
 import {
   ANALYTICS_BASELINE_NOTE,
   DEFAULT_LABOR_ANALYTICS_START_DATE,
@@ -425,7 +426,7 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `Failed to ${action} payroll batch.`);
-    if (action === 'finalize' || action === 'mark_paid' || action === 'void') {
+    if (action === 'finalize' || action === 'mark_paid' || action === 'void' || action === 'pay_stripe') {
       closeDialog();
     }
   });
@@ -962,6 +963,11 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
               </Stack>
             </>
           )}
+          {selectedMode === 'batch' && selectedDetail?.userID && (
+            <Box sx={{ mt: 2 }}>
+              <ConnectPayoutCard adminFor={selectedDetail.userID} sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}` }} />
+            </Box>
+          )}
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={closeDialog} disabled={actionLoading}>Close</Button>
@@ -1020,6 +1026,9 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
             <>
               <Button onClick={() => updateBatch('void')} disabled={actionLoading} color="inherit">
                 {actionLoading ? 'Saving...' : 'Void Batch'}
+              </Button>
+              <Button onClick={() => updateBatch('pay_stripe')} disabled={actionLoading} variant="outlined">
+                {actionLoading ? 'Saving...' : 'Pay via Stripe'}
               </Button>
               <Button
                 variant="contained"
