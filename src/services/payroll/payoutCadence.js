@@ -22,7 +22,7 @@ import { PAYROLL_BATCH_STATUS, buildPayrollBatchTotals } from '@/services/payrol
 
 export const SETTINGS_ID = 'repair_task_admin_settings';
 export const CADENCES = Object.freeze(['weekly', 'daily']);
-export const FEE_DEFAULTS = Object.freeze({ stripeFlat: 0.25, stripePct: 0.25, dailyFlat: 1.0 });
+export const FEE_DEFAULTS = Object.freeze({ stripeFlat: 0.25, stripePct: 0.25, stripePctMinimum: 0.25, dailyFlat: 1.0 });
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 const DAY = 24 * 60 * 60 * 1000;
@@ -36,21 +36,27 @@ export function normalizeFeeSettings(input = {}) {
   return {
     stripeFlat: num(input?.stripeFlat, FEE_DEFAULTS.stripeFlat, 10),
     stripePct: num(input?.stripePct, FEE_DEFAULTS.stripePct, 10),
+    stripePctMinimum: num(input?.stripePctMinimum, FEE_DEFAULTS.stripePctMinimum, 10),
     dailyFlat: num(input?.dailyFlat, FEE_DEFAULTS.dailyFlat, 50),
   };
 }
 
 /**
  * Pure: what a daily payout costs the payee and what they net. `ownerOperator` skips the EFD fee.
- * Stripe's fee is computed on the amount that actually pays out (the net), solved exactly:
- *   net = (gross − stripeFlat − dailyFlat) / (1 + stripePct)
+ * Stripe's percentage is computed on the amount that actually pays out (the net) and floored at
+ * `stripePctMinimum` (owner, 2026-09-22: "25 cent minimum on the 0.25%"). Solved exactly:
+ *   pct part ≥ minimum  →  net = gross − stripeFlat − efdFee − minimum
+ *   otherwise           →  net = (gross − stripeFlat − efdFee) / (1 + stripePct)
  */
 export function computeDailyPayout({ gross = 0, fees = FEE_DEFAULTS, ownerOperator = false } = {}) {
   const f = normalizeFeeSettings(fees);
   const efdFee = ownerOperator ? 0 : f.dailyFlat;
   const pct = f.stripePct / 100;
-  const net = round2(Math.max(0, (gross - f.stripeFlat - efdFee) / (1 + pct)));
-  const stripeFee = net > 0 ? round2(f.stripeFlat + net * pct) : 0;
+  const fixed = f.stripeFlat + efdFee;
+  const proportional = (gross - fixed) / (1 + pct);          // net if the % part is above the minimum
+  const pctPart = proportional * pct;
+  const net = round2(Math.max(0, pctPart >= f.stripePctMinimum ? proportional : gross - fixed - f.stripePctMinimum));
+  const stripeFee = net > 0 ? round2(f.stripeFlat + Math.max(f.stripePctMinimum, net * pct)) : 0;
   const fee = round2(gross - net);
   return { gross: round2(gross), net, fee, stripeFee, efdFee: net > 0 ? efdFee : 0, cadence: 'daily' };
 }
@@ -59,7 +65,7 @@ export function computeDailyPayout({ gross = 0, fees = FEE_DEFAULTS, ownerOperat
 export function dailyFeeLabel(fees = FEE_DEFAULTS) {
   const f = normalizeFeeSettings(fees);
   const flat = round2(f.stripeFlat + f.dailyFlat);
-  return `$${flat.toFixed(2)} + ${f.stripePct}% per payout`;
+  return `$${flat.toFixed(2)} + ${f.stripePct}% (min $${f.stripePctMinimum.toFixed(2)}) per payout`;
 }
 
 export async function readFeeSettings() {

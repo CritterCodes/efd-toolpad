@@ -11,11 +11,17 @@ import { computeDailyPayout, dailyFeeLabel, normalizeFeeSettings, normalizeCaden
 describe('daily payout fee (pure)', () => {
   it('weekly is not touched here; daily nets Stripe + EFD flat out of the transfer, exactly', () => {
     const p = computeDailyPayout({ gross: 100 });
-    // net = (100 - 0.25 - 1) / 1.0025 = 98.50 (rounded); Stripe fee on the net = 0.25 + 0.2463 → 0.50
+    // % part on ~98.75 is 0.2469 < the $0.25 minimum → minimum applies: net = 100 − 0.25 − 1 − 0.25 = 98.50
     expect(p.net).toBe(98.5);
     expect(p.efdFee).toBe(1);
     expect(p.stripeFee).toBe(0.5);
     expect(p.fee).toBe(1.5);
+    // a big day is above the minimum: net = (600 − 1.25) / 1.0025 = 597.26, % part 1.49
+    const big = computeDailyPayout({ gross: 600 });
+    expect(big.net).toBe(597.26);
+    expect(big.stripeFee).toBe(1.74);
+    // a small day: the minimum bites — $50 → 48.50, not 48.62
+    expect(computeDailyPayout({ gross: 50 }).net).toBe(48.5);
     expect(p.gross + 0).toBe(100);
     expect(p.net + p.fee).toBe(100);
   });
@@ -34,9 +40,9 @@ describe('daily payout fee (pure)', () => {
 
   it('rates are settings with sane clamps and a readable label', () => {
     expect(normalizeFeeSettings(undefined)).toEqual({ ...FEE_DEFAULTS });
-    expect(normalizeFeeSettings({ stripeFlat: -1, stripePct: 99, dailyFlat: 'x' })).toEqual({ stripeFlat: 0.25, stripePct: 10, dailyFlat: 1 });
-    expect(dailyFeeLabel()).toBe('$1.25 + 0.25% per payout');
-    expect(dailyFeeLabel({ stripeFlat: 0.25, stripePct: 0.25, dailyFlat: 0.5 })).toBe('$0.75 + 0.25% per payout');
+    expect(normalizeFeeSettings({ stripeFlat: -1, stripePct: 99, dailyFlat: 'x' })).toEqual({ stripeFlat: 0.25, stripePct: 10, stripePctMinimum: 0.25, dailyFlat: 1 });
+    expect(dailyFeeLabel()).toBe('$1.25 + 0.25% (min $0.25) per payout');
+    expect(dailyFeeLabel({ stripeFlat: 0.25, stripePct: 0.25, dailyFlat: 0.5 })).toBe('$0.75 + 0.25% (min $0.25) per payout');
   });
 
   it('cadence defaults to weekly; days start at local midnight', () => {

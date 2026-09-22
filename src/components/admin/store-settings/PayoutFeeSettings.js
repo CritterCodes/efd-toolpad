@@ -59,9 +59,10 @@ export default function PayoutFeeSettings() {
           Owner-operators are never charged the EFD fee.
         </Typography>
         <Grid container spacing={1.5}>
-          <Grid item xs={12} sm={4}>{field('stripeFlat', 'Stripe flat ($)', 'Stripe’s per-payout flat fee, passed through.', 0.05)}</Grid>
-          <Grid item xs={12} sm={4}>{field('stripePct', 'Stripe percent (%)', 'Stripe’s per-payout percentage, passed through.', 0.05)}</Grid>
-          <Grid item xs={12} sm={4}>{field('dailyFlat', 'EFD flat fee ($)', 'What EFD adds per daily payout.', 0.25)}</Grid>
+          <Grid item xs={12} sm={3}>{field('stripeFlat', 'Stripe flat ($)', 'Stripe’s per-payout flat fee, passed through.', 0.05)}</Grid>
+          <Grid item xs={12} sm={3}>{field('stripePct', 'Stripe percent (%)', 'Stripe’s per-payout percentage, passed through.', 0.05)}</Grid>
+          <Grid item xs={12} sm={3}>{field('stripePctMinimum', 'Percent minimum ($)', 'The percentage part is never less than this.', 0.05)}</Grid>
+          <Grid item xs={12} sm={3}>{field('dailyFlat', 'EFD flat fee ($)', 'What EFD adds per daily payout.', 0.25)}</Grid>
         </Grid>
         {example && (
           <Box sx={{ mt: 2, p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
