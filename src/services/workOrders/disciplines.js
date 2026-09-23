@@ -13,19 +13,35 @@ export const DISCIPLINE = {
 
 export const ALL_DISCIPLINES = Object.values(DISCIPLINE);
 
-// artisanType (Constants.ARTISAN_TYPES) -> discipline it can claim.
+/**
+ * artisanType -> the discipline it may claim, keyed on the NORMALIZED type
+ * (lib/artisans.normalizeArtisanType: lowercased, spaces/underscores to hyphens).
+ *
+ * This used to key on exact display strings ('Hand Engraver', 'Gem Cutter'), which quietly failed for
+ * anything stored differently — production has one artisan saved as "Engraver", who therefore resolved
+ * to NO discipline and fell through to the bench_jewelry fallback: the wrong lane, and no way to claim
+ * engraving work. Types are entered by hand on the application form, so matching has to tolerate case
+ * and spacing rather than assume one spelling.
+ */
 const ARTISAN_TYPE_TO_DISCIPLINE = {
-  'Jeweler': DISCIPLINE.BENCH_JEWELRY,
-  'CAD Designer': DISCIPLINE.CAD,
-  'Hand Engraver': DISCIPLINE.ENGRAVING,
-  'Gem Cutter': DISCIPLINE.GEM_CUTTING,
+  'jeweler': DISCIPLINE.BENCH_JEWELRY,
+  'bench-jeweler': DISCIPLINE.BENCH_JEWELRY,
+  'cad-designer': DISCIPLINE.CAD,
+  'cad': DISCIPLINE.CAD,
+  'engraver': DISCIPLINE.ENGRAVING,
+  'hand-engraver': DISCIPLINE.ENGRAVING,
+  'gem-cutter': DISCIPLINE.GEM_CUTTING,
+  'gemcutter': DISCIPLINE.GEM_CUTTING,
+  'lapidary': DISCIPLINE.GEM_CUTTING,
 };
+
+const normalizeType = (t) => String(t || '').trim().toLowerCase().replace(/[\s_]+/g, '-');
 
 /** Disciplines a user may self-claim, derived from their artisanTypes. */
 export function disciplinesForArtisanTypes(artisanTypes = []) {
   const set = new Set();
   for (const type of artisanTypes || []) {
-    const discipline = ARTISAN_TYPE_TO_DISCIPLINE[type];
+    const discipline = ARTISAN_TYPE_TO_DISCIPLINE[normalizeType(type)];
     if (discipline) set.add(discipline);
   }
   return [...set];

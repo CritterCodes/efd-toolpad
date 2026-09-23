@@ -12,17 +12,40 @@ describe('artisan navigation', () => {
     expect(segments).toContain('dashboard/artisan/my-work');
   });
 
-  it('keeps repair intake and bench work restricted to on-site repair staff', () => {
+  it('keeps repair INTAKE restricted to on-site repair staff', () => {
     const standardArtisan = navigationSegments(generateArtisanNavigation());
     const repairArtisan = navigationSegments(
       generateArtisanNavigation([], { repairOps: true }, { isOnsite: true }),
     );
 
     expect(standardArtisan).not.toContain('dashboard/repairs/new');
-    expect(standardArtisan).not.toContain('dashboard/repairs/my-bench');
     expect(repairArtisan).toContain('dashboard/repairs/new');
-    expect(repairArtisan).toContain('dashboard/repairs/my-bench');
     expect(repairArtisan.filter((segment) => segment === 'dashboard/artisan/my-work')).toHaveLength(1);
+  });
+
+  /**
+   * My Bench used to hang off repairOps, which hid it from every off-site artisan. The bench is
+   * work-order driven and lane-gated by discipline (services/bench/benchQuery.js), so a gem cutter
+   * sees gem_cutting and never a repair ticket — there was nothing to protect, and the cost was real:
+   * the shop's first gem-cutting work order sat unclaimed because the cutter had no link to the page
+   * it lives on.
+   */
+  it('gives EVERY artisan My Bench — including an off-site gem cutter with no repair capabilities', () => {
+    const gemCutter = navigationSegments(generateArtisanNavigation(['Gem Cutter'], null, { isOnsite: false }));
+    const engraver = navigationSegments(generateArtisanNavigation(['Engraver'], {}, null));
+    const repairArtisan = navigationSegments(
+      generateArtisanNavigation([], { repairOps: true }, { isOnsite: true }),
+    );
+
+    expect(gemCutter).toContain('dashboard/repairs/my-bench');
+    expect(engraver).toContain('dashboard/repairs/my-bench');
+    expect(repairArtisan).toContain('dashboard/repairs/my-bench');
+    // Still exactly one entry for repair staff — the two branches must not both fire.
+    expect(repairArtisan.filter((s) => s === 'dashboard/repairs/my-bench')).toHaveLength(1);
+    expect(gemCutter.filter((s) => s === 'dashboard/repairs/my-bench')).toHaveLength(1);
+    // The bench link is not a back door into the repair-ops pages.
+    expect(gemCutter).not.toContain('dashboard/repairs/new');
+    expect(gemCutter).not.toContain('dashboard/repairs/pick-up');
   });
 
   /**

@@ -165,6 +165,19 @@ export function generateArtisanNavigation(artisanTypes = [], staffCapabilities =
 
   if (isOnsiteRepairOps) {
     base.push(...buildRepairOpsNavItems(staffCapabilities));
+  } else {
+    // My Bench for EVERY artisan, not just on-site repair staff.
+    //
+    // The bench is work-order driven and lane-gated (services/bench/benchQuery.js): it shows the
+    // disciplines your artisanTypes grant, so a gem cutter sees gem_cutting and never a repair ticket.
+    // Hanging it off `repairOps` meant an off-site gem cutter or engraver had no link to the one page
+    // where their work appears — a gem-cutting work order could be created and then never claimed,
+    // which is exactly what happened to the first one. repairOps still gates the repair-SPECIFIC pages
+    // above (intake, receiving, parts, pickup); claiming stays gated by discipline either way.
+    base.push(
+      { kind: 'header', title: 'Bench' },
+      { segment: 'dashboard/repairs/my-bench', title: 'My Bench', icon: <WorkIcon /> },
+    );
   }
 
   return base;
