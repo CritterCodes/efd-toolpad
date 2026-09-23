@@ -37,6 +37,7 @@ import { useSession } from 'next-auth/react';
 import { REPAIRS_UI } from '../components/repairsUi';
 import { canAccessPayroll } from '@/lib/repairAccess';
 import ConnectPayoutCard from '@/components/payroll/ConnectPayoutCard';
+import PayrollHealthCard from '@/components/payroll/PayrollHealthCard';
 import {
   ANALYTICS_BASELINE_NOTE,
   DEFAULT_LABOR_ANALYTICS_START_DATE,
@@ -616,6 +617,7 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
       {/* The admin is a payee too (owner-operator): connect YOUR Stripe account here. Stripe Connect is
           the only way anyone — you included — is paid. */}
       <Box sx={{ mb: 3 }}>
+        <PayrollHealthCard />
         <Typography variant="overline" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 1 }}>Your payouts</Typography>
         <ConnectPayoutCard sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}` }} />
       </Box>
