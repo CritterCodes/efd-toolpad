@@ -11,6 +11,7 @@ import { NextResponse } from 'next/server';
 import { cronAuthorized } from '@/lib/cronAuth';
 import { runWeeklyPayroll, lastClosedWeekStart } from '@/services/payroll/autoPayroll';
 import { listPayrollCandidates } from '@/app/api/repairs/payroll/service';
+import { withHeartbeat } from '@/services/payroll/cronHeartbeat';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +25,7 @@ export async function GET(req) {
       const candidates = await listPayrollCandidates({ weekEnd });
       return NextResponse.json({ ok: true, dryRun: true, weekEnd, candidates });
     }
-    const result = await runWeeklyPayroll();
+    const result = await withHeartbeat('weekly-payroll', () => runWeeklyPayroll());
     return NextResponse.json({ ok: result.errors.length === 0, ...result });
   } catch (error) {
     console.error('weekly-payroll cron failed:', error);

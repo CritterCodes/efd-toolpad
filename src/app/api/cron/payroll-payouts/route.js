@@ -9,13 +9,14 @@
 import { NextResponse } from 'next/server';
 import { cronAuthorized } from '@/lib/cronAuth';
 import { runConnectPayouts } from '@/services/payroll/connectPayouts';
+import { withHeartbeat } from '@/services/payroll/cronHeartbeat';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req) {
   if (!cronAuthorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
-    const result = await runConnectPayouts();
+    const result = await withHeartbeat('payroll-payouts', () => runConnectPayouts());
     return NextResponse.json({ ok: result.errors.length === 0, ...result });
   } catch (error) {
     console.error('payroll-payouts cron failed:', error);

@@ -8,6 +8,7 @@
 import { NextResponse } from 'next/server';
 import { cronAuthorized } from '@/lib/cronAuth';
 import { runFundingCheck } from '@/services/payroll/payrollFunding';
+import { withHeartbeat } from '@/services/payroll/cronHeartbeat';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +16,8 @@ export async function GET(req) {
   if (!cronAuthorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const dryRun = req.nextUrl?.searchParams?.get('dryRun') === '1';
-    const result = await runFundingCheck({ dryRun });
+    // A dry run reports; it is not a real run, so it leaves no heartbeat.
+    const result = dryRun ? await runFundingCheck({ dryRun }) : await withHeartbeat('payroll-funding', () => runFundingCheck({}));
     return NextResponse.json({ ok: !result.error, ...result });
   } catch (error) {
     console.error('payroll-funding cron failed:', error);
