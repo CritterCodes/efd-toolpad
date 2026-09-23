@@ -31,6 +31,7 @@ import DesignsModel, { DESIGN_STATUS, EDITION_TYPE } from '@/app/api/designs/mod
 import PiecesModel, { PIECE_STATUS } from '@/app/api/pieces/model';
 import { DISCIPLINE } from '@/services/workOrders/disciplines';
 import { spawnCustomWorkOrder } from '@/services/customs/customProduction';
+import { ASSIGNMENT_ROLE } from '@/services/customs/customAssignment';
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 const list = (v) => (Array.isArray(v) ? v : [v]).map((x) => String(x || '').trim()).filter(Boolean);
@@ -122,6 +123,17 @@ export async function addCustomCutStone({ customID, stone = {}, cutterUserID = n
   const order = await CustomOrdersModel.findById(customID);
   if (!order) throw new Error('Custom order not found.');
 
+  // The cutter comes from the order's ASSIGNMENTS, not from a free pick (owner, 2026-09-23: "he gets
+  // added as an artisan on the custom order"). Being assigned is what gives him comms access and puts
+  // him on the job; a stone handed to somebody who is not on the order would be work nobody agreed to.
+  // A stone with no cutter yet is fine — its cut work order simply sits unclaimed.
+  const assignment = cutterUserID
+    ? (order.assignments || []).find((a) => a.userID === cutterUserID && a.role === ASSIGNMENT_ROLE.STONE)
+    : null;
+  if (cutterUserID && !assignment) {
+    throw new Error('That cutter is not assigned to this order. Assign them as a stone cutter first.');
+  }
+
   const designData = buildStoneDesign(stone, { customID, cutterUserID, createdBy });
   const design = await DesignsModel.create(designData);
   const variant = design.variants[0];
@@ -148,6 +160,10 @@ export async function addCustomCutStone({ customID, stone = {}, cutterUserID = n
     assignedToUserID: cutterUserID,
     createdBy,
     pieceID: piece.pieceID,
+    assignedJeweler: assignment?.name || null,
+    // Pairs the cut work order with the assignment, so unassigning the cutter can release it
+    // (customAssignment.releaseStoneWorkOrders) instead of leaving it on a stranger's bench.
+    assignmentId: assignment?.id || null,
   });
 
   return { design, piece, workOrder };

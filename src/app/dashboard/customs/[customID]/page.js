@@ -21,6 +21,7 @@ import StatusTimeline from '../components/StatusTimeline';
 import OverviewTab from '../components/tabs/OverviewTab';
 import QuoteTab from '../components/tabs/QuoteTab';
 import AssignmentTab from '../components/tabs/AssignmentTab';
+import StoneTab from '@/app/dashboard/customs/components/tabs/StoneTab';
 import ProductionTab from '../components/tabs/ProductionTab';
 import NotesTab from '../components/tabs/NotesTab';
 import CommunicationsTab from '../components/tabs/CommunicationsTab';
@@ -217,7 +218,7 @@ export default function CustomDetailPage() {
 
   const assignments = order.assignments || [];
   const TABS = [
-    'Overview', 'Quote', 'Invoices', 'Production', `Assignment (${assignments.length})`,
+    'Overview', 'Quote', 'Invoices', 'Production', 'Stone', `Assignment (${assignments.length})`,
     `Notes (${notes.length})`, `Communications (${comms.length})`, `Images (${images.length})`, '3D & Share',
   ];
 
@@ -360,11 +361,12 @@ export default function CustomDetailPage() {
       {/* Production */}
       {tab === 3 && <ProductionTab customID={customID} order={order} margin={margin} notify={notify} onChanged={load} />}
 
-      {tab === 4 && <AssignmentTab customID={customID} assignments={assignments} onChanged={load} notify={notify} />}
-      {tab === 5 && <NotesTab customID={customID} notes={notes} onChanged={load} notify={notify} />}
-      {tab === 6 && <CommunicationsTab customID={customID} communications={comms} onChanged={load} notify={notify} />}
-      {tab === 7 && <ImagesTab customID={customID} images={images} onChanged={load} notify={notify} />}
-      {tab === 8 && <ShareTab customID={customID} order={order} onChanged={load} notify={notify} />}
+      {tab === 4 && <StoneTab customID={customID} order={order} notify={notify} onChanged={load} />}
+      {tab === 5 && <AssignmentTab customID={customID} assignments={assignments} onChanged={load} notify={notify} />}
+      {tab === 6 && <NotesTab customID={customID} notes={notes} onChanged={load} notify={notify} />}
+      {tab === 7 && <CommunicationsTab customID={customID} communications={comms} onChanged={load} notify={notify} />}
+      {tab === 8 && <ImagesTab customID={customID} images={images} onChanged={load} notify={notify} />}
+      {tab === 9 && <ShareTab customID={customID} order={order} onChanged={load} notify={notify} />}
 
       {/* Invoice dialog */}
       <Dialog open={invoiceOpen} onClose={() => setInvoiceOpen(false)} fullWidth maxWidth="sm" PaperProps={dialogPaperProps}>

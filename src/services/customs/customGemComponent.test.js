@@ -35,7 +35,13 @@ const MARQUISE = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.findOrder.mockResolvedValue({ customID: 'CO-1', clientID: 'client-1', billing: { mode: 'retail' }, quote: { centerstone: { item: '', cost: 0 } } });
+  mocks.findOrder.mockResolvedValue({
+    customID: 'CO-1',
+    clientID: 'client-1',
+    billing: { mode: 'retail' },
+    quote: { centerstone: { item: '', cost: 0 } },
+    assignments: [{ id: 'asg-1', userID: 'user-cutter', name: 'Jacob West', role: 'stone' }],
+  });
   mocks.pieceFind.mockResolvedValue({ pieceID: 'p-stone', customOrderID: 'CO-1', designID: 'd-stone', resolvedConfiguration: stoneConfiguration(MARQUISE) });
   mocks.updateOrder.mockResolvedValue({ quote: { quoteTotal: 4200 } });
 });
@@ -92,7 +98,19 @@ describe('addCustomCutStone', () => {
     expect(wo.pieceID).toBe('p-stone');           // the stone, NOT the ring
     expect(wo.assignedToUserID).toBe('user-cutter');
     expect(wo.title).toBe('Cut 1.5ct Marquise Golden Citrine');
+    // Stamped with the assignment, so unassigning the cutter can release the cut work order.
+    expect(wo.assignmentId).toBe('asg-1');
     expect(out.workOrder.workOrderID).toBe('wo-1');
+  });
+
+  it('refuses a cutter who is not assigned to the order, and allows a stone with no cutter yet', async () => {
+    await expect(addCustomCutStone({ customID: 'CO-1', stone: MARQUISE, cutterUserID: 'stranger' }))
+      .rejects.toThrow(/not assigned to this order/);
+
+    await addCustomCutStone({ customID: 'CO-1', stone: MARQUISE });
+    const wo = mocks.spawnWO.mock.calls[0][0];
+    expect(wo.assignedToUserID).toBe(null);
+    expect(wo.assignmentId).toBe(null);
   });
 
   it('will not add a stone to an order that does not exist', async () => {

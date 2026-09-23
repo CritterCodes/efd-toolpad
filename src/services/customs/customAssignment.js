@@ -15,7 +15,16 @@ import { getCustomTaskLine, mergeAutoLaborLine } from '@/services/customs/custom
 import { DISCIPLINE } from '@/services/workOrders/disciplines';
 import SettingsManagerService from '@/app/api/admin/settings/services/settingsManager.service';
 
-export const ASSIGNMENT_ROLE = { CAD: 'cad', BENCH: 'bench' };
+/**
+ * STONE is a gem cutter commissioned on this order. Like BENCH and unlike CAD it snapshots no fee and
+ * spawns nothing by itself: assigning the cutter is how he gets ONTO the order (comms access, and he
+ * becomes the person the Stone tab can hand a stone to). The stone itself is defined in that tab —
+ * species, cut, target size — because that is when the spec is actually known, and each stone becomes
+ * its own gemstone Design + Piece with its own cut work order (services/customs/customGemComponent.js).
+ */
+export const ASSIGNMENT_ROLE = { CAD: 'cad', BENCH: 'bench', STONE: 'stone' };
+const ROLE_VALUES = new Set(Object.values(ASSIGNMENT_ROLE));
+const normalizeRole = (r) => (ROLE_VALUES.has(r) ? r : ASSIGNMENT_ROLE.CAD);
 
 const DEFAULT_QC_REVIEW_FEE = 25;
 async function qcReviewFeeSetting() {
@@ -90,7 +99,7 @@ export async function assignArtisan({ customID, userID, role = ASSIGNMENT_ROLE.C
     id: randomUUID(),
     userID,
     name: artisanName(user),
-    role: role === ASSIGNMENT_ROLE.BENCH ? ASSIGNMENT_ROLE.BENCH : ASSIGNMENT_ROLE.CAD,
+    role: normalizeRole(role),
     artisanType: artisanTypeOf(user),
     feeSnapshot,
     // Comms access: assigned artisans manage the client + see both threads.
@@ -204,7 +213,39 @@ export async function removeAssignment({ customID, assignmentID }) {
     }
   }
 
+  if (assignment?.role === ASSIGNMENT_ROLE.STONE) await releaseStoneWorkOrders(order, assignment);
+
   return CustomOrdersModel.findById(customID);
+}
+
+/**
+ * Take an unassigned cutter off the stones he was going to cut — WITHOUT deleting the stones.
+ *
+ * This is deliberately gentler than the CAD path, because a commissioned stone is a COMPONENT of the
+ * order, not a fee attached to a person. Changing cutter does not mean the ring stopped needing the
+ * stone, so the stone's Design + Piece stay and its cut work order simply goes back to unclaimed for
+ * the next cutter to take. A work order that already carries work keeps its assignee: he cut it, the
+ * QC credit is his, and reassigning it would hand his labour to somebody else.
+ */
+async function releaseStoneWorkOrders(order, assignment) {
+  try {
+    const [{ default: WorkOrdersModel, WORK_ORDER_SOURCE }] = await Promise.all([import('@/app/api/workOrders/model')]);
+    for (const pieceID of order.pieceIDs || []) {
+      const all = await WorkOrdersModel.findBySource(WORK_ORDER_SOURCE.PRODUCTION_PIECE, pieceID);
+      const mine = all.filter((w) => w.discipline === DISCIPLINE.GEM_CUTTING
+        && (w.assignmentId === assignment.id || w.assignedToUserID === assignment.userID)
+        && w.status !== 'CANCELLED');
+      for (const wo of mine) {
+        const hasWork = Boolean(wo.completedAt) || Boolean(wo.qcBy)
+          || Object.keys(wo.files || {}).length > 0 || (wo.tasks || []).length > 0;
+        if (hasWork) continue;
+        await WorkOrdersModel.updateByID(wo.workOrderID, { assignedToUserID: null, assignedJeweler: null });
+      }
+    }
+  } catch (e) {
+    // Same rule as the CAD cleanup: never block removing an assignment on it.
+    console.error('[customs] stone work-order release failed:', e?.message || e);
+  }
 }
 
 /**
