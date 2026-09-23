@@ -16,6 +16,13 @@
  */
 import { db } from '@/lib/database';
 
+/**
+ * `cronRuns` already existed as the price jobs' clock (services/cron/priceSchedules.js) and is keyed by
+ * `_id: jobKey` with `lastRunAt` / `lastStatus` / `lastDetail`. We use the SAME collection and the SAME
+ * key and field names rather than inventing a second shape beside it — one convention for "when did
+ * this job last run", whoever asks. Both readers filter to their own job list, so neither sees the
+ * other's rows. The payroll jobs add `history` on top; the price jobs simply do not have it.
+ */
 export const COLLECTION = 'cronRuns';
 const HISTORY = 20;
 
@@ -98,18 +105,15 @@ export function isOverdue(job, lastRanAt, now = new Date()) {
 export async function recordCronRun({ job, ok = true, result = {}, error = null, ranAt = new Date(), durationMs = null } = {}) {
   try {
     if (!job) return { recorded: false };
-    const entry = {
-      ranAt,
-      ok: Boolean(ok) && !error,
-      summary: error ? `Failed: ${error}` : summarizeJobRun(job, result),
-      ...(error ? { error } : {}),
-      ...(durationMs != null ? { durationMs } : {}),
-    };
+    const healthy = Boolean(ok) && !error;
+    const detail = error ? `Failed: ${error}` : summarizeJobRun(job, result);
+    const entry = { ranAt, ok: healthy, summary: detail, ...(error ? { error } : {}), ...(durationMs != null ? { durationMs } : {}) };
     const dbi = await db.connect();
     await dbi.collection(COLLECTION).updateOne(
-      { job },
+      { _id: job },
       {
-        $set: { job, last: entry, updatedAt: ranAt },
+        // The price jobs' field names, so one reader shape serves every cron in here.
+        $set: { lastRunAt: ranAt, lastStatus: healthy ? 'ok' : 'error', lastDetail: String(detail).slice(0, 500), ...(durationMs != null ? { lastDurationMs: durationMs } : {}) },
         // A short tail, so "has this been failing for weeks?" is answerable without a log query.
         $push: { history: { $each: [entry], $slice: -HISTORY } },
         $setOnInsert: { createdAt: ranAt },
@@ -128,24 +132,25 @@ export async function readPayrollRuns({ now = new Date() } = {}) {
   let docs = [];
   try {
     const dbi = await db.connect();
-    docs = await dbi.collection(COLLECTION).find({ job: { $in: Object.keys(PAYROLL_JOBS) } }).project({ _id: 0 }).toArray();
+    docs = await dbi.collection(COLLECTION).find({ _id: { $in: Object.keys(PAYROLL_JOBS) } }).toArray();
   } catch (e) {
     console.error('[cron-heartbeat] could not read runs:', e?.message || e);
   }
-  const byJob = new Map(docs.map((d) => [d.job, d]));
+  const byJob = new Map(docs.map((d) => [d._id, d]));
   return Object.entries(PAYROLL_JOBS).map(([job, spec]) => {
-    const last = byJob.get(job)?.last || null;
+    const doc = byJob.get(job) || null;
+    const lastRanAt = doc?.lastRunAt || null;
     return {
       job,
       label: spec.label,
       cadence: spec.cadence,
-      lastRanAt: last?.ranAt || null,
-      ok: last ? last.ok !== false : null,
-      summary: last?.summary || null,
-      error: last?.error || null,
+      lastRanAt,
+      ok: lastRanAt ? doc.lastStatus !== 'error' : null,
+      summary: doc?.lastDetail || null,
+      error: doc?.lastStatus === 'error' ? doc.lastDetail : null,
       nextRunAt: nextRunAt(job, now),
-      overdue: isOverdue(job, last?.ranAt, now),
-      neverRun: !last,
+      overdue: isOverdue(job, lastRanAt, now),
+      neverRun: !lastRanAt,
     };
   });
 }
