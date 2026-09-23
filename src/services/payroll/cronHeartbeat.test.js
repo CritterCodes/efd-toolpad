@@ -11,7 +11,7 @@ const WED = new Date('2026-09-23T11:00:44Z'); // the real run this was built for
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.find.mockReturnValue({ project: () => ({ toArray: async () => [] }) });
+  mocks.find.mockReturnValue({ toArray: async () => [] });
 });
 
 describe('summaries (pure)', () => {
@@ -64,13 +64,15 @@ describe('recording', () => {
   it('stamps the run, keeps a capped history and marks failure', async () => {
     await recordCronRun({ job: 'weekly-payroll', result: { finalized: [], payouts: { paid: [] } }, ranAt: WED, durationMs: 1200 });
     const [query, update, opts] = mocks.updateOne.mock.calls[0];
-    expect(query).toEqual({ job: 'weekly-payroll' });
+    // Keyed and named exactly like the price jobs already in this collection (priceSchedules.js).
+    expect(query).toEqual({ _id: 'weekly-payroll' });
     expect(opts).toEqual({ upsert: true });
-    expect(update.$set.last).toMatchObject({ ranAt: WED, ok: true, summary: 'Nothing to pay — no closed week had unpaid work', durationMs: 1200 });
+    expect(update.$set).toMatchObject({ lastRunAt: WED, lastStatus: 'ok', lastDetail: 'Nothing to pay — no closed week had unpaid work', lastDurationMs: 1200 });
+    expect(update.$push.history.$each[0]).toMatchObject({ ranAt: WED, ok: true });
     expect(update.$push.history.$slice).toBe(-20);
 
     await recordCronRun({ job: 'weekly-payroll', ok: false, error: 'stripe down', ranAt: WED });
-    expect(mocks.updateOne.mock.calls[1][1].$set.last).toMatchObject({ ok: false, error: 'stripe down', summary: 'Failed: stripe down' });
+    expect(mocks.updateOne.mock.calls[1][1].$set).toMatchObject({ lastStatus: 'error', lastDetail: 'Failed: stripe down' });
   });
 
   it('a heartbeat that cannot be written never breaks the run', async () => {
@@ -89,9 +91,9 @@ describe('readPayrollRuns', () => {
   });
 
   it('reports a recorded run as healthy', async () => {
-    mocks.find.mockReturnValue({ project: () => ({ toArray: async () => [
-      { job: 'weekly-payroll', last: { ranAt: WED, ok: true, summary: 'Nothing to pay — no closed week had unpaid work' } },
-    ] }) });
+    mocks.find.mockReturnValue({ toArray: async () => [
+      { _id: 'weekly-payroll', lastRunAt: WED, lastStatus: 'ok', lastDetail: 'Nothing to pay — no closed week had unpaid work' },
+    ] });
     const weekly = (await readPayrollRuns({ now: new Date('2026-09-23T18:00:00Z') }))[0];
     expect(weekly).toMatchObject({ neverRun: false, overdue: false, ok: true });
     expect(weekly.summary).toMatch(/Nothing to pay/);
