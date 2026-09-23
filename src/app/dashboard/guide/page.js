@@ -320,7 +320,8 @@ function AdminOps({ t }) {
         ['Thursday sweep (pay EFD’s bank only what sits above the floor)', 'Thursday 16:00 UTC, only on a manual Stripe payout schedule'],
         ['Affiliate commissions', 'every 30 minutes, on fully-paid orders'],
         ['Listing reprice off the metal snapshot', 'hourly'],
-        ['Retail “ready for pickup” notice + pay-ahead link', 'at QC pass, email + push, marked paid by Stripe'],
+        ['Retail “ready for pickup” notice', 'at QC pass, email + push, links to the shop'],
+        ['Paying for a finished repair', 'in the shop cart — several repairs settle in one checkout'],
         ['QC mode', t.qc.mode === 'self-certify' ? 'self-certify (bench “Done” passes QC)' : 'separate reviewer'],
       ]} />
       <Muted>Your own labor is credited at QC pass like anyone’s; your weekly batch pays out to your connected account. Owner-operator labor keeps payroll-payable under §4.4.</Muted>

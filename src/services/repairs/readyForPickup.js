@@ -8,8 +8,13 @@
  *
  * Flow: QC pass → repair auto-invoiced (services/repairs/autoInvoice.js) → this stamps an unguessable
  * `payToken` on the invoice, sends the customer an email + push + in-app notice whose button opens the
- * PUBLIC page /pay/<token> (invoice summary + "Pay by card"), and records `repair.pickupNotice`.
- * The invoice is marked paid ONLY by the Stripe webhook, never by the redirect back.
+ * SHOP at /repair/pay/<token>, and records `repair.pickupNotice`.
+ *
+ * The shop owns the paying (owner, 2026-09-22: "they need to be paying through shop"). It shows what we
+ * did and adds the bill to the CART, so a customer with two repairs ready pays once — which a
+ * one-invoice payment page here could never do. Both apps read the same `repairInvoices` document from
+ * the same database, so the token is all that has to travel. The invoice is marked paid ONLY by
+ * Stripe's webhook, on the shop side (efd-shop lib/repairPayments.js).
  *
  * Retail only: wholesale repairs go to the store's billing account and hand-delivery/ship flow.
  * Internal and comped repairs owe nothing, so they get no payment link (and no notice from here).
@@ -20,7 +25,7 @@ import RepairInvoicesModel from '@/app/api/repair-invoices/model';
 import { db } from '@/lib/database';
 import { userIdentityQuery } from '@/app/api/users/model';
 import { NotificationService } from '@/lib/notificationService';
-import { adminLink } from '@/lib/appUrls';
+import { adminLink, shopLink } from '@/lib/appUrls';
 import { resolveBillingMode, isCustomerCharged, BILLING_MODE } from '@/services/billing/modes';
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
@@ -39,7 +44,7 @@ export function newPayToken() {
 }
 
 export function payLinkFor(token) {
-  return adminLink(`/pay/${encodeURIComponent(String(token || ''))}`);
+  return shopLink(`/repair/pay/${encodeURIComponent(String(token || ''))}`);
 }
 
 /** Pure: the customer-facing message. */
@@ -47,7 +52,7 @@ export function buildReadyMessage({ clientName = '', amountDue = 0, repairCount 
   const hello = clientName ? `Good news, ${String(clientName).trim().split(/\s+/)[0]}!` : 'Good news!';
   const what = repairCount > 1 ? `Your ${repairCount} repairs have` : 'Your repair has';
   const pay = round2(amountDue) > 0
-    ? ` The balance is ${money(amountDue)}. You can pay ahead by card using the button below, or pay when you pick up (cash has no fee).`
+    ? ` The balance is ${money(amountDue)}. Have a look at what we did and pay online whenever suits you — or pay when you collect it.`
     : ' There is no balance due.';
   return `${hello} ${what} passed final inspection and ${repairCount > 1 ? 'are' : 'is'} ready for pickup at Engel Fine Design.${pay}`;
 }
@@ -108,7 +113,7 @@ export async function notifyReadyForPickup({ repairID, invoiceID = null, actor =
       priority: 'high',
       data: {
         actionUrl: payUrl || adminLink('/auth/signin'),
-        actionLabel: payUrl ? 'View & pay' : 'View details',
+        actionLabel: payUrl ? 'See it & pay' : 'View details',
         repairID,
         invoiceID: invoice?.invoiceID || '',
         amountDue,

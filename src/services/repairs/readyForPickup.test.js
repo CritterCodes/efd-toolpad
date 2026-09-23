@@ -41,7 +41,8 @@ describe('pay token + link + message (pure)', () => {
     const a = newPayToken(); const b = newPayToken();
     expect(a).toMatch(/^[A-Za-z0-9_-]{30,}$/);
     expect(a).not.toBe(b);
-    expect(payLinkFor(a)).toMatch(new RegExp(`/pay/${a}$`));
+    // The customer pays in the SHOP, not here — the admin app only mints the token.
+    expect(payLinkFor(a)).toMatch(new RegExp(`/repair/pay/${a}$`));
   });
 
   it('message names the customer, the count and the balance, and offers pay-at-pickup', () => {
@@ -49,7 +50,7 @@ describe('pay token + link + message (pure)', () => {
     expect(m).toContain('Good news, Caroline!');
     expect(m).toContain('Your repair has passed final inspection');
     expect(m).toContain('$43.80');
-    expect(m).toContain('pay when you pick up');
+    expect(m).toContain('pay when you collect it');
     expect(buildReadyMessage({ amountDue: 0, repairCount: 2 })).toContain('Your 2 repairs have');
     expect(buildReadyMessage({ amountDue: 0 })).toContain('no balance due');
   });
@@ -65,8 +66,8 @@ describe('notifyReadyForPickup', () => {
     expect(n.userId).toBe('user-c1');
     expect(n.recipientEmail).toBe('caroline@example.com');
     expect(n.channels).toEqual(['inApp', 'email', 'push']);
-    expect(n.data.actionUrl).toMatch(/\/pay\/[A-Za-z0-9_-]{30,}$/);
-    expect(n.data.actionLabel).toBe('View & pay');
+    expect(n.data.actionUrl).toMatch(/\/repair\/pay\/[A-Za-z0-9_-]{30,}$/);
+    expect(n.data.actionLabel).toBe('See it & pay');
     expect(n.title).toContain('$43.80');
     const stamp = mocks.updateById.mock.calls[0][1].pickupNotice;
     expect(stamp.invoiceID).toBe('rinv-1');
