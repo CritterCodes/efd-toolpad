@@ -18,8 +18,13 @@ export const CARD_FEE_FLAT = 0.30;
 
 /**
  * Checkout metadata `kind` values this sink owns. WHOLESALE is the store portal (embedded checkout,
- * ACH or card). RETAIL is the walk-in customer's pay-ahead link (services/repairs/readyForPickup.js:
- * hosted checkout, card only). Same money shape on the invoice either way.
+ * ACH or card).
+ *
+ * RETAIL is no longer minted by this app: a walk-in customer pays for a finished repair in the SHOP,
+ * through its cart, so several repairs settle in one checkout (owner, 2026-09-22 — efd-shop
+ * lib/repairPayments.js credits the same `repairInvoices` document from the same database). The kind
+ * and its branch below stay so that any retail Checkout session created before that change still
+ * settles correctly if its webhook is retried; nothing creates a new one.
  */
 export const PAYABLE_INVOICE_KINDS = Object.freeze({ WHOLESALE: 'wholesale_invoice', RETAIL: 'retail_invoice' });
 const PAYABLE_KIND_VALUES = Object.values(PAYABLE_INVOICE_KINDS);
