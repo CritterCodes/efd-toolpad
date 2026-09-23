@@ -46,7 +46,9 @@ export async function addProductionToCustomOrder(customID, opts = {}) {
     design = await DesignsModel.create({
       name: order.title || `Custom ${customID}`,
       description: order.description ?? null,
-      status: DESIGN_STATUS.CAD,
+      // DESIGN_STATUS has no CAD member — this read `DESIGN_STATUS.CAD` (undefined) and create()'s
+      // `|| DRAFT` fallback quietly made it a draft. Say what it actually is.
+      status: DESIGN_STATUS.DRAFT,
       routing: Array.isArray(opts.routing) ? opts.routing : [],
       variants: [defaultCustomVariant(customID)],
       createdBy: opts.createdBy ?? null,
@@ -81,7 +83,8 @@ export async function ensureCustomPiece(customID, opts = {}) {
   const design = await DesignsModel.create({
     name: order.title || `Custom ${customID}`,
     description: order.description ?? null,
-    status: DESIGN_STATUS.CAD,
+    // Same undefined-constant trap as addProductionToCustomOrder above.
+    status: DESIGN_STATUS.DRAFT,
     routing: [],
     variants: [variant],
     createdBy: opts.createdBy ?? null,
@@ -112,8 +115,15 @@ export async function spawnCustomWorkOrder({
   customID, discipline = DISCIPLINE.BENCH_JEWELRY, title = null, cadStage = null,
   assignedToUserID = null, assignedJeweler = null, estLaborHours = 0, process = null, tasks = null, flatFee = 0, createdBy = null,
   assignmentId = null,
+  // Which piece this work order belongs to. Defaults to the order's jewelry piece, which is what
+  // every existing caller wants. A custom can now carry more than one component — a commissioned
+  // stone is its own gemstone Design + Piece (services/customs/customGemComponent.js) — and its cut
+  // work order has to hang off THE STONE, not off the ring.
+  pieceID: pieceIDOverride = null,
 }) {
-  const { pieceID } = await ensureCustomPiece(customID, { createdBy });
+  const { pieceID } = pieceIDOverride
+    ? { pieceID: pieceIDOverride }
+    : await ensureCustomPiece(customID, { createdBy });
   const piece = await PiecesModel.findById(pieceID);
   const seq = (piece.workOrderIDs?.length || 0) + 1;
 
