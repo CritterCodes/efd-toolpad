@@ -11,7 +11,6 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import { useRouter } from 'next/navigation';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import { directUpload } from '@/lib/directUpload';
-import CommissionedStones from '@/app/dashboard/customs/components/CommissionedStones';
 
 const dialogPaperProps = { sx: { backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` } };
 const panelSx = { p: 2.5, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' };
@@ -261,8 +260,6 @@ export default function ProductionTab({ customID, order, margin, notify, onChang
         </DialogActions>
       </Dialog>
 
-      {/* A commissioned stone is its own design + piece, not a labour line on the ring. */}
-      <CommissionedStones customID={customID} notify={notify} onChanged={onChanged} />
     </Stack>
   );
 }

@@ -48,7 +48,7 @@ vi.mock('@/services/customs/customTasks', () => ({
   getCustomTaskLine: vi.fn(async () => ({ description: 'CAD QC Review', cost: 25, autoKey: 'custom-qc', source: 'auto' })),
   mergeAutoLaborLine: vi.fn((existing, line) => [...(existing || []), line]),
 }));
-vi.mock('@/services/workOrders/disciplines', () => ({ DISCIPLINE: { CAD: 'cad', BENCH_JEWELRY: 'bench_jewelry' } }));
+vi.mock('@/services/workOrders/disciplines', () => ({ DISCIPLINE: { CAD: 'cad', BENCH_JEWELRY: 'bench_jewelry', GEM_CUTTING: 'gem_cutting' } }));
 vi.mock('@/app/api/admin/settings/services/settingsManager.service', () => ({ default: { getSettings: async () => ({}) } }));
 vi.mock('@/app/api/workOrders/model', () => ({
   default: {
@@ -235,5 +235,53 @@ describe('removing a CAD assignment reverses what assigning did', () => {
     WorkOrdersModel.findBySource.mockRejectedValueOnce(new Error('mongo down'));
     const { removeAssignment } = await load();
     await expect(removeAssignment({ customID: 'CO-x', assignmentID: 'asg-1' })).resolves.toBeTruthy();
+  });
+});
+
+/**
+ * A commissioned stone is a COMPONENT of the order, not a fee attached to a person, so the stone role
+ * reverses differently from CAD: the stone stays, the cutter is simply let go of.
+ */
+describe('a stone cutter is assigned, not fee-snapshotted', () => {
+  it('records the assignment without spawning work or touching the quote', async () => {
+    const { assignArtisan } = await load();
+    await assignArtisan({ customID: 'CO-x', userID: 'user-cad', role: 'stone', assignedBy: 'admin' });
+
+    expect(order.assignments[0]).toMatchObject({ role: 'stone', feeSnapshot: 0, commsAccess: true });
+    // Unlike CAD: no work order (the stone does not exist yet) and no fee on the quote.
+    expect(spawned).toEqual([]);
+    expect(updates).toEqual([]);
+  });
+
+  it('releases an untouched cut work order back to unclaimed and leaves the stone alone', async () => {
+    const { assignArtisan, removeAssignment } = await load();
+    await assignArtisan({ customID: 'CO-x', userID: 'user-cad', role: 'stone' });
+    const asg = order.assignments[0];
+    workOrders = [{
+      workOrderID: 'wo-cut', discipline: 'gem_cutting', assignmentId: asg.id,
+      assignedToUserID: 'user-cad', status: 'READY FOR WORK', files: {}, tasks: [],
+    }];
+
+    await removeAssignment({ customID: 'CO-x', assignmentID: asg.id });
+
+    expect(woUpdates).toEqual([{ id: 'wo-cut', assignedToUserID: null, assignedJeweler: null }]);
+    // The ring still needs the stone: nothing is deleted or cancelled, and the quote is untouched.
+    expect(deleted).toEqual([]);
+    expect(updates).toEqual([]);
+  });
+
+  it('will not take a cut work order away from a cutter who already cut it', async () => {
+    const { assignArtisan, removeAssignment } = await load();
+    await assignArtisan({ customID: 'CO-x', userID: 'user-cad', role: 'stone' });
+    const asg = order.assignments[0];
+    workOrders = [{
+      workOrderID: 'wo-cut', discipline: 'gem_cutting', assignmentId: asg.id,
+      assignedToUserID: 'user-cad', status: 'COMPLETED', completedAt: new Date(), files: {}, tasks: [],
+    }];
+
+    await removeAssignment({ customID: 'CO-x', assignmentID: asg.id });
+
+    // His labour, his QC credit — reassigning it would hand his pay to the next cutter.
+    expect(woUpdates).toEqual([]);
   });
 });

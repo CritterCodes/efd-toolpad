@@ -7,6 +7,7 @@ import AddIcon from '@mui/icons-material/PersonAdd';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import DesignServicesIcon from '@mui/icons-material/DesignServices';
 import HandymanIcon from '@mui/icons-material/Handyman';
+import DiamondIcon from '@mui/icons-material/Diamond';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 
 const dialogPaperProps = { sx: { backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` } };
@@ -14,6 +15,7 @@ const money = (n) => `$${(Number(n) || 0).toLocaleString()}`;
 const ROLE_META = {
   cad: { label: 'CAD Designer', Icon: DesignServicesIcon, color: '#64B5F6' },
   bench: { label: 'Bench Jeweler', Icon: HandymanIcon, color: REPAIRS_UI.accent },
+  stone: { label: 'Stone Cutter', Icon: DiamondIcon, color: '#9CCC65' },
 };
 
 export default function AssignmentTab({ customID, assignments = [], onChanged, notify }) {
@@ -50,7 +52,11 @@ export default function AssignmentTab({ customID, assignments = [], onChanged, n
       const res = await fetch(`/api/custom-orders/${customID}/assignments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to assign');
       setOpen(false); setUserID(''); setRole('cad'); setFee('');
-      notify(role === 'cad' ? 'CAD designer assigned — design fee folded into the quote' : 'Artisan assigned', 'success');
+      notify(role === 'cad'
+        ? 'CAD designer assigned — design fee folded into the quote'
+        : role === 'stone'
+          ? 'Stone cutter assigned — add their stone on the Stone tab'
+          : 'Artisan assigned', 'success');
       await onChanged();
     } catch (e) { notify(e.message, 'error'); } finally { setBusy(false); }
   };
@@ -116,6 +122,7 @@ export default function AssignmentTab({ customID, assignments = [], onChanged, n
             <TextField select label="Role" value={role} onChange={(e) => setRole(e.target.value)} fullWidth>
               <MenuItem value="cad">CAD Designer (fee → quote)</MenuItem>
               <MenuItem value="bench">Bench Jeweler</MenuItem>
+              <MenuItem value="stone">Stone Cutter (cuts a commissioned stone)</MenuItem>
             </TextField>
             <TextField select label="Artisan" value={userID} onChange={(e) => pickArtisan(e.target.value)} fullWidth>
               {artisans.length === 0 && <MenuItem value="" disabled>No assignable artisans found</MenuItem>}

@@ -1,16 +1,21 @@
 'use client';
 /**
- * Commissioned stones on a custom order.
+ * The custom order's STONE tab — where a commissioned stone is fitted into the order.
  *
- * A custom-cut stone is a product, not a labour line: it gets its own gemstone Design + Piece, and the
- * cut work order hangs off THE STONE (services/customs/customGemComponent.js). This is where an admin
- * commissions one and where its price — the cutter's number, or one agreed with him — is recorded and
- * ported into the ring's quote as the centre-stone cost.
+ * The cutter is not picked here. He is ASSIGNED to the order like any other artisan (owner,
+ * 2026-09-23: "he gets added as an artisan on the custom order"), which is what gives him comms
+ * access and puts him on the job; this tab only hands a stone to somebody already on it. That is
+ * why the cutter list below is the order's own stone assignments rather than every gem cutter in
+ * the shop.
+ *
+ * The stone itself is a PRODUCT, not a labour line: each one becomes its own gemstone Design +
+ * Piece with its own cut work order on the stone (services/customs/customGemComponent.js), and its
+ * price — the cutter's number — is what the ring's quote reads as its centre stone.
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Box, Button, Chip, CircularProgress, Collapse, Dialog, DialogActions, DialogContent, DialogTitle,
-  Grid, MenuItem, Stack, TextField, Typography,
+  Grid, MenuItem, Paper, Stack, TextField, Typography,
 } from '@mui/material';
 import DiamondIcon from '@mui/icons-material/Diamond';
 import AddIcon from '@mui/icons-material/Add';
@@ -33,13 +38,19 @@ function specLine(spec = {}) {
     .filter(Boolean).join(' · ');
 }
 
-export default function CommissionedStones({ customID, notify, onChanged }) {
+export default function StoneTab({ customID, order, notify, onChanged }) {
   const [stones, setStones] = useState(null);
-  const [cutters, setCutters] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(BLANK);
   const [saving, setSaving] = useState(false);
   const [priceDraft, setPriceDraft] = useState({});
+
+  // The cutters on THIS order. Assignment is the entry point; this tab is the workbench.
+  const cutters = useMemo(
+    () => (order?.assignments || []).filter((a) => a.role === 'stone'),
+    [order?.assignments],
+  );
+  const centerstone = order?.quote?.centerstone || {};
 
   const load = useCallback(async () => {
     try {
@@ -51,22 +62,11 @@ export default function CommissionedStones({ customID, notify, onChanged }) {
 
   useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    // Gem cutters to assign the cut to. Falls back to a free-form-less empty list rather than
-    // blocking the form — a stone can be commissioned before a cutter is picked.
-    fetch('/api/users?role=artisan')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        const all = Array.isArray(d) ? d : (d?.data || []);
-        setCutters(all.filter((u) => {
-          const raw = u?.artisanApplication?.artisanType ?? u?.artisanType;
-          const types = (Array.isArray(raw) ? raw : String(raw || '').split(',')).map((t) => String(t).trim().toLowerCase());
-          return types.some((t) => t.includes('gem') || t.includes('lapidar'));
-        }));
-      })
-      .catch(() => setCutters([]));
-  }, []);
-
+  const openForm = () => {
+    // One cutter on the order is the obvious answer — don't make it a choice.
+    setForm({ ...BLANK, cutterUserID: cutters.length === 1 ? cutters[0].userID : '' });
+    setOpen(true);
+  };
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const submit = async () => {
@@ -86,8 +86,10 @@ export default function CommissionedStones({ customID, notify, onChanged }) {
         }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || 'Could not commission the stone.');
-      notify?.('Stone commissioned — its cut work order is on the cutter’s bench.', 'success');
+      if (!res.ok) throw new Error(body.error || 'Could not add the stone.');
+      notify?.(form.cutterUserID
+        ? 'Stone added — its cut work order is on the cutter’s bench.'
+        : 'Stone added — its cut work order is unclaimed.', 'success');
       setOpen(false); setForm(BLANK);
       await load(); onChanged?.();
     } catch (e) {
@@ -113,31 +115,51 @@ export default function CommissionedStones({ customID, notify, onChanged }) {
   };
 
   return (
-    <Box sx={{ mt: 3 }}>
-      <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
-        <DiamondIcon sx={{ color: REPAIRS_UI.accent }} />
-        <Typography sx={{ fontWeight: 700, color: REPAIRS_UI.textHeader, flex: 1 }}>Commissioned stones</Typography>
-        <Button size="small" startIcon={<AddIcon />} onClick={() => setOpen(true)} sx={{ textTransform: 'none', color: REPAIRS_UI.accent }}>
-          Commission a stone
-        </Button>
-      </Stack>
-      <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 1.5 }}>
-        A cut stone is its own design and piece, with its own cut work order. Its price becomes the quote&rsquo;s centre stone.
-      </Typography>
+    <Stack spacing={2}>
+      <Paper sx={{ p: 2, bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}` }}>
+        <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
+          <DiamondIcon sx={{ color: REPAIRS_UI.accent }} />
+          <Typography sx={{ fontWeight: 700, color: REPAIRS_UI.textHeader, flex: 1, minWidth: 0 }}>
+            Stones on this order
+          </Typography>
+          <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={openForm} sx={{ textTransform: 'none' }}>
+            Add a stone
+          </Button>
+        </Stack>
+
+        <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mt: 1 }}>
+          A cut stone is its own design and piece with its own cut work order. Its price becomes the quote&rsquo;s centre stone.
+        </Typography>
+
+        <Stack direction="row" spacing={1} sx={{ mt: 1.5 }} alignItems="center" flexWrap="wrap" useFlexGap>
+          <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>Cutters on this order:</Typography>
+          {cutters.length === 0
+            ? <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
+                none yet — add one on the Assignment tab as a Stone Cutter, then their stone can go here.
+              </Typography>
+            : cutters.map((c) => <Chip key={c.id} size="small" label={c.name} sx={{ color: REPAIRS_UI.textPrimary }} />)}
+        </Stack>
+      </Paper>
 
       {stones === null ? (
         <CircularProgress size={20} sx={{ color: REPAIRS_UI.accent }} />
       ) : stones.length === 0 ? (
-        <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted }}>No commissioned stones on this order.</Typography>
+        <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted }}>No stones on this order yet.</Typography>
       ) : (
         <Stack spacing={1.5}>
           {stones.map((s) => (
-            <Box key={s.pieceID} sx={{ border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, p: 1.5, bgcolor: REPAIRS_UI.bgPrimary }}>
+            <Paper key={s.pieceID} sx={{ p: 2, bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}` }}>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between">
                 <Box sx={{ minWidth: 0 }}>
                   <Typography sx={{ fontWeight: 700, color: REPAIRS_UI.textHeader }}>{s.name}</Typography>
                   <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>{specLine(s.spec) || 'No spec recorded'}</Typography>
-                  {s.spec?.cutToFit && <Chip size="small" label="cut to fit" sx={{ mt: 0.5 }} />}
+                  <Stack direction="row" spacing={0.75} sx={{ mt: 0.75 }} flexWrap="wrap" useFlexGap>
+                    {s.spec?.cutToFit && <Chip size="small" label="cut to fit" />}
+                    {/* Whether this stone is actually fitted into the order's price yet. */}
+                    {centerstone.sourcePieceID === s.pieceID
+                      ? <Chip size="small" label="on the quote" sx={{ bgcolor: 'rgba(156,204,101,0.18)', color: '#9CCC65' }} />
+                      : <Chip size="small" variant="outlined" label="not on the quote" />}
+                  </Stack>
                 </Box>
                 <Box sx={{ textAlign: { xs: 'left', sm: 'right' }, flexShrink: 0 }}>
                   <Chip size="small" label={s.status} />
@@ -151,7 +173,7 @@ export default function CommissionedStones({ customID, notify, onChanged }) {
                   size="small" type="number" label="Stone price"
                   value={priceDraft[s.pieceID] ?? ''}
                   onChange={(e) => setPriceDraft((d) => ({ ...d, [s.pieceID]: e.target.value }))}
-                  sx={{ width: 160 }} inputProps={{ min: 0, step: 1 }}
+                  sx={{ width: { xs: '100%', sm: 160 } }} inputProps={{ min: 0, step: 1 }}
                 />
                 <Button size="small" variant="outlined" onClick={() => savePrice(s.pieceID)} sx={{ textTransform: 'none' }}>
                   {s.stonePrice?.amount ? 'Update price' : 'Set price'}
@@ -160,13 +182,13 @@ export default function CommissionedStones({ customID, notify, onChanged }) {
                   Writes the quote&rsquo;s centre stone cost.
                 </Typography>
               </Stack>
-            </Box>
+            </Paper>
           ))}
         </Stack>
       )}
 
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Commission a cut stone</DialogTitle>
+        <DialogTitle>Add a stone to this order</DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2} sx={{ mt: 0 }}>
             <Grid item xs={12} sm={6}>
@@ -209,11 +231,15 @@ export default function CommissionedStones({ customID, notify, onChanged }) {
               </TextField>
             </Grid>
             <Grid item xs={12}>
-              <TextField select label="Cutter" fullWidth size="small" value={form.cutterUserID} onChange={(e) => set('cutterUserID', e.target.value)} helperText="assigns the cut work order to their bench">
+              <TextField
+                select label="Cutter" fullWidth size="small" value={form.cutterUserID}
+                onChange={(e) => set('cutterUserID', e.target.value)}
+                helperText={cutters.length
+                  ? 'the cut work order goes to their bench'
+                  : 'nobody is assigned as a stone cutter on this order yet — Assignment tab'}
+              >
                 <MenuItem value="">Leave unclaimed</MenuItem>
-                {cutters.map((u) => (
-                  <MenuItem key={u.userID} value={u.userID}>{[u.firstName, u.lastName].filter(Boolean).join(' ') || u.email}</MenuItem>
-                ))}
+                {cutters.map((c) => <MenuItem key={c.id} value={c.userID}>{c.name}</MenuItem>)}
               </TextField>
             </Grid>
             <Grid item xs={12}>
@@ -224,10 +250,10 @@ export default function CommissionedStones({ customID, notify, onChanged }) {
         <DialogActions>
           <Button onClick={() => setOpen(false)} sx={{ textTransform: 'none' }}>Cancel</Button>
           <Button variant="contained" onClick={submit} disabled={saving || !form.species.trim()} sx={{ textTransform: 'none' }}>
-            {saving ? 'Commissioning…' : 'Commission stone'}
+            {saving ? 'Adding…' : 'Add stone'}
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </Stack>
   );
 }
