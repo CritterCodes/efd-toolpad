@@ -214,6 +214,31 @@ export const POST = async (request) => {
       }
     }
 
+    // THE CLIENT IS OPTIONAL WHEN THE SHOP TAKES IN A WHOLESALE TICKET (owner, 2026-09-28).
+    //
+    // A store drops off a tray. The end customer is the STORE'S customer, and often EFD never learns
+    // their name — so requiring one made the shop invent a client: Marlen's owner was added to the
+    // clients list purely so a name could be typed on every ticket, which leaves a person in the
+    // system who never brought anything in.
+    //
+    // The honest key is the store itself: it is the account that gets billed. So the ticket is keyed
+    // to the store's own user record and flagged, rather than left blank — `userID` is required
+    // downstream (the controller refuses without one) and the print page refuses to print a repair
+    // with no client name.
+    //
+    // ONLY when an admin is taking it in. A store filing its own repair still names its client,
+    // because that name is how the store finds the job in its own portal — so the flag is stripped
+    // from anything a wholesaler posts rather than trusted.
+    // Never trusted from the payload: what decides this is whether a client is actually there. A
+    // posted flag alongside a named client would otherwise overwrite that client with the store.
+    delete repairData.clientNotProvided;
+    const missingClient = !String(repairData.clientName || "").trim() || !String(repairData.userID || "").trim();
+    if (session.user.role !== "wholesaler" && repairData.isWholesale && storeUserID && missingClient) {
+      repairData.userID = storeUserID;
+      repairData.clientName = repairData.businessName || repairData.storeName || "Wholesale account";
+      repairData.clientNotProvided = true;
+    }
+
     // Canonical billing classification (S1) — derived from comp/wholesale flags.
     repairData.billing = { mode: resolveBillingMode(repairData) };
 

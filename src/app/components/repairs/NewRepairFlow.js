@@ -389,11 +389,30 @@ export default function NewRepairFlow(props) {
 
   // What stops "Next" on this step — surfaced under the button instead of as a thrown error four
   // screens later. Mirrors the hook's submit validation (client name, description).
-  const stepBlocker = step === 0 && !String(formData.clientName || '').trim()
+  // An admin taking in a store's tray may skip the client (owner, 2026-09-28): the end customer is the
+  // STORE's customer and often never named. `isWholesale` = the person filling this in is a wholesaler,
+  // so this is deliberately false for them — a store still names its own client.
+  const canSkipClient = !isWholesale && !!formData.isWholesale;
+  const clientSettled = !!String(formData.clientName || '').trim() || formData.clientNotProvided === true;
+  const stepBlocker = step === 0 && !clientSettled
     ? 'Pick a client to continue'
     : step === 1 && !String(formData.description || '').trim()
       ? 'Add a description to continue'
       : null;
+
+  // Arriving from "Another for <store>" (or a scanned tray): the account step is already answered, so
+  // land on the piece instead of making the shop tap through a screen with one decision left on it.
+  // The client is not guessed away — the row reads "No client given · Add one" and step 1 is one tap
+  // back — but the default for a tray the shop takes in is that there is no customer name.
+  const presetJumped = useRef(false);
+  useEffect(() => {
+    if (presetJumped.current || !storePreset || isWholesale) return;
+    if (!formData.isWholesale) return; // the store is still resolving
+    if (String(formData.clientName || '').trim()) return;
+    presetJumped.current = true;
+    setFormData((prev) => ({ ...prev, clientNotProvided: true }));
+    setStep((s) => (s === 0 ? 1 : s));
+  }, [storePreset, isWholesale, formData.isWholesale, formData.clientName, setFormData]);
 
   // A submit error is shown next to the buttons that caused it, and scrolled into view.
   const submitErrorRef = useRef(null);
@@ -498,13 +517,13 @@ export default function NewRepairFlow(props) {
     formData.metalType === 'gold' ? `${formData.goldColor || ''} gold`.trim() : formData.metalType,
   ].filter(Boolean).join(' ') || 'Not set';
 
-  const clientPill = formData.clientName && (
+  const clientPill = (formData.clientName || formData.clientNotProvided) && (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.875, border: `1px solid rgba(255,255,255,0.1)`, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.04)', alignSelf: 'flex-start', maxWidth: '100%' }}>
       <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: '50%', backgroundColor: 'rgba(251,191,36,0.14)', color: facelift.gold, fontWeight: 600, fontSize: '0.5625rem' }}>
-        {initials(formData.clientName)}
+        {formData.clientName ? initials(formData.clientName) : '—'}
       </Box>
       <Typography sx={{ fontFamily: facelift.mono, fontSize: '0.6875rem', color: facelift.text2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {formData.clientName} · {formData.storeName}
+        {formData.clientName || 'No client given'} · {formData.storeName}
       </Typography>
     </Box>
   );
@@ -649,7 +668,20 @@ export default function NewRepairFlow(props) {
             <Box>
               <SectionLabel>Client at this store</SectionLabel>
               <Stack spacing={1.25} sx={{ mt: 1.5 }}>
-                {formData.clientName && !clientPickerOpen ? (
+                {canSkipClient && formData.clientNotProvided && !clientPickerOpen ? (
+                  <ChoiceRow
+                    lead="—"
+                    title="No client given"
+                    meta={`Billed to ${formData.storeName || 'the store'} — the shop never got a customer name`}
+                    trailing={<Typography component="span" sx={{ color: facelift.gold, fontWeight: 600, fontSize: '0.8125rem', flexShrink: 0 }}>Add one</Typography>}
+                    selected
+                    onClick={() => {
+                      setFormData((prev) => ({ ...prev, clientNotProvided: false }));
+                      setClientPickerOpen(true);
+                      setClientQuery('');
+                    }}
+                  />
+                ) : formData.clientName && !clientPickerOpen ? (
                   <ChoiceRow
                     lead={initials(formData.clientName)}
                     title={formData.clientName}
@@ -708,6 +740,18 @@ export default function NewRepairFlow(props) {
                     )}
                     <ChoiceList>
                       <ChoiceRow add title="New client at this store" onClick={() => setShowNewClientDialog(true)} />
+                      {canSkipClient && (
+                        <ChoiceRow
+                          lead="—"
+                          title="No client given — bill the store"
+                          meta="For a tray the store drops off without customer names"
+                          onClick={() => {
+                            setFormData((prev) => ({ ...prev, clientNotProvided: true, clientName: '', userID: '' }));
+                            setClientPickerOpen(false);
+                            setClientQuery('');
+                          }}
+                        />
+                      )}
                     </ChoiceList>
                   </>
                 )}
@@ -1026,7 +1070,8 @@ export default function NewRepairFlow(props) {
               </Box>
               <Box sx={{ minWidth: 0 }}>
                 <Typography sx={{ fontWeight: 600, fontSize: '0.875rem', letterSpacing: '-0.014em' }}>
-                  {formData.clientName || 'No client yet'}
+                  {formData.clientName
+                    || (formData.clientNotProvided ? `No client given · ${formData.storeName || 'the store'}` : 'No client yet')}
                 </Typography>
                 <Typography sx={{ mt: 0.375, fontSize: '0.8125rem', lineHeight: 1.45, color: facelift.text2 }}>
                   {formData.smartIntakeInput || formData.description || 'No description yet'}
