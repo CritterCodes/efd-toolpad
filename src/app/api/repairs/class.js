@@ -64,7 +64,19 @@ export default class Repair {
         
         // Business information
         this.businessName = data.businessName || '';
-        
+        // The store a wholesale ticket belongs to. The POST route resolves these from the store's own
+        // record (never the payload) — but this constructor is a whitelist, so they were dropped on
+        // insert and an admin-taken wholesale repair persisted with NO store on it. That is why the
+        // print page's "another ticket for the same store" shortcut never fired on tickets the shop
+        // took in: it looks for `storeId`, which was never there.
+        this.storeId = data.storeId || '';
+        this.storeName = data.storeName || '';
+        // A store dropped off a tray and did not give an end-customer name. The repair is keyed to the
+        // STORE (userID and clientName are the store's), and this says the customer is genuinely
+        // unknown — as opposed to the store's owner being entered as the client, which is the fiction
+        // this replaces. Server-stamped only; see the POST route.
+        this.clientNotProvided = data.clientNotProvided === true;
+
         // Status and workflow
         this.status = data.status || REPAIR_STATUS.READY_FOR_WORK;
         
@@ -200,6 +212,9 @@ export default class Repair {
             compRepair: this.compRepair,
             includedWithSale: this.includedWithSale,
             businessName: this.businessName,
+            storeId: this.storeId,
+            storeName: this.storeName,
+            clientNotProvided: this.clientNotProvided,
             // Status and workflow
             status: this.status,
             // Media

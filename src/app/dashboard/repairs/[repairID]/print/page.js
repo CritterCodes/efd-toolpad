@@ -30,20 +30,28 @@ const PrintRepairTicket = () => {
     const contextRepair = repairs.find((r) => r.repairID === repairID);
     const repair = apiRepair || contextRepair;
 
-    // "Have another repair?" — a store dropping off a tray shouldn't re-pick itself fifteen times.
-    // Wholesale tickets carry the store into the next intake; a `?ui=classic` fallback choice is kept.
-    const nextRepairHref = useMemo(() => {
+    // TWO ways on from a finished ticket (owner, 2026-09-28): a fresh one, and another for the SAME
+    // store. A store dropping off a tray shouldn't make you pick Wholesale and then the store fifteen
+    // times — the second button skips the whole first step.
+    //
+    // Until now there was one button that silently did whichever, and on tickets the shop took in it
+    // always did the fresh one: `storeId` was dropped by the Repair constructor's whitelist and never
+    // persisted, so the carry-over had nothing to carry (fixed in api/repairs/class.js). `businessName`
+    // is the fallback for every ticket written before that fix.
+    const classicQuery = searchParams?.get('ui') === 'classic' ? '?ui=classic' : '';
+    const newRepairHref = `/dashboard/repairs/new${classicQuery}`;
+    const nextRepairStore = repair?.isWholesale ? (repair.storeName || repair.businessName || '') : '';
+    const sameStoreHref = useMemo(() => {
+        // `userID` is only the store on a ticket taken in with no client — on every other wholesale
+        // ticket it is the end customer, and presetting the intake with it would pick the wrong store.
+        const storeId = repair?.storeId || (repair?.clientNotProvided ? repair?.userID : '');
+        if (!repair?.isWholesale || !storeId || !nextRepairStore) return '';
         const q = new URLSearchParams();
         if (searchParams?.get('ui') === 'classic') q.set('ui', 'classic');
-        if (repair?.isWholesale && repair?.storeId) {
-            q.set('wholesaleStoreId', repair.storeId);
-            const storeName = repair.storeName || repair.businessName;
-            if (storeName) q.set('wholesaleStoreName', storeName);
-        }
-        const qs = q.toString();
-        return `/dashboard/repairs/new${qs ? `?${qs}` : ''}`;
-    }, [searchParams, repair?.isWholesale, repair?.storeId, repair?.storeName, repair?.businessName]);
-    const nextRepairStore = repair?.isWholesale ? (repair.storeName || repair.businessName || '') : '';
+        q.set('wholesaleStoreId', String(storeId));
+        q.set('wholesaleStoreName', nextRepairStore);
+        return `/dashboard/repairs/new?${q.toString()}`;
+    }, [searchParams, repair?.isWholesale, repair?.storeId, repair?.userID, repair?.clientNotProvided, nextRepairStore]);
 
     useEffect(() => {
         let cancelled = false;
@@ -310,18 +318,31 @@ const PrintRepairTicket = () => {
                     <Typography variant="body2" sx={{ marginBottom: '8px', color: '#666' }}>
                         Default: both slips on one page, cut in half after printing.
                     </Typography>
-                    <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-                        <Button
-                            variant="outlined"
-                            size="large"
-                            onClick={() => router.push(nextRepairHref)}
-                            sx={{ minHeight: 48, px: 3, fontWeight: 700, borderRadius: 999 }}
-                            aria-label="Start another repair"
-                        >
-                            Have another repair?
-                        </Button>
+                    <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75 }}>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 1 }}>
+                            <Button
+                                variant="outlined"
+                                size="large"
+                                onClick={() => router.push(newRepairHref)}
+                                sx={{ minHeight: 48, px: 3, fontWeight: 700, borderRadius: 999 }}
+                            >
+                                Create another repair
+                            </Button>
+                            {sameStoreHref && (
+                                <Button
+                                    variant="contained"
+                                    size="large"
+                                    onClick={() => router.push(sameStoreHref)}
+                                    sx={{ minHeight: 48, px: 3, fontWeight: 700, borderRadius: 999 }}
+                                >
+                                    Another for {nextRepairStore}
+                                </Button>
+                            )}
+                        </Box>
                         <Typography variant="caption" sx={{ color: '#666' }}>
-                            {nextRepairStore ? `New ticket for ${nextRepairStore} — store already picked.` : 'Starts a new ticket.'}
+                            {sameStoreHref
+                                ? `“Another for ${nextRepairStore}” skips the account step — straight to the piece.`
+                                : 'Starts a new ticket.'}
                         </Typography>
                     </Box>
                     {needsMultipleTicketPages && printMode === 'ticket' && (

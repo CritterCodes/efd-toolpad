@@ -28,4 +28,27 @@ describe('Repair class keeps server-stamped blocks on insert', () => {
     expect('quoteRequest' in obj).toBe(false);
     expect('billing' in obj).toBe(false);
   });
+
+  /**
+   * The same whitelist silently dropped the STORE. The POST route resolves storeId/storeName from the
+   * store's own record, but neither was copied here — so an admin-taken wholesale ticket persisted
+   * with no store on it, and the print page's "another for the same store" shortcut had nothing to
+   * carry. It looked like a missing feature; it was a dropped field.
+   */
+  it('keeps the store a wholesale ticket belongs to', () => {
+    const repair = new Repair({ ...base, storeId: 'ws-marlen', storeName: 'Marlen Jewelers', businessName: 'Marlen Jewelers' });
+    expect(repair.storeId).toBe('ws-marlen');
+    expect(repair.storeName).toBe('Marlen Jewelers');
+    expect(repair.toObject()).toMatchObject({ storeId: 'ws-marlen', storeName: 'Marlen Jewelers' });
+  });
+
+  it('keeps "no client given" — and never infers it', () => {
+    const flagged = new Repair({ ...base, clientNotProvided: true });
+    expect(flagged.clientNotProvided).toBe(true);
+    expect(flagged.toObject().clientNotProvided).toBe(true);
+
+    // A named client is not "no client given", and nothing but an explicit true sets it.
+    expect(new Repair(base).clientNotProvided).toBe(false);
+    expect(new Repair({ ...base, clientNotProvided: 'yes' }).clientNotProvided).toBe(false);
+  });
 });

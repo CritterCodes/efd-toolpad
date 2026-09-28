@@ -674,6 +674,9 @@ export default function useNewRepairForm({
     // Client info
     userID: clientInfo?.userID || '',
     clientName: clientInfo?.name || '',
+    // The shop took in a wholesale tray and the store gave no end-customer name. Admin intake only;
+    // the server keys the ticket to the store and re-stamps this (POST /api/repairs).
+    clientNotProvided: false,
 
     // Repair details
     smartIntakeInput: '',
@@ -1791,7 +1794,9 @@ export default function useNewRepairForm({
       isWholesale: nextIsWholesale,
       includeTax: nextIsWholesale ? false : prev.includeTax,
       clientName: '',
-      userID: ''
+      userID: '',
+      // A new store means a new client list; "no client given" was about the store you just left.
+      clientNotProvided: false
     }));
 
     // Switch client list based on store type
@@ -1907,11 +1912,17 @@ export default function useNewRepairForm({
     setErrors({});
 
     try {
-      // Validation
-      if (!formData.clientName.trim()) {
+      // Validation.
+      //
+      // `isWholesale` (the prop) means the person filling this in IS a wholesaler; formData.isWholesale
+      // means the TICKET is wholesale. An admin taking in a store's tray may skip the client — the
+      // server then keys the repair to the store (owner, 2026-09-28). A store filing its own repair
+      // still names its client, which is how it finds the job in its portal.
+      const skipClient = !isWholesale && formData.isWholesale && formData.clientNotProvided === true;
+      if (!skipClient && !formData.clientName.trim()) {
         throw new Error('Client name is required');
       }
-      if (formData.isWholesale && !String(formData.userID || '').trim()) {
+      if (!skipClient && formData.isWholesale && !String(formData.userID || '').trim()) {
         throw new Error('Please select a client from your wholesale client list');
       }
       if (!formData.description.trim()) {
