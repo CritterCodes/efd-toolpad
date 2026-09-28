@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   batchesList: vi.fn(),
   listPayrollCandidates: vi.fn(),
   retrieveBalance: vi.fn(),
+  retrievePlatformAccount: vi.fn(),
   createTopup: vi.fn(),
   notifyAllAdmins: vi.fn(async () => ({})),
   findOne: vi.fn(),
@@ -14,8 +15,18 @@ vi.mock('@/app/api/repairPayrollBatches/model', () => ({ default: { list: mocks.
 vi.mock('@/app/api/repairs/payroll/service', () => ({ listPayrollCandidates: mocks.listPayrollCandidates, markPayrollBatchPaid: vi.fn() }));
 vi.mock('@/lib/stripeConnect', async (importOriginal) => {
   const real = await importOriginal();
-  return { ...real, isStripeConfigured: () => true, stripeMode: () => 'test', retrieveBalance: mocks.retrieveBalance, createTopup: mocks.createTopup };
+  return {
+    ...real,
+    isStripeConfigured: () => true,
+    stripeMode: () => 'test',
+    retrieveBalance: mocks.retrieveBalance,
+    retrievePlatformAccount: mocks.retrievePlatformAccount,
+    createTopup: mocks.createTopup,
+  };
 });
+
+/** A Stripe account object with the given payout schedule. */
+const accountOn = (interval) => ({ settings: { payouts: { schedule: { interval } } } });
 vi.mock('@/lib/notificationService', () => ({ notifyAllAdmins: mocks.notifyAllAdmins }));
 vi.mock('@/lib/appUrls', () => ({ adminBase: () => 'http://test' }));
 
@@ -56,6 +67,7 @@ describe('the Monday check', () => {
     vi.clearAllMocks();
     mocks.batchesList.mockResolvedValue([{ batchID: 'b1', userName: 'Michelle', laborPay: 275, salePay: 0 }]);
     mocks.listPayrollCandidates.mockResolvedValue([{ userID: 'owner', userName: 'Jacob', laborPay: 525 }]);
+    mocks.retrievePlatformAccount.mockResolvedValue(accountOn('manual'));
   });
 
   it('does nothing while switched off', async () => {
@@ -70,6 +82,60 @@ describe('the Monday check', () => {
    * switch is on — that is the number you decide on, and it was unavailable at exactly the moment it
    * mattered (owner, 2026-09-28, waiting on a Friday payment).
    */
+  /**
+   * THE FALSE "FUNDED" (owner, 2026-09-28). Pressing Fund Stripe now reported
+   * "funded: $1,039.13 covers $624.50" while the account held $0.00 available, $1,039.13 pending,
+   * and an AUTOMATIC payout schedule that would sweep that money to the bank the day it settled.
+   * Pending can only be spent by a Connect transfer when payouts are manual.
+   */
+  describe('pending money only counts on a manual payout schedule', () => {
+    const balanceOf = (availableUsd, pendingUsd) => ({
+      available: [{ currency: 'usd', amount: availableUsd * 100 }],
+      pending: [{ currency: 'usd', amount: pendingUsd * 100 }],
+    });
+
+    beforeEach(() => {
+      mocks.findOne.mockResolvedValue({ business: { payroll: { funding: { enabled: true, floor: 300, bufferPct: 10, minimumTopup: 25, maxTopup: 500 } } } });
+      // EFD's actual position that night: nothing available, $1,039.13 still settling.
+      mocks.retrieveBalance.mockResolvedValue(balanceOf(0, 1039.13));
+      mocks.listPayrollCandidates.mockResolvedValue([{ userID: 'owner', userName: 'jacob engel', laborPay: 295 }]);
+      mocks.batchesList.mockResolvedValue([]);
+      mocks.createTopup.mockResolvedValue({ id: 'tu_1', status: 'pending' });
+    });
+
+    it('does NOT count pending on an automatic schedule — it tops up instead', async () => {
+      mocks.retrievePlatformAccount.mockResolvedValue(accountOn('daily'));
+      const r = await runFundingCheck({ now: MON, notify: false });
+
+      expect(r.automaticPayouts).toBe(true);
+      expect(r.spendable).toBe(0);                       // $1,039.13 is leaving for the bank
+      expect(r.need).toMatchObject({ target: 624.5, shortfall: 624.5, topup: 500, capped: true });
+      expect(mocks.createTopup).toHaveBeenCalled();
+    });
+
+    it('counts pending on a manual schedule, and says plainly that nothing moved', async () => {
+      mocks.retrievePlatformAccount.mockResolvedValue(accountOn('manual'));
+      const r = await runFundingCheck({ now: MON, notify: false });
+
+      expect(r.automaticPayouts).toBe(false);
+      expect(r.spendable).toBe(1039.13);
+      expect(r.need.topup).toBe(0);
+      expect(r.skipped).toMatch(/No top-up needed/);     // never phrased as though money was pulled
+      expect(r.skipped).not.toMatch(/^funded:/);
+      expect(mocks.createTopup).not.toHaveBeenCalled();
+    });
+
+    it('when the schedule cannot be read, counts pending rather than pulling on a guess', async () => {
+      mocks.retrievePlatformAccount.mockRejectedValue(new Error('permission denied'));
+      const r = await runFundingCheck({ now: MON, notify: false });
+
+      expect(r.scheduleKnown).toBe(false);
+      expect(r.automaticPayouts).toBe(false);
+      expect(r.spendable).toBe(1039.13);
+      expect(mocks.createTopup).not.toHaveBeenCalled();
+    });
+  });
+
   describe('previewing while switched off', () => {
     beforeEach(() => {
       mocks.findOne.mockResolvedValue({ business: { payroll: { funding: { enabled: false, floor: 300, bufferPct: 10, minimumTopup: 25, maxTopup: 500 } } } });

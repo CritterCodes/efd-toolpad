@@ -34,12 +34,13 @@ export default function PayrollFundingSettings() {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || 'Could not run the funding check');
       const r = body.result || {};
-      setMsg({
-        severity: r.error ? 'error' : 'success',
-        text: r.error ? `Top-up failed: ${r.error}`
-          : r.topup ? `Pulling ${money(r.topup.amount)} into Stripe${r.topup.expectedAvailability ? ` — expected ${new Date(r.topup.expectedAvailability).toLocaleDateString('en-US')}` : ''}.`
-            : r.skipped || 'Nothing to pull.',
-      });
+      // Only a real top-up gets the green "money moved" treatment. A skip is information, not a
+      // receipt — reported as success it read like a $1,039.13 pull that never happened.
+      setMsg(r.error
+        ? { severity: 'error', text: `Top-up failed: ${r.error}` }
+        : r.topup
+          ? { severity: 'success', text: `Pulled ${money(r.topup.amount)} from the bank into Stripe${r.topup.expectedAvailability ? ` — expected ${new Date(r.topup.expectedAvailability).toLocaleDateString('en-US')}` : ''}.` }
+          : { severity: 'info', text: `Nothing pulled. ${r.skipped || ''}`.trim() });
       load();
     } catch (e) {
       setMsg({ severity: 'error', text: e.message });
@@ -106,10 +107,26 @@ export default function PayrollFundingSettings() {
             <Typography variant="body2" color="text.secondary">
               Wednesday needs about <strong>{money(preview.need.projected)}</strong>
               {preview.due?.payees?.length ? ` (${preview.due.payees.join(', ')})` : ''}; target with buffer and floor is <strong>{money(preview.need.target)}</strong>.
-              Stripe has {money(preview.available)} available + {money(preview.pending)} pending.{' '}
+              Stripe has {money(preview.available)} available + {money(preview.pending)} pending, of which{' '}
+              <strong>{money(preview.spendable ?? preview.available)}</strong> can actually pay a transfer.{' '}
               {preview.need.topup > 0 ? <>The next run would pull <strong>{money(preview.need.topup)}</strong>.</> : <>Nothing to pull.</>}
             </Typography>
           </Box>
+        )}
+        {preview?.automaticPayouts && (
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            Your Stripe payout schedule is <strong>{preview.schedule?.interval || 'automatic'}</strong>, so every receipt is swept to
+            your bank as it settles and <strong>pending money can never pay a contractor</strong> — which is why only the available
+            balance counts above. A top-up can be swept straight back out the same way, so funding is a race on this schedule.
+            Switch payouts to <strong>Manual</strong> in the Stripe dashboard and the Thursday sweep will send the surplus home for
+            you, keeping the payroll floor behind.
+          </Alert>
+        )}
+        {preview && preview.scheduleKnown === false && (
+          <Alert severity="info" sx={{ mt: 2 }}>
+            Could not read your Stripe payout schedule, so pending money is being counted as spendable. If payouts are automatic
+            this is optimistic — check the schedule in the Stripe dashboard.
+          </Alert>
         )}
         {preview?.error && <Alert severity="warning" sx={{ mt: 2 }}>Preview failed: {preview.error}</Alert>}
         {preview?.skipped && !preview.need && (
