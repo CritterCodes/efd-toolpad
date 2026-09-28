@@ -21,6 +21,7 @@ import tasksService from '@/services/tasks.service';
 import materialsService from '@/services/materials.service';
 import RepairsService from '@/services/repairs';
 import UsersService from '@/services/users';
+import { canSkipIntakeClient } from '@/services/repairs/intakeClientRule';
 import wholesaleClientsAPIClient from '@/api-clients/wholesaleClients.client';
 import wholesaleAccountSettingsAPIClient from '@/api-clients/wholesaleAccountSettings.client';
 import pricingEngine from '@/services/PricingEngine';
@@ -662,6 +663,9 @@ export default function useNewRepairForm({
   repairID = null,
   clientInfo = null,
   isWholesale = false,
+  // Whether the PERSON filling this in is a wholesaler, which `isWholesale` cannot answer: that is
+  // also true for an admin who arrived with a store preset. Defaults to the old meaning.
+  viewerIsWholesaler = null,
   onWholesaleChange = null,
   wholesalerStoreId = null,
   wholesalerStoreName = null
@@ -1914,11 +1918,12 @@ export default function useNewRepairForm({
     try {
       // Validation.
       //
-      // `isWholesale` (the prop) means the person filling this in IS a wholesaler; formData.isWholesale
-      // means the TICKET is wholesale. An admin taking in a store's tray may skip the client — the
-      // server then keys the repair to the store (owner, 2026-09-28). A store filing its own repair
-      // still names its client, which is how it finds the job in its portal.
-      const skipClient = !isWholesale && formData.isWholesale && formData.clientNotProvided === true;
+      // An admin taking in a store's tray may skip the client — the server then keys the repair to the
+      // store. services/repairs/intakeClientRule.js owns the rule (and the viewer-vs-ticket trap).
+      const skipClient = formData.clientNotProvided === true && canSkipIntakeClient({
+        viewerIsWholesaler: viewerIsWholesaler ?? isWholesale,
+        ticketIsWholesale: formData.isWholesale,
+      });
       if (!skipClient && !formData.clientName.trim()) {
         throw new Error('Client name is required');
       }

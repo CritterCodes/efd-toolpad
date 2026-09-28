@@ -43,6 +43,7 @@ import { AutoAwesome as AutoAwesomeIcon } from '@mui/icons-material';
 import { taskAllowsMetal } from '@/services/repairs/metalTaskFilter';
 import { isCustomLaborTask, calculatedCustomLaborPrice, buildCustomLaborTask } from '@/services/repairs/customLabor';
 import { RING_SIZES } from '@/services/repairs/smartIntakeExtractors';
+import { canSkipIntakeClient, intakeClientSettled } from '@/services/repairs/intakeClientRule';
 import CameraCapture from '@/components/shared/CameraCapture';
 import SmartIntakeMic from '@/app/components/repairs/SmartIntakeMic';
 import PromiseDateSuggestion from '@/app/components/repairs/PromiseDateSuggestion';
@@ -326,6 +327,12 @@ export default function NewRepairFlow(props) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { isWholesale, submitMode = 'create', submitLabel = '', isQuote = false, onCancel, onPrintChoice, storePreset = false, onClearStorePreset } = props;
+  // `isWholesale` means the FORM is in wholesale mode, which is also true for an admin who arrived
+  // with a store preset ("Another for <store>", a scanned tray) — so it cannot answer "is the person
+  // filling this in a wholesaler?". Using it for that took the "no client" option away on exactly the
+  // path that needs it most. `viewerIsWholesaler` comes from the session role; it falls back to the
+  // old meaning for callers that don't pass it.
+  const viewerIsWholesaler = props.viewerIsWholesaler ?? isWholesale;
 
   const {
     formData, setFormData,
@@ -390,10 +397,16 @@ export default function NewRepairFlow(props) {
   // What stops "Next" on this step — surfaced under the button instead of as a thrown error four
   // screens later. Mirrors the hook's submit validation (client name, description).
   // An admin taking in a store's tray may skip the client (owner, 2026-09-28): the end customer is the
-  // STORE's customer and often never named. `isWholesale` = the person filling this in is a wholesaler,
-  // so this is deliberately false for them — a store still names its own client.
-  const canSkipClient = !isWholesale && !!formData.isWholesale;
-  const clientSettled = !!String(formData.clientName || '').trim() || formData.clientNotProvided === true;
+  // STORE's customer and often never named. services/repairs/intakeClientRule.js owns the rule, so
+  // this screen and the submit validation cannot drift apart.
+  const ruleInput = {
+    viewerIsWholesaler,
+    ticketIsWholesale: formData.isWholesale,
+    clientName: formData.clientName,
+    clientNotProvided: formData.clientNotProvided,
+  };
+  const canSkipClient = canSkipIntakeClient(ruleInput);
+  const clientSettled = intakeClientSettled(ruleInput);
   const stepBlocker = step === 0 && !clientSettled
     ? 'Pick a client to continue'
     : step === 1 && !String(formData.description || '').trim()
@@ -406,13 +419,13 @@ export default function NewRepairFlow(props) {
   // back — but the default for a tray the shop takes in is that there is no customer name.
   const presetJumped = useRef(false);
   useEffect(() => {
-    if (presetJumped.current || !storePreset || isWholesale) return;
+    if (presetJumped.current || !storePreset || viewerIsWholesaler) return;
     if (!formData.isWholesale) return; // the store is still resolving
     if (String(formData.clientName || '').trim()) return;
     presetJumped.current = true;
     setFormData((prev) => ({ ...prev, clientNotProvided: true }));
     setStep((s) => (s === 0 ? 1 : s));
-  }, [storePreset, isWholesale, formData.isWholesale, formData.clientName, setFormData]);
+  }, [storePreset, viewerIsWholesaler, formData.isWholesale, formData.clientName, setFormData]);
 
   // A submit error is shown next to the buttons that caused it, and scrolled into view.
   const submitErrorRef = useRef(null);

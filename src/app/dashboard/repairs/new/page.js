@@ -270,6 +270,9 @@ const NewRepairPage = () => {
               initialData={linkedSaleContext?.initialData || null}
               clientInfo={linkedSaleContext?.clientInfo || null}
               isWholesale={isWholesaler}
+              // `isWholesaler` is true for an admin who arrived with a store preset, so it cannot
+              // stand in for the session role — the client-optional rule needs the role itself.
+              viewerIsWholesaler={isWholesalerRole}
               wholesalerStoreId={wholesalerStoreId}
               wholesalerStoreName={wholesalerStoreName}
             />
@@ -278,6 +281,7 @@ const NewRepairPage = () => {
               onSubmit={handleSubmit}
               initialData={linkedSaleContext?.initialData || null}
               clientInfo={linkedSaleContext?.clientInfo || null}
+              // The classic form has no "no client" row, so it keeps the old rule: a client is required.
               isWholesale={isWholesaler}
               wholesalerStoreId={wholesalerStoreId}
               wholesalerStoreName={wholesalerStoreName}
