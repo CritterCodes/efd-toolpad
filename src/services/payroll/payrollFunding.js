@@ -8,7 +8,9 @@
  *
  *   projected payroll  = finalized-but-unpaid batches + labor / sale payouts credited so far this week
  *   target             = projected × (1 + buffer) + floor
- *   shortfall          = target − (available + pending USD)      ← pending card receipts settle by Wednesday
+ *   spendable          = available + pending on a MANUAL payout schedule; available ALONE on an
+ *                        automatic one, where Stripe sweeps each receipt to the bank as it settles
+ *   shortfall          = target − spendable
  *   if shortfall > minimum → one Stripe TOP-UP (ACH debit from the verified business bank account)
  *
  * Runs Monday morning so a standard 1–2 business-day top-up lands before Wednesday's payroll run;
@@ -20,7 +22,7 @@ import RepairPayrollBatchesModel from '@/app/api/repairPayrollBatches/model';
 import { listPayrollCandidates } from '@/app/api/repairs/payroll/service';
 import { PAYROLL_BATCH_STATUS, payrollTotal } from '@/services/payrollUtils';
 import { batchAmount } from '@/services/payroll/connectPayouts';
-import { isStripeConfigured, stripeMode, retrieveBalance, availableUsdCents, pendingUsdCents, createTopup } from '@/lib/stripeConnect';
+import { isStripeConfigured, stripeMode, retrieveBalance, availableUsdCents, pendingUsdCents, createTopup, retrievePlatformAccount, payoutScheduleOf } from '@/lib/stripeConnect';
 import { notifyAllAdmins } from '@/lib/notificationService';
 import { adminBase } from '@/lib/appUrls';
 
@@ -123,14 +125,48 @@ export async function runFundingCheck({ now = new Date(), dryRun = false, notify
   if (!isStripeConfigured()) return { ...result, skipped: 'Stripe not configured' };
 
   try {
-    const [due, balance] = await Promise.all([projectPayrollDue(), retrieveBalance()]);
+    const [due, balance, account] = await Promise.all([
+      projectPayrollDue(),
+      retrieveBalance(),
+      // Never let a schedule lookup fail the whole check; `null` means "we could not tell".
+      retrievePlatformAccount().then(payoutScheduleOf).catch(() => null),
+    ]);
     const available = availableUsdCents(balance) / 100;
     const pending = pendingUsdCents(balance) / 100;
-    const need = computeFundingNeed({ projected: due.projected, balance: available + pending, settings });
-    Object.assign(result, { due, available: round2(available), pending: round2(pending), need });
+
+    // WHETHER PENDING COUNTS DEPENDS ENTIRELY ON THE PAYOUT SCHEDULE (owner, 2026-09-28).
+    //
+    // This used to count `available + pending` unconditionally, on the reasoning that card receipts
+    // settle before payroll runs. That is true only on a MANUAL schedule. On Stripe's default
+    // automatic schedule the money settles and is swept to the bank the same day, so pending is
+    // never spendable by a Connect transfer — and the check cheerfully reported "funded" against a
+    // balance that would be $0 when payroll actually ran. That is exactly the state EFD was in:
+    // $0.00 available, $1,039.13 pending, already scheduled to leave on Oct 1.
+    //
+    // When the schedule cannot be read we keep the old, generous reading rather than pulling money
+    // from the business account on a guess — but we say so, so nobody trusts it blindly.
+    const scheduleKnown = account !== null;
+    const automaticPayouts = scheduleKnown && account.interval !== 'manual';
+    const spendable = automaticPayouts ? available : available + pending;
+    const need = computeFundingNeed({ projected: due.projected, balance: spendable, settings });
+    Object.assign(result, {
+      due,
+      available: round2(available),
+      pending: round2(pending),
+      spendable: round2(spendable),
+      schedule: account,
+      scheduleKnown,
+      automaticPayouts,
+      need,
+    });
 
     if (need.topup <= 0) {
-      return { ...result, skipped: `funded: ${money(available + pending)} covers ${money(need.target)}` };
+      return {
+        ...result,
+        // Say plainly that nothing moved. "funded: $1,039.13 covers $624.50" under a button labelled
+        // Fund Stripe now read as though $1,039.13 had just been pulled (owner, 2026-09-28).
+        skipped: `No top-up needed — ${money(spendable)} spendable covers the ${money(need.target)} target.`,
+      };
     }
     // Belt and braces: a dry run never reaches createTopup, which is also what keeps a
     // preview-while-off from pulling anything.
@@ -147,7 +183,7 @@ export async function runFundingCheck({ now = new Date(), dryRun = false, notify
       await notifyAllAdmins({
         type: 'payroll-funding',
         title: `Pulled ${money(need.topup)} into Stripe for payroll`,
-        message: `Wednesday needs about ${money(due.projected)} (${due.payees.join(', ') || 'no payees yet'}); Stripe had ${money(available)} available + ${money(pending)} pending. A ${money(need.topup)} top-up${need.capped ? ` (capped — ${money(need.shortfall)} short)` : ''} from the business bank account is on its way${result.topup.expectedAvailability ? `, expected ${result.topup.expectedAvailability.toLocaleDateString('en-US')}` : ''}.`,
+        message: `Wednesday needs about ${money(due.projected)} (${due.payees.join(', ') || 'no payees yet'}); Stripe had ${money(available)} available + ${money(pending)} pending, ${money(spendable)} of it spendable. A ${money(need.topup)} top-up${need.capped ? ` (capped — ${money(need.shortfall)} short)` : ''} from the business bank account is on its way${result.topup.expectedAvailability ? `, expected ${result.topup.expectedAvailability.toLocaleDateString('en-US')}` : ''}.${automaticPayouts ? ' NOTE: payouts are on an automatic schedule, so this top-up can be swept back to the bank before payroll spends it — switch Stripe payouts to Manual.' : ''}`,
         actionUrl: `${adminBase()}/dashboard/repairs/payroll`, actionLabel: 'Open payroll',
         priority: 'normal', channels: ['inApp', 'email'], relatedType: 'payroll-funding', relatedData: result,
       }).catch(() => {});
