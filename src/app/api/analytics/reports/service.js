@@ -10,6 +10,7 @@ import DebtPaymentsModel from '@/app/api/debtPayments/model';
 import { getAnalyticsBaselineSettings } from '@/services/analyticsBaseline';
 import { buildDebtFoundationReport } from '@/services/debtAnalytics';
 import { buildLaborPipelineReport } from '@/services/labor/laborPipeline';
+import { calculateRepairChargeTotal } from '@/app/api/repairLaborLogs/utils';
 import { ladderFromSettings, resolvePayRate } from '@/services/pay/payLadder';
 import {
   buildAccountsReceivableReport,
@@ -83,6 +84,26 @@ async function getLaborPipelineInputs(dbInstance, settings) {
   }
 
   return { workOrders, pendingQcLogs, candidates, rateByUserID, shopRate };
+}
+
+/**
+ * What each open job will BILL, keyed the way the pipeline looks it up.
+ *
+ * `calculateRepairChargeTotal` is the shop's own answer to "what does this ticket cost the customer"
+ * — the same function QC uses to sanity-check labor against the ticket — so the revenue forecast and
+ * the ticket agree by construction, including the part where a comped or internal repair bills zero.
+ *
+ * Only repairs. A production piece or a custom's price lives on the design or the custom quote, not
+ * on the work order, and quietly reporting those as $0 would understate the number; they are counted
+ * as "no ticket value yet" instead.
+ */
+function buildTicketValueMap(repairs = []) {
+  const map = new Map();
+  for (const repair of repairs) {
+    if (!repair?.repairID) continue;
+    map.set(`repair:${repair.repairID}`, calculateRepairChargeTotal(repair));
+  }
+  return map;
 }
 
 async function getUsersMapFromLogsAndBatches(logs = [], batches = []) {
@@ -173,7 +194,11 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
     }),
     // A NOW snapshot, deliberately outside the report's date range: work still on the floor has no
     // period, and filtering it to "last month" would quietly hide this week's load.
-    laborPipeline: buildLaborPipelineReport({ ...pipelineInputs, batches: payrollBatches }),
+    laborPipeline: buildLaborPipelineReport({
+      ...pipelineInputs,
+      batches: payrollBatches,
+      ticketValueBySource: buildTicketValueMap(repairs),
+    }),
     laborSettlement: buildLaborSettlementReport({
       payrollBatches: laborAnalyticsPayrollBatches,
       usersById,

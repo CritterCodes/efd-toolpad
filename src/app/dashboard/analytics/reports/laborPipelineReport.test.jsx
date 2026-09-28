@@ -20,6 +20,8 @@ const LABOR_PIPELINE = {
     blockedCount: 1, blockedValue: 50,
     qcCount: 1, qcValue: 60,
     openCount: 7, openHours: 11, openValue: 550,
+    openRevenue: 1450, openMargin: 900, revenueUnknownCount: 2,
+    unclaimedRevenue: 780, claimedRevenue: 420,
     rushCount: 1, dueThisWeekCount: 2, dueThisWeekValue: 180,
     heldInQc: 75, heldHours: 2.5, heldCount: 1,
     unbatchedPayable: 120, finalizedUnpaid: 200, owedNow: 320,
@@ -27,8 +29,8 @@ const LABOR_PIPELINE = {
     weekStart: '2026-09-21T00:00:00.000Z', weekEnd: '2026-09-27T23:59:59.999Z',
   },
   byStage: [
-    { id: 'unclaimed', stage: 'unclaimed', stageLabel: 'Unclaimed', count: 3, hours: 6, value: 300, estimatedValue: 300, rushCount: 0, dueThisWeekCount: 1, dueThisWeekValue: 100 },
-    { id: 'in_progress', stage: 'in_progress', stageLabel: 'On a bench', count: 2, hours: 4, value: 140, estimatedValue: 0, rushCount: 1, dueThisWeekCount: 1, dueThisWeekValue: 80 },
+    { id: 'unclaimed', stage: 'unclaimed', stageLabel: 'Unclaimed', count: 3, hours: 6, value: 300, estimatedValue: 300, rushCount: 0, dueThisWeekCount: 1, dueThisWeekValue: 100, revenue: 780, revenueUnknownCount: 1 },
+    { id: 'in_progress', stage: 'in_progress', stageLabel: 'On a bench', count: 2, hours: 4, value: 140, estimatedValue: 0, rushCount: 1, dueThisWeekCount: 1, dueThisWeekValue: 80, revenue: 420, revenueUnknownCount: 1 },
   ],
   byPerson: [
     { id: 'u-bench', userID: 'u-bench', userName: 'Vernon', rate: 30, openCount: 2, openHours: 4, openValue: 140, qcValue: 0, owedNow: 120 },
@@ -41,6 +43,7 @@ const LABOR_PIPELINE = {
       id: 'wo-1', workOrderID: 'wo-1', stage: 'unclaimed', stageLabel: 'Unclaimed', title: 'Size down 2 sizes',
       sourceType: 'repair', sourceID: 'REP-1', discipline: 'bench_jewelry', assignedToUserID: '', assignedJeweler: '',
       hours: 2, value: 100, estimated: true, isRush: true, promiseDate: '2026-09-25T00:00:00.000Z', dueThisWeek: true,
+      revenue: 260, revenueKnown: true, revenueCountedElsewhere: false,
     },
   ],
 };
@@ -69,11 +72,26 @@ describe('Labor Pipeline report', () => {
     expect(getReportDefinition('labor-pipeline')).toMatchObject({ title: 'Labor Pipeline Report', source: 'reports' });
   });
 
+  /**
+   * "I just entered 20-something jobs … I'm trying to see how much it's going to be" — the first
+   * thing the page has to answer is what the open tickets are WORTH, not only what they cost.
+   */
+  it('leads with what the open work will bill', async () => {
+    render(<ReportDetailPageClient reportSlug="labor-pipeline" />);
+    await loaded();
+
+    expect(within(card('Open ticket value')).getByText('$1,450.00')).toBeInTheDocument();
+    expect(within(card('Unclaimed ticket value')).getByText('$780.00')).toBeInTheDocument();
+    expect(within(card('Margin on open work')).getByText('$900.00')).toBeInTheDocument();
+    // A job with no price yet is named, not folded into the total as zero.
+    expect(within(card('Open ticket value')).getByText(/2 with no price yet/)).toBeInTheDocument();
+  });
+
   it('leads with what is unclaimed, what is on a bench, and what payroll owes', async () => {
     render(<ReportDetailPageClient reportSlug="labor-pipeline" />);
     await loaded();
 
-    expect(within(card('Unclaimed')).getByText('$300.00')).toBeInTheDocument();
+    expect(within(card('Unclaimed labor')).getByText('$300.00')).toBeInTheDocument();
     expect(within(card('On a bench')).getByText('$140.00')).toBeInTheDocument();
     expect(within(card('Labor owed now')).getByText('$320.00')).toBeInTheDocument();
     expect(within(card('Total committed labor')).getByText('$945.00')).toBeInTheDocument();
@@ -105,6 +123,7 @@ describe('Labor Pipeline report', () => {
     const job = tableRow(/🔴 Size down 2 sizes/);
     // An unclaimed job's cost depends on who takes it — the page has to say so.
     expect(within(job).getByText('$100.00 est.')).toBeInTheDocument();
+    expect(within(job).getByText('$260.00')).toBeInTheDocument(); // what it bills
     expect(within(job).getAllByText('Unclaimed').length).toBeGreaterThan(0); // stage + nobody assigned
     expect(within(job).getByText('repair REP-1')).toBeInTheDocument();
   });

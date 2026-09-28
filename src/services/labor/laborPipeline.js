@@ -128,7 +128,10 @@ export function workOrderLabor(workOrder = {}, { rateFor = () => 0, shopRate = 0
 }
 
 function emptyBucket() {
-  return { count: 0, hours: 0, value: 0, estimatedValue: 0, rushCount: 0, dueThisWeekCount: 0, dueThisWeekValue: 0 };
+  return {
+    count: 0, hours: 0, value: 0, estimatedValue: 0, rushCount: 0, dueThisWeekCount: 0, dueThisWeekValue: 0,
+    revenue: 0, revenueUnknownCount: 0,
+  };
 }
 
 function addToBucket(bucket, row) {
@@ -141,6 +144,10 @@ function addToBucket(bucket, row) {
     bucket.dueThisWeekCount += 1;
     bucket.dueThisWeekValue = round2(bucket.dueThisWeekValue + row.value);
   }
+  bucket.revenue = round2(bucket.revenue + row.revenue);
+  // A job whose ticket value we cannot read is counted, never guessed at — otherwise the revenue
+  // total silently understates itself and looks like a real number.
+  if (!row.revenueKnown) bucket.revenueUnknownCount += 1;
   return bucket;
 }
 
@@ -159,6 +166,10 @@ export function buildLaborPipelineReport({
   candidates = [],
   batches = [],
   rateByUserID = new Map(),
+  // What each job will BILL, keyed `sourceType:sourceID` — the ticket total, resolved where the
+  // repairs are loaded so this stays pure. A source that is not in the map is reported as unknown
+  // rather than as zero revenue.
+  ticketValueBySource = new Map(),
   shopRate = 0,
   now = new Date(),
 } = {}) {
@@ -178,6 +189,7 @@ export function buildLaborPipelineReport({
   const byPerson = new Map();
   const byDiscipline = new Map();
   const rows = [];
+  const countedSources = new Set();
 
   for (const wo of workOrders) {
     const stage = pipelineStage(wo);
@@ -186,6 +198,13 @@ export function buildLaborPipelineReport({
 
     const labor = workOrderLabor(wo, { rateFor, shopRate });
     const dueDate = wo.promiseDate ? new Date(wo.promiseDate) : null;
+    // One ticket can carry several work orders (a repair handed between disciplines). The ticket
+    // value belongs to the JOB, so it is counted once — on the first work order that claims it —
+    // and the rest report no revenue instead of multiplying the job's price by its lanes.
+    const sourceKey = `${wo.sourceType || ''}:${wo.sourceID || ''}`;
+    const hasTicketValue = ticketValueBySource.has(sourceKey);
+    const firstForSource = hasTicketValue && !countedSources.has(sourceKey);
+    if (firstForSource) countedSources.add(sourceKey);
     const row = {
       id: wo.workOrderID,
       workOrderID: wo.workOrderID,
@@ -200,6 +219,10 @@ export function buildLaborPipelineReport({
       hours: labor.hours,
       value: labor.value,
       estimated: labor.estimated,
+      revenue: firstForSource ? round2(ticketValueBySource.get(sourceKey)) : 0,
+      revenueKnown: hasTicketValue,
+      // A second lane on a job whose price is already counted is not "unknown revenue" — say which.
+      revenueCountedElsewhere: hasTicketValue && !firstForSource,
       isRush: !!wo.isRush,
       promiseDate: wo.promiseDate || null,
       dueThisWeek: !!(dueDate && !Number.isNaN(dueDate.getTime()) && dueDate <= weekEnd),
@@ -267,6 +290,8 @@ export function buildLaborPipelineReport({
 
   const openValue = round2(Object.values(stages).reduce((s, b) => s + b.value, 0));
   const openHours = round2h(Object.values(stages).reduce((s, b) => s + b.hours, 0));
+  const openRevenue = round2(Object.values(stages).reduce((s, b) => s + b.revenue, 0));
+  const revenueUnknownCount = Object.values(stages).reduce((s, b) => s + b.revenueUnknownCount, 0);
 
   return {
     summary: {
@@ -274,9 +299,11 @@ export function buildLaborPipelineReport({
       unclaimedCount: stages[PIPELINE_STAGE.UNCLAIMED].count,
       unclaimedHours: stages[PIPELINE_STAGE.UNCLAIMED].hours,
       unclaimedValue: stages[PIPELINE_STAGE.UNCLAIMED].value,
+      unclaimedRevenue: stages[PIPELINE_STAGE.UNCLAIMED].revenue,
       claimedCount: stages[PIPELINE_STAGE.IN_PROGRESS].count,
       claimedHours: stages[PIPELINE_STAGE.IN_PROGRESS].hours,
       claimedValue: stages[PIPELINE_STAGE.IN_PROGRESS].value,
+      claimedRevenue: stages[PIPELINE_STAGE.IN_PROGRESS].revenue,
       blockedCount: stages[PIPELINE_STAGE.BLOCKED].count,
       blockedValue: stages[PIPELINE_STAGE.BLOCKED].value,
       qcCount: stages[PIPELINE_STAGE.QC].count,
@@ -284,6 +311,11 @@ export function buildLaborPipelineReport({
       openCount: rows.length,
       openHours,
       openValue,
+      // What the open work will BILL, and what is left after the bench is paid for it. Both are
+      // forecasts of the same jobs, so they can be read against each other.
+      openRevenue,
+      openMargin: round2(openRevenue - openValue),
+      revenueUnknownCount,
       rushCount: rows.filter((r) => r.isRush).length,
       dueThisWeekCount: rows.filter((r) => r.dueThisWeek).length,
       dueThisWeekValue: round2(rows.filter((r) => r.dueThisWeek).reduce((s, r) => s + r.value, 0)),
