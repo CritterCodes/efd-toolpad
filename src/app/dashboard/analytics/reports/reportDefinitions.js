@@ -18,6 +18,12 @@ export const REPORT_DEFINITIONS = [
     source: 'summary',
   },
   {
+    slug: 'labor-pipeline',
+    title: 'Labor Pipeline Report',
+    description: 'Labor still to do: unclaimed, on the bench, blocked, in QC — with hours, cost, and what payroll owes now. A live snapshot, not a period.',
+    source: 'reports',
+  },
+  {
     slug: 'labor',
     title: 'Labor Report',
     description: 'Jeweler labor hours, labor pay, pending review counts, and payroll-paid totals.',
