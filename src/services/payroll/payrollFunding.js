@@ -107,10 +107,19 @@ export async function projectPayrollDue() {
  * The Monday check. Never throws; returns what it saw and what it did, and tells admins when money
  * moved or when it could not.
  */
-export async function runFundingCheck({ now = new Date(), dryRun = false, notify = true } = {}) {
+export async function runFundingCheck({ now = new Date(), dryRun = false, notify = true, preview = false } = {}) {
   const settings = await readFundingSettings();
   const result = { ranAt: now, settings, dryRun, stripe: isStripeConfigured() ? stripeMode() : 'unconfigured', topup: null, error: null };
-  if (!settings.enabled) return { ...result, skipped: 'funding check is off in Store Settings' };
+
+  // A PREVIEW may look past the switch, and only a preview. The settings card has to be able to
+  // answer "what does Wednesday need, and does Stripe have it?" BEFORE funding is turned on —
+  // that is the number the decision is made on, and it was unavailable at exactly the moment it
+  // mattered (owner, 2026-09-28: waiting on a Friday payment with the switch still off and no way
+  // to see whether it mattered). `preview` is honoured only together with `dryRun`, and a dry run
+  // returns before `createTopup`, so this can never move money while funding is off.
+  const previewingWhileOff = preview === true && dryRun === true && !settings.enabled;
+  if (!settings.enabled && !previewingWhileOff) return { ...result, skipped: 'funding check is off in Store Settings' };
+  if (previewingWhileOff) result.previewedWhileOff = true;
   if (!isStripeConfigured()) return { ...result, skipped: 'Stripe not configured' };
 
   try {
@@ -123,6 +132,8 @@ export async function runFundingCheck({ now = new Date(), dryRun = false, notify
     if (need.topup <= 0) {
       return { ...result, skipped: `funded: ${money(available + pending)} covers ${money(need.target)}` };
     }
+    // Belt and braces: a dry run never reaches createTopup, which is also what keeps a
+    // preview-while-off from pulling anything.
     if (dryRun) return { ...result, wouldTopup: need.topup };
 
     const topup = await createTopup({
