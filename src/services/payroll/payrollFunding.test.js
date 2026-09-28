@@ -65,6 +65,41 @@ describe('the Monday check', () => {
     expect(mocks.retrieveBalance).not.toHaveBeenCalled();
   });
 
+  /**
+   * The settings card has to answer "what does Wednesday need, and does Stripe have it?" BEFORE the
+   * switch is on — that is the number you decide on, and it was unavailable at exactly the moment it
+   * mattered (owner, 2026-09-28, waiting on a Friday payment).
+   */
+  describe('previewing while switched off', () => {
+    beforeEach(() => {
+      mocks.findOne.mockResolvedValue({ business: { payroll: { funding: { enabled: false, floor: 300, bufferPct: 10, minimumTopup: 25, maxTopup: 500 } } } });
+      mocks.retrieveBalance.mockResolvedValue({ available: [{ currency: 'usd', amount: 10000 }], pending: [{ currency: 'usd', amount: 0 }] });
+    });
+
+    it('computes the numbers anyway, and says they are hypothetical', async () => {
+      const r = await runFundingCheck({ now: MON, dryRun: true, preview: true, notify: false });
+
+      expect(r.previewedWhileOff).toBe(true);
+      expect(r.skipped).toBeUndefined();
+      expect(r.due.projected).toBe(800);                 // 275 finalized + 525 unbatched
+      expect(r.need).toMatchObject({ target: 1180, balance: 100, topup: 500, capped: true });
+      expect(r.wouldTopup).toBe(500);
+    });
+
+    it('still cannot move money — a preview never reaches the top-up', async () => {
+      await runFundingCheck({ now: MON, dryRun: true, preview: true, notify: false });
+      expect(mocks.createTopup).not.toHaveBeenCalled();
+      expect(mocks.notifyAllAdmins).not.toHaveBeenCalled();
+    });
+
+    it('refuses to look past the switch for anything but a dry run', async () => {
+      // preview without dryRun is a REAL run, and a real run obeys the switch.
+      const r = await runFundingCheck({ now: MON, preview: true });
+      expect(r.skipped).toMatch(/off/);
+      expect(mocks.createTopup).not.toHaveBeenCalled();
+    });
+  });
+
   it('tops up the shortfall with a per-day idempotency key and tells admins', async () => {
     mocks.findOne.mockResolvedValue({ business: { payroll: { funding: { enabled: true, floor: 1500, bufferPct: 10, minimumTopup: 25, maxTopup: 5000 } } } });
     mocks.retrieveBalance.mockResolvedValue({ available: [{ currency: 'usd', amount: 20000 }], pending: [{ currency: 'usd', amount: 15000 }] });

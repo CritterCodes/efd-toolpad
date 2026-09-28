@@ -23,6 +23,31 @@ export default function PayrollFundingSettings() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  // Pull the money now instead of waiting for tomorrow's run. Confirmed first, because this is an
+  // ACH debit from the business account — the one button on this page that moves money.
+  const fundNow = async () => {
+    const amount = preview?.need?.topup > 0 ? money(preview.need.topup) : 'whatever the check finds is short';
+    if (!window.confirm(`Pull ${amount} from the business bank account into Stripe now? It takes 1–2 business days to land.`)) return;
+    setSaving(true); setMsg(null);
+    try {
+      const res = await fetch('/api/admin/settings/payroll-funding', { method: 'POST' });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Could not run the funding check');
+      const r = body.result || {};
+      setMsg({
+        severity: r.error ? 'error' : 'success',
+        text: r.error ? `Top-up failed: ${r.error}`
+          : r.topup ? `Pulling ${money(r.topup.amount)} into Stripe${r.topup.expectedAvailability ? ` — expected ${new Date(r.topup.expectedAvailability).toLocaleDateString('en-US')}` : ''}.`
+            : r.skipped || 'Nothing to pull.',
+      });
+      load();
+    } catch (e) {
+      setMsg({ severity: 'error', text: e.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const save = async (next) => {
     setSaving(true); setMsg(null);
     try {
@@ -75,7 +100,9 @@ export default function PayrollFundingSettings() {
         </Grid>
         {preview && !preview.error && preview.need && (
           <Box sx={{ mt: 2, p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-            <Typography variant="subtitle2">Right now</Typography>
+            <Typography variant="subtitle2">
+              Right now{preview.previewedWhileOff ? ' — if funding were on' : ''}
+            </Typography>
             <Typography variant="body2" color="text.secondary">
               Wednesday needs about <strong>{money(preview.need.projected)}</strong>
               {preview.due?.payees?.length ? ` (${preview.due.payees.join(', ')})` : ''}; target with buffer and floor is <strong>{money(preview.need.target)}</strong>.
@@ -85,9 +112,26 @@ export default function PayrollFundingSettings() {
           </Box>
         )}
         {preview?.error && <Alert severity="warning" sx={{ mt: 2 }}>Preview failed: {preview.error}</Alert>}
-        <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
+        {preview?.skipped && !preview.need && (
+          <Alert severity="info" sx={{ mt: 2 }}>{preview.skipped}</Alert>
+        )}
+        <Stack direction="row" spacing={1} sx={{ mt: 1.5 }} flexWrap="wrap" useFlexGap>
           <Button size="small" variant="text" onClick={load} disabled={saving}>Refresh preview</Button>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={fundNow}
+            disabled={saving || !settings.enabled}
+            title={settings.enabled ? 'Run the funding check now' : 'Turn funding on first'}
+          >
+            Fund Stripe now
+          </Button>
         </Stack>
+        {settings.enabled && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>
+            The check also runs on its own every morning. Use this when you cannot wait for it.
+          </Typography>
+        )}
         {msg && <Alert severity={msg.severity} sx={{ mt: 2 }}>{msg.text}</Alert>}
       </CardContent>
     </Card>
