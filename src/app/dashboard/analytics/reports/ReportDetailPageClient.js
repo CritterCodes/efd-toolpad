@@ -701,15 +701,31 @@ function buildReportConfig(reportSlug, summary, reports, actions = {}) {
       const hrs = (value) => `${Number(value || 0).toFixed(2)} h`;
       return {
         summaryCards: [
+          // Revenue first: the question asked of a shop full of fresh tickets is what they are worth.
           {
-            label: 'Unclaimed',
+            label: 'Open ticket value',
+            value: formatMoney(p.openRevenue),
+            note: `what the ${p.openCount || 0} open jobs will bill${p.revenueUnknownCount ? ` · ${p.revenueUnknownCount} with no price yet` : ''}`,
+          },
+          {
+            label: 'Unclaimed ticket value',
+            value: formatMoney(p.unclaimedRevenue),
+            note: `${p.unclaimedCount || 0} jobs nobody has taken · ${formatMoney(p.unclaimedValue)} of labor in them`,
+          },
+          {
+            label: 'Margin on open work',
+            value: formatMoney(p.openMargin),
+            note: `ticket value less ${formatMoney(p.openValue)} of bench labor`,
+          },
+          {
+            label: 'Unclaimed labor',
             value: formatMoney(p.unclaimedValue),
             note: `${p.unclaimedCount || 0} jobs · ${hrs(p.unclaimedHours)} · nobody has taken these`,
           },
           {
             label: 'On a bench',
             value: formatMoney(p.claimedValue),
-            note: `${p.claimedCount || 0} jobs · ${hrs(p.claimedHours)} · claimed and in progress`,
+            note: `${p.claimedCount || 0} jobs · ${hrs(p.claimedHours)} · ${formatMoney(p.claimedRevenue)} of tickets`,
           },
           {
             label: 'In QC + held',
@@ -749,6 +765,7 @@ function buildReportConfig(reportSlug, summary, reports, actions = {}) {
             columns: [
               { label: 'Stage', value: 'stageLabel' },
               { label: 'Jobs', value: 'count', align: 'right' },
+              { label: 'Ticket Value', render: (row) => formatMoney(row.revenue), align: 'right' },
               { label: 'Hours', render: (row) => Number(row.hours || 0).toFixed(2), align: 'right' },
               { label: 'Labor Cost', render: (row) => formatMoney(row.value), align: 'right' },
               { label: 'Of That, Estimated', render: (row) => formatMoney(row.estimatedValue), align: 'right' },
@@ -758,6 +775,7 @@ function buildReportConfig(reportSlug, summary, reports, actions = {}) {
             exportColumns: [
               { label: 'Stage', value: 'stageLabel' },
               { label: 'Jobs', value: 'count' },
+              { label: 'Ticket Value', value: 'revenue' },
               { label: 'Hours', value: 'hours' },
               { label: 'Labor Cost', value: 'value' },
               { label: 'Estimated Portion', value: 'estimatedValue' },
@@ -809,6 +827,13 @@ function buildReportConfig(reportSlug, summary, reports, actions = {}) {
               { label: 'Source', render: (row) => `${String(row.sourceType || '').replace(/_/g, ' ')} ${row.sourceID}`.trim() },
               { label: 'Stage', value: 'stageLabel' },
               { label: 'Assigned', render: (row) => row.assignedJeweler || 'Unclaimed' },
+              {
+                label: 'Ticket',
+                render: (row) => (row.revenueKnown
+                  ? (row.revenueCountedElsewhere ? '—' : formatMoney(row.revenue))
+                  : 'no price yet'),
+                align: 'right',
+              },
               { label: 'Hours', render: (row) => Number(row.hours || 0).toFixed(2), align: 'right' },
               { label: 'Labor Cost', render: (row) => `${formatMoney(row.value)}${row.estimated ? ' est.' : ''}`, align: 'right' },
               { label: 'Promised', render: (row) => (row.promiseDate ? formatDate(row.promiseDate) : 'No date') },
@@ -821,6 +846,7 @@ function buildReportConfig(reportSlug, summary, reports, actions = {}) {
               { label: 'Discipline', value: 'discipline' },
               { label: 'Stage', value: 'stageLabel' },
               { label: 'Assigned', value: (row) => row.assignedJeweler || '' },
+              { label: 'Ticket Value', value: (row) => (row.revenueKnown ? row.revenue : '') },
               { label: 'Hours', value: 'hours' },
               { label: 'Labor Cost', value: 'value' },
               { label: 'Estimated', value: (row) => (row.estimated ? 'Yes' : 'No') },

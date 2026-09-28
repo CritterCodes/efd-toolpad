@@ -165,4 +165,54 @@ describe('the shop at a glance', () => {
     expect(byDiscipline.find((d) => d.discipline === 'cad')).toMatchObject({ count: 1, value: 200 });
     expect(byDiscipline.find((d) => d.discipline === 'bench_jewelry')).toMatchObject({ count: 3, value: 240 });
   });
+
+  /**
+   * "I just entered 20-something jobs, they haven't been claimed, and I'm trying to see how much it's
+   * going to be" (owner, 2026-09-28). Labor cost answers what the shop PAYS; this answers what the
+   * tickets are WORTH, which is the question a bench full of fresh tickets actually raises.
+   */
+  describe('what the open work is worth', () => {
+    const withTickets = () => ({
+      ...base(),
+      ticketValueBySource: new Map([
+        ['repair:REP-1', 260],   // wo-1, unclaimed
+        ['repair:REP-2', 180],   // wo-2, on a bench
+        ['repair:REP-3', 95],    // wo-3, blocked
+        ['repair:REP-4', 9999],  // wo-4 is off the bench — must not be counted
+      ]),
+      workOrders: base().workOrders.map((wo, i) => ({ ...wo, sourceID: `REP-${i + 1}` })),
+    });
+
+    it('totals the tickets, and tells you what is still unpriced rather than calling it $0', () => {
+      const { summary } = buildLaborPipelineReport(withTickets());
+      expect(summary.openRevenue).toBe(535);        // 260 + 180 + 95 — the picked-up job stays out
+      expect(summary.unclaimedRevenue).toBe(260);
+      expect(summary.claimedRevenue).toBe(180);
+      // The CAD piece has no ticket value: counted as unpriced, never as zero revenue.
+      expect(summary.revenueUnknownCount).toBe(1);
+    });
+
+    it('shows what is left after the bench is paid', () => {
+      const { summary } = buildLaborPipelineReport(withTickets());
+      expect(summary.openValue).toBe(440);
+      expect(summary.openMargin).toBe(95);          // 535 billed − 440 of labor
+    });
+
+    it('counts a ticket once even when it is spread over several work orders', () => {
+      const input = withTickets();
+      // A repair handed from the bench to engraving is two work orders on ONE ticket.
+      input.workOrders.push(repairWO({ workOrderID: 'wo-1b', sourceID: 'REP-1', discipline: 'engraving', tasks: [{ laborHours: 1 }] }));
+
+      const { summary, rows } = buildLaborPipelineReport(input);
+      expect(summary.openRevenue).toBe(535);        // not 795
+      const second = rows.find((r) => r.workOrderID === 'wo-1b');
+      expect(second).toMatchObject({ revenue: 0, revenueKnown: true, revenueCountedElsewhere: true });
+    });
+
+    it('reports no revenue at all when no ticket values are supplied', () => {
+      const { summary } = buildLaborPipelineReport(base());
+      expect(summary.openRevenue).toBe(0);
+      expect(summary.revenueUnknownCount).toBe(4);
+    });
+  });
 });
