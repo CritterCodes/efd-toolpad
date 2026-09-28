@@ -693,6 +693,144 @@ function buildReportConfig(reportSlug, summary, reports, actions = {}) {
           },
         ],
       };
+    case 'labor-pipeline': {
+      // A LIVE snapshot of the bench, not a period: hours that exist right now and what they will
+      // cost. Forecast rows are marked, because an unclaimed job's cost depends on who takes it.
+      const pipeline = reports?.laborPipeline || {};
+      const p = pipeline.summary || {};
+      const hrs = (value) => `${Number(value || 0).toFixed(2)} h`;
+      return {
+        summaryCards: [
+          {
+            label: 'Unclaimed',
+            value: formatMoney(p.unclaimedValue),
+            note: `${p.unclaimedCount || 0} jobs · ${hrs(p.unclaimedHours)} · nobody has taken these`,
+          },
+          {
+            label: 'On a bench',
+            value: formatMoney(p.claimedValue),
+            note: `${p.claimedCount || 0} jobs · ${hrs(p.claimedHours)} · claimed and in progress`,
+          },
+          {
+            label: 'In QC + held',
+            value: formatMoney(Number(p.qcValue || 0) + Number(p.heldInQc || 0)),
+            note: `${formatMoney(p.heldInQc)} already credited, pending QC release`,
+          },
+          {
+            label: 'Labor owed now',
+            value: formatMoney(p.owedNow),
+            note: `${formatMoney(p.unbatchedPayable)} unbatched + ${formatMoney(p.finalizedUnpaid)} finalized · labor only`,
+          },
+          {
+            label: 'Total committed labor',
+            value: formatMoney(p.totalCommitted),
+            note: 'owed now + held in QC + everything still on the floor',
+          },
+          {
+            label: 'Due this week',
+            value: formatMoney(p.dueThisWeekValue),
+            note: `${p.dueThisWeekCount || 0} jobs promised by ${formatDate(p.weekEnd)} · ${p.rushCount || 0} rush`,
+          },
+          {
+            label: 'Paid this week',
+            value: formatMoney(p.paidThisWeek),
+            note: 'labor settled through payroll since Monday',
+          },
+          {
+            label: 'Open work orders',
+            value: String(p.openCount || 0),
+            note: `${hrs(p.openHours)} of bench work in the shop`,
+          },
+        ],
+        sections: [
+          {
+            title: 'Where the Labor Is',
+            rows: pipeline.byStage || [],
+            columns: [
+              { label: 'Stage', value: 'stageLabel' },
+              { label: 'Jobs', value: 'count', align: 'right' },
+              { label: 'Hours', render: (row) => Number(row.hours || 0).toFixed(2), align: 'right' },
+              { label: 'Labor Cost', render: (row) => formatMoney(row.value), align: 'right' },
+              { label: 'Of That, Estimated', render: (row) => formatMoney(row.estimatedValue), align: 'right' },
+              { label: 'Rush', value: 'rushCount', align: 'right' },
+              { label: 'Due This Week', render: (row) => formatMoney(row.dueThisWeekValue), align: 'right' },
+            ],
+            exportColumns: [
+              { label: 'Stage', value: 'stageLabel' },
+              { label: 'Jobs', value: 'count' },
+              { label: 'Hours', value: 'hours' },
+              { label: 'Labor Cost', value: 'value' },
+              { label: 'Estimated Portion', value: 'estimatedValue' },
+              { label: 'Rush Jobs', value: 'rushCount' },
+              { label: 'Due This Week', value: 'dueThisWeekValue' },
+            ],
+          },
+          {
+            title: 'By Jeweler',
+            rows: pipeline.byPerson || [],
+            columns: [
+              { label: 'Jeweler', value: 'userName' },
+              { label: 'Pay Rate', render: (row) => (row.rate > 0 ? `${formatMoney(row.rate)}/h` : 'not set') },
+              { label: 'Open Jobs', value: 'openCount', align: 'right' },
+              { label: 'Open Hours', render: (row) => Number(row.openHours || 0).toFixed(2), align: 'right' },
+              { label: 'Open Labor', render: (row) => formatMoney(row.openValue), align: 'right' },
+              { label: 'Owed Now', render: (row) => formatMoney(row.owedNow), align: 'right' },
+            ],
+            exportColumns: [
+              { label: 'Jeweler', value: 'userName' },
+              { label: 'Pay Rate', value: 'rate' },
+              { label: 'Open Jobs', value: 'openCount' },
+              { label: 'Open Hours', value: 'openHours' },
+              { label: 'Open Labor', value: 'openValue' },
+              { label: 'Owed Now', value: 'owedNow' },
+            ],
+          },
+          {
+            title: 'By Discipline',
+            rows: pipeline.byDiscipline || [],
+            columns: [
+              { label: 'Discipline', render: (row) => String(row.discipline || '').replace(/_/g, ' ') },
+              { label: 'Jobs', value: 'count', align: 'right' },
+              { label: 'Hours', render: (row) => Number(row.hours || 0).toFixed(2), align: 'right' },
+              { label: 'Labor Cost', render: (row) => formatMoney(row.value), align: 'right' },
+            ],
+            exportColumns: [
+              { label: 'Discipline', value: 'discipline' },
+              { label: 'Jobs', value: 'count' },
+              { label: 'Hours', value: 'hours' },
+              { label: 'Labor Cost', value: 'value' },
+            ],
+          },
+          {
+            title: 'Open Work Orders',
+            rows: pipeline.rows || [],
+            columns: [
+              { label: 'Job', render: (row) => `${row.isRush ? '🔴 ' : ''}${row.title}` },
+              { label: 'Source', render: (row) => `${String(row.sourceType || '').replace(/_/g, ' ')} ${row.sourceID}`.trim() },
+              { label: 'Stage', value: 'stageLabel' },
+              { label: 'Assigned', render: (row) => row.assignedJeweler || 'Unclaimed' },
+              { label: 'Hours', render: (row) => Number(row.hours || 0).toFixed(2), align: 'right' },
+              { label: 'Labor Cost', render: (row) => `${formatMoney(row.value)}${row.estimated ? ' est.' : ''}`, align: 'right' },
+              { label: 'Promised', render: (row) => (row.promiseDate ? formatDate(row.promiseDate) : 'No date') },
+            ],
+            exportColumns: [
+              { label: 'Work Order', value: 'workOrderID' },
+              { label: 'Job', value: 'title' },
+              { label: 'Source Type', value: 'sourceType' },
+              { label: 'Source ID', value: 'sourceID' },
+              { label: 'Discipline', value: 'discipline' },
+              { label: 'Stage', value: 'stageLabel' },
+              { label: 'Assigned', value: (row) => row.assignedJeweler || '' },
+              { label: 'Hours', value: 'hours' },
+              { label: 'Labor Cost', value: 'value' },
+              { label: 'Estimated', value: (row) => (row.estimated ? 'Yes' : 'No') },
+              { label: 'Rush', value: (row) => (row.isRush ? 'Yes' : 'No') },
+              { label: 'Promised', value: (row) => (row.promiseDate ? new Date(row.promiseDate).toISOString().slice(0, 10) : '') },
+            ],
+          },
+        ],
+      };
+    }
     case 'labor':
       return {
         summaryCards: [

@@ -9,6 +9,8 @@ import DebtStatementsModel from '@/app/api/debtStatements/model';
 import DebtPaymentsModel from '@/app/api/debtPayments/model';
 import { getAnalyticsBaselineSettings } from '@/services/analyticsBaseline';
 import { buildDebtFoundationReport } from '@/services/debtAnalytics';
+import { buildLaborPipelineReport } from '@/services/labor/laborPipeline';
+import { ladderFromSettings, resolvePayRate } from '@/services/pay/payLadder';
 import {
   buildAccountsReceivableReport,
   buildCashCollectedReport,
@@ -27,6 +29,7 @@ import {
   normalizeFinancialOpeningBalance,
 } from '@/services/repairAnalytics';
 import { getAdminSettingsDocument } from '../summary/service';
+import { getOwnerOperatorUserIDs } from '@/app/api/repairs/payroll/service';
 
 async function getPendingReviewLogs() {
   try {
@@ -34,6 +37,52 @@ async function getPendingReviewLogs() {
   } catch {
     return [];
   }
+}
+
+/**
+ * Everything the labor PIPELINE needs that nothing else in this report loads: the open work orders
+ * themselves, the labor held pending QC, and this week's credited-but-unbatched earnings.
+ *
+ * The payroll candidates come from the labor-log model directly rather than the payroll service,
+ * because that service also syncs sale-payout deductions — a write, which has no business running
+ * because somebody opened a report.
+ */
+async function getLaborPipelineInputs(dbInstance, settings) {
+  const shopRate = Number(settings?.pricing?.wage) || 0;
+  const ladder = ladderFromSettings(settings);
+
+  const [workOrders, pendingQcLogs, ownerUserIDs] = await Promise.all([
+    dbInstance.collection('workOrders').find({}).project({
+      _id: 0, workOrderID: 1, sourceType: 1, sourceID: 1, discipline: 1, status: 1, title: 1,
+      assignedToUserID: 1, assignedJeweler: 1, tasks: 1, flatFee: 1, isRush: 1, promiseDate: 1, benchStatus: 1,
+    }).toArray(),
+    dbInstance.collection('laborLogs').find({ pendingQc: true })
+      .project({ _id: 0, logID: 1, workOrderID: 1, creditedValue: 1, creditedLaborHours: 1, primaryJewelerUserID: 1 })
+      .toArray(),
+    getOwnerOperatorUserIDs(),
+  ]);
+
+  const candidates = await RepairLaborLogsModel.listPayrollCandidates({ ownerUserIDs }).catch(() => []);
+
+  // Rate per jeweler off the published ladder — the rate they are CREDITED at, which since 2026-09-22
+  // is not the shop rate the customer is priced from.
+  const userIDs = [...new Set([
+    ...workOrders.map((wo) => wo.assignedToUserID),
+    ...candidates.map((c) => c.userID),
+  ].filter(Boolean))];
+  const rateByUserID = new Map();
+  if (userIDs.length) {
+    const users = await dbInstance.collection('users')
+      .find({ userID: { $in: userIDs } })
+      .project({ _id: 0, userID: 1, employment: 1, hourlyRate: 1 })
+      .toArray();
+    for (const user of users) {
+      const resolved = resolvePayRate(user, ladder, shopRate);
+      rateByUserID.set(user.userID, resolved.rate > 0 ? resolved.rate : (Number(user.hourlyRate) || 0));
+    }
+  }
+
+  return { workOrders, pendingQcLogs, candidates, rateByUserID, shopRate };
 }
 
 async function getUsersMapFromLogsAndBatches(logs = [], batches = []) {
@@ -85,6 +134,8 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
     getPendingReviewLogs(),
   ]);
 
+  const pipelineInputs = await getLaborPipelineInputs(dbInstance, settings);
+
   const repairsById = new Map(repairs.map((repair) => [repair.repairID, repair]));
   const analyticsInvoices = combineAnalyticsInvoices(invoices, salesInvoices, customInvoices);
   const invoicesById = new Map(invoices.map((invoice) => [invoice.invoiceID, invoice]));
@@ -120,6 +171,9 @@ export async function getAnalyticsReports({ dateRange = 'last_month' } = {}) {
       usersById,
       window,
     }),
+    // A NOW snapshot, deliberately outside the report's date range: work still on the floor has no
+    // period, and filtering it to "last month" would quietly hide this week's load.
+    laborPipeline: buildLaborPipelineReport({ ...pipelineInputs, batches: payrollBatches }),
     laborSettlement: buildLaborSettlementReport({
       payrollBatches: laborAnalyticsPayrollBatches,
       usersById,
