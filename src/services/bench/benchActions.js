@@ -21,7 +21,6 @@ import { signOffAndHandoffRepair, creditRepairLaborAtQc } from '@/services/repai
 import { autoInvoiceAtQcPass } from '@/services/repairs/autoInvoice';
 import { repriceStullerMaterialForRepair } from '@/services/pricing/stullerMaterial';
 import { readQcMode, canSelfCertify } from '@/services/repairs/qcMode';
-import { notifyReadyForPickup } from '@/services/repairs/readyForPickup';
 import { assertTermsAccepted } from '@/services/policies/termsGate';
 import {
   buildClaimRepairUpdate,
@@ -302,13 +301,11 @@ async function passRepairQc({ session, repairID, body, now, selfCertified = fals
     deliveryMethod: body?.deliveryBatched ? 'delivery' : 'pickup',
     createdBy: session.user.name || session.user.email || '',
   });
-  const pickupNotice = await notifyReadyForPickup({
-    repairID,
-    invoiceID: autoInvoice.invoiced ? autoInvoice.invoiceID : null,
-    actor: session.user.name || session.user.email || '',
-  });
-  if (autoInvoice.invoiced || pickupNotice.sent) updated = await RepairsModel.findById(repairID);
-  return { ...updated, autoInvoice, pickupNotice };
+  // No customer notice here: a retail invoice is a DRAFT at QC pass, so the balance can still move.
+  // The ready-for-pickup notice fires when the invoice is FINALIZED (owner, 2026-09-29) —
+  // services/repairs/readyForPickup.js → notifyInvoiceReadyForPickup.
+  if (autoInvoice.invoiced) updated = await RepairsModel.findById(repairID);
+  return { ...updated, autoInvoice };
 }
 
 export async function runBenchAction({ session, workOrderID, action, body = {} }) {

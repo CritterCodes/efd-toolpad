@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireRepairOpsAny, requireRole } from '@/lib/apiAuth';
 import { notifyWholesaleInvoiceFinalized } from '@/services/wholesale/invoiceNotifications';
+import { notifyInvoiceReadyForPickup } from '@/services/repairs/readyForPickup';
 import { finalizeInvoiceFulfillment } from '@/services/shipping/invoiceShipping';
 
 const CODE_STATUS = { NOT_FOUND: 404, BAD_REQUEST: 400, FORBIDDEN: 403 };
@@ -40,7 +41,16 @@ export const POST = async (req, { params }) => {
     // honestly instead of assuming it.
     const notification = await notifyWholesaleInvoiceFinalized(updated);
 
-    return NextResponse.json({ ...updated, notification }, { status: 200 });
+    // The retail half of the same moment (owner, 2026-09-29: "I only want to notify when their
+    // invoice is finalized"). Until now the customer heard at QC PASS, while their invoice was still
+    // a draft — a balance that could still move, for work not yet billed. One notice per invoice, so
+    // a customer with three rings on it is told once. Best-effort, like the wholesale notice.
+    const pickupNotice = await notifyInvoiceReadyForPickup({
+      invoiceID,
+      actor: session.user.name || session.user.email || '',
+    });
+
+    return NextResponse.json({ ...updated, notification, pickupNotice }, { status: 200 });
   } catch (error) {
     const status = CODE_STATUS[error.code] || 400;
     console.error('Error finalizing repair invoice:', error.message);
