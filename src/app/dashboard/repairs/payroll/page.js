@@ -617,7 +617,9 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
       {/* The admin is a payee too (owner-operator): connect YOUR Stripe account here. Stripe Connect is
           the only way anyone — you included — is paid. */}
       <Box sx={{ mb: 3 }}>
-        <PayrollHealthCard />
+        {/* Running payroll by hand creates and pays batches, so the lists below are stale the moment
+            it finishes — reload them with it. */}
+        <PayrollHealthCard onRan={fetchData} />
         <Typography variant="overline" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 1 }}>Your payouts</Typography>
         <ConnectPayoutCard sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}` }} />
       </Box>
