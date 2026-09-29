@@ -8,6 +8,9 @@ import {
   voidPayrollBatch,
 } from '../service';
 
+/** How a batch may be settled outside Stripe. An unrecognised method is refused, not stored. */
+export const MANUAL_PAYMENT_METHODS = ['cash', 'check', 'transfer', 'other'];
+
 export const GET = async (_req, { params }) => {
   try {
     const { errorResponse } = await requireRole(['admin', 'dev']);
@@ -23,7 +26,7 @@ export const GET = async (_req, { params }) => {
 
 export const PATCH = async (req, { params }) => {
   try {
-    const { errorResponse } = await requireRole(['admin', 'dev']);
+    const { session, errorResponse } = await requireRole(['admin', 'dev']);
     if (errorResponse) return errorResponse;
 
     const body = await req.json();
@@ -33,8 +36,27 @@ export const PATCH = async (req, { params }) => {
     if (action === 'finalize') {
       batch = await finalizePayrollBatch(params.batchID, { notes: body.notes });
     } else if (action === 'mark_paid') {
-      // Owner, 2026-09-22: Stripe Connect is the only path. A batch is paid by transfer or not at all.
-      return NextResponse.json({ error: 'Payroll is paid through Stripe Connect only. Have the payee connect their account; the batch is paid automatically.' }, { status: 400 });
+      // PAID BY HAND. Reopened 2026-09-29 at the owner's request, narrowing the 2026-09-22 rule that
+      // Stripe Connect was the only path. That rule was written when every payee could hold a Stripe
+      // account; an hourly apprentice handed cash on her first day is the case it did not anticipate.
+      //
+      // What the rule was actually protecting against was SILENT settlement — a batch quietly marked
+      // paid with nothing behind it. So the path is open but never silent: the method is required and
+      // must be one we recognise, and the person who recorded it is stamped from the session, not the
+      // payload. A transfer still records itself through payBatchViaConnect below.
+      const method = String(body.paymentMethod || '').trim().toLowerCase();
+      if (!MANUAL_PAYMENT_METHODS.includes(method)) {
+        return NextResponse.json(
+          { error: `How was it paid? Use one of: ${MANUAL_PAYMENT_METHODS.join(', ')}.` },
+          { status: 400 },
+        );
+      }
+      batch = await markPayrollBatchPaid(params.batchID, {
+        paymentMethod: method,
+        paymentReference: String(body.paymentReference || '').trim(),
+        paidBy: session.user.email || session.user.userID || '',
+        notes: body.notes,
+      });
     } else if (action === 'void') {
       batch = await voidPayrollBatch(params.batchID, { notes: body.notes });
     } else if (action === 'pay_stripe') {

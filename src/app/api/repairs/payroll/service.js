@@ -252,6 +252,9 @@ export async function markPayrollBatchPaid(batchID, {
   paidAt = new Date(),
   paymentMethod = '',
   paymentReference = '',
+  // Who recorded it. Empty for a Stripe transfer, which records itself; REQUIRED by the route for a
+  // payment made by hand, so a batch settled outside Stripe always names the person who settled it.
+  paidBy = '',
   notes,
   // false when the "payment" is the owner's own labor settling to the ledger — nobody was paid.
   notify = true,
@@ -269,6 +272,7 @@ export async function markPayrollBatchPaid(batchID, {
     paidAt: paidDate,
     paymentMethod,
     paymentReference,
+    ...(paidBy ? { paidBy } : {}),
     notes: notes ?? batch.notes,
     ...(payout ? { payout } : {}),
   });
