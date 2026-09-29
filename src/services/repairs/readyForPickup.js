@@ -30,7 +30,7 @@ import RepairInvoicesModel from '@/app/api/repair-invoices/model';
 import { db } from '@/lib/database';
 import { userIdentityQuery } from '@/app/api/users/model';
 import { NotificationService } from '@/lib/notificationService';
-import { adminLink, shopLink } from '@/lib/appUrls';
+import { shopLink } from '@/lib/appUrls';
 import { resolveBillingMode, isCustomerCharged, BILLING_MODE } from '@/services/billing/modes';
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
@@ -119,8 +119,11 @@ export async function notifyReadyForPickup({ repairID, invoiceID = null, actor =
       recipientEmail: recipientEmail || undefined,
       priority: 'high',
       data: {
-        actionUrl: payUrl || adminLink('/auth/signin'),
-        actionLabel: payUrl ? 'See it & pay' : 'View details',
+        // A retail customer belongs in the SHOP, always — with a balance that is the pay page, and
+        // with nothing owed it is their account, where their repairs are listed. This used to fall
+        // back to the ADMIN sign-in, which is the very thing this notice was written to stop doing.
+        actionUrl: payUrl || shopLink('/account'),
+        actionLabel: payUrl ? 'See it & pay' : 'View your repairs',
         repairID,
         invoiceID: invoice?.invoiceID || '',
         amountDue,
