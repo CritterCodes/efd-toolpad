@@ -22,6 +22,7 @@ import materialsService from '@/services/materials.service';
 import RepairsService from '@/services/repairs';
 import UsersService from '@/services/users';
 import { canSkipIntakeClient } from '@/services/repairs/intakeClientRule';
+import { applyQuantityTier, normalizeQuantityTiers } from '@/services/pricing/quantityTiers';
 import wholesaleClientsAPIClient from '@/api-clients/wholesaleClients.client';
 import wholesaleAccountSettingsAPIClient from '@/api-clients/wholesaleAccountSettings.client';
 import pricingEngine from '@/services/PricingEngine';
@@ -794,7 +795,8 @@ export default function useNewRepairForm({
       wholesaleMarkup: 1.5,
       administrativeFee: 0.10,
       businessFee: 0.15,
-      consumablesFee: 0.05
+      consumablesFee: 0.05,
+      quantityTiers: []
     },
     rushMultiplier: 1.5,
     deliveryFee: 25.00,
@@ -815,7 +817,10 @@ export default function useNewRepairForm({
               wholesaleMarkup: pricing.wholesaleMarkup || 1.5,
               administrativeFee: pricing.administrativeFee || 0.10,
               businessFee: pricing.businessFee || 0.15,
-              consumablesFee: pricing.consumablesFee || 0.05
+              consumablesFee: pricing.consumablesFee || 0.05,
+              // Volume pricing (Store Settings → Volume pricing). This whitelist drops anything it
+              // does not name, so a ladder missing from here would simply never apply.
+              quantityTiers: normalizeQuantityTiers(pricing.quantityTiers)
             },
             rushMultiplier: pricing.rushMultiplier || 1.5,
             deliveryFee: pricing.deliveryFee || 25.00,
@@ -1633,6 +1638,30 @@ export default function useNewRepairForm({
   }, [formData.tasks, formData.materials, formData.customLineItems, formData.isWholesale, formData.isRush, formData.includeDelivery, formData.includeTax, formData.metalType, formData.karat, formData.goldColor]);
 
   // Add item handlers
+  /**
+   * Price one task line for the quantity on it (services/pricing/quantityTiers.js).
+   *
+   * `listUnitPrice` is kept beside the effective price so re-pricing is idempotent — a metal change
+   * or a wholesale toggle re-derives the list and re-applies the tier, instead of discounting an
+   * already-discounted number every time the form recalculates.
+   */
+  const withQuantityTier = (line, listUnitPrice) => {
+    const tiered = applyQuantityTier({
+      price: listUnitPrice,
+      pricing: line.pricing,
+      quantity: line.quantity,
+      tiers: adminSettings?.pricing?.quantityTiers,
+    });
+    return {
+      ...line,
+      listUnitPrice: tiered.listUnitPrice,
+      price: tiered.unitPrice,
+      quantityTier: tiered.applied
+        ? { label: tiered.label, minQty: tiered.tier.minQty, discountPerUnit: tiered.discountPerUnit }
+        : null,
+    };
+  };
+
   const addTask = (task) => {
     const livePricing = computeTaskPricing(task, formData.metalType, formData.karat, formData.goldColor);
     const baseRetailPrice = livePricing?.retailPrice || computeTaskRetailPrice(task, formData.metalType, formData.karat, formData.goldColor);
@@ -1641,14 +1670,13 @@ export default function useNewRepairForm({
     const retailPrice = formData.isWholesale
       ? applyWholesalerRetailAdjustments(price, wholesalerPricingSettings)
       : baseRetailPrice;
-    const newTask = {
+    const newTask = withQuantityTier({
       ...task,
       id: Date.now(),
       quantity: 1,
       pricing: livePricing ? { ...(task.pricing || {}), ...livePricing, liveCalculated: true } : task.pricing,
       retailPrice,
-      price
-    };
+    }, price);
     setFormData(prev => ({
       ...prev,
       tasks: [...prev.tasks, newTask]
@@ -1734,12 +1762,11 @@ export default function useNewRepairForm({
         const retailPrice = isWholesale
           ? applyWholesalerRetailAdjustments(price, wholesalerPricingSettings)
           : baseRetailPrice;
-        return {
+        return withQuantityTier({
           ...task,
           pricing: livePricing ? { ...(task.pricing || {}), ...livePricing, liveCalculated: true } : task.pricing,
           retailPrice,
-          price
-        };
+        }, price);
       }),
       materials: prev.materials.map((material) => {
         const baseRetailPrice = resolveMaterialRetailPrice(material, formData.metalType, formData.karat, formData.goldColor, adminSettings);
@@ -1901,9 +1928,16 @@ export default function useNewRepairForm({
   const updateItem = (type, id, field, value) => {
     setFormData(prev => ({
       ...prev,
-      [type]: prev[type].map(item =>
-        item.id === id ? { ...item, [field]: value } : item
-      )
+      [type]: prev[type].map((item) => {
+        if (item.id !== id) return item;
+        const next = { ...item, [field]: value };
+        // Changing the quantity can move a task line into a different volume tier, so its unit
+        // price is re-derived here rather than only when the whole form recalculates.
+        if (type === 'tasks' && field === 'quantity' && !isCustomLaborTask(next)) {
+          return withQuantityTier(next, next.listUnitPrice ?? next.price);
+        }
+        return next;
+      })
     }));
   };
 
