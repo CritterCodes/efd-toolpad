@@ -110,7 +110,12 @@ describe('notifyReadyForPickup', () => {
     expect(out.sent).toBe(true);
     expect(out.payUrl).toBe('');
     expect(mocks.updateByInvoiceID).not.toHaveBeenCalled();
-    expect(mocks.createNotification.mock.calls[0][0].data.actionLabel).toBe('View details');
+    // Still the SHOP, never the admin sign-in: a retail customer has no business there, and
+    // pointing them at it is the bug this notice was written to replace.
+    const { actionUrl, actionLabel } = mocks.createNotification.mock.calls[0][0].data;
+    expect(actionLabel).toBe('View your repairs');
+    expect(actionUrl).toMatch(/\/account$/);
+    expect(actionUrl).not.toMatch(/auth\/signin/);
   });
 });
 

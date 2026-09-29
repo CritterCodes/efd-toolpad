@@ -88,7 +88,11 @@ describe('notifyWholesaleInvoiceFinalized', () => {
       // recipientName overrides the email channel's email-prefix default, so the greeting
       // reads "Hi Marlen," not "Hi marlen,@store.test-prefix".
       data: expect.objectContaining({
-        actionUrl: 'https://admin.test/dashboard/wholesaler/billing',
+        // A STORE pays in the admin portal, deep-linked to THIS invoice so the button opens its
+        // pay drawer rather than a list to hunt through. (A retail customer goes to the shop —
+        // services/repairs/readyForPickup.js.)
+        actionUrl: 'https://admin.test/dashboard/wholesaler/billing?invoice=rinv-1',
+        actionLabel: 'View & pay invoice',
         recipientName: 'Marlen',
       }),
     }));

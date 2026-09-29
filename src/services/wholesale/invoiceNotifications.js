@@ -77,7 +77,12 @@ export async function notifyWholesaleInvoiceFinalized(invoice) {
 
     const total = Number(invoice.remainingBalance ?? invoice.total) || 0;
     const repairCount = (invoice.repairIDs || []).length;
-    const billingUrl = adminLink('/dashboard/wholesaler/billing');
+    // A STORE pays in the admin portal, where their account, terms and ACH live — not in the shop,
+    // which is the retail customer's path (services/repairs/readyForPickup.js). Deep-linked to this
+    // invoice so the button opens its pay drawer rather than a list to hunt through (owner,
+    // 2026-09-29: "when a wholesale store gets their email, it should take them to the admin to pay").
+    const billingUrl = adminLink(`/dashboard/wholesaler/billing?invoice=${encodeURIComponent(invoice.invoiceID)}`);
+    const payable = total > 0;
     const dbi = await db.connect();
 
     for (const user of recipients) {
@@ -85,13 +90,18 @@ export async function notifyWholesaleInvoiceFinalized(invoice) {
         const notification = await NotificationService.createNotification({
           userId: user.userID,
           type: NOTIFICATION_TYPES.WHOLESALE_INVOICE_FINALIZED,
-          title: 'New invoice from Engel Fine Design',
-          message: `Invoice ${invoice.invoiceID} — $${total.toFixed(2)} for ${repairCount} repair${repairCount === 1 ? '' : 's'} is ready in your billing portal.`,
+          title: payable
+            ? `New invoice from Engel Fine Design — $${total.toFixed(2)} due`
+            : 'New invoice from Engel Fine Design',
+          message: payable
+            ? `Invoice ${invoice.invoiceID} — $${total.toFixed(2)} for ${repairCount} repair${repairCount === 1 ? '' : 's'}. You can pay it by card or bank transfer in your billing portal, or settle it with us as usual.`
+            : `Invoice ${invoice.invoiceID} — ${repairCount} repair${repairCount === 1 ? '' : 's'}, nothing left to pay. It is in your billing portal for your records.`,
           channels: ['inApp', 'email'],
           recipientEmail: user.email || '',
           data: {
             actionUrl: billingUrl,
-            actionLabel: 'View Billing',
+            actionLabel: payable ? 'View & pay invoice' : 'View invoice',
+            amountDue: total,
             invoiceID: invoice.invoiceID,
             relatedType: 'repair-invoice',
             userRole: 'wholesaler',

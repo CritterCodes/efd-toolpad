@@ -135,6 +135,26 @@ export default function WholesalerBillingPage() {
     };
     useEffect(load, []);
 
+    // "Pay this invoice" in the finalize email lands here with ?invoice=<id> and opens its pay drawer
+    // straight away (owner, 2026-09-29: a store's email "should take them to the admin to pay"). The
+    // link is a convenience, never an authority: the drawer only opens for an invoice this account's
+    // own /api/wholesale/invoices read returned, so a guessed id shows nothing.
+    const deepLinked = useRef(false);
+    useEffect(() => {
+        if (deepLinked.current || loading) return;
+        const wanted = new URLSearchParams(window.location.search).get('invoice');
+        if (!wanted) return;
+        const match = (data?.invoices || []).find((inv) => inv.invoiceID === wanted);
+        deepLinked.current = true;
+        window.history.replaceState(null, '', window.location.pathname);
+        if (match && Number(match.remainingBalance ?? match.total) > 0) openPayDialog(match);
+        else if (match) setReturnBanner({ severity: 'info', text: `Invoice ${wanted} has nothing left to pay.` });
+        else setReturnBanner({ severity: 'warning', text: `Invoice ${wanted} is not on this account.` });
+        // openPayDialog is stable enough for a one-shot deep link; re-running on its identity would
+        // re-open the drawer every render.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loading, data]);
+
     const invoices = data?.invoices || [];
     const openBalance = data?.openBalance || 0;
 
