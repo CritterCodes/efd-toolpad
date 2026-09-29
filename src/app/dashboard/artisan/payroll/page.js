@@ -23,6 +23,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import ConnectPayoutCard from '@/components/payroll/ConnectPayoutCard';
+import TimeClockCard from '@/components/time/TimeClockCard';
 
 function formatMoney(value) {
   return `$${Number(value || 0).toFixed(2)}`;
@@ -138,6 +139,9 @@ export default function ArtisanPayrollPage() {
           </Box>
         </Box>
       </Box>
+
+      {/* Hourly work is clocked here; a finished shift becomes a labor log and lands in a batch below. */}
+      <TimeClockCard sx={{ mb: 2 }} />
 
       {/* Connect a Stripe account once; every finalized batch below is then paid to it automatically. */}
       <ConnectPayoutCard sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, mb: 2 }} />
