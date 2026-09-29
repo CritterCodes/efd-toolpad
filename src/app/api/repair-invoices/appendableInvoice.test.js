@@ -1,17 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 /**
- * WHICH INVOICE A FINISHED REPAIR JOINS (owner, 2026-09-29: "only append to drafts, late repairs
- * should start a new invoice").
+ * WHICH INVOICE A FINISHED REPAIR JOINS (owner, 2026-09-29: "when I click Finalize, that's whenever
+ * it's finalized, and it goes to Open, and they get notified that they need to pay").
  *
- * Finalize is what tells a retail customer their work is ready and what they owe. Appending to an
- * invoice that has already been finalized quietly grows a bill they have been shown — so retail
- * repairs may only join a DRAFT. Six rings dropped off together still land on one invoice, because
- * all six arrive while it is a draft.
- *
- * Wholesale still joins an open invoice on purpose: a store's invoice is auto-finalized the moment
- * its first repair passes QC, so drafts-only would bill a store once per repair — and ship a box
- * each time.
+ * Only that account's DRAFT, whoever the customer is. Finalize issues the bill and tells the
+ * customer, so nothing may join afterwards — a total that grows after somebody has been shown it is
+ * the thing this prevents. Six rings dropped off together still land on one invoice because all six
+ * arrive while it is a draft; so does a store's week.
  */
 const mocks = vi.hoisted(() => ({
   findById: vi.fn(),
@@ -46,8 +42,8 @@ const wholesale = (over = {}) => retail({
   repairID: 'R-2', isWholesale: true, businessName: 'Marlen Jewelers', storeId: 'ws-marlen', ...over,
 });
 
-/** The status filter the append lookup ran with. */
-const statusFilter = () => mocks.invoiceFindOne.mock.calls[0][0].status.$in;
+/** The status the append lookup searched for. */
+const statusFilter = () => mocks.invoiceFindOne.mock.calls[0][0].status;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -59,18 +55,16 @@ describe('which invoice a finished repair joins', () => {
     mocks.findById.mockResolvedValue(retail());
     await createRepairInvoice({ repairIDs: ['R-1'], createdBy: 'qc' });
 
-    expect(statusFilter()).toEqual(['draft']);
+    expect(statusFilter()).toBe('draft');
     // Nothing to join → a new invoice, which is what a late repair should get.
     expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({ status: 'draft' }));
   });
 
   it('so a repair finished after Finalize starts its own invoice instead of reopening the bill', async () => {
     mocks.findById.mockResolvedValue(retail());
-    // The customer's earlier invoice, already finalized and already notified.
+    // The customer's earlier invoice is finalized, so the draft lookup finds nothing.
     mocks.invoiceFindOne.mockImplementation(async (query) => (
-      query.status.$in.includes('open')
-        ? { invoiceID: 'rinv-finalized', status: 'open', repairIDs: ['R-0'], repairSnapshots: [] }
-        : null
+      query.status === 'draft' ? null : { invoiceID: 'rinv-finalized', status: 'open' }
     ));
 
     const invoice = await createRepairInvoice({ repairIDs: ['R-1'], createdBy: 'qc' });
@@ -93,11 +87,18 @@ describe('which invoice a finished repair joins', () => {
     }));
   });
 
-  it('a wholesale repair still joins an open one — the store is billed per day, not per repair', async () => {
+  it('a store works the same way — its week collects on one draft until someone finalizes it', async () => {
     mocks.findById.mockResolvedValue(wholesale());
+    mocks.invoiceFindOne.mockResolvedValue({
+      invoiceID: 'rinv-marlen', status: 'draft', repairIDs: ['R-0'], repairSnapshots: [], amountPaid: 0,
+    });
+
     await createRepairInvoice({ repairIDs: ['R-2'], createdBy: 'qc' });
 
-    expect(statusFilter()).toEqual(['draft', 'open']);
+    expect(statusFilter()).toBe('draft');
+    expect(mocks.updateByInvoiceID).toHaveBeenCalledWith('rinv-marlen', expect.objectContaining({
+      repairIDs: ['R-0', 'R-2'],
+    }));
   });
 
   it('never joins an invoice that is already paid, whoever it belongs to', async () => {

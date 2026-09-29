@@ -1,7 +1,7 @@
 import RepairsModel from '@/app/api/repairs/model';
 import RepairInvoicesModel from '@/app/api/repair-invoices/model';
 import { createRepairInvoice } from '@/app/api/repair-invoices/service';
-import { fulfillmentPreferenceForRepair, applyStoreFulfillmentDefault } from '@/services/shipping/storeFulfillment';
+import { fulfillmentPreferenceForRepair } from '@/services/shipping/storeFulfillment';
 
 /**
  * Repairs land on an invoice the moment QC passes them (owner, 2026-09-04: "there's a step
@@ -83,17 +83,23 @@ export async function autoInvoiceAtQcPass({ repairID, deliveryMethod = 'pickup',
         createdBy,
         appendToOpen: true,
       });
-      // Finalize it the way the store always wants — pickup / hand delivery immediately, ship with a
-      // quoted rate. Best-effort: on any failure the draft waits for the manual Finalize as before.
-      const fulfillment = preference
-        ? await applyStoreFulfillmentDefault({ invoiceID: invoice.invoiceID, preference })
-        : { applied: false, reason: 'store has no fulfillment preference' };
+      // NOTHING IS FINALIZED HERE (owner, 2026-09-29: "when I click Finalize, that's whenever it's
+      // finalized, and it goes to Open, and they get notified that they need to pay").
+      //
+      // Store invoices used to finalize themselves the instant their first repair passed QC, which
+      // made Finalize mean two different things depending on who the customer was, and left a bill
+      // growing after it had been issued. Now every invoice — store or walk-in — waits as a DRAFT
+      // collecting the rest of that customer's work until a person finalizes it.
+      //
+      // The store's preference is not lost: it set `deliveryMethod` on the draft above, so the
+      // Finalize dialog opens on Marlen's small FedEx box already selected. It is a default now
+      // rather than an action.
       return {
         invoiced: true,
         invoiceID: invoice.invoiceID,
-        invoiceStatus: fulfillment.applied ? 'open' : invoice.status,
+        invoiceStatus: invoice.status,
         repairCount: Array.isArray(invoice.repairIDs) ? invoice.repairIDs.length : 0,
-        fulfillment,
+        deliveryMethod: preference?.method || deliveryMethod,
       };
     } catch (invoiceError) {
       const alreadyInvoiced = await releaseClaimIfUninvoiced(repairID);
