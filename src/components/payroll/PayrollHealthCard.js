@@ -10,8 +10,8 @@
  *
  * Reads GET /api/repairs/payroll/status.
  */
-import React, { useEffect, useState } from 'react';
-import { Box, Button, Chip, CircularProgress, Collapse, Stack, Typography } from '@mui/material';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Alert, Box, Button, Chip, CircularProgress, Collapse, Stack, Typography } from '@mui/material';
 import MonitorHeartIcon from '@mui/icons-material/MonitorHeart';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -21,12 +21,14 @@ const money = (n) => Number(n || 0).toLocaleString('en-US', { style: 'currency',
 const when = (d) => (d ? new Date(d).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'never');
 const day = (d) => (d ? new Date(d).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) : '—');
 
-export default function PayrollHealthCard({ sx }) {
+export default function PayrollHealthCard({ sx, onRan }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [showAll, setShowAll] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [runResult, setRunResult] = useState(null);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     fetch('/api/repairs/payroll/status')
       .then(async (r) => {
         const d = await r.json().catch(() => ({}));
@@ -35,6 +37,45 @@ export default function PayrollHealthCard({ sx }) {
       })
       .catch((e) => setError(e.message));
   }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  /**
+   * Run payroll now. The Wednesday cron fires once, and the money it spends may not have landed yet —
+   * a short balance leaves the batch finalized and waiting for the next daily retry. This is the
+   * "the funds are here now" button (owner, 2026-09-29). Safe to press twice: batches and transfers
+   * are both idempotent, so a second run pays whoever the first one could not and nobody twice.
+   */
+  const runNow = async () => {
+    setRunning(true);
+    setRunResult(null);
+    try {
+      const res = await fetch('/api/repairs/payroll/run', { method: 'POST' });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Payroll run failed.');
+
+      const paid = body.payouts?.paid || [];
+      const short = body.payouts?.shortfall || [];
+      const finalized = body.finalized || [];
+      // Report what MOVED, not that the button was pressed.
+      setRunResult({
+        severity: short.length || (body.errors || []).length ? 'warning' : 'success',
+        text: [
+          paid.length ? `Paid ${paid.length} batch${paid.length === 1 ? '' : 'es'} (${money(paid.reduce((s, p) => s + Number(p.amount || 0), 0))}).` : '',
+          finalized.length ? `${finalized.length} batch${finalized.length === 1 ? '' : 'es'} created.` : '',
+          short.length ? `${short.length} still waiting on the Stripe balance.` : '',
+          !paid.length && !finalized.length && !short.length ? 'Nothing to pay — everything is already settled.' : '',
+          (body.errors || []).length ? body.errors.map((e) => e.error).join(' ') : '',
+        ].filter(Boolean).join(' '),
+      });
+      load();
+      onRan?.();
+    } catch (e) {
+      setRunResult({ severity: 'error', text: e.message });
+    } finally {
+      setRunning(false);
+    }
+  };
 
   if (error) return null; // the page's own data still matters more than this card
   if (!data) {
@@ -76,10 +117,28 @@ export default function PayrollHealthCard({ sx }) {
             Next run {day(data.nextPayrollRunAt)} · money reaches banks the Friday after
           </Typography>
         </Box>
-        <Button size="small" onClick={() => setShowAll((v) => !v)} sx={{ color: REPAIRS_UI.textSecondary, textTransform: 'none', flexShrink: 0 }}>
-          {showAll ? 'Less' : 'All jobs'}
-        </Button>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={runNow}
+            disabled={running}
+            startIcon={running ? <CircularProgress size={14} sx={{ color: 'inherit' }} /> : null}
+            sx={{ textTransform: 'none', color: REPAIRS_UI.accent, borderColor: REPAIRS_UI.border }}
+          >
+            {running ? 'Running…' : 'Run payroll now'}
+          </Button>
+          <Button size="small" onClick={() => setShowAll((v) => !v)} sx={{ color: REPAIRS_UI.textSecondary, textTransform: 'none' }}>
+            {showAll ? 'Less' : 'All jobs'}
+          </Button>
+        </Stack>
       </Stack>
+
+      {runResult && (
+        <Alert severity={runResult.severity} sx={{ mt: 1.5 }} onClose={() => setRunResult(null)}>
+          {runResult.text}
+        </Alert>
+      )}
 
       {/* What has to be sitting in Stripe before that run can pay anyone. */}
       <Box sx={{ mt: 2, pt: 2, borderTop: `1px solid ${REPAIRS_UI.border}` }}>
