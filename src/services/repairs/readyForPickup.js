@@ -6,9 +6,14 @@
  * path sent nothing, and there was no way to pay before coming in. Wholesale stores already had an
  * online payment path (services/wholesale/invoicePayments.js); this reuses that Stripe Checkout sink.
  *
- * Flow: QC pass → repair auto-invoiced (services/repairs/autoInvoice.js) → this stamps an unguessable
- * `payToken` on the invoice, sends the customer an email + push + in-app notice whose button opens the
- * SHOP at /repair/pay/<token>, and records `repair.pickupNotice`.
+ * Flow: QC pass → repair auto-invoiced (services/repairs/autoInvoice.js) → the invoice is FINALIZED →
+ * this stamps an unguessable `payToken` on the invoice, sends the customer an email + push + in-app
+ * notice whose button opens the SHOP at /repair/pay/<token>, and records `repair.pickupNotice`.
+ *
+ * IT FIRES AT FINALIZE, NOT AT QC PASS (owner, 2026-09-29: "I only want to notify when their invoice
+ * is finalized"). A retail invoice is a DRAFT when QC passes — `applyStoreFulfillmentDefault` only
+ * auto-finalizes wholesale accounts — so the old QC-pass notice quoted a balance that could still
+ * change, and told the customer to come and collect work that had not been billed yet.
  *
  * The shop owns the paying (owner, 2026-09-22: "they need to be paying through shop"). It shows what we
  * did and adds the bill to the CART, so a customer with two repairs ready pays once — which a
@@ -78,8 +83,10 @@ export async function resolveCustomer(repair) {
 
 /**
  * Send (or re-send with `force`) the ready-for-pickup notice for one repair. Best-effort: never throws
- * into a QC pass; returns { sent, reason }. Idempotent per repair unless forced, so the two QC-pass
- * surfaces (complete-from-qc route, bench self-certify) cannot double-notify.
+ * into the caller; returns { sent, reason }. Idempotent per repair unless forced.
+ *
+ * Callers that are finalizing an INVOICE should use notifyInvoiceReadyForPickup below — an invoice can
+ * carry several of one customer's repairs, and this would send them one notice each.
  */
 export async function notifyReadyForPickup({ repairID, invoiceID = null, actor = '', force = false } = {}) {
   try {
@@ -138,6 +145,61 @@ export async function notifyReadyForPickup({ repairID, invoiceID = null, actor =
     return { sent: true, payUrl, amountDue, channels, recipientEmail };
   } catch (error) {
     console.error(`[ready-for-pickup] notice failed for ${repairID}:`, error?.message || error);
+    return { sent: false, reason: error?.message || String(error) };
+  }
+}
+
+/**
+ * Tell the customer their work is ready, ONCE for a whole finalized invoice.
+ *
+ * This is the trigger (owner, 2026-09-29): a finalized invoice is the first moment the balance is
+ * settled, so it is the first moment worth telling anyone about. An invoice groups one billing
+ * account's repairs, so a customer who left three rings gets ONE message saying three are ready with
+ * one balance — not three messages quoting the same total, which is what per-repair notices at QC
+ * pass produced. The other repairs are stamped as covered by that notice so nothing re-notifies later.
+ *
+ * Best-effort and never throws: finalizing an invoice must not fail because an email did.
+ */
+export async function notifyInvoiceReadyForPickup({ invoiceID, actor = '', force = false } = {}) {
+  try {
+    const invoice = await RepairInvoicesModel.findByInvoiceID(invoiceID).catch(() => null);
+    if (!invoice) return { sent: false, reason: 'invoice not found' };
+
+    const repairs = (await Promise.all(
+      (invoice.repairIDs || []).map((id) => RepairsModel.findById(id).catch(() => null)),
+    )).filter(Boolean);
+    const retail = repairs.filter(isRetailCustomerRepair);
+    if (!retail.length) return { sent: false, reason: 'no retail customer repairs on this invoice' };
+
+    const pending = force ? retail : retail.filter((r) => !r.pickupNotice?.sentAt);
+    if (!pending.length) return { sent: false, reason: 'already notified' };
+
+    const [first, ...rest] = pending;
+    const result = await notifyReadyForPickup({ repairID: first.repairID, invoiceID, actor, force });
+    if (!result.sent) return result;
+
+    const now = new Date();
+    await Promise.all(rest.map((r) => RepairsModel.updateById(r.repairID, {
+      pickupNotice: {
+        sentAt: now,
+        invoiceID,
+        payUrl: result.payUrl,
+        amountDue: result.amountDue,
+        channels: result.channels,
+        sentBy: actor || 'invoice-finalized',
+        // Which repair's notice covered this one — so "already notified" is auditable rather than
+        // looking like a message nobody can find.
+        coveredBy: first.repairID,
+        count: Number(r.pickupNotice?.count || 0) + 1,
+      },
+      updatedAt: now,
+    }).catch((error) => {
+      console.error(`[ready-for-pickup] could not stamp ${r.repairID}:`, error?.message || error);
+    })));
+
+    return { ...result, repairIDs: pending.map((r) => r.repairID), repairCount: retail.length };
+  } catch (error) {
+    console.error(`[ready-for-pickup] invoice notice failed for ${invoiceID}:`, error?.message || error);
     return { sent: false, reason: error?.message || String(error) };
   }
 }

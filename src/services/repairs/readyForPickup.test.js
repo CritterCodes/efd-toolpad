@@ -14,7 +14,10 @@ vi.mock('@/app/api/repair-invoices/model', () => ({ default: { findByInvoiceID: 
 vi.mock('@/lib/notificationService', () => ({ NotificationService: { createNotification: mocks.createNotification } }));
 vi.mock('@/lib/database', () => ({ db: { connect: async () => ({ collection: () => ({ findOne: mocks.usersFindOne }) }) } }));
 
-const { isRetailCustomerRepair, newPayToken, payLinkFor, buildReadyMessage, notifyReadyForPickup } = await import('./readyForPickup');
+const {
+  isRetailCustomerRepair, newPayToken, payLinkFor, buildReadyMessage,
+  notifyReadyForPickup, notifyInvoiceReadyForPickup,
+} = await import('./readyForPickup');
 
 const retailRepair = { repairID: 'r1', userID: '6a32c80fe4c4c45af4a462ba', clientName: 'Caroline Sullivan', billing: { mode: 'retail' }, isWholesale: false, invoiceID: 'rinv-1' };
 
@@ -108,5 +111,64 @@ describe('notifyReadyForPickup', () => {
     expect(out.payUrl).toBe('');
     expect(mocks.updateByInvoiceID).not.toHaveBeenCalled();
     expect(mocks.createNotification.mock.calls[0][0].data.actionLabel).toBe('View details');
+  });
+});
+
+/**
+ * The trigger moved from QC pass to invoice Finalize (owner, 2026-09-29: "I only want to notify when
+ * their invoice is finalized"). A retail invoice is a DRAFT at QC pass — only wholesale accounts are
+ * auto-finalized — so the old notice quoted a balance that could still change.
+ */
+describe('notifyInvoiceReadyForPickup', () => {
+  const repairOn = (repairID) => ({ ...retailRepair, repairID });
+
+  beforeEach(() => {
+    mocks.findByInvoiceID.mockResolvedValue({
+      invoiceID: 'rinv-1', repairIDs: ['r1', 'r2', 'r3'], paymentStatus: 'unpaid', remainingBalance: 120,
+    });
+    mocks.findById.mockImplementation(async (id) => repairOn(id));
+  });
+
+  it('sends ONE notice for the whole invoice and stamps every repair on it', async () => {
+    const out = await notifyInvoiceReadyForPickup({ invoiceID: 'rinv-1', actor: 'jacob' });
+
+    expect(out.sent).toBe(true);
+    expect(mocks.createNotification).toHaveBeenCalledTimes(1);
+    // …and the one message speaks for all three, with the invoice's single balance.
+    expect(mocks.createNotification.mock.calls[0][0].message).toMatch(/Your 3 repairs have/);
+    expect(out.repairIDs).toEqual(['r1', 'r2', 'r3']);
+
+    const stamped = mocks.updateById.mock.calls.map(([id, update]) => [id, update.pickupNotice]);
+    expect(stamped.map(([id]) => id)).toEqual(['r1', 'r2', 'r3']);
+    // The other two record which repair's notice covered them, so "already notified" is auditable.
+    expect(stamped[1][1]).toMatchObject({ coveredBy: 'r1', invoiceID: 'rinv-1', amountDue: 120 });
+    expect(stamped[2][1]).toMatchObject({ coveredBy: 'r1' });
+  });
+
+  it('does not re-notify repairs that already heard, and says so when they all have', async () => {
+    mocks.findById.mockImplementation(async (id) => (
+      id === 'r3' ? repairOn(id) : { ...repairOn(id), pickupNotice: { sentAt: new Date(), count: 1 } }
+    ));
+    const out = await notifyInvoiceReadyForPickup({ invoiceID: 'rinv-1' });
+    expect(out.sent).toBe(true);
+    expect(out.repairIDs).toEqual(['r3']);          // only the one that had not been told
+
+    vi.clearAllMocks();
+    mocks.findByInvoiceID.mockResolvedValue({ invoiceID: 'rinv-1', repairIDs: ['r1'], paymentStatus: 'unpaid', remainingBalance: 120 });
+    mocks.findById.mockResolvedValue({ ...retailRepair, pickupNotice: { sentAt: new Date(), count: 1 } });
+    expect((await notifyInvoiceReadyForPickup({ invoiceID: 'rinv-1' })).reason).toBe('already notified');
+    expect(mocks.createNotification).not.toHaveBeenCalled();
+  });
+
+  it('stays silent for a wholesale invoice — the store gets its own notice', async () => {
+    mocks.findById.mockImplementation(async (id) => ({ ...repairOn(id), isWholesale: true }));
+    const out = await notifyInvoiceReadyForPickup({ invoiceID: 'rinv-1' });
+    expect(out).toMatchObject({ sent: false, reason: 'no retail customer repairs on this invoice' });
+    expect(mocks.createNotification).not.toHaveBeenCalled();
+  });
+
+  it('never throws — finalizing an invoice must not fail because an email did', async () => {
+    mocks.findByInvoiceID.mockRejectedValue(new Error('db down'));
+    expect((await notifyInvoiceReadyForPickup({ invoiceID: 'rinv-1' })).sent).toBe(false);
   });
 });

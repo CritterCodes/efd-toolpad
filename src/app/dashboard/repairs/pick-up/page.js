@@ -1416,6 +1416,18 @@ export default function PaymentPickupPage() {
           showMessage(`Finalized invoice ${invoiceID}, but the partner was NOT notified. ${summary.errors.join(" ")}`, "warning");
         }
       }
+      // The retail half: finalizing is what tells the customer their work is ready (owner,
+      // 2026-09-29). Reported the same way — silence here used to mean nobody could tell whether
+      // the customer had actually heard.
+      const pickup = data?.pickupNotice;
+      if (pickup?.sent) {
+        showMessage(
+          `Finalized invoice ${invoiceID}. Customer notified${pickup.recipientEmail ? ` — email sent to ${pickup.recipientEmail}` : " in-app"}.`,
+          "success",
+        );
+      } else if (pickup && !["no retail customer repairs on this invoice", "already notified"].includes(pickup.reason)) {
+        showMessage(`Finalized invoice ${invoiceID}, but the customer was NOT notified: ${pickup.reason}`, "warning");
+      }
       setTab(2);
     } catch (error) {
       showMessage(error.message, "error");

@@ -4,7 +4,6 @@ import { requireRepairOps } from '@/lib/apiAuth';
 import { buildCompleteFromQcUpdate } from '@/services/repairWorkflow';
 import { creditRepairLaborAtQc } from '@/services/repairs/benchHandoff';
 import { autoInvoiceAtQcPass } from '@/services/repairs/autoInvoice';
-import { notifyReadyForPickup } from '@/services/repairs/readyForPickup';
 
 export const POST = async (req, { params }) => {
   try {
@@ -43,16 +42,11 @@ export const POST = async (req, { params }) => {
       updated = await RepairsModel.findById(repairID);
     }
 
-    // Retail customer: "ready for pickup" with the pay-ahead link (services/repairs/readyForPickup.js).
-    // Best-effort, idempotent per repair; the old inline notice pointed the customer at the ADMIN app.
-    const pickupNotice = await notifyReadyForPickup({
-      repairID,
-      invoiceID: autoInvoice.invoiced ? autoInvoice.invoiceID : null,
-      actor: session.user.name || session.user.email || '',
-    });
-    if (pickupNotice.sent) updated = await RepairsModel.findById(repairID);
-
-    return NextResponse.json({ ...updated, autoInvoice, pickupNotice }, { status: 200 });
+    // The customer is NOT told here (owner, 2026-09-29: "I only want to notify when their invoice is
+    // finalized"). A retail invoice is still a DRAFT at QC pass — the balance can move and the work
+    // is not billed yet — so the ready-for-pickup notice now fires from the invoice's Finalize
+    // (services/repairs/readyForPickup.js → notifyInvoiceReadyForPickup), once per invoice.
+    return NextResponse.json({ ...updated, autoInvoice }, { status: 200 });
   } catch (error) {
     console.error('Error in complete-from-qc route:', error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
