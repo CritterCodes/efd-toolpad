@@ -238,6 +238,18 @@ function TicketRow({ kind, hue, item, title, fromSentence, onQuantityChange, onP
             inputProps={{ min: 0, step: 0.01, style: { fontSize: 16 } }}
             sx={{ width: 120 }}
           />
+        ) : item.quantityTier ? (
+          /* A volume tier fired: show what it would have been, so the break is visible on the
+             ticket instead of the price just looking wrong. */
+          <Typography sx={{ fontFamily: facelift.mono, fontSize: '0.8125rem', color: facelift.text2 }}>
+            <Box component="span" sx={{ textDecoration: 'line-through', opacity: 0.6, mr: 0.75 }}>
+              ${toNumber(item.listUnitPrice).toFixed(2)}
+            </Box>
+            <Box component="span" sx={{ color: facelift.gold }}>${unitPrice.toFixed(2)} each</Box>
+            <Box component="span" sx={{ display: 'block', fontSize: '0.6875rem' }}>
+              qty {item.quantityTier.label} price
+            </Box>
+          </Typography>
         ) : (
           <Typography sx={{ fontFamily: facelift.mono, fontSize: '0.8125rem', color: facelift.text2 }}>
             ${unitPrice.toFixed(2)} each

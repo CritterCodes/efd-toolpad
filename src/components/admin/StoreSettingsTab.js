@@ -24,6 +24,7 @@ import SystemUpdateDialog from './store-settings/SystemUpdateDialog';
 import ShippingSettings from './store-settings/ShippingSettings';
 import QcSettings from './store-settings/QcSettings';
 import PayrollFundingSettings from './store-settings/PayrollFundingSettings';
+import QuantityTierSettings from './store-settings/QuantityTierSettings';
 import PayoutFeeSettings from './store-settings/PayoutFeeSettings';
 import PayLadderSettings from './store-settings/PayLadderSettings';
 import SaleFeeSettings from './store-settings/SaleFeeSettings';
@@ -101,6 +102,7 @@ export default function StoreSettingsTab() {
                     <PayLadderSettings />
                     <SaleFeeSettings />
                     <CustomFeeSettings />
+                    <QuantityTierSettings />
                     <PayrollFundingSettings />
                     <PayoutFeeSettings />
                 </Grid>
