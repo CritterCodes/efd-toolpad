@@ -139,15 +139,30 @@ export function calculateInvoiceTotals(repairSnapshots = [], deliveryFee = 0, ca
 // every recalculation path now passes 0 — editing an old discounted invoice
 // deliberately drops its discount.
 
+/**
+ * The open invoice this repair should join, if there is one.
+ *
+ * A RETAIL customer's repairs may only join a DRAFT (owner, 2026-09-29: "late repairs should start a
+ * new invoice"). Finalize is what tells a retail customer their work is ready and what they owe —
+ * quietly growing the total of a bill they have already been shown is not a thing to do to somebody.
+ * Someone who brings in six rings still gets one invoice, because all six land while it is a draft;
+ * a seventh finished after you finalized starts its own.
+ *
+ * WHOLESALE still joins an open one, and that is deliberate rather than an oversight. A store's
+ * invoice is auto-finalized the moment its first repair passes QC (services/shipping/storeFulfillment.js),
+ * so drafts-only would give a store one invoice per repair — and, for a shipping store, one box and
+ * one carrier charge each. The day's work belongs on one invoice.
+ */
 async function findAppendableInvoice(context, deliveryMethod) {
   const dbInstance = await db.connect();
+  const statuses = context.accountType === 'retail' ? ['draft'] : ['draft', 'open'];
   return await dbInstance.collection(RepairInvoicesModel.COLLECTION)
     .findOne(
       {
         accountType: context.accountType,
         accountID: context.accountID,
         deliveryMethod,
-        status: { $in: ['draft', 'open'] },
+        status: { $in: statuses },
         paymentStatus: { $ne: 'paid' },
       },
       { projection: { _id: 0 }, sort: { createdAt: -1 } }
