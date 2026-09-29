@@ -38,6 +38,7 @@ import { REPAIRS_UI } from '../components/repairsUi';
 import { canAccessPayroll } from '@/lib/repairAccess';
 import ConnectPayoutCard from '@/components/payroll/ConnectPayoutCard';
 import PayrollHealthCard from '@/components/payroll/PayrollHealthCard';
+import AddHoursCard from '@/components/payroll/AddHoursCard';
 import {
   ANALYTICS_BASELINE_NOTE,
   DEFAULT_LABOR_ANALYTICS_START_DATE,
@@ -620,6 +621,8 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
         {/* Running payroll by hand creates and pays batches, so the lists below are stale the moment
             it finishes — reload them with it. */}
         <PayrollHealthCard onRan={fetchData} />
+        {/* Hourly work entered by hand becomes a labor log, so it shows up in the candidates below. */}
+        <AddHoursCard sx={{ mb: 3 }} onAdded={fetchData} />
         <Typography variant="overline" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 1 }}>Your payouts</Typography>
         <ConnectPayoutCard sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}` }} />
       </Box>
