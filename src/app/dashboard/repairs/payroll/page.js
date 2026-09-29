@@ -852,12 +852,18 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
                       </Grid>
                       <Grid item xs={12} sm={4}>
                         <TextField
+                          select
                           label="Payment Method"
                           size="small"
                           fullWidth
                           value={paymentMethod}
                           onChange={(e) => setPaymentMethod(e.target.value)}
-                        />
+                          helperText="Required to record a payment made by hand"
+                        >
+                          {['cash', 'check', 'transfer', 'other'].map((m) => (
+                            <MenuItem key={m} value={m}>{m}</MenuItem>
+                          ))}
+                        </TextField>
                       </Grid>
                       <Grid item xs={12} sm={4}>
                         <TextField
@@ -1041,7 +1047,15 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
               <Button onClick={() => updateBatch('void')} disabled={actionLoading} color="inherit">
                 {actionLoading ? 'Saving...' : 'Void Batch'}
               </Button>
-              {/* Stripe Connect is the only way a batch is paid (owner, 2026-09-22). */}
+              {/* Paid by hand — cash, a check, a bank transfer. Needs a method, which is what keeps
+                  this from becoming the silent ledger settlement it replaced (owner, 2026-09-29). */}
+              <Button
+                onClick={() => updateBatch('mark_paid')}
+                disabled={actionLoading || !paymentMethod}
+                sx={{ color: REPAIRS_UI.textSecondary }}
+              >
+                {actionLoading ? 'Saving...' : paymentMethod ? `Record ${paymentMethod} payment` : 'Record payment'}
+              </Button>
               <Button
                 variant="contained"
                 onClick={() => updateBatch('pay_stripe')}
