@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import RepairLaborLogsModel from '@/app/api/repairLaborLogs/model';
 import { requireRole } from '@/lib/apiAuth';
 import { getLaborRateSnapshotForUser } from '@/app/api/repairLaborLogs/utils';
+import { assertCanHoldWork, apprenticeErrorStatus } from '@/services/pay/apprentice';
 
 export const GET = async () => {
   try {
@@ -38,6 +39,9 @@ export const POST = async (req) => {
       if (!allocs.length) {
         return NextResponse.json({ error: 'Each split needs a jeweler and hours > 0.' }, { status: 400 });
       }
+      // Bench credit never goes to an apprentice — they are paid on the clock, so a split to one pays
+      // the same hours twice (services/pay/apprentice.js).
+      for (const a of allocs) await assertCanHoldWork(a.userID, { who: 'other' });
       const priced = [];
       for (const a of allocs) {
         const rate = Number(await getLaborRateSnapshotForUser({ userID: a.userID, session })) || 0;
@@ -79,6 +83,10 @@ export const POST = async (req) => {
       return NextResponse.json(updated, { status: 200 });
     }
 
+    // Approving a log as-is keeps it on whoever it's credited to. A log held because it landed on an
+    // apprentice has to be SPLIT to the jeweler who held the job, not approved where it sits.
+    await assertCanHoldWork(existing.primaryJewelerUserID, { who: 'other' });
+
     const hours = parseFloat(creditedLaborHours) || 0;
     const rate = Number(existing.laborRateSnapshot) || await getLaborRateSnapshotForUser({
       userID: existing.primaryJewelerUserID,
@@ -97,6 +105,6 @@ export const POST = async (req) => {
     return NextResponse.json(updated, { status: 200 });
   } catch (error) {
     console.error('Error in labor-review POST route:', error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: apprenticeErrorStatus(error) || 500 });
   }
 };

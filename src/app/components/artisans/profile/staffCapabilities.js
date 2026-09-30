@@ -3,8 +3,9 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import {
   Box, Typography, Switch, FormControlLabel, TextField,
-  Divider, Card, CardContent, Select, MenuItem, FormControl, InputLabel, Chip,
+  Divider, Card, CardContent, Select, MenuItem, FormControl, InputLabel, Chip, Alert,
 } from '@mui/material';
+import { APPRENTICE_TIER } from '@/services/pay/apprenticeRules';
 import HandymanIcon from '@mui/icons-material/Handyman';
 import WorkIcon from '@mui/icons-material/Work';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
@@ -112,33 +113,10 @@ export default function ArtisanStaffCapabilities({ artisan, onFieldChange }) {
 
           {isOnsite && (
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 2 }}>
-              <FormControl size="small" sx={{ minWidth: 160 }}>
-                <InputLabel>Staff Type</InputLabel>
-                <Select
-                  value={employment.staffType || 'jeweler'}
-                  label="Staff Type"
-                  onChange={(e) => setEmployment('staffType', e.target.value)}
-                >
-                  <MenuItem value="jeweler">Jeweler</MenuItem>
-                  <MenuItem value="apprentice">Apprentice</MenuItem>
-                  <MenuItem value="polisher">Polisher</MenuItem>
-                  <MenuItem value="other">Other</MenuItem>
-                </Select>
-              </FormControl>
-
-              <FormControl size="small" sx={{ minWidth: 160 }}>
-                <InputLabel>Pay Type</InputLabel>
-                <Select
-                  value={employment.payType || 'hourly'}
-                  label="Pay Type"
-                  onChange={(e) => setEmployment('payType', e.target.value)}
-                >
-                  <MenuItem value="hourly">Hourly</MenuItem>
-                  <MenuItem value="salary">Salary</MenuItem>
-                  <MenuItem value="commission">Commission</MenuItem>
-                </Select>
-              </FormControl>
-
+              {/* "Staff type" and "Pay type" dropdowns used to sit here, offering Apprentice and Hourly.
+                  Nothing in the codebase ever read either one, so an apprentice marked that way was
+                  still paid and routed as a jeweler. The pay tier is the field money follows, so the
+                  Apprentice RUNG is now the apprentice flag (services/pay/apprenticeRules.js). */}
               <FormControl size="small" sx={{ minWidth: 200 }}>
                 <InputLabel>Pay tier</InputLabel>
                 <Select
@@ -166,7 +144,17 @@ export default function ArtisanStaffCapabilities({ artisan, onFieldChange }) {
               />
             </Box>
           )}
-          {isOnsite && (
+          {isOnsite && currentTier?.key === APPRENTICE_TIER && (
+            <Alert severity="info" icon={false} sx={{ mt: 1.5 }}>
+              <Typography variant="body2" fontWeight={600}>Apprentice — paid by the hour</Typography>
+              <Typography variant="caption" component="div">
+                Paid ${Number(employment.hourlyRate || currentTier.rate).toFixed(2)}/hr on the time clock (Payroll → Add hours, or their own clock-in).
+                They work on jobs other jewelers hold and never hold one themselves: they can’t claim, be assigned, or be handed off to, so the jeweler
+                who holds the job is credited it in full.
+              </Typography>
+            </Alert>
+          )}
+          {isOnsite && currentTier?.key !== APPRENTICE_TIER && (
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
               What this jeweler is credited per catalog hour at QC pass. The shop rate customers are priced from is separate (Settings → Pricing). Takes effect at their next sign-off; past labor keeps its snapshot.
             </Typography>

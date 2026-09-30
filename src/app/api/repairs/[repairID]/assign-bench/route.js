@@ -3,12 +3,15 @@ import RepairsModel from '../../model';
 import { db } from '@/lib/database';
 import { requireRole } from '@/lib/apiAuth';
 import { buildAssignBenchUpdate } from '@/services/repairWorkflow';
+import { NOT_APPRENTICE_QUERY } from '@/services/pay/apprentice';
 
 const ASSIGNABLE_ARTISAN_QUERY = {
   role: { $in: ['artisan', 'senior-artisan'] },
   isApproved: { $ne: false },
   isActive: { $ne: false },
   status: { $nin: ['inactive', 'disabled', 'deleted', 'terminated'] },
+  // Apprentices are paid on the clock and never hold a job (services/pay/apprentice.js).
+  ...NOT_APPRENTICE_QUERY,
 };
 
 function getJewelerName(user) {

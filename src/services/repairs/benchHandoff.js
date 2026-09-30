@@ -24,6 +24,7 @@ import {
   calculateRepairChargeTotal,
 } from '@/app/api/repairLaborLogs/utils';
 import { adminBase } from '@/lib/appUrls';
+import { assertCanHoldWork } from '@/services/pay/apprentice';
 
 const QC_PASS_ACTION = 'repair_qc_pass';
 
@@ -51,6 +52,9 @@ function jewelerName(user = {}) {
 export async function signOffAndHandoffRepair({ session, repairID, completedTaskIndexes = [], completedQuantities = {}, assignToUserID = null }) {
   const repair = await RepairsModel.findById(repairID);
   if (!repair) throw err('Repair not found.', 'NOT_FOUND');
+  // Checked BEFORE any labor is written: refusing the hand-off after the sign-off logs exist would
+  // leave half a sign-off behind. Apprentices don't hold jobs (services/pay/apprentice.js).
+  if (assignToUserID) await assertCanHoldWork(assignToUserID, { who: 'other' });
 
   const assigneeID = repair.assignedTo;
   if (!assigneeID) throw err('Repair must be claimed before signing off work.', 'BAD_REQUEST');

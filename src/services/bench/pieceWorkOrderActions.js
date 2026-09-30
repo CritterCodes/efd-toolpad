@@ -29,6 +29,7 @@ import { advanceCustomOrderStatus, maybeCompleteCustomOrder } from '@/services/c
 import { db } from '@/lib/database';
 import { NotificationService, notifyAllAdmins } from '@/lib/notificationService';
 import { adminBase } from '@/lib/appUrls';
+import { assertCanHoldWork } from '@/services/pay/apprentice';
 import { stlVolumeCm3FromStorage } from '@/lib/stlVolumeStream';
 
 const BENCH_ACTION_URL = `${adminBase()}/dashboard/bench`;
@@ -95,6 +96,7 @@ async function loadPieceWorkOrder(workOrderID) {
 /** Claim a piece work order — enforces the discipline lane (D9). */
 export async function claimPieceWorkOrder({ session, workOrderID }) {
   const wo = await loadPieceWorkOrder(workOrderID);
+  await assertCanHoldWork(session.user.userID); // apprentices don't hold jobs
 
   if (!isAdminRole(session) && !canClaimDiscipline(effectiveArtisanTypes(session), wo.discipline)) {
     const error = new Error(`This work order is in the "${wo.discipline}" lane and can't be claimed from your disciplines.`);
@@ -509,6 +511,7 @@ export async function splitPieceTask({ session, workOrderID, taskIndex, assignTo
 
   let assignedJeweler = null;
   if (assignToUserID) {
+    await assertCanHoldWork(assignToUserID, { who: 'other' });
     const dbi = await db.connect();
     const u = await dbi.collection('users').findOne({ userID: assignToUserID }, { projection: { _id: 0, firstName: 1, lastName: 1, name: 1, email: 1 } });
     if (!u) { const e = new Error('Assignable artisan not found.'); e.code = 'NOT_FOUND'; throw e; }

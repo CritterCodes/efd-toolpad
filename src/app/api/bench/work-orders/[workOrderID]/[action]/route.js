@@ -6,6 +6,7 @@ const CODE_STATUS = {
   FORBIDDEN: 403,
   TERMS_REQUIRED: 403, // artisan terms not accepted (services/policies/termsGate.js)
   LANE_FORBIDDEN: 403,
+  APPRENTICE_CANNOT_HOLD_WORK: 403, // apprentices are paid on the clock (services/pay/apprentice.js)
   NOT_FOUND: 404,
   BAD_REQUEST: 400,
 };

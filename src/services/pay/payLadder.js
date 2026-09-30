@@ -27,8 +27,11 @@ export const DEFAULT_LADDER = Object.freeze({
     {
       key: 'apprentice',
       label: 'Apprentice',
-      rate: 22,
-      summary: 'Learning the bench under review. Every job passes a separate QC.',
+      // $15 is the shop's going apprentice rate (owner, 2026-09-30). On this rung the rate is an HOURLY
+      // wage paid on the time clock, not a per-task credit — an apprentice never holds a job
+      // (services/pay/apprentice.js). The key 'apprentice' is load-bearing: it is the apprentice flag.
+      rate: 15,
+      summary: 'Paid by the hour on the time clock. Works on jobs other jewelers hold; never holds one.',
       requirements: [
         'Clean, polish and rhodium a customer piece to shop standard without wearing detail.',
         'Solder a jump ring closed with no visible seam.',

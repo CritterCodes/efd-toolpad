@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   updateOne: vi.fn(async () => ({})),
   createLog: vi.fn(async (d) => ({ ...d, logID: 'log-1' })),
   rateFor: vi.fn(async () => 15),
+  onTheClock: vi.fn(async () => ({ userID: 'u-apprentice' })),
 }));
 
 vi.mock('@/lib/database', () => ({
@@ -18,6 +19,7 @@ vi.mock('@/lib/database', () => ({
 }));
 vi.mock('@/app/api/repairLaborLogs/model', () => ({ default: { create: mocks.createLog } }));
 vi.mock('@/app/api/repairLaborLogs/utils', () => ({ getLaborRateSnapshotForUser: mocks.rateFor }));
+vi.mock('@/services/pay/apprentice', () => ({ assertOnTheClock: mocks.onTheClock }));
 
 const { shiftHours, shiftValue, summarizeShifts, clockIn, clockOut, addManualShift } = await import('./timeClock');
 
@@ -25,6 +27,39 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.findOne.mockResolvedValue(null);
   mocks.rateFor.mockResolvedValue(15);
+  mocks.onTheClock.mockResolvedValue({ userID: 'u-apprentice' });
+});
+
+/**
+ * Only people paid by the hour may clock (owner, 2026-09-30). This used to take anyone signed in and
+ * credit the shift at their resolved rate — the $50 shop rate for anyone never placed on the ladder —
+ * and the first shift ever entered did go in at $50/hr by mistake.
+ */
+describe('who may use the clock', () => {
+  const refuse = () => {
+    const e = new Error('The time clock is for apprentices paid by the hour.');
+    e.code = 'NOT_ON_THE_CLOCK';
+    return e;
+  };
+
+  it('refuses to open a shift for someone not paid by the hour', async () => {
+    mocks.onTheClock.mockRejectedValue(refuse());
+    await expect(clockIn({ userID: 'u-bench-jeweler' })).rejects.toMatchObject({ code: 'NOT_ON_THE_CLOCK' });
+    expect(mocks.insertOne).not.toHaveBeenCalled();
+  });
+
+  it('refuses hand-entered hours for them too — that would pay a task-paid jeweler twice', async () => {
+    mocks.onTheClock.mockRejectedValue(refuse());
+    await expect(addManualShift({ userID: 'u-bench-jeweler', hours: 6 })).rejects.toMatchObject({ code: 'NOT_ON_THE_CLOCK' });
+    expect(mocks.insertOne).not.toHaveBeenCalled();
+    expect(mocks.createLog).not.toHaveBeenCalled();
+  });
+
+  it('checks before anything else, so a refusal leaves no half-written shift', async () => {
+    mocks.onTheClock.mockRejectedValue(refuse());
+    await clockIn({ userID: 'u-x' }).catch(() => {});
+    expect(mocks.findOne).not.toHaveBeenCalled();
+  });
 });
 
 describe('the arithmetic (pure)', () => {

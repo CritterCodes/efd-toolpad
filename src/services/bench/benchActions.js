@@ -22,6 +22,7 @@ import { autoInvoiceAtQcPass } from '@/services/repairs/autoInvoice';
 import { repriceStullerMaterialForRepair } from '@/services/pricing/stullerMaterial';
 import { readQcMode, canSelfCertify } from '@/services/repairs/qcMode';
 import { assertTermsAccepted } from '@/services/policies/termsGate';
+import { assertCanHoldWork, NOT_APPRENTICE_QUERY } from '@/services/pay/apprentice';
 import {
   buildClaimRepairUpdate,
   buildUnclaimRepairUpdate,
@@ -105,6 +106,8 @@ const ASSIGNABLE_ARTISAN_QUERY = {
   isApproved: { $ne: false },
   isActive: { $ne: false },
   status: { $nin: ['inactive', 'disabled', 'deleted', 'terminated'] },
+  // Apprentices are paid on the clock and never hold a job (services/pay/apprentice.js).
+  ...NOT_APPRENTICE_QUERY,
 };
 function getJewelerName(user) {
   const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
@@ -119,6 +122,7 @@ async function runRepairAction({ session, repairID, action, body }) {
     case 'claim': {
       assertRepairOps(session, 'benchWork');
       await assertTermsAccepted(session); // artisan terms gate (services/policies/termsGate.js)
+      await assertCanHoldWork(session.user.userID); // apprentices don't hold jobs
       const repair = await RepairsModel.findById(repairID);
       return RepairsModel.updateById(repairID, buildClaimRepairUpdate({
         repair, userID: session.user.userID, userName: session.user.name, now,
