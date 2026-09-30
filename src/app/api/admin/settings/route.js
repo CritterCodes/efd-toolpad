@@ -9,6 +9,7 @@ import {
 } from '@/utils/encryption';
 import { STAFF_ROLES } from '@/lib/designPermissions';
 import { canReadPricingCatalog } from '@/lib/repairAccess';
+import { resolvePricingSettings } from '@/services/pricing/engine';
 // STAFF-ONLY. Every gate in this file was `session.user?.email?.includes('@')` — i.e. ANY
 // authenticated user with a plausible email, including an artisan or a client, passed it. These
 // endpoints carry pricing/catalog/credential data. The idiom appeared at 24 sites across 12 files;
@@ -246,6 +247,13 @@ export async function PUT(request) {
       updatedAt: new Date(),
       lastModifiedBy: session.user.email
     };
+
+    // Settings the pricing engine couldn't price with are never saved (services/pricing/engine.js).
+    try {
+      resolvePricingSettings(updatedSettings);
+    } catch (e) {
+      return NextResponse.json({ error: e.message }, { status: 400 });
+    }
 
     await db._instance.collection('adminSettings').replaceOne(
       { _id: 'repair_task_admin_settings' },

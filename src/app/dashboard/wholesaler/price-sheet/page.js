@@ -36,9 +36,13 @@ function VolumeTierNote({ tiers }) {
     if (!Array.isArray(tiers) || tiers.length === 0) return null;
     return (
         <Typography variant="caption" sx={{ color: UI.textMuted, display: 'block', mt: 0.25 }}>
-            {tiers.map((t) => (
-                t.price != null ? `${t.label}: ${money(t.price)} ea` : `${t.label}: −${money(t.unitDiscount)} ea`
-            )).join('  ·  ')}
+            {tiers.map((t) => {
+                if (t.price != null) return `${t.label}: ${money(t.price)} ea`;
+                if (t.unitDiscount != null) return `${t.label}: −${money(t.unitDiscount)} ea`;
+                // Only when a tier's margin setting makes the discount differ by metal (not today).
+                const prices = Object.values(t.byMetal || {});
+                return prices.length ? `${t.label}: from ${money(Math.min(...prices))} ea` : null;
+            }).filter(Boolean).join('  ·  ')}
         </Typography>
     );
 }

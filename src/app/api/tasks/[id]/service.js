@@ -1,9 +1,17 @@
 /**
  * Individual Task Service
- * Business logic layer for individual task operations
+ * Business logic layer for individual task operations.
+ *
+ * Responses are priced by the one engine, through the same transform as the task list
+ * (TasksService.transformTaskForResponse). This service used to return the task's STORED `price` and
+ * save whatever it was sent — so the task editor showed a stale price and, on every save, stored the
+ * prices it had loaded right back. Calculated prices are stripped before storing, and never returned
+ * from the document (services/pricing/catalog.js).
  */
 
 import { TasksModel } from '../model';
+import { TasksService } from '../service';
+import { loadPricingContext, stripComputedPrices } from '@/services/pricing/catalog';
 
 export class IndividualTaskService {
   /**
@@ -15,11 +23,11 @@ export class IndividualTaskService {
         throw new Error('Valid task ID is required');
       }
 
-      const task = await TasksModel.getTaskById(id);
-      
+      const [task, ctx] = await Promise.all([TasksModel.getTaskById(id), loadPricingContext()]);
+
       return {
         success: true,
-        data: this.transformTaskForResponse(task),
+        data: TasksService.transformTaskForResponse(task, ctx),
         message: 'Task retrieved successfully'
       };
     } catch (error) {
@@ -54,10 +62,10 @@ export class IndividualTaskService {
       };
       
       const task = await TasksModel.updateTask(id, cleanedData);
-      
+
       return {
         success: true,
-        data: this.transformTaskForResponse(task),
+        data: TasksService.transformTaskForResponse(task, await loadPricingContext()),
         message: 'Task updated successfully'
       };
     } catch (error) {
@@ -116,14 +124,6 @@ export class IndividualTaskService {
       }
     }
     
-    // Price validation (if provided)
-    if (data.price !== undefined) {
-      const price = parseFloat(data.price);
-      if (isNaN(price) || price < 0) {
-        errors.push('Price must be a valid positive number');
-      }
-    }
-    
     // Labor hours validation (if provided)
     if (data.laborHours !== undefined) {
       const hours = parseFloat(data.laborHours);
@@ -157,13 +157,12 @@ export class IndividualTaskService {
    * Transform task data for database storage
    */
   static transformTaskForDatabase(data) {
-    const cleaned = { ...data };
-    
-    // Convert string numbers to actual numbers
-    if (cleaned.price !== undefined) {
-      cleaned.price = parseFloat(cleaned.price) || 0;
-    }
-    
+    // Calculated prices are never stored (services/pricing/catalog.js COMPUTED_PRICE_FIELDS).
+    const cleaned = stripComputedPrices(data);
+    delete cleaned.pricingStatus;
+    delete cleaned.pricingMessage;
+    delete cleaned.laborCost;
+
     if (cleaned.laborHours !== undefined) {
       cleaned.laborHours = parseFloat(cleaned.laborHours) || 0;
     }
@@ -187,27 +186,6 @@ export class IndividualTaskService {
     });
     
     return cleaned;
-  }
-
-  /**
-   * Transform task data for API response
-   */
-  static transformTaskForResponse(task) {
-    if (!task) return null;
-    
-    return {
-      ...task,
-      id: task._id?.toString(),
-      // Ensure all numeric fields are numbers
-      price: typeof task.price === 'number' ? task.price : parseFloat(task.price) || 0,
-      laborHours: typeof task.laborHours === 'number' ? task.laborHours : parseFloat(task.laborHours) || 0,
-      // Ensure boolean fields
-      isActive: Boolean(task.isActive !== false), // Default to true if not explicitly false
-      // Format dates
-      createdAt: task.createdAt?.toISOString?.() || task.createdAt,
-      updatedAt: task.updatedAt?.toISOString?.() || task.updatedAt,
-      deletedAt: task.deletedAt?.toISOString?.() || task.deletedAt
-    };
   }
 
   /**
@@ -245,7 +223,8 @@ export class IndividualTaskService {
       }
 
       const duplicatedTask = {
-        ...rest,
+        // A copy carries the recipe, never a snapshot of its price.
+        ...stripComputedPrices(rest),
         title: finalTitle,
         isActive: false,
         createdBy: userEmail,
@@ -260,7 +239,7 @@ export class IndividualTaskService {
 
       return {
         success: true,
-        data: this.transformTaskForResponse(newTask),
+        data: TasksService.transformTaskForResponse(newTask, await loadPricingContext()),
         message: 'Task duplicated successfully'
       };
     } catch (error) {

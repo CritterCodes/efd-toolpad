@@ -1,137 +1,89 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/apiAuth';
-import { TasksService } from '@/app/api/tasks/service';
-import { calculateTaskCost } from '@/services/pricing/task.pricing';
-import { tiersFromSettings, tierLabel } from '@/services/pricing/quantityTiers';
+import { TasksModel } from '@/app/api/tasks/model';
+import { priceTask, laborHoursFor } from '@/services/pricing/engine';
+import { loadPricingContext, metalsForTask } from '@/services/pricing/catalog';
+import { tierLabel } from '@/services/pricing/quantityTiers';
 
 const round2 = (v) => Math.round((Number(v) || 0) * 100) / 100;
 
 /**
- * The metal contexts a task can be priced for, in display order. Derived from the
- * materials catalog rather than hardcoded: a context is offered only when some
- * metal-dependent material actually carries a Stuller variant for it, because
- * that is exactly the condition under which the pricing engine can price it.
- */
-const CONTEXT_ORDER = [
-  'sterling_silver_925',
-  'yellow_gold_10k', 'white_gold_10k', 'rose_gold_10k',
-  'yellow_gold_14k', 'white_gold_14k', 'rose_gold_14k',
-  'yellow_gold_18k', 'white_gold_18k', 'rose_gold_18k',
-  'platinum_950',
-];
-const variantKey = (p) => `${p.metalType}_${p.karat}`.toLowerCase().replace(/[^a-z0-9]/g, '_');
-
-function availableContexts(materials) {
-  const seen = new Set();
-  for (const m of materials) {
-    if (!m.isMetalDependent || !Array.isArray(m.stullerProducts)) continue;
-    for (const p of m.stullerProducts) seen.add(variantKey(p));
-  }
-  return CONTEXT_ORDER.filter((k) => seen.has(k));
-}
-
-/**
  * GET /api/wholesale/price-sheet — the live wholesale service price list.
  *
- * PRICED THROUGH THE INTAKE ENGINE, PER METAL. The first version read the stored
- * `pricing.wholesalePrice`, which is computed WITHOUT a metal context — the
- * base-metal number. A half-shank consumes sizing stock that costs ~$5 in silver
- * and ~$145 in 14k gold, so the sheet quoted gold work at silver-ish prices
- * (owner caught it on sight). Every row now runs `calculateTaskCost` — the same
- * function the repair intake form charges with — once per metal context; a task
- * whose price doesn't move across metals collapses to one flat number, and a
- * metal the engine can't price (no material variant) is omitted rather than
- * shown as $0: quote on request beats a wrong number.
+ * EVERY NUMBER IS THE ONE ENGINE'S (services/pricing/engine.js) — the same function the counter, the
+ * task list and the shop charge with. This route used to run its own copy of the volume-tier maths
+ * (tool share only, so a margin setting below 100% would have been ignored — EFD-DEFECTS P10) and to
+ * price a "flat" base with no metal, which for a metal-dependent task charged its materials at $0.
  *
- * THE PROJECTION IS STILL THE POINT. Only name, category, price, and labor hours
- * cross to a partner — labor cost, base cost, margins, and recipes stay home.
+ *   - a task that doesn't depend on metal → one flat `wholesalePrice`
+ *   - a task that does, or is restricted to certain metals → `byMetal`, one price per metal it can be
+ *     priced in; a metal the engine refuses (no stock) is OMITTED, never shown as $0
+ *   - `volumeTiers` → each tier's price (flat rows), or the per-unit deduction when it's the same in
+ *     every metal; per-metal tier prices when it isn't
+ *   - a task that can't be priced in any metal is left off the sheet
+ *
+ * THE PROJECTION IS STILL THE POINT. Only name, category, price and labor hours cross to a partner —
+ * labor cost, base cost, margins and recipes stay home.
  */
 export async function GET() {
   const { errorResponse } = await requireRole(['wholesaler', 'admin', 'dev']);
   if (errorResponse) return errorResponse;
 
   try {
-    const [result, deps] = await Promise.all([
-      TasksService.getTasks({ isActive: true, limit: 1000 }),
-      TasksService.loadPricingDependencies(),
+    const [result, ctx] = await Promise.all([
+      TasksModel.getTasks({ isActive: true, limit: 1000 }),
+      loadPricingContext(),
     ]);
-    if (!result.success) {
-      return NextResponse.json({ error: 'Could not load the price list.' }, { status: 500 });
-    }
-    const { adminSettings, materials } = deps;
-    const contexts = availableContexts(materials);
-    const tiers = tiersFromSettings(adminSettings);
+    const { settings, materials, tools, metals } = ctx;
+    const tiers = settings.quantityTiers.filter((t) => t.toolPct < 100 || t.marginPct < 100);
 
     const rows = [];
-    for (const task of result.data || []) {
-      let base = null;
-      try {
-        base = calculateTaskCost(task, adminSettings, [], materials, null);
-      } catch { /* a task the engine can't price is not purchasable — skip below */ }
-      const flat = round2(base?.wholesalePrice);
+    for (const task of result.tasks || []) {
+      const price = (metal, quantity = 1) => priceTask({ task, settings, materials, tools, metal, quantity });
 
-      // A task may be restricted to specific metals (e.g. platinum work is laser
-      // welded and has its OWN task — offering it in gold would duplicate the gold
-      // task, and offering gold tasks in platinum priced gold solder into a weld job).
       const restricted = Array.isArray(task.metals) && task.metals.length > 0;
-      const taskContexts = restricted
-        ? contexts.filter((key) => task.metals.some((m) => key.startsWith(String(m).toLowerCase())))
-        : contexts;
-
-      // Price the task for each metal the catalog can support. A context where a
-      // required material has no variant comes back flagged (unmatchedMaterials)
-      // and is omitted — never rendered as $0.
+      const flat = restricted ? null : price(null);
       const byMetal = {};
-      for (const contextKey of taskContexts) {
-        try {
-          const priced = calculateTaskCost(task, adminSettings, [], materials, contextKey);
-          if ((priced.unmatchedMaterials || []).length > 0) continue;
-          const w = round2(priced.wholesalePrice);
-          if (w > 0) byMetal[contextKey] = w;
-        } catch { /* unpriceable in this metal — omit the chip */ }
+      for (const key of metalsForTask(task, metals)) {
+        const r = price(key);
+        if (r.ok) byMetal[key] = r.wholesale.listUnit;
       }
 
-      // Metal-independent tasks price identically everywhere — one flat number.
-      // A metal-RESTRICTED task always keeps its metal label, even with one price:
-      // "Platinum $X" is the point of the row.
-      const distinct = new Set(Object.values(byMetal));
-      const isFlat = !restricted && distinct.size <= 1 && (distinct.size === 0 || [...distinct][0] === flat);
+      // One flat number when the task doesn't depend on metal: it prices with no metal, and every metal
+      // gives that same number. A metal-restricted task always keeps its metal label.
+      const isFlat = Boolean(flat?.ok) && Object.values(byMetal).every((w) => w === flat.wholesale.listUnit);
+      if (!isFlat && Object.keys(byMetal).length === 0) continue; // nothing priceable
 
-      if (!(flat > 0) && distinct.size === 0) continue; // nothing priceable
-
-      // VOLUME TIERS. A tier gives back part of the MACHINE share, and the machine share is a fixed
-      // number of dollars that does not move with the metal — so the discount per unit is the SAME
-      // in silver as in platinum, even on a task whose metal prices differ. That is why one tier line
-      // can sit under a row that has several metal prices: the store subtracts the same amount either
-      // way. `price` is only included where there is a single price to apply it to.
-      const toolCost = Number(base?.toolDepreciationCost) || 0;
-      const baseCost = Number(base?.baseCost) || 0;
-      const markup = baseCost > 0 ? (Number(base?.wholesalePrice) || 0) / baseCost : 0;
-      const volumeTiers = toolCost > 0 && markup > 0
-        ? tiers
-          .filter((t) => t.toolPct < 100)
-          .map((t) => {
-            const unitDiscount = round2(toolCost * (1 - t.toolPct / 100) * markup);
-            const flatPrice = flat > 0 ? round2(flat - unitDiscount) : null;
-            return {
-              minQty: t.minQty,
-              label: tierLabel(tiers, t),
-              unitDiscount,
-              ...(isFlat && flatPrice > 0 ? { price: flatPrice } : {}),
-            };
-          })
-          .filter((t) => t.unitDiscount > 0)
-        : [];
+      const volumeTiers = [];
+      for (const tier of tiers) {
+        if (isFlat) {
+          const r = price(null, tier.minQty);
+          const discount = round2(r.wholesale.listUnit - r.wholesale.unit);
+          if (discount > 0) volumeTiers.push({ minQty: tier.minQty, label: tierLabel(settings.quantityTiers, tier), unitDiscount: discount, price: r.wholesale.unit });
+          continue;
+        }
+        const perMetal = {};
+        const discounts = new Set();
+        for (const key of Object.keys(byMetal)) {
+          const r = price(key, tier.minQty);
+          if (!r.ok) continue;
+          perMetal[key] = r.wholesale.unit;
+          discounts.add(round2(r.wholesale.listUnit - r.wholesale.unit));
+        }
+        if (![...discounts].some((d) => d > 0)) continue;
+        const label = tierLabel(settings.quantityTiers, tier);
+        volumeTiers.push(discounts.size === 1
+          ? { minQty: tier.minQty, label, unitDiscount: [...discounts][0] }
+          : { minQty: tier.minQty, label, byMetal: perMetal });
+      }
 
       rows.push({
         title: task.title,
         category: task.category || 'General',
         sku: task.sku || task.shortCode || null,
-        laborHours: Number(task.laborHours) || null,
+        laborHours: round2(laborHoursFor(task)) || null,
         ...(volumeTiers.length ? { volumeTiers } : {}),
-        ...(isFlat
-          ? { wholesalePrice: flat > 0 ? flat : [...distinct][0] }
-          : { byMetal }),
+        ...(isFlat ? { wholesalePrice: flat.wholesale.listUnit } : { byMetal }),
       });
     }
 
@@ -145,6 +97,7 @@ export async function GET() {
     });
   } catch (error) {
     console.error('GET /api/wholesale/price-sheet error:', error);
+    // Includes missing pricing settings: the sheet is refused rather than priced from guesses.
     return NextResponse.json({ error: 'Could not load the price list.' }, { status: 500 });
   }
 }

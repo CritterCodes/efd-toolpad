@@ -3,8 +3,7 @@ import {
   verifySecurityCode, 
   createAuditLogEntry 
 } from '@/utils/encryption';
-import PriceRecalculationService from './priceRecalculation.service.js';
-import { DEFAULT_TASK_MINIMUM_RETAIL, DEFAULT_TASK_MINIMUM_WHOLESALE } from '@/constants/pricing.constants.mjs';
+import { resolvePricingSettings } from '@/services/pricing/engine';
 import { buildAnalyticsBaselineSettingsUpdate } from '@/services/analyticsBaseline';
 
 export default class SettingsManagerService {
@@ -165,17 +164,16 @@ export default class SettingsManagerService {
       }
     }
 
+    // NO INVENTED VALUES (owner, 2026-09-30: "there should never be a fallback"). This used to write a
+    // wholesale markup of 1.5 whenever the form sent 0 or nothing, and minimums of $25 / $15 whenever
+    // none had been set. What's sent is what's saved; the check below refuses anything unpriceable.
+    const wholesaleMarkup = pricing?.wholesaleMarkup ?? pricing?.wholesaleConfig?.minimumMultiplier ?? adminSettings.pricing?.wholesaleMarkup;
     const mergedPricing = pricing ? {
       ...adminSettings.pricing,
       ...pricing,
-      wholesaleConfig: {
-        ...(adminSettings.pricing?.wholesaleConfig || {}),
-        ...(pricing.wholesaleConfig || {}),
-        minimumMultiplier: pricing.wholesaleMarkup || pricing.wholesaleConfig?.minimumMultiplier || adminSettings.pricing?.wholesaleConfig?.minimumMultiplier || 1.5
-      },
-      wholesaleMarkup: pricing.wholesaleMarkup || pricing.wholesaleConfig?.minimumMultiplier || adminSettings.pricing?.wholesaleMarkup || adminSettings.pricing?.wholesaleConfig?.minimumMultiplier || 1.5,
-      minimumTaskRetailPrice: pricing.minimumTaskRetailPrice ?? adminSettings.pricing?.minimumTaskRetailPrice ?? DEFAULT_TASK_MINIMUM_RETAIL,
-      minimumTaskWholesalePrice: pricing.minimumTaskWholesalePrice ?? adminSettings.pricing?.minimumTaskWholesalePrice ?? DEFAULT_TASK_MINIMUM_WHOLESALE
+      wholesaleMarkup,
+      // One number, kept in step: older readers look here.
+      wholesaleConfig: { ...(adminSettings.pricing?.wholesaleConfig || {}), ...(pricing.wholesaleConfig || {}), minimumMultiplier: wholesaleMarkup },
     } : adminSettings.pricing;
 
     // Update settings
@@ -199,13 +197,21 @@ export default class SettingsManagerService {
       lastModifiedBy: userEmail
     };
 
+    // Settings the pricing engine couldn't price with are never saved — every price in both apps would
+    // stop, so the save is refused with the fields named instead.
+    try {
+      resolvePricingSettings(updatedSettings);
+    } catch (e) {
+      throw Object.assign(new Error(e.message), { status: 400 });
+    }
+
     await db._instance.collection('adminSettings').replaceOne(
       { _id: 'repair_task_admin_settings' },
       updatedSettings
     );
 
-    // Recalculate all repair task prices
-    const recalculationResult = await PriceRecalculationService.recalculateAllPrices(db._instance, updatedSettings.pricing);
+    // No price recalculation: prices are calculated on every read (services/pricing/engine.js). This
+    // used to rewrite a stored price on every repair task after each save.
 
     // Log the change
     await db._instance.collection('adminSettingsAudit').insertOne({
@@ -217,14 +223,12 @@ export default class SettingsManagerService {
         business: business || null,
         analytics: analytics || null,
       },
-      recalculationResult,
       ipAddress: ipAddress || 'unknown'
     });
 
     return {
       success: true,
       message: 'Settings updated successfully',
-      recalculation: recalculationResult,
       settings: {
         pricing: updatedSettings.pricing,
         financial: updatedSettings.financial,

@@ -14,7 +14,7 @@ describe('getCustomTaskLine', () => {
   beforeEach(() => getTasks.mockReset());
 
   it('builds a cad-lane, no-bench-WO labor line from the matched custom task cost', async () => {
-    getTasks.mockResolvedValue({ data: [{ title: 'CAD QC Review', pricing: { laborCost: 25, totalLaborHours: 0.5 } }] });
+    getTasks.mockResolvedValue({ data: [{ title: 'CAD QC Review', laborCost: 25, laborHours: 0.5 }] });
     const line = await getCustomTaskLine('CAD QC Review', { autoKey: 'custom-qc', fallbackCost: 99 });
     expect(line).toMatchObject({ description: 'CAD QC Review', cost: 25, hours: 0.5, discipline: 'cad', noWorkOrder: true, autoKey: 'custom-qc', source: 'auto' });
   });
@@ -24,14 +24,14 @@ describe('getCustomTaskLine', () => {
     const missing = await getCustomTaskLine('GLB Creation', { autoKey: 'custom-glb', fallbackCost: 50 });
     expect(missing.cost).toBe(50);
 
-    getTasks.mockResolvedValue({ data: [{ title: 'GLB Creation', pricing: { laborCost: 0 } }] });
+    getTasks.mockResolvedValue({ data: [{ title: 'GLB Creation', laborCost: 0, laborHours: 0 }] });
     const zero = await getCustomTaskLine('GLB Creation', { autoKey: 'custom-glb', fallbackCost: 50 });
     expect(zero.cost).toBe(50);
   });
 
   it('derives hours at the shop wage for flat-priced tasks that store none', async () => {
     // A flat $25 QC fee with no catalog hours used to auto-fill hours 0 into the quote form.
-    getTasks.mockResolvedValue({ data: [{ title: 'CAD QC Review', pricing: { laborCost: 25 } }] });
+    getTasks.mockResolvedValue({ data: [{ title: 'CAD QC Review', laborCost: 25, laborHours: 0 }] });
     const line = await getCustomTaskLine('CAD QC Review', { autoKey: 'custom-qc' });
     expect(line.hours).toBe(0.5); // 25 / 50 (default wage)
   });
@@ -96,7 +96,7 @@ describe('getTaskSuggestions carries labor hours', () => {
 
   it('still prefers the repair catalog when a label appears in both', async () => {
     // The catalog is the richer, priced-by-the-engine source.
-    getTasks.mockResolvedValue({ data: [{ title: 'Set Stone 1ct or larger', pricing: { laborCost: 30, totalLaborHours: 0.4 }, category: 'setting' }] });
+    getTasks.mockResolvedValue({ data: [{ title: 'Set Stone 1ct or larger', laborCost: 30, laborHours: 0.4, category: 'setting' }] });
     customHistory = [{ _id: 'set stone 1ct or larger', cost: 99, hours: 9 }];
     const out = await getTaskSuggestions('', 40, 'custom');
     expect(out).toHaveLength(1);

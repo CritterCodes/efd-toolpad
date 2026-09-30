@@ -118,18 +118,41 @@ export function resolvePricingSettings(adminSettings) {
 const normKey = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '_');
 
 /**
- * THE metal key. `'yellow_gold_14k'`, `'white_gold_18k'`, `'sterling_silver_925'`, `'platinum_950'`.
- * Accepts a key string, or { metalType, karat, goldColor } as intake stores it. Null when unknown.
+ * How the counter's metal names map to the names the Stuller stock is filed under. Intake offers
+ * "Silver 925" and "Platinum 950"; the stock says `sterling_silver` and `platinum` + `950`. Building the
+ * key from intake's raw values gave `silver_925`, which matches nothing — so every silver job at the
+ * counter was priced with its solder and sizing stock at $0 and its wire at a whole spool's cost
+ * (EFD-SILVER-PRICING, 2026-09-30). Fine silver and 999 platinum have no stock: their keys exist, match
+ * nothing, and so refuse to price rather than borrow sterling's or 950's cost.
+ */
+const METAL_NAMES = Object.freeze({
+  silver: { '925': 'sterling_silver_925', '999': 'fine_silver_999' },
+  sterling_silver: { '925': 'sterling_silver_925' },
+  platinum: { '950': 'platinum_950', '999': 'platinum_999' },
+});
+
+/**
+ * THE metal key — the one place a metal becomes the name its stock is filed under:
+ * `'yellow_gold_14k'`, `'white_gold_18k'`, `'sterling_silver_925'`, `'platinum_950'`.
+ * Accepts a key string, or { metalType, karat, goldColor } as intake sends it. Null when there isn't
+ * enough to know (gold with no color, a metal with no karat) — which is a METAL_REQUIRED, not a guess.
+ * `'costume'` is a real answer: it has no metal stock, so metal-dependent tasks refuse to price in it.
  */
 export function metalKey(metal) {
   if (!metal) return null;
   if (typeof metal === 'string') return normKey(metal) || null;
-  const { metalType, karat, goldColor } = metal;
-  if (!metalType || !karat) return null;
-  if (String(metalType).toLowerCase() === 'gold') {
-    return goldColor ? normKey(`${goldColor}_gold_${karat}`) : null;
+  const type = normKey(metal.metalType || '');
+  if (!type) return null;
+  if (type === 'costume') return 'costume';
+  let karat = String(metal.karat ?? '').trim().toLowerCase();
+  if (!karat || karat === 'null' || karat === 'undefined') return null;
+  if (type === 'gold') {
+    if (/^\d+$/.test(karat)) karat = `${karat}k`; // "14" → "14k"
+    const color = normKey(metal.goldColor || '');
+    return color ? normKey(`${color}_gold_${karat}`) : null;
   }
-  return normKey(`${metalType}_${karat}`);
+  const named = METAL_NAMES[type]?.[karat.replace(/k$/, '')];
+  return named || normKey(`${type}_${karat}`);
 }
 
 /** The key a Stuller variant is stored under — built the same way, so the two always agree. */
@@ -203,6 +226,29 @@ function resolveMaterial(selection, catalog) {
 
 // ─── The task ──────────────────────────────────────────────────────────────────
 
+/** Pure: a task's labor hours — Σ process hours × process quantity. Not a price; needs no metal. */
+export function laborHoursFor(task = {}) {
+  let hours = 0;
+  for (const selection of Array.isArray(task?.processes) ? task.processes : []) {
+    const process = selection?.process && typeof selection.process === 'object' ? selection.process : selection;
+    const n = Number(selection?.quantity);
+    hours += positive(process?.laborHours) * (Number.isFinite(n) && n > 0 ? n : 1);
+  }
+  return hours;
+}
+
+/**
+ * The labor cost of a task: hours × the wage, or the task's minimum labor price if higher. Labor never
+ * depends on metal, so this answers even when the full price can't (e.g. no metal chosen yet). The
+ * custom-quote builder and the task list read it; priceTask uses the same function.
+ */
+export function laborCostFor(task, settings) {
+  if (!settings || !RESOLVED.has(settings)) {
+    throw new PricingError('SETTINGS_INCOMPLETE', 'laborCostFor needs settings from resolvePricingSettings.', { missing: ['settings'] });
+  }
+  return round2(Math.max(round2(laborHoursFor(task) * settings.wage), positive(task?.minimumLaborPrice)));
+}
+
 /**
  * Price one task.
  *
@@ -225,7 +271,6 @@ export function priceTask({ task, settings, materials = [], tools = [], metal = 
   const toolCatalog = Array.isArray(tools) ? tools : [];
   const qty = Math.max(Math.floor(Number(quantity) || 1), 1);
   const substitutions = [];
-  let laborHours = 0;
   let materialsCost = 0;
   let toolCost = 0;
 
@@ -247,7 +292,6 @@ export function priceTask({ task, settings, materials = [], tools = [], metal = 
     const process = selection?.process && typeof selection.process === 'object' ? selection.process : selection;
     const n = Number(selection?.quantity);
     const processQty = Number.isFinite(n) && n > 0 ? n : 1;
-    laborHours += positive(process?.laborHours) * processQty;
     for (const inner of Array.isArray(process?.materials) ? process.materials : []) {
       const failed = addMaterial(inner, processQty);
       if (failed) return failed;
@@ -265,8 +309,8 @@ export function priceTask({ task, settings, materials = [], tools = [], metal = 
     toolCost += positive(catalogTool?.costPerUse ?? selection?.costPerUse) * (Number.isFinite(n) && n > 0 ? n : 1);
   }
 
-  const calculatedLabor = round2(laborHours * settings.wage);
-  const laborCost = Math.max(calculatedLabor, positive(task.minimumLaborPrice));
+  const laborHours = laborHoursFor(task);
+  const laborCost = laborCostFor(task, settings);
   const roundedTools = round2(toolCost);
   const baseCost = materialsCost + laborCost + roundedTools;
 

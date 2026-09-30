@@ -1,7 +1,6 @@
 import React from 'react';
 import { Box, Typography, Stack, Button } from '@mui/material';
 import {
-  AttachMoney as MoneyIcon,
   Add as AddIcon,
   AutoAwesome as AutoAwesomeIcon,
   PrecisionManufacturing as PrecisionManufacturingIcon
@@ -9,7 +8,10 @@ import {
 import { useRouter } from 'next/navigation';
 import { TASKS_UI } from './tasksUi';
 
-export default function TasksHeader({ loading, handleUpdateAllPrices, handleCreateTask }) {
+// No "Update Prices" button (2026-09-30): prices are calculated on every read by the one pricing engine,
+// so there is nothing to update — the button wrote wrong snapshots (materials priced at $0) that every
+// screen then fell back to.
+export default function TasksHeader({ handleCreateTask }) {
   const router = useRouter();
 
   return (
@@ -51,15 +53,6 @@ export default function TasksHeader({ loading, handleUpdateAllPrices, handleCrea
       </Box>
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap>
-        <Button
-          variant="outlined"
-          startIcon={<MoneyIcon />}
-          onClick={handleUpdateAllPrices}
-          disabled={loading}
-          sx={{ color: TASKS_UI.textPrimary, borderColor: TASKS_UI.border, backgroundColor: TASKS_UI.bgCard }}
-        >
-          {loading ? 'Updating...' : 'Update Prices'}
-        </Button>
         <Button
           variant="outlined"
           startIcon={<AutoAwesomeIcon />}

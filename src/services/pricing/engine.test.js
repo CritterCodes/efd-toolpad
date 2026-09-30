@@ -98,6 +98,34 @@ describe('one metal key', () => {
     expect(variantKey({ metalType: 'platinum', karat: '950' })).toBe('platinum_950');
   });
 
+  it("maps the counter's silver and platinum to the names the stock is filed under (EFD-SILVER-PRICING)", () => {
+    // Intake sends { metalType: 'silver', karat: '925' }. Built raw that was `silver_925`, which matched no
+    // stock — every silver job priced its solder and sizing stock at $0 and its wire at a whole spool.
+    expect(metalKey({ metalType: 'silver', karat: '925' })).toBe('sterling_silver_925');
+    expect(metalKey({ metalType: 'platinum', karat: '950' })).toBe('platinum_950');
+    // No stock for these — the key is real, matches nothing, and so the price is refused, not borrowed.
+    expect(metalKey({ metalType: 'silver', karat: '999' })).toBe('fine_silver_999');
+    expect(metalKey({ metalType: 'platinum', karat: '999' })).toBe('platinum_999');
+    expect(metalKey({ metalType: 'costume', karat: '' })).toBe('costume');
+    expect(metalKey({ metalType: 'gold', goldColor: 'yellow', karat: '14' })).toBe('yellow_gold_14k');
+  });
+
+  it('never builds platinum_null — a platinum job without a karat is "choose a karat"', () => {
+    expect(metalKey({ metalType: 'platinum', karat: null })).toBeNull();
+    expect(metalKey({ metalType: 'platinum', karat: 'null' })).toBeNull();
+  });
+
+  it('prices silver with its silver stock', () => {
+    const r = priceTask({ task: sizeDown, settings, materials: [SOLDER], metal: { metalType: 'silver', karat: '925' } });
+    expect(r.ok).toBe(true);
+    expect(r.materialsCost).toBe(0.2); // the sterling solder portion, not $0
+  });
+
+  it('refuses fine silver rather than pricing it from sterling', () => {
+    const r = priceTask({ task: sizeDown, settings, materials: [SOLDER], metal: { metalType: 'silver', karat: '999' } });
+    expect(r).toMatchObject({ ok: false, reason: CANNOT_PRICE.UNMATCHED_MATERIAL });
+  });
+
   it('has no key for gold without a color, or nothing at all', () => {
     expect(metalKey({ metalType: 'gold', karat: '14k' })).toBeNull();
     expect(metalKey(null)).toBeNull();

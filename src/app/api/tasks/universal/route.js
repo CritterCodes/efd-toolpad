@@ -59,7 +59,18 @@ export async function POST(request) {
         materialName: material.materialName || material.displayName || '',
         displayName: material.displayName || material.materialName || ''
       })) || [],
-      
+
+      // Tools and machinery (EFD-DEFECTS P6). The builder sends them and prices its preview with them,
+      // but create used to drop them — so a new laser task priced lower than the preview showed, with
+      // no machine cost at all, until someone happened to edit it (edit kept them).
+      tools: Array.isArray(taskData.tools) ? taskData.tools.map((tool) => ({
+        toolId: tool.toolId,
+        quantity: Number(tool.quantity) > 0 ? Number(tool.quantity) : 1,
+        toolName: tool.toolName || tool.displayName || '',
+        displayName: tool.displayName || tool.toolName || '',
+        costPerUse: Number(tool.costPerUse) || 0,
+      })) : [],
+
       // Pricing overrides (raw config only — no calculated snapshots)
       minimumPrice: Number(taskData.minimumPrice) || 0,
       priceOverride: Number(taskData.priceOverride) || 0,

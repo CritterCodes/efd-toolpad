@@ -16,16 +16,23 @@ import LayersIcon from '@mui/icons-material/Layers';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import AddIcon from '@mui/icons-material/Add';
 
+import { resolvePricingSettings, priceTask } from '@/services/pricing/engine';
+
 const money = (n) => Number(n || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 /** The worked example the preview prices: one retip — 0.2 h of bench time and one laser pulse. */
 const SAMPLE = { hours: 0.2, toolCost: 10 };
+const SAMPLE_TASK = Object.freeze({
+  processes: [{ laborHours: SAMPLE.hours, quantity: 1 }],
+  materials: [],
+  tools: [{ costPerUse: SAMPLE.toolCost, quantity: 1 }],
+});
 
 export default function QuantityTierSettings() {
   const [tiers, setTiers] = useState(null);
   const [defaults, setDefaults] = useState([]);
-  const [pricing, setPricing] = useState({ wage: 50, businessMultiplier: 2, wholesaleMarkup: 1.2 });
+  // The shop's pricing settings as stored — no defaults; the preview refuses without them.
+  const [pricing, setPricing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState(null);
 
@@ -72,15 +79,21 @@ export default function QuantityTierSettings() {
     save(next);
   };
 
-  // The same arithmetic the pricing engine runs, on the sample task, so the numbers on screen are
-  // this shop's wage and multipliers rather than a worked example from somewhere else.
-  const laborCost = round2(SAMPLE.hours * pricing.wage);
-  const baseCost = round2(laborCost + SAMPLE.toolCost);
-  const preview = (row, multiplier) => {
-    const toolPct = Math.min(Math.max(Number(row.toolPct) || 0, 0), 100);
-    const marginPct = Math.min(Math.max(Number(row.marginPct) || 0, 0), 100);
-    const adjustedBase = baseCost - SAMPLE.toolCost * (1 - toolPct / 100);
-    return round2(adjustedBase * (1 + (multiplier - 1) * (marginPct / 100)));
+  // The preview is THE engine pricing the sample retip at each row's quantity, against the ladder as it
+  // stands on screen (unsaved edits included). It used to re-implement the tier arithmetic by hand.
+  let engineSettings = null;
+  let settingsError = '';
+  try {
+    engineSettings = resolvePricingSettings({ pricing: { ...(pricing || {}), quantityTiers: tiers } });
+  } catch (e) {
+    settingsError = e.message;
+  }
+  const previewFor = (row) => (engineSettings
+    ? priceTask({ task: SAMPLE_TASK, settings: engineSettings, quantity: Math.max(Number(row.minQty) || 1, 1) })
+    : null);
+  const preview = (row, audience) => {
+    const r = previewFor(row);
+    return r?.ok ? r[audience].unit : null;
   };
   const rangeLabel = (i) => {
     const next = tiers[i + 1];
@@ -144,8 +157,8 @@ export default function QuantityTierSettings() {
                         onBlur={() => save(tiers)} inputProps={{ min: 0, max: 100, step: 5 }}
                       />
                     </TableCell>
-                    <TableCell align="right">{money(preview(row, pricing.businessMultiplier))}</TableCell>
-                    <TableCell align="right">{money(preview(row, pricing.wholesaleMarkup))}</TableCell>
+                    <TableCell align="right">{preview(row, 'retail') == null ? '—' : money(preview(row, 'retail'))}</TableCell>
+                    <TableCell align="right">{preview(row, 'wholesale') == null ? '—' : money(preview(row, 'wholesale'))}</TableCell>
                     <TableCell align="right">
                       <IconButton size="small" onClick={() => removeRow(i)} disabled={saving} aria-label={`Remove the ${rangeLabel(i)} tier`}>
                         <DeleteIcon fontSize="small" />
@@ -164,10 +177,11 @@ export default function QuantityTierSettings() {
         </Stack>
 
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
-          Prices shown are one retip — {SAMPLE.hours} h at {money(pricing.wage)}/h plus {money(SAMPLE.toolCost)} of laser,
-          so {money(baseCost)} of cost. Whatever a tier gives back, the price can never fall below the cost in the job.
+          Prices shown are one retip — {SAMPLE.hours} h at {engineSettings ? money(engineSettings.wage) : '—'}/h plus {money(SAMPLE.toolCost)} of laser,
+          so {previewFor({ minQty: 1 })?.ok ? money(previewFor({ minQty: 1 }).baseCost) : '—'} of cost. Whatever a tier gives back, the price can never fall below the cost in the job.
         </Typography>
 
+        {settingsError && <Alert severity="error" sx={{ mt: 2 }}>No preview — {settingsError}</Alert>}
         {msg && <Alert severity={msg.severity} sx={{ mt: 2 }}>{msg.text}</Alert>}
       </CardContent>
     </Card>

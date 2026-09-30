@@ -1,12 +1,13 @@
 /**
  * Tasks Controller (Facade)
- * Dispatches HTTP request handlers for task management to specialized controllers
+ * Dispatches HTTP request handlers for task management to specialized controllers.
+ *
+ * The pricing, metal-context and process-based controllers are gone (2026-09-30): they served routes
+ * that wrote or read STORED task prices, none of which had a caller. Prices are calculated on every
+ * read by services/pricing/engine.js.
  */
 
 import { TasksCrudController } from './controllers/TasksCrudController';
-import { TasksPricingController } from './controllers/TasksPricingController';
-import { TasksMetalController } from './controllers/TasksMetalController';
-import { TasksProcessController } from './controllers/TasksProcessController';
 import { TasksAnalyticsController } from './controllers/TasksAnalyticsController';
 
 export class TasksController {
@@ -15,21 +16,7 @@ export class TasksController {
   static create = TasksCrudController.create;
   static update = TasksCrudController.update;
   static delete = TasksCrudController.delete;
-  
+
   // Analytics
   static getStatistics = TasksAnalyticsController.getStatistics;
-  
-  // Pricing Operations
-  static bulkUpdatePricing = TasksPricingController.bulkUpdatePricing;
-  static updateAllPrices = TasksPricingController.updateAllPrices;
-  static recalculateUniversalPricing = TasksPricingController.recalculateUniversalPricing;
-  static calculateUniversalPricing = TasksPricingController.calculateUniversalPricing;
-  
-  // Metal Context Operations
-  static getTaskPriceForMetal = TasksMetalController.getTaskPriceForMetal;
-  static getCompatibleMetals = TasksMetalController.getCompatibleMetals;
-  static getTasksForMetalContext = TasksMetalController.getTasksForMetalContext;
-  
-  // Specialized Process Operations
-  static createProcessBasedTask = TasksProcessController.createProcessBasedTask;
 }
