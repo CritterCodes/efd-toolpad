@@ -13,6 +13,7 @@ import { requireRole } from '@/lib/apiAuth';
 import { db } from '@/lib/database';
 import { userIdentityQuery } from '@/app/api/users/model';
 import { addManualShift } from '@/services/time/timeClock';
+import { apprenticeErrorStatus } from '@/services/pay/apprentice';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,6 +47,6 @@ export async function POST(req) {
     });
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: error.code === 'BAD_REQUEST' ? 400 : 500 });
+    return NextResponse.json({ error: error.message }, { status: apprenticeErrorStatus(error) || (error.code === 'BAD_REQUEST' ? 400 : 500) });
   }
 }

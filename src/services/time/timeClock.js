@@ -16,11 +16,18 @@
  * `resolvePayRate` — the person's own `employment.hourlyRate`, else their tier on the published
  * ladder, else the shop rate — the same resolution every other payable hour in this system uses.
  * Setting her to $15 is a value on her user record, editable on the artisan page.
+ *
+ * ONLY APPRENTICES MAY CLOCK (owner, 2026-09-30). This used to accept anyone signed in and credit the
+ * shift at their resolved rate — the $50 shop rate for anyone never placed on the ladder, so a
+ * customer account could clock itself onto payroll, and a task-paid jeweler could be paid for the
+ * same hours twice. It already misfired once: the first shift ever entered went in at $50/hr because
+ * the apprentice had no rate on file. The rule lives in services/pay/apprentice.js.
  */
 import { db } from '@/lib/database';
 import { randomUUID } from 'crypto';
 import RepairLaborLogsModel from '@/app/api/repairLaborLogs/model';
 import { getLaborRateSnapshotForUser } from '@/app/api/repairLaborLogs/utils';
+import { assertOnTheClock } from '@/services/pay/apprentice';
 
 const COLLECTION = 'timeEntries';
 const MS_PER_HOUR = 3600000;
@@ -64,6 +71,7 @@ export async function openShiftFor(userID) {
  */
 export async function clockIn({ userID, userName = '', startedAt = new Date(), note = '' } = {}) {
   if (!userID) throw err('A user is required to clock in.');
+  await assertOnTheClock(userID);
   const existing = await openShiftFor(userID);
   if (existing) return { started: false, reason: 'already clocked in', shift: existing };
 
@@ -115,6 +123,8 @@ export async function clockOut({ userID, endedAt = new Date(), note = '', sessio
  */
 export async function addManualShift({ userID, userName = '', startedAt, endedAt, hours = null, note = '', enteredBy = '', session = null } = {}) {
   if (!userID) throw err('A user is required.');
+  // Same gate as the clock: entering hours by hand for a task-paid jeweler would pay them twice.
+  await assertOnTheClock(userID);
 
   const start = startedAt ? new Date(startedAt) : null;
   const end = endedAt ? new Date(endedAt) : null;

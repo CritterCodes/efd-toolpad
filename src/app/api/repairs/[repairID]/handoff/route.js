@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import RepairsModel from '../../model';
 import { requireRepairOps, isAdmin } from '@/lib/apiAuth';
 import { buildHandoffRepairUpdate } from '@/services/repairWorkflow';
+import { assertCanHoldWork, apprenticeErrorStatus } from '@/services/pay/apprentice';
 
 export const POST = async (req, { params }) => {
   try {
@@ -16,6 +17,8 @@ export const POST = async (req, { params }) => {
     if (!targetUserID || !targetUserName) {
       return NextResponse.json({ error: 'targetUserID and targetUserName are required.' }, { status: 400 });
     }
+
+    await assertCanHoldWork(targetUserID, { who: 'other' });
 
     const repair = await RepairsModel.findById(repairID);
 
@@ -32,6 +35,6 @@ export const POST = async (req, { params }) => {
     return NextResponse.json(updated, { status: 200 });
   } catch (error) {
     console.error('❌ Error in handoff route:', error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: apprenticeErrorStatus(error) || 500 });
   }
 };

@@ -7,6 +7,7 @@ import {
   getMondayOfWeek,
   normalizePayrollLogStatus,
 } from '@/services/payrollUtils';
+import { apprenticeCreditHold } from '@/services/pay/apprentice';
 
 export default class RepairLaborLogsModel {
   // Generalized in S0: labor logs now live in `laborLogs` keyed by workOrderID.
@@ -30,10 +31,17 @@ export default class RepairLaborLogsModel {
       workOrderID = wo?.workOrderID || null;
     }
 
+    // Bench credit never pays an apprentice — they are paid on the time clock (services/pay/
+    // apprentice.js). Checked HERE, the one sink every labor-writing route goes through, so a path
+    // nobody thought to guard still can't pay the same hours twice. Held for review, not zeroed, so
+    // the admin can move it to the jeweler who held the job.
+    const sourceType = data.sourceType || (data.repairID ? 'repair' : null);
+    const hold = await apprenticeCreditHold({ userID: data.primaryJewelerUserID, sourceType });
+
     const entry = {
       logID: uuidv4(),
       workOrderID,
-      sourceType: data.sourceType || (data.repairID ? 'repair' : null),
+      sourceType,
       sourceID: data.sourceID || data.repairID || null,
       repairID: data.repairID,
       primaryJewelerUserID: data.primaryJewelerUserID,
@@ -54,10 +62,11 @@ export default class RepairLaborLogsModel {
       sourceAction: data.sourceAction,
       // Held until QC passes (piece bench work): not a payroll candidate while true.
       pendingQc: data.pendingQc ?? false,
-      requiresAdminReview: data.requiresAdminReview ?? false,
+      requiresAdminReview: hold ? true : (data.requiresAdminReview ?? false),
+      ...(hold ? { apprenticeHold: true } : {}),
       adminReviewedBy: '',
       adminReviewedAt: null,
-      notes: data.notes || '',
+      notes: hold ? [data.notes, hold.holdNote].filter(Boolean).join(' — ') : (data.notes || ''),
       weekStart: getMondayOfWeek(now),
       payrollBatchID: data.payrollBatchID || '',
       payrollStatus: normalizePayrollLogStatus(data.payrollStatus),

@@ -73,7 +73,9 @@ export default function TimeClockCard({ sx }) {
     }
   };
 
-  if (!data) return null;
+  // The clock is only for people paid by the hour. A shift already running still shows, so someone
+  // moved off the Apprentice rung mid-shift can clock out instead of leaving it open forever.
+  if (!data || (!data.canClock && !data.open)) return null;
   const open = data.open;
 
   return (

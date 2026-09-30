@@ -492,22 +492,6 @@ const UserManagement = ({
                 )}
               />
 
-              <FormControl fullWidth size="small">
-                <InputLabel>Pay Type</InputLabel>
-                <Select
-                  value={selectedUser.employment?.payType || 'hourly'}
-                  label="Pay Type"
-                  onChange={(e) => updateSelectedUser('employment', {
-                    ...(selectedUser.employment || {}),
-                    payType: e.target.value,
-                  })}
-                >
-                  <MenuItem value="hourly">Hourly</MenuItem>
-                  <MenuItem value="salary">Salary</MenuItem>
-                  <MenuItem value="commission">Commission</MenuItem>
-                </Select>
-              </FormControl>
-
               <TextField
                 size="small"
                 label="Hourly Rate ($)"

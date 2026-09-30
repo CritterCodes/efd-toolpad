@@ -8,6 +8,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuth, isAdmin } from '@/lib/apiAuth';
 import { clockIn, clockOut, listShifts, openShiftFor, summarizeShifts } from '@/services/time/timeClock';
+import { isOnTheClock, apprenticeErrorStatus } from '@/services/pay/apprentice';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,8 +20,9 @@ export async function GET(req) {
   const asked = req.nextUrl?.searchParams?.get('userID') || '';
   const userID = asked && isAdmin(session) ? asked : session.user.userID;
 
-  const [shifts, open] = await Promise.all([listShifts({ userID }), openShiftFor(userID)]);
-  return NextResponse.json({ userID, open, shifts, summary: summarizeShifts(shifts) });
+  const [shifts, open, canClock] = await Promise.all([listShifts({ userID }), openShiftFor(userID), isOnTheClock(userID)]);
+  // canClock: only people paid by the hour (apprentices) get a clock — services/pay/apprentice.js.
+  return NextResponse.json({ userID, open, shifts, summary: summarizeShifts(shifts), canClock });
 }
 
 export async function POST(req) {
@@ -38,6 +40,6 @@ export async function POST(req) {
       : await clockOut({ userID, note: body?.note || '', session });
     return NextResponse.json(result);
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: error.code === 'BAD_REQUEST' ? 400 : 500 });
+    return NextResponse.json({ error: error.message }, { status: apprenticeErrorStatus(error) || (error.code === 'BAD_REQUEST' ? 400 : 500) });
   }
 }

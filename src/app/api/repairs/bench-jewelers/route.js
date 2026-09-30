@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/database';
 import { requireRepairOps } from '@/lib/apiAuth';
+import { NOT_APPRENTICE_QUERY } from '@/services/pay/apprentice';
 
 // Includes admin/dev: in this shop the owner/admins also work the bench, get labor
 // review + payroll, and must be assignable (e.g. assigning a split task to yourself).
@@ -9,6 +10,8 @@ const ASSIGNABLE_ARTISAN_QUERY = {
   isApproved: { $ne: false },
   isActive: { $ne: false },
   status: { $nin: ['inactive', 'disabled', 'deleted', 'terminated'] },
+  // Apprentices are paid on the clock and never hold a job (services/pay/apprentice.js).
+  ...NOT_APPRENTICE_QUERY,
 };
 
 export const GET = async () => {

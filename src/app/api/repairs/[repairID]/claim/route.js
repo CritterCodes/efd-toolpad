@@ -4,6 +4,7 @@ import { requireRepairOps } from '@/lib/apiAuth';
 import { buildClaimRepairUpdate } from '@/services/repairWorkflow';
 import { NotificationService } from '@/lib/notificationService';
 import { adminBase } from '@/lib/appUrls';
+import { assertCanHoldWork, apprenticeErrorStatus } from '@/services/pay/apprentice';
 
 export const POST = async (req, { params }) => {
   try {
@@ -12,6 +13,9 @@ export const POST = async (req, { params }) => {
 
     const { repairID } = params;
     if (!repairID) return NextResponse.json({ error: 'Repair ID is required.' }, { status: 400 });
+
+    // Apprentices are paid on the clock and don't hold jobs (services/pay/apprentice.js).
+    await assertCanHoldWork(session.user.userID);
 
     const repair = await RepairsModel.findById(repairID);
 
@@ -54,6 +58,6 @@ export const POST = async (req, { params }) => {
     return NextResponse.json(updated, { status: 200 });
   } catch (error) {
     console.error('❌ Error in claim route:', error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: apprenticeErrorStatus(error) || 500 });
   }
 };

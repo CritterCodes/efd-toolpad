@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import MoreTimeIcon from '@mui/icons-material/MoreTime';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import { isApprentice } from '@/services/pay/apprenticeRules';
 
 const money = (n) => Number(n || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 
@@ -29,7 +30,8 @@ export default function AddHoursCard({ sx, onAdded }) {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         const all = Array.isArray(d) ? d : (d?.data || []);
-        setPeople(all.filter((u) => u?.userID));
+        // Only people paid by the hour — the server refuses anyone else (services/pay/apprentice.js).
+        setPeople(all.filter((u) => u?.userID && isApprentice(u)));
       })
       .catch(() => setPeople([]));
   }, []);
@@ -79,7 +81,7 @@ export default function AddHoursCard({ sx, onAdded }) {
             select size="small" label="Who" value={userID} onChange={(e) => setUserID(e.target.value)}
             sx={{ minWidth: { xs: '100%', sm: 220 } }}
           >
-            {people.length === 0 && <MenuItem value="" disabled>No artisans found</MenuItem>}
+            {people.length === 0 && <MenuItem value="" disabled>No apprentices — place someone on the Apprentice pay tier first</MenuItem>}
             {people.map((u) => <MenuItem key={u.userID} value={u.userID}>{label(u)}</MenuItem>)}
           </TextField>
           <TextField
