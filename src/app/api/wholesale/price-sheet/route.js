@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/apiAuth';
 import { TasksService } from '@/app/api/tasks/service';
 import { calculateTaskCost } from '@/services/pricing/task.pricing';
+import { tiersFromSettings, tierLabel } from '@/services/pricing/quantityTiers';
 
 const round2 = (v) => Math.round((Number(v) || 0) * 100) / 100;
 
@@ -59,6 +60,7 @@ export async function GET() {
     }
     const { adminSettings, materials } = deps;
     const contexts = availableContexts(materials);
+    const tiers = tiersFromSettings(adminSettings);
 
     const rows = [];
     for (const task of result.data || []) {
@@ -97,11 +99,36 @@ export async function GET() {
 
       if (!(flat > 0) && distinct.size === 0) continue; // nothing priceable
 
+      // VOLUME TIERS. A tier gives back part of the MACHINE share, and the machine share is a fixed
+      // number of dollars that does not move with the metal — so the discount per unit is the SAME
+      // in silver as in platinum, even on a task whose metal prices differ. That is why one tier line
+      // can sit under a row that has several metal prices: the store subtracts the same amount either
+      // way. `price` is only included where there is a single price to apply it to.
+      const toolCost = Number(base?.toolDepreciationCost) || 0;
+      const baseCost = Number(base?.baseCost) || 0;
+      const markup = baseCost > 0 ? (Number(base?.wholesalePrice) || 0) / baseCost : 0;
+      const volumeTiers = toolCost > 0 && markup > 0
+        ? tiers
+          .filter((t) => t.toolPct < 100)
+          .map((t) => {
+            const unitDiscount = round2(toolCost * (1 - t.toolPct / 100) * markup);
+            const flatPrice = flat > 0 ? round2(flat - unitDiscount) : null;
+            return {
+              minQty: t.minQty,
+              label: tierLabel(tiers, t),
+              unitDiscount,
+              ...(isFlat && flatPrice > 0 ? { price: flatPrice } : {}),
+            };
+          })
+          .filter((t) => t.unitDiscount > 0)
+        : [];
+
       rows.push({
         title: task.title,
         category: task.category || 'General',
         sku: task.sku || task.shortCode || null,
         laborHours: Number(task.laborHours) || null,
+        ...(volumeTiers.length ? { volumeTiers } : {}),
         ...(isFlat
           ? { wholesalePrice: flat > 0 ? flat : [...distinct][0] }
           : { byMetal }),
