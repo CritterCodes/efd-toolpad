@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 
 import ContinuousBarcodeScanner from '@/components/repairs/ContinuousBarcodeScanner';
+import { SCAN_ACTIONS, scanActionByKey, runScanAction, summarizeScanRun } from '@/services/bench/scanActions';
 import { BENCH_QUEUE, BENCH_TABS, isWorkOrderInTab } from '@/services/workOrders/workOrderWorkflow';
 import { uploadSizeError } from '@/lib/uploadLimits';
 import { directUpload, postFileWithProgress } from '@/lib/directUpload';
@@ -59,6 +60,9 @@ export default function BenchPage() {
   const [scanLoading, setScanLoading] = useState(false);
   const [queuedClaimIDs, setQueuedClaimIDs] = useState([]);
   const [claimScannerOpen, setClaimScannerOpen] = useState(false);
+  // What a scanned batch does. Claim is the default because it is how the piece reaches a bench;
+  // everything after that is a move the jeweler makes with the piece already in hand.
+  const [scanAction, setScanAction] = useState('claim');
 
   // Bulk QC + parts
   const [bulkQcLoading, setBulkQcLoading] = useState(false);
@@ -177,7 +181,7 @@ export default function BenchPage() {
   const uploadStl = (wo, file) => uploadCadFile(wo, file, 'stl');
   const uploadGlb = (wo, file) => uploadCadFile(wo, file, 'glb');
 
-  // --- Scan to claim (repairs; scanned value is a repairID) ---
+  // --- Scanning (repairs; the scanned value is a repairID). What the batch DOES is `scanAction`. ---
   const queueClaimID = (repairID) => {
     const clean = String(repairID || '').trim();
     if (!clean) return;
@@ -187,21 +191,18 @@ export default function BenchPage() {
   const handleQueueScan = (e) => { e?.preventDefault?.(); queueClaimID(scanValue); };
   const removeQueued = (repairID) => setQueuedClaimIDs((prev) => prev.filter((id) => id !== repairID));
 
-  const claimQueued = async () => {
-    if (queuedClaimIDs.length === 0) return;
+  // Run the chosen action over everything queued (services/bench/scanActions.js). Whatever moved
+  // leaves the queue; whatever failed stays on it, named, so it can be retried or removed by hand.
+  const runQueued = async () => {
+    const action = scanActionByKey(scanAction);
+    if (!action || queuedClaimIDs.length === 0) return;
     setScanLoading(true);
     try {
-      const results = [];
-      for (const repairID of queuedClaimIDs) {
-        const res = await fetch(`/api/repairs/${encodeURIComponent(repairID)}/claim`, { method: 'POST' });
-        results.push({ repairID, ok: res.ok, error: res.ok ? null : ((await res.json().catch(() => ({}))).error || 'Unable to claim') });
-      }
-      const claimed = results.filter((r) => r.ok).map((r) => r.repairID);
-      const failed = results.filter((r) => !r.ok);
-      if (claimed.length) setQueuedClaimIDs((prev) => prev.filter((id) => !claimed.includes(id)));
+      const { ok, failed } = await runScanAction({ action, repairIDs: queuedClaimIDs });
+      if (ok.length) setQueuedClaimIDs((prev) => prev.filter((id) => !ok.includes(id)));
       await fetchWorkOrders();
-      if (claimed.length) showSnack(`Claimed ${claimed.length} repair${claimed.length !== 1 ? 's' : ''}.`, 'success');
-      if (failed.length) showSnack(failed.map((r) => `${r.repairID}: ${r.error}`).join(' | '), 'error');
+      const { text, severity } = summarizeScanRun({ action, ok, failed });
+      showSnack(text, severity);
     } finally {
       setScanLoading(false);
     }
@@ -346,25 +347,32 @@ export default function BenchPage() {
         </Box>
       </PageHeader>
 
-      {/* Scan to claim */}
+      {/* Scan a ticket, then tell the batch what to do with it. */}
       <SurfaceCard sx={{ mt: 2.5 }}>
-        <SectionLabel>Scan to claim</SectionLabel>
+        <SectionLabel>Scan tickets</SectionLabel>
         <Box component="form" onSubmit={handleQueueScan} sx={{ mt: 1.5, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <TextField
-            label="Scan to Claim" placeholder="Scan repair ticket barcode" value={scanValue}
+            label="Scan ticket" placeholder="Scan repair ticket barcode" value={scanValue}
             onChange={(e) => setScanValue(e.target.value)} autoComplete="off" autoFocus size="small"
-            sx={{ minWidth: { xs: '100%', sm: 320 } }}
-            helperText="Barcode scan lands here. Press Enter to queue each repair, then claim the batch."
+            sx={{ minWidth: { xs: '100%', sm: 300 } }}
+            helperText="Barcode scan lands here. Press Enter to queue each repair, then pick what happens to them."
           />
+          <TextField
+            select size="small" label="Then" value={scanAction}
+            onChange={(e) => setScanAction(e.target.value)}
+            sx={{ minWidth: { xs: '100%', sm: 190 } }}
+          >
+            {SCAN_ACTIONS.map((a) => <MenuItem key={a.key} value={a.key}>{a.label}</MenuItem>)}
+          </TextField>
           <Button type="submit" variant="outlined" startIcon={<ScanIcon />} disabled={scanLoading || !scanValue.trim()}>Queue Scan</Button>
           <Button type="button" variant="outlined" startIcon={<ScanIcon />} disabled={scanLoading} onClick={() => setClaimScannerOpen(true)}>Camera Scan</Button>
-          <Button type="button" variant="contained" disabled={scanLoading || queuedClaimIDs.length === 0} onClick={claimQueued}>
-            {scanLoading ? 'Claiming…' : `Claim ${queuedClaimIDs.length} Queued`}
+          <Button type="button" variant="contained" disabled={scanLoading || queuedClaimIDs.length === 0} onClick={runQueued}>
+            {scanLoading ? 'Working…' : `${scanActionByKey(scanAction)?.label ?? 'Apply'} ${queuedClaimIDs.length}`}
           </Button>
         </Box>
         {queuedClaimIDs.length > 0 && (
           <Box sx={{ mt: 1.5 }}>
-            <SectionLabel sx={{ mb: 1 }}>Queued to claim ({queuedClaimIDs.length})</SectionLabel>
+            <SectionLabel sx={{ mb: 1 }}>Queued ({queuedClaimIDs.length}) → {scanActionByKey(scanAction)?.label}</SectionLabel>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
               {queuedClaimIDs.map((id) => (
                 <Chip key={id} label={id} onDelete={() => removeQueued(id)} deleteIcon={<CloseIcon />} />
@@ -439,20 +447,29 @@ export default function BenchPage() {
         </Box>
       )}
 
-      {/* Camera scanner */}
+      {/* Camera scanner. The action picker is repeated in here on purpose — with the camera open the
+          card behind it is unreachable, and having to close the camera to choose is exactly what made
+          the claim-only scanner useless for anything but claiming. */}
       <ContinuousBarcodeScanner
         open={claimScannerOpen}
-        title="Scan Repairs to Claim"
+        title="Scan Repairs"
         queuedCount={queuedClaimIDs.length}
-        actionLabel={scanLoading ? 'Claiming…' : `Claim ${queuedClaimIDs.length} Queued`}
+        actionLabel={scanLoading ? 'Working…' : `${scanActionByKey(scanAction)?.label ?? 'Apply'} ${queuedClaimIDs.length}`}
         actionDisabled={scanLoading || queuedClaimIDs.length === 0}
         onClose={() => setClaimScannerOpen(false)}
         onScan={queueClaimID}
-        onAction={claimQueued}
+        onAction={runQueued}
       >
+        <TextField
+          select size="small" label="Then" value={scanAction} fullWidth
+          onChange={(e) => setScanAction(e.target.value)}
+          sx={{ mb: 1.5 }}
+        >
+          {SCAN_ACTIONS.map((a) => <MenuItem key={a.key} value={a.key}>{a.label}</MenuItem>)}
+        </TextField>
         {queuedClaimIDs.length > 0 ? (
           <Box>
-            <SectionLabel sx={{ mb: 1 }}>Queued to claim ({queuedClaimIDs.length})</SectionLabel>
+            <SectionLabel sx={{ mb: 1 }}>Queued ({queuedClaimIDs.length})</SectionLabel>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
               {queuedClaimIDs.map((id) => (
                 <Chip key={id} label={id} onDelete={() => removeQueued(id)} deleteIcon={<CloseIcon />} />
