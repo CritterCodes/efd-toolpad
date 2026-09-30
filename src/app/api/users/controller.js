@@ -5,6 +5,7 @@ import { stripPrivilegeFields } from "./model";
 import { NotificationService, NOTIFICATION_TYPES, CHANNELS } from "@/lib/notificationService.js";
 import { adminBase } from '@/lib/appUrls';
 import { sendShopAccountInvite } from '@/lib/shopInvite';
+import { resolveCreatableRole } from '@/services/users/creatableRole';
 
 export default class UserController {
     /**
@@ -12,9 +13,16 @@ export default class UserController {
      * @param {Request} req - The incoming request object containing user data
      * @returns {Response} - JSON response with success or error message
      */
-    static async createUser(req) {
+    static async createUser(req, { actorRole = '' } = {}) {
         try {
             const userData = await req.json();
+            // A privileged role is granted only by an admin/dev, and an unknown role is refused
+            // (EFD-DEFECTS S6) — the body used to decide this on its own.
+            const resolved = resolveCreatableRole(userData?.role, actorRole);
+            if (resolved.error) {
+                return new Response(JSON.stringify({ success: false, error: resolved.error }), { status: resolved.status });
+            }
+            userData.role = resolved.role;
             const createdUser = await UserService.createUser(userData);
             if (!createdUser) {
                 return new Response(

@@ -16,6 +16,7 @@ import { adminBase } from '@/lib/appUrls';
 import { db } from "@/lib/database";
 import { wholesalerBusinessName } from "@/services/wholesale/businessName";
 import { buildQuoteRequest } from "@/services/repairs/quoteRequest";
+import { pickEditableRepairFields } from "@/services/repairs/repairEditFields";
 
 async function createWhileYouWaitLaborLog(repair, session) {
   if (!repair?.repairID || repair.whileYouWait !== true || repair.status !== "COMPLETED" || !repair.assignedTo) {
@@ -393,8 +394,18 @@ export const PUT = async (req) => {
       return NextResponse.json({ error: "Request body cannot be empty." }, { status: 400 });
     }
 
-    const updatedRepair = await RepairsController.updateRepairById(repairID, body);
-    return NextResponse.json(updatedRepair, { status: 200 });
+    // Only the fields the edit form edits are written (services/repairs/repairEditFields.js). The
+    // form resends the whole repair it loaded, so workflow and billing fields arrive unchanged on
+    // every edit — they are dropped, not refused, and simply not rewritten.
+    const { update, dropped } = pickEditableRepairFields(body, { isStaff: isStaffRepairSession(session) });
+    if (Object.keys(update).length === 0) {
+      return NextResponse.json({ error: "Nothing in this request can be changed here." }, { status: 400 });
+    }
+
+    const updatedRepair = await RepairsController.updateRepairById(repairID, update);
+    const res = NextResponse.json(updatedRepair, { status: 200 });
+    if (dropped.length) res.headers.set("X-Ignored-Fields", dropped.slice(0, 50).join(","));
+    return res;
   } catch (error) {
     console.error("Error in PUT Route:", error.message);
     return NextResponse.json({ error: "Failed to update repair", details: error.message }, { status: 500 });
