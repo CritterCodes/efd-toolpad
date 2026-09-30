@@ -19,7 +19,9 @@ export default class UserService {
                 userData.lastName,
                 userData.email,
                 userData.password,
-                userData.phoneNumber,
+                // Callers disagree on the key: the client form sends `phone`, others `phoneNumber`.
+                // Reading only `phoneNumber` silently dropped every walk-in's number (EFD-DEFECTS C6).
+                userData.phoneNumber ?? userData.phone,
                 userData?.role,
                 userData?.business,
                 userData?.status

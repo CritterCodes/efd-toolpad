@@ -22,9 +22,10 @@ import UserController from "./controller";
  * ✅ Route for creating a new user
  */
 export async function POST(req) {
-    const { errorResponse } = await requireRole(STAFF_ROLES);
+    const { session, errorResponse } = await requireRole(STAFF_ROLES);
     if (errorResponse) return errorResponse;
-    return await UserController.createUser(req);
+    // The caller's role decides which roles they may grant (services/users/creatableRole.js).
+    return await UserController.createUser(req, { actorRole: session?.user?.role });
 }
 
 /**

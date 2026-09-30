@@ -2,7 +2,10 @@
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
+// No fallback (EFD-DEFECTS S4). This used to sign with the literal 'your_jwt_secret_key' whenever
+// JWT_SECRET was missing, so a deployment without it would issue tokens anyone could forge. Nothing
+// calls these two methods today; if something does, a missing secret now fails instead of signing.
+const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRATION = '15m'; // 15 minutes token expiration
 
 export default class User {
@@ -49,6 +52,7 @@ export default class User {
      * Token expires in 15 minutes.
      */
     generateVerificationToken() {
+        if (!JWT_SECRET) throw new Error('JWT_SECRET is not set — refusing to sign a token.');
         return jwt.sign(
             { email: this.email, userID: this.userID },
             JWT_SECRET,
@@ -62,6 +66,7 @@ export default class User {
      * @returns {boolean|object} - Returns decoded token or false if invalid
      */
     static verifyToken(token) {
+        if (!JWT_SECRET) return false;
         try {
             return jwt.verify(token, JWT_SECRET);
         } catch (error) {

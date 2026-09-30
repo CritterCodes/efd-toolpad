@@ -7,6 +7,25 @@ const IV_LENGTH = 16; // 128 bits
 const TAG_LENGTH = 16; // 128 bits
 
 /**
+ * The app secret the key and the code hash are derived from.
+ *
+ * FAILS CLOSED IN PRODUCTION (EFD-DEFECTS S4). This used to fall back to the literal string
+ * 'development-secret-key' whenever NEXTAUTH_SECRET was missing — so a deployment missing the env
+ * would encrypt the shop's stored credentials (the Stuller login, among others) with a key anyone
+ * reading this file knows, and do it silently. Production sets NEXTAUTH_SECRET, so nothing live
+ * changes: the key it derives is byte-for-byte the same, and everything already encrypted still
+ * decrypts. The fallback survives only for local development and tests.
+ */
+function appSecret() {
+    const secret = process.env.NEXTAUTH_SECRET;
+    if (secret) return secret;
+    if (process.env.NODE_ENV === 'production') {
+        throw new Error('NEXTAUTH_SECRET is not set — refusing to encrypt or hash with a known development key.');
+    }
+    return 'development-secret-key';
+}
+
+/**
  * Get or generate encryption key from environment
  * In production, this should be stored securely (e.g., in environment variables, key vault)
  */
@@ -18,9 +37,8 @@ function getEncryptionKey() {
         return Buffer.from(envKey, 'base64');
     }
     
-    // For development/testing - generate a consistent key based on app secret
-    const appSecret = process.env.NEXTAUTH_SECRET || 'development-secret-key';
-    return crypto.scryptSync(appSecret, 'encryption-salt', KEY_LENGTH);
+    // Derived from the app secret (fails closed in production — see appSecret above).
+    return crypto.scryptSync(appSecret(), 'encryption-salt', KEY_LENGTH);
 }
 
 /**
@@ -93,8 +111,7 @@ export function hashSecurityCode(code) {
     if (!code) return null;
     
     try {
-        const salt = process.env.NEXTAUTH_SECRET || 'development-secret-key';
-        return crypto.scryptSync(code, salt, 32).toString('hex');
+        return crypto.scryptSync(code, appSecret(), 32).toString('hex');
     } catch (error) {
         console.error('Hashing error:', error);
         throw new Error('Failed to hash security code');

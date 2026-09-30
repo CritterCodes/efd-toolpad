@@ -151,7 +151,9 @@ export default function NewClientForm({ open, onClose, onClientCreated }) {
                     >
                         <MenuItem value="customer">Customer</MenuItem>
                         <MenuItem value="wholesaler">Wholesaler</MenuItem>
-                        <MenuItem value="admin">Admin</MenuItem>
+                        {/* No "Admin" here (EFD-DEFECTS S6): this form adds a client at intake.
+                            Admins are made deliberately, and the server now refuses it from anyone
+                            who isn't one. */}
                     </TextField>
 
                     {/* ✅ Business Field - Only visible for wholesalers */}
