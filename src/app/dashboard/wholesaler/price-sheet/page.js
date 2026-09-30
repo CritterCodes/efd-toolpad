@@ -27,6 +27,22 @@ const ALL_COLUMNS = METAL_GROUPS.flatMap((g) => g.columns);
 
 // "(laser welded)" and similar parentheticals are shop detail — keep them off the
 // task name line so titles stop wrapping, but keep them visible as a subtitle.
+/**
+ * Volume pricing under a row. A tier gives back part of the machine share, which is a fixed number of
+ * dollars whatever the metal — so a task with several metal prices shows the SAME deduction for all of
+ * them, and a single-price task shows the resulting price outright.
+ */
+function VolumeTierNote({ tiers }) {
+    if (!Array.isArray(tiers) || tiers.length === 0) return null;
+    return (
+        <Typography variant="caption" sx={{ color: UI.textMuted, display: 'block', mt: 0.25 }}>
+            {tiers.map((t) => (
+                t.price != null ? `${t.label}: ${money(t.price)} ea` : `${t.label}: −${money(t.unitDiscount)} ea`
+            )).join('  ·  ')}
+        </Typography>
+    );
+}
+
 const splitTitle = (title = '') => {
     const m = title.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
     return m ? { name: m[1], note: m[2] } : { name: title, note: null };
@@ -201,6 +217,7 @@ export default function WholesalePriceSheetPage() {
                                                     {name}
                                                     {note && <Typography component="span" variant="caption" sx={{ color: UI.textMuted, ml: 1 }}>{note}</Typography>}
                                                     {t.sku && <Typography component="span" variant="caption" sx={{ color: UI.textMuted, ml: 1, fontFamily: 'monospace' }}>{t.sku}</Typography>}
+                                                    <VolumeTierNote tiers={t.volumeTiers} />
                                                 </TableCell>
                                                 <TableCell sx={{ ...priceCellSx, fontWeight: 600, width: 120 }}>{money(t.wholesalePrice)}</TableCell>
                                             </TableRow>
@@ -240,6 +257,7 @@ export default function WholesalePriceSheetPage() {
                                                     <TableCell sx={{ color: UI.textPrimary, borderBottom: `1px solid ${UI.border}` }}>
                                                         {name}
                                                         {note && <Typography variant="caption" sx={{ color: UI.textMuted, display: 'block' }}>{note}</Typography>}
+                                                        <VolumeTierNote tiers={t.volumeTiers} />
                                                     </TableCell>
                                                     {ALL_COLUMNS.map((c, i) => {
                                                         const groupStart = METAL_GROUPS.some((g) => g.columns[0].key === c.key);

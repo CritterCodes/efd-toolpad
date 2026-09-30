@@ -133,3 +133,58 @@ describe('GET /api/wholesale/price-sheet', () => {
     expect(mocks.getTasks).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * VOLUME TIERS ON THE SHEET. A tier gives back part of the MACHINE share, and that share is a fixed
+ * number of dollars — it does not move with the metal. So the deduction is identical in silver and in
+ * platinum, which is what lets one tier line sit under a row carrying several metal prices.
+ */
+describe('volume pricing on the sheet', () => {
+  const LADDER = [
+    { minQty: 1, toolPct: 100, marginPct: 100 },
+    { minQty: 5, toolPct: 70, marginPct: 100 },
+    { minQty: 20, toolPct: 30, marginPct: 100 },
+  ];
+  // A retip: $10 labor + $10 of laser = $20 base, x1.2 = $24 wholesale.
+  const laser = { wholesalePrice: 24, baseCost: 20, toolDepreciationCost: 10, laborCost: 10, unmatchedMaterials: [] };
+
+  beforeEach(() => {
+    mocks.loadDeps.mockResolvedValue({ adminSettings: { pricing: { quantityTiers: LADDER } }, materials: [] });
+    mocks.getTasks.mockResolvedValue({ success: true, data: [task({ title: 'Retip prongs', materials: [] })] });
+    mocks.calc.mockReturnValue(laser);
+  });
+
+  it('shows the tier price on a single-price row', async () => {
+    const row = (await GET())._data.rows[0];
+    expect(row.wholesalePrice).toBe(24);
+    expect(row.volumeTiers).toEqual([
+      { minQty: 5, label: '5–19', unitDiscount: 3.6, price: 20.4 },
+      { minQty: 20, label: '20+', unitDiscount: 8.4, price: 15.6 },
+    ]);
+  });
+
+  it('gives a metal-priced row the deduction instead, since it is the same in every metal', async () => {
+    mocks.loadDeps.mockResolvedValue({ adminSettings: { pricing: { quantityTiers: LADDER } }, materials: [metalMaterial] });
+    mocks.getTasks.mockResolvedValue({ success: true, data: [task({ title: 'Reprong', materials: [metalMaterial] })] });
+    mocks.calc.mockImplementation((t, s2, p, m, ctx) => (
+      ctx === 'yellow_gold_14k' ? { ...laser, wholesalePrice: 41.4, baseCost: 34.5 } : laser
+    ));
+
+    const row = (await GET())._data.rows[0];
+    expect(row.byMetal).toBeTruthy();
+    // No `price`: the row has several, and the store subtracts the same amount from whichever applies.
+    expect(row.volumeTiers).toEqual([
+      { minQty: 5, label: '5–19', unitDiscount: 3.6 },
+      { minQty: 20, label: '20+', unitDiscount: 8.4 },
+    ]);
+  });
+
+  it('says nothing on a task with no machine in it, and nothing when the ladder is off', async () => {
+    mocks.calc.mockReturnValue({ ...laser, toolDepreciationCost: 0 });
+    expect((await GET())._data.rows[0].volumeTiers).toBeUndefined();
+
+    mocks.calc.mockReturnValue(laser);
+    mocks.loadDeps.mockResolvedValue({ adminSettings: { pricing: {} }, materials: [] });
+    expect((await GET())._data.rows[0].volumeTiers).toBeUndefined();
+  });
+});
