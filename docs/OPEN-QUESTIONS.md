@@ -136,3 +136,30 @@ production script), then create a unique, case-insensitive index on `users.email
 database itself refuses duplicates. Both are production writes, so both need the owner's yes.
 
 **Status:** open.
+
+---
+
+### Q10 — Retire the legacy gem-listing config route? (opened 2026-10-01)
+
+**Context.** `PUT /api/products/gemstones/[id]/designs/[designId]/config` writes `basePrice` / `metalPrices` onto a
+`products` document. Nothing in the app calls it, efd-shop no longer reads `products`, and storing prices goes
+against the one-pricing-engine ruling (2026-09-30). Until 2026-10-01 any signed-in account could call it; since
+CritterCodes/efd-toolpad#197 it is staff-only.
+
+**Recommendation:** delete the route. It is a stored-price writer on a collection nobody reads. Waits for your yes
+(nothing is retired without it).
+
+**Status:** open.
+
+---
+
+### Q11 — Should the AI helper routes be staff/artisan-only? (opened 2026-10-01)
+
+**Context.** `/api/ai/build-task`, `describe-item-image`, `generate-ai-meta` and `parse-smart-intake` write nothing,
+but any signed-in account (a store or a customer included) can call them, and each call costs a Gemini request.
+The authorization guard (`src/app/api/routeAuthorization.guard.test.js`) lists them as exempt for that reason.
+
+**Recommendation:** limit them to staff and artisans, plus stores for `parse-smart-intake` if their intake uses it
+(check first). It's a cost question, not a data leak, so it waits for your call.
+
+**Status:** open.
