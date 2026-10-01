@@ -127,7 +127,6 @@ export async function PUT(request) {
         
         if (profileImage && profileImage instanceof File && profileImage.size > 0) {
             try {
-                console.log('Uploading profile image:', profileImage.name);
                 const profileImageUrl = await uploadFileToS3(
                     profileImage, 
                     `shop/artisan-profiles/${userID}/profile`,
@@ -135,7 +134,6 @@ export async function PUT(request) {
                 );
                 imageUrls.profileImageUrl = profileImageUrl;
                 imageUrls.profileImageKey = profileImageUrl.split('.amazonaws.com/')[1]; // Extract key from URL
-                console.log('✅ Profile image uploaded:', profileImageUrl);
             } catch (error) {
                 console.error('❌ Failed to upload profile image:', error);
                 return NextResponse.json(
@@ -147,7 +145,6 @@ export async function PUT(request) {
         
         if (coverImage && coverImage instanceof File && coverImage.size > 0) {
             try {
-                console.log('Uploading cover image:', coverImage.name);
                 const coverImageUrl = await uploadFileToS3(
                     coverImage, 
                     `shop/artisan-profiles/${userID}/cover`,
@@ -155,7 +152,6 @@ export async function PUT(request) {
                 );
                 imageUrls.coverImageUrl = coverImageUrl;
                 imageUrls.coverImageKey = coverImageUrl.split('.amazonaws.com/')[1]; // Extract key from URL
-                console.log('✅ Cover image uploaded:', coverImageUrl);
             } catch (error) {
                 console.error('❌ Failed to upload cover image:', error);
                 return NextResponse.json(
@@ -223,14 +219,12 @@ export async function PUT(request) {
             if (currentArtisanApp[field] && !updateData[`artisanApplication.${field}`]) {
                 // Field exists in current data but not in update - preserve it
                 updateData[`artisanApplication.${field}`] = currentArtisanApp[field];
-                console.log(`🛡️ Preserving critical field: ${field} = ${currentArtisanApp[field]}`);
             }
         });
 
         // Ensure roles array is preserved at user level
         if (existingUser.roles && !updateData.roles) {
             updateData.roles = existingUser.roles;
-            console.log(`🛡️ Preserving user roles: ${existingUser.roles}`);
         }
 
         const result = await db.collection('users').updateOne(

@@ -121,7 +121,6 @@ export async function updateMetalPrices() {
       { upsert: true }
     );
 
-    console.log('✅ Metal prices updated successfully:', prices);
     return {
       success: true,
       prices,

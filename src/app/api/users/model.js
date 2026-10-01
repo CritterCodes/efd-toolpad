@@ -149,7 +149,6 @@ export default class UserModel {
     static getUserByQuery = async (query) => {
         try {
             db.connect();
-            console.log("🔍 Searching user in the database with query:", query);
             const dbInstance = await db.connect();
 
             // Modified to search by multiple fields using a case-insensitive regex search
@@ -168,7 +167,6 @@ export default class UserModel {
             } else {
                 // Log the identifier, NOT the document — this used to print the whole user, i.e. the
                 // bcrypt hash and any live reset token, into the server logs.
-                console.log("✅ User found in database:", user.userID || user.email);
             }
 
             return user;
@@ -186,14 +184,12 @@ export default class UserModel {
     static async getUserById(userId) {
         try {
             const dbInstance = await db.connect();
-            console.log(`🔍 Searching user in the database with ID: ${userId}`);
             
             const user = await dbInstance.collection("users").findOne(userIdentityQuery(userId), { projection: USER_SECRET_FIELDS });
 
             if (!user) {
                 console.warn("⚠️ No user found in database for ID:", userId);
             } else {
-                console.log("✅ User found in database:", user?.userID || user?.email);
             }
 
             return user;
@@ -293,7 +289,6 @@ export default class UserModel {
     static async updateUserById(userId, updateData) {
         try {
             const dbInstance = await db.connect();
-            console.log(`🔄 Updating user in database with ID: ${userId}`);
             
             const result = await dbInstance.collection("users").updateOne(
                 userIdentityQuery(userId),
@@ -308,7 +303,6 @@ export default class UserModel {
             // Fetch and return the updated user
             const updatedUser = await dbInstance.collection("users").findOne(userIdentityQuery(userId), { projection: USER_SECRET_FIELDS });
 
-            console.log("✅ User updated in database:", updatedUser?.userID || updatedUser?.email);
             return updatedUser;
         } catch (error) {
             console.error("❌ Error updating user in database:", error);

@@ -14,16 +14,10 @@ export default class StullerSearchController {
         );
       }
 
-      console.log(`[StullerSearchController] Searching for: ${query}`);
       
       const results = await StullerSearchService.searchProducts(query);
 
       if (query) {
-        console.log('[StullerSearchController] Search summary:', {
-          query,
-          count: results.length,
-          firstFiveSkus: results.slice(0, 5).map((item) => item.itemNumber)
-        });
       }
 
       return NextResponse.json({

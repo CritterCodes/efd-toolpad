@@ -33,7 +33,6 @@ export async function POST(req, { params }) {
       return Response.json({ error: 'Product not found' }, { status: 404 });
     }
 
-    console.log('✅ Product approved:', productId);
 
     // Send approval notification to artisan
     try {

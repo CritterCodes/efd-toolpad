@@ -26,7 +26,6 @@ export const ROLE_NAVIGATION = {
  * Get navigation for a specific user role
  */
 export function getNavigationForRole(userRole, artisanTypes = [], staffCapabilities = null, employment = null) {
-  console.log('� [NAV] getNavigationForRole called with:', { userRole, artisanTypes });
   
   // CLIENT role should not have access to admin panel
   if (userRole === USER_ROLES.CLIENT) {
@@ -36,12 +35,10 @@ export function getNavigationForRole(userRole, artisanTypes = [], staffCapabilit
   // For artisan roles, use dynamic navigation based on artisan types
   if (userRole === USER_ROLES.ARTISAN) {
     const navigation = generateArtisanNavigation(artisanTypes, staffCapabilities, employment);
-    console.log('� [NAV] Generated artisan navigation:', navigation);
     return navigation;
   }
 
   const staticNavigation = ROLE_NAVIGATION[userRole] || [];
-  console.log('� [NAV] Using static navigation for role:', userRole, staticNavigation);
   return staticNavigation;
 }
 

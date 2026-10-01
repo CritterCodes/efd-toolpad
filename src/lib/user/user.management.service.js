@@ -11,7 +11,6 @@ export class UserManagementService {
         { email: 1 },
         { unique: true, background: true, name: 'unique_email_index' }
       );
-      console.log('✅ Created unique email index');
       
       await db.collection('users').createIndex(
         { userID: 1 },
@@ -23,7 +22,6 @@ export class UserManagementService {
         { background: true, sparse: true, name: 'google_id_index' }
       );
       
-      console.log('✅ Initialized all database indexes');
     } catch (error) {
       if (error.code === 11000) {
         console.warn('⚠️ Duplicate email index creation failed - duplicates exist in database');
@@ -38,15 +36,11 @@ export class UserManagementService {
 
   static async cleanupDuplicateEmails() {
     try {
-      console.log('🔄 Scanning for duplicate emails...');
       const duplicateEmails = await this.findDuplicateEmails();
-      console.log(`Found ${duplicateEmails.length} emails with duplicates`);
       
       for (const emailGroup of duplicateEmails) {
-        const email = emailGroup._id;
         const users = emailGroup.users;
         
-        console.log(`🔄 Processing ${users.length} duplicates for ${email}`);
         const sortedUsers = users.sort((a, b) => {
           const aProviders = Object.keys(a.providers || {}).length;
           const bProviders = Object.keys(b.providers || {}).length;
@@ -64,7 +58,6 @@ export class UserManagementService {
         await this.mergeDuplicateUsers(preferredUser, duplicateUsers);
       }
       
-      console.log('✅ Completed duplicate email cleanup');
     } catch (error) {
       console.error('Error cleaning up duplicate emails:', error);
       throw error;
@@ -97,7 +90,6 @@ export class UserManagementService {
       const db = await mongo.connect();
       if (duplicateUsers.length === 0) return;
       
-      console.log(`🔄 Merging ${duplicateUsers.length} duplicate users into ${preferredUser.userID}`);
       const mergeData = {
         providers: { ...preferredUser.providers },
         updatedAt: new Date(),
@@ -109,7 +101,6 @@ export class UserManagementService {
           Object.entries(duplicate.providers).forEach(([provider, data]) => {
             if (!mergeData.providers[provider] || !mergeData.providers[provider].verified) {
               mergeData.providers[provider] = data;
-              console.log(`✅ Merged ${provider} provider data from duplicate user`);
             }
           });
         }
@@ -128,7 +119,6 @@ export class UserManagementService {
       await db.collection('users').deleteMany({
         userID: { $in: duplicateIds }
       });
-      console.log(`✅ Removed ${duplicateUsers.length} duplicate users: ${duplicateIds.join(', ')}`);
     } catch (error) {
       console.error('Error merging duplicate users:', error);
     }
@@ -157,7 +147,6 @@ export class UserManagementService {
 
       const db = await mongo.connect();
       const result = await db.collection('users').insertOne(newUser);
-      console.log(`✅ Created new user: ${newUser.email} with role: ${newUser.role}`);
       return { ...newUser, _id: result.insertedId };
     } catch (error) {
       console.error('Error creating user:', error);

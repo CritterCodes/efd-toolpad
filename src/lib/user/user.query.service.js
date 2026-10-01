@@ -55,7 +55,6 @@ export class UserQueryService {
       });
       
       const preferredUser = sortedUsers[0];
-      console.log(`✅ Selected user ${preferredUser.userID} as preferred from ${users.length} duplicates`);
       
       await UserManagementService.mergeDuplicateUsers(preferredUser, sortedUsers.slice(1));
       
@@ -68,18 +67,8 @@ export class UserQueryService {
 
   static async findUserByUserID(userID) {
     try {
-      console.log('🔍 findUserByUserID - Looking for userID:', userID);
       const db = await mongo.connect();
       const user = await db.collection('users').findOne({ userID });
-      console.log('📋 findUserByUserID - Database result:', user ? {
-        userID: user.userID,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        role: user.role,
-        authProvider: user.authProvider,
-        primaryProvider: user.primaryProvider
-      } : 'USER NOT FOUND');
       return user;
     } catch (error) {
       console.error('❌ Error finding user by userID:', error);
