@@ -1,31 +1,6 @@
 {
-  "src/app/api/admin/migrate/products-status/route.js": {
-    "no-console": {
-      "count": 1
-    }
-  },
   "src/app/api/artisans/sync-vendor/route.js": {
     "no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/app/api/auth/emergency-logout/route.js": {
-    "no-console": {
-      "count": 2
-    }
-  },
-  "src/app/api/auth/logout/route.js": {
-    "no-console": {
-      "count": 2
-    }
-  },
-  "src/app/api/cron/release-drops/route.js": {
-    "no-console": {
-      "count": 1
-    }
-  },
-  "src/app/api/metal-prices/route.js": {
-    "no-console": {
       "count": 1
     }
   },
@@ -41,16 +16,6 @@
   },
   "src/app/api/sales-invoices/service.js": {
     "max-lines": {
-      "count": 1
-    }
-  },
-  "src/app/auth/complete-registration/page.js": {
-    "no-console": {
-      "count": 1
-    }
-  },
-  "src/app/components/clients/tabs/repairs.js": {
-    "no-console": {
       "count": 1
     }
   },
@@ -194,11 +159,6 @@
       "count": 1
     }
   },
-  "src/app/utils/email.util.js": {
-    "no-console": {
-      "count": 3
-    }
-  },
   "src/components/AppShell.js": {
     "max-lines": {
       "count": 1
@@ -267,11 +227,6 @@
   "src/utilities/auth/emergencyLogout.helpers.js": {
     "no-console": {
       "count": 56
-    }
-  },
-  "src/utils/s3.util.js": {
-    "no-console": {
-      "count": 2
     }
   },
   "src/utils/stlVolumeCalculator.js": {

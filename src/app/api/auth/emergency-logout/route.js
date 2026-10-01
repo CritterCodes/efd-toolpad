@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 
 export async function POST(req) {
   try {
-    console.log('🚨 [EMERGENCY_LOGOUT] Emergency logout request received')
     
     // Create response that clears all auth cookies
     const response = NextResponse.json({ 
@@ -56,7 +55,6 @@ export async function POST(req) {
       })
     })
     
-    console.log('✅ [EMERGENCY_LOGOUT] All auth cookies cleared')
     
     return response
     

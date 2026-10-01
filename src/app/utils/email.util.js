@@ -97,8 +97,7 @@ export async function sendVerificationEmail(email, token) {
     };
 
     try {
-        const info = await getTransporter().sendMail(mailOptions);
-        console.log('Verification email sent:', info.response);
+        await getTransporter().sendMail(mailOptions);
     } catch (error) {
         console.error('Error sending verification email:', error);
         throw new Error('Failed to send verification email');
@@ -130,8 +129,7 @@ export async function sendPasswordResetEmail(email, token) {
     };
 
     try {
-        const info = await getTransporter().sendMail(mailOptions);
-        console.log('Password reset email sent:', info.response);
+        await getTransporter().sendMail(mailOptions);
     } catch (error) {
         console.error('Error sending password reset email:', error);
         throw new Error('Failed to send password reset email');
@@ -162,8 +160,7 @@ export async function sendInviteEmail(email, token, firstName) {
     };
 
     try {
-        const info = await getTransporter().sendMail(mailOptions);
-        console.log('Invite email sent:', info.response);
+        await getTransporter().sendMail(mailOptions);
     } catch (error) {
         console.error('Error sending invite email:', error);
         throw new Error('Failed to send invite email');

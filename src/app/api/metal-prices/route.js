@@ -94,7 +94,6 @@ export async function POST(req) {
       { upsert: true }
     );
 
-    console.log('✅ Metal prices updated:', { gold, silver, platinum, palladium });
 
     return Response.json({
       success: true,

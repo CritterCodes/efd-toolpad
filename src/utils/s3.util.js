@@ -19,7 +19,6 @@ export const uploadFileToS3 = async (file, folder = 'admin/general', prefix = ''
         }));
 
         const fileUrl = storageUrl(fileKey);
-        console.log('✅ File uploaded successfully:', fileUrl);
         return fileUrl;
     } catch (error) {
         console.error("❌ Error uploading file:", error);
@@ -63,7 +62,6 @@ export const uploadBase64ToS3 = async (base64Data, fileName, fileType, folder = 
         }));
 
         const fileUrl = storageUrl(fileKey);
-        console.log('✅ Base64 image uploaded successfully:', fileUrl);
         return fileUrl;
     } catch (error) {
         console.error("❌ Error uploading base64 image:", error);
