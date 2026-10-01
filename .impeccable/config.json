@@ -1,0 +1,30 @@
+{
+  "detector": {
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "space grotesk",
+        "files": [
+          "src/lib/theme.js"
+        ],
+        "reason": "EFD's brand face, shared with efd-shop (DESIGN.md, Typography; owner 2026-10-01: keep the brand)."
+      },
+      {
+        "rule": "overused-font",
+        "value": "arial",
+        "files": [
+          "src/app/dashboard/repairs/pick-up/page.js"
+        ],
+        "reason": "The printed pickup invoice: ink on white in a font every printer has."
+      }
+    ],
+    "ignoreFiles": [
+      "src/components/print/**",
+      "src/services/customs/customInvoiceHtml.js",
+      "src/app/api/admin/test-email/route.js",
+      "src/app/utils/email.util.js",
+      "src/styles/dashboard-print.css"
+    ]
+  },
+  "updateCheck": false
+}

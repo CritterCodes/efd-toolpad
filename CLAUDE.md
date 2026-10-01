@@ -11,6 +11,7 @@
 | Products, listings, the shop catalog | `docs/manufacturing/PRODUCTS_ARE_PROJECTIONS.md` — nobody authors a Product, ever |
 | Drops | `docs/manufacturing/DROPS_STATE_AND_FACELIFT.md` (2026-09-01 audit + owner sequencing) |
 | Catalog, Collections, Designs, Pieces, casting, custom orders | `docs/manufacturing/CLAUDE_HANDOFF_2026-07-17.md`, `README.md`, `data-model.md`, `PRODUCTION_PIPELINE_VISION.md` (all in `docs/manufacturing/`) |
+| Any UI: a page, a component, styling | `DESIGN.md` (the brand: black and white, one gold — refine, don't re-theme) and `PRODUCT.md`; the `/impeccable` skill (`audit`, `critique`, `polish`) reads both. `npm run design:report` lists drift (report-only) |
 | Pricing | `src/services/pricing/engine.js` and `catalog.js` headers — one engine, no stored prices, no fallbacks |
 | Artisan terms, apprenticeship | `docs/policies/` |
 | A decision that isn't yours | `docs/OPEN-QUESTIONS.md` — add it there with a recommendation; don't decide it |
