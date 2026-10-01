@@ -5,6 +5,7 @@ import { LEGACY_BENCH_STATUS, REPAIR_STATUS } from '@/services/repairWorkflow';
 import { NotificationService, CHANNELS } from '@/lib/notificationService';
 import { adminLink } from '@/lib/appUrls';
 import WorkOrdersModel from '@/app/api/workOrders/model';
+import { isQuoteRequested, receivedMessage } from '@/services/repairs/quoteRequest';
 
 // POST /api/wholesale/repairs/receive - Batch receive wholesale repairs
 export async function POST(request) {
@@ -33,26 +34,29 @@ export async function POST(request) {
                     isWholesale: true,
                     status: { $in: [REPAIR_STATUS.PENDING_PICKUP, REPAIR_STATUS.PICKUP_REQUESTED, REPAIR_STATUS.SHIPPED_TO_SHOP] },
                 },
-                { projection: { _id: 0, repairID: 1, userID: 1, createdBy: 1 } },
+                { projection: { _id: 0, repairID: 1, userID: 1, createdBy: 1, quoteRequest: 1 } },
             )
             .toArray();
 
-        const result = await dbInstance.collection('repairs').updateMany(
-            {
-                repairID: { $in: repairIDs },
-                isWholesale: true,
-                status: { $in: [REPAIR_STATUS.PENDING_PICKUP, REPAIR_STATUS.PICKUP_REQUESTED, REPAIR_STATUS.SHIPPED_TO_SHOP] }
-            },
-            {
-                $set: {
-                    status: REPAIR_STATUS.READY_FOR_WORK,
-                    benchStatus: LEGACY_BENCH_STATUS.UNCLAIMED,
-                    receivedAt: new Date(),
-                    receivedBy: session.user.userID,
-                    updatedAt: new Date()
-                }
-            }
-        );
+        // A Request Quote job (no tasks, $0) waits in NEEDS QUOTE, off the bench, until staff price it; pricing
+        // moves it to READY FOR WORK (owner, 2026-10-01, OPEN-QUESTIONS Q8). Everything else is ready for work.
+        const quoteIDs = new Set(receivable.filter(isQuoteRequested).map((r) => r.repairID));
+        const now = new Date();
+        const receiveInto = async (ids, status, benchStatus) => {
+            if (!ids.length) return 0;
+            const res = await dbInstance.collection('repairs').updateMany(
+                {
+                    repairID: { $in: ids },
+                    isWholesale: true,
+                    status: { $in: [REPAIR_STATUS.PENDING_PICKUP, REPAIR_STATUS.PICKUP_REQUESTED, REPAIR_STATUS.SHIPPED_TO_SHOP] }
+                },
+                { $set: { status, benchStatus, receivedAt: now, receivedBy: session.user.userID, updatedAt: now } }
+            );
+            return res.modifiedCount;
+        };
+        const readyCount = await receiveInto(
+            repairIDs.filter((id) => !quoteIDs.has(id)), REPAIR_STATUS.READY_FOR_WORK, LEGACY_BENCH_STATUS.UNCLAIMED);
+        const quoteCount = await receiveInto([...quoteIDs], REPAIR_STATUS.NEEDS_QUOTE, null);
         // My Bench lists work orders: without this the job is on no bench (Unclaimed included).
         await WorkOrdersModel.syncFromRepairIDs(receivable.map((r) => r.repairID));
 
@@ -90,7 +94,7 @@ export async function POST(request) {
                 recipientEmail: user?.email || '',
                 type: 'wholesale-received',
                 title: 'We received your repairs',
-                message: `${ids.length} repair(s) checked in at the shop and queued for work: ${ids.join(', ')}`,
+                message: receivedMessage(ids, quoteIDs),
                 channels: [CHANNELS.IN_APP, CHANNELS.EMAIL],
                 priority: 'normal',
                 tags: ['wholesale', 'receiving'],
@@ -106,8 +110,9 @@ export async function POST(request) {
 
         return NextResponse.json({
             success: true,
-            received: result.modifiedCount,
-            message: `${result.modifiedCount} repair(s) moved to ready for work`
+            received: readyCount + quoteCount,
+            needsQuote: quoteCount,
+            message: `${readyCount} repair(s) moved to ready for work${quoteCount ? `, ${quoteCount} waiting on a quote` : ''}`
         });
 
     } catch (error) {

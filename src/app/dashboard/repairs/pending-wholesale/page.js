@@ -16,11 +16,13 @@ import { wholesaleRepairsClient } from '@/api-clients/wholesaleRepairs.client';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import { isAdminRole, canReceiveWholesale } from '@/lib/repairAccess';
 import { normalizeRepairWorkflow, REPAIR_STATUS } from '@/services/repairWorkflow';
+import NeedsQuoteList from './NeedsQuoteList';
 
 export default function PendingWholesalePage() {
     const { data: session } = useSession();
     const router = useRouter();
     const [repairs, setRepairs] = useState([]);
+    const [needsQuote, setNeedsQuote] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -28,11 +30,14 @@ export default function PendingWholesalePage() {
         try {
             setLoading(true);
             setError(null);
-            const [pendingData, pickupData, shippedData] = await Promise.all([
+            const [pendingData, pickupData, shippedData, quoteData] = await Promise.all([
                 wholesaleRepairsClient.fetchRepairs({ status: REPAIR_STATUS.PENDING_PICKUP }),
                 wholesaleRepairsClient.fetchRepairs({ status: REPAIR_STATUS.PICKUP_REQUESTED }),
                 wholesaleRepairsClient.fetchRepairs({ status: REPAIR_STATUS.SHIPPED_TO_SHOP }),
+                // Checked in but waiting on a quote (Q8): in the shop, off the bench.
+                wholesaleRepairsClient.fetchRepairs({ status: REPAIR_STATUS.NEEDS_QUOTE }),
             ]);
+            setNeedsQuote(quoteData.repairs || []);
             // Inbound shipments surface first: a box already in transit is the most
             // time-sensitive thing on this page.
             setRepairs([...(shippedData.repairs || []), ...(pickupData.repairs || []), ...(pendingData.repairs || [])].map(normalizeRepairWorkflow));
@@ -157,7 +162,11 @@ export default function PendingWholesalePage() {
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
                     <CircularProgress sx={{ color: REPAIRS_UI.accent }} />
                 </Box>
-            ) : stores.length === 0 ? (
+            ) : null}
+
+            {!loading && <NeedsQuoteList repairs={needsQuote} />}
+
+            {loading ? null : stores.length === 0 ? (
                 <Box
                     sx={{
                         backgroundColor: REPAIRS_UI.bgPanel,
