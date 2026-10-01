@@ -3,25 +3,13 @@
 import * as React from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardActions from '@mui/material/CardActions';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogTitle from '@mui/material/DialogTitle';
-import FormControl from '@mui/material/FormControl';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import Grid from '@mui/material/Grid';
-import InputLabel from '@mui/material/InputLabel';
-import MenuItem from '@mui/material/MenuItem';
-import Select from '@mui/material/Select';
 import Stack from '@mui/material/Stack';
-import Switch from '@mui/material/Switch';
-import Divider from '@mui/material/Divider';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -29,21 +17,12 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import Link from 'next/link';
 import { LoadingButton } from '@mui/lab';
-
-function formatMoney(value) {
-  return Number(value || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-}
-
-function formatDate(value) {
-  if (!value) return 'N/A';
-  return new Date(value).toLocaleString();
-}
-
-function identifierHelperText(label) {
-  return `${label} can be pasted one per line or comma separated.`;
-}
+import { formatDate, formatMoney, identifierHelperText } from './stullerParts';
+import { StullerInvoiceDialog } from './StullerInvoiceDialog';
+import { StullerInvoicesCard } from './StullerInvoicesCard';
+import { StullerApiSettingsCard } from './StullerApiSettingsCard';
+import { stullerActions } from './stullerActions';
 
 export default function StullerSettingsPage() {
   const [loading, setLoading] = React.useState(false);
@@ -147,191 +126,20 @@ export default function StullerSettingsPage() {
     loadPageData();
   }, [loadPageData]);
 
-  const saveStullerSettings = async () => {
-    try {
-      setUpdating(true);
-      clearMessages();
+  const {
+    saveStullerSettings, testConnection, updatePrices, syncOrders, syncInvoices, createExpenseFromInvoice,
+    openInvoiceDetails,
+  } = stullerActions({
+    clearMessages, invoiceNumberInput, invoicePoInput, loadInvoices, loadOrders, loadStullerMaterials,
+    loadStullerSettings, orderSyncInput, setCreatingExpenseId, setError, setLoadingInvoiceDetail,
+    setSelectedInvoice, setSuccess, setSyncingInvoices, setSyncingOrders, setTesting, setUpdating, settings,
+  });
 
-      const response = await fetch('/api/admin/settings/stuller', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save settings');
-      }
-
-      await loadStullerSettings();
-      setSuccess('Stuller settings saved successfully.');
-    } catch (saveError) {
-      console.error('Error saving Stuller settings:', saveError);
-      setError(saveError.message);
-    } finally {
-      setUpdating(false);
-    }
-  };
-
-  const testConnection = async () => {
-    try {
-      setTesting(true);
-      clearMessages();
-
-      const testData = {
-        username: settings.username,
-        password: settings.password === '********' ? '' : settings.password,
-        apiUrl: settings.apiUrl,
-      };
-
-      const response = await fetch('/api/admin/settings/stuller', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(testData),
-      });
-      const result = await response.json();
-
-      if (!result.success) {
-        throw new Error(result.error || 'Stuller connection test failed');
-      }
-
-      setSuccess(result.message || 'Stuller API connection successful.');
-    } catch (testError) {
-      console.error('Error testing Stuller connection:', testError);
-      setError(testError.message);
-    } finally {
-      setTesting(false);
-    }
-  };
-
-  const updatePrices = async (force = false) => {
-    try {
-      setUpdating(true);
-      clearMessages();
-
-      const response = await fetch('/api/stuller/update-prices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ force }),
-      });
-
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to update prices');
-      }
-
-      await loadStullerMaterials();
-      setSuccess(result.message || 'Stuller prices updated.');
-    } catch (priceError) {
-      console.error('Error updating Stuller prices:', priceError);
-      setError(priceError.message);
-    } finally {
-      setUpdating(false);
-    }
-  };
-
-  const syncOrders = async () => {
-    try {
-      setSyncingOrders(true);
-      clearMessages();
-
-      const response = await fetch('/api/stuller/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ purchaseOrderNumbers: orderSyncInput }),
-      });
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to sync Stuller orders');
-      }
-
-      await loadOrders();
-      setSuccess(`Synced ${result.syncedCount || 0} Stuller order${result.syncedCount === 1 ? '' : 's'}.`);
-    } catch (syncError) {
-      console.error('Error syncing Stuller orders:', syncError);
-      setError(syncError.message);
-    } finally {
-      setSyncingOrders(false);
-    }
-  };
-
-  const syncInvoices = async ({ recentDays = null, syncAll = false } = {}) => {
-    try {
-      setSyncingInvoices(true);
-      clearMessages();
-
-      const hasManualIdentifiers = Boolean(invoicePoInput.trim() || invoiceNumberInput.trim());
-      const response = await fetch('/api/stuller/invoices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          purchaseOrderNumbers: invoicePoInput,
-          invoiceNumbers: invoiceNumberInput,
-          recentDays: hasManualIdentifiers ? null : recentDays,
-          syncAll: hasManualIdentifiers ? false : syncAll,
-        }),
-      });
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to sync Stuller invoices');
-      }
-
-      await loadInvoices();
-      let message = `Synced ${result.syncedCount || 0} Stuller invoice${result.syncedCount === 1 ? '' : 's'}.`;
-      if (!hasManualIdentifiers && result.sourceMode === 'recent' && result.recentDays) {
-        message = `Synced ${result.syncedCount || 0} Stuller invoice${result.syncedCount === 1 ? '' : 's'} from the last ${result.recentDays} days.`;
-      } else if (!hasManualIdentifiers && result.sourceMode === 'all') {
-        message = `Synced ${result.syncedCount || 0} Stuller invoice${result.syncedCount === 1 ? '' : 's'} from the full account history currently returned by Stuller.`;
-      }
-      setSuccess(message);
-    } catch (syncError) {
-      console.error('Error syncing Stuller invoices:', syncError);
-      setError(syncError.message);
-    } finally {
-      setSyncingInvoices(false);
-    }
-  };
-
-  const createExpenseFromInvoice = async (invoiceId) => {
-    try {
-      setCreatingExpenseId(invoiceId);
-      clearMessages();
-
-      const response = await fetch(`/api/stuller/invoices/${invoiceId}/create-expense`, {
-        method: 'POST',
-      });
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to create Stuller expense');
-      }
-
-      setSuccess(`Created scheduled expense for Stuller invoice ${result.invoice?.invoiceNumber || invoiceId}.`);
-    } catch (createError) {
-      console.error('Error creating Stuller expense:', createError);
-      setError(createError.message);
-    } finally {
-      setCreatingExpenseId('');
-    }
-  };
-
-  const openInvoiceDetails = async (invoiceId) => {
-    try {
-      setLoadingInvoiceDetail(true);
-      clearMessages();
-
-      const response = await fetch(`/api/stuller/invoices/${invoiceId}`);
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to load Stuller invoice details');
-      }
-
-      setSelectedInvoice(result.invoice || null);
-    } catch (detailError) {
-      console.error('Error loading Stuller invoice detail:', detailError);
-      setError(detailError.message);
-    } finally {
-      setLoadingInvoiceDetail(false);
-    }
+  // Everything the extracted sections read, passed whole to each (each takes only the names it uses).
+  const stuller = {
+    createExpenseFromInvoice, creatingExpenseId, invoices, loading, loadingInvoiceDetail, openInvoiceDetails,
+    saveStullerSettings, selectedInvoice, setSelectedInvoice, setSettings, settings, testConnection, testing,
+    updating,
   };
 
   return (
@@ -349,77 +157,7 @@ export default function StullerSettingsPage() {
         {error && <Alert severity="error">{error}</Alert>}
         {success && <Alert severity="success">{success}</Alert>}
 
-        <Card>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>Stuller API Configuration</Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={settings.enabled}
-                      onChange={(e) => setSettings((current) => ({ ...current, enabled: e.target.checked }))}
-                    />
-                  }
-                  label="Enable Stuller Integration"
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Username"
-                  value={settings.username}
-                  onChange={(e) => setSettings((current) => ({ ...current, username: e.target.value }))}
-                  disabled={!settings.enabled}
-                  helperText="Use the Stuller username that has API access."
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  type="password"
-                  label="Password"
-                  value={settings.password}
-                  onChange={(e) => setSettings((current) => ({ ...current, password: e.target.value }))}
-                  disabled={!settings.enabled}
-                  helperText={settings.hasPassword ? 'Enter a new password to replace the stored one.' : 'Your Stuller API password.'}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="API URL"
-                  value={settings.apiUrl}
-                  onChange={(e) => setSettings((current) => ({ ...current, apiUrl: e.target.value }))}
-                  disabled={!settings.enabled}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth disabled={!settings.enabled}>
-                  <InputLabel>Update Frequency</InputLabel>
-                  <Select
-                    value={settings.updateFrequency}
-                    label="Update Frequency"
-                    onChange={(e) => setSettings((current) => ({ ...current, updateFrequency: e.target.value }))}
-                  >
-                    <MenuItem value="hourly">Hourly</MenuItem>
-                    <MenuItem value="daily">Daily</MenuItem>
-                    <MenuItem value="weekly">Weekly</MenuItem>
-                    <MenuItem value="manual">Manual Only</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
-          </CardContent>
-          <CardActions>
-            <LoadingButton variant="contained" loading={updating} onClick={saveStullerSettings} disabled={!settings.enabled}>
-              Save Settings
-            </LoadingButton>
-            <LoadingButton variant="outlined" loading={testing} onClick={testConnection} disabled={!settings.enabled || !settings.username}>
-              Test Connection
-            </LoadingButton>
-          </CardActions>
-        </Card>
+        <StullerApiSettingsCard {...stuller} />
 
         <Card>
           <CardContent>
@@ -544,70 +282,7 @@ export default function StullerSettingsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>Synced Invoices</Typography>
-            {loading ? (
-              <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>
-            ) : invoices.length === 0 ? (
-              <Typography color="text.secondary">No Stuller invoices have been synced yet.</Typography>
-            ) : (
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Invoice #</TableCell>
-                    <TableCell>PO</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Invoice Date</TableCell>
-                    <TableCell>Total</TableCell>
-                    <TableCell>Tracking</TableCell>
-                    <TableCell align="right">Action</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {invoices.map((invoice) => (
-                    <TableRow key={invoice.stullerInvoiceID}>
-                      <TableCell>{invoice.invoiceNumber || 'N/A'}</TableCell>
-                      <TableCell>{invoice.purchaseOrderNumber || 'N/A'}</TableCell>
-                      <TableCell><Chip size="small" label={invoice.status || 'Unknown'} /></TableCell>
-                      <TableCell>{formatDate(invoice.invoiceDate)}</TableCell>
-                      <TableCell>{formatMoney(invoice.total)}</TableCell>
-                      <TableCell>{invoice.trackingNumber || 'N/A'}</TableCell>
-                      <TableCell align="right">
-                        <Stack direction="row" spacing={1} justifyContent="flex-end">
-                          <Button
-                            variant="text"
-                            size="small"
-                            onClick={() => openInvoiceDetails(invoice.stullerInvoiceID)}
-                            disabled={loadingInvoiceDetail}
-                          >
-                            View Details
-                          </Button>
-                        <LoadingButton
-                          variant="outlined"
-                          size="small"
-                          loading={creatingExpenseId === invoice.stullerInvoiceID}
-                          onClick={() => createExpenseFromInvoice(invoice.stullerInvoiceID)}
-                        >
-                          Create Expense
-                        </LoadingButton>
-                        <Button
-                          component={Link}
-                          href={`/dashboard/finance/inventory?stullerInvoiceId=${encodeURIComponent(invoice.stullerInvoiceID)}`}
-                          variant="text"
-                          size="small"
-                        >
-                          Receive to Inventory
-                        </Button>
-                        </Stack>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+        <StullerInvoicesCard {...stuller} />
 
         <Card>
           <CardContent>
@@ -636,130 +311,7 @@ export default function StullerSettingsPage() {
         </Card>
       </Stack>
 
-      <Dialog
-        open={Boolean(selectedInvoice)}
-        onClose={() => setSelectedInvoice(null)}
-        maxWidth="lg"
-        fullWidth
-      >
-        <DialogTitle>
-          {selectedInvoice
-            ? `Stuller Invoice ${selectedInvoice.invoiceNumber || selectedInvoice.stullerInvoiceID}`
-            : 'Stuller Invoice'}
-        </DialogTitle>
-        <DialogContent dividers>
-          {!selectedInvoice ? null : (
-            <Stack spacing={3}>
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="caption" color="text.secondary">Invoice Number</Typography>
-                  <Typography variant="body1">{selectedInvoice.invoiceNumber || 'N/A'}</Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="caption" color="text.secondary">Order Number</Typography>
-                  <Typography variant="body1">{selectedInvoice.orderNumber || 'N/A'}</Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="caption" color="text.secondary">Purchase Order</Typography>
-                  <Typography variant="body1">{selectedInvoice.purchaseOrderNumber?.trim() || 'N/A'}</Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="caption" color="text.secondary">Status</Typography>
-                  <Box sx={{ mt: 0.5 }}>
-                    <Chip size="small" label={selectedInvoice.status || 'Unknown'} />
-                  </Box>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="caption" color="text.secondary">Invoice Date</Typography>
-                  <Typography variant="body1">{formatDate(selectedInvoice.invoiceDate)}</Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="caption" color="text.secondary">Tracking</Typography>
-                  <Typography variant="body1">{selectedInvoice.trackingNumber || 'N/A'}</Typography>
-                </Grid>
-              </Grid>
-
-              <Divider />
-
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="caption" color="text.secondary">Subtotal</Typography>
-                  <Typography variant="h6">{formatMoney(selectedInvoice.subtotal)}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="caption" color="text.secondary">Shipping</Typography>
-                  <Typography variant="h6">{formatMoney(selectedInvoice.shipping)}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="caption" color="text.secondary">Tax</Typography>
-                  <Typography variant="h6">{formatMoney(selectedInvoice.tax)}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="caption" color="text.secondary">Total</Typography>
-                  <Typography variant="h6">{formatMoney(selectedInvoice.total)}</Typography>
-                </Grid>
-              </Grid>
-
-              <Divider />
-
-              <Box>
-                <Typography variant="h6" gutterBottom>Line Items</Typography>
-                {!Array.isArray(selectedInvoice.items) || selectedInvoice.items.length === 0 ? (
-                  <Typography color="text.secondary">No invoice line items were returned for this Stuller invoice.</Typography>
-                ) : (
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Line</TableCell>
-                        <TableCell>Item #</TableCell>
-                        <TableCell>Description</TableCell>
-                        <TableCell>Qty</TableCell>
-                        <TableCell>Backordered</TableCell>
-                        <TableCell>Unit Price</TableCell>
-                        <TableCell>Total</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {selectedInvoice.items.map((item, index) => (
-                        <TableRow key={`${selectedInvoice.stullerInvoiceID}-${item.lineNumber || index}`}>
-                          <TableCell>{item.lineNumber || index + 1}</TableCell>
-                          <TableCell>{item.itemNumber || 'N/A'}</TableCell>
-                          <TableCell>{item.itemDescription || item.customerNotes || 'N/A'}</TableCell>
-                          <TableCell>{item.shipQuantity ?? 0}</TableCell>
-                          <TableCell>{item.backOrderedQuantity ?? 0}</TableCell>
-                          <TableCell>{formatMoney(item.unitPrice)}</TableCell>
-                          <TableCell>{formatMoney(item.lineTotal)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </Box>
-            </Stack>
-          )}
-        </DialogContent>
-        <DialogActions>
-          {selectedInvoice ? (
-            <Stack direction="row" spacing={1}>
-              <LoadingButton
-                variant="outlined"
-                loading={creatingExpenseId === selectedInvoice.stullerInvoiceID}
-                onClick={() => createExpenseFromInvoice(selectedInvoice.stullerInvoiceID)}
-              >
-                Create Expense
-              </LoadingButton>
-              <Button
-                component={Link}
-                href={`/dashboard/finance/inventory?stullerInvoiceId=${encodeURIComponent(selectedInvoice.stullerInvoiceID)}`}
-                variant="contained"
-              >
-                Receive to Inventory
-              </Button>
-            </Stack>
-          ) : null}
-          <Button onClick={() => setSelectedInvoice(null)}>Close</Button>
-        </DialogActions>
-      </Dialog>
+      <StullerInvoiceDialog {...stuller} />
     </Box>
   );
 }

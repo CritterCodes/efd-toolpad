@@ -24,11 +24,6 @@
       "count": 1
     }
   },
-  "src/app/dashboard/admin/stuller/page.js": {
-    "max-lines": {
-      "count": 1
-    }
-  },
   "src/app/dashboard/admin/tasks/components/TaskBuilderFormPage.js": {
     "max-lines": {
       "count": 1
