@@ -15,7 +15,7 @@
 | Artisan terms, apprenticeship | `docs/policies/` |
 | A decision that isn't yours | `docs/OPEN-QUESTIONS.md` — add it there with a recommendation; don't decide it |
 | Something slowed you down | `docs/FRICTION-LOG.md` — add a line |
-| What the last unattended run did | `docs/OVERNIGHT_2026-10-02.md` |
+| What the last unattended runs did | `docs/OVERNIGHT_2026-10-02.md` (night), `docs/OVERNIGHT_2026-10-01.md` (day) |
 | Old rulebooks (CONSTITUTION, DEVELOPMENT_STANDARDS, …) | `docs/archive/` — history only; where they disagree with lint or this file, they are wrong |
 
 Owner decisions in the July 17 handoff that still override older manufacturing docs: Drops and Collections are
