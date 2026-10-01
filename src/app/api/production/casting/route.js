@@ -7,6 +7,7 @@ import PiecesModel from '@/app/api/pieces/model';
 import { createCastingBatch, CastingError } from '@/services/production/castingBoard';
 import { isArtisanFrozen } from '@/services/production/artisanBilling';
 import { enrichBatch } from '@/services/production/castingBoardView';
+import { castingRefusal } from '@/services/production/productionAccess';
 
 /**
  * Fetch each batch's design + pieces once per distinct id, then project via the pure `enrichBatch`
@@ -54,6 +55,12 @@ export const POST = async (req) => {
   if (errorResponse) return errorResponse;
   const body = await req.json().catch(() => ({}));
   const ownerId = isStaff(session) && body.ownerId ? body.ownerId : session.user.userID;
+  // Signed in isn't enough: an artisan casts only pieces of a design they manage (productionAccess).
+  const refusal = await castingRefusal(session, body, {
+    loadDesign: (id) => DesignsModel.findById(id).catch(() => null),
+    loadPiece: (id) => PiecesModel.findById(id).catch(() => null),
+  });
+  if (refusal) return NextResponse.json({ error: refusal.error }, { status: refusal.status });
   // Freeze: an artisan with an overdue bill can't open new castings (nothing new until paid).
   if (await isArtisanFrozen(ownerId)) {
     return NextResponse.json({ error: 'Account frozen — pay the overdue invoice before ordering casting. See My Invoices under Finance.' }, { status: 402 });

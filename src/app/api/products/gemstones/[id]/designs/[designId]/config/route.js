@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
+import { LISTING_STAFF_ROLES } from '@/services/production/jewelryListingAccess';
 
 /**
  * PUT /api/products/gemstones/[id]/designs/[designId]/config
@@ -13,6 +14,11 @@ export async function PUT(request, { params }) {
         const session = await auth();
         if (!session?.user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        // Staff only. It writes prices onto a legacy `products` document; any signed-in account could
+        // (2026-10-01). Nothing in the app calls it; retiring it is the owner's call (OPEN-QUESTIONS).
+        if (!LISTING_STAFF_ROLES.has(session.user.role)) {
+            return NextResponse.json({ error: 'Access denied' }, { status: 403 });
         }
 
         const body = await request.json();
