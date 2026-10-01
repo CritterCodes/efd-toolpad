@@ -21,7 +21,8 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 
 import ContinuousBarcodeScanner from '@/components/repairs/ContinuousBarcodeScanner';
-import { SCAN_ACTIONS, scanActionByKey, runScanAction, summarizeScanRun } from '@/services/bench/scanActions';
+import { scanActionsFor, scanActionByKey, runScanAction, summarizeScanRun } from '@/services/bench/scanActions';
+import { hasNamedCapability } from '@/lib/repairAccess';
 import { BENCH_QUEUE, BENCH_TABS, isWorkOrderInTab } from '@/services/workOrders/workOrderWorkflow';
 import { uploadSizeError } from '@/lib/uploadLimits';
 import { directUpload, postFileWithProgress } from '@/lib/directUpload';
@@ -63,6 +64,7 @@ export default function BenchPage() {
   // What a scanned batch does. Claim is the default because it is how the piece reaches a bench;
   // everything after that is a move the jeweler makes with the piece already in hand.
   const [scanAction, setScanAction] = useState('claim');
+  const scanActions = useMemo(() => scanActionsFor((c) => hasNamedCapability(session, c)), [session]);
 
   // Bulk QC + parts
   const [bulkQcLoading, setBulkQcLoading] = useState(false);
@@ -364,7 +366,7 @@ export default function BenchPage() {
             onChange={(e) => setScanAction(e.target.value)}
             sx={{ minWidth: { xs: '100%', sm: 190 } }}
           >
-            {SCAN_ACTIONS.map((a) => <MenuItem key={a.key} value={a.key}>{a.label}</MenuItem>)}
+            {scanActions.map((a) => <MenuItem key={a.key} value={a.key}>{a.label}</MenuItem>)}
           </TextField>
           <Button type="submit" variant="outlined" startIcon={<ScanIcon />} disabled={scanLoading || !scanValue.trim()}>Queue Scan</Button>
           <Button type="button" variant="outlined" startIcon={<ScanIcon />} disabled={scanLoading} onClick={() => setClaimScannerOpen(true)}>Camera Scan</Button>
@@ -467,7 +469,7 @@ export default function BenchPage() {
           onChange={(e) => setScanAction(e.target.value)}
           sx={{ mb: 1.5 }}
         >
-          {SCAN_ACTIONS.map((a) => <MenuItem key={a.key} value={a.key}>{a.label}</MenuItem>)}
+          {scanActions.map((a) => <MenuItem key={a.key} value={a.key}>{a.label}</MenuItem>)}
         </TextField>
         {queuedClaimIDs.length > 0 ? (
           <Box>

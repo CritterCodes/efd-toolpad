@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import RepairsModel from '../../model';
 import { requireRepairOps } from '@/lib/apiAuth';
-import { buildCompleteFromQcUpdate } from '@/services/repairWorkflow';
+import { buildCompleteFromQcUpdate, REPAIR_STATUS } from '@/services/repairWorkflow';
 import { creditRepairLaborAtQc } from '@/services/repairs/benchHandoff';
 import { autoInvoiceAtQcPass } from '@/services/repairs/autoInvoice';
 
@@ -18,6 +18,11 @@ export const POST = async (req, { params }) => {
     // Credit labor on QC pass (one log per jeweler from the sign-off stamps) — same as the
     // unified bench path. Idempotent, so it's safe regardless of which surface completes QC.
     const repair = await RepairsModel.findById(repairID);
+    // Only a job IN QC can pass QC. Scanning (My Bench's "Approve QC") can pick up any ticket, and without this
+    // a job still on the bench would be completed, credited and invoiced unchecked.
+    if (repair.status !== REPAIR_STATUS.QC) {
+      return NextResponse.json({ error: `${repairID} isn't in QC (it's ${repair.status}).` }, { status: 409 });
+    }
     await creditRepairLaborAtQc({ repair, session });
 
     // QC pass always lands on COMPLETED first; auto-invoicing below advances the repair to

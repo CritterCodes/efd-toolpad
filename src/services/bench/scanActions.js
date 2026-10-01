@@ -26,7 +26,16 @@ export const SCAN_ACTIONS = Object.freeze([
   { key: 'parts', label: 'Needs parts', verb: 'Marked needs parts', mode: 'bulk', status: REPAIR_STATUS.NEEDS_PARTS },
   { key: 'comms', label: 'Communications', verb: 'Sent to communications', mode: 'bulk', status: REPAIR_STATUS.COMMUNICATION_REQUIRED },
   { key: 'ready', label: 'Ready for work', verb: 'Moved to ready for work', mode: 'bulk', status: REPAIR_STATUS.READY_FOR_WORK },
+  // QC sign-off by scan (owner, 2026-10-01: "I need to be able to scan jobs to approve them at QC"). The same
+  // route the Move & QC page uses: credits labor, completes, auto-invoices. Only offered to qualityControl
+  // holders, and the route refuses a job that isn't in QC.
+  { key: 'approve', label: 'Approve QC', verb: 'Approved', mode: 'per-repair', capability: 'qualityControl', path: (id) => `/api/repairs/${encodeURIComponent(id)}/complete-from-qc` },
 ]);
+
+/** The actions this person may run: an action with a `capability` needs it (hasNamedCapability). */
+export function scanActionsFor(hasCapability = () => false) {
+  return SCAN_ACTIONS.filter((a) => !a.capability || hasCapability(a.capability));
+}
 
 export function scanActionByKey(key) {
   return SCAN_ACTIONS.find((a) => a.key === key) || null;
