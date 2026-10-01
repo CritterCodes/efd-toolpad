@@ -66,3 +66,31 @@ crawl opens it because it opens every page file.
 **Recommendation:** retire it, but only after the 2026-10-31 usage report confirms nobody opens it.
 
 **Status:** open, waiting on the usage report.
+
+---
+
+### Q5 — Finish or remove the artisan vendor-profile sync? (opened 2026-10-01)
+
+**Context.** `POST /api/artisans/sync-vendor` builds a complete `vendorProfileData` object (vendor name, display name,
+slug, bio, location …) and then never sends or saves it. Found by the unused-variable burn-down. Whatever the route
+returns, the vendor profile it was written to create doesn't happen.
+
+**Recommendation:** decide what it was for. If the shop's vendor profiles are now made elsewhere, delete the route.
+If not, finish it. Left untouched overnight; it's one of the two `no-unused-vars` left.
+
+**Status:** open.
+
+---
+
+### Q6 — Let the emergency-logout diagnostics and the status migration print? (opened 2026-10-01)
+
+**Context.** `no-console` went from 368 to 82 overnight. The 82 left are output whose job is printing:
+`utilities/auth/emergencyLogout.helpers.js` (56) and `hooks/auth/useEmergencyLogout.js` (18), the diagnostic dump on
+the emergency-logout page, plus `lib/migrations/migrateToNewStatusModel.js` (8), a migration's progress lines.
+Removing them would hollow out those tools.
+
+**Recommendation:** mark each of the three files with one documented exception
+(`/* eslint-disable no-console -- printing diagnostics is this module's job */`) so `no-console` reaches zero and
+becomes a plain error. Better still, if the status migration has run everywhere, retire it.
+
+**Status:** open.

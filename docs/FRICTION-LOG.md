@@ -23,3 +23,9 @@ for a guardrail.
 - **2026-10-01: dev dependencies can't be installed locally.** The npm token is dead and this is a pnpm workspace
   member. **Fixed:** `.github/workflows/deps.yml` installs on a branch from CI. For local runs of `npm run views`,
   install `@playwright/test` + `mongodb-memory-server` into a scratch folder and point `VIEWS_MODULES` at it.
+- **2026-10-01: every burn-down PR conflicts on `eslint-suppressions.json`.** Each one prunes entries from the same
+  file, so after one merges the next conflicts. **Workaround:** merge `main` in, take `main`'s copy of the file, run
+  `npm run lint:prune`, push, wait for CI again. Merge burn-downs one at a time. **Proposed:** fewer, larger burn-down PRs.
+- **2026-10-01: "no `<h1>`" and "blank" caught pages still loading.** A busy CI runner saw `users/manage` on
+  "Loading users…" at desktop width but rendered at phone width, and failed an unrelated PR. **Fixed (#168):** the
+  check measures a title-less or blank page again once its spinner is gone (up to 8s).
