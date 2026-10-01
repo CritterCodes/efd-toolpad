@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Typography, List, ListItem } from '@mui/material';
+import { qrSrc } from '@/lib/qr';
 
 const PAPER = '#ffffff';
 const INK = '#111111';
@@ -50,13 +51,13 @@ const isEngelFineDesignRepair = (repair) => {
   return storeId === 'engel-fine-design' || storeName === 'engel fine design';
 };
 const getWholesaleAccountKey = (repair) => repair?.storeId || repair?.submittedBy || repair?.createdBy || null;
-const getRepairQrSrc = (repairID) => `https://api.qrserver.com/v1/create-qr-code/?size=${REPAIR_QR_SIZE}x${REPAIR_QR_SIZE}&margin=1&data=${encodeURIComponent(repairID || '')}`;
+const getRepairQrSrc = (repairID) => qrSrc(repairID || '', { size: REPAIR_QR_SIZE, margin: 1 });
 
 const RepairReceiptComponent = ({ repair, fullPage = false }) => {
   const allItems = getReceiptItems(repair);
   const isWholesale = Boolean(repair?.isWholesale);
   const showReviewQr = !isWholesale && isEngelFineDesignRepair(repair);
-  const reviewQrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=${REVIEW_QR_SIZE}x${REVIEW_QR_SIZE}&data=${encodeURIComponent(REVIEW_URL)}`;
+  const reviewQrSrc = qrSrc(REVIEW_URL, { size: REVIEW_QR_SIZE, margin: 1 });
   const [wholesaleBranding, setWholesaleBranding] = useState({ ticketLogoUrl: '', businessName: '' });
   const wholesaleAccountKey = useMemo(() => getWholesaleAccountKey(repair), [repair]);
   const displayedSubtotal = allItems.reduce(

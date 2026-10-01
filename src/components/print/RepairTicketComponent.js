@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Typography, List, ListItem } from '@mui/material';
+import { qrSrc } from '@/lib/qr';
 
 const PAPER = '#ffffff';
 const INK = '#111111';
@@ -31,7 +32,7 @@ const getTicketItems = (repair) => {
 const getItemDisplayPrice = (item) => Number(item?.price || 0);
 const getItemQuantity = (item) => Math.max(Number(item?.quantity) || 1, 1);
 const getItemLineTotal = (item) => getItemDisplayPrice(item) * getItemQuantity(item);
-const getRepairQrSrc = (repairID) => `https://api.qrserver.com/v1/create-qr-code/?size=${REPAIR_QR_SIZE}x${REPAIR_QR_SIZE}&margin=1&data=${encodeURIComponent(repairID || '')}`;
+const getRepairQrSrc = (repairID) => qrSrc(repairID || '', { size: REPAIR_QR_SIZE, margin: 1 });
 
 const RepairTicketComponent = ({ repair }) => {
   const allItems = getTicketItems(repair);
