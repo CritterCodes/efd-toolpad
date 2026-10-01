@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import WorkOrdersModel from '@/app/api/workOrders/model';
 import { db } from '@/lib/database';
 import { requireRepairOpsAny } from '@/lib/apiAuth';
 import { NotificationService, CHANNELS } from '@/lib/notificationService';
@@ -196,6 +197,7 @@ export async function POST(request) {
         { repairID: { $in: allRepairIDs } },
         { $set: { deliveryMethod: 'ship', outboundShipment: shipment, updatedAt: now } },
       );
+      await WorkOrdersModel.syncFromRepairIDs(allRepairIDs);
       await dbi.collection('repairInvoices').updateMany(
         { invoiceID: { $in: shippable.map((inv) => inv.invoiceID) } },
         { $set: { outboundShipment: shipment, deliveryMethod: 'ship', updatedAt: now } },

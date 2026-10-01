@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import WorkOrdersModel from '@/app/api/workOrders/model';
 import { db } from '@/lib/database';
 import { auth } from "@/lib/auth";
 
@@ -43,6 +44,7 @@ export async function PUT(request, { params }) {
         if (result.matchedCount === 0) {
             return NextResponse.json({ error: 'Repair not found' }, { status: 404 });
         }
+        await WorkOrdersModel.syncFromRepairIDs([repairId]);
 
         // Return updated repair
         const updatedRepair = await dbInstance.collection('repairs')

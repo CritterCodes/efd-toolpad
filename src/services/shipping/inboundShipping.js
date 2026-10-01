@@ -15,6 +15,7 @@
  * At cost: the invoice total IS the carrier rate. EFD fronts nothing.
  */
 import { db } from '@/lib/database';
+import WorkOrdersModel from '@/app/api/workOrders/model';
 import RepairInvoicesModel from '@/app/api/repair-invoices/model';
 import { NotificationService, CHANNELS } from '@/lib/notificationService';
 import { REPAIR_STATUS } from '@/services/repairWorkflow';
@@ -198,6 +199,7 @@ export async function fulfillPaidInboundLabel(invoiceID) {
     { repairID: { $in: req.repairIDs }, status: REPAIR_STATUS.PENDING_PICKUP },
     { $set: { status: REPAIR_STATUS.SHIPPED_TO_SHOP, deliveryMethod: 'ship', inboundShipment, updatedAt: now } },
   );
+  await WorkOrdersModel.syncFromRepairIDs(req.repairIDs);
   await RepairInvoicesModel.updateByInvoiceID(invoice.invoiceID, { inboundLabel: label, repairIDsShipped: req.repairIDs });
 
   const store = await dbi.collection('users').findOne({ userID: req.wholesalerUserID }, { projection: STORE_PROJECTION });

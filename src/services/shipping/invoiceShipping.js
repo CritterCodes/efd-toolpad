@@ -14,6 +14,7 @@
  * off the quote the difference is recorded (labelCostDrift), not rebilled.
  */
 import { db } from '@/lib/database';
+import WorkOrdersModel from '@/app/api/workOrders/model';
 import RepairInvoicesModel from '@/app/api/repair-invoices/model';
 import { calculateInvoiceTotals } from '@/app/api/repair-invoices/service';
 import { NotificationService, CHANNELS } from '@/lib/notificationService';
@@ -131,6 +132,7 @@ export async function buyInvoiceLabel({ invoiceID, actor = {} }) {
     { repairID: { $in: repairIDs } },
     { $set: { deliveryMethod: 'ship', outboundShipment, updatedAt: now } },
   );
+  await WorkOrdersModel.syncFromRepairIDs(repairIDs);
   const updated = await RepairInvoicesModel.updateByInvoiceID(invoice.invoiceID, {
     outboundShipment,
     'fulfillment.shipping.label': label,
