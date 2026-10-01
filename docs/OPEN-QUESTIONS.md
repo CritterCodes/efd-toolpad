@@ -27,7 +27,7 @@ preview check would rarely run anyway.
 environment variables or the real shape of the data. If that's ever wanted: non-admin roles only, their own
 throwaway passwords, rotated.
 
-**Status:** open.
+**Status:** DECIDED 2026-10-01 — owner: *"yes"*. Built in #174 (`scripts/views-remote.mjs`, `scripts/seed-preview-e2e.mjs`, Preview step in `ship.yml`). Inert until the owner seeds the dev accounts, sets the `E2E_PREVIEW_PASSWORD` secret, and turns preview builds back on in Vercel (Ignored Build Step).
 
 ---
 
@@ -40,7 +40,7 @@ at runtime — no bulk update needed." The button looks like it does something a
 **Recommendation:** remove the button (and the no-op route once nothing calls it). It moves no price. Left alone
 overnight because removing UI is the owner's call.
 
-**Status:** open.
+**Status:** DECIDED 2026-10-01 — owner: *"processes is retired"*. The Processes pages, AI builder, nav link and the no-op route were removed in #173. `/api/processes` and the data stay: the task builder and the pricing engine still read `task.processes`.
 
 ---
 
@@ -53,7 +53,7 @@ CONSTITUTIONAL_FILE_ORGANIZATION.md. GitHub Copilot loads it automatically for a
 **Recommendation:** replace it with a few lines pointing at `CLAUDE.md` (the router) and `eslint.config.mjs`. If
 nobody uses Copilot here, archive it like the others.
 
-**Status:** open.
+**Status:** DECIDED 2026-10-01 — owner: *"yes"*. Replaced with a pointer to `CLAUDE.md` + `eslint.config.mjs`; the old file is `docs/archive/copilot-instructions.md`.
 
 ---
 
@@ -65,7 +65,7 @@ crawl opens it because it opens every page file.
 
 **Recommendation:** retire it, but only after the 2026-10-31 usage report confirms nobody opens it.
 
-**Status:** open, waiting on the usage report.
+**Status:** DECIDED 2026-10-01 — owner: *"yes"*. Removed in #173 (without waiting for the usage report).
 
 ---
 
@@ -78,7 +78,7 @@ returns, the vendor profile it was written to create doesn't happen.
 **Recommendation:** decide what it was for. If the shop's vendor profiles are now made elsewhere, delete the route.
 If not, finish it. Left untouched overnight; it's one of the two `no-unused-vars` left.
 
-**Status:** open.
+**Status:** DECIDED 2026-10-01 — owner: *"remove"*. The route and the artisan profile's "Create Vendor Profile" menu item were removed in #173.
 
 ---
 
@@ -93,4 +93,4 @@ Removing them would hollow out those tools.
 (`/* eslint-disable no-console -- printing diagnostics is this module's job */`) so `no-console` reaches zero and
 becomes a plain error. Better still, if the status migration has run everywhere, retire it.
 
-**Status:** open.
+**Status:** DECIDED 2026-10-01 — owner: *"idk what that is remove"*. The emergency-logout page's debug-dump buttons and the old products status migration were removed in #173; the page's logout tools stay. `no-console` is 0 and a plain error.
