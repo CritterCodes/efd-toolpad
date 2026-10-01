@@ -74,11 +74,6 @@
       "count": 1
     }
   },
-  "src/app/dashboard/finance/inventory/FinanceInventoryClient.js": {
-    "max-lines": {
-      "count": 1
-    }
-  },
   "src/app/dashboard/products/drops/[dropId]/page.js": {
     "max-lines": {
       "count": 1
