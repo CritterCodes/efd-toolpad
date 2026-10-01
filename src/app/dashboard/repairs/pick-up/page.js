@@ -5,38 +5,27 @@ import { useSession } from "next-auth/react";
 import {
   Alert,
   Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Grid,
-  IconButton,
-  Pagination,
   Snackbar,
-  Stack,
   Tab,
   Tabs,
-  TextField,
   Typography,
 } from "@mui/material";
 import {
-  Close as CloseIcon,
   Payment as PaymentIcon,
-  QrCodeScanner as ScanIcon,
 } from "@mui/icons-material";
 import { REPAIRS_UI } from "@/app/dashboard/repairs/components/repairsUi";
 import ContinuousBarcodeScanner from "@/components/repairs/ContinuousBarcodeScanner";
 import { canAccessCloseout, canReopenInvoices as canReopenInvoicesGate } from "@/lib/repairAccess";
 import { hasAfterPhoto } from './invoicePrint';
-import { CLOSEOUT_ACTIVE_REPAIR_KEY, INVOICES_PER_PAGE, formatCurrency, getSessionValue, normalizeScannedInvoiceID, setSessionValue, summarizeInvoices } from './pickupHelpers';
-import { RepairCloseoutCard } from './RepairCloseoutCard';
-import { InvoiceCard } from './InvoiceCard';
+import { CLOSEOUT_ACTIVE_REPAIR_KEY, getSessionValue } from './pickupHelpers';
 import { invoiceActions } from './invoiceActions';
+import { useInvoiceList } from './useInvoiceList';
+import { ScannedRepairDialog } from './ScannedRepairDialog';
+import { InvoiceTabs } from './InvoiceTabs';
+import { CloseoutTab } from './CloseoutTab';
+import { InvoiceListToolbar } from './InvoiceListToolbar';
+import { closeoutActions } from './closeoutActions';
 
 export default function PaymentPickupPage() {
   const { data: session, status: authStatus } = useSession();
@@ -109,22 +98,6 @@ export default function PaymentPickupPage() {
     }
   }, [authStatus, loadData, session]);
 
-  const draftInvoices = useMemo(
-    () => invoices.filter((invoice) => invoice.status === "draft"),
-    [invoices]
-  );
-  const openInvoices = useMemo(
-    () => invoices.filter((invoice) => invoice.status === "open"),
-    [invoices]
-  );
-  const paidInvoices = useMemo(
-    () => invoices.filter((invoice) => invoice.status === "paid"),
-    [invoices]
-  );
-  const editableInvoices = useMemo(
-    () => invoices.filter((invoice) => invoice.paymentStatus !== "paid" && ["draft", "open"].includes(invoice.status)),
-    [invoices]
-  );
   const selectedRepairs = useMemo(
     () => closeoutRepairs.filter((repair) => selectedRepairIDs.includes(repair.repairID)),
     [closeoutRepairs, selectedRepairIDs]
@@ -170,253 +143,32 @@ export default function PaymentPickupPage() {
     ].some((value) => String(value || "").toLowerCase().includes(search)));
   }, [closeoutRepairs, closeoutSearch]);
 
-  const filterInvoices = useCallback((invoiceList) => {
-    const search = invoiceSearch.trim().toLowerCase();
-    if (!search) return invoiceList;
-
-    return invoiceList.filter((invoice) => [
-      invoice.invoiceID,
-      invoice.customerName,
-      invoice.accountID,
-      invoice.accountType,
-      invoice.paymentStatus,
-      ...(invoice.repairIDs || []),
-      ...(invoice.repairSnapshots || []).flatMap((repair) => [
-        repair.repairID,
-        repair.customerName,
-      ]),
-    ].some((value) => String(value || "").toLowerCase().includes(search)));
-  }, [invoiceSearch]);
-
-  const visibleDraftInvoices = useMemo(() => filterInvoices(draftInvoices), [draftInvoices, filterInvoices]);
-  const visibleOpenInvoices = useMemo(() => filterInvoices(openInvoices), [openInvoices, filterInvoices]);
-  const visiblePaidInvoices = useMemo(() => filterInvoices(paidInvoices), [paidInvoices, filterInvoices]);
-  const activeInvoiceList = tab === 1 ? visibleDraftInvoices : tab === 2 ? visibleOpenInvoices : visiblePaidInvoices;
-  const activeInvoiceSummary = useMemo(() => summarizeInvoices(activeInvoiceList), [activeInvoiceList]);
-  const activeInvoiceTotalPages = Math.max(1, Math.ceil(activeInvoiceList.length / INVOICES_PER_PAGE));
-  const activeInvoicePage = Math.min(invoicePage, activeInvoiceTotalPages);
-  const paginatedInvoiceList = useMemo(() => {
-    const start = (activeInvoicePage - 1) * INVOICES_PER_PAGE;
-    return activeInvoiceList.slice(start, start + INVOICES_PER_PAGE);
-  }, [activeInvoiceList, activeInvoicePage]);
-  const invoicePageStart = activeInvoiceList.length === 0
-    ? 0
-    : ((activeInvoicePage - 1) * INVOICES_PER_PAGE) + 1;
-  const invoicePageEnd = Math.min(activeInvoicePage * INVOICES_PER_PAGE, activeInvoiceList.length);
+  const {
+    draftInvoices, openInvoices, paidInvoices,
+    editableInvoices, visibleDraftInvoices, visibleOpenInvoices, visiblePaidInvoices,
+    activeInvoiceList, activeInvoiceSummary, activeInvoiceTotalPages, activeInvoicePage,
+    paginatedInvoiceList, invoicePageStart, invoicePageEnd,
+  } = useInvoiceList({ invoices, invoiceSearch, tab, invoicePage });
 
   useEffect(() => {
     setInvoicePage(1);
   }, [invoiceSearch, tab]);
 
-  const handleInvoiceScan = (value) => {
-    const invoiceID = normalizeScannedInvoiceID(value);
-    if (!invoiceID) return;
-
-    const matchedInvoice = invoices.find((invoice) =>
-      String(invoice.invoiceID || "").toLowerCase() === invoiceID.toLowerCase()
-    );
-
-    setInvoiceSearch(invoiceID);
-    setInvoiceScannerOpen(false);
-
-    if (!matchedInvoice) {
-      showMessage(`${invoiceID} was not found in repair invoices.`, "warning");
-      return;
-    }
-
-    if (matchedInvoice.status === "draft") {
-      setTab(1);
-    } else if (matchedInvoice.status === "open") {
-      setTab(2);
-    } else {
-      setTab(3);
-    }
-    showMessage(`Found invoice ${matchedInvoice.invoiceID}.`, "success");
-  };
-
-  const toggleRepairSelection = (repairID) => {
-    setSelectedRepairIDs((prev) =>
-      prev.includes(repairID) ? prev.filter((id) => id !== repairID) : [...prev, repairID]
-    );
-  };
-
-  const handleCloseoutNoteChange = (repairID, value) => {
-    setCloseoutNotes((prev) => ({ ...prev, [repairID]: value }));
-  };
-
-  const handleCloseoutScan = (repairID) => {
-    const cleanRepairID = String(repairID || "").trim();
-    if (!cleanRepairID) return;
-    const repair = closeoutRepairs.find((item) => item.repairID === cleanRepairID);
-    if (!repair) {
-      showMessage(`${cleanRepairID} is not in the Payment & Pickup queue.`, "warning");
-      return;
-    }
-    setCloseoutScannerOpen(false);
-    setSessionValue(CLOSEOUT_ACTIVE_REPAIR_KEY, cleanRepairID);
-    setScannedRepairID(cleanRepairID);
-  };
-
-  const handleSaveCloseoutPhoto = async (repairID, photoFile, noteValue) => {
-    try {
-      setSavingPhotoRepairID(repairID);
-      const formData = new FormData();
-      // Photo is optional now — appending a null would post the string "null" as a file part, which the
-      // closeout route would try to upload. Only send the part when there's an actual file.
-      if (photoFile) formData.append("afterPhotos", photoFile);
-      formData.append("closeoutNotes", noteValue || "");
-
-      const response = await fetch(`/api/repairs/${repairID}/closeout`, {
-        method: "POST",
-        body: formData,
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to save closeout.");
-      }
-
-      // Say what actually happened. A photo is optional now, so these strings can no longer claim one was
-      // saved — and since auto-invoice fires on every confirm, the invoice branch is the NORMAL path here,
-      // not the exception.
-      const savedWhat = photoFile ? "Closed out with photo" : "Closed out";
-
-      if (data.autoInvoiceError) {
-        setCloseoutRepairs((prev) => prev.map((repair) => (repair.repairID === repairID ? data : repair)));
-        showMessage(`${savedWhat} ${repairID}, but invoice was not created: ${data.autoInvoiceError}`, "warning");
-        return true;
-      }
-
-      await loadData();
-      showMessage(
-        data.autoInvoice?.invoiceID
-          ? `${savedWhat} — ${repairID} added to invoice ${data.autoInvoice.invoiceID}.`
-          : `${savedWhat} ${repairID}.`,
-        "success"
-      );
-      setSessionValue(CLOSEOUT_ACTIVE_REPAIR_KEY, "");
-      setScannedRepairID("");
-      return true;
-    } catch (error) {
-      showMessage(error.message, "error");
-      return false;
-    } finally {
-      setSavingPhotoRepairID("");
-    }
-  };
-
-  const handleCreateInvoice = async () => {
-    try {
-      if (selectedRepairIDs.length === 0) {
-        showMessage("Select at least one completed repair to batch.", "warning");
-        return;
-      }
-      // The after-photo precondition was removed here (owner, 2026-07-31): a missing photo was stopping
-      // finished work from being billed. Nothing else was ever enforced at this point — the old warning
-      // also claimed to check labor review, but requiresLaborReview is not a batching blocker anywhere.
-      //
-      // That warning was also the only thing standing between a stray tap and a batch of bills. Grace
-      // Close beside it confirms; this bills real money for N repairs and now does too. Same one-way door
-      // as the per-card confirm: invoiced repairs leave this queue and their after photos become
-      // unwritable without pulling them back off the invoice.
-      const count = selectedRepairIDs.length;
-      const missingPhotos = selectedMissingPhotoCount;
-      const confirmed = window.confirm(
-        `Create an invoice batch for ${count} repair${count !== 1 ? "s" : ""}?\n\n`
-        + `This bills them and moves them out of Payment & Pickup.`
-        + (missingPhotos > 0
-          ? `\n\n${missingPhotos} of them ${missingPhotos !== 1 ? "have" : "has"} no after photo. That's allowed — but to add one later you'd have to remove that repair from its invoice first.`
-          : '')
-      );
-      if (!confirmed) return;
-
-      setSubmittingInvoice(true);
-      const response = await fetch("/api/repair-invoices", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          repairIDs: selectedRepairIDs,
-          deliveryMethod,
-          deliveryFee: deliveryMethod === "delivery" ? parseFloat(deliveryFee || 0) : 0,
-          closeoutNotes: batchNotes,
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to create repair invoice.");
-      }
-
-      setSelectedRepairIDs([]);
-      setBatchNotes("");
-      setDeliveryMethod("pickup");
-      setDeliveryFee(5);
-      showMessage(`Created invoice ${data.invoiceID}.`, "success");
-      await loadData();
-      setTab(1);
-    } catch (error) {
-      showMessage(error.message, "error");
-    } finally {
-      setSubmittingInvoice(false);
-    }
-  };
-
-  const handleLegacyCloseSelected = async () => {
-    try {
-      if (selectedRepairIDs.length === 0) {
-        showMessage("Select at least one legacy repair to close.", "warning");
-        return;
-      }
-
-      const confirmed = window.confirm(
-        `Mark ${selectedRepairIDs.length} selected repair${selectedRepairIDs.length !== 1 ? "s" : ""} as paid and delivered?\n\nThis will remove them from Payment & Pickup without creating invoices or deleting records.`
-      );
-      if (!confirmed) return;
-
-      setLegacyClosing(true);
-      const response = await fetch("/api/repairs/closeout/legacy-close", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          repairIDs: selectedRepairIDs,
-          note: batchNotes || "Legacy cleanup from Payment & Pickup",
-        }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to close selected repairs.");
-      }
-
-      setSelectedRepairIDs([]);
-      setBatchNotes("");
-      await loadData();
-
-      const failed = Array.isArray(data.failed) ? data.failed : [];
-      if (failed.length > 0) {
-        showMessage(`Closed ${data.closed || 0}; ${failed.length} failed. ${failed.map((item) => `${item.repairID}: ${item.error}`).join(" | ")}`, "warning");
-      } else {
-        showMessage(`Legacy closed ${data.closed || selectedRepairIDs.length} repair${(data.closed || selectedRepairIDs.length) !== 1 ? "s" : ""}.`, "success");
-      }
-    } catch (error) {
-      showMessage(error.message, "error");
-    } finally {
-      setLegacyClosing(false);
-    }
-  };
+  const {
+    handleInvoiceScan, toggleRepairSelection, handleCloseoutNoteChange, handleCloseoutScan,
+    handleSaveCloseoutPhoto, handleCreateInvoice, handleLegacyCloseSelected,
+  } = closeoutActions({
+    batchNotes, closeoutRepairs, deliveryFee, deliveryMethod, invoices, loadData, selectedMissingPhotoCount,
+    selectedRepairIDs, setBatchNotes, setCloseoutNotes, setCloseoutRepairs, setCloseoutScannerOpen,
+    setDeliveryFee, setDeliveryMethod, setInvoiceScannerOpen, setInvoiceSearch, setLegacyClosing,
+    setSavingPhotoRepairID, setScannedRepairID, setSelectedRepairIDs, setSubmittingInvoice, setTab,
+    showMessage,
+  });
 
   const {
-    handleFinalizeInvoice,
-    handlePayLink,
-    handlePickedUp,
-    handleReopenInvoice,
-    handleCashPayment,
-    handleCreateStripe,
-    handleSyncStripe,
-    handleCardCollected,
-    handleConvertCashToCard,
-    handleCreateTerminal,
-    handleSyncTerminal,
-    handleUpdateDelivery,
-    handleSplitInvoice,
-    handleMergeInvoice,
+    handleFinalizeInvoice, handlePayLink, handlePickedUp, handleReopenInvoice, handleCashPayment,
+    handleCreateStripe, handleSyncStripe, handleCardCollected, handleConvertCashToCard, handleCreateTerminal,
+    handleSyncTerminal, handleUpdateDelivery, handleSplitInvoice, handleMergeInvoice,
     handleRemoveRepairsFromInvoice,
   } = invoiceActions({ showMessage, loadData, setTab, setCollectingTerminalInvoiceID });
 
@@ -498,303 +250,67 @@ export default function PaymentPickupPage() {
         <Tab label={`Paid / Closed (${paidInvoices.length})`} />
       </Tabs>
 
-      {tab > 0 && (
-        <Card sx={{ backgroundColor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, boxShadow: REPAIRS_UI.shadow, mb: 2 }}>
-          <CardContent>
-            <Stack spacing={1.5}>
-              <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ xs: "stretch", md: "center" }}>
-                <TextField
-                  label="Find Invoice"
-                  placeholder="Scan or search invoice ID, repair ID, customer, or account"
-                  value={invoiceSearch}
-                  onChange={(event) => setInvoiceSearch(event.target.value)}
-                  autoComplete="off"
-                  size="small"
-                  sx={{ flex: 1 }}
-                />
-                <Button
-                  variant="outlined"
-                  startIcon={<ScanIcon />}
-                  onClick={() => setInvoiceScannerOpen(true)}
-                  sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
-                >
-                  Scan to Search
-                </Button>
-                <Button
-                  variant="outlined"
-                  disabled={!invoiceSearch}
-                  onClick={() => setInvoiceSearch("")}
-                  sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
-                >
-                  Clear
-                </Button>
-                <Chip label={`${activeInvoiceSummary.count} shown`} />
-              </Stack>
+      <InvoiceListToolbar
+        activeInvoiceList={activeInvoiceList}
+        activeInvoicePage={activeInvoicePage}
+        activeInvoiceSummary={activeInvoiceSummary}
+        activeInvoiceTotalPages={activeInvoiceTotalPages}
+        invoicePageEnd={invoicePageEnd}
+        invoicePageStart={invoicePageStart}
+        invoiceSearch={invoiceSearch}
+        setInvoicePage={setInvoicePage}
+        setInvoiceScannerOpen={setInvoiceScannerOpen}
+        setInvoiceSearch={setInvoiceSearch}
+        tab={tab}
+      />
 
-              <Box
-                sx={{
-                  display: "grid",
-                  gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))" },
-                  gap: 1,
-                }}
-              >
-                {[
-                  ["Invoice Total", formatCurrency(activeInvoiceSummary.total)],
-                  ["Collected", formatCurrency(activeInvoiceSummary.collected)],
-                  ["Remaining", formatCurrency(activeInvoiceSummary.remaining)],
-                  ["Repairs", activeInvoiceSummary.repairs],
-                  ["Cash", formatCurrency(activeInvoiceSummary.cash)],
-                  ["Card", formatCurrency(activeInvoiceSummary.card)],
-                  ["Zelle", formatCurrency(activeInvoiceSummary.zelle)],
-                  ["Payments", activeInvoiceSummary.completedPayments],
-                ].map(([label, value]) => (
-                  <Box
-                    key={label}
-                    sx={{
-                      border: `1px solid ${REPAIRS_UI.border}`,
-                      backgroundColor: REPAIRS_UI.bgCard,
-                      borderRadius: 2,
-                      px: 1.25,
-                      py: 1,
-                      minWidth: 0,
-                    }}
-                  >
-                    <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: "block" }}>
-                      {label}
-                    </Typography>
-                    <Typography sx={{ color: REPAIRS_UI.textPrimary, fontWeight: 700, overflowWrap: "anywhere" }}>
-                      {value}
-                    </Typography>
-                  </Box>
-                ))}
-              </Box>
+      <CloseoutTab
+        batchNotes={batchNotes}
+        closeoutNotes={closeoutNotes}
+        closeoutRepairs={closeoutRepairs}
+        closeoutSearch={closeoutSearch}
+        handleCloseoutNoteChange={handleCloseoutNoteChange}
+        handleCreateInvoice={handleCreateInvoice}
+        handleLegacyCloseSelected={handleLegacyCloseSelected}
+        handleSaveCloseoutPhoto={handleSaveCloseoutPhoto}
+        legacyClosing={legacyClosing}
+        router={router}
+        savingPhotoRepairID={savingPhotoRepairID}
+        selectedRepairIDs={selectedRepairIDs}
+        setBatchNotes={setBatchNotes}
+        setCloseoutScannerOpen={setCloseoutScannerOpen}
+        setCloseoutSearch={setCloseoutSearch}
+        submittingInvoice={submittingInvoice}
+        tab={tab}
+        toggleRepairSelection={toggleRepairSelection}
+        visibleCloseoutRepairs={visibleCloseoutRepairs}
+      />
 
-              {activeInvoiceList.length > INVOICES_PER_PAGE && (
-                <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ xs: "stretch", md: "center" }} justifyContent="space-between">
-                  <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
-                    Showing {invoicePageStart}-{invoicePageEnd} of {activeInvoiceList.length}
-                  </Typography>
-                  <Pagination
-                    page={activeInvoicePage}
-                    count={activeInvoiceTotalPages}
-                    onChange={(event, value) => setInvoicePage(value)}
-                    color="primary"
-                    size="small"
-                    sx={{
-                      alignSelf: { xs: "center", md: "auto" },
-                      "& .MuiPaginationItem-root": {
-                        color: REPAIRS_UI.textPrimary,
-                        borderColor: REPAIRS_UI.border,
-                      },
-                    }}
-                  />
-                </Stack>
-              )}
-            </Stack>
-          </CardContent>
-        </Card>
-      )}
-
-      {tab === 0 && (
-        <Stack spacing={2.5}>
-          <Alert severity="info" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
-            Use the repair editor for missed tasks, materials, and custom charges before batching. After photo is mandatory.
-          </Alert>
-          <Alert severity="warning" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
-            For old repairs that were already paid and delivered outside this invoice workflow, select the cards and use Grace Close Selected. This keeps an audit note and removes them from this queue.
-          </Alert>
-
-          <Card sx={{ backgroundColor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, boxShadow: REPAIRS_UI.shadow }}>
-            <CardContent>
-              <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ xs: "stretch", md: "center" }}>
-                <TextField
-                  label="Find Repair"
-                  placeholder="Scan or search repair ID, customer, or description"
-                  value={closeoutSearch}
-                  onChange={(event) => setCloseoutSearch(event.target.value)}
-                  autoComplete="off"
-                  size="small"
-                  sx={{ flex: 1 }}
-                />
-                <Button
-                  variant="outlined"
-                  startIcon={<ScanIcon />}
-                  onClick={() => setCloseoutScannerOpen(true)}
-                  sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
-                >
-                  Camera Scan
-                </Button>
-                <Button
-                  variant="outlined"
-                  disabled={!closeoutSearch}
-                  onClick={() => setCloseoutSearch("")}
-                  sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
-                >
-                  Clear
-                </Button>
-                <Chip label={`${visibleCloseoutRepairs.length} shown`} />
-              </Stack>
-            </CardContent>
-          </Card>
-
-          <Card sx={{ backgroundColor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, boxShadow: REPAIRS_UI.shadow }}>
-            <CardContent>
-              <Stack spacing={2}>
-                <Typography sx={{ fontWeight: 700, color: REPAIRS_UI.textHeader }}>Batch Selected Repairs</Typography>
-                {/* Manual batches are created as pickup drafts; how they go back (pickup or ship) is decided
-                    at Finalize. Hand delivery is no longer offered (owner, 2026-09-21). */}
-                <TextField label="Invoice Notes" value={batchNotes} onChange={(event) => setBatchNotes(event.target.value)} multiline minRows={2} />
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ xs: "stretch", sm: "center" }}>
-                  <Chip label={`${selectedRepairIDs.length} selected`} />
-                  <Button variant="contained" disabled={selectedRepairIDs.length === 0 || submittingInvoice} onClick={handleCreateInvoice} sx={{ backgroundColor: REPAIRS_UI.accent, color: "#111" }}>
-                    {submittingInvoice ? "Creating Invoice..." : "Create Invoice Batch"}
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    disabled={selectedRepairIDs.length === 0 || legacyClosing}
-                    onClick={handleLegacyCloseSelected}
-                    sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
-                  >
-                    {legacyClosing ? "Closing..." : `Grace Close Selected (${selectedRepairIDs.length})`}
-                  </Button>
-                </Stack>
-              </Stack>
-            </CardContent>
-          </Card>
-
-          {closeoutRepairs.length === 0 ? (
-            <Alert severity="success" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
-              No completed repairs are waiting for closeout.
-            </Alert>
-          ) : (
-            <Grid container spacing={2}>
-              {visibleCloseoutRepairs.map((repair) => (
-                <Grid item xs={12} lg={6} key={repair.repairID}>
-                  <RepairCloseoutCard
-                    repair={repair}
-                    isSelected={selectedRepairIDs.includes(repair.repairID)}
-                    onToggleSelect={toggleRepairSelection}
-                    noteValue={closeoutNotes[repair.repairID] || ""}
-                    onNoteChange={handleCloseoutNoteChange}
-                    photoState={{ loading: savingPhotoRepairID === repair.repairID }}
-                    onConfirmCloseout={handleSaveCloseoutPhoto}
-                    onEditRepair={(repairID) => router.push(`/dashboard/repairs/${repairID}/edit?returnTo=closeout`)}
-                    highlighted={false}
-                  />
-                </Grid>
-              ))}
-            </Grid>
-          )}
-        </Stack>
-      )}
-
-      {tab === 1 && (
-        <Stack spacing={2}>
-          {visibleDraftInvoices.length === 0 ? (
-            <Alert severity="info" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
-              No draft repair invoices.
-            </Alert>
-          ) : (
-            paginatedInvoiceList.map((invoice) => (
-              <InvoiceCard
-                key={invoice.invoiceID}
-                invoice={invoice}
-                mergeTargets={editableInvoices.filter((target) =>
-                  target.invoiceID !== invoice.invoiceID
-                  && target.accountType === invoice.accountType
-                  && target.accountID === invoice.accountID
-                )}
-                onFinalize={handleFinalizeInvoice}
-                onCashPay={handleCashPayment}
-                onCreateStripe={handleCreateStripe}
-                onSyncStripe={handleSyncStripe}
-                onCardCollected={handleCardCollected}
-                onConvertCashToCard={handleConvertCashToCard}
-                onCreateTerminal={handleCreateTerminal}
-                onSyncTerminal={handleSyncTerminal}
-                collectingTerminalInvoiceID={collectingTerminalInvoiceID}
-                onUpdateDelivery={handleUpdateDelivery}
-                onSplitInvoice={handleSplitInvoice}
-                onMergeInvoice={handleMergeInvoice}
-                onRemoveRepairs={handleRemoveRepairsFromInvoice}
-                onPayLink={handlePayLink}
-                onPickedUp={handlePickedUp}
-              />
-            ))
-          )}
-        </Stack>
-      )}
-
-      {tab === 2 && (
-        <Stack spacing={2}>
-          {visibleOpenInvoices.length === 0 ? (
-            <Alert severity="info" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
-              No open repair invoices.
-            </Alert>
-          ) : (
-            paginatedInvoiceList.map((invoice) => (
-              <InvoiceCard
-                key={invoice.invoiceID}
-                invoice={invoice}
-                mergeTargets={editableInvoices.filter((target) =>
-                  target.invoiceID !== invoice.invoiceID
-                  && target.accountType === invoice.accountType
-                  && target.accountID === invoice.accountID
-                )}
-                onFinalize={handleFinalizeInvoice}
-                onCashPay={handleCashPayment}
-                onCreateStripe={handleCreateStripe}
-                onSyncStripe={handleSyncStripe}
-                onCardCollected={handleCardCollected}
-                onConvertCashToCard={handleConvertCashToCard}
-                onCreateTerminal={handleCreateTerminal}
-                onSyncTerminal={handleSyncTerminal}
-                collectingTerminalInvoiceID={collectingTerminalInvoiceID}
-                onUpdateDelivery={handleUpdateDelivery}
-                onSplitInvoice={handleSplitInvoice}
-                onMergeInvoice={handleMergeInvoice}
-                onRemoveRepairs={handleRemoveRepairsFromInvoice}
-                onPayLink={handlePayLink}
-                onPickedUp={handlePickedUp}
-              />
-            ))
-          )}
-        </Stack>
-      )}
-
-      {tab === 3 && (
-        <Stack spacing={2}>
-          {visiblePaidInvoices.length === 0 ? (
-            <Alert severity="info" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
-              No paid repair invoices yet.
-            </Alert>
-          ) : (
-            paginatedInvoiceList.map((invoice) => (
-              <InvoiceCard
-                key={invoice.invoiceID}
-                invoice={invoice}
-                mergeTargets={[]}
-                onFinalize={handleFinalizeInvoice}
-                onCashPay={handleCashPayment}
-                onCreateStripe={handleCreateStripe}
-                onSyncStripe={handleSyncStripe}
-                onCardCollected={handleCardCollected}
-                onConvertCashToCard={handleConvertCashToCard}
-                onCreateTerminal={handleCreateTerminal}
-                onSyncTerminal={handleSyncTerminal}
-                collectingTerminalInvoiceID={collectingTerminalInvoiceID}
-                onUpdateDelivery={handleUpdateDelivery}
-                onSplitInvoice={handleSplitInvoice}
-                onMergeInvoice={handleMergeInvoice}
-                onRemoveRepairs={handleRemoveRepairsFromInvoice}
-                onPayLink={handlePayLink}
-                onPickedUp={handlePickedUp}
-                onReopen={canReopenInvoices ? handleReopenInvoice : undefined}
-              />
-            ))
-          )}
-        </Stack>
-      )}
+      <InvoiceTabs
+        canReopenInvoices={canReopenInvoices}
+        collectingTerminalInvoiceID={collectingTerminalInvoiceID}
+        editableInvoices={editableInvoices}
+        handleCardCollected={handleCardCollected}
+        handleCashPayment={handleCashPayment}
+        handleConvertCashToCard={handleConvertCashToCard}
+        handleCreateStripe={handleCreateStripe}
+        handleCreateTerminal={handleCreateTerminal}
+        handleFinalizeInvoice={handleFinalizeInvoice}
+        handleMergeInvoice={handleMergeInvoice}
+        handlePayLink={handlePayLink}
+        handlePickedUp={handlePickedUp}
+        handleRemoveRepairsFromInvoice={handleRemoveRepairsFromInvoice}
+        handleReopenInvoice={handleReopenInvoice}
+        handleSplitInvoice={handleSplitInvoice}
+        handleSyncStripe={handleSyncStripe}
+        handleSyncTerminal={handleSyncTerminal}
+        handleUpdateDelivery={handleUpdateDelivery}
+        paginatedInvoiceList={paginatedInvoiceList}
+        tab={tab}
+        visibleDraftInvoices={visibleDraftInvoices}
+        visibleOpenInvoices={visibleOpenInvoices}
+        visiblePaidInvoices={visiblePaidInvoices}
+      />
 
       <Snackbar open={snackbar.open} autoHideDuration={5000} onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}>
         <Alert severity={snackbar.severity} onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}>
@@ -802,74 +318,19 @@ export default function PaymentPickupPage() {
         </Alert>
       </Snackbar>
 
-      <Dialog
-        open={Boolean(scannedRepairID)}
-        onClose={() => {
-          setSessionValue(CLOSEOUT_ACTIVE_REPAIR_KEY, "");
-          setScannedRepairID("");
-        }}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", pb: 1 }}>
-          <Typography sx={{ fontWeight: 700, color: REPAIRS_UI.textHeader }}>
-            {scannedRepair ? (scannedRepair.clientName || scannedRepair.businessName || scannedRepair.repairID) : scannedRepairID}
-          </Typography>
-          <IconButton
-            onClick={() => {
-              setSessionValue(CLOSEOUT_ACTIVE_REPAIR_KEY, "");
-              setScannedRepairID("");
-            }}
-            size="small"
-          >
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent sx={{ p: 0 }}>
-          {scannedRepair ? (
-            <RepairCloseoutCard
-              repair={scannedRepair}
-              isSelected={selectedRepairIDs.includes(scannedRepair.repairID)}
-              onToggleSelect={toggleRepairSelection}
-              noteValue={closeoutNotes[scannedRepair.repairID] || ""}
-              onNoteChange={handleCloseoutNoteChange}
-              photoState={{ loading: savingPhotoRepairID === scannedRepair.repairID }}
-              onConfirmCloseout={handleSaveCloseoutPhoto}
-              onEditRepair={(repairID) => router.push(`/dashboard/repairs/${repairID}/edit?returnTo=closeout`)}
-              highlighted={false}
-            />
-          ) : (
-            <Box sx={{ p: 2 }}>
-              <Alert severity="warning">
-                {scannedRepairID} is no longer in the Payment & Pickup queue.
-              </Alert>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ px: 2, pb: 2, gap: 1 }}>
-          <Button
-            onClick={() => {
-              setSessionValue(CLOSEOUT_ACTIVE_REPAIR_KEY, "");
-              setScannedRepairID("");
-            }}
-            sx={{ color: REPAIRS_UI.textSecondary }}
-          >
-            Done
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<ScanIcon />}
-            onClick={() => {
-              setSessionValue(CLOSEOUT_ACTIVE_REPAIR_KEY, "");
-              setScannedRepairID("");
-              setCloseoutScannerOpen(true);
-            }}
-            sx={{ backgroundColor: REPAIRS_UI.accent, color: "#111" }}
-          >
-            Scan Next Repair
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ScannedRepairDialog
+        closeoutNotes={closeoutNotes}
+        handleCloseoutNoteChange={handleCloseoutNoteChange}
+        handleSaveCloseoutPhoto={handleSaveCloseoutPhoto}
+        router={router}
+        savingPhotoRepairID={savingPhotoRepairID}
+        scannedRepair={scannedRepair}
+        scannedRepairID={scannedRepairID}
+        selectedRepairIDs={selectedRepairIDs}
+        setCloseoutScannerOpen={setCloseoutScannerOpen}
+        setScannedRepairID={setScannedRepairID}
+        toggleRepairSelection={toggleRepairSelection}
+      />
 
       <ContinuousBarcodeScanner
         open={closeoutScannerOpen}
