@@ -4,11 +4,6 @@
       "count": 1
     }
   },
-  "src/app/components/repairs/NewRepairFlow.js": {
-    "max-lines": {
-      "count": 1
-    }
-  },
   "src/app/components/repairs/NewRepairForm.js": {
     "max-lines": {
       "count": 1
