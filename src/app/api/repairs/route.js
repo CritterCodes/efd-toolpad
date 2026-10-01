@@ -19,6 +19,7 @@ import { buildQuoteRequest } from "@/services/repairs/quoteRequest";
 import { pickEditableRepairFields } from "@/services/repairs/repairEditFields";
 import { canonicalClientID } from "@/services/repairs/canonicalClientID";
 import { priceRepairForSave, pricingErrorResponseInit, PRICING_INPUT_FIELDS } from "@/services/pricing/repairPricing";
+import { parseIntakeLogIDs, recordIntakeOutcomes } from "@/services/ai/smartIntakeLog";
 
 // Totals the browser sends are never stored — the server computes them (priceRepairForSave).
 const CLIENT_TOTAL_FIELDS = ["totalCost", "subtotal", "rushFee", "deliveryFee", "taxAmount", "taxRate"];
@@ -148,6 +149,7 @@ export const POST = async (request) => {
           metalType: `${formData.get("metalType")} - ${formData.get("karat")}`,
         }),
         repairTasks: formData.get("repairTasks") ? JSON.parse(formData.get("repairTasks")) : [],
+        smartIntakeLogIDs: formData.get("smartIntakeLogIDs") || "",
       };
     } else {
       const jsonData = await request.json();
@@ -283,7 +285,15 @@ export const POST = async (request) => {
       throw pricingError;
     }
 
+    // The smart-intake log entries this ticket started from (OPEN-QUESTIONS Q13). Not stored on the repair; the
+    // log gets what the ticket became, below. Multipart sends the list as a JSON string.
+    const intakeLogIDs = parseIntakeLogIDs(repairData.smartIntakeLogIDs);
+    delete repairData.smartIntakeLogIDs;
+
     const newRepair = await RepairsController.createRepair(repairData);
+
+    // Best-effort, never fails the save: what the AI suggested vs what was saved, for Admin → Smart intake log.
+    await recordIntakeOutcomes({ logIDs: intakeLogIDs, body: { ...repairData, ...pricingMetal }, repairID: newRepair?.repairID });
 
     // Fast DB write crediting while-you-wait labor. Guarded so a labor-log failure
     // can never 500 a repair that was already created.

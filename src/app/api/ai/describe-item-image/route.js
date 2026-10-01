@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { aiRefusal } from '@/lib/aiAccess';
+import { recordIntakeSuggestion } from '@/services/ai/smartIntakeLog';
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
@@ -134,11 +135,22 @@ export async function POST(request) {
       );
     }
 
+    // Smart-intake log (OPEN-QUESTIONS Q13): a photo in, a description out; the save adds the description the
+    // ticket kept. The image itself is not stored here, only its type and size. Best-effort.
+    const intakeLogID = await recordIntakeSuggestion({
+      session,
+      kind: 'photo',
+      input: { mimeType: image.type || '', bytes: Number(image.size) || null },
+      output: { description },
+      model: selectedModel,
+    });
+
     return NextResponse.json({
       success: true,
       data: {
         description,
-        model: selectedModel
+        model: selectedModel,
+        intakeLogID,
       }
     });
   } catch (error) {
