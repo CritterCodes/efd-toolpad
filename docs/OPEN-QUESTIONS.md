@@ -163,3 +163,17 @@ The authorization guard (`src/app/api/routeAuthorization.guard.test.js`) lists t
 (check first). It's a cost question, not a data leak, so it waits for your call.
 
 **Status:** open.
+
+---
+
+### Q12 — Smart intake suggests sizing stock from size 0 when the current ring size is blank (opened 2026-10-01)
+
+**Context.** `getRingSizeDelta` (src/hooks/repairs/newRepairFormHelpers.js) reads an empty size as size 0
+(`Number('') === 0`). `inferMaterialHintsFromSmartIntake` has no guard, so a description like "resize to 8" with no
+current size extracted suggests 7 half-sizes of sizing stock (8 − 0 − the included first size). The test
+`newRepairFormHelpers.test.js` pins today's behavior. Found while splitting the intake hook for max-lines.
+
+**Recommendation:** treat a blank size as unknown, with no delta and no extra sizing stock suggested, so the jeweler
+enters it. This only removes a wrong suggestion, but it changes what a ticket can charge, so it waits for your yes.
+
+**Status:** open.
