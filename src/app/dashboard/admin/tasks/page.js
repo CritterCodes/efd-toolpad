@@ -20,7 +20,6 @@ import { useRouter } from 'next/navigation';
 import AddIcon from '@mui/icons-material/Add';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import PrecisionManufacturingIcon from '@mui/icons-material/PrecisionManufacturing';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import TasksHeader from './components/TasksHeader';
 import TasksStatistics from './components/TasksStatistics';
 import TasksFilters from './components/TasksFilters';

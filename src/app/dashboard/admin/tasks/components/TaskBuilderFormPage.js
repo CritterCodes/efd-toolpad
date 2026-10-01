@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box,
@@ -109,7 +109,6 @@ export default function TaskBuilderFormPage({ mode = 'create', taskId = null }) 
     availableProcesses,
     availableMaterials,
     availableTools,
-    adminSettings,
     dataLoadErrors,
     loading,
     setLoading,
@@ -198,11 +197,6 @@ export default function TaskBuilderFormPage({ mode = 'create', taskId = null }) 
 
     loadTaskForEdit();
   }, [mode, taskId, setError]);
-
-  const pageTitle = useMemo(
-    () => (mode === 'edit' ? 'Edit Task' : 'Create Task'),
-    [mode]
-  );
 
   if (mode === 'edit' && loadingTask) {
     return (

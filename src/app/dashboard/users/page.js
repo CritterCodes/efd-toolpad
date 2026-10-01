@@ -113,7 +113,7 @@ const USER_TYPES = [
 
 const UsersOverviewPage = () => {
   const [userCounts, setUserCounts] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchUserCounts = async () => {

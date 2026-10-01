@@ -160,7 +160,7 @@ export async function PUT(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { username, password, apiUrl, action } = await request.json();
+    const { username, password, apiUrl } = await request.json();
 
     if (!username || !password) {
       return NextResponse.json({ 

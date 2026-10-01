@@ -38,7 +38,6 @@ export default function AiTaskBuilderPage() {
     availableTools,
     loading,
     setLoading,
-    error,
   } = useInitialTaskData(); // loads on mount itself — this page used to load everything twice
 
   // Save through the SAME handler as the task builder (EFD-DEFECTS P25: this called `handleSaveTask`,

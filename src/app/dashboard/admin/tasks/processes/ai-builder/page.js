@@ -27,7 +27,7 @@ export default function AiProcessBuilderPage() {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [stullerOpen, setStullerOpen] = useState(false);
   const [stullerQuery, setStullerQuery] = useState('');
-  const [pendingMaterialName, setPendingMaterialName] = useState('');
+  const [, setPendingMaterialName] = useState('');
 
   useEffect(() => {
     Promise.all([

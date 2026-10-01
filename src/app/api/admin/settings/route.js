@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server';
 import { auth } from "@/lib/auth";
 import { db } from '@/lib/database';
-import { 
-  hashSecurityCode, 
-  verifySecurityCode, 
+import {
+  verifySecurityCode,
   createAuditLogEntry,
-  maskSensitiveData 
 } from '@/utils/encryption';
 import { STAFF_ROLES } from '@/lib/designPermissions';
 import { canReadPricingCatalog } from '@/lib/repairAccess';

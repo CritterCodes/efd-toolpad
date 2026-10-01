@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 
 export const useIntegrationsSettings = () => {
     const [settings, setSettings] = useState({});
-    const [loading, setLoading] = useState(false);
+    const [loading] = useState(false);
     const [status, setStatus] = useState({ type: '', message: '' });
 
     const fetchSettings = async () => {};
