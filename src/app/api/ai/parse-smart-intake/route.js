@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
+import { aiRefusal } from '@/lib/aiAccess';
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const GEMINI_MODEL = 'gemini-2.5-flash';
@@ -170,6 +171,9 @@ export async function POST(request) {
     if (!session?.user) {
       return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
     }
+    // Only the accounts that can open the page using it (OPEN-QUESTIONS Q11, owner 2026-10-01).
+    const refused = aiRefusal(session, 'intake');
+    if (refused) return refused;
 
     const geminiApiKey = process.env.GEMINI_API_KEY;
     if (!geminiApiKey) {

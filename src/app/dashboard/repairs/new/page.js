@@ -7,6 +7,7 @@ import { ArrowBack } from '@mui/icons-material';
 import NewRepairForm from '@/app/components/repairs/NewRepairForm';
 import NewRepairFlow from '@/app/components/repairs/NewRepairFlow';
 import { canCreateRepair } from '@/lib/repairAccess';
+import { intakeExitPath } from '@/lib/repairs/intakeExit';
 import UsersService from '@/services/users';
 import { PageHeader, facelift } from '@/components/facelift';
 
@@ -206,15 +207,15 @@ const NewRepairPage = () => {
       }
 
       if (repairId && !printAfterSaveRef.current) {
-        // "Save without printing" (stepped flow) — straight to the queue.
-        router.push('/dashboard/repairs/ready-for-work');
+        // "Save without printing" (stepped flow) — back to where the work is: My Bench, or the store's repairs.
+        router.push(intakeExitPath(session));
       } else if (repairId) {
         // The UI choice rides along so the print page's "Have another repair?" returns to the same intake.
         router.push(`/dashboard/repairs/${repairId}/print${uiQuery}`);
       } else {
         console.error('No repair ID found in response:', result);
         showToast?.('Repair created but redirect failed - check console', 'warning');
-        router.push('/dashboard/repairs/ready-for-work');
+        router.push(intakeExitPath(session));
       }
     } catch (error) {
       console.error('Error handling repair creation result:', error);
@@ -222,12 +223,10 @@ const NewRepairPage = () => {
     }
   };
 
+  // Leaving the intake goes to My Bench (owner, 2026-10-01: Ready for Work is "not a page we even use anymore"),
+  // or a store's own repairs.
   const handleCancel = () => {
-    if (session?.user?.role === 'wholesaler' && isWholesaler) {
-      router.push('/dashboard/repairs/my-repairs');
-    } else {
-      router.push('/dashboard/repairs/ready-for-work');
-    }
+    router.push(intakeExitPath(session));
   };
 
   return (
