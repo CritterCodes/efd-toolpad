@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, use } from 'react';
-import { Box, Typography, Button, Snackbar, Alert, CircularProgress } from '@mui/material';
+import { Box, Button, Snackbar, Alert, CircularProgress } from '@mui/material';
 import { wholesaleClient } from '@/api-clients/wholesale.client';
 import WholesalerHeader from '@/app/components/users/wholesale/profile/header';
 import WholesalerDetailsForm from '@/app/components/users/wholesale/profile/details';

@@ -1,6 +1,5 @@
 "use client";
 import React, { useState, useEffect, use } from 'react';
-import { useRouter } from 'next/navigation';
 import {
     Box, Typography, Button, Snackbar,
     Dialog, DialogTitle, DialogContent, DialogActions, TextField, Alert
@@ -15,17 +14,16 @@ import ClientRepairsTab from '@/app/components/clients/tabs/repairs';
 
 const ViewUserPage = ({ params }) => {
     const resolvedParams = use(params);
-    const [userID, setUserID] = useState(resolvedParams?.userID);
+    const [userID] = useState(resolvedParams?.userID);
     const [user, setUser] = useState(null);
     const [updatedUser, setUpdatedUser] = useState({});
-    const { repairs, setRepairs } = useRepairs();
+    const { repairs } = useRepairs();
     const [snackbarOpen, setSnackbarOpen] = useState(false);
     const [snackbarMessage, setSnackbarMessage] = useState('');
     const [snackbarSeverity, setSnackbarSeverity] = useState('info');
     const [hasChanges, setHasChanges] = useState(false);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState(0);
-    const router = useRouter();
     const { data: session } = useSession();
 
     // Promote-to-affiliate modal state
@@ -126,11 +124,6 @@ const ViewUserPage = ({ params }) => {
 
         fetchUser();
     }, [userID]);
-
-    const handleTabChange = (event, newValue) => {
-        console.log("🟡 Tab Changed:", newValue);
-        setActiveTab(newValue);
-    };
 
     const handleEditChange = (field, value) => {
         console.log(`✏️ Editing Field: ${field}, Value: ${value}`);

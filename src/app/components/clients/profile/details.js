@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, TextField, FormControl, InputLabel, MenuItem, Select, Grid, Typography } from '@mui/material';
+import { Box, TextField, FormControl, InputLabel, MenuItem, Select, Grid } from '@mui/material';
 
 const roles = ["admin", "client", "wholesaler"];
 

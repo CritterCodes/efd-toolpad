@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { 
-    Box, 
-    Card, 
-    CardContent, 
-    TextField, 
-    Typography, 
+import {
+    Box,
+    Card,
+    CardContent,
+    TextField,
+    Typography,
     Grid,
     FormControl,
     InputLabel,
@@ -13,9 +13,8 @@ import {
     Chip,
     Button,
     Alert,
-    Divider
 } from '@mui/material';
-import { Store as StoreIcon, Launch as LaunchIcon } from '@mui/icons-material';
+import { Launch as LaunchIcon } from '@mui/icons-material';
 
 const ArtisanVendorProfile = ({ artisan, onFieldChange }) => {
     const [vendorProfile, setVendorProfile] = useState({

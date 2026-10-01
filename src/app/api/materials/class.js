@@ -1,5 +1,4 @@
 // src/app/api/materials/material.class.js
-import { v4 as uuidv4 } from 'uuid';
 import { generateMaterialSku } from '@/utils/skuGenerator';
 
 export default class Material {

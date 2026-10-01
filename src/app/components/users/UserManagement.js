@@ -4,8 +4,6 @@ import {
   Box,
   Pagination,
   Typography,
-  Card,
-  CardContent,
   Grid,
   Avatar,
   Button,
@@ -25,7 +23,7 @@ import {
   DialogActions,
   FormControlLabel,
   Switch,
-  Alert
+  Alert,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -42,7 +40,6 @@ import {
   Palette as ArtisanIcon,
   Group as ClientIcon
 } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
 import { REPAIRS_UI as UI } from '@/app/dashboard/repairs/components/repairsUi';
 
 const getUserIcon = (role) => {
@@ -89,7 +86,6 @@ const UserManagement = ({
   const [saving, setSaving] = useState(false);
   const [dialogError, setDialogError] = useState('');
   const rowsPerPage = 12;
-  const router = useRouter();
 
   const fetchUsers = React.useCallback(async () => {
     try {

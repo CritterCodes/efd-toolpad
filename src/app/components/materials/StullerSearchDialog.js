@@ -1,5 +1,5 @@
 import React from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Box, Tabs, Tab, Button, CircularProgress, Alert, Typography } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Box, Tabs, Tab, Button, CircularProgress, Alert } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import { useStullerSearch } from '../../../hooks/materials/useStullerSearch';
 import StullerSearchFilters from './search/StullerSearchFilters';

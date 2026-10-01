@@ -24,7 +24,7 @@ import BenchWorkCard from '@/app/dashboard/repairs/my-bench/components/BenchWork
 const ViewArtisanPage = ({ params }) => {
     const resolvedParams = use(params);
     const { data: session } = useSession();
-    const [userID, setUserID] = useState(resolvedParams?.userID);
+    const [userID] = useState(resolvedParams?.userID);
     const [artisan, setArtisan] = useState(null);
     const [updatedArtisan, setUpdatedArtisan] = useState({});
     const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -106,11 +106,6 @@ const ViewArtisanPage = ({ params }) => {
         } finally {
             setBenchBusy(false);
         }
-    };
-
-    const handleTabChange = (event, newValue) => {
-        console.log("🟡 Tab Changed:", newValue);
-        setActiveTab(newValue);
     };
 
     const handleEditChange = (field, value) => {

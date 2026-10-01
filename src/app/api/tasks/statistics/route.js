@@ -3,8 +3,7 @@
  */
 
 import { TasksController } from '../controller';
-import { requireAuth, requireRole } from '@/lib/apiAuth';
-import { STAFF_ROLES } from '@/lib/designPermissions';
+import { requireAuth } from '@/lib/apiAuth';
 
 /**
  * Task catalog. READS require a session, WRITES require staff.
