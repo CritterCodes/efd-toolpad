@@ -58,8 +58,8 @@ export default function EnhancedMaterialsHeader({
   return (
     <Paper elevation={1} sx={{ p: 2, mb: 3 }}>
       {/* Title and Action Buttons */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Box display="flex" alignItems="center" gap={2}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1.5} mb={2}>
+        <Box display="flex" alignItems="center" flexWrap="wrap" gap={{ xs: 1, sm: 2 }}>
           <Typography variant="h5" component="h1">
             Materials Management
           </Typography>
@@ -79,7 +79,7 @@ export default function EnhancedMaterialsHeader({
             />
           )}
         </Box>
-        <Stack direction="row" spacing={1}>
+        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
           <Button
             variant="outlined"
             startIcon={<UpdateIcon />}

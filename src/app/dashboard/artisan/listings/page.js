@@ -40,7 +40,7 @@ export default function MyListingsPage() {
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1000, mx: 'auto' }}>
       <Box sx={{ mb: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, color: REPAIRS_UI.textHeader }}>My Listings</Typography>
+        <Typography component="h1" variant="h5" sx={{ fontWeight: 700, color: REPAIRS_UI.textHeader }}>My Listings</Typography>
         <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted }}>
           Your sellable listings in the EFD shop — gemstones and finished jewelry, including consigned items.
         </Typography>

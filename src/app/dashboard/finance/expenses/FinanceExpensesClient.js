@@ -406,7 +406,7 @@ export default function FinanceExpensesClient() {
     <Box sx={{ p: 4 }}>
       <Stack spacing={2} sx={{ mb: 3 }}>
         <Box>
-          <Typography variant="h4" fontWeight="bold">Finance Expenses</Typography>
+          <Typography component="h1" variant="h4" fontWeight="bold">Finance Expenses</Typography>
           <Typography variant="body2" color="text.secondary">
             Record actual expenses, manage recurring autodrafts, and keep tax reserve math current.
           </Typography>

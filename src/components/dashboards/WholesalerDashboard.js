@@ -33,7 +33,7 @@ function Surface({ children, sx }) {
 function StatCard({ label, value, icon }) {
     return (
         <Box sx={{ backgroundColor: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 3, boxShadow: '0 4px 12px rgba(0,0,0,0.3)', p: 2.5 }}>
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
                 <Box>
                     <Typography sx={{ color: C.textMuted, fontSize: 12, mb: 1 }}>{label}</Typography>
                     <Typography sx={{ fontSize: 40, fontWeight: 700, lineHeight: 1, color: C.textHeader }}>{value ?? '—'}</Typography>
@@ -96,7 +96,7 @@ export default function WholesalerDashboard() {
                         </Typography>
                     </Box>
 
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2 }}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' }, gap: 2 }}>
                         {statCards.map((s) => (
                             <StatCard key={s.label} {...s} />
                         ))}
@@ -180,7 +180,7 @@ export default function WholesalerDashboard() {
                             {quickActions.map((action) => (
                                 <Box
                                     key={action.title}
-                                    sx={{ py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}
+                                    sx={{ py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}
                                 >
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                         <Box sx={{ width: 36, height: 36, borderRadius: 2, display: 'grid', placeItems: 'center', backgroundColor: C.bgTertiary, color: action.primary ? C.accent : C.textSecondary, border: `1px solid ${C.border}`, flexShrink: 0 }}>

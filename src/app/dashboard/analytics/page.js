@@ -107,7 +107,7 @@ export default function AnalyticsDashPage() {
     <Box sx={{ p: 4 }}>
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2} sx={{ mb: 3 }}>
         <Box>
-          <Typography variant="h4" fontWeight="bold">Analytics Dash</Typography>
+          <Typography component="h1" variant="h4" fontWeight="bold">Analytics Dash</Typography>
           <Typography variant="body2" color="text.secondary">
             Go-live-aware operations, invoice-timed revenue, and post-baseline labor.
           </Typography>

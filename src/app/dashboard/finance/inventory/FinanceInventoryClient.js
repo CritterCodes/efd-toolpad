@@ -495,7 +495,7 @@ export default function FinanceInventoryClient() {
     <Box sx={{ p: 4 }}>
       <Stack spacing={2} sx={{ mb: 3 }}>
         <Box>
-          <Typography variant="h4" fontWeight="bold">Inventory</Typography>
+          <Typography component="h1" variant="h4" fontWeight="bold">Inventory</Typography>
           <Typography variant="body2" color="text.secondary">
             Physical stock management for shop supplies, findings, materials, receiving, and guarded reorder suggestions.
           </Typography>

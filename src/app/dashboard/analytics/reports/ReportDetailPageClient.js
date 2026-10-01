@@ -1635,9 +1635,13 @@ export default function ReportDetailPageClient({
   }
 
   if (loading) {
+    // The title shows while the numbers load, so the page says what it is from the first frame.
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}>
-        <CircularProgress />
+      <Box sx={{ p: 4 }}>
+        <Typography component="h1" variant="h4" fontWeight="bold">{reportDefinition.title}</Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}>
+          <CircularProgress />
+        </Box>
       </Box>
     );
   }
@@ -1653,7 +1657,7 @@ export default function ReportDetailPageClient({
           >
             {backLabel}
           </Button>
-          <Typography variant="h4" fontWeight="bold">{reportDefinition.title}</Typography>
+          <Typography component="h1" variant="h4" fontWeight="bold">{reportDefinition.title}</Typography>
           <Typography variant="body2" color="text.secondary">
             {reportDefinition.description}
           </Typography>

@@ -155,7 +155,7 @@ const UsersOverviewPage = () => {
           <Typography color="text.primary">User Management</Typography>
         </Breadcrumbs>
         
-        <Typography variant="h4" gutterBottom>
+        <Typography component="h1" variant="h4" gutterBottom>
           User Management
         </Typography>
         <Typography variant="body1" color="text.secondary">

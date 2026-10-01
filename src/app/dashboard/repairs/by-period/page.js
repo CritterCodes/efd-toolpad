@@ -115,7 +115,7 @@ const RepairsByPeriodPage = () => {
             <Stack spacing={0.5} sx={{ mb: 3 }}>
                 <Stack direction="row" spacing={1} alignItems="center">
                     <CalendarMonthIcon color="primary" />
-                    <Typography variant="h4" fontWeight="bold">Repairs by Period</Typography>
+                    <Typography component="h1" variant="h4" fontWeight="bold">Repairs by Period</Typography>
                 </Stack>
                 <Typography variant="body2" color="text.secondary">
                     Filter repairs by a date range and open any repair directly from its card.

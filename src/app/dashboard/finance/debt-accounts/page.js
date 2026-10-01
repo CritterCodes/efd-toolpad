@@ -292,7 +292,7 @@ export default function DebtAccountsPage() {
         </Button>
 
         <Stack spacing={1}>
-          <Typography variant="h4" fontWeight="bold">Debt Accounts</Typography>
+          <Typography component="h1" variant="h4" fontWeight="bold">Debt Accounts</Typography>
           <Typography variant="body2" color="text.secondary">
             Track credit cards, loans, cash advances, statement balances, and repayment cash flow.
           </Typography>

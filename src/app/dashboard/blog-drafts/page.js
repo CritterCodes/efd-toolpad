@@ -65,7 +65,7 @@ export default function BlogDraftsPage() {
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1.5 }}>
         <ArticleIcon sx={{ color: C.accent, fontSize: 28 }} />
         <Box>
-          <Typography variant="h5" sx={{ color: C.text, fontWeight: 600 }}>
+          <Typography component="h1" variant="h5" sx={{ color: C.text, fontWeight: 600 }}>
             Blog Drafts
           </Typography>
           <Typography variant="body2" sx={{ color: C.muted }}>

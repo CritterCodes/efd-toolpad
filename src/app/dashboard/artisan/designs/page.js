@@ -30,7 +30,7 @@ export default function MyDesignsPage() {
     <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1000, mx: 'auto' }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
         <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700, color: REPAIRS_UI.textHeader }}>My Designs</Typography>
+          <Typography component="h1" variant="h5" sx={{ fontWeight: 700, color: REPAIRS_UI.textHeader }}>My Designs</Typography>
           <Typography variant="body2" sx={{ color: REPAIRS_UI.textMuted }}>Jewelry and gemstone designs you author and own.</Typography>
         </Box>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => router.push('/dashboard/artisan/designs/new')}

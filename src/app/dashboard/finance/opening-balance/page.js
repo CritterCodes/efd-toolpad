@@ -122,7 +122,7 @@ export default function OpeningBalancePage() {
         </Button>
 
         <Stack spacing={1}>
-          <Typography variant="h4" fontWeight="bold">Opening Balance</Typography>
+          <Typography component="h1" variant="h4" fontWeight="bold">Opening Balance</Typography>
           <Typography variant="body2" color="text.secondary">
             Set the first reliable bank and cash drawer start line for Bank Safe-To-Spend reporting.
           </Typography>
