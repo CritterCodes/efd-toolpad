@@ -43,4 +43,17 @@ describe('NewRepairFlow step sections get everything they read', () => {
       expect(page).toContain(`<${name} {...flow} />`);
     }
   });
+
+  // Component state that shares a name with a browser global: inside a section a bare `history` / `name` / `status`
+  // is the window's, so lint sees nothing to pass and it fails only at runtime (the payroll split did exactly this,
+  // 2026-10-01). A section reading one must receive it.
+  const BROWSER_GLOBALS = ['history', 'location', 'name', 'status', 'event', 'open', 'close', 'print', 'top', 'parent', 'length', 'origin', 'self', 'screen', 'closed', 'find', 'stop', 'scroll', 'focus', 'blur'];
+  it.each(sections)('%s receives every component state it reads that shares a name with a browser global', (file) => {
+    const page = read('NewRepairFlow.js');
+    const src = read(file);
+    const props = new Set(sectionProps(file));
+    const declared = BROWSER_GLOBALS.filter((g) => new RegExp(`const \\[${g},|const ${g} =|[{,]\\s*${g}\\s*[,}]`).test(page));
+    const readBare = declared.filter((g) => new RegExp(`(^|[^.\\w'"])${g}(\\.|\\?\\.|\\[)`, 'm').test(src));
+    expect(readBare.filter((g) => !props.has(g))).toEqual([]);
+  });
 });
