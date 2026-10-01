@@ -20,7 +20,7 @@ export default function GalleryHeader({ handleFileSelect, saveStatus }) {
                         <ArrowBackIcon />
                     </IconButton>
                     <Box sx={{ flex: 1 }}>
-                        <Typography variant={{ xs: 'h5', sm: 'h4' }} gutterBottom>
+                        <Typography component="h1" variant={{ xs: 'h5', sm: 'h4' }} gutterBottom>
                             Gallery Management
                         </Typography>
                         <Typography 

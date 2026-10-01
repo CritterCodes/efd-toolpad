@@ -93,7 +93,7 @@ export default function ArtisanDashboardContent() {
                                 label="Artisan workspace"
                                 sx={{ mb: 1.5, borderRadius: 2, backgroundColor: C.bgCard, color: C.textHeader, border: `1px solid ${C.border}`, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em' }}
                             />
-                            <Typography sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: C.textHeader, mb: 0.5 }}>
+                            <Typography component="h1" sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: C.textHeader, mb: 0.5 }}>
                                 Welcome back, {session?.user?.name?.split(' ')[0] || 'Artisan'}
                             </Typography>
                             <Typography sx={{ color: C.textSecondary, lineHeight: 1.6, display: { xs: 'none', sm: 'block' } }}>

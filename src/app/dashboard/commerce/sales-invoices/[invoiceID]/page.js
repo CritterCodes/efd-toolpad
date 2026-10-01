@@ -126,7 +126,7 @@ export default function SalesInvoiceDetailPage() {
               >
                 Sales Invoices
               </Button>
-              <Typography sx={{ color: UI.textHeader, fontSize: { xs: 28, md: 34 }, fontWeight: 700 }}>
+              <Typography component="h1" sx={{ color: UI.textHeader, fontSize: { xs: 28, md: 34 }, fontWeight: 700 }}>
                 {invoice.invoiceID}
               </Typography>
               <Typography sx={{ color: UI.textSecondary }}>{invoice.clientName}</Typography>

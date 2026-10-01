@@ -42,7 +42,7 @@ export default function MyRunsPage() {
       <Paper sx={{ p: { xs: 2, md: 3 }, mb: 3, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Box>
-            <Typography sx={{ fontSize: { xs: 22, md: 28 }, fontWeight: 600, color: REPAIRS_UI.textHeader }}>My Runs</Typography>
+            <Typography component="h1" sx={{ fontSize: { xs: 22, md: 28 }, fontWeight: 600, color: REPAIRS_UI.textHeader }}>My Runs</Typography>
             <Typography sx={{ color: REPAIRS_UI.textSecondary }}>Produce a limited run of one of your designs — solo or with collaborators.</Typography>
           </Box>
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)}

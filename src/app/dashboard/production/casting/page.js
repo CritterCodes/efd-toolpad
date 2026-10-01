@@ -207,7 +207,7 @@ export default function CastingBoardPage() {
         <Stack direction="row" alignItems="center" spacing={1.5}>
           <PrecisionManufacturingIcon sx={{ fontSize: 28, color: REPAIRS_UI.accent }} />
           <Box>
-            <Typography sx={{ fontSize: { xs: 22, md: 28 }, fontWeight: 600, color: REPAIRS_UI.textHeader }}>Casting Board</Typography>
+            <Typography component="h1" sx={{ fontSize: { xs: 22, md: 28 }, fontWeight: 600, color: REPAIRS_UI.textHeader }}>Casting Board</Typography>
             <Typography sx={{ color: REPAIRS_UI.textSecondary }}>
               {staff ? 'Every artisan’s castings.' : 'Your runs’ castings.'} Order from your caster however you like, then record it here.
             </Typography>

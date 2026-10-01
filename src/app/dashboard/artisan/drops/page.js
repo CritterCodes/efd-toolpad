@@ -49,7 +49,7 @@ export default function MyDropsPage() {
   return (
     <Box sx={{ pb: 6 }}>
       <Paper sx={{ p: { xs: 2, md: 3 }, mb: 3, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' }}>
-        <Typography sx={{ fontSize: { xs: 22, md: 28 }, fontWeight: 600, color: REPAIRS_UI.textHeader }}>My Drops</Typography>
+        <Typography component="h1" sx={{ fontSize: { xs: 22, md: 28 }, fontWeight: 600, color: REPAIRS_UI.textHeader }}>My Drops</Typography>
         <Typography sx={{ color: REPAIRS_UI.textSecondary }}>Drops you own or collaborate on. Owners curate collaborators; EFD handles release.</Typography>
       </Paper>
 

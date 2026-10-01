@@ -334,7 +334,7 @@ export default function DropDetailPage({ params }) {
           <Box>
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
               <RocketLaunchIcon sx={{ fontSize: 20, color: REPAIRS_UI.accent }} />
-              <Typography sx={{ fontSize: { xs: 24, md: 32 }, fontWeight: 600, color: REPAIRS_UI.textHeader }}>
+              <Typography component="h1" sx={{ fontSize: { xs: 24, md: 32 }, fontWeight: 600, color: REPAIRS_UI.textHeader }}>
                 {drop.name}
               </Typography>
               <Chip
