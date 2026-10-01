@@ -103,6 +103,13 @@ ratcheted, with reasons:
    (admin on affiliate pages, off-site artisan's bench asking for bench-jewelers / qc-mode).
 8. **Ship checks after every Vercel deploy** (`deployment_status` workflow): the same Playwright run against the live
    deploy, plus Lighthouse — signed-in against previews on the dev database, anonymous-only against production (decision 4).
+   **Anonymous half done 2026-10-01** (`.github/workflows/ship.yml` + `scripts/ship-checks.mjs`, read-only GETs): the
+   sign-in page renders with no errors, the dashboard and API refuse a stranger, an unknown page is a 404, search
+   engines are told to stay out, no source maps are public. Production is checked on the deploy URL **and**
+   `admin.engelfinedesign.com`. The first run found the production domain was **indexable** (Vercel's noindex header
+   covers only `*.vercel.app`); fixed in the same PR (robots meta + `robots.txt`). The **signed-in preview half is
+   open question Q1** (docs/OPEN-QUESTIONS.md: it needs a standing admin password for a public preview URL; the
+   signed-in crawl already runs on every PR). Lighthouse not added yet.
 
 ### Phase 3 — documents that stay true
 
