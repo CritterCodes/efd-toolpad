@@ -4,9 +4,10 @@
 # stranger, an unknown page is a 404, search engines are told to stay out, no source maps are public. Production
 # is also checked on its real domain, where Vercel does NOT add its own noindex header.
 #
-# Signed-in checks on previews would need standing accounts + passwords in the dev database and in GitHub; that
-# is an open question for the owner (docs/OPEN-QUESTIONS.md). The signed-in every-role crawl runs on every PR in
-# ci.yml (`npm run views`) instead.
+# Preview deploys ALSO get the signed-in crawl (owner, 2026-10-01, docs/OPEN-QUESTIONS.md Q1): every e2e account
+# (<role>@views.check, seeded on the dev database by scripts/seed-preview-e2e.mjs) opens every page it can reach;
+# it fails on signed-out / 404 / 5xx / uncaught exception / blank. It needs the E2E_PREVIEW_PASSWORD secret and
+# skips (green) until the owner sets it. Production never gets a signed-in run.
 #
 # deployment_status workflows always run from the DEFAULT branch's copy of this file.
 name: ship
@@ -46,3 +47,16 @@ jobs:
             urls="$urls https://admin.engelfinedesign.com"
           fi
           node scripts/ship-checks.mjs $urls
+      - name: Signed-in crawl (preview deploys only)
+        if: github.event.deployment.environment == 'Preview'
+        env:
+          DEPLOY_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
+          E2E_PREVIEW_PASSWORD: ${{ secrets.E2E_PREVIEW_PASSWORD }}
+        run: node scripts/views-remote.mjs "$DEPLOY_URL"
+      - if: always() && github.event.deployment.environment == 'Preview'
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-contact-sheet
+          path: e2e/views/out
+          if-no-files-found: ignore
+          retention-days: 14
