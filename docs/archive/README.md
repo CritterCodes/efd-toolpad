@@ -14,6 +14,5 @@ routes to the docs that are current.
 | `COPILOT_INSTRUCTIONS.md` | 2025-09-28 | A *proposed* Copilot instructions update; restates the two above | — |
 | `DEVELOPMENT_STANDARDS.md` | 2025-08-07 | "Mandatory" MVC(C) layer structure; contradicts the two above in places | Layer rules → `eslint.config.mjs` |
 | `MANUAL_RELEASE_GUIDE.md` | 2025-10-19 | Says to push releases straight to `main`, which branch protection now refuses | PR + green `check` → `.github/workflows/ci.yml`; ship checks → `ship.yml` |
+| `copilot-instructions.md` | 2025 | A sixth rulebook that GitHub Copilot loaded automatically; described AWS S3 and Shopify. Retired 2026-10-01 (owner, Q3) | `.github/copilot-instructions.md` is now a short pointer to `CLAUDE.md` |
 
-`.github/copilot-instructions.md` (641 lines, same era) is a sixth one that GitHub Copilot loads automatically. It
-was left in place: retiring it changes Copilot's behavior, so it's an owner question (docs/OPEN-QUESTIONS.md, Q3).
