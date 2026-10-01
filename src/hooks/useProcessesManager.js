@@ -18,7 +18,6 @@ import {
   filterProcesses,
   sortProcesses,
   getUniqueValues,
-  calculateProcessCost,
   prepareProcessForSaving
 } from '@/utils/processes.util';
 

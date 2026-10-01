@@ -14,7 +14,7 @@
  * carries all the parity risk and is NOT redesigned with the UI.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 
 // Services
 import tasksService from '@/services/tasks.service';
@@ -22,10 +22,13 @@ import materialsService from '@/services/materials.service';
 import RepairsService from '@/services/repairs';
 import UsersService from '@/services/users';
 import { canSkipIntakeClient } from '@/services/repairs/intakeClientRule';
-import { applyQuantityTier, normalizeQuantityTiers } from '@/services/pricing/quantityTiers';
 import wholesaleClientsAPIClient from '@/api-clients/wholesaleClients.client';
 import wholesaleAccountSettingsAPIClient from '@/api-clients/wholesaleAccountSettings.client';
-import pricingEngine from '@/services/PricingEngine';
+// THE pricing engine. Every price on this form is derived by priceRepairLines from the context the
+// server prices with (GET /api/pricing/context) — nothing on a line is trusted as a price.
+import { priceRepairLines, asTicketLines, releaseTicketPrice } from '@/services/pricing/repairLines';
+import { pricingContextFromPayload } from '@/services/pricing/clientContext';
+import { stripComputedPrices } from '@/services/pricing/computedFields';
 import { alignTasksToMetal } from '@/services/repairs/metalTaskFilter';
 import { extractRingSizesFromDescription, extractMetalContextFromDescription, normalizeRingSizeValue } from '@/services/repairs/smartIntakeExtractors';
 
@@ -42,7 +45,6 @@ import { METAL_TYPES } from '@/constants/customRequest.constants';
 import {
   buildCustomLaborTask,
   updateCustomLaborTask as applyCustomLaborPatch,
-  repriceCustomLaborTask,
   isCustomLaborTask,
 } from '@/services/repairs/customLabor';
 import { buildStullerRepairMaterial } from '@/services/pricing/stullerMaterial';
@@ -266,8 +268,6 @@ export const toNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const normalizeKarat = (karat = '') => String(karat || '').trim().toUpperCase();
-
 const normalizeMetalType = (metalType = '') => String(metalType || '').trim().toLowerCase().replace(/\s+/g, '_');
 
 const getMetalAliases = (metalType = '', goldColor = '') => {
@@ -334,211 +334,10 @@ const keyMatchesContext = (key = '', metalType = '', karat = '', goldColor = '')
   };
 };
 
-const pickBestContextualPrice = (entries = [], metalType = '', karat = '', goldColor = '') => {
-  const positiveEntries = entries.filter((entry) => toNumber(entry.price) > 0);
-  if (positiveEntries.length === 0) return 0;
-
-  const exactMatches = positiveEntries.filter((entry) => keyMatchesContext(entry.key, metalType, karat, goldColor).hasExactContext);
-  if (exactMatches.length > 0) {
-    return Math.min(...exactMatches.map((entry) => toNumber(entry.price)));
-  }
-
-  const metalOnlyMatches = positiveEntries.filter((entry) => keyMatchesContext(entry.key, metalType, karat, goldColor).hasMetal);
-  if (metalOnlyMatches.length > 0) {
-    return Math.min(...metalOnlyMatches.map((entry) => toNumber(entry.price)));
-  }
-
-  return Math.min(...positiveEntries.map((entry) => toNumber(entry.price)));
-};
-
-const getUniversalVariantPrice = (pricingMap = {}, metalType = '', karat = '', goldColor = '') => {
-  if (!pricingMap || typeof pricingMap !== 'object') return 0;
-
-  const normalizedMetal = String(metalType || '').trim().toLowerCase();
-  const normalizedKarat = normalizeKarat(karat);
-
-  if (normalizedMetal && normalizedKarat) {
-    const exactKeys = [
-      `${normalizedMetal}_${normalizedKarat}`,
-      `${normalizedMetal}_${normalizedKarat.replace('K', 'k')}`,
-      `${normalizedMetal}_${normalizedKarat.replace('K', '')}K`,
-      `${normalizedMetal}_${normalizedKarat.replace('K', '')}k`
-    ];
-
-    for (const key of exactKeys) {
-      const variant = pricingMap[key];
-      const variantPrice = toNumber(variant?.retailPrice ?? variant?.price ?? variant);
-      if (variantPrice > 0) return variantPrice;
-    }
-  }
-
-  const variantEntries = Object.entries(pricingMap).map(([key, variant]) => ({
-    key,
-    price: toNumber(variant?.retailPrice ?? variant?.price ?? variant)
-  }));
-
-  return pickBestContextualPrice(variantEntries, metalType, karat, goldColor);
-};
-
-const getTotalCostsMapPrice = (totalCosts = {}, metalType = '', karat = '', goldColor = '') => {
-  if (!totalCosts || typeof totalCosts !== 'object') return 0;
-
-  const normalizedMetal = String(metalType || '').trim().toLowerCase();
-  const normalizedKarat = normalizeKarat(karat);
-
-  if (normalizedMetal && normalizedKarat) {
-    const exactKeys = [
-      `${normalizedMetal}_${normalizedKarat}`,
-      `${normalizedMetal}_${normalizedKarat.replace('K', 'k')}`,
-      `${normalizedMetal}_${normalizedKarat.replace('K', '')}K`,
-      `${normalizedMetal}_${normalizedKarat.replace('K', '')}k`
-    ];
-
-    for (const key of exactKeys) {
-      const value = toNumber(totalCosts[key]);
-      if (value > 0) return value;
-    }
-  }
-
-  const costEntries = Object.entries(totalCosts).map(([key, value]) => ({
-    key,
-    price: toNumber(value)
-  }));
-
-  return pickBestContextualPrice(costEntries, metalType, karat, goldColor);
-};
-
-export const resolveTaskBasePrice = (task = {}, metalType = '', karat = '', goldColor = '') => {
-  const universalPrice = getUniversalVariantPrice(task.universalPricing, metalType, karat, goldColor);
-  if (universalPrice > 0) return universalPrice;
-
-  const totalCostsPrice = getTotalCostsMapPrice(task.pricing?.totalCosts, metalType, karat, goldColor);
-  if (totalCostsPrice > 0) return totalCostsPrice;
-
-  const candidates = [
-    task.basePrice,
-    task.pricing?.retailPrice,
-    task.pricing?.universal?.retailPrice,
-    task.pricing?.totalCost,
-    task.retailPrice,
-    task.finalSalePrice,
-    task.price
-  ];
-
-  for (const candidate of candidates) {
-    const numeric = toNumber(candidate);
-    if (numeric > 0) {
-      return numeric;
-    }
-  }
-
-  return 0;
-};
-
-const getPreferredPortionPrice = (source = {}, defaultPortionsPerUnit = 1) => {
-  const explicitPortion = toNumber(source?.costPerPortion);
-  if (explicitPortion > 0) return explicitPortion;
-
-  const unitPrice = toNumber(source?.unitCost ?? source?.markedUpPrice ?? source?.price);
-  const portionsPerUnit = toNumber(source?.portionsPerUnit) > 0
-    ? toNumber(source?.portionsPerUnit)
-    : (toNumber(defaultPortionsPerUnit) > 0 ? toNumber(defaultPortionsPerUnit) : 1);
-
-  if (unitPrice > 0 && portionsPerUnit > 1) {
-    return unitPrice / portionsPerUnit;
-  }
-
-  return unitPrice;
-};
-
-const getMaterialVariantPrice = (stullerProducts = [], metalType = '', karat = '', goldColor = '', defaultPortionsPerUnit = 1) => {
-  if (!Array.isArray(stullerProducts) || stullerProducts.length === 0) return 0;
-
-  const entries = stullerProducts.map((product) => {
-    const directPrice = getPreferredPortionPrice(product, defaultPortionsPerUnit);
-    const fallbackPrice = toNumber(product?.stullerPrice) * (toNumber(product?.markupRate) > 0 ? toNumber(product?.markupRate) : 1);
-    const metalKey = [normalizeMetalType(product?.metalType), normalizeKaratToken(product?.karat)].filter(Boolean).join('_');
-
-    return {
-      key: metalKey,
-      price: directPrice > 0 ? directPrice : fallbackPrice
-    };
-  });
-
-  return pickBestContextualPrice(entries, metalType, karat, goldColor);
-};
-
-const resolveMaterialBasePrice = (material = {}, metalType = '', karat = '', goldColor = '') => {
-  const portionsPerUnit = toNumber(material?.portionsPerUnit) > 0 ? toNumber(material?.portionsPerUnit) : 1;
-  const variantPrice = getMaterialVariantPrice(material?.stullerProducts, metalType, karat, goldColor, portionsPerUnit);
-  if (variantPrice > 0) return variantPrice;
-
-  const topLevelPortionPrice = getPreferredPortionPrice(material, portionsPerUnit);
-  const topLevelMarkedUpPrice = toNumber(material?.stullerPrice) * (toNumber(material?.markupRate) > 0 ? toNumber(material?.markupRate) : 1);
-  const derivedMarkedUpPortion = topLevelMarkedUpPrice > 0 ? topLevelMarkedUpPrice / portionsPerUnit : 0;
-  const candidates = [
-    material?.costPerPortion,
-    topLevelPortionPrice,
-    derivedMarkedUpPortion,
-    material?.unitCost,
-    material?.costPerPortion,
-    material?.basePrice,
-    material?.pricing?.finalPrice,
-    material?.pricing?.unitCost,
-    material?.markedUpPrice,
-    material?.stullerPrice,
-    topLevelMarkedUpPrice,
-    material?.price
-  ];
-
-  for (const candidate of candidates) {
-    const numeric = toNumber(candidate);
-    if (numeric > 0) return numeric;
-  }
-
-  return 0;
-};
-
-const normalizePricingSettings = (adminSettings = {}) => {
-  const pricing = adminSettings?.pricing && typeof adminSettings.pricing === 'object'
-    ? adminSettings.pricing
-    : adminSettings;
-
-  const administrativeFee = toNumber(pricing?.administrativeFee || 0.10);
-  const businessFee = toNumber(pricing?.businessFee || 0.15);
-  const consumablesFee = toNumber(pricing?.consumablesFee || 0.05);
-
-  const configuredMaterialMarkup = toNumber(pricing?.materialMarkup || 1.0);
-  const materialMarkup = configuredMaterialMarkup > 0 ? configuredMaterialMarkup : 1.0;
-
-  const configuredBusinessMultiplier = 1 + administrativeFee + businessFee + consumablesFee;
-  const businessMultiplier = configuredBusinessMultiplier > 0 ? configuredBusinessMultiplier : 1.0;
-
-  const configuredWholesaleMarkup = toNumber(pricing?.wholesaleMarkup || 0);
-  const wholesaleMarkup = configuredWholesaleMarkup > 0 ? configuredWholesaleMarkup : 1.5;
-
-  return {
-    materialMarkup,
-    businessMultiplier,
-    wholesaleMarkup
-  };
-};
-
-const calculateRetailFromBaseCosts = (baseMaterialsCost = 0, laborCost = 0, adminSettings = {}) => {
-  const safeMaterials = Math.max(toNumber(baseMaterialsCost), 0);
-  const safeLabor = Math.max(toNumber(laborCost), 0);
-  const { businessMultiplier } = normalizePricingSettings(adminSettings);
-
-  // materialMarkup deprecated — retail = baseCost × businessMultiplier only (materials no longer double-marked-up)
-  const retail = (safeMaterials + safeLabor) * businessMultiplier;
-  return Math.round(retail * 100) / 100;
-};
-
-const DEFAULT_WHOLESALER_PRICING_SETTINGS = {
-  retailMarkupMultiplier: 1,
-  taxRate: 0
-};
-
+/**
+ * The STORE's resale markup, from its own account settings — what it charges its customer, on its own
+ * receipts. Not our pricing: it never changes what EFD charges the store.
+ */
 const normalizeWholesalerPricingSettings = (settings = {}) => {
   const clamp = (value) => {
     const parsed = toNumber(value, 1);
@@ -546,7 +345,7 @@ const normalizeWholesalerPricingSettings = (settings = {}) => {
   };
 
   const normalizeTaxRate = (value) => {
-    const parsed = toNumber(value, DEFAULT_WHOLESALER_PRICING_SETTINGS.taxRate);
+    const parsed = toNumber(value, 0);
     const normalized = parsed > 1 ? parsed / 100 : parsed;
     return Math.min(Math.max(normalized, 0), 0.25);
   };
@@ -555,7 +354,7 @@ const normalizeWholesalerPricingSettings = (settings = {}) => {
     settings?.retailMarkups?.tasks ??
     settings?.retailMarkups?.processes ??
     settings?.retailMarkups?.materials,
-    DEFAULT_WHOLESALER_PRICING_SETTINGS.retailMarkupMultiplier
+    1
   );
 
   return {
@@ -567,93 +366,10 @@ const normalizeWholesalerPricingSettings = (settings = {}) => {
     taxRate: normalizeTaxRate(
       settings?.wholesalerPricingSettings?.taxRate ??
       settings?.taxRate ??
-      DEFAULT_WHOLESALER_PRICING_SETTINGS.taxRate
+      0
     )
   };
 };
-
-const applyWholesalerRetailAdjustments = (paidPrice = 0, wholesalerPricingSettings = {}) => {
-  const basePaidPrice = Math.max(toNumber(paidPrice, 0), 0);
-  const markupMultiplier = Math.max(
-    toNumber(wholesalerPricingSettings?.retailMarkupMultiplier, DEFAULT_WHOLESALER_PRICING_SETTINGS.retailMarkupMultiplier),
-    0.5
-  );
-
-  // Retail line prices must stay pre-tax. Tax is applied at the receipt/total level.
-  return Math.round(basePaidPrice * markupMultiplier * 100) / 100;
-};
-
-export const resolveMaterialRawPortionBaseCost = (material = {}, metalType = '', karat = '', goldColor = '') => {
-  const portionsPerUnit = toNumber(material?.portionsPerUnit) > 0 ? toNumber(material?.portionsPerUnit) : 1;
-
-  if (Array.isArray(material?.stullerProducts) && material.stullerProducts.length > 0) {
-    const rawEntries = material.stullerProducts.map((product) => {
-      const rawUnit = toNumber(product?.stullerPrice);
-      const productPortions = toNumber(product?.portionsPerUnit) > 0 ? toNumber(product?.portionsPerUnit) : portionsPerUnit;
-      const rawPortion = rawUnit > 0 ? rawUnit / productPortions : 0;
-      const metalKey = [normalizeMetalType(product?.metalType), normalizeKaratToken(product?.karat)].filter(Boolean).join('_');
-      return { key: metalKey, price: rawPortion };
-    });
-
-    const variantRaw = pickBestContextualPrice(rawEntries, metalType, karat, goldColor);
-    if (variantRaw > 0) return variantRaw;
-  }
-
-  const topLevelRaw = toNumber(material?.stullerPrice);
-  if (topLevelRaw > 0) {
-    return topLevelRaw / portionsPerUnit;
-  }
-
-  const explicitBase = toNumber(material?.baseCostPerPortion || material?.pricing?.basePrice);
-  if (explicitBase > 0) return explicitBase;
-
-  return 0;
-};
-
-export const resolveMaterialRetailPrice = (material = {}, metalType = '', karat = '', goldColor = '', adminSettings = {}) => {
-  const rawPortionBase = resolveMaterialRawPortionBaseCost(material, metalType, karat, goldColor);
-  if (rawPortionBase > 0) {
-    return calculateRetailFromBaseCosts(rawPortionBase, 0, adminSettings);
-  }
-
-  return resolveMaterialBasePrice(material, metalType, karat, goldColor);
-};
-
-
-// Wholesale price resolvers use stored wholesalePrice on tasks; baseCost × wholesaleMarkup for materials
-const getUniversalVariantWholesalePrice = (pricingMap = {}, metalType = '', karat = '', goldColor = '') => {
-  if (!pricingMap || typeof pricingMap !== 'object') return 0;
-  const normalizedMetal = String(metalType || '').trim().toLowerCase();
-  const normalizedKarat = normalizeKarat(karat);
-  if (normalizedMetal && normalizedKarat) {
-    const exactKeys = [
-      `${normalizedMetal}_${normalizedKarat}`,
-      `${normalizedMetal}_${normalizedKarat.replace('K', 'k')}`,
-      `${normalizedMetal}_${normalizedKarat.replace('K', '')}K`,
-      `${normalizedMetal}_${normalizedKarat.replace('K', '')}k`
-    ];
-    for (const key of exactKeys) {
-      const variant = pricingMap[key];
-      const variantPrice = toNumber(variant?.wholesalePrice);
-      if (variantPrice > 0) return variantPrice;
-    }
-  }
-  const variantEntries = Object.entries(pricingMap).map(([key, variant]) => ({
-    key,
-    price: toNumber(variant?.wholesalePrice ?? 0)
-  }));
-  return pickBestContextualPrice(variantEntries, metalType, karat, goldColor);
-};
-
-export const resolveMaterialWholesalePrice = (material = {}, metalType = '', karat = '', goldColor = '', adminSettings = {}) => {
-  const rawBaseCost = resolveMaterialRawPortionBaseCost(material, metalType, karat, goldColor);
-  if (rawBaseCost > 0) {
-    const { wholesaleMarkup } = normalizePricingSettings(adminSettings);
-    return Math.round(rawBaseCost * wholesaleMarkup * 100) / 100;
-  }
-  return 0;
-};
-
 
 export default function useNewRepairForm({
   onSubmit,
@@ -758,7 +474,8 @@ export default function useNewRepairForm({
     role: 'customer' // Default role
   });
   const [newClientLoading, setNewClientLoading] = useState(false);
-  const [wholesalerPricingSettings, setWholesalerPricingSettings] = useState(DEFAULT_WHOLESALER_PRICING_SETTINGS);
+  // The store's own resale markup — null until it loads (and for EFD's own tickets).
+  const [wholesalerPricingSettings, setWholesalerPricingSettings] = useState(null);
 
   // Data lists
   const [availableTasks, setAvailableTasks] = useState([]);
@@ -788,58 +505,40 @@ export default function useNewRepairForm({
   const [stullerError, setStullerError] = useState('');
   const [picturePreviewUrl, setPicturePreviewUrl] = useState('');
 
-  // Admin settings for pricing display
-  const [adminSettings, setAdminSettings] = useState({
-    pricing: {
-      materialMarkup: 1.0,
-      wholesaleMarkup: 1.5,
-      administrativeFee: 0.10,
-      businessFee: 0.15,
-      consumablesFee: 0.05,
-      quantityTiers: []
-    },
-    rushMultiplier: 1.5,
-    deliveryFee: 25.00,
-    taxRate: 0.0875
-  });
+  // What every price on this form is calculated from: the shop's pricing settings and the cost fields of
+  // the materials and tools catalogs — loaded from the server's own loadPricingContext, so the browser
+  // and the server price from the same numbers. NO DEFAULTS: if the settings don't load, or any is
+  // missing, `pricingError` says so and nothing on the form is priced (owner, 2026-09-30: "Intake should
+  // never load without our settings, and there should never be a fallback"). This replaced a hard-coded
+  // 1.5 wholesale markup, $25 delivery and 8.75% tax that stood in whenever the settings fetch failed.
+  const [pricingContext, setPricingContext] = useState(null);
+  const [pricingError, setPricingError] = useState('');
 
-  // Load admin settings for pricing display
   useEffect(() => {
-    const loadAdminSettings = async () => {
+    let cancelled = false;
+    const loadPricingContext = async () => {
       try {
-        const response = await fetch('/api/admin/settings');
-        if (response.ok) {
-          const settings = await response.json();
-          const pricing = settings.pricing || {};
-          setAdminSettings({
-            pricing: {
-              materialMarkup: pricing.materialMarkup ?? 1.0,
-              wholesaleMarkup: pricing.wholesaleMarkup || 1.5,
-              administrativeFee: pricing.administrativeFee || 0.10,
-              businessFee: pricing.businessFee || 0.15,
-              consumablesFee: pricing.consumablesFee || 0.05,
-              // Volume pricing (Store Settings → Volume pricing). This whitelist drops anything it
-              // does not name, so a ladder missing from here would simply never apply.
-              quantityTiers: normalizeQuantityTiers(pricing.quantityTiers)
-            },
-            rushMultiplier: pricing.rushMultiplier || 1.5,
-            deliveryFee: pricing.deliveryFee || 25.00,
-            taxRate: pricing.taxRate || 0.0875
-          });
-        }
+        const response = await fetch('/api/pricing/context');
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body?.error || `Pricing did not load (${response.status}).`);
+        const ctx = pricingContextFromPayload(body);
+        if (!cancelled) { setPricingContext(ctx); setPricingError(''); }
       } catch (error) {
-        console.warn('Failed to load admin settings for display:', error);
-        // Keep default values
+        console.error('[repair intake] pricing did not load:', error);
+        if (!cancelled) {
+          setPricingContext(null);
+          setPricingError(`${error?.message || 'Pricing did not load.'} Repairs can't be priced until it does — reload the page, and tell an admin if it keeps happening.`);
+        }
       }
     };
-
-    loadAdminSettings();
+    loadPricingContext();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
     const loadWholesalerAccountSettings = async () => {
       if (!isWholesale) {
-        setWholesalerPricingSettings(DEFAULT_WHOLESALER_PRICING_SETTINGS);
+        setWholesalerPricingSettings(null);
         return;
       }
 
@@ -860,8 +559,9 @@ export default function useNewRepairForm({
           }));
         }
       } catch (error) {
+        // Your receipts then show what you pay us — never a made-up markup.
         console.warn('Failed to load wholesaler markup settings:', error);
-        setWholesalerPricingSettings(DEFAULT_WHOLESALER_PRICING_SETTINGS);
+        setWholesalerPricingSettings(null);
       }
     };
 
@@ -905,9 +605,20 @@ export default function useNewRepairForm({
       pricingContextRef.current = initialPricingContext;
       hydratingPricingContextRef.current = initialPricingContext;
 
+      // Editing a saved ticket: its lines keep the price they were written with until someone changes
+      // that line, the metal or the store ("do not wipe the repair tickets … preventative, not changing
+      // the past" — owner, 2026-09-30). Anything else seeded from initialData is priced live.
+      const ticketLines = submitMode === 'edit'
+        ? {
+            tasks: asTicketLines(safeInitialData.tasks || []),
+            materials: asTicketLines(safeInitialData.materials || []),
+          }
+        : {};
+
       setFormData(prev => ({
         ...prev,
         ...safeInitialData,
+        ...ticketLines,
         metalType: inferredMetalType,
         karat: inferredKarat,
         goldColor: inferredMetalType === 'gold' ? inferredGoldColor : '',
@@ -957,15 +668,48 @@ export default function useNewRepairForm({
         userID: clientInfo._id || clientInfo.id || clientInfo.userID || '',
         isWholesale: isClientWholesale
       }));
-
-      // Trigger price recalculation if wholesale status changed
-      console.log('💰 Client wholesale status detected:', isClientWholesale);
-      // Use a timeout to avoid dependency loop
-      setTimeout(() => {
-        recalculateAllItemPrices(isClientWholesale);
-      }, 0);
+      // No re-price call: every price is derived from formData, so a wholesale change re-prices itself.
     }
   }, [clientInfo, formData.isWholesale]);
+
+  // EVERY price on this form, derived — by THE engine, from what was chosen. A metal change, a wholesale
+  // toggle or a quantity change re-prices because this re-runs, not because a handler remembered to.
+  // Null while (or if) pricing hasn't loaded; the screens show pricingError then.
+  const pricedRepair = useMemo(() => {
+    if (!pricingContext) return null;
+    return priceRepairLines(formData, {
+      ...pricingContext,
+      tasks: availableTasks,
+      storeMarkup: wholesalerPricingSettings?.retailMarkupMultiplier ?? null,
+    });
+  }, [formData, pricingContext, availableTasks, wholesalerPricingSettings]);
+
+  // What a catalog item WOULD cost on this ticket, one of it — for pickers that show a price before the
+  // item is added. Priced exactly as the line will be. Null while pricing hasn't loaded.
+  const previewLinePrice = useCallback((type, item) => {
+    if (!pricingContext || !item) return null;
+    const line = { ...stripComputedPrices(item), id: 'preview', quantity: 1 };
+    const r = priceRepairLines({
+      ...formData,
+      tasks: type === 'tasks' ? [line] : [],
+      materials: type === 'materials' ? [line] : [],
+      customLineItems: [],
+    }, {
+      ...pricingContext,
+      tasks: availableTasks,
+      storeMarkup: wholesalerPricingSettings?.retailMarkupMultiplier ?? null,
+    });
+    const priced = (type === 'tasks' ? r.tasks : r.materials)[0];
+    return priced ? { price: priced.price, retailPrice: priced.retailPrice, error: priced.pricingError } : null;
+  }, [formData, pricingContext, availableTasks, wholesalerPricingSettings]);
+
+  // The form as the screens see it: the person's choices, with the engine's prices on every line.
+  const pricedFormData = useMemo(() => (pricedRepair ? {
+    ...formData,
+    tasks: pricedRepair.tasks,
+    materials: pricedRepair.materials,
+    customLineItems: pricedRepair.customLineItems,
+  } : formData), [formData, pricedRepair]);
 
   // Load available items for selection and rush job info
   useEffect(() => {
@@ -1139,89 +883,20 @@ export default function useNewRepairForm({
     || jeweler.userID
   );
 
-  // Live price helpers use PricingEngine directly so repair pricing stays calculated from current cost inputs.
-  const computeTaskPricing = (task, metalType, karat, goldColor = '') => {
-    try {
-      return pricingEngine.calculateTaskCost(
-        task,
-        adminSettings,
-        [],
-        availableMaterials,
-        metalType && karat ? { metalType, karat, goldColor } : null
-      );
-    } catch {
-      return null;
-    }
-  };
-
-  const computeTaskRetailPrice = (task, metalType, karat, goldColor = '') => {
-    const livePricing = computeTaskPricing(task, metalType, karat, goldColor);
-    if (livePricing?.retailPrice > 0) return livePricing.retailPrice;
-    const pricingRetail = toNumber(task?.pricing?.retailPrice);
-    if (pricingRetail > 0) return pricingRetail;
-
-    const stored = resolveTaskBasePrice(task, metalType, karat, '');
-    return stored > 0 ? stored : 0;
-  };
-
-  const computeTaskWholesalePrice = (task, metalType, karat, goldColor = '') => {
-    const livePricing = computeTaskPricing(task, metalType, karat, goldColor);
-    if (livePricing?.wholesalePrice > 0) return livePricing.wholesalePrice;
-
-    const pricing = task?.pricing || {};
-    const fallbackBaseCost = toNumber(
-      pricing.baseCost ??
-      (
-        toNumber(pricing.laborCost) +
-        toNumber(
-          pricing.totalMaterialCost ??
-          pricing.totalMaterialsCost ??
-          pricing.totalProcessMaterialCost ??
-          pricing.markedUpMaterialCost ??
-          pricing.materialsCost
-        ) +
-        toNumber(pricing.toolDepreciationCost)
-      )
-    );
-    if (fallbackBaseCost > 0) {
-      const { wholesaleMarkup } = normalizePricingSettings(adminSettings);
-      return Math.round(fallbackBaseCost * wholesaleMarkup * 100) / 100;
-    }
-
-    const universalWholesale = getUniversalVariantWholesalePrice(task.universalPricing, metalType, karat, goldColor);
-    return universalWholesale > 0 ? universalWholesale : 0;
-  };
-
-  const buildTaskItemsFromInferred = useCallback((tasks = [], previousForm) => {
+  // A line is what was chosen — the task and how many. Its price is derived (see pricedRepair below).
+  const buildTaskItemsFromInferred = useCallback((tasks = []) => {
     if (!Array.isArray(tasks) || tasks.length === 0) {
       return [];
     }
 
-    const nextMetalType = previousForm?.metalType || '';
-    const nextKarat = previousForm?.karat || '';
-    const nextGoldColor = previousForm?.goldColor || '';
-
-    return tasks.map((task, index) => {
-      const livePricing = computeTaskPricing(task, nextMetalType, nextKarat, nextGoldColor);
-      const baseRetailPrice = livePricing?.retailPrice || computeTaskRetailPrice(task, nextMetalType, nextKarat, nextGoldColor);
-      const wholesalePrice = livePricing?.wholesalePrice || computeTaskWholesalePrice(task, nextMetalType, nextKarat, nextGoldColor);
-      const paidPrice = previousForm.isWholesale ? (wholesalePrice > 0 ? wholesalePrice : baseRetailPrice) : baseRetailPrice;
-      const retailPrice = previousForm.isWholesale
-        ? applyWholesalerRetailAdjustments(paidPrice, wholesalerPricingSettings)
-        : baseRetailPrice;
-
-      return {
-        ...task,
-        id: Date.now() + index,
-        // Per-unit tasks (per prong / per stone) arrive from smart intake with a
-        // counted quantity; everything else defaults to 1 exactly as before.
-        quantity: Math.max(1, Math.round(Number(task.__aiQuantity) || 1)),
-        pricing: livePricing ? { ...(task.pricing || {}), ...livePricing, liveCalculated: true } : task.pricing,
-        retailPrice,
-        price: paidPrice
-      };
-    });
-  }, [wholesalerPricingSettings]);
+    return tasks.map((task, index) => ({
+      ...stripComputedPrices(task),
+      id: Date.now() + index,
+      // Per-unit tasks (per prong / per stone) arrive from smart intake with a
+      // counted quantity; everything else defaults to 1 exactly as before.
+      quantity: Math.max(1, Math.round(Number(task.__aiQuantity) || 1)),
+    }));
+  }, []);
 
   const buildMaterialItemsFromInferred = useCallback((materialHints = [], previousForm) => {
     if (!Array.isArray(materialHints) || materialHints.length === 0 || !Array.isArray(availableMaterials) || availableMaterials.length === 0) {
@@ -1280,38 +955,15 @@ export default function useNewRepairForm({
 
       if (!matchedMaterial) return null;
 
-      const baseRetailPrice = resolveMaterialRetailPrice(
-        matchedMaterial,
-        nextMetalType,
-        nextKarat,
-        nextGoldColor,
-        adminSettings
-      );
-      const wholesalePrice = resolveMaterialWholesalePrice(
-        matchedMaterial,
-        nextMetalType,
-        nextKarat,
-        nextGoldColor,
-        adminSettings
-      );
-      const paidPrice = previousForm.isWholesale
-        ? (wholesalePrice > 0 ? wholesalePrice : baseRetailPrice)
-        : baseRetailPrice;
-      const retailPrice = previousForm.isWholesale
-        ? applyWholesalerRetailAdjustments(paidPrice, wholesalerPricingSettings)
-        : baseRetailPrice;
-
       return {
-        ...matchedMaterial,
+        ...stripComputedPrices(matchedMaterial),
         id: Date.now() + index,
         quantity,
-        retailPrice,
-        price: paidPrice,
         _smartIntakeHintType: normalizedHintType,
         _smartIntakeReason: hint?.reason || ''
       };
     }).filter(Boolean);
-  }, [adminSettings, availableMaterials, wholesalerPricingSettings]);
+  }, [availableMaterials]);
 
   const applySmartIntakeResults = useCallback((results = {}) => {
     setFormData((prev) => {
@@ -1357,10 +1009,7 @@ export default function useNewRepairForm({
       }
 
       if (Array.isArray(results.inferredTasks) && results.inferredTasks.length > 0 && (!prev.tasks || prev.tasks.length === 0)) {
-        const inferredTaskItems = buildTaskItemsFromInferred(results.inferredTasks, {
-          ...prev,
-          ...updates
-        });
+        const inferredTaskItems = buildTaskItemsFromInferred(results.inferredTasks);
         if (inferredTaskItems.length > 0) {
           updates.tasks = inferredTaskItems;
         }
@@ -1553,14 +1202,11 @@ export default function useNewRepairForm({
     if (prevWholesaleProp.current !== isWholesale) {
       console.log('💰 Wholesale status changed from prop:', prevWholesaleProp.current, '->', isWholesale);
       prevWholesaleProp.current = isWholesale;
-      setFormData(prev => ({
+      // Who the ticket is for changed: a saved ticket's lines are re-priced for it.
+      setFormData(prev => releaseAllTicketPrices({
         ...prev,
         isWholesale: isWholesale
       }));
-      // Recalculate prices with new wholesale status
-      setTimeout(() => {
-        recalculateAllItemPrices(isWholesale);
-      }, 0);
     }
   }, [isWholesale]); // Only depend on the prop, not the form state
 
@@ -1570,130 +1216,24 @@ export default function useNewRepairForm({
     return metalConfig?.karatOptions || [];
   };
 
-  // Calculate total cost with admin settings
-  const calculateTotalCost = useCallback(async () => {
-    if (formData.compRepair || formData.includedWithSale) return 0;
+  // The ticket's total — THE engine's (priceRepairTotals: rush, delivery and tax from the settings).
+  // Async only because the screens await it; it no longer fetches anything. Null when pricing didn't load.
+  const calculateTotalCost = useCallback(async () => (
+    pricedRepair ? pricedRepair.totals.total : null
+  ), [pricedRepair]);
 
-    console.log('🧮 CALCULATETOTALCOST START');
-    const tasksCost = formData.tasks.reduce((sum, item) =>
-      sum + (parseFloat(item.price ?? resolveTaskBasePrice(item, formData.metalType, formData.karat, formData.goldColor)) * (item.quantity || 1)), 0);
-    const materialsCost = formData.materials.reduce((sum, item) =>
-      sum + (parseFloat(item.price || item.unitCost || item.costPerPortion || 0) * (item.quantity || 1)), 0);
-    const customCost = formData.customLineItems.reduce((sum, item) =>
-      sum + (parseFloat(item.price || 0) * (item.quantity || 1)), 0);
-
-    let subtotal = tasksCost + materialsCost + customCost;
-
-    console.log('📊 CALCULATETOTALCOST - Individual Costs:', {
-      tasksCost,
-      materialsCost,
-      customCost,
-      subtotal,
-      isWholesale: formData.isWholesale
-    });
-
-    // Note: Individual item prices are already discounted by recalculateAllItemPrices()
-    // for wholesale clients, so no additional discount needed here
-
-    // Get admin settings for dynamic pricing
-    try {
-      const response = await fetch('/api/admin/settings');
-      if (response.ok) {
-        const settings = await response.json();
-        const pricing = settings.pricing || {};
-
-        // Apply rush job markup if applicable
-        if (formData.isRush) {
-          const rushMultiplier = pricing.rushMultiplier || 1.5;
-          subtotal = subtotal * rushMultiplier;
-        }
-
-        // Add delivery fee if applicable (not subject to wholesale discount)
-        if (formData.includeDelivery) {
-          const deliveryFee = pricing.deliveryFee || 25.00;
-          subtotal = subtotal + deliveryFee;
-        }
-
-        // Add tax if applicable (wholesale clients don't pay taxes)
-        if (formData.includeTax && !formData.isWholesale) {
-          const taxRate = pricing.taxRate || 0.0875;
-          subtotal = subtotal * (1 + taxRate);
-        }
-      }
-    } catch (error) {
-      console.warn('Failed to fetch admin settings for pricing:', error);
-      // Fallback to hardcoded values
-      if (formData.isRush) {
-        subtotal = subtotal * 1.5;
-      }
-      if (formData.includeDelivery) {
-        subtotal = subtotal + 25.00; // Default delivery fee
-      }
-      if (formData.includeTax && !formData.isWholesale) {
-        subtotal = subtotal * 1.0875; // Default tax rate (8.75%)
-      }
-    }
-
-    return subtotal;
-  }, [formData.tasks, formData.materials, formData.customLineItems, formData.isWholesale, formData.isRush, formData.includeDelivery, formData.includeTax, formData.metalType, formData.karat, formData.goldColor]);
-
-  // Add item handlers
-  /**
-   * Price one task line for the quantity on it (services/pricing/quantityTiers.js).
-   *
-   * `listUnitPrice` is kept beside the effective price so re-pricing is idempotent — a metal change
-   * or a wholesale toggle re-derives the list and re-applies the tier, instead of discounting an
-   * already-discounted number every time the form recalculates.
-   */
-  const withQuantityTier = (line, listUnitPrice) => {
-    const tiered = applyQuantityTier({
-      price: listUnitPrice,
-      pricing: line.pricing,
-      quantity: line.quantity,
-      tiers: adminSettings?.pricing?.quantityTiers,
-    });
-    return {
-      ...line,
-      listUnitPrice: tiered.listUnitPrice,
-      price: tiered.unitPrice,
-      quantityTier: tiered.applied
-        ? { label: tiered.label, minQty: tiered.tier.minQty, discountPerUnit: tiered.discountPerUnit }
-        : null,
-    };
-  };
-
+  // Add item handlers. A line is the catalog item and its quantity; the price is derived.
   const addTask = (task) => {
-    const livePricing = computeTaskPricing(task, formData.metalType, formData.karat, formData.goldColor);
-    const baseRetailPrice = livePricing?.retailPrice || computeTaskRetailPrice(task, formData.metalType, formData.karat, formData.goldColor);
-    const wholesalePrice = livePricing?.wholesalePrice || computeTaskWholesalePrice(task, formData.metalType, formData.karat, formData.goldColor);
-    const price = formData.isWholesale ? (wholesalePrice > 0 ? wholesalePrice : baseRetailPrice) : baseRetailPrice;
-    const retailPrice = formData.isWholesale
-      ? applyWholesalerRetailAdjustments(price, wholesalerPricingSettings)
-      : baseRetailPrice;
-    const newTask = withQuantityTier({
-      ...task,
-      id: Date.now(),
-      quantity: 1,
-      pricing: livePricing ? { ...(task.pricing || {}), ...livePricing, liveCalculated: true } : task.pricing,
-      retailPrice,
-    }, price);
     setFormData(prev => ({
       ...prev,
-      tasks: [...prev.tasks, newTask]
+      tasks: [...prev.tasks, { ...stripComputedPrices(task), id: Date.now(), quantity: 1 }]
     }));
   };
 
   const addMaterial = (material) => {
-    const baseRetailPrice = resolveMaterialRetailPrice(material, formData.metalType, formData.karat, formData.goldColor, adminSettings);
-    const wholesalePrice = resolveMaterialWholesalePrice(material, formData.metalType, formData.karat, formData.goldColor, adminSettings);
-    const price = formData.isWholesale ? (wholesalePrice > 0 ? wholesalePrice : baseRetailPrice) : baseRetailPrice;
-    const retailPrice = formData.isWholesale
-      ? applyWholesalerRetailAdjustments(price, wholesalerPricingSettings)
-      : baseRetailPrice;
-    const newMaterial = { ...material, id: Date.now(), quantity: 1, retailPrice, price };
     setFormData(prev => ({
       ...prev,
-      materials: [...prev.materials, newMaterial]
+      materials: [...prev.materials, { ...stripComputedPrices(material), id: Date.now(), quantity: 1 }]
     }));
   };
 
@@ -1722,16 +1262,18 @@ export default function useNewRepairForm({
   // event (classic onClick) is not a draft.
   const addCustomLaborTask = (draft) => {
     const d = draft && typeof draft === 'object' && !draft.nativeEvent ? draft : {};
+    const settings = pricingContext?.settings;
+    if (!settings) return; // pricing didn't load — nothing can be priced, and pricingError says so
     let task = buildCustomLaborTask({
       id: Date.now(),
       description: d.description || '',
       laborHours: d.laborHours || 0,
       quantity: d.quantity || 1,
-      adminSettings,
+      settings,
       isWholesale: formData.isWholesale,
     });
     if (d.price !== undefined && d.price !== null && d.price !== '') {
-      task = applyCustomLaborPatch(task, { price: d.price }, { adminSettings, isWholesale: formData.isWholesale });
+      task = applyCustomLaborPatch(task, { price: d.price }, { settings, isWholesale: formData.isWholesale });
     }
     setFormData(prev => ({ ...prev, tasks: [...prev.tasks, task] }));
   };
@@ -1741,76 +1283,49 @@ export default function useNewRepairForm({
       ...prev,
       tasks: prev.tasks.map((task) => (
         task.id === id && isCustomLaborTask(task)
-          ? applyCustomLaborPatch(task, patch, { adminSettings, isWholesale: prev.isWholesale })
+          ? releaseTicketPrice(applyCustomLaborPatch(task, patch, { settings: pricingContext?.settings, isWholesale: prev.isWholesale }))
           : task
       ))
     }));
   };
 
-  // Recalculate all item prices when wholesale status changes
-  const recalculateAllItemPrices = (isWholesale) => {
-    setFormData(prev => ({
-      ...prev,
-      tasks: prev.tasks.map((task) => {
-        if (isCustomLaborTask(task)) {
-          return repriceCustomLaborTask(task, { adminSettings, isWholesale });
-        }
-        const livePricing = computeTaskPricing(task, formData.metalType, formData.karat, formData.goldColor);
-        const baseRetailPrice = livePricing?.retailPrice || computeTaskRetailPrice(task, formData.metalType, formData.karat, formData.goldColor);
-        const wholesalePrice = livePricing?.wholesalePrice || computeTaskWholesalePrice(task, formData.metalType, formData.karat, formData.goldColor);
-        const price = isWholesale ? (wholesalePrice > 0 ? wholesalePrice : baseRetailPrice) : baseRetailPrice;
-        const retailPrice = isWholesale
-          ? applyWholesalerRetailAdjustments(price, wholesalerPricingSettings)
-          : baseRetailPrice;
-        return withQuantityTier({
-          ...task,
-          pricing: livePricing ? { ...(task.pricing || {}), ...livePricing, liveCalculated: true } : task.pricing,
-          retailPrice,
-        }, price);
-      }),
-      materials: prev.materials.map((material) => {
-        const baseRetailPrice = resolveMaterialRetailPrice(material, formData.metalType, formData.karat, formData.goldColor, adminSettings);
-        const wholesalePrice = resolveMaterialWholesalePrice(material, formData.metalType, formData.karat, formData.goldColor, adminSettings);
-        const price = isWholesale ? (wholesalePrice > 0 ? wholesalePrice : baseRetailPrice) : baseRetailPrice;
-        const retailPrice = isWholesale
-          ? applyWholesalerRetailAdjustments(price, wholesalerPricingSettings)
-          : baseRetailPrice;
-        return { ...material, retailPrice, price };
-      })
-    }));
+  // Every price is derived from formData, so nothing needs re-pricing by hand. What this does: a saved
+  // ticket's lines stop holding the price they were written with (the metal or the store changed).
+  // Kept under its old name — the screens call it.
+  const releaseAllTicketPrices = (form) => ({
+    ...form,
+    tasks: (form.tasks || []).map(releaseTicketPrice),
+    materials: (form.materials || []).map(releaseTicketPrice),
+  });
+  const recalculateAllItemPrices = () => {
+    setFormData((prev) => releaseAllTicketPrices(prev));
   };
 
   useEffect(() => {
-    const pricingContext = `${formData.metalType || ''}|${formData.karat || ''}|${formData.goldColor || ''}`;
+    const metalContext = `${formData.metalType || ''}|${formData.karat || ''}|${formData.goldColor || ''}`;
     if (hydratingPricingContextRef.current) {
-      if (pricingContext === hydratingPricingContextRef.current) {
-        pricingContextRef.current = pricingContext;
+      if (metalContext === hydratingPricingContextRef.current) {
+        pricingContextRef.current = metalContext;
         hydratingPricingContextRef.current = null;
       }
       return;
     }
 
     if (pricingContextRef.current === null) {
-      pricingContextRef.current = pricingContext;
+      pricingContextRef.current = metalContext;
       return;
     }
 
-    if (pricingContextRef.current === pricingContext) {
+    if (pricingContextRef.current === metalContext) {
       return;
     }
 
-    pricingContextRef.current = pricingContext;
-    if (formData.tasks.length > 0) {
-      recalculateAllItemPrices(formData.isWholesale);
+    // The metal changed: a saved ticket's lines are re-priced in the new metal.
+    pricingContextRef.current = metalContext;
+    if (formData.tasks.length > 0 || formData.materials.length > 0) {
+      recalculateAllItemPrices();
     }
   }, [formData.metalType, formData.karat, formData.goldColor]);
-
-  useEffect(() => {
-    if (submitMode === 'edit') return;
-    if (formData.isWholesale && (formData.tasks.length > 0 || formData.materials.length > 0)) {
-      recalculateAllItemPrices(true);
-    }
-  }, [wholesalerPricingSettings]);
 
   // Store selection — lifted verbatim from the Store <Select> onChange in the
   // render (the only inline handler with data fetching). Body unchanged.
@@ -1818,7 +1333,7 @@ export default function useNewRepairForm({
     const selectedStore = (availableStores || []).find((store) => String(store.id) === String(nextStoreId));
     const nextIsWholesale = !!selectedStore?.isWholesale;
 
-    setFormData((prev) => ({
+    setFormData((prev) => releaseAllTicketPrices({
       ...prev,
       storeId: nextStoreId,
       storeName: selectedStore?.name || 'Engel Fine Design',
@@ -1845,10 +1360,6 @@ export default function useNewRepairForm({
     } else {
       setAvailableUsers(adminUsersRef.current);
     }
-
-    setTimeout(() => {
-      recalculateAllItemPrices(nextIsWholesale);
-    }, 0);
 
     if (onWholesaleChange) {
       onWholesaleChange(nextIsWholesale);
@@ -1880,22 +1391,13 @@ export default function useNewRepairForm({
 
       const stullerData = await response.json();
 
-      // Fresh pricing settings (fall back to the ones already loaded).
-      const settingsResponse = await fetch('/api/admin/settings');
-      const loadedSettings = settingsResponse.ok ? await settingsResponse.json().catch(() => ({})) : {};
-      const pricingSettings = loadedSettings?.pricing ? loadedSettings : adminSettings;
-
-      // Priced for THIS ticket: wholesale = cost × wholesaleMarkup, retail = cost × business
-      // multiplier. The server re-prices from the repair's billing mode on save regardless.
-      // (Before 2026-09-21 this always ran the retail formula — a 2× markup on store tickets.)
-      const isWholesale = !!formData.isWholesale;
-      const built = buildStullerRepairMaterial({
-        item: stullerData, sku: stullerSku, isWholesale, adminSettings: pricingSettings, category: 'stuller_gemstone',
+      // The part's line carries its Stuller COST; its price is derived like every other line's (the
+      // engine's pricePart — wholesale = cost × wholesale markup, retail = cost × the fee multiplier).
+      const settings = pricingContext?.settings;
+      if (!settings) throw new Error('Pricing did not load — the part cannot be priced. Reload the page.');
+      const newMaterial = buildStullerRepairMaterial({
+        item: stullerData, sku: stullerSku, isWholesale: !!formData.isWholesale, settings, category: 'stuller_gemstone',
       });
-      const newMaterial = {
-        ...built,
-        retailPrice: isWholesale ? applyWholesalerRetailAdjustments(built.price, wholesalerPricingSettings) : built.retailPrice,
-      };
 
       // Add to repair materials
       setFormData(prev => ({
@@ -1930,13 +1432,9 @@ export default function useNewRepairForm({
       ...prev,
       [type]: prev[type].map((item) => {
         if (item.id !== id) return item;
-        const next = { ...item, [field]: value };
-        // Changing the quantity can move a task line into a different volume tier, so its unit
-        // price is re-derived here rather than only when the whole form recalculates.
-        if (type === 'tasks' && field === 'quantity' && !isCustomLaborTask(next)) {
-          return withQuantityTier(next, next.listUnitPrice ?? next.price);
-        }
-        return next;
+        // A changed line is priced live from here on — including a saved ticket's line, which until
+        // now held the price it was written with. (The quantity's volume tier is derived with it.)
+        return releaseTicketPrice({ ...item, [field]: value });
       })
     }));
   };
@@ -1994,70 +1492,28 @@ export default function useNewRepairForm({
         throw new Error('Choose the artisan who completed the while-you-wait repair');
       }
 
-      // Prepare submission data with detailed pricing breakdown
-      let totalCost = 0;
-      let subtotal = 0;
-      let tasksCost = 0;
-      let materialsCost = 0;
-      let customCost = 0;
-
-      const isCompedRepair = formData.compRepair || formData.includedWithSale;
-
-      // For admin users, calculate detailed pricing
-      if (!formData.isWholesale && !isCompedRepair) {
-        totalCost = await calculateTotalCost();
-
-        // Calculate pricing breakdown properly
-        tasksCost = formData.tasks.reduce((sum, item) =>
-          sum + (parseFloat(item.price ?? resolveTaskBasePrice(item, formData.metalType, formData.karat, formData.goldColor)) * (item.quantity || 1)), 0);
-        materialsCost = formData.materials.reduce((sum, item) =>
-          sum + (parseFloat(item.price || item.unitCost || item.costPerPortion || 0) * (item.quantity || 1)), 0);
-        customCost = formData.customLineItems.reduce((sum, item) =>
-          sum + (parseFloat(item.price || 0) * (item.quantity || 1)), 0);
-
-        // Base subtotal (individual item prices are already wholesale-discounted if applicable)
-        subtotal = tasksCost + materialsCost + customCost;
-      } else {
-        // For wholesalers, pricing will be determined by admin later
-        console.log('👤 Wholesaler submission: Pricing to be determined by admin');
-        totalCost = 0;
-        subtotal = 0;
+      // Prices: THE engine's, derived from this form (pricedRepair). Nothing is submitted unpriced — "If it
+      // can't be calculated, it doesn't show" (owner, 2026-09-30). A store asking us to quote sends no
+      // tasks, so it has nothing to price.
+      if (!pricedRepair) {
+        throw new Error(pricingError || 'Pricing did not load — this repair cannot be priced. Reload the page.');
       }
-
-      // Note: No additional wholesale discount needed - individual prices are already adjusted
-
-      // Calculate fees (only for admin mode)
-      const rushFee = (!formData.isWholesale && formData.isRush) ?
-        subtotal * ((adminSettings.rushMultiplier || 1.5) - 1) : 0;
-
-      // Calculate delivery fee (flat rate, not subject to wholesale discount)
-      const deliveryFee = (!formData.isWholesale && formData.includeDelivery) ?
-        (adminSettings.deliveryFee || 25.00) : 0;
-
-      // Calculate tax amount (applied to subtotal + rushFee + deliveryFee, wholesale exempt)
-      const taxableAmount = subtotal + rushFee + deliveryFee;
-      const taxAmount = (!formData.isWholesale && formData.includeTax && !formData.isWholesale) ?
-        taxableAmount * (adminSettings.taxRate || 0.0875) : 0;
-
-      // Add comprehensive logging
-      console.log('🔍 PRICING BREAKDOWN DEBUG:');
-      console.log('📊 Base Costs (individual prices already wholesale-adjusted):', { tasksCost, materialsCost, customCost, subtotal });
-      console.log('💰 Calculated Values:', { subtotal, rushFee, deliveryFee, taxAmount, totalCost });
-      console.log('⚙️ Settings:', {
-        isWholesale: formData.isWholesale,
-        isRush: formData.isRush,
-        includeDelivery: formData.includeDelivery,
-        includeTax: formData.includeTax,
-        taxRate: adminSettings.taxRate,
-        rushMultiplier: adminSettings.rushMultiplier
-      });
+      if (!requestQuote && pricedRepair.unpriced.length > 0) {
+        const first = pricedRepair.unpriced[0];
+        throw new Error(`${first.title}: ${first.message}`);
+      }
+      const { subtotal, rushFee, deliveryFee, taxRate, taxAmount, total: totalCost } = pricedRepair.totals;
 
       const selectedWhileYouWaitJeweler = benchJewelers.find((jeweler) => jeweler.userID === formData.assignedTo);
       const whileYouWaitJewelerName = selectedWhileYouWaitJeweler ? getJewelerLabel(selectedWhileYouWaitJeweler) : formData.assignedJeweler;
       const completedNow = new Date().toISOString();
-      const sanitizedFormData = formData;
       const submissionData = {
-        ...sanitizedFormData,
+        ...formData,
+        // The derived lines — every price on them is the engine's, for this ticket. A saved ticket's
+        // unchanged lines keep `ticketPrice: true` so the server knows they hold their written price.
+        tasks: pricedRepair.tasks,
+        materials: pricedRepair.materials,
+        customLineItems: pricedRepair.customLineItems,
         ...(requestQuote ? { quoteRequested: true } : {}),
         // For wholesalers, set a placeholder promise date if none provided (admin will update it)
         promiseDate: isQuote
@@ -2071,7 +1527,7 @@ export default function useNewRepairForm({
         rushFee,
         deliveryFee,
         taxAmount,
-        taxRate: adminSettings.taxRate || 0.0875,
+        taxRate,
         isWholesale: formData.isWholesale,
         includeDelivery: formData.includeDelivery,
         includeTax: formData.includeTax && !formData.isWholesale, // Store actual tax application
@@ -2139,12 +1595,6 @@ export default function useNewRepairForm({
           console.warn('Update response did not include a repairID; merging submitted data into context:', result);
           updateRepair(repairID, submissionData);
         }
-      } else if (isCompedRepair) {
-        totalCost = 0;
-        subtotal = 0;
-        tasksCost = 0;
-        materialsCost = 0;
-        customCost = 0;
       } else {
         // Add the new repair to the repairs context immediately
         if (result && (result.repairID || result.newRepair?.repairID)) {
@@ -2322,8 +1772,8 @@ export default function useNewRepairForm({
   };
 
   return {
-    // Form state
-    formData,
+    // Form state — with the engine's price on every line (pricedFormData)
+    formData: pricedFormData,
     setFormData,
 
     // UI state
@@ -2351,8 +1801,14 @@ export default function useNewRepairForm({
     benchJewelers,
     availableStores,
     rushJobInfo,
-    adminSettings,
     wholesalerPricingSettings,
+
+    // Pricing — THE engine's, or an error saying why there is none
+    pricingSettings: pricingContext?.settings || null,
+    pricingError,
+    pricingTotals: pricedRepair?.totals || null,
+    unpricedLines: pricedRepair?.unpriced || [],
+    previewLinePrice,
 
     // Stuller
     stullerSku,

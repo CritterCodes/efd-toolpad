@@ -48,11 +48,7 @@ import CameraCapture from '@/components/shared/CameraCapture';
 import SmartIntakeMic from '@/app/components/repairs/SmartIntakeMic';
 import PromiseDateSuggestion from '@/app/components/repairs/PromiseDateSuggestion';
 import { METAL_TYPES, GOLD_COLORS } from '@/constants/customRequest.constants';
-import useNewRepairForm, {
-  toNumber,
-  resolveMaterialRetailPrice,
-  resolveMaterialWholesalePrice,
-} from '@/hooks/repairs/useNewRepairForm';
+import useNewRepairForm, { toNumber } from '@/hooks/repairs/useNewRepairForm';
 import { TotalCostCard } from '@/app/components/repairs/NewRepairForm';
 import {
   SurfaceCard,
@@ -196,6 +192,8 @@ function RingSizePicker({ label, value, onChange }) {
 function TicketRow({ kind, hue, item, title, fromSentence, onQuantityChange, onPriceChange, priceEditable, extraFields, beforePrice, onRemove }) {
   const unitPrice = toNumber(item.price);
   const lineTotal = unitPrice * (item.quantity || 1);
+  // THE engine couldn't price this line (no metal chosen, not stocked in it…): no number, and why.
+  const unpriced = item.price == null && !priceEditable;
   return (
     <SurfaceCard sx={{ p: 1.75 }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
@@ -238,6 +236,10 @@ function TicketRow({ kind, hue, item, title, fromSentence, onQuantityChange, onP
             inputProps={{ min: 0, step: 0.01, style: { fontSize: 16 } }}
             sx={{ width: 120 }}
           />
+        ) : unpriced ? (
+          <Typography sx={{ fontSize: '0.8125rem', color: '#F87171' }}>
+            {item.pricingError || "Can't price this."}
+          </Typography>
         ) : item.quantityTier ? (
           /* A volume tier fired: show what it would have been, so the break is visible on the
              ticket instead of the price just looking wrong. */
@@ -256,7 +258,7 @@ function TicketRow({ kind, hue, item, title, fromSentence, onQuantityChange, onP
           </Typography>
         )}
         <Typography sx={{ ml: 'auto', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
-          ${lineTotal.toFixed(2)}
+          {unpriced ? '—' : `$${lineTotal.toFixed(2)}`}
         </Typography>
       </Box>
     </SurfaceCard>
@@ -355,10 +357,10 @@ export default function NewRepairFlow(props) {
     newClientData, setNewClientData, newClientLoading,
     picturePreviewUrl,
     availableTasks, availableMaterials, availableUsers, benchJewelers, availableStores,
-    rushJobInfo, adminSettings,
+    rushJobInfo, pricingSettings, pricingError, pricingTotals, previewLinePrice, wholesalerPricingSettings,
     stullerSku, setStullerSku, loadingStuller, stullerError, addStullerMaterial,
     promiseDateEstimate, promiseDateContext, promiseDateLoading, promiseDateError,
-    getJewelerLabel, getKaratOptions, calculateTotalCost, formatPhoneNumber,
+    getJewelerLabel, getKaratOptions, formatPhoneNumber,
     handleStoreChange,
     addTask, addMaterial, addCustomLineItem, addCustomLaborTask, patchCustomLaborTask, removeItem, updateItem,
     handleSubmit, handleAddNewClient, handleGenerateDescriptionFromImage, handleAnalyzeSmartIntake
@@ -377,7 +379,6 @@ export default function NewRepairFlow(props) {
   // until the jeweler types over the calculated number, which then becomes a remembered override.
   const EMPTY_LABOR = { description: '', laborHours: 0, quantity: 1, price: '' };
   const [laborDraft, setLaborDraft] = useState(EMPTY_LABOR);
-  const [reviewTotal, setReviewTotal] = useState(null);
   // Voice input for the sentence: each finished phrase is appended; when the jeweler taps the
   // mic to STOP (not when the engine times out), the sentence is analyzed for them.
   const [dictation, setDictation] = useState({ listening: false, interim: '', error: '', endedByUser: false });
@@ -448,14 +449,8 @@ export default function NewRepairFlow(props) {
   }, [errors.submit]);
   const goBack = () => setStep((s) => Math.max(s - 1, 0));
 
-  // The gold Total on the review step, from the same calculation the classic
-  // form's card uses.
-  useEffect(() => {
-    if (step !== 3) return;
-    let active = true;
-    calculateTotalCost().then((total) => { if (active) setReviewTotal(total); }).catch(() => {});
-    return () => { active = false; };
-  }, [step, calculateTotalCost]);
+  // The gold Total on the review step — THE engine's (the same totals the classic form's card shows).
+  const reviewTotal = pricingTotals ? pricingTotals.total : null;
 
   // A material added from the sheet (catalog tap or Stuller lookup) closes it.
   const materialCount = formData.materials.length;
@@ -513,10 +508,11 @@ export default function NewRepairFlow(props) {
   const materialResults = materialQuery
     ? availableMaterials.filter((m) => `${m.displayName || ''} ${m.name || ''} ${m.description || ''}`.toLowerCase().includes(materialQuery.toLowerCase())).slice(0, 8)
     : [];
-  const materialPrice = (option) => {
-    const retail = resolveMaterialRetailPrice(option, formData.metalType, formData.karat, formData.goldColor, adminSettings);
-    const wholesale = resolveMaterialWholesalePrice(option, formData.metalType, formData.karat, formData.goldColor, adminSettings);
-    return formData.isWholesale && wholesale > 0 ? wholesale : retail;
+  // What a material would cost on this ticket, priced exactly as its line will be — or why it can't be.
+  const materialPriceLabel = (option) => {
+    const preview = previewLinePrice('materials', option);
+    if (!preview) return '';
+    return preview.price == null ? (preview.error || "Can't price") : `$${preview.price.toFixed(2)}`;
   };
 
   const itemCount = formData.tasks.length + formData.materials.length + formData.customLineItems.length;
@@ -567,10 +563,13 @@ export default function NewRepairFlow(props) {
   };
 
   // What the engine would charge for the drafted hours, in this ticket's pricing context.
-  const laborDraftCalculated = calculatedCustomLaborPrice(
-    buildCustomLaborTask({ laborHours: laborDraft.laborHours, adminSettings, isWholesale: formData.isWholesale }),
-    { isWholesale: formData.isWholesale },
-  );
+  // Null until there are hours to price (or if pricing didn't load).
+  const laborDraftCalculated = pricingSettings
+    ? calculatedCustomLaborPrice(
+        buildCustomLaborTask({ laborHours: laborDraft.laborHours, settings: pricingSettings, isWholesale: formData.isWholesale }),
+        { isWholesale: formData.isWholesale },
+      )
+    : null;
   const laborDraftPrice = laborDraft.price === '' ? laborDraftCalculated : toNumber(laborDraft.price);
 
   const addLaborFromDraft = () => {
@@ -602,6 +601,8 @@ export default function NewRepairFlow(props) {
           onCancel={onCancel || goBack}
         />
 
+        {/* No settings, no prices — and the form says so instead of pricing from defaults. */}
+        {pricingError && <Alert severity="error">{pricingError}</Alert>}
         {errors.submit && step !== 3 && <Alert severity="error">{errors.submit}</Alert>}
 
         {/* ── Step 1 — Who it's for ─────────────────────────────────────── */}
@@ -956,7 +957,8 @@ export default function NewRepairFlow(props) {
                       extraFields={(
                         <Typography variant="caption" sx={{ color: facelift.text2, display: 'block', mt: 0.25 }}>
                           {(toNumber(task.laborHours) * (task.quantity || 1)).toFixed(2)} hrs total ·{' '}
-                          {task.priceOverridden && calculatedCustomLaborPrice(task, { isWholesale: !!formData.isWholesale }) !== toNumber(task.price)
+                          {task.priceOverridden && calculatedCustomLaborPrice(task, { isWholesale: !!formData.isWholesale }) != null
+                            && calculatedCustomLaborPrice(task, { isWholesale: !!formData.isWholesale }) !== toNumber(task.price)
                             ? `calculated $${calculatedCustomLaborPrice(task, { isWholesale: !!formData.isWholesale }).toFixed(2)}, discounted`
                             : `${formData.isWholesale ? 'wholesale' : 'retail'} price from hours`}
                         </Typography>
@@ -984,7 +986,7 @@ export default function NewRepairFlow(props) {
                       fromSentence={Boolean(material._smartIntakeHintType)}
                       onQuantityChange={(qty) => updateItem('materials', material.id, 'quantity', qty)}
                       onPriceChange={(price) => updateItem('materials', material.id, 'price', price)}
-                      priceEditable
+                      priceEditable={false}
                       onRemove={() => removeItem('materials', material.id)}
                     />
                   ))}
@@ -1244,7 +1246,7 @@ export default function NewRepairFlow(props) {
               )}
               <ReviewRow
                 label="Rush"
-                value={formData.isRush ? `Yes · x${adminSettings.rushMultiplier}` : 'No'}
+                value={formData.isRush ? `Yes · x${pricingSettings?.rushMultiplier ?? '—'}` : 'No'}
                 valueColor={formData.isRush ? facelift.gold : undefined}
                 editor={(
                   <Box>
@@ -1257,7 +1259,7 @@ export default function NewRepairFlow(props) {
                           disabled={!rushJobInfo.canCreate && !formData.isRush}
                         />
                       }
-                      label={`Rush job (x${adminSettings.rushMultiplier})`}
+                      label={pricingSettings ? `Rush job (x${pricingSettings.rushMultiplier})` : 'Rush job'}
                     />
                     {!rushJobInfo.canCreate && (
                       <Typography variant="caption" color="error" sx={{ display: 'block' }}>
@@ -1271,7 +1273,7 @@ export default function NewRepairFlow(props) {
                     )}
                     {formData.isRush && (
                       <Typography variant="caption" sx={{ display: 'block', color: facelift.text2 }}>
-                        Rush jobs have {((toNumber(adminSettings.rushMultiplier) - 1) * 100).toFixed(0)}% markup
+                        Rush jobs have {pricingSettings ? ((pricingSettings.rushMultiplier - 1) * 100).toFixed(0) : '—'}% markup
                       </Typography>
                     )}
                   </Box>
@@ -1355,7 +1357,7 @@ export default function NewRepairFlow(props) {
                           onChange={(e) => setFormData((prev) => ({ ...prev, includeDelivery: e.target.checked }))}
                         />
                       }
-                      label={`Include delivery (+$${adminSettings.deliveryFee.toFixed(2)})`}
+                      label={pricingSettings ? `Include delivery (+$${pricingSettings.deliveryFee.toFixed(2)})` : 'Include delivery'}
                     />
                     {!formData.isWholesale ? (
                       <FormControlLabel
@@ -1366,7 +1368,7 @@ export default function NewRepairFlow(props) {
                             onChange={(e) => setFormData((prev) => ({ ...prev, includeTax: e.target.checked }))}
                           />
                         }
-                        label={`Include tax (+${(adminSettings.taxRate * 100).toFixed(2)}%)`}
+                        label={pricingSettings ? `Include tax (+${(pricingSettings.taxRate * 100).toFixed(2)}%)` : 'Include tax'}
                       />
                     ) : (
                       <Typography variant="caption" sx={{ color: facelift.text2 }}>
@@ -1432,8 +1434,9 @@ export default function NewRepairFlow(props) {
                 <Box sx={{ mt: 1.5 }}>
                   <TotalCostCard
                     formData={formData}
-                    calculateTotalCost={calculateTotalCost}
-                    adminSettings={adminSettings}
+                    pricingTotals={pricingTotals}
+                    pricingSettings={pricingSettings}
+                    storeTaxRate={wholesalerPricingSettings?.taxRate ?? null}
                     viewerIsWholesaler={isWholesale}
                   />
                 </Box>
@@ -1563,7 +1566,7 @@ export default function NewRepairFlow(props) {
                 <ChoiceRow
                   key={m._id || m.name}
                   title={m.displayName || m.name || 'Material'}
-                  meta={`$${materialPrice(m).toFixed(2)}`}
+                  meta={materialPriceLabel(m)}
                   onClick={() => { addMaterial(m); setMaterialQuery(''); setAddSheet(null); }}
                 />
               ))}
@@ -1625,14 +1628,16 @@ export default function NewRepairFlow(props) {
             <TextField
               type="number"
               label="Price / unit"
-              value={laborDraft.price === '' ? laborDraftCalculated : laborDraft.price}
+              value={laborDraft.price === '' ? (laborDraftCalculated ?? '') : laborDraft.price}
               onChange={(e) => setLaborDraft((prev) => ({ ...prev, price: e.target.value }))}
               inputProps={{ min: 0, step: 0.01, style: { fontSize: 16 } }}
               sx={{ width: 130 }}
             />
           </Box>
           <Typography variant="caption" sx={{ color: facelift.text2 }}>
-            {laborDraft.price === '' || toNumber(laborDraft.price) === laborDraftCalculated
+            {laborDraftCalculated == null
+              ? 'Enter the hours to price this labor.'
+              : laborDraft.price === '' || toNumber(laborDraft.price) === laborDraftCalculated
               ? `${formData.isWholesale ? 'Wholesale' : 'Retail'} price from hours: $${laborDraftCalculated.toFixed(2)} each. Type over it to discount — the hours still credit the jeweler at payroll.`
               : `Calculated $${laborDraftCalculated.toFixed(2)} each, discounted to $${laborDraftPrice.toFixed(2)}. Hours still credit the jeweler in full.`}
           </Typography>

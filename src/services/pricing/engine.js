@@ -363,3 +363,111 @@ export function cannotPriceMessage(result) {
     default: return "Can't price this task.";
   }
 }
+
+// ─── The other lines on a repair ───────────────────────────────────────────────
+//
+// A repair carries more than catalog tasks: materials picked from the catalog, Stuller parts looked up by
+// SKU, custom labor (hours with no catalog task), and custom charges. Every one that is CALCULATED is
+// calculated here, by the same settings and the same rules. A custom charge is not calculated — its price
+// is what the person typed — so it has no function here.
+
+const requireResolved = (settings, fn) => {
+  if (!settings || !RESOLVED.has(settings)) {
+    throw new PricingError('SETTINGS_INCOMPLETE', `${fn} needs settings from resolvePricingSettings.`, { missing: ['settings'] });
+  }
+};
+
+/**
+ * One catalog material added to a repair on its own (not inside a task). Its cost per unit used is the
+ * same rule a task's materials follow (materialUnitCost), so a portion of solder costs the same on its
+ * own as it does inside "Size Down". Then retail = cost × the fee multiplier, wholesale = cost × the
+ * wholesale markup — no volume tier (tiers share out machine time, and a material has none).
+ */
+export function priceMaterial({ material, settings, metal = null } = {}) {
+  requireResolved(settings, 'priceMaterial');
+  if (!material || typeof material !== 'object') return { ok: false, reason: CANNOT_PRICE.UNKNOWN_MATERIAL, detail: 'a material' };
+  const unit = materialUnitCost(material, metalKey(metal));
+  if (unit.error) return { ok: false, reason: unit.error, detail: unit.material };
+  const cost = round2(unit.cost);
+  if (!(cost > 0)) return { ok: false, reason: CANNOT_PRICE.NO_COST, detail: material.displayName || material.name || 'a material' };
+  return {
+    ok: true,
+    unitCost: cost,
+    retail: { unit: round2(cost * settings.retailMultiplier) },
+    wholesale: { unit: round2(cost * settings.wholesaleMarkup) },
+    substitution: unit.substitution || null,
+  };
+}
+
+/**
+ * A part bought for this job (a Stuller SKU): its cost × the fee multiplier, or × the wholesale markup.
+ * The deprecated material markup is not applied (it double-marked parts — see stullerMaterial.js).
+ */
+export function pricePart({ cost, settings } = {}) {
+  requireResolved(settings, 'pricePart');
+  const c = round2(positive(cost));
+  if (!(c > 0)) return { ok: false, reason: CANNOT_PRICE.NO_COST, detail: 'This part has no cost.' };
+  return {
+    ok: true,
+    unitCost: c,
+    retail: { unit: round2(c * settings.retailMultiplier) },
+    wholesale: { unit: round2(c * settings.wholesaleMarkup) },
+  };
+}
+
+/**
+ * Custom labor — hours with no catalog task. Priced as a task whose only process is those hours, so it
+ * is exactly what a catalog task with the same hours would cost.
+ */
+export function priceCustomLabor({ laborHours, settings, quantity = 1 } = {}) {
+  requireResolved(settings, 'priceCustomLabor');
+  const hours = positive(laborHours);
+  return priceTask({
+    task: { processes: [{ name: 'Custom Labor', laborHours: hours, quantity: 1 }], materials: [] },
+    settings,
+    quantity,
+  });
+}
+
+/**
+ * The store's resale price on its OWN receipts — what a wholesale account charges its customer. This is
+ * the store's setting (its retail markup), not ours: it never changes what EFD charges the store.
+ * `multiplier` is the store's number, already loaded; null means it didn't load, and so there is none.
+ */
+export function storeResalePrice(paidUnit, multiplier) {
+  const m = Number(multiplier);
+  if (!Number.isFinite(m) || m <= 0 || paidUnit == null) return null;
+  return round2(Number(paidUnit) * m);
+}
+
+/**
+ * A repair's totals from its line subtotal. The one rule:
+ *   rush     = subtotal × (rush multiplier − 1)                    — retail tickets
+ *   delivery = the delivery fee, when the ticket includes delivery — retail tickets
+ *   tax      = (subtotal + rush + delivery) × the tax rate, when the ticket is taxed — retail tickets
+ *   total    = subtotal + rush + delivery + tax
+ * A store's ticket is its lines and nothing else: stores were never charged rush, delivery (shipping is
+ * billed at cost on the invoice) or sales tax (they resell). A comped ticket is $0 throughout.
+ */
+export function priceRepairTotals({ subtotal, settings, isWholesale = false, isRush = false, includeDelivery = false, includeTax = false, comped = false } = {}) {
+  requireResolved(settings, 'priceRepairTotals');
+  if (comped) return { subtotal: 0, rushFee: 0, deliveryFee: 0, taxRate: 0, taxAmount: 0, total: 0 };
+  const sub = round2(subtotal);
+  const retail = !isWholesale;
+  const rushFee = retail && isRush ? round2(sub * (settings.rushMultiplier - 1)) : 0;
+  const deliveryFee = retail && includeDelivery ? round2(settings.deliveryFee) : 0;
+  const taxRate = retail && includeTax ? settings.taxRate : 0;
+  const taxAmount = round2((sub + rushFee + deliveryFee) * taxRate);
+  return { subtotal: sub, rushFee, deliveryFee, taxRate, taxAmount, total: round2(sub + rushFee + deliveryFee + taxAmount) };
+}
+
+/**
+ * A material's COST per unit used, for a metal (no price — needs no settings). The same rule every
+ * price uses (materialUnitCost), for screens that show cost: the materials catalog, the process editor.
+ */
+export function materialCost({ material, metal = null } = {}) {
+  if (!material || typeof material !== 'object') return { ok: false, reason: CANNOT_PRICE.UNKNOWN_MATERIAL };
+  const unit = materialUnitCost(material, metalKey(metal));
+  if (unit.error) return { ok: false, reason: unit.error };
+  return { ok: true, unitCost: round2(unit.cost) };
+}

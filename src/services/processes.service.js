@@ -1,5 +1,4 @@
 import axiosInstance from '@/utils/axiosInstance';
-import pricingEngine from '@/services/PricingEngine';
 import { VALID_SKILL_LEVELS, DEFAULT_SKILL_LEVEL } from '@/constants/pricing.constants.mjs';
 
 /**
@@ -149,18 +148,6 @@ class ProcessesService {
     }
   }
 
-  /**
-   * Calculate process pricing based on data
-   * 
-   * @deprecated This method is deprecated. Use PricingEngine.calculateProcessCost() instead.
-   * This method now calls PricingEngine internally for backward compatibility.
-   */
-  calculateProcessPricing(processData, adminSettings) {
-    console.warn('⚠️ DEPRECATED: ProcessesService.calculateProcessPricing() - Please migrate to PricingEngine.calculateProcessCost()');
-    
-    // Use PricingEngine for consistent calculations
-    return pricingEngine.calculateProcessCost(processData, adminSettings);
-  }
 
   /**
    * Validate process data

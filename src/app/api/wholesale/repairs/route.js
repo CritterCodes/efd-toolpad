@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/database';
 import { auth } from "@/lib/auth";
 import {
-    LEGACY_BENCH_STATUS,
-    REPAIR_STATUS,
     normalizeRepairStatus,
     normalizeRepairWorkflow,
 } from '@/services/repairWorkflow';
@@ -75,86 +73,7 @@ export async function GET(request) {
 }
 
 // POST /api/wholesale/repairs - Create new repair
-export async function POST(request) {
-    try {
-        const session = await auth();
-        if (!session?.user) {
-            return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-        }
-
-        // Only wholesalers and admins can create repairs
-        if (!['wholesaler', 'admin'].includes(session.user.role)) {
-            return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-        }
-
-        const repairData = await request.json();
-        
-        // Validate required fields
-        const requiredFields = ['customerName', 'customerPhone', 'itemType', 'repairType', 'description'];
-        for (const field of requiredFields) {
-            if (!repairData[field]?.trim()) {
-                return NextResponse.json(
-                    { error: `${field} is required` },
-                    { status: 400 }
-                );
-            }
-        }
-
-        const dbInstance = await db.connect();
-        
-        // Wholesaler submits -> PENDING PICKUP (not yet at shop)
-        // Admin creates for wholesale account -> READY FOR WORK (already in hand)
-        const initialStatus = session.user.role === 'admin'
-            ? REPAIR_STATUS.READY_FOR_WORK
-            : REPAIR_STATUS.PENDING_PICKUP;
-
-        // Map selected catalog tasks into the canonical embedded `tasks` shape
-        // (carrying laborHours) so the bench and the workload estimator can read
-        // them. Falls back to pricing.totalLaborHours for the labor figure.
-        const repairTasks = Array.isArray(repairData.repairTasks) ? repairData.repairTasks : [];
-        const tasks = repairTasks.map((t) => ({
-            taskId: t.taskId || t._id || t.id || null,
-            title: t.title || t.name || "",
-            sku: t.sku || "",
-            category: t.category || "",
-            quantity: Number(t.quantity) || 1,
-            price: parseFloat(t.price ?? t.basePrice ?? 0) || 0,
-            laborHours: Number(t.laborHours ?? t?.pricing?.totalLaborHours) || 0,
-            pricing: { totalLaborHours: Number(t?.pricing?.totalLaborHours ?? t.laborHours) || 0 },
-        }));
-
-        const newRepair = {
-            ...repairData,
-            tasks,
-            isRush: !!repairData.isRush,
-            repairID: `repair-${Date.now().toString(36)}`,
-            userID: repairData.wholesalerId || session.user.userID,
-            isWholesale: true,
-            wholesalerName: repairData.wholesalerName || session.user.name,
-            clientName: repairData.customerName,
-            smartIntakeInput: repairData.description || '',
-            status: initialStatus,
-            benchStatus: initialStatus === REPAIR_STATUS.READY_FOR_WORK ? LEGACY_BENCH_STATUS.UNCLAIMED : null,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            createdBy: session.user.userID,
-            submittedBy: session.user.email
-        };
-
-        const result = await dbInstance.collection('repairs').insertOne(newRepair);
-        
-        return NextResponse.json({
-            success: true,
-            ...newRepair,
-            id: result.insertedId.toString(),
-            _id: undefined
-        });
-
-    } catch (error) {
-        console.error('POST /api/wholesale/repairs error:', error);
-        return NextResponse.json(
-            { error: 'Failed to create repair' },
-            { status: 500 }
-        );
-    }
-}
+// NO CREATE HERE. Stores and the shop both create repairs through POST /api/repairs, where THE pricing
+// engine prices the ticket (services/pricing/repairPricing.js). This route used to accept a second,
+// different repair shape and store each task's `price` exactly as the browser sent it — a create path
+// with no caller in the app, and no check on what it charged (EFD-DEFECTS P12, 2026-09-30).

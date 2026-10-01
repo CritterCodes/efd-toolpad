@@ -47,20 +47,15 @@ export async function GET(request) {
       business: settings.business,
       version: settings.version,
       updatedAt: settings.updatedAt,
-      // Add labor rates structure for process calculations
-      laborRates: {
-        baseRate: settings.pricing?.wage || 50,
-        basic: (settings.pricing?.wage || 50) * 0.75,
-        standard: settings.pricing?.wage || 50,
-        advanced: (settings.pricing?.wage || 50) * 1.25,
-        expert: (settings.pricing?.wage || 50) * 1.5
-      },
-      // Add legacy fields for compatibility
-      wage: settings.pricing?.wage || 50,
-      materialMarkup: settings.pricing?.materialMarkup || 1.5,
-      administrativeFee: settings.pricing?.administrativeFee || 0.10,
-      businessFee: settings.pricing?.businessFee || 0.15,
-      consumablesFee: settings.pricing?.consumablesFee || 0.05,
+      // The shop's pricing lives in `pricing` above — read it there, through resolvePricingSettings. The
+      // copies below used to be invented when missing (`wage || 50`, fees `|| .10/.15/.05`, markups
+      // `|| 1.5`) plus skill-level labor rates the engine doesn't use; now they are the stored values or
+      // null, never a default (owner, 2026-09-30: "there should never be a fallback").
+      wage: settings.pricing?.wage ?? null,
+      materialMarkup: settings.pricing?.materialMarkup ?? null,
+      administrativeFee: settings.pricing?.administrativeFee ?? null,
+      businessFee: settings.pricing?.businessFee ?? null,
+      consumablesFee: settings.pricing?.consumablesFee ?? null,
       metalComplexityMultipliers: settings.metalComplexityMultipliers || {
         gold: 1.0,
         silver: 0.9,

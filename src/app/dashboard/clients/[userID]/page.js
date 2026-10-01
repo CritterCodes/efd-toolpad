@@ -11,7 +11,6 @@ import UserDetailsForm from '@/app/components/clients/profile/details';
 import UserImage from '@/app/components/clients/profile/image';
 import UsersService from '@/services/users';
 import { useRepairs } from '@/app/context/repairs.context';
-import NewRepairStepper from '@/app/components/repairs/newRepairStepper.component';
 import ClientRepairsTab from '@/app/components/clients/tabs/repairs';
 
 const ViewUserPage = ({ params }) => {
@@ -26,7 +25,6 @@ const ViewUserPage = ({ params }) => {
     const [hasChanges, setHasChanges] = useState(false);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState(0);
-    const [open, setOpen] = useState(false);
     const router = useRouter();
     const { data: session } = useSession();
 
@@ -171,11 +169,6 @@ const ViewUserPage = ({ params }) => {
         }
     };
 
-    const handleNewRepair = (newRepair) => {
-        console.log("🛠️ New Repair Added:", newRepair);
-        setRepairs((prev) => [...prev, newRepair]);
-    };
-
     if (loading) {
         console.log("⏳ Loading User Data...");
         return <Typography>Loading user data...</Typography>;
@@ -252,13 +245,6 @@ const ViewUserPage = ({ params }) => {
                     {snackbarMessage}
                 </Alert>
             </Snackbar>
-
-            {/* New Repair Stepper */}
-            <NewRepairStepper
-                open={open}
-                onClose={() => setOpen(false)}
-                onSubmit={handleNewRepair}
-            />
 
             {/* Claim-link dialog — mint + copy; staff texts it by hand (never automate SMS). */}
             <Dialog open={claimDialogOpen} onClose={() => setClaimDialogOpen(false)} maxWidth="sm" fullWidth>

@@ -1,65 +1,21 @@
 /**
- * Material Pricing Utilities
- *
- * All prices are computed from raw source values (stullerPrice, portionsPerUnit,
- * adminSettings.materialMarkup). Nothing is read from stored calculated fields.
+ * A material's cost per portion, for display — THE engine's material cost rule
+ * (services/pricing/engine.js materialCost), so the catalog shows exactly what a task is charged for
+ * it. This used to run its own lookup, and could mark it up by the deprecated material markup.
  */
+import { materialCost, variantKey } from '@/services/pricing/engine';
 
-/**
- * Get raw cost per portion for a specific metal/karat combination.
- * Uses stullerPrice (what we pay) / portionsPerUnit.
- */
-export const getCostPerPortion = (material, metalType, karat) => {
-  const defaultPortionsPerUnit = Number(material.portionsPerUnit) || 1;
-
-  if (material.stullerProducts && material.stullerProducts.length > 0) {
-    const product = material.stullerProducts.find(
-      p => p.metalType === metalType && p.karat === karat
-    );
-    if (product) {
-      const stullerPrice = parseFloat(product.stullerPrice) || 0;
-      const productPortionsPerUnit = Number(product.portionsPerUnit) || defaultPortionsPerUnit;
-      return productPortionsPerUnit > 0 ? stullerPrice / productPortionsPerUnit : 0;
-    }
-    return 0;
-  }
-
-  // Non-metal-dependent material — use top-level stullerPrice or unitCost (raw)
-  const rawCost = parseFloat(material.stullerPrice) || parseFloat(material.unitCost) || 0;
-  return rawCost / defaultPortionsPerUnit;
-};
-
-/**
- * Get marked-up price per portion for a specific metal/karat combination.
- * Applies adminSettings.materialMarkup to the raw cost per portion.
- */
-export const getPricePerPortion = (material, metalType, karat, adminSettings = {}) => {
-  const markup = adminSettings?.pricing?.materialMarkup || adminSettings?.materialMarkup || 1;
-  return getCostPerPortion(material, metalType, karat) * markup;
-};
-
-/**
- * Get price range across all metal variants of a material (for display).
- * showCost=true returns raw cost range; false returns marked-up price range.
- */
-export const getPriceRange = (material, showCost = false, adminSettings = {}) => {
-  if (!material.stullerProducts || material.stullerProducts.length === 0) {
-    const portionsPerUnit = Number(material.portionsPerUnit) || 1;
-    const raw = (parseFloat(material.stullerPrice) || parseFloat(material.unitCost) || 0) / portionsPerUnit;
-    const markup = adminSettings?.pricing?.materialMarkup || adminSettings?.materialMarkup || 1;
-    const price = showCost ? raw : raw * markup;
-    return { min: price, max: price, single: price };
-  }
-
-  const prices = material.stullerProducts.map(product => {
-    return showCost
-      ? getCostPerPortion(material, product.metalType, product.karat)
-      : getPricePerPortion(material, product.metalType, product.karat, adminSettings);
-  }).filter(p => p > 0);
-
-  if (prices.length === 0) return { min: 0, max: 0, single: 0 };
-
-  const min = Math.min(...prices);
-  const max = Math.max(...prices);
+/** The cost range per portion across a material's stocked metals (or its one cost). */
+export const getPriceRange = (material) => {
+  const metals = material?.isMetalDependent && Array.isArray(material.stullerProducts)
+    ? material.stullerProducts.map(variantKey).filter(Boolean)
+    : [null];
+  const costs = metals
+    .map((metal) => materialCost({ material, metal }))
+    .filter((r) => r.ok && r.unitCost > 0)
+    .map((r) => r.unitCost);
+  if (costs.length === 0) return { min: 0, max: 0, single: 0 };
+  const min = Math.min(...costs);
+  const max = Math.max(...costs);
   return { min, max, single: min === max ? min : null };
 };

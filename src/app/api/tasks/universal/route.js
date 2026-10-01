@@ -84,7 +84,7 @@ export async function POST(request) {
       service: {
         estimatedDays: taskData.service?.estimatedDays || 3,
         rushDays: taskData.service?.rushDays || 1,
-        rushMultiplier: taskData.service?.rushMultiplier || 1.5,
+        rushMultiplier: taskData.service?.rushMultiplier ?? null, // not used in pricing — the shop setting is (engine.js)
         requiresApproval: taskData.service?.requiresApproval ?? true,
         requiresInspection: taskData.service?.requiresInspection ?? true,
         canBeBundled: taskData.service?.canBeBundled ?? true

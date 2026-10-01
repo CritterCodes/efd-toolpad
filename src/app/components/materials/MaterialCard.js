@@ -72,7 +72,7 @@ export default function MaterialCard({
   };
 
   const getPortionDisplay = () => {
-    const portionRange = getPriceRange(material, true);
+    const portionRange = getPriceRange(material);
     if (!portionRange || portionRange.max <= 0) {
       return 'No portion pricing';
     }

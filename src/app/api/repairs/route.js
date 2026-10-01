@@ -17,6 +17,14 @@ import { db } from "@/lib/database";
 import { wholesalerBusinessName } from "@/services/wholesale/businessName";
 import { buildQuoteRequest } from "@/services/repairs/quoteRequest";
 import { pickEditableRepairFields } from "@/services/repairs/repairEditFields";
+import { priceRepairForSave, pricingErrorResponseInit, PRICING_INPUT_FIELDS } from "@/services/pricing/repairPricing";
+
+// Totals the browser sends are never stored — the server computes them (priceRepairForSave).
+const CLIENT_TOTAL_FIELDS = ["totalCost", "subtotal", "rushFee", "deliveryFee", "taxAmount", "taxRate"];
+const pricingRefusal = (error) => NextResponse.json(
+  { error: error.message, code: error.code, unpriced: error.details?.unpriced || undefined },
+  { status: pricingErrorResponseInit(error) },
+);
 
 async function createWhileYouWaitLaborLog(repair, session) {
   if (!repair?.repairID || repair.whileYouWait !== true || repair.status !== "COMPLETED" || !repair.assignedTo) {
@@ -71,6 +79,8 @@ export const POST = async (request) => {
 
     const contentType = request.headers.get("content-type");
     let repairData;
+    // The metal as the form sent it — the route folds the karat into `metalType` below.
+    let pricingMetal = {};
     let imageUrl = null;
 
     if (contentType && contentType.includes("multipart/form-data")) {
@@ -81,6 +91,7 @@ export const POST = async (request) => {
         imageUrl = await uploadRepairImage(picture, formData.get("userID") || "unknown");
       }
 
+      pricingMetal = { metalType: formData.get("metalType") || "", karat: formData.get("karat") || "", goldColor: formData.get("goldColor") || "" };
       repairData = {
         userID: formData.get("userID"),
         clientName: formData.get("clientName"),
@@ -149,6 +160,7 @@ export const POST = async (request) => {
         imageUrl = await uploadRepairImage(file, safeJsonData.userID || "unknown");
       }
 
+      pricingMetal = { metalType: safeJsonData.metalType || "", karat: safeJsonData.karat || "", goldColor: safeJsonData.goldColor || "" };
       repairData = {
         ...safeJsonData,
         picture: imageUrl || safeJsonData.picture,
@@ -251,8 +263,20 @@ export const POST = async (request) => {
     if (quoteRequested && repairData.isWholesale) {
       repairData.quoteRequest = buildQuoteRequest({ actor: { userID: session.user.userID, name: session.user.name } });
       repairData.tasks = [];
-      repairData.totalCost = 0;
-      repairData.subtotal = 0;
+    }
+
+    // THE ENGINE PRICES THE TICKET (services/pricing/repairPricing.js). Every line price and the totals
+    // are the server's, not the browser's: this route used to store whatever `price` and `totalCost`
+    // arrived, so a store could price its own job at anything (EFD-DEFECTS P12). A line the engine
+    // can't price refuses the save; missing pricing settings refuse it too.
+    try {
+      Object.assign(repairData, await priceRepairForSave(
+        { ...repairData, ...pricingMetal },
+        { quoteRequested: quoteRequested && repairData.isWholesale },
+      ));
+    } catch (pricingError) {
+      if (pricingError?.name === "PricingError") return pricingRefusal(pricingError);
+      throw pricingError;
     }
 
     const newRepair = await RepairsController.createRepair(repairData);
@@ -381,12 +405,10 @@ export const PUT = async (req) => {
     }
 
     // Ownership before write: without this, any wholesaler login could edit any
-    // repair in the shop by guessing an ID. Staff sessions skip the extra read.
-    if (!isStaffRepairSession(session)) {
-      const existing = await RepairsController.getRepairById(repairID);
-      if (!existing || !canTouchRepair(session, existing)) {
-        return NextResponse.json({ error: "Repair not found." }, { status: 404 });
-      }
+    // repair in the shop by guessing an ID. (The saved repair is also what an edit is re-priced against.)
+    const existing = await RepairsController.getRepairById(repairID);
+    if (!existing || (!isStaffRepairSession(session) && !canTouchRepair(session, existing))) {
+      return NextResponse.json({ error: "Repair not found." }, { status: 404 });
     }
 
     const body = await req.json();
@@ -400,6 +422,19 @@ export const PUT = async (req) => {
     const { update, dropped } = pickEditableRepairFields(body, { isStaff: isStaffRepairSession(session) });
     if (Object.keys(update).length === 0) {
       return NextResponse.json({ error: "Nothing in this request can be changed here." }, { status: 400 });
+    }
+
+    // Prices are the SERVER's. The browser's totals are never written; when anything a price depends on
+    // changed, the whole ticket is re-priced by the engine — keeping the saved price on every line
+    // that's unchanged ("preventative, not changing the past" — owner, 2026-09-30).
+    for (const field of CLIENT_TOTAL_FIELDS) delete update[field];
+    if (PRICING_INPUT_FIELDS.some((field) => Object.prototype.hasOwnProperty.call(update, field))) {
+      try {
+        Object.assign(update, await priceRepairForSave({ ...existing, ...update }, { saved: existing }));
+      } catch (pricingError) {
+        if (pricingError?.name === "PricingError") return pricingRefusal(pricingError);
+        throw pricingError;
+      }
     }
 
     const updatedRepair = await RepairsController.updateRepairById(repairID, update);

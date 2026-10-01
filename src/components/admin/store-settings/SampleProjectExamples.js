@@ -1,90 +1,48 @@
 import {
+    Alert,
     Card,
     CardContent,
     CardHeader,
     Typography,
     Grid,
-    Paper,
     Divider
 } from '@mui/material';
 import { CheckCircle as CheckCircleIcon } from '@mui/icons-material';
 
-export default function SampleProjectExamples({ sampleProject, calculateLaborRate }) {
+const money = (n) => `$${Number(n).toFixed(2)}`;
+
+/**
+ * A sample job — 2 hours and $25 of materials — priced by THE engine with the settings being edited
+ * (useStoreSettings → pricingPreview), exactly as the counter would price it. The old card marked the
+ * materials up by the deprecated material markup and showed skill-level variants; the engine does
+ * neither.
+ */
+export default function SampleProjectExamples({ preview }) {
+    const sample = preview?.sample;
     return (
         <Card>
-            <CardHeader 
-                title="Sample Project Examples (2hr, $25 materials)"
+            <CardHeader
+                title="Sample Job (2 hours, $25 materials)"
                 avatar={<CheckCircleIcon color="info" />}
             />
             <CardContent>
-                <Typography variant="subtitle2" gutterBottom>
-                    Standard Skill Level (2 hours):
-                </Typography>
-                <Grid container spacing={1} sx={{ mb: 2 }}>
-                    <Grid item xs={8}>
-                        <Typography variant="body2">Labor (2 hours):</Typography>
-                    </Grid>
-                    <Grid item xs={4}>
-                        <Typography variant="body2" align="right">${sampleProject.laborCost.toFixed(2)}</Typography>
-                    </Grid>
-                    <Grid item xs={8}>
-                        <Typography variant="body2">Materials (marked up):</Typography>
-                    </Grid>
-                    <Grid item xs={4}>
-                        <Typography variant="body2" align="right">${sampleProject.materialTotal.toFixed(2)}</Typography>
-                    </Grid>
-                    <Grid item xs={12}>
-                        <Divider sx={{ my: 1 }} />
-                    </Grid>
-                    <Grid item xs={8}>
-                        <Typography variant="h6" color="info.main">Standard Total:</Typography>
-                    </Grid>
-                    <Grid item xs={4}>
-                        <Typography variant="h6" color="info.main" align="right">
-                            ${sampleProject.total.toFixed(2)}
-                        </Typography>
-                    </Grid>
-                </Grid>
-                
-                <Typography variant="subtitle2" gutterBottom>
-                    All Skill Levels (2 hours + materials):
-                </Typography>
-                <Paper sx={{ p: 2, bgcolor: 'action.hover' }}>
+                {preview?.error ? (
+                    <Alert severity="warning">{preview.error}</Alert>
+                ) : sample ? (
                     <Grid container spacing={1}>
-                        <Grid item xs={6} sm={3}>
-                            <Typography variant="body2" color="text.secondary">
-                                Basic:
-                            </Typography>
-                            <Typography variant="body2" fontWeight="bold" color="info.main">
-                                ${((calculateLaborRate() * 0.75) * 2 + sampleProject.materialTotal).toFixed(2)}
-                            </Typography>
-                        </Grid>
-                        <Grid item xs={6} sm={3}>
-                            <Typography variant="body2" color="text.secondary">
-                                Standard:
-                            </Typography>
-                            <Typography variant="body2" fontWeight="bold" color="info.main">
-                                ${sampleProject.total.toFixed(2)}
-                            </Typography>
-                        </Grid>
-                        <Grid item xs={6} sm={3}>
-                            <Typography variant="body2" color="text.secondary">
-                                Advanced:
-                            </Typography>
-                            <Typography variant="body2" fontWeight="bold" color="info.main">
-                                ${((calculateLaborRate() * 1.25) * 2 + sampleProject.materialTotal).toFixed(2)}
-                            </Typography>
-                        </Grid>
-                        <Grid item xs={6} sm={3}>
-                            <Typography variant="body2" color="text.secondary">
-                                Expert:
-                            </Typography>
-                            <Typography variant="body2" fontWeight="bold" color="info.main">
-                                ${((calculateLaborRate() * 1.5) * 2 + sampleProject.materialTotal).toFixed(2)}
-                            </Typography>
-                        </Grid>
+                        <Grid item xs={8}><Typography variant="body2">Labor (2 hours at the shop rate):</Typography></Grid>
+                        <Grid item xs={4}><Typography variant="body2" align="right">{money(sample.laborCost)}</Typography></Grid>
+                        <Grid item xs={8}><Typography variant="body2">Materials (at cost):</Typography></Grid>
+                        <Grid item xs={4}><Typography variant="body2" align="right">{money(sample.materialsCost)}</Typography></Grid>
+                        <Grid item xs={8}><Typography variant="body2">Base cost:</Typography></Grid>
+                        <Grid item xs={4}><Typography variant="body2" align="right">{money(sample.baseCost)}</Typography></Grid>
+                        <Grid item xs={12}><Divider sx={{ my: 1 }} /></Grid>
+                        <Grid item xs={8}><Typography variant="h6" color="info.main">Retail price:</Typography></Grid>
+                        <Grid item xs={4}><Typography variant="h6" color="info.main" align="right">{money(sample.retail)}</Typography></Grid>
+                        <Grid item xs={8}><Typography variant="body2">Wholesale price:</Typography></Grid>
+                        <Grid item xs={4}><Typography variant="body2" align="right">{money(sample.wholesale)}</Typography></Grid>
                     </Grid>
-                </Paper>
+                ) : null}
             </CardContent>
         </Card>
     );

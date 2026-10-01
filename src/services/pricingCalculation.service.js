@@ -3,106 +3,11 @@
  * Handles calculation of subtotals, fees, discounts, and totals
  */
 
-/**
- * Calculate subtotal from all work items
- * @param {Object} repair - The repair object containing tasks, materials, etc.
- * @returns {number} The calculated subtotal
+/*
+ * Repair TOTALS are not calculated here. They are THE engine's (services/pricing/engine.js
+ * priceRepairTotals) and stored on the ticket. This file used to re-derive them for the print page with
+ * an 8.75% default tax that read the stored tax rate as a percent — and the result was only logged.
  */
-export const calculateSubtotal = (repair) => {
-    const allItems = [
-        ...(repair.tasks || []),
-        ...(repair.materials || []),
-        ...(repair.customLineItems || []),
-        ...(repair.repairTasks || [])
-    ];
-
-    return allItems.reduce((sum, item) => {
-        const price = parseFloat(item.price || 0);
-        const quantity = parseInt(item.quantity || 1);
-        return sum + (price * quantity);
-    }, 0);
-};
-
-/**
- * Calculate rush fee based on repair settings
- * @param {Object} repair - The repair object
- * @returns {number} The rush fee amount
- */
-export const calculateRushFee = (repair) => {
-    if (repair.isRush) {
-        return parseFloat(repair.rushFee || 0);
-    }
-    return 0;
-};
-
-/**
- * Calculate delivery fee based on repair settings
- * @param {Object} repair - The repair object
- * @returns {number} The delivery fee amount
- */
-export const calculateDeliveryFee = (repair) => {
-    if (repair.requiresDelivery) {
-        return parseFloat(repair.deliveryFee || 5.00);
-    }
-    return 0;
-};
-
-/**
- * Legacy wholesale discount field is deprecated.
- * Wholesale repairs should use their explicit line-item pricing with no automatic percentage discount.
- * @returns {number} Always returns 0
- */
-export const calculateWholesaleDiscount = () => {
-    return 0;
-};
-
-/**
- * Calculate tax amount
- * @param {number} subtotal - The subtotal amount
- * @param {Object} repair - The repair object
- * @returns {number} The tax amount
- */
-export const calculateTax = (subtotal, repair) => {
-    // Wholesale clients are typically tax exempt
-    if (repair.isWholesale) {
-        return 0;
-    }
-    
-    const taxRate = parseFloat(repair.taxRate || 8.75); // Default tax rate
-    return (subtotal * taxRate) / 100;
-};
-
-/**
- * Calculate the final total for a repair
- * @param {Object} repair - The repair object
- * @returns {Object} An object containing all pricing breakdown
- */
-export const calculateRepairTotal = (repair) => {
-    const subtotal = calculateSubtotal(repair);
-    const rushFee = calculateRushFee(repair);
-    const deliveryFee = calculateDeliveryFee(repair);
-    const wholesaleDiscount = calculateWholesaleDiscount(subtotal, repair);
-    const discountedSubtotal = subtotal - wholesaleDiscount;
-    const tax = calculateTax(discountedSubtotal, repair);
-    const total = discountedSubtotal + rushFee + deliveryFee + tax;
-
-    return {
-        subtotal: subtotal.toFixed(2),
-        rushFee: rushFee.toFixed(2),
-        deliveryFee: deliveryFee.toFixed(2),
-        wholesaleDiscount: wholesaleDiscount.toFixed(2),
-        discountedSubtotal: discountedSubtotal.toFixed(2),
-        tax: tax.toFixed(2),
-        total: total.toFixed(2),
-        breakdown: {
-            itemCount: calculateItemCount(repair),
-            hasRush: repair.isRush || false,
-            hasDelivery: repair.requiresDelivery || false,
-            isWholesale: repair.isWholesale || false,
-            taxExempt: repair.isWholesale || false
-        }
-    };
-};
 
 /**
  * Count total number of work items

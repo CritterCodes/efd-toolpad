@@ -49,8 +49,7 @@ export default function StoreSettingsTab() {
         handleSaveClick,
         handleSaveSettings,
         handleGeneratePin,
-        calculateLaborRate,
-        calculateSampleProject,
+        pricingPreview,
         setSecurityCodeInput,
         setShowSecurityDialog,
         setShowPinDialog,
@@ -65,8 +64,6 @@ export default function StoreSettingsTab() {
             </Box>
         );
     }
-
-    const sampleProject = calculateSampleProject();
 
     return (
         <Box>
@@ -108,17 +105,11 @@ export default function StoreSettingsTab() {
                 </Grid>
 
                 <Grid item xs={12} md={6}>
-                    <LaborRateSummary 
-                        localSettings={localSettings} 
-                        calculateLaborRate={calculateLaborRate} 
-                    />
+                    <LaborRateSummary localSettings={localSettings} preview={pricingPreview} />
                 </Grid>
 
                 <Grid item xs={12} md={6}>
-                    <SampleProjectExamples 
-                        sampleProject={sampleProject} 
-                        calculateLaborRate={calculateLaborRate} 
-                    />
+                    <SampleProjectExamples preview={pricingPreview} />
                 </Grid>
 
                 <Grid item xs={12}>

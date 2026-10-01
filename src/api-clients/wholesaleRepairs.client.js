@@ -8,19 +8,6 @@ export const wholesaleRepairsClient = {
         return response.json();
     },
 
-    async createRepair(repairData) {
-        const response = await fetch('/api/wholesale/repairs', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(repairData)
-        });
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.error || 'Failed to create repair');
-        }
-        return response.json();
-    },
-
     async receiveRepairs(repairIDs) {
         const response = await fetch('/api/wholesale/repairs/receive', {
             method: 'POST',

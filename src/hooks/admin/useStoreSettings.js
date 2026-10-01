@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { resolvePricingSettings, priceTask } from '@/services/pricing/engine';
 import { useAdminSettings } from '@/context/AdminSettingsContext';
 
 export const useStoreSettings = () => {
@@ -10,18 +11,20 @@ export const useStoreSettings = () => {
         refreshSettings
     } = useAdminSettings();
 
+    // Blank until the shop's settings load — never invented. (These used to start at a $30 wage, $25
+    // delivery and 8.75% tax, and fall back to them, so saving the form could write them to the shop.)
     const [localSettings, setLocalSettings] = useState({
-        wage: 30.0,
-        materialMarkup: 1.5,
-        wholesaleMarkup: 1.5,
-        minimumTaskRetailPrice: 0,
-        minimumTaskWholesalePrice: 0,
-        administrativeFee: 0.15,
-        businessFee: 0.25,
-        consumablesFee: 0.08,
-        rushMultiplier: 1.5,
-        deliveryFee: 25.0,
-        taxRate: 0.0875,
+        wage: '',
+        materialMarkup: '',
+        wholesaleMarkup: '',
+        minimumTaskRetailPrice: '',
+        minimumTaskWholesalePrice: '',
+        administrativeFee: '',
+        businessFee: '',
+        consumablesFee: '',
+        rushMultiplier: '',
+        deliveryFee: '',
+        taxRate: '',
         consignmentFeeRate: 0.20,
         federalTaxReserveRate: 0.30
     });
@@ -40,17 +43,17 @@ export const useStoreSettings = () => {
     useEffect(() => {
         if (adminSettings) {
             setLocalSettings({
-                wage: adminSettings.wage || 30.0,
-                materialMarkup: adminSettings.materialMarkup || 1.5,
-                wholesaleMarkup: adminSettings.wholesaleMarkup || 1.5,
-                minimumTaskRetailPrice: adminSettings.minimumTaskRetailPrice ?? 0,
-                minimumTaskWholesalePrice: adminSettings.minimumTaskWholesalePrice ?? 0,
-                administrativeFee: adminSettings.administrativeFee || 0.15,
-                businessFee: adminSettings.businessFee || 0.25,
-                consumablesFee: adminSettings.consumablesFee || 0.08,
-                rushMultiplier: adminSettings.rushMultiplier || 1.5,
-                deliveryFee: adminSettings.deliveryFee || 25.0,
-                taxRate: adminSettings.taxRate || 0.0875,
+                wage: adminSettings.wage ?? '',
+                materialMarkup: adminSettings.materialMarkup ?? '',
+                wholesaleMarkup: adminSettings.wholesaleMarkup ?? '',
+                minimumTaskRetailPrice: adminSettings.minimumTaskRetailPrice ?? '',
+                minimumTaskWholesalePrice: adminSettings.minimumTaskWholesalePrice ?? '',
+                administrativeFee: adminSettings.administrativeFee ?? '',
+                businessFee: adminSettings.businessFee ?? '',
+                consumablesFee: adminSettings.consumablesFee ?? '',
+                rushMultiplier: adminSettings.rushMultiplier ?? '',
+                deliveryFee: adminSettings.deliveryFee ?? '',
+                taxRate: adminSettings.taxRate ?? '',
                 consignmentFeeRate: adminSettings.consignmentFeeRate ?? 0.20,
                 federalTaxReserveRate: Number(
                     adminSettings.federalTaxReserveRate
@@ -172,28 +175,36 @@ export const useStoreSettings = () => {
         }
     };
 
-    const calculateLaborRate = () => {
-        const adminFee = localSettings.wage * localSettings.administrativeFee;
-        const bizFee = localSettings.wage * localSettings.businessFee;
-        const consumablesFee = localSettings.wage * localSettings.consumablesFee;
-        return localSettings.wage + adminFee + bizFee + consumablesFee;
-    };
-
-    const calculateSampleProject = () => {
-        const laborRate = calculateLaborRate();
-        const laborTime = 2;
-        const materialCost = 25;
-
-        const laborCost = laborTime * laborRate;
-        const materialTotal = materialCost * localSettings.materialMarkup;
-        const total = laborCost + materialTotal;
-
+    // What the settings on screen WOULD charge — THE engine on the values being edited, before they're
+    // saved. A labor hour at retail and wholesale, and a sample job (2 hours + $25 of materials). Values
+    // the engine won't accept show its reason instead of a number.
+    const pricingPreview = useMemo(() => {
+        let settings;
+        try {
+            settings = resolvePricingSettings({ pricing: { ...localSettings, quantityTiers: adminSettings?.pricing?.quantityTiers } });
+        } catch (e) {
+            return { error: e.message };
+        }
+        const hour = priceTask({ task: { processes: [{ laborHours: 1, quantity: 1 }] }, settings });
+        const sample = priceTask({
+            task: { processes: [{ laborHours: 2, quantity: 1 }], materials: [{ material: { estimatedCost: 25 }, quantity: 1 }] },
+            settings,
+        });
         return {
-            laborCost,
-            materialTotal,
-            total
+            wage: settings.wage,
+            retailMultiplier: settings.retailMultiplier,
+            wholesaleMarkup: settings.wholesaleMarkup,
+            retailHour: hour.retail.listUnit,
+            wholesaleHour: hour.wholesale.listUnit,
+            sample: {
+                laborCost: sample.laborCost,
+                materialsCost: sample.materialsCost,
+                baseCost: sample.baseCost,
+                retail: sample.retail.listUnit,
+                wholesale: sample.wholesale.listUnit,
+            },
         };
-    };
+    }, [localSettings, adminSettings]);
 
     return {
         contextLoading,
@@ -214,8 +225,7 @@ export const useStoreSettings = () => {
         handleSaveClick,
         handleSaveSettings,
         handleGeneratePin,
-        calculateLaborRate,
-        calculateSampleProject,
+        pricingPreview,
         setSecurityCodeInput,
         setShowSecurityDialog,
         setShowPinDialog,

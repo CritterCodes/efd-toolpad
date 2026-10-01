@@ -28,30 +28,12 @@ export const AdminSettingsProvider = ({ children }) => {
 
   // Default admin settings structure - memoized to prevent unnecessary re-renders
   const defaultSettings = useMemo(() => ({
-    // Labor rates structure expected by process calculations
-    laborRates: {
-      baseRate: 50,      // Base rate for standard skill level
-      basic: 37.5,       // 75% of base rate
-      standard: 50,      // 100% of base rate
-      advanced: 62.5,    // 125% of base rate
-      expert: 75         // 150% of base rate
-    },
-    
-    // Legacy wage field for compatibility
-    wage: 50,
-    
-    // Material markup multiplier
-    materialMarkup: 1.5,
-    wholesaleMarkup: 1.5,
-    minimumTaskRetailPrice: 0,
-    minimumTaskWholesalePrice: 0,
+    // NO PRICING DEFAULTS. This used to default the wage to $50, the fees to 10/15/5%, the material and
+    // wholesale markups to 1.5 and skill-level labor rates — and the settings editor saved whatever it
+    // held, so a failed load could write invented prices into the shop's settings. Pricing values come
+    // from the server or are absent (owner, 2026-09-30: "there should never be a fallback").
     federalTaxReserveRate: DEFAULT_FEDERAL_TAX_RESERVE_RATE,
     consignmentFeeRate: 0.20,
-    
-    // Fee structure (as percentages of base wage)
-    administrativeFee: 0.10,  // 10% of base wage
-    businessFee: 0.15,        // 15% of base wage
-    consumablesFee: 0.05,     // 5% of base wage
     
     // Metal complexity multipliers for different metal types
     metalComplexityMultipliers: {
@@ -107,30 +89,21 @@ export const AdminSettingsProvider = ({ children }) => {
       
       // Transform the API response to our expected structure
       const transformedSettings = {
-        // Preserve original pricing structure for PricingEngine compatibility
+        // The raw pricing block — resolvePricingSettings reads it (services/pricing/engine.js)
         pricing: data.pricing || {},
 
-        // Labor rates structure for process calculations
-        laborRates: {
-          baseRate: data.pricing?.wage || defaultSettings.laborRates.baseRate,
-          basic: (data.pricing?.wage || defaultSettings.laborRates.baseRate) * 0.75,
-          standard: data.pricing?.wage || defaultSettings.laborRates.baseRate,
-          advanced: (data.pricing?.wage || defaultSettings.laborRates.baseRate) * 1.25,
-          expert: (data.pricing?.wage || defaultSettings.laborRates.baseRate) * 1.5
-        },
-        
-        // Direct mappings from the API response
-        wage: data.pricing?.wage || defaultSettings.wage,
-        materialMarkup: data.pricing?.materialMarkup || defaultSettings.materialMarkup,
-        wholesaleMarkup: data.pricing?.wholesaleMarkup || data.pricing?.wholesaleConfig?.minimumMultiplier || defaultSettings.wholesaleMarkup,
-        minimumTaskRetailPrice: data.pricing?.minimumTaskRetailPrice ?? defaultSettings.minimumTaskRetailPrice,
-        minimumTaskWholesalePrice: data.pricing?.minimumTaskWholesalePrice ?? defaultSettings.minimumTaskWholesalePrice,
-        administrativeFee: data.pricing?.administrativeFee || defaultSettings.administrativeFee,
-        businessFee: data.pricing?.businessFee || defaultSettings.businessFee,
-        consumablesFee: data.pricing?.consumablesFee || defaultSettings.consumablesFee,
-        rushMultiplier: data.pricing?.rushMultiplier || 1.5,
-        deliveryFee: data.pricing?.deliveryFee || 0,
-        taxRate: data.pricing?.taxRate || 0,
+        // The shop's pricing values, exactly as stored — null when missing, never a default.
+        wage: data.pricing?.wage ?? null,
+        materialMarkup: data.pricing?.materialMarkup ?? null,
+        wholesaleMarkup: data.pricing?.wholesaleMarkup ?? null,
+        minimumTaskRetailPrice: data.pricing?.minimumTaskRetailPrice ?? null,
+        minimumTaskWholesalePrice: data.pricing?.minimumTaskWholesalePrice ?? null,
+        administrativeFee: data.pricing?.administrativeFee ?? null,
+        businessFee: data.pricing?.businessFee ?? null,
+        consumablesFee: data.pricing?.consumablesFee ?? null,
+        rushMultiplier: data.pricing?.rushMultiplier ?? null,
+        deliveryFee: data.pricing?.deliveryFee ?? null,
+        taxRate: data.pricing?.taxRate ?? null,
         federalTaxReserveRate: Number(
           data.analytics?.federalTaxReserveRate ?? defaultSettings.federalTaxReserveRate
         ),
@@ -178,7 +151,7 @@ export const AdminSettingsProvider = ({ children }) => {
     } catch (err) {
       console.error('Error fetching admin settings:', err);
       setError(err.message);
-      // Use defaults on error
+      // Non-pricing defaults only: the pricing values stay absent, so nothing can save an invented price.
       setAdminSettings(defaultSettings);
     } finally {
       setLoading(false);
@@ -193,21 +166,23 @@ export const AdminSettingsProvider = ({ children }) => {
       // Transform our internal structure back to the API format
       const apiPayload = {
         pricing: {
-          wage: newSettings.wage || adminSettings?.wage,
-          materialMarkup: newSettings.materialMarkup || adminSettings?.materialMarkup,
-          wholesaleMarkup: newSettings.wholesaleMarkup || adminSettings?.wholesaleMarkup || 1.5,
-          minimumTaskRetailPrice: newSettings.minimumTaskRetailPrice ?? adminSettings?.minimumTaskRetailPrice ?? 0,
-          minimumTaskWholesalePrice: newSettings.minimumTaskWholesalePrice ?? adminSettings?.minimumTaskWholesalePrice ?? 0,
-          administrativeFee: newSettings.administrativeFee || adminSettings?.administrativeFee,
-          businessFee: newSettings.businessFee || adminSettings?.businessFee,
-          consumablesFee: newSettings.consumablesFee || adminSettings?.consumablesFee,
-          rushMultiplier: newSettings.rushMultiplier || adminSettings?.rushMultiplier || 1.5,
-          deliveryFee: newSettings.deliveryFee || adminSettings?.deliveryFee || 0,
-          taxRate: newSettings.taxRate || adminSettings?.taxRate || 0,
+          // `??`, not `||`: a real 0 (a fee, the tax) is a value, not a gap. Nothing is invented — the
+          // server refuses a save that leaves the engine's settings incomplete (resolvePricingSettings).
+          wage: newSettings.wage ?? adminSettings?.wage,
+          materialMarkup: newSettings.materialMarkup ?? adminSettings?.materialMarkup,
+          wholesaleMarkup: newSettings.wholesaleMarkup ?? adminSettings?.wholesaleMarkup,
+          minimumTaskRetailPrice: newSettings.minimumTaskRetailPrice ?? adminSettings?.minimumTaskRetailPrice,
+          minimumTaskWholesalePrice: newSettings.minimumTaskWholesalePrice ?? adminSettings?.minimumTaskWholesalePrice,
+          administrativeFee: newSettings.administrativeFee ?? adminSettings?.administrativeFee,
+          businessFee: newSettings.businessFee ?? adminSettings?.businessFee,
+          consumablesFee: newSettings.consumablesFee ?? adminSettings?.consumablesFee,
+          rushMultiplier: newSettings.rushMultiplier ?? adminSettings?.rushMultiplier,
+          deliveryFee: newSettings.deliveryFee ?? adminSettings?.deliveryFee,
+          taxRate: newSettings.taxRate ?? adminSettings?.taxRate,
           consignmentFeeRate: newSettings.consignmentFeeRate ?? adminSettings?.consignmentFeeRate ?? 0.20,
           wholesaleConfig: {
             ...(adminSettings?.pricing?.wholesaleConfig || {}),
-            minimumMultiplier: newSettings.wholesaleMarkup || adminSettings?.wholesaleMarkup || adminSettings?.pricing?.wholesaleConfig?.minimumMultiplier || 1.5
+            minimumMultiplier: newSettings.wholesaleMarkup ?? adminSettings?.wholesaleMarkup
           }
         },
         business: newSettings.store ? {
@@ -260,37 +235,6 @@ export const AdminSettingsProvider = ({ children }) => {
     fetchAdminSettings();
   };
 
-  // Helper function to get effective hourly rate for a skill level
-  const getHourlyRateForSkill = (skillLevel) => {
-    if (!adminSettings?.laborRates) return defaultSettings.laborRates.standard;
-    
-    const rates = adminSettings.laborRates;
-    switch (skillLevel?.toLowerCase()) {
-      case 'basic':
-        return rates.basic;
-      case 'standard':
-        return rates.standard;
-      case 'advanced':
-        return rates.advanced;
-      case 'expert':
-        return rates.expert;
-      default:
-        return rates.standard;
-    }
-  };
-
-  // Helper function to calculate total effective wage including fees
-  const getTotalEffectiveWage = () => {
-    if (!adminSettings) return defaultSettings.wage;
-    
-    const baseWage = adminSettings.wage || adminSettings.laborRates?.baseRate || defaultSettings.wage;
-    const adminFee = baseWage * (adminSettings.administrativeFee || 0);
-    const bizFee = baseWage * (adminSettings.businessFee || 0);
-    const consumablesFee = baseWage * (adminSettings.consumablesFee || 0);
-    
-    return baseWage + adminFee + bizFee + consumablesFee;
-  };
-
   // Load settings on mount and when session changes.
   //
   // STAFF ONLY, because /api/admin/settings/manage is staff-gated. This provider is mounted in the
@@ -321,8 +265,6 @@ export const AdminSettingsProvider = ({ children }) => {
     error,
     updateAdminSettings,
     refreshSettings,
-    getHourlyRateForSkill,
-    getTotalEffectiveWage,
     defaultSettings
   };
 

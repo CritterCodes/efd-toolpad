@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { buildStullerRepairMaterial } from '@/services/pricing/stullerMaterial';
+import { resolvePricingSettings } from '@/services/pricing/engine';
 import {
   Box, Typography, Grid, Button, Chip, CircularProgress, Tabs, Tab,
   TextField, MenuItem, Alert, Snackbar, Stack,
@@ -38,8 +39,8 @@ function toNumber(value, fallback = 0) {
 // A Stuller part is priced by services/pricing/stullerMaterial.js — wholesale when the work
 // order's repair is a store job, retail otherwise. The browser's number is a preview; the
 // mark-waiting-parts action re-prices from the repair's billing mode before storing it.
-function buildStullerMaterial(stullerResponse, stullerSku, adminSettings = {}, isWholesale = false) {
-  return buildStullerRepairMaterial({ item: stullerResponse, sku: stullerSku, isWholesale, adminSettings });
+function buildStullerMaterial(stullerResponse, stullerSku, settings, isWholesale = false) {
+  return buildStullerRepairMaterial({ item: stullerResponse, sku: stullerSku, isWholesale, settings });
 }
 
 export default function BenchPage() {
@@ -281,8 +282,10 @@ export default function BenchPage() {
         ]);
         const stullerData = await stullerRes.json().catch(() => ({}));
         if (!stullerRes.ok) throw new Error(stullerData.error || 'Failed to fetch Stuller item.');
-        const adminSettings = settingsRes.ok ? await settingsRes.json().catch(() => ({})) : {};
-        material = buildStullerMaterial(stullerData, cleanSku, adminSettings, !!(partsDialogWO?.isWholesale || partsDialogWO?.repair?.isWholesale || partsDialogWO?.billing?.mode === 'wholesale'));
+        // No settings, no price — never a default markup (owner, 2026-09-30).
+        if (!settingsRes.ok) throw new Error('Pricing settings did not load — the part cannot be priced. Reload and try again.');
+        const settings = resolvePricingSettings(await settingsRes.json());
+        material = buildStullerMaterial(stullerData, cleanSku, settings, !!(partsDialogWO?.isWholesale || partsDialogWO?.repair?.isWholesale || partsDialogWO?.billing?.mode === 'wholesale'));
       } else {
         const name = partsForm.name.trim();
         const quantity = Math.max(toNumber(partsForm.quantity, 1), 0);

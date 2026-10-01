@@ -1,5 +1,4 @@
 import { SKILL_LEVELS, DEFAULT_PROCESS_FORM } from '@/constants/processes.constants';
-import pricingEngine from '@/services/PricingEngine';
 
 /**
  * Validate process form data
@@ -36,28 +35,6 @@ export const validateProcessForm = (formData) => {
 };
 
 /**
- * Calculate process cost for all relevant metal types based on materials
- * 
- * @deprecated This function is deprecated. Use PricingEngine.calculateProcessCost() instead.
- * This function now calls PricingEngine internally for backward compatibility.
- * 
- * @param {Object} formData - Process form data
- * @param {Object} adminSettings - Admin settings for labor rates and metal multipliers
- * @param {Array} availableMaterials - Array of all available materials with full data
- * @returns {Object} Cost breakdown for each relevant metal type
- */
-export const calculateProcessCost = (formData, adminSettings, availableMaterials = []) => {
-  console.warn('⚠️ DEPRECATED: calculateProcessCost() - Please migrate to PricingEngine.calculateProcessCost()');
-  
-  // Use PricingEngine for consistent calculations
-  if (!adminSettings || !formData.laborHours || !formData.skillLevel) {
-    return null;
-  }
-  
-  return pricingEngine.calculateProcessCost(formData, adminSettings);
-};
-
-/**
  * Prepare process data with calculated prices for saving
  * @param {Object} formData - Process form data
  * @param {Object} adminSettings - Admin settings
@@ -65,7 +42,7 @@ export const calculateProcessCost = (formData, adminSettings, availableMaterials
  * @returns {Object} Process data ready for saving
  */
 export const prepareProcessForSaving = (formData) => {
-  // Store only raw source fields — pricing computed at runtime via PricingEngine
+  // Store only raw source fields — the price is computed on every read (services/pricing/taskPricing.js)
   const materials = (formData.materials || []).map(material => ({
     materialId: material.materialId || material._id,
     materialSku: material.materialSku,

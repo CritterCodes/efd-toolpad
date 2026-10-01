@@ -6,15 +6,16 @@
  */
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Box, Button, CircularProgress, Stack, Tab, Tabs, Typography } from '@mui/material';
+import { Alert, Box, Button, CircularProgress, Stack, Tab, Tabs, Typography } from '@mui/material';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { PageHeader, SurfaceCard, SectionLabel, StatusChip, facelift } from '@/components/facelift';
 
-const money = (n) => Number(n || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-const pct = (n, d = 0) => `${(Number(n || 0) * 100).toLocaleString('en-US', { maximumFractionDigits: d })}%`;
-const mult = (n) => `${Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })}×`;
+// A missing number shows as "—", never as $0 or 0× (the pricing settings didn't load — see the alert).
+const money = (n) => (n == null ? '—' : Number(n).toLocaleString('en-US', { style: 'currency', currency: 'USD' }));
+const pct = (n, d = 0) => (n == null ? '—' : `${(Number(n) * 100).toLocaleString('en-US', { maximumFractionDigits: d })}%`);
+const mult = (n) => (n == null ? '—' : `${Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 })}×`);
 
 const T = {
   h: { color: '#fff', fontWeight: 600, fontSize: 18, lineHeight: 1.3 },
@@ -379,6 +380,8 @@ export default function GuidePage() {
           </Button>
         ) : readItem ? <StatusChip label="read" hue="#66BB6A" /> : null}
       />
+
+      {t.pricingUnavailable && <Alert severity="error" sx={{ mb: 2 }}>{t.pricingUnavailable} The pricing figures below can&apos;t be shown until they&apos;re set.</Alert>}
 
       <Tabs
         value={tab}
