@@ -49,3 +49,6 @@ logs_result*.json
 next-env.d.ts
 
 .vercel
+
+# graphify knowledge graph (rebuilt locally; `graphify update .`)
+graphify-out/

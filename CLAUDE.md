@@ -20,3 +20,13 @@ Newer (2026-09-01): for Drops work specifically, also read `docs/manufacturing/D
 
 Newer (2026-09-10): before ANY product/listing/catalog work, read `docs/manufacturing/PRODUCTS_ARE_PROJECTIONS.md` — owner ruling: nobody ever authors a Product; Designs (MTO/customizer) + Pieces (RTS) are the catalog and product docs are machine-maintained projections. Never add manual product-authoring routes or UI.
 
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+- `graphify-out/` is gitignored and there is no commit hook (it would not run in worktrees, where sessions work). In a fresh worktree with no `graphify-out/graph.json`, run `graphify update .` once (~90 s, local, nothing leaves the machine). Installed 2026-09-30, scoped to this repo only (owner).
