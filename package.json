@@ -78,6 +78,7 @@
     "jsdom": "^25.0.1",
     "knip": "^6.23.0",
     "mongodb-memory-server": "^10.1.4",
+    "qrcode": "^1.5.4",
     "typescript": "^5.7.3",
     "vitest": "^2.1.9"
   }
