@@ -25,7 +25,9 @@ export async function assertEmailAvailable(email, dbi = null) {
   const database = dbi || (await db.connect());
   const existing = await database.collection('users').findOne(emailMatch(value), { projection: { _id: 0, userID: 1 } });
   if (existing) {
-    const error = new Error('A user with this email already exists.');
+    // Say what to do: placeholders like test@test.com were typed for customers with no email (owner, 2026-10-01),
+    // and the 2nd one is now refused. Blank is allowed.
+    const error = new Error('This email is already on another account. If the customer has no email, leave it blank.');
     error.code = DUPLICATE_EMAIL;
     error.status = 409;
     throw error;
