@@ -112,22 +112,6 @@ export default function TasksPage() {
     }
   };
 
-  const handleUpdateAllPrices = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await fetch('/api/tasks/update-prices', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
-      const data = await response.json();
-      if (!response.ok || !data.success) throw new Error(data.error || 'Failed to update prices');
-      await loadTasks();
-    } catch (updateError) {
-      console.error('Error updating all prices:', updateError);
-      setError(updateError.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   if (loading && (!tasks || tasks.length === 0)) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -140,7 +124,7 @@ export default function TasksPage() {
     <Box sx={{ pb: 10, '& .MuiDialog-paper': { backgroundColor: TASKS_UI.bgPanel, color: TASKS_UI.textPrimary, border: `1px solid ${TASKS_UI.border}`, boxShadow: TASKS_UI.shadow, backgroundImage: 'none' } }}>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-        <TasksHeader loading={loading} handleUpdateAllPrices={handleUpdateAllPrices} handleCreateTask={(event) => setTaskMenuAnchor(event.currentTarget)} />
+        <TasksHeader handleCreateTask={(event) => setTaskMenuAnchor(event.currentTarget)} />
         <TasksStatistics statistics={statistics} />
         <TasksFilters
           searchQuery={searchQuery}

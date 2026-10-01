@@ -6,6 +6,8 @@ import { NotificationService } from '@/lib/notificationService';
 import { adminBase } from '@/lib/appUrls';
 import { db } from '@/lib/database';
 import { repriceStullerMaterialForRepair } from '@/services/pricing/stullerMaterial';
+import { priceRepairWithAddedMaterial } from '@/services/pricing/repairPricing';
+import { resolvePricingSettings } from '@/services/pricing/engine';
 
 function toNumber(value, fallback = 0) {
   const parsed = Number(value);
@@ -32,28 +34,6 @@ function normalizeMaterial(material = {}) {
   };
 }
 
-function sumLineItems(items = []) {
-  return items.reduce((sum, item) => sum + (toNumber(item.price, 0) * Math.max(toNumber(item.quantity, 1), 0)), 0);
-}
-
-function calculateRepairTotals(repair, materials) {
-  const subtotal = sumLineItems(repair.tasks || [])
-    + sumLineItems(materials)
-    + sumLineItems(repair.customLineItems || []);
-  const rushFee = toNumber(repair.rushFee, 0);
-  const deliveryFee = repair.includeDelivery ? toNumber(repair.deliveryFee, 0) : 0;
-  const taxRate = toNumber(repair.taxRate, 0);
-  const taxAmount = repair.includeTax ? Math.round(subtotal * taxRate * 100) / 100 : 0;
-  const totalCost = Math.round((subtotal + rushFee + deliveryFee + taxAmount) * 100) / 100;
-
-  return {
-    subtotal: Math.round(subtotal * 100) / 100,
-    rushFee,
-    deliveryFee,
-    taxAmount,
-    totalCost,
-  };
-}
 
 export const POST = async (req, { params }) => {
   try {
@@ -67,10 +47,13 @@ export const POST = async (req, { params }) => {
     const repair = await RepairsModel.findById(repairID);
     // Stuller parts are priced server-side from the repair's billing mode (see services/pricing/stullerMaterial.js).
     const dbi = await db.connect();
-    const adminSettings = (await dbi.collection('adminSettings').findOne({}, { projection: { pricing: 1 } })) || {};
-    const material = repriceStullerMaterialForRepair(normalizeMaterial(body.material || {}), { repair, adminSettings });
-    const materials = [...(Array.isArray(repair.materials) ? repair.materials : []), material];
-    const totals = calculateRepairTotals(repair, materials);
+    // THE pricing settings document, resolved strictly — this used to read whichever adminSettings
+    // document came first, and fall back to {}. Missing settings refuse the part rather than price it.
+    const settings = resolvePricingSettings(await dbi.collection('adminSettings').findOne({ _id: 'repair_task_admin_settings' }));
+    const material = repriceStullerMaterialForRepair(normalizeMaterial(body.material || {}), { repair, settings });
+    // THE engine totals the ticket: the lines already on it keep their written price, the new part is
+    // priced, and rush/delivery/tax follow the new subtotal (services/pricing/repairPricing.js).
+    const { materials, tasks: _unchangedTasks, customLineItems: _unchangedCharges, ...totals } = await priceRepairWithAddedMaterial(repair, material);
 
     const now = new Date();
     const updated = await RepairsModel.updateById(repairID, buildMarkWaitingPartsUpdate({

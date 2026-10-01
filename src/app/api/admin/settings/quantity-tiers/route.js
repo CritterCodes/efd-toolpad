@@ -30,13 +30,10 @@ export async function GET() {
   return NextResponse.json({
     tiers: tiersFromSettings(settings),
     defaults: DEFAULT_QUANTITY_TIERS,
-    // What the card prices its preview against, so the numbers on screen are this shop's, not a
-    // worked example: the shop wage and the two multipliers.
-    pricing: {
-      wage: Number(settings?.pricing?.wage) || 0,
-      businessMultiplier: Number(settings?.pricing?.businessMultiplier) || 2,
-      wholesaleMarkup: Number(settings?.pricing?.wholesaleMarkup) || 1.2,
-    },
+    // The shop's real pricing settings, so the card prices its preview through THE engine
+    // (services/pricing/engine.js). This used to send `businessMultiplier || 2` — a field that is never
+    // stored, so the preview always showed the fallback — and `wholesaleMarkup || 1.2`.
+    pricing: settings?.pricing || null,
   });
 }
 

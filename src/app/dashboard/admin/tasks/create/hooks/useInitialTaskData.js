@@ -64,7 +64,8 @@ export function useInitialTaskData() {
             name: name,
             category: process.category || 'uncategorized',
             laborHours: process.laborHours || 0,
-            pricing: process.pricing || { totalCost: 0 }
+            // The processes API's LIVE price (or null + pricingMessage) — never a made-up $0.
+            pricing: process.pricing ?? null
           };
         });
         

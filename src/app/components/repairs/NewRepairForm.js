@@ -55,13 +55,7 @@ import CameraCapture from '@/components/shared/CameraCapture';
 import PromiseDateSuggestion from '@/app/components/repairs/PromiseDateSuggestion';
 
 // The data seam: all fetching, derived state, and handlers.
-import useNewRepairForm, {
-  toNumber,
-  resolveTaskBasePrice,
-  resolveMaterialRawPortionBaseCost,
-  resolveMaterialRetailPrice,
-  resolveMaterialWholesalePrice,
-} from '@/hooks/repairs/useNewRepairForm';
+import useNewRepairForm, { toNumber } from '@/hooks/repairs/useNewRepairForm';
 
 // Metal configuration — single source of truth, shared with the custom-request intake.
 import { METAL_TYPES, GOLD_COLORS } from '@/constants/customRequest.constants';
@@ -242,10 +236,10 @@ export default function NewRepairForm({
     newClientData, setNewClientData, newClientLoading,
     picturePreviewUrl,
     availableTasks, availableMaterials, availableUsers, benchJewelers, availableStores,
-    rushJobInfo, adminSettings,
+    rushJobInfo, pricingSettings, pricingError, pricingTotals, previewLinePrice, wholesalerPricingSettings,
     stullerSku, setStullerSku, loadingStuller, stullerError, addStullerMaterial,
     promiseDateEstimate, promiseDateContext, promiseDateLoading, promiseDateError,
-    getJewelerLabel, getKaratOptions, calculateTotalCost, formatPhoneNumber,
+    getJewelerLabel, getKaratOptions, formatPhoneNumber,
     handleStoreChange,
     addTask, addMaterial, addCustomLineItem, addCustomLaborTask, patchCustomLaborTask, removeItem, updateItem,
     handleSubmit, handleAddNewClient, handleGenerateDescriptionFromImage, handleAnalyzeSmartIntake
@@ -289,6 +283,12 @@ export default function NewRepairForm({
       px: 0,
       pb: { xs: 10, sm: 2 }
     }}>
+      {/* No settings, no prices — and the form says so instead of pricing from defaults. */}
+      {pricingError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {pricingError}
+        </Alert>
+      )}
       {errors.submit && (
         <Alert severity="error" sx={{ mb: 2, backgroundColor: UI.bgPanel, border: '1px solid', borderColor: UI.border, color: UI.textPrimary }}>
           {errors.submit}
@@ -495,7 +495,7 @@ export default function NewRepairForm({
                     />
                     {formData.isRush && (
                       <Chip 
-                        label={`x${adminSettings.rushMultiplier}`}
+                        label={pricingSettings ? `x${pricingSettings.rushMultiplier}` : '—'}
                         size="small"
                         variant="filled"
                         sx={neutralChipSx}
@@ -514,7 +514,7 @@ export default function NewRepairForm({
                   )}
                   {formData.isRush && (
                     <Typography variant="caption" color="text.secondary">
-                      Rush jobs have {((adminSettings.rushMultiplier - 1) * 100).toFixed(0)}% markup
+                      Rush jobs have {pricingSettings ? ((pricingSettings.rushMultiplier - 1) * 100).toFixed(0) : '—'}% markup
                     </Typography>
                   )}
                 </FormControl>
@@ -609,7 +609,7 @@ export default function NewRepairForm({
                     />
                     {formData.includeDelivery && (
                       <Chip 
-                        label={`+$${adminSettings.deliveryFee.toFixed(2)}`}
+                        label={pricingSettings ? `+$${pricingSettings.deliveryFee.toFixed(2)}` : '—'}
                         size="small"
                         variant="filled"
                         sx={neutralChipSx}
@@ -617,7 +617,7 @@ export default function NewRepairForm({
                     )}
                   </Stack>
                   <Typography variant="caption" color="text.secondary">
-                    Add ${adminSettings.deliveryFee.toFixed(2)} delivery fee to total cost (not subject to wholesale discount)
+                    Add {pricingSettings ? `$${pricingSettings.deliveryFee.toFixed(2)}` : 'the'} delivery fee to total cost (not subject to wholesale discount)
                   </Typography>
                 </FormControl>
               </Grid>
@@ -633,7 +633,7 @@ export default function NewRepairForm({
                       />
                       {formData.includeTax && (
                         <Chip 
-                          label={`+${(adminSettings.taxRate * 100).toFixed(2)}%`}
+                          label={pricingSettings ? `+${(pricingSettings.taxRate * 100).toFixed(2)}%` : '—'}
                           size="small"
                           variant="filled"
                           sx={neutralChipSx}
@@ -641,7 +641,7 @@ export default function NewRepairForm({
                       )}
                     </Stack>
                     <Typography variant="caption" color="text.secondary">
-                      {`Apply ${(adminSettings.taxRate * 100).toFixed(2)}% tax rate to total cost`}
+                      {pricingSettings ? `Apply ${(pricingSettings.taxRate * 100).toFixed(2)}% tax rate to total cost` : 'Apply the tax rate to total cost'}
                     </Typography>
                   </FormControl>
                 ) : (
@@ -994,7 +994,7 @@ export default function NewRepairForm({
         <RepairItemsSection
           formData={formData}
           setFormData={setFormData}
-          adminSettings={adminSettings}
+          previewLinePrice={previewLinePrice}
           availableTasks={availableTasks}
           availableMaterials={availableMaterials}
           addTask={addTask}
@@ -1031,8 +1031,9 @@ export default function NewRepairForm({
         {/* Total Cost & Pricing Breakdown */}
         <TotalCostCard
           formData={formData}
-          calculateTotalCost={calculateTotalCost}
-          adminSettings={adminSettings}
+          pricingTotals={pricingTotals}
+          pricingSettings={pricingSettings}
+          storeTaxRate={wholesalerPricingSettings?.taxRate ?? null}
           viewerIsWholesaler={isWholesale}
         />
       </Stack>
@@ -1174,7 +1175,7 @@ export default function NewRepairForm({
 function RepairItemsSection({
   formData,
   setFormData,
-  adminSettings,
+  previewLinePrice,
   availableTasks,
   availableMaterials,
   addTask,
@@ -1266,10 +1267,10 @@ function RepairItemsSection({
           options={availableMaterials}
           getOptionLabel={(option) => {
             const displayName = option.displayName || option.name || 'Material';
-            const retail = resolveMaterialRetailPrice(option, formData.metalType, formData.karat, formData.goldColor, adminSettings);
-            const wholesale = resolveMaterialWholesalePrice(option, formData.metalType, formData.karat, formData.goldColor, adminSettings);
-            const shownPrice = formData.isWholesale && wholesale > 0 ? wholesale : retail;
-            return `${displayName} - $${shownPrice.toFixed(2)}`;
+            // Priced exactly as the line will be — or no number, when it can't be.
+            const preview = previewLinePrice('materials', option);
+            if (!preview) return displayName;
+            return preview.price == null ? `${displayName} — can't price in this metal` : `${displayName} - $${preview.price.toFixed(2)}`;
           }}
           renderInput={(params) => (
             <TextField {...params} label="Add Material" size="small" />
@@ -1330,6 +1331,7 @@ function RepairItemsSection({
             item={material}
             onQuantityChange={(qty) => updateItem('materials', material.id, 'quantity', qty)}
             onPriceChange={(price) => updateItem('materials', material.id, 'price', price)}
+            showPriceInput={false}
             onRemove={() => removeItem('materials', material.id)}
           />
         ))}
@@ -1372,6 +1374,8 @@ function RepairItemsSection({
 export function TaskItem({ item, onQuantityChange, onPriceChange, onRemove, showPriceInput = true }) {
   const unitPrice = toNumber(item.price);
   const lineTotal = unitPrice * (item.quantity || 1);
+  // THE engine couldn't price this line: no number, and why.
+  const unpriced = item.price == null && !showPriceInput;
 
   return (
     <Box
@@ -1443,12 +1447,12 @@ export function TaskItem({ item, onQuantityChange, onPriceChange, onRemove, show
                 <Typography variant="caption" sx={{ color: UI.textMuted, display: 'block', lineHeight: 1.2 }}>
                   Price
                 </Typography>
-                <Typography variant="body2" sx={{ color: UI.textPrimary, fontWeight: 600 }}>
-                  ${unitPrice.toFixed(2)}
+                <Typography variant="body2" sx={{ color: unpriced ? 'error.main' : UI.textPrimary, fontWeight: 600 }}>
+                  {unpriced ? (item.pricingError || "Can't price this.") : `$${unitPrice.toFixed(2)}`}
                 </Typography>
               </Box>
               <Typography variant="body2" sx={{ ml: 'auto', fontWeight: 700, whiteSpace: 'nowrap', color: UI.textHeader }}>
-                ${lineTotal.toFixed(2)}
+                {unpriced ? '—' : `$${lineTotal.toFixed(2)}`}
               </Typography>
             </>
           )}
@@ -1467,7 +1471,7 @@ export function CustomLaborItem({ item, isWholesale, onChange, onRemove }) {
   const qty = Math.max(parseInt(item.quantity, 10) || 1, 1);
   const hours = toNumber(item.laborHours);
   const calculated = calculatedCustomLaborPrice(item, { isWholesale });
-  const overridden = !!item.priceOverridden && calculated !== unitPrice;
+  const overridden = !!item.priceOverridden && calculated != null && calculated !== unitPrice;
 
   return (
     <Box
@@ -1600,162 +1604,51 @@ export function CustomLineItem({
 }
 
 // Total cost card with rush job information
-export function TotalCostCard({ formData, calculateTotalCost, adminSettings, viewerIsWholesaler = false }) {
-  const [totalCost, setTotalCost] = React.useState(0);
+export function TotalCostCard({ formData, pricingTotals, pricingSettings, storeTaxRate = null, viewerIsWholesaler = false }) {
   const isCompedRepair = Boolean(formData.compRepair || formData.includedWithSale);
-  const [costBreakdown, setCostBreakdown] = React.useState({
-    subtotal: 0,
-    retailSubtotal: 0,
-    laborHours: 0,
-    laborCost: 0,
-    averageLaborRate: 0,
-    materialsBaseCost: 0,
-    wholesalerMarkupAmount: 0,
-    wholesalerMarkupPercent: 0,
-    retailerMarkupAmount: 0,
-    customCost: 0,
-    wholesaleDiscount: 0,
-    rushFee: 0,
-    deliveryFee: 0,
-    taxAmount: 0,
-    suggestedRetailModifiers: 0,
-    final: 0,
-    retailFinal: 0
-  });
-  const [loading, setLoading] = React.useState(false);
+  // Nothing here is calculated: the totals are THE engine's (priceRepairTotals) and every line already
+  // carries the engine's price and cost breakdown. Pricing that didn't load shows no number at all.
+  const loading = !pricingTotals;
+  const totalCost = pricingTotals ? pricingTotals.total : 0;
+  const qty = (line) => Math.max(Number(line.quantity) || 1, 1);
+  const sum = (lines, fn) => lines.reduce((total, line) => total + fn(line) * qty(line), 0);
+  const round2 = (n) => Math.round(n * 100) / 100;
 
-  React.useEffect(() => {
-    const updateTotal = async () => {
-      setLoading(true);
-      try {
-        const taskLaborHours = formData.tasks.reduce((sum, item) =>
-          sum + (toNumber(item.laborHours ?? item.pricing?.totalLaborHours ?? item.pricing?.baseLaborHours) * (item.quantity || 1)), 0);
-        const totalLaborHours = taskLaborHours;
-
-        const taskLaborCost = formData.tasks.reduce((sum, item) =>
-          sum + (toNumber(item.pricing?.laborCost ?? item.pricing?.weightedLaborCost) * (item.quantity || 1)), 0);
-        const totalLaborCost = taskLaborCost;
-
-        const taskMaterialsBaseCost = formData.tasks.reduce((sum, item) => {
-          const pricing = item.pricing || {};
-          const derivedBaseMaterials = Math.max(
-            toNumber(pricing.baseCost) - toNumber(pricing.laborCost) - toNumber(pricing.toolDepreciationCost),
-            0
-          );
-          const rawTaskMaterials = toNumber(
-            pricing.baseMaterialsCost ??
-            pricing.weightedBaseMaterialsCost ??
-            pricing.totalProcessMaterialCost ??
-            pricing.baseMaterialCost ??
-            derivedBaseMaterials
-          );
-
-          return sum + (rawTaskMaterials * (item.quantity || 1));
-        }, 0);
-        const materialLineBaseCost = formData.materials.reduce((sum, item) =>
-          sum + (resolveMaterialRawPortionBaseCost(item, formData.metalType, formData.karat, formData.goldColor) * (item.quantity || 1)), 0);
-        const materialsBaseCost = taskMaterialsBaseCost + materialLineBaseCost;
-
-        const tasksCost = formData.tasks.reduce((sum, item) =>
-          sum + (parseFloat(item.price ?? resolveTaskBasePrice(item, formData.metalType, formData.karat, formData.goldColor)) * (item.quantity || 1)), 0);
-        const materialsCost = formData.materials.reduce((sum, item) =>
-          sum + (parseFloat(item.price || item.unitCost || item.costPerPortion || 0) * (item.quantity || 1)), 0);
-        const customCost = formData.customLineItems.reduce((sum, item) =>
-          sum + (parseFloat(item.price || 0) * (item.quantity || 1)), 0);
-
-        const originalSubtotal = tasksCost + materialsCost + customCost;
-        const retailSubtotal = [
-          ...formData.tasks.map(t => toNumber(t.retailPrice ?? t.price) * (t.quantity || 1)),
-          ...formData.materials.map(m => toNumber(m.retailPrice ?? m.price) * (m.quantity || 1)),
-          ...formData.customLineItems.map(c => toNumber(c.price) * (c.quantity || 1))
-        ].reduce((sum, v) => sum + v, 0);
-
-        let currentTotal = originalSubtotal;
-        let wholesaleDiscount = 0;
-        let wholesalerMarkupAmount = 0;
-        let wholesalerMarkupPercent = 0;
-        let retailerMarkupAmount = 0;
-        let rushFee = 0;
-        let deliveryFee = 0;
-        let taxAmount = 0;
-        let suggestedRetailModifiers = 0;
-
-        if (formData.isWholesale) {
-          const costOfGoods = totalLaborCost + materialsBaseCost + customCost;
-          wholesaleDiscount = Math.max(Math.round((retailSubtotal - originalSubtotal) * 100) / 100, 0);
-          wholesalerMarkupAmount = Math.max(
-            Math.round((originalSubtotal - costOfGoods) * 100) / 100,
-            0
-          );
-          wholesalerMarkupPercent = costOfGoods > 0
-            ? Math.round((wholesalerMarkupAmount / costOfGoods) * 1000) / 10
-            : 0;
-          retailerMarkupAmount = Math.max(
-            Math.round((retailSubtotal - originalSubtotal) * 100) / 100,
-            0
-          );
-        }
-
-        let retailCurrentTotal = retailSubtotal;
-        if (formData.isRush) {
-          retailCurrentTotal *= adminSettings.rushMultiplier;
-        }
-        if (formData.includeDelivery) {
-          retailCurrentTotal += adminSettings.deliveryFee;
-        }
-        if (formData.includeTax) {
-          retailCurrentTotal += retailCurrentTotal * adminSettings.taxRate;
-        }
-        suggestedRetailModifiers = Math.max(Math.round((retailCurrentTotal - retailSubtotal) * 100) / 100, 0);
-
-        if (formData.isRush) {
-          const beforeRush = currentTotal;
-          currentTotal *= adminSettings.rushMultiplier;
-          rushFee = currentTotal - beforeRush;
-        }
-
-        if (formData.includeDelivery) {
-          deliveryFee = adminSettings.deliveryFee;
-          currentTotal += deliveryFee;
-        }
-
-        if (formData.includeTax && !formData.isWholesale) {
-          taxAmount = currentTotal * adminSettings.taxRate;
-          currentTotal += taxAmount;
-        }
-
-        setCostBreakdown({
-          subtotal: originalSubtotal,
-          retailSubtotal,
-          laborHours: totalLaborHours,
-          laborCost: totalLaborCost,
-          averageLaborRate: totalLaborHours > 0 ? (totalLaborCost / totalLaborHours) : 0,
-          materialsBaseCost,
-          wholesalerMarkupAmount,
-          wholesalerMarkupPercent,
-          retailerMarkupAmount,
-          customCost,
-          wholesaleDiscount,
-          rushFee,
-          deliveryFee,
-          taxAmount,
-          suggestedRetailModifiers,
-          final: currentTotal,
-          retailFinal: retailCurrentTotal
-        });
-
-        const cost = await calculateTotalCost();
-        setTotalCost(cost);
-      } catch (error) {
-        console.error('Error calculating total cost:', error);
-        setTotalCost(0);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    updateTotal();
-  }, [formData.tasks, formData.materials, formData.customLineItems, formData.isWholesale, formData.isRush, formData.includeDelivery, formData.includeTax, calculateTotalCost, adminSettings]);
+  const laborHours = sum(formData.tasks, (t) => toNumber(t.laborHours ?? t.pricing?.totalLaborHours));
+  const laborCost = sum(formData.tasks, (t) => toNumber(t.pricing?.laborCost));
+  const toolCost = sum(formData.tasks, (t) => toNumber(t.pricing?.toolDepreciationCost));
+  const materialsBaseCost = sum(formData.tasks, (t) => toNumber(t.pricing?.baseMaterialsCost))
+    + sum(formData.materials, (m) => toNumber(m.pricing?.baseMaterialsCost));
+  const customCost = sum(formData.customLineItems, (c) => toNumber(c.price));
+  const subtotal = pricingTotals ? pricingTotals.subtotal : 0;
+  // A store's ticket: what its customer pays, at the store's own markup (each line's retailPrice) and
+  // the store's own tax rate — never ours.
+  const retailSubtotal = round2(
+    sum(formData.tasks, (t) => toNumber(t.retailPrice ?? t.price))
+    + sum(formData.materials, (m) => toNumber(m.retailPrice ?? m.price))
+    + customCost
+  );
+  const storeTax = formData.isWholesale && storeTaxRate > 0 ? round2(retailSubtotal * storeTaxRate) : 0;
+  const costOfGoods = laborCost + materialsBaseCost + toolCost + customCost;
+  const wholesalerMarkupAmount = Math.max(round2(subtotal - costOfGoods), 0);
+  const costBreakdown = {
+    subtotal,
+    retailSubtotal,
+    laborHours,
+    laborCost,
+    averageLaborRate: laborHours > 0 ? laborCost / laborHours : 0,
+    materialsBaseCost,
+    wholesalerMarkupAmount,
+    wholesalerMarkupPercent: costOfGoods > 0 ? Math.round((wholesalerMarkupAmount / costOfGoods) * 1000) / 10 : 0,
+    customCost,
+    wholesaleDiscount: Math.max(round2(retailSubtotal - subtotal), 0),
+    rushFee: pricingTotals ? pricingTotals.rushFee : 0,
+    deliveryFee: pricingTotals ? pricingTotals.deliveryFee : 0,
+    taxAmount: pricingTotals ? pricingTotals.taxAmount : 0,
+    suggestedRetailModifiers: storeTax,
+    final: totalCost,
+    retailFinal: round2(retailSubtotal + storeTax),
+  };
 
   return (
     <FormSection title={formData.isWholesale ? 'Pricing Summary' : 'Total Cost'} subtitle="Review the final pricing before saving the repair">
@@ -1773,7 +1666,7 @@ export function TotalCostCard({ formData, calculateTotalCost, adminSettings, vie
             {isCompedRepair ? (
               '$0.00'
             ) : loading ? (
-              <Box component="span" sx={{ color: UI.textSecondary, fontSize: '0.7em' }}>Calculating...</Box>
+              <Box component="span" sx={{ color: UI.textSecondary, fontSize: '0.7em' }}>Pricing not loaded</Box>
             ) : (
               `$${totalCost.toFixed(2)}`
             )}
@@ -1786,13 +1679,13 @@ export function TotalCostCard({ formData, calculateTotalCost, adminSettings, vie
               <Chip label="Wholesale Pricing" variant="outlined" size="small" sx={neutralChipSx} />
             )}
             {formData.isRush && (
-              <Chip label={`Rush (${adminSettings.rushMultiplier}x)`} variant="outlined" size="small" sx={neutralChipSx} />
+              <Chip label={pricingSettings ? `Rush (${pricingSettings.rushMultiplier}x)` : 'Rush'} variant="outlined" size="small" sx={neutralChipSx} />
             )}
             {formData.includeDelivery && (
-              <Chip label={`Delivery (+$${adminSettings.deliveryFee.toFixed(2)})`} variant="outlined" size="small" sx={neutralChipSx} />
+              <Chip label={pricingSettings ? `Delivery (+$${pricingSettings.deliveryFee.toFixed(2)})` : 'Delivery'} variant="outlined" size="small" sx={neutralChipSx} />
             )}
             {formData.includeTax && !formData.isWholesale && (
-              <Chip label={`Tax (+${(adminSettings.taxRate * 100).toFixed(2)}%)`} variant="outlined" size="small" sx={neutralChipSx} />
+              <Chip label={pricingSettings ? `Tax (+${(pricingSettings.taxRate * 100).toFixed(2)}%)` : 'Tax'} variant="outlined" size="small" sx={neutralChipSx} />
             )}
           </Stack>
         </Box>
@@ -1821,9 +1714,7 @@ export function TotalCostCard({ formData, calculateTotalCost, adminSettings, vie
               {costBreakdown.suggestedRetailModifiers > 0 && (
                 <Stack direction="row" justifyContent="space-between">
                   <Typography variant="body2" color="text.secondary">
-                    {formData.includeTax && !formData.isRush && !formData.includeDelivery && adminSettings?.taxRate > 0
-                      ? `+ Tax (${Math.round(adminSettings.taxRate * 1000) / 10}%):`
-                      : '+ Tax & fees:'}
+                    {`+ Tax (${Math.round(toNumber(storeTaxRate) * 1000) / 10}%):`}
                   </Typography>
                   <Typography variant="body2" sx={{ color: UI.accent }}>
                     +${costBreakdown.suggestedRetailModifiers.toFixed(2)}
@@ -1955,7 +1846,7 @@ export function TotalCostCard({ formData, calculateTotalCost, adminSettings, vie
 
               {formData.isRush && costBreakdown.rushFee > 0 && (
                 <Stack direction="row" justifyContent="space-between" sx={{ color: UI.accent }}>
-                  <Typography variant="body2">Rush Job Fee ({adminSettings.rushMultiplier}x):</Typography>
+                  <Typography variant="body2">Rush Job Fee ({pricingSettings?.rushMultiplier}x):</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
                     +${costBreakdown.rushFee.toFixed(2)}
                   </Typography>
@@ -1973,7 +1864,7 @@ export function TotalCostCard({ formData, calculateTotalCost, adminSettings, vie
 
               {formData.includeTax && !formData.isWholesale && costBreakdown.taxAmount > 0 && (
                 <Stack direction="row" justifyContent="space-between" sx={{ color: UI.accent }}>
-                  <Typography variant="body2">Tax ({(adminSettings.taxRate * 100).toFixed(2)}%):</Typography>
+                  <Typography variant="body2">Tax ({((pricingTotals?.taxRate || 0) * 100).toFixed(2)}%):</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
                     +${costBreakdown.taxAmount.toFixed(2)}
                   </Typography>

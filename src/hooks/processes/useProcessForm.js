@@ -1,8 +1,11 @@
 import { useState, useCallback } from 'react';
-import pricingEngine from '@/services/PricingEngine';
+import usePricingContext from '@/hooks/pricing/usePricingContext';
+import { processPricing } from '@/services/pricing/taskPricing';
 
 export const useProcessForm = (formData, setFormData, adminSettings, availableMaterials) => {
   const [materialLines, setMaterialLines] = useState([]);
+  // The preview is THE engine's (processPricing) — the same number the process list shows.
+  const { ctx: pricingCtx, error: pricingError } = usePricingContext();
 
   const handleAddMaterialLine = useCallback(() => {
     const newLine = {
@@ -110,17 +113,10 @@ export const useProcessForm = (formData, setFormData, adminSettings, availableMa
   }, [materialLines, updateFormDataMaterial]);
 
   const getCostPreview = useCallback(() => {
-    if (!formData.laborHours || !formData.skillLevel || !adminSettings) {
-      return null;
-    }
-
-    try {
-      return pricingEngine.calculateProcessCost(formData, adminSettings);
-    } catch (error) {
-      console.error("PricingEngine Error:", error);
-      return null;
-    }
-  }, [formData, adminSettings]);
+    if (pricingError) return { pricing: null, pricingMessage: pricingError };
+    if (!pricingCtx || !formData.laborHours) return null;
+    return processPricing(formData, pricingCtx);
+  }, [formData, pricingCtx, pricingError]);
 
   return {
     materialLines,

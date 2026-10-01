@@ -17,7 +17,7 @@
  * (a bulk discount, say); that override is kept on the line as `priceOverridden` so a
  * re-price (wholesale toggle, metal change) doesn't silently undo it.
  */
-import { calculateTaskCost } from '@/services/pricing/task.pricing.js';
+import { priceCustomLabor as engineCustomLabor } from '@/services/pricing/engine';
 
 export const CUSTOM_LABOR_CATEGORY = 'custom_labor';
 
@@ -34,26 +34,27 @@ export function customLaborHours(task = {}) {
 }
 
 /**
- * Run the shop's task pricing engine over a custom labor line. Returns the engine's
- * pricing block (retailPrice / wholesalePrice / laborCost / totalLaborHours …) for ONE unit.
+ * THE engine's price for ONE unit of custom labor (services/pricing/engine.js). `settings` must come
+ * from resolvePricingSettings — there is no default wage. Returns the pricing block a line carries, or
+ * null when there are no hours (nothing to price).
  */
-export function priceCustomLabor({ laborHours = 0, adminSettings = {} } = {}) {
-  const hours = Number(laborHours) > 0 ? Number(laborHours) : 0;
-  const pricing = calculateTaskCost(
-    { processes: [{ isCustom: true, name: 'Custom Labor', laborHours: hours, quantity: 1 }], materials: [] },
-    adminSettings,
-    [],
-    [],
-    null,
-  );
-  return { ...pricing, liveCalculated: true };
+export function priceCustomLabor({ laborHours = 0, settings } = {}) {
+  const r = engineCustomLabor({ laborHours, settings });
+  if (!r.ok) return null;
+  return {
+    laborCost: r.laborCost,
+    totalLaborHours: r.laborHours,
+    baseCost: r.baseCost,
+    retailPrice: r.retail.listUnit,
+    wholesalePrice: r.wholesale.listUnit,
+  };
 }
 
-/** The engine-calculated unit price for the pricing context (wholesale or retail). */
+/** The engine-calculated unit price for the pricing context (wholesale or retail); null if unpriced. */
 export function calculatedCustomLaborPrice(task = {}, { isWholesale = false } = {}) {
   const pricing = task.pricing || {};
   const price = isWholesale ? pricing.wholesalePrice : pricing.retailPrice;
-  return round2(price);
+  return price == null ? null : round2(price);
 }
 
 /**
@@ -66,13 +67,12 @@ export function buildCustomLaborTask({
   description = '',
   laborHours = 0,
   quantity = 1,
-  adminSettings = {},
+  settings,
   isWholesale = false,
 } = {}) {
   const hours = Number(laborHours) > 0 ? round2(laborHours) : 0;
   const qty = Math.max(parseInt(quantity, 10) || 1, 1);
-  const pricing = priceCustomLabor({ laborHours: hours, adminSettings });
-  const price = isWholesale ? pricing.wholesalePrice : pricing.retailPrice;
+  const pricing = priceCustomLabor({ laborHours: hours, settings });
   return {
     id,
     isCustomLabor: true,
@@ -84,8 +84,8 @@ export function buildCustomLaborTask({
     processes: [{ isCustom: true, name: 'Custom Labor', displayName: 'Custom Labor', laborHours: hours, quantity: 1 }],
     materials: [],
     pricing,
-    retailPrice: pricing.retailPrice,
-    price: round2(price),
+    retailPrice: pricing ? pricing.retailPrice : null,
+    price: pricing ? (isWholesale ? pricing.wholesalePrice : pricing.retailPrice) : null,
     priceOverridden: false,
   };
 }
@@ -98,7 +98,7 @@ export function buildCustomLaborTask({
  *   - quantity    → clamp ≥ 1
  *   - price       → manual override; remembered so re-pricing keeps it
  */
-export function updateCustomLaborTask(task, patch = {}, { adminSettings = {}, isWholesale = false } = {}) {
+export function updateCustomLaborTask(task, patch = {}, { settings, isWholesale = false } = {}) {
   if (!isCustomLaborTask(task)) return task;
   let next = { ...task };
 
@@ -114,7 +114,7 @@ export function updateCustomLaborTask(task, patch = {}, { adminSettings = {}, is
     next.laborHours = hours;
     next.processes = [{ isCustom: true, name: 'Custom Labor', displayName: 'Custom Labor', laborHours: hours, quantity: 1 }];
     next.priceOverridden = false;
-    next = repriceCustomLaborTask(next, { adminSettings, isWholesale });
+    next = repriceCustomLaborTask(next, { settings, isWholesale });
   }
   if (patch.price !== undefined) {
     const price = round2(patch.price);
@@ -129,14 +129,14 @@ export function updateCustomLaborTask(task, patch = {}, { adminSettings = {}, is
  * Re-run pricing for the current context (used when wholesale flips or metal changes).
  * A manual price override survives; a non-overridden line follows the engine.
  */
-export function repriceCustomLaborTask(task, { adminSettings = {}, isWholesale = false } = {}) {
+export function repriceCustomLaborTask(task, { settings, isWholesale = false } = {}) {
   if (!isCustomLaborTask(task)) return task;
-  const pricing = priceCustomLabor({ laborHours: customLaborHours(task), adminSettings });
-  const calculated = isWholesale ? pricing.wholesalePrice : pricing.retailPrice;
+  const pricing = priceCustomLabor({ laborHours: customLaborHours(task), settings });
+  const calculated = pricing ? (isWholesale ? pricing.wholesalePrice : pricing.retailPrice) : null;
   return {
     ...task,
     pricing,
-    retailPrice: pricing.retailPrice,
-    price: task.priceOverridden ? round2(task.price) : round2(calculated),
+    retailPrice: pricing ? pricing.retailPrice : null,
+    price: task.priceOverridden ? round2(task.price) : calculated,
   };
 }

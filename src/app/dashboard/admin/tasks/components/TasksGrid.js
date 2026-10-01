@@ -107,7 +107,7 @@ export default function TasksGrid({
                   <Box display="flex" alignItems="center" gap={0.75}>
                     <MoneyIcon sx={{ color: TASKS_UI.accent, fontSize: 18 }} />
                     <Typography variant="body2" sx={{ color: TASKS_UI.textPrimary, fontWeight: 600 }}>
-                      {typeof price === 'number' ? `$${price.toFixed(2)}` : 'Computed at runtime'}
+                      {typeof price === 'number' ? `$${price.toFixed(2)}` : (task.pricingMessage || 'Priced by metal')}
                     </Typography>
                   </Box>
                   {task.laborHours > 0 && (

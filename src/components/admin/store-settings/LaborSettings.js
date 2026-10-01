@@ -5,10 +5,12 @@ import {
     Typography,
     TextField,
     Grid,
-    Paper,
     InputAdornment
 } from '@mui/material';
 import { Schedule as ClockIcon } from '@mui/icons-material';
+
+// A fraction shown as a percent input — blank when the setting is missing, never a made-up 0.
+const pctValue = (v, digits) => (v === '' || v == null || Number.isNaN(Number(v)) ? '' : (Number(v) * 100).toFixed(digits));
 
 export default function LaborSettings({ localSettings, handleSettingChange }) {
     return (
@@ -21,16 +23,17 @@ export default function LaborSettings({ localSettings, handleSettingChange }) {
                 <Grid container spacing={2}>
                     <Grid item xs={12}>
                         <Typography variant="subtitle2" gutterBottom>
-                            Skill-Based Hourly Wages
+                            Shop Rate
                         </Typography>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Set the base wage for standard skill level. Other levels are calculated automatically:
+                            Every labor hour on every job is priced at this rate. There are no skill levels in pricing;
+                            what a person is paid is their pay rate on the pay ladder.
                         </Typography>
                     </Grid>
                     <Grid item xs={12}>
                         <TextField
                             fullWidth
-                            label="Base Hourly Wage (Standard Skill)"
+                            label="Shop Rate (per labor hour)"
                             type="number"
                             value={localSettings.wage}
                             onChange={(e) => handleSettingChange('wage', e.target.value)}
@@ -38,51 +41,8 @@ export default function LaborSettings({ localSettings, handleSettingChange }) {
                                 startAdornment: <InputAdornment position="start">$</InputAdornment>,
                                 inputProps: { min: 0, step: 0.01 }
                             }}
-                            helperText="Base hourly wage before fees (used for Standard skill level)"
+                            helperText="What a labor hour costs before fees — the pricing input for every task"
                         />
-                    </Grid>
-                    
-                    {/* Skill Level Preview */}
-                    <Grid item xs={12}>
-                        <Paper sx={{ p: 2, bgcolor: 'action.hover' }}>
-                            <Typography variant="subtitle2" gutterBottom>
-                                Skill Level Wages (Before Fees):
-                            </Typography>
-                            <Grid container spacing={1}>
-                                <Grid item xs={6} sm={3}>
-                                    <Typography variant="body2" color="text.secondary">
-                                        Basic (75%):
-                                    </Typography>
-                                    <Typography variant="body2" fontWeight="bold">
-                                        ${(localSettings.wage * 0.75).toFixed(2)}/hr
-                                    </Typography>
-                                </Grid>
-                                <Grid item xs={6} sm={3}>
-                                    <Typography variant="body2" color="text.secondary">
-                                        Standard (100%):
-                                    </Typography>
-                                    <Typography variant="body2" fontWeight="bold">
-                                        ${localSettings.wage.toFixed(2)}/hr
-                                    </Typography>
-                                </Grid>
-                                <Grid item xs={6} sm={3}>
-                                    <Typography variant="body2" color="text.secondary">
-                                        Advanced (125%):
-                                    </Typography>
-                                    <Typography variant="body2" fontWeight="bold">
-                                        ${(localSettings.wage * 1.25).toFixed(2)}/hr
-                                    </Typography>
-                                </Grid>
-                                <Grid item xs={6} sm={3}>
-                                    <Typography variant="body2" color="text.secondary">
-                                        Expert (150%):
-                                    </Typography>
-                                    <Typography variant="body2" fontWeight="bold">
-                                        ${(localSettings.wage * 1.5).toFixed(2)}/hr
-                                    </Typography>
-                                </Grid>
-                            </Grid>
-                        </Paper>
                     </Grid>
                     
                     <Grid item xs={12}>
@@ -90,7 +50,7 @@ export default function LaborSettings({ localSettings, handleSettingChange }) {
                             fullWidth
                             label="Administrative Fee"
                             type="number"
-                            value={(localSettings.administrativeFee * 100).toFixed(1)}
+                            value={pctValue(localSettings.administrativeFee, 1)}
                             onChange={(e) => handleSettingChange('administrativeFee', e.target.value)}
                             InputProps={{
                                 endAdornment: <InputAdornment position="end">%</InputAdornment>,
@@ -104,7 +64,7 @@ export default function LaborSettings({ localSettings, handleSettingChange }) {
                             fullWidth
                             label="Business Fee"
                             type="number"
-                            value={(localSettings.businessFee * 100).toFixed(1)}
+                            value={pctValue(localSettings.businessFee, 1)}
                             onChange={(e) => handleSettingChange('businessFee', e.target.value)}
                             InputProps={{
                                 endAdornment: <InputAdornment position="end">%</InputAdornment>,
@@ -118,7 +78,7 @@ export default function LaborSettings({ localSettings, handleSettingChange }) {
                             fullWidth
                             label="Consumables Fee"
                             type="number"
-                            value={(localSettings.consumablesFee * 100).toFixed(1)}
+                            value={pctValue(localSettings.consumablesFee, 1)}
                             onChange={(e) => handleSettingChange('consumablesFee', e.target.value)}
                             InputProps={{
                                 endAdornment: <InputAdornment position="end">%</InputAdornment>,

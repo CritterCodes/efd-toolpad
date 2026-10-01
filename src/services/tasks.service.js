@@ -128,23 +128,6 @@ class TasksService {
     }
   }
 
-  /**
-   * Bulk update task pricing
-   */
-  async bulkUpdatePricing(updates) {
-    try {
-      const response = await axiosInstance.post('/api/tasks/bulk-update-pricing', { updates });
-      
-      if (!response.data.success) {
-        throw new Error(response.data.error || 'Failed to update pricing');
-      }
-      
-      return response.data;
-    } catch (error) {
-      console.error('Error updating task pricing:', error);
-      throw error;
-    }
-  }
 
   /**
    * Get tasks with pagination info

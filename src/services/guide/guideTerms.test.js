@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { buildGuideTerms, buildChecklist, profileIsComplete } from './guideTerms';
 
 const PROD_LIKE = {
-  pricing: { wage: 50, administrativeFee: 0.25, businessFee: 0.5, consumablesFee: 0.25, wholesaleMarkup: 1.2, taxRate: 0.095, deliveryFee: 5 },
+  pricing: { wage: 50, administrativeFee: 0.25, businessFee: 0.5, consumablesFee: 0.25, wholesaleMarkup: 1.2, taxRate: 0.095, deliveryFee: 5, rushMultiplier: 1.5, minimumTaskRetailPrice: 0, minimumTaskWholesalePrice: 0 },
   financial: {},
 };
 
@@ -54,10 +54,14 @@ describe('buildGuideTerms', () => {
     expect(bench.ladder.tiers.map((t) => t.key)).toEqual(['apprentice', 'bench-jeweler', 'senior-jeweler', 'master']);
   });
 
-  it('never crashes on empty settings', () => {
+  it('never invents a number: empty settings give no pricing figures, and say why', () => {
     const t = buildGuideTerms({});
-    expect(t.labor.businessMultiplier).toBeGreaterThanOrEqual(2);
-    expect(t.labor.wholesaleMarkup).toBe(1.5);
+    expect(t.labor.wage).toBeNull();
+    expect(t.labor.businessMultiplier).toBeNull();
+    expect(t.labor.wholesaleMarkup).toBeNull();
+    expect(t.labor.artisanRetailShare).toBeNull();
+    expect(t.wholesale.taxRate).toBeNull();
+    expect(t.pricingUnavailable).toMatch(/Pricing settings/);
   });
 });
 

@@ -38,12 +38,6 @@ export function useWholesaleRepairs() {
         loadRepairs();
     }, [loadRepairs]);
 
-    const createRepair = useCallback(async (repairData) => {
-        const result = await wholesaleRepairsClient.createRepair(repairData);
-        await loadRepairs();
-        return result;
-    }, [loadRepairs]);
-
     const toggleSelect = useCallback((repairID) => {
         setSelected(prev =>
             prev.includes(repairID)
@@ -116,7 +110,6 @@ export function useWholesaleRepairs() {
         selected,
         toggleSelect,
         selectAllPending,
-        createRepair,
         requestPickup,
         scheduleDelivery,
         markShipped,

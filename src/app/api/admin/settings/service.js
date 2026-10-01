@@ -1,5 +1,4 @@
 import SettingsManagerService from './services/settingsManager.service.js';
-import PriceRecalculationService from './services/priceRecalculation.service.js';
 
 export default class AdminSettingsService {
   /**
@@ -21,13 +20,6 @@ export default class AdminSettingsService {
    */
   static async updateFinancialSettings(financial, userEmail) {
     return await SettingsManagerService.updateFinancialSettings(financial, userEmail);
-  }
-
-  /**
-   * Recalculate all repair task prices with new settings
-   */
-  static async recalculateAllPrices(dbInstance, pricingSettings) {
-    return await PriceRecalculationService.recalculateAllPrices(dbInstance, pricingSettings);
   }
 }
 

@@ -17,38 +17,29 @@
  * server trusted whatever price the browser sent, so this module also gives the routes an
  * authoritative re-price.
  */
-import { getNormalizedSettings, getBusinessMultiplierValue } from './config.pricing.js';
+import { pricePart, PricingError } from './engine';
 import { resolveBillingMode, BILLING_MODE } from '@/services/billing/modes';
 
-const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 const toNumber = (v, fallback = 0) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
 };
 
-/** Accepts the settings document ({ pricing: {...} }) or a bare pricing block. */
-function asSettingsDoc(adminSettings = {}) {
-  if (adminSettings && typeof adminSettings === 'object' && adminSettings.pricing && typeof adminSettings.pricing === 'object') {
-    return adminSettings;
-  }
-  return { pricing: adminSettings || {} };
-}
-
-/** Both prices for a Stuller cost, plus the one this ticket pays. Pure. */
-export function stullerMaterialPrices({ basePrice = 0, isWholesale = false, adminSettings = {} } = {}) {
-  const settings = asSettingsDoc(adminSettings);
-  const cost = Math.max(toNumber(basePrice), 0);
-  const businessMultiplier = getBusinessMultiplierValue(settings);
-  const { wholesaleMarkup } = getNormalizedSettings(settings);
-  const retail = round2(cost * businessMultiplier);
-  const wholesale = round2(cost * wholesaleMarkup);
+/**
+ * Both prices for a Stuller cost, plus the one this ticket pays — THE engine's pricePart. `settings`
+ * must come from resolvePricingSettings: there is no default markup. Throws on a part with no cost
+ * (PricingError NO_COST) rather than pricing it at $0.
+ */
+export function stullerMaterialPrices({ basePrice = 0, isWholesale = false, settings } = {}) {
+  const r = pricePart({ cost: basePrice, settings });
+  if (!r.ok) throw new PricingError('NO_COST', 'This Stuller part has no cost to price from.');
   return {
-    basePrice: cost,
-    retail,
-    wholesale,
-    price: isWholesale ? wholesale : retail,
-    businessMultiplier,
-    wholesaleMarkup,
+    basePrice: r.unitCost,
+    retail: r.retail.unit,
+    wholesale: r.wholesale.unit,
+    price: isWholesale ? r.wholesale.unit : r.retail.unit,
+    businessMultiplier: settings.retailMultiplier,
+    wholesaleMarkup: settings.wholesaleMarkup,
   };
 }
 
@@ -65,13 +56,13 @@ export function buildStullerRepairMaterial({
   item = {},
   sku = '',
   isWholesale = false,
-  adminSettings = {},
+  settings,
   id = Date.now(),
   category = 'stuller_material',
 } = {}) {
   const data = item?.data || item || {};
   const basePrice = toNumber(data.price ?? data.showcasePrice, 0);
-  const prices = stullerMaterialPrices({ basePrice, isWholesale, adminSettings });
+  const prices = stullerMaterialPrices({ basePrice, isWholesale, settings });
   const name = data.description || `Stuller ${sku}`;
   return {
     id,
@@ -104,14 +95,14 @@ export function buildStullerRepairMaterial({
 /**
  * Server-side: re-price a Stuller material for the repair it is being added to. The browser's
  * number is a preview; this is the one that gets stored. Non-Stuller materials (manual parts with
- * a typed price) pass through untouched.
+ * a typed price) pass through untouched. A Stuller part with no cost is REFUSED (PricingError NO_COST) —
+ * it used to keep whatever price the browser sent.
  */
-export function repriceStullerMaterialForRepair(material = {}, { repair = {}, adminSettings = {} } = {}) {
+export function repriceStullerMaterialForRepair(material = {}, { repair = {}, settings } = {}) {
   if (!material?.isStullerItem) return material;
   const basePrice = toNumber(material.stullerPrice ?? material.unitCost ?? material.stullerData?.originalPrice, 0);
-  if (basePrice <= 0) return material;
   const isWholesale = repairIsWholesale(repair);
-  const prices = stullerMaterialPrices({ basePrice, isWholesale, adminSettings });
+  const prices = stullerMaterialPrices({ basePrice, isWholesale, settings });
   return {
     ...material,
     price: prices.price,

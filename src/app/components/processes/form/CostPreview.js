@@ -11,8 +11,20 @@ import {
   Alert
 } from '@mui/material';
 
+const money = (n) => `$${(Number(n) || 0).toFixed(2)}`;
+const metalLabel = (key) => key
+  .split('_')
+  .map((w) => (/^\d+k$/.test(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
+  .join(' ');
+
+/**
+ * The process's cost, by THE engine (services/pricing/taskPricing.js processPricing): labor is its hours
+ * × the shop wage — there are no skill rates — plus its materials for each metal they're stocked in.
+ * `costPreview` is { pricing, pricingMessage }; no pricing means it can't be priced, and why.
+ */
 export const CostPreview = ({ costPreview, formData }) => {
   if (!costPreview) return null;
+  const { pricing, pricingMessage } = costPreview;
 
   return (
     <Grid item xs={12}>
@@ -20,71 +32,59 @@ export const CostPreview = ({ costPreview, formData }) => {
         <Typography variant="h6" gutterBottom>
           Process Cost Preview
         </Typography>
-        
-        {/* Universal Process Cost */}
-        {!costPreview.isMetalDependent && (costPreview.universal || costPreview.totalCost !== undefined) && (
+
+        {!pricing && (
+          <Alert severity="warning">{pricingMessage || "Can't price this process."}</Alert>
+        )}
+
+        {pricing && !pricing.isMetalDependent && (
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 Universal Process
               </Typography>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                Labor: {formData.laborHours}hrs × ${(costPreview.universal || costPreview).hourlyRate?.toFixed(2) || '0'}/hr ({formData.skillLevel} rate) = ${(costPreview.universal || costPreview).laborCost?.toFixed(2) || '0.00'}
+                Labor: {formData.laborHours}hrs = {money(pricing.laborCost)}
               </Typography>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                Materials: ${(costPreview.universal || costPreview).materialsCost?.toFixed(2) || '0.00'}
+                Materials: {money(pricing.materialsCost)}
               </Typography>
               <Divider sx={{ my: 1 }} />
               <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-                Total: ${(costPreview.universal || costPreview).totalCost?.toFixed(2) || '0.00'}
+                Cost: {money(pricing.totalCost)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" display="block">
+                Retail {money(pricing.retailPrice)} · Wholesale {money(pricing.wholesalePrice)}
               </Typography>
             </CardContent>
           </Card>
         )}
 
-        {/* Metal-Dependent Process Costs - Card Grid */}
-        {costPreview.isMetalDependent && costPreview.metalPrices && (
+        {pricing && pricing.isMetalDependent && (
           <Box>
             <Alert severity="info" sx={{ mb: 2 }}>
               <Typography variant="body2">
-                <strong>Base Labor:</strong> {formData.laborHours}hrs × ${costPreview.summary?.baseHourlyRate || 0}/hr ({formData.skillLevel} rate)
-                <br />
-                Metal variants found in materials: {costPreview.relevantVariantLabels?.join(', ') || 'none'}
+                <strong>Labor:</strong> {formData.laborHours}hrs = {money(pricing.laborCost)}, plus materials for each metal
+                they&apos;re stocked in. A metal with no stock isn&apos;t shown — it can&apos;t be priced.
               </Typography>
             </Alert>
-            
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 2, mt: 2 }}>
-              {Object.entries(costPreview.metalPrices).map(([variantKey, prices]) => (
-                <Card key={variantKey} elevation={2}>
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: 2, mt: 2 }}>
+              {Object.keys(pricing.totalCost).map((key) => (
+                <Card key={key} elevation={2}>
                   <CardContent>
                     <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 'bold' }}>
-                      {prices.metalLabel}
+                      {metalLabel(key)}
                     </Typography>
-                    
-                    <Box sx={{ mb: 2 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Materials Cost (COG): <strong>${prices.materialsCost?.toFixed(2) || '0.00'}</strong>
-                      </Typography>
-                      
-                      {prices.materialBreakdown && (
-                        <Box sx={{ ml: 1, mt: 1 }}>
-                          {prices.materialBreakdown.map((item, idx) => (
-                            <Typography key={idx} variant="caption" display="block" color="text.secondary">
-                              • {item.name}: {item.quantity} × ${item.unitPrice?.toFixed(2)} = ${item.total?.toFixed(2)}
-                            </Typography>
-                          ))}
-                        </Box>
-                      )}
-                    </Box>
-
+                    <Typography variant="body2" color="text.secondary">
+                      Materials Cost (COG): <strong>{money(pricing.materialsCost[key])}</strong>
+                    </Typography>
                     <Divider sx={{ my: 1 }} />
-                    
                     <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'success.main' }}>
-                      Total: ${prices.totalCost?.toFixed(2) || '0.00'}
+                      Cost: {money(pricing.totalCost[key])}
                     </Typography>
-                    
                     <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-                      (Materials + ${prices.laborCost?.toFixed(2) || '0.00'} labor{prices.metalComplexity !== 1.0 ? ` ×${prices.metalComplexity}` : ''})
+                      Retail {money(pricing.retailPrice[key])} · Wholesale {money(pricing.wholesalePrice[key])}
                     </Typography>
                   </CardContent>
                 </Card>

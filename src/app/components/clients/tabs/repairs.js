@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import RepairsGrid from '@/app/components/repairs/repairGrid';
 import RepairFilters from '@/app/components/repairs/filters.component';
-import NewRepairStepper from '@/app/components/repairs/newRepairStepper.component';
+import { useRouter } from 'next/navigation';
 import { useRepairs } from '@/app/context/repairs.context';
 import { Box, Pagination } from '@mui/material';
 
@@ -45,14 +45,14 @@ const repairBelongsToClient = (repair, clientIdentifiers) => {
 };
 
 const ClientRepairsTab = ({ userID, user }) => {
-    const { repairs, setRepairs } = useRepairs();
+    const { repairs } = useRepairs();
+    const router = useRouter();
     const [filteredRepairs, setFilteredRepairs] = useState([]);
     const [statusFilter, setStatusFilter] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [sortOrder, setSortOrder] = useState('newest');
     const [page, setPage] = useState(1);
     const rowsPerPage = 6;
-    const [open, setOpen] = useState(false);
 
     useEffect(() => {
         console.log("✅ Repairs in context:", repairs);
@@ -96,15 +96,6 @@ const ClientRepairsTab = ({ userID, user }) => {
         setFilteredRepairs(updatedRepairs);
     }, [repairs, statusFilter, searchQuery, sortOrder, userID, user]);
 
-    const handleNewRepair = (newRepair) => {
-        console.log("🆕 New Repair Added:", newRepair);
-        setRepairs((prev) => [...prev, newRepair]);
-        const clientIdentifiers = getClientIdentifiers(userID, user);
-        if (repairBelongsToClient(newRepair, clientIdentifiers)) {
-            setFilteredRepairs((prevFiltered) => [...prevFiltered, newRepair]);
-        }
-    };
-
     return (
         <Box>
             {/* Repair Filters for Search, Sorting, and Adding New Repairs */}
@@ -115,7 +106,8 @@ const ClientRepairsTab = ({ userID, user }) => {
                 setSearchQuery={setSearchQuery}
                 sortOrder={sortOrder}
                 setSortOrder={setSortOrder}
-                onOpenNewRepair={() => setOpen(true)}
+                // THE intake, preset to this client — one intake, one pricing engine.
+                onOpenNewRepair={() => router.push(`/dashboard/repairs/new?clientID=${encodeURIComponent(user?.userID || userID)}`)}
             />
 
             {/* Logging repairs before rendering */}
@@ -126,13 +118,6 @@ const ClientRepairsTab = ({ userID, user }) => {
                 repairs={filteredRepairs.slice((page - 1) * rowsPerPage, page * rowsPerPage)}
             />
 
-            {/* New Repair Stepper for Creating Repairs */}
-            <NewRepairStepper
-                open={open}
-                onClose={() => setOpen(false)}
-                onSubmit={handleNewRepair}
-                userID={userID}
-            />
         </Box>
     );
 };

@@ -56,8 +56,9 @@ export async function getTaskSuggestions(search = '', limit = 40, context = null
       .filter((t) => t.title)
       .map((t) => ({
         label: t.title,
-        cost: Number(t.pricing?.laborCost) || 0,
-        hours: Number(t.pricing?.totalLaborHours ?? t.laborHours) || 0,
+        // The engine's labor numbers — present for every task, metal or not (services/pricing/catalog.js).
+        cost: Number(t.laborCost) || 0,
+        hours: Number(t.laborHours) || 0,
         category: t.category || null,
         source: 'repair',
       }));
@@ -129,8 +130,8 @@ export async function getCustomTaskLine(title, {
     const result = await TasksService.getTasks({ isActive: true, context: 'custom', search: title, limit: 10 });
     const match = (result?.data || []).find((t) => String(t.title).toLowerCase() === String(title).toLowerCase());
     if (match) {
-      cost = Number(match.pricing?.laborCost) || 0;
-      hours = Number(match.pricing?.totalLaborHours ?? match.laborHours) || 0;
+      cost = Number(match.laborCost) || 0;
+      hours = Number(match.laborHours) || 0;
     }
   } catch { /* fall back below */ }
   const resolved = cost > 0 ? cost : (Number(fallbackCost) || 0);

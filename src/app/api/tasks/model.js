@@ -8,12 +8,6 @@ import { ObjectId } from 'mongodb';
 import Constants from '@/lib/constants';
 import { buildQuery, formatMetalKey } from './queries.js';
 import { getTaskStatisticsAggregation } from './aggregations.js';
-import {
-  getTaskPriceForMetalStr,
-  getTaskSupportedMetalsStr,
-  updateTaskPricingStr,
-  getTasksForMetalContextStr
-} from './pricing.js';
 
 export class TasksModel {
   static collectionName = Constants.TASKS_COLLECTION || 'tasks';
@@ -227,34 +221,6 @@ export class TasksModel {
       console.error('Error deleting task:', error);
       throw error;
     }
-  }
-
-  /**
-   * Get task price for specific metal context
-   */
-  static async getTaskPriceForMetal(taskId, metalType, karat) {
-    return getTaskPriceForMetalStr(taskId, metalType, karat);
-  }
-
-  /**
-   * Get all supported metals for a task
-   */
-  static async getTaskSupportedMetals(taskId) {
-    return getTaskSupportedMetalsStr(taskId);
-  }
-
-  /**
-   * Update task with universal pricing structure
-   */
-  static async updateTaskPricing(taskId, universalPricing) {
-    return updateTaskPricingStr(taskId, universalPricing);
-  }
-
-  /**
-   * Get tasks compatible with specific metal context
-   */
-  static async getTasksForMetalContext(metalType, karat, filters = {}) {
-    return getTasksForMetalContextStr(metalType, karat, filters);
   }
 
   /**

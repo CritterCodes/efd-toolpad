@@ -2,8 +2,8 @@ import { ProcessModel } from './model.js';
 import { generateProcessSku } from '@/utils/skuGenerator';
 import { db } from '@/lib/database';
 import { prepareProcessForSaving } from '@/utils/processes.util';
-import pricingEngine from '@/services/PricingEngine';
-import MaterialModel from '@/app/api/materials/model.js';
+import { loadPricingContext } from '@/services/pricing/catalog';
+import { processPricing } from '@/services/pricing/taskPricing';
 import { VALID_SKILL_LEVELS } from '@/constants/pricing.constants.mjs';
 
 /**
@@ -11,6 +11,25 @@ import { VALID_SKILL_LEVELS } from '@/constants/pricing.constants.mjs';
  * Handles business rules, validation, and complex operations
  */
 export class ProcessService {
+
+  /**
+   * Attach each process's LIVE price (THE engine — services/pricing/taskPricing.js processPricing) and
+   * drop the one stored on the document. Processes used to carry `pricing` / `metalPrices` snapshots
+   * written at save time, priced with per-skill labor rates; reads showed those. If the pricing
+   * settings are missing, processes still list — with no price, and the reason.
+   */
+  static async withLivePricing(processes = []) {
+    let ctx = null;
+    let unavailable = '';
+    try { ctx = await loadPricingContext(); } catch (error) { unavailable = error?.message || 'Pricing did not load.'; }
+    return processes.map((process) => {
+      // eslint-disable-next-line no-unused-vars
+      const { pricing: _stored, metalPrices: _storedByMetal, ...rest } = process;
+      if (!ctx) return { ...rest, pricing: null, pricingMessage: unavailable };
+      return { ...rest, ...processPricing(process, ctx) };
+    });
+  }
+
   
   /**
    * Get all processes with optional filtering
@@ -28,7 +47,7 @@ export class ProcessService {
       
       return {
         success: true,
-        processes: processes || []
+        processes: await this.withLivePricing(processes || [])
       };
     } catch (error) {
       console.error('ProcessService.getAllProcesses error:', error);
@@ -47,9 +66,10 @@ export class ProcessService {
         throw new Error('Process not found');
       }
       
+      const [priced] = await this.withLivePricing([process]);
       return {
         success: true,
-        process
+        process: priced
       };
     } catch (error) {
       console.error('ProcessService.getProcessById error:', error);
@@ -71,18 +91,12 @@ export class ProcessService {
         throw new Error('A process with this display name already exists');
       }
       
-      // Get admin settings for pricing
-      const adminSettings = await this.getAdminSettings();
-      
-      // Get all available materials for multi-variant pricing calculation
-      const availableMaterials = await MaterialModel.getMaterials();
-      
       // Generate SKU
       const sku = generateProcessSku(processData.category, processData.skillLevel);
       
-      // Use proper multi-variant pricing calculation
+      // Only the recipe is stored — never a price (it is computed on every read).
       const processDataWithSku = { ...processData, sku };
-      const processForSaving = prepareProcessForSaving(processDataWithSku, adminSettings, availableMaterials);
+      const processForSaving = prepareProcessForSaving(processDataWithSku);
       
       // Prepare process data
       const newProcessData = {
@@ -126,14 +140,8 @@ export class ProcessService {
         throw new Error('A process with this display name already exists');
       }
       
-      // Get admin settings for pricing
-      const adminSettings = await this.getAdminSettings();
-      
-      // Get all available materials for multi-variant pricing calculation
-      const availableMaterials = await MaterialModel.getMaterials();
-      
-      // Use proper multi-variant pricing calculation
-      const processForSaving = prepareProcessForSaving(processData, adminSettings, availableMaterials);
+      // Only the recipe is stored — never a price (it is computed on every read).
+      const processForSaving = prepareProcessForSaving(processData);
       
       // Prepare update data
       const updateData = {
@@ -219,35 +227,6 @@ export class ProcessService {
   }
 
   /**
-   * Calculate process pricing
-   * 
-   * @deprecated This method is deprecated. Use PricingEngine.calculateProcessCost() instead.
-   * This method now calls PricingEngine internally for backward compatibility.
-   */
-  static calculateProcessPricing(processData, adminSettings) {
-    console.warn('⚠️ DEPRECATED: ProcessService.calculateProcessPricing() - Please migrate to PricingEngine.calculateProcessCost()');
-    
-    // Use PricingEngine for consistent calculations
-    return pricingEngine.calculateProcessCost(processData, adminSettings);
-  }
-
-  /**
-   * Get admin settings
-   */
-  static async getAdminSettings() {
-    await db.connect();
-    const adminSettings = await db._instance
-      .collection('adminSettings')
-      .findOne({});
-    
-    if (!adminSettings?.pricing) {
-      throw new Error('Admin pricing settings not configured');
-    }
-    
-    return adminSettings;
-  }
-
-  /**
    * Search processes by name or description
    */
   static async searchProcesses(searchTerm) {
@@ -267,7 +246,7 @@ export class ProcessService {
       
       return {
         success: true,
-        processes: processes || []
+        processes: await this.withLivePricing(processes || [])
       };
     } catch (error) {
       console.error('ProcessService.searchProcesses error:', error);

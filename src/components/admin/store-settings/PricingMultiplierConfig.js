@@ -12,6 +12,9 @@ import {
     Calculate as CalculateIcon 
 } from '@mui/icons-material';
 
+// A fraction shown as a percent input — blank when the setting is missing, never a made-up 0.
+const pctValue = (v, digits) => (v === '' || v == null || Number.isNaN(Number(v)) ? '' : (Number(v) * 100).toFixed(digits));
+
 export default function PricingMultiplierConfig({ localSettings, handleSettingChange }) {
     return (
         <Grid container spacing={3}>
@@ -54,10 +57,10 @@ export default function PricingMultiplierConfig({ localSettings, handleSettingCh
                             </Grid>
                         </Grid>
                         <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                            Retail materials: {((localSettings.materialMarkup - 1) * 100).toFixed(1)}% above cost
+                            The material markup is not used in pricing: materials are charged at cost × the fee multiplier (retail) or × the wholesale multiplier.
                         </Typography>
                         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                            Wholesale floor: {((localSettings.wholesaleMarkup - 1) * 100).toFixed(1)}% above base cost
+                            Wholesale: {localSettings.wholesaleMarkup === '' ? '—' : `${((localSettings.wholesaleMarkup - 1) * 100).toFixed(1)}%`} above base cost
                         </Typography>
                     </CardContent>
                 </Card>
@@ -133,7 +136,7 @@ export default function PricingMultiplierConfig({ localSettings, handleSettingCh
                                     fullWidth
                                     label="Tax Rate"
                                     type="number"
-                                    value={(localSettings.taxRate * 100).toFixed(3)}
+                                    value={pctValue(localSettings.taxRate, 3)}
                                     onChange={(e) => handleSettingChange('taxRate', e.target.value)}
                                     InputProps={{
                                         endAdornment: <InputAdornment position="end">%</InputAdornment>,
@@ -147,7 +150,7 @@ export default function PricingMultiplierConfig({ localSettings, handleSettingCh
                                     fullWidth
                                     label="Store Consignment Fee"
                                     type="number"
-                                    value={(localSettings.consignmentFeeRate * 100).toFixed(1)}
+                                    value={pctValue(localSettings.consignmentFeeRate, 1)}
                                     onChange={(e) => handleSettingChange('consignmentFeeRate', e.target.value)}
                                     InputProps={{
                                         endAdornment: <InputAdornment position="end">%</InputAdornment>,
@@ -161,7 +164,7 @@ export default function PricingMultiplierConfig({ localSettings, handleSettingCh
                                     fullWidth
                                     label="Federal Tax Reserve Rate"
                                     type="number"
-                                    value={(localSettings.federalTaxReserveRate * 100).toFixed(1)}
+                                    value={pctValue(localSettings.federalTaxReserveRate, 1)}
                                     onChange={(e) => handleSettingChange('federalTaxReserveRate', e.target.value)}
                                     InputProps={{
                                         endAdornment: <InputAdornment position="end">%</InputAdornment>,

@@ -1,6 +1,0 @@
-import { ERROR_MESSAGES, calculateBusinessMultiplier } from '@/constants/pricing.constants.mjs';
-import { getNormalizedSettings, getBusinessMultiplierValue } from './config.pricing.js';
-
-export function applyBusinessMultiplier(baseCost, adminSettings = {}) { const parsedCost = parseFloat(baseCost); if (isNaN(parsedCost)) throw new TypeError(ERROR_MESSAGES.BASE_COST_MUST_BE_NUMBER); if (parsedCost < 0) throw new RangeError(ERROR_MESSAGES.BASE_COST_CANNOT_BE_NEGATIVE); if (parsedCost === 0) return 0; const enforcedMultiplier = getBusinessMultiplierValue(adminSettings); return Math.round(parsedCost * enforcedMultiplier * 100) / 100; }
-
-export function calculateWholesalePrice(retailPrice, baseCost, adminSettings = {}) { const parsedBaseCost = parseFloat(baseCost); if (isNaN(parsedBaseCost)) throw new TypeError(ERROR_MESSAGES.BASE_COST_MUST_BE_NUMBER); if (parsedBaseCost < 0) throw new RangeError(ERROR_MESSAGES.BASE_COST_CANNOT_BE_NEGATIVE); const settings = getNormalizedSettings(adminSettings); return Math.round(parsedBaseCost * settings.wholesaleMarkup * 100) / 100; }

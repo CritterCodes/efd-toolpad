@@ -7,7 +7,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import RepairTicketComponent from '@/components/print/RepairTicketComponent';
 import RepairReceiptComponent from '@/components/print/RepairReceiptComponent';
 import SideBySideLayout from '@/components/print/SideBySideLayout';
-import { calculateRepairTotal, getAllWorkItems } from '@/services/pricingCalculation.service';
+import { getAllWorkItems } from '@/services/pricingCalculation.service';
 import { getRepairSummary, validateRepairData } from '@/services/repairDataStructure.service';
 
 const SLIP_WIDTH = '3.6in';
@@ -102,10 +102,6 @@ const PrintRepairTicket = () => {
         return repair ? getAllWorkItems(repair) : [];
     }, [repair]);
 
-    const pricingData = useMemo(() => {
-        return repair ? calculateRepairTotal(repair) : null;
-    }, [repair]);
-
     const totalItems = repairSummary ? repairSummary.totalItems : 0;
     const maxItemsPerTicketPage = 8;
     const needsMultipleTicketPages = totalItems > maxItemsPerTicketPage;
@@ -116,12 +112,11 @@ const PrintRepairTicket = () => {
         if (repair && validation.isValid) {
             console.log('Repair Found:', repair);
             console.log('Repair Summary:', repairSummary);
-            console.log('Pricing Data:', pricingData);
             console.log(`Total items: ${totalItems}, needs multiple pages: ${needsMultipleTicketPages}`);
         } else {
             console.warn('Repair validation failed:', validation.errors);
         }
-    }, [repair, validation, repairSummary, pricingData, totalItems, needsMultipleTicketPages]);
+    }, [repair, validation, repairSummary, totalItems, needsMultipleTicketPages]);
 
     useEffect(() => {
         const restorePrintControls = () => {

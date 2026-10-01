@@ -7,6 +7,7 @@ import { ArrowBack } from '@mui/icons-material';
 import NewRepairForm from '@/app/components/repairs/NewRepairForm';
 import NewRepairFlow from '@/app/components/repairs/NewRepairFlow';
 import { canCreateRepair } from '@/lib/repairAccess';
+import UsersService from '@/services/users';
 import { PageHeader, facelift } from '@/components/facelift';
 
 function getProductImageUrl(product) {
@@ -56,6 +57,10 @@ const NewRepairPage = () => {
   const scannedWholesaleStoreName = searchParams.get('wholesaleStoreName');
   const salesInvoiceID = searchParams.get('salesInvoiceID');
   const salesLineID = searchParams.get('salesLineID');
+  // From a client's profile: "New repair" opens THIS intake for that client (it used to open a second,
+  // older stepper that priced tasks from stored prices and sent them where the server never read them).
+  const presetClientID = searchParams.get('clientID');
+  const [presetClient, setPresetClient] = useState(null);
 
   // Derive wholesale context synchronously so NewRepairForm always gets the correct
   // value on first render (avoids a race condition where the form would load EFD
@@ -76,6 +81,20 @@ const NewRepairPage = () => {
       router.push('/dashboard');
     }
   }, [router, session, status]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!presetClientID) { setPresetClient(null); return undefined; }
+    UsersService.getUserByQuery(presetClientID)
+      .then((user) => {
+        if (cancelled || !user) return;
+        // The app's userID — never the Mongo _id (EFD-DEFECTS C1: 75 retail repairs keyed by _id).
+        const name = [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.name || user.email || '';
+        setPresetClient({ userID: user.userID, name });
+      })
+      .catch(() => { if (!cancelled) setPresetClient(null); });
+    return () => { cancelled = true; };
+  }, [presetClientID]);
 
   useEffect(() => {
     const loadLinkedSale = async () => {
@@ -268,7 +287,7 @@ const NewRepairPage = () => {
               storePreset={!isWholesalerRole && !!scannedWholesaleStoreId}
               onClearStorePreset={() => router.replace(`/dashboard/repairs/new${uiQuery}`)}
               initialData={linkedSaleContext?.initialData || null}
-              clientInfo={linkedSaleContext?.clientInfo || null}
+              clientInfo={linkedSaleContext?.clientInfo || presetClient || null}
               isWholesale={isWholesaler}
               // `isWholesaler` is true for an admin who arrived with a store preset, so it cannot
               // stand in for the session role — the client-optional rule needs the role itself.
@@ -280,7 +299,7 @@ const NewRepairPage = () => {
             <NewRepairForm
               onSubmit={handleSubmit}
               initialData={linkedSaleContext?.initialData || null}
-              clientInfo={linkedSaleContext?.clientInfo || null}
+              clientInfo={linkedSaleContext?.clientInfo || presetClient || null}
               // The classic form has no "no client" row, so it keeps the old rule: a client is required.
               isWholesale={isWholesaler}
               wholesalerStoreId={wholesalerStoreId}

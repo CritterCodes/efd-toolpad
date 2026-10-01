@@ -4,7 +4,7 @@
  *
  * Sources of truth (do not restate a number here that the code reads from somewhere else):
  *   labor credit      hours × shop wage (adminSettings.pricing.wage) at QC pass — repairLaborLogs/utils
- *   retail charge     base × businessMultiplier (admin/business/consumables fees, floor 2.0) — pricing/config.pricing
+ *   retail charge     base × (1 + admin + business + consumables fees) — THE engine, services/pricing/engine.js
  *   wholesale charge  base × pricing.wholesaleMarkup — same
  *   work-order fee    labor + materials × pricing.wholesaleMarkup; casting + shipping AT COST — production/workOrderPricing
  *   sale fees         billing/feeSchedule (consignment / marketplace / pillars)
@@ -13,7 +13,7 @@
  *   QC review fee     financial.qcReviewFee, a labor line to the reviewer — bench/pieceWorkOrderActions
  *   payroll           Sun–Sat weeks, Wednesday run, Stripe Connect only, weekly free / daily fee — services/payroll
  */
-import { getBusinessMultiplierValue, getNormalizedSettings } from '@/services/pricing/config.pricing';
+import { resolvePricingSettings } from '@/services/pricing/engine';
 import { loadFeeSchedule } from '@/services/billing/feeSchedule';
 import { FEE_DEFAULTS, dailyFeeLabel } from '@/services/payroll/payoutCadence';
 import { DEFAULT_LADDER, ladderFromSettings } from '@/services/pay/payLadder';
@@ -26,10 +26,15 @@ const round = (n, d = 4) => Math.round((Number(n) || 0) * 10 ** d) / 10 ** d;
 
 export function buildGuideTerms({ settings = {}, fees = FEE_DEFAULTS, qcMode = 'separate', affiliate = null, payRate = null, ladder = null } = {}) {
   const s = settings || {};
-  const normalized = getNormalizedSettings(s);
-  const wage = Number(s?.pricing?.wage) > 0 ? Number(s.pricing.wage) : normalized.baseWage;
-  const businessMultiplier = getBusinessMultiplierValue(s);
-  const wholesaleMarkup = normalized.wholesaleMarkup;
+  // THE engine's settings — the numbers every ticket is priced with. No defaults: when the pricing
+  // settings are incomplete the pricing figures are null (shown as "—") and `pricingUnavailable` says
+  // why. This used to fall back to a $50 wage and a 1.5× wholesale markup the shop doesn't charge.
+  let pricing = null;
+  let pricingUnavailable = '';
+  try { pricing = resolvePricingSettings(s); } catch (error) { pricingUnavailable = error?.message || 'Pricing settings did not load.'; }
+  const wage = pricing ? pricing.wage : null;
+  const businessMultiplier = pricing ? pricing.retailMultiplier : null;
+  const wholesaleMarkup = pricing ? pricing.wholesaleMarkup : null;
   const schedule = loadFeeSchedule(s);
   const bonusRaw = Number(s?.financial?.clientMgmtBonusPct);
   const clientMgmtBonusPct = bonusRaw >= 0 && bonusRaw <= 1 && Number.isFinite(bonusRaw) && s?.financial?.clientMgmtBonusPct !== undefined
@@ -38,12 +43,14 @@ export function buildGuideTerms({ settings = {}, fees = FEE_DEFAULTS, qcMode = '
   const qcReviewFee = qcFeeRaw > 0 ? qcFeeRaw : DEFAULT_QC_REVIEW_FEE;
   const affiliateRate = Number(affiliate?.commissionRate) > 0 ? Number(affiliate.commissionRate) : DEFAULT_AFFILIATE_RATE;
   // The viewer's own credited rate (services/pay/payLadder.resolvePayRate); shop rate when never placed.
-  const rate = Number(payRate?.rate) > 0 ? Number(payRate.rate) : wage;
   const resolvedLadder = ladder && Array.isArray(ladder.tiers) ? ladder : ladderFromSettings(s);
-  const retailLine = wage * businessMultiplier;      // what a retail customer pays per catalog hour
-  const wholesaleLine = wage * wholesaleMarkup;      // what a store pays per catalog hour
+  const rate = Number(payRate?.rate) > 0 ? Number(payRate.rate) : wage;
+  const retailLine = pricing ? wage * businessMultiplier : null;  // what a retail customer pays per catalog hour
+  const wholesaleLine = pricing ? wage * wholesaleMarkup : null;  // what a store pays per catalog hour
+  const share = (part, whole) => (whole ? round(part / whole) : null);
 
   return {
+    pricingUnavailable,
     labor: {
       wage,                       // SHOP rate: the pricing input, per catalog hour
       payRate: {                  // what THIS person is credited per catalog hour
@@ -55,10 +62,10 @@ export function buildGuideTerms({ settings = {}, fees = FEE_DEFAULTS, qcMode = '
       businessMultiplier,
       wholesaleMarkup,
       // share of the LABOR LINE this person is credited vs. what EFD keeps
-      artisanRetailShare: round(rate / retailLine),
-      efdRetailShare: round(1 - rate / retailLine),
-      artisanWholesaleShare: round(rate / wholesaleLine),
-      efdWholesaleShare: round(1 - rate / wholesaleLine),
+      artisanRetailShare: share(rate, retailLine),
+      efdRetailShare: retailLine ? round(1 - rate / retailLine) : null,
+      artisanWholesaleShare: share(rate, wholesaleLine),
+      efdWholesaleShare: wholesaleLine ? round(1 - rate / wholesaleLine) : null,
       creditedAt: 'QC pass',
       rateSource: payRate?.source || 'shop',
     },
@@ -86,8 +93,8 @@ export function buildGuideTerms({ settings = {}, fees = FEE_DEFAULTS, qcMode = '
     },
     wholesale: {
       markup: wholesaleMarkup,
-      taxRate: Number(s?.pricing?.taxRate) || 0,
-      deliveryFee: Number(s?.pricing?.deliveryFee) || 0,
+      taxRate: pricing ? pricing.taxRate : null,
+      deliveryFee: pricing ? pricing.deliveryFee : null,
     },
     payroll: {
       weekStart: 'Sunday',

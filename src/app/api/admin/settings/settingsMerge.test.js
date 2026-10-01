@@ -29,7 +29,13 @@ const EXISTING = {
     centerstoneMarkup: 1.3,
     rushMultiplier: 2,
   },
-  pricing: { taxRate: 0.0925, deliveryFee: 25, wholesaleDiscount: 0.2 },
+  // A complete pricing block, like production's: a save the pricing engine couldn't price with is now
+  // refused (services/pricing/engine.js), so the fixture carries every field it requires.
+  pricing: {
+    wage: 50, administrativeFee: 0.25, businessFee: 0.5, consumablesFee: 0.25, wholesaleMarkup: 1.2,
+    rushMultiplier: 1.5, deliveryFee: 25, taxRate: 0.0925, minimumTaskRetailPrice: 0, minimumTaskWholesalePrice: 0,
+    wholesaleDiscount: 0.2,
+  },
   business: { storeName: 'EFD', timezone: 'America/Chicago' },
   // The PUT gate: a stored hash plus an unexpired window. verifySecurityCode is mocked truthy, so this
   // fixture only has to get us past the expiry check to reach the merge under test.
@@ -118,8 +124,18 @@ describe('PUT /api/admin/settings merges each subdocument', () => {
 
   it('a pricing-only save leaves financial and business intact', async () => {
     const { PUT } = await import('./route');
-    await PUT(req({ pricing: { taxRate: 0.08 }, securityCode: '1234' }));
-    expect(written.financial.centerstoneMarkup).toBe(1.3);
-    expect(written.business.storeName).toBe('EFD');
+    await PUT(req({ pricing: { taxRate: 0.08 }, securityCode: '1234' }));
+    expect(written.financial.centerstoneMarkup).toBe(1.3);
+    expect(written.business.storeName).toBe('EFD');
+  });
+
+  it('refuses a save that would leave the shop unable to price anything, and writes nothing', async () => {
+    // Before, `wholesaleMarkup: 0` quietly became 1.5 somewhere downstream. Now it is named and refused.
+    written = null;
+    const { PUT } = await import('./route');
+    const res = await PUT(req({ pricing: { wholesaleMarkup: 0 }, securityCode: '1234' }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/wholesaleMarkup/);
+    expect(written).toBeNull();
   });
 });

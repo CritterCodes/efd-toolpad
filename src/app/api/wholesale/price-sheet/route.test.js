@@ -1,129 +1,114 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { resolvePricingSettings } from '@/services/pricing/engine';
 
 /**
- * The wholesale price sheet, priced through the INTAKE ENGINE per metal.
- * This shape exists because v1 read the stored base-metal wholesalePrice and
- * quoted gold work at silver-ish prices (a half-shank is ~$40 in silver and
- * ~$290 in 14k — the owner caught it on sight). What must hold now:
- *   1. every row is calculateTaskCost output — the number intake charges
- *   2. metal-dependent tasks show per-metal prices; metal-independent collapse flat
- *   3. a metal the engine can't price is OMITTED, never $0
- *   4. the shop's internals still never cross
+ * The wholesale price sheet, priced by THE engine (services/pricing/engine.js) — not a mock of it. What
+ * must hold:
+ *   1. every number is the engine's, the same one the counter charges
+ *   2. metal-dependent tasks show per-metal prices; metal-independent ones collapse to one flat price
+ *   3. a metal the engine refuses (no stock) is OMITTED, never $0; a task priceable nowhere is dropped
+ *   4. metal-restricted tasks only show their metals
+ *   5. volume tiers come from the engine, margin share included (EFD-DEFECTS P10)
+ *   6. internals never cross to a partner
  */
-
-const mocks = vi.hoisted(() => ({ requireRole: vi.fn(), getTasks: vi.fn(), loadDeps: vi.fn(), calc: vi.fn() }));
+const mocks = vi.hoisted(() => ({ requireRole: vi.fn(), getTasks: vi.fn(), loadCtx: vi.fn() }));
 
 vi.mock('next/server', () => ({
   NextResponse: { json: vi.fn((data, init) => ({ _data: data, _status: init?.status ?? 200 })) },
 }));
 vi.mock('@/lib/apiAuth', () => ({ requireRole: mocks.requireRole }));
-vi.mock('@/app/api/tasks/service', () => ({
-  TasksService: { getTasks: mocks.getTasks, loadPricingDependencies: mocks.loadDeps },
+vi.mock('@/app/api/tasks/model', () => ({ TasksModel: { getTasks: mocks.getTasks } }));
+vi.mock('@/services/pricing/catalog', async (importOriginal) => ({
+  ...(await importOriginal()),
+  loadPricingContext: mocks.loadCtx,
 }));
-vi.mock('@/services/pricing/task.pricing', () => ({ calculateTaskCost: mocks.calc }));
 
 const { GET } = await import('./route.js');
 
-const metalMaterial = {
-  isMetalDependent: true,
-  stullerProducts: [
-    { metalType: 'sterling_silver', karat: '925' },
-    { metalType: 'yellow_gold', karat: '14K' },
-  ],
-};
-
-const task = (over = {}) => ({
-  title: 'Half-Shank', category: 'shanks', sku: 'HS-1', laborHours: 1,
-  pricing: { wholesalePrice: 40, laborCost: 20, baseCost: 25 },
-  ...over,
+const TIERS = [
+  { minQty: 1, toolPct: 100, marginPct: 100 },
+  { minQty: 5, toolPct: 70, marginPct: 100 },
+  { minQty: 20, toolPct: 30, marginPct: 100 },
+];
+const settingsWith = (tiers = TIERS) => resolvePricingSettings({
+  pricing: {
+    wage: 50, administrativeFee: 0.25, businessFee: 0.5, consumablesFee: 0.25, wholesaleMarkup: 1.2,
+    rushMultiplier: 1.5, deliveryFee: 5, taxRate: 0.095, minimumTaskRetailPrice: 0, minimumTaskWholesalePrice: 0,
+    quantityTiers: tiers,
+  },
 });
 
-const priced = (wholesale, unmatched = []) => ({
-  wholesalePrice: wholesale, retailPrice: wholesale * 2, laborCost: 11, baseCost: 22,
-  unmatchedMaterials: unmatched,
+const SOLDER = {
+  _id: 'm-solder', displayName: 'Hard Solder', isMetalDependent: true, portionsPerUnit: 30,
+  stullerProducts: [
+    { metalType: 'sterling_silver', karat: '925', stullerPrice: 12, portionsPerUnit: 60 },
+    { metalType: 'yellow_gold', karat: '14K', stullerPrice: 134.55 },
+    { metalType: 'platinum', karat: '950', stullerPrice: 300 },
+  ],
+};
+const sizeDown = { title: 'Size Down', category: 'shanks', processes: [{ laborHours: 0.3, quantity: 1 }], materials: [{ materialId: 'm-solder', quantity: 1 }] };
+const cleanPolish = { title: 'Clean and Polish', category: 'misc', processes: [{ laborHours: 0.25, quantity: 1 }], materials: [] };
+const retip = { title: 'Retip prongs', category: 'prongs', processes: [{ laborHours: 0.2, quantity: 1 }], materials: [], tools: [{ toolId: 't', costPerUse: 10 }] };
+
+const ctx = (materials = [SOLDER], tiers = TIERS) => ({
+  settings: settingsWith(tiers), materials, tools: [],
+  metals: ['sterling_silver_925', 'yellow_gold_14k', 'platinum_950'],
 });
 
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.requireRole.mockResolvedValue({ session: { user: { role: 'wholesaler' } }, errorResponse: null });
-  mocks.getTasks.mockResolvedValue({ success: true, data: [task()] });
-  mocks.loadDeps.mockResolvedValue({ adminSettings: { s: 1 }, materials: [metalMaterial] });
+  mocks.loadCtx.mockResolvedValue(ctx());
 });
 
+const rowsFor = async (tasks) => {
+  mocks.getTasks.mockResolvedValue({ tasks });
+  return (await GET())._data.rows;
+};
+
 describe('GET /api/wholesale/price-sheet', () => {
-  it('prices each available metal context through the intake engine', async () => {
-    mocks.calc.mockImplementation((t, s, p, m, ctx) => {
-      if (ctx === 'sterling_silver_925') return priced(40);
-      if (ctx === 'yellow_gold_14k') return priced(289.73);
-      return priced(40); // base
-    });
-    const res = await GET();
-    const row = res._data.rows[0];
-    expect(row.byMetal).toEqual({ sterling_silver_925: 40, yellow_gold_14k: 289.73 });
-    expect(row.wholesalePrice).toBeUndefined(); // metal-dependent → never one flat number
-    // contexts derive from material variants — engine called with each, plus base
-    const ctxCalls = mocks.calc.mock.calls.map((c) => c[4]);
-    expect(ctxCalls).toContain('sterling_silver_925');
-    expect(ctxCalls).toContain('yellow_gold_14k');
+  it('prices a metal-dependent task per metal, with the engine', async () => {
+    const [row] = await rowsFor([sizeDown]);
+    // $15 labor + the metal's solder portion, × 1.2
+    expect(row.byMetal).toEqual({ sterling_silver_925: 18.24, yellow_gold_14k: 23.39, platinum_950: 30 });
+    expect(row.wholesalePrice).toBeUndefined();
+    expect(row.laborHours).toBe(0.3);
   });
 
   it('collapses a metal-independent task to one flat price', async () => {
-    mocks.calc.mockImplementation(() => priced(15));
-    const res = await GET();
-    expect(res._data.rows[0]).toMatchObject({ wholesalePrice: 15 });
-    expect(res._data.rows[0].byMetal).toBeUndefined();
+    const [row] = await rowsFor([cleanPolish]);
+    expect(row).toMatchObject({ wholesalePrice: 15 });
+    expect(row.byMetal).toBeUndefined();
   });
 
-  it('OMITS a metal the engine cannot price — quote on request beats $0', async () => {
-    mocks.calc.mockImplementation((t, s, p, m, ctx) => {
-      if (ctx === 'yellow_gold_14k') return priced(0, [{ name: 'Sizing Stock', requested: ctx }]);
-      return priced(40);
-    });
-    const res = await GET();
-    expect(res._data.rows[0].byMetal ?? { flatOnly: res._data.rows[0].wholesalePrice }).not.toHaveProperty('yellow_gold_14k');
-    expect(JSON.stringify(res._data)).not.toContain('yellow_gold_14k');
+  it('OMITS a metal the stock does not cover — never $0', async () => {
+    mocks.loadCtx.mockResolvedValue(ctx([{ ...SOLDER, stullerProducts: SOLDER.stullerProducts.filter((p) => p.metalType !== 'platinum') }]));
+    const [row] = await rowsFor([sizeDown]);
+    expect(row.byMetal).not.toHaveProperty('platinum_950');
+    expect(Object.keys(row.byMetal)).toEqual(['sterling_silver_925', 'yellow_gold_14k']);
   });
 
-  it('a metal-RESTRICTED task prices only its metals and keeps the label', async () => {
-    // Platinum work is laser welded and has its own task; it must never render
-    // gold chips, and even a single platinum price stays labeled, never flat.
-    mocks.getTasks.mockResolvedValue({
-      success: true,
-      data: [task({ title: 'Half-Shank — Platinum', metals: ['platinum'] })],
-    });
-    mocks.loadDeps.mockResolvedValue({
-      adminSettings: {},
-      materials: [{
-        isMetalDependent: true,
-        stullerProducts: [
-          { metalType: 'sterling_silver', karat: '925' },
-          { metalType: 'yellow_gold', karat: '14K' },
-          { metalType: 'platinum', karat: '950' },
-        ],
-      }],
-    });
-    mocks.calc.mockImplementation((t, s, p, m, ctx) => priced(ctx === 'platinum_950' ? 474.24 : 40));
-    const res = await GET();
-    const row = res._data.rows[0];
-    expect(row.byMetal).toEqual({ platinum_950: 474.24 });
+  it('prices a metal-restricted task only in its metals, and keeps the label', async () => {
+    const [row] = await rowsFor([{ ...sizeDown, title: 'Size Down — Platinum', metals: ['platinum'] }]);
+    expect(row.byMetal).toEqual({ platinum_950: 30 });
     expect(row.wholesalePrice).toBeUndefined();
-    const ctxCalls = mocks.calc.mock.calls.map((c) => c[4]).filter(Boolean);
-    expect(ctxCalls).toEqual(['platinum_950']); // gold/silver never even computed
   });
 
-  it('drops a task the engine cannot price at all', async () => {
-    mocks.calc.mockImplementation(() => { throw new Error('bad task'); });
-    const res = await GET();
-    expect(res._data.rows).toHaveLength(0);
+  it('drops a task that cannot be priced in any metal', async () => {
+    mocks.loadCtx.mockResolvedValue(ctx([]));
+    expect(await rowsFor([sizeDown])).toHaveLength(0);
   });
 
-  it('still never leaks internals', async () => {
-    mocks.calc.mockImplementation(() => priced(40));
+  it('refuses the whole sheet when pricing settings are missing', async () => {
+    mocks.loadCtx.mockRejectedValue(new Error('Pricing settings are missing or invalid: wage.'));
+    mocks.getTasks.mockResolvedValue({ tasks: [cleanPolish] });
     const res = await GET();
-    const json = JSON.stringify(res._data);
-    expect(json).not.toContain('laborCost');
-    expect(json).not.toContain('baseCost');
-    expect(json).not.toContain('retailPrice');
+    expect(res._status).toBe(500);
+  });
+
+  it('never leaks internals', async () => {
+    const json = JSON.stringify(await rowsFor([sizeDown, cleanPolish, retip]));
+    for (const secret of ['laborCost', 'baseCost', 'retailPrice', 'materialsCost', 'toolCost']) expect(json).not.toContain(secret);
   });
 
   it('honors the role gate', async () => {
@@ -134,28 +119,10 @@ describe('GET /api/wholesale/price-sheet', () => {
   });
 });
 
-/**
- * VOLUME TIERS ON THE SHEET. A tier gives back part of the MACHINE share, and that share is a fixed
- * number of dollars — it does not move with the metal. So the deduction is identical in silver and in
- * platinum, which is what lets one tier line sit under a row carrying several metal prices.
- */
 describe('volume pricing on the sheet', () => {
-  const LADDER = [
-    { minQty: 1, toolPct: 100, marginPct: 100 },
-    { minQty: 5, toolPct: 70, marginPct: 100 },
-    { minQty: 20, toolPct: 30, marginPct: 100 },
-  ];
-  // A retip: $10 labor + $10 of laser = $20 base, x1.2 = $24 wholesale.
-  const laser = { wholesalePrice: 24, baseCost: 20, toolDepreciationCost: 10, laborCost: 10, unmatchedMaterials: [] };
-
-  beforeEach(() => {
-    mocks.loadDeps.mockResolvedValue({ adminSettings: { pricing: { quantityTiers: LADDER } }, materials: [] });
-    mocks.getTasks.mockResolvedValue({ success: true, data: [task({ title: 'Retip prongs', materials: [] })] });
-    mocks.calc.mockReturnValue(laser);
-  });
-
-  it('shows the tier price on a single-price row', async () => {
-    const row = (await GET())._data.rows[0];
+  it('shows each tier price on a single-price row', async () => {
+    // $10 labor + $10 of machine = $20 base, ×1.2 = $24 wholesale
+    const [row] = await rowsFor([retip]);
     expect(row.wholesalePrice).toBe(24);
     expect(row.volumeTiers).toEqual([
       { minQty: 5, label: '5–19', unitDiscount: 3.6, price: 20.4 },
@@ -163,28 +130,26 @@ describe('volume pricing on the sheet', () => {
     ]);
   });
 
-  it('gives a metal-priced row the deduction instead, since it is the same in every metal', async () => {
-    mocks.loadDeps.mockResolvedValue({ adminSettings: { pricing: { quantityTiers: LADDER } }, materials: [metalMaterial] });
-    mocks.getTasks.mockResolvedValue({ success: true, data: [task({ title: 'Reprong', materials: [metalMaterial] })] });
-    mocks.calc.mockImplementation((t, s2, p, m, ctx) => (
-      ctx === 'yellow_gold_14k' ? { ...laser, wholesalePrice: 41.4, baseCost: 34.5 } : laser
-    ));
-
-    const row = (await GET())._data.rows[0];
+  it('gives a metal-priced row the one deduction, since it is the same in every metal', async () => {
+    const reprong = { ...retip, title: 'Reprong', materials: [{ materialId: 'm-solder', quantity: 1 }] };
+    const [row] = await rowsFor([reprong]);
     expect(row.byMetal).toBeTruthy();
-    // No `price`: the row has several, and the store subtracts the same amount from whichever applies.
     expect(row.volumeTiers).toEqual([
       { minQty: 5, label: '5–19', unitDiscount: 3.6 },
       { minQty: 20, label: '20+', unitDiscount: 8.4 },
     ]);
   });
 
-  it('says nothing on a task with no machine in it, and nothing when the ladder is off', async () => {
-    mocks.calc.mockReturnValue({ ...laser, toolDepreciationCost: 0 });
-    expect((await GET())._data.rows[0].volumeTiers).toBeUndefined();
+  it('honors the margin share too — the old sheet ignored it (P10)', async () => {
+    mocks.loadCtx.mockResolvedValue(ctx([SOLDER], [{ minQty: 1, toolPct: 100, marginPct: 100 }, { minQty: 10, toolPct: 100, marginPct: 50 }]));
+    const [row] = await rowsFor([cleanPolish]);
+    // $12.50 base, ×1.2 = $15; at half the margin: $12.50 × 1.1 = $13.75
+    expect(row.volumeTiers).toEqual([{ minQty: 10, label: '10+', unitDiscount: 1.25, price: 13.75 }]);
+  });
 
-    mocks.calc.mockReturnValue(laser);
-    mocks.loadDeps.mockResolvedValue({ adminSettings: { pricing: {} }, materials: [] });
-    expect((await GET())._data.rows[0].volumeTiers).toBeUndefined();
+  it('says nothing on a task with no machine in it, and nothing when the ladder is off', async () => {
+    expect((await rowsFor([cleanPolish]))[0].volumeTiers).toBeUndefined();
+    mocks.loadCtx.mockResolvedValue(ctx([SOLDER], []));
+    expect((await rowsFor([retip]))[0].volumeTiers).toBeUndefined();
   });
 });

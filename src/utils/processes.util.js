@@ -32,7 +32,6 @@ export {
 // Validation & Process Helpers
 export {
   validateProcessForm,
-  calculateProcessCost,
   prepareProcessForSaving,
   transformProcessForForm
 } from './processes/validation.helpers';

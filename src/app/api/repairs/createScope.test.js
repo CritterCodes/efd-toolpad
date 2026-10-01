@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
   // The store record the route resolves the BUSINESS name from (Greers Pawn as it sat in prod).
   findUser: vi.fn(async () => ({ firstName: 'Sam', lastName: 'Johnson', wholesaleApplication: { businessName: 'Greers Pawn' } })),
   createRepair: vi.fn(async (data) => ({ repairID: 'r-new', ...data })),
+  // The engine's answer for the ticket (services/pricing/repairPricing.js) — stubbed; its own tests price.
+  priceRepairForSave: vi.fn(async () => ({})),
 }));
 
 vi.mock('next/server', () => ({
@@ -32,6 +34,11 @@ vi.mock('@/lib/notificationService', () => ({
 vi.mock('@/services/appointments/benchSlots', () => ({ blockSlotForWalkIn: vi.fn(async () => null) }));
 vi.mock('@/lib/appUrls', () => ({ adminBase: () => 'http://test' }));
 vi.mock('@/lib/database', () => ({ db: { connect: vi.fn(async () => ({ collection: () => ({ findOne: mocks.findUser }) })) } }));
+vi.mock('@/services/pricing/repairPricing', () => ({
+  priceRepairForSave: mocks.priceRepairForSave,
+  pricingErrorResponseInit: (e) => (e?.code === 'SETTINGS_INCOMPLETE' ? 503 : 400),
+  PRICING_INPUT_FIELDS: ['tasks', 'materials'],
+}));
 vi.mock('./controller', () => ({ default: { createRepair: mocks.createRepair, getRepairs: vi.fn(), getRepairById: vi.fn(), updateRepairById: vi.fn() } }));
 vi.mock('@/lib/apiAuth', async (importOriginal) => {
   const actual = await importOriginal();
@@ -49,6 +56,40 @@ const jsonReq = (body) => ({
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.createRepair.mockImplementation(async (data) => ({ repairID: 'r-new', ...data }));
+  mocks.priceRepairForSave.mockImplementation(async () => ({}));
+});
+
+describe('POST /api/repairs prices on the SERVER (EFD-DEFECTS P12)', () => {
+  beforeEach(() => {
+    mocks.requireRepairsAccess.mockResolvedValue({
+      session: { user: { role: 'wholesaler', userID: 'ws-marlen', email: 'andrew@marlen.test' } },
+      errorResponse: null,
+    });
+  });
+
+  it("stores the engine's prices, never the payload's", async () => {
+    mocks.priceRepairForSave.mockResolvedValue({ tasks: [{ id: 1, price: 23.39 }], totalCost: 23.39, subtotal: 23.39 });
+    await POST(jsonReq({ clientName: 'A', userID: 'c1', description: 'x', metalType: 'gold', karat: '14k', goldColor: 'yellow',
+      tasks: [{ id: 1, price: 0.01 }], totalCost: 0.01, subtotal: 0.01 }));
+    const [arg] = mocks.priceRepairForSave.mock.calls[0];
+    expect(arg).toMatchObject({ metalType: 'gold', karat: '14k', goldColor: 'yellow' }); // the form's metal, not the folded one
+    expect(mocks.createRepair.mock.calls[0][0]).toMatchObject({ tasks: [{ id: 1, price: 23.39 }], totalCost: 23.39, subtotal: 23.39 });
+  });
+
+  it("refuses a ticket the engine can't price, and saves nothing", async () => {
+    const refusal = Object.assign(new Error('Size Down: Choose a metal to price this.'), { name: 'PricingError', code: 'UNPRICED' });
+    mocks.priceRepairForSave.mockRejectedValue(refusal);
+    const res = await POST(jsonReq({ clientName: 'A', userID: 'c1', description: 'x', tasks: [{ id: 1, price: 5 }] }));
+    expect(res._status).toBe(400);
+    expect(res._data.error).toMatch(/Choose a metal/);
+    expect(mocks.createRepair).not.toHaveBeenCalled();
+  });
+
+  it('refuses with 503 when the pricing settings are missing', async () => {
+    mocks.priceRepairForSave.mockRejectedValue(Object.assign(new Error('Pricing settings did not load.'), { name: 'PricingError', code: 'SETTINGS_INCOMPLETE' }));
+    const res = await POST(jsonReq({ clientName: 'A', userID: 'c1', description: 'x', tasks: [] }));
+    expect(res._status).toBe(503);
+  });
 });
 
 describe('POST /api/repairs as a wholesaler', () => {

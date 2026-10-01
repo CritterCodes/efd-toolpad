@@ -31,6 +31,7 @@ import {
   Search as SearchIcon
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
+import { resolvePricingSettings, materialCost } from '@/services/pricing/engine';
 
 export default function StullerProductsManager({
   stullerProducts = [],
@@ -142,17 +143,21 @@ export default function StullerProductsManager({
     return portionsPerUnit > 0 ? unitCost / portionsPerUnit : 0;
   };
 
-  const calculateDisplayMarkedUpUnitPrice = (product) => {
-    const stullerPrice = Number(product?.stullerPrice || 0);
-    const materialMarkup = Number(adminSettings?.pricing?.materialMarkup || 1);
-    return stullerPrice * materialMarkup;
+  // RETAIL, the way THE engine charges a material: cost per portion × the fee multiplier
+  // (services/pricing/engine.js). This used to multiply by the deprecated material markup, which no price
+  // uses — so the table showed numbers the counter never charged. No settings → no number.
+  const pricingSettings = (() => {
+    try { return adminSettings ? resolvePricingSettings(adminSettings) : null; } catch { return null; }
+  })();
+  const retailPerUnit = (product) => (pricingSettings
+    ? Math.round(Number(product?.stullerPrice || 0) * pricingSettings.retailMultiplier * 100) / 100
+    : null);
+  const retailPerPortion = (product) => {
+    if (!pricingSettings) return null;
+    const cost = materialCost({ material: { stullerPrice: product?.stullerPrice, unitCost: product?.unitCost, portionsPerUnit: getProductPortionsPerUnit(product) } });
+    return cost.ok ? Math.round(cost.unitCost * pricingSettings.retailMultiplier * 100) / 100 : null;
   };
-
-  const calculateDisplayMarkedUpCostPerPortion = (product) => {
-    const portionsPerUnit = getProductPortionsPerUnit(product);
-    const markedUpUnitPrice = calculateDisplayMarkedUpUnitPrice(product);
-    return portionsPerUnit > 0 ? markedUpUnitPrice / portionsPerUnit : 0;
-  };
+  const showMoney = (n) => (n == null ? '—' : formatCurrency(n));
 
   const getMetalTypeColor = (metalType) => {
     const colors = {
@@ -214,7 +219,9 @@ export default function StullerProductsManager({
 
       {adminSettings && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          Using material markup rate: <strong>{adminSettings.pricing?.materialMarkup || 1.5}x</strong>
+          {pricingSettings
+            ? <>Retail = cost × the fee multiplier: <strong>×{pricingSettings.retailMultiplier.toFixed(2)}</strong> (the material markup is not used in pricing)</>
+            : 'Pricing settings are incomplete — retail prices can\'t be shown.'}
         </Alert>
       )}
 
@@ -281,8 +288,8 @@ export default function StullerProductsManager({
                   <Typography variant="body2">{formatCurrency(calculateRawCostPerPortion(product))}</Typography>
                 </Box>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Display Markup / Portion</Typography>
-                  <Typography variant="body2">{formatCurrency(calculateDisplayMarkedUpCostPerPortion(product))}</Typography>
+                  <Typography variant="caption" color="text.secondary">Retail / Portion</Typography>
+                  <Typography variant="body2">{showMoney(retailPerPortion(product))}</Typography>
                 </Box>
               </Box>
             </Paper>
@@ -299,9 +306,9 @@ export default function StullerProductsManager({
                 <TableCell>Karat</TableCell>
                 <TableCell>Stuller Price</TableCell>
                 <TableCell>Portions / Unit</TableCell>
-                <TableCell>Marked-up Price</TableCell>
-                <TableCell>Raw Cost/Portion</TableCell>
-                <TableCell>Final Cost/Portion</TableCell>
+                <TableCell>Retail / Unit</TableCell>
+                <TableCell>Cost / Portion</TableCell>
+                <TableCell>Retail / Portion</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -354,15 +361,11 @@ export default function StullerProductsManager({
                     />
                   </TableCell>
                   <TableCell>
-                    <strong>{formatCurrency(calculateDisplayMarkedUpUnitPrice(product))}</strong>
-                    <br />
-                    <Typography variant="caption" color="textSecondary">
-                      ({adminSettings?.pricing?.materialMarkup || 1}x display markup)
-                    </Typography>
+                    <strong>{showMoney(retailPerUnit(product))}</strong>
                   </TableCell>
                   <TableCell>{formatCurrency(calculateRawCostPerPortion(product))}</TableCell>
                   <TableCell>
-                    <strong>{formatCurrency(calculateDisplayMarkedUpCostPerPortion(product))}</strong>
+                    <strong>{showMoney(retailPerPortion(product))}</strong>
                   </TableCell>
                 </TableRow>
               ))}

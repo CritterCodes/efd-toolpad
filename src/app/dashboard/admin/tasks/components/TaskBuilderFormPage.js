@@ -117,13 +117,7 @@ export default function TaskBuilderFormPage({ mode = 'create', taskId = null }) 
     setError,
   } = useInitialTaskData();
 
-  const { pricePreview, pricesByMetal } = useTaskPricing({
-    formData,
-    adminSettings,
-    availableProcesses,
-    availableMaterials,
-    availableTools
-  });
+  const { pricePreview, pricesByMetal, pricingError, pricingMessage } = useTaskPricing({ formData });
 
   const {
     addCustomProcess,
@@ -391,6 +385,7 @@ export default function TaskBuilderFormPage({ mode = 'create', taskId = null }) 
                 pricesByMetal={pricesByMetal}
                 formData={formData}
                 setFormData={setFormData}
+                message={pricingError || pricingMessage}
               />
 
               <PriceControlsSection

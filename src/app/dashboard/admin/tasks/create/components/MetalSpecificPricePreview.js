@@ -8,9 +8,14 @@ import TextField from '@mui/material/TextField';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import { TaskFormSection, TASK_UI, taskSelectionCardSx } from './taskBuilderUi';
 
-export function MetalSpecificPricePreview({ pricesByMetal, formData, setFormData }) {
+export function MetalSpecificPricePreview({ pricesByMetal, formData, setFormData, message = '' }) {
   if (!pricesByMetal || Object.keys(pricesByMetal).length === 0) {
-    return null;
+    // Can't be priced (or pricing didn't load): say why — never a $0 preview.
+    return message ? (
+      <Grid item xs={12}>
+        <Alert severity="warning">{message}</Alert>
+      </Grid>
+    ) : null;
   }
 
   const metalEntries = Object.entries(pricesByMetal);
@@ -47,6 +52,7 @@ export function MetalSpecificPricePreview({ pricesByMetal, formData, setFormData
                 <Typography variant="body2" sx={{ color: TASK_UI.textSecondary }}>Labor: <strong>{pricing.totalLaborHours || 0}h</strong></Typography>
                 <Typography variant="body2" sx={{ color: TASK_UI.textSecondary }}>Labor Cost: <strong>${pricing.laborCost || 0}</strong></Typography>
                 <Typography variant="body2" sx={{ color: TASK_UI.textSecondary }}>Material Cost: <strong>${pricing.baseMaterialCost || 0}</strong></Typography>
+                {pricing.toolCost > 0 && <Typography variant="body2" sx={{ color: TASK_UI.textSecondary }}>Tool Cost: <strong>${pricing.toolCost}</strong></Typography>}
                 <Typography variant="body2" sx={{ color: TASK_UI.textSecondary, mb: 1.5 }}>Base Cost: <strong>${pricing.baseCost || 0}</strong></Typography>
 
                 {hasMultipleMetals && (
@@ -70,11 +76,6 @@ export function MetalSpecificPricePreview({ pricesByMetal, formData, setFormData
                   <Typography variant="body2" sx={{ color: TASK_UI.textSecondary }}>
                     Wholesale: ${pricing.wholesalePrice || 0}
                   </Typography>
-                  {pricing.roundingApplied && pricing.retailPriceBeforeRounding !== pricing.retailPrice && (
-                    <Typography variant="caption" sx={{ color: TASK_UI.textMuted, display: 'block', mt: 0.5 }}>
-                      Retail rounded from ${pricing.retailPriceBeforeRounding}.
-                    </Typography>
-                  )}
                 </Box>
               </Box>
             </Grid>

@@ -1,6 +1,12 @@
 import { db } from '@/lib/database';
 import Constants from '@/lib/constants';
 
+/**
+ * Task counts for the statistics route. No prices: these used to average STORED task prices
+ * (`basePrice`/`price`) and count stored per-metal price maps (`pricing.totalCosts`). Prices are
+ * calculated on read now and never stored (services/pricing/engine.js), so a statistic built from the
+ * stored fields would only ever describe snapshots that shouldn't exist.
+ */
 export async function getTaskStatisticsAggregation() {
   const collectionName = Constants.TASKS_COLLECTION || 'tasks';
 
@@ -16,11 +22,7 @@ export async function getTaskStatisticsAggregation() {
           total: { $sum: 1 },
           active: { $sum: { $cond: [{ $eq: ['$isActive', true] }, 1, 0] } },
           inactive: { $sum: { $cond: [{ $eq: ['$isActive', false] }, 1, 0] } },
-          withUniversalPricing: { $sum: { $cond: [{ $exists: ['$pricing.totalCosts'] }, 1, 0] } },
-          averagePrice: { $avg: { $ifNull: ['$basePrice', { $ifNull: ['$price', 0] }] } },
-          totalPrice: { $sum: { $ifNull: ['$basePrice', { $ifNull: ['$price', 0] }] } },
-          categories: { $addToSet: '$category' },
-          supportedMetals: { $addToSet: '$pricing.supportedMetals' }
+          categories: { $addToSet: '$category' }
         }
       },
       {
@@ -29,57 +31,21 @@ export async function getTaskStatisticsAggregation() {
           total: 1,
           active: 1,
           inactive: 1,
-          withUniversalPricing: 1,
-          averagePrice: { $round: ['$averagePrice', 2] },
-          totalPrice: { $round: ['$totalPrice', 2] },
-          categories: { $size: '$categories' },
-          supportedMetals: 1
+          categories: { $size: '$categories' }
         }
       }
     ]).toArray();
 
     const categoryStats = await collection.aggregate([
       { $match: { isActive: { $ne: false } } },
-      {
-        $group: {
-          _id: '$category',
-          count: { $sum: 1 },
-          avgPrice: { $avg: { $ifNull: ['$basePrice', { $ifNull: ['$price', 0] }] } },
-          withUniversalPricing: { $sum: { $cond: [{ $exists: ['$pricing.totalCosts'] }, 1, 0] } }
-        }
-      },
+      { $group: { _id: '$category', count: { $sum: 1 } } },
       { $sort: { count: -1 } }
     ]).toArray();
 
     const metalTypeStats = await collection.aggregate([
       { $match: { isActive: { $ne: false }, metalType: { $exists: true, $ne: null } } },
-      {
-        $group: {
-          _id: '$metalType',
-          count: { $sum: 1 },
-          avgPrice: { $avg: { $ifNull: ['$basePrice', { $ifNull: ['$price', 0] }] } }
-        }
-      },
+      { $group: { _id: '$metalType', count: { $sum: 1 } } },
       { $sort: { count: -1 } }
-    ]).toArray();
-
-    const universalPricingStats = await collection.aggregate([
-      { $match: { 'pricing.totalCosts': { $exists: true } } },
-      {
-        $project: {
-          supportedMetalCount: { $size: { $objectToArray: '$pricing.totalCosts' } },
-          baseLaborHours: '$pricing.baseLaborHours',
-          processCosts: '$pricing.processCosts'
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          tasksWithUniversalPricing: { $sum: 1 },
-          avgSupportedMetals: { $avg: '$supportedMetalCount' },
-          avgLaborHours: { $avg: '$baseLaborHours' }
-        }
-      }
     ]).toArray();
 
     const [filtersData] = await collection.aggregate([
@@ -100,15 +66,9 @@ export async function getTaskStatisticsAggregation() {
     ]).toArray();
 
     return {
-      overview: stats || {
-        total: 0, active: 0, inactive: 0, withUniversalPricing: 0,
-        averagePrice: 0, totalPrice: 0, categories: 0, supportedMetals: []
-      },
+      overview: stats || { total: 0, active: 0, inactive: 0, categories: 0 },
       byCategory: categoryStats,
       byMetalType: metalTypeStats,
-      universalPricing: universalPricingStats[0] || {
-        tasksWithUniversalPricing: 0, avgSupportedMetals: 0, avgLaborHours: 0
-      },
       filters: filtersData || { categories: [], metalTypes: [] }
     };
   } catch (error) {
