@@ -29,7 +29,7 @@ import { markPayrollBatchPaid } from '@/app/api/repairs/payroll/service';
 import { PAYROLL_BATCH_STATUS, payrollTotal } from '@/services/payrollUtils';
 import {
   isStripeConfigured, stripeMode, createExpressAccount, createAccountLink, createLoginLink,
-  retrieveAccount, retrieveBalance, createTransfer, summarizeAccount, availableUsdCents,
+  retrieveAccount, retrieveBalance, createTransfer, summarizeAccount, availableUsdCents, listTransfersByGroup,
 } from '@/lib/stripeConnect';
 import { notifyAllAdmins } from '@/lib/notificationService';
 import { adminBase } from '@/lib/appUrls';
@@ -134,6 +134,20 @@ export function orderBatchesForPayout(batches = []) {
  * `availableCents`: when the caller already fetched EFD's balance (runConnectPayouts pays several
  * batches from one snapshot), pass it and this will not fetch again.
  */
+/**
+ * The transfer already sent for a batch, from Stripe (`transfer_group` = the batch id). `{ transfer }` for a
+ * live one, `{ transfer, reversed: true }` when only reversed ones exist, null when none. Throws when Stripe
+ * can't be asked: not knowing whether a batch was paid is a reason not to pay it.
+ */
+export async function priorBatchTransfer(batchID) {
+  const list = await listTransfersByGroup(batchID);
+  const transfers = Array.isArray(list?.data) ? list.data : [];
+  const live = transfers.find((t) => !t.reversed && Number(t.amount_reversed || 0) < Number(t.amount || 0));
+  if (live) return { transfer: live };
+  if (transfers.length) return { transfer: transfers[0], reversed: true };
+  return null;
+}
+
 export async function payBatchViaConnect({ batchID, actor = 'payroll-cron', availableCents = null }) {
   const batch = await RepairPayrollBatchesModel.findByBatchID(batchID);
   const user = await loadUser(batch?.userID);
@@ -155,6 +169,28 @@ export async function payBatchViaConnect({ batchID, actor = 'payroll-cron', avai
   }
 
   const amountCents = Math.round(transferAmount * 100);
+
+  // Never pay a batch twice (EFD-DEFECTS P3). If a transfer for this batch already went out and recording
+  // it failed (markPayrollBatchPaid threw), the batch is still FINALIZED. The idempotency key only protects a
+  // retry for about 24 hours; after that the next daily run would transfer again. Stripe is the record of
+  // what was sent, so ask it first: a live transfer in this batch's group IS the payment, so record it.
+  const prior = await priorBatchTransfer(batchID);
+  if (prior?.reversed) {
+    return { paid: false, batchID, userID: user.userID, userName: batch.userName, amount: check.amount, reason: `a reversed transfer (${prior.transfer.id}) exists for this batch — needs a look before paying again` };
+  }
+  if (prior?.transfer) {
+    await markPayrollBatchPaid(batchID, {
+      paidAt: new Date((Number(prior.transfer.created) || Date.now() / 1000) * 1000),
+      paymentMethod: CONNECT_PAYMENT_METHOD,
+      paymentReference: prior.transfer.id,
+      notes: `${batch.notes ? `${batch.notes} · ` : ''}Paid by Stripe Connect transfer ${prior.transfer.id}, recorded on retry (${actor}); no second transfer was made.`,
+      notify: true,
+      payout,
+    });
+    const priorCents = Number(prior.transfer.amount) || amountCents;
+    return { paid: true, recordedExisting: true, batchID, amount: priorCents / 100, amountCents: 0, gross: check.amount, fee: payout?.fee || 0, transferId: prior.transfer.id, userID: user.userID, userName: batch.userName, cadence: batch.cadence || 'weekly' };
+  }
+
   const available = Number.isFinite(Number(availableCents)) && availableCents !== null
     ? Number(availableCents)
     : availableUsdCents(await retrieveBalance());
@@ -225,7 +261,8 @@ export async function runConnectPayouts({ actor = 'payroll-cron', notify = true,
   for (const batch of finalized) {
     try {
       const r = await payBatchViaConnect({ batchID: batch.batchID, actor, availableCents });
-      if (r.paid) { result.paid.push(r); availableCents -= Number(r.amountCents) || Math.round(r.amount * 100); }
+      // A batch recorded from an earlier transfer spent nothing today.
+      if (r.paid) { result.paid.push(r); if (!r.recordedExisting) availableCents -= Number(r.amountCents) || Math.round(r.amount * 100); }
       else if (r.reason === 'insufficient balance') result.shortfall.push(r);
       else result.skipped.push(r);
     } catch (error) {

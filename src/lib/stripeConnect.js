@@ -96,6 +96,12 @@ export function createTransfer({ amountCents, destination, description = '', met
   }, { idempotencyKey });
 }
 
+/** Transfers already made under a transfer group (payroll uses the batch id). Newest first. */
+export function listTransfersByGroup(transferGroup, { limit = 10 } = {}) {
+  const q = new URLSearchParams({ transfer_group: String(transferGroup), limit: String(Math.min(Math.max(1, limit), 100)) });
+  return stripeRequest('GET', `/transfers?${q.toString()}`);
+}
+
 /** The fields we keep about a connected account, from a Stripe account object. Pure. */
 export function summarizeAccount(account = {}) {
   return {
