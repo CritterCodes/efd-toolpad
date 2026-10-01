@@ -323,5 +323,6 @@
   "wholesaler|phone|/dashboard/wholesaler/repairs/current|no-h1",
   "wholesaler|phone|/dashboard/wholesaler/repairs/schedule-pickup|no-h1",
   "wholesaler|phone|/dashboard/wholesaler/shipments|no-h1",
-  "wholesaler|phone|/dashboard|no-h1"
+  "wholesaler|phone|/dashboard|no-h1",
+  "wholesaler|phone|/dashboard|overflow"
 ]
