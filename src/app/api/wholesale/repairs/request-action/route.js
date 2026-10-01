@@ -3,6 +3,7 @@ import { db } from '@/lib/database';
 import { auth } from '@/lib/auth';
 import { NotificationService, CHANNELS } from '@/lib/notificationService';
 import { REPAIR_STATUS } from '@/services/repairWorkflow';
+import WorkOrdersModel from '@/app/api/workOrders/model';
 
 /**
  * POST /api/wholesale/repairs/request-action — batch-move a wholesaler's intake
@@ -75,6 +76,7 @@ export async function POST(request) {
                     updatedAt: now,
                 },
             });
+            await WorkOrdersModel.syncFromRepairIDs(repairIDs);
 
             await notifyAdmin({
                 type: 'wholesale-pickup-request',
@@ -107,6 +109,7 @@ export async function POST(request) {
                     updatedAt: now,
                 },
             });
+            await WorkOrdersModel.syncFromRepairIDs(repairIDs);
 
             await notifyAdmin({
                 type: 'wholesale-inbound-shipment',
