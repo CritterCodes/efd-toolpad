@@ -369,7 +369,7 @@ export default function NewRepairForm({
                         const label = option.name || option.fullName || `${option.firstName || ''} ${option.lastName || ''}`.trim() || option.email || '';
                         return label === val;
                       }
-                      return (option._id || option.userID || option.clientID) === (val._id || val.userID || val.clientID);
+                      return (option.userID || option.clientID || option._id) === (val.userID || val.clientID || val._id);
                     }}
                     inputValue={formData.clientName || ''}
                     onInputChange={(event, newInputValue, reason) => {
@@ -382,7 +382,7 @@ export default function NewRepairForm({
                     value={
                       formData.userID
                         ? (Array.isArray(availableUsers) ? availableUsers : []).find(
-                            (u) => (u._id || u.userID || u.clientID) === formData.userID
+                            (u) => (u.userID || u.clientID || u._id) === formData.userID
                           ) || formData.clientName || null
                         : null
                     }
@@ -390,7 +390,8 @@ export default function NewRepairForm({
                       console.log('Ã°Å¸Å½Â¯ Autocomplete change:', newValue);
                       if (newValue && typeof newValue === 'object') {
                         const clientName = newValue.name || `${newValue.firstName || ''} ${newValue.lastName || ''}`.trim() || newValue.email || '';
-                        const userID = newValue._id || newValue.id || newValue.userID || newValue.clientID || '';
+                        // userID FIRST — never the Mongo _id (EFD-DEFECTS C1).
+                        const userID = newValue.userID || newValue.clientID || newValue._id || newValue.id || '';
                         const isClientWholesale = !!formData.isWholesale;
                         
                         console.log('Ã°Å¸â€˜Â¤ Selected client:', { clientName, userID, role: newValue.role, isWholesale: isClientWholesale });

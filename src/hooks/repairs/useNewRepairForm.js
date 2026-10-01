@@ -665,7 +665,8 @@ export default function useNewRepairForm({
       setFormData(prev => ({
         ...prev,
         clientName,
-        userID: clientInfo._id || clientInfo.id || clientInfo.userID || '',
+        // userID FIRST — never the Mongo _id (EFD-DEFECTS C1: 75 repairs were filed under it).
+        userID: clientInfo.userID || clientInfo._id || clientInfo.id || '',
         isWholesale: isClientWholesale
       }));
       // No re-price call: every price is derived from formData, so a wholesale change re-prices itself.
@@ -1685,7 +1686,7 @@ export default function useNewRepairForm({
       setFormData(prev => ({
         ...prev,
         clientName: clientName,
-        userID: createdClient._id || createdClient.id || createdClient.userID
+        userID: createdClient.userID || createdClient._id || createdClient.id
       }));
 
       // Trigger price recalculation for current store pricing mode
