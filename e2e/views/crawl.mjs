@@ -116,7 +116,7 @@ async function visit(context, url, widthKey, outDir) {
   await page.waitForLoadState('networkidle', { timeout: SETTLE_MS }).catch(() => {});
   await page.waitForTimeout(300);
 
-  const finalPath = new URL(page.url()).pathname;
+  let finalPath = new URL(page.url()).pathname;
   const measure = () => page.evaluate(() => ({
     title: document.title,
     heading: document.querySelector('h1,h2,h3,h4,h5,h6')?.textContent?.trim().slice(0, 80) || '',
@@ -128,13 +128,22 @@ async function visit(context, url, widthKey, outDir) {
   // happened at one width and not the other (2026-10-01), so before calling it, give it up to 8s more to
   // finish — until it has an <h1>, or no spinner is left — and measure again. The settled page is what counts.
   if (!metrics.h1 || metrics.text < 20) {
-    await page.waitForFunction(
+    const settled = () => page.waitForFunction(
       // Settled = it has text AND (an <h1>, or no spinner/skeleton left). A page that hasn't painted at all has
       // neither text nor a spinner, so text is required too (CI caught production/pieces that way, 2026-10-01).
       () => (document.body?.innerText?.trim().length || 0) >= 20
         && (document.querySelector('h1') || !document.querySelector('[role="progressbar"], .MuiSkeleton-root')),
       null, { timeout: 8000 },
     ).catch(() => {});
+    await settled();
+    // A redirect page (redirect() in a page, e.g. /dashboard/products/jewelry) finishes in the browser after load;
+    // the wait above ends when the navigation replaces the page. Let the destination load and settle, then
+    // measure THAT — a redirect isn't a page without a title.
+    if (new URL(page.url()).pathname !== finalPath) {
+      await page.waitForLoadState('networkidle', { timeout: SETTLE_MS }).catch(() => {});
+      await settled();
+      finalPath = new URL(page.url()).pathname;
+    }
     await page.waitForTimeout(300);
     metrics = await measure();
   }
