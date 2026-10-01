@@ -64,13 +64,27 @@ export async function POST(request) {
         }
 
         try {
-            await db.collection('products').updateOne(
-                { productId },
-                {
-                    $push: { images: { $each: successfulUploads } },
-                    $set: { updatedAt: new Date() },
-                }
-            );
+            // Images belong to the DESIGN (`media.images`), which is what the editor and efd-shop read. They
+            // used to be pushed onto a `products` document nothing reads any more, so an uploaded photo showed
+            // up in neither place (2026-10-01). A listing with no design keeps the legacy write (staff only).
+            if (design) {
+                await db.collection('designs').updateOne(
+                    { designID: design.designID },
+                    {
+                        // Same shape as the images already there ({ url, uploadedBy, … }).
+                        $push: { 'media.images': { $each: successfulUploads.map((url) => ({ url, uploadedBy: session.user?.userID || 'admin', uploadedAt: new Date() })) } },
+                        $set: { updatedAt: new Date() },
+                    }
+                );
+            } else {
+                await db.collection('products').updateOne(
+                    { productId },
+                    {
+                        $push: { images: { $each: successfulUploads } },
+                        $set: { updatedAt: new Date() },
+                    }
+                );
+            }
         } catch (dbError) {
             console.error('Uploaded images but failed to attach them to product:', dbError);
             return NextResponse.json({
