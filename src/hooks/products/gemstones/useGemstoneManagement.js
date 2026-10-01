@@ -1,7 +1,6 @@
 
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { useSession } from 'next-auth/react';
 
 export function useGemstoneManagement(apiPath = '/api/products/gemstones') {
   const [products, setProducts] = useState([]);

@@ -5,7 +5,6 @@
  */
 
 import { NextResponse } from 'next/server';
-import { UnifiedUserService } from '@/lib/unifiedUserService';
 import { db as mongo } from '@/lib/database';
 import { auth } from '@/../auth';
 import { uploadFileToS3 } from '@/utils/s3.util';

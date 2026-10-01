@@ -142,7 +142,7 @@ export async function POST(request, { params }) {
     };
 
     // Add submission to drop request
-    const result = await db.collection('drop-requests').findOneAndUpdate(
+    await db.collection('drop-requests').findOneAndUpdate(
       { _id: new ObjectId(id) },
       {
         $push: {

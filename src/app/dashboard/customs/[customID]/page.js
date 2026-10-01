@@ -3,13 +3,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  Box, Typography, Button, Chip, Stack, Paper, Grid, Divider, CircularProgress,
+  Box, Typography, Button, Chip, Stack, Paper, CircularProgress,
   Table, TableHead, TableRow, TableCell, TableBody, Tabs, Tab, LinearProgress,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, Snackbar, Alert,
   Checkbox, FormControlLabel,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import DiamondIcon from '@mui/icons-material/AutoAwesome';
 import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
@@ -45,14 +44,6 @@ function PanelHeader({ icon: Icon, title, action }) {
       </Stack>
       {action}
     </Stack>
-  );
-}
-function Stat({ label, value, color }) {
-  return (
-    <Box>
-      <Typography sx={{ fontSize: '0.72rem', color: REPAIRS_UI.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</Typography>
-      <Typography sx={{ fontWeight: 700, color: color || REPAIRS_UI.textPrimary }}>{value}</Typography>
-    </Box>
   );
 }
 
@@ -210,7 +201,6 @@ export default function CustomDetailPage() {
     );
   }
 
-  const q = order.quote || {};
   const progress = billing.progress;
   const notes = order.notes || [];
   const comms = order.communications || [];

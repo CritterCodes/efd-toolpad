@@ -208,7 +208,7 @@ export async function acceptCasting({ batchId, auto = false }) {
  * where it costs nothing. Money gates only ever get stricter here.
  */
 export async function cancelCastingBatch({ batchId }) {
-  const batch = await transition(batchId, CASTING_STATUS.CANCELLED);
+  await transition(batchId, CASTING_STATUS.CANCELLED);
   return CastingBatchesModel.updateById(batchId, {
     status: CASTING_STATUS.CANCELLED,
     cancelledAt: new Date(),

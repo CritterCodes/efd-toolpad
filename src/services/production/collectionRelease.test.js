@@ -90,12 +90,6 @@ const mtoProductDoc = {
   variants: [{ variantId: 'v1', active: true, offers: { madeToOrder: { enabled: true } } }],
 };
 
-const rtsProductDoc = {
-  productId: 'jwl_rts_1',
-  designId: 'design-ring-002',
-  variants: [{ variantId: 'v2', active: true, offers: { readyToShip: { quantity: 1, pieceIDs: ['p1'] } } }],
-};
-
 const cadCastDesign = { designID: 'design-ring-001', productionMethod: 'cad_cast' };
 const handmadeDesign = { designID: 'design-handmade-001', productionMethod: 'handmade' };
 

@@ -16,7 +16,6 @@ const META = {
   delivered: { label: 'Delivered', icon: '📦', desc: 'Delivered to the client.' },
   cancelled: { label: 'Cancelled', icon: '✖️', desc: 'Order cancelled.' },
 };
-const LABEL = Object.fromEntries(Object.entries(META).map(([k, v]) => [k, v.label]));
 const ALL_STATUSES = [...LIFECYCLE, 'cancelled'];
 
 export default function StatusTimeline({ order, busy, onChange }) {

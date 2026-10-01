@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  Box, Typography, Paper, Stack, Chip, Button, CircularProgress, Snackbar, Alert, TextField, IconButton,
+  Box, Typography, Paper, Stack, Chip, Button, CircularProgress, Snackbar, Alert, TextField,
 } from '@mui/material';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import CloseIcon from '@mui/icons-material/Close';
