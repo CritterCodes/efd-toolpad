@@ -127,7 +127,12 @@ async function visit(context, url, widthKey, outDir) {
   if (finalPath.startsWith('/auth')) issues.push('signed-out');
   else if (status === 404) issues.push('not-found');
   else if (status >= 500 || status === 0) issues.push('server-error');
-  if (pageErrors.length) issues.push('page-error');
+  // React #418/#423/#425 = the server's HTML and the first client render disagreed (hydration). It strikes
+  // different pages on different runs (seen on CI 2026-10-01), so it's its own, timing-dependent kind; any
+  // other uncaught exception is a page-error.
+  const HYDRATION = /Minified React error #(418|423|425)|[Hh]ydration/;
+  if (pageErrors.some((e) => !HYDRATION.test(e))) issues.push('page-error');
+  if (pageErrors.some((e) => HYDRATION.test(e))) issues.push('hydration-mismatch');
   if (consoleErrors.length) issues.push('console-error');
   if (failedApis.some((f) => f.startsWith('5'))) issues.push('api-error');
   if (metrics.overflowBy > 1) issues.push('overflow');

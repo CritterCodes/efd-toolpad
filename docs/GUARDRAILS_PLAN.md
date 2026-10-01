@@ -87,8 +87,11 @@ ratcheted, with reasons:
    uncaught exception, a console error, a failed `/api` call, horizontal overflow, a blank page, no `<h1>`. Writes a
    screenshot **contact sheet** (`e2e/views/out/index.html`, uploaded by CI as `views-contact-sheet`).
    **Ratchet:** `e2e/views/baseline.json` holds every problem found when it was switched on; a new one fails CI, a
-   fixed one fails until the baseline is shrunk (`npm run views -- --update`). Console/API errors are timing-dependent,
-   so a missing one is reported, never failed.
+   fixed one fails until the baseline is shrunk (`npm run views -- --update`). Console errors, failed API calls and
+   React hydration mismatches are timing-dependent (a hydration mismatch hit 4 unrelated pages on one CI run and none
+   on the next), so they are listed on the contact sheet and never fail, and the baseline holds only problems that
+   reproduce. **CI (Linux) is the reference:** Windows fonts measure differently, so adopt CI's
+   `baseline.next.json` from the artifact when the two disagree.
    **Done 2026-10-01** (CI step `npm run views`, ~2½ min for 169 pages × 2 widths). The first run found, and this
    PR fixed: the sidebar's Finance → Payroll linked to `/dashboard/finance/payroll`, which never existed (now
    `/dashboard/repairs/payroll`); two **empty** page files (`admin/repair-tasks/process-based`, `[userID]/admin/settings`)

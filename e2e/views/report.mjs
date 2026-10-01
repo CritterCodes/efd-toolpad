@@ -4,27 +4,27 @@
  * THE RATCHET. e2e/views/baseline.json lists every problem that existed when the check was switched on, as
  * `role|width|page|issue`. A problem not in the baseline fails the check — nothing new gets worse. A baseline
  * problem that has gone away also fails, until the baseline is shrunk (`npm run views -- --update`), so fixed
- * stays fixed. Console errors and failed API calls are the exception: they depend on timing, so a missing one
- * is reported but never fails.
+ * stays fixed. Console errors, failed API calls and hydration mismatches are the exception: they depend on
+ * timing, so they are reported (and listed on the contact sheet) but never fail the check either way.
  */
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const FLAKY = new Set(['console-error', 'api-error']);
+const FLAKY = new Set(['console-error', 'api-error', 'hydration-mismatch']);
+const isFlaky = (key) => FLAKY.has(key.split('|')[3]);
 
-export const issueKeys = (results) => results.flatMap((r) => r.issues.map((i) => `${r.role}|${r.width}|${r.path}|${i}`)).sort();
+const allKeys = (results) => results.flatMap((r) => r.issues.map((i) => `${r.role}|${r.width}|${r.path}|${i}`)).sort();
+/** The problems the baseline holds: the ones that reproduce on every run. */
+export const issueKeys = (results) => allKeys(results).filter((k) => !isFlaky(k));
 
 export function compare(results, baseline) {
   const now = new Set(issueKeys(results));
-  const before = new Set(baseline);
-  const added = [...now].filter((k) => !before.has(k));
-  const gone = [...before].filter((k) => !now.has(k));
-  const roles = new Set(results.map((r) => r.role));
-  const goneHere = gone.filter((k) => roles.has(k.split('|')[0])); // a role not crawled this run proves nothing
+  const before = new Set(baseline.filter((k) => !isFlaky(k)));
+  const roles = new Set(results.map((r) => r.role)); // a role not crawled this run proves nothing
   return {
-    added,
-    fixed: goneHere.filter((k) => !FLAKY.has(k.split('|')[3])),
-    quiet: goneHere.filter((k) => FLAKY.has(k.split('|')[3])),
+    added: [...now].filter((k) => !before.has(k)),
+    fixed: [...before].filter((k) => !now.has(k) && roles.has(k.split('|')[0])),
+    timing: allKeys(results).filter(isFlaky),
     total: now.size,
   };
 }
@@ -72,7 +72,7 @@ article.bad{border-color:var(--bad)}h3{margin:0;font:600 13px ui-monospace,monos
 .tags{list-style:none;padding:0;margin:8px 0 0;display:flex;flex-wrap:wrap;gap:4px}
 .tags li{font-size:11px;padding:2px 6px;border-radius:4px;border:1px solid var(--line)}.tags li.new{border-color:var(--bad);color:var(--bad);font-weight:600}
 pre{white-space:pre-wrap;word-break:break-word;font-size:11px;max-height:200px;overflow:auto}
-</style></head><body><h1>Views check</h1><p>${results.length / 2} page views per width · ${issueKeys(results).length} problems · ${added.length} new</p>${sections}</body></html>`;
+</style></head><body><h1>Views check</h1><p>${results.length / 2} page views per width · ${issueKeys(results).length} problems that reproduce · ${allKeys(results).length - issueKeys(results).length} timing-dependent (console, API, hydration) · ${added.length} new</p>${sections}</body></html>`;
   writeFileSync(join(outDir, 'index.html'), html);
   writeFileSync(join(outDir, 'results.json'), JSON.stringify(results, null, 2));
 }

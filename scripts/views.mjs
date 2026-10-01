@@ -155,10 +155,11 @@ try {
 
   if (flag('update')) {
     writeFileSync(BASELINE, next);
-    console.log(`Baseline rewritten: ${verdict.total} problems (${verdict.added.length} added, ${verdict.fixed.length + verdict.quiet.length} gone).`);
+    console.log(`Baseline rewritten: ${verdict.total} problems (${verdict.added.length} added, ${verdict.fixed.length} gone).`);
   } else {
     console.log(`\n${verdict.total} problems; baseline ${baseline.length}. Contact sheet: e2e/views/out/index.html`);
-    if (verdict.quiet.length) console.log(`Not seen this run (timing-dependent, not failing):\n  ${verdict.quiet.join('\n  ')}`);
+    // Timing-dependent problems are listed, never failed: a check that fails at random teaches people to re-run it.
+    if (verdict.timing.length) console.log(`${verdict.timing.length} timing-dependent problems this run (console / API / hydration; on the contact sheet, not failing).`);
     if (verdict.added.length) {
       console.error(`\nNEW problems — fix them (or, if a problem is accepted, record it with --update):\n  ${verdict.added.join('\n  ')}`);
       exitCode = 1;
