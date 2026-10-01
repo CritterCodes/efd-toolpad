@@ -40,12 +40,6 @@ export class RushJobService {
       
       const canCreate = currentRushJobs < maxRushJobs;
       
-      console.log('Rush job validation:', {
-        currentRushJobs,
-        maxRushJobs,
-        canCreate,
-        promiseDate: promiseDate?.toISOString()
-      });
       
       return {
         canCreate,
@@ -76,12 +70,6 @@ export class RushJobService {
       const rushMarkup = adminSettings?.business?.rushJobMarkup || 1.5;
       const rushPrice = Math.round(basePrice * rushMarkup * 100) / 100;
       
-      console.log('Rush pricing calculation:', {
-        basePrice,
-        rushMarkup,
-        rushPrice,
-        additionalCost: rushPrice - basePrice
-      });
       
       return {
         rushPrice,

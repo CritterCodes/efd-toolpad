@@ -40,7 +40,6 @@ export async function POST(req, { params }) {
       return Response.json({ error: 'Product not found' }, { status: 404 });
     }
 
-    console.log('✅ Product declined:', productId);
 
     // Send decline notification to artisan
     try {

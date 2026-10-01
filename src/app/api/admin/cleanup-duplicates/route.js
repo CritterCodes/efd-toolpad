@@ -11,7 +11,6 @@ export async function GET(request) {
   const { errorResponse } = await requireRole(STAFF_ROLES);
   if (errorResponse) return errorResponse;
   try {
-    console.log('🚀 Starting duplicate user cleanup via API...');
     
     // Find duplicates first
     const duplicates = await UnifiedUserService.findDuplicateEmails();
@@ -36,12 +35,10 @@ export async function GET(request) {
       }))
     }));
     
-    console.log(`⚠️ Found ${duplicates.length} emails with duplicates`);
     
     // Initialize database (this will clean up duplicates)
     await UnifiedUserService.initializeDatabase();
     
-    console.log('✅ Cleanup completed!');
     
     return Response.json({ 
       success: true, 

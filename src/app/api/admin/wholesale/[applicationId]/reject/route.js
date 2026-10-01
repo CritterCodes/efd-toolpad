@@ -42,7 +42,6 @@ export async function POST(request, { params }) {
       return Response.json({ error: 'Failed to update application' }, { status: 500 });
     }
 
-    console.log(`Wholesale application ${applicationId} rejected by ${session.user.email}`);
 
     // Best-effort rejection notification to the wholesaler (never blocks the response).
     try {

@@ -95,7 +95,6 @@ export default class UserController {
      */
     static async getUserByQuery(req) {
         try {
-            console.log("🔍 Received request for getUserByQuery:", req.url);
             const { searchParams } = new URL(req.url);
             const query = searchParams.get("query");
     
@@ -107,7 +106,6 @@ export default class UserController {
                 );
             }
     
-            console.log("✅ Query parameter received:", query);
             const user = await UserService.getUserByQuery(query);
             
             if (!user) {
@@ -118,7 +116,6 @@ export default class UserController {
                 );
             }
     
-            console.log("✅ User found:", user);
             return new Response(
                 JSON.stringify({ user }),
                 { status: 200 }

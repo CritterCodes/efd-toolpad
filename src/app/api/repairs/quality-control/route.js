@@ -14,7 +14,6 @@ export const POST = async (req) => {
         const { errorResponse } = await requireRepairOps('qualityControl');
         if (errorResponse) return errorResponse;
 
-        console.log("📩 Incoming Quality Control Update POST request received.");
 
         // ✅ Check for multipart/form-data
         const contentType = req.headers.get("content-type") || "";
@@ -23,7 +22,6 @@ export const POST = async (req) => {
         }
 
         const formData = await req.formData();
-        console.log("📤 Parsed Form Data:", [...formData.entries()]);
 
         // ✅ Extract Form Data
         const repairID = formData.get("repairID");
@@ -44,7 +42,6 @@ export const POST = async (req) => {
 
         // ✅ Update repair in the database using the controller
         const updatedRepair = await RepairsController.updateRepairById(repairID, updateData);
-        console.log("✅ Quality Control Update Successful:", updatedRepair);
 
         // R9 — QC fail/bounce: when the item does NOT land on a completion status, it bounced
         // back for rework. Notify the assignee artisan (best-effort, in-app + push).

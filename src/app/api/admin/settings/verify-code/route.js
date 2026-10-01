@@ -28,7 +28,6 @@ export async function POST(request) {
     const body = await request.json();
     const { securityCode } = body;
 
-    console.log('PIN Verification Request:', { securityCode, hasCode: !!securityCode });
 
     if (!securityCode) {
       return NextResponse.json({ error: 'Security PIN required' }, { status: 400 });
@@ -39,12 +38,6 @@ export async function POST(request) {
       _id: 'repair_task_admin_settings' 
     });
 
-    console.log('Settings found:', { 
-      found: !!settings, 
-      hasSecurity: !!settings?.security,
-      hasCode: !!settings?.security?.securityCode,
-      hasExpiration: !!settings?.security?.expiresAt 
-    });
 
     if (!settings) {
       // Initialize admin settings if they don't exist
@@ -154,7 +147,6 @@ export async function PUT(request) {
     // Set expiration to 1 hour from now
     const expiresAt = new Date(Date.now() + (60 * 60 * 1000));
 
-    console.log('Generating new PIN:', { code: newSecurityCode, expiresAt });
 
     // Create audit log entry
     const auditEntry = createAuditLogEntry(

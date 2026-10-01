@@ -32,14 +32,12 @@ export default class RepairsModel {
      */
     static create = async (repair) => {
         try {
-            console.log("📦 Attempting to Insert Repair in the Database...");
             const dbInstance = await db.connect();
 
             const result = await dbInstance.collection("repairs").insertOne(repair);
 
             if (result.acknowledged) {
                 // ✅ Return the full inserted repair object
-                console.log("✅ Repair successfully saved to the database:", repair.repairID);
                 // Spine sync: ensure a work order exists for this repair (S0).
                 // Non-fatal — a repair must still save even if WO sync hiccups.
                 try {

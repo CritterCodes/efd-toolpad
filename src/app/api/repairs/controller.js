@@ -42,10 +42,8 @@ export default class RepairsController {
      */
     static createRepair = async (repairData) => {
         try {
-            console.log("🔧 Creating new repair:", repairData);
             // ✅ Validate data before sending to the service
             if (!repairData.userID) throw new Error("Client ID is missing.");
-            console.log("sending to service");
             const newRepair = await RepairsService.createRepair(repairData);
 
             // ✅ Return the full repair object instead of a Response

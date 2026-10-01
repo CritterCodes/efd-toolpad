@@ -71,7 +71,6 @@ class Database {
     async connect() {
         if (!this._instance) {
             try {
-                console.log("🔄 Attempting MongoDB connection...");
                 this._ensureClient();
                 await this.client.connect();
                 this._instance = this.client.db(resolveDbName());
@@ -79,7 +78,7 @@ class Database {
                 console.error("❌ MongoDB Connection Error:", error.message);
                 // Try alternative connection string without directConnection
                 if (error.message.includes('Server selection timed out')) {
-                    console.log("🔄 Retrying with alternative connection settings...");
+                    console.warn("MongoDB: first connection failed; retrying with alternative connection settings");
                     try {
                         // Create new client with different settings
                         const altClient = new MongoClient(process.env.MONGODB_URI.replace('directConnection=true&', ''), {
@@ -89,7 +88,6 @@ class Database {
                             connectTimeoutMS: 15000,
                         });
                         await altClient.connect();
-                        console.log("✅ MongoDB Connected (alternative settings)");
                         this.client = altClient;
                         this._instance = this.client.db(resolveDbName());
                     } catch (altError) {
