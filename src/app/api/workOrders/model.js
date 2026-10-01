@@ -158,4 +158,36 @@ export default class WorkOrdersModel {
       { projection: { _id: 0 } }
     );
   }
+
+  /**
+   * Re-mirror the work orders of repairs that were written DIRECTLY (a batch `updateMany` on `repairs` instead of
+   * RepairsModel.updateById, which syncs on its own). My Bench lists WORK ORDERS, so a repair whose status moved
+   * without this stays wherever its work order last was: store check-in moved repairs to READY FOR WORK and left
+   * them on no bench at all (2026-10-01 hotfix; repair-38a48db9 was invisible for three months).
+   *
+   * Best-effort, like updateById's sync: the repair write already happened, so a sync failure is logged and
+   * returned, never thrown. Guarded by repairWorkOrderSync.guard.test.js.
+   */
+  static async syncFromRepairIDs(repairIDs) {
+    const ids = [...new Set((repairIDs || []).filter(Boolean))];
+    if (!ids.length) return { synced: 0, failed: [] };
+    let repairs;
+    try {
+      const dbi = await db.connect();
+      repairs = await dbi.collection('repairs').find({ repairID: { $in: ids } }, { projection: { _id: 0 } }).toArray();
+    } catch (error) {
+      console.error('⚠️ Work order sync could not load repairs:', error.message);
+      return { synced: 0, failed: ids };
+    }
+    const failed = [];
+    for (const repair of repairs) {
+      try {
+        await this.syncFromRepair(repair);
+      } catch (error) {
+        failed.push(repair.repairID);
+        console.error(`⚠️ Work order sync failed for ${repair.repairID}:`, error.message);
+      }
+    }
+    return { synced: repairs.length - failed.length, failed };
+  }
 }

@@ -4,6 +4,7 @@ import { requireRepairOps } from '@/lib/apiAuth';
 import { LEGACY_BENCH_STATUS, REPAIR_STATUS } from '@/services/repairWorkflow';
 import { NotificationService, CHANNELS } from '@/lib/notificationService';
 import { adminLink } from '@/lib/appUrls';
+import WorkOrdersModel from '@/app/api/workOrders/model';
 
 // POST /api/wholesale/repairs/receive - Batch receive wholesale repairs
 export async function POST(request) {
@@ -52,6 +53,8 @@ export async function POST(request) {
                 }
             }
         );
+        // My Bench lists work orders: without this the job is on no bench (Unclaimed included).
+        await WorkOrdersModel.syncFromRepairIDs(receivable.map((r) => r.repairID));
 
         // "We received your box" — the wholesaler shipped or dropped items and
         // heard nothing until work started. One note per owning account, with
