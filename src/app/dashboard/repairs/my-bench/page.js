@@ -27,7 +27,7 @@ import { BENCH_QUEUE, BENCH_TABS, isWorkOrderInTab } from '@/services/workOrders
 import { uploadSizeError } from '@/lib/uploadLimits';
 import { directUpload, postFileWithProgress } from '@/lib/directUpload';
 import BenchWorkCard from './components/BenchWorkCard';
-import { isAdminRole } from '@/lib/repairAccess';
+import { isAdminRole, isOnsiteRepairOps } from '@/lib/repairAccess';
 import { PageHeader, SurfaceCard, SectionLabel, facelift } from '@/components/facelift';
 
 const DEFAULT_PARTS_FORM = { source: 'stuller', stullerSku: '', name: '', description: '', quantity: '1', price: '' };
@@ -65,6 +65,9 @@ export default function BenchPage() {
   // everything after that is a move the jeweler makes with the piece already in hand.
   const [scanAction, setScanAction] = useState('claim');
   const scanActions = useMemo(() => scanActionsFor((c) => hasNamedCapability(session, c)), [session]);
+  // Every scan route needs on-site repair ops (requireRepairOps); an off-site artisan saw a scan box that could only
+  // fail (EFD-DEFECTS B7).
+  const canScan = isAdminRole(session) || isOnsiteRepairOps(session);
 
   // Bulk QC + parts
   const [bulkQcLoading, setBulkQcLoading] = useState(false);
@@ -217,7 +220,8 @@ export default function BenchPage() {
 
   // Every source supports move-to-QC now (repairs + production/custom pieces).
   const mineInProgress = useMemo(
-    () => (byTab[BENCH_QUEUE.MINE] || []).filter((wo) => wo.benchQueue === BENCH_QUEUE.IN_PROGRESS),
+    // Not CAD: a CAD piece reaches QC by submitting its file (the server refuses it here too — EFD-DEFECTS B5).
+    () => (byTab[BENCH_QUEUE.MINE] || []).filter((wo) => wo.benchQueue === BENCH_QUEUE.IN_PROGRESS && wo.discipline !== 'cad'),
     [byTab],
   );
 
@@ -256,7 +260,7 @@ export default function BenchPage() {
       }
       if (done) setSelectedQcIDs((prev) => prev.filter((id) => !ids.some((wo) => wo.workOrderID === id)));
       await fetchWorkOrders();
-      if (done) showSnack(`Approved ${done} and moved to Payment & Pickup.`, 'success');
+      if (done) showSnack(`Approved ${done} at QC.`, 'success');
       if (errs.length) showSnack(errs.join(' | '), 'error');
     } finally {
       setBulkCompleteLoading(false);
@@ -352,6 +356,7 @@ export default function BenchPage() {
       </PageHeader>
 
       {/* Scan a ticket, then tell the batch what to do with it. */}
+      {canScan && (
       <SurfaceCard sx={{ mt: 2.5 }}>
         <SectionLabel>Scan tickets</SectionLabel>
         <Box component="form" onSubmit={handleQueueScan} sx={{ mt: 1.5, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
@@ -385,6 +390,7 @@ export default function BenchPage() {
           </Box>
         )}
       </SurfaceCard>
+      )}
 
       {/* Tabs */}
       <Tabs
