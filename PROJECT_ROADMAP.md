@@ -1,5 +1,7 @@
 # EFD CRM Project Roadmap 2025
 
+> **Kind:** historical (written 2025-08; not maintained) · **As of:** 2025-08-08. For how work ships now, see docs/GUARDRAILS_PLAN.md.
+
 ## Overview
 This roadmap outlines the development phases for the Engel Fine Design CRM system, focusing on repair workflow automation, payment processing integration, custom order management, and in-house artisan tracking.
 
@@ -27,7 +29,7 @@ This roadmap outlines the development phases for the Engel Fine Design CRM syste
 
 **⚠️ CRITICAL: All new development MUST follow strict modular MVC(C) architecture**
 
-See [`DEVELOPMENT_STANDARDS.md`](./DEVELOPMENT_STANDARDS.md) for complete requirements.
+See [`DEVELOPMENT_STANDARDS.md`](./docs/archive/DEVELOPMENT_STANDARDS.md) (retired 2026-10-01) for complete requirements.
 
 ### Required Structure for ALL New Features:
 - **Model Layer**: Pure data structures only

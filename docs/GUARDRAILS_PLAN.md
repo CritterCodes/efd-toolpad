@@ -1,6 +1,6 @@
 # Bringing Kuzu's guardrails to efd-admin
 
-**Kind:** decided — the owner ruled the four decisions on 2026-09-30 (bottom of this page). **As of:** 2026-09-30.
+**Kind:** decided — the owner ruled the four decisions on 2026-09-30 (bottom of this page). **As of:** 2026-10-01.
 **Asked by:** the owner, 2026-09-30 — *"Development in Kuzu is going a million times better … find what we have set up
 that is making the development go so much better"*, then *"We need to make a plan to fix this app based off your
 findings in kuzu."*
@@ -119,6 +119,13 @@ ratcheted, with reasons:
     (Phase 1) or decisions with a date.
 11. **Every doc declares its kind** (descriptive / decided / proposed) and an as-of date; **`docs/OPEN-QUESTIONS.md`** is
     the register of what a session may not decide alone; **`friction:`** messages get filed into a friction log.
+
+**Phase 3 done 2026-10-01:** `CLAUDE.md` is a router (a task → doc table, 7 session rules, graphify). The five
+rulebooks (`CONSTITUTION`, `CONSTITUTIONAL_FILE_ORGANIZATION`, `COPILOT_INSTRUCTIONS`, `DEVELOPMENT_STANDARDS`,
+`MANUAL_RELEASE_GUIDE`, which told you to push to `main`) are in `docs/archive/` with a one-line note each, saying
+which lint rule replaced it. `docs/OPEN-QUESTIONS.md` (Q1–Q4) and `docs/FRICTION-LOG.md` exist. Kind and as-of headers
+go on docs as they're touched, not in one sweep. `.github/copilot-instructions.md`, a sixth rulebook that Copilot
+loads, is Q3.
 
 ### Phase 4 — the UI (decision 1: re-theme, then triage from the views contact sheet)
 
