@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { SCAN_ACTIONS, scanActionByKey, runScanAction, summarizeScanRun } from './scanActions';
+import { SCAN_ACTIONS, scanActionByKey, scanActionsFor, runScanAction, summarizeScanRun } from './scanActions';
 
 /**
  * Scanning could only ever CLAIM (owner, 2026-09-30). These pin the two dispatch shapes the workflow
@@ -10,11 +10,21 @@ const okRes = { ok: true, json: async () => ({}) };
 const errRes = (error) => ({ ok: false, json: async () => ({ error }) });
 
 describe('the actions a scan can run', () => {
-  it('offers claim, QC, parts, communications and back-to-work', () => {
-    expect(SCAN_ACTIONS.map((a) => a.key)).toEqual(['claim', 'qc', 'parts', 'comms', 'ready']);
+  it('offers claim, QC, parts, communications, back-to-work and QC approval', () => {
+    expect(SCAN_ACTIONS.map((a) => a.key)).toEqual(['claim', 'qc', 'parts', 'comms', 'ready', 'approve']);
     expect(scanActionByKey('qc')).toMatchObject({ mode: 'per-repair' });
     expect(scanActionByKey('comms')).toMatchObject({ mode: 'bulk', status: 'COMMUNICATION REQUIRED' });
     expect(scanActionByKey('nonsense')).toBeNull();
+  });
+
+  it('Approve QC goes through the QC sign-off route, one ticket at a time', () => {
+    expect(scanActionByKey('approve')).toMatchObject({ mode: 'per-repair', capability: 'qualityControl' });
+    expect(scanActionByKey('approve').path('repair-1')).toBe('/api/repairs/repair-1/complete-from-qc');
+  });
+
+  it('only someone who may sign off QC is offered Approve QC', () => {
+    expect(scanActionsFor(() => false).map((a) => a.key)).not.toContain('approve');
+    expect(scanActionsFor((c) => c === 'qualityControl').map((a) => a.key)).toContain('approve');
   });
 });
 
