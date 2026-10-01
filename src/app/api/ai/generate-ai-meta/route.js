@@ -32,8 +32,6 @@ const callGemini = async ({ apiKey, prompt }) => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20000);
     let response;
-    const startTime = Date.now();
-    console.log(`[generate-ai-meta] calling Gemini model: ${GEMINI_MODEL} (attempt ${attempt + 1}/${MAX_RETRIES + 1})`);
     try {
       response = await fetch(
         `${GEMINI_API_BASE}/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
@@ -50,19 +48,15 @@ const callGemini = async ({ apiKey, prompt }) => {
     } finally {
       clearTimeout(timeout);
     }
-    const elapsed = Date.now() - startTime;
-    console.log(`[generate-ai-meta] Gemini response: status=${response.status} elapsed=${elapsed}ms`);
     const payload = await response.json();
     if (response.ok) {
-      const finishReason = payload?.candidates?.[0]?.finishReason;
-      console.log('[generate-ai-meta] Gemini ok — finishReason:', finishReason);
       return payload;
     }
     console.error('[generate-ai-meta] Gemini error payload:', JSON.stringify(payload));
     if (response.status === 429 && attempt < MAX_RETRIES) {
       const retryAfter = parseInt(response.headers.get('Retry-After') || '0', 10);
       const delay = retryAfter > 0 ? retryAfter * 1000 : BASE_DELAY_MS * Math.pow(2, attempt);
-      console.log(`[generate-ai-meta] rate limited — retrying in ${delay}ms (retryAfter header: ${retryAfter})`);
+      console.warn(`[generate-ai-meta] rate limited; retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES + 1})`);
       await sleep(delay);
       continue;
     }
@@ -91,7 +85,6 @@ export async function POST(request) {
     const description = String(body?.description || '').trim();
     const category = String(body?.category || '').trim();
 
-    console.log('[generate-ai-meta] request — title:', title, '| category:', category, '| hasDescription:', !!description);
 
     if (!title) {
       return NextResponse.json({ success: false, error: 'title is required.' }, { status: 400 });
@@ -125,7 +118,6 @@ export async function POST(request) {
 
     const payload = await callGemini({ apiKey, prompt });
     const rawText = extractGeminiText(payload);
-    console.log('[generate-ai-meta] rawText length:', rawText.length, '| preview:', rawText.slice(0, 120));
 
     const parsed = extractFirstJsonObject(rawText);
 
@@ -134,7 +126,6 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: 'AI returned invalid JSON output.' }, { status: 422 });
     }
 
-    console.log('[generate-ai-meta] parsed keys:', Object.keys(parsed));
 
     const str = (v) => String(v || '').trim();
     const arr = (v) => Array.isArray(v) ? v.map(str).filter(Boolean) : [];
@@ -147,7 +138,6 @@ export async function POST(request) {
       pairsWith: arr(parsed.pairsWith),
     };
 
-    console.log('[generate-ai-meta] success — symptoms:', aiMeta.symptoms.length, '| requiredInfo:', aiMeta.requiredInfo);
     return NextResponse.json({ success: true, data: { aiMeta, model: GEMINI_MODEL } });
   } catch (error) {
     console.error('[generate-ai-meta] caught error — name:', error.name, '| message:', error.message, '| status:', error.status);

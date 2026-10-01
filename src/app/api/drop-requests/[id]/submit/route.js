@@ -156,7 +156,6 @@ export async function POST(request, { params }) {
     );
 
     // TODO: Notify admins of new submission
-    console.log('📧 TODO: Notify admins of new drop submission');
 
     return NextResponse.json(
       {

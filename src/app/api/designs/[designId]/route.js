@@ -5,7 +5,6 @@ import { ObjectId } from 'mongodb';
 
 export async function GET(request, { params }) {
     try {
-        console.log('🎨 Design Details API called');
         
         const session = await auth();
         if (!session?.user) {
@@ -13,7 +12,6 @@ export async function GET(request, { params }) {
         }
 
         const { designId } = await params;
-        console.log('ὐd Looking for design:', designId);
 
         const db = await mongo.connect();
 
@@ -80,7 +78,6 @@ export async function GET(request, { params }) {
 
 export async function DELETE(request, { params }) {
     try {
-        console.log('🗑️ Design Delete API called');
         
         const session = await auth();
         if (!session?.user) {
@@ -91,7 +88,6 @@ export async function DELETE(request, { params }) {
         const { searchParams } = new URL(request.url);
         const fileType = searchParams.get('fileType') || 'glb'; // 'glb' or 'stl', default to glb
         
-        console.log('🚮 Deleting design:', designId, 'fileType:', fileType);
 
         const db = await mongo.connect();
 
@@ -108,7 +104,6 @@ export async function DELETE(request, { params }) {
         }
 
         if (!product) {
-            console.log('❌ Design not found in products collection');
             return NextResponse.json({ error: 'Design not found' }, { status: 404 });
         }
 
@@ -116,7 +111,6 @@ export async function DELETE(request, { params }) {
         const design = product.designs.find(d => d.id === designId || d._id?.toString() === designId);
         
         if (!design) {
-            console.log('❌ Design not found in product designs array');
             return NextResponse.json({ error: 'Design not found' }, { status: 404 });
         }
 
@@ -127,27 +121,22 @@ export async function DELETE(request, { params }) {
         const isGemCutter = session.user.artisanTypes?.includes('Gem Cutter');
         
         if (!isOwner && !isAssignedDesigner && !isAdmin && !isGemCutter) {
-            console.log('❌ Access denied - not owner, assigned designer, admin, or Gem Cutter');
             return NextResponse.json({ error: 'Access denied' }, { status: 403 });
         }
 
-        console.log('🔐 Permission check passed for deletion');
 
         // Determine which files exist
         const hasGlb = !!design.files?.glb;
         const hasStl = !!design.files?.stl;
         
-        console.log(`📊 File status before deletion - GLB: ${hasGlb}, STL: ${hasStl}, fileType: ${fileType}`);
 
         // Delete the specified file from S3
         try {
             const { deleteFileFromS3 } = await import('@/lib/s3');
             
             if (fileType === 'glb' && design.files?.glb?.url) {
-                console.log('📤 Deleting GLB from S3:', design.files.glb.url);
                 await deleteFileFromS3(design.files.glb.url);
             } else if (fileType === 'stl' && design.files?.stl?.url) {
-                console.log('📤 Deleting STL from S3:', design.files.stl.url);
                 await deleteFileFromS3(design.files.stl.url);
             }
         } catch (s3Error) {
@@ -165,11 +154,9 @@ export async function DELETE(request, { params }) {
                 // STL exists, keep design but remove GLB and update status
                 updateData['designs.$.files.glb'] = undefined;
                 updateData['designs.$.status'] = 'stl_only';
-                console.log('🔄 Removing GLB file, keeping design with STL, setting status to stl_only');
             } else {
                 // No STL exists, delete entire design
                 shouldDeleteDesign = true;
-                console.log('🗑️ No STL exists, will delete entire design');
             }
         } else if (fileType === 'stl') {
             // Deleting STL file
@@ -177,11 +164,9 @@ export async function DELETE(request, { params }) {
                 // GLB exists, keep design but remove STL and update status
                 updateData['designs.$.files.stl'] = undefined;
                 updateData['designs.$.status'] = 'glb_only';
-                console.log('🔄 Removing STL file, keeping design with GLB, setting status to glb_only');
             } else {
                 // No GLB exists, delete entire design
                 shouldDeleteDesign = true;
-                console.log('🗑️ No GLB exists, will delete entire design');
             }
         }
 
@@ -202,11 +187,9 @@ export async function DELETE(request, { params }) {
             }
 
             if (result.modifiedCount === 0) {
-                console.log('❌ Failed to update product - design not removed');
                 return NextResponse.json({ error: 'Failed to delete design' }, { status: 500 });
             }
 
-            console.log('✅ Design deleted successfully from product (no files remaining)');
             return NextResponse.json({
                 success: true,
                 message: 'Design deleted successfully',
@@ -233,11 +216,9 @@ export async function DELETE(request, { params }) {
             }
 
             if (result.modifiedCount === 0) {
-                console.log('❌ Failed to update product - file not removed');
                 return NextResponse.json({ error: 'Failed to delete file' }, { status: 500 });
             }
 
-            console.log('✅ File deleted successfully - design preserved with remaining files');
             return NextResponse.json({
                 success: true,
                 message: `${fileType.toUpperCase()} file deleted successfully`,

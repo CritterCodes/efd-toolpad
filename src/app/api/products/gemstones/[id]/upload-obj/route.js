@@ -24,7 +24,6 @@ import { uploadFileToS3 } from '@/utils/s3.util';
  */
 export async function POST(request, { params }) {
     try {
-        console.log('🎨 OBJ Upload API called for gemstone:', params.id);
         
         const session = await auth();
         if (!session?.user) {
@@ -44,7 +43,6 @@ export async function POST(request, { params }) {
         const formData = await request.formData();
         const objFile = formData.get('objFile');
 
-        console.log('📋 OBJ file received');
 
         // Validate file
         if (!objFile || objFile.size === 0) {
@@ -68,20 +66,17 @@ export async function POST(request, { params }) {
         }
 
         // Find the gemstone product
-        console.log(`🔍 Looking for gemstone with productId: ${params.id}`);
         
         const gemstone = await db.collection('products').findOne({ 
             productId: params.id
         });
 
         if (!gemstone) {
-            console.log('❌ Gemstone not found:', params.id);
             return NextResponse.json({ 
                 error: 'Gemstone not found' 
             }, { status: 404 });
         }
 
-        console.log('✅ Found gemstone:', gemstone.productId || gemstone.title);
 
         // Check if user is admin or the artisan who owns this product
         if (session.user.role !== 'admin') {
@@ -93,7 +88,6 @@ export async function POST(request, { params }) {
         }
 
         // Upload file to S3
-        console.log(`📁 Uploading OBJ file: ${objFile.name} (${objFile.size} bytes)`);
         
         const fileUrl = await uploadFileToS3(
             objFile,
@@ -101,7 +95,6 @@ export async function POST(request, { params }) {
             'obj-'
         );
 
-        console.log('✅ File uploaded to S3:', fileUrl);
 
         // Update gemstone product with OBJ file info
         const updateData = {
@@ -122,7 +115,6 @@ export async function POST(request, { params }) {
             { returnDocument: 'after' }
         );
 
-        console.log('✅ Gemstone updated with OBJ file info');
 
         return NextResponse.json({
             success: true,

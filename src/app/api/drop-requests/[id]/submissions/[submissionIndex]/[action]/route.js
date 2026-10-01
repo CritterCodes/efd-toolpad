@@ -142,7 +142,6 @@ export async function POST(request, { params }) {
             relatedType: 'drop-request',
           },
         });
-        console.log('✅ Selection notification sent to artisan');
       } catch (notifError) {
         console.error('⚠️ Failed to send selection notification:', notifError.message);
       }
@@ -191,7 +190,6 @@ export async function POST(request, { params }) {
             relatedType: 'drop-request',
           },
         });
-        console.log('✅ Not-selected notification sent to artisan');
       } catch (notifError) {
         console.error('⚠️ Failed to send not-selected notification:', notifError.message);
       }

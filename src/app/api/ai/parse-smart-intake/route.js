@@ -154,7 +154,6 @@ const callGemini = async ({ apiKey, prompt }) => {
     if (response.status === 429 && attempt < MAX_RETRIES) {
       const retryAfter = parseInt(response.headers.get('Retry-After') || '0', 10);
       const delay = retryAfter > 0 ? retryAfter * 1000 : BASE_DELAY_MS * Math.pow(2, attempt);
-      console.log(`[parse-smart-intake] rate limited — retrying in ${delay}ms (retryAfter header: ${retryAfter})`);
       await sleep(delay);
       continue;
     }
@@ -197,7 +196,6 @@ export async function POST(request) {
           (t.neverUseWhen ? ` | neverUseWhen:"${t.neverUseWhen}"` : '')
         ).join('\n')
       : '';
-    console.log('[parse-smart-intake] tasks total:', tasks.length, 'after prefilter:', relevantTasks.length);
 
     const prompt = [
       'You are parsing jewelry repair intake text into structured data for form autofill.',
