@@ -129,11 +129,6 @@
       "count": 1
     }
   },
-  "src/app/dashboard/repairs/pick-up/page.js": {
-    "max-lines": {
-      "count": 1
-    }
-  },
   "src/app/dashboard/repairs/receiving/page.js": {
     "max-lines": {
       "count": 1
