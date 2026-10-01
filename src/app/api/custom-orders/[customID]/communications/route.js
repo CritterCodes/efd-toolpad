@@ -3,7 +3,7 @@ import { requireRole } from '@/lib/apiAuth';
 import { requireCustomsRead } from '@/lib/customsPermissions';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
 import { NotificationService } from '@/lib/notificationService';
-import { shopBase, portalLink } from '@/lib/appUrls';
+import { portalLink } from '@/lib/appUrls';
 
 /** GET /api/custom-orders/[customID]/communications — list messages (both threads). */
 export const GET = async (req, { params }) => {

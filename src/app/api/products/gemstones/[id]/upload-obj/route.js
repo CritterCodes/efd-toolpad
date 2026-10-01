@@ -116,7 +116,7 @@ export async function POST(request, { params }) {
             updatedBy: session.user.userID
         };
 
-        const result = await db.collection('products').findOneAndUpdate(
+        await db.collection('products').findOneAndUpdate(
             { productId: params.id },
             { $set: updateData },
             { returnDocument: 'after' }

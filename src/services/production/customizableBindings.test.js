@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  customizableSlots, hasBinding, slotSpec, bindingFor, unboundSlots,
+  customizableSlots, hasBinding, bindingFor, unboundSlots,
   resolveSelectionBindings, annotateBindings, mergeBaseMeshMap,
 } from '@/services/production/customizableBindings';
 

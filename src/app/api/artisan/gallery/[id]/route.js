@@ -3,7 +3,7 @@
  * Handles DELETE and PUT operations for specific gallery items
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { auth } from "@/lib/auth";
 import { db as mongo } from '@/lib/database';
 

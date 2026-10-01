@@ -3,11 +3,10 @@
  * Handles CRUD operations for artisan gallery images
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { auth } from "@/lib/auth";
 import { db as mongo } from '@/lib/database';
 import { uploadFileToS3 } from '@/utils/s3.util';
-import { ObjectId } from 'mongodb';
 
 export async function GET(request) {
     try {
@@ -120,8 +119,6 @@ export async function POST(request) {
         }
 
         // Generate unique filename
-        const timestamp = Date.now();
-        const fileExtension = imageFile.name.split('.').pop();
         const artisanSlug = user.artisanApplication?.slug || user._id;
 
         // Upload to S3 using the existing utility

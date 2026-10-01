@@ -11,7 +11,6 @@ import DiamondIcon from '@mui/icons-material/Diamond';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import { proposeGemMesh } from '@/services/production/gemLinks';
 
-const money = (x) => `$${(Number(x) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const sizeLabel = (m) => (m.lengthMm && m.widthMm ? (Math.abs(m.lengthMm - m.widthMm) < 0.26 ? `${m.widthMm}mm` : `${m.lengthMm}×${m.widthMm}mm`) : '');
 
 /** Load a GLB from a URL and measure every mesh with REFRAKT's own geometry exports —

@@ -11,7 +11,7 @@ import { randomBytes } from 'crypto';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
 import { METAL_FINISHES, GEM_PRESETS } from '@/services/products/productContract';
 import { NotificationService } from '@/lib/notificationService';
-import { shopBase, portalLink, shopLink } from '@/lib/appUrls';
+import { portalLink, shopLink } from '@/lib/appUrls';
 
 export function validateDesignModel(designModel = {}) {
   const errors = [];

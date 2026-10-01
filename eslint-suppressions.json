@@ -69,25 +69,14 @@
       "count": 2
     }
   },
-  "src/app/api/artisan/gallery/[id]/route.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/app/api/artisan/gallery/route.js": {
     "no-console": {
       "count": 2
-    },
-    "no-unused-vars": {
-      "count": 4
     }
   },
   "src/app/api/artisan/profile/route.js": {
     "no-console": {
       "count": 6
-    },
-    "no-unused-vars": {
-      "count": 1
     }
   },
   "src/app/api/artisan/stats/route.js": {
@@ -133,11 +122,6 @@
       "count": 1
     }
   },
-  "src/app/api/collections/route.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/app/api/cron/release-drops/route.js": {
     "no-console": {
       "count": 1
@@ -146,11 +130,6 @@
   "src/app/api/cron/update-material-prices/route.js": {
     "no-unused-vars": {
       "count": 2
-    }
-  },
-  "src/app/api/custom-orders/[customID]/communications/route.js": {
-    "no-unused-vars": {
-      "count": 1
     }
   },
   "src/app/api/designs/[designId]/configure/route.js": {
@@ -176,14 +155,6 @@
   "src/app/api/drop-requests/[id]/submit/route.js": {
     "no-console": {
       "count": 1
-    },
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/app/api/drop-requests/route.js": {
-    "no-unused-vars": {
-      "count": 1
     }
   },
   "src/app/api/metal-prices/route.js": {
@@ -196,11 +167,6 @@
   },
   "src/app/api/processes/find-by-materials/route.js": {
     "no-console": {
-      "count": 1
-    }
-  },
-  "src/app/api/production/casting/[batchId]/[action]/route.js": {
-    "no-unused-vars": {
       "count": 1
     }
   },
@@ -217,14 +183,6 @@
   "src/app/api/products/gemstones/[id]/upload-obj/route.js": {
     "no-console": {
       "count": 8
-    },
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/app/api/products/upload/route.js": {
-    "no-unused-vars": {
-      "count": 1
     }
   },
   "src/app/api/repair-invoices/service.js": {
@@ -383,18 +341,8 @@
       "count": 1
     }
   },
-  "src/app/dashboard/artisan/drops/page.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/app/dashboard/artisan/my-work/page.js": {
     "max-lines": {
-      "count": 1
-    }
-  },
-  "src/app/dashboard/artisan/runs/page.js": {
-    "no-unused-vars": {
       "count": 1
     }
   },
@@ -410,19 +358,6 @@
   },
   "src/app/dashboard/customs/[customID]/page.js": {
     "max-lines": {
-      "count": 1
-    },
-    "no-unused-vars": {
-      "count": 5
-    }
-  },
-  "src/app/dashboard/customs/components/StatusTimeline.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/app/dashboard/customs/components/tabs/OverviewTab.js": {
-    "no-unused-vars": {
       "count": 1
     }
   },
@@ -459,31 +394,8 @@
       "count": 2
     }
   },
-  "src/app/dashboard/products/awaiting-approval/components/ApprovalDialog.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/app/dashboard/products/awaiting-approval/page.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/app/dashboard/products/collections/page.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/app/dashboard/products/drops/[dropId]/designs/[designId]/GemLinksPanel.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/app/dashboard/products/drops/[dropId]/designs/[designId]/page.js": {
     "max-lines": {
-      "count": 1
-    },
-    "no-unused-vars": {
       "count": 1
     }
   },
@@ -494,9 +406,6 @@
   },
   "src/app/dashboard/products/page.js": {
     "max-lines": {
-      "count": 1
-    },
-    "no-unused-vars": {
       "count": 1
     }
   },
@@ -591,11 +500,6 @@
   "src/hooks/auth/useEmergencyLogout.js": {
     "no-console": {
       "count": 18
-    }
-  },
-  "src/hooks/products/gemstones/useGemstoneManagement.js": {
-    "no-unused-vars": {
-      "count": 1
     }
   },
   "src/hooks/repairs/useNewRepairForm.js": {
@@ -729,33 +633,8 @@
       "count": 1
     }
   },
-  "src/services/customs/customAssignment.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/services/customs/customProduction.js": {
     "max-lines": {
-      "count": 1
-    }
-  },
-  "src/services/customs/customViewer.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/services/production/castingBoard.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/services/production/collectionRelease.test.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/services/production/customizableBindings.test.js": {
-    "no-unused-vars": {
       "count": 1
     }
   },

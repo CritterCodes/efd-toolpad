@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Box, Typography, Button, Paper, TextField, InputAdornment, FormControl, InputLabel,
   Select, MenuItem, Stack, Chip, CircularProgress, Snackbar, Alert, Grid, Card,
-  CardContent, CardActionArea, Dialog, DialogTitle, DialogContent, DialogActions,
+  CardContent, Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CollectionsBookmarkIcon from '@mui/icons-material/CollectionsBookmark';

@@ -26,7 +26,7 @@ const HANDLERS = {
 // `receive` = it records the ACTUAL vendor cost, which IS the artisan's charge (at cost, no markup) AND
 // their pieces' COGS. EFD placed the order and holds the vendor invoice, so EFD reports the number —
 // the debtor must never set their own debt (receiving at $0.01 would ship the casting for free).
-const STAFF_ONLY = new Set(['pay', 'place-order', 'receive']);
+// Enforced in POST: `pay` and `place-order` always (the `always` map), `receive` via ownerRefusalReason.
 
 /**
  * Actions a non-staff owner may NOT take on THIS batch, decided from the batch's own state.

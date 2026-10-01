@@ -6,7 +6,6 @@
 import { NextResponse } from 'next/server';
 import { db as mongo } from '@/lib/database';
 import { auth } from '@/lib/auth';
-import { ObjectId } from 'mongodb';
 
 /**
  * GET /api/drop-requests

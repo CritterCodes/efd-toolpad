@@ -254,7 +254,7 @@ async function releaseStoneWorkOrders(order, assignment) {
  */
 async function releaseCadWorkOrder(order, assignment) {
   try {
-    const [{ default: WorkOrdersModel, WORK_ORDER_SOURCE }, { default: PiecesModel }] = await Promise.all([
+    const [{ default: WorkOrdersModel, WORK_ORDER_SOURCE }] = await Promise.all([
       import('@/app/api/workOrders/model'),
       import('@/app/api/pieces/model'),
     ]);

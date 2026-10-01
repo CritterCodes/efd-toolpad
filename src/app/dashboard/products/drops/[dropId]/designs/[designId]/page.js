@@ -21,7 +21,6 @@ import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 
 import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
-import { uploadSizeError } from '@/lib/uploadLimits';
 import { directUpload } from '@/lib/directUpload';
 import { KARAT_OPTIONS, finishUsesKarat, finishLabel, composeMetalKey, isTwoTone, metalFinishes } from '@/services/production/variantMetal';
 import {
