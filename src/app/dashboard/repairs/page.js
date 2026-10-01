@@ -15,8 +15,8 @@ export default function RepairsPage() {
         // Wholesalers should go to current repairs by default
         router.replace('/dashboard/repairs/current');
       } else {
-        // Admins go to the work management interface
-        router.replace('/dashboard/repairs/ready-for-work');
+        // Everyone else works from My Bench (it replaced Ready for Work — owner, 2026-10-01)
+        router.replace('/dashboard/repairs/my-bench');
       }
     }
   }, [session?.user?.role, router]);

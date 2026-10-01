@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 
 export default function AllRepairsPage() {
-    redirect('/dashboard/repairs/ready-for-work');
+    // My Bench replaced Ready for Work (owner, 2026-10-01).
+    redirect('/dashboard/repairs/my-bench');
 }
