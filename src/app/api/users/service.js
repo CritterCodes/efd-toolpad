@@ -41,10 +41,8 @@ export default class UserService {
      */
     static async getUserByQuery(query) {
         try {
-            console.log("🔍 Fetching user in UserService for query:", query);
             const user = await UserModel.getUserByQuery(query); 
             if (user) {
-                console.log("✅ User found in service:", user);
             } else {
                 console.warn("⚠️ No user found in service.");
             }
@@ -91,10 +89,8 @@ export default class UserService {
      */
     static async getUserById(userId) {
         try {
-            console.log(`🔍 Fetching user by ID: ${userId}`);
             const user = await UserModel.getUserById(userId);
             if (user) {
-                console.log("✅ User found by ID:", user._id);
             } else {
                 console.warn("⚠️ No user found with ID:", userId);
             }
@@ -145,11 +141,9 @@ export default class UserService {
      */
     static async updateUserById(userId, updateData) {
         try {
-            console.log(`🔄 Updating user with ID: ${userId}`);
             const updatedUser = await UserModel.updateUserById(userId, updateData);
             if (updatedUser) await syncLinkedCustomOrderContact(updatedUser);
             if (updatedUser) {
-                console.log("✅ User updated successfully:", updatedUser._id);
             } else {
                 console.warn("⚠️ No user found to update with ID:", userId);
             }

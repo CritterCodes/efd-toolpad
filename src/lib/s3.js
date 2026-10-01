@@ -8,11 +8,9 @@ export async function deleteFileFromS3(url) {
   const key = extractKeyFromStorageUrl(url);
   if (!key) throw new Error('Could not extract storage key from URL: ' + url);
 
-  console.log('🗑️ Deleting storage file:', { bucket: STORAGE_BUCKET, key });
 
   await storageClient.send(new DeleteObjectCommand({ Bucket: STORAGE_BUCKET, Key: key }));
 
-  console.log('✅ File deleted successfully:', key);
   return { success: true, key };
 }
 

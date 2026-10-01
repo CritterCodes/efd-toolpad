@@ -33,7 +33,6 @@ export async function POST(request) {
       isActive: { $ne: false }
     }).toArray();
     
-    console.log(`🔍 Found ${processes.length} processes using materials:`, materialIds);
     
     return NextResponse.json({
       success: true,

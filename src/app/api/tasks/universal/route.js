@@ -9,13 +9,6 @@ export async function POST(request) {
     if (errorResponse) return errorResponse;
 
     const taskData = await request.json();
-    console.log('🔥 UNIVERSAL-TASK-API - Task data received:', {
-      title: taskData.title,
-      category: taskData.category,
-      processesCount: taskData.processes?.length || 0,
-      materialsCount: taskData.materials?.length || 0,
-      isUniversal: taskData.isUniversal
-    });
 
     // Validate required fields
     if (!taskData.title || !taskData.category) {

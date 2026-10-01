@@ -37,7 +37,6 @@ export async function sendShopAccountInvite(userID, reason = 'account') {
       console.warn(`[shopInvite] ${reason} invite for ${userID} → ${res.status}: ${data?.error ?? ''}`);
       return { sent: false, status: res.status };
     }
-    console.log(`[shopInvite] ${reason} invite for ${userID}: sent=${!!data.sent}${data.alreadyClaimed ? ' (already claimed)' : ''}`);
     return { sent: !!data.sent, alreadyClaimed: !!data.alreadyClaimed };
   } catch (e) {
     console.warn(`[shopInvite] ${reason} invite for ${userID} failed: ${e.message}`);

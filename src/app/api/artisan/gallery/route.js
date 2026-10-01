@@ -21,13 +21,6 @@ export async function GET(request) {
         // Find user by userID (not ObjectId)
         const user = await db.collection('users').findOne({ userID: session.user.userID });
 
-        console.log('Gallery GET access check:', {
-            sessionEmail: session.user.email,
-            sessionUserID: session.user.userID,
-            userFound: !!user,
-            userRole: user?.role,
-            sessionUserRole: session.user.role
-        });
 
         // Allow artisan, admin, and dev roles access to gallery management
         const allowedRoles = ['artisan', 'admin', 'dev'];
@@ -73,13 +66,6 @@ export async function POST(request) {
         // Find user by userID (not ObjectId)
         const user = await db.collection('users').findOne({ userID: session.user.userID });
 
-        console.log('Gallery POST access check:', {
-            sessionEmail: session.user.email,
-            sessionUserID: session.user.userID,
-            userFound: !!user,
-            userRole: user?.role,
-            sessionUserRole: session.user.role
-        });
 
         // Allow artisan, admin, and dev roles access to gallery management
         const allowedRoles = ['artisan', 'admin', 'dev'];

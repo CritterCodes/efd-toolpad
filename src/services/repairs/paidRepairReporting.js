@@ -152,7 +152,7 @@ export async function reportPaidInvoiceToMeta(invoice) {
       },
     };
 
-    const result = await sendConversionEvents([event]);
+    await sendConversionEvents([event]);
 
     // Persist the marker only after Meta accepted it, so a failure can be retried.
     await RepairInvoicesModel.updateByInvoiceID(invoice.invoiceID, {
@@ -160,7 +160,6 @@ export async function reportPaidInvoiceToMeta(invoice) {
       metaPurchaseEventID: eventId,
     });
 
-    console.log('[meta-capi] Purchase reported:', invoice.invoiceID, 'value:', total, 'received:', result?.events_received);
     return { sent: 1 };
   } catch (error) {
     console.error('[meta-capi] Purchase report failed (non-fatal):', error.message);

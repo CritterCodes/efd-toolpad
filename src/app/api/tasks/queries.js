@@ -13,7 +13,6 @@ export function formatMetalKey(metalType, karat) {
 export function buildQuery(filters) {
   const query = {};
 
-  console.log('🔥 MODEL - buildQuery called with filters:', filters);
 
   // Every condition goes into $and — the search and the metal filter each used to SET `query.$or`, so
   // whichever came last silently replaced the other (EFD-DEFECTS P25).
@@ -67,7 +66,6 @@ export function buildQuery(filters) {
     } else {
       query.isActive = filters.isActive === 'true';
     }
-    console.log('🔥 MODEL - Active filter applied:', { filterValue: filters.isActive, queryValue: query.isActive });
   }
 
   // No price filters: prices are calculated on read and never stored (services/pricing/engine.js),
@@ -75,6 +73,5 @@ export function buildQuery(filters) {
 
   if (and.length) query.$and = and;
 
-  console.log('🔥 MODEL - Final query built:', query);
   return query;
 }

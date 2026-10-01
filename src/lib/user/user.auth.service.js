@@ -7,7 +7,6 @@ import { UserRoleService } from './user.role.service.js';
 export class UserAuthService {
 
   static async authenticateWithGoogle(googleProfile, additionalData = {}) {
-    console.log("��� UnifiedUserService.authenticateWithGoogle started for:", googleProfile.email);
     try {
       const db = await mongo.connect();
       

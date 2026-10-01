@@ -1,56 +1,6 @@
 {
-  "src/app/api/admin/cleanup-duplicates/route.js": {
-    "no-console": {
-      "count": 3
-    }
-  },
-  "src/app/api/admin/products/[productId]/approve/route.js": {
-    "no-console": {
-      "count": 1
-    }
-  },
-  "src/app/api/admin/products/[productId]/decline/route.js": {
-    "no-console": {
-      "count": 1
-    }
-  },
-  "src/app/api/admin/settings/verify-code/route.js": {
-    "no-console": {
-      "count": 3
-    }
-  },
-  "src/app/api/admin/wholesale/[applicationId]/approve/route.js": {
-    "no-console": {
-      "count": 1
-    }
-  },
-  "src/app/api/admin/wholesale/[applicationId]/reject/route.js": {
-    "no-console": {
-      "count": 1
-    }
-  },
-  "src/app/api/artisan/gallery/route.js": {
-    "no-console": {
-      "count": 2
-    }
-  },
-  "src/app/api/artisan/profile/route.js": {
-    "no-console": {
-      "count": 6
-    }
-  },
-  "src/app/api/artisan/stats/route.js": {
-    "no-console": {
-      "count": 4
-    }
-  },
   "src/app/api/artisans/sync-vendor/route.js": {
     "no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/app/api/processes/find-by-materials/route.js": {
-    "no-console": {
       "count": 1
     }
   },
@@ -64,59 +14,9 @@
       "count": 1
     }
   },
-  "src/app/api/repairs/controller.js": {
-    "no-console": {
-      "count": 2
-    }
-  },
-  "src/app/api/repairs/model.js": {
-    "no-console": {
-      "count": 2
-    }
-  },
-  "src/app/api/repairs/quality-control/route.js": {
-    "no-console": {
-      "count": 3
-    }
-  },
   "src/app/api/sales-invoices/service.js": {
     "max-lines": {
       "count": 1
-    }
-  },
-  "src/app/api/stuller/search/controller.js": {
-    "no-console": {
-      "count": 2
-    }
-  },
-  "src/app/api/tasks/model.js": {
-    "no-console": {
-      "count": 7
-    }
-  },
-  "src/app/api/tasks/queries.js": {
-    "no-console": {
-      "count": 3
-    }
-  },
-  "src/app/api/tasks/universal/route.js": {
-    "no-console": {
-      "count": 1
-    }
-  },
-  "src/app/api/users/controller.js": {
-    "no-console": {
-      "count": 3
-    }
-  },
-  "src/app/api/users/model.js": {
-    "no-console": {
-      "count": 6
-    }
-  },
-  "src/app/api/users/service.js": {
-    "no-console": {
-      "count": 6
     }
   },
   "src/app/components/repairs/NewRepairFlow.js": {
@@ -274,64 +174,14 @@
       "count": 1
     }
   },
-  "src/lib/analyticsService.js": {
-    "no-console": {
-      "count": 9
-    }
-  },
-  "src/lib/database.js": {
-    "no-console": {
-      "count": 3
-    }
-  },
-  "src/lib/metalPriceService.js": {
-    "no-console": {
-      "count": 1
-    }
-  },
   "src/lib/migrations/migrateToNewStatusModel.js": {
     "no-console": {
       "count": 8
     }
   },
-  "src/lib/roleBasedNavigation.js": {
-    "no-console": {
-      "count": 3
-    }
-  },
-  "src/lib/s3.js": {
-    "no-console": {
-      "count": 2
-    }
-  },
-  "src/lib/shopInvite.js": {
-    "no-console": {
-      "count": 1
-    }
-  },
   "src/lib/theme.js": {
     "max-lines": {
       "count": 1
-    }
-  },
-  "src/lib/user/user.auth.service.js": {
-    "no-console": {
-      "count": 1
-    }
-  },
-  "src/lib/user/user.management.service.js": {
-    "no-console": {
-      "count": 10
-    }
-  },
-  "src/lib/user/user.notification.service.js": {
-    "no-console": {
-      "count": 4
-    }
-  },
-  "src/lib/user/user.query.service.js": {
-    "no-console": {
-      "count": 3
     }
   },
   "src/lib/wholesaleLeadService.js": {
@@ -372,16 +222,6 @@
   "src/services/repairWorkflow.js": {
     "max-lines": {
       "count": 1
-    }
-  },
-  "src/services/repairs/paidRepairReporting.js": {
-    "no-console": {
-      "count": 1
-    }
-  },
-  "src/services/rushJob.service.js": {
-    "no-console": {
-      "count": 2
     }
   },
   "src/utilities/auth/emergencyLogout.helpers.js": {

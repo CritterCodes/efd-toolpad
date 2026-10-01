@@ -13,7 +13,6 @@ export class AnalyticsService {
    */
   static async getAnalyticsData(userID, vendorBusinessName, timeRange = 'last_30_days') {
     try {
-      console.log('🔍 [ANALYTICS] Getting data for:', { userID, vendorBusinessName, timeRange });
       
       const db = await mongo.connect();
       const collection = db.collection(this.COLLECTION_NAME);
@@ -23,32 +22,25 @@ export class AnalyticsService {
       
       // Strategy 1: Try userID first
       if (userID) {
-        console.log('🔍 [ANALYTICS] Trying userID query:', { userID });
         analytics = await collection.findOne({ userID });
       }
       
       // Strategy 2: If not found, try vendorBusinessName
       if (!analytics && vendorBusinessName) {
-        console.log('🔍 [ANALYTICS] Trying vendorBusinessName query:', { vendorBusinessName });
         analytics = await collection.findOne({ vendorBusinessName });
       }
       
       // Strategy 3: If still not found, try partial business name matching
       if (!analytics && vendorBusinessName) {
-        console.log('🔍 [ANALYTICS] Trying partial business name search');
         analytics = await collection.findOne({ 
           vendorBusinessName: { $regex: vendorBusinessName.split(' ')[0], $options: 'i' } 
         });
       }
       
-      console.log('🔍 [ANALYTICS] Final result:', analytics ? 'Found analytics document' : 'No document found');
       if (analytics) {
-        console.log('🔍 [ANALYTICS] Document userID:', analytics.userID);
-        console.log('🔍 [ANALYTICS] Document vendorBusinessName:', analytics.vendorBusinessName);
       }
 
       if (!analytics) {
-        console.log('📊 [ANALYTICS] No analytics found, returning empty data');
         return {
           profileViews: { total: 0, views: [], dailyStats: {}, monthlyStats: {}, yearlyStats: {} },
           ratings: { average: 0, total: 0, ratings: [], distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } },
@@ -58,7 +50,6 @@ export class AnalyticsService {
         };
       }
 
-      console.log('✅ [ANALYTICS] Found analytics document with profile views:', analytics.profileViews?.total || 0);
 
       // Filter data based on time range
       const { startDate, endDate } = this.getTimeRangeDates(timeRange);

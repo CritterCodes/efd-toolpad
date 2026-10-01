@@ -18,19 +18,10 @@ export async function GET(request) {
         const { searchParams } = new URL(request.url);
         const timeRange = searchParams.get('timeline') || searchParams.get('timeRange') || 'last_30_days';
 
-        console.log('📊 [STATS API] Fetching analytics for:', {
-            userID: session.user.userID,
-            timeRange
-        });
 
         // Get user business name for analytics lookup
         const businessName = session.user.businessName || session.user.name || 'Unknown';
         
-        console.log('🔍 [STATS API] Query parameters:', {
-            userID: session.user.userID,
-            businessName: businessName,
-            sessionUser: session.user
-        });
 
         // Get analytics data from centralized collection
         const analyticsData = await AnalyticsService.getAnalyticsData(
@@ -58,12 +49,6 @@ export async function GET(request) {
             'month_to_date'
         );
 
-        console.log('📊 [STATS API] Analytics data retrieved:', {
-            profileViews: analyticsData.profileViews?.total || 0,
-            today: todayAnalytics.profileViews?.total || 0,
-            thisWeek: thisWeekAnalytics.profileViews?.total || 0,
-            thisMonth: thisMonthAnalytics.profileViews?.total || 0
-        });
 
         // Generate time-series data for charts
         const profileViewsTimeSeries = AnalyticsService.generateTimeSeriesData(
@@ -93,14 +78,6 @@ export async function GET(request) {
             lastUpdated: new Date().toISOString()
         };
 
-        console.log('✅ [STATS API] Response prepared:', {
-            profileViews: combinedStats.summary.profileViews,
-            profileViewsToday: combinedStats.summary.profileViewsToday,
-            profileViewsThisWeek: combinedStats.summary.profileViewsThisWeek,
-            profileViewsThisMonth: combinedStats.summary.profileViewsThisMonth,
-            revenue: combinedStats.summary.revenue,
-            productsSold: combinedStats.summary.productsSold
-        });
 
         return NextResponse.json(combinedStats);
 

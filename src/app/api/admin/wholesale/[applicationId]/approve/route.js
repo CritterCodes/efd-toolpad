@@ -92,7 +92,6 @@ export async function POST(request, { params }) {
       return Response.json({ error: 'Failed to update application' }, { status: 500 });
     }
 
-    console.log(`Wholesale application ${applicationId} approved by ${session.user.email}`);
 
     await notifyWholesaleApproved(application);
 
