@@ -29,4 +29,10 @@ for a guardrail.
 - **2026-10-01: "no `<h1>`" and "blank" caught pages still loading.** A busy CI runner saw `users/manage` on
   "Loading users…" at desktop width but rendered at phone width, and failed an unrelated PR. **Fixed (#168):** the
   check measures a title-less or blank page again once its spinner is gone (up to 8s).
+- **2026-10-01: eslint `no-undef` can't see a page variable named like a browser global.** Splitting the payroll page
+  into sections, the sections' props were found by `no-undef` — but the page's `history` state was never flagged
+  (eslint knows `window.history`), so `PayrollLists` read `window.history` and crashed on click. Caught only by
+  clicking through a local build. **Fixed:** an AST check (page-declared names a section reads but never receives)
+  runs after every extraction, and the sections tests assert it for names like `history`, `location`, `name`,
+  `status`. Lesson: click every tab/dialog of a split page on a local build before merging.
 - 2026-10-01: a heredoc edit script turned an escaped quote (backslash, quote) into a bare quote again (notificationService.js), breaking a string. Caught by reading the output back. The rule stands: any edit with a backslash goes through Edit/Write, even inside a replacement string.
