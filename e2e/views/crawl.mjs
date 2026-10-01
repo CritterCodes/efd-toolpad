@@ -136,6 +136,17 @@ async function visit(context, url, widthKey, outDir) {
       null, { timeout: 8000 },
     ).catch(() => {});
     await settled();
+    // A redirect() that runs after streaming has started is done by the BROWSER: Next leaves a
+    // <meta id="__next-page-redirect" http-equiv="refresh"> and the router follows it. On a loaded runner the
+    // wait above can end before it does — the layout already has text and no spinner — so /dashboard/bench and
+    // /dashboard/production/pieces were measured mid-redirect as pages without a title (CI, 2026-10-01). When
+    // the page says it is redirecting, wait for it to leave.
+    const redirecting = await page.evaluate(
+      () => !!document.querySelector('meta#__next-page-redirect, meta[http-equiv="refresh" i]'),
+    ).catch(() => false);
+    if (redirecting && new URL(page.url()).pathname === finalPath) {
+      await page.waitForURL((u) => new URL(u).pathname !== finalPath, { timeout: SETTLE_MS }).catch(() => {});
+    }
     // A redirect page (redirect() in a page, e.g. /dashboard/products/jewelry) finishes in the browser after load;
     // the wait above ends when the navigation replaces the page. Let the destination load and settle, then
     // measure THAT — a redirect isn't a page without a title.
