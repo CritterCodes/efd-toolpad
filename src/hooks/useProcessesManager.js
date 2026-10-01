@@ -39,7 +39,7 @@ export function useProcessesManager() {
   const [activeStatusFilter, setActiveStatusFilter] = React.useState('all');
   const [skillLevelFilter, setSkillLevelFilter] = React.useState('all');
   const [metalTypeFilter, setMetalTypeFilter] = React.useState('all');
-  const [karatFilter, setKaratFilter] = React.useState('all');
+  const [karatFilter] = React.useState('all');
 
   // Dialog state
   const [openDialog, setOpenDialog] = React.useState(false);
@@ -76,11 +76,6 @@ export function useProcessesManager() {
 
   const uniqueMetalTypes = React.useMemo(() => 
     getUniqueValues(processes, 'metalType').filter(type => type && type !== 'n_a'), 
-    [processes]
-  );
-
-  const uniqueKarats = React.useMemo(() => 
-    getUniqueValues(processes, 'karat').filter(karat => karat && karat.trim() !== ''), 
     [processes]
   );
 
@@ -177,12 +172,10 @@ export function useProcessesManager() {
       // Use adminSettings from context
       const processData = prepareProcessForSaving(formData, adminSettings, availableMaterials);
       
-      let savedProcess;
-      
       if (isUpdate) {
-        savedProcess = await processesService.updateProcess(editingProcess._id, processData);
+        await processesService.updateProcess(editingProcess._id, processData);
       } else {
-        savedProcess = await processesService.createProcess(processData);
+        await processesService.createProcess(processData);
       }
       
       closeDialog();

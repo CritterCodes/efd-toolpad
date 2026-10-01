@@ -1,9 +1,4 @@
 {
-  "scripts/migrations/pp-catalog-foundation.mjs": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/app/api/admin/cleanup-duplicates/route.js": {
     "no-console": {
       "count": 3
@@ -36,21 +31,6 @@
   },
   "src/app/api/admin/wholesale/[applicationId]/reject/route.js": {
     "no-console": {
-      "count": 1
-    }
-  },
-  "src/app/api/affiliates/[affiliateId]/route.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/app/api/affiliates/campaigns/[campaignId]/route.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/app/api/affiliates/route.js": {
-    "no-unused-vars": {
       "count": 1
     }
   },
@@ -89,17 +69,9 @@
       "count": 1
     }
   },
-  "src/app/api/auth/[...nextauth]/model.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/app/api/auth/[...nextauth]/service.js": {
     "no-console": {
       "count": 15
-    },
-    "no-unused-vars": {
-      "count": 1
     }
   },
   "src/app/api/auth/debug-session/route.js": {
@@ -125,11 +97,6 @@
   "src/app/api/cron/release-drops/route.js": {
     "no-console": {
       "count": 1
-    }
-  },
-  "src/app/api/cron/update-material-prices/route.js": {
-    "no-unused-vars": {
-      "count": 2
     }
   },
   "src/app/api/designs/[designId]/configure/route.js": {
@@ -159,9 +126,6 @@
   },
   "src/app/api/metal-prices/route.js": {
     "no-console": {
-      "count": 1
-    },
-    "no-unused-vars": {
       "count": 1
     }
   },
@@ -218,9 +182,6 @@
   "src/app/api/sales-invoices/service.js": {
     "max-lines": {
       "count": 1
-    },
-    "no-unused-vars": {
-      "count": 1
     }
   },
   "src/app/api/stuller/search/controller.js": {
@@ -273,11 +234,6 @@
       "count": 8
     }
   },
-  "src/app/components/processes/EnhancedProcessesHeader.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/app/components/repairs/NewRepairFlow.js": {
     "max-lines": {
       "count": 1
@@ -323,11 +279,6 @@
   },
   "src/app/dashboard/admin/wholesale-acquisition/page.js": {
     "max-lines": {
-      "count": 1
-    }
-  },
-  "src/app/dashboard/affiliate/page.js": {
-    "no-unused-vars": {
       "count": 1
     }
   },
@@ -384,9 +335,6 @@
   "src/app/dashboard/page.js": {
     "no-console": {
       "count": 2
-    },
-    "no-unused-vars": {
-      "count": 1
     }
   },
   "src/app/dashboard/pending/page.js": {
@@ -510,27 +458,14 @@
       "count": 24
     }
   },
-  "src/hooks/useMaterialsManager.js": {
-    "no-unused-vars": {
-      "count": 2
-    }
-  },
   "src/hooks/useProcessesManager.js": {
     "no-console": {
       "count": 2
-    },
-    "no-unused-vars": {
-      "count": 3
     }
   },
   "src/lib/analyticsService.js": {
     "no-console": {
       "count": 9
-    }
-  },
-  "src/lib/artisanService.js": {
-    "no-unused-vars": {
-      "count": 1
     }
   },
   "src/lib/auth-utils.js": {
@@ -546,17 +481,11 @@
   "src/lib/metalPriceService.js": {
     "no-console": {
       "count": 1
-    },
-    "no-unused-vars": {
-      "count": 1
     }
   },
   "src/lib/migrations/migrateToNewStatusModel.js": {
     "no-console": {
       "count": 8
-    },
-    "no-unused-vars": {
-      "count": 1
     }
   },
   "src/lib/roleBasedNavigation.js": {
@@ -582,17 +511,11 @@
   "src/lib/user/user.auth.service.js": {
     "no-console": {
       "count": 1
-    },
-    "no-unused-vars": {
-      "count": 1
     }
   },
   "src/lib/user/user.management.service.js": {
     "no-console": {
       "count": 10
-    },
-    "no-unused-vars": {
-      "count": 3
     }
   },
   "src/lib/user/user.notification.service.js": {
@@ -608,9 +531,6 @@
   "src/lib/wholesaleLeadService.js": {
     "max-lines": {
       "count": 1
-    },
-    "no-unused-vars": {
-      "count": 4
     }
   },
   "src/lib/wholesaleReconciliationService.js": {
@@ -658,29 +578,9 @@
       "count": 2
     }
   },
-  "src/services/shipping/shipping.test.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/services/shipping/storeFulfillment.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/services/stuller-integration.service.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/utilities/auth/emergencyLogout.helpers.js": {
     "no-console": {
       "count": 56
-    }
-  },
-  "src/utils/materials.form.utils.js": {
-    "no-unused-vars": {
-      "count": 1
     }
   },
   "src/utils/s3.util.js": {

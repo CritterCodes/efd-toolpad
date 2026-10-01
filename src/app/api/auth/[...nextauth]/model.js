@@ -1,6 +1,5 @@
 // src/app/api/auth/auth.model.js
 import { db } from '@/lib/database'; 
-import crypto from 'crypto';
 
 export default class UserModel {
     /**

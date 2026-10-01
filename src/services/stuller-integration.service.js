@@ -21,7 +21,6 @@ export class StullerIntegrationService {
       keywords = '',
       metalTypes = [],
       karats = [],
-      supplier = 'Stuller',
       limit = 50,
       offset = 0
     } = searchParams;
