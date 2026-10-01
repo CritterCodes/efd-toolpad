@@ -54,3 +54,8 @@ next-env.d.ts
 graphify-out/
 # The views check's screenshots + contact sheet (npm run views): a CI artifact, never committed.
 e2e/views/out/
+
+# Impeccable: the engine binary is fetched (sha256-verified) by the launcher, never committed
+.claude/skills/impeccable/scripts/bin/
+.impeccable/config.local.json
+design-report/

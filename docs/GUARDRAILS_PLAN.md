@@ -129,9 +129,13 @@ loads, is Q3.
 
 ### Phase 4 — the UI (decision 1: re-theme, then triage from the views contact sheet)
 
-12. **Re-theme MUI to Kuzu's look** — warm ivory surfaces, white cards on a soft shadow, one amber, Bricolage Grotesque
+12. **Superseded for efd-admin (owner, 2026-10-01):** *"I don't want to rock our users too much and black and white are our
+    brand colors."* efd keeps its own black/white + gold brand, now written down in `DESIGN.md` and policed by Impeccable
+    (`npm run design:report`, report-only in CI). Kuzu's look below stays Kuzu's. The original item, for history:
+    ~~**Re-theme MUI to Kuzu's look** — warm ivory surfaces, white cards on a soft shadow, one amber, Bricolage Grotesque
     over Instrument Sans, amber-text current nav, grouped nav as dropdowns (ADR-0009, 2026-09-30) — through the MUI
-    theme and the existing facelift primitives, so every screen moves at once.
+    theme and the existing facelift primitives, so every screen moves at once.~~ Instead: burn down the design report's
+    drift (off-token colors and sizes) area by area, the way max-lines is burned down.
 13. **Thin pages over shared components**: the `max-lines` ratchet plus moving logic into hooks/services, page by page as
     they are touched — starting with the files over 1,000 lines.
 14. **Redo the dashboards the way Kuzu designed its homes**: every panel names the decision it supports and the data it
