@@ -1,3 +1,16 @@
 {
-  "extends": ["next/core-web-vitals"]
+  "extends": ["next/core-web-vitals"],
+  "env": { "browser": true, "node": true, "es2022": true },
+  "rules": {
+    "no-undef": "error"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.js", "**/*.test.jsx"],
+      "globals": {
+        "describe": "readonly", "it": "readonly", "test": "readonly", "expect": "readonly", "vi": "readonly",
+        "beforeEach": "readonly", "afterEach": "readonly", "beforeAll": "readonly", "afterAll": "readonly"
+      }
+    }
+  ]
 }
