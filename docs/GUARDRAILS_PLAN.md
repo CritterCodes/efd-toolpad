@@ -1,6 +1,6 @@
 # Bringing Kuzu's guardrails to efd-admin
 
-**Kind:** proposed (until the owner rules on the four decisions at the bottom). **As of:** 2026-09-30.
+**Kind:** decided — the owner ruled the four decisions on 2026-09-30 (bottom of this page). **As of:** 2026-09-30.
 **Asked by:** the owner, 2026-09-30 — *"Development in Kuzu is going a million times better … find what we have set up
 that is making the development go so much better"*, then *"We need to make a plan to fix this app based off your
 findings in kuzu."*
@@ -48,7 +48,7 @@ shrink. Nothing waits for a cleanup, and nothing gets worse. Each phase is small
    that fail locally run fine on Linux runners; cache the binary as Kuzu does.
 2. **`no-undef` as an error** — it already caught one live bug. The other hits today are inside `{false && …}` blocks in
    `commerce/sales-invoices/page.js` (dead code to delete) and one test file missing its vitest import.
-3. **Branch protection on `main`**: CI must be green to merge. *(Owner decision 2 — this changes how merges feel.)*
+3. **Branch protection on `main`**: CI must be green to merge (owner, 2026-09-30: yes).
 
 ### Phase 1 — the rules that matter, as lint
 
@@ -72,7 +72,7 @@ shrink. Nothing waits for a cleanup, and nothing gets worse. Each phase is small
    phone width (the owner's responsive rule, made automatic), a dead link, a missing `<h1>`. A new page must be added to
    the route list or the check fails. Saves a screenshot contact sheet to review.
 8. **Ship checks after every Vercel deploy** (`deployment_status` workflow): the same Playwright run against the live
-   deploy, plus Lighthouse — needs a Vercel protection-bypass secret and a read-only account. *(Owner decision 4.)*
+   deploy, plus Lighthouse — signed-in against previews on the dev database, anonymous-only against production (decision 4).
 
 ### Phase 3 — documents that stay true
 
@@ -83,7 +83,7 @@ shrink. Nothing waits for a cleanup, and nothing gets worse. Each phase is small
 11. **Every doc declares its kind** (descriptive / decided / proposed) and an as-of date; **`docs/OPEN-QUESTIONS.md`** is
     the register of what a session may not decide alone; **`friction:`** messages get filed into a friction log.
 
-### Phase 4 — the UI *(owner decision 1)*
+### Phase 4 — the UI (decision 1: re-theme, then triage from the views contact sheet)
 
 12. **Re-theme MUI to Kuzu's look** — warm ivory surfaces, white cards on a soft shadow, one amber, Bricolage Grotesque
     over Instrument Sans, amber-text current nav, grouped nav as dropdowns (ADR-0009, 2026-09-30) — through the MUI
@@ -113,11 +113,39 @@ shrink. Nothing waits for a cleanup, and nothing gets worse. Each phase is small
 | 4 | efd looks like Kuzu; dashboards that answer questions | ongoing, by screen |
 | 5 | (already mostly the habit) | — |
 
-## Decisions for the owner
+## Decisions — owner, 2026-09-30
 
-1. **UI direction.** Re-theme MUI to Kuzu's look (fast, every screen at once) **or** migrate screens to Kuzu's
-   shadcn/Tailwind kit (slow, screen by screen, and Kuzu is replacing efd anyway). *Recommended: re-theme MUI.*
-2. **Green CI required to merge `main`?** *Recommended: yes, once Phase 0 is green.*
-3. **Ratchet or clean up first?** *Recommended: ratchet — fix violations as files are touched.*
-4. **Ship checks on live deploys** need a Vercel protection-bypass secret in GitHub and a read-only account seeded in
-   production. *Recommended: yes, after Phase 2 runs locally.*
+1. **UI direction: re-theme MUI to Kuzu's look.** Owner: *"I guess re-theme but I don't think it'll make a difference
+   our ui is fucked lol."* Taken seriously: a theme alone does **not** fix layout, density or flow. So Phase 4 starts
+   from **evidence, not taste** — Phase 2's views run produces a contact sheet of every page, per role, phone and
+   desktop. That sheet becomes the **UI triage list**: each page marked keep / smooth / rethink (Kuzu's verdicts), the
+   rethinks drawn on a canvas for the owner before code, worst-used pages first. The re-theme ships early because it
+   lifts every screen at once; the triage is what actually fixes the UI.
+2. **Green CI is required to merge `main`** — branch protection on, once Phase 0 is green.
+3. **Ratchet — and a plan that ends at zero.** Owner: *"Ratchet, but we need to have a plan to make sure we fix
+   everything."* So every baselined rule also has a burn-down:
+   - **The baseline is a checked-in file per rule** (`guardrails/baseline/<rule>.json`: file → count). CI fails if a
+     file's count rises or a new file appears; a PR that lowers a count must lower the baseline (CI tells it to).
+   - **Touch it, clean it:** a PR that edits a file on a baseline clears that file's violations for that rule.
+   - **Scheduled burn-down, not just incidental:** after Phase 2, one cleanup PR per area per week (repairs, pricing,
+     wholesale, production, admin), largest offenders first, until each baseline is empty.
+   - **A scoreboard** at the bottom of this page (rule · baseline at start · today · target date), refreshed by
+     `npm run guardrails:report` in CI and committed with each cleanup PR.
+   - **Done = zero:** when a rule's baseline is empty its file is deleted and the rule becomes a plain lint error.
+     Target dates are set when Phase 1 records the starting counts.
+4. **Ship checks on live deploys — Claude sets them up.** One change from the first draft, for safety: efd has **no
+   read-only role**, so a "read-only" production account would really be an admin login stored in GitHub. Instead:
+   - the full signed-in run (every role) goes against **Vercel preview deployments**, which use the **dev database**
+     (`efd-database-DEV`), with seeded e2e accounts there and a Vercel protection-bypass secret in GitHub;
+   - **production** gets the anonymous checks only (sign-in page, 404, robots/noindex, console errors, no source maps)
+     — no credential for production is ever stored in CI.
+
+---
+
+## Scoreboard
+
+Filled in when Phase 1 records the starting counts; refreshed by `npm run guardrails:report`.
+
+| Rule | Baseline at start | Today | Target |
+|---|---|---|---|
+| (Phase 1) | | | |
