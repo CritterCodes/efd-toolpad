@@ -169,11 +169,6 @@ export const devNavigation = {
           segment: 'materials',
           title: 'Materials',
           icon: <InventoryIcon />
-        },
-        {
-          segment: 'processes',
-          title: 'Processes',
-          icon: <SettingsIcon />
         }
       ]
     },

@@ -1,21 +1,12 @@
 import React from 'react';
 import { Typography, Button, Alert } from '@mui/material';
 
-export default function DebugToolsList({ handleComprehensiveDebug, clearRoleOverride, executeNuclearLogout }) {
+export default function DebugToolsList({ clearRoleOverride, executeNuclearLogout }) {
   return (
     <>
       <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>
-        🔬 Debug Tools
+        ☢️ Last resort
       </Typography>
-
-      <Button 
-        variant="outlined"
-        color="info" 
-        onClick={handleComprehensiveDebug}
-        sx={{ mr: 2, mb: 2 }}
-      >
-        🔍 Debug Auth State
-      </Button>
 
       <Button 
         variant="contained"

@@ -23,8 +23,6 @@ export default function EmergencyLogoutPage() {
   const {
     handleForceLogout,
     handleRegularLogout,
-    handleDebugAuth,
-    handleComprehensiveDebug,
     clearRoleOverride,
     executeNuclearLogout
   } = useEmergencyLogout();
@@ -48,7 +46,6 @@ export default function EmergencyLogoutPage() {
           <Divider sx={{ my: 3 }} />
 
           <LogoutOptionsList 
-            handleDebugAuth={handleDebugAuth}
             handleRegularLogout={handleRegularLogout}
             handleForceLogout={handleForceLogout}
           />
@@ -56,7 +53,6 @@ export default function EmergencyLogoutPage() {
           <Divider sx={{ my: 3 }} />
 
           <DebugToolsList 
-            handleComprehensiveDebug={() => handleComprehensiveDebug(status, session)}
             clearRoleOverride={clearRoleOverride}
             executeNuclearLogout={executeNuclearLogout}
           />

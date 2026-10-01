@@ -203,11 +203,6 @@ export const adminNavigation = {
           title: 'Materials',
           icon: <InventoryIcon />
         },
-        // {
-        //   segment: 'processes',
-        //   title: 'Processes',
-        //   icon: <SettingsIcon />
-        // }
       ]
     },
     {
