@@ -1,0 +1,51 @@
+# CI — every push to main and every pull request (docs/GUARDRAILS_PLAN.md, Phase 0).
+#
+# Until 2026-09-30 efd-admin had no CI at all: its test files ran only when someone ran them, and a broken
+# build was found by Vercel (or a person). This is the gate: lint (no-undef is an error), the test suite,
+# and a production build. Green is required to merge `main` (owner, 2026-09-30).
+#
+# Block style only: a `${{ }}` expression inside a YAML flow mapping ({ ... }) is a parse error, and an
+# invalid workflow fails with zero jobs and no log (learned the hard way in Kuzu).
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+  # @crittercodes/refrakt comes from GitHub Packages — the same install Vercel does.
+  packages: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://npm.pkg.github.com
+          scope: '@crittercodes'
+      - run: npm ci --no-audit --no-fund
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # The suites that use mongodb-memory-server download a mongod; cache it.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/mongodb-binaries
+          key: mongodb-binaries-${{ runner.os }}-v1
+      - run: npm run lint
+      - run: npm test
+        env:
+          MONGOMS_DOWNLOAD_DIR: ~/.cache/mongodb-binaries
+      # A production build. Placeholder values only: the build must never reach a real database or service.
+      - run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+          MONGODB_URI: mongodb://127.0.0.1:1/ci-never-connects
+          AUTH_SECRET: ci-build-only-not-a-secret
+          NEXTAUTH_SECRET: ci-build-only-not-a-secret

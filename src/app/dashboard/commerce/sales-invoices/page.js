@@ -15,14 +15,10 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  FormControl,
   FormControlLabel,
-  FormLabel,
   Grid,
   IconButton,
   MenuItem,
-  Radio,
-  RadioGroup,
   Stack,
   Switch,
   Tab,
@@ -39,7 +35,6 @@ import {
   Print as PrintIcon,
 } from '@mui/icons-material';
 import NewClientForm from '@/app/components/clients/newClientForm.component';
-import NewRepairForm from '@/app/components/repairs/NewRepairForm';
 import { deriveRepairItemMetadata } from '@/lib/productRepairMetadata';
 
 const UI = {
@@ -482,86 +477,11 @@ export default function SalesInvoicesPage() {
                         </Grid>
                       </Grid>
 
-                      {false && <FormControl>
-                        <FormLabel sx={{ color: UI.textSecondary }}>Repair work</FormLabel>
-                        <RadioGroup
-                          row
-                          value={line.repairMode || 'none'}
-                          onChange={(event) => {
-                            if (event.target.value === 'none') {
-                              clearRepairDraft(line.lineID);
-                            } else {
-                              updateLine(line.lineID, { repairMode: 'draft' });
-                              openRepairDraft(line.lineID);
-                            }
-                          }}
-                        >
-                          <FormControlLabel value="none" control={<Radio />} label="No repair work" />
-                          <FormControlLabel value="draft" control={<Radio />} label="Create included repair ticket" />
-                        </RadioGroup>
-                      </FormControl>}
-                      {false && line.repairMode === 'draft' && (
-                        <Stack spacing={1}>
-                          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                            <Button variant="outlined" onClick={() => openRepairDraft(line.lineID)}>
-                              {line.repairDraft ? 'Edit Repair Ticket Draft' : 'Create Repair Ticket Draft'}
-                            </Button>
-                            {line.repairDraft && (
-                              <Button color="error" onClick={() => clearRepairDraft(line.lineID)}>
-                                Remove Draft
-                              </Button>
-                            )}
-                          </Stack>
-                          {line.repairDraft && (
-                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                              <Chip label={`Promise ${line.repairDraft.promiseDate || 'not set'}`} size="small" />
-                              {(line.repairDraft.tasks || []).map((task, taskIndex) => (
-                                <Chip
-                                  key={`${line.lineID}-${taskIndex}`}
-                                  label={`${task.title || task.name} · included`}
-                                  size="small"
-                                />
-                              ))}
-                            </Stack>
-                          )}
-                        </Stack>
-                      )}
 
                       <Typography variant="body2" sx={{ color: UI.textSecondary }}>
                         Repair tickets are created from the saved invoice detail page when this item needs bench work.
                       </Typography>
 
-                      {false && <Box data-old-task-picker sx={{ display: 'none' }}>
-                        <Autocomplete
-                          fullWidth
-                          options={tasks}
-                          value={line.pendingTask || null}
-                          isOptionEqualToValue={(option, value) => (option.id || option._id || option.title || option.name) === (value.id || value._id || value.title || value.name)}
-                          getOptionLabel={(task) => `${task.title || task.name} · ${getTaskLaborHours(task).toFixed(2)}h`}
-                          onChange={(event, value) => updateLine(line.lineID, { pendingTask: value })}
-                          renderInput={(params) => <TextField {...params} label="Included repair task" />}
-                        />
-                        <Button
-                          variant="outlined"
-                          startIcon={<AddIcon />}
-                          onClick={() => addTaskToLine(line.lineID, line.pendingTask)}
-                          disabled={!line.pendingTask}
-                          sx={{ flexShrink: 0 }}
-                        >
-                          Add Task
-                        </Button>
-                      </Box>}
-                      {false && (line.includedTasks || []).length > 0 && (
-                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                          {line.includedTasks.map((task, taskIndex) => (
-                            <Chip
-                              key={`${line.lineID}-${taskIndex}`}
-                              label={`${task.title || task.name} · included`}
-                              onDelete={() => removeTaskFromLine(line.lineID, taskIndex)}
-                            />
-                          ))}
-                        </Stack>
-                      )}
                     </Stack>
                   </CardContent>
                 </Card>
@@ -606,88 +526,9 @@ export default function SalesInvoicesPage() {
         </DialogActions>
       </Dialog>
 
-      {false && <Dialog
-        open={Boolean(repairDraftLine)}
-        onClose={() => setRepairDraftLineID(null)}
-        fullWidth
-        maxWidth="lg"
-        PaperProps={{ sx: { bgcolor: UI.bgPanel, color: UI.textPrimary, border: `1px solid ${UI.border}` } }}
-      >
-        <DialogTitle>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Typography sx={{ color: UI.textHeader, fontWeight: 700 }}>
-              Included Repair Ticket Draft
-            </Typography>
-            <IconButton onClick={() => setRepairDraftLineID(null)}><CloseIcon /></IconButton>
-          </Stack>
-        </DialogTitle>
-        <DialogContent dividers sx={{ borderColor: UI.border }}>
-          {repairDraftLine && selectedClient && (
-            <NewRepairForm
-              key={`${repairDraftLine.lineID}-${repairDraftLine.repairDraft ? 'edit' : 'new'}`}
-              persistOnSubmit={false}
-              submitLabel="Save Ticket Draft"
-              initialData={buildRepairDraftInitialData(repairDraftLine, selectedClient)}
-              clientInfo={{
-                userID: selectedClient.userID || selectedClient.email || '',
-                name: getClientName(selectedClient),
-              }}
-              onSubmit={saveRepairDraft}
-            />
-          )}
-        </DialogContent>
-      </Dialog>}
 
       <NewClientForm open={clientOpen} onClose={() => setClientOpen(false)} onClientCreated={handleClientCreated} />
 
-      {false && <Dialog
-        open={Boolean(createdInvoice)}
-        onClose={() => setCreatedInvoice(null)}
-        fullWidth
-        maxWidth="sm"
-        PaperProps={{ sx: { bgcolor: UI.bgPanel, color: UI.textPrimary, border: `1px solid ${UI.border}` } }}
-      >
-        <DialogTitle>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Typography sx={{ color: UI.textHeader, fontWeight: 700 }}>Repair Ticket Created</Typography>
-            <IconButton onClick={() => setCreatedInvoice(null)}><CloseIcon /></IconButton>
-          </Stack>
-        </DialogTitle>
-        <DialogContent dividers sx={{ borderColor: UI.border }}>
-          <Stack spacing={2}>
-            <Alert severity="info">
-              This sale created included repair work. Print the repair ticket and send the item through the normal bench workflow.
-            </Alert>
-            <Stack spacing={1}>
-              {(createdInvoice?.linkedRepairIDs || []).length > 1 && (
-                <Button
-                  variant="outlined"
-                  startIcon={<PrintIcon />}
-                  onClick={() => router.push(`/dashboard/repairs/bulk-print?ids=${(createdInvoice?.linkedRepairIDs || []).join(',')}`)}
-                  sx={{ justifyContent: 'flex-start' }}
-                >
-                  Print All Repair Tickets
-                </Button>
-              )}
-              {(createdInvoice?.linkedRepairIDs || []).map((repairID) => (
-                <Button
-                  key={repairID}
-                  variant="contained"
-                  startIcon={<PrintIcon />}
-                  onClick={() => router.push(`/dashboard/repairs/${repairID}/print`)}
-                  sx={{ justifyContent: 'flex-start', bgcolor: UI.accent, color: '#111', fontWeight: 700 }}
-                >
-                  Print Repair Ticket {repairID}
-                </Button>
-              ))}
-            </Stack>
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setCreatedInvoice(null)}>Close</Button>
-          <Button onClick={() => router.push('/dashboard/repairs/my-bench')}>Go to My Bench</Button>
-        </DialogActions>
-      </Dialog>}
     </Box>
   );
 }
