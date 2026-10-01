@@ -52,3 +52,5 @@ next-env.d.ts
 
 # graphify knowledge graph (rebuilt locally; `graphify update .`)
 graphify-out/
+# The views check's screenshots + contact sheet (npm run views): a CI artifact, never committed.
+e2e/views/out/

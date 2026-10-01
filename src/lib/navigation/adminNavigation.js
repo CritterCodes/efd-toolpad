@@ -266,7 +266,9 @@ export const adminNavigation = {
           icon: <InventoryIcon />
         },
         {
-          segment: 'payroll',
+          // Absolute, like Stuller: the payroll page lives at /dashboard/repairs/payroll. A relative 'payroll'
+          // here linked to /dashboard/finance/payroll, which never existed (found by `npm run views`, 2026-10-01).
+          segment: '/dashboard/repairs/payroll',
           title: 'Payroll',
           icon: <PaymentIcon />
         },

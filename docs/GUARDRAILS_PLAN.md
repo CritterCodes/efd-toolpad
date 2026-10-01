@@ -77,12 +77,27 @@ ratcheted, with reasons:
 
 ### Phase 2 — open every page in a real browser (the biggest single win)
 
-7. **`npm run views`** — Kuzu's `scripts/views.ts`, adapted: build, seed a throwaway in-memory database with one user of
-   each role (admin, on-site artisan, off-site artisan, wholesaler, customer), start the production build against it
-   with **every external credential blanked** (no real email, Stripe, Stuller, AI), then open **every page in each role's
-   nav, signed in, at phone and desktop width**. Fails on: a console error or uncaught exception, horizontal overflow at
-   phone width (the owner's responsive rule, made automatic), a dead link, a missing `<h1>`. A new page must be added to
-   the route list or the check fails. Saves a screenshot contact sheet to review.
+7. **`npm run views`** — Kuzu's `scripts/views.ts`, adapted (`scripts/views.mjs`, `e2e/views/`): seed a throwaway
+   in-memory database with one account per role (admin, on-site artisan, off-site artisan, wholesaler, applicant,
+   affiliate — a customer can't sign in to admin at all), start the production build against it with **every external
+   credential blanked** (no real email, Stripe, Stuller, AI, storage), then open **every page each role can reach** —
+   the sidebar with every group opened, every `/dashboard` link on every page, and (admin) every page file without an
+   id, so a page nobody links to is still opened and no route list has to be kept by hand. Each page at **desktop and
+   phone width**. Records: signed out, 404 (a dead link — the card says where it was linked from), server error, an
+   uncaught exception, a console error, a failed `/api` call, horizontal overflow, a blank page, no `<h1>`. Writes a
+   screenshot **contact sheet** (`e2e/views/out/index.html`, uploaded by CI as `views-contact-sheet`).
+   **Ratchet:** `e2e/views/baseline.json` holds every problem found when it was switched on; a new one fails CI, a
+   fixed one fails until the baseline is shrunk (`npm run views -- --update`). Console/API errors are timing-dependent,
+   so a missing one is reported, never failed.
+   **Done 2026-10-01** (CI step `npm run views`, ~2½ min for 169 pages × 2 widths). The first run found, and this
+   PR fixed: the sidebar's Finance → Payroll linked to `/dashboard/finance/payroll`, which never existed (now
+   `/dashboard/repairs/payroll`); two **empty** page files (`admin/repair-tasks/process-based`, `[userID]/admin/settings`)
+   that crashed whoever opened them (deleted). Baselined for triage (325): 292 pages with no `<h1>`; 3 pages
+   **cut off** at phone width (admin/tasks/processes by 136px, admin/tasks/materials 56px, blogs 11px — the
+   check measures elements past the screen edge, since `overflow-x: clip` on html/body hides overflow from
+   `scrollWidth`); `/dashboard/admin/migrate-repair-tasks` calls an API that no longer exists (retirement
+   candidate); `/dashboard/repairs/funnel` 503s without its data source; pages that fetch what the role can't have
+   (admin on affiliate pages, off-site artisan's bench asking for bench-jewelers / qc-mode).
 8. **Ship checks after every Vercel deploy** (`deployment_status` workflow): the same Playwright run against the live
    deploy, plus Lighthouse — signed-in against previews on the dev database, anonymous-only against production (decision 4).
 
