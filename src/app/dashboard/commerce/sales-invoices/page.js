@@ -317,7 +317,7 @@ export default function SalesInvoicesPage() {
           <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={2}>
             <Box>
               <Chip label="Commerce" size="small" sx={{ bgcolor: UI.bgCard, color: UI.textPrimary, border: `1px solid ${UI.border}`, mb: 1 }} />
-              <Typography sx={{ color: UI.textHeader, fontSize: { xs: 28, md: 34 }, fontWeight: 700 }}>
+              <Typography component="h1" sx={{ color: UI.textHeader, fontSize: { xs: 28, md: 34 }, fontWeight: 700 }}>
                 Sales Invoices
               </Typography>
               <Typography sx={{ color: UI.textSecondary }}>

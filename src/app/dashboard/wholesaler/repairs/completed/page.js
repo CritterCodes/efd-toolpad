@@ -60,7 +60,7 @@ export default function CompletedRepairsPage() {
                             <CheckIcon sx={{ fontSize: 16, color: UI.accent }} />
                             Wholesale / Archive
                         </Typography>
-                        <Typography sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: UI.textHeader, mb: 1 }}>
+                        <Typography component="h1" sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: UI.textHeader, mb: 1 }}>
                             Completed Repairs
                         </Typography>
                         <Typography sx={{ color: UI.textSecondary, lineHeight: 1.6 }}>

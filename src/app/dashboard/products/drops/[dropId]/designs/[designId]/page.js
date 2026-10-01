@@ -2006,7 +2006,7 @@ export function DesignDetail({ dropId, designId, backHref, backLabel }) {
             <Typography sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, px: 1.25, py: 0.5, mb: 1.5, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', color: REPAIRS_UI.textPrimary, backgroundColor: REPAIRS_UI.bgCard, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, textTransform: 'uppercase' }}>
               <DesignServicesIcon sx={{ fontSize: 16, color: REPAIRS_UI.accent }} /> Design
             </Typography>
-            <Typography sx={{ fontSize: { xs: 26, md: 32 }, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 0.5 }}>{design.name || 'Untitled design'}</Typography>
+            <Typography component="h1" sx={{ fontSize: { xs: 26, md: 32 }, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 0.5 }}>{design.name || 'Untitled design'}</Typography>
             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
               {design.category && <Typography sx={{ color: REPAIRS_UI.textSecondary, textTransform: 'capitalize' }}>{cap(design.category)}</Typography>}
               {design.primaryArtisanId && <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: '0.85rem' }}>· {artisanName(design.primaryArtisanId)}</Typography>}

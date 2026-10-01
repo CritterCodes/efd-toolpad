@@ -124,7 +124,7 @@ export default function DropsPage() {
               <RocketLaunchIcon sx={{ fontSize: 16, color: REPAIRS_UI.accent }} />
               Products
             </Typography>
-            <Typography sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 0.5 }}>
+            <Typography component="h1" sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 0.5 }}>
               Drops
             </Typography>
             <Typography sx={{ color: REPAIRS_UI.textSecondary, lineHeight: 1.6 }}>
