@@ -3,9 +3,13 @@ import axios from 'axios';
 
 // Create an Axios instance
 // Use relative path for client-side to avoid CORS and ensure correct environment usage
-const baseURL = typeof window !== 'undefined' 
-    ? '/api' 
-    : (process.env.NEXT_PUBLIC_URL ? `${process.env.NEXT_PUBLIC_URL}/api` : 'http://localhost:3000/api');
+// On the server, a Vercel PREVIEW must call itself, not NEXT_PUBLIC_URL (the production domain) — see auth.js.
+const serverOrigin = process.env.VERCEL_ENV === 'preview' && process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : process.env.NEXT_PUBLIC_URL;
+const baseURL = typeof window !== 'undefined'
+    ? '/api'
+    : (serverOrigin ? `${serverOrigin}/api` : 'http://localhost:3000/api');
 
 const axiosInstance = axios.create({
     baseURL,

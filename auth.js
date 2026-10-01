@@ -1,7 +1,12 @@
 import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 
-const baseURL = `${process.env.NEXT_PUBLIC_URL}`;
+// Where sign-in checks the password: THIS deployment's own /api/auth/signin. NEXT_PUBLIC_URL is the production
+// domain on Vercel previews too, so until 2026-10-01 a preview (which reads the DEV database) authenticated every
+// login against PRODUCTION's accounts. On a preview, VERCEL_URL is the deployment's own host (set at runtime).
+const baseURL = process.env.VERCEL_ENV === 'preview' && process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : `${process.env.NEXT_PUBLIC_URL}`;
 
 const providers = [
     CredentialsProvider({
