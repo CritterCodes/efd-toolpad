@@ -1,4 +1,5 @@
 import { db } from "@/lib/database";
+import WorkOrdersModel from "@/app/api/workOrders/model";
 import { hasStaffCapability, requireRepairOps, requireRole } from "@/lib/apiAuth";
 import { buildMoveStatusUpdate, MOVE_ALLOWED_STATUSES, normalizeRepairStatus } from "@/services/repairWorkflow";
 
@@ -52,6 +53,9 @@ export const PUT = async (req) => {
         }));
 
         await dbRepairs.bulkWrite(bulkOps);
+        // My Bench lists WORK ORDERS: a scanned Needs parts / Communications / Ready for work never reached
+        // the bench card without this (EFD-DEFECTS B1).
+        await WorkOrdersModel.syncFromRepairIDs(repairIDs);
 
         return new Response(JSON.stringify({ message: 'Repairs updated successfully' }), { status: 200 });
     } catch (error) {
