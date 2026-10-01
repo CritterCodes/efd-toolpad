@@ -246,7 +246,11 @@ export default class MaterialController {
             );
         } catch (error) {
             console.error("Error in MaterialController.deleteMaterial:", error);
-            
+
+            // A material an active task still uses is not archived — say which tasks (EFD-DEFECTS P21).
+            if (error?.code === 'IN_USE') {
+                return new Response(JSON.stringify({ success: false, error: error.message, usedBy: error.users }), { status: 409 });
+            }
             if (error.message.includes('not found')) {
                 return new Response(
                     JSON.stringify({ 

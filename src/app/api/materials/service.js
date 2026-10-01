@@ -3,6 +3,7 @@
 import Material from "./class";
 import MaterialModel from "./model";
 import { db } from '@/lib/database';
+import { usersOfMaterial, InUseError } from '@/services/catalog/catalogUsage';
 
 export default class MaterialService {
     /**
@@ -235,10 +236,12 @@ export default class MaterialService {
                 throw new Error('Material not found');
             }
 
-            // Delete the material
-            const deleted = await MaterialModel.deleteMaterial(materialId);
-            return deleted;
+            // ARCHIVE, never delete, and never while an active task uses it (EFD-DEFECTS P21).
+            const users = await usersOfMaterial(materialId);
+            if (users.length) throw new InUseError(`"${material.displayName || material.name || 'This material'}"`, users);
+            return await MaterialModel.deleteMaterial(materialId);
         } catch (error) {
+            if (error?.code === 'IN_USE') throw error;
             console.error("Error in MaterialService.deleteMaterial:", error);
             throw new Error(`Failed to delete material: ${error.message}`);
         }

@@ -112,7 +112,11 @@ export default function ToolsMachineryPage() {
     }
   };
 
+  // Archives, never deletes — and the server refuses while an active task uses it, naming the tasks
+  // (EFD-DEFECTS P21). It used to delete on one click with no confirmation.
   const handleDelete = async (id) => {
+    const item = items.find((i) => i._id === id);
+    if (!window.confirm(`Archive "${item?.name || 'this tool'}"? It stops being offered; tasks that use it keep their history.`)) return;
     try {
       await toolsMachineryService.deleteTool(id);
       await loadItems();

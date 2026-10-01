@@ -136,7 +136,7 @@ export default function TasksGrid({
                 <Tooltip title="View Details"><IconButton size="small" onClick={() => { setSelectedTask(task); setViewDialog(true); }} sx={{ color: TASKS_UI.textSecondary }}><ViewIcon fontSize="small" /></IconButton></Tooltip>
                 <Tooltip title="Duplicate Task"><IconButton size="small" onClick={() => onDuplicate && onDuplicate(task._id)} sx={{ color: TASKS_UI.textSecondary }}><DuplicateIcon fontSize="small" /></IconButton></Tooltip>
                 <Tooltip title="Edit Task"><IconButton size="small" onClick={() => router.push(`/dashboard/admin/tasks/edit/${task._id}`)} sx={{ color: TASKS_UI.textSecondary }}><EditIcon fontSize="small" /></IconButton></Tooltip>
-                <Tooltip title="Delete Task Permanently"><IconButton size="small" onClick={() => setDeleteDialog({ open: true, task, hardDelete: true })} sx={{ color: TASKS_UI.textSecondary }}><DeleteForeverIcon fontSize="small" /></IconButton></Tooltip>
+                <Tooltip title="Archive Task"><IconButton size="small" onClick={() => setDeleteDialog({ open: true, task, hardDelete: false })} sx={{ color: TASKS_UI.textSecondary }}><DeleteForeverIcon fontSize="small" /></IconButton></Tooltip>
               </Box>
             </Box>
           </Grid>

@@ -182,21 +182,17 @@ export class TasksModel {
   /**
    * Delete task (soft delete by default)
    */
-  static async deleteTask(id, hardDelete = false, userEmail = null) {
+  // ARCHIVE ONLY (EFD-DEFECTS P21). `hardDelete` is ignored: a permanently deleted task left every
+  // repair ticket that used it pointing at nothing. Archived tasks keep their history and can be revived.
+  static async deleteTask(id, _hardDelete = false, userEmail = null) {
     try {
       await db.connect();
       const collection = db._instance.collection(this.collectionName);
 
-      if (hardDelete) {
-        const result = await collection.deleteOne({ _id: new ObjectId(id) });
-        if (result.deletedCount === 0) {
-          throw new Error('Task not found');
-        }
-        return { success: true, message: 'Task permanently deleted' };
-      } else {
-        // Soft delete with enhanced tracking
+      {
         const updateFields = {
           isActive: false,
+          'display.isActive': false,
           archivedAt: new Date(),
           deletedAt: new Date(),
           updatedAt: new Date()

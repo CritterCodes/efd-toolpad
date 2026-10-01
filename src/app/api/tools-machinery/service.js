@@ -1,4 +1,5 @@
 import { ToolMachineryModel } from './model.js';
+import { usersOfTool, InUseError } from '@/services/catalog/catalogUsage';
 
 export class ToolMachineryService {
   static normalizePayload(payload = {}) {
@@ -82,9 +83,13 @@ export class ToolMachineryService {
     return { success: true };
   }
 
+  // ARCHIVE, never delete, and never while an active task uses it (EFD-DEFECTS P21).
   static async remove(id) {
-    const result = await ToolMachineryModel.deleteById(id);
-    if (result.deletedCount === 0) throw new Error('Tool or machinery not found');
-    return { success: true };
+    const existing = await ToolMachineryModel.findById(id);
+    if (!existing) throw new Error('Tool or machinery not found');
+    const users = await usersOfTool(id);
+    if (users.length) throw new InUseError(`"${existing.name || 'This tool'}"`, users);
+    await ToolMachineryModel.updateById(id, { isActive: false, archivedAt: new Date() });
+    return { success: true, archived: true };
   }
 }

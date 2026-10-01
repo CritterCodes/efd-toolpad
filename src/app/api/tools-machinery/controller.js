@@ -55,6 +55,7 @@ export default class ToolMachineryController {
       const result = await ToolMachineryService.remove(id);
       return NextResponse.json(result);
     } catch (error) {
+      if (error?.code === 'IN_USE') return NextResponse.json({ error: error.message, usedBy: error.users }, { status: 409 });
       return NextResponse.json({ error: error.message || 'Failed to delete tool or machinery' }, { status: 400 });
     }
   }
