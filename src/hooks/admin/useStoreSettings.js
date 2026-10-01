@@ -130,7 +130,6 @@ export const useStoreSettings = () => {
             const result = await updateAdminSettings(updateData);
 
             if (result.success) {
-                console.log('Admin settings saved successfully.');
                 setSuccess('Settings saved successfully! Prices are computed live - no cascade needed.');
                 setShowSecurityDialog(false);
                 setSecurityCodeInput('');

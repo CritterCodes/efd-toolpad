@@ -29,7 +29,6 @@ export default function PendingApprovalPage() {
 
   const handleSignOut = async () => {
     try {
-      console.log('🚪 [CLIENT] Starting enhanced logout process...');
       
       // Call our custom logout API to clear server-side session
       const response = await fetch('/api/auth/logout', {
@@ -38,7 +37,6 @@ export default function PendingApprovalPage() {
       });
       
       if (response.ok) {
-        console.log('✅ [CLIENT] Server-side logout successful');
       }
       
       // Also call NextAuth signOut to handle client-side cleanup

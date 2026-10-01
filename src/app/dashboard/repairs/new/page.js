@@ -180,8 +180,6 @@ const NewRepairPage = () => {
 
   const handleSubmit = async (result) => {
     try {
-      console.log('Final repair data:', result);
-      console.log('Repair created successfully:', result);
       showToast?.('Repair created successfully!', 'success');
 
       const repairId = result.newRepair?.repairID
@@ -190,7 +188,6 @@ const NewRepairPage = () => {
         || result.newRepair?._id
         || result._id;
 
-      console.log('Redirecting to print page for repair ID:', repairId);
 
       if (repairId && linkedSaleContext?.invoice?.invoiceID && linkedSaleContext?.line?.lineID) {
         const linkResponse = await fetch(`/api/sales-invoices/${linkedSaleContext.invoice.invoiceID}`, {

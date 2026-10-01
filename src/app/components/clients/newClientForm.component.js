@@ -9,7 +9,6 @@ import UsersService from '@/services/users';
 async function createNewClient(data) {
     try {
         const response = await UsersService.createUser(data);
-        console.log('New client created:', response);
         return await response;
     } catch (error) {
         console.error('Error creating client:', error);

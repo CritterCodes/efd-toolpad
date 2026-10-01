@@ -17,7 +17,7 @@ const ViewUserPage = ({ params }) => {
     const [userID] = useState(resolvedParams?.userID);
     const [user, setUser] = useState(null);
     const [updatedUser, setUpdatedUser] = useState({});
-    const { repairs } = useRepairs();
+    useRepairs(); // keeps the page subscribed to the repairs context, as before
     const [snackbarOpen, setSnackbarOpen] = useState(false);
     const [snackbarMessage, setSnackbarMessage] = useState('');
     const [snackbarSeverity, setSnackbarSeverity] = useState('info');
@@ -103,16 +103,10 @@ const ViewUserPage = ({ params }) => {
     };
 
     useEffect(() => {
-        console.log("✅ Repairs in context at component mount:", repairs);
-        console.log("✅ Current User ID:", userID);
-    }, [repairs, userID]);
-
-    useEffect(() => {
         const fetchUser = async () => {
             if (userID) {
                 try {
                     const fetchedUser = await UsersService.getUserByQuery(userID);
-                    console.log("✅ Fetched User Data:", fetchedUser);
                     setUser(fetchedUser);
                     setUpdatedUser(fetchedUser);
                     setLoading(false);
@@ -126,7 +120,6 @@ const ViewUserPage = ({ params }) => {
     }, [userID]);
 
     const handleEditChange = (field, value) => {
-        console.log(`✏️ Editing Field: ${field}, Value: ${value}`);
         setUpdatedUser(prev => ({ ...prev, [field]: value }));
         setHasChanges(true);
         setSnackbarMessage("⚠️ Unsaved changes detected! Please save.");
@@ -145,7 +138,6 @@ const ViewUserPage = ({ params }) => {
             }
 
             setLoading(true);
-            console.log("📦 Saving Updated User Data:", updatedUser);
             await UsersService.updateUser(userID, updatedUser);
 
             setSnackbarMessage("✅ User saved successfully!");
@@ -163,18 +155,10 @@ const ViewUserPage = ({ params }) => {
     };
 
     if (loading) {
-        console.log("⏳ Loading User Data...");
         return <Typography>Loading user data...</Typography>;
     }
 
-    // ✅ Filtering repairs using userID correctly
-    const userRepairs = repairs.filter(repair => {
-        const match = repair.userID === userID;
-        console.log(`🔧 Repair ID: ${repair.repairID}, Match: ${match}`);
-        return match;
-    });
 
-    console.log("🔧 Filtered Repairs for User:", userRepairs);
 
     return (
         <Box sx={{ pb: 10 }}>

@@ -655,12 +655,6 @@ export default function useNewRepairForm({
       const clientName = clientInfo.name || `${clientInfo.firstName || ''} ${clientInfo.lastName || ''}`.trim();
       const isClientWholesale = !!formData.isWholesale;
 
-      console.log('🔍 Client info detected:', {
-        clientName,
-        role: clientInfo.role,
-        isWholesale: isClientWholesale,
-        clientInfo: clientInfo
-      });
 
       setFormData(prev => ({
         ...prev,
@@ -716,11 +710,9 @@ export default function useNewRepairForm({
   useEffect(() => {
     const loadData = async () => {
       try {
-        console.log('🔄 Loading repair form data...');
 
         // For wholesalers, load their clients and item catalogs
         if (isWholesale) {
-          console.log('👤 Wholesale mode: Loading wholesaler clients and item catalogs...');
           // allSettled for the same reason as the admin branch below: one failing catalog must not
           // discard the two that loaded. This is the wholesaler's intake form — a wholesaler hit the
           // same materials 401, so this branch had the identical failure waiting.
@@ -761,9 +753,7 @@ export default function useNewRepairForm({
             // Don't overwrite storeName if account settings already set it
             storeName: wholesalerBusinessNameRef.current || prev.storeName || resolvedStoreName
           }));
-          console.log('✅ Wholesale clients and item catalogs loaded');
         } else {
-          console.log('🔧 Admin mode: Loading all data...');
           // allSettled, NOT all. One failing catalog must not blank the others.
           //
           // This is how a single 401 took out the whole intake form: getMaterials started returning 401
@@ -792,9 +782,6 @@ export default function useNewRepairForm({
             }));
           }
 
-          console.log('📋 Tasks loaded:', tasks);
-          console.log('📦 Materials loaded:', materials);
-          console.log('👥 Users loaded:', users);
 
           // Optional-chained: a rejected load is null now, and `null.data` would throw a TypeError
           // here — trading a silent empty list for a crashed form.
@@ -834,7 +821,6 @@ export default function useNewRepairForm({
               isWholesale: false
             };
           });
-          console.log('✅ Admin data loading completed');
         }
 
         // Rush job functionality (same for both modes)
@@ -1201,7 +1187,6 @@ export default function useNewRepairForm({
   useEffect(() => {
     // Only update if the prop actually changed, not the form state
     if (prevWholesaleProp.current !== isWholesale) {
-      console.log('💰 Wholesale status changed from prop:', prevWholesaleProp.current, '->', isWholesale);
       prevWholesaleProp.current = isWholesale;
       // Who the ticket is for changed: a saved ticket's lines are re-priced for it.
       setFormData(prev => releaseAllTicketPrices({
@@ -1351,7 +1336,6 @@ export default function useNewRepairForm({
       setAvailableUsers([]); // Clear immediately to avoid showing stale admin clients
       wholesaleClientsAPIClient.fetchClientsByWholesaler(nextStoreId)
         .then((res) => {
-          console.log('📋 Wholesale clients fetched for store:', nextStoreId, res);
           setAvailableUsers(res?.data || []);
         })
         .catch((err) => {
@@ -1409,7 +1393,6 @@ export default function useNewRepairForm({
       // Clear the SKU input
       setStullerSku('');
 
-      console.log('Added Stuller material:', newMaterial);
 
     } catch (error) {
       console.error('Error adding Stuller material:', error);
@@ -1559,22 +1542,6 @@ export default function useNewRepairForm({
       };
 
       // Add comprehensive logging for submission
-      console.log('📤 SUBMISSION DATA DEBUG:');
-      console.log('🔢 Pricing Fields in Submission:', {
-        totalCost: submissionData.totalCost,
-        subtotal: submissionData.subtotal,
-        rushFee: submissionData.rushFee,
-        deliveryFee: submissionData.deliveryFee,
-        taxAmount: submissionData.taxAmount,
-        taxRate: submissionData.taxRate
-      });
-      console.log('🎛️ Flags in Submission:', {
-        isWholesale: submissionData.isWholesale,
-        includeDelivery: submissionData.includeDelivery,
-        includeTax: submissionData.includeTax,
-        isRush: submissionData.isRush
-      });
-      console.log('📋 Full Submission Object:', submissionData);
 
       if (!persistOnSubmit) {
         onSubmit(submissionData);
@@ -1590,7 +1557,6 @@ export default function useNewRepairForm({
       if (submitMode === 'edit') {
         const repairToUpdate = result?.repair || result?.newRepair || result;
         if (repairToUpdate?.repairID) {
-          console.log('Updating repair in context:', repairToUpdate.repairID);
           updateRepair(repairToUpdate.repairID, repairToUpdate);
         } else if (repairID) {
           console.warn('Update response did not include a repairID; merging submitted data into context:', result);
@@ -1600,7 +1566,6 @@ export default function useNewRepairForm({
         // Add the new repair to the repairs context immediately
         if (result && (result.repairID || result.newRepair?.repairID)) {
           const repairToAdd = result.newRepair || result;
-          console.log('Adding new repair to context:', repairToAdd.repairID);
           addRepair(repairToAdd);
         } else {
           console.warn('Could not add repair to context - no repairID found in result:', result);
@@ -1638,7 +1603,6 @@ export default function useNewRepairForm({
   const handleAddNewClient = async () => {
     setNewClientLoading(true);
     try {
-      console.log('🔄 Creating new client:', newClientData);
 
       const clientToCreate = {
         firstName: newClientData.firstName.trim(),
@@ -1647,7 +1611,6 @@ export default function useNewRepairForm({
         phoneNumber: newClientData.phone.trim() || ''
       };
 
-      console.log('📤 Sending client creation request:', clientToCreate);
 
       // Determine if we're creating for a wholesale store
       const isCreatingForWholesale = formData.isWholesale;
@@ -1671,12 +1634,9 @@ export default function useNewRepairForm({
 
       const createdClient = createdClientResponse?.data || createdClientResponse.user || createdClientResponse;
 
-      console.log('✅ Created client response:', createdClientResponse);
-      console.log('✅ Created client data:', createdClient);
 
       // Check if client is wholesale
       const isWholesaleClient = !!formData.isWholesale;
-      console.log('💰 New client wholesale status:', isWholesaleClient);
 
       // Add to available users list
       setAvailableUsers(prev => [...prev, createdClient]);
@@ -1711,7 +1671,6 @@ export default function useNewRepairForm({
       });
       setShowNewClientDialog(false);
 
-      console.log('🎉 New client created and selected successfully');
 
     } catch (error) {
       console.error('❌ Error creating new client:', error);

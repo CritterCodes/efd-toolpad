@@ -55,25 +55,20 @@ const ClientRepairsTab = ({ userID, user }) => {
     const rowsPerPage = 6;
 
     useEffect(() => {
-        console.log("✅ Repairs in context:", repairs);
-        console.log("✅ Filtering for userID:", userID);
 
         // ✅ Filter repairs by userID
         const clientIdentifiers = getClientIdentifiers(userID, user);
         let updatedRepairs = repairs.filter(repair => {
             const match = repairBelongsToClient(repair, clientIdentifiers);
             if (!match) {
-                console.log(`❌ Repair filtered out - ID: ${repair.repairID}, userID: ${repair.userID}`);
             }
             return match;
         });
 
-        console.log("✅ Repairs after userID filter:", updatedRepairs);
 
         // ✅ Apply status filter
         if (statusFilter) {
             updatedRepairs = updatedRepairs.filter(repair => repair.status === statusFilter);
-            console.log("✅ Repairs after status filter:", updatedRepairs);
         }
 
         // ✅ Apply search query filter
@@ -82,7 +77,6 @@ const ClientRepairsTab = ({ userID, user }) => {
                 (repair.clientName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                 (repair.description || '').toLowerCase().includes(searchQuery.toLowerCase())
             );
-            console.log("✅ Repairs after search query filter:", updatedRepairs);
         }
 
         // ✅ Sort repairs
@@ -92,7 +86,6 @@ const ClientRepairsTab = ({ userID, user }) => {
             return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
         });
 
-        console.log("✅ Repairs after sorting:", updatedRepairs);
         setFilteredRepairs(updatedRepairs);
     }, [repairs, statusFilter, searchQuery, sortOrder, userID, user]);
 
