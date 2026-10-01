@@ -15,7 +15,7 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const result = await archiveNotification(notificationId);
+    const result = await archiveNotification(notificationId, session.user.userID, { isAdmin: ['admin', 'superadmin', 'dev'].includes(session.user.role) });
 
     if (!result) {
       return NextResponse.json({ error: 'Notification not found' }, { status: 404 });

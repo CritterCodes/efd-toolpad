@@ -3,6 +3,10 @@ import { requireAuth } from '@/lib/apiAuth';
 import { isStaff } from '@/lib/designPermissions';
 import ShipmentsModel from '@/app/api/shipments/model';
 import { createShipment, ShippingError } from '@/services/production/shipping';
+import DesignsModel from '@/app/api/designs/model';
+import PiecesModel from '@/app/api/pieces/model';
+import CastingBatchesModel from '@/app/api/castingBatches/model';
+import { shipmentRefusal } from '@/services/production/productionAccess';
 
 /** GET /api/production/shipments — scoped: staff see all, an artisan sees their own. ?runId/?status. */
 export const GET = async (req) => {
@@ -23,6 +27,13 @@ export const POST = async (req) => {
   if (errorResponse) return errorResponse;
   const body = await req.json().catch(() => ({}));
   const ownerId = isStaff(session) && body.ownerId ? body.ownerId : session.user.userID;
+  // Signed in isn't enough: an artisan ships only their own pieces and casting batches (productionAccess).
+  const refusal = await shipmentRefusal(session, body, {
+    loadDesign: (id) => DesignsModel.findById(id).catch(() => null),
+    loadPiece: (id) => PiecesModel.findById(id).catch(() => null),
+    loadBatch: (id) => CastingBatchesModel.findById(id).catch(() => null),
+  });
+  if (refusal) return NextResponse.json({ error: refusal.error }, { status: refusal.status });
   try {
     const shipment = await createShipment({ ...body, ownerId, createdBy: session.user.userID });
     return NextResponse.json(shipment, { status: 201 });

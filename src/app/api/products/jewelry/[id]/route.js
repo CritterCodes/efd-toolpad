@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db as mongo } from '@/lib/database';
-import { getUserArtisanTypes, canManageJewelry } from '@/lib/productPermissions';
+import { canAccessListing, listingEditorRefusal } from '@/services/production/jewelryListingAccess';
 import { toEditorShape, applyEditorPatch } from '@/services/production/jewelryListingEditor';
 import { loadJewelryListing } from '@/services/production/listingLookup';
 
@@ -16,28 +16,13 @@ import { loadJewelryListing } from '@/services/production/listingLookup';
  * which to the physical piece.
  */
 
-const STAFF_ROLES = new Set(['admin', 'superadmin', 'dev', 'staff']);
-
-/** Staff, or the artisan who owns the design. */
-function canAccess(session, design) {
-  if (STAFF_ROLES.has(session.user.role)) return true;
-  const ids = [session.user.userID, session.user.email].filter(Boolean);
-  return ids.includes(design.primaryArtisanId) || ids.includes(design.createdBy);
-}
+/** Staff, or the artisan who owns the design (shared with the upload routes). */
+const canAccess = canAccessListing;
 
 /** Non-staff editors must actually be jewelers. */
 async function jewelerCheck(db, session) {
-  if (STAFF_ROLES.has(session.user.role)) return null;
-  const userProfile = await db.collection('users').findOne({
-    $or: [
-      ...(session.user.userID ? [{ userID: session.user.userID }] : []),
-      ...(session.user.email ? [{ email: session.user.email }] : []),
-    ],
-  });
-  if (!canManageJewelry(session.user.role, getUserArtisanTypes(userProfile))) {
-    return NextResponse.json({ error: 'Only jewelers and admins can edit jewelry listings' }, { status: 403 });
-  }
-  return null;
+  const refusal = await listingEditorRefusal(db, session);
+  return refusal ? NextResponse.json({ error: refusal }, { status: 403 }) : null;
 }
 
 export async function GET(request, { params }) {

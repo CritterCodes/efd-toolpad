@@ -115,20 +115,20 @@ export class NotificationService {
     });
   }
 
-  static async markAsRead(notificationId, userId) {
-    return markNotificationAsRead(notificationId, userId);
+  static async markAsRead(notificationId, userId, scope) {
+    return markNotificationAsRead(notificationId, userId, scope);
   }
 
-  static async archiveNotification(notificationId) {
-    return archiveNotification(notificationId);
+  static async archiveNotification(notificationId, userId, scope) {
+    return archiveNotification(notificationId, userId, scope);
   }
 }
 
 const notificationServiceInstance = {
   getNotifications: (userId, options) => NotificationService.getNotifications(userId, options),
   createNotification: (params) => NotificationService.createNotification(params),
-  markAsRead: (id, userId) => NotificationService.markAsRead(id, userId),
-  archiveNotification: (id) => NotificationService.archiveNotification(id),
+  markAsRead: (id, userId, scope) => NotificationService.markAsRead(id, userId, scope),
+  archiveNotification: (id, userId, scope) => NotificationService.archiveNotification(id, userId, scope),
 };
 
 export default notificationServiceInstance;
