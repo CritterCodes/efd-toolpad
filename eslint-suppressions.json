@@ -34,21 +34,6 @@
       "count": 1
     }
   },
-  "src/app/api/ai/describe-item-image/route.js": {
-    "no-console": {
-      "count": 1
-    }
-  },
-  "src/app/api/ai/generate-ai-meta/route.js": {
-    "no-console": {
-      "count": 8
-    }
-  },
-  "src/app/api/ai/parse-smart-intake/route.js": {
-    "no-console": {
-      "count": 2
-    }
-  },
   "src/app/api/artisan/gallery/route.js": {
     "no-console": {
       "count": 2
@@ -79,37 +64,7 @@
       "count": 2
     }
   },
-  "src/app/api/collections/[id]/publish/route.js": {
-    "no-console": {
-      "count": 1
-    }
-  },
   "src/app/api/cron/release-drops/route.js": {
-    "no-console": {
-      "count": 1
-    }
-  },
-  "src/app/api/designs/[designId]/configure/route.js": {
-    "no-console": {
-      "count": 16
-    }
-  },
-  "src/app/api/designs/[designId]/route.js": {
-    "no-console": {
-      "count": 19
-    }
-  },
-  "src/app/api/drop-requests/[id]/publish/route.js": {
-    "no-console": {
-      "count": 1
-    }
-  },
-  "src/app/api/drop-requests/[id]/submissions/[submissionIndex]/[action]/route.js": {
-    "no-console": {
-      "count": 2
-    }
-  },
-  "src/app/api/drop-requests/[id]/submit/route.js": {
     "no-console": {
       "count": 1
     }
@@ -122,21 +77,6 @@
   "src/app/api/processes/find-by-materials/route.js": {
     "no-console": {
       "count": 1
-    }
-  },
-  "src/app/api/products/[id]/submit/route.js": {
-    "no-console": {
-      "count": 2
-    }
-  },
-  "src/app/api/products/[id]/unpublish/route.js": {
-    "no-console": {
-      "count": 1
-    }
-  },
-  "src/app/api/products/gemstones/[id]/upload-obj/route.js": {
-    "no-console": {
-      "count": 8
     }
   },
   "src/app/api/repair-invoices/service.js": {

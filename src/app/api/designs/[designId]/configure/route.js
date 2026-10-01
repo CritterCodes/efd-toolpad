@@ -11,7 +11,6 @@ import { ObjectId } from 'mongodb';
 export async function POST(request, { params }) {
     try {
         const { designId } = await params;
-        console.log('📋 Configuring design:', designId);
 
         const session = await auth();
         if (!session?.user) {
@@ -36,15 +35,6 @@ export async function POST(request, { params }) {
             packagingCost = 0
         } = body;
 
-        console.log('💰 Configuration data:', {
-            cadLabor,
-            productionLabor,
-            pendantType,
-            chainCost,
-            shippingCost,
-            marketingCost,
-            packagingCost
-        });
 
         const db = await mongo.connect();
 
@@ -63,20 +53,16 @@ export async function POST(request, { params }) {
         }
 
         if (!gemstone) {
-            console.log('❌ Gemstone not found for design:', designId);
             return NextResponse.json({ error: 'Design not found' }, { status: 404 });
         }
 
-        console.log('✅ Found gemstone:', gemstone.productId);
 
         const design = gemstone.designs.find(d => d.id === designId || d._id?.toString() === designId);
         
         if (!design) {
-            console.log('❌ Design not found in gemstone.designs');
             return NextResponse.json({ error: 'Design not found' }, { status: 404 });
         }
 
-        console.log('✅ Found design:', design.id || design._id, 'Status:', design.status);
 
         // Calculate total COG
         const totalCOG = 
@@ -87,12 +73,10 @@ export async function POST(request, { params }) {
             parseFloat(marketingCost || 0) +
             parseFloat(packagingCost || 0);
 
-        console.log('💵 Total COG calculated:', totalCOG);
 
         // Update design configuration
         let updateResult;
         if (design.id) {
-            console.log('🔄 Updating design configuration (new id format):', designId);
             updateResult = await db.collection('products').updateOne(
                 {
                     productId: gemstone.productId,
@@ -115,7 +99,6 @@ export async function POST(request, { params }) {
                 }
             );
         } else {
-            console.log('🔄 Updating design configuration (old _id format):', designId);
             updateResult = await db.collection('products').updateOne(
                 {
                     productId: gemstone.productId,
@@ -139,20 +122,14 @@ export async function POST(request, { params }) {
             );
         }
 
-        console.log('📊 Update result:', {
-            modifiedCount: updateResult.modifiedCount,
-            matchedCount: updateResult.matchedCount
-        });
 
         if (updateResult.modifiedCount === 0) {
-            console.log('⚠️ Configuration saved but update might have failed. Matched:', updateResult.matchedCount);
             return NextResponse.json({ 
                 error: 'Failed to update design configuration',
                 details: `Matched ${updateResult.matchedCount} documents but modified 0`
             }, { status: 500 });
         }
 
-        console.log('✅ Design configuration saved successfully');
 
         return NextResponse.json({
             success: true,
@@ -189,7 +166,6 @@ export async function POST(request, { params }) {
 export async function GET(request, { params }) {
     try {
         const { designId } = await params;
-        console.log('📋 Fetching design configuration:', designId);
 
         const session = await auth();
         if (!session?.user) {
@@ -208,18 +184,15 @@ export async function GET(request, { params }) {
         });
 
         if (!gemstone) {
-            console.log('❌ Gemstone not found for design:', designId);
             return NextResponse.json({ error: 'Design not found' }, { status: 404 });
         }
 
         const design = gemstone.designs.find(d => d.id === designId || d._id?.toString() === designId);
         
         if (!design) {
-            console.log('❌ Design not found');
             return NextResponse.json({ error: 'Design not found' }, { status: 404 });
         }
 
-        console.log('✅ Design configuration retrieved');
 
         return NextResponse.json({
             success: true,
