@@ -215,8 +215,8 @@ Refreshed by `npm run guardrails:report -- --markdown`; the baseline file is `es
 |---|---|---|---|
 | `no-console` | 368 | **0** — DONE 2026-10-01 (the last 82 were removed with the emergency-logout diagnostics + an old migration, Q6); now a plain error | — |
 | `no-unused-vars` | 208 | 1 — `utils/stlVolumeCalculator.js` header view, kept on purpose (it throws on a file under 80 bytes) | 2026-10-24 |
-| `max-lines` (400) | 42 | 42 (42 files) | 2027-01-31 — or retired (see "Retire what nobody uses") |
-| views check (`e2e/views/baseline.json`) | 296 (2026-10-01) | 8 — 4 pages, all no-`<h1>` | — |
+| `max-lines` (400) | 42 | 40 — 2026-10-01: wholesaleLeadService + repairAnalytics split | 2027-01-31 — or retired (see "Retire what nobody uses") |
+| views check (`e2e/views/baseline.json`) | 296 (2026-10-01) | **0** — DONE 2026-10-01 | — |
 | `no-undef` | 0 | 0 | — plain error since Phase 0 |
 | browser code → database / server models | 0 | 0 | — plain error |
 | API routes → UI code | 0 | 0 | — plain error |
