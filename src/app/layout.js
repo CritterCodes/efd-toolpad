@@ -12,6 +12,10 @@ export const dynamic = 'force-dynamic';
 export const metadata = {
     title: 'Engel Fine Design - Jewelry Repair Management',
     description: 'Complete jewelry repair and task management system for Engel Fine Design',
+    // The admin app is staff-only: keep it out of search results. Vercel adds a noindex header to its own
+    // *.vercel.app URLs but NOT to admin.engelfinedesign.com, which until 2026-10-01 told crawlers nothing
+    // (found by scripts/ship-checks.mjs). robots.txt is src/app/robots.js.
+    robots: { index: false, follow: false },
     manifest: '/manifest.json',
     icons: {
         icon: [
