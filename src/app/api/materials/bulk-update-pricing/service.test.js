@@ -89,4 +89,48 @@ describe('runMaterialPriceSync product updates', () => {
     // no price -> no update op at all for this material
     expect(bulkWrite).not.toHaveBeenCalled();
   });
+
+  // EFD-DEFECTS P23
+  it("honours a variant's auto-update switch, unless forced", async () => {
+    materialsFixture = [{
+      _id: 'mat3', displayName: 'Solder',
+      stullerProducts: [
+        { stullerItemNumber: 'S-ON', stullerPrice: 10 },
+        { stullerItemNumber: 'S-OFF', stullerPrice: 10, autoUpdatePricing: false },
+      ],
+    }];
+    await runMaterialPriceSync();
+    const products = bulkWrite.mock.calls[0][0][0].updateOne.update.$set.stullerProducts;
+    expect(products.map((p) => p.stullerPrice)).toEqual([200, 10]);
+
+    bulkWrite.mockClear();
+    await runMaterialPriceSync(null, { force: true });
+    expect(bulkWrite.mock.calls[0][0][0].updateOne.update.$set.stullerProducts.map((p) => p.stullerPrice)).toEqual([200, 200]);
+  });
+
+  it("skips a material switched off, and never switches it back on", async () => {
+    materialsFixture = [{ _id: 'mat4', displayName: 'Off', auto_update_pricing: false, stullerProducts: [{ stullerItemNumber: 'X', stullerPrice: 1 }] }];
+    await runMaterialPriceSync();
+    expect(bulkWrite).not.toHaveBeenCalled();
+
+    materialsFixture = [{ _id: 'mat5', displayName: 'On', stullerProducts: [{ stullerItemNumber: 'Y', stullerPrice: 1 }] }];
+    await runMaterialPriceSync();
+    expect(bulkWrite.mock.calls[0][0][0].updateOne.update.$set).not.toHaveProperty('auto_update_pricing');
+  });
+
+  it('one SKU Stuller cannot answer skips only that SKU — and is reported', async () => {
+    global.fetch = vi.fn(async (url) => {
+      const sku = decodeURIComponent(String(url).split('SKU=')[1]);
+      if (sku === 'BAD') return { ok: false, status: 404, text: async () => 'nope' };
+      return stullerResponse(sku, 200);
+    });
+    materialsFixture = [{ _id: 'mat6', displayName: 'Stock', stullerProducts: [
+      { stullerItemNumber: 'BAD', stullerPrice: 5 },
+      { stullerItemNumber: 'GOOD', stullerPrice: 5 },
+    ] }];
+    const result = await runMaterialPriceSync();
+    expect(bulkWrite.mock.calls[0][0][0].updateOne.update.$set.stullerProducts.map((p) => p.stullerPrice)).toEqual([5, 200]);
+    expect(result.payload.failed).toBe(1);
+    expect(result.payload.failures[0]).toMatchObject({ sku: 'BAD' });
+  });
 });

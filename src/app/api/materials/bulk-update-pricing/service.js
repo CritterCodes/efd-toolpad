@@ -87,9 +87,8 @@ export async function runMaterialPriceSync(adminSettings = null, options = {}) {
   const materialsCollection = await db.dbMaterials();
   const adminCollection = await db.dbAdminSettings();
 
-  const dbSettings =
-    (await adminCollection.findOne({ _id: 'repair_task_admin_settings' })) ||
-    (await adminCollection.findOne({}));
+  // THE settings document — never "whichever adminSettings document came first".
+  const dbSettings = await adminCollection.findOne({ _id: 'repair_task_admin_settings' });
 
   if (!dbSettings?.stuller?.enabled) {
     return { status: 400, payload: { error: 'Stuller integration is not enabled' } };
@@ -132,18 +131,32 @@ export async function runMaterialPriceSync(adminSettings = null, options = {}) {
     return result;
   };
 
+  // EFD-DEFECTS P23. The owner's "don't auto-update" switches are honoured (a variant's
+  // `autoUpdatePricing: false`, a material's `auto_update_pricing: false`) unless the run is forced, and
+  // the sync no longer turns them back on. One SKU Stuller can't answer is recorded and skipped — it used
+  // to throw out of the whole material, so every other variant of it silently stopped updating.
+  const force = options.force === true;
+  const priceOrFailure = async (material, sku) => {
+    try {
+      return { live: await getPrice(sku) };
+    } catch (error) {
+      failures.push({ materialId: String(material._id), name: material.displayName || material.name || 'Unknown Material', sku, error: error.message });
+      return { live: null };
+    }
+  };
+
   for (const material of materials) {
     try {
+      if (!force && material.auto_update_pricing === false) continue;
       const setUpdates = { updatedAt: now };
       let anyPriceUpdated = false;
 
       const topLevelSku = normalizeSku(material.stuller_item_number);
       if (topLevelSku) {
-        const topLevelPrice = await getPrice(topLevelSku);
+        const { live: topLevelPrice } = await priceOrFailure(material, topLevelSku);
         if (topLevelPrice?.price > 0) {
           setUpdates.stullerPrice = topLevelPrice.price;
           setUpdates.last_price_update = now;
-          setUpdates.auto_update_pricing = true;
           anyPriceUpdated = true;
         }
       }
@@ -153,12 +166,12 @@ export async function runMaterialPriceSync(adminSettings = null, options = {}) {
 
         for (const product of material.stullerProducts) {
           const sku = normalizeSku(product?.stullerItemNumber || product?.sku);
-          if (!sku) {
+          if (!sku || (!force && product?.autoUpdatePricing === false)) {
             updatedProducts.push(product);
             continue;
           }
 
-          const live = await getPrice(sku);
+          const { live } = await priceOrFailure(material, sku);
           if (!live?.price || live.price <= 0) {
             updatedProducts.push(product);
             continue;
@@ -178,7 +191,6 @@ export async function runMaterialPriceSync(adminSettings = null, options = {}) {
         if (anyPriceUpdated) {
           setUpdates.stullerProducts = updatedProducts;
           setUpdates.last_price_update = now;
-          setUpdates.auto_update_pricing = true;
         }
       }
 
