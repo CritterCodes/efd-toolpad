@@ -159,11 +159,6 @@
       "count": 1
     }
   },
-  "src/app/api/repairs/[repairID]/claim/route.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/app/api/repairs/controller.js": {
     "no-console": {
       "count": 2
