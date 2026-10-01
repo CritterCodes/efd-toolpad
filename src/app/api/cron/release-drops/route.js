@@ -27,7 +27,6 @@ export async function GET(req) {
         result.refused.map((r) => `${r.name || r.dropId}: ${r.error}`).join('; '));
     }
     if (result.released) {
-      console.log(`[cron] release-drops released ${result.released} drop(s)`);
     }
     return Response.json({ success: true, dryRun, ...result });
   } catch (e) {

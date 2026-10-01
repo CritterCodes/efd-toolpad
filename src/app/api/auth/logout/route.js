@@ -3,7 +3,6 @@ import { signOut } from '../../../../../auth.js'
 
 export async function POST(req) {
   try {
-    console.log('🚪 [LOGOUT] Logout request received')
     
     // Clear NextAuth session
     await signOut()
@@ -46,7 +45,6 @@ export async function POST(req) {
       sameSite: 'lax'
     })
     
-    console.log('✅ [LOGOUT] All auth cookies cleared')
     
     return response
     

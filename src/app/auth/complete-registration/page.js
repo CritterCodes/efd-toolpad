@@ -21,7 +21,6 @@ const CompleteRegistration = () => {
                     // Retrieve the pending user data from sessionStorage
                     const pendingUserData = JSON.parse(sessionStorage.getItem("pendingUserData"));
                     sessionStorage.removeItem("pendingUserData"); // Clean up
-                    console.log("Pending User Data:", pendingUserData);
 
                     if (pendingUserData) {
                         // Merge Google session data with form data
