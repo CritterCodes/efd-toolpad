@@ -38,6 +38,17 @@ export function getWeekEndFromStart(weekStart) {
   return end;
 }
 
+/**
+ * Pure: is this labor credit already in a payroll batch (or paid)? A locked credit is never reopened: not
+ * re-flagged for review, not re-split, not zeroed (EFD-DEFECTS P1, P5). Re-flagging a paid credit put it
+ * back in Labor Review, and "Finalize Split" then minted new, unbatched logs that were paid a second time.
+ * A correction to a locked credit is a payroll adjustment, made by a person.
+ */
+export function isLaborLogLocked(log = {}) {
+  const status = normalizePayrollLogStatus(log?.payrollStatus);
+  return status !== PAYROLL_LOG_STATUS.UNBATCHED || Boolean(String(log?.payrollBatchID || '').trim());
+}
+
 export function normalizePayrollLogStatus(status) {
   if (status === PAYROLL_LOG_STATUS.BATCHED) return PAYROLL_LOG_STATUS.BATCHED;
   if (status === PAYROLL_LOG_STATUS.PAID) return PAYROLL_LOG_STATUS.PAID;
