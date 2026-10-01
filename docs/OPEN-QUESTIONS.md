@@ -94,3 +94,16 @@ Removing them would hollow out those tools.
 becomes a plain error. Better still, if the status migration has run everywhere, retire it.
 
 **Status:** DECIDED 2026-10-01 — owner: *"idk what that is remove"*. The emergency-logout page's debug-dump buttons and the old products status migration were removed in #173; the page's logout tools stay. `no-console` is 0 and a plain error.
+
+---
+
+### Q7 — Retire `PUT`/`DELETE /api/wholesale/repairs/[repairId]`? (opened 2026-10-01)
+
+**Context.** Found while fixing EFD-DEFECTS B1. The route let any signed-in owner of a repair (a store) `$set` any field
+on it (status, prices, `userID`) and delete it at any stage, writing the collection directly. Nothing in efd-admin or
+efd-shop calls it. It is now admin-only and goes through `RepairsModel` (work-order sync on update, full cleanup on
+delete).
+
+**Recommendation:** delete the route. Admins already edit repairs through `/api/repairs`.
+
+**Status:** open.
