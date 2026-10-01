@@ -3,6 +3,7 @@ import RepairLaborLogsModel from '@/app/api/repairLaborLogs/model';
 import { requireRole } from '@/lib/apiAuth';
 import { getLaborRateSnapshotForUser } from '@/app/api/repairLaborLogs/utils';
 import { assertCanHoldWork, apprenticeErrorStatus } from '@/services/pay/apprentice';
+import { isLaborLogLocked } from '@/services/payrollUtils';
 
 export const GET = async () => {
   try {
@@ -28,6 +29,14 @@ export const POST = async (req) => {
 
     const existing = await RepairLaborLogsModel.findByLogID(logID);
     if (!existing) return NextResponse.json({ error: 'Labor log not found.' }, { status: 404 });
+    // A credit in a payroll batch (or paid) can't be re-reviewed or split: a split mints new, unbatched
+    // credits that get paid again (EFD-DEFECTS P1). Correct a paid credit in payroll.
+    if (isLaborLogLocked(existing)) {
+      return NextResponse.json({
+        error: `This credit is already in payroll batch ${existing.payrollBatchID || '(unknown)'} — it can't be reviewed again. Adjust it in payroll.`,
+        code: 'LABOR_LOG_LOCKED',
+      }, { status: 409 });
+    }
 
     // SPLIT credit across multiple jewelers: the first allocation updates this log;
     // the rest become their own reviewed labor logs on the same work order/repair, so
