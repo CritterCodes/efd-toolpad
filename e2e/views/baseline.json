@@ -1,22 +1,10 @@
 [
   "admin|desktop|/dashboard/admin/repair-tasks/create|no-h1",
-  "admin|desktop|/dashboard/appointments|no-h1",
   "admin|desktop|/dashboard/artisan/designs/new|no-h1",
   "admin|desktop|/dashboard/products/drops/new|no-h1",
   "admin|desktop|/dashboard/repairs/bulk-print|no-h1",
-  "admin|desktop|/dashboard/repairs/funnel|no-h1",
-  "admin|desktop|/dashboard/repairs/new|no-h1",
   "admin|phone|/dashboard/admin/repair-tasks/create|no-h1",
-  "admin|phone|/dashboard/appointments|no-h1",
   "admin|phone|/dashboard/artisan/designs/new|no-h1",
   "admin|phone|/dashboard/products/drops/new|no-h1",
-  "admin|phone|/dashboard/repairs/bulk-print|no-h1",
-  "admin|phone|/dashboard/repairs/funnel|no-h1",
-  "admin|phone|/dashboard/repairs/new|no-h1",
-  "affiliate|desktop|/dashboard/affiliate/payouts|no-h1",
-  "affiliate|phone|/dashboard/affiliate/payouts|no-h1",
-  "artisan-onsite|desktop|/dashboard/repairs/new|no-h1",
-  "artisan-onsite|phone|/dashboard/repairs/new|no-h1",
-  "wholesaler|desktop|/dashboard/repairs/new|no-h1",
-  "wholesaler|phone|/dashboard/repairs/new|no-h1"
+  "admin|phone|/dashboard/repairs/bulk-print|no-h1"
 ]

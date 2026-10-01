@@ -313,7 +313,7 @@ export default function AppointmentsPage() {
   return (
     <Box sx={{ p: 3, backgroundColor: REPAIRS_UI.bgPrimary, minHeight: '100vh' }}>
       <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1 }}>
-        <Typography variant="h5" sx={{ color: REPAIRS_UI.textPrimary, fontWeight: 600 }}>
+        <Typography component="h1" variant="h5" sx={{ color: REPAIRS_UI.textPrimary, fontWeight: 600 }}>
           Bench day
         </Typography>
         <Chip
