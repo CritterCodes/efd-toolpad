@@ -30,6 +30,8 @@ const DEFAULT_FORM = {
   purchasePrice: '',
   expectedUses: '',
   costPerUse: '',
+  // True only when someone TYPED the cost per use: then it wins over purchase price ÷ expected uses.
+  costPerUseOverride: false,
   notes: '',
   isActive: true
 };
@@ -78,6 +80,7 @@ export default function ToolsMachineryPage() {
       purchasePrice: item.purchasePrice ?? '',
       expectedUses: item.expectedUses ?? '',
       costPerUse: item.costPerUse ?? '',
+      costPerUseOverride: item.costPerUseOverride === true,
       notes: item.notes || '',
       isActive: item.isActive !== false
     });
@@ -92,7 +95,12 @@ export default function ToolsMachineryPage() {
 
   const setField = (field) => (e) => {
     const value = e?.target?.type === 'checkbox' ? e.target.checked : e?.target?.value;
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => ({
+      ...prev,
+      [field]: value,
+      // Typing a cost per use makes it an override; clearing the field goes back to the calculation.
+      ...(field === 'costPerUse' ? { costPerUseOverride: String(value ?? '').trim() !== '' } : {}),
+    }));
   };
 
   const handleSubmit = async () => {
@@ -300,7 +308,7 @@ export default function ToolsMachineryPage() {
           <TextField margin="dense" fullWidth label="Category" value={formData.category} onChange={setField('category')} placeholder="machinery, tooling, laser" />
           <TextField margin="dense" fullWidth type="number" label="Purchase Price" value={formData.purchasePrice} onChange={setField('purchasePrice')} inputProps={{ min: 0, step: 0.01 }} />
           <TextField margin="dense" fullWidth type="number" label="Expected Lifetime Uses" value={formData.expectedUses} onChange={setField('expectedUses')} inputProps={{ min: 0, step: 1 }} />
-          <TextField margin="dense" fullWidth type="number" label="Cost Per Use (override)" value={formData.costPerUse} onChange={setField('costPerUse')} inputProps={{ min: 0, step: 0.01 }} helperText="Auto-calculated from purchase price ÷ expected uses if set." />
+          <TextField margin="dense" fullWidth type="number" label="Cost Per Use (override)" value={formData.costPerUse} onChange={setField('costPerUse')} inputProps={{ min: 0, step: 0.01 }} helperText={formData.costPerUseOverride ? 'Your number — it overrides purchase price ÷ expected uses. Clear it to calculate.' : 'Calculated from purchase price ÷ expected uses. Type a number to override it.'} />
           <TextField margin="dense" fullWidth multiline minRows={2} label="Notes" value={formData.notes} onChange={setField('notes')} />
         </DialogContent>
         <DialogActions sx={{ borderTop: `1px solid ${TASKS_UI.border}`, px: 3, py: 2 }}>

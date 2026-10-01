@@ -7,9 +7,13 @@ export class ToolMachineryService {
     const expectedUses = Number(payload.expectedUses || 0);
     const suppliedCostPerUse = Number(payload.costPerUse || 0);
 
-    const computedCostPerUse = expectedUses > 0
-      ? purchasePrice / expectedUses
-      : suppliedCostPerUse;
+    // A cost per use someone TYPED (costPerUseOverride) wins; otherwise it's purchase price ÷ expected
+    // uses. It used to be recalculated whenever expected uses was set, silently replacing an override
+    // (EFD-DEFECTS P25).
+    const override = payload.costPerUseOverride === true && suppliedCostPerUse > 0;
+    const computedCostPerUse = override
+      ? suppliedCostPerUse
+      : expectedUses > 0 ? purchasePrice / expectedUses : suppliedCostPerUse;
 
     return {
       name: String(payload.name || '').trim(),
@@ -17,6 +21,7 @@ export class ToolMachineryService {
       purchasePrice: purchasePrice > 0 ? purchasePrice : 0,
       expectedUses: expectedUses > 0 ? expectedUses : 0,
       costPerUse: computedCostPerUse > 0 ? Number(computedCostPerUse.toFixed(4)) : 0,
+      costPerUseOverride: override,
       notes: String(payload.notes || '').trim(),
       isActive: payload.isActive !== false
     };

@@ -15,13 +15,19 @@ export function buildQuery(filters) {
 
   console.log('🔥 MODEL - buildQuery called with filters:', filters);
 
+  // Every condition goes into $and — the search and the metal filter each used to SET `query.$or`, so
+  // whichever came last silently replaced the other (EFD-DEFECTS P25).
+  const and = [];
+  const escape = (v) => String(v).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
   if (filters.search) {
-    query.$or = [
-      { title: { $regex: filters.search, $options: 'i' } },
-      { description: { $regex: filters.search, $options: 'i' } },
-      { sku: { $regex: filters.search, $options: 'i' } },
-      { 'processes.displayName': { $regex: filters.search, $options: 'i' } }
-    ];
+    const search = { $regex: escape(filters.search), $options: 'i' };
+    and.push({ $or: [
+      { title: search },
+      { description: search },
+      { sku: search },
+      { 'processes.displayName': search }
+    ] });
   }
 
   if (filters.category) {
@@ -40,27 +46,19 @@ export function buildQuery(filters) {
   // in the shop. Untagged therefore means "repair", and tagging a task 'custom' alone is what takes it
   // OUT of repairs — the only way to express a custom-only task.
   if (filters.context === 'repair') {
-    query.$and = [
-      ...(query.$and || []),
-      { $or: [{ contexts: 'repair' }, { contexts: { $in: [null, []] } }, { contexts: { $exists: false } }] },
-    ];
+    and.push({ $or: [{ contexts: 'repair' }, { contexts: { $in: [null, []] } }, { contexts: { $exists: false } }] });
   } else if (filters.context) {
     query.contexts = filters.context;
   }
 
-  if (filters.metalType && filters.metalType !== 'all') {
-    query.$or = [
-      { metalType: filters.metalType },
-      { [`pricing.totalCosts.${formatMetalKey(filters.metalType, '14K')}`]: { $exists: true } }
-    ];
-  }
-
-  if (filters.hasUniversalPricing !== undefined) {
-    if (filters.hasUniversalPricing === true || filters.hasUniversalPricing === 'true') {
-      query['pricing.totalCosts'] = { $exists: true };
-    } else {
-      query['pricing.totalCosts'] = { $exists: false };
-    }
+  // OFFERED FOR A METAL: unrestricted tasks, or tasks restricted to that metal. This read a STORED
+  // per-metal price map (`pricing.totalCosts`) — prices aren't stored any more, so it matched nothing.
+  if (filters.metalType && !['all', 'mixed'].includes(filters.metalType)) {
+    and.push({ $or: [
+      { metals: { $exists: false } },
+      { metals: { $size: 0 } },
+      { metals: { $regex: escape(filters.metalType), $options: 'i' } }
+    ] });
   }
 
   if (filters.isActive !== undefined && filters.isActive !== '') {
@@ -72,21 +70,10 @@ export function buildQuery(filters) {
     console.log('🔥 MODEL - Active filter applied:', { filterValue: filters.isActive, queryValue: query.isActive });
   }
 
-  if (filters.priceMin !== undefined || filters.priceMax !== undefined) {
-    const priceFilter = {};
-    if (filters.priceMin !== undefined) priceFilter.$gte = parseFloat(filters.priceMin);
-    if (filters.priceMax !== undefined) priceFilter.$lte = parseFloat(filters.priceMax);
+  // No price filters: prices are calculated on read and never stored (services/pricing/engine.js),
+  // so there is nothing in the database to filter on.
 
-    query.$or = [
-      { price: priceFilter },
-      { basePrice: priceFilter }
-    ];
-
-    if (filters.metalType && filters.karat) {
-      const metalKey = formatMetalKey(filters.metalType, filters.karat);
-      query.$or.push({ [`pricing.totalCosts.${metalKey}`]: priceFilter });
-    }
-  }
+  if (and.length) query.$and = and;
 
   console.log('🔥 MODEL - Final query built:', query);
   return query;
