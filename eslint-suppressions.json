@@ -184,11 +184,6 @@
       "count": 1
     }
   },
-  "src/services/bench/pieceWorkOrderActions.js": {
-    "max-lines": {
-      "count": 1
-    }
-  },
   "src/services/customs/customProduction.js": {
     "max-lines": {
       "count": 1
