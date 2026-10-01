@@ -2,9 +2,8 @@ import nodemailer from 'nodemailer';
 import { ObjectId } from 'mongodb';
 import { extractReviewSignals } from '@/services/reviews/review-signals.service.js';
 import { detectInHouseStrength } from '@/services/signals/inhouse-detection.service.js';
-import { normalizeString } from './shared';
+import { inferLeadBusinessHints, normalizeString } from './shared';
 import { summarizeGoogleReviews } from './websiteResearch';
-import { inferLeadBusinessHints } from './gemini';
 export const getSmtpConfig = () => {
   const host = process.env.SMTP_HOST || process.env.EMAIL_SERVER_HOST;
   const port = Number(process.env.SMTP_PORT || process.env.EMAIL_SERVER_PORT || 587);
