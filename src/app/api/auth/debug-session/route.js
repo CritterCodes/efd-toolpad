@@ -3,15 +3,12 @@ import { auth } from '../../../../../auth.js'
 
 export async function GET(request) {
   try {
-    console.log('🔍 Debug session called...')
     
     // Get session from NextAuth
     const session = await auth()
-    console.log('NextAuth session:', session)
     
     // Get all cookies from request
     const cookieHeader = request.headers.get('cookie') || ''
-    console.log('Request cookies:', cookieHeader)
     
     // Parse cookies
     const cookies = {}
@@ -46,7 +43,6 @@ export async function GET(request) {
       host: request.headers.get('host'),
     }
     
-    console.log('Debug data:', debugData)
     
     return NextResponse.json({
       success: true,

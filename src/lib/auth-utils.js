@@ -3,10 +3,8 @@
  */
 export async function forceLogout() {
   try {
-    console.log('🚪 [FORCE_LOGOUT] Starting complete session cleanup...');
     
     // 1. Debug current cookies before clearing
-    console.log('🔍 [FORCE_LOGOUT] Current cookies:', document.cookie);
     
     // 2. Try emergency logout API first (doesn't require auth)
     const logoutResponse = await fetch('/api/auth/emergency-logout', {
@@ -15,7 +13,6 @@ export async function forceLogout() {
     });
     
     if (logoutResponse.ok) {
-      console.log('✅ [FORCE_LOGOUT] Server-side session cleared');
     }
     
     // 3. NUCLEAR COOKIE CLEARING - try every possible combination
@@ -57,7 +54,6 @@ export async function forceLogout() {
       });
     });
     
-    console.log('✅ [FORCE_LOGOUT] Nuclear cookie clearing completed');
     
     // 4. Clear ALL browser storage
     try {
@@ -86,10 +82,8 @@ export async function forceLogout() {
       console.error('❌ [FORCE_LOGOUT] Storage clearing error:', storageError);
     }
     
-    console.log('✅ [FORCE_LOGOUT] All browser storage cleared');
     
     // 5. Debug cookies after clearing
-    console.log('🔍 [FORCE_LOGOUT] Cookies after clearing:', document.cookie);
     
     // 6. Force complete page refresh to bypass any cached state
     window.location.replace('/auth/signin');
@@ -113,7 +107,6 @@ export function hasStaleSession(expectedRole, currentRole) {
  */
 export async function logoutIfWrongRole(expectedRole, currentRole) {
   if (hasStaleSession(expectedRole, currentRole)) {
-    console.log(`🔄 [ROLE_CHECK] Role mismatch detected: expected '${expectedRole}', got '${currentRole}' - forcing logout`);
     await forceLogout();
     return true;
   }
@@ -124,10 +117,8 @@ export async function logoutIfWrongRole(expectedRole, currentRole) {
  * Debug function to inspect all authentication state
  */
 export function debugAuthState() {
-  console.log('🔍 [DEBUG_AUTH] === AUTHENTICATION STATE DEBUG ===');
   
   // 1. All cookies
-  console.log('🍪 [DEBUG_AUTH] All cookies:', document.cookie);
   
   // 2. Parse cookies for auth-related ones
   const cookies = document.cookie.split(';').reduce((acc, cookie) => {
@@ -137,7 +128,6 @@ export function debugAuthState() {
     }
     return acc;
   }, {});
-  console.log('🔑 [DEBUG_AUTH] Auth cookies:', cookies);
   
   // 3. Local Storage
   const localStorage_auth = {};
@@ -147,7 +137,6 @@ export function debugAuthState() {
       localStorage_auth[key] = localStorage.getItem(key);
     }
   }
-  console.log('💾 [DEBUG_AUTH] Auth localStorage:', localStorage_auth);
   
   // 4. Session Storage  
   const sessionStorage_auth = {};
@@ -157,14 +146,11 @@ export function debugAuthState() {
       sessionStorage_auth[key] = sessionStorage.getItem(key);
     }
   }
-  console.log('📋 [DEBUG_AUTH] Auth sessionStorage:', sessionStorage_auth);
   
   // 5. Current session via NextAuth
   if (typeof window !== 'undefined' && window.next && window.next.router) {
-    console.log('🏠 [DEBUG_AUTH] Router ready, checking session...');
   }
   
-  console.log('🔍 [DEBUG_AUTH] === END AUTHENTICATION DEBUG ===');
   
   return {
     cookies,

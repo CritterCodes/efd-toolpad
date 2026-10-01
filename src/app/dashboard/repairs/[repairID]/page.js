@@ -81,7 +81,6 @@ const ViewRepairPage = ({ params }) => {
 
         if (repairID && session?.user) {
             const foundRepair = repairs.find(r => r.repairID === repairID);
-            console.log('foundRepair', foundRepair);
 
             if (foundRepair) {
                 // Reset any access denied state from a prior failed API fetch
@@ -100,7 +99,6 @@ const ViewRepairPage = ({ params }) => {
                     );
 
                     if (!isOwner) {
-                        console.log('Access denied: Wholesaler trying to view repair not created by them');
                         setAccessDenied(true);
                         setLoading(false);
                         return;
@@ -135,7 +133,6 @@ const ViewRepairPage = ({ params }) => {
                 // Repair not found in context yet — fetch directly from API
                 const fetchRepairFromAPI = async () => {
                     try {
-                        console.log('Repair not in context, fetching from API:', repairID);
                         const response = await fetch(`/api/repairs?repairID=${repairID}`);
                         if (cancelled) return; // context loaded and found it — ignore this response
                         if (response.ok) {

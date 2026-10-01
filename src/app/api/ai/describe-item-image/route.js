@@ -42,7 +42,6 @@ const callGemini = async ({ apiKey, mimeType, base64Image, prompt }) => {
     if (response.status === 429 && attempt < MAX_RETRIES) {
       const retryAfter = parseInt(response.headers.get('Retry-After') || '0', 10);
       const delay = retryAfter > 0 ? retryAfter * 1000 : BASE_DELAY_MS * Math.pow(2, attempt);
-      console.log(`[describe-item-image] rate limited — retrying in ${delay}ms (retryAfter header: ${retryAfter})`);
       await sleep(delay);
       continue;
     }

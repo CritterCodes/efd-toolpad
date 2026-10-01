@@ -120,7 +120,6 @@ export async function POST(request, { params }) {
       ? 'archived' 
       : 'moved back to draft';
 
-    console.log(`✅ Product ${id} ${actionMessage} by ${session.user.email}`);
 
     return NextResponse.json({
       success: true,

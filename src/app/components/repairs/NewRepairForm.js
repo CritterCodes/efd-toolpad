@@ -379,14 +379,11 @@ export default function NewRepairForm({
                         : null
                     }
                     onChange={(event, newValue) => {
-                      console.log('Ã°Å¸Å½Â¯ Autocomplete change:', newValue);
                       if (newValue && typeof newValue === 'object') {
                         const clientName = newValue.name || `${newValue.firstName || ''} ${newValue.lastName || ''}`.trim() || newValue.email || '';
                         // userID FIRST — never the Mongo _id (EFD-DEFECTS C1).
                         const userID = newValue.userID || newValue.clientID || newValue._id || newValue.id || '';
-                        const isClientWholesale = !!formData.isWholesale;
                         
-                        console.log('Ã°Å¸â€˜Â¤ Selected client:', { clientName, userID, role: newValue.role, isWholesale: isClientWholesale });
                         
                         setFormData(prev => ({ 
                           ...prev, 
@@ -394,9 +391,7 @@ export default function NewRepairForm({
                           userID
                         }));
 
-                        console.log('Ã°Å¸â€™Â° Pricing mode from selected store:', isClientWholesale);
                       } else if (typeof newValue === 'string') {
-                        console.log('Ã°Å¸â€œÂ String value entered:', newValue);
                         setFormData(prev => ({ 
                           ...prev, 
                           clientName: newValue,

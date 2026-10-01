@@ -224,12 +224,10 @@ export function useProcessesManager() {
         throw new Error(data.message || `HTTP error! status: ${response.status}`);
       }
 
-      console.log('Processes price update completed:', data);
       
       // Refresh the processes list
       await loadProcesses();
       
-      console.log(`Successfully updated prices for ${data.updated || 0} processes`);
     } catch (error) {
       console.error('Error updating processes prices:', error);
       setError('Failed to update prices: ' + error.message);

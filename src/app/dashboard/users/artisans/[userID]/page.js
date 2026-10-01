@@ -48,7 +48,6 @@ const ViewArtisanPage = ({ params }) => {
                     const data = await response.json();
                     
                     if (data.success) {
-                        console.log("✅ Fetched Artisan Data:", data.data);
                         setArtisan(data.data);
                         setUpdatedArtisan(data.data);
                     } else {
@@ -109,7 +108,6 @@ const ViewArtisanPage = ({ params }) => {
     };
 
     const handleEditChange = (field, value) => {
-        console.log(`✏️ Editing Field: ${field}, Value: ${value}`);
         setUpdatedArtisan(prev => ({ ...prev, [field]: value }));
         setHasChanges(true);
         setSnackbarMessage("⚠️ Unsaved changes detected! Please save.");
@@ -128,7 +126,6 @@ const ViewArtisanPage = ({ params }) => {
             }
 
             setLoading(true);
-            console.log("📦 Saving Updated Artisan Data:", updatedArtisan);
             
             const response = await fetch(`/api/users/${userID}`, {
                 method: 'PUT',

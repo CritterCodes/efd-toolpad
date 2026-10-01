@@ -76,7 +76,6 @@ export async function POST(request, { params }) {
       );
     }
 
-    console.log(`✅ Attempting to submit product ${id} with status: ${product.status || 'undefined (will default to draft)'}`);
 
     const now = new Date();
     const body = await request.json().catch(() => ({}));
@@ -116,7 +115,6 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'Failed to update product' }, { status: 500 });
     }
 
-    console.log(`✅ Product ${id} submitted for approval by ${session.user.email}`);
 
     // PR3 — alert all admins that a product awaits approval (best-effort; never blocks submit).
     try {

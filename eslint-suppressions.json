@@ -4,34 +4,9 @@
       "count": 1
     }
   },
-  "src/app/api/ai/describe-item-image/route.js": {
-    "no-console": {
-      "count": 1
-    }
-  },
-  "src/app/api/ai/generate-ai-meta/route.js": {
-    "no-console": {
-      "count": 8
-    }
-  },
-  "src/app/api/ai/parse-smart-intake/route.js": {
-    "no-console": {
-      "count": 2
-    }
-  },
   "src/app/api/artisans/sync-vendor/route.js": {
     "no-unused-vars": {
       "count": 1
-    }
-  },
-  "src/app/api/auth/[...nextauth]/service.js": {
-    "no-console": {
-      "count": 15
-    }
-  },
-  "src/app/api/auth/debug-session/route.js": {
-    "no-console": {
-      "count": 4
     }
   },
   "src/app/api/auth/emergency-logout/route.js": {
@@ -44,37 +19,7 @@
       "count": 2
     }
   },
-  "src/app/api/collections/[id]/publish/route.js": {
-    "no-console": {
-      "count": 1
-    }
-  },
   "src/app/api/cron/release-drops/route.js": {
-    "no-console": {
-      "count": 1
-    }
-  },
-  "src/app/api/designs/[designId]/configure/route.js": {
-    "no-console": {
-      "count": 16
-    }
-  },
-  "src/app/api/designs/[designId]/route.js": {
-    "no-console": {
-      "count": 19
-    }
-  },
-  "src/app/api/drop-requests/[id]/publish/route.js": {
-    "no-console": {
-      "count": 1
-    }
-  },
-  "src/app/api/drop-requests/[id]/submissions/[submissionIndex]/[action]/route.js": {
-    "no-console": {
-      "count": 2
-    }
-  },
-  "src/app/api/drop-requests/[id]/submit/route.js": {
     "no-console": {
       "count": 1
     }
@@ -82,21 +27,6 @@
   "src/app/api/metal-prices/route.js": {
     "no-console": {
       "count": 1
-    }
-  },
-  "src/app/api/products/[id]/submit/route.js": {
-    "no-console": {
-      "count": 2
-    }
-  },
-  "src/app/api/products/[id]/unpublish/route.js": {
-    "no-console": {
-      "count": 1
-    }
-  },
-  "src/app/api/products/gemstones/[id]/upload-obj/route.js": {
-    "no-console": {
-      "count": 8
     }
   },
   "src/app/api/repair-invoices/service.js": {
@@ -119,14 +49,9 @@
       "count": 1
     }
   },
-  "src/app/components/clients/newClientForm.component.js": {
-    "no-console": {
-      "count": 1
-    }
-  },
   "src/app/components/clients/tabs/repairs.js": {
     "no-console": {
-      "count": 8
+      "count": 1
     }
   },
   "src/app/components/repairs/NewRepairFlow.js": {
@@ -137,9 +62,6 @@
   "src/app/components/repairs/NewRepairForm.js": {
     "max-lines": {
       "count": 1
-    },
-    "no-console": {
-      "count": 4
     }
   },
   "src/app/components/users/ArtisanApplicationsManagement.js": {
@@ -150,11 +72,6 @@
   "src/app/components/users/UserManagement.js": {
     "max-lines": {
       "count": 1
-    }
-  },
-  "src/app/context/repairs.context.js": {
-    "no-console": {
-      "count": 9
     }
   },
   "src/app/dashboard/AdminDashboardContent.js": {
@@ -192,11 +109,6 @@
       "count": 1
     }
   },
-  "src/app/dashboard/clients/[userID]/page.js": {
-    "no-console": {
-      "count": 8
-    }
-  },
   "src/app/dashboard/commerce/sales-invoices/page.js": {
     "max-lines": {
       "count": 1
@@ -227,16 +139,6 @@
       "count": 1
     }
   },
-  "src/app/dashboard/page.js": {
-    "no-console": {
-      "count": 2
-    }
-  },
-  "src/app/dashboard/pending/page.js": {
-    "no-console": {
-      "count": 2
-    }
-  },
   "src/app/dashboard/products/drops/[dropId]/designs/[designId]/page.js": {
     "max-lines": {
       "count": 1
@@ -255,14 +157,6 @@
   "src/app/dashboard/repairs/[repairID]/page.js": {
     "max-lines": {
       "count": 1
-    },
-    "no-console": {
-      "count": 3
-    }
-  },
-  "src/app/dashboard/repairs/[repairID]/print/page.js": {
-    "no-console": {
-      "count": 3
     }
   },
   "src/app/dashboard/repairs/labor-review/page.js": {
@@ -285,11 +179,6 @@
       "count": 1
     }
   },
-  "src/app/dashboard/repairs/new/page.js": {
-    "no-console": {
-      "count": 3
-    }
-  },
   "src/app/dashboard/repairs/payroll/page.js": {
     "max-lines": {
       "count": 1
@@ -305,11 +194,6 @@
       "count": 1
     }
   },
-  "src/app/dashboard/users/artisans/[userID]/page.js": {
-    "no-console": {
-      "count": 3
-    }
-  },
   "src/app/utils/email.util.js": {
     "no-console": {
       "count": 3
@@ -317,26 +201,6 @@
   },
   "src/components/AppShell.js": {
     "max-lines": {
-      "count": 1
-    }
-  },
-  "src/components/PWAInstallPrompt.js": {
-    "no-console": {
-      "count": 3
-    }
-  },
-  "src/components/analytics/AnalyticsCarousel.js": {
-    "no-console": {
-      "count": 1
-    }
-  },
-  "src/hooks/admin/usePWASettings.js": {
-    "no-console": {
-      "count": 1
-    }
-  },
-  "src/hooks/admin/useStoreSettings.js": {
-    "no-console": {
       "count": 1
     }
   },
@@ -348,19 +212,6 @@
   "src/hooks/repairs/useNewRepairForm.js": {
     "max-lines": {
       "count": 1
-    },
-    "no-console": {
-      "count": 24
-    }
-  },
-  "src/hooks/useProcessesManager.js": {
-    "no-console": {
-      "count": 2
-    }
-  },
-  "src/lib/auth-utils.js": {
-    "no-console": {
-      "count": 14
     }
   },
   "src/lib/migrations/migrateToNewStatusModel.js": {

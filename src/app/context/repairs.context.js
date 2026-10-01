@@ -55,32 +55,27 @@ export const RepairsProvider = ({ children }) => {
             return;
         }
 
-        console.log("🔄 Starting repairs fetch for role:", role);
         setLoading(true);
         try {
             let data;
 
             // Role-based data fetching
             if (role === 'wholesaler') {
-                console.log("🔄 Fetching repairs for wholesaler via /api/repairs/my-repairs");
                 // Wholesalers only see their own repairs
                 const response = await fetch('/api/repairs/my-repairs');
                 if (response.ok) {
                     const result = await response.json();
                     data = result.repairs || [];
-                    console.log("✅ Wholesaler repairs fetched:", data.length, "repairs");
                 } else {
                     throw new Error('Failed to fetch user repairs');
                 }
             } else {
-                console.log("🔄 Fetching repairs via /api/repairs");
                 // Admins and onsite repair ops artisans see the shared repair dataset
                 const response = await fetch('/api/repairs', {
                     credentials: 'include' // Ensure cookies are included
                 });
                 if (response.ok) {
                     data = await response.json();
-                    console.log("✅ Repairs fetched:", data?.length || 0, "repairs");
                 } else {
                     throw new Error('Failed to fetch all repairs');
                 }
@@ -99,12 +94,10 @@ export const RepairsProvider = ({ children }) => {
      * Add a new repair to the context
      */
     const addRepair = (newRepair) => {
-        console.log("📝 Adding repair to context:", newRepair?.repairID);
         setRepairs(prevRepairs => {
             // Check if repair already exists to avoid duplicates
             const exists = prevRepairs.some(repair => repair.repairID === newRepair.repairID);
             if (exists) {
-                console.log("⚠️  Repair already exists in context, skipping add");
                 return prevRepairs;
             }
             return [newRepair, ...prevRepairs]; // Add to beginning for newest-first order
@@ -115,7 +108,6 @@ export const RepairsProvider = ({ children }) => {
      * Update an existing repair in the context
      */
     const updateRepair = (repairID, updatedData) => {
-        console.log("🔄 Updating repair in context:", repairID);
         setRepairs(prevRepairs =>
             prevRepairs.map(repair =>
                 repair.repairID === repairID 
@@ -129,7 +121,6 @@ export const RepairsProvider = ({ children }) => {
      * Remove a repair from the context
      */
     const removeRepair = (repairID) => {
-        console.log("🗑️  Removing repair from context:", repairID);
         setRepairs(prevRepairs =>
             prevRepairs.filter(repair => repair.repairID !== repairID)
         );

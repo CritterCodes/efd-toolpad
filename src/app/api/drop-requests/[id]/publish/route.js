@@ -100,7 +100,6 @@ export async function POST(request, { params }) {
           },
         });
       }
-      console.log(`✅ Drop opportunity notifications sent to ${artisans.length} artisans`);
     } catch (notifError) {
       console.error('⚠️ Failed to send drop notifications:', notifError.message);
     }

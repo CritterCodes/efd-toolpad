@@ -163,7 +163,6 @@ export async function POST(request, { params }) {
       }
 
       if (notifiedCount > 0) {
-        console.log(`✅ Sent collection-published notifications to ${notifiedCount} artisan(s)`);
       } else {
         // No resolvable product-owning artisans — surface to admins so the publish isn't silent.
         console.warn('⚠️ PR2: no artisans resolved from collection products; notifying admins only');
