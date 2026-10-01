@@ -81,14 +81,15 @@ describe('credential projection is passed on every users read', () => {
 
   it('getAllUsers', async () => {
     await UserModel.getAllUsers();
-    expect(users.find).toHaveBeenCalledWith({}, PROJ);
+    // Merged duplicates (OPEN-QUESTIONS Q9) are never listed.
+    expect(users.find).toHaveBeenCalledWith({ status: { $ne: 'merged' } }, PROJ);
   });
 
-  it('getUsersByRole hides terminated staff by default, includes them on request', async () => {
+  it('getUsersByRole hides terminated staff by default, includes them on request — never merged duplicates', async () => {
     await UserModel.getUsersByRole('artisan');
-    expect(users.find).toHaveBeenCalledWith({ role: 'artisan', status: { $ne: 'terminated' } }, PROJ);
+    expect(users.find).toHaveBeenCalledWith({ role: 'artisan', status: { $nin: ['terminated', 'merged'] } }, PROJ);
     await UserModel.getUsersByRole('artisan', { includeTerminated: true });
-    expect(users.find).toHaveBeenCalledWith({ role: 'artisan' }, PROJ);
+    expect(users.find).toHaveBeenCalledWith({ role: 'artisan', status: { $ne: 'merged' } }, PROJ);
   });
 
   it('updateUser reload (the value is returned to the caller)', async () => {
