@@ -110,6 +110,9 @@ export default class RepairLaborLogsModel {
         $match: {
           requiresAdminReview: true,
           adminReviewedAt: null,
+          // Never a credit already in payroll (services/payrollUtils.isLaborLogLocked; EFD-DEFECTS P1).
+          payrollStatus: { $nin: ['batched', 'paid'] },
+          payrollBatchID: { $in: ['', null] },
         },
       },
       {
