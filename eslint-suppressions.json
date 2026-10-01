@@ -69,16 +69,6 @@
       "count": 1
     }
   },
-  "src/app/api/auth/[...nextauth]/service.js": {
-    "no-console": {
-      "count": 15
-    }
-  },
-  "src/app/api/auth/debug-session/route.js": {
-    "no-console": {
-      "count": 4
-    }
-  },
   "src/app/api/auth/emergency-logout/route.js": {
     "no-console": {
       "count": 2
@@ -461,11 +451,6 @@
   "src/lib/analyticsService.js": {
     "no-console": {
       "count": 9
-    }
-  },
-  "src/lib/auth-utils.js": {
-    "no-console": {
-      "count": 14
     }
   },
   "src/lib/database.js": {
