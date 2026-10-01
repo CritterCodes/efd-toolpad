@@ -27,7 +27,7 @@ preview check would rarely run anyway.
 environment variables or the real shape of the data. If that's ever wanted: non-admin roles only, their own
 throwaway passwords, rotated.
 
-**Status:** DECIDED 2026-10-01 — owner: *"yes"*. Built in #174 (`scripts/views-remote.mjs`, `scripts/seed-preview-e2e.mjs`, Preview step in `ship.yml`). LIVE 2026-10-01: the owner seeded the 6 e2e accounts on `efd-database-DEV` and set the `E2E_PREVIEW_PASSWORD` secret; Vercel's Ignored Build Step now also builds `claude/*` branches (it already built production, `ops/epic-*` and `ops/feature-*`; other branches still skip, to save build minutes). Rotate the password: re-run `scripts/seed-preview-e2e.mjs` + `gh secret set`.
+**Status:** DECIDED 2026-10-01 — owner: *"yes"*. Built in #174 (`scripts/views-remote.mjs`, `scripts/seed-preview-e2e.mjs`, Preview step in `ship.yml`). LIVE 2026-10-01: the owner seeded the 6 e2e accounts on `efd-database-DEV` and set the `E2E_PREVIEW_PASSWORD` secret; Vercel's Ignored Build Step now also builds `claude/*` branches (it already built production, `ops/epic-*` and `ops/feature-*`; other branches still skip, to save build minutes). Previews now read efd-database-DEV (they were on efd-preview-admin-default, an empty BARF-era database), and a preview signs in against itself, not production (#177). Rotate the password: re-run `scripts/seed-preview-e2e.mjs` + `gh secret set`.
 
 ---
 
