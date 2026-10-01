@@ -78,7 +78,6 @@ export default function TasksFilters({
           <InputLabel>Sort By</InputLabel>
           <Select MenuProps={taskListSelectMenuProps} value={sortBy} label="Sort By" onChange={(e) => setSortBy(e.target.value)}>
             <MenuItem value="title">Title</MenuItem>
-            <MenuItem value="basePrice">Price</MenuItem>
             <MenuItem value="category">Category</MenuItem>
             <MenuItem value="createdAt">Created</MenuItem>
           </Select>

@@ -1,4 +1,5 @@
 import { ToolMachineryModel } from './model.js';
+import { usersOfTool, InUseError } from '@/services/catalog/catalogUsage';
 
 export class ToolMachineryService {
   static normalizePayload(payload = {}) {
@@ -6,9 +7,13 @@ export class ToolMachineryService {
     const expectedUses = Number(payload.expectedUses || 0);
     const suppliedCostPerUse = Number(payload.costPerUse || 0);
 
-    const computedCostPerUse = expectedUses > 0
-      ? purchasePrice / expectedUses
-      : suppliedCostPerUse;
+    // A cost per use someone TYPED (costPerUseOverride) wins; otherwise it's purchase price ÷ expected
+    // uses. It used to be recalculated whenever expected uses was set, silently replacing an override
+    // (EFD-DEFECTS P25).
+    const override = payload.costPerUseOverride === true && suppliedCostPerUse > 0;
+    const computedCostPerUse = override
+      ? suppliedCostPerUse
+      : expectedUses > 0 ? purchasePrice / expectedUses : suppliedCostPerUse;
 
     return {
       name: String(payload.name || '').trim(),
@@ -16,6 +21,7 @@ export class ToolMachineryService {
       purchasePrice: purchasePrice > 0 ? purchasePrice : 0,
       expectedUses: expectedUses > 0 ? expectedUses : 0,
       costPerUse: computedCostPerUse > 0 ? Number(computedCostPerUse.toFixed(4)) : 0,
+      costPerUseOverride: override,
       notes: String(payload.notes || '').trim(),
       isActive: payload.isActive !== false
     };
@@ -82,9 +88,13 @@ export class ToolMachineryService {
     return { success: true };
   }
 
+  // ARCHIVE, never delete, and never while an active task uses it (EFD-DEFECTS P21).
   static async remove(id) {
-    const result = await ToolMachineryModel.deleteById(id);
-    if (result.deletedCount === 0) throw new Error('Tool or machinery not found');
-    return { success: true };
+    const existing = await ToolMachineryModel.findById(id);
+    if (!existing) throw new Error('Tool or machinery not found');
+    const users = await usersOfTool(id);
+    if (users.length) throw new InUseError(`"${existing.name || 'This tool'}"`, users);
+    await ToolMachineryModel.updateById(id, { isActive: false, archivedAt: new Date() });
+    return { success: true, archived: true };
   }
 }

@@ -58,9 +58,7 @@ export async function GET(req) {
     await db.connect();
     const adminCollection = await db.dbAdminSettings();
 
-    const settings =
-      (await adminCollection.findOne({ _id: 'repair_task_admin_settings' })) ||
-      (await adminCollection.findOne({}));
+    const settings = await adminCollection.findOne({ _id: 'repair_task_admin_settings' });
 
     const stuller = settings?.stuller || {};
     const now = new Date();
@@ -83,7 +81,17 @@ export async function GET(req) {
     }
 
     const result = await runMaterialPriceSync(settings);
-    await markPriceJobRun('materialPrices', { status: 'ok', detail: `synced ${result?.updated ?? ''}` });
+    // An honest run record (EFD-DEFECTS P23): it said "ok" whatever happened — even when the sync
+    // refused to run — and read a count that isn't there (`result.updated`; it's on the payload).
+    const sync = result?.payload || {};
+    const runStatus = result?.status !== 200 ? 'failed' : sync.failed > 0 ? 'partial' : 'ok';
+    const detail = result?.status !== 200
+      ? (sync.error || `HTTP ${result?.status}`)
+      : `synced ${sync.updated ?? 0} of ${sync.candidates ?? 0}${sync.failed ? `; ${sync.failed} failed: ${(sync.failures || []).map((f) => f.sku || f.name).slice(0, 10).join(', ')}` : ''}`;
+    await markPriceJobRun('materialPrices', { status: runStatus, detail });
+    if (runStatus === 'failed') {
+      return Response.json({ success: false, ran: false, error: detail, sync }, { status: result?.status || 500 });
+    }
 
     const completedAt = new Date();
 
@@ -101,7 +109,8 @@ export async function GET(req) {
     );
 
     return Response.json({
-      success: true,
+      success: runStatus === 'ok',
+      status: runStatus,
       ran: true,
       lastRun: completedAt.toISOString(),
       sync: result.payload

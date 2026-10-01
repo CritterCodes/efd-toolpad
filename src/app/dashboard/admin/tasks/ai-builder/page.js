@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box, Button, Typography, Alert, Snackbar, Divider, Paper,
@@ -35,23 +35,24 @@ export default function AiTaskBuilderPage() {
   const {
     availableProcesses,
     availableMaterials,
-    adminSettings,
+    availableTools,
     loading,
     setLoading,
     error,
-    loadInitialData
-  } = useInitialTaskData();
+  } = useInitialTaskData(); // loads on mount itself — this page used to load everything twice
 
-  const { handleSaveTask } = useTaskFormHandlers({
+  // Save through the SAME handler as the task builder (EFD-DEFECTS P25: this called `handleSaveTask`,
+  // which the hook never returned, so Save threw). It reports through setError / setSuccess.
+  const { handleSubmit } = useTaskFormHandlers({
     formData,
+    setFormData,
+    setError: (message) => { if (message) setSnackbar({ open: true, message, severity: 'error' }); },
+    setSuccess: (message) => { if (message) setSnackbar({ open: true, message, severity: 'success' }); },
+    setLoading,
     availableProcesses,
     availableMaterials,
-    adminSettings,
-    setLoading,
-    router
+    availableTools,
   });
-
-  useEffect(() => { loadInitialData(); }, []);
 
   const handleApplySuggestions = useCallback((suggestions) => {
     if (!suggestions) return;
@@ -80,13 +81,11 @@ export default function AiTaskBuilderPage() {
     }
     setSaving(true);
     try {
-      await handleSaveTask();
-    } catch (err) {
-      setSnackbar({ open: true, message: err.message || 'Failed to save task', severity: 'error' });
+      await handleSubmit({ preventDefault() {} });
     } finally {
       setSaving(false);
     }
-  }, [formData, handleSaveTask]);
+  }, [formData, handleSubmit]);
 
   const setField = (field) => (e) => {
     const val = e.target ? e.target.value : e;

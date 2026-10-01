@@ -471,7 +471,8 @@ export default function NewRepairFlow(props) {
     }
     return '';
   };
-  const clientId = (option) => option._id || option.id || option.userID || option.clientID || '';
+  // The customer's userID FIRST — never the Mongo _id (EFD-DEFECTS C1: 75 repairs were filed under it).
+  const clientId = (option) => option.userID || option.clientID || option._id || option.id || '';
 
   const stores = availableStores || [];
   // The account switcher makes the picker wholesale-only: Retail IS Engel

@@ -3,6 +3,7 @@
 import Material from "./class";
 import MaterialModel from "./model";
 import { db } from '@/lib/database';
+import { usersOfMaterial, InUseError } from '@/services/catalog/catalogUsage';
 
 export default class MaterialService {
     /**
@@ -82,6 +83,10 @@ export default class MaterialService {
                 isMetalDependent: materialData.hasOwnProperty('isMetalDependent') ? Boolean(materialData.isMetalDependent) : true,
                 portionsPerUnit: materialData.portionsPerUnit || 1,
                 portionType: materialData.portionType || '',
+                // A material's own cost — create used to drop it (EFD-DEFECTS P25), leaving a universal
+                // material with nothing to price from. (`estimatedCost` is its per-use cost, when given.)
+                unitCost: Number(materialData.unitCost) > 0 ? Number(materialData.unitCost) : 0,
+                ...(Number(materialData.estimatedCost) > 0 ? { estimatedCost: Number(materialData.estimatedCost) } : {}),
                 
                 // Multi-variant structure
                 stullerProducts: MaterialService.sanitizeStullerProducts(
@@ -185,6 +190,12 @@ export default class MaterialService {
             materialInstance.pricing = existingMaterial.pricing || null;
             materialInstance.stullerProducts = existingMaterial.stullerProducts || [];
             materialInstance.isMetalDependent = existingMaterial.hasOwnProperty('isMetalDependent') ? existingMaterial.isMetalDependent : true;
+            // The record's identity survives an edit (EFD-DEFECTS P25). Building a fresh Material minted a
+            // NEW sku, reset createdAt, nulled last_price_update — and re-activated an archived material.
+            materialInstance.sku = existingMaterial.sku || materialInstance.sku;
+            materialInstance.createdAt = existingMaterial.createdAt || materialInstance.createdAt;
+            materialInstance.last_price_update = existingMaterial.last_price_update ?? null;
+            materialInstance.isActive = existingMaterial.isActive !== false;
 
             // Update with new data (this will handle isMetalDependent in the update method)
             if (updateData.hasOwnProperty('stullerProducts')) {
@@ -235,10 +246,12 @@ export default class MaterialService {
                 throw new Error('Material not found');
             }
 
-            // Delete the material
-            const deleted = await MaterialModel.deleteMaterial(materialId);
-            return deleted;
+            // ARCHIVE, never delete, and never while an active task uses it (EFD-DEFECTS P21).
+            const users = await usersOfMaterial(materialId);
+            if (users.length) throw new InUseError(`"${material.displayName || material.name || 'This material'}"`, users);
+            return await MaterialModel.deleteMaterial(materialId);
         } catch (error) {
+            if (error?.code === 'IN_USE') throw error;
             console.error("Error in MaterialService.deleteMaterial:", error);
             throw new Error(`Failed to delete material: ${error.message}`);
         }

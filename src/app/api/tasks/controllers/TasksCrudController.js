@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from "@/lib/auth";
 import { TasksService } from '../service';
+import { saveFailureStatus } from '../saveFailureStatus';
 
 export class TasksCrudController {
   /**
@@ -82,13 +83,17 @@ export class TasksCrudController {
 
       const data = await request.json();
 
-      const task = await TasksService.createTask(data, userEmail);
+      const result = await TasksService.createTask(data, userEmail);
+      // A refused save is a failure, with its reason — never `success: true` (EFD-DEFECTS P20).
+      if (!result.success) {
+        return NextResponse.json({ success: false, error: result.error }, { status: saveFailureStatus(result.error) });
+      }
 
       return NextResponse.json({
         success: true,
-        data: task,
+        data: result.data,
         message: 'Task created successfully'
-      });
+      }, { status: 201 });
     } catch (error) {
       console.error('Error creating task:', error);
       return NextResponse.json(
@@ -122,11 +127,15 @@ export class TasksCrudController {
         );
       }
 
-      const task = await TasksService.updateTask(taskId, data, userEmail);
+      const result = await TasksService.updateTask(taskId, data, userEmail);
+      // A refused save is a failure, with its reason — never `success: true` (EFD-DEFECTS P20).
+      if (!result.success) {
+        return NextResponse.json({ success: false, error: result.error }, { status: saveFailureStatus(result.error) });
+      }
 
       return NextResponse.json({
         success: true,
-        data: task,
+        data: result.data,
         message: 'Task updated successfully'
       });
     } catch (error) {

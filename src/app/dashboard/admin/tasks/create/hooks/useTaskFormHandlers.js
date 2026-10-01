@@ -192,14 +192,13 @@ export function useTaskFormHandlers({
       const isEditMode = mode === 'edit' && taskId;
       const requestUrl = isEditMode ? '/api/tasks' : '/api/tasks/universal';
       const requestMethod = isEditMode ? 'PUT' : 'POST';
-      const requestBody = isEditMode
-        ? {
-            taskId,
-            ...taskData,
-            isUniversal: true,
-            isActive: formData.display?.isActive !== false
-          }
-        : taskData;
+      // Create and edit send the same task — including whether it's active (EFD-DEFECTS P19).
+      const requestBody = {
+        ...(isEditMode ? { taskId } : {}),
+        ...taskData,
+        isUniversal: true,
+        isActive: formData.display?.isActive !== false
+      };
 
       const response = await fetch(requestUrl, {
         method: requestMethod,
@@ -209,12 +208,12 @@ export function useTaskFormHandlers({
         body: JSON.stringify(requestBody)
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Failed to create task');
+      // The server's own verdict: a refused save (duplicate title, missing task) says so — it used to
+      // come back as HTTP 200 and this read only `response.ok` (EFD-DEFECTS P20).
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.success === false) {
+        throw new Error(result.error || (isEditMode ? 'Failed to update task' : 'Failed to create task'));
       }
-
-      const result = await response.json();
       setSuccess(isEditMode ? 'Task updated successfully! Redirecting...' : 'Task created successfully! Redirecting...');
       
       setTimeout(() => {

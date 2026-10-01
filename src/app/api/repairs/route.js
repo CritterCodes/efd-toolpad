@@ -17,6 +17,7 @@ import { db } from "@/lib/database";
 import { wholesalerBusinessName } from "@/services/wholesale/businessName";
 import { buildQuoteRequest } from "@/services/repairs/quoteRequest";
 import { pickEditableRepairFields } from "@/services/repairs/repairEditFields";
+import { canonicalClientID } from "@/services/repairs/canonicalClientID";
 import { priceRepairForSave, pricingErrorResponseInit, PRICING_INPUT_FIELDS } from "@/services/pricing/repairPricing";
 
 // Totals the browser sends are never stored — the server computes them (priceRepairForSave).
@@ -252,6 +253,9 @@ export const POST = async (request) => {
       repairData.clientNotProvided = true;
     }
 
+    // Keyed to the customer's userID, never their Mongo _id (EFD-DEFECTS C1).
+    if (repairData.userID) repairData.userID = await canonicalClientID(await db.connect(), repairData.userID);
+
     // Canonical billing classification (S1) — derived from comp/wholesale flags.
     repairData.billing = { mode: resolveBillingMode(repairData) };
 
@@ -428,6 +432,7 @@ export const PUT = async (req) => {
     // changed, the whole ticket is re-priced by the engine — keeping the saved price on every line
     // that's unchanged ("preventative, not changing the past" — owner, 2026-09-30).
     for (const field of CLIENT_TOTAL_FIELDS) delete update[field];
+    if (update.userID) update.userID = await canonicalClientID(await db.connect(), update.userID);
     if (PRICING_INPUT_FIELDS.some((field) => Object.prototype.hasOwnProperty.call(update, field))) {
       try {
         Object.assign(update, await priceRepairForSave({ ...existing, ...update }, { saved: existing }));

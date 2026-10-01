@@ -106,9 +106,13 @@ export default class MaterialModel {
      */
     static deleteMaterial = async (materialId) => {
         try {
+            // Archived, not deleted (EFD-DEFECTS P21): pricing reads only active materials.
             const dbMaterials = await db.dbMaterials();
-            const result = await dbMaterials.deleteOne({ _id: new ObjectId(materialId) });
-            return result.deletedCount > 0;
+            const result = await dbMaterials.updateOne(
+                { _id: new ObjectId(materialId) },
+                { $set: { isActive: false, archivedAt: new Date(), updatedAt: new Date() } }
+            );
+            return result.matchedCount > 0;
         } catch (error) {
             console.error("Error deleting material:", error);
             throw new Error(`Error deleting material: ${error.message}`);

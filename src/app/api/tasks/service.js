@@ -22,13 +22,36 @@ export class TasksService {
    */
   static async getTasks(filters = {}) {
     try {
-      const [result, ctx] = await Promise.all([TasksModel.getTasks(filters), loadPricingContext()]);
+      const [result, ctx, stats, allActive] = await Promise.all([
+        TasksModel.getTasks(filters),
+        loadPricingContext(),
+        TasksModel.getTaskStatistics(),
+        TasksModel.getTasks({ isActive: true, limit: 1000 }),
+      ]);
       const transformedTasks = result.tasks.map((task) => this.transformTaskForResponse(task, ctx));
+
+      // The page's statistics and category menu (EFD-DEFECTS P25: it asked for both and got neither).
+      // The average is of LIVE prices — each active task's retail, or its cheapest metal when it's
+      // priced by metal — never of a stored number.
+      const livePrices = (allActive.tasks || []).map((task) => {
+        const f = pricedTaskFields(task, ctx);
+        if (f.pricing) return f.pricing.retailPrice;
+        const byMetal = Object.values(f.universalPricing || {}).map((p) => p.retailPrice);
+        return byMetal.length ? Math.min(...byMetal) : null;
+      }).filter((n) => n > 0);
+      const overview = stats?.overview || {};
 
       return {
         success: true,
         data: transformedTasks,
         pagination: result.pagination,
+        statistics: {
+          total: overview.total || 0,
+          inactive: overview.inactive || 0,
+          categories: overview.categories || 0,
+          averagePrice: livePrices.length ? livePrices.reduce((a, b) => a + b, 0) / livePrices.length : 0,
+        },
+        filters: { categories: (stats?.filters?.categories || []).slice().sort() },
         message: `Retrieved ${transformedTasks.length} tasks`
       };
     } catch (error) {

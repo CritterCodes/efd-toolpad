@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/apiAuth';
-import { TasksModel } from '../model';
+import { TasksService } from '../service';
+import { saveFailureStatus } from '../saveFailureStatus';
 
 export async function POST(request) {
   try {
@@ -32,100 +33,21 @@ export async function POST(request) {
       );
     }
 
-    // Prepare task data for database
-    const universalTaskData = {
-      title: taskData.title,
-      description: taskData.description || '',
-      category: taskData.category,
-      subcategory: taskData.subcategory || '',
-      
-      // Process-based structure
-      processes: taskData.processes.map(process => ({
-        processId: process.processId,
-        isCustom: process.isCustom === true,
-        quantity: process.quantity || 1,
-        processName: process.processName || process.displayName || '',
-        displayName: process.displayName || process.processName || '',
-        laborHours: Number(process.laborHours ?? process.baseLaborHours) || 0,
-        baseLaborHours: Number(process.baseLaborHours ?? process.laborHours) || 0,
-        skillLevel: process.skillLevel || '',
-        name: process.name || ''
-      })),
-      
-      // Materials (optional)
-      materials: taskData.materials?.map(material => ({
-        materialId: material.materialId,
-        quantity: material.quantity || 1,
-        materialName: material.materialName || material.displayName || '',
-        displayName: material.displayName || material.materialName || ''
-      })) || [],
-
-      // Tools and machinery (EFD-DEFECTS P6). The builder sends them and prices its preview with them,
-      // but create used to drop them — so a new laser task priced lower than the preview showed, with
-      // no machine cost at all, until someone happened to edit it (edit kept them).
-      tools: Array.isArray(taskData.tools) ? taskData.tools.map((tool) => ({
-        toolId: tool.toolId,
-        quantity: Number(tool.quantity) > 0 ? Number(tool.quantity) : 1,
-        toolName: tool.toolName || tool.displayName || '',
-        displayName: tool.displayName || tool.toolName || '',
-        costPerUse: Number(tool.costPerUse) || 0,
-      })) : [],
-
-      // Pricing overrides (raw config only — no calculated snapshots)
-      minimumPrice: Number(taskData.minimumPrice) || 0,
-      priceOverride: Number(taskData.priceOverride) || 0,
-      minimumWholesalePrice: Number(taskData.minimumWholesalePrice) || 0,
-      minimumLaborPrice: Number(taskData.minimumLaborPrice) || 0,
-      variantPricingAdjustments: taskData.variantPricingAdjustments && typeof taskData.variantPricingAdjustments === 'object'
-        ? taskData.variantPricingAdjustments
-        : {},
-      
-      // Service settings
-      service: {
-        estimatedDays: taskData.service?.estimatedDays || 3,
-        rushDays: taskData.service?.rushDays || 1,
-        rushMultiplier: taskData.service?.rushMultiplier ?? null, // not used in pricing — the shop setting is (engine.js)
-        requiresApproval: taskData.service?.requiresApproval ?? true,
-        requiresInspection: taskData.service?.requiresInspection ?? true,
-        canBeBundled: taskData.service?.canBeBundled ?? true
-      },
-      
-      // Display settings
-      display: {
-        isActive: taskData.display?.isActive ?? true,
-        isFeatured: taskData.display?.isFeatured ?? false,
-        sortOrder: taskData.display?.sortOrder || 0
-      },
-      
-      // Context tags (e.g. 'custom') — opt the task into the custom quote builder.
-      contexts: Array.isArray(taskData.contexts) ? taskData.contexts : [],
-
-      // Universal task flags
+    // ONE SAVE PATH (EFD-DEFECTS P19). This route used to build its own document and drop what it didn't
+    // name — tools (fixed earlier as P6), aiMeta, material `condition`, baseMetal/baseKarat and the
+    // top-level `isActive` — so a new "inactive" task had no `isActive` and the shop still offered it.
+    // Create now stores exactly what edit stores: TasksService.createTask, the same transform as update.
+    const result = await TasksService.createTask({
+      ...taskData,
       isUniversal: true,
       supportsAllMetals: true,
-      
-      // Metadata
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: session.user?.email || session.user?.userID || 'system'
-    };
+      isActive: taskData.isActive ?? (taskData.display?.isActive !== false),
+    }, session.user?.email || session.user?.userID || 'system');
 
-    console.log('🔥 UNIVERSAL-TASK-API - Creating universal task:', {
-      title: universalTaskData.title,
-      processesCount: universalTaskData.processes.length,
-      isUniversal: universalTaskData.isUniversal
-    });
-
-    // Create the task using the TasksModel
-    const createdTask = await TasksModel.createTask(universalTaskData);
-    
-    console.log('🔥 UNIVERSAL-TASK-API - Universal task created successfully:', createdTask._id);
-
-    return NextResponse.json({
-      success: true,
-      message: 'Universal task created successfully',
-      task: createdTask
-    });
+    if (!result.success) {
+      return NextResponse.json({ success: false, error: result.error }, { status: saveFailureStatus(result.error) });
+    }
+    return NextResponse.json({ success: true, message: 'Task created successfully', task: result.data }, { status: 201 });
 
   } catch (error) {
     console.error('🔥 UNIVERSAL-TASK-API - Error creating universal task:', {
