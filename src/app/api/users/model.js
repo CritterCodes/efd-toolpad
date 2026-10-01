@@ -209,7 +209,8 @@ export default class UserModel {
     static getAllUsers = async () => {
         try {
             const dbUsers = await db.dbUsers();
-            const users = await dbUsers.find({}, { projection: USER_SECRET_FIELDS }).toArray();
+            // Merged duplicates (OPEN-QUESTIONS Q9) are kept for the record but never listed.
+            const users = await dbUsers.find({ status: { $ne: 'merged' } }, { projection: USER_SECRET_FIELDS }).toArray();
             return users;
         } catch (error) {
             console.error("Error retrieving all users:", error);
@@ -228,7 +229,9 @@ export default class UserModel {
             // Terminated staff are hidden from every role listing (collaborator pickers, artisan
             // directory) by default. They are not deleted — their name stays on the financial
             // records — and an admin list can opt in with includeTerminated.
-            const filter = includeTerminated ? { role } : { role, status: { $ne: 'terminated' } };
+            // A MERGED account (a duplicate folded into the real one, OPEN-QUESTIONS Q9) is never listed: it would show
+            // up as a second copy of the same customer.
+            const filter = includeTerminated ? { role, status: { $ne: 'merged' } } : { role, status: { $nin: ['terminated', 'merged'] } };
             const users = await dbUsers.find(filter, { projection: USER_SECRET_FIELDS }).toArray();
             return users;
         } catch (error) {
