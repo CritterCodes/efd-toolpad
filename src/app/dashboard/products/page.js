@@ -418,7 +418,7 @@ function CatalogInner() {
               <DiamondIcon sx={{ fontSize: 16, color: REPAIRS_UI.accent }} />
               Catalog
             </Typography>
-            <Typography sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 1 }}>Products</Typography>
+            <Typography component="h1" sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 1 }}>Products</Typography>
             <Typography sx={{ color: REPAIRS_UI.textSecondary, lineHeight: 1.6 }}>
               Unified catalog — gemstones and jewelry across all artisans.
             </Typography>

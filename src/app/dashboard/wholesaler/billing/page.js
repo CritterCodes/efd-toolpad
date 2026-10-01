@@ -174,7 +174,7 @@ export default function WholesalerBillingPage() {
                             <BillingIcon sx={{ fontSize: 16, color: UI.accent }} />
                             Wholesale
                         </Typography>
-                        <Typography sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: UI.textHeader, mb: 1 }}>
+                        <Typography component="h1" sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: UI.textHeader, mb: 1 }}>
                             Billing
                         </Typography>
                         <Typography sx={{ color: UI.textSecondary, lineHeight: 1.6 }}>

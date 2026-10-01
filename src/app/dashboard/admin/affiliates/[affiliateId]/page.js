@@ -135,7 +135,7 @@ export default function AdminAffiliateDetailPage({ params }) {
             Admin / Affiliates
           </Typography>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
-            <Typography sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: UI.textHeader }}>
+            <Typography component="h1" sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: UI.textHeader }}>
               {affiliate.name || affiliate.code}
             </Typography>
             <FormControl size="small" sx={{ minWidth: 140 }}>

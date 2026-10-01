@@ -23,7 +23,6 @@ export async function POST(req) {
       );
     }
 
-    console.log(`🔄 Admin ${session.user.email} initiated product status migration`);
 
     const result = await migrateProductsToNewStatusModel();
 

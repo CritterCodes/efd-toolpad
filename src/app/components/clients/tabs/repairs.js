@@ -103,9 +103,6 @@ const ClientRepairsTab = ({ userID, user }) => {
                 onOpenNewRepair={() => router.push(`/dashboard/repairs/new?clientID=${encodeURIComponent(user?.userID || userID)}`)}
             />
 
-            {/* Logging repairs before rendering */}
-            {console.log("🔍 Repairs Being Rendered:", filteredRepairs)}
-
             {/* Repairs Grid with Pagination */}
             <RepairsGrid
                 repairs={filteredRepairs.slice((page - 1) * rowsPerPage, page * rowsPerPage)}

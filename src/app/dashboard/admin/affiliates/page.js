@@ -61,7 +61,7 @@ export default function AdminAffiliatesPage() {
             <LinkIcon sx={{ fontSize: 16, color: UI.accent }} />
             Admin
           </Typography>
-          <Typography sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: UI.textHeader, mb: 1 }}>
+          <Typography component="h1" sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: UI.textHeader, mb: 1 }}>
             Affiliates
           </Typography>
           <Typography sx={{ color: UI.textSecondary, lineHeight: 1.6 }}>

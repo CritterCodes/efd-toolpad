@@ -161,7 +161,7 @@ export default function EditRepairPage() {
                     borderRadius: 2,
                   }}
                 />
-                <Typography sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: COLORS.textHeader, mb: 1 }}>
+                <Typography component="h1" sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: COLORS.textHeader, mb: 1 }}>
                   Edit repair
                 </Typography>
                 <Typography sx={{ color: COLORS.textSecondary, maxWidth: 720, lineHeight: 1.6 }}>

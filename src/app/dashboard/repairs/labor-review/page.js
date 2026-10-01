@@ -358,7 +358,7 @@ export default function LaborReviewPage() {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <ReceiptLongIcon sx={{ color: REPAIRS_UI.accent, fontSize: 28 }} />
           <Box>
-            <Typography sx={{ fontSize: { xs: 24, md: 30 }, fontWeight: 600, color: REPAIRS_UI.textHeader }}>
+            <Typography component="h1" sx={{ fontSize: { xs: 24, md: 30 }, fontWeight: 600, color: REPAIRS_UI.textHeader }}>
               Labor Review
             </Typography>
             <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>

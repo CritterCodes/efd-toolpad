@@ -88,7 +88,7 @@ export default function WholesalerDashboard() {
                             label="Wholesale workspace"
                             sx={{ mb: 2, borderRadius: 2, backgroundColor: C.bgCard, color: C.textPrimary, border: `1px solid ${C.border}` }}
                         />
-                        <Typography sx={{ fontSize: { xs: 32, md: 44 }, fontWeight: 600, lineHeight: 1.1, mb: 1, color: C.textHeader }}>
+                        <Typography component="h1" sx={{ fontSize: { xs: 32, md: 44 }, fontWeight: 600, lineHeight: 1.1, mb: 1, color: C.textHeader }}>
                             Welcome back, {userName}
                         </Typography>
                         <Typography sx={{ color: C.textSecondary, fontSize: 16, lineHeight: 1.6 }}>
