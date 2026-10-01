@@ -47,7 +47,7 @@ export async function PATCH(request, { params }) {
   if (errorResponse) return errorResponse;
 
   const { campaignId } = await params;
-  const { campaign, col, error, status } = await resolveCampaignWithAccess(campaignId, session);
+  const { col, error, status } = await resolveCampaignWithAccess(campaignId, session);
   if (error) return NextResponse.json({ success: false, error }, { status });
 
   const body = await request.json();

@@ -14,7 +14,6 @@
  * survives as the DEFAULT the Finalize dialog opens on, not as an action taken on your behalf.
  */
 import { db } from '@/lib/database';
-import RepairInvoicesModel from '@/app/api/repair-invoices/model';
 import { normalizeAccountKey } from '@/app/api/repair-invoices/service';
 import { wholesalerBusinessName } from '@/services/wholesale/businessName';
 

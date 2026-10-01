@@ -10,7 +10,6 @@ import WholesalerDashboardContent from '@/components/dashboards/WholesalerDashbo
 // Import the original dashboard for staff/admin/dev roles
 import AdminDashboardContent from './AdminDashboardContent';
 import AffiliateDashboardContent from './affiliate/page';
-import { logoutIfWrongRole } from '@/lib/auth-utils';
 
 export default function DashboardPage() {
     const { data: session, status } = useSession();
