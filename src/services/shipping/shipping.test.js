@@ -6,7 +6,7 @@ vi.mock('@/app/api/repair-invoices/model', () => ({ default: { create: vi.fn(), 
 vi.mock('@/lib/notificationService', () => ({ NotificationService: { createNotification: vi.fn(async () => ({})) }, CHANNELS: { IN_APP: 'inApp', EMAIL: 'email' } }));
 vi.mock('@/lib/appUrls', () => ({ adminLink: (p) => `http://test${p}` }));
 
-import { selectRates, normalizeRate, quoteShipment, buyShipment, EasyPostError, easyPostMode, relevantCarrierMessages, SATURDAY_EMPTY_HINT } from './easypost';
+import { selectRates, quoteShipment, buyShipment, EasyPostError, easyPostMode, relevantCarrierMessages, SATURDAY_EMPTY_HINT } from './easypost';
 import { DEFAULT_PARCEL_PRESETS, resolveParcelPresets, findParcelPreset, parcelForEasyPost } from './parcels';
 import { shipFromFromSettings, shipToFromWholesaler, addressProblems, countryCode } from './addresses';
 import { buildFulfillmentUpdate, buildLabelUpdate, labelCostDrift } from './invoiceFulfillment';

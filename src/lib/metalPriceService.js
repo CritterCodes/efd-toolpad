@@ -105,7 +105,7 @@ export async function updateMetalPrices() {
     // Save to database
     const db = await mongo.connect();
     
-    const result = await db.collection('metalPrices').updateOne(
+    await db.collection('metalPrices').updateOne(
       { _id: 'current_prices' },
       {
         $set: {

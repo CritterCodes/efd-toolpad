@@ -165,12 +165,10 @@ export const useMaterialsManager = () => {
   const handleSubmit = useCallback(async (submittedFormData) => {
     try {
       const isUpdate = !!editingMaterial;
-      let savedMaterial;
-      
       if (isUpdate) {
-        savedMaterial = await materialsService.updateMaterial(editingMaterial._id, submittedFormData);
+        await materialsService.updateMaterial(editingMaterial._id, submittedFormData);
       } else {
-        savedMaterial = await materialsService.createMaterial(submittedFormData);
+        await materialsService.createMaterial(submittedFormData);
       }
       
       // Reset form and reload materials
@@ -220,7 +218,7 @@ export const useMaterialsManager = () => {
         throw new Error(data.message || `HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      await response.json();
       await loadMaterials();
       
     } catch (err) {

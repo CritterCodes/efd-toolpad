@@ -18,8 +18,6 @@ export const POST = async (req, { params }) => {
     await assertCanHoldWork(session.user.userID);
 
     const repair = await RepairsModel.findById(repairID);
-
-    const previousJeweler = repair.assignedTo;
     const callerID = session.user.userID;
 
     const updateData = buildClaimRepairUpdate({
@@ -57,6 +55,8 @@ export const POST = async (req, { params }) => {
     return NextResponse.json(updated, { status: 200 });
   } catch (error) {
     console.error('❌ Error in claim route:', error.message);
-    return NextResponse.json({ error: error.message }, { status: apprenticeErrorStatus(error) || 500 });
+    // RepairsModel.findById throws 'Repair not found.' — a missing repair is a 404, not a server error.
+    const notFound = error.message === 'Repair not found.' ? 404 : null;
+    return NextResponse.json({ error: error.message }, { status: apprenticeErrorStatus(error) || notFound || 500 });
   }
 };

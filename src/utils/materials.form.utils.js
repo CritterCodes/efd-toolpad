@@ -1,4 +1,3 @@
-import { DEFAULT_MATERIAL_FORM } from './materials.constants';
 
 export const validateMaterialForm = (formData) => {
   const errors = [];

@@ -3,7 +3,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { USER_ROLES, USER_STATUS, AUTH_PROVIDERS, ROLE_PERMISSIONS } from './user.constants.js';
 import { UserQueryService } from './user.query.service.js';
 import { UserRoleService } from './user.role.service.js';
-import { UserNotificationService } from './user.notification.service.js';
 
 export class UserAuthService {
 

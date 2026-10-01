@@ -5,7 +5,6 @@
  */
 
 import { db } from '@/lib/database.js';
-import { ObjectId } from 'mongodb';
 
 export async function migrateProductsToNewStatusModel() {
   try {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireAuth, requireRole } from '@/lib/apiAuth';
+import { requireAuth } from '@/lib/apiAuth';
 import { db } from '@/lib/database';
 
 import { AFFILIATE_CODE_RX } from '@/lib/affiliateCode';
