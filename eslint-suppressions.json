@@ -267,22 +267,9 @@
       "count": 2
     }
   },
-  "src/app/api/repairs/labor-report/route.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/app/api/repairs/model.js": {
     "no-console": {
       "count": 2
-    },
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/app/api/repairs/my-repairs/route.js": {
-    "no-unused-vars": {
-      "count": 1
     }
   },
   "src/app/api/repairs/quality-control/route.js": {
@@ -338,16 +325,6 @@
       "count": 6
     }
   },
-  "src/app/api/wholesale/repairs/[repairId]/route.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/app/api/wholesale/repairs/route.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/app/auth/complete-registration/page.js": {
     "no-console": {
       "count": 1
@@ -371,9 +348,6 @@
   "src/app/components/clients/tabs/repairs.js": {
     "no-console": {
       "count": 8
-    },
-    "no-unused-vars": {
-      "count": 2
     }
   },
   "src/app/components/materials/EnhancedMaterialsHeader.js": {
@@ -402,9 +376,6 @@
     },
     "no-console": {
       "count": 4
-    },
-    "no-unused-vars": {
-      "count": 8
     }
   },
   "src/app/components/users/ArtisanApplicationsManagement.js": {
@@ -423,9 +394,6 @@
   "src/app/context/repairs.context.js": {
     "no-console": {
       "count": 9
-    },
-    "no-unused-vars": {
-      "count": 1
     }
   },
   "src/app/dashboard/AdminDashboardContent.js": {
@@ -607,17 +575,11 @@
     },
     "no-console": {
       "count": 3
-    },
-    "no-unused-vars": {
-      "count": 1
     }
   },
   "src/app/dashboard/repairs/[repairID]/print/page.js": {
     "no-console": {
       "count": 3
-    },
-    "no-unused-vars": {
-      "count": 1
     }
   },
   "src/app/dashboard/repairs/labor-review/page.js": {
@@ -627,9 +589,6 @@
   },
   "src/app/dashboard/repairs/leads/page.js": {
     "max-lines": {
-      "count": 1
-    },
-    "no-unused-vars": {
       "count": 1
     }
   },
@@ -641,14 +600,6 @@
   "src/app/dashboard/repairs/my-bench/page.js": {
     "max-lines": {
       "count": 1
-    },
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/app/dashboard/repairs/my-repairs/page.js": {
-    "no-unused-vars": {
-      "count": 2
     }
   },
   "src/app/dashboard/repairs/new/page.js": {
@@ -656,48 +607,19 @@
       "count": 3
     }
   },
-  "src/app/dashboard/repairs/page.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/app/dashboard/repairs/payroll/page.js": {
     "max-lines": {
-      "count": 1
-    },
-    "no-unused-vars": {
       "count": 1
     }
   },
   "src/app/dashboard/repairs/pick-up/page.js": {
     "max-lines": {
       "count": 1
-    },
-    "no-unused-vars": {
-      "count": 6
-    }
-  },
-  "src/app/dashboard/repairs/ready-for-work/components/WorkCard.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/app/dashboard/repairs/ready-for-work/hooks/useReadyForWork.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/app/dashboard/repairs/ready-for-work/page.js": {
-    "no-unused-vars": {
-      "count": 2
     }
   },
   "src/app/dashboard/repairs/receiving/page.js": {
     "max-lines": {
       "count": 1
-    },
-    "no-unused-vars": {
-      "count": 2
     }
   },
   "src/app/dashboard/users/artisans/[userID]/page.js": {
@@ -716,11 +638,6 @@
   "src/app/dashboard/users/wholesalers/[wholesalerId]/page.js": {
     "no-unused-vars": {
       "count": 1
-    }
-  },
-  "src/app/dashboard/wholesaler/repairs/schedule-pickup/page.js": {
-    "no-unused-vars": {
-      "count": 5
     }
   },
   "src/app/utils/email.util.js": {
@@ -979,18 +896,8 @@
       "count": 1
     }
   },
-  "src/services/repairs.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/services/repairs/paidRepairReporting.js": {
     "no-console": {
-      "count": 1
-    }
-  },
-  "src/services/repairs/smartIntakeExtractors.test.js": {
-    "no-unused-vars": {
       "count": 1
     }
   },

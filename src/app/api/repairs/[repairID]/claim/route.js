@@ -21,7 +21,6 @@ export const POST = async (req, { params }) => {
 
     const previousJeweler = repair.assignedTo;
     const callerID = session.user.userID;
-    const isSharedWork = previousJeweler && previousJeweler !== callerID;
 
     const updateData = buildClaimRepairUpdate({
       repair,

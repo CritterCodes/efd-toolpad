@@ -11,7 +11,6 @@ import {
     Checkbox,
     Avatar,
     Divider,
-    LinearProgress
 } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import PersonIcon from '@mui/icons-material/Person';

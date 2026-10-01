@@ -7,7 +7,6 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import RepairTicketComponent from '@/components/print/RepairTicketComponent';
 import RepairReceiptComponent from '@/components/print/RepairReceiptComponent';
 import SideBySideLayout from '@/components/print/SideBySideLayout';
-import { getAllWorkItems } from '@/services/pricingCalculation.service';
 import { getRepairSummary, validateRepairData } from '@/services/repairDataStructure.service';
 
 const SLIP_WIDTH = '3.6in';
@@ -96,10 +95,6 @@ const PrintRepairTicket = () => {
 
     const repairSummary = useMemo(() => {
         return repair ? getRepairSummary(repair) : null;
-    }, [repair]);
-
-    const allWorkItems = useMemo(() => {
-        return repair ? getAllWorkItems(repair) : [];
     }, [repair]);
 
     const totalItems = repairSummary ? repairSummary.totalItems : 0;

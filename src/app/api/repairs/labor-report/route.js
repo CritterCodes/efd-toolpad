@@ -9,7 +9,7 @@ import { requireRole } from '@/lib/apiAuth';
  */
 export const GET = async (req) => {
   try {
-    const { session, errorResponse } = await requireRole(['admin']);
+    const { errorResponse } = await requireRole(['admin']);
     if (errorResponse) return errorResponse;
 
     const { searchParams } = new URL(req.url);

@@ -4,7 +4,7 @@ import RepairsGrid from '@/app/components/repairs/repairGrid';
 import RepairFilters from '@/app/components/repairs/filters.component';
 import { useRouter } from 'next/navigation';
 import { useRepairs } from '@/app/context/repairs.context';
-import { Box, Pagination } from '@mui/material';
+import { Box } from '@mui/material';
 
 const normalizeIdentifier = (value) => {
     if (!value) return '';
@@ -51,7 +51,7 @@ const ClientRepairsTab = ({ userID, user }) => {
     const [statusFilter, setStatusFilter] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [sortOrder, setSortOrder] = useState('newest');
-    const [page, setPage] = useState(1);
+    const [page] = useState(1);
     const rowsPerPage = 6;
 
     useEffect(() => {

@@ -24,8 +24,6 @@ import {
   Person as PersonIcon,
   CalendarToday as CalendarIcon,
   MoveUp as MoveIcon,
-  CheckBox as CheckBoxIcon,
-  CheckBoxOutlineBlank as CheckBoxBlankIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';

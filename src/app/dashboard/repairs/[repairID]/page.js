@@ -63,7 +63,7 @@ const ViewRepairPage = ({ params }) => {
     const [snackbarMessage, setSnackbarMessage] = React.useState('');
     const [snackbarSeverity, setSnackbarSeverity] = React.useState('info');
     const [loading, setLoading] = React.useState(true);
-    const [isWholesale, setIsWholesale] = React.useState(false);
+    const [, setIsWholesale] = React.useState(false);
     const [clientInfo, setClientInfo] = React.useState(null);
     const [accessDenied, setAccessDenied] = React.useState(false);
 
