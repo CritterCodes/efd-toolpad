@@ -149,8 +149,9 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
     .reduce((sum, batch) => sum + payrollTotal(batch), 0);
 
   // Everything the page's sections read, passed whole to each (each takes only the names it uses).
+  // `history` must be passed explicitly: inside a section a bare `history` is window.history (eslint can't tell).
   const payroll = {
-    actionLoading, closeDialog, createBatch, diagnostics, dialogLoading, loading, notes, openBatch,
+    actionLoading, closeDialog, createBatch, diagnostics, dialogLoading, history, loading, notes, openBatch,
     openCandidate, openOwnerDraw, ownerDrawAmount, ownerDrawDate, ownerDrawSummary, ownerDrawUserID,
     ownerDraws, ownerLaborPaid, ownerLaborUnpaid, ownerOperators, paidAt, paymentMethod, paymentReference,
     queue, router, saveOwnerDraw, selectedDetail, selectedMode, setNotes, setOwnerDrawAmount, setOwnerDrawDate,

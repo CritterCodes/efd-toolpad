@@ -2,7 +2,7 @@ import { Box, CircularProgress, Grid, Card, CardContent, Typography, Button, Ale
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import { QueueCard, HistoryCard, OwnerDrawCard } from './payrollParts';
 
-export function PayrollLists({ loading, openBatch, openCandidate, openOwnerDraw, ownerDraws, ownerOperators, queue, tab }) {
+export function PayrollLists({ history, loading, openBatch, openCandidate, openOwnerDraw, ownerDraws, ownerOperators, queue, tab }) {
   return (
     <>
       {loading ? (
