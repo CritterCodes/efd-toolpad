@@ -169,11 +169,6 @@
       "count": 1
     }
   },
-  "src/lib/wholesaleLeadService.js": {
-    "max-lines": {
-      "count": 1
-    }
-  },
   "src/lib/wholesaleReconciliationService.js": {
     "max-lines": {
       "count": 1
