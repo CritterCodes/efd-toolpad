@@ -53,3 +53,61 @@ check-in hotfix, #180 scan to approve QC.
 | Q7 | Retire `PUT`/`DELETE /api/wholesale/repairs/[repairId]`? | **Yes** — nothing calls it; it's admin-only now. |
 | Q8 | Where should a checked-in Request Quote job wait? | **`NEEDS QUOTE`**, off the bench, until it's priced; then READY FOR WORK. |
 | Q9 | Merge the 3 duplicate-email accounts + unique index on `users.email`? | **Yes**, as a backed-up script. |
+
+---
+
+# Evening (goal resumed after the Impeccable talk), 2026-10-01
+
+Every PR went through review + green `check`; every production deploy reached **READY** and `ship.yml` passed
+(#204 and #199 still settling as this was written).
+
+| PR | What |
+|---|---|
+| [#190](https://github.com/CritterCodes/efd-toolpad/pull/190) | `max-lines`: `repairWorkflow.js` → 3 modules, same API. |
+| [#192](https://github.com/CritterCodes/efd-toolpad/pull/192) | Views: measure where a redirect page lands. |
+| [#194](https://github.com/CritterCodes/efd-toolpad/pull/194) | `max-lines`: `pieceWorkOrderActions.js` (794) → 5 modules, same API. |
+| [#195](https://github.com/CritterCodes/efd-toolpad/pull/195) | **Guard:** tasks never store a calculated price — `TasksModel` strips at the sink; only the model writes `tasks`. |
+| [#196](https://github.com/CritterCodes/efd-toolpad/pull/196) | **Owner:** Impeccable (skill + `DESIGN.md`/`PRODUCT.md`, the brand kept black/white + gold) and a report-only design check (758 findings). Shop twin: CritterCodes/efd-shop#86. |
+| [#197](https://github.com/CritterCodes/efd-toolpad/pull/197) | **Security:** six write routes trusted any signed-in account (casting + shipping legs on anybody's pieces, replacing any design's GLB, adding photos to any listing, a legacy price writer, archiving anybody's notifications). Closed; **guard** `routeAuthorization.guard.test.js` makes every write route authorize beyond sign-in. |
+| [#198](https://github.com/CritterCodes/efd-toolpad/pull/198) | **P6:** the guide shows the edited pay ladder, not the default. |
+| [#200](https://github.com/CritterCodes/efd-toolpad/pull/200) | **P1/P5:** a labor credit in payroll is never re-flagged, zeroed or split (a split re-paid it). Prod had 0 affected. |
+| [#201](https://github.com/CritterCodes/efd-toolpad/pull/201) | Listing photos land on the design (they went to a `products` doc nothing reads — uploads showed up nowhere). |
+| [#202](https://github.com/CritterCodes/efd-toolpad/pull/202) | `max-lines`: `wholesaleReconciliationService.js` (653) → 3 modules, same API. |
+| [#204](https://github.com/CritterCodes/efd-toolpad/pull/204) | Views: wait for Next's streamed-redirect marker before measuring (the cause of a no-h1 flake on 4 redirect stubs under load). |
+
+In review: [#199](https://github.com/CritterCodes/efd-toolpad/pull/199) **P3** — a payroll batch is never paid twice
+(asks Stripe for the batch's transfer before sending one); [#203](https://github.com/CritterCodes/efd-toolpad/pull/203) Q10/Q11.
+
+## Numbers
+
+| | Start of the day | Now |
+|---|---|---|
+| Lint baseline | 126 | **38** (37 `max-lines` + 1 deliberate unused var) |
+| `max-lines` (files over 400) | 42 | **37** |
+| Views baseline | 8 | **0** |
+| Guard tests for the bug classes (goal step 4) | 0 of 3 | **3 of 3** (sync skipped · stored price · authorized-by-sign-in) |
+| Design report (new, report-only) | — | admin 758 · shop 696 |
+
+## Changed by the owner today
+
+- **Phase 4 is no longer a Kuzu re-theme.** Owner, 2026-10-01: *"I don't want to rock our users too much and black
+  and white are our brand colors."* efd keeps its brand (`DESIGN.md`); Phase 4 is the keep/smooth/rethink triage plus
+  burning down the design report.
+
+## Parked, and why
+
+- React #418 hydration mismatch — needs a dev-mode crawl (unchanged).
+- efd-shop C3/C4/C5 and §5 — separate repo, its main checkout holds someone's unpushed work.
+- P2 (queue vs batch disagree on owner-operators), P4 (Monday-era logs) — *inferred* in the defect list; need a
+  reproduction against data before touching payroll again.
+- B4, B6, F36/Q4 — workflow decisions (Q8).
+
+## Needs the owner (docs/OPEN-QUESTIONS.md)
+
+| # | Question | Recommendation |
+|---|---|---|
+| Q7 | Retire `PUT`/`DELETE /api/wholesale/repairs/[repairId]`? | **Yes** — unused, admin-only. |
+| Q8 | Where should a checked-in Request Quote job wait? | **`NEEDS QUOTE`** until priced. |
+| Q9 | Merge the 3 duplicate-email accounts + unique email index? | **Yes**, as a backed-up script. |
+| Q10 | Retire the legacy gem-listing config route (a stored-price writer nothing calls)? | **Yes.** |
+| Q11 | Limit the AI helper routes to staff/artisans (each call costs a Gemini request)? | **Yes**, stores too if their intake uses one. |
