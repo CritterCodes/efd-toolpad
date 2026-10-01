@@ -8,6 +8,7 @@ import { ObjectId } from 'mongodb';
 import Constants from '@/lib/constants';
 import { buildQuery, formatMetalKey } from './queries.js';
 import { getTaskStatisticsAggregation } from './aggregations.js';
+import { storableTask } from '@/services/pricing/computedFields';
 
 export class TasksModel {
   static collectionName = Constants.TASKS_COLLECTION || 'tasks';
@@ -115,8 +116,9 @@ export class TasksModel {
       await db.connect();
       const collection = db._instance.collection(this.collectionName);
 
+      // A calculated price is never stored (one pricing engine, 2026-09-30) — stripped here, at the sink.
       const newTask = {
-        ...taskData,
+        ...storableTask(taskData),
         createdAt: new Date(),
         updatedAt: new Date()
       };
@@ -143,7 +145,7 @@ export class TasksModel {
       const collection = db._instance.collection(this.collectionName);
 
       const updatePayload = {
-        ...updateData,
+        ...storableTask(updateData),
         updatedAt: new Date()
       };
 
