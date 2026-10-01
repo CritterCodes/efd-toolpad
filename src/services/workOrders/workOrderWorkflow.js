@@ -73,7 +73,8 @@ export function isWorkOrderInTab(wo, tabKey, userID = '') {
   const benchQueue = wo.benchQueue ?? deriveWorkOrderQueue(wo);
   switch (tabKey) {
     case BENCH_QUEUE.MINE:
-      return benchQueue !== null && !!wo.assignedToUserID && wo.assignedToUserID === userID;
+      // Your bench work. Not QC: it has its own tab, and a jeweler's sent-to-QC jobs crowded Mine (owner, 2026-10-01).
+      return benchQueue !== null && benchQueue !== BENCH_QUEUE.QC && !!wo.assignedToUserID && wo.assignedToUserID === userID;
     case BENCH_QUEUE.UNCLAIMED:
       return benchQueue === BENCH_QUEUE.UNCLAIMED;
     case BENCH_QUEUE.COMMUNICATIONS:
