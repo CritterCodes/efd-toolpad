@@ -25,6 +25,7 @@ import { resolvePricingSettings } from '@/services/pricing/engine';
 import { readQcMode, canSelfCertify } from '@/services/repairs/qcMode';
 import { assertTermsAccepted } from '@/services/policies/termsGate';
 import { assertCanHoldWork, NOT_APPRENTICE_QUERY } from '@/services/pay/apprentice';
+import { claimRefusal } from '@/services/bench/benchRules';
 import {
   buildClaimRepairUpdate,
   buildUnclaimRepairUpdate,
@@ -112,6 +113,8 @@ async function runRepairAction({ session, repairID, action, body }) {
       await assertTermsAccepted(session); // artisan terms gate (services/policies/termsGate.js)
       await assertCanHoldWork(session.user.userID); // apprentices don't hold jobs
       const repair = await RepairsModel.findById(repairID);
+      const refusal = claimRefusal(repair, { userID: session.user.userID, isAdmin: isAdminRole(session) });
+      if (refusal) throw err(refusal.message, refusal.code);
       return RepairsModel.updateById(repairID, buildClaimRepairUpdate({
         repair, userID: session.user.userID, userName: session.user.name, now,
       }));

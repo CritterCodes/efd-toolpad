@@ -12,6 +12,6 @@ export const POST = async (req, { params }) => {
     return NextResponse.json(updated, { status: 200 });
   } catch (error) {
     console.error('Error in move-to-qc route:', error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: error.status || 500 });
   }
 };
