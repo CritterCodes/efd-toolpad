@@ -220,3 +220,16 @@ describe('quantity', () => {
     expect(r.materialsCost).toBeCloseTo(4.49 * 2 + 4.49 * 3, 2);
   });
 });
+
+describe('metal-restricted tasks', () => {
+  const platinumOnly = { title: 'Size Down — Platinum (laser welded)', metals: ['platinum'], processes: [{ laborHours: 0.5, quantity: 1 }], materials: [] };
+  it('price only in their metal', () => {
+    expect(priceTask({ task: platinumOnly, settings, metal: { metalType: 'platinum', karat: '950' } })).toMatchObject({ ok: true });
+    const silver = priceTask({ task: platinumOnly, settings, metal: { metalType: 'silver', karat: '925' } });
+    expect(silver).toMatchObject({ ok: false, reason: 'WRONG_METAL' });
+    expect(cannotPriceMessage(silver)).toMatch(/only for platinum/);
+  });
+  it('need the metal before they price', () => {
+    expect(priceTask({ task: platinumOnly, settings })).toMatchObject({ ok: false, reason: 'METAL_REQUIRED' });
+  });
+});

@@ -54,6 +54,7 @@ export const CANNOT_PRICE = Object.freeze({
   UNMATCHED_MATERIAL: 'UNMATCHED_MATERIAL',
   UNKNOWN_MATERIAL: 'UNKNOWN_MATERIAL',
   NO_COST: 'NO_COST',
+  WRONG_METAL: 'WRONG_METAL',
 });
 
 // ─── Settings ──────────────────────────────────────────────────────────────────
@@ -267,6 +268,14 @@ export function priceTask({ task, settings, materials = [], tools = [], metal = 
   if (!task || typeof task !== 'object') return { ok: false, reason: CANNOT_PRICE.BAD_TASK, detail: 'No task.' };
 
   const key = metalKey(metal);
+  // A task restricted to certain metals ("Size Down — Platinum (laser welded)") is priced only in those
+  // metals: its recipe is wrong for anything else. The live shop estimate offered it for a silver ring.
+  const allowed = Array.isArray(task.metals) ? task.metals.filter(Boolean).map(normKey) : [];
+  if (allowed.length) {
+    const only = allowed.join(' or ');
+    if (!key) return { ok: false, reason: CANNOT_PRICE.METAL_REQUIRED, detail: `this task (it is for ${only})` };
+    if (!allowed.some((m) => key.startsWith(m))) return { ok: false, reason: CANNOT_PRICE.WRONG_METAL, detail: only };
+  }
   const catalog = Array.isArray(materials) ? materials : [];
   const toolCatalog = Array.isArray(tools) ? tools : [];
   const qty = Math.max(Math.floor(Number(quantity) || 1), 1);
@@ -359,6 +368,7 @@ export function cannotPriceMessage(result) {
     case CANNOT_PRICE.METAL_REQUIRED: return `Choose a metal to price this — ${result.detail} depends on it.`;
     case CANNOT_PRICE.UNMATCHED_MATERIAL: return `Can't price this in that metal — ${result.detail} isn't stocked in it.`;
     case CANNOT_PRICE.UNKNOWN_MATERIAL: return `Can't price this — ${result.detail} is missing from the materials catalog.`;
+    case CANNOT_PRICE.WRONG_METAL: return `This task is only for ${result.detail}.`;
     case CANNOT_PRICE.NO_COST: return "Can't price this — the task has no labor, materials, tools or minimum.";
     default: return "Can't price this task.";
   }
