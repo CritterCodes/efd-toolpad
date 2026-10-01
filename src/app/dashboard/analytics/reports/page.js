@@ -16,7 +16,7 @@ export default function AnalyticsReportsIndexPage() {
   return (
     <Box sx={{ p: 4 }}>
       <Stack spacing={1} sx={{ mb: 3 }}>
-        <Typography variant="h4" fontWeight="bold">Reports</Typography>
+        <Typography component="h1" variant="h4" fontWeight="bold">Reports</Typography>
         <Typography variant="body2" color="text.secondary">
           Printable and exportable business reports for finance, labor, payroll, wholesale, and closeout.
         </Typography>

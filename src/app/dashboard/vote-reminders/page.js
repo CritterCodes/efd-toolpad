@@ -68,7 +68,7 @@ export default function VoteRemindersPage() {
   return (
     <Box sx={{ p: 3 }}>
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-        <Typography variant="h4" fontWeight={700}>Vote Campaign</Typography>
+        <Typography component="h1" variant="h4" fontWeight={700}>Vote Campaign</Typography>
         <Button onClick={load} startIcon={<RefreshIcon />} disabled={loading} variant="outlined" size="small">
           Refresh
         </Button>

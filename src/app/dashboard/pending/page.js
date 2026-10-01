@@ -58,7 +58,7 @@ export default function PendingApprovalPage() {
     <Container maxWidth="md" sx={{ py: 8 }}>
       <Box sx={{ textAlign: 'center', mb: 4 }}>
         <HourglassIcon sx={{ fontSize: 80, color: 'warning.main', mb: 2 }} />
-        <Typography variant="h3" gutterBottom>
+        <Typography component="h1" variant="h3" gutterBottom>
           Account Pending Approval
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 4 }}>

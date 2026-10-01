@@ -27,7 +27,7 @@ export default function ArtisanManagement() {
   return (
     <Box>
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h5" fontWeight={700}>Artisans</Typography>
+        <Typography component="h1" variant="h5" fontWeight={700}>Artisans</Typography>
         <Typography variant="body2" color="text.secondary">
           {loading ? 'Loading…' : `${data.length} artisan${data.length !== 1 ? 's' : ''}`}
         </Typography>

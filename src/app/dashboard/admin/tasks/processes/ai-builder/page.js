@@ -111,7 +111,7 @@ export default function AiProcessBuilderPage() {
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
           <AutoAwesomeIcon color="primary" />
-          <Typography variant="h5" fontWeight="bold">AI Process Builder</Typography>
+          <Typography component="h1" variant="h5" fontWeight="bold">AI Process Builder</Typography>
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
           Describe a jewelry repair process in plain language and let AI generate the structure for you.

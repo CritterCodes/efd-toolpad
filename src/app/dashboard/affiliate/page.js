@@ -92,7 +92,7 @@ export default function AffiliateDashboardPage() {
     <Box sx={{ pb: 10 }}>
       <GettingStartedCard />
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h5" fontWeight={600}>Affiliate Dashboard</Typography>
+        <Typography component="h1" variant="h5" fontWeight={600}>Affiliate Dashboard</Typography>
       </Box>
 
       {loading && <CircularProgress />}

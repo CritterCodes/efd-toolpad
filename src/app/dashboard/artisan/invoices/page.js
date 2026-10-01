@@ -65,7 +65,7 @@ export default function MyInvoicesPage() {
     <Box sx={{ p: 3 }}>
       <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 0.5 }}>
         <ReceiptLongIcon color="primary" />
-        <Typography variant="h5" fontWeight={600}>My Invoices</Typography>
+        <Typography component="h1" variant="h5" fontWeight={600}>My Invoices</Typography>
       </Stack>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         What you owe Engel Fine Design for facilitated work — casting, and work orders where EFD paid

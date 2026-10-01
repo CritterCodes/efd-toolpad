@@ -156,12 +156,12 @@ export default function BlogsPage() {
   return (
     <Box sx={{ backgroundColor: C.bg, minHeight: '100vh' }}>
       {/* Header */}
-      <Box sx={{ px: 3, pt: 3, pb: 2, borderBottom: `1px solid ${C.border}`, backgroundColor: C.surface }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+      <Box sx={{ px: { xs: 2, sm: 3 }, pt: 3, pb: 2, borderBottom: `1px solid ${C.border}`, backgroundColor: C.surface }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5, mb: 0.5 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <ArticleIcon sx={{ color: C.accent, fontSize: 26 }} />
             <Box>
-              <Typography variant="h5" sx={{ color: C.text, fontWeight: 600, lineHeight: 1.2 }}>
+              <Typography component="h1" variant="h5" sx={{ color: C.text, fontWeight: 600, lineHeight: 1.2 }}>
                 Blog Management
               </Typography>
               <Typography variant="body2" sx={{ color: C.muted }}>
@@ -169,7 +169,7 @@ export default function BlogsPage() {
               </Typography>
             </Box>
           </Box>
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
             <Button
               onClick={() => setTriggerOpen(true)}
               startIcon={<AutoAwesomeIcon />}

@@ -57,8 +57,8 @@ export function EnhancedProcessesHeader({
 }) {
   return (
     <Paper elevation={1} sx={{ p: 2, mb: 3 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Box display="flex" alignItems="center" gap={2}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1.5} mb={2}>
+        <Box display="flex" alignItems="center" flexWrap="wrap" gap={{ xs: 1, sm: 2 }}>
           <Typography variant="h5" component="h1">
             Processes Management
           </Typography>
@@ -92,7 +92,7 @@ export function EnhancedProcessesHeader({
             />
           )}
         </Box>
-        <Stack direction="row" spacing={1}>
+        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
           <Tooltip title="Update all process prices based on current settings">
             <Button
               variant="outlined"

@@ -208,7 +208,7 @@ export default function ShippingDeliveryPage() {
 
   return (
     <Box sx={{ p: { xs: 1.5, md: 3 }, maxWidth: 1100, mx: 'auto' }}>
-      <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>Shipping &amp; Delivery</Typography>
+      <Typography component="h1" variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>Shipping &amp; Delivery</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         Invoices finalized as Ship, until they are in a box. Buy the FedEx label here — the rate is already on the
         invoice — print it, and the store is notified with tracking. Hand deliveries (a store default) wait below until you mark them delivered. Pickups never appear.

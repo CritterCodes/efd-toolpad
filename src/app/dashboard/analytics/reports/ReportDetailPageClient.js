@@ -1653,7 +1653,7 @@ export default function ReportDetailPageClient({
           >
             {backLabel}
           </Button>
-          <Typography variant="h4" fontWeight="bold">{reportDefinition.title}</Typography>
+          <Typography component="h1" variant="h4" fontWeight="bold">{reportDefinition.title}</Typography>
           <Typography variant="body2" color="text.secondary">
             {reportDefinition.description}
           </Typography>

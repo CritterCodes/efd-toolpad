@@ -98,7 +98,7 @@ export default function WholesaleManagement() {
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
-      <Typography variant="h4" gutterBottom>
+      <Typography component="h1" variant="h4" gutterBottom>
         Wholesale Management
       </Typography>
       <Typography variant="body1" color="text.secondary" paragraph>

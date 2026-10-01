@@ -101,7 +101,7 @@ export default function ArtisanInvoicesPage() {
     <Box sx={{ p: 3 }}>
       <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 0.5 }}>
         <ReceiptLongIcon color="primary" />
-        <Typography variant="h5" fontWeight={600}>Artisan Invoices</Typography>
+        <Typography component="h1" variant="h5" fontWeight={600}>Artisan Invoices</Typography>
       </Stack>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         What artisans owe EFD for facilitated work — casting and work orders. An overdue invoice freezes

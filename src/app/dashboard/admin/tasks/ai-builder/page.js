@@ -101,7 +101,7 @@ export default function AiTaskBuilderPage() {
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
           <AutoAwesomeIcon color="primary" />
-          <Typography variant="h5" fontWeight="bold">AI Task Builder</Typography>
+          <Typography component="h1" variant="h5" fontWeight="bold">AI Task Builder</Typography>
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
           Describe the repair task in plain language. AI will match existing processes, flag gaps, and pre-fill the form.
