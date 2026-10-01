@@ -28,6 +28,9 @@ export default class SettingsManagerService {
       analytics: buildAnalyticsBaselineSettingsUpdate(settings),
       version: settings.version,
       updatedAt: settings.updatedAt,
+      // The published pay ladder (services/pay/payLadder.js). Left out, the guide fell back to the default
+      // ladder and artisans never saw the edited one (EFD-DEFECTS P6). It's published to artisans anyway.
+      payLadder: settings.payLadder ?? null,
       // The shop's pricing lives in `pricing` above — read it there, through resolvePricingSettings. The
       // copies below used to be invented when missing (`wage || 50`, fees `|| .10/.15/.05`, markups
       // `|| 1.5`) plus skill-level labor rates the engine doesn't use; now they are the stored values or
