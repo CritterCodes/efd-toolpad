@@ -29,7 +29,10 @@ export async function loadPricingContext() {
   const [adminSettings, materials, tools] = await Promise.all([
     dbi.collection('adminSettings').findOne({ _id: 'repair_task_admin_settings' }),
     dbi.collection('materials').find({ isActive: { $ne: false } }).toArray(),
-    dbi.collection('tools').find({}).toArray(),
+    // The tools catalog is `toolsMachinery` (api/tools-machinery). Reading a non-existent `tools`
+    // collection left the engine on each task's SNAPSHOT of a tool's cost, so a tool's new cost reached
+    // no task (EFD-DEFECTS P24).
+    dbi.collection('toolsMachinery').find({}).toArray(),
   ]);
   const settings = resolvePricingSettings(adminSettings);
   return { adminSettings, settings, materials, tools, metals: stockedMetals(materials) };
