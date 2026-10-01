@@ -72,7 +72,6 @@ export default function AnalyticsCarousel() {
                 throw new Error(result.error || 'Failed to fetch analytics');
             }
             
-            console.log('📊 [ANALYTICS CAROUSEL] Received data:', result);
             setAnalyticsData(result); // Use result directly, not result.data
         } catch (err) {
             console.error('Error fetching analytics:', err);

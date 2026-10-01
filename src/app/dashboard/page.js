@@ -42,7 +42,6 @@ export default function DashboardPage() {
     }, [session?.user?.role]);
     
     if (status === 'loading' || !effectiveRole) {
-        console.log('🔄 [DASHBOARD] Loading state - Status:', status, 'EffectiveRole:', effectiveRole);
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
                 <CircularProgress />
@@ -50,7 +49,6 @@ export default function DashboardPage() {
         );
     }
     
-    console.log('🎯 [DASHBOARD] Rendering dashboard for role:', effectiveRole);
 
     if (!session?.user) {
         return (

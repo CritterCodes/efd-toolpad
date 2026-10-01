@@ -105,9 +105,6 @@ const PrintRepairTicket = () => {
 
     useEffect(() => {
         if (repair && validation.isValid) {
-            console.log('Repair Found:', repair);
-            console.log('Repair Summary:', repairSummary);
-            console.log(`Total items: ${totalItems}, needs multiple pages: ${needsMultipleTicketPages}`);
         } else {
             console.warn('Repair validation failed:', validation.errors);
         }

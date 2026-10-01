@@ -58,7 +58,6 @@ export default function PWAInstallPrompt() {
 
     // Listen for the beforeinstallprompt event
     const handleBeforeInstallPrompt = (e) => {
-      console.log('PWA Install prompt available');
       // Prevent the mini-infobar from appearing
       e.preventDefault();
       // Stash the event so it can be triggered later
@@ -76,7 +75,6 @@ export default function PWAInstallPrompt() {
 
     // Listen for app installed event
     const handleAppInstalled = () => {
-      console.log('PWA was installed');
       setIsInstalled(true);
       setShowInstallPrompt(false);
       setDeferredPrompt(null);
@@ -101,7 +99,6 @@ export default function PWAInstallPrompt() {
       // Wait for the user to respond to the prompt
       const { outcome } = await deferredPrompt.userChoice;
       
-      console.log(`User response to install prompt: ${outcome}`);
       
       if (outcome === 'dismissed') {
         // User dismissed, remember this
