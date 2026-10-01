@@ -176,6 +176,7 @@ function NavGroup({ item, pathname, onClose }) {
     <>
       <ListItemButton
         onClick={handleToggle}
+        aria-expanded={isOpen}
         sx={{
           mx: 0.75,
           pl: 1.5,

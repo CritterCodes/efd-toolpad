@@ -22,6 +22,7 @@
     "lint": "eslint src scripts --quiet",
     "lint:prune": "eslint src scripts --quiet --prune-suppressions",
     "guardrails:report": "node scripts/guardrails-report.mjs",
+    "views": "node scripts/views.mjs",
     "deadcode": "knip",
     "audit:repair-workflow": "node scripts/audit-repair-workflow.mjs",
     "backfill:repair-workflow": "node scripts/backfill-repair-workflow.mjs",
@@ -66,6 +67,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.55.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^22.0.0",
