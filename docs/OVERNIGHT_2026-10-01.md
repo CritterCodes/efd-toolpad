@@ -162,3 +162,46 @@ the public API by comparing export lists before and after, and check that moved 
 | Q10 | Retire the legacy gem config route? | **Yes** |
 | Q11 | AI helper routes staff/artisan-only? | **Yes** |
 | Q12 | A blank ring size reads as size 0, so smart intake suggests sizing stock for the whole range. Treat blank as unknown? | **Yes**. It removes a wrong charge suggestion, but it changes what a ticket can charge. |
+
+---
+
+# Late, 2026-10-01 (live pages, each clicked through on a local build)
+
+Every PR: review + green `check`; production **READY** and `ship.yml` passed for each (#222 settling).
+
+| PR | What |
+|---|---|
+| [#216](https://github.com/CritterCodes/efd-toolpad/pull/216) | Intake hook `useNewRepairForm` 1,809 → 1,484: pure helpers out, with tests (they pinned the Q12 defect). |
+| [#218](https://github.com/CritterCodes/efd-toolpad/pull/218) | **Default intake `NewRepairFlow` 1,759 → 353**: 7 step sections + parts. Clicked all 4 steps locally, through to `POST /api/repairs` 201. |
+| [#219](https://github.com/CritterCodes/efd-toolpad/pull/219) | **Payroll page 1,073 → 216.** The local click-through **caught a real bug before merge**: the page's `history` state shares its name with `window.history`, so the History tab crashed. Fixed, with a guard test. |
+| [#220](https://github.com/CritterCodes/efd-toolpad/pull/220) | The same browser-global guard for the intake sections. |
+| [#221](https://github.com/CritterCodes/efd-toolpad/pull/221) | **Finance inventory 1,009 → 345**: 4 tab panels, all clicked locally. |
+| [#222](https://github.com/CritterCodes/efd-toolpad/pull/222) | **Stuller settings 766 → 317**: 3 sections + an action factory. Clicked locally. |
+
+In review: [#223](https://github.com/CritterCodes/efd-toolpad/pull/223), the admin dashboard 747 → 376.
+
+**What changed in the method.** eslint `no-undef` is blind to a page variable named like a browser global
+(`history`, `location`, `name`, `status`, …), so a section can read the window's instead and crash only at runtime.
+Every split now gets: an AST check (page-declared names a section reads but never receives), a sections test with the
+same guard, and a **click-through on a local production build** (the views seed's test admin, localhost only) of every
+step, tab and dialog the crawl can't reach. The splits already in production were re-checked with the AST check:
+clean.
+
+## Numbers
+
+| | Start of the day | Now |
+|---|---|---|
+| `max-lines` (files over 400) | 42 | **25** (24 once #223 lands) |
+| Lint baseline | 126 | **26** |
+| Views baseline | 8 | **0** |
+| Guard tests (goal step 4) | 0 of 3 | **3 of 3**, plus sections guards on 5 split pages |
+
+## Parked, and why
+
+Unchanged: the classic intake + report page (retirement candidates), the POS products-cache price, React #418,
+efd-shop C3–C5/§5, P2/P4, B4/B6/F36. Local views runs on Windows show a few desktop `no-h1` on redirect pages under
+load; CI (Linux, the reference) is clean, so they're noted, not chased.
+
+## Needs the owner
+
+Q7–Q12, as in the night report.
