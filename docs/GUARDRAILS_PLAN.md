@@ -109,7 +109,7 @@ ratcheted, with reasons:
    `admin.engelfinedesign.com`. The first run found the production domain was **indexable** (Vercel's noindex header
    covers only `*.vercel.app`); fixed in the same PR (robots meta + `robots.txt`). The **signed-in preview half is
    open question Q1** (docs/OPEN-QUESTIONS.md: it needs a standing admin password for a public preview URL; the
-   signed-in crawl already runs on every PR). Lighthouse not added yet.
+   signed-in crawl already runs on every PR). Lighthouse runs report-only on the sign-in page after every deploy (2026-10-01); promote to budgets once there's a baseline.
 
 ### Phase 3 — documents that stay true
 
