@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 
 export const useReadyForWork = () => {
     const [searchQuery, setSearchQuery] = useState('');

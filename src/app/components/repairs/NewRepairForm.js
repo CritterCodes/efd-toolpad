@@ -13,15 +13,10 @@ import {
   MenuItem,
   Chip,
   IconButton,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemSecondaryAction,
   Alert,
   useMediaQuery,
   useTheme,
   Stack,
-  Fab,
   Switch,
   FormControlLabel,
   Dialog,
@@ -29,17 +24,14 @@ import {
   DialogContent,
   DialogActions,
   Tooltip,
-  InputAdornment
+  InputAdornment,
 } from '@mui/material';
 import {
   Add as AddIcon,
   AutoAwesome as AutoAwesomeIcon,
   Delete as DeleteIcon,
-  Edit as EditIcon,
   Save as SaveIcon,
-  Cancel as CancelIcon,
-  PhotoCamera as PhotoCameraIcon,
-  InfoOutlined as InfoOutlinedIcon
+  InfoOutlined as InfoOutlinedIcon,
 } from '@mui/icons-material';
 import { LoadingButton } from '@mui/lab';
 

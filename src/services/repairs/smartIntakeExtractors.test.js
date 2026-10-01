@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 /**
  * The rule-based fallback extractors — what smart intake falls back to when the

@@ -14,7 +14,6 @@ import {
   Refresh as RefreshIcon,
   QrCodeScanner as ScanIcon,
   VerifiedUser as QCIcon,
-  Category as PartsIcon,
   Forum as CommunicationsIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';

@@ -1,5 +1,4 @@
 import { db } from "@/lib/database";
-import { v4 as uuidv4 } from 'uuid';
 import WorkOrdersModel from "@/app/api/workOrders/model";
 
 export default class RepairsModel {

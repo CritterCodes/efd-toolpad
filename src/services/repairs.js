@@ -130,7 +130,7 @@ class RepairsService {
             }, []);
 
             for (const part of combinedParts) {
-                const response = await axiosInstance.post(`/repairs/parts`, { repairID, part });
+                await axiosInstance.post(`/repairs/parts`, { repairID, part });
             }
 
             return { message: "All parts added successfully" };

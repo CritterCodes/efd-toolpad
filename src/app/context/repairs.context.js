@@ -1,7 +1,6 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import RepairsService from "@/services/repairs";
 
 // Create the Repairs Context with default values
 const RepairsContext = createContext({
