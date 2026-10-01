@@ -129,7 +129,10 @@ async function visit(context, url, widthKey, outDir) {
   // finish — until it has an <h1>, or no spinner is left — and measure again. The settled page is what counts.
   if (!metrics.h1 || metrics.text < 20) {
     await page.waitForFunction(
-      () => document.querySelector('h1') || !document.querySelector('[role="progressbar"], .MuiSkeleton-root'),
+      // Settled = it has text AND (an <h1>, or no spinner/skeleton left). A page that hasn't painted at all has
+      // neither text nor a spinner, so text is required too (CI caught production/pieces that way, 2026-10-01).
+      () => (document.body?.innerText?.trim().length || 0) >= 20
+        && (document.querySelector('h1') || !document.querySelector('[role="progressbar"], .MuiSkeleton-root')),
       null, { timeout: 8000 },
     ).catch(() => {});
     await page.waitForTimeout(300);
