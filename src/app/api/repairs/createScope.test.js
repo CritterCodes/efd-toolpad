@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   createRepair: vi.fn(async (data) => ({ repairID: 'r-new', ...data })),
   // The engine's answer for the ticket (services/pricing/repairPricing.js) — stubbed; its own tests price.
   priceRepairForSave: vi.fn(async () => ({})),
+  recordIntakeOutcomes: vi.fn(async () => 1),
 }));
 
 vi.mock('next/server', () => ({
@@ -45,6 +46,11 @@ vi.mock('@/lib/apiAuth', async (importOriginal) => {
   return { ...actual, requireRepairsAccess: mocks.requireRepairsAccess };
 });
 
+vi.mock('@/services/ai/smartIntakeLog', async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, recordIntakeOutcomes: mocks.recordIntakeOutcomes };
+});
+
 const { POST } = await import('./route.js');
 const { REPAIR_STATUS } = await import('@/services/repairWorkflow');
 
@@ -74,6 +80,16 @@ describe('POST /api/repairs prices on the SERVER (EFD-DEFECTS P12)', () => {
     const [arg] = mocks.priceRepairForSave.mock.calls[0];
     expect(arg).toMatchObject({ metalType: 'gold', karat: '14k', goldColor: 'yellow' }); // the form's metal, not the folded one
     expect(mocks.createRepair.mock.calls[0][0]).toMatchObject({ tasks: [{ id: 1, price: 23.39 }], totalCost: 23.39, subtotal: 23.39 });
+  });
+
+  it('hands the smart-intake log ids to the log, never to the repair (Q13)', async () => {
+    await POST(jsonReq({ clientName: 'A', userID: 'c1', description: 'x', metalType: 'gold', karat: '14k',
+      smartIntakeLogIDs: ['sil-abc123', 'not-a-log-id'] }));
+    expect(mocks.createRepair.mock.calls[0][0]).not.toHaveProperty('smartIntakeLogIDs');
+    const [arg] = mocks.recordIntakeOutcomes.mock.calls[0];
+    expect(arg.logIDs).toEqual(['sil-abc123']);
+    expect(arg.repairID).toBe('r-new');
+    expect(arg.body).toMatchObject({ metalType: 'gold', karat: '14k' }); // the form's metal, not the folded one
   });
 
   it("refuses a ticket the engine can't price, and saves nothing", async () => {

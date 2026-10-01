@@ -148,6 +148,8 @@ export default function useNewRepairForm({
   const wholesalerBusinessNameRef = useRef(null);
   const pricingContextRef = useRef(null);
   const hydratingPricingContextRef = useRef(null);
+  // Smart-intake log ids (sentence + photo suggestions) this ticket started from; sent with the save.
+  const smartIntakeLogIDsRef = useRef([]);
   const [newClientData, setNewClientData] = useState({
     firstName: '',
     lastName: '',
@@ -798,6 +800,8 @@ export default function useNewRepairForm({
       }
 
       const parsed = payload?.data?.parsed || {};
+      // The smart-intake log entry for this suggestion; the save tells it what the ticket became (Q13).
+      if (payload?.data?.intakeLogID) smartIntakeLogIDsRef.current.push(payload.data.intakeLogID);
       // matchedTasks carries per-task quantity ("retip 14 prongs" = retip x14);
       // matchedTaskIds is the legacy shape and implies quantity 1.
       const matchedPairs = Array.isArray(parsed.matchedTasks) && parsed.matchedTasks.length > 0
@@ -1229,6 +1233,9 @@ export default function useNewRepairForm({
       }
 
       if (requestQuote) submissionData.tasks = [];
+      if (submitMode !== 'edit' && smartIntakeLogIDsRef.current.length) {
+        submissionData.smartIntakeLogIDs = [...smartIntakeLogIDsRef.current];
+      }
       const result = submitMode === 'edit' && repairID
         ? await RepairsService.updateRepair(repairID, submissionData)
         : await RepairsService.createRepair(submissionData);
@@ -1390,6 +1397,7 @@ export default function useNewRepairForm({
       }
 
       const generatedDescription = String(data?.data?.description || '').trim();
+      if (data?.data?.intakeLogID) smartIntakeLogIDsRef.current.push(data.data.intakeLogID);
       if (!generatedDescription) {
         throw new Error('Gemini did not return a description.');
       }

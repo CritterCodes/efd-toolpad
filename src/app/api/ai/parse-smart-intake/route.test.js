@@ -6,6 +6,11 @@ vi.mock('next/server', () => ({
   },
 }))
 
+// The smart-intake log is best-effort and DB-backed; these tests are about the route.
+vi.mock('@/services/ai/smartIntakeLog', () => ({
+  recordIntakeSuggestion: vi.fn(async () => 'sil-test'),
+}))
+
 vi.mock('@/lib/auth', () => ({
   auth: vi.fn(),
 }))

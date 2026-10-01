@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
+import { recordIntakeSuggestion } from '@/services/ai/smartIntakeLog';
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const GEMINI_MODEL = 'gemini-2.5-flash';
@@ -176,6 +177,7 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: 'GEMINI_API_KEY is not configured.' }, { status: 500 });
     }
 
+    const startedAt = Date.now();
     const body = await request.json();
     const inputText = String(body?.inputText || '').trim();
     const description = String(body?.description || '').trim();
@@ -273,11 +275,29 @@ export async function POST(request) {
       );
     }
 
+    const normalized = normalizeParsedPayload(parsed);
+
+    // Smart-intake log (OPEN-QUESTIONS Q13): what was typed and what the AI said. The save adds what the ticket
+    // became. Task ids are kept with their titles so the log reads without a lookup. Best-effort.
+    const titleOf = new Map(tasks.map((t) => [String(t?.id || ''), String(t?.title || '')]));
+    const intakeLogID = await recordIntakeSuggestion({
+      session,
+      kind: 'text',
+      input: { text: inputText, description },
+      output: {
+        ...normalized,
+        tasks: (normalized.matchedTasks || []).map((t) => ({ id: t.id, title: titleOf.get(t.id) || '', quantity: t.quantity })),
+      },
+      model: GEMINI_MODEL,
+      ms: Date.now() - startedAt,
+    });
+
     return NextResponse.json({
       success: true,
       data: {
-        parsed: normalizeParsedPayload(parsed),
-        model: GEMINI_MODEL
+        parsed: normalized,
+        model: GEMINI_MODEL,
+        intakeLogID,
       }
     });
   } catch (error) {

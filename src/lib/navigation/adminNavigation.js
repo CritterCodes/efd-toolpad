@@ -26,6 +26,7 @@ import BenchDayIcon from "@mui/icons-material/EventAvailable";
 import FunnelIcon from "@mui/icons-material/FilterAlt";
 import LinkIcon from "@mui/icons-material/Link";
 import TravelExploreIcon from "@mui/icons-material/TravelExplore";
+import FactCheckIcon from "@mui/icons-material/FactCheck";
 import ArticleIcon from "@mui/icons-material/Article";
 import EditNoteIcon from "@mui/icons-material/EditNote";
 import QuizIcon from "@mui/icons-material/Quiz";
@@ -214,6 +215,11 @@ export const adminNavigation = {
       segment: 'dashboard/admin/wholesale-acquisition',
       title: 'Wholesale Acquisition',
       icon: <TravelExploreIcon />
+    },
+    {
+      segment: 'dashboard/admin/smart-intake',
+      title: 'Smart Intake Log',
+      icon: <FactCheckIcon />
     },
     {
       segment: 'dashboard/blogs',
