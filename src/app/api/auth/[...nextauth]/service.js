@@ -19,16 +19,11 @@ export default class AuthService {
      */
     static async register(userData) {
         const { firstName, lastName, email, password, phoneNumber, status, role, business } = userData;
-        console.log(userData);
-        console.log('looking for user');
         const existingUser = await UserModel.findByEmail(email);
-        console.log(existingUser);
         if (existingUser) {
             throw new Error("User already exists with this email.");
         };
-        console.log('hashing password');
         const hashedPassword = password ? await bcrypt.hash(password, 10) : 'no password';
-        console.log('creating new user with:', firstName, lastName, email, hashedPassword, phoneNumber, status);
         
         const newUser = new User(
             firstName,
@@ -40,8 +35,6 @@ export default class AuthService {
             business ? business : '',
             status
         );
-        console.log("newUser", newUser);
-        console.log('creating user');
         const results = await UserModel.create(newUser);
 
         // ✅ Send the verification email using the email utility
@@ -57,36 +50,29 @@ export default class AuthService {
      */
     static async login(email, password) {
         try {
-            console.log('🔐 [AUTH_SERVICE] Starting authentication for:', email);
 
             // Step 1: Fetch user from MongoDB
             const user = await UserModel.findByEmail(email);
             if (!user) {
-                console.log('❌ [AUTH_SERVICE] User not found in admin database:', email);
                 throw new Error("Invalid email or password.");
             }
 
             // Step 2: Verify bcrypt password
             if (!user.password || user.password === 'no password') {
-                console.log('❌ [AUTH_SERVICE] No password set for:', email);
                 throw new Error("Invalid email or password.");
             }
 
             const isPasswordValid = await bcrypt.compare(password, user.password);
             if (!isPasswordValid) {
-                console.log('❌ [AUTH_SERVICE] Password mismatch for:', email);
                 throw new Error("Invalid email or password.");
             }
-            console.log('✅ [AUTH_SERVICE] Authentication successful for:', email);
 
             if (user.status === 'terminated' || user.status === 'suspended') {
                 // Deactivated by an admin (services/users/terminateArtisan.js). Not a verification
                 // problem, so don't send them looking for a verification email.
-                console.log('❌ [AUTH_SERVICE] Deactivated account attempted sign-in:', email);
                 throw new Error("This account has been deactivated.");
             }
             if (user.status !== 'verified') {
-                console.log('❌ [AUTH_SERVICE] User not verified:', email);
                 throw new Error("Please verify your email before logging in.");
             }
 
@@ -115,7 +101,6 @@ export default class AuthService {
                 expiresIn: JWT_EXPIRATION
             });
 
-            console.log("✅ [AUTH_SERVICE] Token generated for user.");
 
             // ✅ Return the full user data along with the token
             return {

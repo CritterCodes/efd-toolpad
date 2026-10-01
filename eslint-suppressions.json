@@ -95,16 +95,8 @@
     }
   },
   "src/app/api/auth/[...nextauth]/service.js": {
-    "no-console": {
-      "count": 15
-    },
     "no-unused-vars": {
       "count": 1
-    }
-  },
-  "src/app/api/auth/debug-session/route.js": {
-    "no-console": {
-      "count": 4
     }
   },
   "src/app/api/auth/emergency-logout/route.js": {
@@ -531,11 +523,6 @@
   "src/lib/artisanService.js": {
     "no-unused-vars": {
       "count": 1
-    }
-  },
-  "src/lib/auth-utils.js": {
-    "no-console": {
-      "count": 14
     }
   },
   "src/lib/database.js": {
