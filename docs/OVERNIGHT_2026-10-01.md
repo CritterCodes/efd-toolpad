@@ -111,3 +111,54 @@ In review: [#199](https://github.com/CritterCodes/efd-toolpad/pull/199) **P3** �
 | Q9 | Merge the 3 duplicate-email accounts + unique email index? | **Yes**, as a backed-up script. |
 | Q10 | Retire the legacy gem-listing config route (a stored-price writer nothing calls)? | **Yes.** |
 | Q11 | Limit the AI helper routes to staff/artisans (each call costs a Gemini request)? | **Yes**, stores too if their intake uses one. |
+
+---
+
+# Night, 2026-10-01 (max-lines burn-down, biggest first)
+
+Every PR: review + green `check`; every production deploy **READY** and `ship.yml` passed (#215 settling).
+
+| PR | What |
+|---|---|
+| [#206](https://github.com/CritterCodes/efd-toolpad/pull/206) | `customs/customProduction.js` (642) → 3 modules, same API. |
+| [#207](https://github.com/CritterCodes/efd-toolpad/pull/207) | `affiliates/commissionEngine.js` (625) → 4 modules, same API. |
+| [#208](https://github.com/CritterCodes/efd-toolpad/pull/208) | `repair-invoices/service.js` (568) → 3 modules, same API. |
+| [#209](https://github.com/CritterCodes/efd-toolpad/pull/209) | `sales-invoices/service.js` (486) → 3 modules, same API. |
+| [#210](https://github.com/CritterCodes/efd-toolpad/pull/210), [#211](https://github.com/CritterCodes/efd-toolpad/pull/211), [#213](https://github.com/CritterCodes/efd-toolpad/pull/213) | **Payment & Pickup page 2,103 → 362 lines**, off the baseline: helpers, print, cards, two action factories, a list hook, four JSX sections. New tests for both factories. |
+| [#212](https://github.com/CritterCodes/efd-toolpad/pull/212) | **Design detail page 2,087 → 321 lines**: 7 component files + a pure save-body builder (checked identical line for line), with a new test. |
+| [#214](https://github.com/CritterCodes/efd-toolpad/pull/214), [#215](https://github.com/CritterCodes/efd-toolpad/pull/215) | **Wholesale acquisition page 2,070 → 374 lines**: 6 component files, a lead-action factory, five JSX sections, with a new test. |
+
+In review: [#216](https://github.com/CritterCodes/efd-toolpad/pull/216), the intake hook `useNewRepairForm` 1,809 → 1,484 (pure helpers out, with tests).
+
+**Method** (scratchpad tools, every step mechanical): split by top-level declaration; wire imports from eslint
+`no-undef`; for JSX and handler blocks, move them verbatim and turn their free variables into props/deps; verify
+the public API by comparing export lists before and after, and check that moved logic is identical line for line.
+
+## Numbers
+
+| | Start of the day | Now |
+|---|---|---|
+| `max-lines` (files over 400) | 42 | **30** |
+| Lint baseline | 126 | **31** (30 `max-lines` + 1 deliberate unused var) |
+| Views baseline | 8 | **0** |
+| Guard tests (goal step 4) | 0 of 3 | **3 of 3** |
+
+## Parked, and why
+
+- **Classic intake (`NewRepairForm.js`, 1,908) and the report page (`ReportDetailPageClient.js`, 1,885)** are not
+  split: both are retirement candidates (F34 two intake UIs; the 2026-10-31 usage report). Retiring beats polishing.
+- **POS sale lines without a typed price fall back to the `products` cache price** (`sales-invoices/serviceParts/lines.js`
+  `getProductPrice`). The cache is fed by the daily reprice, but it's a stored copy. Moving it to the engine is
+  price-moving, so it waits.
+- React #418, efd-shop C3/C4/C5/§5, P2/P4, B4/B6/F36: unchanged from the evening report.
+
+## Needs the owner (docs/OPEN-QUESTIONS.md)
+
+| # | Question | Recommendation |
+|---|---|---|
+| Q7 | Retire `PUT`/`DELETE /api/wholesale/repairs/[repairId]`? | **Yes** |
+| Q8 | Where should a checked-in Request Quote job wait? | **`NEEDS QUOTE`** until priced |
+| Q9 | Merge 3 duplicate-email accounts + unique email index? | **Yes**, backed-up script |
+| Q10 | Retire the legacy gem config route? | **Yes** |
+| Q11 | AI helper routes staff/artisan-only? | **Yes** |
+| Q12 | A blank ring size reads as size 0, so smart intake suggests sizing stock for the whole range. Treat blank as unknown? | **Yes**. It removes a wrong charge suggestion, but it changes what a ticket can charge. |
