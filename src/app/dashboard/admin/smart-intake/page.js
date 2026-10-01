@@ -64,7 +64,7 @@ export default function SmartIntakeLogPage() {
         </Typography>
       </Box>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(140px, 100%), 1fr))', gap: 1.5 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(120px, 100%), 1fr))', gap: 1.5 }}>
         <Stat label="Suggestions" value={summary.logged} />
         <Stat label="Saved to a ticket" value={summary.saved} />
         <Stat label="Changed before saving" value={summary.changed} />
