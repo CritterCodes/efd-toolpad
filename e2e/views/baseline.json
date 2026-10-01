@@ -1,10 +1,1 @@
-[
-  "admin|desktop|/dashboard/admin/repair-tasks/create|no-h1",
-  "admin|desktop|/dashboard/artisan/designs/new|no-h1",
-  "admin|desktop|/dashboard/products/drops/new|no-h1",
-  "admin|desktop|/dashboard/repairs/bulk-print|no-h1",
-  "admin|phone|/dashboard/admin/repair-tasks/create|no-h1",
-  "admin|phone|/dashboard/artisan/designs/new|no-h1",
-  "admin|phone|/dashboard/products/drops/new|no-h1",
-  "admin|phone|/dashboard/repairs/bulk-print|no-h1"
-]
+[]

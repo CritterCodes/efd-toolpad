@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Box, Alert, Button } from '@mui/material';
+import { Box, Alert, Button, Typography } from '@mui/material';
 import { useRouter } from 'next/navigation';
 
 export default function RepairTaskFormPage() {
@@ -10,6 +10,7 @@ export default function RepairTaskFormPage() {
   return (
     <Box sx={{ pb: 10 }}>
       <Box sx={{ maxWidth: 900, mx: 'auto', mt: 3 }}>
+        <Typography component="h1" variant="h5" sx={{ mb: 2 }}>Repair task builder</Typography>
         <Alert severity="info" sx={{ mb: 2 }}>
           The advanced repair-task builder is temporarily unavailable while we complete a refactor.
           Please use the universal task flow for now.

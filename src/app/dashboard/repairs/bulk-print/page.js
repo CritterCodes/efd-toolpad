@@ -53,9 +53,16 @@ export default function PrintRepairTicketsBulk() {
     requestAnimationFrame(() => window.print());
   };
 
-  if (loading) return <Typography sx={{ p: 3 }}>Loading repair tickets...</Typography>;
-  if (error) return <Typography color="error" sx={{ p: 3 }}>{error}</Typography>;
-  if (repairs.length === 0) return <Typography sx={{ p: 3 }}>No repair tickets selected.</Typography>;
+  // Every state says what the page is (the loaded view's title is the same <h1>).
+  const titled = (message, color) => (
+    <Box sx={{ p: 3 }}>
+      <Typography component="h1" variant="h6" sx={{ mb: 1 }}>Print repair tickets</Typography>
+      <Typography color={color}>{message}</Typography>
+    </Box>
+  );
+  if (loading) return titled('Loading repair tickets...');
+  if (error) return titled(error, 'error');
+  if (repairs.length === 0) return titled('No repair tickets selected.');
 
   return (
     <Box className="bulk-print-root">

@@ -82,7 +82,7 @@ export default function NewDropPage() {
           Drops
         </Button>
         <Typography sx={{ color: REPAIRS_UI.textMuted }}>/</Typography>
-        <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 600 }}>New Drop</Typography>
+        <Typography component="h1" sx={{ color: REPAIRS_UI.textHeader, fontWeight: 600 }}>New Drop</Typography>
       </Stack>
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} alignItems="flex-start">
