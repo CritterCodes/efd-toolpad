@@ -1,6 +1,5 @@
 import React from "react";
 import { USER_ROLES } from "../unifiedUserService";
-import DashboardIcon from "@mui/icons-material/Dashboard";
 import BuildIcon from "@mui/icons-material/Handyman";
 import BarChartIcon from "@mui/icons-material/Insights";
 import PeopleIcon from "@mui/icons-material/People";

@@ -214,7 +214,7 @@ Refreshed by `npm run guardrails:report -- --markdown`; the baseline file is `es
 | Rule | Baseline at start (2026-09-30) | Today | Target |
 |---|---|---|---|
 | `no-console` | 368 | 368 (75 files) | 2026-10-31 |
-| `no-unused-vars` | 208 | 208 (104 files) | 2026-10-24 |
+| `no-unused-vars` | 208 | 146 (97 files) — 2026-10-01: navigation | 2026-10-24 |
 | `max-lines` (400) | 42 | 42 (42 files) | 2027-01-31 — or retired (see "Retire what nobody uses") |
 | `no-undef` | 0 | 0 | — plain error since Phase 0 |
 | browser code → database / server models | 0 | 0 | — plain error |

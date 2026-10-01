@@ -1,11 +1,5 @@
 import React from "react";
 import DashboardIcon from "@mui/icons-material/Dashboard";
-import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
-import StorefrontIcon from "@mui/icons-material/Storefront";
-import AssignmentIcon from "@mui/icons-material/Assignment";
-import PeopleIcon from "@mui/icons-material/People";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import SettingsIcon from "@mui/icons-material/Settings";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 
 // Shared Navigation components

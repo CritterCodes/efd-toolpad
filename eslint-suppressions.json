@@ -830,41 +830,6 @@
       "count": 1
     }
   },
-  "src/lib/navigation/adminNavigation.js": {
-    "no-unused-vars": {
-      "count": 2
-    }
-  },
-  "src/lib/navigation/artisanApplicantNavigation.js": {
-    "no-unused-vars": {
-      "count": 27
-    }
-  },
-  "src/lib/navigation/artisanNavigation.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/lib/navigation/devNavigation.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/lib/navigation/sharedNavigation.js": {
-    "no-unused-vars": {
-      "count": 6
-    }
-  },
-  "src/lib/navigation/staffNavigation.js": {
-    "no-unused-vars": {
-      "count": 24
-    }
-  },
-  "src/lib/navigation/wholesalerNavigation.js": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/lib/roleBasedNavigation.js": {
     "no-console": {
       "count": 3

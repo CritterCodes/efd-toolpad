@@ -1,6 +1,5 @@
 import React from "react";
 import { USER_ROLES } from "../unifiedUserService";
-import DashboardIcon from "@mui/icons-material/Dashboard";
 import BuildIcon from "@mui/icons-material/Handyman";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import BarChartIcon from "@mui/icons-material/Insights";
@@ -14,7 +13,6 @@ import ListIcon from "@mui/icons-material/List";
 import PickupIcon from "@mui/icons-material/LocalShipping";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import DiamondIcon from "@mui/icons-material/AutoAwesome";
-import RingIcon from "@mui/icons-material/FiberSmartRecord";
 import PaymentIcon from "@mui/icons-material/Payment";
 import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 import PrecisionManufacturingIcon from "@mui/icons-material/PrecisionManufacturing";
