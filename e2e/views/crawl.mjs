@@ -109,12 +109,24 @@ async function visit(context, url, widthKey, outDir) {
   await page.waitForTimeout(300);
 
   const finalPath = new URL(page.url()).pathname;
-  const metrics = await page.evaluate(() => ({
+  const measure = () => page.evaluate(() => ({
     title: document.title,
     heading: document.querySelector('h1,h2,h3,h4,h5,h6')?.textContent?.trim().slice(0, 80) || '',
     h1: !!document.querySelector('h1'),
     text: document.body?.innerText?.trim().length || 0,
   })).catch(() => ({ title: '', heading: '', h1: true, text: 0 }));
+  let metrics = await measure();
+  // A page still loading (spinner, "Loading users…") looks blank or title-less. On a busy CI runner that
+  // happened at one width and not the other (2026-10-01), so before calling it, give it up to 8s more to
+  // finish — until it has an <h1>, or no spinner is left — and measure again. The settled page is what counts.
+  if (!metrics.h1 || metrics.text < 20) {
+    await page.waitForFunction(
+      () => document.querySelector('h1') || !document.querySelector('[role="progressbar"], .MuiSkeleton-root'),
+      null, { timeout: 8000 },
+    ).catch(() => {});
+    await page.waitForTimeout(300);
+    metrics = await measure();
+  }
   Object.assign(metrics, await page.evaluate(cutOff).catch(() => ({ overflowBy: 0, overflowAt: '' })));
   const links = widthKey === 'desktop' ? await dashboardHrefs(page).catch(() => []) : [];
 
