@@ -129,9 +129,13 @@ async function visit(context, url, widthKey, outDir) {
   // finish — until it has an <h1>, or no spinner is left — and measure again. The settled page is what counts.
   if (!metrics.h1 || metrics.text < 20) {
     const settled = () => page.waitForFunction(
-      // Settled = it has text AND (an <h1>, or no spinner/skeleton left). A page that hasn't painted at all has
+      // Settled = the PAGE has text AND (an <h1>, or no spinner/skeleton left). A page that hasn't painted at all has
       // neither text nor a spinner, so text is required too (CI caught production/pieces that way, 2026-10-01).
-      () => (document.body?.innerText?.trim().length || 0) >= 20
+      // The text is the content area's (<main>), not the body's: the dashboard shell's sidebar alone is well over 20
+      // characters, so a page whose own content hadn't rendered yet — a redirect stub mid-redirect, or a slow page on
+      // a loaded runner — counted as settled and was measured as having no <h1> (/dashboard/repairs/all, CI
+      // 2026-10-01, after #204). Pages without a <main> fall back to the body.
+      () => ((document.querySelector('main') || document.body)?.innerText?.trim().length || 0) >= 20
         && (document.querySelector('h1') || !document.querySelector('[role="progressbar"], .MuiSkeleton-root')),
       null, { timeout: 8000 },
     ).catch(() => {});

@@ -30,11 +30,7 @@ const EXEMPT = {
   'guide/route.js': 'the caller\'s own guide checklist',
   'usage/page-open/route.js': 'a page-open counter (path, role, day); no content',
   'artisan/gallery/[id]/route.js': 'edits the caller\'s own gallery; every write is scoped to their user document',
-  // No database write: computes and returns.
-  'ai/build-task/route.js': 'returns generated text; writes nothing',
-  'ai/describe-item-image/route.js': 'returns generated text; writes nothing',
-  'ai/generate-ai-meta/route.js': 'returns generated text; writes nothing',
-  'ai/parse-smart-intake/route.js': 'returns a parsed draft; writes nothing',
+  // No database write: computes and returns. (The AI helpers used to be here; since Q11 they authorize by surface.)
   'pricing/estimate/route.js': 'prices a draft through the engine; writes nothing',
   'refrakt-price/route.js': 'public customizer price, origin-checked; writes nothing',
   // Authorized by something other than the session.

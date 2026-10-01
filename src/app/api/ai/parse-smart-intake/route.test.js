@@ -18,7 +18,8 @@ vi.mock('@/lib/auth', () => ({
 import { POST } from './route.js'
 import { auth } from '@/lib/auth'
 
-const VALID_SESSION = { user: { id: 'user1' } }
+// A store: the intake's own users may call it (OPEN-QUESTIONS Q11).
+const VALID_SESSION = { user: { id: 'user1', role: 'wholesaler' } }
 
 const VALID_PARSED_JSON = JSON.stringify({
   metalType: 'gold',
@@ -72,6 +73,12 @@ describe('POST /api/ai/parse-smart-intake', () => {
   })
 
   // ── Auth & validation ──────────────────────────────────────────────────────
+
+  it('returns 403 to a signed-in account that cannot open the intake (a customer)', async () => {
+    auth.mockResolvedValue({ user: { id: 'c1', role: 'customer' } })
+    const res = await POST(mockReq({ inputText: 'resize my ring' }))
+    expect(res._status).toBe(403)
+  })
 
   it('returns 401 when unauthenticated', async () => {
     auth.mockResolvedValue(null)
