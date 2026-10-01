@@ -77,6 +77,9 @@ export default class UserController {
                 { status: 201 }
             );
         } catch (error) {
+            if (error.code === 'DUPLICATE_EMAIL') {
+                return new Response(JSON.stringify({ success: false, error: error.message }), { status: 409 });
+            }
             console.error("Error in UserController.createUser:", error);
             return new Response(
                 JSON.stringify({ 

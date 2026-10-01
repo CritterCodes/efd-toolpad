@@ -1,6 +1,7 @@
 import { db as mongo } from '@/lib/database';
 import { v4 as uuidv4 } from 'uuid';
 import { USER_ROLES, USER_STATUS, AUTH_PROVIDERS } from './user.constants.js';
+import { assertEmailAvailable } from '@/lib/user/emailAvailability';
 
 export class UserManagementService {
   static async initializeDatabase() {
@@ -146,6 +147,7 @@ export class UserManagementService {
       };
 
       const db = await mongo.connect();
+      await assertEmailAvailable(newUser.email, db); // EFD-DEFECTS C2
       const result = await db.collection('users').insertOne(newUser);
       return { ...newUser, _id: result.insertedId };
     } catch (error) {

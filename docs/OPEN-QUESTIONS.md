@@ -122,3 +122,17 @@ staff to price. When pricing flips the request to `quoted`, the job moves to REA
 changes where these jobs show up, which is why it's a question and not a fix.
 
 **Status:** open.
+
+---
+
+### Q9 — Merge the 3 duplicate-email accounts and add a unique index on `users.email`? (opened 2026-10-01)
+
+**Context.** EFD-DEFECTS C2. Production has 3 emails held by two accounts each, and no index on `users.email`. Since
+2026-10-01 every code path that creates a user refuses an email that already exists (any case), so no new duplicates
+can be made through the app. The existing 3 remain: a claim or reset for those people can land on the wrong account.
+
+**Recommendation:** merge each pair into the account that holds their repairs and invoices (a reviewed, backed-up
+production script), then create a unique, case-insensitive index on `users.email` (collation strength 2), so the
+database itself refuses duplicates. Both are production writes, so both need the owner's yes.
+
+**Status:** open.

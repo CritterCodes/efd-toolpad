@@ -1,5 +1,6 @@
 // src/app/api/auth/auth.model.js
 import { db } from '@/lib/database'; 
+import { assertEmailAvailable } from '@/lib/user/emailAvailability';
 
 export default class UserModel {
     /**
@@ -50,8 +51,7 @@ export default class UserModel {
      */
     static async create(userData) {
         const dbInstance = await db.connect();
-
-
+        await assertEmailAvailable(userData?.email, dbInstance); // EFD-DEFECTS C2
         await dbInstance.collection("users").insertOne(userData);
         return userData;
     }
