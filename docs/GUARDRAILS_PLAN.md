@@ -213,9 +213,10 @@ Refreshed by `npm run guardrails:report -- --markdown`; the baseline file is `es
 
 | Rule | Baseline at start (2026-09-30) | Today | Target |
 |---|---|---|---|
-| `no-console` | 368 | 368 (75 files) | 2026-10-31 |
-| `no-unused-vars` | 208 | 146 (97 files) — 2026-10-01: navigation | 2026-10-24 |
+| `no-console` | 368 | 82 (3 files) — 2026-10-01 overnight; the 82 are deliberate diagnostics/migration output, see OPEN-QUESTIONS Q6 | 2026-10-31 |
+| `no-unused-vars` | 208 | 2 (2 files) — 2026-10-01 overnight; both kept on purpose (sync-vendor Q5, stlVolumeCalculator throws on <80-byte files) | 2026-10-24 |
 | `max-lines` (400) | 42 | 42 (42 files) | 2027-01-31 — or retired (see "Retire what nobody uses") |
+| views check (`e2e/views/baseline.json`) | 296 (2026-10-01) | 8 — 4 pages, all no-`<h1>` | — |
 | `no-undef` | 0 | 0 | — plain error since Phase 0 |
 | browser code → database / server models | 0 | 0 | — plain error |
 | API routes → UI code | 0 | 0 | — plain error |
