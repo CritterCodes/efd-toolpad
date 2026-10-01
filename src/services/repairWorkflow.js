@@ -352,7 +352,8 @@ export function isRepairInBenchTab(repair, tabKey, userID = '') {
 
   switch (tabKey) {
     case BENCH_QUEUE.MINE:
-      return normalized.benchQueue !== null && normalized.assignedTo === userID;
+      // Not QC — it has its own tab (same rule as isWorkOrderInTab).
+      return normalized.benchQueue !== null && normalized.benchQueue !== BENCH_QUEUE.QC && normalized.assignedTo === userID;
     case BENCH_QUEUE.UNCLAIMED:
       return normalized.benchQueue === BENCH_QUEUE.UNCLAIMED;
     case BENCH_QUEUE.COMMUNICATIONS:

@@ -52,3 +52,13 @@ describe('projectWorkOrder + isWorkOrderInTab', () => {
     expect(isWorkOrderInTab(unclaimed, BENCH_QUEUE.MINE, 'me')).toBe(false);
   });
 });
+
+describe('the Mine tab (owner, 2026-10-01: QC crowded it)', () => {
+  it('shows your bench work but not your jobs waiting in QC — those are on the QC tab', () => {
+    const mineInQc = { sourceType: 'repair', status: 'QC', assignedToUserID: 'me' };
+    const mineWaitingParts = { sourceType: 'repair', status: 'NEEDS PARTS', assignedToUserID: 'me' };
+    expect(isWorkOrderInTab(mineInQc, BENCH_QUEUE.MINE, 'me')).toBe(false);
+    expect(isWorkOrderInTab(mineInQc, BENCH_QUEUE.QC, 'me')).toBe(true);
+    expect(isWorkOrderInTab(mineWaitingParts, BENCH_QUEUE.MINE, 'me')).toBe(true);
+  });
+});
