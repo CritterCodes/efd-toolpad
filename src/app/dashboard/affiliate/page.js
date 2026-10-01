@@ -7,12 +7,10 @@ import {
 } from '@mui/material';
 import { BarChart as BarChartIcon, CheckCircle as CheckIcon, People as PeopleIcon, Edit as EditIcon, Save as SaveIcon, Paid as PaidIcon } from '@mui/icons-material';
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
 import GettingStartedCard from '@/components/guide/GettingStartedCard';
 
 export default function AffiliateDashboardPage() {
   const { data: session } = useSession();
-  const router = useRouter();
   const [affiliate, setAffiliate] = useState(null);
   const [metrics, setMetrics] = useState(null);
   const [earnings, setEarnings] = useState(null);

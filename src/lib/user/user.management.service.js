@@ -1,8 +1,6 @@
 import { db as mongo } from '@/lib/database';
 import { v4 as uuidv4 } from 'uuid';
-import { USER_ROLES, USER_STATUS, AUTH_PROVIDERS, ROLE_PERMISSIONS } from './user.constants.js';
-import { UserRoleService } from './user.role.service.js';
-import { UserQueryService } from './user.query.service.js';
+import { USER_ROLES, USER_STATUS, AUTH_PROVIDERS } from './user.constants.js';
 
 export class UserManagementService {
   static async initializeDatabase() {

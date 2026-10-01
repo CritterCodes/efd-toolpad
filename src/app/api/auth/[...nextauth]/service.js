@@ -2,7 +2,7 @@
 
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import crypto, { hash } from 'crypto';
+import crypto from 'crypto';
 import User from '../../users/class';
 import UserModel from './model';
 import { sendVerificationEmail, sendInviteEmail, sendPasswordResetEmail } from '@/app/utils/email.util.js';

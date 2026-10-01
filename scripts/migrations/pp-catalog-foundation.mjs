@@ -9,7 +9,7 @@ import { runMigration, collExists } from './_lib.mjs';
 import { catalogFixtures, FIXTURE_VERSION, resetCatalogFixtures } from '../../src/services/production/catalogFixtures.js';
 
 const fixtureEnvironment = process.env.CATALOG_FIXTURE_ENV || 'dev';
-const fixture = catalogFixtures(fixtureEnvironment);
+catalogFixtures(fixtureEnvironment);
 export const disposableCatalogFilter = { fixtureVersion: { $exists: true } };
 
 export const steps = [

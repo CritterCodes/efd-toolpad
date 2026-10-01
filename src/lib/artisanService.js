@@ -12,7 +12,7 @@ import { adminBase, shopBase } from '@/lib/appUrls';
  */
 export async function getAllArtisanApplications(filters = {}) {
   try {
-    const database = await db.connect();
+    await db.connect();
     
     let query = {
       role: { $in: ['artisan-applicant', 'artisan'] },

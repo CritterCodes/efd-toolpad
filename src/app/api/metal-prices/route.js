@@ -77,7 +77,7 @@ export async function POST(req) {
     const db = await mongo.connect();
 
     // Update or create metal prices
-    const result = await db.collection('metalPrices').updateOne(
+    await db.collection('metalPrices').updateOne(
       { _id: 'current_prices' },
       {
         $set: {

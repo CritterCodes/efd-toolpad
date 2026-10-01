@@ -28,7 +28,7 @@ import {
   Add as AddIcon,
   Assessment as StatsIcon
 } from '@mui/icons-material';
-import { SKILL_LEVELS, METAL_TYPES, KARAT_OPTIONS } from '@/utils/processes.util';
+import { METAL_TYPES, KARAT_OPTIONS } from '@/utils/processes.util';
 
 export function EnhancedProcessesHeader({
   stats,

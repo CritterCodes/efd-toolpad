@@ -6,7 +6,7 @@ import { AFFILIATE_CODE_RX } from '@/lib/affiliateCode';
 
 // GET /api/affiliates — admin only, paginated list
 export async function GET(request) {
-  const { session, errorResponse } = await requireRole(['admin', 'dev']);
+  const { errorResponse } = await requireRole(['admin', 'dev']);
   if (errorResponse) return errorResponse;
 
   const { searchParams } = new URL(request.url);

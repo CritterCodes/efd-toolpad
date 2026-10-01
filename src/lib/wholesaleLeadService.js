@@ -51,15 +51,6 @@ const normalizeNullableString = (value) => {
 };
 
 const normalizeLeadKey = (value) => normalizeString(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-const normalizeLeadTokens = (value) => normalizeLeadKey(value).split(' ').filter((token) => token.length > 1);
-
-const tokenSimilarity = (left, right) => {
-  const leftTokens = new Set(normalizeLeadTokens(left));
-  const rightTokens = new Set(normalizeLeadTokens(right));
-  if (!leftTokens.size || !rightTokens.size) return 0;
-  const overlap = [...leftTokens].filter((token) => rightTokens.has(token)).length;
-  return overlap / Math.max(leftTokens.size, rightTokens.size);
-};
 
 const DEFAULT_WHOLESALE_APPLICATION_URL = 'https://shop.engelfinedesign.com/wholesale/request';
 
@@ -390,32 +381,6 @@ const distanceMilesBetween = (from, to) => {
     + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return Math.round(earthMiles * c * 10) / 10;
-};
-
-const googleTextSearchPages = async (params, maxPages = 3) => {
-  const pages = [];
-  let payload = await googleFetch('textsearch', params);
-  pages.push(payload);
-
-  for (let page = 1; page < maxPages && payload.next_page_token; page += 1) {
-    const pageToken = payload.next_page_token;
-    let pagePayload = null;
-
-    for (let attempt = 1; attempt <= 5; attempt += 1) {
-      await delay(attempt === 1 ? 3200 : 1800);
-      try {
-        pagePayload = await googleFetch('textsearch', { pagetoken: pageToken });
-        break;
-      } catch (error) {
-        if (error.googleStatus !== 'INVALID_REQUEST' || attempt === 5) throw error;
-      }
-    }
-
-    payload = pagePayload;
-    pages.push(payload);
-  }
-
-  return pages;
 };
 
 const googlePlacesNewTextSearch = async ({ textQuery, location, radiusMeters, pageToken }) => {
@@ -1935,23 +1900,6 @@ const callGemini = async (prompt, options = {}) => {
     });
   }
   return parsed;
-};
-
-const numberFromGemini = (parsed, keys, fallback = null) => {
-  for (const key of keys) {
-    if (parsed?.[key] === undefined || parsed?.[key] === null || parsed?.[key] === '') continue;
-    const value = Number(parsed[key]);
-    if (Number.isFinite(value)) return value;
-  }
-  return fallback;
-};
-
-const stringFromGemini = (parsed, keys) => {
-  for (const key of keys) {
-    const value = normalizeString(parsed?.[key]);
-    if (value) return value;
-  }
-  return '';
 };
 
 const inferLeadBusinessHints = (lead = {}) => {

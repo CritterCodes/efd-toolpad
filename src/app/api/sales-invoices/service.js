@@ -80,25 +80,6 @@ async function resolveProduct(line) {
   return await dbInstance.collection('products').findOne(query);
 }
 
-function normalizeTask(task) {
-  const laborHours = toNumber(task?.pricing?.totalLaborHours ?? task?.laborHours, 0);
-  return {
-    ...task,
-    id: task.id || task.taskID || task._id || `included-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    taskID: task.taskID || task._id || task.id || '',
-    title: task.title || task.name || 'Included sale labor',
-    quantity: toNumber(task.quantity, 1) || 1,
-    price: 0,
-    customerPrice: 0,
-    includedWithSale: true,
-    laborHours,
-    pricing: {
-      ...(task.pricing || {}),
-      totalLaborHours: laborHours,
-    },
-  };
-}
-
 // CASH DISCOUNT REMOVED (owner, 2026-09-04): sales invoices no longer round the total
 // down to the nearest $5 for cash. The stored cashDiscount* fields remain on historical
 // invoices for display and reporting; nothing writes a non-zero one anymore.
