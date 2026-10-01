@@ -204,11 +204,6 @@
       "count": 1
     }
   },
-  "src/services/repairWorkflow.js": {
-    "max-lines": {
-      "count": 1
-    }
-  },
   "src/utils/stlVolumeCalculator.js": {
     "no-unused-vars": {
       "count": 1
