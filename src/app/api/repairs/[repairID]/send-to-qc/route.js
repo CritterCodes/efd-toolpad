@@ -3,6 +3,7 @@ import RepairsModel from '../../model';
 import { requireRepairOps } from '@/lib/apiAuth';
 import { getUncreditedTaskIndexes, getLaborRateSnapshotForUser } from '@/app/api/repairLaborLogs/utils';
 import { buildMoveToQcUpdate } from '@/services/repairWorkflow';
+import { sendToQcRefusal, benchRuleError } from '@/services/bench/benchRules';
 
 /**
  * Move a repair to QC. Labor is NOT credited here — it's credited when the repair PASSES QC
@@ -15,6 +16,10 @@ export async function moveRepairToQc(session, repairID) {
   if (!repairID) return NextResponse.json({ error: 'Repair ID is required.' }, { status: 400 });
 
   const repair = await RepairsModel.findById(repairID);
+  // The holder sends a job to QC (an admin may, on their behalf) — B3. Before, anyone could send an unclaimed
+  // job or someone else's, and the stamp below credited them.
+  const refusal = sendToQcRefusal(repair, { userID: session.user.userID, isAdmin: ['admin', 'dev'].includes(session?.user?.role) });
+  if (refusal) throw benchRuleError(refusal.message, refusal.code);
   const now = new Date();
 
   const assigneeID = repair.assignedTo || session.user.userID;
@@ -48,6 +53,6 @@ export const POST = async (req, { params }) => {
     return NextResponse.json(updated, { status: 200 });
   } catch (error) {
     console.error('Error in send-to-qc route:', error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: error.status || 500 });
   }
 };

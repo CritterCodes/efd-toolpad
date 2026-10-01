@@ -9,6 +9,7 @@ const CODE_STATUS = {
   APPRENTICE_CANNOT_HOLD_WORK: 403, // apprentices are paid on the clock (services/pay/apprentice.js)
   NOT_FOUND: 404,
   BAD_REQUEST: 400,
+  CONFLICT: 409, // a claim / move-to-QC the job's state doesn't allow (services/bench/benchRules.js)
 };
 
 /**
