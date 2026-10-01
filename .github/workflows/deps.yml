@@ -1,0 +1,48 @@
+# Add or update a dependency without a local install (docs/GUARDRAILS_PLAN.md).
+#
+# efd-admin is a member of a local pnpm workspace, but Vercel and CI install it with npm from package-lock.json, and the
+# private @crittercodes/refrakt package needs a GitHub Packages token that only CI reliably has. So package.json and
+# package-lock.json are changed HERE: run this on a branch, it installs and commits the result to that branch.
+name: deps
+on:
+  workflow_dispatch:
+    inputs:
+      packages:
+        description: 'Packages, space-separated (e.g. "@playwright/test@1.55.0")'
+        required: true
+      dev:
+        description: Save as devDependencies
+        type: boolean
+        default: true
+permissions:
+  contents: write
+  packages: read
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://npm.pkg.github.com
+          scope: '@crittercodes'
+      - name: npm install
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PACKAGES: ${{ github.event.inputs.packages }}
+          DEV: ${{ github.event.inputs.dev }}
+        run: |
+          FLAG="--save"
+          if [ "$DEV" = "true" ]; then FLAG="--save-dev"; fi
+          npm install $FLAG --no-audit --no-fund $PACKAGES
+      - name: Commit to this branch
+        env:
+          PACKAGES: ${{ github.event.inputs.packages }}
+        run: |
+          if git diff --quiet -- package.json package-lock.json; then echo "nothing changed"; exit 0; fi
+          git config user.name "CritterCodes"
+          git config user.email "jacobaengel55@gmail.com"
+          git add package.json package-lock.json
+          git commit -m "deps: npm install $PACKAGES (via the deps workflow)"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
