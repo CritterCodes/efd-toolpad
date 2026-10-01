@@ -7,40 +7,29 @@ import {
   Alert,
   Box,
   Button,
-  Checkbox,
-  CircularProgress,
-  FormControl,
   Grid,
-  InputLabel,
-  MenuItem,
-  Pagination,
-  Paper,
-  Select,
   Snackbar,
   Stack,
-  Tab,
-  Tabs,
-  TextField,
   Typography,
 } from '@mui/material';
 import {
-  Add as AddIcon,
   AutoAwesome as AiIcon,
-  Email as EmailIcon,
   Link as LinkIcon,
-  Map as MapIcon,
-  Refresh as RefreshIcon,
   Search as SearchIcon,
   Send as SendIcon,
   Storefront as StoreIcon,
 } from '@mui/icons-material';
 import { wholesaleLeadsClient } from '@/api-clients/wholesaleLeads.client';
-import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
-import { BUSINESS_FILTERS, FIT_VIEWS, SORT_OPTIONS, STATUSES, hasScore, matchesBusinessFilter, statusLabel } from './leadHelpers';
+import { hasScore, matchesBusinessFilter } from './leadHelpers';
 import { ImportJobPanel, RescoreJobPanel, StatBox } from './jobPanels';
-import { LeadCard } from './LeadCard';
 import { LeadDrawer } from './LeadDrawer';
 import { BulkOutreachDialog, EmailTemplatesDialog, GoogleImportDialog, LeadFormDialog, SendLeadOutreachDialog } from './leadDialogs';
+import { leadActions } from './leadActions';
+import { LeadList } from './LeadList';
+import { LeadSortBar } from './LeadSortBar';
+import { FitViewTabs } from './FitViewTabs';
+import { LeadFilters } from './LeadFilters';
+import { AcquisitionHeader } from './AcquisitionHeader';
 
 export default function WholesaleAcquisitionPage() {
   const router = useRouter();
@@ -237,346 +226,41 @@ export default function WholesaleAcquisitionPage() {
     [leads],
   );
 
-  const runAction = async (fn, successMessage) => {
-    setActionLoading(true);
-    try {
-      const result = await fn();
-      setSnackbar({ open: true, message: successMessage, severity: 'success' });
-      await loadLeads();
-      return result;
-    } catch (err) {
-      setSnackbar({ open: true, message: err.message, severity: 'error' });
-      return null;
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleCreate = async (form) => {
-    const created = await runAction(() => wholesaleLeadsClient.create(form), 'Lead added');
-    if (created) setManualOpen(false);
-  };
-
-  const handleGoogleImport = async (payload) => {
-    setActionLoading(true);
-    try {
-      const job = await wholesaleLeadsClient.googleSearch(payload);
-      setImportJob(job);
-      setGoogleOpen(false);
-      setSnackbar({
-        open: true,
-        severity: 'info',
-        message: 'Import queued. Run the wholesale import worker to process it and keep this page open for progress.',
-      });
-    } catch (err) {
-      setSnackbar({ open: true, message: err.message, severity: 'error' });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleCancelImport = async () => {
-    if (!importJob?.id || cancelImportLoading) return;
-    setCancelImportLoading(true);
-    try {
-      const job = await wholesaleLeadsClient.cancelImportJob(importJob.id);
-      setImportJob(job);
-      setSnackbar({ open: true, message: 'Import cancelled', severity: 'warning' });
-    } catch (err) {
-      setSnackbar({ open: true, message: err.message, severity: 'error' });
-    } finally {
-      setCancelImportLoading(false);
-    }
-  };
-
-  const handleScoreUnscored = async () => {
-    const unscoredLeads = leads.filter((lead) => !hasScore(lead.fitScore));
-    if (!unscoredLeads.length) {
-      setSnackbar({ open: true, message: 'No unscored leads to score', severity: 'info' });
-      return;
-    }
-
-    setActionLoading(true);
-    let scored = 0;
-    let failed = 0;
-    try {
-      for (const lead of unscoredLeads) {
-        try {
-          await wholesaleLeadsClient.score(lead.id);
-          scored += 1;
-        } catch {
-          failed += 1;
-        }
-      }
-      await loadLeads();
-      setSnackbar({
-        open: true,
-        severity: failed ? 'warning' : 'success',
-        message: `Scored ${scored} unscored leads${failed ? `; ${failed} failed` : ''}`,
-      });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleRescoreSelected = async () => {
-    if (!selectedLeadIds.length) {
-      setSnackbar({ open: true, message: 'Select leads to rescore first', severity: 'info' });
-      return;
-    }
-    setActionLoading(true);
-    try {
-      const job = await wholesaleLeadsClient.bulkRescore({ leadIds: selectedLeadIds, scope: 'selected' });
-      setRescoreJob(job);
-      setSnackbar({
-        open: true,
-        severity: 'info',
-        message: 'Rescore started. You can leave this page and come back to check progress.',
-      });
-    } catch (err) {
-      setSnackbar({ open: true, message: err.message, severity: 'error' });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleRescoreActive = async () => {
-    setActionLoading(true);
-    try {
-      const job = await wholesaleLeadsClient.bulkRescore({ scope: 'active' });
-      setRescoreJob(job);
-      setSnackbar({
-        open: true,
-        severity: 'info',
-        message: 'Active lead rescore started. You can leave this page and come back to check progress.',
-      });
-    } catch (err) {
-      setSnackbar({ open: true, message: err.message, severity: 'error' });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleMatchCurrentAccounts = async () => {
-    setActionLoading(true);
-    try {
-      const result = await wholesaleLeadsClient.matchCurrentAccounts({ limit: 100 });
-      await loadLeads();
-      setFitView('current');
-      setSnackbar({
-        open: true,
-        severity: result.failed ? 'warning' : 'success',
-        message: `Matched ${result.matched} current accounts (${result.created} created, ${result.updated} updated, ${result.unmatched} unmatched)`,
-      });
-    } catch (err) {
-      setSnackbar({ open: true, message: err.message, severity: 'error' });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleSave = async (lead, form) => {
-    const updated = await runAction(() => wholesaleLeadsClient.update(lead.id, form), 'Lead updated');
-    if (updated) setSelectedLead(updated);
-  };
-
-  const handleScore = async (lead) => {
-    const updated = await runAction(() => wholesaleLeadsClient.score(lead.id), 'AI score saved');
-    if (updated) setSelectedLead(updated);
-  };
-
-  const handleManualNotFit = async (lead) => {
-    const updated = await runAction(
-      () => wholesaleLeadsClient.update(lead.id, {
-        status: 'not_fit',
-        fitScore: 0,
-        scoreOverrideReason: 'Manual not fit',
-        activityNote: 'Marked manual not fit from local knowledge.',
-      }),
-      'Lead archived as not fit',
-    );
-    if (updated) {
-      setSelectedLead(updated);
-      setSelectedLeadIds((prev) => prev.filter((id) => id !== lead.id));
-      setFitView('not_fit');
-    }
-  };
-
-  const handleOutreach = async (lead) => {
-    const updated = await runAction(() => wholesaleLeadsClient.outreach(lead.id), 'Outreach draft generated');
-    if (updated) setSelectedLead(updated);
-  };
-
-  const handleFindEmail = async (lead) => {
-    const updated = await runAction(() => wholesaleLeadsClient.findEmail(lead.id), 'Email search complete');
-    if (updated) setSelectedLead(updated);
-  };
-
-  const handleMarkKnownCustomer = async (lead) => {
-    const updated = await runAction(() => wholesaleLeadsClient.markKnownCustomer(lead.id), 'Marked as current account');
-    if (updated) {
-      setSelectedLead(updated);
-      setFitView('current');
-    }
-  };
-
-  const handleToggleLeadSelection = (leadId) => {
-    setSelectedLeadIds((prev) => (
-      prev.includes(leadId) ? prev.filter((id) => id !== leadId) : [...prev, leadId]
-    ));
-  };
-
-  const handleToggleVisibleSelection = () => {
-    setSelectedLeadIds((prev) => {
-      if (allVisibleSelected) return prev.filter((id) => !visibleSelectableIds.includes(id));
-      return [...new Set([...prev, ...visibleSelectableIds])];
-    });
-  };
-
-  const handleSelectActiveLeads = () => {
-    setSelectedLeadIds(activeLeadIds);
-  };
-
-  const handleBulkOutreach = async (action, options = {}) => {
-    setActionLoading(true);
-    try {
-      const result = await wholesaleLeadsClient.bulkOutreach({
-        leadIds: selectedLeadIds,
-        action,
-        confirmSend: Boolean(options.confirmSend),
-      });
-      await loadLeads();
-      setSnackbar({
-        open: true,
-        severity: result.failed ? 'warning' : 'success',
-        message: action === 'send'
-          ? `Sent ${result.sent} outreach emails${result.skipped?.length ? `; skipped ${result.skipped.length}` : ''}`
-          : `Drafted ${result.drafted} outreach emails${result.skipped?.length ? `; skipped ${result.skipped.length}` : ''}`,
-      });
-      if (action === 'send' && result.sent) setFitView('reached_out');
-      return result;
-    } catch (err) {
-      setSnackbar({ open: true, message: err.message, severity: 'error' });
-      return null;
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleSendLeadOutreach = async (lead) => {
-    setActionLoading(true);
-    try {
-      const result = await wholesaleLeadsClient.bulkOutreach({
-        leadIds: [lead.id],
-        action: 'send',
-        confirmSend: true,
-      });
-      await loadLeads();
-      setSendLead(null);
-      setFitView('reached_out');
-      setSnackbar({
-        open: true,
-        severity: result.sent ? 'success' : 'warning',
-        message: result.sent ? `Outreach sent to ${lead.storeName}` : 'Outreach was not sent',
-      });
-      return result;
-    } catch (err) {
-      setSnackbar({ open: true, message: err.message, severity: 'error' });
-      return null;
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleLink = async (lead, input) => {
-    const payload = input.includes('@') ? { email: input } : { applicationId: input };
-    const updated = await runAction(() => wholesaleLeadsClient.linkApplication(lead.id, payload), 'Application linked');
-    if (updated) setSelectedLead(updated);
-  };
-
-  const handleCopy = async (text) => {
-    await navigator.clipboard.writeText(text);
-    setSnackbar({ open: true, message: 'Copied to clipboard', severity: 'success' });
-  };
+  const {
+    handleCreate, handleGoogleImport, handleCancelImport, handleScoreUnscored, handleRescoreSelected,
+    handleRescoreActive, handleMatchCurrentAccounts, handleSave, handleScore, handleManualNotFit,
+    handleOutreach, handleFindEmail, handleMarkKnownCustomer, handleToggleLeadSelection,
+    handleToggleVisibleSelection, handleSelectActiveLeads, handleBulkOutreach, handleSendLeadOutreach,
+    handleLink, handleCopy,
+  } = leadActions({
+    activeLeadIds, allVisibleSelected, cancelImportLoading, importJob, leads, loadLeads, selectedLeadIds,
+    setActionLoading, setCancelImportLoading, setFitView, setGoogleOpen, setImportJob, setManualOpen,
+    setRescoreJob, setSelectedLead, setSelectedLeadIds, setSendLead, setSnackbar, visibleSelectableIds,
+  });
 
   if (authStatus === 'loading') return null;
 
   return (
     <Box sx={{ pb: 10 }}>
-      <Box
-        sx={{
-          backgroundColor: { xs: 'transparent', sm: REPAIRS_UI.bgPanel },
-          border: { xs: 'none', sm: `1px solid ${REPAIRS_UI.border}` },
-          borderRadius: { xs: 0, sm: 3 },
-          boxShadow: { xs: 'none', sm: REPAIRS_UI.shadow },
-          p: { xs: 0.5, sm: 2.5, md: 3 },
-          mb: 3,
-        }}
-      >
-        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
-          <Box sx={{ maxWidth: 820 }}>
-            <Typography
-              sx={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 1,
-                px: 1.25,
-                py: 0.5,
-                mb: 1.5,
-                fontSize: '0.72rem',
-                fontWeight: 700,
-                letterSpacing: '0.08em',
-                color: REPAIRS_UI.textPrimary,
-                backgroundColor: REPAIRS_UI.bgCard,
-                border: `1px solid ${REPAIRS_UI.border}`,
-                borderRadius: 2,
-                textTransform: 'uppercase',
-              }}
-            >
-              <StoreIcon sx={{ fontSize: 16, color: REPAIRS_UI.accent }} />
-              Wholesale acquisition
-            </Typography>
-            <Typography component="h1" sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, color: REPAIRS_UI.textHeader, mb: 1 }}>
-              Repair Partner Leads
-            </Typography>
-            <Typography sx={{ color: REPAIRS_UI.textSecondary, lineHeight: 1.6 }}>
-              Find local stores, score fit, draft outreach, and invite interested prospects into the existing wholesale application flow.
-            </Typography>
-          </Box>
-          <Stack direction="row" spacing={1} alignItems="flex-start" sx={{ flexWrap: 'wrap', gap: 1, justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
-            <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={loadLeads} disabled={loading || actionLoading}>
-              Refresh
-            </Button>
-            <Button size="small" variant="outlined" startIcon={<AiIcon />} onClick={handleScoreUnscored} disabled={loading || actionLoading || !viewCounts.unscored}>
-              Score Unscored
-            </Button>
-            <Button size="small" variant="outlined" startIcon={<AiIcon />} onClick={handleRescoreSelected} disabled={loading || actionLoading || rescoreRunning || !selectedLeadIds.length}>
-              Rescore Selected
-            </Button>
-            <Button size="small" variant="outlined" startIcon={<AiIcon />} onClick={handleRescoreActive} disabled={loading || actionLoading || rescoreRunning || !activeLeadIds.length}>
-              Rescore Active
-            </Button>
-            <Button size="small" variant="outlined" startIcon={<LinkIcon />} onClick={handleMatchCurrentAccounts} disabled={loading || actionLoading}>
-              Match Current Accounts
-            </Button>
-            <Button size="small" variant="outlined" startIcon={<EmailIcon />} onClick={() => setTemplatesOpen(true)}>
-              Email Templates
-            </Button>
-            <Button size="small" variant="outlined" onClick={handleSelectActiveLeads} disabled={!activeLeadIds.length || actionLoading}>
-              Select Active Leads
-            </Button>
-            <Button size="small" variant="outlined" startIcon={<SendIcon />} onClick={() => setBulkOpen(true)} disabled={!selectedLeadIds.length || actionLoading}>
-              Bulk Outreach
-            </Button>
-            <Button size="small" variant="outlined" startIcon={<MapIcon />} onClick={() => setGoogleOpen(true)} disabled={importRunning}>
-              Google Import
-            </Button>
-            <Button size="small" variant="contained" startIcon={<AddIcon />} onClick={() => setManualOpen(true)}>
-              Add Lead
-            </Button>
-          </Stack>
-        </Stack>
-      </Box>
+      <AcquisitionHeader
+        actionLoading={actionLoading}
+        activeLeadIds={activeLeadIds}
+        handleMatchCurrentAccounts={handleMatchCurrentAccounts}
+        handleRescoreActive={handleRescoreActive}
+        handleRescoreSelected={handleRescoreSelected}
+        handleScoreUnscored={handleScoreUnscored}
+        handleSelectActiveLeads={handleSelectActiveLeads}
+        importRunning={importRunning}
+        loadLeads={loadLeads}
+        loading={loading}
+        rescoreRunning={rescoreRunning}
+        selectedLeadIds={selectedLeadIds}
+        setBulkOpen={setBulkOpen}
+        setGoogleOpen={setGoogleOpen}
+        setManualOpen={setManualOpen}
+        setTemplatesOpen={setTemplatesOpen}
+        viewCounts={viewCounts}
+      />
 
       <ImportJobPanel job={importJob} onCancel={handleCancelImport} cancelling={cancelImportLoading} />
       <RescoreJobPanel job={rescoreJob} />
@@ -588,54 +272,15 @@ export default function WholesaleAcquisitionPage() {
         <Grid item xs={6} md={3}><StatBox label="Invited+" value={stats.invited} icon={LinkIcon} /></Grid>
       </Grid>
 
-      <Box sx={{ p: 2, mb: 2, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, backgroundColor: REPAIRS_UI.bgPanel }}>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={4}>
-            <TextField fullWidth size="small" label="Search" value={filters.search} onChange={(e) => setFilters((p) => ({ ...p, search: e.target.value }))} />
-          </Grid>
-          <Grid item xs={12} sm={6} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Status</InputLabel>
-              <Select label="Status" value={filters.status} onChange={(e) => setFilters((p) => ({ ...p, status: e.target.value }))}>
-                <MenuItem value="">All</MenuItem>
-                {STATUSES.map((status) => <MenuItem key={status} value={status}>{statusLabel(status)}</MenuItem>)}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={6} md={2}>
-            <TextField fullWidth size="small" label="Min score" type="number" value={filters.minScore} onChange={(e) => setFilters((p) => ({ ...p, minScore: e.target.value }))} />
-          </Grid>
-          <Grid item xs={6} md={2}>
-            <TextField fullWidth size="small" label="City" value={filters.city} onChange={(e) => setFilters((p) => ({ ...p, city: e.target.value }))} />
-          </Grid>
-          <Grid item xs={6} md={1}>
-            <TextField fullWidth size="small" label="State" value={filters.state} onChange={(e) => setFilters((p) => ({ ...p, state: e.target.value }))} />
-          </Grid>
-          <Grid item xs={6} md={1}>
-            <Button fullWidth variant="outlined" onClick={loadLeads}>Apply</Button>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Business type</InputLabel>
-              <Select label="Business type" value={businessFilter} onChange={(event) => setBusinessFilter(event.target.value)}>
-                {BUSINESS_FILTERS.map((option) => (
-                  <MenuItem key={option.value || 'all'} value={option.value}>{option.label}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Sort</InputLabel>
-              <Select label="Sort" value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
-                {SORT_OPTIONS.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-        </Grid>
-      </Box>
+      <LeadFilters
+        businessFilter={businessFilter}
+        filters={filters}
+        loadLeads={loadLeads}
+        setBusinessFilter={setBusinessFilter}
+        setFilters={setFilters}
+        setSortBy={setSortBy}
+        sortBy={sortBy}
+      />
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
@@ -651,97 +296,35 @@ export default function WholesaleAcquisitionPage() {
         </Alert>
       )}
 
-      <Paper variant="outlined" sx={{ mb: 2, borderColor: REPAIRS_UI.border, backgroundColor: REPAIRS_UI.bgPanel }}>
-        <Tabs
-          value={fitView}
-          onChange={(event, value) => setFitView(value)}
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{
-            minHeight: 48,
-            '& .MuiTab-root': { minHeight: 48, textTransform: 'none', fontWeight: 700 },
-          }}
-        >
-          {FIT_VIEWS.map((view) => (
-            <Tab
-              key={view.value}
-              value={view.value}
-              label={`${view.label} (${viewCounts[view.value] || 0})`}
-            />
-          ))}
-        </Tabs>
-      </Paper>
+      <FitViewTabs fitView={fitView} setFitView={setFitView} viewCounts={viewCounts} />
 
-      <Box sx={{ mb: 2, p: 1.5, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, backgroundColor: REPAIRS_UI.bgPanel }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Checkbox
-              checked={allVisibleSelected}
-              indeterminate={someVisibleSelected}
-              onChange={handleToggleVisibleSelection}
-              inputProps={{ 'aria-label': 'Select visible leads' }}
-            />
-            <Typography sx={{ color: REPAIRS_UI.textSecondary }}>
-              Showing {loading ? 0 : paginatedLeads.length} of {visibleLeads.length}
-            </Typography>
-          </Stack>
-          <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end">
-            <FormControl size="small" sx={{ minWidth: 120 }}>
-              <InputLabel>Per page</InputLabel>
-              <Select label="Per page" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}>
-                {[12, 24, 48, 96].map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
-              </Select>
-            </FormControl>
-            <Button variant="outlined" onClick={handleToggleVisibleSelection} disabled={!visibleSelectableIds.length}>
-              {allVisibleSelected ? 'Unselect Page' : 'Select Page'}
-            </Button>
-          </Stack>
-        </Stack>
-      </Box>
+      <LeadSortBar
+        allVisibleSelected={allVisibleSelected}
+        handleToggleVisibleSelection={handleToggleVisibleSelection}
+        loading={loading}
+        pageSize={pageSize}
+        paginatedLeads={paginatedLeads}
+        setPageSize={setPageSize}
+        someVisibleSelected={someVisibleSelected}
+        visibleLeads={visibleLeads}
+        visibleSelectableIds={visibleSelectableIds}
+      />
 
-      {loading ? (
-        <Box sx={{ py: 6, display: 'grid', placeItems: 'center' }}>
-          <CircularProgress size={24} />
-        </Box>
-      ) : visibleLeads.length === 0 ? (
-        <Box sx={{ py: 6, textAlign: 'center', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, backgroundColor: REPAIRS_UI.bgPanel }}>
-          <Typography sx={{ color: REPAIRS_UI.textSecondary }}>
-            {leads.length ? 'No leads match this fit view.' : 'No wholesale leads yet.'}
-          </Typography>
-        </Box>
-      ) : (
-        <>
-          <Grid container spacing={2}>
-            {paginatedLeads.map((lead) => (
-              <Grid key={lead.id} item xs={12} sm={6} lg={4} xl={3}>
-                <LeadCard
-                  lead={lead}
-                  selected={selectedLeadIds.includes(lead.id)}
-                  onSelect={() => handleToggleLeadSelection(lead.id)}
-                  onOpen={() => setSelectedLead(lead)}
-                  onScore={() => handleScore(lead)}
-                  onCopyInvite={() => handleCopy(lead.outreachDraft.inviteMessage)}
-                  onManualNotFit={() => handleManualNotFit(lead)}
-                />
-              </Grid>
-            ))}
-          </Grid>
-
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="space-between" alignItems="center" sx={{ mt: 3 }}>
-            <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>
-              Page {Math.min(page, pageCount)} of {pageCount}
-            </Typography>
-            <Pagination
-              count={pageCount}
-              page={Math.min(page, pageCount)}
-              onChange={(event, value) => setPage(value)}
-              color="primary"
-              siblingCount={1}
-              boundaryCount={1}
-            />
-          </Stack>
-        </>
-      )}
+      <LeadList
+        handleCopy={handleCopy}
+        handleManualNotFit={handleManualNotFit}
+        handleScore={handleScore}
+        handleToggleLeadSelection={handleToggleLeadSelection}
+        leads={leads}
+        loading={loading}
+        page={page}
+        pageCount={pageCount}
+        paginatedLeads={paginatedLeads}
+        selectedLeadIds={selectedLeadIds}
+        setPage={setPage}
+        setSelectedLead={setSelectedLead}
+        visibleLeads={visibleLeads}
+      />
 
       <LeadDrawer
         lead={selectedLead}

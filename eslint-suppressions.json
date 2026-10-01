@@ -39,11 +39,6 @@
       "count": 1
     }
   },
-  "src/app/dashboard/admin/wholesale-acquisition/page.js": {
-    "max-lines": {
-      "count": 1
-    }
-  },
   "src/app/dashboard/analytics/reports/ReportDetailPageClient.js": {
     "max-lines": {
       "count": 1
