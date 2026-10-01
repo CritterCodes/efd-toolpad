@@ -115,6 +115,10 @@ slate"). Retiring is cheaper than any guardrail: a deleted page needs no lint fi
 
 - **Measure first, from evidence.** efd has no usage analytics today (14 reports, ~150 pages, no record of which are
   opened). Add a first-party page-open log — path, role, day; no content — written from the dashboard layout.
+  **Shipped 2026-10-01:** `PageOpenBeacon` in the dashboard layout → `POST /api/usage/page-open` →
+  `pageOpens` (one counter per day · role · page shape; ids folded to `:id`). Report:
+  `MONGODB_URI=… MONGO_DB_NAME=efd-database node scripts/usage-report.mjs --since 2026-10-01` — first run due
+  **2026-10-31**.
 - **After ~30 days:** a "never or rarely opened" list, by role, with each page's size and the routes and tests behind it.
   The owner confirms per page.
 - **Then delete for real:** the page, its nav entry, its API routes if nothing else uses them (Graphify answers that),
