@@ -33,7 +33,9 @@ jobs:
           PACKAGES: ${{ github.event.inputs.packages }}
           DEV: ${{ github.event.inputs.dev }}
         run: |
-          FLAG="--save"
+          # --save-prod, not --save: --save leaves a package that is already a devDependency where it is
+          # (qrcode, 2026-10-01), so a runtime dependency could never be moved out of devDependencies.
+          FLAG="--save-prod"
           if [ "$DEV" = "true" ]; then FLAG="--save-dev"; fi
           npm install $FLAG --no-audit --no-fund $PACKAGES
       - name: Commit to this branch

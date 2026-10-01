@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Box, Typography, List, ListItem, Button, CircularProgress } from '@mui/material';
 import { useParams } from 'next/navigation';
 import { metalDisplay, karatLabel, customOrderLabel } from '@/constants/customRequest.constants';
+import { qrSrc } from '@/lib/qr';
 
 // Mirrors RepairTicketComponent's look so custom bench tickets fit the same bin/scan
 // workflow. Scoped to the BENCH work (physical: cleanup/setting/polish) — CAD + GLB
@@ -15,7 +16,7 @@ const ACCENT = '#d32f2f';
 const SLIP_W = '3.6in';
 const SLIP_H = '5.5in';
 const QR = 64;
-const qrSrc = (id) => `https://api.qrserver.com/v1/create-qr-code/?size=${QR}x${QR}&margin=1&data=${encodeURIComponent(id || '')}`;
+const customQrSrc = (id) => qrSrc(id || '', { size: QR, margin: 1 });
 const LANE = { bench_jewelry: 'Bench', engraving: 'Engraving', gem_cutting: 'Gem Cutting' };
 const PHYSICAL = ['bench_jewelry', 'engraving', 'gem_cutting']; // exclude cad (remote)
 
@@ -131,7 +132,7 @@ export default function CustomBenchTicketPrint() {
         </List>
 
         <Box sx={{ textAlign: 'center', mt: '2px', height: QR, overflow: 'hidden', flexShrink: 0, '& img': { width: QR, height: QR, display: 'block', margin: '0 auto' } }}>
-          <img src={qrSrc(order.customID)} alt={`Custom ${order.customID}`} />
+          <img src={customQrSrc(order.customID)} alt={`Custom ${order.customID}`} />
         </Box>
       </Box>
     </Box>

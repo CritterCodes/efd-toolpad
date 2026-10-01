@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
+import { qrSrc } from '@/lib/qr';
 
 const INK = '#111111';
 const MUTED = '#4b5563';
@@ -8,7 +9,7 @@ export const WHOLESALE_SLIP_WIDTH = '3.75in';
 export const WHOLESALE_SLIP_HEIGHT = '5.5in';
 const QR_SIZE = 54;
 
-const getQrSrc = (value) => `https://api.qrserver.com/v1/create-qr-code/?size=${QR_SIZE}x${QR_SIZE}&margin=0&data=${encodeURIComponent(value || '')}`;
+const getQrSrc = (value) => qrSrc(value || '', { size: QR_SIZE, margin: 0 });
 
 function FieldRow({ label, value, minHeight = '0.4in' }) {
   return (

@@ -37,6 +37,7 @@ import FinalizeFulfillment from "./FinalizeFulfillment";
 import RepairThumbnail from "@/app/dashboard/repairs/components/RepairThumbnail";
 import ContinuousBarcodeScanner from "@/components/repairs/ContinuousBarcodeScanner";
 import { canAccessCloseout, canReopenInvoices as canReopenInvoicesGate } from "@/lib/repairAccess";
+import { qrSrc } from '@/lib/qr';
 
 const currency = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -225,7 +226,7 @@ function getPrintAssetSrc(src) {
 }
 
 function getInvoiceQrSrc(invoiceID) {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=${INVOICE_QR_SIZE}x${INVOICE_QR_SIZE}&margin=1&data=${encodeURIComponent(`invoice:${invoiceID || ""}`)}`;
+  return qrSrc(`invoice:${invoiceID || ""}`, { size: INVOICE_QR_SIZE, margin: 1 });
 }
 
 function normalizeScannedInvoiceID(value) {
