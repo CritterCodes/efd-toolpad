@@ -15,32 +15,6 @@ const ArtisanHeader = ({ onSave, hasChanges, artisan, activeTab, setActiveTab })
         setAnchorEl(null);
     };
 
-    const handleCreateVendorProfile = async () => {
-        try {
-            const response = await fetch('/api/artisans/sync-vendor', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    userId: artisan._id,
-                    artisanData: artisan 
-                })
-            });
-
-            const data = await response.json();
-            
-            if (data.success) {
-                alert('✅ Vendor profile created successfully');
-                window.location.reload(); // Refresh to show updated data
-            } else {
-                alert(`❌ Failed to create vendor profile: ${data.error}`);
-            }
-        } catch (error) {
-            console.error('Error creating vendor profile:', error);
-            alert('❌ Error creating vendor profile');
-        }
-        handleClose();
-    };
-
     const handleTabChange = (event, newValue) => {
         setActiveTab(newValue);
     };
@@ -76,11 +50,6 @@ const ArtisanHeader = ({ onSave, hasChanges, artisan, activeTab, setActiveTab })
                 </IconButton>
 
                 <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
-                    {!artisan.vendorProfileId && (
-                        <MenuItem onClick={handleCreateVendorProfile}>
-                            Create Vendor Profile
-                        </MenuItem>
-                    )}
                     <MenuItem onClick={handleClose}>
                         Delete Artisan
                     </MenuItem>

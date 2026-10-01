@@ -1,9 +1,8 @@
 import React from 'react';
 import { Box, Typography, Button, Alert } from '@mui/material';
 import LogoutIcon from '@mui/icons-material/Logout';
-import SearchIcon from '@mui/icons-material/Search';
 
-export default function LogoutOptionsList({ handleDebugAuth, handleRegularLogout, handleForceLogout }) {
+export default function LogoutOptionsList({ handleRegularLogout, handleForceLogout }) {
   return (
     <>
       <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>
@@ -11,17 +10,6 @@ export default function LogoutOptionsList({ handleDebugAuth, handleRegularLogout
       </Typography>
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <Button
-          variant="outlined"
-          color="info"
-          size="large"
-          onClick={handleDebugAuth}
-          startIcon={<SearchIcon />}
-          fullWidth
-        >
-          🔍 Debug Auth State (Check Console)
-        </Button>
-
         <Button
           variant="contained"
           color="primary"

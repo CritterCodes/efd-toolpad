@@ -1,24 +1,21 @@
 import { useCallback } from 'react';
-import { forceLogout, debugAuthState } from '@/lib/auth-utils';
-import { 
-  debugClientAuthState, 
-  debugServerAuthState, 
-  clearAllStorage, 
-  clearAllCookies 
-} from '@/utilities/auth/emergencyLogout.helpers';
+import { forceLogout } from '@/lib/auth-utils';
+import { clearAllStorage, clearAllCookies } from '@/utilities/auth/emergencyLogout.helpers';
 
+/**
+ * The emergency-logout page's actions. Its "debug auth state" buttons, which dumped cookies, storage and the
+ * session into the browser console, were removed on 2026-10-01 (owner: remove; docs/OPEN-QUESTIONS.md Q6).
+ */
 export const useEmergencyLogout = () => {
 
   const handleForceLogout = useCallback(async () => {
-    console.log('🚨 [EMERGENCY] Force logout triggered by user');
     await forceLogout();
   }, []);
 
   const handleRegularLogout = useCallback(async () => {
     try {
-      console.log('🚪 [EMERGENCY] Regular logout attempted');
       const { signOut } = await import('next-auth/react');
-      await signOut({ 
+      await signOut({
         callbackUrl: '/auth/signin',
         redirect: true
       });
@@ -28,56 +25,27 @@ export const useEmergencyLogout = () => {
     }
   }, []);
 
-  const handleDebugAuth = useCallback(() => {
-    console.log('🔍 [EMERGENCY] Running authentication debug...');
-    debugAuthState();
-  }, []);
-
-  const handleComprehensiveDebug = useCallback(async (status, session) => {
-    console.log('🔍 Starting comprehensive auth debug...');
-    debugClientAuthState();
-    await debugServerAuthState();
-    
-    console.log('\n=== 🎣 HOOK STATE DEBUG ===');
-    console.log('⏰ Timestamp:', new Date().toISOString());
-    console.log('📊 Current status from hook:', status);
-    console.log('👤 Current session from hook:', session);
-    console.log('=== 🎣 HOOK STATE DEBUG END ===\n');
-  }, []);
-
   const clearRoleOverride = useCallback(() => {
-    console.log('🎭 Checking and clearing devViewRole...');
     const devViewRole = localStorage.getItem('devViewRole');
-    console.log('🔍 Current devViewRole:', devViewRole);
-    
     if (devViewRole) {
       localStorage.removeItem('devViewRole');
-      console.log('✅ Cleared devViewRole from localStorage');
-      console.log('🔄 Reloading page to refresh navigation...');
       window.location.reload();
     } else {
-      console.log('ℹ️ No devViewRole found in localStorage');
       alert('No devViewRole found in localStorage. The issue might be elsewhere.');
     }
   }, []);
 
   const executeNuclearLogout = useCallback(async () => {
-    console.log('☢️ Starting NUCLEAR logout...');
     await clearAllStorage();
     clearAllCookies();
-    
-    console.log('☢️ Calling server emergency logout...');
     try {
-      const response = await fetch('/api/auth/emergency-logout', { 
+      await fetch('/api/auth/emergency-logout', {
         method: 'POST',
         credentials: 'include'
       });
-      console.log('Server logout response:', response.status);
     } catch (error) {
       console.error('Server logout error:', error);
     }
-    
-    console.log('🔄 Force reloading page...');
     window.location.href = window.location.href + '?nuclear=' + Date.now();
   }, []);
 
@@ -89,8 +57,6 @@ export const useEmergencyLogout = () => {
   return {
     handleForceLogout,
     handleRegularLogout,
-    handleDebugAuth,
-    handleComprehensiveDebug,
     clearRoleOverride,
     executeNuclearLogout
   };

@@ -1,9 +1,0 @@
-import { NextResponse } from 'next/server';
-
-export async function POST() {
-  return NextResponse.json({
-    success: true,
-    updated: 0,
-    message: 'Process pricing is now computed at runtime — no bulk update needed.'
-  });
-}
