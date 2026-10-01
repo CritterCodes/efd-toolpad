@@ -121,7 +121,10 @@ anyone has priced it. The `NEEDS QUOTE` status exists but nothing sets it and no
 staff to price. When pricing flips the request to `quoted`, the job moves to READY FOR WORK and joins the bench. This
 changes where these jobs show up, which is why it's a question and not a fix.
 
-**Status:** DECIDED 2026-10-01 — owner: *"Q8: Go with your recommendation."* Being built: a checked-in Request Quote job waits in NEEDS QUOTE, off the bench, until it is priced.
+**Status:** DECIDED 2026-10-01 — owner: *"Q8: Go with your recommendation."* Built 2026-10-01: both check-in paths
+(one repair, and a store's batch) send a Request Quote job to NEEDS QUOTE, off the bench. It is listed on Pending
+Wholesale under "Checked in, needs a quote". Pricing the repair flips the request to `quoted`, moves the job to READY FOR
+WORK (onto the bench), and tells the store the number ("We have the piece and it's now in the work queue").
 
 ---
 
@@ -149,6 +152,14 @@ chat, not kept here):
 **Recommendation:** merge only the `arkjem@gmail.com` pair (the empty account into the one with the repairs, backed up first).
 Give the two stores their real emails. A unique email index waits until the placeholder accounts are cleared, or it would refuse
 them. Waits for the owner.
+
+**Status:** PARTLY DECIDED 2026-10-01 — owner: *"Yes you can merge the accounts that aren't the test@Test.com."*
+- `arkjem@gmail.com`: **merged** in production on 2026-10-01. The empty account was marked `status: 'merged'` with
+  `mergedInto` set to the account with the repairs, and its email cleared; a backup is in `userMergeBackup_20261001`. Merged
+  accounts are hidden from user lists (CritterCodes/efd-toolpad#229).
+- `john.e.annis@gmail.com`: **not merged yet.** It is an admin account plus a shop-customer account, so merging could change
+  which one signs in. Confirmation asked for in chat.
+- `test@test.com`: not touched, as the owner said. The unique email index still waits.
 
 ---
 

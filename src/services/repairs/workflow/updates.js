@@ -147,12 +147,16 @@ export function buildCompleteFromQcUpdate({ nextStatus, userName, now = new Date
   };
 }
 
-export function buildReceiveRepairUpdate({ userID, internalNotes, now = new Date() }) {
+/**
+ * Check-in. A store's Request Quote job (no tasks, $0) waits in NEEDS QUOTE, off the bench, until staff price it;
+ * pricing moves it to READY FOR WORK (quoteRequest.buildQuoteReadyUpdate). Owner, 2026-10-01 (OPEN-QUESTIONS Q8).
+ */
+export function buildReceiveRepairUpdate({ userID, internalNotes, quoteRequested = false, now = new Date() }) {
   return cleanUpdate({
     receivedBy: userID,
     receivedAt: now,
-    status: REPAIR_STATUS.READY_FOR_WORK,
-    benchStatus: LEGACY_BENCH_STATUS.UNCLAIMED,
+    status: quoteRequested ? REPAIR_STATUS.NEEDS_QUOTE : REPAIR_STATUS.READY_FOR_WORK,
+    benchStatus: quoteRequested ? null : LEGACY_BENCH_STATUS.UNCLAIMED,
     internalNotes,
     updatedAt: now,
   });
