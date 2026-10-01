@@ -21,7 +21,7 @@ import MoveSummary from "./components/MoveSummary";
 import { REPAIR_STATUSES } from "./constants";
 import { moveRepairsToStatus, updateRepairWithMetadata } from "./utils/repairUtils";
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
-import { canMoveRepairs, hasNamedCapability } from '@/lib/repairAccess';
+import { canMoveRepairs, hasNamedCapability, isAdminRole } from '@/lib/repairAccess';
 import ContinuousBarcodeScanner from '@/components/repairs/ContinuousBarcodeScanner';
 import { BENCH_QUEUE, QC_COMPLETION_STATUSES, REPAIR_STATUS, normalizeRepairWorkflow } from '@/services/repairWorkflow';
 
@@ -182,7 +182,9 @@ const MoveRepairsPage = () => {
                     )
                 );
             } else {
-                await moveRepairsToStatus(repairIDs, location, assignedPerson, isAdmin ? 'admin' : null);
+                // `isAdmin` was removed in the 2026-09-02 access refactor (f4fa4e0b) but this use stayed, so every move
+                // except to/out of QC threw "isAdmin is not defined". Found by turning on no-undef.
+                await moveRepairsToStatus(repairIDs, location, assignedPerson, isAdminRole(session) ? 'admin' : null);
             }
 
             setRepairs((prevRepairs) =>
