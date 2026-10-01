@@ -18,7 +18,7 @@ export default function ArtisanNewDesignPage() {
           My Designs
         </Button>
         <Typography sx={{ color: REPAIRS_UI.textMuted }}>/</Typography>
-        <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 600 }}>New Design</Typography>
+        <Typography component="h1" sx={{ color: REPAIRS_UI.textHeader, fontWeight: 600 }}>New Design</Typography>
       </Stack>
 
       <DesignCreateStepper
