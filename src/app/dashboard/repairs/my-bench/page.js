@@ -6,7 +6,7 @@ import { resolvePricingSettings } from '@/services/pricing/engine';
 import {
   Box, Typography, Grid, Button, Chip, CircularProgress, Tabs, Tab,
   TextField, MenuItem, Alert, Snackbar, Stack,
-  Dialog, DialogTitle, DialogContent, DialogActions,
+  Dialog, DialogTitle, DialogContent, DialogActions, Pagination,
 } from '@mui/material';
 import {
   Handyman as WorkIcon,
@@ -30,6 +30,7 @@ import BenchWorkCard from './components/BenchWorkCard';
 import { isAdminRole, isOnsiteRepairOps } from '@/lib/repairAccess';
 import { PageHeader, SurfaceCard, SectionLabel, facelift } from '@/components/facelift';
 
+const BENCH_PAGE_SIZE = 20;
 const DEFAULT_PARTS_FORM = { source: 'stuller', stullerSku: '', name: '', description: '', quantity: '1', price: '' };
 
 function toNumber(value, fallback = 0) {
@@ -64,6 +65,8 @@ export default function BenchPage() {
   // What a scanned batch does. Claim is the default because it is how the piece reaches a bench;
   // everything after that is a move the jeweler makes with the piece already in hand.
   const [scanAction, setScanAction] = useState('claim');
+  const [benchPage, setBenchPage] = useState(1);
+  useEffect(() => { setBenchPage(1); }, [tab]);
   const scanActions = useMemo(() => scanActionsFor((c) => hasNamedCapability(session, c)), [session]);
   // Every scan route needs on-site repair ops (requireRepairOps); an off-site artisan saw a scan box that could only
   // fail (EFD-DEFECTS B7).
@@ -323,6 +326,10 @@ export default function BenchPage() {
 
   const activeKey = BENCH_TABS[tab].key;
   const shown = byTab[activeKey] || [];
+  // One page at a time: a busy bench (or a big claim) was one endless list (owner, 2026-10-01).
+  const pageCount = Math.max(1, Math.ceil(shown.length / BENCH_PAGE_SIZE));
+  const currentPage = Math.min(benchPage, pageCount);
+  const visible = shown.slice((currentPage - 1) * BENCH_PAGE_SIZE, currentPage * BENCH_PAGE_SIZE);
   const shownQcIDs = activeKey === BENCH_QUEUE.QC ? shown.map((wo) => wo.workOrderID) : [];
   const selectedShownQc = shownQcIDs.filter((id) => selectedQcIDs.includes(id));
 
@@ -434,7 +441,7 @@ export default function BenchPage() {
             gap: 2,
           }}
         >
-          {shown.map((wo) => (
+          {visible.map((wo) => (
             <BenchWorkCard
               key={wo.workOrderID}
               wo={wo}
@@ -455,6 +462,20 @@ export default function BenchPage() {
             />
           ))}
         </Box>
+      )}
+      {pageCount > 1 && (
+        <Stack direction={{ xs: 'column', sm: 'row' }} alignItems="center" justifyContent="space-between" spacing={1} sx={{ mt: 2 }}>
+          <Typography variant="caption" sx={{ color: facelift.text3 }}>
+            {(currentPage - 1) * BENCH_PAGE_SIZE + 1}–{Math.min(currentPage * BENCH_PAGE_SIZE, shown.length)} of {shown.length}
+          </Typography>
+          <Pagination
+            count={pageCount}
+            page={currentPage}
+            onChange={(_, p) => { setBenchPage(p); window.scrollTo?.({ top: 0, behavior: 'smooth' }); }}
+            size="small"
+            siblingCount={0}
+          />
+        </Stack>
       )}
 
       {/* Camera scanner. The action picker is repeated in here on purpose — with the camera open the
