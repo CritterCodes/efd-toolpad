@@ -42,7 +42,7 @@ export default function AffiliatePayoutsPage() {
     <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 900, mx: 'auto' }}>
       <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 0.5 }}>
         <PaidIcon />
-        <Typography variant="h5" fontWeight={600}>Payouts</Typography>
+        <Typography component="h1" variant="h5" fontWeight={600}>Payouts</Typography>
       </Stack>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         Your commissions are paid through Stripe every Wednesday for the week ending Saturday, in your bank Friday. Connect once; everything after that is automatic.

@@ -89,7 +89,7 @@ export default function PrintRepairTicketsBulk() {
       `}</style>
 
       <Box className="bulk-print-controls" sx={{ p: 2, textAlign: 'center' }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>Print {repairs.length} Repair Tickets</Typography>
+        <Typography component="h1" variant="h6" sx={{ mb: 1 }}>Print {repairs.length} Repair Tickets</Typography>
         <Button variant="contained" onClick={handlePrint}>Print All</Button>
       </Box>
 

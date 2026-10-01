@@ -146,7 +146,7 @@ export default function FunnelPage() {
 
   return (
     <Box sx={{ p: 3, backgroundColor: REPAIRS_UI.bgPrimary, minHeight: '100vh' }}>
-      <Typography variant="h5" sx={{ color: REPAIRS_UI.textPrimary, fontWeight: 600 }}>
+      <Typography component="h1" variant="h5" sx={{ color: REPAIRS_UI.textPrimary, fontWeight: 600 }}>
         Where people bail
       </Typography>
       <Typography sx={{ color: REPAIRS_UI.textMuted, fontSize: 13, mb: 2 }}>

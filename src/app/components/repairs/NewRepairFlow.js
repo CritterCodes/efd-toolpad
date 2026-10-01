@@ -114,7 +114,7 @@ function StepHeader({ step, title, onBack, onCancel }) {
       <TapIconButton aria-label={isFirst ? 'Cancel new repair' : 'Back a step'} onClick={isFirst ? onCancel : onBack}>
         <span style={{ fontSize: 18, lineHeight: 1, color: 'rgba(255,255,255,0.6)' }}>{isFirst ? '✕' : '‹'}</span>
       </TapIconButton>
-      <Typography sx={{ fontWeight: 600, fontSize: '0.9375rem', letterSpacing: '-0.016em', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <Typography component="h1" sx={{ fontWeight: 600, fontSize: '0.9375rem', letterSpacing: '-0.016em', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {title || STEPS[step].title}
       </Typography>
       <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }} aria-label={`Step ${step + 1} of ${STEPS.length}`}>
