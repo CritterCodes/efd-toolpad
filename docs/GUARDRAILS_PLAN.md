@@ -63,6 +63,18 @@ shrink. Nothing waits for a cleanup, and nothing gets worse. Each phase is small
 6. **dependency-cruiser**: API routes never import dashboard code; shared components never import the database;
    no circular imports.
 
+**Phase 1 — done 2026-09-30.** ESLint moved to flat config (`eslint.config.mjs`) with the rules above; today's
+violations recorded with ESLint's bulk suppressions (`eslint-suppressions.json`). CI fails on a new violation **and** on
+a fixed one left in the baseline (`npm run lint:prune` removes it), so the count only goes down. Deliberately **not**
+ratcheted, with reasons:
+- *Services calling the database helper directly* (162 files). Kuzu's rule is "only the db package talks to the
+  database"; in efd that means rewriting every service onto models — large, for an app Kuzu replaces. What is enforced
+  is the part that matters for safety: browser code never reaches the database, and nobody outside the database layer
+  opens a connection.
+- *Circular imports.* `import/no-cycle` took over ten minutes on 1,300 files; it belongs in a weekly job, not the gate.
+- *Payroll totals.* A hand-summed `laborPay + salePay` once double-paid (PR #110), but the same sum is legitimate when a
+  batch is built, so a source pattern can't tell them apart; `payrollUtils.payrollTotal` is guarded by its tests.
+
 ### Phase 2 — open every page in a real browser (the biggest single win)
 
 7. **`npm run views`** — Kuzu's `scripts/views.ts`, adapted: build, seed a throwaway in-memory database with one user of
@@ -93,6 +105,23 @@ shrink. Nothing waits for a cleanup, and nothing gets worse. Each phase is small
 14. **Redo the dashboards the way Kuzu designed its homes**: every panel names the decision it supports and the data it
     reads; no decorative charts; designed for the phone first (`kuzu/docs/40-plan/V1-PARITY-CHECKLIST.md`, "The two homes,
     designed — owner approved 2026-09-30"). Same canvas process: draw, owner reacts, then build.
+
+### Retire what nobody uses (runs alongside every phase)
+
+Owner, 2026-09-30: *"there is a lot in this app that just doesn't get used. Lots of reports that are never opened.
+Stats that aren't really useful. Kuzu has a rule on this."* Kuzu's rule: reporting is a clean slate, and **every number
+must name the decision it supports** — or it goes (`kuzu/docs/40-plan/V1-PARITY-CHECKLIST.md`, "Reporting is a clean
+slate"). Retiring is cheaper than any guardrail: a deleted page needs no lint fixes, no security review, no re-theme.
+
+- **Measure first, from evidence.** efd has no usage analytics today (14 reports, ~150 pages, no record of which are
+  opened). Add a first-party page-open log — path, role, day; no content — written from the dashboard layout.
+- **After ~30 days:** a "never or rarely opened" list, by role, with each page's size and the routes and tests behind it.
+  The owner confirms per page.
+- **Then delete for real:** the page, its nav entry, its API routes if nothing else uses them (Graphify answers that),
+  and its tests — in one PR per area. A deleted route is one less route to secure.
+- **The survivors earn their place:** every remaining stat or report panel states the decision it supports and the data
+  it reads (Kuzu's home-page table is the template). One that can't, goes.
+- **Until the list exists:** never polish, re-theme or lint-clean a page that looks dead — mark it and move on.
 
 ### Phase 5 — how a change gets made
 
@@ -144,8 +173,16 @@ shrink. Nothing waits for a cleanup, and nothing gets worse. Each phase is small
 
 ## Scoreboard
 
-Filled in when Phase 1 records the starting counts; refreshed by `npm run guardrails:report`.
+Refreshed by `npm run guardrails:report -- --markdown`; the baseline file is `eslint-suppressions.json`.
 
-| Rule | Baseline at start | Today | Target |
+| Rule | Baseline at start (2026-09-30) | Today | Target |
 |---|---|---|---|
-| (Phase 1) | | | |
+| `no-console` | 368 | 368 (75 files) | 2026-10-31 |
+| `no-unused-vars` | 208 | 208 (104 files) | 2026-10-24 |
+| `max-lines` (400) | 42 | 42 (42 files) | 2027-01-31 — or retired (see "Retire what nobody uses") |
+| `no-undef` | 0 | 0 | — plain error since Phase 0 |
+| browser code → database / server models | 0 | 0 | — plain error |
+| API routes → UI code | 0 | 0 | — plain error |
+| `mongodb` connections outside the database layer | 0 | 0 | — plain error |
+| jsx-a11y (alt text, labels, keyboard) | 0 | 0 | — plain error (MUI components carry most of it) |
+| customer keyed by `_id` (guard test) | 0 | 0 | — plain error |

@@ -1,0 +1,1037 @@
+{
+  "scripts/migrations/pp-catalog-foundation.mjs": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/admin/blogs/route.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/admin/cleanup-duplicates/route.js": {
+    "no-console": {
+      "count": 3
+    }
+  },
+  "src/app/api/admin/migrate/products-status/route.js": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/app/api/admin/products/[productId]/approve/route.js": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/app/api/admin/products/[productId]/decline/route.js": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/app/api/admin/settings/route.js": {
+    "no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/app/api/admin/settings/stuller/route.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/admin/settings/verify-code/route.js": {
+    "no-console": {
+      "count": 3
+    }
+  },
+  "src/app/api/admin/wholesale/[applicationId]/approve/route.js": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/app/api/admin/wholesale/[applicationId]/reject/route.js": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/app/api/affiliates/[affiliateId]/route.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/affiliates/campaigns/[campaignId]/route.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/affiliates/route.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/ai/describe-item-image/route.js": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/app/api/ai/generate-ai-meta/route.js": {
+    "no-console": {
+      "count": 8
+    }
+  },
+  "src/app/api/ai/parse-smart-intake/route.js": {
+    "no-console": {
+      "count": 2
+    }
+  },
+  "src/app/api/artisan/gallery/[id]/route.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/artisan/gallery/route.js": {
+    "no-console": {
+      "count": 2
+    },
+    "no-unused-vars": {
+      "count": 4
+    }
+  },
+  "src/app/api/artisan/profile/route.js": {
+    "no-console": {
+      "count": 6
+    },
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/artisan/stats/route.js": {
+    "no-console": {
+      "count": 4
+    }
+  },
+  "src/app/api/artisans/sync-vendor/route.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/auth/[...nextauth]/model.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/auth/[...nextauth]/service.js": {
+    "no-console": {
+      "count": 15
+    },
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/auth/debug-session/route.js": {
+    "no-console": {
+      "count": 4
+    }
+  },
+  "src/app/api/auth/emergency-logout/route.js": {
+    "no-console": {
+      "count": 2
+    }
+  },
+  "src/app/api/auth/logout/route.js": {
+    "no-console": {
+      "count": 2
+    }
+  },
+  "src/app/api/collections/[id]/publish/route.js": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/app/api/collections/route.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/cron/release-drops/route.js": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/app/api/cron/update-material-prices/route.js": {
+    "no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/app/api/custom-orders/[customID]/communications/route.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/designs/[designId]/configure/route.js": {
+    "no-console": {
+      "count": 16
+    }
+  },
+  "src/app/api/designs/[designId]/route.js": {
+    "no-console": {
+      "count": 19
+    }
+  },
+  "src/app/api/drop-requests/[id]/publish/route.js": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/app/api/drop-requests/[id]/submissions/[submissionIndex]/[action]/route.js": {
+    "no-console": {
+      "count": 2
+    }
+  },
+  "src/app/api/drop-requests/[id]/submit/route.js": {
+    "no-console": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/drop-requests/route.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/materials/class.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/metal-prices/route.js": {
+    "no-console": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/processes/find-by-materials/route.js": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/app/api/production/casting/[batchId]/[action]/route.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/products/[id]/submit/route.js": {
+    "no-console": {
+      "count": 2
+    }
+  },
+  "src/app/api/products/[id]/unpublish/route.js": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/app/api/products/gemstones/[id]/upload-obj/route.js": {
+    "no-console": {
+      "count": 8
+    },
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/products/upload/route.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/repair-invoices/service.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/app/api/repairLaborLogs/model.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/app/api/repairs/[repairID]/claim/route.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/repairs/controller.js": {
+    "no-console": {
+      "count": 2
+    }
+  },
+  "src/app/api/repairs/labor-report/route.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/repairs/model.js": {
+    "no-console": {
+      "count": 2
+    },
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/repairs/my-repairs/route.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/repairs/quality-control/route.js": {
+    "no-console": {
+      "count": 3
+    }
+  },
+  "src/app/api/sales-invoices/service.js": {
+    "max-lines": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/stuller/search/controller.js": {
+    "no-console": {
+      "count": 2
+    }
+  },
+  "src/app/api/tasks/model.js": {
+    "no-console": {
+      "count": 7
+    }
+  },
+  "src/app/api/tasks/queries.js": {
+    "no-console": {
+      "count": 3
+    }
+  },
+  "src/app/api/tasks/statistics/route.js": {
+    "no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/app/api/tasks/universal/route.js": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/app/api/users/controller.js": {
+    "no-console": {
+      "count": 3
+    }
+  },
+  "src/app/api/users/model.js": {
+    "no-console": {
+      "count": 6
+    }
+  },
+  "src/app/api/users/service.js": {
+    "no-console": {
+      "count": 6
+    }
+  },
+  "src/app/api/wholesale/repairs/[repairId]/route.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/api/wholesale/repairs/route.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/auth/complete-registration/page.js": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/app/components/artisans/profile/vendorProfile.js": {
+    "no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/app/components/clients/newClientForm.component.js": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/app/components/clients/profile/details.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/components/clients/tabs/repairs.js": {
+    "no-console": {
+      "count": 8
+    },
+    "no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/app/components/materials/EnhancedMaterialsHeader.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/components/materials/StullerSearchDialog.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/components/processes/EnhancedProcessesHeader.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/components/repairs/NewRepairFlow.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/app/components/repairs/NewRepairForm.js": {
+    "max-lines": {
+      "count": 1
+    },
+    "no-console": {
+      "count": 4
+    },
+    "no-unused-vars": {
+      "count": 8
+    }
+  },
+  "src/app/components/users/ArtisanApplicationsManagement.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/app/components/users/UserManagement.js": {
+    "max-lines": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 3
+    }
+  },
+  "src/app/context/repairs.context.js": {
+    "no-console": {
+      "count": 9
+    },
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/AdminDashboardContent.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/admin/stuller/page.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/admin/tasks/ai-builder/page.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/admin/tasks/components/TaskBuilderFormPage.js": {
+    "max-lines": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/app/dashboard/admin/tasks/page.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/admin/tasks/processes/ai-builder/page.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/admin/wholesale-acquisition/page.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/affiliate/page.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/analytics/reports/ReportDetailPageClient.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/appointments/page.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/artisan/drops/page.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/artisan/my-work/page.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/artisan/runs/page.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/clients/[userID]/page.js": {
+    "no-console": {
+      "count": 9
+    },
+    "no-unused-vars": {
+      "count": 4
+    }
+  },
+  "src/app/dashboard/commerce/sales-invoices/page.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/customs/[customID]/page.js": {
+    "max-lines": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 5
+    }
+  },
+  "src/app/dashboard/customs/components/StatusTimeline.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/customs/components/tabs/OverviewTab.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/customs/components/tabs/QuoteTab.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/finance/debt-accounts/page.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/finance/expenses/FinanceExpensesClient.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/finance/inventory/FinanceInventoryClient.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/page.js": {
+    "no-console": {
+      "count": 2
+    },
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/pending/page.js": {
+    "no-console": {
+      "count": 2
+    }
+  },
+  "src/app/dashboard/products/awaiting-approval/components/ApprovalDialog.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/products/awaiting-approval/page.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/products/collections/page.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/products/drops/[dropId]/designs/[designId]/GemLinksPanel.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/products/drops/[dropId]/designs/[designId]/page.js": {
+    "max-lines": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/products/drops/[dropId]/page.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/products/page.js": {
+    "max-lines": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/repairs/[repairID]/page.js": {
+    "max-lines": {
+      "count": 1
+    },
+    "no-console": {
+      "count": 3
+    },
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/repairs/[repairID]/print/page.js": {
+    "no-console": {
+      "count": 3
+    },
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/repairs/labor-review/page.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/repairs/leads/page.js": {
+    "max-lines": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/repairs/my-bench/components/BenchWorkCard.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/repairs/my-bench/page.js": {
+    "max-lines": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/repairs/my-repairs/page.js": {
+    "no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/app/dashboard/repairs/new/page.js": {
+    "no-console": {
+      "count": 3
+    }
+  },
+  "src/app/dashboard/repairs/page.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/repairs/payroll/page.js": {
+    "max-lines": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/repairs/pick-up/page.js": {
+    "max-lines": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 6
+    }
+  },
+  "src/app/dashboard/repairs/ready-for-work/components/WorkCard.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/repairs/ready-for-work/hooks/useReadyForWork.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/repairs/ready-for-work/page.js": {
+    "no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/app/dashboard/repairs/receiving/page.js": {
+    "max-lines": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/app/dashboard/users/artisans/[userID]/page.js": {
+    "no-console": {
+      "count": 4
+    },
+    "no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/app/dashboard/users/page.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/users/wholesalers/[wholesalerId]/page.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/wholesaler/repairs/schedule-pickup/page.js": {
+    "no-unused-vars": {
+      "count": 5
+    }
+  },
+  "src/app/utils/email.util.js": {
+    "no-console": {
+      "count": 3
+    }
+  },
+  "src/components/AppShell.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/components/PWAInstallPrompt.js": {
+    "no-console": {
+      "count": 3
+    }
+  },
+  "src/components/admin/integrations/StullerIntegrationPanel.js": {
+    "no-unused-vars": {
+      "count": 4
+    }
+  },
+  "src/components/analytics/AnalyticsCarousel.js": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/hooks/admin/useIntegrationsSettings.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/hooks/admin/usePWASettings.js": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/hooks/admin/useStoreSettings.js": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/hooks/auth/useEmergencyLogout.js": {
+    "no-console": {
+      "count": 18
+    }
+  },
+  "src/hooks/products/gemstones/useGemstoneManagement.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/hooks/repairs/useNewRepairForm.js": {
+    "max-lines": {
+      "count": 1
+    },
+    "no-console": {
+      "count": 24
+    }
+  },
+  "src/hooks/useMaterialsManager.js": {
+    "no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/hooks/useProcessesManager.js": {
+    "no-console": {
+      "count": 2
+    },
+    "no-unused-vars": {
+      "count": 3
+    }
+  },
+  "src/lib/analyticsService.js": {
+    "no-console": {
+      "count": 9
+    }
+  },
+  "src/lib/artisanService.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/lib/auth-utils.js": {
+    "no-console": {
+      "count": 14
+    }
+  },
+  "src/lib/database.js": {
+    "no-console": {
+      "count": 3
+    }
+  },
+  "src/lib/metalPriceService.js": {
+    "no-console": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/lib/migrations/migrateToNewStatusModel.js": {
+    "no-console": {
+      "count": 8
+    },
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/lib/navigation/adminNavigation.js": {
+    "no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/lib/navigation/artisanApplicantNavigation.js": {
+    "no-unused-vars": {
+      "count": 27
+    }
+  },
+  "src/lib/navigation/artisanNavigation.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/lib/navigation/devNavigation.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/lib/navigation/sharedNavigation.js": {
+    "no-unused-vars": {
+      "count": 6
+    }
+  },
+  "src/lib/navigation/staffNavigation.js": {
+    "no-unused-vars": {
+      "count": 24
+    }
+  },
+  "src/lib/navigation/wholesalerNavigation.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/lib/roleBasedNavigation.js": {
+    "no-console": {
+      "count": 3
+    }
+  },
+  "src/lib/s3.js": {
+    "no-console": {
+      "count": 2
+    }
+  },
+  "src/lib/shopInvite.js": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/lib/theme.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/lib/user/user.auth.service.js": {
+    "no-console": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/lib/user/user.management.service.js": {
+    "no-console": {
+      "count": 10
+    },
+    "no-unused-vars": {
+      "count": 3
+    }
+  },
+  "src/lib/user/user.notification.service.js": {
+    "no-console": {
+      "count": 4
+    }
+  },
+  "src/lib/user/user.query.service.js": {
+    "no-console": {
+      "count": 3
+    }
+  },
+  "src/lib/wholesaleLeadService.js": {
+    "max-lines": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 4
+    }
+  },
+  "src/lib/wholesaleReconciliationService.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/schemas/repair.schema.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/services/affiliates/commissionEngine.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/services/bench/pieceWorkOrderActions.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/services/customs/customAssignment.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/services/customs/customProduction.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/services/customs/customViewer.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/services/production/castingBoard.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/services/production/collectionRelease.test.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/services/production/customizableBindings.test.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/services/repairAnalytics.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/services/repairWorkflow.js": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/services/repairs.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/services/repairs/paidRepairReporting.js": {
+    "no-console": {
+      "count": 1
+    }
+  },
+  "src/services/repairs/smartIntakeExtractors.test.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/services/rushJob.service.js": {
+    "no-console": {
+      "count": 2
+    }
+  },
+  "src/services/shipping/shipping.test.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/services/shipping/storeFulfillment.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/services/stuller-integration.service.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/utilities/auth/emergencyLogout.helpers.js": {
+    "no-console": {
+      "count": 56
+    }
+  },
+  "src/utils/materials.form.utils.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/utils/s3.util.js": {
+    "no-console": {
+      "count": 2
+    }
+  },
+  "src/utils/stlVolumeCalculator.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  }
+}
