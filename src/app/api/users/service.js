@@ -3,6 +3,7 @@
 import User from "./class.js";
 import UserModel from "./model.js";
 import { syncLinkedCustomOrderContact } from '@/services/customs/customerContactSync';
+import { assertEmailAvailable, DUPLICATE_EMAIL } from '@/lib/user/emailAvailability';
 
 export default class UserService {
     /**
@@ -26,10 +27,12 @@ export default class UserService {
                 userData?.business,
                 userData?.status
             );
+            await assertEmailAvailable(newUser.email); // EFD-DEFECTS C2
             const createdUser = await UserModel.createUser(newUser);
             return createdUser;
         } catch (error) {
             console.error("Error in UserService.createUser:", error);
+            if (error.code === DUPLICATE_EMAIL) throw error;
             throw new Error("Failed to create user.");
         }
     }
