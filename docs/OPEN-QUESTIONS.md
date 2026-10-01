@@ -106,7 +106,7 @@ delete).
 
 **Recommendation:** delete the route. Admins already edit repairs through `/api/repairs`.
 
-**Status:** open.
+**Status:** DECIDED 2026-10-01 — owner: *"Q7 retire."* Done: the route and its test are deleted (no caller in either app).
 
 ---
 
@@ -121,7 +121,7 @@ anyone has priced it. The `NEEDS QUOTE` status exists but nothing sets it and no
 staff to price. When pricing flips the request to `quoted`, the job moves to READY FOR WORK and joins the bench. This
 changes where these jobs show up, which is why it's a question and not a fix.
 
-**Status:** open.
+**Status:** DECIDED 2026-10-01 — owner: *"Q8: Go with your recommendation."* Being built: a checked-in Request Quote job waits in NEEDS QUOTE, off the bench, until it is priced.
 
 ---
 
@@ -135,7 +135,20 @@ can be made through the app. The existing 3 remain: a claim or reset for those p
 production script), then create a unique, case-insensitive index on `users.email` (collation strength 2), so the
 database itself refuses duplicates. Both are production writes, so both need the owner's yes.
 
-**Status:** open.
+**Status:** NOT DECIDED — owner, 2026-10-01: *"I would need to know what the duplicate emails are and which accounts they are
+before I could confirm whether you should merge them or not. Sometimes we don't have the customer's email, and I have filled in
+maybe my email or possibly even test@test.com (random emails)."* Read-only production check, 2026-10-01 (names given to the owner in
+chat, not kept here):
+
+- `test@test.com` — **21 accounts**, the counter placeholder: 17 walk-in clients, 2 shop customers and **2 stores** (48 and 11
+  repairs). Not duplicates of one person, so **not** a merge case. Because two stores carry it, their email notices go nowhere.
+  Since the duplicate guard (C2), a 2nd `test@test.com` is refused with "leave it blank if the customer has no email".
+- `arkjem@gmail.com` — the same customer twice, created the same day: one account has 4 repairs, the other none. A true duplicate.
+- `john.e.annis@gmail.com` — an admin account and a shop customer account for the same person. Probably intentional; leave it.
+
+**Recommendation:** merge only the `arkjem@gmail.com` pair (the empty account into the one with the repairs, backed up first).
+Give the two stores their real emails. A unique email index waits until the placeholder accounts are cleared, or it would refuse
+them. Waits for the owner.
 
 ---
 
@@ -149,7 +162,7 @@ CritterCodes/efd-toolpad#197 it is staff-only.
 **Recommendation:** delete the route. It is a stored-price writer on a collection nobody reads. Waits for your yes
 (nothing is retired without it).
 
-**Status:** open.
+**Status:** DECIDED 2026-10-01 — owner: *"Yes, retire legacy gem listings."* Done: the config route is deleted (no caller).
 
 ---
 
@@ -162,7 +175,10 @@ The authorization guard (`src/app/api/routeAuthorization.guard.test.js`) lists t
 **Recommendation:** limit them to staff and artisans, plus stores for `parse-smart-intake` if their intake uses it
 (check first). It's a cost question, not a data leak, so it waits for your call.
 
-**Status:** open.
+**Status:** DECIDED 2026-10-01 — owner: *"I don't want it abused, but if it's on a page that they can access, then they should be
+able to use it ... Definitely a store. That's our flagship intake."* Done: `src/lib/aiAccess.js` gates each helper by the page that
+uses it. Smart intake (parse-smart-intake, describe-item-image) is open to whoever may create a repair: admins, stores, on-site
+repair ops. The task builder (build-task, generate-ai-meta) is admin-only. Everyone else gets a 403.
 
 ---
 
@@ -177,3 +193,19 @@ current size extracted suggests 7 half-sizes of sizing stock (8 − 0 − the in
 enters it. This only removes a wrong suggestion, but it changes what a ticket can charge, so it waits for your yes.
 
 **Status:** open.
+
+---
+
+### Q13 — Smart intake has to be excellent: where does it fall short today? (opened 2026-10-01)
+
+**Context.** Owner, 2026-10-01: *"it needs a lot of work, and we need to ratchet down on the AI smart intake, because that thing
+needs to work amazing. They should think that it's a godsend that they get to use that."* It is the flagship intake for stores
+and the counter: one sentence, or a photo, becomes the ticket (`/api/ai/parse-smart-intake`, `describe-item-image`, the client
+in `src/hooks/repairs/useNewRepairForm.js`). Known so far: Q12 (a blank ring size suggests sizing stock from size 0).
+
+**Recommendation:** treat it as its own project, measured against real cases: (1) collect 20–30 real intake sentences and photos
+from the counter and from stores, each with the ticket it *should* have produced; (2) make that the test set and score today's
+parse against it (tasks, metal, sizes, promise date); (3) fix the biggest misses first, re-scoring each change. The most useful
+thing from the owner: a handful of intakes where it got it wrong, and what was right.
+
+**Status:** open, waiting for those examples.

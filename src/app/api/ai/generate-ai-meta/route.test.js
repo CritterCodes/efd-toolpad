@@ -13,7 +13,8 @@ vi.mock('@/lib/auth', () => ({
 import { POST } from './route.js'
 import { auth } from '@/lib/auth'
 
-const VALID_SESSION = { user: { id: 'user1' } }
+// The task builder is admin-only (OPEN-QUESTIONS Q11).
+const VALID_SESSION = { user: { id: 'user1', role: 'admin' } }
 
 const VALID_AI_META_JSON = JSON.stringify({
   whenToUse: 'When a customer reports a loose or missing stone',

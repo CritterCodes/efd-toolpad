@@ -13,7 +13,8 @@ vi.mock('@/lib/auth', () => ({
 import { POST } from './route.js'
 import { auth } from '@/lib/auth'
 
-const VALID_SESSION = { user: { id: 'user1' } }
+// A store: the intake's own users may call it (OPEN-QUESTIONS Q11).
+const VALID_SESSION = { user: { id: 'user1', role: 'wholesaler' } }
 const FAKE_DESCRIPTION = 'A yellow gold ring with a round diamond center stone and pavé accent diamonds on the band.'
 
 const makeSuccess = (text) => ({
