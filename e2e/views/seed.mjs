@@ -56,19 +56,27 @@ export const ACCOUNTS = [
   { key: 'affiliate', role: 'affiliate', firstName: 'Aff', lastName: 'Iliate' },
 ].map((a) => ({ ...a, email: `${a.key}@views.check`, userID: `views-${a.key}` }));
 
+/** One account's user document (the views check and scripts/seed-preview-e2e.mjs both store exactly this). */
+export const userDoc = ({ key: _key, ...a }, passwordHash, now = new Date()) => ({
+  ...a, password: passwordHash, status: 'verified', permissions: ROLE_PERMISSIONS[a.role], createdAt: now, updatedAt: now,
+});
+
+/** The affiliate account's `affiliates` record. */
+export function affiliateDoc(now = new Date()) {
+  const affiliate = ACCOUNTS.find((a) => a.role === 'affiliate');
+  return {
+    affiliateId: 'aff_views', code: 'VIEWS', codeSetByAffiliate: false, userId: affiliate.userID,
+    name: `${affiliate.firstName} ${affiliate.lastName}`, email: affiliate.email, status: 'active',
+    commissionType: 'percentage', commissionRate: 0.1, attributionWindowDays: 90, createdAt: now, updatedAt: now,
+  };
+}
+
 /** Fill an empty database. Returns the accounts with their password. */
 export async function seed(dbi) {
   const now = new Date();
   const password = await bcrypt.hash(PASSWORD, 10);
-  await dbi.collection('users').insertMany(ACCOUNTS.map(({ key: _key, ...a }) => ({
-    ...a, password, status: 'verified', permissions: ROLE_PERMISSIONS[a.role], createdAt: now, updatedAt: now,
-  })));
-  const affiliate = ACCOUNTS.find((a) => a.role === 'affiliate');
-  await dbi.collection('affiliates').insertOne({
-    affiliateId: 'aff_views', code: 'VIEWS', codeSetByAffiliate: false, userId: affiliate.userID,
-    name: `${affiliate.firstName} ${affiliate.lastName}`, email: affiliate.email, status: 'active',
-    commissionType: 'percentage', commissionRate: 0.1, attributionWindowDays: 90, createdAt: now, updatedAt: now,
-  });
+  await dbi.collection('users').insertMany(ACCOUNTS.map((a) => userDoc(a, password, now)));
+  await dbi.collection('affiliates').insertOne(affiliateDoc(now));
   await dbi.collection('adminSettings').insertOne({ _id: 'repair_task_admin_settings', pricing: PRICING, updatedAt: now });
   return ACCOUNTS.map((a) => ({ key: a.key, email: a.email, password: PASSWORD }));
 }

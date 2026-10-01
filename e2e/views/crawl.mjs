@@ -99,11 +99,19 @@ async function visit(context, url, widthKey, outDir) {
   });
 
   let status = 0;
-  try {
-    const res = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-    status = res ? res.status() : 0;
-  } catch (e) {
-    pageErrors.push(`navigation: ${String(e.message).split('\n')[0]}`);
+  // A network-level failure (net::ERR_…: the browser ran out of sockets, a connection reset on a live deploy)
+  // says nothing about the page, so it gets one retry. A page that fails twice is reported as before.
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const res = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      status = res ? res.status() : 0;
+      break;
+    } catch (e) {
+      const message = String(e.message).split('\n')[0];
+      if (attempt === 1 && /net::ERR_/.test(message)) { await page.waitForTimeout(1500); continue; }
+      pageErrors.push(`navigation: ${message}`);
+      break;
+    }
   }
   await page.waitForLoadState('networkidle', { timeout: SETTLE_MS }).catch(() => {});
   await page.waitForTimeout(300);
