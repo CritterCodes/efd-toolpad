@@ -107,3 +107,18 @@ delete).
 **Recommendation:** delete the route. Admins already edit repairs through `/api/repairs`.
 
 **Status:** open.
+
+---
+
+### Q8 — Where should a store's "request a quote" job wait once it's checked in? (opened 2026-10-01)
+
+**Context.** EFD-DEFECTS F36 / Q4. A store can create a repair with **Request Quote** (no tasks; `quoteRequest.status =
+'requested'`; owner ruling 2026-09-21). When the piece is checked in, `receive` moves it to READY FOR WORK like any
+other job, so it appears on the bench as Unclaimed with **no tasks and a $0 price**, and a jeweler can claim it before
+anyone has priced it. The `NEEDS QUOTE` status exists but nothing sets it and no quote code reads it (Q1).
+
+**Recommendation:** on check-in, a quote-requested job goes to `NEEDS QUOTE`, which is off the bench and listed for
+staff to price. When pricing flips the request to `quoted`, the job moves to READY FOR WORK and joins the bench. This
+changes where these jobs show up, which is why it's a question and not a fix.
+
+**Status:** open.

@@ -63,7 +63,7 @@ vi.mock('@/services/production/workOrderBilling', () => ({
   billCompletedWorkOrder: (...a) => billCompletedWorkOrder(...a),
 }));
 
-const { approveCadQc } = await import('./pieceWorkOrderActions');
+const { approveCadQc, movePieceToQc } = await import('./pieceWorkOrderActions');
 
 const session = { user: { userID: 'u-reviewer', name: 'Reviewer', role: 'admin' } };
 const cadWo = {
@@ -161,5 +161,13 @@ describe('approveCadQc — billing', () => {
   it('reports the billing result to the caller', async () => {
     const res = await approveCadQc({ session, workOrderID: 'wo-cad-1' });
     expect(res.billing).toMatchObject({ billed: true, invoiceID: 'ainv-1' });
+  });
+});
+
+describe('a CAD piece cannot take the plain Move to QC (EFD-DEFECTS B5)', () => {
+  it('refuses it with CONFLICT and writes no labor log', async () => {
+    findByID.mockResolvedValue(cadWo);
+    await expect(movePieceToQc({ session, workOrderID: 'wo-cad-1' })).rejects.toMatchObject({ code: 'CONFLICT' });
+    expect(createLaborLog).not.toHaveBeenCalled();
   });
 });

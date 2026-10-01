@@ -139,6 +139,14 @@ export async function claimPieceWorkOrder({ session, workOrderID }) {
 export async function movePieceToQc({ session, workOrderID }) {
   const wo = await loadPieceWorkOrder(workOrderID);
 
+  // CAD work reaches QC by uploading the file (cad-submit-qc / the STL path), never by a plain move: My Bench's
+  // "Move my bench to QC" swept CAD pieces in with no STL and wrote an hourly labor log for them (EFD-DEFECTS B5).
+  if (wo.discipline === DISCIPLINE.CAD) {
+    const error = new Error('CAD work goes to QC by submitting the file (Submit to QC on the card), not by Move to QC.');
+    error.code = 'CONFLICT';
+    throw error;
+  }
+
   // Credit the work order's ASSIGNED jeweler, not whoever clicks — so an admin moving a
   // jeweler's piece to QC on their behalf pays the jeweler, never themselves (mirrors the
   // repair flow). Falls back to the caller only if the WO is somehow unassigned.
