@@ -18,12 +18,11 @@ import {
   IconButton,
   InputAdornment,
   Stack,
-  Tab,
-  Tabs,
   TextField,
   Tooltip,
   Typography
 } from '@mui/material';
+import { TabRail } from '@/components/facelift';
 import {
   AutoAwesome as ArtisanIcon,
   Cancel as RejectIcon,
@@ -434,17 +433,17 @@ export default function ArtisanApplicationsManagement() {
       </Box>
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-        <Tabs
+        <TabRail
+          ariaLabel="Application states"
           value={statusTab}
-          onChange={(event, value) => setStatusTab(value)}
-          variant="scrollable"
-          allowScrollButtonsMobile
-        >
-          <Tab value="pending" label={`Pending (${stats.pending || 0})`} />
-          <Tab value="approved" label={`Approved (${stats.approved || 0})`} />
-          <Tab value="rejected" label={`Rejected (${stats.rejected || 0})`} />
-          <Tab value="all" label={`All (${stats.total || applications.length})`} />
-        </Tabs>
+          onChange={setStatusTab}
+          items={[
+            { key: 'pending', label: 'Pending', count: stats.pending || 0 },
+            { key: 'approved', label: 'Approved', count: stats.approved || 0 },
+            { key: 'rejected', label: 'Rejected', count: stats.rejected || 0 },
+            { key: 'all', label: 'All', count: stats.total || applications.length },
+          ]}
+        />
       </Box>
 
       {loading && applications.length === 0 ? (
