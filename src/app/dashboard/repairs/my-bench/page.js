@@ -1,18 +1,14 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { buildStullerRepairMaterial } from '@/services/pricing/stullerMaterial';
-import { resolvePricingSettings } from '@/services/pricing/engine';
 import {
-  Box, Typography, Grid, Button, Chip, CircularProgress,
-  TextField, MenuItem, Alert, Snackbar, Stack,
-  Dialog, DialogTitle, DialogContent, DialogActions, Pagination,
+  Box, Typography, Button, Chip, CircularProgress,
+  TextField, MenuItem, Alert, Snackbar, Stack, Pagination,
 } from '@mui/material';
 import {
   Handyman as WorkIcon,
   Add as AddIcon,
   Refresh as RefreshIcon,
-  QrCodeScanner as ScanIcon,
   VerifiedUser as QCIcon,
   Forum as CommunicationsIcon,
   Close as CloseIcon,
@@ -29,20 +25,11 @@ import { directUpload, postFileWithProgress } from '@/lib/directUpload';
 import BenchWorkCard from './components/BenchWorkCard';
 import { isAdminRole, isOnsiteRepairOps } from '@/lib/repairAccess';
 import { PageHeader, SurfaceCard, SectionLabel, TabRail, facelift } from '@/components/facelift';
+import { NeedsPartsDialog } from './components/NeedsPartsDialog';
+import { BenchScanPanel } from './components/BenchScanPanel';
 
 const BENCH_PAGE_SIZE = 20;
-const DEFAULT_PARTS_FORM = { source: 'stuller', stullerSku: '', name: '', description: '', quantity: '1', price: '' };
 
-function toNumber(value, fallback = 0) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-// A Stuller part is priced by services/pricing/stullerMaterial.js — wholesale when the work
-// order's repair is a store job, retail otherwise. The browser's number is a preview; the
-// mark-waiting-parts action re-prices from the repair's billing mode before storing it.
-function buildStullerMaterial(stullerResponse, stullerSku, settings, isWholesale = false) {
-  return buildStullerRepairMaterial({ item: stullerResponse, sku: stullerSku, isWholesale, settings });
-}
 
 export default function BenchPage() {
   const { data: session, status } = useSession();
@@ -76,10 +63,9 @@ export default function BenchPage() {
   const [bulkQcLoading, setBulkQcLoading] = useState(false);
   const [selectedQcIDs, setSelectedQcIDs] = useState([]);
   const [bulkCompleteLoading, setBulkCompleteLoading] = useState(false);
+  // The dialog owns its own form, loading and error state — the page only needs to know which work
+  // order it is open on.
   const [partsDialogWO, setPartsDialogWO] = useState(null);
-  const [partsForm, setPartsForm] = useState(DEFAULT_PARTS_FORM);
-  const [partsLoading, setPartsLoading] = useState(false);
-  const [partsError, setPartsError] = useState('');
 
   const showSnack = (message, severity = 'success') => setSnack({ open: true, message, severity });
   const closeSnack = () => setSnack((s) => ({ ...s, open: false }));
@@ -271,53 +257,13 @@ export default function BenchPage() {
   };
 
   // --- Parts dialog ---
-  const openPartsDialog = (wo) => { setPartsDialogWO(wo); setPartsForm(DEFAULT_PARTS_FORM); setPartsError(''); };
-  const closePartsDialog = () => { if (!partsLoading) { setPartsDialogWO(null); setPartsForm(DEFAULT_PARTS_FORM); setPartsError(''); } };
-  const setPF = (field, value) => setPartsForm((prev) => ({ ...prev, [field]: value }));
+  const openPartsDialog = (wo) => setPartsDialogWO(wo);
 
-  const submitNeedsParts = async () => {
-    if (!partsDialogWO) return;
-    setPartsLoading(true);
-    setPartsError('');
-    try {
-      let material;
-      if (partsForm.source === 'stuller') {
-        const cleanSku = partsForm.stullerSku.trim();
-        if (!cleanSku) throw new Error('Enter a Stuller part number.');
-        const [stullerRes, settingsRes] = await Promise.all([
-          fetch('/api/stuller/item', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ itemNumber: cleanSku }) }),
-          fetch('/api/admin/settings'),
-        ]);
-        const stullerData = await stullerRes.json().catch(() => ({}));
-        if (!stullerRes.ok) throw new Error(stullerData.error || 'Failed to fetch Stuller item.');
-        // No settings, no price — never a default markup (owner, 2026-09-30).
-        if (!settingsRes.ok) throw new Error('Pricing settings did not load — the part cannot be priced. Reload and try again.');
-        const settings = resolvePricingSettings(await settingsRes.json());
-        material = buildStullerMaterial(stullerData, cleanSku, settings, !!(partsDialogWO?.isWholesale || partsDialogWO?.repair?.isWholesale || partsDialogWO?.billing?.mode === 'wholesale'));
-      } else {
-        const name = partsForm.name.trim();
-        const quantity = Math.max(toNumber(partsForm.quantity, 1), 0);
-        const price = Math.max(toNumber(partsForm.price, 0), 0);
-        if (!name) throw new Error('Enter a material name.');
-        if (quantity <= 0) throw new Error('Quantity must be greater than zero.');
-        material = {
-          id: Date.now(), name, displayName: name, description: partsForm.description.trim() || name,
-          quantity, price, retailPrice: price, unitCost: price, category: 'manual_material', supplier: 'Manual', isStullerItem: false,
-        };
-      }
-      const res = await fetch(`/api/bench/work-orders/${partsDialogWO.workOrderID}/mark-waiting-parts`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ material }),
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Unable to move to needs parts.');
-      await fetchWorkOrders();
-      showSnack(`Added material and moved ${partsDialogWO.sourceID} to Needs Parts.`, 'success');
-      setPartsDialogWO(null);
-      setPartsForm(DEFAULT_PARTS_FORM);
-    } catch (e) {
-      setPartsError(e.message);
-    } finally {
-      setPartsLoading(false);
-    }
+  // The dialog has already written the material and moved the repair; the page refreshes and says so.
+  const onPartsMoved = async (wo) => {
+    await fetchWorkOrders();
+    showSnack(`Added material and moved ${wo.sourceID} to Needs Parts.`, 'success');
+    setPartsDialogWO(null);
   };
 
   if (status === 'loading') {
@@ -364,39 +310,19 @@ export default function BenchPage() {
 
       {/* Scan a ticket, then tell the batch what to do with it. */}
       {canScan && (
-      <SurfaceCard sx={{ mt: 2.5 }}>
-        <SectionLabel>Scan tickets</SectionLabel>
-        <Box component="form" onSubmit={handleQueueScan} sx={{ mt: 1.5, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          <TextField
-            label="Scan ticket" placeholder="Scan repair ticket barcode" value={scanValue}
-            onChange={(e) => setScanValue(e.target.value)} autoComplete="off" autoFocus size="small"
-            sx={{ minWidth: { xs: '100%', sm: 300 } }}
-            helperText="Barcode scan lands here. Press Enter to queue each repair, then pick what happens to them."
-          />
-          <TextField
-            select size="small" label="Then" value={scanAction}
-            onChange={(e) => setScanAction(e.target.value)}
-            sx={{ minWidth: { xs: '100%', sm: 190 } }}
-          >
-            {scanActions.map((a) => <MenuItem key={a.key} value={a.key}>{a.label}</MenuItem>)}
-          </TextField>
-          <Button type="submit" variant="outlined" startIcon={<ScanIcon />} disabled={scanLoading || !scanValue.trim()}>Queue Scan</Button>
-          <Button type="button" variant="outlined" startIcon={<ScanIcon />} disabled={scanLoading} onClick={() => setClaimScannerOpen(true)}>Camera Scan</Button>
-          <Button type="button" variant="contained" disabled={scanLoading || queuedClaimIDs.length === 0} onClick={runQueued}>
-            {scanLoading ? 'Working…' : `${scanActionByKey(scanAction)?.label ?? 'Apply'} ${queuedClaimIDs.length}`}
-          </Button>
-        </Box>
-        {queuedClaimIDs.length > 0 && (
-          <Box sx={{ mt: 1.5 }}>
-            <SectionLabel sx={{ mb: 1 }}>Queued ({queuedClaimIDs.length}) → {scanActionByKey(scanAction)?.label}</SectionLabel>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              {queuedClaimIDs.map((id) => (
-                <Chip key={id} label={id} onDelete={() => removeQueued(id)} deleteIcon={<CloseIcon />} />
-              ))}
-            </Box>
-          </Box>
-        )}
-      </SurfaceCard>
+        <BenchScanPanel
+          scanValue={scanValue}
+          onScanValueChange={setScanValue}
+          onQueueSubmit={handleQueueScan}
+          scanAction={scanAction}
+          onScanActionChange={setScanAction}
+          scanActions={scanActions}
+          queuedIDs={queuedClaimIDs}
+          onRemoveQueued={removeQueued}
+          onRunQueued={runQueued}
+          onOpenCamera={() => setClaimScannerOpen(true)}
+          loading={scanLoading}
+        />
       )}
 
       {/* The lanes. TabRail, not MUI Tabs: MUI's scroll buttons never render on a touch screen, so the
@@ -515,39 +441,11 @@ export default function BenchPage() {
         )}
       </ContinuousBarcodeScanner>
 
-      {/* Needs Parts dialog */}
-      <Dialog open={!!partsDialogWO} onClose={closePartsDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>Move to Needs Parts</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ pt: 1 }}>
-            <Typography variant="body2" sx={{ color: facelift.text2 }}>Add the part or material that needs to be ordered before moving this repair.</Typography>
-            {partsDialogWO && <Alert severity="info">{partsDialogWO.sourceID} — {partsDialogWO.source?.clientName || partsDialogWO.source?.businessName || ''}</Alert>}
-            {partsError && <Alert severity="error">{partsError}</Alert>}
-            <TextField select label="Material Source" value={partsForm.source} onChange={(e) => setPF('source', e.target.value)} fullWidth>
-              <MenuItem value="stuller">Stuller part number</MenuItem>
-              <MenuItem value="manual">Manual material</MenuItem>
-            </TextField>
-            {partsForm.source === 'stuller' ? (
-              <TextField label="Stuller Part Number" value={partsForm.stullerSku} onChange={(e) => setPF('stullerSku', e.target.value)} autoFocus fullWidth />
-            ) : (
-              <>
-                <TextField label="Material Name" value={partsForm.name} onChange={(e) => setPF('name', e.target.value)} autoFocus fullWidth />
-                <TextField label="Description" value={partsForm.description} onChange={(e) => setPF('description', e.target.value)} fullWidth multiline minRows={2} />
-                <Grid container spacing={1.5}>
-                  <Grid item xs={6}><TextField label="Quantity" type="number" value={partsForm.quantity} onChange={(e) => setPF('quantity', e.target.value)} inputProps={{ min: 0, step: 0.25 }} fullWidth /></Grid>
-                  <Grid item xs={6}><TextField label="Line Price" type="number" value={partsForm.price} onChange={(e) => setPF('price', e.target.value)} inputProps={{ min: 0, step: 0.01 }} fullWidth /></Grid>
-                </Grid>
-              </>
-            )}
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closePartsDialog} disabled={partsLoading}>Cancel</Button>
-          <Button variant="contained" onClick={submitNeedsParts} disabled={partsLoading}>
-            {partsLoading ? 'Moving…' : 'Add Material & Move'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <NeedsPartsDialog
+        workOrder={partsDialogWO}
+        onClose={() => setPartsDialogWO(null)}
+        onMoved={onPartsMoved}
+      />
 
       <Snackbar open={snack.open} autoHideDuration={5000} onClose={closeSnack} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert onClose={closeSnack} severity={snack.severity}>{snack.message}</Alert>
