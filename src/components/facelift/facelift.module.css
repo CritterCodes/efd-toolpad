@@ -744,3 +744,79 @@
  * against the gap above it, which is the drift this element exists to end.
  */
 .pageBody > :first-child { margin-top: 0; }
+
+/* -- Route states -- loading, error, not found ---------------------------- */
+
+.skeleton {
+  display: block;
+  background: rgba(255, 255, 255, 0.06);
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+  animation: skeletonSweep 1.5s infinite;
+}
+
+@keyframes skeletonSweep {
+  100% { transform: translateX(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after { animation: none; }
+}
+
+.statePage {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px 16px;
+  max-width: 640px;
+}
+
+@media (min-width: 600px) {
+  .statePage { padding: 32px 24px; }
+}
+
+.stateRows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.stateTitle {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--fl-text);
+}
+
+.stateMessage {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--fl-text-2);
+}
+
+.stateActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 4px;
+}
+
+.stateDigest {
+  margin-top: 6px;
+  font-family: var(--fl-mono);
+  font-size: 0.71rem;
+  letter-spacing: 0.01em;
+  color: var(--fl-text-4);
+}
