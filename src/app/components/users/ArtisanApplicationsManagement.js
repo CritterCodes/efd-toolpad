@@ -22,7 +22,6 @@ import {
   Tooltip,
   Typography
 } from '@mui/material';
-import { TabRail } from '@/components/facelift';
 import {
   AutoAwesome as ArtisanIcon,
   Cancel as RejectIcon,
@@ -34,7 +33,7 @@ import {
 } from '@mui/icons-material';
 import { useSearchParams } from 'next/navigation';
 import { useArtisanApplications } from '@/hooks/admin/useArtisanApplications';
-import { CardGrid, FaceliftRoot, Field, FieldList, Figure, SectionLabel, StatusChip, SurfaceCard, facelift } from '@/components/facelift';
+import { CardGrid, FaceliftRoot, Field, FieldList, Figure, SectionLabel, StatusChip, SurfaceCard, TabRail, facelift } from '@/components/facelift';
 
 const STATUS_TABS = ['pending', 'approved', 'rejected', 'all'];
 
@@ -88,7 +87,7 @@ function statusHue(status) {
  * pending**. Nothing waiting means nothing gold: the same conditional shape as `isNext` on the Getting
  * Started card. The rest are counts, and a count is read, not acted on.
  */
-function StatsCards({ stats }) {
+export function StatsCards({ stats }) {
   const cards = [
     { label: 'Total Applications', value: stats.total },
     { label: 'Pending Review', value: stats.pending, accentWhenSet: true },
