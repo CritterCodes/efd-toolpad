@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Box, Paper, Stack, Typography, Tabs, Tab, TextField, Button } from '@mui/material';
+import { Box, Paper, Stack, Typography, TextField, Button } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import { TabRail } from '@/components/facelift';
 
 const THREADS = [
   { key: 'client', label: 'Client', hint: 'Visible to the client on the storefront portal.' },
@@ -29,9 +30,18 @@ export default function CommunicationsTab({ customID, communications = [], onCha
 
   return (
     <Box>
-      <Tabs value={thread} onChange={(_, v) => setThread(v)} sx={{ mb: 2, '& .MuiTab-root': { color: REPAIRS_UI.textSecondary, textTransform: 'none' }, '& .Mui-selected': { color: REPAIRS_UI.accent }, '& .MuiTabs-indicator': { bgcolor: REPAIRS_UI.accent } }}>
-        {THREADS.map((t) => <Tab key={t.key} value={t.key} label={`${t.label} (${(communications || []).filter((m) => (m.thread || 'client') === t.key).length})`} />)}
-      </Tabs>
+      <Box sx={{ mb: 2 }}>
+        <TabRail
+          ariaLabel="Message threads"
+          value={thread}
+          onChange={setThread}
+          items={THREADS.map((t) => ({
+            key: t.key,
+            label: t.label,
+            count: (communications || []).filter((m) => (m.thread || 'client') === t.key).length,
+          }))}
+        />
+      </Box>
       <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 1.5 }}>{active.hint}</Typography>
 
       <Stack spacing={1.25} sx={{ mb: 2, maxHeight: 360, overflowY: 'auto' }}>

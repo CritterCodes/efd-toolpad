@@ -3,8 +3,15 @@
 import React, { useEffect, useState, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Box, Typography, Button, Paper, Stack, Chip, CircularProgress, Snackbar, Alert,
-  Tab, Tabs,
+  Box,
+  Typography,
+  Button,
+  Paper,
+  Stack,
+  Chip,
+  CircularProgress,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
@@ -18,6 +25,7 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import { TabRail } from '@/components/facelift';
 
 const STATUS_COLOR = {
   draft: REPAIRS_UI.textMuted,
@@ -433,18 +441,15 @@ export default function DropDetailPage({ params }) {
       </Box>
 
       <Box sx={{ borderBottom: `1px solid ${REPAIRS_UI.border}`, mb: 3 }}>
-        <Tabs
+        <TabRail
+          ariaLabel="Drop contents"
           value={tab}
-          onChange={(_, v) => setTab(v)}
-          sx={{
-            '& .MuiTab-root': { color: REPAIRS_UI.textSecondary, textTransform: 'none', fontWeight: 600 },
-            '& .Mui-selected': { color: REPAIRS_UI.accent },
-            '& .MuiTabs-indicator': { backgroundColor: REPAIRS_UI.accent },
-          }}
-        >
-          <Tab label={`Designs (${designs.length})`} />
-          <Tab label={`Pieces (${pieces.length})`} />
-        </Tabs>
+          onChange={setTab}
+          items={[
+            { key: 0, label: 'Designs', count: designs.length },
+            { key: 1, label: 'Pieces', count: pieces.length },
+          ]}
+        />
       </Box>
 
       {tab === 0 && (

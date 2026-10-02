@@ -19,8 +19,6 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
 import Snackbar from '@mui/material/Snackbar';
-import Tabs from '@mui/material/Tabs';
-import Tab from '@mui/material/Tab';
 import Tooltip from '@mui/material/Tooltip';
 import ArticleIcon from '@mui/icons-material/Article';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -30,6 +28,7 @@ import AddIcon from '@mui/icons-material/Add';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PendingIcon from '@mui/icons-material/HourglassEmpty';
 import ReviewIcon from '@mui/icons-material/RateReview';
+import { TabRail } from '@/components/facelift';
 
 const C = {
   bg: '#08090B',
@@ -188,21 +187,14 @@ export default function BlogsPage() {
         </Box>
 
         {/* Status tabs */}
-        <Tabs
-          value={activeTab}
-          onChange={(_, v) => setActiveTab(v)}
-          sx={{
-            mt: 1.5,
-            minHeight: 36,
-            '& .MuiTab-root': { color: C.muted, minHeight: 36, py: 0.5, fontSize: '0.8rem', textTransform: 'none' },
-            '& .Mui-selected': { color: C.accent },
-            '& .MuiTabs-indicator': { backgroundColor: C.accent },
-          }}
-        >
-          {STATUS_TABS.map((s) => (
-            <Tab key={s} label={STATUS_LABELS[s]} value={s} />
-          ))}
-        </Tabs>
+        <Box sx={{ mt: 1.5 }}>
+          <TabRail
+            ariaLabel="Post states"
+            value={activeTab}
+            onChange={setActiveTab}
+            items={STATUS_TABS.map((s) => ({ key: s, label: STATUS_LABELS[s] }))}
+          />
+        </Box>
       </Box>
 
       <Box sx={{ p: 3 }}>

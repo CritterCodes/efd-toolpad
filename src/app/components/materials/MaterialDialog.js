@@ -11,15 +11,14 @@ import {
   DialogActions,
   Button,
   Box,
-  Tabs,
-  Tab,
   Typography,
   Switch,
   FormControlLabel,
-  Alert
+  Alert,
 } from '@mui/material';
 import MaterialForm from './MaterialForm';
 import MaterialVariantsManager from './MaterialVariantsManager';
+import { TabRail } from '@/components/facelift';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -149,16 +148,19 @@ export default function MaterialDialog({
             </Alert>
           )}
 
-          <Tabs 
-            value={activeTab} 
-            onChange={(e, newValue) => setActiveTab(newValue)}
-            sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}
-          >
-            <Tab label="Basic Information" />
-            {formData.hasVariants && (
-              <Tab label={`Variants (${formData.variants?.length || 0})`} />
-            )}
-          </Tabs>
+          <Box sx={{ mb: 2 }}>
+            <TabRail
+              ariaLabel="Material sections"
+              value={activeTab}
+              onChange={setActiveTab}
+              items={[
+                { key: 0, label: 'Basic Information' },
+                ...(formData.hasVariants
+                  ? [{ key: 1, label: 'Variants', count: formData.variants?.length || 0 }]
+                  : []),
+              ]}
+            />
+          </Box>
 
           <TabPanel value={activeTab} index={0}>
             <MaterialForm

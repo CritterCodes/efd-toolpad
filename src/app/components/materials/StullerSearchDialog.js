@@ -1,10 +1,11 @@
 import React from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Box, Tabs, Tab, Button, CircularProgress, Alert } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Box, Button, CircularProgress, Alert } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import { useStullerSearch } from '../../../hooks/materials/useStullerSearch';
 import StullerSearchFilters from './search/StullerSearchFilters';
 import StullerProductGrid from './search/StullerProductGrid';
 import StullerImportResults from './search/StullerImportResults';
+import { TabRail } from '@/components/facelift';
 
 export default function StullerSearchDialog(props) {
     const hookData = useStullerSearch(props);
@@ -24,11 +25,16 @@ export default function StullerSearchDialog(props) {
             </DialogTitle>
             <DialogContent dividers>
                 {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-                <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
-                    <Tab label="Search" />
-                    <Tab label={`Results (${searchResults.length})`} disabled={searchResults.length === 0} />
-                    <Tab label="Import Results" disabled={!importResults} />
-                </Tabs>
+                <TabRail
+                    ariaLabel="Stuller import steps"
+                    value={tabValue}
+                    onChange={setTabValue}
+                    items={[
+                        { key: 0, label: 'Search' },
+                        ...(searchResults.length ? [{ key: 1, label: 'Results', count: searchResults.length }] : []),
+                        ...(importResults ? [{ key: 2, label: 'Import Results' }] : []),
+                    ]}
+                />
                 {tabValue === 0 && <StullerSearchFilters searchParams={searchParams} setSearchParams={setSearchParams} handleSearch={handleSearch} handleClear={handleClear} loading={loading} suggestions={{ categories: [], metalTypes: [] }} />}
                 {tabValue === 1 && <StullerProductGrid searchResults={searchResults} selectedProducts={selectedProducts} handleProductSelect={handleProductSelect} handleImport={handleImport} importing={importing} />}
                 {tabValue === 2 && <StullerImportResults importResults={importResults} />}
