@@ -341,4 +341,55 @@ The example pair quoted above (gold ≈ $19 then $10) is derived from the undate
 
 Still price-moving: it changes what the counter charges on every retip, so it waits for the owner's yes.
 
+**A published TRADE sheet, which beats the undated Geller figures (added 2026-10-02).** Benchie, a trade shop selling
+to jewellers, publishes its wholesale list quarterly as an open PDF and states the list **is 50% of Geller's Blue
+Book** — which both confirms the usual trade split and makes their sheet a usable window into current Geller without
+buying it. From **Q1 2025**, laser tips and prongs, priced by metal, by prong style (*Tip / Low-base / Full /
+V-prong*) and by count:
+
+| per tip, laser | 14k | 18k | Platinum |
+|---|---|---|---|
+| 1st tip | $35 | $36 | **$58** |
+| each additional to 10 | $15 | $17 | **$41** |
+| 11th and on | $6 | $9 | **$19** |
+
+(Simplest "Tip" column; a V-prong is far dearer — $72 / $77 / $110 for the first. Add $33 to rhodium white gold.)
+
+**Every retip EFD has billed, against that sheet:**
+
+| Ticket | EFD billed the store | Benchie trade | EFD |
+|---|---|---|---|
+| 2 gold | $48 | $50 | 96% |
+| 4 gold (×3 tickets) | $96 | $80 | 120% |
+| 6 gold | $144 | $110 | 131% |
+| 12 gold | $288 | $182 | **158%** |
+| 21 gold | $315 | $236 | 133% |
+| **84 platinum** (repair-aff19ff9) | **$1,310.40** | **$1,833** | **71%** |
+
+So the owner's instinct was right in direction — gold is where EFD is high — but it is 20–60%, not the 2× the undated
+Geller figures implied. And on the platinum job that prompted the whole question, **EFD is about $520 UNDER a
+published trade competitor.**
+
+**Three structural gaps, one root cause.** Benchie tiers three ways (1st / 2–10 / 11+), prices by metal, and prices by
+prong style. EFD charges one flat number for everything with a single break at about 20. That is why EFD is almost
+exactly right at 2 prongs, 58% high at 12, and 29% low at 84 platinum — and why the laser lands on every prong
+instead of in the setup.
+
+**Revised recommendation.** Move `Retip prongs` to the shape the trade actually uses:
+
+1. **Three tiers** — first tip (setup + laser), tips 2–10, tips 11 and on.
+2. **By metal** — platinum's marginal tip is $19 against 14k's $6 at Benchie, more than 3×. EFD charges one price for
+   gold, silver and platinum alike.
+3. **Then set the numbers** against Benchie's published sheet, adjusted for what EFD sells that a volume trade shop
+   cannot: **fast turnaround** from a one-person bench. Benchmarking *down* toward the cheapest trade shop (CMK lists
+   4 tips at $28) would be a mistake; Benchie is the closer comparison and EFD is already under it on platinum.
+
+For reference, the same 84-prong job at Benchie's rate is $1,833 — $458/hour at the 4 hours it actually took, against
+$327/hour as billed.
+
+**Sources:** [Benchie Q1 2025 wholesale list](https://mybenchie.com/wp-content/uploads/2025/03/Q1-2025.pdf) ·
+[Benchie Q3 2024](https://mybenchie.com/wp-content/uploads/2024/08/BENCHIE-REPAIR-PRICES-Q3-2024.pdf) ·
+[CMK Company trade list](https://www.cmkcompany.com/wholesale-industry-price-list.html) ·
+[Geller Blue Book, $399 kit, Release 6.6 Nov 2025](https://www.jewelerprofit.com/Blue_Book.html)
+
 **Status:** open.
