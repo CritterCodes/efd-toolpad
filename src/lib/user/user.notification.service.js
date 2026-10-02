@@ -1,5 +1,3 @@
-import { NotificationService, notifyAllAdmins } from '@/lib/notificationService';
-
 /**
  * What a person is told when their account is approved, rejected, or waiting on someone.
  *
@@ -15,6 +13,14 @@ import { NotificationService, notifyAllAdmins } from '@/lib/notificationService'
  * `UnifiedUserService.sendPendingApprovalNotification`, which no route uses. Implemented here so the
  * surface is real when a registration path wires it up, and so the next person finds a function rather
  * than a TODO; it is not a behaviour change until something calls it.
+ *
+ * **This file may not import the notification service at module scope.** It did, in the first version of
+ * this change, and every page in every role went to a page-error: the navigation modules import
+ * `unifiedUserService` for `USER_ROLES`, `unifiedUserService` imports this file, and this file then pulled
+ * `lib/notificationService` -> `mongodb`, `./email.js` and `./webPush.js` into the **client** bundle. A
+ * service is a UI surface the moment something the shell renders can reach it. So the import is inside the
+ * methods, where it only ever runs on the server — the same reason `customsPermissions.js` and
+ * `customStatus.js` lazy-import theirs.
  *
  * Two rules this file lives by:
  *
@@ -40,6 +46,7 @@ export class UserNotificationService {
 
     const role = user.approvalData?.requestedRole || user.role || 'account';
     try {
+      const { NotificationService } = await import('@/lib/notificationService');
       await NotificationService.createNotification({
         userId: user.userID,
         type: approved ? 'account-approved' : 'account-rejected',
@@ -91,6 +98,7 @@ export class UserNotificationService {
     const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email || user.userID;
     const role = user.approvalData?.requestedRole || user.role || 'account';
     try {
+      const { notifyAllAdmins } = await import('@/lib/notificationService');
       await notifyAllAdmins({
         type: 'account-pending-approval',
         title: 'An account is waiting for approval',
