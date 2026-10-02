@@ -81,3 +81,14 @@ for a guardrail.
   the in-memory Mongo that `views.mjs` starts. **Workaround:** re-run the crawl rather than starting the
   server by hand. **Proposed:** a `--serve-only` flag that seeds and serves without crawling, so recovering
   a preview costs seconds instead of a two-minute crawl.
+- **2026-10-02: a views run can fail a contiguous tail of routes and it is not the code.** A crawl reported
+  **20 NEW problems** — `policies`, `production`, `production/collections`, `production/designs`,
+  `products/jewelry`, `profile`, `repairs/all`, `repairs/bulk-print`, all at phone width, all
+  blank + page-error + server-error. The pattern is the giveaway: a contiguous alphabetical tail, none of
+  them the page the PR touched. Killing the server and re-running gave **0 problems, baseline 0**, and the
+  routes answered fine in between. Something in the run dies partway — most likely the server or its
+  in-memory Mongo under memory pressure — and every remaining route is then recorded as broken.
+  **Rule:** a tail of unrelated routes failing together is a failed *run*, not a failed change; re-run
+  before believing it, and never `--update` a baseline from it. **Proposed:** have `views.mjs` health-check
+  the server between pages and abort the run (rather than record failures) when it stops answering, so a
+  dead server reads as "the run failed" instead of "these 20 pages are broken".
