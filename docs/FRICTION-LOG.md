@@ -73,3 +73,11 @@ for a guardrail.
   visits either page unauthenticated. Found by opening the page by hand while signed out. **Proposed:** a small
   anonymous pass — sign in, sign out, then crawl the `/auth/*` routes and `/emergency-logout` — so the pages a
   locked-out person sees are checked in the state they see them in.
+- **2026-10-02: a `--keep` preview server dies with the task that started it.** `node scripts/views.mjs --keep`
+  leaves the server running so the pages can be clicked through — but the command never exits, so when the
+  agent runtime reaps the background task at its time limit, the server goes with it. Worse, the obvious
+  recovery (`next start -p 4300`) serves the app against the *real* dev database, where `admin@views.check`
+  does not exist, so sign-in silently fails and it looks like an auth bug. The seeded accounts only exist in
+  the in-memory Mongo that `views.mjs` starts. **Workaround:** re-run the crawl rather than starting the
+  server by hand. **Proposed:** a `--serve-only` flag that seeds and serves without crawling, so recovering
+  a preview costs seconds instead of a two-minute crawl.
