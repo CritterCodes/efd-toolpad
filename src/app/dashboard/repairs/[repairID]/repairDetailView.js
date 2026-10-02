@@ -1,45 +1,41 @@
 import * as React from 'react';
 import Image from 'next/image';
-import {
-    Box,
-    Typography,
-    Button,
-    Card,
-    CardContent,
-    Grid,
-    Chip,
-    Divider,
-    List,
-    ListItem,
-    ListItemText,
-    ListItemSecondaryAction,
-    Alert
-} from '@mui/material';
+import { Alert, Box, Menu, MenuItem, ListItemIcon, ListItemText } from '@mui/material';
 import {
     Print as PrintIcon,
     Edit as EditIcon,
     Delete as DeleteIcon,
-    Schedule as ScheduleIcon,
-    Person as PersonIcon,
-    Category as CategoryIcon
+    MoreVert as MoreIcon,
 } from '@mui/icons-material';
 import { isWholesalerViewer } from '@/lib/repairAccess';
-import { tint, facelift } from '@/components/facelift';
-
-// Two rows used to carry light-theme Material fills — #e3f2fd on a Stuller line, #ffebee on the rush fee —
-// which on the near-black ground rendered white text on near-white at about 1.1:1 and 1.05:1. The Stuller
-// row is the one naming the metal to pull, so the line a jeweler needs was the line he could not read.
-// `tint()` is DESIGN.md's triplet for a tinted region: ~13% fill, 42% stroke, full-strength text.
-const INFO = tint(facelift.info);
-const ERROR = tint(facelift.error);
+import {
+    facelift,
+    tint,
+    PageHeader,
+    SurfaceCard,
+    CardGrid,
+    SectionLabel,
+    Field,
+    FieldList,
+    Figure,
+    LineItem,
+    StatusChip,
+    GoldButton,
+    QuietButton,
+    IconButton as FlIconButton,
+} from '@/components/facelift';
 
 /**
- * The read-only repair detail screen, moved verbatim out of page.js on 2026-10-02 for max-lines. The page keeps the
- * data fetching, the access check and the three navigation handlers; everything below is presentational, plus the
- * three pure functions the screen reads its numbers from.
+ * The read-only repair detail screen, composed from the facelift kit rather than hand-styled (2026-10-02).
  *
- * `calculateDisplayedRepairTotal` is the one to be careful with: it adds the line items up and only falls back to the
- * stored total when that sum is zero, so a ticket whose lines were cleared still shows what the client was told.
+ * What it used to be is worth recording, because it is the pattern this page is the test case for: every
+ * fact was `<Typography><strong>Label:</strong> {value}</Typography>`, which renders label and value in the
+ * same family, size, tracking and colour — one typographic tier for the whole screen. The page carried no
+ * `h1` at all (its outline ran H4 → H6 × 6), `Total:` and the total itself were both H6 at 14px, so the
+ * most important number on the ticket was smaller than the body text around it, and two rows used
+ * light-theme Material fills that rendered white text at about 1.1:1.
+ *
+ * The three pure functions below are unchanged and still carry the money logic.
  */
 export const calculateDisplayedRepairTotal = (repairRecord) => {
     if (!repairRecord) return 0;
@@ -80,6 +76,39 @@ export const getStatusColor = (status) => {
     }
 };
 
+/** The chip hue for a status, in brand tokens rather than MUI palette names. */
+const statusHue = (status) => ({
+    success: facelift.success,
+    info: facelift.info,
+    warning: facelift.gold,
+    error: facelift.error,
+}[getStatusColor(status)] || facelift.text3);
+
+/** One price column, one format. `$40` and `$63.67` in the same column defeat tabular figures. */
+export const money = (value) => `$${(Number(value) || 0).toFixed(2)}`;
+
+/**
+ * A date the shop writes the same way everywhere, instead of US-short beside raw ISO.
+ *
+ * A promise date is stored as a bare `YYYY-MM-DD` — a calendar day, not an instant. `new Date()` reads
+ * that as UTC midnight, which is the evening BEFORE in Central, so formatting it the obvious way moves
+ * every promise and due date a day earlier. Caught on screen at a glance: the record said the 14th and
+ * the page said the 13th. A calendar day is therefore split and built in local time; anything carrying a
+ * real timestamp is left to `Date` as before.
+ */
+const CALENDAR_DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+export const day = (value) => {
+    if (!value) return null;
+    const calendar = CALENDAR_DAY.exec(String(value).trim());
+    const d = calendar
+        ? new Date(Number(calendar[1]), Number(calendar[2]) - 1, Number(calendar[3]))
+        : new Date(value);
+    return Number.isNaN(d.getTime())
+        ? String(value)
+        : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
 export function QuoteRequestAlerts({ repair, session }) {
     return (
         <>
@@ -93,220 +122,174 @@ export function QuoteRequestAlerts({ repair, session }) {
             )}
             {repair.quoteRequest?.status === 'quoted' && (
                 <Alert severity="success" sx={{ mb: 2 }}>
-                    Quoted ${Number(repair.quoteRequest.quotedTotal || repair.totalCost || 0).toFixed(2)} on {new Date(repair.quoteRequest.quotedAt).toLocaleDateString()}. The store was notified.
+                    Quoted {money(repair.quoteRequest.quotedTotal || repair.totalCost)} on {day(repair.quoteRequest.quotedAt)}. The store was notified.
                 </Alert>
             )}
         </>
     );
 }
 
+/**
+ * The header. Previously Print was the one gold pill — on the screen a jeweler lands on from a scan, with
+ * no printer at the bench — and Delete sat beside it in the same row, same size, same treatment. Edit is
+ * what actually advances a ticket from this page (it is how work and a price get added), so it takes the
+ * gold; Print goes quiet; Delete moves into an overflow menu with its own colour.
+ */
 export function RepairHeaderCard({ repair, session, clientInfo, onPrint, onEdit, onDelete }) {
+    const [menuAnchor, setMenuAnchor] = React.useState(null);
+    const readOnly = isWholesalerViewer(session);
+
     return (
-        <Card sx={{ mb: 3 }}>
-            <CardContent>
-                {/* Wraps: at 320px the three buttons ran 58px past the edge and Delete was unreachable. */}
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h4" sx={{ fontWeight: 'bold', wordBreak: 'break-word' }}>
-                        Repair {repair.repairID}
-                    </Typography>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                        <Button
-                            variant="contained"
-                            startIcon={<PrintIcon />}
-                            onClick={onPrint}
-                            color="primary"
-                        >
-                            Print
-                        </Button>
-                        {/* Hide Edit and Delete buttons for wholesalers */}
-                        {!isWholesalerViewer(session) && (
-                            <>
-                                <Button
-                                    variant="outlined"
-                                    startIcon={<EditIcon />}
-                                    onClick={onEdit}
-                                    color="info"
+        <PageHeader
+            badge={repair.repairID}
+            title={clientInfo?.name || repair.clientName || 'Repair'}
+            subtitle={repair.description}
+            actions={
+                <>
+                    {!readOnly && <GoldButton startIcon={<EditIcon />} onClick={onEdit}>Edit repair</GoldButton>}
+                    <QuietButton startIcon={<PrintIcon />} onClick={onPrint}>Print</QuietButton>
+                    {!readOnly && (
+                        <>
+                            <FlIconButton aria-label="More actions" onClick={(e) => setMenuAnchor(e.currentTarget)}>
+                                <MoreIcon />
+                            </FlIconButton>
+                            <Menu
+                                anchorEl={menuAnchor}
+                                open={Boolean(menuAnchor)}
+                                onClose={() => setMenuAnchor(null)}
+                            >
+                                <MenuItem
+                                    onClick={() => { setMenuAnchor(null); onDelete(); }}
+                                    sx={{ color: facelift.error }}
                                 >
-                                    Edit
-                                </Button>
-                                <Button
-                                    variant="outlined"
-                                    startIcon={<DeleteIcon />}
-                                    onClick={onDelete}
-                                    color="error"
-                                >
-                                    Delete
-                                </Button>
-                            </>
-                        )}
-                    </Box>
-                </Box>
+                                    <ListItemIcon sx={{ color: 'inherit' }}><DeleteIcon fontSize="small" /></ListItemIcon>
+                                    <ListItemText>Delete this repair</ListItemText>
+                                </MenuItem>
+                            </Menu>
+                        </>
+                    )}
+                </>
+            }
+        >
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1.5 }}>
+                <StatusChip label={repair.status || 'Pending'} hue={statusHue(repair.status)} />
+                {repair.isRush && <StatusChip label="Rush job" hue={facelift.error} solid />}
+                {repair.isRing && <StatusChip label="Ring" hue={facelift.text3} />}
+            </Box>
+        </PageHeader>
+    );
+}
 
-                <Grid container spacing={3}>
-                    {/* Client Information */}
-                    <Grid item xs={12} md={6}>
-                        <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <PersonIcon /> Client Information
-                        </Typography>
-                        <Typography><strong>Name:</strong> {repair.clientName}</Typography>
-                        {clientInfo && (
-                            <>
-                                <Typography><strong>Email:</strong> {clientInfo.email}</Typography>
-                                <Typography><strong>Phone:</strong> {clientInfo.phone || 'N/A'}</Typography>
-                                <Typography><strong>Role:</strong> {clientInfo.role}</Typography>
-                            </>
-                        )}
-                    </Grid>
-
-                    {/* Repair Status & Dates */}
-                    <Grid item xs={12} md={6}>
-                        <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <ScheduleIcon /> Status & Timeline
-                        </Typography>
-                        <Box sx={{ mb: 1 }}>
-                            <Chip
-                                label={repair.status || 'Pending'}
-                                color={getStatusColor(repair.status)}
-                                variant="filled"
-                            />
-                            {repair.isRush && (
-                                <Chip
-                                    label="🚨 RUSH JOB"
-                                    color="error"
-                                    variant="filled"
-                                    sx={{ ml: 1 }}
-                                />
-                            )}
-                        </Box>
-                        <Typography><strong>Created:</strong> {new Date(repair.createdAt || Date.now()).toLocaleDateString()}</Typography>
-                        <Typography><strong>Promise Date:</strong> {repair.promiseDate || 'N/A'}</Typography>
-                        <Typography><strong>Due Date:</strong> {repair.dueDate || 'N/A'}</Typography>
-                    </Grid>
-                </Grid>
-            </CardContent>
-        </Card>
+export function RepairClientCard({ repair, clientInfo }) {
+    return (
+        <SurfaceCard>
+            <SectionLabel>Client &amp; timeline</SectionLabel>
+            <Box sx={{ mt: 1.75 }}>
+                <FieldList>
+                    <Field label="Name" value={clientInfo?.name || repair.clientName} strong />
+                    <Field label="Email" value={clientInfo?.email} mono />
+                    <Field label="Phone" value={clientInfo?.phone} mono />
+                    <Field label="Taken in" value={day(repair.createdAt)} />
+                    <Field label="Promised" value={day(repair.promiseDate)} />
+                    <Field label="Due" value={day(repair.dueDate)} />
+                </FieldList>
+            </Box>
+        </SurfaceCard>
     );
 }
 
 export function RepairItemDetailsCard({ repair }) {
     return (
-        <Card>
-            <CardContent>
-                <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <CategoryIcon /> Item Details
-                </Typography>
+        <SurfaceCard>
+            <SectionLabel>The piece</SectionLabel>
 
-                {repair.picture && (
-                    <Box sx={{ mb: 2, textAlign: 'center', position: 'relative', width: '100%', height: '300px' }}>
-                        <Image
-                            src={repair.picture}
-                            alt="Repair Item"
-                            fill
-                            style={{
-                                objectFit: 'contain',
-                                border: '1px solid #ddd',
-                                borderRadius: '8px'
-                            }}
-                        />
-                    </Box>
-                )}
+            {repair.picture && (
+                <Box
+                    sx={{
+                        mt: 1.75,
+                        position: 'relative',
+                        width: '100%',
+                        height: 260,
+                        borderRadius: '12px',
+                        overflow: 'hidden',
+                        border: `1px solid ${facelift.border}`,
+                        backgroundColor: facelift.surfaceQuiet,
+                    }}
+                >
+                    <Image src={repair.picture} alt="The piece" fill style={{ objectFit: 'contain' }} />
+                </Box>
+            )}
 
-                <Typography sx={{ mb: 1 }}><strong>Description:</strong> {repair.description}</Typography>
-                <Typography sx={{ mb: 1 }}><strong>Metal Type:</strong> {repair.metalType || 'N/A'}</Typography>
-                {repair.karat && (
-                    <Typography sx={{ mb: 1 }}><strong>Karat:</strong> {repair.karat}</Typography>
-                )}
+            <Box sx={{ mt: 1.75 }}>
+                <FieldList>
+                    <Field label="Metal" value={[repair.karat, repair.metalType].filter(Boolean).join(' ')} strong />
+                    {repair.isRing && <Field label="Size now" value={repair.currentRingSize} mono />}
+                    {repair.isRing && <Field label="Size to" value={repair.desiredRingSize} mono />}
+                </FieldList>
+            </Box>
 
-                {repair.isRing && (
-                    <>
-                        <Typography sx={{ mb: 1 }}><strong>Current Ring Size:</strong> {repair.currentRingSize}</Typography>
-                        <Typography sx={{ mb: 1 }}><strong>Desired Ring Size:</strong> {repair.desiredRingSize}</Typography>
-                    </>
-                )}
-
-                {repair.notes && (
-                    <Typography sx={{ mb: 1 }}><strong>Notes:</strong> {repair.notes}</Typography>
-                )}
-            </CardContent>
-        </Card>
+            {repair.notes && (
+                <Box sx={{ mt: 2 }}>
+                    <Field label="Notes" value={repair.notes} />
+                </Box>
+            )}
+        </SurfaceCard>
     );
 }
 
 export function RepairWorkItemsCard({ repair, allWorkItems, totalCost }) {
+    const rushFee = parseFloat(repair.rushJobFee) || 0;
+
     return (
-        <Card>
-            <CardContent>
-                <Typography variant="h6" sx={{ mb: 2 }}>Work Items & Pricing</Typography>
+        <SurfaceCard>
+            <SectionLabel>The work</SectionLabel>
 
-                <List dense>
-                    {allWorkItems.map((item, index) => (
-                        <ListItem
-                            key={`${item.type}-${index}`}
-                            sx={{
-                                bgcolor: item.isStullerItem ? INFO.bg : 'transparent',
-                                border: `1px solid ${item.isStullerItem ? INFO.border : 'transparent'}`,
-                                mb: 1,
-                                borderRadius: 1
-                            }}
-                        >
-                            <ListItemText
-                                primary={
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                            {item.quantity}x {item.title || item.displayName || item.name || item.description}
-                                        </Typography>
-                                        <Chip
-                                            label={item.type}
-                                            size="small"
-                                            variant="outlined"
-                                            color={item.category === 'Material' ? 'info' : 'default'}
-                                        />
-                                        {item.isStullerItem && (
-                                            <Chip
-                                                label="Stuller"
-                                                size="small"
-                                                color="primary"
-                                                variant="filled"
-                                            />
-                                        )}
-                                    </Box>
-                                }
-                                secondary={item.skillLevel && `Skill Level: ${item.skillLevel}`}
-                            />
-                            <ListItemSecondaryAction>
-                                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                                    ${item.price}
-                                </Typography>
-                            </ListItemSecondaryAction>
-                        </ListItem>
-                    ))}
+            <Box sx={{ mt: 1.75 }}>
+                {allWorkItems.length === 0 && (
+                    <Box sx={{ py: 2, color: facelift.text3, fontSize: 14 }}>
+                        Nothing has been added to this ticket yet.
+                    </Box>
+                )}
 
-                    {repair.rushJobFee && parseFloat(repair.rushJobFee) > 0 && (
-                        <ListItem sx={{ bgcolor: ERROR.bg, border: `1px solid ${ERROR.border}`, mb: 1, borderRadius: 1 }}>
-                            <ListItemText
-                                primary={
-                                    <Typography variant="body2" sx={{ fontWeight: 500, color: 'error.main' }}>
-                                        Rush Job Fee
-                                    </Typography>
-                                }
-                            />
-                            <ListItemSecondaryAction>
-                                <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'error.main' }}>
-                                    ${parseFloat(repair.rushJobFee).toFixed(2)}
-                                </Typography>
-                            </ListItemSecondaryAction>
-                        </ListItem>
-                    )}
-                </List>
+                {allWorkItems.map((item, index) => (
+                    <LineItem
+                        key={`${item.type}-${index}`}
+                        tone={item.isStullerItem ? facelift.info : undefined}
+                        title={`${item.quantity || 1} × ${item.title || item.displayName || item.name || item.description}`}
+                        meta={item.skillLevel ? `Skill ${item.skillLevel}` : null}
+                        chips={
+                            <>
+                                <StatusChip label={item.type} hue={item.category === 'Material' ? facelift.info : facelift.text3} />
+                                {item.isStullerItem && <StatusChip label="Stuller" hue={facelift.info} />}
+                            </>
+                        }
+                        value={money(item.price)}
+                    />
+                ))}
 
-                <Divider sx={{ my: 2 }} />
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="h6">Total:</Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-                        ${totalCost.toFixed(2)}
-                    </Typography>
-                </Box>
-            </CardContent>
-        </Card>
+                {rushFee > 0 && (
+                    <LineItem
+                        tone={facelift.error}
+                        title="Rush job fee"
+                        chips={<StatusChip label="Rush" hue={facelift.error} />}
+                        value={money(rushFee)}
+                    />
+                )}
+            </Box>
+
+            <Box sx={{ mt: 2.25, pt: 2, borderTop: `1px solid ${tint(facelift.text, { fill: 0.09, stroke: 0.09 }).border}` }}>
+                <Figure label="Total" value={money(totalCost)} accent />
+            </Box>
+        </SurfaceCard>
+    );
+}
+
+export function RepairDetailBody({ repair, clientInfo, allWorkItems, totalCost }) {
+    return (
+        <CardGrid min={320}>
+            <RepairClientCard repair={repair} clientInfo={clientInfo} />
+            <RepairItemDetailsCard repair={repair} />
+            <RepairWorkItemsCard repair={repair} allWorkItems={allWorkItems} totalCost={totalCost} />
+        </CardGrid>
     );
 }

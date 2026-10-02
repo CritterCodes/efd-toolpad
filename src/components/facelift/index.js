@@ -160,6 +160,72 @@ export function SectionLabel({ children, className, ...rest }) {
 }
 
 /**
+ * One fact: a mono uppercase label over its value. The missing primitive — 82 places across 19 files
+ * write `<Typography><strong>Label:</strong> {value}</Typography>`, which renders label and value in the
+ * same family, size, tracking and colour, so a screen of facts has no hierarchy at all and nothing scans.
+ *
+ * `value` falls back to an em dash rather than rendering an empty row, because a blank where a fact should
+ * be reads as a bug. Pass `mono` for ids, SKUs and timestamps; pass `strong` for the one fact that is the
+ * point of the card.
+ */
+export function Field({ label, value, mono = false, strong = false, children }) {
+  const body = children ?? value;
+  const empty = body === null || body === undefined || body === '';
+  return (
+    <div className={s.field}>
+      <div className={s.fieldLabel}>{label}</div>
+      <div className={cx(s.fieldValue, mono && s.fieldValueMono, strong && s.fieldValueStrong, empty && s.fieldValueEmpty)}>
+        {empty ? '—' : body}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Stacked facts, two-up from the smallest phone. 120px is deliberate: inside an 18px-padded card at
+ * 375px the track is 343px, so a 150px minimum falls back to a single column and six facts eat a whole
+ * screen. Pass a larger `min` when the values are long enough to need it.
+ */
+export function FieldList({ children, min = 120 }) {
+  return <div className={s.fieldList} style={{ '--fl-min': `${min}px` }}>{children}</div>;
+}
+
+/**
+ * A figure that is the answer to the card — a total, a balance, a count. Big, tabular, and paired with its
+ * own label so it never has to borrow a heading level to look important.
+ */
+export function Figure({ label, value, accent = false }) {
+  return (
+    <div className={s.figure}>
+      <div className={s.figureLabel}>{label}</div>
+      <div className={cx(s.figureValue, accent && s.figureValueAccent)}>{value}</div>
+    </div>
+  );
+}
+
+/**
+ * A line on a ticket: what it is, what it costs, and the chips that classify it. Replaces the MUI
+ * List/ListItem/ListItemSecondaryAction stack, whose secondary action is deprecated in v6 and whose
+ * price column had no tabular alignment.
+ */
+export function LineItem({ title, meta, chips, value, tone }) {
+  const t = tone ? tint(tone) : null;
+  return (
+    <div
+      className={s.lineItem}
+      style={t ? { '--fl-line-bg': t.bg, '--fl-line-border': t.border } : undefined}
+    >
+      <div className={s.lineItemBody}>
+        <div className={s.lineItemTitle}>{title}</div>
+        {chips && <div className={s.lineItemChips}>{chips}</div>}
+        {meta && <div className={s.lineItemMeta}>{meta}</div>}
+      </div>
+      {value !== undefined && <div className={s.lineItemValue}>{value}</div>}
+    </div>
+  );
+}
+
+/**
  * Tap-to-pick list. Use this instead of a <Select> or <Autocomplete> whenever
  * the options are already narrow enough to show — a store's clients, a handful
  * of statuses, the jewelers on shift.

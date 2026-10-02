@@ -3,15 +3,15 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useRepairs } from '@/app/context/repairs.context';
-import { Box, Snackbar, Typography, Button, Grid, Alert } from '@mui/material';
+import { Box, Snackbar, Typography, Button, Alert } from '@mui/material';
+import { FaceliftRoot } from '@/components/facelift';
 import RepairsService from '@/services/repairs';
 import UsersService from '@/services/users';
 import { isWholesalerViewer } from '@/lib/repairAccess';
 import {
     QuoteRequestAlerts,
     RepairHeaderCard,
-    RepairItemDetailsCard,
-    RepairWorkItemsCard,
+    RepairDetailBody,
     buildWorkItems,
     calculateDisplayedRepairTotal,
 } from './repairDetailView';
@@ -267,43 +267,39 @@ const ViewRepairPage = ({ params }) => {
     const totalCost = calculateDisplayedRepairTotal(repair);
 
     return (
-        <Box sx={{ pb: 10 }}>
+        <FaceliftRoot>
+            <Box sx={{ pb: 10, display: 'flex', flexDirection: 'column', gap: 2.25 }}>
 
-            <QuoteRequestAlerts repair={repair} session={session} />
+                <QuoteRequestAlerts repair={repair} session={session} />
 
-            {/* Header Section */}
-            <RepairHeaderCard
-                repair={repair}
-                session={session}
-                clientInfo={clientInfo}
-                onPrint={handlePrint}
-                onEdit={handleEdit}
-                onDelete={handleDeleteRepair}
-            />
+                <RepairHeaderCard
+                    repair={repair}
+                    session={session}
+                    clientInfo={clientInfo}
+                    onPrint={handlePrint}
+                    onEdit={handleEdit}
+                    onDelete={handleDeleteRepair}
+                />
 
-            <Grid container spacing={3}>
-                {/* Item Details */}
-                <Grid item xs={12} md={6}>
-                    <RepairItemDetailsCard repair={repair} />
-                </Grid>
+                <RepairDetailBody
+                    repair={repair}
+                    clientInfo={clientInfo}
+                    allWorkItems={allWorkItems}
+                    totalCost={totalCost}
+                />
 
-                {/* Work Items & Pricing */}
-                <Grid item xs={12} md={6}>
-                    <RepairWorkItemsCard repair={repair} allWorkItems={allWorkItems} totalCost={totalCost} />
-                </Grid>
-            </Grid>
-
-            <Snackbar
-                open={snackbarOpen}
-                autoHideDuration={6000}
-                onClose={() => setSnackbarOpen(false)}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-            >
-                <Alert onClose={() => setSnackbarOpen(false)} severity={snackbarSeverity}>
-                    {snackbarMessage}
-                </Alert>
-            </Snackbar>
-        </Box>
+                <Snackbar
+                    open={snackbarOpen}
+                    autoHideDuration={6000}
+                    onClose={() => setSnackbarOpen(false)}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                >
+                    <Alert onClose={() => setSnackbarOpen(false)} severity={snackbarSeverity}>
+                        {snackbarMessage}
+                    </Alert>
+                </Snackbar>
+            </Box>
+        </FaceliftRoot>
     );
 };
 
