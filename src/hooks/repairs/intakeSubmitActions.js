@@ -1,4 +1,5 @@
 import { canSkipIntakeClient } from '@/services/repairs/intakeClientRule';
+import { ticketSizesRing } from '@/services/repairs/ringSizing';
 import RepairsService from '@/services/repairs';
 
 /**
@@ -40,13 +41,15 @@ export function intakeSubmitActions({ addRepair, benchJewelers, formData, getJew
         throw new Error('Promise date is required');
       }
 
-      // Ring sizing validation
-      if (formData.isRing) {
+      // Ring sizes are asked for only when a line on the ticket sizes the ring up or down (owner, 2026-10-01,
+      // OPEN-QUESTIONS Q12: "If we're not touching anything revolving around sizing then I don't really care what
+      // size it is"). A size on a ring we aren't sizing is welcome, never demanded.
+      if (formData.isRing && ticketSizesRing(formData.tasks)) {
         if (!formData.currentRingSize) {
-          throw new Error('Current ring size is required for ring repairs');
+          throw new Error('Current ring size is required when the ring is being sized');
         }
         if (!formData.desiredRingSize) {
-          throw new Error('Desired ring size is required for ring repairs');
+          throw new Error('Desired ring size is required when the ring is being sized');
         }
       }
 

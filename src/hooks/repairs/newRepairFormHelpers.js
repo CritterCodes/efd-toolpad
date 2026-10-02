@@ -1,4 +1,5 @@
 import { extractRingSizesFromDescription } from '@/services/repairs/smartIntakeExtractors';
+import { ringSizeNumber } from '@/services/repairs/ringSizing';
 // Item categories that might have sizes
 export const SIZEABLE_CATEGORIES = ['ring', 'band', 'wedding-ring', 'engagement-ring'];
 
@@ -107,10 +108,14 @@ export const parsePromiseDateFromDescription = (description = '', referenceDate 
   return '';
 };
 
+/**
+ * How far the ring moves. 0 when either size is unknown — a blank size is NOT size 0 (owner, 2026-10-01, Q12);
+ * reading it as 0 made a blank current size with a desired 8 look like an eight-size jump.
+ */
 export const getRingSizeDelta = (currentRingSize = '', desiredRingSize = '') => {
-  const current = Number(currentRingSize);
-  const desired = Number(desiredRingSize);
-  if (!Number.isFinite(current) || !Number.isFinite(desired)) return 0;
+  const current = ringSizeNumber(currentRingSize);
+  const desired = ringSizeNumber(desiredRingSize);
+  if (current === null || desired === null) return 0;
   return Math.round((desired - current) * 100) / 100;
 };
 
