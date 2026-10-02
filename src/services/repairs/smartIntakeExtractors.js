@@ -33,7 +33,8 @@ export const extractRingSizesFromDescription = (description = '') => {
   // RELATIVE sizing first: "size 7 ... size down 3 sizes" is current 7, desired 4.
   // Without this, the single-size pattern below grabbed "size 7" as the DESIRED
   // size -- exactly backwards for the most common way jewelers write intake.
-  const relative = text.match(/(?:size|sizing|sz)\s*(down|up)\s*(\d+(?:\.\d+)?)\s*(?:sizes?|szs?)?/);
+  // The delta must be a plain number: "size down 14k ring …" is NOT fourteen sizes (2026-10-01).
+  const relative = text.match(/(?:size|sizing|sz)\s*(down|up)\s*(\d{1,2}(?:\.\d+)?)(?![\d.]|\s*(?:k|kt|karat|ct|mm)\b)\s*(?:sizes?|szs?)?/);
   if (relative) {
     const start = text.match(/(?:size|sz)\s*(\d{1,2}(?:\.\d{1,2})?)\b/);
     const startSize = start ? parseFloat(start[1]) : NaN;
@@ -54,6 +55,10 @@ export const extractRingSizesFromDescription = (description = '') => {
 
   const pairPatterns = [
     /(?:from|current(?:ly)?|now)\s*(?:size\s*)?(\d{1,2}(?:\.\d{1,2})?)\s*(?:to|->|into)\s*(?:size\s*)?(\d{1,2}(?:\.\d{1,2})?)/,
+    // "size 7 down to 6", "9 up to 10.5": current first, then the size it goes to.
+    /(?:size|sz)?\s*(\d{1,2}(?:\.\d{1,2})?)(?![\d.]|\s*(?:k|kt|karat|ct|mm)\b)\s*(?:down|up)\s*(?:to|->)\s*(?:size\s*)?(\d{1,2}(?:\.\d{1,2})?)/,
+    // "currently a 9, needs a 7.5"
+    /current(?:ly)?\s*(?:an?\s+|size\s*)?(\d{1,2}(?:\.\d{1,2})?)\b[^\d]{0,25}?(?:needs?|wants?|make it)\s*(?:an?\s+|size\s*)?(\d{1,2}(?:\.\d{1,2})?)/,
     /(?:size|sz)\s*(\d{1,2}(?:\.\d{1,2})?)\s*(?:to|->|-)\s*(\d{1,2}(?:\.\d{1,2})?)/,
     /(\d{1,2}(?:\.\d{1,2})?)\s*(?:to|->|into)\s*(\d{1,2}(?:\.\d{1,2})?)(?:\s*(?:ring\s*)?size)?/
   ];
