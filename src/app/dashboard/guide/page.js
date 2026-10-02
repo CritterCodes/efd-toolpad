@@ -6,11 +6,11 @@
  */
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Alert, Box, Button, CircularProgress, Stack, Tab, Tabs, Typography } from '@mui/material';
+import { Alert, Box, Button, CircularProgress, Stack, Typography } from '@mui/material';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import { PageHeader, SurfaceCard, SectionLabel, StatusChip, facelift } from '@/components/facelift';
+import { PageHeader, SurfaceCard, SectionLabel, StatusChip, TabRail, facelift } from '@/components/facelift';
 
 // A missing number shows as "—", never as $0 or 0× (the pricing settings didn't load — see the alert).
 const money = (n) => (n == null ? '—' : Number(n).toLocaleString('en-US', { style: 'currency', currency: 'USD' }));
@@ -383,16 +383,14 @@ export default function GuidePage() {
 
       {t.pricingUnavailable && <Alert severity="error" sx={{ mb: 2 }}>{t.pricingUnavailable} The pricing figures below can&apos;t be shown until they&apos;re set.</Alert>}
 
-      <Tabs
-        value={tab}
-        onChange={(_, v) => setTab(v)}
-        variant="scrollable"
-        scrollButtons="auto"
-        allowScrollButtonsMobile
-        sx={{ mb: 2, minHeight: 40, '& .MuiTab-root': { textTransform: 'none', minHeight: 40, color: 'rgba(255,255,255,0.6)' }, '& .Mui-selected': { color: `${facelift.gold} !important` }, '& .MuiTabs-indicator': { bgcolor: facelift.gold } }}
-      >
-        {Object.entries(tabLabels).map(([k, v]) => <Tab key={k} value={k} label={v} />)}
-      </Tabs>
+      <Box sx={{ mb: 2 }}>
+        <TabRail
+          ariaLabel="Guide sections"
+          value={tab}
+          onChange={setTab}
+          items={Object.entries(tabLabels).map(([key, label]) => ({ key, label }))}
+        />
+      </Box>
 
       <Stack spacing={2}>
         {tab === 'paid' && (

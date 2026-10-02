@@ -268,7 +268,9 @@ export function CardGrid({ children, min = 300 }) {
  * more to show. The active pill scrolls itself into view, which matters when a lane is selected from a
  * scan rather than a tap.
  *
- * Items are `{ key, label, count? }`. Counts are tabular so a row of them does not jitter as they change.
+ * Items are `{ key, label, count?, icon? }`. Counts are tabular so a row of them does not jitter as they
+ * change. An icon is optional and only earns its place where the labels alone are not distinct enough —
+ * Settings is the case it was added for; a row of lanes with counts is not.
  */
 export function TabRail({ items = [], value, onChange, ariaLabel = 'Views' }) {
   const trackRef = React.useRef(null);
@@ -315,6 +317,7 @@ export function TabRail({ items = [], value, onChange, ariaLabel = 'Views' }) {
               onClick={() => onChange?.(item.key)}
               className={cx(s.railTab, active && s.railTabActive)}
             >
+              {item.icon && <span className={s.railIcon}>{item.icon}</span>}
               {item.label}
               {item.count !== undefined && <span className={s.railCount}>{item.count}</span>}
             </button>

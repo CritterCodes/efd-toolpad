@@ -3,27 +3,27 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 /**
- * GUARD: one home for a row of a page's views, and the count of MUI tab rows only goes down.
+ * GUARD: one home for a row of a page's views, and neither of the two broken patterns comes back.
  *
  * Two files had independently written the same patch — `'& .MuiTabs-scroller': { overflowX: 'auto
- * !important' }` — because the row pushes the page sideways on a phone otherwise. Both are converted;
- * that is the easy half.
+ * !important' }` — because the row pushes the page sideways on a phone otherwise. That was the easy half.
  *
- * The harder half is `scrollButtons`, which **11 files** pass. It reads like the overflow is handled, and
- * on a touch screen it is not: MUI does not render scroll buttons there, so on My Bench and Payment &
+ * The harder half was `scrollButtons`, which **11 files** passed. It reads like the overflow is handled,
+ * and on a touch screen it is not: MUI does not render scroll buttons there, so on My Bench and Payment &
  * Pickup the last lanes were reachable only by a swipe with nothing on screen suggesting one existed. A
  * prop that silently does nothing is worse than no prop, because it stops anyone looking further.
  *
  * `TabRail` fades whichever edge has more to show, scrolls the active pill into view, and sits at 44px on
- * a coarse pointer. These are ratchets: both constants may only ever go down.
+ * a coarse pointer. Both counts reached 0 on 2026-10-02, so the ratchets are now bans: a new occurrence of
+ * either means a row of views was written by hand again, and the right answer is `TabRail`.
  */
 const SRC = path.resolve(__dirname, '../..');
 const KIT = path.join(__dirname, 'index.js');
 
-// Lower these as screens convert; never raise. 11 at the start, 9 after My Bench and Payment & Pickup,
-// 6 after Wholesale Management, Customs and Drops.
+// 11 at the start, 9 after My Bench and Payment & Pickup, 6 after Wholesale Management, Customs and
+// Drops, 0 after the guide, admin settings, materials, lead fit views, one custom order and one design.
 const MAX_SCROLLER_PATCHES = 0;
-const MAX_SCROLL_BUTTONS = 6;
+const MAX_SCROLL_BUTTONS = 0;
 
 function sourceFiles(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -47,6 +47,7 @@ function offenders(needle) {
 
 const scrollerPatches = () => offenders(/MuiTabs-scroller/);
 const scrollButtons = () => offenders(/\bscrollButtons\b/);
+const railUsers = () => offenders(/\bTabRail\b/);
 
 describe("a row of a page's views", () => {
   it('has one home in the kit', () => {
@@ -67,25 +68,16 @@ describe("a row of a page's views", () => {
     expect(found, `hand-patched MuiTabs-scroller in:\n  ${found.join('\n  ')}`).toHaveLength(MAX_SCROLLER_PATCHES);
   });
 
-  it('the scrollButtons count only goes down', () => {
+  it('nobody passes scrollButtons, which never renders on touch', () => {
     const found = scrollButtons();
     expect(
       found.length,
-      `scrollButtons (which never renders on touch) in:\n  ${found.join('\n  ')}\nConvert one to TabRail and lower MAX_SCROLL_BUTTONS.`,
-    ).toBeLessThanOrEqual(MAX_SCROLL_BUTTONS);
-  });
-
-  it('keeps the ratchet honest', () => {
-    // If the count has dropped, the constant drops with it, or the guard stops biting.
-    expect(
-      scrollButtons().length,
-      'fewer than the ratchet allows — lower MAX_SCROLL_BUTTONS to match',
+      `scrollButtons in:\n  ${found.join('\n  ')}\nUse TabRail — it fades the overflowing edge on every pointer.`,
     ).toBe(MAX_SCROLL_BUTTONS);
   });
 
-  it('the two screens converted here use neither', () => {
-    const both = [...scrollerPatches(), ...scrollButtons()];
-    expect(both).not.toContain('app/dashboard/repairs/my-bench/page.js');
-    expect(both).not.toContain('app/dashboard/repairs/pick-up/page.js');
+  it('is adopted, not merely available', () => {
+    // A kit component nothing imports is a component that drifts. Lower this only if a screen is deleted.
+    expect(railUsers().length, 'screens using TabRail').toBeGreaterThanOrEqual(11);
   });
 });

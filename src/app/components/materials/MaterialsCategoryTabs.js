@@ -4,16 +4,12 @@
  */
 
 import * as React from 'react';
-import {
-  Paper,
-  Tabs,
-  Tab,
-  Badge
-} from '@mui/material';
+import { Box } from '@mui/material';
 import {
   Category as CategoryIcon,
   ViewModule as ViewModuleIcon
 } from '@mui/icons-material';
+import { TabRail } from '@/components/facelift';
 
 export default function MaterialsCategoryTabs({
   materialTabs,
@@ -21,28 +17,18 @@ export default function MaterialsCategoryTabs({
   onTabChange
 }) {
   return (
-    <Paper elevation={0} sx={{ mb: 3 }}>
-      <Tabs 
-        value={selectedTab} 
-        onChange={(e, newValue) => onTabChange(newValue)}
-        variant="scrollable"
-        scrollButtons="auto"
-        sx={{ borderBottom: 1, borderColor: 'divider' }}
-      >
-        {materialTabs.map((tab) => (
-          <Tab 
-            key={tab.value}
-            value={tab.value}
-            icon={
-              <Badge badgeContent={tab.count} color="primary" showZero>
-                {tab.value === 'all' ? <ViewModuleIcon /> : <CategoryIcon />}
-              </Badge>
-            }
-            label={tab.label}
-            iconPosition="start"
-          />
-        ))}
-      </Tabs>
-    </Paper>
+    <Box sx={{ mb: 3 }}>
+      <TabRail
+        ariaLabel="Material categories"
+        value={selectedTab}
+        onChange={onTabChange}
+        items={materialTabs.map((tab) => ({
+          key: tab.value,
+          label: tab.label,
+          count: tab.count,
+          icon: tab.value === 'all' ? <ViewModuleIcon /> : <CategoryIcon />,
+        }))}
+      />
+    </Box>
   );
 }

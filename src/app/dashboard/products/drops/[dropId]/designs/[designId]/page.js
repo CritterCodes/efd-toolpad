@@ -6,9 +6,8 @@ import { Box, Typography, Button, Chip, Stack, Paper, CircularProgress, Snackbar
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DesignServicesIcon from '@mui/icons-material/DesignServices';
 import StorefrontIcon from '@mui/icons-material/Storefront';
-import Tabs from '@mui/material/Tabs';
-import Tab from '@mui/material/Tab';
 
+import { TabRail } from '@/components/facelift';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import { composeMetalKey } from '@/services/production/variantMetal';
 import { STATUS_COLOR, artisanId, artisanLabel, cap, newVariantForm, nextVariantSeq, toForm } from './designShared';
@@ -271,13 +270,19 @@ export function DesignDetail({ dropId, designId, backHref, backLabel }) {
         </Stack>
       </Box>
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile
-        sx={{ mb: 2, borderBottom: `1px solid ${REPAIRS_UI.border}`, '& .MuiTab-root': { color: REPAIRS_UI.textSecondary, textTransform: 'none', fontWeight: 600 }, '& .Mui-selected': { color: REPAIRS_UI.accent }, '& .MuiTabs-indicator': { backgroundColor: REPAIRS_UI.accent } }}>
-        <Tab label="Details" />
-        <Tab label="CAD & 3D" />
-        <Tab label="Variants" />
-        <Tab label="Pricing" />
-      </Tabs>
+      <Box sx={{ mb: 2 }}>
+        <TabRail
+          ariaLabel="Design sections"
+          value={tab}
+          onChange={setTab}
+          items={[
+            { key: 0, label: 'Details' },
+            { key: 1, label: 'CAD & 3D' },
+            { key: 2, label: 'Variants' },
+            { key: 3, label: 'Pricing' },
+          ]}
+        />
+      </Box>
 
       {tab === 0 && <DetailsTab form={form} setField={setField} artisans={artisans} />}
       {tab === 1 && <CadTab design={design} designId={designId} dropId={dropId} onReload={load} notify={notify} onCreateFirstVariant={configureFirstVariant} form={form} setField={setField} />}

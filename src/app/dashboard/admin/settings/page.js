@@ -2,13 +2,12 @@
 
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { TabRail } from '@/components/facelift';
 import {
     Alert,
     AlertTitle,
     Box,
     CircularProgress,
-    Tabs,
-    Tab,
     Typography
 } from '@mui/material';
 import {
@@ -74,38 +73,17 @@ export default function AdminSettingsPage() {
             </Box>
             <Box sx={{ width: '100%' }}>
                 <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                        <Tabs 
-                            value={tabValue} 
-                            onChange={handleTabChange} 
-                            aria-label="admin settings tabs"
-                            variant="scrollable"
-                            scrollButtons="auto"
-                        >
-                            <Tab 
-                                icon={<StoreIcon />} 
-                                label="Store Settings" 
-                                id="admin-tab-0"
-                                aria-controls="admin-tabpanel-0"
-                            />
-                            <Tab 
-                                icon={<IntegrationIcon />} 
-                                label="Integrations" 
-                                id="admin-tab-1"
-                                aria-controls="admin-tabpanel-1"
-                            />
-                            <Tab
-                                icon={<PWAIcon />}
-                                label="PWA / App Install"
-                                id="admin-tab-2"
-                                aria-controls="admin-tabpanel-2"
-                            />
-                            <Tab
-                                icon={<DesignIcon />}
-                                label="Custom Design"
-                                id="admin-tab-3"
-                                aria-controls="admin-tabpanel-3"
-                            />
-                        </Tabs>
+                        <TabRail
+                            ariaLabel="Admin settings"
+                            value={tabValue}
+                            onChange={(key) => handleTabChange(null, key)}
+                            items={[
+                                { key: 0, label: 'Store Settings', icon: <StoreIcon /> },
+                                { key: 1, label: 'Integrations', icon: <IntegrationIcon /> },
+                                { key: 2, label: 'PWA / App Install', icon: <PWAIcon /> },
+                                { key: 3, label: 'Custom Design', icon: <DesignIcon /> },
+                            ]}
+                        />
                     </Box>
                     
                     <TabPanel value={tabValue} index={0}>

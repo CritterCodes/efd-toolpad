@@ -938,3 +938,12 @@
   .railWrap::before,
   .railWrap::after { transition: none; }
 }
+
+/* An optional icon on a rail tab. Sized to the label, never bigger. */
+.railIcon {
+  display: inline-flex;
+  align-items: center;
+  margin-right: -2px;
+}
+
+.railIcon svg { width: 16px; height: 16px; }
