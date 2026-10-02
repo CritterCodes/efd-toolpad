@@ -35,11 +35,16 @@ import {
 } from '@mui/icons-material';
 import { useSearchParams } from 'next/navigation';
 import { useArtisanApplications } from '@/hooks/admin/useArtisanApplications';
+import { FaceliftRoot, SectionLabel, Field, FieldList, StatusChip, facelift } from '@/components/facelift';
 
 const STATUS_TABS = ['pending', 'approved', 'rejected', 'all'];
 
+/**
+ * Returns null, not 'N/A', when there is no date: `Field` renders an em dash for an empty value, and a
+ * row reading 'N/A' beside three reading '—' is two placeholders for one idea.
+ */
 function formatDate(date) {
-  if (!date) return 'N/A';
+  if (!date) return null;
   return new Date(date).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
@@ -61,6 +66,14 @@ function statusColor(status) {
   if (status === 'rejected') return 'error';
   if (status === 'pending') return 'warning';
   return 'default';
+}
+
+/** The same four states as `statusColor`, in brand tokens, for the kit's tinted chip. */
+function statusHue(status) {
+  if (status === 'approved') return facelift.success;
+  if (status === 'rejected') return facelift.error;
+  if (status === 'pending') return facelift.gold;
+  return facelift.text3;
 }
 
 function StatsCards({ stats }) {
@@ -109,15 +122,13 @@ function ActionDialog({ open, actionType, application, loading, onClose, onConfi
       </DialogTitle>
       <DialogContent>
         <Stack spacing={1.5}>
-          <Typography variant="body1">
-            <strong>Applicant:</strong> {getApplicationName(application)}
-          </Typography>
-          <Typography variant="body1">
-            <strong>Business:</strong> {application.businessName || 'N/A'}
-          </Typography>
-          <Typography variant="body1">
-            <strong>Email:</strong> {application.email || 'N/A'}
-          </Typography>
+          <FaceliftRoot>
+            <FieldList>
+              <Field label="Applicant" value={getApplicationName(application)} strong />
+              <Field label="Business" value={application.businessName} />
+              <Field label="Email" value={application.email} mono />
+            </FieldList>
+          </FaceliftRoot>
           <TextField
             fullWidth
             multiline
@@ -158,49 +169,70 @@ function DetailDialog({ open, application, onClose }) {
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>Artisan Application Details</DialogTitle>
       <DialogContent>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
-            <Typography variant="h6" gutterBottom>Applicant</Typography>
-            <Typography variant="body2" gutterBottom><strong>Name:</strong> {getApplicationName(application)}</Typography>
-            <Typography variant="body2" gutterBottom><strong>Email:</strong> {application.email || 'N/A'}</Typography>
-            <Typography variant="body2" gutterBottom><strong>Application ID:</strong> {application.applicationId || 'N/A'}</Typography>
-            <Typography variant="body2" gutterBottom><strong>Submitted:</strong> {formatDate(application.submittedAt)}</Typography>
-          </Grid>
+        <FaceliftRoot>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 1 }}>
+            <Box>
+              <SectionLabel>Applicant</SectionLabel>
+              <Box sx={{ mt: 1.5 }}>
+                <FieldList>
+                  <Field label="Name" value={getApplicationName(application)} strong />
+                  <Field label="Email" value={application.email} mono />
+                  <Field label="Application ID" value={application.applicationId} mono />
+                  <Field label="Submitted" value={formatDate(application.submittedAt)} />
+                </FieldList>
+              </Box>
+            </Box>
 
-          <Grid item xs={12} md={6}>
-            <Typography variant="h6" gutterBottom>Business</Typography>
-            <Typography variant="body2" gutterBottom><strong>Name:</strong> {application.businessName || 'N/A'}</Typography>
-            <Typography variant="body2" gutterBottom>
-              <strong>Location:</strong> {[application.businessCity, application.businessState, application.businessCountry].filter(Boolean).join(', ') || 'N/A'}
-            </Typography>
-            <Typography variant="body2" gutterBottom><strong>Website:</strong> {application.portfolioWebsite || 'N/A'}</Typography>
-            <Typography variant="body2" gutterBottom><strong>Instagram:</strong> {application.instagramHandle || 'N/A'}</Typography>
-          </Grid>
+            <Box>
+              <SectionLabel>Business</SectionLabel>
+              <Box sx={{ mt: 1.5 }}>
+                <FieldList>
+                  <Field label="Name" value={application.businessName} strong />
+                  <Field
+                    label="Location"
+                    value={[application.businessCity, application.businessState, application.businessCountry].filter(Boolean).join(', ')}
+                  />
+                  <Field label="Website" value={application.portfolioWebsite} />
+                  <Field label="Instagram" value={application.instagramHandle} mono />
+                </FieldList>
+              </Box>
+            </Box>
 
-          <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom>Craft Profile</Typography>
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
-              {[...artisanTypes, ...specialties, ...services, ...materials, ...techniques].map((item) => (
-                <Chip key={item} label={item} size="small" variant="outlined" />
-              ))}
-            </Stack>
-            <Typography variant="body2" gutterBottom><strong>Experience:</strong> {application.experience || application.yearsExperience || 'N/A'}</Typography>
-            {application.about && (
-              <Typography variant="body2" sx={{ mt: 1 }}>
-                <strong>About:</strong> {application.about}
-              </Typography>
-            )}
-          </Grid>
+            <Box>
+              <SectionLabel>Craft profile</SectionLabel>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1.5, mb: 1.5 }}>
+                {[...artisanTypes, ...specialties, ...services, ...materials, ...techniques].map((item) => (
+                  <Chip key={item} label={item} size="small" variant="outlined" />
+                ))}
+              </Stack>
+              <FieldList>
+                <Field label="Experience" value={application.experience || application.yearsExperience} />
+              </FieldList>
+              {application.about && (
+                <Box sx={{ mt: 2 }}>
+                  <Field label="About" value={application.about} />
+                </Box>
+              )}
+            </Box>
 
-          <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom>Status</Typography>
-            <Typography variant="body2" gutterBottom><strong>Status:</strong> {application.status || 'unknown'}</Typography>
-            <Typography variant="body2" gutterBottom><strong>Reviewed:</strong> {formatDate(application.reviewedAt)}</Typography>
-            {application.reviewNotes && (
-              <Typography variant="body2" gutterBottom><strong>Review Notes:</strong> {application.reviewNotes}</Typography>
-            )}
-          </Grid>
-        </Grid>
+            <Box>
+              <SectionLabel>Status</SectionLabel>
+              <Box sx={{ mt: 1.5 }}>
+                <FieldList>
+                  <Field label="Status">
+                    <StatusChip label={application.status || 'unknown'} hue={statusHue(application.status)} />
+                  </Field>
+                  <Field label="Reviewed" value={formatDate(application.reviewedAt)} />
+                </FieldList>
+              </Box>
+              {application.reviewNotes && (
+                <Box sx={{ mt: 2 }}>
+                  <Field label="Review notes" value={application.reviewNotes} />
+                </Box>
+              )}
+            </Box>
+          </Box>
+        </FaceliftRoot>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Close</Button>
@@ -236,15 +268,16 @@ function ApplicationCard({ application, onOpenDetail, onOpenAction, onDelete }) 
           ))}
         </Stack>
 
-        <Typography variant="body2" gutterBottom>
-          <strong>Submitted:</strong> {formatDate(application.submittedAt)}
-        </Typography>
-        <Typography variant="body2" gutterBottom>
-          <strong>Location:</strong> {[application.businessCity, application.businessState].filter(Boolean).join(', ') || 'N/A'}
-        </Typography>
-        <Typography variant="body2" gutterBottom>
-          <strong>Portfolio:</strong> {application.portfolioWebsite || 'N/A'}
-        </Typography>
+        <FaceliftRoot>
+          <FieldList>
+            <Field label="Submitted" value={formatDate(application.submittedAt)} />
+            <Field
+              label="Location"
+              value={[application.businessCity, application.businessState].filter(Boolean).join(', ')}
+            />
+            <Field label="Portfolio" value={application.portfolioWebsite} />
+          </FieldList>
+        </FaceliftRoot>
 
         <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
           <Tooltip title="View details">
