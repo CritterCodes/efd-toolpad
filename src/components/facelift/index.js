@@ -105,6 +105,75 @@ export function PageBody({ children, width = 'default', className, ...rest }) {
   );
 }
 
+/**
+ * A bar standing in for text that has not arrived. Holds the shape of the page so the chrome does not
+ * vanish and a spinner float in its place.
+ */
+export function Skeleton({ width = '100%', height = 16, radius = 8, className, ...rest }) {
+  return (
+    <span
+      {...rest}
+      aria-hidden="true"
+      className={cx(s.skeleton, className)}
+      style={{ width, height, borderRadius: radius }}
+    />
+  );
+}
+
+/**
+ * The route-level loading state. efd-admin has never had one: there are no `loading.js` files anywhere
+ * under `src/app`, and 130 files place a `<CircularProgress />` by hand instead — usually centred in a
+ * 50vh box, so the content area blanks, a spinner floats in the middle of nothing, and the page snaps in.
+ *
+ * This keeps the page's shape: a title bar and a few rows, in the sizes real content will take.
+ */
+export function LoadingPage({ label = 'Loading', rows = 3 }) {
+  return (
+    <div className={s.statePage} role="status" aria-busy="true" aria-label={label}>
+      <Skeleton width="42%" height={30} radius={10} />
+      <Skeleton width="68%" height={14} />
+      <div className={s.stateRows}>
+        {Array.from({ length: rows }, (_, i) => (
+          <Skeleton key={i} height={74} radius={16} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The route-level error state. Plain language, a way out, and the digest — never the stack, which tells a
+ * jeweler nothing and tells everyone else too much.
+ */
+export function ErrorPage({ title = 'That did not load', message, digest, onRetry, children }) {
+  return (
+    <div className={s.statePage}>
+      <h1 className={s.stateTitle}>{title}</h1>
+      <p className={s.stateMessage}>
+        {message || 'Something broke on our side, not yours. Trying again usually works; if it does not, tell the shop what you were doing.'}
+      </p>
+      <div className={s.stateActions}>
+        {onRetry && <GoldButton onClick={onRetry}>Try again</GoldButton>}
+        {children}
+      </div>
+      {digest && <div className={s.stateDigest}>Reference {digest}</div>}
+    </div>
+  );
+}
+
+/** The route-level 404. Says what is missing and offers the way back. */
+export function NotFoundPage({ title = 'That page is not here', message, children }) {
+  return (
+    <div className={s.statePage}>
+      <h1 className={s.stateTitle}>{title}</h1>
+      <p className={s.stateMessage}>
+        {message || 'The link may be old, or the thing it pointed at may have been closed out. Nothing is broken.'}
+      </p>
+      {children && <div className={s.stateActions}>{children}</div>}
+    </div>
+  );
+}
+
 /** Page header. Badge + title + subtitle, optional actions on the right. */
 export function PageHeader({ badge, badgeIcon, title, subtitle, actions, boxed = true, children }) {
   return (
@@ -482,22 +551,27 @@ export function FilterPill({ children, active = false, className, ...rest }) {
 }
 
 /** Gold primary action. One per screen. 48px. */
-export function GoldButton({ children, startIcon, className, ...rest }) {
+/**
+ * `as` for when the control is really a destination — `as={Link} href="…"`. It renders an anchor, so
+ * middle-click, open-in-new-tab and a screen reader's link list all work; `type="button"` is dropped,
+ * because it means nothing on an anchor. Same convention as `SurfaceCard`.
+ */
+export function GoldButton({ children, startIcon, className, as: Tag = 'button', ...rest }) {
   return (
-    <button type="button" {...rest} className={cx(s.goldButton, className)}>
+    <Tag {...(Tag === 'button' ? { type: 'button' } : null)} {...rest} className={cx(s.goldButton, className)}>
       {startIcon}
       {children}
-    </button>
+    </Tag>
   );
 }
 
 /** Secondary action — outlined, quiet. */
-export function QuietButton({ children, startIcon, className, ...rest }) {
+export function QuietButton({ children, startIcon, className, as: Tag = 'button', ...rest }) {
   return (
-    <button type="button" {...rest} className={cx(s.quietButton, className)}>
+    <Tag {...(Tag === 'button' ? { type: 'button' } : null)} {...rest} className={cx(s.quietButton, className)}>
       {startIcon}
       {children}
-    </button>
+    </Tag>
   );
 }
 
