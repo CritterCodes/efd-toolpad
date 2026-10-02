@@ -2,55 +2,19 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import Image from 'next/image';
 import { useRepairs } from '@/app/context/repairs.context';
-import { 
-    Box, 
-    Snackbar,
-    Typography,
-    Button,
-    Card,
-    CardContent,
-    Grid,
-    Chip,
-    Divider,
-    List,
-    ListItem,
-    ListItemText,
-    ListItemSecondaryAction,
-    Alert
-} from '@mui/material';
-import { 
-    Print as PrintIcon,
-    Edit as EditIcon,
-    Delete as DeleteIcon,
-    Schedule as ScheduleIcon,
-    Person as PersonIcon,
-    Category as CategoryIcon
-} from '@mui/icons-material';
+import { Box, Snackbar, Typography, Button, Grid, Alert } from '@mui/material';
 import RepairsService from '@/services/repairs';
 import UsersService from '@/services/users';
 import { isWholesalerViewer } from '@/lib/repairAccess';
-
-const calculateDisplayedRepairTotal = (repairRecord) => {
-    if (!repairRecord) return 0;
-
-    const lineItemsTotal = [
-        ...(repairRecord.tasks || []),
-        ...(repairRecord.processes || []),
-        ...(repairRecord.materials || []),
-        ...(repairRecord.customLineItems || []),
-        ...(repairRecord.repairTasks || []),
-    ].reduce((sum, item) => sum + ((parseFloat(item.price || 0) || 0) * (item.quantity || 1)), 0);
-
-    const rushFee = parseFloat(repairRecord.rushFee || repairRecord.rushJobFee || 0) || 0;
-    const deliveryFee = parseFloat(repairRecord.deliveryFee || 0) || 0;
-    const taxAmount = parseFloat(repairRecord.taxAmount || 0) || 0;
-    const computedTotal = lineItemsTotal + rushFee + deliveryFee + taxAmount;
-    const storedTotal = parseFloat(repairRecord.totalPrice || repairRecord.totalCost || 0) || 0;
-
-    return computedTotal > 0 ? computedTotal : storedTotal;
-};
+import {
+    QuoteRequestAlerts,
+    RepairHeaderCard,
+    RepairItemDetailsCard,
+    RepairWorkItemsCard,
+    buildWorkItems,
+    calculateDisplayedRepairTotal,
+} from './repairDetailView';
 
 const ViewRepairPage = ({ params }) => {
     const { repairs, setRepairs, removeRepair } = useRepairs();
@@ -296,247 +260,36 @@ const ViewRepairPage = ({ params }) => {
         router.push(`/dashboard/repairs/${repairID}/edit`);
     };
 
+
     // Calculate all work items for display
-    const allWorkItems = [
-        ...(repair.tasks || []).map(item => ({ ...item, type: 'Task', category: 'Service' })),
-        ...(repair.processes || []).map(item => ({ ...item, type: 'Process', category: 'Service' })),
-        ...(repair.materials || []).map(item => ({ ...item, type: 'Material', category: 'Material' })),
-        ...(repair.customLineItems || []).map(item => ({ ...item, type: 'Custom', category: 'Custom' })),
-        ...(repair.repairTasks || []).map(item => ({ ...item, type: 'Legacy Task', category: 'Legacy' }))
-    ];
+    const allWorkItems = buildWorkItems(repair);
 
     const totalCost = calculateDisplayedRepairTotal(repair);
-
-    const getStatusColor = (status) => {
-        switch (status?.toLowerCase()) {
-            case 'completed': return 'success';
-            case 'in progress': return 'info';
-            case 'pending': return 'warning';
-            case 'cancelled': return 'error';
-            default: return 'default';
-        }
-    };
 
     return (
         <Box sx={{ pb: 10 }}>
 
-            {repair.quoteRequest?.status === 'requested' && (
-                <Alert severity="info" sx={{ mb: 2 }}>
-                    <strong>{repair.businessName || 'The store'} asked for a quote.</strong>{' '}
-                    {session?.user?.role === 'wholesaler'
-                        ? 'EFD will price this repair and notify you.'
-                        : 'Edit the repair and add the work; the moment it has a price the store is notified with the number.'}
-                </Alert>
-            )}
-            {repair.quoteRequest?.status === 'quoted' && (
-                <Alert severity="success" sx={{ mb: 2 }}>
-                    Quoted ${Number(repair.quoteRequest.quotedTotal || repair.totalCost || 0).toFixed(2)} on {new Date(repair.quoteRequest.quotedAt).toLocaleDateString()}. The store was notified.
-                </Alert>
-            )}
+            <QuoteRequestAlerts repair={repair} session={session} />
 
             {/* Header Section */}
-            <Card sx={{ mb: 3 }}>
-                <CardContent>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                            Repair {repair.repairID}
-                        </Typography>
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Button
-                                variant="contained"
-                                startIcon={<PrintIcon />}
-                                onClick={handlePrint}
-                                color="primary"
-                            >
-                                Print
-                            </Button>
-                            {/* Hide Edit and Delete buttons for wholesalers */}
-                            {!isWholesalerViewer(session) && (
-                                <>
-                                    <Button
-                                        variant="outlined"
-                                        startIcon={<EditIcon />}
-                                        onClick={handleEdit}
-                                        color="info"
-                                    >
-                                        Edit
-                                    </Button>
-                                    <Button
-                                        variant="outlined"
-                                        startIcon={<DeleteIcon />}
-                                        onClick={handleDeleteRepair}
-                                        color="error"
-                                    >
-                                        Delete
-                                    </Button>
-                                </>
-                            )}
-                        </Box>
-                    </Box>
-
-                    <Grid container spacing={3}>
-                        {/* Client Information */}
-                        <Grid item xs={12} md={6}>
-                            <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <PersonIcon /> Client Information
-                            </Typography>
-                            <Typography><strong>Name:</strong> {repair.clientName}</Typography>
-                            {clientInfo && (
-                                <>
-                                    <Typography><strong>Email:</strong> {clientInfo.email}</Typography>
-                                    <Typography><strong>Phone:</strong> {clientInfo.phone || 'N/A'}</Typography>
-                                    <Typography><strong>Role:</strong> {clientInfo.role}</Typography>
-                                </>
-                            )}
-                        </Grid>
-
-                        {/* Repair Status & Dates */}
-                        <Grid item xs={12} md={6}>
-                            <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <ScheduleIcon /> Status & Timeline
-                            </Typography>
-                            <Box sx={{ mb: 1 }}>
-                                <Chip 
-                                    label={repair.status || 'Pending'} 
-                                    color={getStatusColor(repair.status)}
-                                    variant="filled"
-                                />
-                                {repair.isRush && (
-                                    <Chip 
-                                        label="🚨 RUSH JOB" 
-                                        color="error"
-                                        variant="filled"
-                                        sx={{ ml: 1 }}
-                                    />
-                                )}
-                            </Box>
-                            <Typography><strong>Created:</strong> {new Date(repair.createdAt || Date.now()).toLocaleDateString()}</Typography>
-                            <Typography><strong>Promise Date:</strong> {repair.promiseDate || 'N/A'}</Typography>
-                            <Typography><strong>Due Date:</strong> {repair.dueDate || 'N/A'}</Typography>
-                        </Grid>
-                    </Grid>
-                </CardContent>
-            </Card>
+            <RepairHeaderCard
+                repair={repair}
+                session={session}
+                clientInfo={clientInfo}
+                onPrint={handlePrint}
+                onEdit={handleEdit}
+                onDelete={handleDeleteRepair}
+            />
 
             <Grid container spacing={3}>
                 {/* Item Details */}
                 <Grid item xs={12} md={6}>
-                    <Card>
-                        <CardContent>
-                            <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <CategoryIcon /> Item Details
-                            </Typography>
-                            
-                            {repair.picture && (
-                                <Box sx={{ mb: 2, textAlign: 'center', position: 'relative', width: '100%', height: '300px' }}>
-                                    <Image
-                                        src={repair.picture}
-                                        alt="Repair Item"
-                                        fill
-                                        style={{
-                                            objectFit: 'contain',
-                                            border: '1px solid #ddd',
-                                            borderRadius: '8px'
-                                        }}
-                                    />
-                                </Box>
-                            )}
-
-                            <Typography sx={{ mb: 1 }}><strong>Description:</strong> {repair.description}</Typography>
-                            <Typography sx={{ mb: 1 }}><strong>Metal Type:</strong> {repair.metalType || 'N/A'}</Typography>
-                            {repair.karat && (
-                                <Typography sx={{ mb: 1 }}><strong>Karat:</strong> {repair.karat}</Typography>
-                            )}
-                            
-                            {repair.isRing && (
-                                <>
-                                    <Typography sx={{ mb: 1 }}><strong>Current Ring Size:</strong> {repair.currentRingSize}</Typography>
-                                    <Typography sx={{ mb: 1 }}><strong>Desired Ring Size:</strong> {repair.desiredRingSize}</Typography>
-                                </>
-                            )}
-                            
-                            {repair.notes && (
-                                <Typography sx={{ mb: 1 }}><strong>Notes:</strong> {repair.notes}</Typography>
-                            )}
-                        </CardContent>
-                    </Card>
+                    <RepairItemDetailsCard repair={repair} />
                 </Grid>
 
                 {/* Work Items & Pricing */}
                 <Grid item xs={12} md={6}>
-                    <Card>
-                        <CardContent>
-                            <Typography variant="h6" sx={{ mb: 2 }}>Work Items & Pricing</Typography>
-                            
-                            <List dense>
-                                {allWorkItems.map((item, index) => (
-                                    <ListItem 
-                                        key={`${item.type}-${index}`}
-                                        sx={{ 
-                                            bgcolor: item.isStullerItem ? '#e3f2fd' : 'transparent',
-                                            mb: 1,
-                                            borderRadius: 1
-                                        }}
-                                    >
-                                        <ListItemText
-                                            primary={
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                                        {item.quantity}x {item.title || item.displayName || item.name || item.description}
-                                                    </Typography>
-                                                    <Chip 
-                                                        label={item.type} 
-                                                        size="small" 
-                                                        variant="outlined"
-                                                        color={item.category === 'Material' ? 'info' : 'default'}
-                                                    />
-                                                    {item.isStullerItem && (
-                                                        <Chip 
-                                                            label="Stuller" 
-                                                            size="small" 
-                                                            color="primary"
-                                                            variant="filled"
-                                                        />
-                                                    )}
-                                                </Box>
-                                            }
-                                            secondary={item.skillLevel && `Skill Level: ${item.skillLevel}`}
-                                        />
-                                        <ListItemSecondaryAction>
-                                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                                                ${item.price}
-                                            </Typography>
-                                        </ListItemSecondaryAction>
-                                    </ListItem>
-                                ))}
-
-                                {repair.rushJobFee && parseFloat(repair.rushJobFee) > 0 && (
-                                    <ListItem sx={{ bgcolor: '#ffebee', mb: 1, borderRadius: 1 }}>
-                                        <ListItemText
-                                            primary={
-                                                <Typography variant="body2" sx={{ fontWeight: 500, color: 'error.main' }}>
-                                                    Rush Job Fee
-                                                </Typography>
-                                            }
-                                        />
-                                        <ListItemSecondaryAction>
-                                            <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'error.main' }}>
-                                                ${parseFloat(repair.rushJobFee).toFixed(2)}
-                                            </Typography>
-                                        </ListItemSecondaryAction>
-                                    </ListItem>
-                                )}
-                            </List>
-
-                            <Divider sx={{ my: 2 }} />
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <Typography variant="h6">Total:</Typography>
-                                <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-                                    ${totalCost.toFixed(2)}
-                                </Typography>
-                            </Box>
-                        </CardContent>
-                    </Card>
+                    <RepairWorkItemsCard repair={repair} allWorkItems={allWorkItems} totalCost={totalCost} />
                 </Grid>
             </Grid>
 
