@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
+import { storeStatusLabel } from '@/services/repairWorkflow';
 import {
     Box, Typography, Button, Chip, CircularProgress, Alert,
     Table, TableBody, TableCell, TableHead, TableRow
@@ -140,7 +141,7 @@ export default function CompletedRepairsPage() {
                                         </TableCell>
                                         <TableCell>
                                             <Chip
-                                                label={displayStatus}
+                                                label={storeStatusLabel(displayStatus)}
                                                 color={displayStatus === 'COMPLETED' ? 'success' : 'info'}
                                                 size="small"
                                             />

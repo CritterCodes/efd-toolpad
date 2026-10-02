@@ -116,6 +116,51 @@ export const STATUS_DESCRIPTIONS = {
   [REPAIR_STATUS.PAID_CLOSED]: 'Invoice paid and repair fully closed',
 };
 
+/**
+ * What a STORE is shown. F52: a store's repair list rendered the raw enum as the chip — `RECEIVING`,
+ * `NEEDS QUOTE`, `QC`, `DELIVERY BATCHED`, `PAID_CLOSED` — and the plain sentence above existed only as a
+ * `title` tooltip, which does not exist at all on a touch screen. So a jeweller's customer-facing screen
+ * showed them our shop-floor vocabulary in capitals, and the explanation was unreachable on the device they
+ * were most likely holding.
+ *
+ * These are deliberately in the store's frame of reference rather than ours: `QC` is our step and their
+ * wait, `DELIVERY BATCHED` is our batching and their "on its way back", `COMMUNICATION REQUIRED` means we
+ * are waiting on *them*. Nothing internal changes — `REPAIR_STATUS` is still the status, the bench still
+ * reads the same words, and `STATUS_DESCRIPTIONS` still explains them to staff.
+ *
+ * The wording is the owner's call; `docs/OPEN-QUESTIONS.md` carries the table so a line can change here
+ * without touching a screen.
+ */
+export const STORE_STATUS_LABELS = {
+  [REPAIR_STATUS.LEAD]: 'Estimate',
+  [REPAIR_STATUS.RECEIVING]: 'Received',
+  [REPAIR_STATUS.NEEDS_QUOTE]: 'Pricing',
+  [REPAIR_STATUS.COMMUNICATION_REQUIRED]: 'Needs your input',
+  [REPAIR_STATUS.NEEDS_PARTS]: 'Ordering parts',
+  [REPAIR_STATUS.PARTS_ORDERED]: 'Parts on order',
+  [REPAIR_STATUS.READY_FOR_WORK]: 'In the queue',
+  [REPAIR_STATUS.IN_PROGRESS]: 'At the bench',
+  [REPAIR_STATUS.QC]: 'Final check',
+  [REPAIR_STATUS.COMPLETED]: 'Finished',
+  [REPAIR_STATUS.READY_FOR_PICKUP]: 'Ready for pickup',
+  [REPAIR_STATUS.DELIVERY_BATCHED]: 'Ready to return',
+  [REPAIR_STATUS.PAID_CLOSED]: 'Closed',
+  [REPAIR_STATUS.PENDING_PICKUP]: 'Awaiting pickup',
+  [REPAIR_STATUS.PICKUP_REQUESTED]: 'Pickup requested',
+  [REPAIR_STATUS.SHIPPED_TO_SHOP]: 'In transit to us',
+  [REPAIR_STATUS.PICKED_UP]: 'Picked up',
+  [REPAIR_STATUS.CANCELLED]: 'Cancelled',
+};
+
+/**
+ * The words for a store, falling back to the raw status rather than to nothing. A status with no entry is
+ * a bug the guard test catches, but a blank chip in front of a customer would be worse than our jargon.
+ */
+export function storeStatusLabel(status) {
+  const normalized = normalizeRepairStatus(status);
+  return STORE_STATUS_LABELS[normalized] || STORE_STATUS_LABELS[status] || status || '';
+}
+
 export const TRACKABLE_MOVE_STATUSES = [
   REPAIR_STATUS.PARTS_ORDERED,
 ];

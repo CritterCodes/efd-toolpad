@@ -27,7 +27,7 @@ import {
 } from '@mui/icons-material';
 import { useWholesaleRepairs } from '@/hooks/wholesale/useWholesaleRepairs';
 import { REPAIRS_UI as UI } from '@/app/dashboard/repairs/components/repairsUi';
-import { REPAIR_STATUS } from '@/services/repairWorkflow';
+import { REPAIR_STATUS, storeStatusLabel } from '@/services/repairWorkflow';
 import InboundShipDialog from './InboundShipDialog';
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
@@ -334,7 +334,7 @@ export default function SchedulePickupPage() {
                                     </TableCell>
                                     <TableCell>
                                         <Chip
-                                            label={repair.normalizedStatus || repair.status}
+                                            label={storeStatusLabel(repair.normalizedStatus || repair.status)}
                                             color={(repair.normalizedStatus || repair.status) === REPAIR_STATUS.PICKUP_REQUESTED ? 'error' : 'warning'}
                                             size="small"
                                         />
