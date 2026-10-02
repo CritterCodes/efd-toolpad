@@ -3,59 +3,80 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 /**
- * GUARD: the shell owns the reading column; `PageBody` owns the gutter. Never both.
+ * GUARD: exactly one gutter, and one place that owns the vertical rhythm.
  *
- * efd-admin has never had a page frame — `AppShell` rendered a bare `<Box component="main" sx={{flex:1}}>`
- * — so each of 384 screens picked its own padding, and they disagree: `p: 3` 32 times, `p: 4` 22, `p: 2`
- * 13, `p: 1.5` 9, `p: 6` 7. That is why the left edge and the vertical rhythm move as you navigate.
+ * **Corrected 2026-10-02.** The first version of this file asserted that `PageBody` carries the gutter,
+ * because `AppShell` rendered a bare `<Box component="main" sx={{ flex: 1 }}>` and it looked like nothing
+ * supplied one. Something does, one component further in: `RoleAwareLayout` wraps every dashboard page in
+ * `px: { xs: 2, md: 3 }, py: 2`. So a screen adopting `PageBody` inside the dashboard would have been
+ * indented twice — a trap built by the very change meant to end inconsistent indentation.
  *
- * The fix is split in two because doing it in one go would double every gutter in the app on the same
- * commit. The shell centres every screen in one maximum width — safe, because no page sets that for
- * itself. The gutter and the vertical rhythm live in `PageBody`, which screens adopt a segment at a time
- * as each drops its own padding.
+ * What the dashboard genuinely lacks is the vertical rhythm: sections are spaced by `mb: 2` / `mb: 3` on
+ * nearly every heading, each screen choosing its own. That is what `PageBody` carries.
  *
- * So: adding padding to the shell's `<main>` is the mistake this guards against, and it would not look
- * like a mistake — it would look like finishing the job.
+ * So the three things worth pinning are: the shell owns the reading column, the dashboard gutter has
+ * exactly one home, and `PageBody` adds no second one by default.
  */
 const COMPONENTS = path.resolve(__dirname);
 const APP_SHELL = path.join(COMPONENTS, 'AppShell.js');
+const ROLE_LAYOUT = path.join(COMPONENTS, 'RoleAwareLayout.js');
 const KIT = path.join(COMPONENTS, 'facelift', 'index.js');
 const KIT_CSS = path.join(COMPONENTS, 'facelift', 'facelift.module.css');
 
+const read = (p) => fs.readFileSync(p, 'utf8');
+
 /** The `sx` object on the shell's `<main>`, as written. */
 function mainSx() {
-  const text = fs.readFileSync(APP_SHELL, 'utf8');
+  const text = read(APP_SHELL);
   const at = text.indexOf('component="main"');
   expect(at, 'AppShell still renders a <main>').toBeGreaterThan(-1);
   const open = text.indexOf('sx={{', at);
-  const close = text.indexOf('}}', open);
-  return text.slice(open, close + 2);
+  return text.slice(open, text.indexOf('}}', open) + 2);
+}
+
+/** One CSS rule body by class name. */
+function cssRule(name) {
+  const css = read(KIT_CSS);
+  const at = css.indexOf(`.${name} {`);
+  expect(at, `.${name} exists`).toBeGreaterThan(-1);
+  return css.slice(at, css.indexOf('}', at));
 }
 
 describe('the page frame', () => {
-  it('centres every screen in one reading column', () => {
+  it('centres every screen in one reading column, on the shell', () => {
     const sx = mainSx();
     expect(sx).toMatch(/maxWidth:\s*\d+/);
     expect(sx).toMatch(/mx:\s*'auto'/);
   });
 
-  it('does NOT put the gutter on the shell, which would double it on every page at once', () => {
-    const sx = mainSx();
-    expect(sx).not.toMatch(/\bp(?:[xytblr])?:\s/);
-    expect(sx).not.toMatch(/\bpadding/);
+  it('keeps the gutter in exactly one place', () => {
+    // RoleAwareLayout has always supplied it for the dashboard. The shell must not add a second...
+    expect(read(ROLE_LAYOUT)).toMatch(/px:\s*\{[^}]*xs:/);
+    expect(mainSx()).not.toMatch(/\bp(?:[xytblr])?:\s|\bpadding/);
+
+    // ...and neither must PageBody, or a screen adopting it is indented twice.
+    const body = cssRule('pageBody');
+    expect(body).not.toMatch(/padding-left|padding-right|padding:/);
+    expect(body, 'bottom padding is fine — it clears the floating action bar').toMatch(/padding-bottom:/);
   });
 
-  it('keeps PageBody as the one home for the gutter and the rhythm', () => {
-    const kit = fs.readFileSync(KIT, 'utf8');
-    const css = fs.readFileSync(KIT_CSS, 'utf8');
+  it('offers the gutter only where nothing else supplies one', () => {
+    // Auth, print and the error pages sit outside the dashboard shell and have no wrapper.
+    expect(cssRule('pageBodyGutter')).toMatch(/padding-left:/);
+    expect(read(KIT)).toMatch(/gutter = false/);
+  });
 
-    expect(kit).toMatch(/export function PageBody\b/);
-    // It is a <main>, so a screen that adopts it is the page's landmark, not another div.
-    expect(kit).toMatch(/<main\b/);
+  it('owns the vertical rhythm, which is the part that was actually missing', () => {
+    const body = cssRule('pageBody');
+    expect(body).toMatch(/gap:/);
+    expect(body).toMatch(/flex-direction:\s*column/);
+    expect(read(KIT_CSS)).toMatch(/\.pageBody > :first-child \{ margin-top: 0/);
+  });
 
-    const rule = css.slice(css.indexOf('.pageBody {'), css.indexOf('}', css.indexOf('.pageBody {')));
-    expect(rule, 'PageBody carries the gutter').toMatch(/padding:/);
-    expect(rule, 'PageBody carries the vertical rhythm').toMatch(/gap:/);
-    expect(rule, 'PageBody carries the column too, for when it is the outermost frame').toMatch(/max-width:/);
+  it('is not a second <main>', () => {
+    // AppShell already renders the page's one landmark; two would be invalid.
+    const kit = read(KIT);
+    const fn = kit.slice(kit.indexOf('export function PageBody'));
+    expect(fn.slice(0, fn.indexOf('}\n'))).toMatch(/as: Tag = 'div'/);
   });
 });

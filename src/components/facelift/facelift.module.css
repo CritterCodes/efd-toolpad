@@ -718,6 +718,16 @@
 
 /* -- Page body -- the one <main> recipe every screen sits in --------------- */
 
+/*
+ * CORRECTION, 2026-10-02. This element shipped with its own gutter, and that was wrong: the dashboard
+ * ALREADY has one. `RoleAwareLayout` wraps every dashboard page in `px: { xs: 2, md: 3 }, py: 2`, so
+ * the first screen to adopt PageBody inside the dashboard would have been indented twice.
+ *
+ * What the dashboard genuinely lacks is the VERTICAL RHYTHM — a fixed gap between sections, so that a
+ * child never sets its own top margin. That is what this carries by default. The gutter is opt-in,
+ * through `pageBodyGutter`, for the surfaces outside the dashboard shell that have no wrapper of their
+ * own (auth, print, the error pages).
+ */
 .pageBody {
   flex: 1;
   min-width: 0;
@@ -727,14 +737,18 @@
   width: 100%;
   max-width: 1180px;
   margin: 0 auto;
-  padding: 20px 16px 96px;
+  padding-bottom: 96px;
 }
 
 @media (min-width: 600px) {
-  .pageBody {
-    gap: 22px;
-    padding: 24px 24px 96px;
-  }
+  .pageBody { gap: 22px; }
+}
+
+/* Only where nothing else supplies one. Inside the dashboard, RoleAwareLayout already has. */
+.pageBodyGutter { padding-left: 16px; padding-right: 16px; }
+
+@media (min-width: 600px) {
+  .pageBodyGutter { padding-left: 24px; padding-right: 24px; }
 }
 
 .pageBodyFull { max-width: none; }
