@@ -264,3 +264,117 @@ Three times tonight a read-only query decided the change:
 | **Q14** | EFD charges one rate per task for every metal. Platinum sits far under the trade rate, gold retips over it. |
 | **Q15** | Half-Shank bills ten portions of sizing stock; every size-up bills one. |
 | Placeholder accounts | Two **stores** are on `test@test.com`, so their email notices go nowhere. Clearing them also unblocks the unique email index (C2). |
+
+---
+
+# Continued — the UI night
+
+> admin #252–#257. The owner's words, 2026-10-02: *"i hate efd admin and love efd-shop"*, then
+> *"kuzu is a million times better. its not the colors i love in kuzu, its components and look."*
+> Then, on the plan: *"full send."*
+
+## The finding the night turned on
+
+A `critique` run through the vendored Impeccable skill — two isolated assessments, a design review and a
+mechanical detector-plus-browser pass, neither seeing the other — found something that changed the brief.
+
+**Kuzu's primitives ARE efd's primitives.** `kuzu/packages/ui/src/primitives.tsx` says so in its own header:
+the Kuzu kit was ported *out of* efd-admin's `src/components/facelift`. Same names, same props, same
+"which control for which job" doctrine comments.
+
+So the thing the owner loves is not the components and not the colour. It is what surrounds them:
+
+| | Kuzu | efd-admin |
+|---|---|---|
+| median screen file | 40 lines | **128** |
+| inline style objects | 58 | **4,778** |
+| kit exports / adoption | 97, ~every screen | 21, **18 of 384** |
+| route-level loading/error/not-found | every app | **zero** (130 files hand-place a spinner) |
+| `<main>` | one recipe: padding, max-width, fixed gap | `<Box component="main" sx={{ flex: 1 }}>` |
+
+That is why the palette stays. `theme.js` is a deliberate 543 lines — a three-tier shadow ramp, global
+`tabular-nums`, `containedPrimary` scoped so semantic buttons keep their fills, `-webkit-autofill` handled
+so it does not punch a white box in the dark ground. **The tokens were never the problem.**
+
+## Merged
+
+| PR | What |
+|---|---|
+| [#252](https://github.com/CritterCodes/efd-toolpad/pull/252) | The defect-sweep report. |
+| [#253](https://github.com/CritterCodes/efd-toolpad/pull/253) | **Four rows rendered white text on near-white**, measured at 1.11:1 and 1.05:1. |
+| [#254](https://github.com/CritterCodes/efd-toolpad/pull/254) | Repair detail rebuilt on the kit; four new primitives; two date and money defects found doing it. |
+| [#255](https://github.com/CritterCodes/efd-toolpad/pull/255) | The reading column: every screen centred in one max width. |
+| [#256](https://github.com/CritterCodes/efd-toolpad/pull/256) | `Field` rows across the two biggest offenders — 71 → 37 sites. |
+| [#257](https://github.com/CritterCodes/efd-toolpad/pull/257) | Route-level loading, error and not-found states. |
+
+Every production deploy reached READY.
+
+## The one a jeweler would have noticed
+
+Two rows on the repair detail carried light-theme Material fills — `#e3f2fd` and `#ffebee` — and inherited
+the white text above them. **1.11:1 and 1.05:1.** The blue one reads *"1x 14k sizing stock 3x2mm —
+Material — Stuller"*: the line naming the metal to pull was the one line on the page that could not be
+read. It had been on screen since the facelift.
+
+The vendored detector never caught it, and the reason matters. Given minimal repro files it flags
+`backgroundColor: '#e3f2fd'` but is **blind to MUI's `bgcolor` shorthand**, which is the form three of the
+four took. It is also blind to a local palette object, and `bgPanel: '#131416'` is copy-pasted into twelve
+files. So the 420 colour findings in the design report are a floor, not a count — the tool is blind to the
+exact shape the worst drift takes.
+
+Hence `lightFillOnDarkGround.guard.test.js`, keyed on **relative luminance** rather than a list of known
+hexes, so the next one is caught whatever it is. Running it found four more that are light *by design* —
+a printable transfer document, two Stripe Embedded Checkout mount nodes, a Recharts tooltip — now exempt
+with a reason each, plus a case asserting **every exemption still earns its place**. That is this repo's
+existing failure mode: `.impeccable/config.json` whitelists Arial for `repairs/pick-up/page.js`, the print
+CSS moved into `invoicePrint.js`, and the waiver has been passing against nothing ever since.
+
+## The frame, and why it shipped as a half
+
+The plan said to put the page recipe on the shared `<main>`. Measuring first showed that would have been
+wrong: the shell contributes nothing today and **all 384 screens supply their own padding** — `p: 3` 32
+times, `p: 4` 22, `p: 2` 13, `p: 1.5` 9, `p: 6` 7. Adding padding there would have doubled every gutter in
+the app on one commit.
+
+So #255 ships the half that is safe globally — the reading column, which no page sets for itself — and
+`PageBody` carries the gutter and the rhythm for screens to adopt a segment at a time. The guard pins that
+split *including the mistake*, because adding padding to the shell would not look like a mistake. It would
+look like finishing the job.
+
+## Found while building, not before
+
+Three defects surfaced only because a screen was being rebuilt and therefore read closely:
+
+- **The promise date rendered a day early.** A promise date is stored as a bare `YYYY-MM-DD`, and
+  `new Date('2026-10-14')` is UTC midnight — the evening of the 13th in Central. The record said the 14th;
+  the page said the 13th.
+- **One price column mixed `$40` with `$63.67`**, defeating the `tabular-nums` the theme already sets.
+- **A missing repair reports "Access Denied: You can only view repairs that you created"** — to an admin,
+  about a repair that is not there. Logged separately rather than widening a UI PR.
+
+## Numbers
+
+| | Start of the night | Now |
+|---|---|---|
+| `<strong>Label:</strong>` sites | 82 | **37** |
+| files importing the kit (under `src/app`) | 8 | **22** |
+| route-level loading/error/not-found files | **0** | **5** |
+| `max-lines` (files over 400) | 42 | **17** |
+| Views baseline | 0 | **0** (115 pages, 0 problems, on every UI build) |
+
+## Parked
+
+- **`PageBody` adoption.** The primitive is in; no screen uses it yet. Converting means stripping each
+  page's own padding, which is a per-segment job, not a sweep.
+- **The remaining 37 label sites**, spread thin across 17 files — several of them print templates, which
+  stay ink-on-white and are correctly excluded.
+- **TabRail.** 30 files use MUI `<Tabs>`; **11 of them hand-patch `MuiTabs-scroller`**, each solving the
+  same phone problem independently.
+
+## Needs the owner
+
+| | Question | Recommendation |
+|---|---|---|
+| **Q14** | EFD charges one rate per task for every metal. Platinum sits far under the trade rate, gold retips over it. | Price by metal. It is the structure, not the number. |
+| **Q15** | Half-Shank bills ten portions of sizing stock; every size-up bills one. | Set it to what a half shank actually consumes — a bench question, not one to infer. |
+| Placeholder accounts | Two **stores** are on `test@test.com`, so their email notices go nowhere. | Give them real addresses; it also unblocks the unique email index (C2). |

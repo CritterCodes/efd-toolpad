@@ -221,6 +221,9 @@ Refreshed by `npm run guardrails:report -- --markdown`; the baseline file is `es
 | `no-unused-vars` | 208 | 1 — `utils/stlVolumeCalculator.js` header view, kept on purpose (it throws on a file under 80 bytes) | 2026-10-24 |
 | `max-lines` (400) | 42 | 17 — 2026-10-02: repair detail page (557), AppShell (609), Labor Review page (609), Leads page (643); 2026-10-01: Catalog page (658), repairLaborLogs model (619), intake hook useNewRepairForm (1,492), Finance expenses (716), Admin dashboard (747), Stuller settings (766), Finance inventory (1,009), Payroll page (1,073), NewRepairFlow (1,759),  wholesaleLeadService, repairAnalytics, repairWorkflow, pieceWorkOrderActions, wholesaleReconciliationService, customProduction, commissionEngine, repair-invoices/service, sales-invoices/service, Design detail page (2,087 lines), Payment & Pickup page (2,103 lines), Wholesale acquisition page (2,070 lines) split | 2027-01-31 — or retired (see "Retire what nobody uses") |
 | views check (`e2e/views/baseline.json`) | 296 (2026-10-01) | **0** — DONE 2026-10-01 | — |
+| `<strong>Label:</strong>` (the kit's `Field` row) | 82 (2026-10-02) | 37 — the two biggest files done (#254, #256); several of the rest are print templates, which stay ink-on-white | 2026-11-30 |
+| files under `src/app` importing the facelift kit | 8 (2026-10-02) | **22** — going up, not down: the kit is 21 primitives used by a handful of 384 screens | — |
+| route-level `loading`/`error`/`not-found` | 0 (2026-10-02) | **5** — DONE (#257); 130 files still hand-place a spinner | — |
 | `no-undef` | 0 | 0 | — plain error since Phase 0 |
 | browser code → database / server models | 0 | 0 | — plain error |
 | API routes → UI code | 0 | 0 | — plain error |
