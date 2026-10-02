@@ -296,7 +296,7 @@ function CatalogInner() {
 
       {/* Slide-up bulk action bar */}
       <Slide direction="up" in={selected.size > 0} mountOnEnter unmountOnExit>
-        <Paper elevation={8} sx={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 1300, display: 'flex', alignItems: 'center', gap: 1.5, px: 3, py: 1.5, backgroundColor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 3, minWidth: { xs: 300, sm: 480 } }}>
+        <Paper elevation={8} sx={{ position: 'fixed', bottom: 24, left: 0, right: 0, mx: 'auto', width: 'fit-content', maxWidth: 'calc(100% - 32px)', zIndex: 1300, display: 'flex', alignItems: 'center', gap: 1.5, px: 3, py: 1.5, backgroundColor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 3, minWidth: { xs: 0, sm: 480 } }}>
           <Typography sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.875rem', flex: 1 }}>
             <Box component="span" sx={{ fontWeight: 700, color: REPAIRS_UI.accent }}>{selected.size}</Box>
             {' '}product{selected.size !== 1 ? 's' : ''} selected

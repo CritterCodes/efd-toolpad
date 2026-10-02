@@ -359,8 +359,14 @@ export default function MyRepairsPage() {
                 sx={{
                     position: 'fixed',
                     bottom: 24,
-                    left: '50%',
-                    transform: 'translateX(-50%)',
+                    // Centred WITHOUT a transform: this Paper is inside a MUI <Slide>, which sets its own transform for the
+                    // animation and overwrites a half-width centring transform, leaving the bar off-centre by half its width
+                    // and off the screen entirely on a phone.
+                    left: 0,
+                    right: 0,
+                    mx: 'auto',
+                    width: 'fit-content',
+                    maxWidth: 'calc(100% - 32px)',
                     zIndex: 1300,
                     display: 'flex',
                     alignItems: 'center',
@@ -370,7 +376,7 @@ export default function MyRepairsPage() {
                     backgroundColor: REPAIRS_UI.bgPanel,
                     border: `1px solid ${REPAIRS_UI.border}`,
                     borderRadius: 3,
-                    minWidth: 320,
+                    minWidth: { xs: 0, sm: 320 },
                 }}
             >
                 <Typography sx={{ color: REPAIRS_UI.textSecondary, fontSize: '0.875rem', flex: 1 }}>
