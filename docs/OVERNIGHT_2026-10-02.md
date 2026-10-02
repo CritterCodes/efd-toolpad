@@ -378,3 +378,120 @@ Three defects surfaced only because a screen was being rebuilt and therefore rea
 | **Q14** | EFD charges one rate per task for every metal. Platinum sits far under the trade rate, gold retips over it. | Price by metal. It is the structure, not the number. |
 | **Q15** | Half-Shank bills ten portions of sizing stock; every size-up bills one. | Set it to what a half shank actually consumes — a bench question, not one to infer. |
 | Placeholder accounts | Two **stores** are on `test@test.com`, so their email notices go nowhere. | Give them real addresses; it also unblocks the unique email index (C2). |
+
+---
+
+# Continued — the UI plan finished, then back to the defects
+
+> admin #259–#264, shop #92. The five UI items the owner approved are all merged.
+
+## The UI plan, done
+
+| PR | What |
+|---|---|
+| [#259](https://github.com/CritterCodes/efd-toolpad/pull/259) | **TabRail** — one home for a row of a page's views. |
+| [#260](https://github.com/CritterCodes/efd-toolpad/pull/260) | **Gold discipline** — ten gold elements above the fold down to one. |
+
+Together with #254–#257 that is all five: the page frame, `Field` rows, route-level states, the tab rail,
+and gold. Every one shipped with a **115-page views crawl at 0 problems** and screenshots from a local
+production build.
+
+**The measured difference on `/dashboard`:** 10 gold elements above the fold → **1**, and the one left is
+`Payroll` — the next unfinished step on the checklist. The second gold anywhere on the page is the global
+action FAB, fixed in the corner, which is app chrome and the right place for it.
+
+**On My Bench at 375px:** five lanes, all **44px**; the track scrolls (535px of content in 341px) while the
+page does not; the end fade shows on load; tapping the last lane scrolls it into view and flips the fade to
+the other edge. MUI's `scrollButtons` — which **11 files** still pass — never renders on a touch screen, so
+those last lanes used to be reachable only by a swipe with nothing on screen suggesting one existed.
+
+## Back to the defect list
+
+| PR | What |
+|---|---|
+| [#261](https://github.com/CritterCodes/efd-toolpad/pull/261) | **Q16** — a scanned "Needs parts" records no part and re-prices nothing. Written up, not decided. |
+| [#262](https://github.com/CritterCodes/efd-toolpad/pull/262) | **Q2** — drop-off applied a *declined* estimate. |
+| [#263](https://github.com/CritterCodes/efd-toolpad/pull/263) | **P2** — the payroll queue and the batch disagreed on who is payable. |
+| [#264](https://github.com/CritterCodes/efd-toolpad/pull/264) | **P7** — three notification links went nowhere, or somewhere wrong. |
+| [shop #92](https://github.com/CritterCodes/efd-shop/pull/92) | **Q5** — "Estimate emailed" now means the estimate was emailed. |
+
+### The one with a customer on the other end
+
+**Q2.** `convertLeadToRepair` applied the quote's priced work whenever one existed — draft, sent, declined,
+expired. So a customer quoted **$400** who **declined**, then turned up with the piece anyway, got a repair
+carrying the $400 of work they had just refused.
+
+The screen had been right all along. `leads/page.js` tells the person at the counter *"No accepted estimate
+on this lead, so it converts as-is."* That is why it needed no ruling: the intended behaviour was already
+written down, on screen.
+
+Tracing the second caller changed the fix. Bench Day's **"Arrived"** also converts, and the appointment
+deliberately stays `active` afterwards because the bench is genuinely occupied — so the button can be
+pressed twice. With the new guard the second press would have **thrown at the counter**. It now skips the
+conversion instead: the arrival still records, and nothing is re-applied over work since priced.
+
+### The one that was one log away
+
+**P2.** `ownerUserIDs` is what keeps a non-owner's `payer:'self'` labour out of payroll — it realizes at
+sale through consignment, so paying it here pays it twice. The **queue** passed it. The **breakdown** did
+not even accept it, and the batch is built from the breakdown. The figure on screen and the figure paid
+were different numbers, and `buildUnbatchedMatch` applies the clause only when it gets an array, so the
+omission was silent rather than an error.
+
+Read-only first: **zero `payer:'self'` logs exist in either database**, so nobody has been double-paid.
+This was one non-owner self-labour log away from being real money.
+
+### The one a 404 check would have missed
+
+**P7.** `/dashboard/payroll` has never existed, and two notifications sent an artisan there — *"You have
+been paid"* and *"Payouts Enabled"*. In an email and a push, tapped on a phone, away from the shop.
+
+The third is subtler and nearly went out wrong. `/dashboard/products/pending` is **not** a 404: it matches
+`[id]`, so an admin tapping *"New Product Awaiting Approval"* got a product detail screen for a product
+called "pending". My first fix pointed it at `/dashboard/pending`, which exists but is a different queue.
+The test caught it by reporting the route as *resolving*, which is what made me look at where.
+
+So the guard fails on both shapes: a route that renders nothing, and a hard-coded segment that only matches
+a `[param]` folder. **A page that is wrong is worse than a page that is missing, because nothing reports
+it.**
+
+## Read production before changing it — four times tonight
+
+| Defect | What the check said | What it changed |
+|---|---|---|
+| B4 / Q16 | zero repairs in any parts status | latent, so it went to the owner rather than being rushed |
+| P2 | zero `payer:'self'` logs | safe to fix; nobody to reimburse |
+| P4 | zero unbatched candidates | the week-match widening was a provable no-op |
+| B6 | self-certify mode, one `qualityControl` holder | the new refusal is dormant and cannot block the bench |
+
+## Numbers
+
+| | Start of the night | Now |
+|---|---|---|
+| gold elements above the fold on `/dashboard` | 10 | **1** |
+| `<strong>Label:</strong>` sites | 82 | **37** |
+| files under `src/app` importing the kit | 8 | **22** |
+| route-level `loading`/`error`/`not-found` | 0 | **5** |
+| hand-patched `MuiTabs-scroller` | 2 | **0** |
+| `max-lines` (files over 400) | 42 | **17** |
+| Views baseline | 0 | **0** |
+| shop tests | 95 | **109** |
+
+## Parked
+
+- **`PageBody` adoption.** The primitive is in and the shell carries the reading column; no screen uses the
+  gutter yet, because each must drop its own padding first. Per segment, not a sweep.
+- **The remaining 37 label sites**, spread across 15 files at 1–4 each; four are print templates that
+  correctly stay ink-on-white.
+- **`scrollButtons` in 9 more files** — a ratchet that may only go down.
+- **B4** and the rest of **B6** (no QC fail, no per-card pass) — both need a decision, not just code.
+
+## Needs the owner
+
+| | Question | Recommendation |
+|---|---|---|
+| **Q14** | One rate per task for every metal. Platinum under the trade rate, gold retips over it. | Price by metal. It is the structure, not the number. |
+| **Q15** | Half-Shank bills ten portions of sizing stock; every size-up bills one. | Set it to what a half shank consumes — a bench question. |
+| **Q16** | A scanned "Needs parts" records no part and re-prices nothing. | Send a single scan to the parts dialog; refuse a batch. The moment the piece is in your hand is the moment you know the part. |
+| Placeholder accounts | Two **stores** share `test@test.com`, so their email notices go nowhere. | Give them real addresses; it also unblocks the unique email index (C2). |
+| efd-shop branch protection | `gh pr merge` does not wait for CI there, because there is no required check. | Give efd-shop the same protection as efd-toolpad, so the two repos behave the same way. See the friction log. |
