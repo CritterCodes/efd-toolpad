@@ -14,11 +14,7 @@ export default class StullerSearchController {
         );
       }
 
-      
       const results = await StullerSearchService.searchProducts(query);
-
-      if (query) {
-      }
 
       return NextResponse.json({
         success: true,

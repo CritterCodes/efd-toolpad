@@ -49,16 +49,43 @@ export function buildManualMaterial(form) {
   };
 }
 
+const NO_SEARCH = { term: '', results: [], loading: false, error: '', ran: false };
+
+/** How many results are worth showing in a dialog. More than this and the list stops being a list. */
+const MAX_RESULTS = 8;
+
 export function NeedsPartsDialog({ workOrder, onClose, onMoved, onError }) {
   const [form, setForm] = useState(DEFAULT_FORM);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [search, setSearch] = useState(NO_SEARCH);
 
   const setField = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+
+  /**
+   * F48: this dialog used to ask for a Stuller part number typed from memory, at the bench, with the piece
+   * in your hand — while intake has had a search against the same catalogue all along. Same endpoint,
+   * `GET /api/stuller/search?q=`, which is staff-guarded. Typing a number you know still works; the search
+   * is for the far more common case of knowing what the part *is*.
+   */
+  const runSearch = async () => {
+    const q = search.term.trim();
+    if (!q) return;
+    setSearch((prev) => ({ ...prev, loading: true, error: '', ran: true }));
+    try {
+      const res = await fetch(`/api/stuller/search?q=${encodeURIComponent(q)}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Stuller search failed.');
+      setSearch((prev) => ({ ...prev, results: (data.results || []).slice(0, MAX_RESULTS), loading: false }));
+    } catch (e) {
+      setSearch((prev) => ({ ...prev, results: [], loading: false, error: e.message }));
+    }
+  };
 
   const close = () => {
     if (loading) return;
     setForm(DEFAULT_FORM);
+    setSearch(NO_SEARCH);
     setError('');
     onClose();
   };
@@ -122,7 +149,58 @@ export function NeedsPartsDialog({ workOrder, onClose, onMoved, onError }) {
           </TextField>
 
           {form.source === 'stuller' ? (
-            <TextField label="Stuller Part Number" value={form.stullerSku} onChange={(e) => setField('stullerSku', e.target.value)} autoFocus fullWidth />
+            <>
+              <TextField label="Stuller Part Number" value={form.stullerSku} onChange={(e) => setField('stullerSku', e.target.value)} autoFocus fullWidth />
+
+              <Stack direction="row" spacing={1} alignItems="flex-start">
+                <TextField
+                  label="Search Stuller"
+                  placeholder="half shank, 14k white"
+                  value={search.term}
+                  onChange={(e) => setSearch((prev) => ({ ...prev, term: e.target.value }))}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); runSearch(); } }}
+                  fullWidth
+                />
+                <Button onClick={runSearch} disabled={search.loading || !search.term.trim()} sx={{ mt: 1 }}>
+                  {search.loading ? 'Searching…' : 'Search'}
+                </Button>
+              </Stack>
+
+              {search.error && <Alert severity="error">{search.error}</Alert>}
+              {search.ran && !search.loading && !search.error && search.results.length === 0 && (
+                <Typography variant="body2" sx={{ color: facelift.text3 }}>
+                  Nothing matched. Try fewer words, or type the part number.
+                </Typography>
+              )}
+
+              {search.results.length > 0 && (
+                <Stack spacing={0.5} sx={{ maxHeight: 260, overflowY: 'auto' }}>
+                  {search.results.map((item) => {
+                    const sku = item.itemNumber || item.sku;
+                    const chosen = sku === form.stullerSku;
+                    return (
+                      <Button
+                        key={sku}
+                        onClick={() => setField('stullerSku', sku)}
+                        sx={{
+                          justifyContent: 'flex-start', textAlign: 'left', textTransform: 'none',
+                          borderRadius: 2, px: 1.5, py: 1,
+                          border: `1px solid ${chosen ? facelift.gold : facelift.border}`,
+                          color: chosen ? facelift.gold : facelift.text,
+                        }}
+                      >
+                        <Stack sx={{ width: '100%' }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{item.description || sku}</Typography>
+                          <Typography variant="caption" sx={{ color: facelift.text3, fontFamily: facelift.mono }}>
+                            {sku}{item.unitCost ? ` · $${Number(item.unitCost).toFixed(2)}` : ''}
+                          </Typography>
+                        </Stack>
+                      </Button>
+                    );
+                  })}
+                </Stack>
+              )}
+            </>
           ) : (
             <>
               <TextField label="Material Name" value={form.name} onChange={(e) => setField('name', e.target.value)} autoFocus fullWidth />
