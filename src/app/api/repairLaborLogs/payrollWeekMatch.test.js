@@ -76,3 +76,54 @@ describe('the payroll week a breakdown asks for', () => {
     await expect(payrollCandidateBreakdown({ weekStart: SUNDAY })).rejects.toThrow(/weekStart and userID/);
   });
 });
+
+/**
+ * EFD-DEFECTS P2 — the queue and the batch disagreed about who is payable.
+ *
+ * `ownerUserIDs` is what keeps a non-owner's `payer:'self'` labour out of payroll: that labour realizes
+ * at sale through consignment (§4.4), so paying it here pays it twice. `listPayrollCandidates` has always
+ * passed it. `payrollCandidateBreakdown` did not even accept it — and the batch is built from the
+ * breakdown, not the queue. So the figure on screen and the figure paid were different numbers.
+ *
+ * `buildUnbatchedMatch` applies the clause only when it gets an array, which is why the omission was
+ * silent rather than an error.
+ */
+describe('who is payable', () => {
+    beforeEach(() => { aggregate.mockClear(); });
+
+    const matchWith = async (args) => {
+        aggregate.mockClear();
+        await payrollCandidateBreakdown({ weekStart: SUNDAY, userID: 'u-1', ...args });
+        return aggregate.mock.calls[0][0][0].$match;
+    };
+
+    it('excludes a non-owner\'s self-labour when told who the owners are', async () => {
+        const match = await matchWith({ ownerUserIDs: ['u-owner'] });
+
+        expect(match.$and).toEqual([
+            { $or: [{ payer: { $ne: 'self' } }, { primaryJewelerUserID: { $in: ['u-owner'] } }] },
+        ]);
+    });
+
+    it('keeps an owner-operator\'s own self-labour, which is their draw', async () => {
+        const match = await matchWith({ ownerUserIDs: ['u-1'] });
+        const clause = match.$and[0].$or.find((c) => c.primaryJewelerUserID);
+
+        expect(clause.primaryJewelerUserID.$in).toContain('u-1');
+    });
+
+    it('works with no owners configured — nobody\'s self-labour is payroll-payable', async () => {
+        const match = await matchWith({ ownerUserIDs: [] });
+
+        expect(match.$and).toEqual([
+            { $or: [{ payer: { $ne: 'self' } }, { primaryJewelerUserID: { $in: [] } }] },
+        ]);
+    });
+
+    it('omitting it drops the clause entirely — the shape of the defect', async () => {
+        // Kept as a test so the failure mode is documented: a missing argument did not throw, it just
+        // quietly made everyone's self-labour payable.
+        const match = await matchWith({});
+        expect(match.$and).toBeUndefined();
+    });
+});

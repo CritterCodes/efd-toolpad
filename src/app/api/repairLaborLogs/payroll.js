@@ -74,7 +74,7 @@ export async function listPayrollCandidates({ weekStart, weekEnd, userID, ownerU
   ]).toArray();
 }
 
-export async function payrollCandidateBreakdown({ weekStart, userID } = {}) {
+export async function payrollCandidateBreakdown({ weekStart, userID, ownerUserIDs } = {}) {
   if (!weekStart || !userID) {
     throw new Error('weekStart and userID are required for a payroll candidate breakdown.');
   }
@@ -95,6 +95,10 @@ export async function payrollCandidateBreakdown({ weekStart, userID } = {}) {
         weekStart: start,
         weekEnd: getWeekEndFromStart(start),
         userID,
+        // EFD-DEFECTS P2: this is what keeps a non-owner's `payer:'self'` labour out of payroll, where it
+        // would be paid a second time (it realizes at sale via consignment). The queue always passed it;
+        // this did not, and the batch is built from THIS, not the queue.
+        ownerUserIDs,
       }),
     },
     {

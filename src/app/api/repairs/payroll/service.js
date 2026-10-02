@@ -139,9 +139,22 @@ export async function getPayrollCandidateDetail({ weekStart, userID }) {
   await syncSalesPayoutDeductions();
   let detail;
   try {
+    /*
+     * EFD-DEFECTS P2. `ownerUserIDs` is what excludes a non-owner's `payer:'self'` labour from payroll —
+     * it realizes at sale via consignment (§4.4), so paying it here pays it twice. The QUEUE passed it;
+     * this breakdown did not, and `buildUnbatchedMatch` only applies the exclusion when it is an array.
+     *
+     * So the two disagreed about who was payable, and the one that disagreed is the one that writes the
+     * batch: `createPayrollBatch` builds the batch from this detail. The figure on screen and the figure
+     * paid were different numbers.
+     *
+     * Read-only against both databases 2026-10-02: zero `payer:'self'` logs exist yet, so nobody has been
+     * double-paid. This is the first non-owner self-labour log away from being real.
+     */
     detail = await RepairLaborLogsModel.payrollCandidateBreakdown({
       weekStart: normalizeWeekStart(weekStart),
       userID,
+      ownerUserIDs: await getOwnerOperatorUserIDs(),
     });
   } catch (error) {
     detail = {
