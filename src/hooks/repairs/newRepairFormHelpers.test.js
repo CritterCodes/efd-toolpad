@@ -37,10 +37,11 @@ describe('ring sizing', () => {
     expect(getRingSizeDelta('6', '8.5')).toBe(2.5);
     expect(getRingSizeDelta('7', '6')).toBe(-1);
     expect(getRingSizeDelta('size 6', '8')).toBe(0);
-    // KNOWN DEFECT (OPEN-QUESTIONS Q12): an EMPTY size reads as size 0 (Number('') === 0), and nothing upstream
-    // guards it — smart intake with only a desired size suggests sizing stock for the whole range. Pinned here as
-    // today's behavior; fixing it changes what a ticket can charge, so it waits for the owner.
-    expect(getRingSizeDelta('', '8')).toBe(8);
+    // Q12, fixed 2026-10-01 on the owner's ruling: a BLANK size is unknown, not size 0. It used to read as 0
+    // (Number('') === 0), so "resize to 8" with no current size looked like an eight-size jump and suggested
+    // seven half-sizes of sizing stock nobody asked for.
+    expect(getRingSizeDelta('', '8')).toBe(0);
+    expect(getRingSizeDelta('8', '')).toBe(0);
   });
 
   it('adds sizing stock only past the first size up, in half sizes', () => {

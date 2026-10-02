@@ -157,8 +157,11 @@ them. Waits for the owner.
 - `arkjem@gmail.com`: **merged** in production on 2026-10-01. The empty account was marked `status: 'merged'` with
   `mergedInto` set to the account with the repairs, and its email cleared; a backup is in `userMergeBackup_20261001`. Merged
   accounts are hidden from user lists (CritterCodes/efd-toolpad#229).
-- `john.e.annis@gmail.com`: **not merged yet.** It is an admin account plus a shop-customer account, so merging could change
-  which one signs in. Confirmation asked for in chat.
+- `john.e.annis@gmail.com`: **retired 2026-10-01** on the owner's ruling (*"John Annis no longer needs his admin account. He
+  does not do any development work for us anymore."*). The admin account (user-1fae26ff, referenced only by 38 notifications)
+  was backed up to `userMergeBackup_20261001`, then marked `merged` into his customer account (user-0fd057f4) with its email
+  cleared. Only a `verified` account may hold a session (lib/accountRevocation.js), so any admin session it still held ends on
+  its next request. His customer account is untouched and is now the only one on that email.
 - `test@test.com`: not touched, as the owner said. The unique email index still waits.
 
 ---
@@ -203,7 +206,18 @@ current size extracted suggests 7 half-sizes of sizing stock (8 − 0 − the in
 **Recommendation:** treat a blank size as unknown, with no delta and no extra sizing stock suggested, so the jeweler
 enters it. This only removes a wrong suggestion, but it changes what a ticket can charge, so it waits for your yes.
 
-**Status:** open.
+**Status:** DECIDED 2026-10-01 — owner: *"sometimes we have rings and we have nothing to do with sizing the ring. It
+always makes us type in a ring size of what it is and what it's going to, but that's really only the case if we're
+sizing a ring up or down. It doesn't hurt to have what size it is on file but it's just an extra step on intake. If
+we're not touching anything revolving around sizing then I don't really care what size it is."* Built 2026-10-01:
+
+- A blank size is **unknown, never size 0**, so nothing suggests sizing stock for a range nobody entered.
+- The sizes are **required only when a line on the ticket sizes the ring up or down**
+  (`services/repairs/ringSizing.js`). On any other ring they stay available and optional, and a size already on file
+  still shows on review.
+- Detection is by the line's title, the way the pricing engine spots sizing stock by material name. Two tasks consume
+  sizing stock **without** resizing — Half-Shank and Sizing Beads — so the material is the wrong signal.
+  `ringSizing.test.js` pins every task title in the catalog as of 2026-10-01.
 
 ---
 

@@ -4,8 +4,20 @@ import { ReviewRow, OptionPicker, RingSizePicker, initials } from './NewRepairFl
 import { METAL_TYPES, GOLD_COLORS } from '@/constants/customRequest.constants';
 import PromiseDateSuggestion from '@/app/components/repairs/PromiseDateSuggestion';
 import { TotalCostCard } from '@/app/components/repairs/NewRepairForm';
+import { ticketSizesRing } from '@/services/repairs/ringSizing';
 
 export function NewRepairFlowReview({ benchJewelers, formData, getJewelerLabel, isComped, isQuote, isWholesale, itemCount, itemsSubtotal, karatOptions, metalSummary, picturePreviewUrl, pricingSettings, pricingTotals, promiseDateContext, promiseDateError, promiseDateEstimate, promiseDateLoading, quoteIntent, reviewTotal, rushJobInfo, setFormData, setShowFullBreakdown, setStep, showFullBreakdown, step, submitMode, wholesalerPricingSettings }) {
+  // The sizes are only demanded when a line on the ticket sizes the ring (owner, 2026-10-01, Q12). On any other
+  // ring they are optional, and a size already on file still shows.
+  const sizingRing = ticketSizesRing(formData.tasks);
+  const bothSizes = !!(formData.currentRingSize && formData.desiredRingSize);
+  const sizesMissing = sizingRing && !bothSizes;
+  const ringSizeSummary = bothSizes
+    ? `${formData.currentRingSize} → ${formData.desiredRingSize}`
+    : sizingRing
+      ? 'Sizes required'
+      : (formData.currentRingSize || formData.desiredRingSize || 'Not recorded');
+
   return (
     <>
       {/* ── Step 4 — Review (summary rows, tap to edit) ───────────────── */}
@@ -78,10 +90,8 @@ export function NewRepairFlowReview({ benchJewelers, formData, getJewelerLabel, 
             />
             <ReviewRow
               label="Ring size"
-              value={formData.isRing
-                ? (formData.currentRingSize && formData.desiredRingSize ? `${formData.currentRingSize} → ${formData.desiredRingSize}` : 'Sizes required')
-                : 'Not a ring'}
-              valueColor={formData.isRing && !(formData.currentRingSize && formData.desiredRingSize) ? '#F87171' : undefined}
+              value={formData.isRing ? ringSizeSummary : 'Not a ring'}
+              valueColor={formData.isRing && sizesMissing ? '#F87171' : undefined}
               editor={(
                 <Stack spacing={1.25}>
                   <FormControlLabel
