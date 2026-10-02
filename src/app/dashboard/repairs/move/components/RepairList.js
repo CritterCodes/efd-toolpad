@@ -30,6 +30,10 @@ const RepairListItem = ({ repair, repairID, onRemove }) => {
                 {repair && <RepairThumbnail repair={repair} size={58} />}
                 <ListItemText
                     primary={`Repair ID: ${repairID}`}
+                    // The secondary slot renders a <p> by default; this one holds a Box (<div>) and Typographys
+                    // (<p>). Both are invalid inside a <p>, so the browser closes it early and hydration fails
+                    // with React #418. Render the slot as a <div>.
+                    slotProps={{ secondary: { component: 'div' } }}
                     secondary={repair ? (
                         <Box>
                             <Typography variant="body2" color="text.secondary">

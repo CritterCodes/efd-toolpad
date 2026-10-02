@@ -98,16 +98,20 @@ export default function PendingApprovalPage() {
               <ListItemIcon>
                 <BusinessIcon />
               </ListItemIcon>
-              <ListItemText 
-                primary="Status" 
+              <ListItemText
+                primary="Status"
+                // The secondary slot renders a <p> by default, and a Chip is a <div>. A <div> inside a <p> is
+                // invalid HTML: the browser closes the <p> early, so its DOM stops matching the server's and React
+                // throws hydration error #418. Rendering the slot as a <div> keeps the markup valid.
+                slotProps={{ secondary: { component: 'div' } }}
                 secondary={
-                  <Chip 
-                    label="Pending Approval" 
-                    color="warning" 
-                    size="small" 
+                  <Chip
+                    label="Pending Approval"
+                    color="warning"
+                    size="small"
                     sx={{ mt: 0.5 }}
                   />
-                } 
+                }
               />
             </ListItem>
           </List>
