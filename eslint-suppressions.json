@@ -104,11 +104,6 @@
       "count": 1
     }
   },
-  "src/hooks/repairs/useNewRepairForm.js": {
-    "max-lines": {
-      "count": 1
-    }
-  },
   "src/lib/theme.js": {
     "max-lines": {
       "count": 1
