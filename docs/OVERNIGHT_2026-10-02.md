@@ -190,3 +190,77 @@ publishes its date.
 |---|---|---|
 | **Q14** | EFD charges one rate per task for every metal. Platinum work is priced far under the trade rate, gold retips over it. | **Price by metal.** It is the structure, not the number — and it is the only change that fixes the platinum shortfall without raising gold. Read Geller Release 6.6 first if access can be had. |
 | **Q15** | Half-Shank bills ten portions of sizing stock; every size-up bills one. | Set it to what a half shank actually consumes. One or two is the likely answer, but how much stock it eats is a bench question, not something to infer. |
+
+---
+
+# Continued — the defect sweep
+
+> Picking up after the section above. admin #248–#251, shop #89–#91. Every PR went through CI before merging;
+> every production deploy reached READY.
+
+## What the night was actually about
+
+The max-lines burn-down was the task on the list. The defects were what the burn-down kept walking into: splitting
+the repair detail page meant reading it, and reading it found a header that ran off a 320px phone. That is most of
+what is below.
+
+## Merged
+
+| PR | What |
+|---|---|
+| [#248](https://github.com/CritterCodes/efd-toolpad/pull/248) | max-lines: repair detail page 557 → 288, plus the 320px header fix. |
+| [#249](https://github.com/CritterCodes/efd-toolpad/pull/249) | **F40** — the Closeout tab called the after photo mandatory. It has not been since 2026-07-31. |
+| [#250](https://github.com/CritterCodes/efd-toolpad/pull/250) | **B6** — you could pass the QC on work you did yourself. |
+| [#251](https://github.com/CritterCodes/efd-toolpad/pull/251) | **P4** — a payroll credit that could never be batched. |
+| [shop #89](https://github.com/CritterCodes/efd-shop/pull/89) | **C3** — the invite email contradicted itself three ways. |
+| [shop #90](https://github.com/CritterCodes/efd-shop/pull/90) | `/artisans` was a bare 404; the directory is at `/vendors`. |
+| [shop #91](https://github.com/CritterCodes/efd-shop/pull/91) | **C5** — an overpaid repair invoice settled as a clean `paid` with no trace. |
+
+## Three that were worth the night
+
+**C3 — the invite that argued with itself.** One template served two emails that have nothing in common: a reset
+someone asked for, and a claim invite nobody asked for. It was written for the reset. So a customer whose account the
+studio had just created received the subject *"Your Account Is Ready"* over a body headed *"Reset Your Password"*,
+telling them the link expired in **2 hours** and that they should ignore it if they hadn't asked — and they hadn't.
+The 2 hours was wrong for everyone: a reset token lasts 1 hour, a claim token 7 days. Never 2, for anybody, ever.
+
+**C5 — the overpayment that left no trace.** Two *online* payments cannot collide; the quote refuses an invoice that
+is paid or already checking out. The counter can. Admin writes cash straight onto the invoice and knows nothing about
+a Stripe session in flight, so: customer opens the pay link for $43.80, walks up and pays cash, the webhook fires and
+takes $43.80 again. `remainingBalance` is clamped at zero, the invoice settles as `paid`, and the money the customer
+is owed back exists nowhere. The charge is captured by the time the webhook runs, so it cannot be refused — only
+recorded. It is now `overpaidBy` on the invoice and an email to the shop.
+
+**B6 — the easier door.** `separate` QC mode means someone else checks the work. The route only checked the
+`qualityControl` capability, so a jeweler holding both could pass their own repair. And the sink that mattered was
+not the one in the bench action: **the Move page and the scan's "Approve QC" post straight to
+`complete-from-qc`**, past it entirely. Scan your own ticket, approve it, labour credited and an invoice raised.
+Guarding one sink would have left the shorter path open. This is the shape of the work-order sync hotfix from
+2026-10-01, and the guard test now finds QC-pass sinks by what they *call* rather than by a list.
+
+## Read production before changing it
+
+Three times tonight a read-only query decided the change:
+
+- **B6** — the shop is in self-certify mode (owner, 2026-09-22) with exactly one person holding `qualityControl`. So
+  the new refusal is dormant and cannot block tonight's bench. Without that check it would have been a change made
+  blind to whether it stops work.
+- **P4** — zero unbatched candidate logs in either database. Nothing is stranded today, which is what made widening
+  the week match a strict no-op rather than something that moves money.
+- **C2** — still blocked. `test@test.com` is on 21 accounts, two of them stores.
+
+## Numbers
+
+| | After #247 | Now |
+|---|---|---|
+| `max-lines` (files over 400) | 18 | **17** |
+| Views baseline | 0 | **0** |
+| Shop tests | 99 | **102** |
+
+## Needs the owner
+
+| | Question |
+|---|---|
+| **Q14** | EFD charges one rate per task for every metal. Platinum sits far under the trade rate, gold retips over it. |
+| **Q15** | Half-Shank bills ten portions of sizing stock; every size-up bills one. |
+| Placeholder accounts | Two **stores** are on `test@test.com`, so their email notices go nowhere. Clearing them also unblocks the unique email index (C2). |
