@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateDisplayedRepairTotal, buildWorkItems, getStatusColor } from './repairDetailView';
+import { calculateDisplayedRepairTotal, buildWorkItems, getStatusColor, money, day } from './repairDetailView';
 
 /**
  * The three pure functions behind the repair detail screen, pulled out of page.js on 2026-10-02. The total is the
@@ -89,5 +89,44 @@ describe('getStatusColor', () => {
     it('is the default chip for anything else, including no status', () => {
         expect(getStatusColor('QUALITY CONTROL')).toBe('default');
         expect(getStatusColor(undefined)).toBe('default');
+    });
+});
+
+describe('money', () => {
+    it('always writes two places, so a price column lines up', () => {
+        // The page used to print item.price raw: $40 and $63.67 in one column, defeating the tabular
+        // figures the theme sets globally on td/th.
+        expect(money(40)).toBe('$40.00');
+        expect(money('63.67')).toBe('$63.67');
+        expect(money(0)).toBe('$0.00');
+    });
+
+    it('is $0.00 rather than $NaN for a missing or unparseable price', () => {
+        expect(money(undefined)).toBe('$0.00');
+        expect(money('')).toBe('$0.00');
+        expect(money('n/a')).toBe('$0.00');
+    });
+});
+
+describe('day', () => {
+    it('keeps a calendar day on its own day', () => {
+        // A promise date is stored as a bare YYYY-MM-DD. `new Date('2026-10-14')` is UTC midnight, which
+        // is the evening of the 13th in Central — so the obvious formatting moved every promise and due
+        // date one day earlier. Caught on screen: the record said the 14th, the page said the 13th.
+        expect(day('2026-10-14')).toBe('Oct 14, 2026');
+        expect(day('2026-01-01')).toBe('Jan 1, 2026');
+        expect(day('2026-12-31')).toBe('Dec 31, 2026');
+    });
+
+    it('still formats a real timestamp', () => {
+        const stamp = new Date(2026, 8, 28, 13, 30);
+        expect(day(stamp)).toBe('Sep 28, 2026');
+        expect(day(stamp.toISOString())).toBe('Sep 28, 2026');
+    });
+
+    it('is null for nothing, and passes through what it cannot read', () => {
+        expect(day(null)).toBeNull();
+        expect(day('')).toBeNull();
+        expect(day('sometime next week')).toBe('sometime next week');
     });
 });
