@@ -84,24 +84,35 @@ export function FaceliftRoot({ children, className, ...rest }) {
 }
 
 /**
- * The page frame — one `<main>` recipe every screen sits in.
+ * The page frame: the vertical rhythm a screen sits in.
  *
- * This is the thing efd-admin has never had. `AppShell` rendered a bare `<Box component="main" sx={{flex:1}}>`,
- * so each of 384 screens decided its own gutter and its own spacing: `p: 3` 32 times, `p: 4` 22, `p: 2` 13,
- * `p: 1.5` 9, `p: 6` 7, plus `mb: 2`/`mb: 3` on nearly every heading. That is why the left edge and the vertical
- * rhythm move as you navigate, and it is most of what separates this app from one that feels made by one person.
+ * **What this is for, corrected 2026-10-02.** It shipped carrying its own gutter, on the belief that nothing
+ * supplied one. Something does: `RoleAwareLayout` wraps every dashboard page in `px: { xs: 2, md: 3 }, py: 2`.
+ * So the gutter was never the gap — and a screen adopting this inside the dashboard would have been indented
+ * twice. The per-page `p:` values that looked like 384 screens each choosing a gutter are mostly inner panels
+ * and early-return states, not page roots.
  *
- * The rule that makes it work: **the frame owns the vertical rhythm, and a child never sets its own top margin.**
- * Sections are separated by this element's `gap`, not by margins they each choose.
+ * What the dashboard genuinely lacks is the **vertical rhythm**. Sections are spaced by `mb: 2` / `mb: 3` on
+ * nearly every heading, each screen choosing its own, which is why the spacing between things changes as you
+ * navigate. That is what this carries: **the frame owns the gap, and a child never sets its own top margin.**
+ *
+ * `gutter` is opt-in, for surfaces outside the dashboard shell that have no wrapper of their own — auth,
+ * print, the error pages. Inside the dashboard, leave it off.
  *
  * `width` opts out of the reading column for the screens that genuinely need the room — wide tables, the
- * analytics report — the way `AppShell` already does elsewhere.
+ * analytics report.
+ *
+ * `as` defaults to a `div`, not a `main`: `AppShell` already renders the page's one `<main>` landmark, and two
+ * would be invalid.
  */
-export function PageBody({ children, width = 'default', className, ...rest }) {
+export function PageBody({ children, width = 'default', gutter = false, as: Tag = 'div', className, ...rest }) {
   return (
-    <main {...rest} className={cx(s.pageBody, width === 'full' && s.pageBodyFull, className)}>
+    <Tag
+      {...rest}
+      className={cx(s.pageBody, gutter && s.pageBodyGutter, width === 'full' && s.pageBodyFull, className)}
+    >
       {children}
-    </main>
+    </Tag>
   );
 }
 
