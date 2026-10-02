@@ -283,9 +283,19 @@ Steps 1 and 2 are price-moving and change what the counter charges, so they wait
 owner's call by definition.
 
 **The industry benchmark (added 2026-10-02).** Geller's Blue Book — the trade's standard repair pricing guide — prices
-laser retipping as **setup first, cheaper after**, which is the structure recommended above:
+laser retipping as **setup first, cheaper after**, which is the structure recommended above.
 
-| Geller, laser retip (retail) | First prong | Each additional |
+> ⚠️ **The figures below are of UNKNOWN VINTAGE and the percentages built on them are not reliable.** They come from a
+> forum thread and a shop blog, neither dated, neither naming an edition. The current book is **Version 5.0, Release
+> 6.6, revised November 2025**, and the publisher states there have been *"many significant increases just in the last
+> year since the version 6.40 revision in 2024, much of which reflects the large increase in the price of gold."* So
+> these are probably an older release and today's gold lines are probably higher — which would make EFD's flat $24 a
+> **smaller** fraction of book than the table shows, and weaken the "overcharging on gold" reading.
+>
+> **To settle it:** read the gold and platinum retip lines out of the shop's own copy of Release 6.6 and redo the
+> comparison. Until then, treat the *structure* findings as solid and the *percentages* as indicative only.
+
+| Geller, laser retip (retail) — **edition unknown, see warning** | First prong | Each additional |
 |---|---|---|
 | Gold | $38 | $20 |
 | Platinum | $54 | $30 |
@@ -321,9 +331,13 @@ setup, not on every prong.
 
 **Revised recommendation.** One change fixes all of it — move `Retip prongs` (and the other tool-bearing tasks) to
 **setup + marginal**: the first unit carries the setup and the tool, each additional unit carries labour and metal.
-Pick the two numbers against book at the trade discount, e.g. gold ≈ $19 then $10, platinum ≈ $27 then $15. That
-lands the 84-prong platinum job within a few percent of where it already is, halves the small gold jobs, and gives
-the stores a margin they can actually resell on.
+This is Geller's own structure and does not depend on knowing his current numbers: it is why his first prong costs
+roughly twice his second, and it is the same defect as the per-prong laser charge seen from the other side — the
+laser belongs in the setup.
+
+**What the two numbers should be is NOT settled**, because the book figures above are of unknown vintage. Read them
+out of the shop's copy of Release 6.6 (November 2025) first, take the trade discount off, and set the pair from that.
+The example pair quoted above (gold ≈ $19 then $10) is derived from the undated figures and should not be used as-is.
 
 Still price-moving: it changes what the counter charges on every retip, so it waits for the owner's yes.
 
