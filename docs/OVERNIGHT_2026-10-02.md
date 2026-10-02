@@ -677,3 +677,96 @@ Still open from before: **Q14** (one rate per task for every metal), **Q15** (Ha
 of sizing stock), **Q16** (a scanned "Needs parts" records no part), the two **stores sharing
 `test@test.com`**, **efd-shop branch protection**, and **dev data** — `efd-database-DEV` has the six
 `views.check` users and almost nothing else, which is why #278 exists.
+
+---
+
+# PAUSED — owner asked for a stopping place
+
+> admin **#281–#288**. Everything below #288 is merged and reached Vercel READY with `ship.yml` green;
+> #288 is open and green-pending. Twenty-six PRs merged across the whole run (#265–#287).
+
+| PR | What |
+|---|---|
+| [#281](https://github.com/CritterCodes/efd-toolpad/pull/281) | **F52** — a store read our internal state machine, in capitals. |
+| [#282](https://github.com/CritterCodes/efd-toolpad/pull/282) | The previous run report. |
+| [#283](https://github.com/CritterCodes/efd-toolpad/pull/283) | **F14** — a user was approved or rejected and told nothing at all. |
+| [#284](https://github.com/CritterCodes/efd-toolpad/pull/284) | The customs artisan audit. |
+| [#285](https://github.com/CritterCodes/efd-toolpad/pull/285) | All four holes that audit found. |
+| [#286](https://github.com/CritterCodes/efd-toolpad/pull/286) | A loading state should be the shape of what is coming. |
+| [#287](https://github.com/CritterCodes/efd-toolpad/pull/287) | `TabRail` — six more rows; ratchet 14 → 8. |
+| [#288](https://github.com/CritterCodes/efd-toolpad/pull/288) | `TabRail` finishes: `<Tabs>` reaches **0**. *(open)* |
+
+## The UI order, finished to the primitive level
+
+| | |
+|---|---|
+| 1. `PageBody` | primitive in, shell owns the reading column. **Adoption is per-screen and not started** — each screen must drop its own `mb:` first. |
+| 2. `Field`/`FieldList` | **done.** Strict count 9 → **1**, and the one left is arguably not the bug. |
+| 3. Route states | **done.** 5 → **10** files, shaped per segment: a table route gets a table skeleton, a card route a card grid. |
+| 4. `TabRail` | **done.** All three counts 0 and all three bans. |
+| 5. Gold discipline | `/dashboard` 10 → 1; artisan applications 4 → 1. **The rest of the app is unswept.** |
+| 6. EFD-DEFECTS | F48, F41, F52, F14 closed. F19 found already fixed. Customs holes 1–4 closed. |
+
+## Scoreboard
+
+| | Start of the run | Now |
+|---|---|---|
+| `scrollButtons` · `MuiTabs-scroller` · `<Tabs>` | 11 · 2 · 19 | **0 · 0 · 0**, all bans |
+| `<strong>Label:</strong> {value}` where the kit reaches | 9 | **1** |
+| files under `src/app` importing the kit | 8 | **58** |
+| route-level `loading`/`error`/`not-found` | 0 | **10** |
+| guard tests | 4 | **21** |
+| component tests that actually render | 5 | **14** |
+| `max-lines` (files over the ceiling) | 42 | **16** |
+| Views baseline | 0 | **0** |
+
+## Three mistakes worth keeping
+
+**I broke every page in the app**, and CI caught it. F14 wired a notification stub to the live service with
+a module-scope import; the navigation modules import `unifiedUserService`, which imports that stub, so
+`mongodb`, `email` and `webPush` landed in the **client** bundle — 212 page-errors, every role. The cause
+behind the cause is in my own PR body: *"No UI surface changed, so no views run."* That was a judgement I
+do not get to make. **Rule now in the friction log: build and crawl every PR touching `src/lib` or
+`src/services`.**
+
+**A grep count is a hypothesis, not a defect count.** "11 files hand-patch `MuiTabs-scroller`" was 2.
+"82 `<strong>Label:</strong>` sites" was 9. I reported the inflated number twice before checking it.
+
+**A guard that reads documentation is worse than no guard.** An assertion that the old
+`email?.includes('@')` idiom was gone passed on the file's *header comment describing that idiom*, and
+failed on the fixed code. Removed, with the reason written in place.
+
+## Parked, and why
+
+- **`PageBody` adoption** — per segment; each screen drops its own margins first.
+- **Gold discipline beyond `/dashboard` and artisan applications** — the sweep is unstarted.
+- **133 files still place their own `<CircularProgress>`.** No route blanks any more, but the in-page
+  spinners are untouched.
+- **F24, the subdocument replace** — five incidents, each a silent data loss. Needs a list of subdocument
+  field names rather than a general rule. Designed, not built.
+- **B4 and the rest of B6** — both need a decision, not just code.
+- The rest of §4 F-numbers, §4c Q6, §4d P7, §5.
+
+## Needs you
+
+| | Question |
+|---|---|
+| **Q17** | The store-facing status words (F52, shipped). Least sure of **"Pricing"** for `NEEDS QUOTE` and **"In the queue"** for `READY FOR WORK`. |
+| **Q18** | May an artisan add a note or a reference image to a custom? Recommended **images yes, notes no**. |
+| **Q14 / Q15 / Q16** | One rate per task per metal · Half-Shank's ten portions of stock · a scanned "Needs parts" records no part. |
+| Marlen, 21 paid-closed | Left alone deliberately: $1,110 of labor in four **paid** payroll batches, two **paid** invoices. Reversing means clawing back both. |
+| Marlen, `repair-86f66304` | **$300 double-credit** — Vernon 4h and you 2h on one ticket, both `repair_qc_pass`, both paid. The only one of 46 like it. |
+| `test@test.com` | Two **stores** share it, so their notices go nowhere; also blocks the unique email index (C2). |
+| efd-shop protection | No required check, so `gh pr merge` does not wait for CI there. |
+| Dev data | `efd-database-DEV` has the six `views.check` users and almost nothing else. |
+
+## Production work this run
+
+Marlen Jewelers: **25 repairs moved back to QC** at the owner's request, with everything QC-pass created
+undone — 25 unbatched labor logs ($1,665.00) deleted and the draft invoice ($2,931.92) removed, so the
+re-pass credits the corrected price. Backup `marlenQcReversalBackup_20261002165907`. The 21 paid-closed
+repairs were **not** touched.
+
+Worth recording: `creditRepairLaborAtQc` is **idempotent** — it refuses to write a second `repair_qc_pass`
+log. So the double-pay the owner was worried about could not have happened; the real risk was the
+opposite, a stale credit at the old price that the re-pass would silently decline to replace.
