@@ -224,6 +224,9 @@ Refreshed by `npm run guardrails:report -- --markdown`; the baseline file is `es
 | `<strong>Label:</strong>` (the kit's `Field` row) | 82 (2026-10-02) | 37 — the two biggest files done (#254, #256); several of the rest are print templates, which stay ink-on-white | 2026-11-30 |
 | files under `src/app` importing the facelift kit | 8 (2026-10-02) | **22** — going up, not down: the kit is 21 primitives used by a handful of 384 screens | — |
 | route-level `loading`/`error`/`not-found` | 0 (2026-10-02) | **5** — DONE (#257); 130 files still hand-place a spinner | — |
+| gold elements above the fold on `/dashboard` | 10 (2026-10-02) | **1** — DONE (#260); the one left is the next checklist step | — |
+| hand-patched `MuiTabs-scroller` | 2 (2026-10-02) | **0** — DONE (#259) | — |
+| MUI `scrollButtons` (never renders on touch) | 11 (2026-10-02) | 9 — ratchet in `tabRail.guard.test.js`; convert to `TabRail` and lower it | 2026-11-30 |
 | `no-undef` | 0 | 0 | — plain error since Phase 0 |
 | browser code → database / server models | 0 | 0 | — plain error |
 | API routes → UI code | 0 | 0 | — plain error |

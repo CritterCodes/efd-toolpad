@@ -44,3 +44,12 @@ for a guardrail.
   `status`. Lesson: click every tab/dialog of a split page on a local build before merging.
 - 2026-10-01: a heredoc edit script turned an escaped quote (backslash, quote) into a bare quote again (notificationService.js), breaking a string. Caught by reading the output back. The rule stands: any edit with a backslash goes through Edit/Write, even inside a replacement string.
 - **2026-10-01: removing a scratch worktree wiped the shared pnpm store.** The worktree had `node_modules` junctioned to efd-admin's; `git worktree remove --force` followed the junction and deleted real packages in `web/node_modules/.pnpm` (next, @aws-sdk/client-s3, everything that sorts before "next"), breaking local dev for every app in the workspace. Restored from the lockfile with `pnpm install --frozen-lockfile --prefer-offline --ignore-scripts --force` in `web/` (~9 min). Rule: unlink a junction with `cmd /c rmdir <path>` first, never a recursive delete (`rm -rf`, `Remove-Item -Recurse`, `git worktree remove --force`) of a folder that still holds one.
+- **2026-10-02: `gh pr merge` on efd-shop does not wait for CI, because efd-shop has no required check.**
+  efd-toolpad's `main` is protected with a required `check`, so `gh pr merge` there blocks until it is green —
+  which is where the habit "merge when the PR is green" comes from. efd-shop has no such protection, so the same
+  command merged shop#92 while its `test (20.x)` and `test (22.x)` jobs were still *pending*. It passed on `main`
+  afterwards and nothing broke, but that was luck, not process: the local `npm test` run was the only thing
+  standing behind it. **Rule for now:** on efd-shop, confirm `gh pr checks <n>` is green *before* calling
+  `gh pr merge`, never after. **Proposed:** give efd-shop the same branch protection as efd-toolpad — a required
+  `test` check and no direct pushes — so the two repos behave the same way and the habit is safe in both. That is
+  a repository settings change, so it needs the owner.
