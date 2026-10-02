@@ -313,7 +313,9 @@ export async function markPayrollBatchPaid(batchID, {
         recipientEmail: user?.email || '',
         priority: 'high',
         data: {
-          actionUrl: `${adminBase()}/dashboard/payroll`,
+          // /dashboard/payroll has never existed. This notification goes to an ARTISAN, so it belongs
+          // on their own payroll page, not admin's run screen (EFD-DEFECTS P7).
+          actionUrl: `${adminBase()}/dashboard/artisan/payroll`,
           relatedType: 'payroll-batch',
           batchID,
           amount,
