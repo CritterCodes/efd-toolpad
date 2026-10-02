@@ -32,6 +32,7 @@
 import crypto from 'node:crypto';
 import { db as database } from '@/lib/database';
 import RepairsModel from '@/app/api/repairs/model';
+import { REPAIR_STATUS, normalizeRepairStatus } from '@/services/repairWorkflow';
 
 const REPAIRS = 'repairs';
 
@@ -299,8 +300,29 @@ export async function convertLeadToRepair(repairID, { status = 'READY FOR WORK',
   const repair = await db.collection(REPAIRS).findOne({ repairID });
   if (!repair) throw new Error('Lead not found.');
 
+  // Only a LEAD converts. Dropping off something already on the bench would re-stamp its status and, with
+  // the guard below, could re-apply an old estimate over work a jeweler has since priced at the counter.
+  if (normalizeRepairStatus(repair.status) !== REPAIR_STATUS.LEAD) {
+    throw new Error(`${repairID} is not a lead — it is ${repair.status}.`);
+  }
+
   const set = { status, droppedOffAt: new Date(), updatedAt: new Date() };
-  const submission = repair.quote?.submission;
+
+  /*
+   * ONLY AN ACCEPTED ESTIMATE CARRIES ONTO THE REPAIR (EFD-DEFECTS Q2).
+   *
+   * This used to apply `quote.submission` whenever one existed — draft, sent, declined or expired. So a
+   * customer who was quoted $400 and SAID NO, then walked in with the piece anyway, got a repair carrying
+   * the $400 of work they had just refused. The drop-off dialog has always promised the opposite, in as
+   * many words: "No accepted estimate on this lead, so it converts as-is."
+   *
+   * A draft was never sent, so nothing was agreed. A sent-but-unanswered estimate is not agreement
+   * either: turning up with the piece is not the same as accepting a price, and the jeweler prices it at
+   * the counter with the piece in front of them — which is what the quote copy says throughout
+   * ("subject to inspection").
+   */
+  const accepted = repair.quote?.status === 'accepted';
+  const submission = accepted ? repair.quote?.submission : null;
 
   if (submission) {
     // Identity and history stay with the lead record. Everything else is the
