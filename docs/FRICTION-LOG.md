@@ -66,3 +66,10 @@ for a guardrail.
   no cards proves nothing about the card. Four conversions this session (completed repairs, the repair card grid,
   one custom order, one design) were shipped on a build plus an identical-shape argument rather than a render.
   **Proposed:** a seed script that writes one row of each kind into `efd-database-DEV`, run by the views tooling.
+- **2026-10-02: the views crawl signs in, so it can never see a signed-out page.** `scripts/views.mjs --role admin`
+  authenticates and then crawls 115 pages, which is exactly why it missed that `RootLayout` mounted the MUI theme
+  only on its signed-in branch: `/auth/change-password` was an all-white card with a blue button, and
+  `/emergency-logout` rendered 50%-white text on a pale blue Alert, and the crawl saw neither, because it never
+  visits either page unauthenticated. Found by opening the page by hand while signed out. **Proposed:** a small
+  anonymous pass — sign in, sign out, then crawl the `/auth/*` routes and `/emergency-logout` — so the pages a
+  locked-out person sees are checked in the state they see them in.
