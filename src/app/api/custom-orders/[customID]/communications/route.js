@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireRole } from '@/lib/apiAuth';
-import { requireCustomsRead } from '@/lib/customsPermissions';
+import { requireCustomsCadWrite, requireCustomsRead } from '@/lib/customsPermissions';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
 import { NotificationService } from '@/lib/notificationService';
 import { portalLink } from '@/lib/appUrls';
@@ -19,10 +18,14 @@ export const GET = async (req, { params }) => {
 
 /** POST /api/custom-orders/[customID]/communications — add a message to a thread. */
 export const POST = async (req, { params }) => {
-  const { session, errorResponse } = await requireRole(['admin', 'dev']);
+  const { customID } = await params;
+  // Staff, or THIS order's assigned CAD designer. Owner, 2026-10-02: "Cad designers can use
+  // communications." Until then this was admin/dev only, which also made the client-management bonus
+  // unpayable: awardClientMgmtBonus pays the designer only if they authored an outbound client-thread
+  // message, and an artisan could not author one.
+  const { session, errorResponse } = await requireCustomsCadWrite(customID);
   if (errorResponse) return errorResponse;
 
-  const { customID } = await params;
   const order = await CustomOrdersModel.findById(customID);
   if (!order) return NextResponse.json({ error: 'Custom order not found.' }, { status: 404 });
 
@@ -37,9 +40,9 @@ export const POST = async (req, { params }) => {
     thread: body.thread,
     direction: 'outbound',
   });
-  // X4 — admin→client message: notify the client when an admin posts to their thread.
-  // This POST only ever writes outbound (admin-authored) messages; inbound client posts
-  // come through the shop, so there's no risk of notifying on an inbound message here.
+  // X4 — notify the client when EFD posts to their thread, whoever wrote it: an admin or the order's
+  // CAD designer. This POST only ever writes OUTBOUND messages; inbound client posts come through the
+  // shop, so there is no risk of notifying on an inbound message here.
   // Fire-and-forget — never block the message write.
   if ((message.thread || 'client') === 'client' && order.clientID) {
     try {
