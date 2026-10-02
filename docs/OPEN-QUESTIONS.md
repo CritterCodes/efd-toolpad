@@ -282,4 +282,49 @@ market. Fix the model so it is *honest*, then set the price deliberately:
 Steps 1 and 2 are price-moving and change what the counter charges, so they wait for the owner's yes. Step 3 is the
 owner's call by definition.
 
+**The industry benchmark (added 2026-10-02).** Geller's Blue Book — the trade's standard repair pricing guide — prices
+laser retipping as **setup first, cheaper after**, which is the structure recommended above:
+
+| Geller, laser retip (retail) | First prong | Each additional |
+|---|---|---|
+| Gold | $38 | $20 |
+| Platinum | $54 | $30 |
+
+Geller designs these to earn $100–125/hour, "upward of $200 doing multiples", on *his* time estimates.
+
+**EFD charges a flat $24 per prong regardless of metal or count** (every small ticket in production is $24 — gold,
+silver and platinum alike), with a volume break at about 20. Against book, at the usual 50% trade discount:
+
+| Production ticket | EFD billed the store | Geller RETAIL | EFD as % of retail |
+|---|---|---|---|
+| 2 gold | $48 | $58 | 83% |
+| 4 gold (×3 tickets) | $96 | $98 | **98%** |
+| 6 gold | $144 | $138 | **104%** |
+| 12 gold | $288 | $258 | **112%** |
+| 21 gold | $315 | $438 | 72% |
+| **84 platinum** (repair-aff19ff9) | **$1,310.40** | **$2,544** | **52%** |
+
+**The owner's own reading of this, 2026-10-02:** *"The problem isn't that I'm overcharging on platinum; it's that I'm
+overcharging on gold retips?"* — yes. The 84-prong platinum job, the one that prompted the worry, is the only one
+priced correctly: 52% of book retail is the textbook trade split, and Geller-at-trade for that job works out to about
+$1,272 against the $1,310 charged, within 3%.
+
+The small **gold** jobs are the problem. At 4–12 prongs EFD's *wholesale* price meets or exceeds Geller's *retail*
+price, so the store has no margin at all — on 12 prongs it would have to charge above book just to break even.
+Geller-at-trade for gold would be roughly **$19 first prong, $10 each after**: $49 for a 4-prong job EFD bills at $96,
+$129 for a 12-prong job EFD bills at $288. Roughly double, both times.
+
+**The cause is the flat rate.** $24 is defensible for the *first* prong (setup plus the laser). Holding it for the
+second through the twelfth is what overcharges, and the volume break at 20 is what accidentally makes the big jobs
+right. This is the same defect as the per-prong laser charge, seen from the other side: the laser belongs in the
+setup, not on every prong.
+
+**Revised recommendation.** One change fixes all of it — move `Retip prongs` (and the other tool-bearing tasks) to
+**setup + marginal**: the first unit carries the setup and the tool, each additional unit carries labour and metal.
+Pick the two numbers against book at the trade discount, e.g. gold ≈ $19 then $10, platinum ≈ $27 then $15. That
+lands the 84-prong platinum job within a few percent of where it already is, halves the small gold jobs, and gives
+the stores a margin they can actually resell on.
+
+Still price-moving: it changes what the counter charges on every retip, so it waits for the owner's yes.
+
 **Status:** open.
