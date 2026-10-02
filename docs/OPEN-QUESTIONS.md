@@ -234,3 +234,52 @@ parse against it (tasks, metal, sizes, promise date); (3) fix the biggest misses
 thing from the owner: a handful of intakes where it got it wrong, and what was right.
 
 **Status:** open, waiting for those examples.
+
+---
+
+### Q14 — Retipping is priced from a labour estimate four times reality, and the laser is charged per prong (opened 2026-10-02)
+
+**Context.** The owner, 2026-10-02: *"I'm feeling really guilty about my pricing on tips … I'm charging $15 whenever you
+get 20 or more. I had somebody on the internet say that they're charging $8 … this job with 84 prongs is supposed to
+take 16 hours and it's really taking about 4."*
+
+What production actually holds (read-only, 2026-10-02):
+
+- **`Retip prongs`** is built from **0.2 labour hours per prong** plus the **Orotig laser welder at `costPerUse: 10`,
+  quantity 1 — per prong**. At the $50 shop rate that is $10 labour + $10 machine = $20, × 1.2 wholesale = **$24**,
+  which is exactly the price on every small ticket (qty 2, 4, 6, 12 all priced $24).
+- **repair-aff19ff9** (wholesale, 2026-09-28): **84 prongs at $15.60 = $1,310.40**. A volume break is already applied
+  ($24 → $15.60); the laser is not discounted, so **$840 of that invoice is machine charge**.
+- "Supposed to take 16 hours" is literally the task data: 0.2 × 84 = **16.8 h**. The work takes about **4 h**.
+
+So two things are wrong independently of what anything *should* cost:
+
+1. **The labour estimate is ~4× reality** (0.2 h vs ~0.048 h per prong). It also inflates promise dates and the Labor
+   Pipeline report, which price open work orders from the same hours.
+2. **The laser is charged once per prong.** Its $10 came from roughly $23,000 ÷ 2,300 uses, where a *use* is a job —
+   the ring goes under the laser once. This is the quantity-break defect deferred on 2026-09-28; 84 prongs bills the
+   machine 84 times.
+
+**What the market charges** (web, 2026-10-02; mostly retail, trade lists are not public): retail retipping runs
+**$25–$75 per prong**; one shop lists $27 gold / $59 platinum plus refinishing; one trade-style listing is **$50 for a
+single prong and $20 each for multiples**. **$15.60 wholesale is at or below the trade end.** The $8 quote the owner
+saw is below everything published, and what it includes (laser or solder, refinish, who carries the risk on the stone)
+is unknown.
+
+**The trap.** Re-costing honestly at today's hourly model — 4 real hours, laser once — gives roughly **$250 for the
+job, about $3 a prong**: less than half the $8 that prompted the worry, for work done faster than most shops can do
+it. Pure hourly costing punishes speed earned by skill.
+
+**Recommendation.** Do **not** cut the price on the strength of one comment; the number is defensible against the
+market. Fix the model so it is *honest*, then set the price deliberately:
+
+1. Correct `Retip prongs` to the real labour time (measure a few jobs; ~0.05 h is what this one implies).
+2. Charge the laser **once per job plus a small per-prong increment**, instead of a full `costPerUse` per prong — the
+   same fix Q-deferred on 2026-09-28 for every tool-bearing task, not just retipping.
+3. Then choose the per-prong wholesale price **as a price**, with the market in view ($20 trade, $25–75 retail). The
+   expectation is that it lands near today's $15–24, but defensible in one sentence instead of arriving by accident.
+
+Steps 1 and 2 are price-moving and change what the counter charges, so they wait for the owner's yes. Step 3 is the
+owner's call by definition.
+
+**Status:** open.
