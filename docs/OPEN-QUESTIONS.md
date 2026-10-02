@@ -512,3 +512,33 @@ are **Pricing** (it may read as "we are putting the price up" rather than "we ar
 A guard test pins both halves: every status has a store word, and no store-facing screen renders a raw one.
 
 **Status:** open — shipped with these words, waiting on your edits.
+
+---
+
+## Q18 — may an assigned artisan add a note or a reference image to a custom?
+
+**Shipped the conservative half; this is the other half.** `POST`/`DELETE` on a custom order's **notes** and
+**images** are staff-only, while both tabs rendered their Add and Delete controls to everyone — so for the
+assigned artisan, the one visible thing to do on either tab produced a 403 and a red toast. Those controls
+are now hidden for non-staff. Reading both tabs is unchanged: the moodboard and the notes are exactly what
+a designer needs to see.
+
+**What I did not do** is extrapolate your communications ruling to cover them. *"Cad designers can use
+communications"* is about talking to the client and to us; a note is partly an internal staff record, and an
+upload is a different thing again.
+
+| | Option | What it means |
+|---|---|---|
+| **A** | **Leave it.** Artisans read notes and images, write neither. | Nothing more to build. A designer who photographs a wax, or wants to record "client approved the shoulder taper on the phone", has to send it through comms instead — which they now can. |
+| **B** | **Images yes, notes no.** The assigned CAD designer may upload to the moodboard. | A reference photo is about the piece and belongs on the order. Notes stay the staff record. |
+| **C** | **Both**, for the assigned CAD designer, same gate as comms. | Simplest rule to remember: the designer on a custom can add to it. Internal notes become a shared space rather than a staff one. |
+
+**Recommendation: B.** The thing a designer actually produces mid-job is a picture — a wax, a render, a
+stone in hand — and that belongs on the order where the next person sees it. Notes read differently: the
+Visibility selector on that tab offers `internal` vs `client_visible`, which is a staff distinction, and
+putting an artisan inside it means deciding what "internal" means when the artisan is one of the readers.
+
+**If you pick C, say so and it is one gate change** — `requireCustomsCadWrite`, already written, already
+used by comms and the design model.
+
+**Status:** open — controls hidden, nothing opened up.

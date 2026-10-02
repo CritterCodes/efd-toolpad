@@ -1,6 +1,7 @@
 # Customs — the assigned artisan's flow, audited
 
-**2026-10-02. Read from code at `main`, not run.** `efd-database-DEV` holds six `views.check` users and no
+**2026-10-02. Read from code at `main`, not run.** *Holes 1–3 are now fixed; hole 4 stands. Question 2 was
+answered by the owner the same day and is recorded below with what shipped against it.* `efd-database-DEV` holds six `views.check` users and no
 custom orders, so nothing here was reproduced against live data; every finding below names the route and the
 caller it was read from, so each is checkable in one step. Where something needs a live run to confirm, it
 says so.
@@ -36,7 +37,7 @@ see **Question 1** below.
 
 ## Four holes, each verified
 
-### 1. The assigned artisan cannot read the stones on their own custom
+### 1. ~~The assigned artisan cannot read the stones on their own custom~~ — FIXED
 
 | | |
 |---|---|
@@ -52,9 +53,9 @@ Worse for the cutter: `PATCH .../stones/[pieceID]` is correctly authorised — a
 the stone** — so a cutter may set their own price, but cannot `GET` the list to find the `pieceID` they would
 be setting it on. They can only arrive via their `gem_cutting` bench work order.
 
-**Fix:** `requireCustomsRead(customID)` on the GET, which is the helper already written for exactly this.
+**Fixed:** the GET now uses `requireCustomsRead(customID)`, the helper already written for exactly this.
 
-### 2. The client-management bonus cannot be earned by anyone
+### 2. ~~The client-management bonus cannot be earned by anyone~~ — FIXED
 
 | | |
 |---|---|
@@ -75,10 +76,10 @@ It is also the one place the workflow doc is explicit about intent: *"the assign
 manage the client via comms. If they do, they earn a bonus; if they push the communicating onto admin, no
 bonus."* Today the system pushes the communicating onto admin and then declines to pay the bonus for it.
 
-**Fix:** let an assigned artisan POST to the threads. Whether they may post to the **client** thread or only
-the **internal** one is **Question 2**.
+**Fixed:** `POST .../communications` now uses `requireCustomsCadWrite` — staff, or this order's assigned CAD
+designer. See the ruling under Question 2.
 
-### 3. The GLB stage sends the artisan to a page that will refuse their save
+### 3. ~~The GLB stage sends the artisan to a page that will refuse their save~~ — FIXED
 
 | | |
 |---|---|
@@ -91,8 +92,8 @@ inside), is then shown a gold primary button by their own bench card, follows it
 **the save fails**. The step between "GLB uploaded" and "submit to QC" is closed to the person the button is
 for.
 
-**Fix:** allow the assigned artisan on that work order to write the design model, or move the write behind
-the work-order action that already authorises them.
+**Fixed:** `PUT .../design-model` now uses `requireCustomsCadWrite` — staff, or this order's assigned CAD
+designer, since the GLB and its viewer config are that designer's output.
 
 ### 4. The artisan cannot add a note or a reference image
 
@@ -158,16 +159,17 @@ Design and Piece in the first place.
 **What I need from you:** is the file a *scan of a finished stone*, or a *target model the cutter works to*?
 That changes who uploads it and when — and if it is both, they are two fields, not one.
 
-### Question 2 — may an assigned artisan write to the **client** thread?
+### Question 2 — ANSWERED 2026-10-02: **"Cad designers can use communications."**
 
-The bonus says yes: it pays the designer for managing the client. The route says no. One of them is wrong.
+`POST .../communications` now admits staff **or this order's assigned CAD designer**, which makes the
+client-management bonus earnable for the first time. Deliberately not opened to every assigned artisan: a
+bench jeweller or a stone cutter on the same order reads the threads and writes neither them nor the design
+model.
 
-**Recommendation: yes to the client thread, for the assigned CAD designer only, and leave the internal thread
-open to any assigned artisan.** That is what the bonus is for, and the alternative — admin relays every
-message and the designer never earns it — is the behaviour the bonus was written to discourage.
-
-**If you would rather clients only ever hear from EFD**, then the bonus should be deleted rather than left
-unreachable, and the designer's client management recorded some other way.
+The two halves of that bonus live in different files and could drift apart again in silence — re-locking the
+route would break no test *of the bonus*, because the bonus's own logic would still be correct. So
+`services/customs/clientMgmtBonusEarnable.guard.test.js` holds them together: **the condition the bonus pays
+on must be reachable by the person it pays.**
 
 ### Question 3 — should an artisan see the money?
 

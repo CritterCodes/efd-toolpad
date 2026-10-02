@@ -10,7 +10,13 @@ import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 
 const dialogPaperProps = { sx: { backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` } };
 
-export default function NotesTab({ customID, notes = [], onChanged, notify }) {
+/**
+ * `canEdit` defaults to true so every existing caller is unchanged; the customs detail page passes
+ * `false` for an artisan. `POST`/`DELETE .../notes` are staff-only, and this tab used to render an
+ * "Add Note" button to everyone — a control whose only possible outcome, for the person most likely to
+ * press it, was a 403 and a red toast. A read-only tab is an answer; a button that fails is not.
+ */
+export default function NotesTab({ customID, notes = [], onChanged, notify, canEdit = true }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
   const [type, setType] = useState('internal');
@@ -39,7 +45,9 @@ export default function NotesTab({ customID, notes = [], onChanged, notify }) {
     <Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
         <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader }}>Notes ({notes.length})</Typography>
-        <Button size="small" variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)} sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>Add Note</Button>
+        {canEdit && (
+          <Button size="small" variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)} sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>Add Note</Button>
+        )}
       </Stack>
 
       {notes.length === 0 ? (
@@ -58,7 +66,9 @@ export default function NotesTab({ customID, notes = [], onChanged, notify }) {
                 </Stack>
                 <Stack direction="row" spacing={1} alignItems="center">
                   <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>{n.createdAt ? new Date(n.createdAt).toLocaleString() : ''}</Typography>
-                  <IconButton size="small" disabled={busy} onClick={() => del(n.id)} sx={{ color: REPAIRS_UI.textMuted }}><DeleteIcon fontSize="small" /></IconButton>
+                  {canEdit && (
+                    <IconButton size="small" disabled={busy} onClick={() => del(n.id)} sx={{ color: REPAIRS_UI.textMuted }}><DeleteIcon fontSize="small" /></IconButton>
+                  )}
                 </Stack>
               </Stack>
               <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary, mt: 1, whiteSpace: 'pre-wrap' }}>{n.text}</Typography>

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/apiAuth';
+import { requireCustomsRead } from '@/lib/customsPermissions';
 import { addCustomCutStone, stoneComponentsFor } from '@/services/customs/customGemComponent';
 
 /**
@@ -12,9 +13,12 @@ import { addCustomCutStone, stoneComponentsFor } from '@/services/customs/custom
  *         tolerance, clarity, treatment, naturalSynthetic, cutLaborCost, yield, notes, cutterUserID }
  */
 export const GET = async (_req, { params }) => {
-  const { errorResponse } = await requireRole(['admin', 'dev']);
-  if (errorResponse) return errorResponse;
   const { customID } = await params;
+  // Staff, or an artisan assigned to THIS order. It was admin/dev only, while the Stones tab rendered for
+  // everyone — so the designer building a setting could not read the spec of the stone they were building
+  // it around, and the cutter could price their own stone but could not list stones to find its pieceID.
+  const { errorResponse } = await requireCustomsRead(customID);
+  if (errorResponse) return errorResponse;
   try {
     return NextResponse.json({ stones: await stoneComponentsFor(customID) });
   } catch (error) {

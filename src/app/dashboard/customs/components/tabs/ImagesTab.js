@@ -4,7 +4,12 @@ import UploadIcon from '@mui/icons-material/UploadFile';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 
-export default function ImagesTab({ customID, images = [], onChanged, notify }) {
+/**
+ * `canEdit` defaults to true so every existing caller is unchanged; the customs detail page passes
+ * `false` for an artisan. The upload and delete routes are staff-only — see the note in NotesTab.
+ * An assigned artisan still SEES the moodboard, which is the half of this tab they need.
+ */
+export default function ImagesTab({ customID, images = [], onChanged, notify, canEdit = true }) {
   const fileRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState(null);
@@ -33,24 +38,30 @@ export default function ImagesTab({ customID, images = [], onChanged, notify }) 
     <Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
         <Typography sx={{ fontWeight: 600, color: REPAIRS_UI.textHeader }}>Moodboard ({images.length})</Typography>
-        <Button size="small" variant="contained" startIcon={<UploadIcon />} disabled={busy} onClick={() => fileRef.current?.click()} sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>
-          {busy ? 'Uploading…' : 'Upload'}
-        </Button>
-        <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => upload(e.target.files?.[0])} />
+        {canEdit && (
+          <>
+            <Button size="small" variant="contained" startIcon={<UploadIcon />} disabled={busy} onClick={() => fileRef.current?.click()} sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>
+              {busy ? 'Uploading…' : 'Upload'}
+            </Button>
+            <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => upload(e.target.files?.[0])} />
+          </>
+        )}
       </Stack>
 
       {images.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: 'center', backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px dashed ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' }}>
-          <Typography sx={{ color: REPAIRS_UI.textSecondary }}>No reference images yet. Upload moodboard / inspiration images.</Typography>
+          <Typography sx={{ color: REPAIRS_UI.textSecondary }}>{canEdit ? 'No reference images yet. Upload moodboard / inspiration images.' : 'No reference images on this order yet.'}</Typography>
         </Paper>
       ) : (
         <ImageList cols={4} gap={8} sx={{ m: 0 }}>
           {images.map((img) => (
             <ImageListItem key={img.id} sx={{ borderRadius: 1, overflow: 'hidden', border: `1px solid ${REPAIRS_UI.border}`, position: 'relative', '&:hover .ov': { opacity: 1 } }}>
               <Box component="img" src={img.url} alt={img.caption || ''} loading="lazy" onClick={() => setPreview(img.url)} sx={{ cursor: 'zoom-in', aspectRatio: '1 / 1', objectFit: 'cover' }} />
-              <Box className="ov" sx={{ position: 'absolute', top: 4, right: 4, opacity: 0, transition: 'opacity 120ms' }}>
-                <IconButton size="small" disabled={busy} onClick={() => del(img.id)} sx={{ bgcolor: 'rgba(0,0,0,0.6)', color: '#fff', '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' } }}><DeleteIcon fontSize="small" /></IconButton>
-              </Box>
+              {canEdit && (
+                <Box className="ov" sx={{ position: 'absolute', top: 4, right: 4, opacity: 0, transition: 'opacity 120ms' }}>
+                  <IconButton size="small" disabled={busy} onClick={() => del(img.id)} sx={{ bgcolor: 'rgba(0,0,0,0.6)', color: '#fff', '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' } }}><DeleteIcon fontSize="small" /></IconButton>
+                </Box>
+              )}
             </ImageListItem>
           ))}
         </ImageList>
