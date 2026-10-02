@@ -205,3 +205,50 @@ load; CI (Linux, the reference) is clean, so they're noted, not chased.
 ## Needs the owner
 
 Q7–Q12, as in the night report.
+
+# Late evening, 2026-10-01 (owner answers Q7–Q13)
+
+Every PR below went through CI and was merged one at a time. Each production deploy reached READY and passed ship.yml.
+
+| PR | What |
+|---|---|
+| [#223](https://github.com/CritterCodes/efd-toolpad/pull/223) | **Admin dashboard 747 → 376** lines. |
+| [#225](https://github.com/CritterCodes/efd-toolpad/pull/225) | **Finance expenses 716 → 292** lines. |
+| [#226](https://github.com/CritterCodes/efd-toolpad/pull/226) | Owner answers: **Q7** and **Q10** routes retired. **Q11:** the AI helpers now follow the page they serve (`src/lib/aiAccess.js`). Smart intake is open to anyone who can create a repair, stores included (*"Definitely a store. That's our flagship intake"*); the task builder is admin only. |
+| [#227](https://github.com/CritterCodes/efd-toolpad/pull/227) | Leaving a new repair intake goes to **My Bench**, or a store's My Repairs, not Ready for Work (*"not a page we even use anymore. My bench replaced it"*). |
+| [#228](https://github.com/CritterCodes/efd-toolpad/pull/228) | Views check: a page counts as settled by its content area's text, not the whole page's (a cause of local flakes). |
+| [#229](https://github.com/CritterCodes/efd-toolpad/pull/229) | **Q9:** merged duplicate accounts never show up in user lists. The Joan Mawn pair was merged in production with the owner's yes (backup `userMergeBackup_20261001`). |
+| [#230](https://github.com/CritterCodes/efd-toolpad/pull/230) | **Smart intake log (Q13).** Every sentence and photo the AI reads is logged: who, store or counter, what went in, what the AI said, and, once the ticket is saved, what it was saved as. **Admin → Smart Intake Log** ranks the fields the AI gets wrong and shows each entry as typed vs AI vs saved. Clicked through locally with sample rows. |
+| [#231](https://github.com/CritterCodes/efd-toolpad/pull/231) | **Q8:** a checked-in Request Quote job waits in **NEEDS QUOTE**, off the bench, and is listed on Pending Wholesale. Pricing it moves it to READY FOR WORK and tells the store. Checked end to end on a local build. |
+| [#232](https://github.com/CritterCodes/efd-toolpad/pull/232) | **Fix:** wholesale lead scoring's no-Gemini fallback crashed (a bad import from my 2026-10-01 split). CI now fails a build that has an "Attempted import error". |
+
+In review: [#233](https://github.com/CritterCodes/efd-toolpad/pull/233), the **intake hook 1,492 → ~420** (six pieces, each
+moved verbatim, plus a render test that pins the API and catches the dead-zone trap; clicked through end to end locally), and
+[#234](https://github.com/CritterCodes/efd-toolpad/pull/234), the rule-based **ring-size reading**. "size 7 down to 6" used to come
+out backwards, and "size down 14k …" read the karat as 14 sizes.
+
+## Found on the way
+
+- **Wholesale lead scoring's fallback was broken** since the 2026-10-01 split of `wholesaleLeadService.js`.
+  `leadFeatures.js` imported `inferLeadBusinessHints` from a module that doesn't export it. The name is `undefined` at
+  runtime, so whenever Gemini fails, the deterministic scoring fallback throws. `next build` only *warns* about this.
+  Fixed in #232.
+- **A local accident, repaired:** removing a scratch worktree followed its `node_modules` junction and deleted
+  packages in the shared `web/node_modules/.pnpm`. It was restored from the lockfile with no tracked file changed. The
+  rule is in the FRICTION-LOG: unlink the junction with `rmdir` first.
+
+## Numbers
+
+| | Start of the day | Now |
+|---|---|---|
+| `max-lines` (files over 400) | 42 | **24** (23 once #233 lands) |
+| Lint baseline | 126 | **25** |
+| Views baseline | 8 | **0** |
+
+## Needs the owner
+
+- **John Annis** (`john.e.annis@gmail.com`): an admin account and a shop-customer account. Should they be merged?
+  Merging could change which one signs in, so I asked rather than merged.
+- **Q12** (a blank ring size reads as 0 and suggests sizing stock): still open.
+- **Smart intake:** once real tickets have gone through, the log will show which fields to fix first. The prompt work
+  starts from that, not from guesses.
