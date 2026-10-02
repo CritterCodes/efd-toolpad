@@ -20,9 +20,10 @@ import path from 'node:path';
 const SRC = path.resolve(__dirname, '../..');
 const KIT = path.join(__dirname, 'index.js');
 
-// Counts after converting My Bench and Payment & Pickup. Lower them as screens convert; never raise.
+// Lower these as screens convert; never raise. 11 at the start, 9 after My Bench and Payment & Pickup,
+// 6 after Wholesale Management, Customs and Drops.
 const MAX_SCROLLER_PATCHES = 0;
-const MAX_SCROLL_BUTTONS = 9;
+const MAX_SCROLL_BUTTONS = 6;
 
 function sourceFiles(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
