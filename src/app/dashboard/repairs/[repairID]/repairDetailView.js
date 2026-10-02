@@ -24,6 +24,14 @@ import {
     Category as CategoryIcon
 } from '@mui/icons-material';
 import { isWholesalerViewer } from '@/lib/repairAccess';
+import { tint, facelift } from '@/components/facelift';
+
+// Two rows used to carry light-theme Material fills — #e3f2fd on a Stuller line, #ffebee on the rush fee —
+// which on the near-black ground rendered white text on near-white at about 1.1:1 and 1.05:1. The Stuller
+// row is the one naming the metal to pull, so the line a jeweler needs was the line he could not read.
+// `tint()` is DESIGN.md's triplet for a tinted region: ~13% fill, 42% stroke, full-strength text.
+const INFO = tint(facelift.info);
+const ERROR = tint(facelift.error);
 
 /**
  * The read-only repair detail screen, moved verbatim out of page.js on 2026-10-02 for max-lines. The page keeps the
@@ -235,7 +243,8 @@ export function RepairWorkItemsCard({ repair, allWorkItems, totalCost }) {
                         <ListItem
                             key={`${item.type}-${index}`}
                             sx={{
-                                bgcolor: item.isStullerItem ? '#e3f2fd' : 'transparent',
+                                bgcolor: item.isStullerItem ? INFO.bg : 'transparent',
+                                border: `1px solid ${item.isStullerItem ? INFO.border : 'transparent'}`,
                                 mb: 1,
                                 borderRadius: 1
                             }}
@@ -273,7 +282,7 @@ export function RepairWorkItemsCard({ repair, allWorkItems, totalCost }) {
                     ))}
 
                     {repair.rushJobFee && parseFloat(repair.rushJobFee) > 0 && (
-                        <ListItem sx={{ bgcolor: '#ffebee', mb: 1, borderRadius: 1 }}>
+                        <ListItem sx={{ bgcolor: ERROR.bg, border: `1px solid ${ERROR.border}`, mb: 1, borderRadius: 1 }}>
                             <ListItemText
                                 primary={
                                     <Typography variant="body2" sx={{ fontWeight: 500, color: 'error.main' }}>
