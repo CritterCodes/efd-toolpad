@@ -1,5 +1,6 @@
 import React from 'react';
-import { Box, IconButton, Menu, MenuItem, Tabs, Tab, Button } from '@mui/material';
+import { Box, IconButton, Menu, MenuItem, Button } from '@mui/material';
+import { TabRail } from '@/components/facelift';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import SaveIcon from '@mui/icons-material/Save';
 
@@ -15,20 +16,21 @@ const ArtisanHeader = ({ onSave, hasChanges, artisan, activeTab, setActiveTab })
         setAnchorEl(null);
     };
 
-    const handleTabChange = (event, newValue) => {
-        setActiveTab(newValue);
-    };
-
     return (
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             
             {/* Tabs Section */}
-            <Tabs value={activeTab} onChange={handleTabChange}>
-                <Tab label="Artisan Details" />
-                <Tab label="Vendor Profile" />
-                <Tab label="Staff / Repair Ops" />
-                <Tab label="My Bench" />
-            </Tabs>
+            <TabRail
+                ariaLabel="Artisan sections"
+                value={activeTab}
+                onChange={setActiveTab}
+                items={[
+                    { key: 0, label: 'Artisan Details' },
+                    { key: 1, label: 'Vendor Profile' },
+                    { key: 2, label: 'Staff / Repair Ops' },
+                    { key: 3, label: 'My Bench' },
+                ]}
+            />
 
             {/* Actions Section */}
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>

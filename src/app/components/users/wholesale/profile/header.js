@@ -1,7 +1,8 @@
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Box, IconButton, Menu, MenuItem, Tabs, Tab, Typography, Button, Stack, Avatar } from '@mui/material';
+import { Box, IconButton, Menu, MenuItem, Typography, Button, Stack, Avatar } from '@mui/material';
+import { TabRail } from '@/components/facelift';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import StorefrontIcon from '@mui/icons-material/Storefront';
@@ -23,8 +24,6 @@ const WholesalerHeader = ({ onSave, hasChanges, wholesaler, activeTab, setActive
         .join(' ')
         .trim();
     const accountId = wholesaler?.id || wholesaler?.userID;
-
-    const handleTabChange = (event, newValue) => setActiveTab(newValue);
 
     return (
         <Box>
@@ -49,10 +48,15 @@ const WholesalerHeader = ({ onSave, hasChanges, wholesaler, activeTab, setActive
 
             {/* Tabs + actions row (mirrors client detail header) */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Tabs value={activeTab} onChange={handleTabChange}>
-                    <Tab label="Details" />
-                    <Tab label="Repairs" />
-                </Tabs>
+                <TabRail
+                    ariaLabel="Account sections"
+                    value={activeTab}
+                    onChange={setActiveTab}
+                    items={[
+                        { key: 0, label: 'Details' },
+                        { key: 1, label: 'Repairs' },
+                    ]}
+                />
 
                 <IconButton aria-label="more" onClick={handleClick}>
                     <MoreVertIcon />

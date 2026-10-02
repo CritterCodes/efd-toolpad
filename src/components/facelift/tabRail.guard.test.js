@@ -16,6 +16,11 @@ import path from 'node:path';
  * `TabRail` fades whichever edge has more to show, scrolls the active pill into view, and sits at 44px on
  * a coarse pointer. Both counts reached 0 on 2026-10-02, so the ratchets are now bans: a new occurrence of
  * either means a row of views was written by hand again, and the right answer is `TabRail`.
+ *
+ * A third count tracks what is left. `scrollButtons` was the *broken* half — a prop that silently does
+ * nothing on touch. The rest of the hand-written rows are merely hand-written, and some are worse than they
+ * look: an artisan's profile header renders four `<Tab>`s with no scroll variant at all, so on a phone MUI
+ * squeezes them and the fourth is unreachable. That count is a ratchet, not yet a ban.
  */
 const SRC = path.resolve(__dirname, '../..');
 const KIT = path.join(__dirname, 'index.js');
@@ -24,6 +29,8 @@ const KIT = path.join(__dirname, 'index.js');
 // Drops, 0 after the guide, admin settings, materials, lead fit views, one custom order and one design.
 const MAX_SCROLLER_PATCHES = 0;
 const MAX_SCROLL_BUTTONS = 0;
+// Rows still rendered with MUI's own <Tabs>. 19 when the ban landed; 16 after the three profile headers.
+const MAX_MUI_TAB_ROWS = 16;
 
 function sourceFiles(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -48,6 +55,7 @@ function offenders(needle) {
 const scrollerPatches = () => offenders(/MuiTabs-scroller/);
 const scrollButtons = () => offenders(/\bscrollButtons\b/);
 const railUsers = () => offenders(/\bTabRail\b/);
+const muiTabRows = () => offenders(/<Tabs[\s>]/);
 
 describe("a row of a page's views", () => {
   it('has one home in the kit', () => {
@@ -74,6 +82,21 @@ describe("a row of a page's views", () => {
       found.length,
       `scrollButtons in:\n  ${found.join('\n  ')}\nUse TabRail — it fades the overflowing edge on every pointer.`,
     ).toBe(MAX_SCROLL_BUTTONS);
+  });
+
+  it('the count of hand-written rows only goes down', () => {
+    const found = muiTabRows();
+    expect(
+      found.length,
+      `MUI <Tabs> in:\n  ${found.join('\n  ')}\nConvert one to TabRail and lower MAX_MUI_TAB_ROWS.`,
+    ).toBeLessThanOrEqual(MAX_MUI_TAB_ROWS);
+  });
+
+  it('keeps that ratchet honest', () => {
+    expect(
+      muiTabRows().length,
+      'fewer than the ratchet allows — lower MAX_MUI_TAB_ROWS to match',
+    ).toBe(MAX_MUI_TAB_ROWS);
   });
 
   it('is adopted, not merely available', () => {

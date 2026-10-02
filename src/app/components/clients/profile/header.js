@@ -1,5 +1,6 @@
 import React from 'react';
-import { Box, IconButton, Menu, MenuItem, Tabs, Tab } from '@mui/material';
+import { Box, IconButton, Menu, MenuItem } from '@mui/material';
+import { TabRail } from '@/components/facelift';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import UsersService from '@/services/users'; 
 
@@ -25,18 +26,19 @@ const UserHeader = ({ onSave, hasChanges, user, activeTab, setActiveTab }) => {
         handleClose();
     };
 
-    const handleTabChange = (event, newValue) => {
-        setActiveTab(newValue);
-    };
-
     return (
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             
             {/* Tabs Section - Integrated into the header */}
-            <Tabs value={activeTab} onChange={handleTabChange}>
-                <Tab label="User Details" />
-                <Tab label="Repairs" />
-            </Tabs>
+            <TabRail
+                ariaLabel="Client sections"
+                value={activeTab}
+                onChange={setActiveTab}
+                items={[
+                    { key: 0, label: 'User Details' },
+                    { key: 1, label: 'Repairs' },
+                ]}
+            />
 
             {/* Three Dots for Actions Section */}
             <IconButton aria-label="more" onClick={handleClick}>
