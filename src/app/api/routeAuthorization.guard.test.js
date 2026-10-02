@@ -49,6 +49,11 @@ const AUTHZ = new RegExp([
   'requireAdmin', 'checkAPIPermissions', String.raw`isStaff\(`, String.raw`isAdmin\w*\(`, 'STAFF_ROLES',
   String.raw`\brole\s*(?:===|!==)`, String.raw`\.includes\(\s*[\w.?]*\.role\s*\)`, String.raw`\bcan[A-Z]\w*\(`,
   'hasStaffCapability', 'hasNamedCapability', 'isOnsiteRepairOps', String.raw`\w+Refusal\(`,
+  // Staff, or THIS custom order's assigned CAD designer — `lib/customsPermissions.js`. It is a real
+  // decision, so the guard has to know the name; this list is what stops a new helper reading as "no
+  // authorization at all". That is the guard working: it failed the two routes that adopted this helper
+  // before it was listed, which is exactly the moment to look rather than to exempt.
+  String.raw`requireCustomsCadWrite\(`,
   String.raw`\w*(?:Id|ID)\s*(?:===|!==)\s*session\??\.user`, 'benchRules', 'claimRefusal', 'CRON_SECRET',
   String.raw`webhooks\.constructEvent`, String.raw`verifyWebhookSignature\(`,
 ].join('|'));

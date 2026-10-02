@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { isStaff } from '@/lib/designPermissions';
 import {
   Box, Typography, Button, Chip, Stack, Paper, CircularProgress,
   Table, TableHead, TableRow, TableCell, TableBody, LinearProgress,
@@ -50,6 +52,10 @@ function PanelHeader({ icon: Icon, title, action }) {
 
 export default function CustomDetailPage() {
   const { customID } = useParams();
+  // Staff write; an assigned artisan reads. The customs APIs already enforce this — the tabs rendered
+  // their add/delete controls to everyone anyway, so an artisan's only possible outcome was a 403.
+  const { data: session } = useSession();
+  const canEdit = isStaff(session);
   const router = useRouter();
   const [order, setOrder] = useState(null);
   const [margin, setMargin] = useState(null);
@@ -358,9 +364,9 @@ export default function CustomDetailPage() {
 
       {tab === 4 && <StoneTab customID={customID} order={order} notify={notify} onChanged={load} />}
       {tab === 5 && <AssignmentTab customID={customID} assignments={assignments} onChanged={load} notify={notify} />}
-      {tab === 6 && <NotesTab customID={customID} notes={notes} onChanged={load} notify={notify} />}
+      {tab === 6 && <NotesTab customID={customID} notes={notes} onChanged={load} notify={notify} canEdit={canEdit} />}
       {tab === 7 && <CommunicationsTab customID={customID} communications={comms} onChanged={load} notify={notify} />}
-      {tab === 8 && <ImagesTab customID={customID} images={images} onChanged={load} notify={notify} />}
+      {tab === 8 && <ImagesTab customID={customID} images={images} onChanged={load} notify={notify} canEdit={canEdit} />}
       {tab === 9 && <ShareTab customID={customID} order={order} onChanged={load} notify={notify} />}
 
       {/* Invoice dialog */}
