@@ -22,7 +22,7 @@
  */
 
 import { db as database } from '@/lib/database';
-import { REPAIR_STATUS } from '@/services/repairWorkflow';
+import { REPAIR_STATUS, normalizeRepairStatus } from '@/services/repairWorkflow';
 import { convertLeadToRepair } from '@/services/repairs/leadQuote';
 import RepairsModel from '@/app/api/repairs/model';
 import {
@@ -229,11 +229,18 @@ export async function markArrived(appointmentID, { assignedTo = null } = {}) {
   // Same conversion the leads list uses, so an accepted estimate's tasks and
   // totals land on the repair here too rather than only on the walk-in path.
   // While-you-wait is same-day by definition, so today is the promise date.
+  //
+  // Only while it is still a lead. The appointment deliberately stays `active` after arrival (the bench
+  // is occupied), so pressing Arrived twice reaches here twice — and `convertLeadToRepair` now refuses
+  // anything that is not a LEAD. Skipping rather than throwing keeps the second press harmless: the
+  // arrival stamps below still run, and the estimate is not re-applied over work already priced.
   const config = await loadAppointmentConfig(db);
-  await convertLeadToRepair(appt.repairID, {
-    status: REPAIR_STATUS.READY_FOR_WORK,
-    promiseDate: isoDateInZone(new Date(), config.timeZone),
-  });
+  if (normalizeRepairStatus(repair.status) === REPAIR_STATUS.LEAD) {
+    await convertLeadToRepair(appt.repairID, {
+      status: REPAIR_STATUS.READY_FOR_WORK,
+      promiseDate: isoDateInZone(new Date(), config.timeZone),
+    });
+  }
 
   // Through the model, so the work-order mirror picks up assignedTo — writing
   // this raw would leave the bench showing the job as unclaimed after someone
