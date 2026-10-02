@@ -10,9 +10,6 @@ import {
   Button,
   Grid,
   Alert,
-  Tabs,
-  Tab,
-  Badge,
   CircularProgress,
   Checkbox,
   Slide,
@@ -20,6 +17,7 @@ import {
   IconButton,
   Tooltip,
 } from '@mui/material';
+import { TabRail } from '@/components/facelift';
 import {
   Add as AddIcon,
   Person as PersonIcon,
@@ -190,7 +188,8 @@ export default function MyRepairsPage() {
     }
   };
 
-  const handleTabChange = (event, newValue) => {
+  // TabRail passes the key, not MUI's (event, value) — the rest of this is why it is still a handler.
+  const handleTabChange = (newValue) => {
     setActiveTab(newValue);
     setSelected(new Set());
     const statusFilters = [null, 'current', 'completed'];
@@ -298,11 +297,19 @@ export default function MyRepairsPage() {
                 '& .MuiTab-root.Mui-selected': { color: REPAIRS_UI.textPrimary },
             }}
         >
-            <Tabs value={activeTab} onChange={handleTabChange}>
-                <Tab label={<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>All<Badge badgeContent={repairs.length} sx={{ '& .MuiBadge-badge': { backgroundColor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textSecondary, border: `1px solid ${REPAIRS_UI.border}` } }} showZero><Box sx={{ width: 8 }} /></Badge></Box>} />
-                <Tab label={<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>Current<Badge badgeContent={currentCount} sx={{ '& .MuiBadge-badge': { backgroundColor: REPAIRS_UI.bgCard, color: REPAIRS_UI.accent, border: `1px solid ${REPAIRS_UI.border}` } }} showZero><Box sx={{ width: 8 }} /></Badge></Box>} />
-                <Tab label={<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>Completed<Badge badgeContent={completedCount} sx={{ '& .MuiBadge-badge': { backgroundColor: REPAIRS_UI.bgCard, color: '#10B981', border: `1px solid ${REPAIRS_UI.border}` } }} showZero><Box sx={{ width: 8 }} /></Badge></Box>} />
-            </Tabs>
+            {/* Three MUI Badges inside three Tab labels, each with its own hand-written colour, became
+                three counts in the rail's own count slot — set in tabular figures so the row does not
+                jitter as the numbers change. */}
+            <TabRail
+                ariaLabel="Repair views"
+                value={activeTab}
+                onChange={handleTabChange}
+                items={[
+                    { key: 0, label: 'All', count: repairs.length },
+                    { key: 1, label: 'Current', count: currentCount },
+                    { key: 2, label: 'Completed', count: completedCount },
+                ]}
+            />
         </Box>
 
         {filtered.length === 0 ? (

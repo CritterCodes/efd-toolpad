@@ -3,9 +3,10 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import {
-  Box, Typography, Card, CardContent, Chip, Button, Stack, Tabs, Tab,
+  Box, Typography, Card, CardContent, Chip, Button, Stack,
   CircularProgress, Snackbar, Alert, Link as MuiLink,
 } from '@mui/material';
+import { TabRail } from '@/components/facelift';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import { STAFF_ROLES } from '@/lib/designPermissions';
 
@@ -108,9 +109,14 @@ export default function ArtisanInvoicesPage() {
         the artisan out of new runs and work orders until it is resolved.
       </Typography>
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
-        {TABS.map((t) => <Tab key={t.key} label={t.label} />)}
-      </Tabs>
+      <Box sx={{ mb: 2 }}>
+        <TabRail
+          ariaLabel="Invoice states"
+          value={tab}
+          onChange={setTab}
+          items={TABS.map((t, i) => ({ key: i, label: t.label }))}
+        />
+      </Box>
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}><CircularProgress /></Box>
