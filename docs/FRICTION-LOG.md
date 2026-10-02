@@ -92,3 +92,14 @@ for a guardrail.
   before believing it, and never `--update` a baseline from it. **Proposed:** have `views.mjs` health-check
   the server between pages and abort the run (rather than record failures) when it stops answering, so a
   dead server reads as "the run failed" instead of "these 20 pages are broken".
+- **2026-10-02: "no UI surface changed, so no views run" is not a judgement I get to make.** F14 wired the
+  user-approval notification stub to the live `NotificationService`. It was lint-clean, touched one service
+  file and no component, so I skipped the build and the crawl and said so in the PR. CI then failed with
+  **212 problems — every page, every role, page-error**. Cause: the navigation modules import
+  `unifiedUserService` for `USER_ROLES`, `unifiedUserService` imports the notification stub, and a
+  module-scope `import { NotificationService } from '@/lib/notificationService'` therefore pulled `mongodb`,
+  `./email.js` and `./webPush.js` into the **client** bundle. **A service is a UI surface the moment
+  anything the shell renders can reach it**, and in this app the shell renders navigation, which reaches
+  most of `src/lib`. Fix: lazy-import inside the methods, the same pattern `customsPermissions.js` and
+  `customStatus.js` already use for the same reason. **Rule: run the build and the crawl on every PR that
+  touches `src/lib` or `src/services`, not only on the ones that touch a component.**
