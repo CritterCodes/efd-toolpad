@@ -45,7 +45,16 @@ jobs:
       # A production build. Placeholder values only: the build must never reach a real database or service.
       # NEXT_PUBLIC_URL is baked in at build time and the sign-in calls back to it, so it points at the
       # views check's server below.
-      - run: npm run build
+      # Next only WARNS on "Attempted import error" (a module imports a name its source doesn't export), and the
+      # name is then undefined at runtime. A file split left lead scoring's fallback broken that way (2026-10-01),
+      # so the build fails on it here.
+      - run: |
+          set -o pipefail
+          npm run build 2>&1 | tee build.log
+          if grep -n "Attempted import error" build.log; then
+            echo "::error::A module imports a name its source doesn't export; it is undefined at runtime. Fix the import."
+            exit 1
+          fi
         env:
           NEXT_TELEMETRY_DISABLED: '1'
           MONGODB_URI: mongodb://127.0.0.1:1/ci-never-connects
