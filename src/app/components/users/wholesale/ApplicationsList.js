@@ -1,4 +1,5 @@
 import React from 'react';
+import { FaceliftRoot, Field, FieldList } from '@/components/facelift';
 import {
   Grid,
   Card,
@@ -85,18 +86,21 @@ export default function ApplicationsList({ applications, onOpenDetail, onOpenAct
                 </Alert>
               )}
 
-              <Typography variant="body2" gutterBottom>
-                <strong>Contact:</strong> {application.contactFirstName} {application.contactLastName}
-              </Typography>
-              <Typography variant="body2" gutterBottom>
-                <strong>Phone:</strong> {application.contactPhone || 'N/A'}
-              </Typography>
-              <Typography variant="body2" gutterBottom>
-                <strong>Location:</strong> {application.businessCity}, {application.businessState}
-              </Typography>
-              <Typography variant="body2" gutterBottom>
-                <strong>Submitted:</strong> {formatDate(application.submittedAt)}
-              </Typography>
+              <FaceliftRoot>
+                <FieldList>
+                  <Field
+                    label="Contact"
+                    value={[application.contactFirstName, application.contactLastName].filter(Boolean).join(' ')}
+                    strong
+                  />
+                  <Field label="Phone" value={application.contactPhone} mono />
+                  <Field
+                    label="Location"
+                    value={[application.businessCity, application.businessState].filter(Boolean).join(', ')}
+                  />
+                  <Field label="Submitted" value={formatDate(application.submittedAt)} />
+                </FieldList>
+              </FaceliftRoot>
 
               <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
                 <Tooltip title="View Details">
