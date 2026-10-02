@@ -9,7 +9,10 @@ export function CloseoutTab({ batchNotes, closeoutNotes, closeoutRepairs, closeo
       {tab === 0 && (
         <Stack spacing={2.5}>
           <Alert severity="info" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
-            Use the repair editor for missed tasks, materials, and custom charges before batching. After photo is mandatory.
+            {/* The after photo stopped being required on 2026-07-31 (owner: "i no longer want to require
+                completed photos before invoicing"), in all three places that enforced it. This line went on
+                saying it was mandatory — pinned now by afterPhotoCopy.guard.test.js. */}
+            Use the repair editor for missed tasks, materials, and custom charges before batching. An after photo is optional — add one if the work is worth showing.
           </Alert>
           <Alert severity="warning" sx={{ backgroundColor: REPAIRS_UI.bgCard }}>
             For old repairs that were already paid and delivered outside this invoice workflow, select the cards and use Grace Close Selected. This keeps an audit note and removes them from this queue.
