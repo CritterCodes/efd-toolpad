@@ -431,3 +431,44 @@ lands near $82 wholesale and at ×3 near $107 — either sits sensibly just abov
 Price-moving, so nothing has been changed.
 
 **Status:** open.
+
+---
+
+### Q16 — A scanned "Needs parts" records no part and re-prices nothing (opened 2026-10-02)
+
+**Context.** EFD-DEFECTS B4. You asked for the scan shortcut on 2026-09-30: *"we have scan to claim in
+MyBench, but there's no scan to do anything else … it would also be a lot faster to be able to send
+something to communications or needs parts."* It was built, and it works — but the two paths into NEEDS
+PARTS do very different things.
+
+| | What it does |
+|---|---|
+| **The bench card** (`mark-waiting-parts`) | takes the part, prices it from the repair's billing mode (wholesale × markup, or retail × multiplier), re-totals the whole ticket through the pricing engine, and writes the material onto the repair |
+| **A scan** (`PUT /api/repairs/move`) | moves the status. That is all. |
+
+So a scanned ticket lands in NEEDS PARTS with **no part on file and no price change**. Whoever picks it up
+later has to remember which part, and until they do, the customer's total is missing it.
+
+`NEEDS PARTS` is in `MOVE_ALLOWED_STATUSES`, so the server permits the plain move — the route only refuses
+statuses that have a dedicated action, and this one is not on that list.
+
+**How much is affected today: none.** Read-only against both databases, 2026-10-02: **zero repairs are in
+any parts-related status**, so nothing is sitting unpriced right now. This is a trap, not a fire.
+
+**The question is which way to close it**, and it is yours because it trades speed against completeness —
+the exact thing you asked for the shortcut to buy.
+
+| | Option | What it costs |
+|---|---|---|
+| **A** | **Scanning one ticket opens the parts dialog; scanning several refuses with a reason.** | Keeps the shortcut for the common case — you scanned the ticket in your hand, you know the part. A pile of tickets can still be moved by hand. Loses batch speed for this one action. |
+| **B** | **Keep the scan as it is, and make the gap visible**: the Needs Parts lane marks every job with no part recorded, and it cannot leave NEEDS PARTS until one is. | Keeps the shortcut exactly as asked. Adds a second step later, when you may no longer have the piece in your hand. |
+| **C** | Leave it. | A ticket can reach a customer with a part fitted and not billed. |
+
+**Recommendation: A.** The scan exists because the piece is in your hand and the scanner is already
+pointing at it — which is also the one moment you certainly know what part it needs. Deferring that to a
+lane badge moves the work to the moment you know least. B is the fallback if batching several at once
+turns out to matter in practice; C is not really an option, because the failure mode is unbilled work.
+
+Nothing has been changed either way.
+
+**Status:** open.
