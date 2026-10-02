@@ -51,6 +51,12 @@ export const facelift = {
   text2: 'rgba(255,255,255,0.66)',
   text3: 'rgba(255,255,255,0.5)',
   text4: 'rgba(255,255,255,0.34)',
+  // The semantic set from DESIGN.md. They belong here so a tinted region reaches for `tint(facelift.info)`
+  // rather than a hex someone remembers — which is how two light-theme Material fills ended up rendering
+  // white text on near-white panels.
+  success: '#34D399',
+  error: '#F87171',
+  info: '#7DD3FC',
   tap: 44,
 };
 

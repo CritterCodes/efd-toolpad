@@ -9,16 +9,17 @@ import {
     Chip
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { facelift } from '@/components/facelift';
 import RepairThumbnail from '@/app/dashboard/repairs/components/RepairThumbnail';
 
 const RepairListItem = ({ repair, repairID, onRemove }) => {
     return (
         <ListItem
             sx={{
-                border: '1px solid #e0e0e0',
-                borderRadius: '8px',
+                border: `1px solid ${facelift.border}`,
+                borderRadius: '12px',
                 mb: 1,
-                backgroundColor: '#fafafa'
+                backgroundColor: facelift.surface
             }}
             secondaryAction={
                 <IconButton edge="end" onClick={() => onRemove(repairID)} color="error">
