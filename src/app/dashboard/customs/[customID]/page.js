@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Box, Typography, Button, Chip, Stack, Paper, CircularProgress,
-  Table, TableHead, TableRow, TableCell, TableBody, Tabs, Tab, LinearProgress,
+  Table, TableHead, TableRow, TableCell, TableBody, LinearProgress,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, Snackbar, Alert,
   Checkbox, FormControlLabel,
 } from '@mui/material';
@@ -13,6 +13,7 @@ import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import DiamondIcon from '@mui/icons-material/AutoAwesome';
 import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 
+import { TabRail } from '@/components/facelift';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import { customOrderLabel } from '@/constants/customRequest.constants';
 import { depositFloor } from '@/services/customs/customInvoicePolicy';
@@ -255,10 +256,14 @@ export default function CustomDetailPage() {
         </Alert>
       )}
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile
-        sx={{ mb: 2, '& .MuiTab-root': { color: REPAIRS_UI.textSecondary, textTransform: 'none' }, '& .Mui-selected': { color: REPAIRS_UI.accent }, '& .MuiTabs-indicator': { bgcolor: REPAIRS_UI.accent } }}>
-        {TABS.map((t) => <Tab key={t} label={t} />)}
-      </Tabs>
+      <Box sx={{ mb: 2 }}>
+        <TabRail
+          ariaLabel="Custom order sections"
+          value={tab}
+          onChange={setTab}
+          items={TABS.map((t, i) => ({ key: i, label: t }))}
+        />
+      </Box>
 
       {/* Overview */}
       {tab === 0 && <OverviewTab order={order} billing={billing} busy={busy} onSave={saveDetails} />}
