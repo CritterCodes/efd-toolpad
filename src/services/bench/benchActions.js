@@ -25,7 +25,7 @@ import { resolvePricingSettings } from '@/services/pricing/engine';
 import { readQcMode, canSelfCertify } from '@/services/repairs/qcMode';
 import { assertTermsAccepted } from '@/services/policies/termsGate';
 import { assertCanHoldWork, NOT_APPRENTICE_QUERY } from '@/services/pay/apprentice';
-import { claimRefusal } from '@/services/bench/benchRules';
+import { claimRefusal, qcPassRefusal, qcPassIsSelfCertified, benchRuleError } from '@/services/bench/benchRules';
 import {
   buildClaimRepairUpdate,
   buildUnclaimRepairUpdate,
@@ -289,10 +289,24 @@ async function runPieceAction({ session, workOrderID, action, body }) {
  */
 async function passRepairQc({ session, repairID, body, now, selfCertified = false }) {
   const repair = await RepairsModel.findById(repairID);
+
+  // EFD-DEFECTS B6: `separate` mode means someone ELSE checks the work. The QC tab only ever checked
+  // the qualityControl capability, so a jeweler holding both could pass their own repair there — the
+  // very thing self-certify mode exists to permit, minus the stamp that keeps it auditable. The mode
+  // is read once here rather than at each entry point, because this is the one function every pass
+  // goes through.
+  const mode = await readQcMode();
+  const refusal = qcPassRefusal(repair, { userID: session.user.userID, isAdmin: isAdminRole(session), mode });
+  if (refusal) throw benchRuleError(refusal.message, refusal.code);
+
+  // A pass by someone who did the work is a self-certification whichever button was pressed — including
+  // an admin's, which the refusal above lets through.
+  const stampSelfCertified = selfCertified || qcPassIsSelfCertified(repair, session.user.userID);
+
   await creditRepairLaborAtQc({ repair, session });
   let updated = await RepairsModel.updateById(repairID, {
     ...buildCompleteFromQcUpdate({ nextStatus: 'COMPLETED', userName: session.user.name, now }),
-    ...(selfCertified ? { qcSelfCertified: true } : {}),
+    ...(stampSelfCertified ? { qcSelfCertified: true } : {}),
   });
   const autoInvoice = await autoInvoiceAtQcPass({
     repairID,

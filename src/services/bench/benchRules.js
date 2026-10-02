@@ -59,3 +59,41 @@ export function sendToQcRefusal(repair = {}, { userID, isAdmin = false } = {}) {
   if (repair.assignedTo !== userID) return { code: 'FORBIDDEN', message: `${repair.repairID} is ${repair.assignedJeweler || 'another jeweler'}'s — only they (or an admin) can send it to QC.` };
   return null;
 }
+
+/**
+ * Pure: did this person do any of the work on this repair? The holder, and anyone a task is signed off
+ * to — a handoff chain means several people can have touched it, and all of them are the author for the
+ * purposes of reviewing it.
+ */
+export function didTheWork(repair = {}, userID) {
+  if (!userID) return false;
+  if (repair.assignedTo === userID) return true;
+  return (repair.tasks || []).some((task) => task?.completedByUserID === userID);
+}
+
+/**
+ * Pure: why this person may NOT pass this repair's QC, or null if they may (EFD-DEFECTS B6).
+ *
+ * `separate` mode exists to mean peer review: bench → Move to QC → someone else passes it. The route
+ * behind the QC tab only ever checked the `qualityControl` capability, so a jeweler holding both
+ * capabilities could pass their own repair there — the same act the shop switches to `self-certify`
+ * to allow, but without the stamp that keeps it auditable.
+ *
+ * Production is in self-certify mode (owner, 2026-09-22), so this refusal is dormant today; it is the
+ * rule that has to hold the day a second jeweler makes `separate` mean something. Admins are exempt,
+ * as everywhere else on the bench — their pass is stamped instead, by `qcPassIsSelfCertified`.
+ */
+export function qcPassRefusal(repair = {}, { userID, isAdmin = false, mode = 'separate' } = {}) {
+  if (mode === 'self-certify') return null;
+  if (isAdmin) return null;
+  if (!didTheWork(repair, userID)) return null;
+  return {
+    code: 'FORBIDDEN',
+    message: `You worked on ${repair.repairID}, so you can't pass its QC. Ask someone else to check it, or switch the shop to self-certify QC in Settings.`,
+  };
+}
+
+/** Pure: a pass by someone who did the work is a self-certification, whichever button was pressed. */
+export function qcPassIsSelfCertified(repair = {}, userID) {
+  return didTheWork(repair, userID);
+}
