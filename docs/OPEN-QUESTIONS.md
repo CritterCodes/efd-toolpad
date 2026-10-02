@@ -234,3 +234,162 @@ parse against it (tasks, metal, sizes, promise date); (3) fix the biggest misses
 thing from the owner: a handful of intakes where it got it wrong, and what was right.
 
 **Status:** open, waiting for those examples.
+
+---
+
+### Q14 — Retipping is priced from a labour estimate four times reality, and the laser is charged per prong (opened 2026-10-02)
+
+**Context.** The owner, 2026-10-02: *"I'm feeling really guilty about my pricing on tips … I'm charging $15 whenever you
+get 20 or more. I had somebody on the internet say that they're charging $8 … this job with 84 prongs is supposed to
+take 16 hours and it's really taking about 4."*
+
+What production actually holds (read-only, 2026-10-02):
+
+- **`Retip prongs`** is built from **0.2 labour hours per prong** plus the **Orotig laser welder at `costPerUse: 10`,
+  quantity 1 — per prong**. At the $50 shop rate that is $10 labour + $10 machine = $20, × 1.2 wholesale = **$24**,
+  which is exactly the price on every small ticket (qty 2, 4, 6, 12 all priced $24).
+- **repair-aff19ff9** (wholesale, 2026-09-28): **84 prongs at $15.60 = $1,310.40**. A volume break is already applied
+  ($24 → $15.60); the laser is not discounted, so **$840 of that invoice is machine charge**.
+- "Supposed to take 16 hours" is literally the task data: 0.2 × 84 = **16.8 h**. The work takes about **4 h**.
+
+So two things are wrong independently of what anything *should* cost:
+
+1. **The labour estimate is ~4× reality** (0.2 h vs ~0.048 h per prong). It also inflates promise dates and the Labor
+   Pipeline report, which price open work orders from the same hours.
+2. **The laser is charged once per prong.** Its $10 came from roughly $23,000 ÷ 2,300 uses, where a *use* is a job —
+   the ring goes under the laser once. This is the quantity-break defect deferred on 2026-09-28; 84 prongs bills the
+   machine 84 times.
+
+**What the market charges** (web, 2026-10-02; mostly retail, trade lists are not public): retail retipping runs
+**$25–$75 per prong**; one shop lists $27 gold / $59 platinum plus refinishing; one trade-style listing is **$50 for a
+single prong and $20 each for multiples**. **$15.60 wholesale is at or below the trade end.** The $8 quote the owner
+saw is below everything published, and what it includes (laser or solder, refinish, who carries the risk on the stone)
+is unknown.
+
+**The trap.** Re-costing honestly at today's hourly model — 4 real hours, laser once — gives roughly **$250 for the
+job, about $3 a prong**: less than half the $8 that prompted the worry, for work done faster than most shops can do
+it. Pure hourly costing punishes speed earned by skill.
+
+**Recommendation.** Do **not** cut the price on the strength of one comment; the number is defensible against the
+market. Fix the model so it is *honest*, then set the price deliberately:
+
+1. Correct `Retip prongs` to the real labour time (measure a few jobs; ~0.05 h is what this one implies).
+2. Charge the laser **once per job plus a small per-prong increment**, instead of a full `costPerUse` per prong — the
+   same fix Q-deferred on 2026-09-28 for every tool-bearing task, not just retipping.
+3. Then choose the per-prong wholesale price **as a price**, with the market in view ($20 trade, $25–75 retail). The
+   expectation is that it lands near today's $15–24, but defensible in one sentence instead of arriving by accident.
+
+Steps 1 and 2 are price-moving and change what the counter charges, so they wait for the owner's yes. Step 3 is the
+owner's call by definition.
+
+**The industry benchmark (added 2026-10-02).** Geller's Blue Book — the trade's standard repair pricing guide — prices
+laser retipping as **setup first, cheaper after**, which is the structure recommended above.
+
+> ⚠️ **The figures below are of UNKNOWN VINTAGE and the percentages built on them are not reliable.** They come from a
+> forum thread and a shop blog, neither dated, neither naming an edition. The current book is **Version 5.0, Release
+> 6.6, revised November 2025**, and the publisher states there have been *"many significant increases just in the last
+> year since the version 6.40 revision in 2024, much of which reflects the large increase in the price of gold."* So
+> these are probably an older release and today's gold lines are probably higher — which would make EFD's flat $24 a
+> **smaller** fraction of book than the table shows, and weaken the "overcharging on gold" reading.
+>
+> **To settle it:** read the gold and platinum retip lines out of the shop's own copy of Release 6.6 and redo the
+> comparison. Until then, treat the *structure* findings as solid and the *percentages* as indicative only.
+
+| Geller, laser retip (retail) — **edition unknown, see warning** | First prong | Each additional |
+|---|---|---|
+| Gold | $38 | $20 |
+| Platinum | $54 | $30 |
+
+Geller designs these to earn $100–125/hour, "upward of $200 doing multiples", on *his* time estimates.
+
+**EFD charges a flat $24 per prong regardless of metal or count** (every small ticket in production is $24 — gold,
+silver and platinum alike), with a volume break at about 20. Against book, at the usual 50% trade discount:
+
+| Production ticket | EFD billed the store | Geller RETAIL | EFD as % of retail |
+|---|---|---|---|
+| 2 gold | $48 | $58 | 83% |
+| 4 gold (×3 tickets) | $96 | $98 | **98%** |
+| 6 gold | $144 | $138 | **104%** |
+| 12 gold | $288 | $258 | **112%** |
+| 21 gold | $315 | $438 | 72% |
+| **84 platinum** (repair-aff19ff9) | **$1,310.40** | **$2,544** | **52%** |
+
+**The owner's own reading of this, 2026-10-02:** *"The problem isn't that I'm overcharging on platinum; it's that I'm
+overcharging on gold retips?"* — yes. The 84-prong platinum job, the one that prompted the worry, is the only one
+priced correctly: 52% of book retail is the textbook trade split, and Geller-at-trade for that job works out to about
+$1,272 against the $1,310 charged, within 3%.
+
+The small **gold** jobs are the problem. At 4–12 prongs EFD's *wholesale* price meets or exceeds Geller's *retail*
+price, so the store has no margin at all — on 12 prongs it would have to charge above book just to break even.
+Geller-at-trade for gold would be roughly **$19 first prong, $10 each after**: $49 for a 4-prong job EFD bills at $96,
+$129 for a 12-prong job EFD bills at $288. Roughly double, both times.
+
+**The cause is the flat rate.** $24 is defensible for the *first* prong (setup plus the laser). Holding it for the
+second through the twelfth is what overcharges, and the volume break at 20 is what accidentally makes the big jobs
+right. This is the same defect as the per-prong laser charge, seen from the other side: the laser belongs in the
+setup, not on every prong.
+
+**Revised recommendation.** One change fixes all of it — move `Retip prongs` (and the other tool-bearing tasks) to
+**setup + marginal**: the first unit carries the setup and the tool, each additional unit carries labour and metal.
+This is Geller's own structure and does not depend on knowing his current numbers: it is why his first prong costs
+roughly twice his second, and it is the same defect as the per-prong laser charge seen from the other side — the
+laser belongs in the setup.
+
+**What the two numbers should be is NOT settled**, because the book figures above are of unknown vintage. Read them
+out of the shop's copy of Release 6.6 (November 2025) first, take the trade discount off, and set the pair from that.
+The example pair quoted above (gold ≈ $19 then $10) is derived from the undated figures and should not be used as-is.
+
+Still price-moving: it changes what the counter charges on every retip, so it waits for the owner's yes.
+
+**A published TRADE sheet, which beats the undated Geller figures (added 2026-10-02).** Benchie, a trade shop selling
+to jewellers, publishes its wholesale list quarterly as an open PDF and states the list **is 50% of Geller's Blue
+Book** — which both confirms the usual trade split and makes their sheet a usable window into current Geller without
+buying it. From **Q1 2025**, laser tips and prongs, priced by metal, by prong style (*Tip / Low-base / Full /
+V-prong*) and by count:
+
+| per tip, laser | 14k | 18k | Platinum |
+|---|---|---|---|
+| 1st tip | $35 | $36 | **$58** |
+| each additional to 10 | $15 | $17 | **$41** |
+| 11th and on | $6 | $9 | **$19** |
+
+(Simplest "Tip" column; a V-prong is far dearer — $72 / $77 / $110 for the first. Add $33 to rhodium white gold.)
+
+**Every retip EFD has billed, against that sheet:**
+
+| Ticket | EFD billed the store | Benchie trade | EFD |
+|---|---|---|---|
+| 2 gold | $48 | $50 | 96% |
+| 4 gold (×3 tickets) | $96 | $80 | 120% |
+| 6 gold | $144 | $110 | 131% |
+| 12 gold | $288 | $182 | **158%** |
+| 21 gold | $315 | $236 | 133% |
+| **84 platinum** (repair-aff19ff9) | **$1,310.40** | **$1,833** | **71%** |
+
+So the owner's instinct was right in direction — gold is where EFD is high — but it is 20–60%, not the 2× the undated
+Geller figures implied. And on the platinum job that prompted the whole question, **EFD is about $520 UNDER a
+published trade competitor.**
+
+**Three structural gaps, one root cause.** Benchie tiers three ways (1st / 2–10 / 11+), prices by metal, and prices by
+prong style. EFD charges one flat number for everything with a single break at about 20. That is why EFD is almost
+exactly right at 2 prongs, 58% high at 12, and 29% low at 84 platinum — and why the laser lands on every prong
+instead of in the setup.
+
+**Revised recommendation.** Move `Retip prongs` to the shape the trade actually uses:
+
+1. **Three tiers** — first tip (setup + laser), tips 2–10, tips 11 and on.
+2. **By metal** — platinum's marginal tip is $19 against 14k's $6 at Benchie, more than 3×. EFD charges one price for
+   gold, silver and platinum alike.
+3. **Then set the numbers** against Benchie's published sheet, adjusted for what EFD sells that a volume trade shop
+   cannot: **fast turnaround** from a one-person bench. Benchmarking *down* toward the cheapest trade shop (CMK lists
+   4 tips at $28) would be a mistake; Benchie is the closer comparison and EFD is already under it on platinum.
+
+For reference, the same 84-prong job at Benchie's rate is $1,833 — $458/hour at the 4 hours it actually took, against
+$327/hour as billed.
+
+**Sources:** [Benchie Q1 2025 wholesale list](https://mybenchie.com/wp-content/uploads/2025/03/Q1-2025.pdf) ·
+[Benchie Q3 2024](https://mybenchie.com/wp-content/uploads/2024/08/BENCHIE-REPAIR-PRICES-Q3-2024.pdf) ·
+[CMK Company trade list](https://www.cmkcompany.com/wholesale-industry-price-list.html) ·
+[Geller Blue Book, $399 kit, Release 6.6 Nov 2025](https://www.jewelerprofit.com/Blue_Book.html)
+
+**Status:** open.
