@@ -53,3 +53,10 @@ for a guardrail.
   `gh pr merge`, never after. **Proposed:** give efd-shop the same branch protection as efd-toolpad — a required
   `test` check and no direct pushes — so the two repos behave the same way and the habit is safe in both. That is
   a repository settings change, so it needs the owner.
+- **2026-10-02: the views crawl signs in, so it can never see a signed-out page.** `scripts/views.mjs --role admin`
+  authenticates and then crawls 115 pages, which is exactly why it missed that `RootLayout` mounted the MUI theme
+  only on its signed-in branch: `/auth/change-password` was an all-white card with a blue button, and
+  `/emergency-logout` rendered 50%-white text on a pale blue Alert, and the crawl saw neither, because it never
+  visits either page unauthenticated. Found by opening the page by hand while signed out. **Proposed:** a small
+  anonymous pass — sign in, sign out, then crawl the `/auth/*` routes and `/emergency-logout` — so the pages a
+  locked-out person sees are checked in the state they see them in.

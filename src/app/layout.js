@@ -66,12 +66,20 @@ export default async function RootLayout({ children }) {
     }
 
     // 🔒 Unauthenticated users are routed by middleware to /auth/* pages.
-    // Render children directly here so custom auth pages (signin/forgot/reset) are visible.
+    //
+    // The theme belongs here too. Until 2026-10-02 this branch rendered children bare, because the MUI
+    // theme is mounted by RoleAwareNavigationProvider, which only the signed-in branch below renders. The
+    // /auth/* pages did not show it — they are built on `AuthShell`, hand-written CSS Modules that carry
+    // their own black ground — but the two signed-out pages made of plain MUI did: `/auth/change-password`
+    // came out an all-white card with a blue button, and `/emergency-logout` rendered kit text at about
+    // 1.1:1 on a pale blue Alert. Both are pages a person reaches when something has already gone wrong.
     if (!session?.user) {
         return (
             <html lang="en" suppressHydrationWarning>
                 <body>
-                    {children}
+                    <RoleAwareNavigationProvider>
+                        {children}
+                    </RoleAwareNavigationProvider>
                 </body>
             </html>
         );
