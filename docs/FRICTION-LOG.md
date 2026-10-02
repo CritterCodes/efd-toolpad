@@ -10,7 +10,14 @@ for a guardrail.
 
 - **2026-10-01: a check that fails at random.** A React hydration mismatch (#418) struck 4 unrelated pages on one CI
   views run and none on the run before. Each one failed the PR. **Fixed:** timing-dependent kinds (console, API,
-  hydration) are listed, never failed. **Open:** the mismatch itself is somewhere in the shared shell; not found yet.
+  hydration) are listed, never failed. **A cause found 2026-10-01:** `/dashboard/pending` put a Chip in MUI's
+  `secondary` slot, which renders a `<p>`; a `<div>` inside a `<p>` makes the browser close the `<p>` early, so the DOM
+  stops matching the server's. Fixed and re-checked: that page went from a hydration error to clean. Whether it
+  accounts for the earlier four-page run is NOT established — it was the only mismatch the crawl reached before dev
+  compile times made a full pass impractical. **Lesson:** go to a `next dev` build immediately — production React
+  prints only the error number, while dev names the element and the page. And check the claim before believing it: the
+  notification bell looked guilty (elements in a `secondary`) and was innocent — every child renders a `<span>`, and a
+  dev run with seeded notifications produced no message at all. Guarded by `listItemTextSecondary.guard.test.js`.
 - **2026-10-01: Windows and Linux fonts measure differently.** The views baseline made on Windows missed a 10px
   cut-off that Linux CI found. **Fixed:** CI is the reference; every run writes `baseline.next.json` into the
   artifact to adopt.
