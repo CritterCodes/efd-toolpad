@@ -2,7 +2,7 @@
  * Labor logs ↔ payroll (RepairLaborLogsModel delegates here): which credit is ready to batch, batching it, paying and releasing a batch. Moved verbatim from model.js (max-lines, 2026-10-01).
  */
 import { db } from '@/lib/database';
-import { PAYROLL_LOG_STATUS, buildPayrollBatchTotals } from '@/services/payrollUtils';
+import { PAYROLL_LOG_STATUS, buildPayrollBatchTotals, getWeekEndFromStart } from '@/services/payrollUtils';
 import { LABOR_LOGS } from './collection';
 
 export function buildUnbatchedMatch({ weekStart, weekEnd, userID, ownerUserIDs } = {}) {
@@ -81,11 +81,19 @@ export async function payrollCandidateBreakdown({ weekStart, userID } = {}) {
 
   const dbInstance = await db.connect();
   const start = new Date(weekStart);
+  // EFD-DEFECTS P4. This used to match the week start EXACTLY (weekEnd = start), so a log whose stored
+  // `weekStart` was not the same instant the batch normalizes to could never be batched: the queue groups
+  // by the stored date and shows the credit, the batch re-normalizes to the week's Sunday, the breakdown
+  // finds nothing, and the attempt throws "no eligible labor logs" at someone looking straight at the
+  // money. That is what a week-boundary change does to the logs written before it — the shop moved from
+  // Monday weeks to Sunday weeks on 2026-09-22. Matching the whole week instead means a credit is batched
+  // with the week it belongs to however it was stored. No current log is affected: every one of them is
+  // already stored at the week start, which is inside this range.
   const logs = await dbInstance.collection(LABOR_LOGS).aggregate([
     {
       $match: buildUnbatchedMatch({
         weekStart: start,
-        weekEnd: start,
+        weekEnd: getWeekEndFromStart(start),
         userID,
       }),
     },
