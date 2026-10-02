@@ -29,8 +29,9 @@ const KIT = path.join(__dirname, 'index.js');
 // Drops, 0 after the guide, admin settings, materials, lead fit views, one custom order and one design.
 const MAX_SCROLLER_PATCHES = 0;
 const MAX_SCROLL_BUTTONS = 0;
-// Rows still rendered with MUI's own <Tabs>. 19 when the ban landed; 16 after the three profile headers.
-const MAX_MUI_TAB_ROWS = 16;
+// Rows still rendered with MUI's own <Tabs>. 19 when the ban landed; 16 after the three profile headers;
+// 14 after user management and artisan applications.
+const MAX_MUI_TAB_ROWS = 14;
 
 function sourceFiles(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

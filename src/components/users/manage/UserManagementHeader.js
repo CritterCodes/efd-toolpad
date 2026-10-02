@@ -1,7 +1,8 @@
 "use client";
 
 import React from 'react';
-import { Typography, Tabs, Tab, Alert } from '@mui/material';
+import { Typography, Alert } from '@mui/material';
+import { TabRail } from '@/components/facelift';
 
 export default function UserManagementHeader({ 
   tabValue, 
@@ -22,11 +23,16 @@ export default function UserManagementHeader({
         </Alert>
       )}
 
-      <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
-        <Tab label={`Pending Approval (${pendingCount})`} />
-        <Tab label="All Users" />
-        <Tab label="Create Admin User" />
-      </Tabs>
+      <TabRail
+        ariaLabel="User management views"
+        value={tabValue}
+        onChange={setTabValue}
+        items={[
+          { key: 0, label: 'Pending Approval', count: pendingCount },
+          { key: 1, label: 'All Users' },
+          { key: 2, label: 'Create Admin User' },
+        ]}
+      />
     </>
   );
 }
