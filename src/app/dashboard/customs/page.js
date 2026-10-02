@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Box, Typography, Button, Grid, Card, CardContent, Paper, TextField, InputAdornment,
   FormControl, InputLabel, Select, MenuItem, Stack, CircularProgress, Snackbar, Alert,
-  Pagination, FormControlLabel, Switch, Tabs, Tab, Chip,
+  Pagination, FormControlLabel, Switch,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DiamondIcon from '@mui/icons-material/AutoAwesome';
@@ -17,6 +17,7 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import { useRouter } from 'next/navigation';
 
 import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
+import { TabRail } from '@/components/facelift';
 import CustomOrderCard from './components/CustomOrderCard';
 import NewCustomStepper from './components/NewCustomStepper';
 
@@ -196,32 +197,15 @@ export default function CustomsPage() {
         </Grid>
       </Grid>
 
-      {/* Phase tabs */}
-      <Tabs
-        value={tab}
-        onChange={(_, v) => selectTab(v)}
-        variant="scrollable"
-        scrollButtons="auto"
-        sx={{
-          mb: 2, minHeight: 40,
-          '& .MuiTab-root': { color: REPAIRS_UI.textSecondary, textTransform: 'none', minHeight: 40, fontWeight: 600 },
-          '& .Mui-selected': { color: `${REPAIRS_UI.accent} !important` },
-          '& .MuiTabs-indicator': { backgroundColor: REPAIRS_UI.accent },
-        }}
-      >
-        {PHASE_TABS.map((t) => (
-          <Tab
-            key={t.key}
-            value={t.key}
-            label={(
-              <Stack direction="row" spacing={0.75} alignItems="center">
-                <span>{t.label}</span>
-                <Chip size="small" label={tabCounts[t.key] ?? 0} sx={{ height: 18, fontSize: '0.68rem', backgroundColor: tab === t.key ? `${REPAIRS_UI.accent}22` : REPAIRS_UI.bgTertiary, color: tab === t.key ? REPAIRS_UI.accent : REPAIRS_UI.textSecondary }} />
-              </Stack>
-            )}
-          />
-        ))}
-      </Tabs>
+      {/* Phase tabs. TabRail carries the count and the overflow fade, so neither is restyled here. */}
+      <Box sx={{ mb: 2 }}>
+        <TabRail
+          ariaLabel="Custom order phases"
+          value={tab}
+          onChange={selectTab}
+          items={PHASE_TABS.map((t) => ({ key: t.key, label: t.label, count: tabCounts[t.key] ?? 0 }))}
+        />
+      </Box>
 
       {/* Filter bar */}
       <Paper sx={{ p: 2, mb: 2, backgroundColor: REPAIRS_UI.bgPanel, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' }}>

@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box, Typography, Button, Paper, TextField, InputAdornment,
-  Tabs, Tab, Stack, Chip, CircularProgress, Snackbar, Alert,
+  Stack, Chip, CircularProgress, Snackbar, Alert,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
@@ -14,6 +14,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
+import { TabRail } from '@/components/facelift';
 
 // Drop lifecycle tabs. Labels are the owner's mental model; `statuses` are the
 // domain statuses each tab surfaces. `vault` is a NEW status (Disney-vault:
@@ -143,44 +144,14 @@ export default function DropsPage() {
       </Box>
 
       <Box sx={{ mb: 2 }}>
-        <Tabs
-          value={tab}
-          onChange={(e, v) => setTab(v)}
-          variant="scrollable"
-          scrollButtons="auto"
-          allowScrollButtonsMobile
-          sx={{
-            minHeight: 0, mb: 2,
-            borderBottom: `1px solid ${REPAIRS_UI.border}`,
-            '& .MuiTabs-indicator': { backgroundColor: REPAIRS_UI.accent, height: 2 },
-            '& .MuiTabs-scrollButtons.Mui-disabled': { opacity: 0.3 },
-            '& .MuiTab-root': {
-              minHeight: 0, py: 1.25, px: 2, textTransform: 'none', fontWeight: 600,
-              fontSize: '0.9rem', color: REPAIRS_UI.textSecondary,
-              '&.Mui-selected': { color: REPAIRS_UI.textHeader },
-            },
-          }}
-        >
-          {DROP_TABS.map((t) => (
-            <Tab
-              key={t.key}
-              value={t.key}
-              disableRipple
-              label={
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <span>{t.label}</span>
-                  <Box component="span" sx={{
-                    minWidth: 20, textAlign: 'center', px: 0.75, py: 0.15, borderRadius: 1,
-                    fontSize: '0.72rem', fontWeight: 700,
-                    color: tab === t.key ? '#1A1A1A' : REPAIRS_UI.textSecondary,
-                    backgroundColor: tab === t.key ? REPAIRS_UI.accent : REPAIRS_UI.bgCard,
-                    border: `1px solid ${tab === t.key ? REPAIRS_UI.accent : REPAIRS_UI.border}`,
-                  }}>{tabCounts[t.key]}</Box>
-                </Stack>
-              }
-            />
-          ))}
-        </Tabs>
+        <Box sx={{ mb: 2 }}>
+          <TabRail
+            ariaLabel="Drop lifecycle"
+            value={tab}
+            onChange={setTab}
+            items={DROP_TABS.map((t) => ({ key: t.key, label: t.label, count: tabCounts[t.key] }))}
+          />
+        </Box>
         <TextField
           placeholder="Search by name, slug, description…"
           value={search}

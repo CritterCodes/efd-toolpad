@@ -2,12 +2,11 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { TabRail } from '@/components/facelift';
 import {
   Box,
   Typography,
   Alert,
-  Tabs,
-  Tab,
   CircularProgress,
 } from '@mui/material';
 
@@ -114,17 +113,16 @@ export default function WholesaleManagement() {
       <StatsCards stats={stats} />
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs
+        <TabRail
+          ariaLabel="Wholesale views"
           value={tabValue}
-          onChange={(e, newValue) => setTabValue(newValue)}
-          variant="scrollable"
-          allowScrollButtonsMobile
-          scrollButtons="auto"
-        >
-          <Tab label={`Applications (${applications.length})`} />
-          <Tab label={`Accounts (${wholesalers.length})`} />
-          <Tab label={`Reconciliation (${reconciliationCount})`} />
-        </Tabs>
+          onChange={setTabValue}
+          items={[
+            { key: 0, label: 'Applications', count: applications.length },
+            { key: 1, label: 'Accounts', count: wholesalers.length },
+            { key: 2, label: 'Reconciliation', count: reconciliationCount },
+          ]}
+        />
       </Box>
 
       <TabPanel value={tabValue} index={0}>
