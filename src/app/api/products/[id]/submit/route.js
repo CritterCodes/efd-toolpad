@@ -124,7 +124,10 @@ export async function POST(request, { params }) {
         type: 'product-submitted-for-review',
         title: 'New Product Awaiting Approval',
         message: `${artisanEmail} submitted "${title}"`,
-        actionUrl: `${adminBase()}/dashboard/products/pending`,
+        // /dashboard/products/pending does not exist as a page - it matches [id], so an admin tapping
+        // this got a product detail screen for a product called "pending". The approval queue this
+        // notification is about is /dashboard/products/awaiting-approval (EFD-DEFECTS P7).
+        actionUrl: `${adminBase()}/dashboard/products/awaiting-approval`,
         priority: 'normal',
         relatedData: {
           productId: result.productId || result._id?.toString() || id,

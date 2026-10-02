@@ -173,7 +173,9 @@ export const POST = async (req) => {
               recipientEmail: user.email || '',
               priority: 'high',
               data: {
-                actionUrl: `${adminBase()}/dashboard/payroll`,
+                // /dashboard/payroll has never existed; this goes to the artisan whose account was
+                // verified (EFD-DEFECTS P7).
+                actionUrl: `${adminBase()}/dashboard/artisan/payroll`,
                 relatedType: 'stripe-connect',
                 stripeAccountId: account.id,
               },
