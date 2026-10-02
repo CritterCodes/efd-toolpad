@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { buildStullerRepairMaterial } from '@/services/pricing/stullerMaterial';
 import { resolvePricingSettings } from '@/services/pricing/engine';
 import {
-  Box, Typography, Grid, Button, Chip, CircularProgress, Tabs, Tab,
+  Box, Typography, Grid, Button, Chip, CircularProgress,
   TextField, MenuItem, Alert, Snackbar, Stack,
   Dialog, DialogTitle, DialogContent, DialogActions, Pagination,
 } from '@mui/material';
@@ -28,7 +28,7 @@ import { uploadSizeError } from '@/lib/uploadLimits';
 import { directUpload, postFileWithProgress } from '@/lib/directUpload';
 import BenchWorkCard from './components/BenchWorkCard';
 import { isAdminRole, isOnsiteRepairOps } from '@/lib/repairAccess';
-import { PageHeader, SurfaceCard, SectionLabel, facelift } from '@/components/facelift';
+import { PageHeader, SurfaceCard, SectionLabel, TabRail, facelift } from '@/components/facelift';
 
 const BENCH_PAGE_SIZE = 20;
 const DEFAULT_PARTS_FORM = { source: 'stuller', stullerSku: '', name: '', description: '', quantity: '1', price: '' };
@@ -399,13 +399,16 @@ export default function BenchPage() {
       </SurfaceCard>
       )}
 
-      {/* Tabs */}
-      <Tabs
-        value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile
-        sx={{ mt: 2.5, mb: 2, maxWidth: '100%', '& .MuiTabs-scroller': { overflowX: 'auto !important' } }}
-      >
-        {BENCH_TABS.map(({ label, key }) => <Tab key={key} label={`${label} (${byTab[key]?.length ?? 0})`} />)}
-      </Tabs>
+      {/* The lanes. TabRail, not MUI Tabs: MUI's scroll buttons never render on a touch screen, so the
+          last lanes were reachable only by an undiscoverable swipe. */}
+      <Box sx={{ mt: 2.5, mb: 2 }}>
+        <TabRail
+          ariaLabel="Bench lanes"
+          value={BENCH_TABS[tab].key}
+          onChange={(key) => setTab(BENCH_TABS.findIndex((t) => t.key === key))}
+          items={BENCH_TABS.map(({ label, key }) => ({ key, label, count: byTab[key]?.length ?? 0 }))}
+        />
+      </Box>
 
       {/* QC bulk bar */}
       {activeKey === BENCH_QUEUE.QC && shown.length > 0 && (

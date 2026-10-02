@@ -744,3 +744,108 @@
  * against the gap above it, which is the drift this element exists to end.
  */
 .pageBody > :first-child { margin-top: 0; }
+
+/* -- Tab rail -- one row of a page's views -------------------------------- */
+
+.railWrap {
+  position: relative;
+  min-width: 0;
+}
+
+/*
+ * The fade is the affordance. MUI's scroll buttons never appear on a touch screen, so three lanes on My
+ * Bench were reachable only by a swipe with nothing on screen suggesting one existed.
+ */
+.railWrap::before,
+.railWrap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 28px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 1;
+}
+
+.railWrap::before {
+  left: 0;
+  background: linear-gradient(to right, var(--fl-ground), rgba(8, 9, 11, 0));
+}
+
+.railWrap::after {
+  right: 0;
+  background: linear-gradient(to left, var(--fl-ground), rgba(8, 9, 11, 0));
+}
+
+.railFadeStart::before { opacity: 1; }
+.railFadeEnd::after { opacity: 1; }
+
+.rail {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--fl-surface-quiet);
+  border: 1px solid var(--fl-hairline);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.rail::-webkit-scrollbar { display: none; }
+
+.railTab {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fl-text-2);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+/* The bench is used with gloved hands; 44px is the floor on a touch screen. */
+@media (pointer: coarse) {
+  .railTab { min-height: 44px; }
+}
+
+.railTab:hover { color: var(--fl-text); }
+
+.railTab:focus-visible {
+  outline: 2px solid var(--fl-gold);
+  outline-offset: -2px;
+}
+
+.railTabActive {
+  background: var(--fl-surface-hover);
+  color: var(--fl-gold);
+}
+
+.railTabActive:hover { color: var(--fl-gold); }
+
+.railCount {
+  font-family: var(--fl-mono);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--fl-text-3);
+}
+
+.railTabActive .railCount { color: var(--fl-gold); }
+
+@media (prefers-reduced-motion: reduce) {
+  .railTab,
+  .railWrap::before,
+  .railWrap::after { transition: none; }
+}
