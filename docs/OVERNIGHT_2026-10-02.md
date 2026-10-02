@@ -495,3 +495,108 @@ it.**
 | **Q16** | A scanned "Needs parts" records no part and re-prices nothing. | Send a single scan to the parts dialog; refuse a batch. The moment the piece is in your hand is the moment you know the part. |
 | Placeholder accounts | Two **stores** share `test@test.com`, so their email notices go nowhere. | Give them real addresses; it also unblocks the unique email index (C2). |
 | efd-shop branch protection | `gh pr merge` does not wait for CI there, because there is no required check. | Give efd-shop the same protection as efd-toolpad, so the two repos behave the same way. See the friction log. |
+
+---
+
+# 09:30 — the rails, the rows, and three things the browser said that the greps did not
+
+> admin #265–#273, all merged, all reached Vercel READY with `ship.yml` green. The five UI items you
+> approved are finished at the primitive level. What is left of them is adoption, which is per-screen.
+
+| PR | What |
+|---|---|
+| [#265](https://github.com/CritterCodes/efd-toolpad/pull/265) | The run report up to that point. |
+| [#266](https://github.com/CritterCodes/efd-toolpad/pull/266) | `max-lines` burn-down: My Bench 557 → 393 effective. |
+| [#267](https://github.com/CritterCodes/efd-toolpad/pull/267) | **Correction** — `PageBody` carried a second gutter. |
+| [#268](https://github.com/CritterCodes/efd-toolpad/pull/268) | `Field` rows in the approve-and-reject dialogs. |
+| [#269](https://github.com/CritterCodes/efd-toolpad/pull/269) | `TabRail` → Wholesale Management, Customs, Drops. Ratchet 9 → 6. |
+| [#270](https://github.com/CritterCodes/efd-toolpad/pull/270) | `TabRail` → the guide, admin settings, materials, fit views, one custom order, one design. **6 → 0.** |
+| [#271](https://github.com/CritterCodes/efd-toolpad/pull/271) | `Field` rows → completed repairs, the repair card grid, an artisan's business card. |
+| [#272](https://github.com/CritterCodes/efd-toolpad/pull/272) | **Signed out, the app had no theme.** A white card and a blue button. |
+| [#273](https://github.com/CritterCodes/efd-toolpad/pull/273) | **The 44px touch floor** was a rule we held ourselves to but never put in the theme. |
+
+Open as of this report: [#274](https://github.com/CritterCodes/efd-toolpad/pull/274), `TabRail` for the
+three profile headers.
+
+## Three things the browser said that the greps did not
+
+### 1. Two counts in the plan were overstated — by me, twice, before I checked
+
+A grep counts shapes that *look like* the bug.
+
+| The plan said | It actually was | Why the grep lied |
+|---|---|---|
+| "11 files hand-patch `MuiTabs-scroller`" | **2** patched the scroller; 11 passed `scrollButtons` | the pattern was an alternation of the two |
+| "82 `<strong>Label:</strong>` sites in 19 files" | **9** were a label followed by a value | the rest are print and email templates — ink-on-white documents rendered outside the app's CSS, with no kit to import — and prose emphasis: `<strong>Security Notice:</strong> This PIN will only be displayed once.` is a sentence with a lead-in, not a field |
+
+Neither changes what was built. Both change how much was left, and I reported the larger number twice before
+checking it. Both now have a guard test holding the *strict* rule, so the count cannot drift back to the
+loose one.
+
+### 2. Signed out, the app had no theme at all
+
+`RootLayout` returns early when there is no session — and the MUI theme is mounted by
+`RoleAwareNavigationProvider`, which only the signed-in branch rendered. The `/auth/*` pages hid it: they are
+built on `AuthShell`, hand-written CSS Modules carrying their own black ground. The two signed-out pages
+made of plain MUI did not.
+
+- **`/auth/change-password`** — a page a person is *required* to pass through — was an all-white card with a
+  grey heading and a **blue** button, in a black-and-white-and-gold app.
+- **`/emergency-logout`** put text on a pale blue Alert; a kit label measured about **1.1:1**.
+
+Both are pages you reach *when something has already gone wrong*, which is the worst moment to be handed a
+screen that looks like a different product. Found by opening the page by hand while signed out, after a
+`Field` conversion there rendered invisible and was reverted.
+
+**`npm run views` cannot catch this.** It signs in and then crawls 115 pages, so it never visits either page
+in the state a locked-out person sees. Friction log has a proposal: a small anonymous pass.
+
+### 3. The app's own 44px rule was not in the theme
+
+MUI's floors are **40px** for a contained button and **34px** for `size="small"`. A default button measured
+**42.5px**. Nothing is wrong on a desktop with a mouse, which is why it survived a facelift, a theme and a
+views check.
+
+#273 raises the floor to 44 under `pointer: coarse` only — buttons, icon buttons (square: they are aimed at
+in both directions), menu rows, autocomplete rows and **clickable** chips. A status chip is read, not
+tapped, and inflating a row of them would wreck it. Measured on `/dashboard/admin/tasks/materials` at 375px:
+16 interactive controls, **zero** under 44. At desktop width the same page is unchanged.
+
+## Numbers
+
+| | Start of the night | Now |
+|---|---|---|
+| gold elements above the fold on `/dashboard` | 10 | **1** |
+| `<strong>Label:</strong> {value}` on a surface the kit reaches | 9 | **1** |
+| `scrollButtons` — a prop that never renders on touch | 11 | **0**, now a ban |
+| hand-patched `MuiTabs-scroller` | 2 | **0**, now a ban |
+| rows still rendered with MUI's own `<Tabs>` | 19 | 19 (16 once #274 lands) |
+| files under `src/app` importing the kit | 8 | **43** |
+| route-level `loading`/`error`/`not-found` | 0 | **5** |
+| `max-lines` (files over the ceiling) | 42 | **16** |
+| guard tests | 4 | **18** |
+| Views baseline | 0 | **0** |
+
+## Parked, and why
+
+- **`PageBody` adoption.** The primitive and the reading column are in; no screen takes the vertical rhythm
+  yet, because each must drop its own `mb:` first. Per segment, not a sweep.
+- **16 files still render `<Tabs>` by hand** after #274. The ban covers the *broken* half; these are merely
+  hand-written — though the artisan profile header proves "merely" is not safe to assume.
+- **Shaped loading states.** `/dashboard/loading.js` means no dashboard route blanks any more, but it is one
+  generic panel, and **133 files still place a `<CircularProgress>` themselves**. A table route deserves a
+  table skeleton.
+- **F24, the subdocument replace.** Five incidents, each a silent data loss. A guard needs a list of the
+  subdocument field names rather than a general rule — designed, not built.
+- **B4, and the rest of B6** (no QC fail, no per-card pass). Both need a decision, not just code.
+
+## Needs you
+
+| | Question | Recommendation |
+|---|---|---|
+| **Q14** | One rate per task for every metal — platinum under the trade rate, gold retips over it. | Price by metal. It is the structure, not the number. |
+| **Q15** | Half-Shank bills ten portions of sizing stock; every size-up bills one. | Set it to what a half shank consumes. A bench question. |
+| **Q16** | A scanned "Needs parts" records no part and re-prices nothing. | Send a single scan to the parts dialog; refuse it in a batch. |
+| Placeholder accounts | Two **stores** share `test@test.com`, so their email notices go nowhere. | Give them real addresses; it also unblocks the unique email index (C2). |
+| efd-shop protection | `gh pr merge` does not wait for CI there — no required check. | Give efd-shop the same protection as efd-toolpad. |
+| **Dev data** | `efd-database-DEV` holds the six `views.check` users and essentially nothing else — no repairs, no customs, no drops, no materials. Four conversions this session shipped on a build plus an identical-shape argument rather than a render, because there was nothing to render. | A seed script writing one row of each kind, run by the views tooling. It is the difference between "115 pages load" and "the card works". |
