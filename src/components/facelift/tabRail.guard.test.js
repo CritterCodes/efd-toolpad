@@ -17,10 +17,14 @@ import path from 'node:path';
  * a coarse pointer. Both counts reached 0 on 2026-10-02, so the ratchets are now bans: a new occurrence of
  * either means a row of views was written by hand again, and the right answer is `TabRail`.
  *
- * A third count tracks what is left. `scrollButtons` was the *broken* half — a prop that silently does
- * nothing on touch. The rest of the hand-written rows are merely hand-written, and some are worse than they
- * look: an artisan's profile header renders four `<Tab>`s with no scroll variant at all, so on a phone MUI
- * squeezes them and the fourth is unreachable. That count is a ratchet, not yet a ban.
+ * A third count tracked what was left. `scrollButtons` was the *broken* half — a prop that silently does
+ * nothing on touch. The rest were merely hand-written, and some were worse than they looked: an artisan's
+ * profile header rendered four `<Tab>`s with no scroll variant at all, so on a phone MUI squeezed them and
+ * the fourth was unreachable.
+ *
+ * **All three reached 0 on 2026-10-02, so all three are bans.** `TabRail` is now the only way this app
+ * draws a row of a page's views. A new `<Tabs>` is not a style choice to be reviewed — it is a row that
+ * will not scroll on a phone, will not sit at 44px, and will not fade the edge that has more to show.
  */
 const SRC = path.resolve(__dirname, '../..');
 const KIT = path.join(__dirname, 'index.js');
@@ -29,10 +33,10 @@ const KIT = path.join(__dirname, 'index.js');
 // Drops, 0 after the guide, admin settings, materials, lead fit views, one custom order and one design.
 const MAX_SCROLLER_PATCHES = 0;
 const MAX_SCROLL_BUTTONS = 0;
-// Rows still rendered with MUI's own <Tabs>. 19 when the ban landed; 16 after the three profile headers;
-// 14 after user management and artisan applications; 8 after the three invoice queues, the two finance
-// clients and a store's own repairs.
-const MAX_MUI_TAB_ROWS = 8;
+// Rows still rendered with MUI's own <Tabs>. 19 when the scrollButtons ban landed; 16 after the three
+// profile headers; 14 after user management and artisan applications; 8 after the invoice queues, the
+// finance clients and a store's own repairs; 0 after the last eight. A ban now, like the other two.
+const MAX_MUI_TAB_ROWS = 0;
 
 function sourceFiles(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

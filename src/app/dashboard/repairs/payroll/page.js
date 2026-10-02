@@ -5,8 +5,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Box,
-  Tab,
-  Tabs,
   Typography,
 } from '@mui/material';
 import PaymentIcon from '@mui/icons-material/Payment';
@@ -24,6 +22,7 @@ import { PayrollLists } from './PayrollLists';
 import { PayrollStats } from './PayrollStats';
 import { PayrollDiagnostics } from './PayrollDiagnostics';
 import { payrollActions } from './payrollActions';
+import { TabRail } from '@/components/facelift';
 import {
   ANALYTICS_BASELINE_NOTE,
   DEFAULT_LABOR_ANALYTICS_START_DATE,
@@ -202,11 +201,16 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
       </Box>
 
       <Box sx={{ borderBottom: `1px solid ${REPAIRS_UI.border}`, mb: 2 }}>
-        <Tabs value={tab} onChange={(_e, next) => setTab(next)} textColor="inherit" indicatorColor="secondary">
-          <Tab value="queue" label="Payroll Queue" />
-          <Tab value="history" label="Payroll History" />
-          <Tab value="owner_draws" label="Owner Draws" />
-        </Tabs>
+        <TabRail
+          ariaLabel="Payroll views"
+          value={tab}
+          onChange={setTab}
+          items={[
+            { key: 'queue', label: 'Payroll Queue' },
+            { key: 'history', label: 'Payroll History' },
+            { key: 'owner_draws', label: 'Owner Draws' },
+          ]}
+        />
       </Box>
 
       <PayrollLists {...payroll} />

@@ -1,8 +1,27 @@
 'use client';
 import React, { useEffect, useRef, useState } from 'react';
+import { TabRail } from '@/components/facelift';
 import {
-  Alert, Box, Button, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
-  FormControl, FormControlLabel, InputLabel, MenuItem, Radio, RadioGroup, Select, Stack, Tab, Tabs, TextField, Typography,
+  Alert,
+  Box,
+  Button,
+  Checkbox,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  FormControlLabel,
+  InputLabel,
+  MenuItem,
+  Radio,
+  RadioGroup,
+  Select,
+  Stack,
+  TextField,
+  Typography,
 } from '@mui/material';
 
 const money = (v) => `$${(Number(v) || 0).toFixed(2)}`;
@@ -99,10 +118,17 @@ export default function InboundShipDialog({ open, onClose, selectedRepairIDs = [
       <DialogTitle>Ship {selectedRepairIDs.length} repair{selectedRepairIDs.length === 1 ? '' : 's'} to EFD</DialogTitle>
       <DialogContent sx={{ pt: '8px !important' }}>
         {!checkoutMounted && (
-          <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
-            <Tab label="Get a FedEx label" />
-            <Tab label="I have my own tracking" />
-          </Tabs>
+          <Box sx={{ mb: 2 }}>
+            <TabRail
+              ariaLabel="How the parcel ships"
+              value={tab}
+              onChange={setTab}
+              items={[
+                { key: 0, label: 'Get a FedEx label' },
+                { key: 1, label: 'I have my own tracking' },
+              ]}
+            />
+          </Box>
         )}
 
         {tab === 0 && !checkoutMounted && (

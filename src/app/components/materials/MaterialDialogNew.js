@@ -11,14 +11,13 @@ import {
   DialogActions,
   Button,
   Box,
-  Tabs,
-  Tab,
-  useMediaQuery
+  useMediaQuery,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import MaterialFormSimple from './MaterialFormSimple';
 import StullerProductsManager from './StullerProductsManager';
 import { processFormDataForSubmission } from '../../../utils/materials.util';
+import { TabRail } from '@/components/facelift';
 
 const TabPanel = ({ children, value, index, ...other }) => {
   return (
@@ -90,15 +89,15 @@ export default function MaterialDialog({
 
       <DialogContent>
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-          <Tabs
+          <TabRail
+            ariaLabel="Material sections"
             value={tabValue}
-            onChange={(e, newValue) => setTabValue(newValue)}
-            aria-label="material tabs"
-            variant={isMobile ? 'fullWidth' : 'standard'}
-          >
-            <Tab label="General Info" />
-            <Tab label="Stuller Products" />
-          </Tabs>
+            onChange={setTabValue}
+            items={[
+              { key: 0, label: 'General Info' },
+              { key: 1, label: 'Stuller Products' },
+            ]}
+          />
         </Box>
 
         <TabPanel value={tabValue} index={0}>
