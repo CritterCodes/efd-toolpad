@@ -35,7 +35,7 @@ import {
 } from '@mui/icons-material';
 import { useSearchParams } from 'next/navigation';
 import { useArtisanApplications } from '@/hooks/admin/useArtisanApplications';
-import { FaceliftRoot, SectionLabel, Field, FieldList, StatusChip, facelift } from '@/components/facelift';
+import { CardGrid, FaceliftRoot, Field, FieldList, Figure, SectionLabel, StatusChip, SurfaceCard, facelift } from '@/components/facelift';
 
 const STATUS_TABS = ['pending', 'approved', 'rejected', 'all'];
 
@@ -76,31 +76,43 @@ function statusHue(status) {
   return facelift.text3;
 }
 
+/**
+ * Four counts, and one of them is the reason you opened this page.
+ *
+ * These were four cards with coloured **left side-stripes** — the decoration DESIGN.md names in its Don't
+ * list, and the one `/dashboard` was cleaned of in #260 — each with its number in the stripe's colour. Two
+ * of the four stripes were gold, because `primary.main` and `warning.main` are both `#FBBF24` in this
+ * theme. Counting the gold selected pill and the gold action button, the screen spent gold four times
+ * before the reader reached an applicant.
+ *
+ * Gold marks the one thing to do next, so it goes to **Pending Review, and only when something is
+ * pending**. Nothing waiting means nothing gold: the same conditional shape as `isNext` on the Getting
+ * Started card. The rest are counts, and a count is read, not acted on.
+ */
 function StatsCards({ stats }) {
   const cards = [
-    { label: 'Total Applications', value: stats.total, color: 'primary.main' },
-    { label: 'Pending Review', value: stats.pending, color: 'warning.main' },
-    { label: 'Approved', value: stats.approved, color: 'success.main' },
-    { label: 'Rejected', value: stats.rejected, color: 'error.main' }
+    { label: 'Total Applications', value: stats.total },
+    { label: 'Pending Review', value: stats.pending, accentWhenSet: true },
+    { label: 'Approved', value: stats.approved },
+    { label: 'Rejected', value: stats.rejected },
   ];
 
   return (
-    <Grid container spacing={2} sx={{ mb: 3 }}>
-      {cards.map((card) => (
-        <Grid item xs={12} sm={6} md={3} key={card.label}>
-          <Card sx={{ height: '100%', borderLeft: 4, borderLeftColor: card.color }}>
-            <CardContent>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                {card.label}
-              </Typography>
-              <Typography variant="h4" sx={{ color: card.color }}>
-                {card.value || 0}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      ))}
-    </Grid>
+    <FaceliftRoot>
+      <Box sx={{ mb: 3 }}>
+        <CardGrid min={150}>
+          {cards.map((card) => (
+            <SurfaceCard key={card.label}>
+              <Figure
+                label={card.label}
+                value={card.value || 0}
+                accent={Boolean(card.accentWhenSet && card.value)}
+              />
+            </SurfaceCard>
+          ))}
+        </CardGrid>
+      </Box>
+    </FaceliftRoot>
   );
 }
 
